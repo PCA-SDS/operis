@@ -66,10 +66,6 @@ jobs:
       # Both guards are skipped in resume mode: recovering a release that already
       # published means npm is deliberately ahead of git, and the bump PR is how
       # git catches up
-      - name: Verify the target version is not published yet
-        if: ${{ !inputs.resume }}
-        run: ./scripts/check-version-unpublished.sh "${{ steps.bump.outputs.version }}"
-
       - name: Verify the release tag does not exist
         if: ${{ !inputs.resume }}
         run: |

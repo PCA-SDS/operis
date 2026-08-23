@@ -132,6 +132,44 @@ Worth noting that ADR-0004 — which frees the internal contract surfaces — re
 the premise that Operis publishes nothing. Leaving an automatic publish pipeline
 in place quietly contradicts it.
 
+## Resolved: npm publish pipeline removed (2026-08-23)
+
+ADR-0004 frees the internal contract surfaces on the premise that **Operis
+publishes nothing**. An automatic publish pipeline quietly contradicted that, so
+it is gone.
+
+The hazard was `.github/workflows/snapshot.yml`: it triggered on **push to
+`develop`** and ran `npm publish --provenance` for every `@open-mercato/*`
+package — a scope Operis does not own. It could not have succeeded, but it was
+the only piece of upstream coupling that fired automatically rather than on
+request.
+
+Removed (16 files):
+
+| | |
+|---|---|
+| Workflows | `snapshot.yml` (push-triggered publish), `release.yml`, `npm-snapshot-preview.yml`, `package-previews.yml` |
+| Scripts | `publish-packages.sh`, `check-version-unpublished.sh`, `registry/publish.sh`, `registry/setup-user.sh`, `release-{patch,minor,major,existing,snapshot}.sh`, `lib/verdaccio.ts` |
+| Guards | `publish-package-metadata.test.mjs`, `npm-provenance-runners.test.mjs` |
+| Manifests | `publishConfig` removed from all 23 packages — the field existed only to publish |
+| Root scripts | `registry:*`, `release:{snapshot,existing,patch,minor,major}`, `release:check-unpublished` |
+
+**Kept deliberately**, because version numbers are surfaced at runtime
+(`/api_docs/version`, the system-status panel) and versioning is not publishing:
+
+- `scripts/bump-version.sh` and the `release:bump` script
+- `.github/workflows/release-prepare.yml` — bump, verify the tag is free, open a
+  release PR. Its "verify the version is not published yet" step was removed;
+  that step queried npm.
+- `scripts/changelog-section.sh` and the changelog guards in
+  `release-workflow.test.mjs`. Eight tests in that file asserted on the deleted
+  `release.yml` and were removed; the five that guard the changelog and
+  `release-prepare` remain and pass.
+
+Also cleaned in the same pass: a dangling `template:sync:ask` script pointing at
+a deleted file, two stale `create-app/template` scan roots in core coverage
+tests, and a comment path that moved with `agentic/`.
+
 ## Open items
 
 | Item | Class | Note |

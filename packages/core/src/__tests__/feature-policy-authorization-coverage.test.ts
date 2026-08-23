@@ -6,7 +6,6 @@ const repoRoot = resolve(__dirname, '../../../..')
 
 const serverRuntimeRoots = [
   'apps/mercato/src/app',
-  'packages/create-app/template/src/app',
   'packages/core/src/modules',
   'packages/ai-assistant/src/modules',
   'packages/search/src/modules',

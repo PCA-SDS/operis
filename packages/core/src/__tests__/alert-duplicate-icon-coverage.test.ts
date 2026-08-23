@@ -25,7 +25,6 @@ const repoRoot = join(__dirname, '..', '..', '..', '..')
 
 const EXTRA_SCAN_ROOTS = [
   'apps/mercato/src/modules',
-  'packages/create-app/template/src/modules',
 ]
 
 function discoverPackageSrcRoots(): string[] {

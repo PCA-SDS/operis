@@ -112,7 +112,7 @@ export const componentOverrides: ComponentOverride[] = [
    *
    * Its blast radius is this monorepo alone: a scaffolded app ships `src/modules/example` in source
    * and registers neither it nor the gallery, so nothing here loads until an app opts in — see
-   * `packages/create-app/agentic/shared/ai/specs/2026-08-06-reference-module-activation.md`.
+   * `packages/cli/agentic/shared/ai/specs/2026-08-06-reference-module-activation.md`.
    */
   {
     target: { componentId: ComponentReplacementHandles.section('ui.detail', 'NotesSection') },

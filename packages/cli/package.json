@@ -81,9 +81,6 @@
     "jest": "^30.4.2",
     "ts-jest": "^29.4.12"
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/f4heemmmmm/operis",

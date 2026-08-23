@@ -84,9 +84,6 @@
     "react-dom": "19.2.7",
     "ts-jest": "^29.4.11"
   },
-  "publishConfig": {
-    "access": "public"
-  },
   "repository": {
     "type": "git",
     "url": "https://github.com/f4heemmmmm/operis",
