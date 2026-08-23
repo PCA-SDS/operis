@@ -1,0 +1,1002 @@
+/**
+ * Workflows Module - Transition Handler Service
+ *
+ * Handles workflow transitions between steps:
+ * - Evaluating if a transition is valid (checking conditions)
+ * - Executing transitions (moving from one step to another)
+ * - Integrating with business rules engine for pre/post conditions
+ * - Executing activities on transition
+ *
+ * Functional API (no classes) following Open Mercato conventions.
+ */
+
+import { EntityManager } from '@mikro-orm/core'
+import type { AwilixContainer } from 'awilix'
+import type { EventBus } from '@open-mercato/events'
+import {
+  WorkflowInstance,
+  WorkflowEvent,
+} from '../data/entities'
+import * as ruleEvaluator from '../../business_rules/lib/rule-evaluator'
+import * as ruleEngine from '../../business_rules/lib/rule-engine'
+import * as activityExecutor from './activity-executor'
+import type { ActivityDefinition } from './activity-executor'
+import * as stepHandler from './step-handler'
+import { findDefinitionForInstance } from './find-definition'
+import {
+  type ExecutionToken,
+  rootToken,
+  tokenBranchInstanceId,
+  tokenReadContext,
+  setTokenCurrentStepId,
+  applyTokenContextWrites,
+  mergeTokenContext,
+  setTokenWaitingForActivities,
+  setTokenPendingTransition,
+  touchToken,
+} from './execution-token'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+
+const logger = createLogger('workflows')
+
+// ============================================================================
+// Types and Interfaces
+// ============================================================================
+
+export interface TransitionEvaluationContext {
+  workflowContext: Record<string, any>
+  userId?: string
+  triggerData?: any
+}
+
+export interface TransitionEvaluationResult {
+  isValid: boolean
+  transition?: any
+  reason?: string
+  failedConditions?: string[]
+  evaluationTime?: number
+}
+
+export interface TransitionExecutionContext {
+  workflowContext: Record<string, any>
+  userId?: string
+  triggerData?: any
+}
+
+export interface TransitionExecutionResult {
+  success: boolean
+  nextStepId?: string
+  pausedForActivities?: boolean
+  conditionsEvaluated?: {
+    preConditions: boolean
+    postConditions: boolean
+  }
+  activitiesExecuted?: activityExecutor.ActivityExecutionResult[]
+  error?: string
+}
+
+export class TransitionError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public details?: any
+  ) {
+    super(message)
+    this.name = 'TransitionError'
+  }
+}
+
+// ============================================================================
+// Main Transition Functions
+// ============================================================================
+
+/**
+ * Evaluate if a transition from current step to target step is valid
+ *
+ * Checks:
+ * - Transition exists in workflow definition
+ * - Pre-conditions pass (if any business rules defined)
+ * - Transition condition evaluates to true (if specified)
+ *
+ * @param em - Entity manager
+ * @param instance - Workflow instance
+ * @param fromStepId - Current step ID
+ * @param toStepId - Target step ID (optional - will auto-select if not provided)
+ * @param context - Evaluation context
+ * @returns Evaluation result with validity and reason
+ */
+export async function evaluateTransition(
+  em: EntityManager,
+  instance: WorkflowInstance,
+  fromStepId: string,
+  toStepId: string | undefined,
+  context: TransitionEvaluationContext
+): Promise<TransitionEvaluationResult> {
+  const startTime = Date.now()
+
+  try {
+    // Load workflow definition
+    const definition = await findDefinitionForInstance(em, instance)
+
+    if (!definition) {
+      return {
+        isValid: false,
+        reason: `Workflow definition not found: ${instance.definitionId}`,
+        evaluationTime: Date.now() - startTime,
+      }
+    }
+
+    // Find transition
+    const transitions = definition.definition.transitions || []
+    let transition: any
+
+    if (toStepId) {
+      // Find specific transition
+      transition = transitions.find(
+        (t: any) => t.fromStepId === fromStepId && t.toStepId === toStepId
+      )
+
+      if (!transition) {
+        return {
+          isValid: false,
+          reason: `No transition found from ${fromStepId} to ${toStepId}`,
+          evaluationTime: Date.now() - startTime,
+        }
+      }
+    } else {
+      // Auto-select first valid transition
+      const availableTransitions = transitions.filter(
+        (t: any) => t.fromStepId === fromStepId
+      )
+
+      if (availableTransitions.length === 0) {
+        return {
+          isValid: false,
+          reason: `No transitions available from step ${fromStepId}`,
+          evaluationTime: Date.now() - startTime,
+        }
+      }
+
+      // Evaluate each transition to find first valid one
+      for (const t of availableTransitions) {
+        const result = await evaluateTransitionConditions(
+          em,
+          instance,
+          t,
+          context
+        )
+
+        if (result.isValid) {
+          transition = t
+          break
+        }
+      }
+
+      if (!transition) {
+        return {
+          isValid: false,
+          reason: `No valid transitions found from step ${fromStepId}`,
+          evaluationTime: Date.now() - startTime,
+        }
+      }
+    }
+
+    // Evaluate transition conditions (inline condition + business rules pre-conditions)
+    const conditionResult = await evaluateTransitionConditions(
+      em,
+      instance,
+      transition,
+      context
+    )
+
+    return {
+      ...conditionResult,
+      transition,
+      evaluationTime: Date.now() - startTime,
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return {
+      isValid: false,
+      reason: `Transition evaluation error: ${errorMessage}`,
+      evaluationTime: Date.now() - startTime,
+    }
+  }
+}
+
+/**
+ * Find all valid transitions from current step
+ *
+ * This function evaluates both inline conditions AND preConditions (business rules)
+ * to determine which transitions are truly valid. This is important for decision
+ * branching where multiple transitions exist with different preConditions.
+ *
+ * @param em - Entity manager
+ * @param instance - Workflow instance
+ * @param fromStepId - Current step ID
+ * @param context - Evaluation context
+ * @returns Array of evaluation results for all transitions, sorted by priority (desc)
+ */
+export async function findValidTransitions(
+  em: EntityManager,
+  instance: WorkflowInstance,
+  fromStepId: string,
+  context: TransitionEvaluationContext
+): Promise<TransitionEvaluationResult[]> {
+  try {
+    // Load workflow definition
+    const definition = await findDefinitionForInstance(em, instance)
+
+    if (!definition) {
+      return []
+    }
+
+    // Find all transitions from current step, sorted by priority (highest first)
+    const transitions = (definition.definition.transitions || [])
+      .filter((t: any) => t.fromStepId === fromStepId)
+      .sort((a: any, b: any) => (b.priority || 0) - (a.priority || 0))
+
+    // Evaluate each transition including preConditions
+    const results: TransitionEvaluationResult[] = []
+
+    for (const transition of transitions) {
+      // First check inline condition
+      const conditionResult = await evaluateTransition(
+        em,
+        instance,
+        fromStepId,
+        transition.toStepId,
+        context
+      )
+
+      if (!conditionResult.isValid) {
+        results.push(conditionResult)
+        continue
+      }
+
+      // Also evaluate preConditions if they exist
+      const preConditions = transition.preConditions || []
+      if (preConditions.length > 0) {
+        const preConditionsResult = await evaluatePreConditions(
+          em,
+          instance,
+          transition,
+          context as TransitionExecutionContext,
+          null
+        )
+
+        if (!preConditionsResult.allowed) {
+          // Transition is invalid due to preConditions
+          const failedRules = preConditionsResult.executedRules
+            .filter((r) => !r.conditionResult)
+            .map((r) => r.rule.ruleId || r.rule.ruleName)
+
+          results.push({
+            isValid: false,
+            transition,
+            reason: `Pre-conditions failed: ${failedRules.join(', ')}`,
+            failedConditions: failedRules,
+          })
+          continue
+        }
+      }
+
+      // Transition is valid (both condition and preConditions passed)
+      results.push({
+        ...conditionResult,
+        transition,
+      })
+    }
+
+    return results
+  } catch (error) {
+    logger.error('Error finding valid transitions', { err: error })
+    return []
+  }
+}
+
+/**
+ * Execute a transition from one step to another
+ *
+ * This is the main entry point for transition execution. It:
+ * 1. Validates the transition
+ * 2. Evaluates pre-conditions
+ * 3. Executes activities (if any)
+ * 4. Updates workflow instance state (atomically with activity outputs)
+ * 5. Evaluates post-conditions
+ * 6. Logs transition event
+ *
+ * @param em - Entity manager
+ * @param container - DI container (for activity execution)
+ * @param instance - Workflow instance
+ * @param fromStepId - Current step ID
+ * @param toStepId - Target step ID
+ * @param context - Execution context
+ * @returns Execution result
+ */
+export async function executeTransition(
+  em: EntityManager,
+  container: AwilixContainer,
+  instance: WorkflowInstance,
+  fromStepId: string,
+  toStepId: string,
+  context: TransitionExecutionContext
+): Promise<TransitionExecutionResult> {
+  // Public DI signature preserved: the root token adapts the instance, so the
+  // single-token path is behaviourally unchanged.
+  return executeTransitionForToken(em, container, rootToken(instance), fromStepId, toStepId, context)
+}
+
+/**
+ * Token-aware transition execution. The root token wraps a WorkflowInstance
+ * (legacy single-token path); a branch token wraps a WorkflowBranchInstance so
+ * a parallel branch advances independently with its own context namespace,
+ * status and pending transition.
+ */
+export async function executeTransitionForToken(
+  em: EntityManager,
+  container: AwilixContainer,
+  token: ExecutionToken,
+  fromStepId: string,
+  toStepId: string,
+  context: TransitionExecutionContext
+): Promise<TransitionExecutionResult> {
+  const instance = token.instance
+  const branch = token.kind === 'branch' ? token.branch : null
+  const branchInstanceId = tokenBranchInstanceId(token)
+  try {
+    let eventBus: Pick<EventBus, 'emitEvent'> | null = null
+    try {
+      eventBus = container.resolve('eventBus') as EventBus
+    } catch {
+      eventBus = null
+    }
+
+    // First, evaluate if transition is valid
+    const evaluation = await evaluateTransition(
+      em,
+      instance,
+      fromStepId,
+      toStepId,
+      context
+    )
+
+    if (!evaluation.isValid) {
+      return {
+        success: false,
+        error: evaluation.reason || 'Transition validation failed',
+      }
+    }
+
+    const transition = evaluation.transition!
+
+    // Evaluate pre-conditions (business rules)
+    const preConditionsResult = await evaluatePreConditions(
+      em,
+      instance,
+      transition,
+      context,
+      eventBus
+    )
+
+    if (!preConditionsResult.allowed) {
+      // Build detailed failure information
+      const failedRules = preConditionsResult.executedRules
+        .filter((r) => !r.conditionResult)
+        .map((r) => ({
+          ruleId: r.rule.ruleId,
+          ruleName: r.rule.ruleName,
+          error: r.error,
+        }))
+
+      const failedRulesDetails = failedRules.length > 0
+        ? failedRules.map(r => `${r.ruleId}: ${r.error || 'condition failed'}`).join('; ')
+        : preConditionsResult.errors?.join(', ') || 'Unknown pre-condition failure'
+
+      await logTransitionEvent(em, {
+        workflowInstanceId: instance.id,
+        eventType: 'TRANSITION_REJECTED',
+        eventData: {
+          fromStepId,
+          toStepId,
+          transitionId: transition.transitionId || `${fromStepId}->${toStepId}`,
+          reason: 'Pre-conditions failed',
+          failedRules: failedRulesDetails,
+          failedRulesDetail: failedRules,
+        },
+        userId: context.userId,
+        tenantId: instance.tenantId,
+        organizationId: instance.organizationId,
+      })
+
+      return {
+        success: false,
+        error: `Pre-conditions failed: ${failedRulesDetails}`,
+        conditionsEvaluated: {
+          preConditions: false,
+          postConditions: false,
+        },
+      }
+    }
+
+    // Execute activities (if any)
+    let activityOutputs: Record<string, any> = {}
+    const activityResults: activityExecutor.ActivityExecutionResult[] = []
+
+    if (transition.activities && transition.activities.length > 0) {
+      const activityContext: activityExecutor.ActivityContext = {
+        workflowInstance: instance,
+        workflowContext: {
+          ...tokenReadContext(token),
+          ...context.workflowContext,
+        },
+        branchInstanceId,
+        userId: context.userId,
+      }
+
+      // Execute all activities
+      const results = await activityExecutor.executeActivities(
+        em,
+        container,
+        transition.activities as ActivityDefinition[],
+        activityContext
+      )
+
+      activityResults.push(...results)
+
+      // Check for failures
+      const failedActivities = results.filter(r => !r.success)
+
+      if (failedActivities.length > 0) {
+        const continueOnFailure = transition.continueOnActivityFailure ?? false
+
+        // Log activity failures
+        await logTransitionEvent(em, {
+          workflowInstanceId: instance.id,
+          eventType: 'ACTIVITY_FAILED',
+          eventData: {
+            fromStepId,
+            toStepId,
+            transitionId: transition.transitionId || `${fromStepId}->${toStepId}`,
+            failedActivities: failedActivities.map(f => ({
+              activityType: f.activityType,
+              activityName: f.activityName,
+              error: f.error,
+              retryCount: f.retryCount,
+            })),
+            continueOnFailure,
+          },
+          userId: context.userId,
+          tenantId: instance.tenantId,
+          organizationId: instance.organizationId,
+        })
+
+        if (!continueOnFailure) {
+          return {
+            success: false,
+            error: `Activities failed: ${failedActivities.map(f => f.error).join(', ')}`,
+            conditionsEvaluated: {
+              preConditions: true,
+              postConditions: false,
+            },
+          }
+        }
+      }
+
+      // Collect activity outputs for context update
+      results.forEach(result => {
+        if (result.success && result.output) {
+          const key = result.activityName || result.activityType
+          activityOutputs[key] = result.output
+        }
+      })
+    }
+
+    // Check if any activities are async - if so, pause before executing step
+    const hasAsyncActivities = activityResults.some(r => r.async)
+
+    if (hasAsyncActivities) {
+      const pendingJobIds = activityResults
+        .filter(a => a.async && a.jobId)
+        .map(a => ({ activityId: a.activityId, jobId: a.jobId }))
+
+      // Store pending transition state (per-token: branch or instance)
+      setTokenPendingTransition(token, {
+        toStepId,
+        activityResults,
+        timestamp: new Date(),
+      })
+
+      // Store activity outputs + pending-activity tracking in the token's own
+      // context scope (instance.context for root, branch namespace for a branch)
+      applyTokenContextWrites(token, context.workflowContext, activityOutputs)
+      mergeTokenContext(token, { _pendingAsyncActivities: pendingJobIds })
+
+      // Set status to waiting (branch-scoped when running inside a branch)
+      setTokenWaitingForActivities(token)
+      touchToken(token, new Date())
+      await em.flush()
+
+      // Log event
+      await logTransitionEvent(em, {
+        workflowInstanceId: instance.id,
+        branchInstanceId,
+        eventType: 'TRANSITION_PAUSED_FOR_ACTIVITIES',
+        eventData: {
+          fromStepId,
+          toStepId,
+          transitionId: transition.transitionId,
+          pendingActivities: pendingJobIds,
+        },
+        userId: context.userId,
+        tenantId: instance.tenantId,
+        organizationId: instance.organizationId,
+      })
+
+      // Return WITHOUT executing step
+      return {
+        success: true,
+        pausedForActivities: true,
+        nextStepId: toStepId,
+        conditionsEvaluated: {
+          preConditions: true,
+          postConditions: false, // Not evaluated yet
+        },
+        activitiesExecuted: activityResults,
+      }
+    }
+
+    // Advance the token cursor and update context atomically (instance for the
+    // root token; branch cursor + namespace for a branch token).
+    setTokenCurrentStepId(token, toStepId)
+    applyTokenContextWrites(token, context.workflowContext, activityOutputs)
+    touchToken(token, new Date())
+
+    await em.flush()
+
+    // Execute the new step (this will create USER_TASK, handle END steps, etc.)
+    const stepExecutionResult = await stepHandler.executeStep(
+      em,
+      instance,
+      toStepId,
+      {
+        workflowContext: tokenReadContext(token),
+        userId: context.userId,
+        triggerData: context.triggerData,
+      },
+      container,
+      branch
+    )
+
+    // Flush to database after step execution completes to make state visible to UI
+    await em.flush()
+
+    // Handle step execution failure
+    if (stepExecutionResult.status === 'FAILED') {
+      return {
+        success: false,
+        error: stepExecutionResult.error || 'Step execution failed',
+      }
+    }
+
+    // Evaluate post-conditions (business rules)
+    const postConditionsResult = await evaluatePostConditions(
+      em,
+      instance,
+      transition,
+      context,
+      eventBus
+    )
+
+    if (!postConditionsResult.allowed) {
+      const failedRules = postConditionsResult.errors?.join(', ') || 'Unknown post-condition failure'
+
+      await logTransitionEvent(em, {
+        workflowInstanceId: instance.id,
+        eventType: 'TRANSITION_POST_CONDITION_FAILED',
+        eventData: {
+          fromStepId,
+          toStepId,
+          transitionId: transition.transitionId || `${fromStepId}->${toStepId}`,
+          reason: 'Post-conditions failed',
+          failedRules,
+        },
+        userId: context.userId,
+        tenantId: instance.tenantId,
+        organizationId: instance.organizationId,
+      })
+
+      // Note: We don't roll back the transition on post-condition failure
+      // Post-conditions are warnings, not blockers
+    }
+
+    // Log successful transition
+    await logTransitionEvent(em, {
+      workflowInstanceId: instance.id,
+      eventType: 'TRANSITION_EXECUTED',
+      eventData: {
+        fromStepId,
+        toStepId,
+        transitionId: transition.transitionId || `${fromStepId}->${toStepId}`,
+        transitionName: transition.transitionName,
+        preConditionsPassed: true,
+        postConditionsPassed: postConditionsResult.allowed,
+        activitiesExecuted: activityResults.length,
+        activitiesSucceeded: activityResults.filter(r => r.success).length,
+        activitiesFailed: activityResults.filter(r => !r.success).length,
+      },
+      userId: context.userId,
+      tenantId: instance.tenantId,
+      organizationId: instance.organizationId,
+    })
+
+    return {
+      success: true,
+      nextStepId: toStepId,
+      conditionsEvaluated: {
+        preConditions: true,
+        postConditions: postConditionsResult.allowed,
+      },
+      activitiesExecuted: activityResults,
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+
+    await logTransitionEvent(em, {
+      workflowInstanceId: instance.id,
+      eventType: 'TRANSITION_FAILED',
+      eventData: {
+        fromStepId,
+        toStepId,
+        error: errorMessage,
+      },
+      userId: context.userId,
+      tenantId: instance.tenantId,
+      organizationId: instance.organizationId,
+    })
+
+    return {
+      success: false,
+      error: `Transition execution failed: ${errorMessage}`,
+    }
+  }
+}
+
+// ============================================================================
+// Condition Evaluation
+// ============================================================================
+
+/**
+ * Evaluate transition conditions (inline condition expression)
+ *
+ * @param em - Entity manager
+ * @param instance - Workflow instance
+ * @param transition - Transition definition
+ * @param context - Evaluation context
+ * @returns Evaluation result
+ */
+async function evaluateTransitionConditions(
+  em: EntityManager,
+  instance: WorkflowInstance,
+  transition: any,
+  context: TransitionEvaluationContext
+): Promise<TransitionEvaluationResult> {
+  try {
+    // If no condition specified, transition is always valid
+    if (!transition.condition) {
+      return {
+        isValid: true,
+      }
+    }
+
+    // Build data context for rule evaluation
+    const data = {
+      ...instance.context,
+      ...context.workflowContext,
+      triggerData: context.triggerData,
+    }
+
+    // Build evaluation context
+    const evalContext: ruleEvaluator.RuleEvaluationContext = {
+      entityType: 'workflow:transition',
+      entityId: instance.id,
+      user: context.userId ? { id: context.userId } : undefined,
+    }
+
+    // Evaluate condition using expression evaluator
+    const result = await ruleEvaluator.evaluateConditions(
+      transition.condition,
+      data,
+      evalContext
+    )
+
+    return {
+      isValid: result,
+      reason: result ? undefined : 'Transition condition evaluated to false',
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return {
+      isValid: false,
+      reason: `Condition evaluation error: ${errorMessage}`,
+    }
+  }
+}
+
+/**
+ * Evaluate pre-conditions using business rules engine
+ *
+ * Pre-conditions are GUARD rules that must pass before transition can execute.
+ * If any GUARD rule fails, the transition is blocked.
+ *
+ * If the transition defines specific preConditions with ruleIds, those are
+ * executed directly via executeRuleByRuleId. Otherwise, falls back to
+ * discovery-based execution via executeRules.
+ *
+ * @param em - Entity manager
+ * @param instance - Workflow instance
+ * @param transition - Transition definition
+ * @param context - Execution context
+ * @returns Rule engine result
+ */
+async function evaluatePreConditions(
+  em: EntityManager,
+  instance: WorkflowInstance,
+  transition: any,
+  context: TransitionExecutionContext,
+  eventBus: Pick<EventBus, 'emitEvent'> | null
+): Promise<ruleEngine.RuleEngineResult> {
+  try {
+    // Load workflow definition to get workflow ID
+    const definition = await findDefinitionForInstance(em, instance)
+
+    if (!definition) {
+      return {
+        allowed: true,
+        executedRules: [],
+        totalExecutionTime: 0,
+      }
+    }
+
+    // Check if transition has specific preConditions defined
+    const preConditions = transition.preConditions || []
+
+    // If no pre-conditions defined, allow transition
+    if (preConditions.length === 0) {
+      return {
+        allowed: true,
+        executedRules: [],
+        totalExecutionTime: 0,
+      }
+    }
+
+    // Execute each pre-condition rule directly by ruleId
+    const startTime = Date.now()
+    const executedRules: ruleEngine.RuleExecutionResult[] = []
+    const errors: string[] = []
+    let allowed = true
+
+    for (const condition of preConditions) {
+      const result = await ruleEngine.executeRuleByRuleId(em, {
+        ruleId: condition.ruleId,  // String identifier
+        data: {
+          workflowInstanceId: instance.id,
+          workflowId: definition.workflowId,
+          fromStepId: transition.fromStepId,
+          toStepId: transition.toStepId,
+          workflowContext: {
+            ...instance.context,
+            ...context.workflowContext,
+          },
+          triggerData: context.triggerData,
+        },
+        user: context.userId ? { id: context.userId } : undefined,
+        tenantId: instance.tenantId,
+        organizationId: instance.organizationId,
+        executedBy: context.userId,
+        entityType: `workflow:${definition.workflowId}:transition`,
+        entityId: transition.transitionId || `${transition.fromStepId}->${transition.toStepId}`,
+        eventType: 'pre_transition',
+      })
+
+      // Create a compatible RuleExecutionResult for tracking
+      // We don't have the full BusinessRule entity, but we can create a partial result
+      const ruleResult: ruleEngine.RuleExecutionResult = {
+        rule: {
+          ruleId: result.ruleId,
+          ruleName: result.ruleName,
+          ruleType: 'GUARD',
+        } as any,
+        conditionResult: result.conditionResult,
+        actionsExecuted: result.actionsExecuted,
+        executionTime: result.executionTime,
+        error: result.error,
+        logId: result.logId,
+      }
+      executedRules.push(ruleResult)
+
+      // Handle rule errors
+      if (result.error) {
+        // Rule not found, disabled, or other errors
+        const isRequired = condition.required !== false  // Default to required
+        if (isRequired) {
+          allowed = false
+          errors.push(`Rule '${result.ruleId}': ${result.error}`)
+        }
+        continue
+      }
+
+      // If required and condition failed, block transition
+      const isRequired = condition.required !== false  // Default to required
+      if (isRequired && !result.conditionResult) {
+        allowed = false
+        errors.push(`Pre-condition '${result.ruleName || result.ruleId}' failed`)
+      }
+    }
+
+    return {
+      allowed,
+      executedRules,
+      totalExecutionTime: Date.now() - startTime,
+      errors: errors.length > 0 ? errors : undefined,
+    }
+  } catch (error) {
+    logger.error('Error evaluating pre-conditions', { err: error })
+    return {
+      allowed: false,
+      executedRules: [],
+      totalExecutionTime: 0,
+      errors: [error instanceof Error ? error.message : String(error)],
+    }
+  }
+}
+
+/**
+ * Evaluate post-conditions using business rules engine
+ *
+ * Post-conditions are GUARD rules that should pass after transition executes.
+ * Unlike pre-conditions, post-condition failures are logged but don't block the transition.
+ *
+ * If the transition defines specific postConditions with ruleIds, those are
+ * executed directly via executeRuleByRuleId. Otherwise, returns allowed: true.
+ *
+ * @param em - Entity manager
+ * @param instance - Workflow instance
+ * @param transition - Transition definition
+ * @param context - Execution context
+ * @returns Rule engine result
+ */
+async function evaluatePostConditions(
+  em: EntityManager,
+  instance: WorkflowInstance,
+  transition: any,
+  context: TransitionExecutionContext,
+  eventBus: Pick<EventBus, 'emitEvent'> | null
+): Promise<ruleEngine.RuleEngineResult> {
+  try {
+    // Load workflow definition to get workflow ID
+    const definition = await findDefinitionForInstance(em, instance)
+
+    if (!definition) {
+      return {
+        allowed: true,
+        executedRules: [],
+        totalExecutionTime: 0,
+      }
+    }
+
+    // Check if transition has specific postConditions defined
+    const postConditions = transition.postConditions || []
+
+    // If no post-conditions defined, allow
+    if (postConditions.length === 0) {
+      return {
+        allowed: true,
+        executedRules: [],
+        totalExecutionTime: 0,
+      }
+    }
+
+    // Execute each post-condition rule directly by ruleId
+    const startTime = Date.now()
+    const executedRules: ruleEngine.RuleExecutionResult[] = []
+    const errors: string[] = []
+    let allowed = true
+
+    for (const condition of postConditions) {
+      const result = await ruleEngine.executeRuleByRuleId(em, {
+        ruleId: condition.ruleId,  // String identifier
+        data: {
+          workflowInstanceId: instance.id,
+          workflowId: definition.workflowId,
+          fromStepId: transition.fromStepId,
+          toStepId: transition.toStepId,
+          workflowContext: {
+            ...instance.context,
+            ...context.workflowContext,
+          },
+          triggerData: context.triggerData,
+        },
+        user: context.userId ? { id: context.userId } : undefined,
+        tenantId: instance.tenantId,
+        organizationId: instance.organizationId,
+        executedBy: context.userId,
+        entityType: `workflow:${definition.workflowId}:transition`,
+        entityId: transition.transitionId || `${transition.fromStepId}->${transition.toStepId}`,
+        eventType: 'post_transition',
+      })
+
+      // Create a compatible RuleExecutionResult for tracking
+      const ruleResult: ruleEngine.RuleExecutionResult = {
+        rule: {
+          ruleId: result.ruleId,
+          ruleName: result.ruleName,
+          ruleType: 'GUARD',
+        } as any,
+        conditionResult: result.conditionResult,
+        actionsExecuted: result.actionsExecuted,
+        executionTime: result.executionTime,
+        error: result.error,
+        logId: result.logId,
+      }
+      executedRules.push(ruleResult)
+
+      // Handle rule errors
+      if (result.error) {
+        errors.push(`Rule '${result.ruleId}': ${result.error}`)
+        // Post-conditions don't block, but track the failure
+        allowed = false
+        continue
+      }
+
+      // Track condition failures (post-conditions are warnings, not blockers)
+      if (!result.conditionResult) {
+        allowed = false
+        errors.push(`Post-condition '${result.ruleName || result.ruleId}' failed`)
+      }
+    }
+
+    return {
+      allowed,
+      executedRules,
+      totalExecutionTime: Date.now() - startTime,
+      errors: errors.length > 0 ? errors : undefined,
+    }
+  } catch (error) {
+    logger.error('Error evaluating post-conditions', { err: error })
+    return {
+      allowed: false,
+      executedRules: [],
+      totalExecutionTime: 0,
+      errors: [error instanceof Error ? error.message : String(error)],
+    }
+  }
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+/**
+ * Log transition-related event to event sourcing table
+ */
+async function logTransitionEvent(
+  em: EntityManager,
+  event: {
+    workflowInstanceId: string
+    branchInstanceId?: string | null
+    eventType: string
+    eventData: any
+    userId?: string
+    tenantId: string
+    organizationId: string
+  }
+): Promise<WorkflowEvent> {
+  const workflowEvent = em.create(WorkflowEvent, {
+    ...event,
+    occurredAt: new Date(),
+  })
+
+  await em.persist(workflowEvent).flush()
+  return workflowEvent
+}

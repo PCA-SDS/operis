@@ -1,0 +1,292 @@
+"use client"
+
+import * as React from 'react'
+import { z } from 'zod'
+import type { CrudField, CrudFormGroup } from '@open-mercato/ui/backend/CrudForm'
+import type { WorkflowDefinitionTrigger } from '../data/entities'
+
+/**
+ * Form Values Type
+ * Represents the structure of form data for creating/editing workflow definitions
+ */
+export type WorkflowDefinitionFormValues = {
+  workflowId: string
+  workflowName: string
+  description?: string | null
+  version: number
+  enabled: boolean
+  effectiveFrom?: string | null
+  effectiveTo?: string | null
+  // Metadata fields are declared on the form with dot-path ids
+  // (`metadata.category`, `metadata.tags`, `metadata.icon`). CrudForm only
+  // collapses dot-paths for injected/custom fields, so declared base fields are
+  // carried as flat keys end-to-end; buildWorkflowPayload reassembles them into
+  // the nested metadata object the API expects. See issue #2503.
+  'metadata.category'?: string
+  'metadata.tags'?: string[]
+  'metadata.icon'?: string
+  steps: any[]
+  transitions: any[]
+  triggers: WorkflowDefinitionTrigger[]
+  id?: string
+  updatedAt?: string | null
+}
+
+/**
+ * Form Validation Schema
+ * Extends the API schema with additional client-side validation
+ */
+export const workflowDefinitionFormSchema = z.object({
+  workflowId: z.string()
+    .min(1, 'Workflow ID is required')
+    .max(100, 'Workflow ID must be 100 characters or less')
+    .regex(/^[a-z0-9_.-]+$/, 'Workflow ID must contain only lowercase letters, numbers, hyphens, underscores, and dots'),
+  workflowName: z.string()
+    .min(1, 'Workflow name is required')
+    .max(200, 'Workflow name must be 200 characters or less'),
+  description: z.string()
+    .max(5000, 'Description must be 5000 characters or less')
+    .optional()
+    .nullable(),
+  version: z.number().int().min(1),
+  enabled: z.boolean(),
+  effectiveFrom: z.string().optional().nullable(),
+  effectiveTo: z.string().optional().nullable(),
+  // Flat dot-path keys mirror the field ids so CrudForm's non-strict
+  // schema.safeParse keeps them instead of stripping them before onSubmit.
+  'metadata.category': z.string().max(50).optional(),
+  'metadata.tags': z.array(z.string()).optional(),
+  'metadata.icon': z.string().max(50).optional(),
+  steps: z.array(z.any()),
+  transitions: z.array(z.any()),
+  triggers: z.array(z.any()).default([]),
+})
+
+/**
+ * Default Form Values
+ */
+export const defaultFormValues: WorkflowDefinitionFormValues = {
+  workflowId: '',
+  workflowName: '',
+  description: null,
+  version: 1,
+  enabled: true,
+  effectiveFrom: null,
+  effectiveTo: null,
+  'metadata.category': '',
+  'metadata.tags': [],
+  'metadata.icon': '',
+  steps: [],
+  transitions: [],
+  triggers: [],
+}
+
+/**
+ * Create Field Definitions
+ * Returns field configurations for the CrudForm
+ */
+export function createFieldDefinitions(t: (key: string) => string): CrudField[] {
+  return [
+    {
+      id: 'workflowId',
+      label: t('workflows.form.workflowId'),
+      type: 'text',
+      required: true,
+      placeholder: t('workflows.form.placeholders.workflowId'),
+      description: t('workflows.form.descriptions.workflowId'),
+    },
+    {
+      id: 'workflowName',
+      label: t('workflows.form.workflowName'),
+      type: 'text',
+      required: true,
+      placeholder: t('workflows.form.placeholders.workflowName'),
+    },
+    {
+      id: 'description',
+      label: t('workflows.form.description'),
+      type: 'textarea',
+      placeholder: t('workflows.form.placeholders.description'),
+    },
+    {
+      id: 'version',
+      label: t('workflows.form.version'),
+      type: 'number',
+      required: true,
+      description: t('workflows.form.descriptions.version'),
+    },
+    {
+      id: 'enabled',
+      label: t('workflows.form.enabled'),
+      type: 'checkbox',
+      description: t('workflows.form.descriptions.enabled'),
+    },
+    {
+      id: 'effectiveFrom',
+      label: t('workflows.form.effectiveFrom'),
+      type: 'date',
+      description: t('workflows.form.descriptions.effectiveFrom'),
+    },
+    {
+      id: 'effectiveTo',
+      label: t('workflows.form.effectiveTo'),
+      type: 'date',
+      description: t('workflows.form.descriptions.effectiveTo'),
+    },
+    {
+      id: 'metadata.category',
+      label: t('workflows.form.category'),
+      type: 'text',
+      placeholder: t('workflows.form.placeholders.category'),
+    },
+    {
+      id: 'metadata.tags',
+      label: t('workflows.form.tags'),
+      type: 'tags',
+      placeholder: t('workflows.form.placeholders.tags'),
+      description: t('workflows.form.descriptions.tags'),
+    },
+    {
+      id: 'metadata.icon',
+      label: t('workflows.form.icon'),
+      type: 'text',
+      placeholder: t('workflows.form.placeholders.icon'),
+      description: t('workflows.form.descriptions.icon'),
+    },
+  ]
+}
+
+/**
+ * Create Form Groups
+ * Returns grouped layout configuration for the CrudForm
+ */
+export function createFormGroups(
+  t: (key: string) => string,
+  StepsEditorComponent: React.ComponentType<any>,
+  TransitionsEditorComponent: React.ComponentType<any>
+): CrudFormGroup[] {
+  // Wrapper components to adapt CrudForm props
+  const StepsEditorWrapper = (props: { value: any; setValue: (v: any) => void; error?: string; values?: any }) => {
+    return <StepsEditorComponent value={props.value} onChange={props.setValue} error={props.error} />
+  }
+
+  const TransitionsEditorWrapper = (props: { value: any; setValue: (v: any) => void; error?: string; values?: any }) => {
+    // Pass the steps from values (all form values) so transitions can reference them
+    return <TransitionsEditorComponent value={props.value} onChange={props.setValue} steps={props.values?.steps || []} error={props.error} />
+  }
+
+  return [
+    {
+      id: 'basic',
+      title: t('workflows.form.groups.basic'),
+      column: 1,
+      fields: [
+        'workflowId',
+        'workflowName',
+        'description',
+        'version',
+        'enabled',
+      ],
+    },
+    {
+      id: 'metadata',
+      title: t('workflows.form.groups.metadata'),
+      column: 1,
+      fields: [
+        'metadata.category',
+        'metadata.tags',
+        'metadata.icon',
+        'effectiveFrom',
+        'effectiveTo',
+      ],
+    },
+    {
+      id: 'steps',
+      title: t('workflows.form.groups.steps'),
+      column: 1,
+      fields: [
+        {
+          id: 'steps',
+          label: t('workflows.form.stepsLabel'),
+          type: 'custom',
+          required: true,
+          component: StepsEditorWrapper,
+        },
+      ],
+    },
+    {
+      id: 'transitions',
+      title: t('workflows.form.groups.transitions'),
+      column: 1,
+      fields: [
+        {
+          id: 'transitions',
+          label: t('workflows.form.transitionsLabel'),
+          type: 'custom',
+          required: true,
+          component: TransitionsEditorWrapper,
+        },
+      ],
+    },
+  ]
+}
+
+import { toDateInputValue } from '@open-mercato/shared/lib/date/format'
+
+/**
+ * Parse workflow definition to form values
+ */
+export function parseWorkflowToFormValues(workflow: any): WorkflowDefinitionFormValues {
+  const updatedAt = workflow.updatedAt ?? workflow.updated_at ?? null
+  const metadata = workflow.metadata || {}
+  return {
+    workflowId: workflow.workflowId || '',
+    workflowName: workflow.workflowName || '',
+    description: workflow.description || null,
+    version: workflow.version || 1,
+    enabled: workflow.enabled ?? true,
+    effectiveFrom: toDateInputValue(workflow.effectiveFrom),
+    effectiveTo: toDateInputValue(workflow.effectiveTo),
+    // Hydrate the flat dot-path keys the CrudForm inputs actually read.
+    'metadata.category': metadata.category || '',
+    'metadata.tags': Array.isArray(metadata.tags) ? metadata.tags : [],
+    'metadata.icon': metadata.icon || '',
+    steps: workflow.definition?.steps || [],
+    transitions: workflow.definition?.transitions || [],
+    triggers: workflow.definition?.triggers || [],
+    id: workflow.id,
+    updatedAt: typeof updatedAt === 'string' ? updatedAt : updatedAt ? String(updatedAt) : null,
+  }
+}
+
+/**
+ * Build API payload from form values
+ */
+export function buildWorkflowPayload(values: WorkflowDefinitionFormValues) {
+  const triggers = values.triggers ?? []
+  // Collapse the flat dot-path keys back into the nested metadata object the API
+  // expects. Empty category/icon are dropped so they don't persist as blanks.
+  const category = (values['metadata.category'] || '').trim()
+  const icon = (values['metadata.icon'] || '').trim()
+  const tags = Array.isArray(values['metadata.tags']) ? values['metadata.tags'] : []
+  const metadata = {
+    tags,
+    ...(category ? { category } : {}),
+    ...(icon ? { icon } : {}),
+  }
+  return {
+    workflowId: values.workflowId,
+    workflowName: values.workflowName,
+    description: values.description || null,
+    version: values.version,
+    enabled: values.enabled,
+    effectiveFrom: values.effectiveFrom || null,
+    effectiveTo: values.effectiveTo || null,
+    metadata,
+    definition: {
+      steps: values.steps,
+      transitions: values.transitions,
+      ...(triggers.length > 0 ? { triggers } : {}),
+    },
+  }
+}

@@ -1,0 +1,105 @@
+/**
+ * User Task Detail API
+ *
+ * Endpoints:
+ * - GET /api/workflows/tasks/[id] - Get task details
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+import { z } from 'zod'
+import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
+import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { resolveOrganizationScopeFilter } from '@open-mercato/core/modules/directory/utils/organizationScopeFilter'
+import { UserTask } from '../../../data/entities'
+import {
+  workflowsTag,
+  userTaskDetailResponseSchema,
+  workflowErrorSchema,
+} from '../../openapi'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+
+const logger = createLogger('workflows')
+
+export const metadata = {
+  requireAuth: true,
+  requireFeatures: ['workflows.tasks.view'],
+}
+
+/**
+ * GET /api/workflows/tasks/[id]
+ *
+ * Get user task details by ID
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const container = await createRequestContainer()
+    const em = container.resolve('em')
+    const auth = await getAuthFromRequest(request)
+
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const scope = await resolveOrganizationScopeForRequest({ container, auth, request })
+    const tenantId = auth.tenantId
+    const orgFilter = resolveOrganizationScopeFilter(scope, auth)
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Missing tenant context' },
+        { status: 400 }
+      )
+    }
+
+    const task = await em.findOne(UserTask, {
+      id: params.id,
+      tenantId,
+      ...orgFilter.where,
+    })
+
+    if (!task) {
+      return NextResponse.json(
+        { error: 'Task not found' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      data: task,
+    })
+  } catch (error) {
+    logger.error('Error fetching user task', { err: error })
+    return NextResponse.json(
+      {
+        error: 'Failed to fetch user task',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 }
+    )
+  }
+}
+
+export const openApi: OpenApiRouteDoc = {
+  tag: workflowsTag,
+  summary: 'User task detail',
+  methods: {
+    GET: {
+      summary: 'Get task details',
+      description: 'Returns complete details of a user task by ID.',
+      responses: [
+        { status: 200, description: 'User task details', schema: userTaskDetailResponseSchema },
+      ],
+      errors: [
+        { status: 400, description: 'Missing tenant or organization context', schema: workflowErrorSchema },
+        { status: 401, description: 'Unauthorized', schema: workflowErrorSchema },
+        { status: 404, description: 'Task not found', schema: workflowErrorSchema },
+        { status: 500, description: 'Internal server error', schema: workflowErrorSchema },
+      ],
+    },
+  },
+}

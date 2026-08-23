@@ -1,0 +1,466 @@
+"use client"
+
+import * as React from 'react'
+import { extensionPoints } from '@open-mercato/core/modules/workflows/extension-points'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { DataTable } from '@open-mercato/ui/backend/DataTable'
+import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
+import { Button } from '@open-mercato/ui/primitives/button'
+import { Badge } from '@open-mercato/ui/primitives/badge'
+import { RowActions } from '@open-mercato/ui/backend/RowActions'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@open-mercato/ui/primitives/dialog'
+import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
+import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useT } from '@open-mercato/shared/lib/i18n/context'
+import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
+import { ListEmptyState } from '@open-mercato/ui/backend/filters/ListEmptyState'
+import { Trash2 } from 'lucide-react'
+
+type WorkflowDefinitionSource = 'code' | 'code_override' | 'user'
+
+type WorkflowDefinition = {
+  id: string
+  workflowId: string
+  workflowName: string
+  description: string | null
+  version: number
+  definition: Record<string, unknown>
+  enabled: boolean
+  effectiveFrom: string | null
+  effectiveTo: string | null
+  metadata: {
+    tags?: string[]
+    category?: string
+    icon?: string
+  } | null
+  tenantId: string
+  organizationId: string
+  createdAt: string
+  updatedAt: string
+  createdBy: string | null
+  source?: WorkflowDefinitionSource
+  isCodeBased?: boolean
+}
+
+type DefinitionsResponse = {
+  data: WorkflowDefinition[]
+  pagination: {
+    total: number
+    limit: number
+    offset: number
+    hasMore: boolean
+  }
+}
+
+type CreateDefinitionResponse = {
+  data?: {
+    id?: string
+  }
+  error?: string
+}
+
+const WORKFLOW_ID_MAX_LENGTH = 100
+
+function buildDuplicateWorkflowId(sourceWorkflowId: string, attempt: number): string {
+  const suffix = attempt === 0 ? '_copy' : `_copy_${attempt + 1}`
+  const maxBaseLength = Math.max(1, WORKFLOW_ID_MAX_LENGTH - suffix.length)
+  const base = sourceWorkflowId.slice(0, maxBaseLength)
+  return `${base}${suffix}`
+}
+
+export default function WorkflowDefinitionsListPage() {
+  const [page, setPage] = React.useState(1)
+  const [pageSize] = React.useState(20)
+  const [total, setTotal] = React.useState(0)
+  const [totalPages, setTotalPages] = React.useState(1)
+  const t = useT()
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const [filterValues, setFilterValues] = React.useState<FilterValues>({})
+  const [deleteTarget, setDeleteTarget] = React.useState<{ id: string; name: string; updatedAt: string | null } | null>(null)
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['workflow-definitions', 'list', filterValues, page],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      const offset = (page - 1) * pageSize
+      params.set('limit', pageSize.toString())
+      params.set('offset', offset.toString())
+
+      if (filterValues.enabled !== undefined && filterValues.enabled !== '') {
+        params.set('enabled', filterValues.enabled as string)
+      }
+      if (filterValues.workflowId) params.set('workflowId', filterValues.workflowId as string)
+      if (filterValues.search) params.set('search', filterValues.search as string)
+
+      const result = await apiCall<DefinitionsResponse>(
+        `/api/workflows/definitions?${params.toString()}`
+      )
+
+      if (!result.ok) {
+        throw new Error('Failed to fetch workflow definitions')
+      }
+
+      const response = result.result
+      if (response?.pagination) {
+        setTotal(response.pagination.total || 0)
+        const calculatedPages = Math.ceil((response.pagination.total || 0) / pageSize)
+        setTotalPages(calculatedPages || 1)
+      }
+
+      return response?.data || []
+    },
+  })
+
+  const handleDelete = (id: string, workflowName: string, updatedAt: string | null) => {
+    setDeleteTarget({ id, name: workflowName, updatedAt })
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+
+    const result = await withScopedApiRequestHeaders(
+      buildOptimisticLockHeader(deleteTarget.updatedAt),
+      () => apiCall(`/api/workflows/definitions/${deleteTarget.id}`, {
+        method: 'DELETE',
+      }),
+    )
+
+    if (result.ok) {
+      flash(t('workflows.messages.deleted'), 'success')
+      queryClient.invalidateQueries({ queryKey: ['workflow-definitions'] })
+    } else {
+      const conflictError = Object.assign(new Error(t('workflows.messages.deleteFailed')), {
+        status: result.status,
+        ...(result.result && typeof result.result === 'object' ? result.result : {}),
+      })
+      if (!surfaceRecordConflict(conflictError, t)) {
+        flash(t('workflows.messages.deleteFailed'), 'error')
+      }
+    }
+    setDeleteTarget(null)
+  }
+
+  const handleToggleEnabled = async (id: string, currentEnabled: boolean, updatedAt: string | null) => {
+    const result = await withScopedApiRequestHeaders(
+      buildOptimisticLockHeader(updatedAt),
+      () => apiCall(`/api/workflows/definitions/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: !currentEnabled,
+        }),
+      }),
+    )
+
+    if (result.ok) {
+      flash(t('workflows.messages.updated'), 'success')
+      queryClient.invalidateQueries({ queryKey: ['workflow-definitions'] })
+    } else {
+      const conflictError = Object.assign(new Error(t('workflows.messages.updateFailed')), {
+        status: result.status,
+        ...(result.result && typeof result.result === 'object' ? result.result : {}),
+      })
+      if (!surfaceRecordConflict(conflictError, t)) {
+        flash(t('workflows.messages.updateFailed'), 'error')
+      }
+    }
+  }
+
+  const handleDuplicate = async (definition: WorkflowDefinition) => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const duplicateWorkflowId = buildDuplicateWorkflowId(definition.workflowId, attempt)
+      const result = await apiCall<CreateDefinitionResponse>('/api/workflows/definitions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workflowId: duplicateWorkflowId,
+          workflowName: definition.workflowName,
+          description: definition.description,
+          version: definition.version,
+          definition: definition.definition,
+          metadata: definition.metadata,
+          enabled: definition.enabled,
+        }),
+      })
+
+      if (result.ok) {
+        flash(t('workflows.messages.workflowDuplicated'), 'success')
+        queryClient.invalidateQueries({ queryKey: ['workflow-definitions'] })
+        return
+      }
+
+      if (result.status !== 409) {
+        break
+      }
+    }
+
+    flash(t('workflows.errors.createFailed'), 'error')
+  }
+
+  const handleFiltersApply = React.useCallback((values: FilterValues) => {
+    const next: FilterValues = {}
+    Object.entries(values).forEach(([key, value]) => {
+      if (value !== undefined && value !== '') next[key] = value
+    })
+    setFilterValues(next)
+    setPage(1)
+  }, [])
+
+  const handleFiltersClear = React.useCallback(() => {
+    setFilterValues({})
+    setPage(1)
+  }, [])
+
+  const filters: FilterDef[] = [
+    {
+      id: 'search',
+      type: 'text',
+      label: t('workflows.filters.search'),
+      placeholder: t('workflows.filters.searchPlaceholder'),
+    },
+    {
+      id: 'enabled',
+      type: 'select',
+      label: t('workflows.filters.status'),
+      options: [
+        { label: t('common.all'), value: '' },
+        { label: t('common.enabled'), value: 'true' },
+        { label: t('common.disabled'), value: 'false' },
+      ],
+    },
+    {
+      id: 'workflowId',
+      type: 'text',
+      label: t('workflows.filters.workflowId'),
+      placeholder: t('workflows.filters.workflowIdPlaceholder'),
+    },
+  ]
+
+  const columns: ColumnDef<WorkflowDefinition>[] = [
+    {
+      id: 'workflowId',
+      header: t('workflows.fields.workflowId'),
+      accessorKey: 'workflowId',
+      meta: { truncate: false },
+      cell: ({ row }) => (
+        <span className="font-mono text-sm">{row.original.workflowId}</span>
+      ),
+    },
+    {
+      id: 'workflowName',
+      header: t('workflows.fields.workflowName'),
+      accessorKey: 'workflowName',
+      meta: { truncate: false },
+      cell: ({ row }) => (
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{row.original.workflowName}</span>
+            {row.original.source === 'code' && (
+              <Badge variant="secondary">{t('workflows.source.code')}</Badge>
+            )}
+            {row.original.source === 'code_override' && (
+              <Badge variant="outline">{t('workflows.source.code_override')}</Badge>
+            )}
+          </div>
+          {row.original.description && (
+            <div className="text-xs text-muted-foreground">
+              {row.original.description}
+            </div>
+          )}
+          {row.original.metadata?.category && (
+            <div className="text-xs text-muted-foreground mt-0.5">
+              {row.original.metadata.category}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'version',
+      header: t('workflows.fields.version'),
+      accessorKey: 'version',
+      meta: { truncate: false },
+      cell: ({ row }) => (
+        <Badge variant="secondary" className="font-mono">
+          v{row.original.version}
+        </Badge>
+      ),
+    },
+    {
+      id: 'enabled',
+      header: t('workflows.fields.enabled'),
+      accessorKey: 'enabled',
+      cell: ({ row }) => (
+        <button
+          onClick={() => handleToggleEnabled(row.original.id, row.original.enabled, row.original.updatedAt)}
+          className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium cursor-pointer ${
+            row.original.enabled
+              ? 'bg-status-success-bg text-status-success-text hover:bg-status-success-border'
+              : 'bg-status-neutral-bg text-status-neutral-text hover:bg-status-neutral-border'
+          }`}
+          title={t('workflows.actions.toggleEnabled')}
+        >
+          {row.original.enabled ? t('common.yes') : t('common.no')}
+        </button>
+      ),
+    },
+    {
+      id: 'tags',
+      header: t('workflows.fields.tags'),
+      cell: ({ row }) => {
+        const tags = row.original.metadata?.tags || []
+        if (tags.length === 0) return <span className="text-muted-foreground">-</span>
+        return (
+          <div className="flex flex-wrap gap-1">
+            {tags.slice(0, 2).map((tag, idx) => (
+              <Badge key={idx} variant="secondary">
+                {tag}
+              </Badge>
+            ))}
+            {tags.length > 2 && (
+              <Badge variant="outline">+{tags.length - 2}</Badge>
+            )}
+          </div>
+        )
+      },
+    },
+    {
+      id: 'createdAt',
+      header: t('workflows.fields.createdAt'),
+      accessorKey: 'createdAt',
+      cell: ({ row }) => {
+        const date = new Date(row.original.createdAt)
+        return <span className="text-sm text-muted-foreground">{date.toLocaleDateString()}</span>
+      },
+    },
+    {
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => {
+        const isCodeOnly = row.original.source === 'code'
+        const items = [
+          {
+            id: 'edit',
+            label: isCodeOnly ? t('common.view') : t('common.edit'),
+            href: `/backend/definitions/${row.original.id}`,
+          },
+          ...(!isCodeOnly ? [{
+            id: 'edit-visual',
+            label: t('workflows.actions.editVisually'),
+            href: `/backend/definitions/visual-editor?id=${row.original.id}`,
+          }] : []),
+          ...(!isCodeOnly ? [{
+            id: row.original.enabled ? 'disable' : 'enable',
+            label: row.original.enabled ? t('common.disable') : t('common.enable'),
+            onSelect: () => handleToggleEnabled(row.original.id, row.original.enabled, row.original.updatedAt),
+          }] : []),
+          ...(!isCodeOnly ? [{
+            id: 'duplicate',
+            label: t('common.duplicate'),
+            onSelect: () => handleDuplicate(row.original),
+          }] : []),
+          ...(!isCodeOnly ? [{
+            id: 'delete',
+            label: t('common.delete'),
+            onSelect: () => handleDelete(row.original.id, row.original.workflowName, row.original.updatedAt),
+            destructive: true,
+          }] : []),
+        ]
+        return <RowActions items={items} />
+      },
+    },
+  ]
+
+  if (error) {
+    return (
+      <Page>
+        <PageBody>
+          <ErrorMessage
+            label={t('workflows.messages.loadFailed')}
+            description={error.message}
+            action={(
+              <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['workflow-definitions'] })}>
+                {t('common.retry', 'Retry')}
+              </Button>
+            )}
+          />
+        </PageBody>
+      </Page>
+    )
+  }
+
+  return (
+    <Page>
+      <PageBody>
+        <DataTable
+          title={t('workflows.list.title')}
+          actions={(
+            <div className="flex items-center gap-2">
+              <Button asChild variant="outline">
+                <Link href="/backend/definitions/visual-editor">
+                  {t('workflows.actions.createVisual')}
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link href="/backend/definitions/create">
+                  {t('workflows.actions.create')}
+                </Link>
+              </Button>
+            </div>
+          )}
+          columns={columns}
+          data={data || []}
+          filters={filters}
+          filterValues={filterValues}
+          onFiltersApply={handleFiltersApply}
+          onFiltersClear={handleFiltersClear}
+          onRowClick={(row) => router.push(`/backend/definitions/visual-editor?id=${row.id}`)}
+          perspective={{
+            tableId: extensionPoints.hosts.definitionsTable.tableId,
+          }}
+          emptyState={(
+            <ListEmptyState
+              entityName={t('workflows.list.title')}
+              createHref="/backend/definitions/create"
+              createLabel={t('workflows.actions.create')}
+            />
+          )}
+          pagination={{ page, pageSize, total, totalPages, onPageChange: setPage }}
+        />
+        <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{t('workflows.confirm.deleteTitle')}</DialogTitle>
+              <DialogDescription>
+                {t('workflows.confirm.delete', { name: deleteTarget?.name ?? '' })}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+                {t('common.cancel')}
+              </Button>
+              <Button variant="destructive-solid" onClick={confirmDelete}>
+                <Trash2/>
+                {t('common.delete')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </PageBody>
+    </Page>
+  )
+}
