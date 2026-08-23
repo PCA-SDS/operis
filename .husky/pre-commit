@@ -1,4 +1,6 @@
+# `yarn template:sync:fix` and its `git add` of packages/create-app/template/**
+# were removed here: this fork dropped packages/create-app entirely (see
+# docs/architecture/upstream-coupling-audit.md), so both lines failed and made
+# every commit abort.
 yarn tsx scripts/i18n-check-sync.ts --fix
 git add '**/i18n/*.json'
-yarn template:sync:fix
-git add packages/create-app/template/src/app packages/create-app/template/src/modules

@@ -12,6 +12,14 @@
 // Turbo concurrency and the per-worker V8 heap cap are pinned in the root
 // `test` script; the worker count and recycling threshold are pinned here.
 //
+// A jest worker occasionally dies with SIGSEGV under this fan-out (native deps
+// under memory pressure). The signature is a suite reported as FAILED while
+// every test in it PASSED. The root `test` script therefore runs turbo with
+// `--continue`, so one crashed package can no longer abort the run and silently
+// skip the packages after it — that masking is what turned a flake into a
+// missed regression. Use `yarn test:serial` for a low-memory-pressure rerun
+// when you need to distinguish a flake from a real failure.
+//
 // Every package's jest.config.cjs spreads this first, then overrides specifics.
 module.exports = {
   // TEMPORARY (TypeScript 7 migration): redirect `import ts from 'typescript'`

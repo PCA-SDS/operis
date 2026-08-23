@@ -1,19 +1,63 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "concurrency": "32",
-  "globalEnv": ["NODE_ENV"],
-  "globalDependencies": ["scripts/build-package.mjs", "scripts/watch.mjs", "scripts/lib/add-js-extension.mjs"],
+  "globalEnv": [
+    "NODE_ENV"
+  ],
+  "//": "globalPassThroughEnv: Turbo runs in strict env mode, so anything not listed here is STRIPPED before a task starts. Without DATABASE_URL, `DATABASE_URL=\u2026 yarn db:migrate` silently migrated whatever apps/mercato/.env pointed at and reported success. These are passed through but deliberately NOT hashed, so overriding a secret or a connection string does not invalidate the build cache.",
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "DB_POOL_MAX",
+    "DB_STATEMENT_TIMEOUT_MS",
+    "DB_LOCK_TIMEOUT_MS",
+    "JWT_SECRET",
+    "AUTH_SECRET",
+    "NEXTAUTH_SECRET",
+    "REDIS_URL",
+    "EVENTS_REDIS_URL",
+    "CACHE_REDIS_URL",
+    "CACHE_STRATEGY",
+    "QUEUE_STRATEGY",
+    "RATE_LIMIT_STRATEGY",
+    "TENANT_DATA_ENCRYPTION",
+    "TENANT_DATA_ENCRYPTION_KEY",
+    "TENANT_DATA_ENCRYPTION_DEBUG",
+    "TENANT_DATA_ENCRYPTION_FALLBACK_KEY",
+    "OM_DEV_SEED_PASSWORD",
+    "OM_LOG_LEVEL",
+    "OM_PROFILE",
+    "PORT"
+  ],
+  "globalDependencies": [
+    "scripts/build-package.mjs",
+    "scripts/watch.mjs",
+    "scripts/lib/add-js-extension.mjs"
+  ],
   "tasks": {
     "build": {
       "cache": true,
-      "inputs": ["$TURBO_DEFAULT$", "generated/**"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "generated/**"
+      ],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**"
+      ]
     },
     "@open-mercato/cli#build": {
-      "dependsOn": ["^build"],
+      "dependsOn": [
+        "^build"
+      ],
       "cache": true,
-      "inputs": ["$TURBO_DEFAULT$", "generated/**"],
-      "outputs": ["dist/**"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "generated/**"
+      ],
+      "outputs": [
+        "dist/**"
+      ]
     },
     "start": {
       "cache": false,
@@ -48,7 +92,9 @@
     },
     "generate": {
       "cache": false,
-      "outputs": [".mercato/**"]
+      "outputs": [
+        ".mercato/**"
+      ]
     },
     "db:generate": {
       "cache": false,
@@ -59,6 +105,10 @@
       "outputs": []
     },
     "db:greenfield": {
+      "cache": false,
+      "outputs": []
+    },
+    "db:reset": {
       "cache": false,
       "outputs": []
     },
