@@ -5,7 +5,6 @@ import type { ReactNode } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Card, CardContent, CardHeader, CardDescription } from '@open-mercato/ui/primitives/card'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { EmailInput } from '@open-mercato/ui/primitives/email-input'
 import { PasswordInput } from '@open-mercato/ui/primitives/password-input'
@@ -353,17 +352,54 @@ export default function LoginPage() {
   // viewport and overlay whatever is under them. This card is vertically
   // centred, so on a 1280x720 / 1366x768 / 1440x900 viewport the notices sat
   // directly on top of the password field and the submit button and sign-in
-  // could not be clicked at all. Reserving bottom space keeps the primary
-  // action clear of them however the notices are configured.
+  // could not be clicked at all. Reserving bottom space on the form column
+  // keeps the primary action clear of them however the notices are configured.
   return (
-    <div className="min-h-svh flex items-center justify-center p-4 pb-56">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="flex flex-col items-center gap-4 text-center p-10">
-          <Image alt={translate('auth.login.logoAlt', 'Operis logo')} src="/operis.svg" width={150} height={150} priority />
-          <h1 className="text-2xl font-semibold">{translate('auth.login.brandName', 'Operis')}</h1>
-          <CardDescription>{translate('auth.login.subtitle', 'Access your workspace')}</CardDescription>
-        </CardHeader>
-        <CardContent>
+    <div className="flex min-h-svh bg-background">
+      {/*
+        Hero panel. Hidden below `lg` so small screens get the form full-width
+        rather than a cropped decorative band. To use a photograph instead of
+        the gradient, drop one in `public/` and add
+        `style={{ backgroundImage: 'url("/login-hero.jpg")' }}` plus
+        `bg-cover bg-center` here — the overlay below already guarantees text
+        contrast over an arbitrary image.
+      */}
+      <aside
+        aria-hidden="true"
+        className="relative hidden overflow-hidden bg-gradient-to-br from-primary via-accent-strong to-brand-violet lg:flex lg:w-3/5 xl:w-2/3"
+      >
+        <div className="absolute inset-0 bg-foreground/40" />
+        <div className="relative z-10 flex max-w-2xl flex-col justify-end p-12">
+          <h1 className="mb-4 text-4xl font-bold leading-tight tracking-tight text-primary-foreground xl:text-5xl">
+            {translate('auth.login.hero.title', 'An Enterprise Resource Planning Platform')}
+          </h1>
+          <p className="text-base leading-8 text-primary-foreground/85">
+            {translate('auth.login.hero.description', 'Manage operations, approvals and tenant workflows from one secure platform.')}
+          </p>
+          <p className="mt-2 text-sm font-medium text-primary-foreground/70">
+            {translate('auth.login.hero.tagline', "Your organisation's solution.")}
+          </p>
+        </div>
+      </aside>
+
+      <div className="flex w-full items-center justify-center px-6 py-10 pb-32 lg:w-2/5 lg:px-10 xl:w-1/3">
+        <div className="w-full max-w-sm">
+          <Image
+            alt={translate('auth.login.logoAlt', 'Operis logo')}
+            src="/operis.svg"
+            width={48}
+            height={48}
+            priority
+            className="mb-8 h-12 w-auto"
+          />
+          <header className="mb-8">
+            <p className="mb-3 text-xs font-bold uppercase tracking-wider text-accent-strong">
+              {translate('auth.login.eyebrow', 'Operis ERP')}
+            </p>
+            <h2 className="text-3xl font-bold leading-tight tracking-tight text-foreground">
+              {translate('auth.login.workspaceTitle', 'Sign in to your workspace')}
+            </h2>
+          </header>
           <LoginFormSection>
             <form className="grid gap-3" onSubmit={onSubmit} noValidate data-auth-ready={formReady ? '1' : '0'}>
               {tenantId ? (
@@ -471,8 +507,11 @@ export default function LoginPage() {
               )}
             </form>
           </LoginFormSection>
-        </CardContent>
-      </Card>
+          <p className="mt-5 text-center text-xs text-muted-foreground">
+            {translate('auth.login.helperText', 'Need access? Contact your administrator.')}
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
