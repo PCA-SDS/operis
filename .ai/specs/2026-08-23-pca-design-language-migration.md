@@ -395,3 +395,100 @@ TypeScript-compiler-heavy worker mid-parse. That value is deliberately tuned to 
 budget (issue #2402), so raising it trades a documented RSS guarantee for a fix that
 cannot be validated on CI hardware from here. Flagged for the repo owner rather than
 changed as a side effect of a UI migration.
+
+
+## 11. Readiness pass (2026-08-23)
+
+Work done so the codebase is a stable base for new modules rather than a
+finished-looking one. Everything here was verified by running the app.
+
+### The test gate — root-caused, NOT fixed
+
+`yarn test` fails intermittently with
+`A jest worker process was terminated by another process: signal=SIGSEGV` on a
+different, arbitrary suite each run. The cause is the fork boundary, established
+by experiment rather than inference:
+
+| Hypothesis | Test | Result |
+|---|---|---|
+| Worker recycling kills a worker mid-parse | `--workerIdleMemoryLimit=4096MB` | **refuted** — still 2 in 3 |
+| Worker contention | `--maxWorkers=1` | **refuted** — still crashes |
+| The child_process pool itself | `--runInBand` (no worker process) | **confirmed** — never crashes |
+
+**An attempted fix was reverted.** Setting `workerThreads: true` in
+`jest.config.base.cjs` did stop the segfault (8 clean runs on `packages/cli`,
+and marginally faster), but it broke the run in two other ways:
+
+1. `cli`, `queue` and `events` have suites that `process.chdir()` into a temp
+   directory, which throws under worker_threads. Moving those three to
+   `--runInBand` worked around it.
+2. With threads, the run then **hung**: all 24 packages printed passing
+   summaries, but a jest process never exited and turbo never printed its
+   final line. Threads keep a process alive on an open handle where a forked
+   child is simply killed.
+
+A hang is worse than an intermittent segfault — it blocks CI silently instead
+of failing loudly — so the whole change was reverted and `jest.config.base.cjs`
+is back to its tuned state. Every package passes standalone (core 10,924 ·
+cli 1,708 · ui 1,878 · checkout 159); the flake only appears in the parallel
+turbo run.
+
+Two viable directions for whoever picks this up, neither of which should be
+taken as a side effect of unrelated work:
+- find and close the open handle, then adopt `workerThreads: true` (fastest,
+  keeps parallelism, no memory cost — threads share a process);
+- or run the whole repo in band (deterministic, ~1.8x slower on `cli`).
+
+### New modules land on-system with no design work
+
+Proved end to end with a throwaway module (created, registered in
+`apps/mercato/src/modules.ts`, generated, loaded, removed). A page written the
+obvious way — `PageHeader` + `Card` + `Button` — measured: title 30px/400
+Figtree, primary button `#43608E` at h-9 with an 8px radius, page ground
+`#F7F9FC`. Nothing had to be styled.
+
+### Coverage closed
+
+24 module pages driven in the browser (sales, catalog, WMS, warranty claims,
+inbox ops, staff, workflows, business rules, checkout, messages, attachments,
+resources, channels, EUDR, logs, events, companies, deals, integrations,
+settings, design system): **zero page errors, zero 5xx, and zero elements
+painting the page ground while sitting on a card** — the bug class from §9,
+now confirmed absent outside the screens originally inspected.
+
+Dark mode was verified in the running app for the first time (previously only a
+static preview). The two low-contrast hits are both artefacts: disabled controls
+(WCAG-exempt) and the gradient FAB, whose `backgroundColor` is transparent so
+the probe measured the page behind it.
+
+The customer portal was run for the first time: Figtree, navy CTA, correct
+field chrome, no console errors, and the dashboard correctly bounces an
+unauthenticated visitor to login.
+
+### Second-pass sweep
+
+The first sweep found raised planes with "className pairs `bg-background` with a
+shadow" — so a bordered, shadowless panel slipped through, which is most of
+them. The structural rule (a BORDER plus padding or a radius makes it a box, and
+a box is never the page ground) caught **194 more** across 108 files, including
+10 primitives whose fills were declared as cva string constants rather than
+`className` attributes.
+
+Also fixed: `DataTable`'s active-filter count chip was near-white text on a 30%
+grey fill — legible only in theory. It is a solid primary chip now.
+
+### Bounded the ARIA observer
+
+The `MutationObserver` added in §9 watched each field region's subtree for the
+lifetime of the form, so a rich-text field re-ran the wiring on every keystroke.
+It now disconnects at the first control it wires — its job is to catch a late
+mount, not to police the subtree — and anything that changes the wiring
+afterwards re-runs the effect anyway.
+
+### Guardrails for what comes next
+
+`AGENTS.md` now states the two rules whose absence caused the defects found in
+this migration: never paint a raised element with `bg-background`, and what the
+page skeleton is. Both were trimmed to fit the instruction budget, which this
+work had broken (`yarn agents:check-budget` was failing) and which now passes
+with a tighter ratchet than before.

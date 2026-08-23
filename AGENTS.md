@@ -19,7 +19,7 @@ Leverage the module system and follow strict naming and coding conventions to ke
 - Use the closest package/module `AGENTS.md` for local architecture, imports, and validation commands.
 - `BACKWARD_COMPATIBILITY.md`: only **persisted** ids are frozen (ACL features, event IDs, notification types, schema) — they live in rows, so renaming one needs a migration. Code shape is internal.
 - Run `yarn generate` after adding or modifying module files that rely on auto-discovery.
-- Optimistic locking is **default ON** for every NEW user-editable entity and edit/delete form: add an `updated_at` column, return `updatedAt` from list/detail APIs, and let `CrudForm` derive the header from `initialValues.updatedAt` (covers update **and** delete). Non-`CrudForm` handlers wrap the write in `withScopedApiRequestHeaders(buildOptimisticLockHeader(record.updatedAt), …)` and surface conflicts via `surfaceRecordConflict(err, t)`. If `onSubmit` mutates OTHER entities, override the parent header per child with that child's own version (avoids false 409s).
+- Optimistic locking is **default ON** for every NEW user-editable entity and edit/delete form: add `updated_at`, return `updatedAt` from list/detail APIs, and let `CrudForm` derive the header from `initialValues.updatedAt`. Non-`CrudForm` writes wrap in `withScopedApiRequestHeaders(buildOptimisticLockHeader(...))` and surface conflicts with `surfaceRecordConflict`. Details + the child-override rule: see the Task Router row.
 - Answer "where is X / who calls it" with `yarn graft ask|skeleton|callers` and "why / which spec" with `graphify query` before Grep sweeps.
 
 ## Ask First
@@ -219,7 +219,7 @@ Import strategy:
 
 Upstream froze these surfaces for external module developers building against its published packages. Operis has no such consumers — see `docs/architecture/adr/ADR-0004-compatibility-scope.md`.
 
-**Deprecation protocol** (summary): (1) never remove in one release, (2) add `@deprecated` JSDoc, (3) provide a bridge (re-export/alias/dual-emit) for ≥1 minor version, (4) document in UPGRADE_NOTES.md, (5) reference a spec with "Migration & Backward Compatibility" section.
+**Deprecation protocol**: never remove in one release — deprecate, bridge for ≥1 minor, note in UPGRADE_NOTES.md, reference a spec. Steps: [`BACKWARD_COMPATIBILITY.md`](BACKWARD_COMPATIBILITY.md).
 
 ## Boundary Labels for Agent Rules
 
@@ -279,13 +279,13 @@ These are critical project-wide rules. The top-level `Always`, `Ask First`, and 
 > Component reference (variants, sizes, props, examples, MUST rules per primitive): `.ai/ui-components.md`  
 > Workflow guidance (CrudForm, DataTable, Loading, Flash, Notifications, Portal): `packages/ui/AGENTS.md`
 
-- NEVER use hardcoded Tailwind status colors (`text-red-*`, `bg-green-*`, `text-amber-*`, etc.) — use `{property}-status-{status}-{role}` tokens
-- NEVER use arbitrary values (`text-[13px]`, `p-[13px]`, `rounded-[24px]`, `z-[9999]`) — use DS scale
-- NEVER add `dark:` overrides on semantic/status tokens — they already handle dark mode
-- NEVER hardcode hex/rgb in `className` — always use CSS token names
-- NEVER use hardcoded Tailwind color shades for borders (`border-gray-300`) — use `border-border`, `border-input`
+- NEVER hardcode a colour: no Tailwind ramps (`text-red-*`, `border-gray-300`), no hex/rgb in `className`. Use semantic or `{property}-status-{status}-{role}` tokens.
+- NEVER add `dark:` overrides on semantic/status tokens — they already carry dark values.
+- NEVER use arbitrary values (`text-[13px]`, `rounded-[24px]`, `z-[9999]`) — use the DS scale.
+- NEVER paint a raised element with `bg-background` — that is the PAGE GROUND. Cards/panels/menus/controls use `bg-surface`, fields `bg-input-bg`. Wrong here renders a grey block on a white card and still typechecks.
+- A NEW PAGE is `PageHeader` → filters → content. List views use `DataTable`, which renders that header itself — never add a second one.
 
-**Boy Scout Rule**: When touching a file that has hardcoded status colors, arbitrary text sizes, or `dark:` overrides on status colors, migrate at minimum the lines you touched to semantic tokens.
+**Boy Scout Rule**: when touching a file with hardcoded colours, arbitrary sizes, or `dark:` overrides on tokens, migrate at least the lines you touched.
 
 ## Key Commands
 
