@@ -1,0 +1,302 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+# No trailing slash: with one, the pattern matches directories only, and a
+# symlink named `node_modules` is a file — trackable, and committed by accident
+# at least once.
+/**/node_modules
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+.turbo
+
+# testing
+coverage/
+test-results/
+playwright-report/
+published-app/
+
+# next.js
+.next/
+/out/
+
+# production
+build
+.docusaurus
+
+# misc
+.DS_Store
+*.pem
+/release-output.txt
+
+# Exception: Allow public CA certificates for SSL verification
+!certs/*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.preview
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+.tsbuild/
+
+
+# /**/migrations/*
+# Generated module files
+/src/generated/
+/src/generated/*
+/generated/
+packages/*/generated/
+packages/client/src/generated/
+# package build outputs
+packages/*/dist/
+packages/**/dist/
+.mercato
+
+# runtime/event state
+.events/
+
+# runtime SQLite cache (default CACHE_SQLITE_PATH target); rewritten on every dev run
+/data/*.db
+/data/*.db-journal
+/data/*.db-wal
+/data/*.db-shm
+apps/*/data/*.db
+apps/*/data/*.db-journal
+apps/*/data/*.db-wal
+apps/*/data/*.db-shm
+
+# prevent accidental check-in of transpiled JS alongside TS sources
+src/**/*.js
+src/**/*.jsx
+packages/*/src/**/*.js
+packages/*/src/**/*.jsx
+.test-cache.json
+
+tmp/
+
+public/uploads/*
+apps/mercato/storage/*
+apps/mercato/storage/attachments/*
+storage
+packages/client/src/generated/openapi.types.ts
+package-lock.json
+
+# IDE related
+.idea
+.claude
+.codex
+
+# Claude Code MCP config (may contain API keys)
+.mcp.json
+.vscode/settings.json
+packages/cache/node_modules/*
+newrelic_agent.log
+/generated/
+.queue
+.worktrees/
+
+# Dev Container auto-generated compose volumes
+.devcontainer/docker-compose.volumes.yml
+# Dev Container personal overrides (local bind mounts, env vars, etc.)
+.devcontainer/docker-compose.local.yml
+# Personal compose overrides (auto-discovered by docker-exec.mjs)
+docker-compose.*.local.yml
+
+# OpenCode local config (generated at runtime, may contain secrets)
+docker/opencode/opencode.jsonc
+.vscode/launch.json
+
+# Local npm registry (Verdaccio)
+.npmrc
+!.npmrc.local
+
+# MCPs
+.playwright-mcp
+# Local CI / agent investigation logs (not source), except the versioned DS
+# health metrics the om-ds-guardian check reads back as its trend baseline.
+# The glob must be `.ai/reports/*`, not `.ai/reports/` — git cannot re-include a
+# file whose parent directory is excluded.
+.ai/reports/*
+!.ai/reports/ds-health-baseline-*.txt
+!.ai/reports/ds-health-latest.txt
+.ai/qa/ephemeral-env.lock/owner.json
+.ai/qa/ephemeral-env.lock/*
+.ai/qa/ephemeral*
+.ai/dev-ephemeral-envs.json
+# om-prepare-test-env shared descriptor + per-run QA artifacts (generated, not source)
+.ai/qa/test-env.json
+.ai/qa/test-env.lock/
+.ai/qa/test-env-boot.log
+.ai/qa/artifacts_*/
+.ai/qa/email-capture.jsonl
+# entrypoint scripts om-prepare-test-env compiles are bound to the machine that
+# generated them (shell, ports, process tools) — keep them local, never commit
+.ai/scripts/test-env-*
+.agents/
+
+apps/mercato/data/
+apps/mercato/data/cache.db
+apps/mercato/data/*.db
+apps/mercato/data/*.db-journal
+apps/mercato/data/*.db-wal
+apps/mercato/data/*.db-shm
+
+# Local security-tooling working dir
+.deepsec/
+
+# Official modules submodule — personal activation override
+official-modules.local.json
+apps/mercato/src/module-facts.generated.json
+
+# skills CLI lockfile (external skills are re-resolved on each install)
+skills-lock.json
+
+# StrykerJS mutation testing (scripts/stryker/). Without these, a local
+# `yarn mutation:changed` run leaves untracked output that makes the wrapper's
+# clean-tree guard refuse the next run.
+.stryker-tmp/
+**/reports/mutation/
+
+# =============================================================================
+# Fork hardening — secrets, bulk artifacts, and local junk
+#
+# Extension-level backstops added for Operis. The rules above are path-specific
+# and were written for the files that existed upstream; these are the catch-alls
+# that stop a *new* secret or build artifact from being committed by accident.
+# Verified against the working tree: none of these patterns matches a file that
+# legitimately belongs in source control.
+# =============================================================================
+
+# --- Secrets and credentials -------------------------------------------------
+# Private keys and keystores of every common encoding. `.pem` is already covered
+# above, together with the `!certs/*.pem` exception for the public CA bundle we
+# ship for TLS chain verification — do not add a blanket `!*.pem` here.
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.der
+*.csr
+*.asc
+*.gpg
+*.kdbx
+
+# OpenSSH private keys (public `.pub` halves stay allowed).
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+*_rsa
+*_ed25519
+!*.pub
+
+# Credential files that tooling drops into a repo.
+.netrc
+.pgpass
+.htpasswd
+*.dockercfg
+credentials.json
+service-account*.json
+*serviceaccount*.json
+gha-creds-*.json
+.aws/
+.gcloud/
+.azure/
+
+# Any environment file except the committed templates. The block above lists
+# specific `.env.*` variants; this catches the ones it does not (`.env.production`,
+# `.env.staging`, `.env.ci`, `.env.bak`, …). The re-include MUST follow the
+# ignore, or the templates disappear from the tree.
+.env.*
+!.env.example
+!.env.*.example
+
+# --- Archives and bundles ----------------------------------------------------
+# Source control stores these as opaque blobs and re-stores them whole on every
+# change. Ship build outputs from CI, not from the repository.
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.tar.bz2
+*.tar.xz
+*.gz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.jar
+*.war
+
+# --- Logs and diagnostics ----------------------------------------------------
+# Includes the gate/CI transcripts under `.ai/runs/**/final-gate-artifacts/`,
+# which are upstream's evidence of upstream's CI runs (~4 MB) and carry no value
+# for this fork. Drop the `*.log` line if you want to retain them.
+*.log
+*.log.*
+# NOTE: no bare `logs/` pattern — it matches any directory named `logs` at any
+# depth, which would exclude real API route folders such as
+# `core/src/modules/business_rules/api/logs/`. `*.log` is the safe rule.
+*.heapsnapshot
+*.cpuprofile
+*.heapprofile
+*.dmp
+# NOTE: deliberately NOT a bare `core` pattern — with no slash it matches every
+# path segment named `core` and would silently exclude all of `packages/core/`.
+core.[0-9]*
+
+# --- Local databases and dumps ----------------------------------------------
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+*.sql.gz
+*.dump
+*.rdb
+
+# --- Editor, merge, and OS artifacts ----------------------------------------
+*.swp
+*.swo
+*.swn
+*~
+*.bak
+*.orig
+*.rej
+*.tmp
+*.temp
+Thumbs.db
+desktop.ini
+__MACOSX/
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+
+# --- Process and runtime state ----------------------------------------------
+*.pid
+*.pid.lock
+*.seed
+.node_repl_history
