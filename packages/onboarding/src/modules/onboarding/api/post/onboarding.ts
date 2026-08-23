@@ -1,0 +1,275 @@
+import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import type { EntityManager } from '@mikro-orm/postgresql'
+import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+import { lookupHashCandidates } from '@open-mercato/shared/lib/encryption/aes'
+import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { getSecurityEmailBaseUrl, mapSecurityEmailUrlError } from '@open-mercato/shared/lib/url'
+import { loadDictionary } from '@open-mercato/shared/lib/i18n/server'
+import { defaultLocale, locales, type Locale } from '@open-mercato/shared/lib/i18n/config'
+import { createFallbackTranslator } from '@open-mercato/shared/lib/i18n/translate'
+import { sendEmail } from '@open-mercato/shared/lib/email/send'
+import { onboardingStartSchema } from '@open-mercato/onboarding/modules/onboarding/data/validators'
+import { OnboardingService } from '@open-mercato/onboarding/modules/onboarding/lib/service'
+import VerificationEmail from '@open-mercato/onboarding/modules/onboarding/emails/VerificationEmail'
+import AdminNotificationEmail from '@open-mercato/onboarding/modules/onboarding/emails/AdminNotificationEmail'
+import { User } from '@open-mercato/core/modules/auth/data/entities'
+import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+import { formatPasswordRequirements, getPasswordPolicy } from '@open-mercato/shared/lib/auth/passwordPolicy'
+import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
+import { readEndpointRateLimitConfig } from '@open-mercato/shared/lib/ratelimit/config'
+import { rateLimitErrorSchema } from '@open-mercato/shared/lib/ratelimit/helpers'
+
+const logger = createLogger('onboarding').child({ component: 'start' })
+
+export const metadata = {
+  path: '/onboarding/onboarding',
+  POST: {
+    requireAuth: false,
+    rateLimit: readEndpointRateLimitConfig('ONBOARDING', {
+      points: 10,
+      duration: 60,
+      blockDuration: 60,
+      keyPrefix: 'onboarding',
+    }),
+  },
+}
+
+export async function POST(req: Request) {
+  if (parseBooleanToken(process.env.SELF_SERVICE_ONBOARDING_ENABLED ?? '') !== true) {
+    return NextResponse.json({ ok: false, error: 'Self-service onboarding is disabled.' }, { status: 404 })
+  }
+  let payload: unknown
+  try {
+    payload = await req.json()
+  } catch {
+    return NextResponse.json({ ok: false, error: 'Invalid payload' }, { status: 400 })
+  }
+
+  const rawLocale =
+    payload && typeof payload === 'object' && 'locale' in payload && typeof (payload as any).locale === 'string'
+      ? (payload as any).locale as string
+      : null
+  const locale: Locale = rawLocale && locales.includes(rawLocale as Locale)
+    ? (rawLocale as Locale)
+    : defaultLocale
+  const dict = await loadDictionary(locale)
+  const translate = createFallbackTranslator(dict)
+  const passwordRequirements = formatPasswordRequirements(
+    getPasswordPolicy(),
+    translate,
+    'onboarding.password.requirements',
+  )
+
+  const parsed = onboardingStartSchema.safeParse(payload)
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {}
+    for (const issue of parsed.error.issues) {
+      const path = issue.path[0]
+      if (!path) continue
+      switch (path) {
+        case 'email':
+          fieldErrors.email = translate('onboarding.errors.emailInvalid', 'Enter a valid work email.')
+          break
+        case 'firstName':
+          fieldErrors.firstName = translate('onboarding.errors.firstNameRequired', 'First name is required.')
+          break
+        case 'lastName':
+          fieldErrors.lastName = translate('onboarding.errors.lastNameRequired', 'Last name is required.')
+          break
+        case 'organizationName':
+          fieldErrors.organizationName = translate('onboarding.errors.organizationNameRequired', 'Organization name is required.')
+          break
+        case 'password':
+          fieldErrors.password = translate(
+            'onboarding.errors.passwordRequired',
+            'Password must meet the requirements: {requirements}.',
+            { requirements: passwordRequirements },
+          )
+          break
+        case 'confirmPassword':
+          fieldErrors.confirmPassword = translate('onboarding.errors.passwordMismatch', 'Passwords must match.')
+          break
+        case 'termsAccepted':
+          fieldErrors.termsAccepted = translate('onboarding.form.termsRequired', 'Please accept the terms to continue.')
+          break
+        default:
+          break
+      }
+    }
+    return NextResponse.json({
+      ok: false,
+      error: translate('onboarding.form.genericError', 'Please check the form and try again.'),
+      fieldErrors,
+    }, { status: 400 })
+  }
+
+  try {
+    const container = await createRequestContainer()
+    const em = (container.resolve('em') as EntityManager)
+
+    const existingUser = await findOneWithDecryption(em, User, {
+      deletedAt: null,
+      $or: [
+        { email: parsed.data.email },
+        { emailHash: { $in: lookupHashCandidates(parsed.data.email) } },
+      ],
+    })
+    if (existingUser) {
+      const message = translate('onboarding.errors.emailExists', 'We already have an account with this email. Try signing in or resetting your password.')
+      return NextResponse.json({
+        ok: false,
+        error: message,
+        fieldErrors: { email: message },
+      }, { status: 409 })
+    }
+
+    const service = new OnboardingService(em)
+    let request, token
+    try {
+      const result = await service.createOrUpdateRequest(parsed.data)
+      request = result.request
+      token = result.token
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith('PENDING_REQUEST:')) {
+        const minutes = Number(err.message.split(':')[1] || '10')
+        const message = translate('onboarding.errors.pendingRequest', 'We already have a pending verification. Please try again in about {minutes} minutes or contact the administrator.', { minutes })
+        return NextResponse.json({
+          ok: false,
+          error: message,
+          fieldErrors: { email: message },
+        }, { status: 409 })
+      }
+      throw err
+    }
+
+    let baseUrl: string
+    try {
+      baseUrl = getSecurityEmailBaseUrl(req)
+    } catch (error) {
+      const mapped = mapSecurityEmailUrlError(error, {
+        scope: 'onboarding.start',
+        configMessage: 'Self-service onboarding is not configured.',
+      })
+      if (mapped) return NextResponse.json({ ok: false, error: mapped.body.error }, { status: mapped.status })
+      throw error
+    }
+    const verifyUrl = `${baseUrl}/api/onboarding/onboarding/verify?token=${token}`
+
+    const firstName = request.firstName || parsed.data.firstName
+    const hasMarketingConsent = request.marketingConsent === true
+    const marketingConsentText = hasMarketingConsent
+      ? translate('onboarding.email.marketingConsentYes', 'Marketing consent: Yes')
+      : translate('onboarding.email.marketingConsentNo', 'Marketing consent: No')
+    const subject = translate('onboarding.email.subject', 'Confirm your email to finish onboarding')
+    const emailCopy = {
+      preview: translate('onboarding.email.preview', 'Confirm your email to activate your Open Mercato workspace'),
+      heading: translate('onboarding.email.heading', 'Welcome to Open Mercato'),
+      greeting: translate('onboarding.email.greeting', 'Hi {firstName},', { firstName }),
+      body: translate(
+        'onboarding.email.body',
+        'We just need to confirm your email address to finish setting up the organization {organizationName}.',
+        { organizationName: request.organizationName },
+      ),
+      cta: translate('onboarding.email.cta', 'Confirm email & activate workspace'),
+      expiry: translate(
+        'onboarding.email.expiry',
+        "The link will expire in 24 hours. If you didn't request this, you can safely ignore this message.",
+      ),
+      marketingConsent: marketingConsentText,
+      footer: translate('onboarding.email.footer', 'Open Mercato · Onboarding service'),
+    }
+    const emailReact = VerificationEmail({ verifyUrl, copy: emailCopy })
+    try {
+      await sendEmail({ to: request.email, subject, react: emailReact })
+    } catch (err) {
+      request.lastEmailSentAt = null
+      await em.flush()
+      logger.error('Verification email failed', { err })
+      return NextResponse.json({
+        ok: false,
+        error: translate(
+          'onboarding.errors.emailSendFailed',
+          'We could not send the verification email. Please try again or contact support.',
+        ),
+      }, { status: 502 })
+    }
+
+    const adminEmail = process.env.ADMIN_EMAIL || 'piotr@catchthetornado.com'
+    const adminSubject = translate('onboarding.email.adminSubject', 'New self-service onboarding request')
+    const adminCopy = {
+      preview: translate('onboarding.email.adminPreview', 'New onboarding request submitted'),
+      heading: translate('onboarding.email.adminHeading', 'New onboarding request'),
+      body: translate('onboarding.email.adminBody', '{firstName} {lastName} ({email}) submitted an onboarding request for {organizationName}.', {
+        firstName: request.firstName,
+        lastName: request.lastName,
+        email: request.email,
+        organizationName: request.organizationName,
+      }),
+      marketingConsent: marketingConsentText,
+      footer: translate('onboarding.email.adminFooter', 'You can review the tenant after verification is complete.'),
+    }
+    try {
+      await sendEmail({
+        to: adminEmail,
+        subject: adminSubject,
+        react: AdminNotificationEmail({ copy: adminCopy }),
+      })
+    } catch (err) {
+      logger.error('Admin email failed', { err })
+    }
+
+    return NextResponse.json({ ok: true, email: request.email })
+  } catch (error) {
+    logger.error('Onboarding start failed', { err: error })
+    return NextResponse.json({
+      ok: false,
+      error: translate('onboarding.form.genericError', 'Something went wrong. Please try again later.'),
+    }, { status: 500 })
+  }
+}
+
+export default POST
+
+const onboardingTag = 'Onboarding'
+
+const onboardingSuccessSchema = z.object({
+  ok: z.literal(true),
+  email: z.string().email(),
+})
+
+const onboardingErrorSchema = z.object({
+  ok: z.literal(false),
+  error: z.string(),
+  fieldErrors: z.record(z.string(), z.string()).optional(),
+})
+
+const onboardingPostDoc: OpenApiMethodDoc = {
+  summary: 'Submit onboarding request',
+  description: 'Accepts a self-service onboarding form submission and triggers email verification.',
+  tags: [onboardingTag],
+  requestBody: {
+    contentType: 'application/json',
+    schema: onboardingStartSchema,
+    description: 'Onboarding form payload with contact and organization information.',
+  },
+  responses: [
+    { status: 200, description: 'Onboarding request accepted.', schema: onboardingSuccessSchema },
+  ],
+  errors: [
+    { status: 400, description: 'Validation failed', schema: onboardingErrorSchema },
+    { status: 404, description: 'Self-service onboarding disabled', schema: onboardingErrorSchema },
+    { status: 409, description: 'Existing account or pending request', schema: onboardingErrorSchema },
+    { status: 429, description: 'Too many onboarding submissions from this IP', schema: rateLimitErrorSchema },
+    { status: 500, description: 'Unexpected server error', schema: onboardingErrorSchema },
+  ],
+}
+
+export const openApi: OpenApiRouteDoc = {
+  tag: onboardingTag,
+  summary: 'Self-service onboarding submission',
+  methods: {
+    POST: onboardingPostDoc,
+  },
+}
