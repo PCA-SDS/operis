@@ -12,7 +12,7 @@ describe('Skeleton primitive', () => {
     const root = container.querySelector('[data-slot="skeleton"]')
     expect(root).toBeInTheDocument()
     expect(root!.className).toContain('animate-pulse')
-    expect(root!.className).toContain('bg-muted')
+    expect(root!.className).toContain('bg-surface-muted')
     expect(root!.className).toContain('rounded-md')
     expect(root!.className).toContain('h-8')
     expect(root!.className).toContain('w-32')

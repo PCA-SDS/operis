@@ -52,7 +52,7 @@ export type TabsProps = {
   /** Visual style. `pill` is the original look (bg-muted container,
    * bg-background selected pill). `underline` matches Figma `Tab Menu
    * Horizontal [1.1]` — flat strip with a thin border-bottom and an
-   * accent-indigo underline on the active tab. */
+   * accent-strong underline on the active tab. */
   variant?: TabsVariant
   /** Tab strip orientation. `horizontal` lays the strip in a row;
    * `vertical` lays it in a column. The default `pill` variant
@@ -182,19 +182,19 @@ export function TabsTrigger({
           // Underline trigger — flat, bottom-border accent when active.
           // Negative margin-bottom -1px so the active accent sits on
           // top of the rail's border-bottom (rather than below it).
-          // Hover fills a subtle violet background wash (+ violet text and icon),
-          // token-driven so it holds in light and dark. The selected tab still
-          // owns the solid accent-indigo underline, so the filled hover never gets
-          // confused with the active state.
+          // Hover fills a soft accent wash (+ accent text and icon), token-driven
+          // so it holds in light and dark. The selected tab owns the SOLID
+          // accent-strong underline, so a filled hover is never mistaken for the
+          // active state.
           orientation === 'vertical'
-            ? 'group relative inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground outline-none transition-colors hover:bg-accent-indigo/10 hover:text-accent-indigo'
-            : 'group relative -mb-px inline-flex items-center gap-2 rounded-t-md border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted-foreground outline-none transition-colors hover:bg-accent-indigo/10 hover:text-accent-indigo',
+            ? 'group relative inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground outline-none transition-colors hover:bg-accent-strong/10 hover:text-accent-strong'
+            : 'group relative -mb-px inline-flex items-center gap-2 rounded-t-md border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted-foreground outline-none transition-colors hover:bg-accent-strong/10 hover:text-accent-strong',
           'focus-visible:shadow-focus',
           'disabled:pointer-events-none disabled:opacity-50',
           isSelected
             ? orientation === 'vertical'
-              ? 'bg-muted/40 text-foreground hover:bg-muted/40 hover:text-foreground'
-              : 'border-accent-indigo font-semibold text-foreground hover:border-accent-indigo hover:bg-transparent hover:text-foreground'
+              ? 'bg-surface-muted text-foreground hover:bg-surface-muted hover:text-foreground'
+              : 'border-accent-strong font-semibold text-foreground hover:border-accent-strong hover:bg-transparent hover:text-foreground'
             : '',
           className,
         )}
@@ -205,7 +205,7 @@ export function TabsTrigger({
             aria-hidden="true"
             className={cn(
               'inline-flex shrink-0 items-center justify-center',
-              isSelected ? 'text-accent-indigo' : 'text-muted-foreground group-hover:text-accent-indigo',
+              isSelected ? 'text-accent-strong' : 'text-muted-foreground group-hover:text-accent-strong',
             )}
           >
             {leading}
@@ -218,8 +218,8 @@ export function TabsTrigger({
             className={cn(
               'inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-medium',
               isSelected
-                ? 'bg-accent-indigo/10 text-accent-indigo'
-                : 'bg-muted text-muted-foreground',
+                ? 'bg-accent-strong/10 text-accent-strong'
+                : 'bg-surface-muted text-muted-foreground',
             )}
           >
             {count}
@@ -246,8 +246,8 @@ export function TabsTrigger({
       className={cn(
         'gap-2',
         isSelected
-          ? 'bg-background text-foreground shadow'
-          : 'hover:bg-background/80 hover:text-foreground',
+          ? 'bg-surface text-foreground shadow'
+          : 'hover:bg-surface/80 hover:text-foreground',
         className,
       )}
     >
@@ -267,7 +267,7 @@ export function TabsTrigger({
           className={cn(
             'inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-medium',
             isSelected
-              ? 'bg-accent-indigo/10 text-accent-indigo'
+              ? 'bg-accent-strong/10 text-accent-strong'
               : 'bg-background/60 text-muted-foreground',
           )}
         >

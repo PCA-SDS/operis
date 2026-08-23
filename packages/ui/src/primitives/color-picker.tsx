@@ -63,7 +63,7 @@ interface WindowWithEyeDropper extends Window { EyeDropper?: new () => EyeDroppe
  */
 export const COLOR_PICKER_DEFAULT_SWATCHES: readonly string[] = [
   '#71777C', // Gray
-  '#6366F1', // Blue (= DS OM accent-indigo)
+  '#6366F1', // Blue (= DS OM accent-strong)
   '#F59E0B', // Orange
   '#EF4343', // Red
   '#22C55E', // Green
@@ -488,8 +488,8 @@ export const ColorPicker = React.forwardRef<HTMLButtonElement, ColorPickerProps>
                   // Native range styling. The track is the gradient itself.
                   '[background-image:linear-gradient(to_right,hsl(0,100%,50%),hsl(60,100%,50%),hsl(120,100%,50%),hsl(180,100%,50%),hsl(240,100%,50%),hsl(300,100%,50%),hsl(360,100%,50%))]',
                   // Thumb: small white pill with shadow per Figma.
-                  '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-background [&::-webkit-slider-thumb]:shadow-sm',
-                  '[&::-moz-range-thumb]:size-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-background [&::-moz-range-thumb]:shadow-sm',
+                  '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:size-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-surface [&::-webkit-slider-thumb]:shadow-sm',
+                  '[&::-moz-range-thumb]:size-3 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-surface [&::-moz-range-thumb]:shadow-sm',
                   'focus-visible:shadow-focus',
                   'disabled:cursor-not-allowed disabled:opacity-50',
                 )}
@@ -515,7 +515,7 @@ export const ColorPicker = React.forwardRef<HTMLButtonElement, ColorPickerProps>
                 data-slot="color-picker-section-input"
                 className="flex w-full min-w-0 items-center gap-2.5 px-5 py-4"
               >
-                <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-input bg-background px-2 shadow-xs">
+                <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-input bg-input-bg px-2 shadow-xs">
                   <span
                     aria-hidden="true"
                     data-slot="color-picker-current-dot"
@@ -570,7 +570,7 @@ export const ColorPicker = React.forwardRef<HTMLButtonElement, ColorPickerProps>
                     data-slot="color-picker-eyedropper"
                     aria-label={t('ui.colorPicker.eyedropper.ariaLabel', 'Pick color from screen')}
                     className={cn(
-                      'inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-input bg-background text-muted-foreground shadow-xs transition-colors',
+                      'inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-input bg-input-bg text-muted-foreground shadow-xs transition-colors',
                       'hover:bg-muted/40 hover:text-foreground',
                       'focus-visible:shadow-focus focus-visible:outline-none',
                     )}
@@ -585,7 +585,7 @@ export const ColorPicker = React.forwardRef<HTMLButtonElement, ColorPickerProps>
                     data-slot="color-picker-remove"
                     aria-label={removeAriaLabel}
                     className={cn(
-                      'inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-input bg-background text-muted-foreground shadow-xs transition-colors',
+                      'inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-input bg-input-bg text-muted-foreground shadow-xs transition-colors',
                       'hover:bg-status-error-bg hover:text-status-error-text hover:border-status-error-border',
                       'focus-visible:shadow-focus focus-visible:outline-none',
                     )}
@@ -616,7 +616,7 @@ export const ColorPicker = React.forwardRef<HTMLButtonElement, ColorPickerProps>
                     onClick={() => onEditSavedColors()}
                     data-slot="color-picker-edit"
                     className={cn(
-                      'text-sm font-medium text-accent-indigo outline-none transition-colors',
+                      'text-sm font-medium text-accent-strong outline-none transition-colors',
                       'hover:underline focus-visible:underline',
                       'focus-visible:shadow-focus rounded-sm',
                     )}

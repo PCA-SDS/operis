@@ -215,8 +215,8 @@ describe('Dialog (Phase B.7)', () => {
     const badge = document.querySelector('[data-slot="dialog-header-leading"]') as HTMLElement
     expect(badge.getAttribute('data-tone')).toBe('default')
     expect(badge.className).toContain('border')
-    expect(badge.className).toContain('border-input')
-    expect(badge.className).toContain('bg-background')
+    expect(badge.className).toContain('border-border')
+    expect(badge.className).toContain('bg-surface')
   })
 
   it('header leadingTone applies soft status tint + colored icon per Figma `Status Modals [1.1]`', () => {
@@ -227,7 +227,7 @@ describe('Dialog (Phase B.7)', () => {
     }> = [
       // Canonical Figma Status Modals — soft tint background paired
       // with a saturated colored icon (red `!` on light pink, etc.).
-      { tone: 'accent', bg: 'bg-accent-indigo/10', tx: 'text-accent-indigo' },
+      { tone: 'accent', bg: 'bg-accent-strong/10', tx: 'text-accent-strong' },
       { tone: 'success', bg: 'bg-status-success-bg', tx: 'text-status-success-icon' },
       { tone: 'warning', bg: 'bg-status-warning-bg', tx: 'text-status-warning-icon' },
       { tone: 'error', bg: 'bg-status-error-bg', tx: 'text-status-error-icon' },

@@ -16,8 +16,8 @@ const emptyStateVariants = cva(
         lg: 'gap-4 px-8 py-16',
       },
       variant: {
-        default: 'rounded-lg border border-dashed border-muted-foreground/40 bg-muted/30',
-        subtle: 'rounded-lg',
+        default: 'rounded-xl border border-dashed border-border',
+        subtle: 'rounded-xl',
       },
     },
     defaultVariants: {
@@ -27,11 +27,11 @@ const emptyStateVariants = cva(
   },
 )
 
-const titleVariants = cva('font-medium text-foreground', {
+const titleVariants = cva('font-semibold text-foreground', {
   variants: {
     size: {
       sm: 'text-sm',
-      default: 'text-sm',
+      default: 'text-base',
       lg: 'text-base',
     },
   },
@@ -100,7 +100,7 @@ export function EmptyState({
         variant === 'subtle' ? (
           <div
             className={cn(
-              'flex items-center justify-center rounded-full bg-muted text-muted-foreground',
+              'flex items-center justify-center rounded-2xl bg-surface-muted text-muted-foreground',
               iconBoxSize,
             )}
             aria-hidden="true"

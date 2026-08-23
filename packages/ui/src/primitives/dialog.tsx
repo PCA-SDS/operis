@@ -61,7 +61,7 @@ const DialogOverlay = React.forwardRef<
     ref={ref}
     data-slot="dialog-overlay"
     className={cn(
-      'fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity data-[state=open]:animate-in data-[state=closed]:animate-out',
+      'fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity data-[state=open]:animate-in data-[state=closed]:animate-out',
       elevated ? 'z-modal-elevated' : 'z-modal',
       className,
     )}
@@ -71,7 +71,7 @@ const DialogOverlay = React.forwardRef<
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const dialogContentVariants = cva(
-  'fixed inset-x-0 bottom-0 flex max-h-[90vh] w-full translate-x-0 translate-y-0 flex-col gap-4 overflow-y-auto rounded-t-xl border-t bg-card p-6 shadow-lg sm:inset-auto sm:left-1/2 sm:top-1/2 sm:min-h-0 sm:h-auto sm:w-full sm:max-h-[90vh] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl sm:border focus-visible:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out',
+  'fixed inset-x-0 bottom-0 flex max-h-[92dvh] w-full translate-x-0 translate-y-0 flex-col gap-4 overflow-y-auto rounded-t-2xl border-t border-border bg-surface p-6 shadow-2xl sm:inset-auto sm:left-1/2 sm:top-1/2 sm:min-h-0 sm:h-auto sm:w-full sm:max-h-[90dvh] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border focus-visible:outline-none data-[state=open]:animate-in data-[state=closed]:animate-out',
   {
     variants: {
       size: {
@@ -180,8 +180,8 @@ export type DialogHeaderTone =
 // the white-bg + border-input shell for generic settings icons per
 // `Modal Header [1.1]` (`466:4778`).
 const DIALOG_HEADER_TONE_CLASS: Record<DialogHeaderTone, string> = {
-  default: 'border border-input bg-background text-muted-foreground',
-  accent: 'bg-accent-indigo/10 text-accent-indigo',
+  default: 'border border-border bg-surface text-muted-foreground',
+  accent: 'bg-accent-strong/10 text-accent-strong',
   success: 'bg-status-success-bg text-status-success-icon',
   warning: 'bg-status-warning-bg text-status-warning-icon',
   error: 'bg-status-error-bg text-status-error-icon',
@@ -290,7 +290,7 @@ const DialogFooter = ({
           // testing). Edge-to-edge polish deferred to a v6 dialog
           // restructure that splits scrolling body from sticky
           // header/footer.
-          bordered ? 'border-t border-input pt-4' : '',
+          bordered ? 'border-t border-border pt-4' : '',
           'flex flex-row gap-2 [&>*]:flex-1',
           className,
         )}
@@ -317,7 +317,7 @@ const DialogFooter = ({
           // testing). Edge-to-edge polish deferred to a v6 dialog
           // restructure that splits scrolling body from sticky
           // header/footer.
-          bordered ? 'border-t border-input pt-4' : '',
+          bordered ? 'border-t border-border pt-4' : '',
           'flex flex-col gap-3 sm:flex-row sm:items-center',
           className,
         )}
@@ -350,7 +350,7 @@ const DialogFooter = ({
       // inset inside the DialogContent's `p-6` padding. We escape
       // the parent's horizontal padding with `-mx-6` and re-apply
       // `px-6` so the button row keeps its inset position.
-      bordered ? '-mx-6 border-t border-input px-6 pt-4' : '',
+      bordered ? '-mx-6 border-t border-border px-6 pt-4' : '',
         'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end',
         className,
       )}
@@ -369,7 +369,7 @@ const DialogTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     data-slot="dialog-title"
-    className={cn('text-lg font-semibold leading-none tracking-tight', className)}
+    className={cn('text-base sm:text-xl font-semibold leading-none tracking-tight', className)}
     {...props}
   />
 ))

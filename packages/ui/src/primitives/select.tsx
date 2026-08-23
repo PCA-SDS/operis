@@ -6,15 +6,17 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@open-mercato/shared/lib/utils'
 
+/* The trigger is a field, so it carries the same chrome as `Input` — matching
+   border, hover/focus fill, and the value/placeholder weight split. */
 const selectTriggerVariants = cva(
-  'inline-flex w-full items-center justify-between gap-2 rounded-md border border-input bg-background shadow-xs transition-colors outline-none placeholder:text-muted-foreground hover:bg-muted/40 focus:outline-none focus-visible:outline-none focus-visible:shadow-focus focus-visible:border-foreground disabled:cursor-not-allowed disabled:bg-bg-disabled disabled:border-border-disabled disabled:shadow-none disabled:hover:bg-bg-disabled disabled:[&_svg]:opacity-60 aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:border-destructive data-[placeholder]:text-muted-foreground [&>span]:line-clamp-1 [&_svg]:pointer-events-none [&_svg:not([class*=size-])]:size-4 [&_svg]:shrink-0',
+  'inline-flex w-full items-center justify-between gap-2 rounded-lg border border-input bg-input-bg font-medium transition-colors outline-none hover:bg-modal-muted focus:outline-none focus-visible:outline-none focus-visible:shadow-focus focus-visible:border-input-border-focus disabled:cursor-not-allowed disabled:bg-input-disabled-bg disabled:text-text-disabled disabled:border-border-disabled disabled:shadow-none disabled:hover:bg-input-disabled-bg disabled:[&_svg]:opacity-60 aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:border-destructive data-[placeholder]:font-normal data-[placeholder]:text-input-placeholder [&>span]:line-clamp-1 [&_svg]:pointer-events-none [&_svg:not([class*=size-])]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       size: {
-        xs: 'h-7 px-2 text-xs',
-        sm: 'h-8 px-2.5 text-xs',
+        xs: 'h-7 rounded-md px-2 text-xs',
+        sm: 'h-8 rounded-md px-2.5 text-xs',
         default: 'h-9 px-3 text-sm',
-        lg: 'h-10 px-3 text-sm',
+        lg: 'h-10 px-3.5 text-sm',
       },
     },
     defaultVariants: {
@@ -122,7 +124,7 @@ const SelectContent = React.forwardRef<
       position={position}
       sideOffset={sideOffset}
       className={cn(
-        'relative z-popover min-w-[8rem] overflow-hidden rounded-md border border-input bg-popover text-popover-foreground shadow-md outline-none',
+        'relative z-popover min-w-[8rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-lg outline-none',
         'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
         position === 'popper' && 'w-full min-w-[var(--radix-select-trigger-width)]',
         className
@@ -151,7 +153,7 @@ const SelectLabel = React.forwardRef<
   <SelectPrimitive.Label
     ref={ref}
     className={cn(
-      'px-2 pt-2 pb-1 text-overline font-semibold uppercase tracking-wider text-muted-foreground/80',
+      'px-3 pt-2 pb-1 text-overline font-semibold uppercase tracking-wider text-disabled-foreground',
       'select-none',
       className
     )}
@@ -167,9 +169,9 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex w-full cursor-default select-none items-center gap-2 rounded-md p-2 text-sm outline-none transition-colors',
-      'focus:bg-muted focus:text-foreground',
-      'data-[state=checked]:bg-muted/70 data-[state=checked]:text-foreground',
+      'relative flex w-full cursor-pointer select-none items-center gap-2 rounded-md px-3 py-2 text-sm outline-none transition-colors',
+      'focus:bg-surface-muted focus:text-foreground',
+      'data-[state=checked]:bg-primary-soft data-[state=checked]:font-medium data-[state=checked]:text-foreground',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       '[&_svg]:pointer-events-none [&_svg:not([class*=size-])]:size-4 [&_svg]:shrink-0',
       className
@@ -182,7 +184,7 @@ const SelectItem = React.forwardRef<
       </span>
     </SelectPrimitive.ItemText>
     <SelectPrimitive.ItemIndicator className="ml-auto flex shrink-0 items-center justify-center">
-      <Check className="size-4 text-foreground" aria-hidden="true" />
+      <Check className="size-4 text-accent-strong" aria-hidden="true" />
     </SelectPrimitive.ItemIndicator>
   </SelectPrimitive.Item>
 ))

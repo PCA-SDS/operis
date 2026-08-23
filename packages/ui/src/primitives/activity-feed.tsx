@@ -175,7 +175,7 @@ const ActivityFeedFileChip = React.forwardRef<HTMLDivElement, ActivityFeedFileCh
       ref={ref}
       data-slot="activity-feed-file-chip"
       className={cn(
-        'inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground shadow-xs',
+        'inline-flex items-center gap-2 rounded-md border border-input bg-input-bg px-3 py-1.5 text-sm text-foreground shadow-xs',
         className,
       )}
       {...props}
@@ -222,7 +222,7 @@ const ActivityFeedComment = React.forwardRef<HTMLDivElement, ActivityFeedComment
       ref={ref}
       data-slot="activity-feed-comment"
       className={cn(
-        'inline-flex w-full items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-xs',
+        'inline-flex w-full items-center gap-2 rounded-md border border-input bg-input-bg px-3 py-2 text-sm text-foreground shadow-xs',
         className,
       )}
       {...props}
@@ -239,8 +239,8 @@ const ActivityFeedComment = React.forwardRef<HTMLDivElement, ActivityFeedComment
           data-slot="activity-feed-comment-reply"
           onClick={onReply}
           className={cn(
-            'shrink-0 rounded-md text-sm font-medium text-accent-indigo outline-none transition-colors',
-            'hover:text-accent-indigo/80 focus-visible:shadow-focus',
+            'shrink-0 rounded-md text-sm font-medium text-accent-strong outline-none transition-colors',
+            'hover:text-accent-strong/80 focus-visible:shadow-focus',
           )}
         >
           {replyLabel}
@@ -298,7 +298,7 @@ const ActivityFeedStatusChip = React.forwardRef<HTMLSpanElement, ActivityFeedSta
         data-slot="activity-feed-status-chip"
         data-status={status}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-2 py-1 text-sm font-medium text-foreground shadow-xs',
+          'inline-flex items-center gap-1.5 rounded-md border border-input bg-input-bg px-2 py-1 text-sm font-medium text-foreground shadow-xs',
           className,
         )}
         {...props}

@@ -93,7 +93,7 @@ const NotificationFeed = React.forwardRef<
     ref={ref}
     data-slot="notification-feed"
     className={cn(
-      'flex w-full flex-col overflow-hidden rounded-xl border border-input bg-background shadow-lg',
+      'flex w-full flex-col overflow-hidden rounded-xl border border-input bg-input-bg shadow-lg',
       className,
     )}
     {...props}
@@ -242,7 +242,7 @@ const NotificationFeedItem = React.forwardRef<HTMLLIElement, NotificationFeedIte
               <span
                 data-slot="notification-feed-item-unread-dot"
                 aria-hidden="true"
-                className="inline-block size-2 shrink-0 rounded-full bg-accent-indigo"
+                className="inline-block size-2 shrink-0 rounded-full bg-accent-strong"
               />
             ) : null}
           </div>
@@ -304,7 +304,7 @@ const ICON_TONE_MAP = {
   // Tints + matching icon color per Figma `Notifications Items [1.1]`
   // assembled examples. Surface is a soft `tone/10` background; icon
   // carries the semantic color directly.
-  indigo: 'bg-accent-indigo/10 text-accent-indigo',
+  indigo: 'bg-accent-strong/10 text-accent-strong',
   success: 'bg-status-success-icon/10 text-status-success-icon',
   warning: 'bg-status-warning-icon/10 text-status-warning-icon',
   error: 'bg-status-error-icon/10 text-status-error-icon',

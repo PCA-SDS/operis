@@ -12,12 +12,12 @@ export const Tooltip = TooltipPrimitive.Root
 export const TooltipTrigger = TooltipPrimitive.Trigger
 
 const tooltipContentVariants = cva(
-  'z-tooltip overflow-hidden rounded-sm max-w-xs break-words shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
+  'z-tooltip overflow-hidden rounded-md max-w-xs break-words shadow-lg animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2',
   {
     variants: {
       variant: {
-        dark: 'bg-foreground text-background',
-        light: 'bg-popover text-popover-foreground border border-input',
+        dark: 'bg-primary text-primary-foreground',
+        light: 'bg-popover text-popover-foreground border border-border',
       },
       size: {
         sm: 'px-1.5 py-0.5 text-xs leading-4',

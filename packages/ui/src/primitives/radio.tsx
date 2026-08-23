@@ -24,18 +24,19 @@ export const Radio = React.forwardRef<
   <RadioGroupPrimitive.Item
     ref={ref}
     className={cn(
-      'aspect-square size-5 shrink-0 rounded-full border border-input bg-background',
+      'aspect-square size-5 shrink-0 rounded-full border border-input bg-input-bg',
       'flex items-center justify-center transition-colors',
-      'hover:border-muted-foreground/40',
-      'data-[state=checked]:border-accent-indigo data-[state=checked]:bg-accent-indigo',
+      'hover:border-primary/50',
+      /* Checked fill is `--primary`, in step with Checkbox and Switch. */
+      'data-[state=checked]:border-primary data-[state=checked]:bg-primary',
       'focus-visible:outline-none focus-visible:shadow-focus',
-      'disabled:cursor-not-allowed disabled:opacity-60',
+      'disabled:cursor-not-allowed disabled:border-border-disabled disabled:bg-bg-disabled',
       className
     )}
     {...props}
   >
     <RadioGroupPrimitive.Indicator className="flex items-center justify-center">
-      <span aria-hidden="true" className="block size-2 rounded-full bg-white" />
+      <span aria-hidden="true" className="block size-2 rounded-full bg-primary-foreground" />
     </RadioGroupPrimitive.Indicator>
   </RadioGroupPrimitive.Item>
 ))

@@ -140,7 +140,7 @@ const CommandMenuContent = React.forwardRef<
       <CommandPrimitive
         data-slot="command-menu-root"
         className={cn(
-          'mx-auto flex w-full max-w-xl flex-col overflow-hidden rounded-lg border border-input bg-background shadow-lg',
+          'mx-auto flex w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl',
           contentClassName,
         )}
         {...commandProps}
@@ -378,7 +378,7 @@ const CommandMenuItem = React.forwardRef<
       ref={ref}
       data-slot="command-menu-item"
       className={cn(
-        'group relative flex w-full cursor-pointer select-none items-center gap-3 rounded-md px-2 py-2 text-sm text-foreground outline-none',
+        'group relative flex w-full cursor-pointer select-none items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground outline-none',
         'data-[selected=true]:bg-muted/40',
         'data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50',
         className,

@@ -20,7 +20,7 @@ export type SkeletonProps = Omit<React.HTMLAttributes<HTMLDivElement>, 'role' | 
   lines?: number
 }
 
-const baseLine = 'animate-pulse rounded-md bg-muted'
+const baseLine = 'animate-pulse rounded-md bg-surface-muted'
 
 export function Skeleton({
   shape = 'rect',

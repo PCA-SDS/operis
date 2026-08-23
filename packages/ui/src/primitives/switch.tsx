@@ -68,25 +68,29 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
         onKeyDown={handleKeyDown}
         disabled={disabled}
         className={cn(
-          'group relative inline-flex h-5 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent p-0',
+          'group relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-transparent p-0',
           'focus-visible:outline-none focus-visible:shadow-focus',
           'disabled:cursor-not-allowed disabled:opacity-60',
           className
         )}
         {...props}
       >
+        {/* Track. Off is the chrome step (`surface-strong` + hairline), not a
+            grey slab, so an unset preference reads as neutral rather than as
+            something switched off in anger. On is `--primary`, in step with
+            Checkbox and Radio. */}
         <span
           aria-hidden
           className={cn(
-            'pointer-events-none flex h-4 w-7 items-center rounded-full px-0.5 transition-colors duration-150',
-            'bg-border group-hover:bg-muted-foreground/30',
-            'group-data-[state=checked]:bg-accent-indigo group-data-[state=checked]:group-hover:bg-accent-indigo/85'
+            'pointer-events-none flex h-5 w-9 items-center rounded-full border px-0.5 transition-colors duration-200',
+            'border-border bg-surface-strong group-hover:bg-border',
+            'group-data-[state=checked]:border-primary group-data-[state=checked]:bg-primary group-data-[state=checked]:group-hover:bg-primary-hover'
           )}
         >
           <span
             className={cn(
-              'block size-3 rounded-full bg-white transition-transform duration-200 shadow-switch-thumb',
-              currentChecked ? 'translate-x-3' : 'translate-x-0'
+              'block size-4 rounded-full bg-white transition-transform duration-200 shadow-switch-thumb',
+              currentChecked ? 'translate-x-4' : 'translate-x-0'
             )}
           />
         </span>

@@ -56,7 +56,7 @@ describe('Badge (Phase B.8)', () => {
 
   it('applies size variants (sm / default / lg)', () => {
     const cases: Array<{ size: 'sm' | 'default' | 'lg'; cls: string }> = [
-      { size: 'sm', cls: 'text-[10px]' },
+      { size: 'sm', cls: 'text-overline' },
       { size: 'default', cls: 'text-xs' },
       { size: 'lg', cls: 'text-sm' },
     ]

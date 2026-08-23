@@ -46,7 +46,7 @@ describe('Table primitive (Phase B.6 polish)', () => {
     expect(container.querySelector('[data-slot="table-cell"]')).not.toBeNull()
   })
 
-  it('TableHeader gets bg-muted/40 strip per Figma', () => {
+  it('TableHeader gets the table-header strip', () => {
     const { container } = render(
       <Table>
         <TableHeader>
@@ -57,10 +57,10 @@ describe('Table primitive (Phase B.6 polish)', () => {
       </Table>,
     )
     const head = container.querySelector('[data-slot="table-header"]') as HTMLElement
-    expect(head.className).toContain('bg-muted/40')
+    expect(head.className).toContain('bg-table-header')
   })
 
-  it('TableFooter gets bordered top + bg-muted/40 strip', () => {
+  it('TableFooter gets bordered top + table-header strip', () => {
     const { container } = render(
       <Table>
         <TableFooter>
@@ -72,11 +72,11 @@ describe('Table primitive (Phase B.6 polish)', () => {
     )
     const footer = container.querySelector('[data-slot="table-footer"]') as HTMLElement
     expect(footer.className).toContain('border-t')
-    expect(footer.className).toContain('bg-muted/40')
+    expect(footer.className).toContain('bg-table-header/70')
     expect(footer.className).toContain('font-medium')
   })
 
-  it('TableRow gets hover:bg-muted/30 by default + border-b last:border-b-0', () => {
+  it('TableRow gets the row-hover wash by default + border-b last:border-b-0', () => {
     const { container } = render(
       <Table>
         <TableBody>
@@ -87,13 +87,13 @@ describe('Table primitive (Phase B.6 polish)', () => {
       </Table>,
     )
     const row = container.querySelector('tbody [data-slot="table-row"]') as HTMLElement
-    expect(row.className).toContain('hover:bg-muted/30')
+    expect(row.className).toContain('hover:bg-table-row-hover')
     expect(row.className).toContain('border-b')
     expect(row.className).toContain('last:border-b-0')
     expect(row.className).toContain('transition-colors')
   })
 
-  it('Striped variant adds even-row bg-muted/20 via context', () => {
+  it('Striped variant adds an even-row tint via context', () => {
     const { container } = render(
       <Table variant="striped">
         <TableBody>
@@ -113,7 +113,7 @@ describe('Table primitive (Phase B.6 polish)', () => {
     ) as HTMLElement[]
     expect(rows.length).toBe(2)
     for (const row of rows) {
-      expect(row.className).toContain('even:bg-muted/20')
+      expect(row.className).toContain('even:bg-surface-muted/40')
     }
   })
 
@@ -130,10 +130,10 @@ describe('Table primitive (Phase B.6 polish)', () => {
     const root = container.querySelector('[data-slot="table"]') as HTMLElement
     expect(root.getAttribute('data-variant')).toBe('default')
     const row = container.querySelector('tbody [data-slot="table-row"]') as HTMLElement
-    expect(row.className).not.toContain('even:bg-muted/20')
+    expect(row.className).not.toContain('even:bg-surface-muted/40')
   })
 
-  it('TableHead keeps text-muted-foreground + font-medium + whitespace-nowrap', () => {
+  it('TableHead renders the scan-first uppercase micro-label', () => {
     const { container } = render(
       <Table>
         <TableHeader>
@@ -145,13 +145,16 @@ describe('Table primitive (Phase B.6 polish)', () => {
     )
     const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
     expect(head.className).toContain('text-muted-foreground')
-    expect(head.className).toContain('font-medium')
+    expect(head.className).toContain('text-xs')
+    expect(head.className).toContain('font-bold')
+    expect(head.className).toContain('uppercase')
+    expect(head.className).toContain('tracking-wide')
     expect(head.className).toContain('whitespace-nowrap')
-    expect(head.className).toContain('px-4')
-    expect(head.className).toContain('py-2')
+    expect(head.className).toContain('px-5')
+    expect(head.className).toContain('py-3')
   })
 
-  it('TableCell keeps the original px-4 py-2 padding (backward compat)', () => {
+  it('TableCell renders the roomy row height with medium-weight data', () => {
     const { container } = render(
       <Table>
         <TableBody>
@@ -162,8 +165,10 @@ describe('Table primitive (Phase B.6 polish)', () => {
       </Table>,
     )
     const cell = container.querySelector('[data-slot="table-cell"]') as HTMLElement
-    expect(cell.className).toContain('px-4')
-    expect(cell.className).toContain('py-2')
+    expect(cell.className).toContain('px-5')
+    expect(cell.className).toContain('py-4')
+    expect(cell.className).toContain('text-sm')
+    expect(cell.className).toContain('font-medium')
   })
 
   it('forwards className on every slot', () => {

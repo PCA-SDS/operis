@@ -21,8 +21,8 @@ describe('Button destructive variants', () => {
   it('destructive is quiet: destructive border and text on the page surface', () => {
     const classes = classesOf('destructive')
     expect(classes).toContain('border')
-    expect(classes).toContain('border-destructive')
-    expect(classes).toContain('bg-background')
+    expect(classes).toContain('border-destructive/40')
+    expect(classes).toContain('bg-surface')
     expect(classes).toContain('text-destructive')
   })
 

@@ -87,7 +87,7 @@ const drawerContentVariants = cva(
   // / Footer compose vertically with the body filling free space.
   // Per Figma the panel has rounded corners on the inner (viewport-
   // facing) edges only, no border on the seam, and a generous shadow.
-  'fixed z-popover flex flex-col gap-0 bg-background shadow-2xl outline-none ' +
+  'fixed z-popover flex flex-col gap-0 bg-surface shadow-2xl outline-none ' +
     'data-[state=open]:animate-in data-[state=closed]:animate-out ' +
     'data-[state=open]:duration-200 data-[state=closed]:duration-150',
   {
@@ -95,16 +95,16 @@ const drawerContentVariants = cva(
       side: {
         right:
           // Figma Drawer [1.1] width: 400px (not the Tailwind max-w-md 448px)
-          'inset-y-0 right-0 h-full w-full max-w-[400px] rounded-l-xl ' +
+          'inset-y-0 right-0 h-full w-full max-w-[400px] rounded-l-2xl ' +
           'data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right',
         left:
-          'inset-y-0 left-0 h-full w-full max-w-[400px] rounded-r-xl ' +
+          'inset-y-0 left-0 h-full w-full max-w-[400px] rounded-r-2xl ' +
           'data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left',
         top:
-          'inset-x-0 top-0 max-h-[80vh] w-full rounded-b-xl ' +
+          'inset-x-0 top-0 max-h-[80dvh] w-full rounded-b-2xl ' +
           'data-[state=open]:slide-in-from-top data-[state=closed]:slide-out-to-top',
         bottom:
-          'inset-x-0 bottom-0 max-h-[80vh] w-full rounded-t-xl ' +
+          'inset-x-0 bottom-0 max-h-[80dvh] w-full rounded-t-2xl ' +
           'data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom',
       },
     },
@@ -193,7 +193,7 @@ const DrawerHeader = React.forwardRef<HTMLDivElement, DrawerHeaderProps>(
         <span
           data-slot="drawer-header-leading"
           aria-hidden="true"
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-input bg-background text-muted-foreground"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-muted-foreground"
         >
           {leading}
         </span>

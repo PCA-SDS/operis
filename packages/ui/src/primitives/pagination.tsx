@@ -123,14 +123,14 @@ export function buildPaginationItems(
 }
 
 const cellVariants = cva(
-  'inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-sm font-medium outline-none transition-colors tabular-nums ' +
+  'inline-flex size-8 min-w-8 shrink-0 items-center justify-center rounded-md px-2 text-sm font-medium outline-none transition-colors tabular-nums ' +
     'focus-visible:shadow-focus ' +
     'disabled:cursor-not-allowed disabled:opacity-50',
   {
     variants: {
       selected: {
-        true: 'bg-muted text-foreground',
-        false: 'bg-background text-foreground hover:bg-muted/40',
+        true: 'bg-primary font-semibold text-primary-foreground',
+        false: 'border border-transparent bg-transparent text-muted-foreground hover:border-border hover:bg-surface-muted hover:text-foreground',
       },
     },
     defaultVariants: { selected: false },
@@ -138,8 +138,8 @@ const cellVariants = cva(
 )
 
 const navButtonVariants = cva(
-  'inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground outline-none transition-colors ' +
-    'hover:bg-muted/40 hover:text-foreground ' +
+  'inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-muted-foreground outline-none transition-colors ' +
+    'hover:bg-surface-muted hover:text-foreground ' +
     'focus-visible:shadow-focus ' +
     'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground',
 )

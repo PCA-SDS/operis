@@ -54,7 +54,7 @@ export type ProgressTone =
   | 'muted'
 
 const PROGRESS_TONE_FILL: Record<ProgressTone, string> = {
-  accent: 'bg-accent-indigo',
+  accent: 'bg-accent-strong',
   success: 'bg-status-success-icon',
   warning: 'bg-status-warning-icon',
   destructive: 'bg-status-error-icon',
@@ -176,7 +176,7 @@ export function Progress({
 
 const CIRCULAR_SIZE_MAP = {
   xs: { box: 24, stroke: 3, textClass: 'text-[9px]' },
-  sm: { box: 32, stroke: 3, textClass: 'text-[10px]' },
+  sm: { box: 32, stroke: 3, textClass: 'text-overline' },
   default: { box: 48, stroke: 4, textClass: 'text-xs' },
   lg: { box: 64, stroke: 5, textClass: 'text-sm' },
 } as const
@@ -184,7 +184,7 @@ const CIRCULAR_SIZE_MAP = {
 export type CircularProgressSize = keyof typeof CIRCULAR_SIZE_MAP
 
 const CIRCULAR_TONE_STROKE: Record<ProgressTone, string> = {
-  accent: 'stroke-accent-indigo',
+  accent: 'stroke-accent-strong',
   success: 'stroke-status-success-icon',
   warning: 'stroke-status-warning-icon',
   destructive: 'stroke-status-error-icon',

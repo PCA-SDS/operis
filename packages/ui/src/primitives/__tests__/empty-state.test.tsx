@@ -69,11 +69,11 @@ describe('EmptyState primitive', () => {
     expect(screen.queryByRole('button', { name: /Legacy/i })).not.toBeInTheDocument()
   })
 
-  it('default variant renders dashed border + bg-muted/30', () => {
+  it('default variant frames the region with a dashed hairline on the card plane', () => {
     const { container } = render(<EmptyState title="Default" />)
     const root = container.querySelector('[data-slot="empty-state"]')
     expect(root!.className).toContain('border-dashed')
-    expect(root!.className).toContain('bg-muted/30')
+    expect(root!.className).toContain('border-border')
   })
 
   it('subtle variant has no border and no muted background', () => {
@@ -83,14 +83,14 @@ describe('EmptyState primitive', () => {
     expect(root!.className).not.toContain('bg-muted/30')
   })
 
-  it('subtle variant wraps icon in a round muted box (Figma illustration tile style)', () => {
+  it('subtle variant wraps the icon in a soft-square muted chip', () => {
     const Icon = () => <svg data-testid="boxed-icon" />
     const { container } = render(
       <EmptyState title="Subtle" variant="subtle" icon={<Icon />} />,
     )
     const iconWrapper = container.querySelector('[data-slot="empty-state"] > div')
-    expect(iconWrapper!.className).toContain('bg-muted')
-    expect(iconWrapper!.className).toContain('rounded-full')
+    expect(iconWrapper!.className).toContain('bg-surface-muted')
+    expect(iconWrapper!.className).toContain('rounded-2xl')
   })
 
   it('illustration prop renders without an icon-box wrapper (Figma illustrations bring own bg)', () => {

@@ -33,7 +33,7 @@ import { cn } from '@open-mercato/shared/lib/utils'
  */
 
 const badgeVariants = cva(
-  'inline-flex items-center gap-1 rounded-full border font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+  'inline-flex items-center gap-1 rounded-full border font-medium transition-colors focus-visible:outline-none focus-visible:shadow-focus',
   {
     variants: {
       variant: {
@@ -56,7 +56,7 @@ const badgeVariants = cva(
         brand: 'border-brand-violet/30 bg-brand-violet/10 text-brand-violet',
       },
       size: {
-        sm: 'px-2 py-0.5 text-[10px]',
+        sm: 'px-2 py-0.5 text-overline',
         default: 'px-2.5 py-0.5 text-xs',
         lg: 'px-3 py-1 text-sm',
       },

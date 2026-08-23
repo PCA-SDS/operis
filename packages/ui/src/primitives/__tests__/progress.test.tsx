@@ -52,7 +52,7 @@ describe('Progress (linear)', () => {
 
   it('applies tone variant classes to the fill', () => {
     const cases: Array<{ tone: 'accent' | 'success' | 'warning' | 'destructive' | 'muted'; cls: string }> = [
-      { tone: 'accent', cls: 'bg-accent-indigo' },
+      { tone: 'accent', cls: 'bg-accent-strong' },
       { tone: 'success', cls: 'bg-status-success-icon' },
       { tone: 'warning', cls: 'bg-status-warning-icon' },
       { tone: 'destructive', cls: 'bg-status-error-icon' },
@@ -111,7 +111,7 @@ describe('Progress (linear)', () => {
     const fill = container.querySelector('[data-slot="progress-fill"]') as HTMLElement
     expect(fill.className).toContain('custom-fill')
     // Default tone class still applied (cn merges, doesn't replace).
-    expect(fill.className).toContain('bg-accent-indigo')
+    expect(fill.className).toContain('bg-accent-strong')
   })
 })
 
@@ -184,7 +184,7 @@ describe('CircularProgress', () => {
 
   it('applies tone variant strokes', () => {
     const cases: Array<{ tone: 'accent' | 'success' | 'warning' | 'destructive' | 'muted'; cls: string }> = [
-      { tone: 'accent', cls: 'stroke-accent-indigo' },
+      { tone: 'accent', cls: 'stroke-accent-strong' },
       { tone: 'success', cls: 'stroke-status-success-icon' },
       { tone: 'warning', cls: 'stroke-status-warning-icon' },
       { tone: 'destructive', cls: 'stroke-status-error-icon' },

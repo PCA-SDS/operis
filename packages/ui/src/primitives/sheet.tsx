@@ -33,7 +33,7 @@ SheetOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const sheetVariants = cva(
   cn(
-    'fixed z-modal flex flex-col gap-4 bg-background shadow-lg transition ease-in-out',
+    'fixed z-modal flex flex-col gap-4 bg-surface shadow-xl transition ease-in-out',
     'data-[state=open]:animate-in data-[state=closed]:animate-out',
     'data-[state=closed]:duration-200 data-[state=open]:duration-300',
   ),
@@ -93,7 +93,7 @@ const SheetContent = React.forwardRef<
       {children}
       {!hideClose ? (
         <DialogPrimitive.Close
-          className="absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:shadow-focus"
+          className="absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-strong hover:text-foreground focus:outline-none focus-visible:shadow-focus"
           aria-label={closeLabel}
         >
           <X className="size-4" aria-hidden="true" />

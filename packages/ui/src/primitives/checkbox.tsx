@@ -5,8 +5,12 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@open-mercato/shared/lib/utils"
 
+/* Checked state is `--primary`, matching every other filled selection control
+   (Radio, Switch). Reserve `--accent-strong` for things you can click THROUGH
+   to somewhere else — links, tabs, sort indicators — so a screen of ticked
+   boxes and a screen of links never blur into one another. */
 const checkboxVariants = cva(
-  "peer shrink-0 rounded-[4px] border border-input bg-background shadow-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-indigo/40 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-accent-indigo data-[state=checked]:text-accent-indigo-foreground data-[state=checked]:border-accent-indigo data-[state=indeterminate]:bg-accent-indigo data-[state=indeterminate]:text-accent-indigo-foreground data-[state=indeterminate]:border-accent-indigo hover:border-accent-indigo/60 transition-colors",
+  "peer shrink-0 rounded-sm border border-input bg-input-bg transition-colors focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:border-border-disabled disabled:bg-bg-disabled disabled:opacity-100 disabled:text-text-disabled hover:border-primary/50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=checked]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-primary-foreground data-[state=indeterminate]:border-primary",
   {
     variants: {
       size: {
@@ -42,9 +46,9 @@ const Checkbox = React.forwardRef<
     >
       <CheckboxPrimitive.Indicator className={cn("flex items-center justify-center text-current")}>
         {props.checked === "indeterminate" ? (
-          <Minus className={iconClass} aria-hidden="true" />
+          <Minus className={iconClass} strokeWidth={3} aria-hidden="true" />
         ) : (
-          <Check className={iconClass} aria-hidden="true" />
+          <Check className={iconClass} strokeWidth={3} aria-hidden="true" />
         )}
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>

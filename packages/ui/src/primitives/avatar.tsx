@@ -100,7 +100,7 @@ const AVATAR_STATUS_SIZE: Record<NonNullable<VariantProps<typeof avatarVariants>
 export type AvatarRingTone = 'accent' | 'success' | 'warning' | 'error' | 'muted'
 
 const AVATAR_RING_CLASS: Record<AvatarRingTone, string> = {
-  accent: 'ring-2 ring-accent-indigo ring-offset-2 ring-offset-background',
+  accent: 'ring-2 ring-accent-strong ring-offset-2 ring-offset-background',
   success: 'ring-2 ring-status-success-icon ring-offset-2 ring-offset-background',
   warning: 'ring-2 ring-status-warning-icon ring-offset-2 ring-offset-background',
   error: 'ring-2 ring-status-error-icon ring-offset-2 ring-offset-background',

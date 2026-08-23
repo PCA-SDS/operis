@@ -227,7 +227,7 @@ describe('NotificationFeed', () => {
       tone: 'indigo' | 'success' | 'warning' | 'error' | 'info' | 'brand' | 'neutral'
       expectedClasses: string[]
     }> = [
-      { tone: 'indigo', expectedClasses: ['bg-accent-indigo/10', 'text-accent-indigo'] },
+      { tone: 'indigo', expectedClasses: ['bg-accent-strong/10', 'text-accent-strong'] },
       { tone: 'success', expectedClasses: ['bg-status-success-icon/10', 'text-status-success-icon'] },
       { tone: 'warning', expectedClasses: ['bg-status-warning-icon/10', 'text-status-warning-icon'] },
       { tone: 'error', expectedClasses: ['bg-status-error-icon/10', 'text-status-error-icon'] },
@@ -259,7 +259,7 @@ describe('NotificationFeed', () => {
       '[data-slot="notification-feed-icon-badge"]',
     ) as HTMLElement
     expect(badge.getAttribute('data-tone')).toBe('indigo')
-    expect(badge.className).toContain('bg-accent-indigo/10')
+    expect(badge.className).toContain('bg-accent-strong/10')
     expect(badge.className).toContain('size-10')
   })
 

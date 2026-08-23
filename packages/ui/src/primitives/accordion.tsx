@@ -17,7 +17,7 @@ const accordionItemVariants = cva(
   // declares a `leftIcon`, so `AccordionContent` aligns with the title text
   // — matches Figma 210:4064 (Active state) without React state or hydration
   // flash.
-  'overflow-hidden rounded-[10px] transition-colors [--accordion-indent:14px] has-[[data-slot=accordion-trigger-left-icon]]:[--accordion-indent:44px]',
+  'overflow-hidden rounded-lg transition-colors [--accordion-indent:14px] has-[[data-slot=accordion-trigger-left-icon]]:[--accordion-indent:44px]',
   {
     variants: {
       variant: {

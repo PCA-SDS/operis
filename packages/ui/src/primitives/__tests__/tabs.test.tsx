@@ -104,7 +104,7 @@ describe('Tabs Phase B.5 — variant + orientation + leading + count', () => {
     expect(list.className).not.toContain('bg-muted')
     const active = container.querySelector('[data-state="active"]') as HTMLElement
     expect(active.getAttribute('data-variant')).toBe('underline')
-    expect(active.className).toContain('border-accent-indigo')
+    expect(active.className).toContain('border-accent-strong')
     expect(active.className).toContain('font-semibold')
   })
 
@@ -125,7 +125,7 @@ describe('Tabs Phase B.5 — variant + orientation + leading + count', () => {
     expect(list.getAttribute('aria-orientation')).toBe('vertical')
   })
 
-  it('vertical underline switches to right-side border + bg-muted on active item', () => {
+  it('vertical underline switches to right-side border + quiet fill on active item', () => {
     const { container } = render(
       <Tabs defaultValue="a" variant="underline" orientation="vertical">
         <TabsList>
@@ -137,7 +137,7 @@ describe('Tabs Phase B.5 — variant + orientation + leading + count', () => {
     const list = container.querySelector('[data-slot="tabs-list"]') as HTMLElement
     expect(list.className).toContain('border-r')
     const active = container.querySelector('[data-state="active"]') as HTMLElement
-    expect(active.className).toContain('bg-muted/40')
+    expect(active.className).toContain('bg-surface-muted')
     expect(active.className).toContain('text-foreground')
   })
 
@@ -163,7 +163,7 @@ describe('Tabs Phase B.5 — variant + orientation + leading + count', () => {
     expect(container.querySelector('[data-slot="tabs-trigger-leading"]')).not.toBeNull()
   })
 
-  it('renders the count slot on selected trigger with accent-indigo tone', () => {
+  it('renders the count slot on selected trigger with accent-strong tone', () => {
     const { container } = render(
       <Tabs defaultValue="a">
         <TabsList>
@@ -176,9 +176,9 @@ describe('Tabs Phase B.5 — variant + orientation + leading + count', () => {
       container.querySelectorAll('[data-slot="tabs-trigger-count"]'),
     ) as HTMLElement[]
     expect(counts.length).toBe(2)
-    // The first (selected) trigger's count uses accent-indigo tone.
-    expect(counts[0].className).toContain('bg-accent-indigo/10')
-    expect(counts[0].className).toContain('text-accent-indigo')
+    // The first (selected) trigger's count uses accent-strong tone.
+    expect(counts[0].className).toContain('bg-accent-strong/10')
+    expect(counts[0].className).toContain('text-accent-strong')
     // The second (inactive) trigger's count uses the muted variant.
     expect(counts[1].className).toContain('text-muted-foreground')
     expect(counts[0].textContent).toBe('5')

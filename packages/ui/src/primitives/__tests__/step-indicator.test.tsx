@@ -77,7 +77,7 @@ describe('StepIndicator', () => {
     ) as HTMLElement
     // No Check / X icon for current — just the coloured dot
     expect(currentDot.querySelector('svg')).toBeNull()
-    expect(currentDot.className).toContain('bg-accent-indigo')
+    expect(currentDot.className).toContain('bg-accent-strong')
   })
 
   it('renders the pending dot as an outlined circle (no glyph, transparent bg)', () => {

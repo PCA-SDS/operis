@@ -28,7 +28,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
  * The four `status` values supported by this primitive are:
  *
  * - `'pending'`  — Figma "Default" (white dot, muted label)
- * - `'current'`  — Figma "Active"  (accent-indigo dot, foreground label)
+ * - `'current'`  — Figma "Active"  (accent-strong dot, foreground label)
  * - `'complete'` — Figma "Completed" (status-success dot with check)
  * - `'error'`    — extension beyond the Figma source. Figma does not
  *   model an error state, but real product surfaces (failed checkout
@@ -115,7 +115,7 @@ const dotVariants = cva(
       },
       status: {
         pending: 'border border-muted-foreground/30 bg-background',
-        current: 'bg-accent-indigo text-accent-indigo-foreground',
+        current: 'bg-accent-strong text-accent-strong-foreground',
         complete:
           'bg-status-success-icon text-status-success-bg',
         error: 'bg-status-error-icon text-status-error-bg',

@@ -125,3 +125,21 @@ export function Tag({
  * <Tag variant={leadTagMap[tag.type]} dot>{tag.label}</Tag>
  */
 export type TagMap<T extends string = string> = Record<T, TagVariant>
+
+/**
+ * Chip style for a **user-picked** entity colour (a tag's colour, a dictionary
+ * entry's colour) that no palette can supply.
+ *
+ * These colours are DATA, not styling — a user chose them in settings, so they
+ * cannot come from a token and must be applied inline. What *is* styling is the
+ * recipe: full-strength for the text and border, and the same hue at 10% (hex
+ * alpha `1A`) behind it. That recipe was written out at seven call sites, which
+ * is seven chances for one chip to drift to a different tint.
+ *
+ * Returns `undefined` when there is no colour, so a call site can spread it and
+ * fall back to a `Tag`/`Badge` variant.
+ */
+export function entityColorStyle(color: string | null | undefined): React.CSSProperties | undefined {
+  if (!color) return undefined
+  return { color, borderColor: color, backgroundColor: `${color}1A` }
+}

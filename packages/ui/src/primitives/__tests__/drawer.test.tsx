@@ -89,7 +89,7 @@ describe('Drawer', () => {
     // Figma Drawer [1.1] width contract: 400px
     expect(content.className).toContain('max-w-[400px]')
     // Per Figma: inner edge rounded, no panel border on the seam.
-    expect(content.className).toContain('rounded-l-xl')
+    expect(content.className).toContain('rounded-l-2xl')
     expect(content.className).not.toMatch(/\bborder-l\b/)
   })
 
@@ -98,7 +98,7 @@ describe('Drawer', () => {
     const content = document.querySelector('[data-slot="drawer-content"]') as HTMLElement
     expect(content.className).toContain('left-0')
     expect(content.className).toContain('inset-y-0')
-    expect(content.className).toContain('rounded-r-xl')
+    expect(content.className).toContain('rounded-r-2xl')
     expect(content.className).not.toMatch(/\bborder-r\b/)
     expect(content.getAttribute('data-side')).toBe('left')
   })
@@ -108,9 +108,9 @@ describe('Drawer', () => {
     const content = document.querySelector('[data-slot="drawer-content"]') as HTMLElement
     expect(content.className).toContain('top-0')
     expect(content.className).toContain('inset-x-0')
-    expect(content.className).toContain('rounded-b-xl')
+    expect(content.className).toContain('rounded-b-2xl')
     expect(content.className).not.toMatch(/\bborder-b\b/)
-    expect(content.className).toContain('max-h-[80vh]')
+    expect(content.className).toContain('max-h-[80dvh]')
   })
 
   it('applies bottom-side classes (rounded top edge) when side="bottom"', () => {
@@ -118,9 +118,9 @@ describe('Drawer', () => {
     const content = document.querySelector('[data-slot="drawer-content"]') as HTMLElement
     expect(content.className).toContain('bottom-0')
     expect(content.className).toContain('inset-x-0')
-    expect(content.className).toContain('rounded-t-xl')
+    expect(content.className).toContain('rounded-t-2xl')
     expect(content.className).not.toMatch(/\bborder-t\b/)
-    expect(content.className).toContain('max-h-[80vh]')
+    expect(content.className).toContain('max-h-[80dvh]')
   })
 
   it('renders the auto close button by default', () => {
@@ -260,6 +260,6 @@ describe('Drawer', () => {
     const content = document.querySelector('[data-slot="drawer-content"]') as HTMLElement
     expect(content.className).toContain('custom-class')
     expect(content.className).toContain('right-0')
-    expect(content.className).toContain('rounded-l-xl')
+    expect(content.className).toContain('rounded-l-2xl')
   })
 })

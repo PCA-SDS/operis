@@ -492,7 +492,7 @@ export function HorizontalScrollRow({
           onClick={() => scrollBy('left')}
           aria-label={scrollLeftAriaLabel}
           className={cn(
-            'absolute left-1 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-xs transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
+            'absolute left-1 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-muted-foreground shadow-xs transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
             arrowButtonClass,
           )}
           data-slot="time-picker-scroll-left"
@@ -506,7 +506,7 @@ export function HorizontalScrollRow({
           onClick={() => scrollBy('right')}
           aria-label={scrollRightAriaLabel}
           className={cn(
-            'absolute right-1 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-xs transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
+            'absolute right-1 top-1/2 z-10 flex -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-muted-foreground shadow-xs transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
             arrowButtonClass,
           )}
           data-slot="time-picker-scroll-right"
@@ -704,7 +704,7 @@ function TimePickerCard({
   return (
     <div
       className={cn(
-        'flex w-80 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-xl',
+        'flex w-80 flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-xl',
         className,
       )}
       role="dialog"

@@ -72,7 +72,7 @@ const sliderRangeVariants = cva(
   // Enabled: indigo brand color (Figma `#6366F1`). Disabled: collapse to
   // a neutral mid-grey so the range visually merges with the track (the
   // Figma disabled state shows no indigo bleed at all).
-  'absolute rounded-full bg-accent-indigo data-[disabled]:bg-muted-foreground/25',
+  'absolute rounded-full bg-accent-strong data-[disabled]:bg-muted-foreground/25',
   {
     variants: {
       orientation: {
@@ -97,7 +97,7 @@ const sliderThumbVariants = cva(
   //     border is what makes the thumb still legible against the track
   //     when shadow + indigo are both gone.
   'relative block size-4 rounded-full bg-background shadow-sm transition-shadow ' +
-    "after:content-[''] after:absolute after:left-1/2 after:top-1/2 after:size-1.5 after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-accent-indigo " +
+    "after:content-[''] after:absolute after:left-1/2 after:top-1/2 after:size-1.5 after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-accent-strong " +
     'hover:shadow-md ' +
     'focus-visible:outline-none focus-visible:shadow-focus ' +
     'data-[disabled]:pointer-events-none data-[disabled]:shadow-none data-[disabled]:border data-[disabled]:border-muted-foreground/30 ' +

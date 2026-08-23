@@ -13,10 +13,10 @@ const iconButtonVariants = cva(
         destructive:
           'bg-destructive text-white shadow-xs hover:bg-destructive/90',
         outline:
-          'border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
+          'border border-border bg-surface text-foreground shadow-sm hover:bg-surface-muted',
         ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
         white:
-          'bg-background text-muted-foreground shadow-xs hover:bg-accent hover:text-accent-foreground',
+          'bg-surface text-muted-foreground shadow-sm hover:bg-surface-muted hover:text-foreground',
         modifiable:
           'bg-transparent text-current hover:bg-foreground/10',
       },
@@ -28,7 +28,7 @@ const iconButtonVariants = cva(
       },
       fullRadius: {
         true: 'rounded-full',
-        false: 'rounded-md',
+        false: 'rounded-lg',
       },
     },
     defaultVariants: {

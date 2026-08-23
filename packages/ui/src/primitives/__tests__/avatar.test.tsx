@@ -164,12 +164,12 @@ describe('Avatar', () => {
       const { container } = render(<Avatar label="x" ring />)
       const root = container.querySelector('[data-slot="avatar-root"]') as HTMLElement
       expect(root).not.toBeNull()
-      expect(root.className).toContain('ring-accent-indigo')
+      expect(root.className).toContain('ring-accent-strong')
     })
 
     it('renders the outer ring with all 5 tone variants', () => {
       const tones: Array<{ tone: 'accent' | 'success' | 'warning' | 'error' | 'muted'; cls: string }> = [
-        { tone: 'accent', cls: 'ring-accent-indigo' },
+        { tone: 'accent', cls: 'ring-accent-strong' },
         { tone: 'success', cls: 'ring-status-success-icon' },
         { tone: 'warning', cls: 'ring-status-warning-icon' },
         { tone: 'error', cls: 'ring-status-error-icon' },
