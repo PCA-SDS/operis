@@ -82,7 +82,7 @@ function LoopStepRow({ step }: { step: LoopStepRecord }) {
           {step.textDelta ? (
             <div className="mb-2">
               <div className="mb-0.5 font-semibold text-muted-foreground">Text</div>
-              <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded bg-background p-1.5 font-mono">
+              <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded bg-surface p-1.5 font-mono">
                 {step.textDelta}
               </pre>
             </div>
@@ -94,7 +94,7 @@ function LoopStepRow({ step }: { step: LoopStepRecord }) {
                 {step.toolCalls.map((tc, index) => (
                   <li
                     key={index}
-                    className="rounded border border-border bg-background p-1.5"
+                    className="rounded border border-border bg-surface p-1.5"
                     data-loop-trace-tool-call={tc.toolName}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -138,7 +138,7 @@ export function LoopTracePanel({ trace, className }: LoopTracePanelProps) {
 
   return (
     <section
-      className={`rounded-md border border-border bg-background text-xs${className ? ` ${className}` : ''}`}
+      className={`rounded-md border border-border bg-surface text-xs${className ? ` ${className}` : ''}`}
       data-ai-loop-trace-panel={trace.agentId}
     >
       <button

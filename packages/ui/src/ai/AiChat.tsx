@@ -1623,7 +1623,7 @@ export function AiChat({
   return (
     <section
       className={cn(
-        'flex h-full min-h-[320px] min-w-0 flex-col gap-3 overflow-hidden rounded-lg border border-border bg-background p-3',
+        'flex h-full min-h-[320px] min-w-0 flex-col gap-3 overflow-hidden rounded-lg border border-border bg-surface p-3',
         className,
       )}
       aria-label={t('ai_assistant.chat.regionLabel', 'AI chat')}
@@ -1738,7 +1738,7 @@ export function AiChat({
             {pendingFiles.map((entry, index) => (
               <span
                 key={index}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs"
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-surface px-2 py-0.5 text-xs"
                 title={entry.error ? entry.error : undefined}
                 data-ai-chat-attachment-state={
                   entry.error ? 'error' : entry.attachmentId ? 'ready' : 'uploading'
@@ -1913,7 +1913,7 @@ function AiChatDebugPanel({
         <LoopTracePanel trace={loopTrace} />
       ) : null}
 
-      <details className="rounded border border-border bg-background" data-ai-chat-debug-section="tools" open>
+      <details className="rounded border border-border bg-surface" data-ai-chat-debug-section="tools" open>
         <summary className="cursor-pointer px-2 py-1 font-semibold">
           {t('ai_assistant.chat.debug.toolsSection', 'Resolved tools')}
           {tools ? (
@@ -1964,7 +1964,7 @@ function AiChatDebugPanel({
       </details>
 
       <details
-        className="rounded border border-border bg-background"
+        className="rounded border border-border bg-surface"
         data-ai-chat-debug-section="promptSections"
       >
         <summary className="cursor-pointer px-2 py-1 font-semibold">
@@ -2012,7 +2012,7 @@ function AiChatDebugPanel({
       </details>
 
       <details
-        className="rounded border border-border bg-background"
+        className="rounded border border-border bg-surface"
         data-ai-chat-debug-section="lastRequest"
       >
         <summary className="cursor-pointer px-2 py-1 font-semibold">
@@ -2038,7 +2038,7 @@ function AiChatDebugPanel({
       </details>
 
       <details
-        className="rounded border border-border bg-background"
+        className="rounded border border-border bg-surface"
         data-ai-chat-debug-section="lastResponse"
       >
         <summary className="cursor-pointer px-2 py-1 font-semibold">

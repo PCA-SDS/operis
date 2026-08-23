@@ -1263,7 +1263,7 @@ function NotesSectionImpl<C = unknown>({
                       textareaRef={contentTextareaRef}
                       onTextareaInput={(event) => adjustTextareaSize(event.currentTarget)}
                       textareaClassName="w-full resize-none overflow-hidden rounded-md border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      editorWrapperClassName="w-full rounded-md border border-muted-foreground/20 bg-background p-2"
+                      editorWrapperClassName="w-full rounded-md border border-muted-foreground/20 bg-input-bg p-2"
                       remarkPlugins={markdownPlugins}
                     />
                     {contentError ? <p className="text-xs text-status-error-text">{contentError}</p> : null}

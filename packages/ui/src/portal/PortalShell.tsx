@@ -136,7 +136,7 @@ function UserAvatar({ name, className }: { name?: string; className?: string }) 
     ? name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
     : '?'
   return (
-    <div className={`flex items-center justify-center rounded-full bg-primary text-overline font-semibold text-background ${className ?? 'size-8'}`}>
+    <div className={`flex items-center justify-center rounded-full bg-primary text-overline font-semibold text-primary-foreground ${className ?? 'size-8'}`}>
       {initials}
     </div>
   )

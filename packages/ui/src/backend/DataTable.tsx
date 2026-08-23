@@ -3002,7 +3002,7 @@ export function DataTable<T extends RowData>({
         <Filter className="h-4 w-4" />
         <span>{t('ui.dataTable.filters', 'Filters')}</span>
         {advancedFilterRuleCount > 0 ? (
-          <span className="ml-1 inline-flex h-5 min-w-5 px-1.5 items-center justify-center rounded-full bg-muted-foreground/30 text-background text-xs">
+          <span className="ml-1 inline-flex h-5 min-w-5 px-1.5 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">
             {advancedFilterRuleCount}
           </span>
         ) : null}
@@ -3061,7 +3061,7 @@ export function DataTable<T extends RowData>({
           : <Save className="h-4 w-4" />}
         <span>{t('ui.dataTable.saveView.button', 'Save view')}</span>
         {viewDirtyState.changedCount > 0 ? (
-          <span className="ml-1 inline-flex h-5 min-w-5 px-1.5 items-center justify-center rounded-full bg-muted-foreground/30 text-background text-xs">
+          <span className="ml-1 inline-flex h-5 min-w-5 px-1.5 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs">
             {viewDirtyState.changedCount}
           </span>
         ) : null}

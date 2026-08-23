@@ -137,7 +137,7 @@ export function PortalNotificationPanel({
                 ? t('portal.notifications.tab.all', 'All')
                 : t('portal.notifications.tab.unread', 'Unread')}
               {tabId === 'unread' && unreadCount > 0 ? (
-                <span className="ml-1.5 inline-flex size-5 items-center justify-center rounded-full bg-primary text-overline font-bold text-background">
+                <span className="ml-1.5 inline-flex size-5 items-center justify-center rounded-full bg-primary text-overline font-bold text-primary-foreground">
                   {unreadCount}
                 </span>
               ) : null}

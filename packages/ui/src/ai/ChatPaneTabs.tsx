@@ -97,7 +97,7 @@ export function ChatPaneTabs({ agentId, className }: ChatPaneTabsProps) {
               className={cn(
                 'group flex max-w-[12rem] shrink-0 items-center gap-1 rounded-t-md border-b-2 px-2 py-1',
                 isActive
-                  ? 'border-accent-strong bg-background text-foreground'
+                  ? 'border-accent-strong bg-surface text-foreground'
                   : 'border-transparent text-muted-foreground hover:text-foreground',
               )}
             >

@@ -41,7 +41,7 @@ export function MessagePrioritySelector({
   return (
     <div className={cn('space-y-2', className)}>
       <div
-        className="inline-flex w-full items-center gap-1 rounded-md border bg-background p-1 sm:w-auto"
+        className="inline-flex w-full items-center gap-1 rounded-md border bg-surface p-1 sm:w-auto"
         role="radiogroup"
         aria-label={selectorLabel}
         tabIndex={0}

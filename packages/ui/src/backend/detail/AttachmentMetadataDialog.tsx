@@ -181,7 +181,7 @@ function AssignmentInputRow({
     .join(' - ')
 
   return (
-    <div data-assignment-card className="min-w-0 rounded-md border border-border/70 bg-background p-3">
+    <div data-assignment-card className="min-w-0 rounded-md border border-border/70 bg-surface p-3">
       <div className="mb-3 flex min-w-0 items-start justify-between gap-3">
         <div className="min-w-0">
           {primaryLabel ? (

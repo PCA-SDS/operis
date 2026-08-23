@@ -117,7 +117,7 @@ export function ActiveFilterChips({ tree, fields, popoverOpen, onRemoveNode, onO
   if (!visibleChildren.length) return null
   return (
     <div
-      className="flex items-center gap-2 px-4 py-2 overflow-x-auto bg-background border-b border-border"
+      className="flex items-center gap-2 px-4 py-2 overflow-x-auto bg-surface border-b border-border"
       data-testid="active-filter-chips"
     >
       {visibleChildren.map((child) => {

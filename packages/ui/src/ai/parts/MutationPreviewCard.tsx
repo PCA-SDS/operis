@@ -184,7 +184,7 @@ export function MutationPreviewCard(props: MutationPreviewCardProps) {
 
   return (
     <section
-      className="rounded-md border border-border bg-background p-4 text-sm outline-none"
+      className="rounded-md border border-border bg-surface p-4 text-sm outline-none"
       tabIndex={0}
       onKeyDown={handleKeyDown}
       data-ai-mutation-preview

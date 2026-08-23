@@ -43,7 +43,7 @@ function StepIndicator({
                 className={cn(
                   'flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium transition-colors',
                   status === 'completed' && 'bg-primary text-primary-foreground',
-                  status === 'current' && 'border-2 border-primary bg-background text-primary',
+                  status === 'current' && 'border-2 border-primary bg-surface text-primary',
                   status === 'pending' && 'border border-muted-foreground/30 bg-muted text-muted-foreground',
                 )}
                 aria-current={status === 'current' ? 'step' : undefined}

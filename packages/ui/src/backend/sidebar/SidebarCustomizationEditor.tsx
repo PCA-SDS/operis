@@ -1110,7 +1110,7 @@ export function SidebarCustomizationEditor({
                             return (
                               <label
                                 key={role.id}
-                                className="flex cursor-pointer items-center gap-3 rounded-lg border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
+                                className="flex cursor-pointer items-center gap-3 rounded-lg border bg-surface px-3 py-2 text-sm transition-colors hover:bg-muted"
                               >
                                 <Switch
                                   checked={checked}
@@ -1203,7 +1203,7 @@ export function SidebarCustomizationEditor({
                   const trimmedValue = value.trim()
                   const isGroupModified = trimmedValue.length > 0 && trimmedValue !== placeholder
                   return (
-                    <div key={groupId} className="rounded-lg border bg-background">
+                    <div key={groupId} className="rounded-lg border bg-surface">
                       <div className="flex items-start gap-3 border-b px-4 py-3">
                         <div className="flex flex-1 flex-col gap-1.5">
                           <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground/70">

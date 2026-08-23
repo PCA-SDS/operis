@@ -237,7 +237,7 @@ function SavedFiltersSection({
       {filters.length ? (
         <div className="flex flex-wrap gap-2">
           {filters.map((filter) => (
-            <div key={filter.id} className="inline-flex max-w-full items-center overflow-hidden rounded-full border border-border bg-background">
+            <div key={filter.id} className="inline-flex max-w-full items-center overflow-hidden rounded-full border border-border bg-surface">
               <Button
                 type="button"
                 variant="ghost"

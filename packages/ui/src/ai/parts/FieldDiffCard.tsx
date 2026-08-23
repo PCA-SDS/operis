@@ -111,7 +111,7 @@ export function FieldDiffCard({ fieldDiff, records }: FieldDiffCardProps) {
         {batch.map((record) => (
           <section
             key={record.recordId}
-            className="rounded-md border border-border bg-background p-3"
+            className="rounded-md border border-border bg-surface p-3"
             data-ai-field-diff-record={record.recordId}
           >
             <header className="mb-2 flex items-baseline justify-between gap-2">

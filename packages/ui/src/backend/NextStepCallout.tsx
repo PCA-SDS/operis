@@ -72,7 +72,7 @@ export function NextStepCallout({
     <div className={cn('rounded-xl border border-dashed border-primary/30 bg-primary/5 px-6 py-8', className)}>
       <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
         {icon ? (
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-background text-primary">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-primary/30 bg-surface text-primary">
             {icon}
           </div>
         ) : null}

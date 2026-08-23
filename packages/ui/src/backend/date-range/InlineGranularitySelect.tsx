@@ -35,7 +35,7 @@ export function InlineGranularitySelect({
   const t = useT()
 
   return (
-    <div className={`inline-flex rounded-md border border-border bg-background ${className}`} role="group">
+    <div className={`inline-flex rounded-md border border-border bg-surface ${className}`} role="group">
       {GRANULARITY_OPTIONS.map((option) => {
         const isActive = option.value === value
         return (

@@ -1503,7 +1503,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           <InjectionSpot spotId={BACKEND_LAYOUT_FOOTER_INJECTION_SPOT_ID} context={injectionContext} />
         </main>
         {hideFooter ? null : (
-          <footer className="border-t border-border bg-background px-4 py-3 sm:px-6 lg:px-8 flex flex-wrap items-center justify-end gap-4">
+          <footer className="border-t border-border bg-surface px-4 py-3 sm:px-6 lg:px-8 flex flex-wrap items-center justify-end gap-4">
             {version ? (
               <span className="text-xs text-muted-foreground">
                 {t('appShell.version', { version })}

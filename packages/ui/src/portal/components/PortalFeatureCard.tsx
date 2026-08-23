@@ -18,7 +18,7 @@ export function PortalFeatureCard({ icon, title, description, href, onClick }: P
   const content = (
     <>
       {icon ? (
-        <div className="mb-3 flex size-10 items-center justify-center rounded-lg border bg-background text-muted-foreground">
+        <div className="mb-3 flex size-10 items-center justify-center rounded-lg border bg-surface text-muted-foreground">
           {icon}
         </div>
       ) : null}
