@@ -7,6 +7,7 @@ import {
   resolveGeneratedMigrationPath,
   dbGenerate,
   dbGreenfield,
+  dbReset,
 } from '../commands'
 import { MetadataStorage } from '@mikro-orm/core'
 import fs from 'node:fs'
@@ -204,6 +205,49 @@ describe('resolveGeneratedMigrationPath', () => {
 })
 
 describe('db commands', () => {
+  describe('dbReset', () => {
+    const mockResolver = {
+      loadEnabledModules: () => [],
+      getOutputDir: () => '/tmp/test',
+      getRootDir: () => '/tmp',
+      getModulePaths: () => ({ appBase: '', pkgBase: '' }),
+    } as unknown as PackageResolver
+
+    it('requires --yes before touching the database', async () => {
+      const mockConsoleError = jest.spyOn(console, 'error').mockImplementation()
+      const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('process.exit called')
+      })
+
+      await expect(dbReset(mockResolver, { yes: false })).rejects.toThrow('process.exit called')
+
+      const warning = mockConsoleError.mock.calls[0]?.[0] as string
+      expect(warning).toMatch(/DROP every table/i)
+      // Must reassure the operator that this is NOT the repository-rewriting command.
+      expect(warning).toMatch(/left untouched/i)
+
+      mockConsoleError.mockRestore()
+      mockExit.mockRestore()
+    })
+
+    it('refuses to run against a production environment without --force', async () => {
+      const previousNodeEnv = process.env.NODE_ENV
+      const mockConsoleError = jest.spyOn(console, 'error').mockImplementation()
+      const mockExit = jest.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('process.exit called')
+      })
+      try {
+        process.env.NODE_ENV = 'production'
+        await expect(dbReset(mockResolver, { yes: true })).rejects.toThrow('process.exit called')
+        expect(mockConsoleError).toHaveBeenCalledWith(expect.stringMatching(/NODE_ENV=production/))
+      } finally {
+        process.env.NODE_ENV = previousNodeEnv
+        mockConsoleError.mockRestore()
+        mockExit.mockRestore()
+      }
+    })
+  })
+
   describe('dbGreenfield', () => {
     it('should require --yes flag', async () => {
       // Mock console.error and process.exit
@@ -221,9 +265,14 @@ describe('db commands', () => {
 
       await expect(dbGreenfield(mockResolver, { yes: false })).rejects.toThrow('process.exit called')
 
-      expect(mockConsoleError).toHaveBeenCalledWith(
-        'This command will DELETE all data. Use --yes to confirm.'
-      )
+      // The warning must state the two things that make this command dangerous
+      // and point at the safe alternative — greenfield rewrites the repository
+      // (migration files + snapshots), not just the database.
+      const warning = mockConsoleError.mock.calls[0]?.[0] as string
+      expect(warning).toMatch(/migration file/i)
+      expect(warning).toMatch(/snapshot/i)
+      expect(warning).toMatch(/db reset/i)
+      expect(warning).toMatch(/--yes/)
 
       mockConsoleError.mockRestore()
       mockExit.mockRestore()

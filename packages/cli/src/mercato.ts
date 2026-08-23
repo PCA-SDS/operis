@@ -1977,6 +1977,17 @@ export async function run(argv = process.argv) {
           await dbGreenfield(resolver, { yes })
         },
       },
+      {
+        command: 'reset',
+        run: async (args: string[]) => {
+          const { createResolver } = await import('./lib/resolver')
+          const { dbReset } = await import('./lib/db')
+          const resolver = createResolver()
+          const yes = args.includes('--yes') || args.includes('-y')
+          const force = args.includes('--force')
+          await dbReset(resolver, { yes, force })
+        },
+      },
     ],
   } as any)
 

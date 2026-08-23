@@ -17,6 +17,7 @@
     "db:generate": "mercato db generate",
     "db:migrate": "mercato db migrate",
     "db:greenfield": "mercato db greenfield",
+    "db:reset": "mercato db reset",
     "initialize": "mercato init",
     "reinstall": "mercato init --reinstall",
     "seed:defaults": "mercato seed:defaults"

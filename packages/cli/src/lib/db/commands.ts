@@ -230,6 +230,84 @@ export interface GreenfieldOptions extends DbOptions {
   yes: boolean
 }
 
+export interface ResetOptions extends DbOptions {
+  yes: boolean
+  /** Allows the reset to proceed when NODE_ENV=production. */
+  force?: boolean
+}
+
+/**
+ * Drops every table in the current schema, then re-applies all migrations.
+ *
+ * This is the "wipe my local data and start clean" command. It is deliberately
+ * separate from `db greenfield`, which additionally deletes migration files and
+ * snapshots from the source tree — a repository rewrite that is almost never
+ * what someone resetting local data wants.
+ */
+export async function dbReset(resolver: PackageResolver, options: ResetOptions): Promise<void> {
+  if (!options.yes) {
+    console.error([
+      'This will DROP every table in the database at DATABASE_URL and re-apply migrations.',
+      'Migration files and snapshots are left untouched.',
+      '',
+      'Use --yes to confirm.',
+    ].join('\n'))
+    process.exit(1)
+  }
+  if (process.env.NODE_ENV === 'production' && !options.force) {
+    console.error('Refusing to reset the database with NODE_ENV=production. Pass --force if you are certain.')
+    process.exit(1)
+  }
+
+  const url = getClientUrl()
+  // Never echo credentials — show only host/database so the operator can
+  // confirm they are pointed at the right place.
+  let target = 'the configured database'
+  try {
+    const parsed = new URL(url)
+    target = `${parsed.hostname}:${parsed.port || '5432'}${parsed.pathname}`
+  } catch {
+    // keep the generic label
+  }
+  console.log(`Resetting ${target} ...`)
+
+  const { Client } = await import('pg')
+  const client = new Client({ connectionString: url, ssl: getSslConfig() })
+  await client.connect()
+  try {
+    const res = await client.query(`SELECT tablename FROM pg_tables WHERE schemaname = current_schema()`)
+    const tables: string[] = (res.rows || []).map((row: { tablename: string }) => String(row.tablename))
+    if (!tables.length) {
+      console.log('  No tables to drop; database is already empty.')
+    } else {
+      await client.query('BEGIN')
+      try {
+        // Replica role suspends FK triggers so drop order does not matter.
+        await client.query("SET session_replication_role = 'replica'")
+        for (const table of tables) {
+          await client.query(`DROP TABLE IF EXISTS ${quotePostgresIdentifier(table)} CASCADE`)
+        }
+        await client.query("SET session_replication_role = 'origin'")
+        await client.query('COMMIT')
+        console.log(`  Dropped ${tables.length} table(s).`)
+      } catch (err) {
+        await client.query('ROLLBACK')
+        throw err
+      }
+    }
+  } finally {
+    try {
+      await client.end()
+    } catch {
+      // connection teardown failures are not actionable here
+    }
+  }
+
+  console.log('Re-applying migrations...')
+  await dbMigrate(resolver, options)
+  console.log('Database reset complete. Run `yarn seed:dev` to recreate development data.')
+}
+
 export async function dbGenerate(resolver: PackageResolver, options: DbOptions = {}): Promise<void> {
   const modules = resolver.loadEnabledModules()
   const ordered = sortModules(modules)
@@ -423,7 +501,20 @@ export async function dbMigrate(resolver: PackageResolver, options: DbOptions = 
 
 export async function dbGreenfield(resolver: PackageResolver, options: GreenfieldOptions): Promise<void> {
   if (!options.yes) {
-    console.error('This command will DELETE all data. Use --yes to confirm.')
+    console.error([
+      'This command rewrites your REPOSITORY, not just the database.',
+      '',
+      'It will:',
+      '  1. DELETE every migration file and snapshot from src/modules/*/migrations/',
+      '  2. DROP every table in the database',
+      '  3. Regenerate a single squashed migration from the current entities',
+      '',
+      'Use it only to re-baseline a project that has no deployed database.',
+      'To wipe and rebuild local data while KEEPING migration history, use',
+      '`mercato db reset --yes` instead.',
+      '',
+      'Use --yes to confirm.',
+    ].join('\n'))
     process.exit(1)
   }
 
