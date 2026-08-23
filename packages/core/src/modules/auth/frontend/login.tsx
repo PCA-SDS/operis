@@ -2,25 +2,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { extensionPoints } from '@open-mercato/core/modules/auth/extension-points'
 import type { ReactNode } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Input } from '@open-mercato/ui/primitives/input'
-import { EmailInput } from '@open-mercato/ui/primitives/email-input'
-import { PasswordInput } from '@open-mercato/ui/primitives/password-input'
-import { Label } from '@open-mercato/ui/primitives/label'
-import { Button } from '@open-mercato/ui/primitives/button'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { translateWithFallback } from '@open-mercato/shared/lib/i18n/translate'
 import { clearAllOperations } from '@open-mercato/ui/backend/operations/store'
 import { notifyAuthIdentityChange } from '@open-mercato/ui/backend/AuthSessionGuard'
 import { clearAllPerspectiveState } from '@open-mercato/ui/backend/perspectiveState'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { X } from 'lucide-react'
-import { Alert, AlertDescription } from '@open-mercato/ui/primitives/alert'
+import { Eye, EyeOff, X } from 'lucide-react'
 import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
 import { useRegisteredComponent } from '@open-mercato/ui/backend/injection/useRegisteredComponent'
 import type { AuthOverride, LoginFormWidgetContext } from './login-injection'
+
+// Hero photograph. Matches the reference sign-in; override with
+// NEXT_PUBLIC_OM_LOGIN_HERO_URL (e.g. a self-hosted asset) without a code change.
+const defaultHeroImageUrl =
+  'https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?q=80&w=2338&auto=format&fit=crop'
+const heroImageUrl = process.env.NEXT_PUBLIC_OM_LOGIN_HERO_URL || defaultHeroImageUrl
 
 const loginTenantKey = 'om_login_tenant'
 const loginTenantCookieMaxAge = 60 * 60 * 24 * 14
@@ -113,6 +112,7 @@ export default function LoginPage() {
   const [authOverride, setAuthOverride] = useState<AuthOverride | null>(null)
   const [authOverridePending, setAuthOverridePending] = useState(false)
   const [clientReady, setClientReady] = useState(false)
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [activeAuthenticatedUser, setActiveAuthenticatedUser] = useState(false)
   const [email, setEmail] = useState('')
   const [tenantId, setTenantId] = useState<string | null>(null)
@@ -347,168 +347,215 @@ export default function LoginPage() {
 
   const formReady = clientReady && !authOverridePending
 
-  // `pb-56` below is load-bearing, not spacing taste. The global notice bars
-  // (cookie consent, demo-instance warning) are `fixed` to the bottom of the
-  // viewport and overlay whatever is under them. This card is vertically
-  // centred, so on a 1280x720 / 1366x768 / 1440x900 viewport the notices sat
-  // directly on top of the password field and the submit button and sign-in
-  // could not be clicked at all. Reserving bottom space on the form column
-  // keeps the primary action clear of them however the notices are configured.
+  // Layout replicates PCA ERP's tenant sign-in: full-bleed hero on the left,
+  // narrow form column on the right. Colours come from Operis tokens rather
+  // than the reference's palette, per the design-system rules.
+  //
+  // `pb-32` on the form column is load-bearing, not spacing taste. The global
+  // notice bars (cookie consent, demo-instance warning) are `fixed` to the
+  // bottom of the viewport and overlay whatever is under them; without a
+  // reserve the submit button sat underneath them and could not be clicked.
+  //
+  // Fields, labels, checkbox, error box and button reproduce the reference's
+  // component styling. Email/password replace its single workspace field
+  // (Operis authenticates with a password, not an OIDC redirect) and reuse the
+  // same field treatment, as do the Operis-only tenant banners and ACL notices.
+  const fieldClass =
+    'w-full rounded-lg border border-transparent bg-surface-muted px-3.5 py-3 text-sm text-foreground placeholder:text-disabled-foreground transition-all outline-none ring-0 focus:outline-none focus:ring-0 focus:border-transparent'
+  const fieldLabelClass = 'mb-2.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground'
+  const primaryButtonClass =
+    'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-transparent bg-primary px-3.5 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-focus-ring/30 disabled:cursor-not-allowed disabled:opacity-60'
+  const noticeClass = 'rounded-lg px-3 py-2 text-sm leading-5'
+
   return (
     <div className="flex min-h-svh bg-background">
       {/*
-        Hero panel. Hidden below `lg` so small screens get the form full-width
-        rather than a cropped decorative band. To use a photograph instead of
-        the gradient, drop one in `public/` and add
-        `style={{ backgroundImage: 'url("/login-hero.jpg")' }}` plus
-        `bg-cover bg-center` here — the overlay below already guarantees text
-        contrast over an arbitrary image.
+        The scrim and hero copy use fixed black/white rather than theme tokens on
+        purpose: this panel sits over a photograph, so it is a fixed dark context
+        in both themes. `bg-foreground/55` would invert to a LIGHT scrim in dark
+        mode and make the headline unreadable. Same rationale as the dialog
+        backdrop's `bg-black/40`.
       */}
-      <aside
+      <div
         aria-hidden="true"
-        className="relative hidden overflow-hidden bg-gradient-to-br from-primary via-accent-strong to-brand-violet lg:flex lg:w-3/5 xl:w-2/3"
+        className="relative hidden bg-cover bg-center lg:flex lg:w-2/3 xl:w-3/4"
+        style={{ backgroundImage: `url("${heroImageUrl}")` }}
       >
-        <div className="absolute inset-0 bg-foreground/40" />
-        <div className="relative z-10 flex max-w-2xl flex-col justify-end p-12">
-          <h1 className="mb-4 text-4xl font-bold leading-tight tracking-tight text-primary-foreground xl:text-5xl">
-            {translate('auth.login.hero.title', 'An Enterprise Resource Planning Platform')}
+        <div className="absolute inset-0 bg-black/55" />
+        <div className="relative z-10 flex max-w-2xl flex-col justify-end p-12 text-white">
+          <h1 className="mb-4 text-5xl font-bold tracking-normal">
+            {translate('auth.login.hero.title', 'An Enterprise Resource Planning Software')}
           </h1>
-          <p className="text-base leading-8 text-primary-foreground/85">
-            {translate('auth.login.hero.description', 'Manage operations, approvals and tenant workflows from one secure platform.')}
+          <p className="text-base leading-8 text-white/85">
+            {translate('auth.login.hero.description', 'Manage operations, approvals, and tenant workflows from one secure platform.')}
           </p>
-          <p className="mt-2 text-sm font-medium text-primary-foreground/70">
-            {translate('auth.login.hero.tagline', "Your organisation's solution.")}
+          <p className="mt-2 text-sm font-medium text-white/70">
+            {translate('auth.login.hero.tagline', "Your Company's Solution.")}
           </p>
         </div>
-      </aside>
+      </div>
 
-      <div className="flex w-full items-center justify-center px-6 py-10 pb-32 lg:w-2/5 lg:px-10 xl:w-1/3">
+      <div className="flex w-full items-center justify-center px-6 py-10 pb-32 lg:w-1/3 lg:px-8 xl:w-1/4">
         <div className="w-full max-w-sm">
-          <Image
-            alt={translate('auth.login.logoAlt', 'Operis logo')}
-            src="/operis.svg"
-            width={48}
-            height={48}
-            priority
-            className="mb-8 h-12 w-auto"
-          />
           <header className="mb-8">
             <p className="mb-3 text-xs font-bold uppercase tracking-wider text-accent-strong">
               {translate('auth.login.eyebrow', 'Operis ERP')}
             </p>
             <h2 className="text-3xl font-bold leading-tight tracking-tight text-foreground">
-              {translate('auth.login.workspaceTitle', 'Sign in to your workspace')}
+              {translate('auth.login.workspaceTitle', 'Sign in to Your Workspace')}
             </h2>
           </header>
+
           <LoginFormSection>
-            <form className="grid gap-3" onSubmit={onSubmit} noValidate data-auth-ready={formReady ? '1' : '0'}>
+            <form className="space-y-5" onSubmit={onSubmit} noValidate data-auth-ready={formReady ? '1' : '0'}>
               {tenantId ? (
                 <input type="hidden" name="tenantId" value={tenantId} />
               ) : null}
+
               {!!translatedRoles.length && (
-                <Alert status="information" className="text-center">
-                  <AlertDescription>
-                    {translate(
-                      translatedRoles.length > 1 ? 'auth.login.requireRolesMessage' : 'auth.login.requireRoleMessage',
-                      translatedRoles.length > 1
-                        ? 'Access requires one of the following roles: {roles}'
-                        : 'Access requires role: {roles}',
-                      { roles: translatedRoles.join(', ') },
-                    )}
-                  </AlertDescription>
-                </Alert>
+                <div className={`${noticeClass} border border-status-info-border bg-status-info-bg text-status-info-text`}>
+                  {translate(
+                    translatedRoles.length > 1 ? 'auth.login.requireRolesMessage' : 'auth.login.requireRoleMessage',
+                    translatedRoles.length > 1
+                      ? 'Access requires one of the following roles: {roles}'
+                      : 'Access requires role: {roles}',
+                    { roles: translatedRoles.join(', ') },
+                  )}
+                </div>
               )}
               {!!translatedFeatures.length && (
-                <Alert status="information" className="text-center">
-                  <AlertDescription>
-                    {translate('auth.login.featureDenied', "You don't have access to this feature ({feature}). Please contact your administrator.", {
-                      feature: translatedFeatures.join(', '),
-                    })}
-                  </AlertDescription>
-                </Alert>
+                <div className={`${noticeClass} border border-status-info-border bg-status-info-bg text-status-info-text`}>
+                  {translate('auth.login.featureDenied', "You don't have access to this feature ({feature}). Please contact your administrator.", {
+                    feature: translatedFeatures.join(', '),
+                  })}
+                </div>
               )}
               {activeAuthenticatedUser && (translatedRoles.length || translatedFeatures.length) ? (
                 <div className="flex justify-center" data-testid="login-return-dashboard">
-                  <Button asChild type="button" variant="outline" size="sm">
-                    <Link href="/backend">
-                      {translate('auth.accessDenied.dashboard', 'Go to Dashboard')}
-                    </Link>
-                  </Button>
+                  <Link
+                    href="/backend"
+                    className="text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                  >
+                    {translate('auth.accessDenied.dashboard', 'Go to Dashboard')}
+                  </Link>
                 </div>
               ) : null}
+
               {showTenantInvalid ? (
-                <div className="rounded-md border border-status-error-border bg-status-error-bg px-3 py-2 text-center text-xs text-status-error-text">
+                <div className={`${noticeClass} border border-status-error-border bg-status-error-bg text-status-error-text`}>
                   <div className="font-medium">{translate('auth.login.errors.tenantInvalid', 'Tenant not found. Clear the tenant selection and try again.')}</div>
-                  <Button type="button" variant="outline" size="sm" className="mt-2 border-status-error-border text-status-error-text hover:text-status-error-text" onClick={handleClearTenant}>
-                    <X className="mr-2 size-4" aria-hidden="true" />
+                  <button type="button" onClick={handleClearTenant} className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium underline underline-offset-4">
+                    <X className="size-3.5" aria-hidden="true" />
                     {translate('auth.login.tenantClear', 'Clear')}
-                  </Button>
+                  </button>
                 </div>
               ) : tenantId ? (
-                <div className="rounded-md border border-status-success-border bg-status-success-bg px-3 py-2 text-center text-xs text-status-success-text">
+                <div className={`${noticeClass} border border-status-success-border bg-status-success-bg text-status-success-text`}>
                   <div className="font-medium">
                     {tenantLoading
                       ? translate('auth.login.tenantLoading', 'Loading tenant details...')
-                      : translate('auth.login.tenantBanner', "You're logging in to {tenant}.", {
-                          tenant: tenantName || tenantId,
-                        })}
+                      : translate('auth.login.tenantBanner', "You're logging in to {tenant}.", { tenant: tenantName || tenantId })}
                   </div>
-                  <Button type="button" variant="outline" size="sm" className="mt-2 border-status-success-border text-status-success-text hover:text-status-success-text" onClick={handleClearTenant}>
-                    <X className="mr-2 size-4" aria-hidden="true" />
+                  <button type="button" onClick={handleClearTenant} className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium underline underline-offset-4">
+                    <X className="size-3.5" aria-hidden="true" />
                     {translate('auth.login.tenantClear', 'Clear')}
-                  </Button>
+                  </button>
                 </div>
               ) : null}
-              {error && !showTenantInvalid && (
-                <div className="rounded-md border border-status-error-border bg-status-error-bg px-3 py-2 text-center text-sm text-status-error-text" role="alert" aria-live="polite">
-                  {error}
-                </div>
-              )}
-              <div className="grid gap-1">
-                <Label htmlFor="email">{t('auth.email')}</Label>
-                <EmailInput
+
+              <div>
+                <label htmlFor="email" className={fieldLabelClass}>{t('auth.email')}</label>
+                <input
                   id="email"
                   name="email"
+                  type="email"
                   required
+                  autoComplete="email"
+                  placeholder="name@example.com"
                   aria-invalid={!!error}
+                  className={fieldClass}
                   onChange={(e) => setEmail(e.target.value)}
                   onBlur={(e) => setEmail(e.target.value)}
                 />
               </div>
+
               <InjectionSpot<LoginFormWidgetContext>
                 spotId={extensionPoints.hosts.loginForm.spotId}
                 context={loginFormContext}
               />
+
               {authOverride?.hidePassword ? null : (
-                <div className="grid gap-1">
-                  <Label htmlFor="password">{t('auth.password')}</Label>
-                  <PasswordInput id="password" name="password" required={!authOverride} aria-invalid={!!error} autoComplete="current-password" />
+                <div>
+                  <label htmlFor="password" className={fieldLabelClass}>{t('auth.password')}</label>
+                  <div className="relative">
+                    <input
+                      id="password"
+                      name="password"
+                      type={isPasswordVisible ? 'text' : 'password'}
+                      required={!authOverride}
+                      autoComplete="current-password"
+                      aria-invalid={!!error}
+                      className={`${fieldClass} pr-11`}
+                    />
+                    <button
+                      type="button"
+                      aria-label={isPasswordVisible
+                        ? translate('auth.login.hidePassword', 'Hide password')
+                        : translate('auth.login.showPassword', 'Show password')}
+                      aria-pressed={isPasswordVisible}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => setIsPasswordVisible((current) => !current)}
+                      className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring/40"
+                    >
+                      {isPasswordVisible
+                        ? <EyeOff aria-hidden="true" size={18} strokeWidth={2} />
+                        : <Eye aria-hidden="true" size={18} strokeWidth={2} />}
+                    </button>
+                  </div>
                 </div>
               )}
+
               {!authOverride?.hideRememberMe && !authOverride?.hidePassword && (
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <input type="checkbox" name="remember" className="accent-foreground" />
-                  <span>{translate('auth.login.rememberMe', 'Remember me')}</span>
+                <label className="flex cursor-pointer items-center gap-2.5 text-sm text-muted-foreground">
+                  <input type="checkbox" name="remember" className="h-4 w-4 shrink-0 rounded border-border accent-primary" />
+                  <span>{translate('auth.login.rememberMe', 'Keep me signed in')}</span>
                 </label>
               )}
-              <Button type="submit" disabled={submitting || !formReady} className="h-10 mt-2">
+
+              <div
+                className={`overflow-hidden transition-all duration-200 ease-out ${error && !showTenantInvalid ? 'max-h-40 opacity-100' : 'pointer-events-none max-h-0 opacity-0'}`}
+                aria-hidden={!(error && !showTenantInvalid)}
+              >
+                {error && !showTenantInvalid ? (
+                  <div role="alert" aria-live="polite" className={`${noticeClass} border border-status-error-border bg-status-error-bg text-status-error-text`}>
+                    {error}
+                  </div>
+                ) : null}
+              </div>
+
+              <button type="submit" disabled={submitting || !formReady} className={primaryButtonClass}>
                 {submitting
-                  ? translate('auth.login.loading', 'Loading...')
+                  ? translate('auth.login.loading', 'Signing in…')
                   : authOverride
                     ? authOverride.providerLabel
                     : translate('auth.signIn', 'Sign in')}
-              </Button>
+              </button>
+
               {!authOverride?.hideForgotPassword && (
-                <div className="text-xs text-muted-foreground mt-2">
-                  <Link className="underline" href="/reset">
+                <div className="text-center">
+                  <Link
+                    href="/reset"
+                    className="text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                  >
                     {translate('auth.login.forgotPassword', 'Forgot password?')}
                   </Link>
                 </div>
               )}
             </form>
           </LoginFormSection>
+
           <p className="mt-5 text-center text-xs text-muted-foreground">
-            {translate('auth.login.helperText', 'Need access? Contact your administrator.')}
+            {translate('auth.login.helperText', 'Need access? Contact your company administrator.')}
           </p>
         </div>
       </div>
