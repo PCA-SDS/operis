@@ -65,7 +65,7 @@ export function MobileVisualEditor({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="shrink-0 flex items-center justify-between gap-1 border-b border-border bg-background px-3 py-2">
+      <div className="shrink-0 flex items-center justify-between gap-1 border-b border-border bg-surface px-3 py-2">
         <h1 className="truncate text-sm font-semibold">
           {definitionId ? (workflowName || t('workflows.definitions.singular')) : t('workflows.backend.definitions.visual_editor.title')}
         </h1>
@@ -111,7 +111,7 @@ export function MobileVisualEditor({
         </div>
       </div>
 
-      <div className="shrink-0 border-b border-border bg-background px-3 py-2">
+      <div className="shrink-0 border-b border-border bg-surface px-3 py-2">
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
           {NODE_TYPES.map((nodeType) => {
             const Icon = NODE_TYPE_ICONS[nodeType]
@@ -119,7 +119,7 @@ export function MobileVisualEditor({
               <button
                 key={nodeType}
                 onClick={() => onAddNode(nodeType)}
-                className="flex shrink-0 items-center gap-1 rounded-md border bg-background px-2 py-1.5 text-xs hover:bg-muted active:bg-muted/50"
+                className="flex shrink-0 items-center gap-1 rounded-md border bg-surface px-2 py-1.5 text-xs hover:bg-muted active:bg-muted/50"
               >
                 <Icon className="h-3.5 w-3.5" />
                 <span>{NODE_TYPE_LABELS[nodeType].title}</span>

@@ -126,7 +126,7 @@ export function SystemStatusPanel() {
 
   if (state.loading) {
     return (
-      <section className="space-y-3 rounded-lg border bg-background p-6">
+      <section className="space-y-3 rounded-lg border bg-surface p-6">
         <header className="space-y-1">
           <h2 className="text-lg font-semibold">{t('configs.systemStatus.title', 'System status')}</h2>
           <p className="text-sm text-muted-foreground">
@@ -146,7 +146,7 @@ export function SystemStatusPanel() {
 
   if (state.error) {
     return (
-      <section className="space-y-3 rounded-lg border bg-background p-6">
+      <section className="space-y-3 rounded-lg border bg-surface p-6">
         <header className="space-y-1">
           <h2 className="text-lg font-semibold">{t('configs.systemStatus.title', 'System status')}</h2>
           <p className="text-sm text-muted-foreground">
@@ -168,7 +168,7 @@ export function SystemStatusPanel() {
   if (!snapshot) return null
 
   return (
-    <section className="space-y-6 rounded-lg border bg-background p-6">
+    <section className="space-y-6 rounded-lg border bg-surface p-6">
       <header className="space-y-1">
         <h2 className="text-lg font-semibold">{t('configs.systemStatus.title', 'System status')}</h2>
         <p className="text-sm text-muted-foreground">

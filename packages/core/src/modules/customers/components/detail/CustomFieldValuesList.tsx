@@ -80,7 +80,7 @@ function renderDictionaryValues(
             value={value}
             map={dictionaryMap}
             className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-1 text-xs"
-            iconWrapperClassName="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border bg-background"
+            iconWrapperClassName="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border bg-surface"
             iconClassName="h-3 w-3"
             colorClassName="h-2.5 w-2.5 rounded-full"
           />

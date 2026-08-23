@@ -139,7 +139,7 @@ function AgendaRow({
       aria-label={`${title} · ${ariaTime}`}
       onClick={() => onItemClick(item)}
       className={cn(
-        'h-auto w-full justify-start whitespace-normal rounded-none bg-background px-3 py-3 text-left transition-colors hover:bg-muted/30 sm:gap-3.5 sm:px-5',
+        'h-auto w-full justify-start whitespace-normal rounded-none bg-surface px-3 py-3 text-left transition-colors hover:bg-muted/30 sm:gap-3.5 sm:px-5',
         canceled && 'opacity-60',
       )}
     >
@@ -198,7 +198,7 @@ export function AgendaList({ anchor, horizonDays, items, typeLabels, onItemClick
   const t = useT()
   const groups = React.useMemo(() => buildDayGroups(anchor, horizonDays, items), [anchor, horizonDays, items])
   return (
-    <div className="flex w-full flex-col divide-y divide-border overflow-hidden border border-border bg-background">
+    <div className="flex w-full flex-col divide-y divide-border overflow-hidden border border-border bg-surface">
       {groups.map((group) => (
         <React.Fragment key={dayKeyOf(group.date)}>
           <AgendaDayHeader date={group.date} count={group.items.length} />

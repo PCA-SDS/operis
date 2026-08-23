@@ -147,7 +147,7 @@ export function PipelineStepper({
             <div className="flex items-center gap-3">
               <div
                 className={cn(
-                  'flex size-9 items-center justify-center rounded-full border-2 bg-background text-foreground',
+                  'flex size-9 items-center justify-center rounded-full border-2 bg-surface text-foreground',
                   renderClosedProgress ? 'border-status-success-icon bg-status-success-icon text-white' : 'border-foreground',
                 )}
               >
@@ -199,9 +199,9 @@ export function PipelineStepper({
                 <div
                   className={cn(
                     'mx-0 flex size-9 items-center justify-center rounded-full border-2 text-sm leading-none transition-colors',
-                    isCurrent && 'border-foreground bg-background font-bold text-foreground',
+                    isCurrent && 'border-foreground bg-surface font-bold text-foreground',
                     isCompleted && !isCurrent && 'border-status-success-icon bg-status-success-icon text-white',
-                    isFuture && 'border-border bg-background font-medium text-muted-foreground',
+                    isFuture && 'border-border bg-surface font-medium text-muted-foreground',
                   )}
                 >
                   {isCompleted ? (

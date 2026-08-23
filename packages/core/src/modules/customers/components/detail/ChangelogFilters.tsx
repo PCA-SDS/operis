@@ -165,7 +165,7 @@ export function ChangelogFilters({
           <select
             value={dateRange}
             onChange={(event) => onDateRangeChange(event.target.value as '7d' | '30d' | '90d')}
-            className="h-8 min-w-32 appearance-none rounded-lg border bg-background pl-3 pr-8 text-xs text-foreground outline-none ring-offset-background focus:ring-2 focus:ring-ring"
+            className="h-8 min-w-32 appearance-none rounded-lg border bg-input-bg pl-3 pr-8 text-xs text-foreground outline-none ring-offset-background focus:ring-2 focus:ring-ring"
           >
             <option value="7d">{t('customers.changelog.last7days', 'Last 7 days')}</option>
             <option value="30d">{t('customers.changelog.last30days', 'Last 30 days')}</option>

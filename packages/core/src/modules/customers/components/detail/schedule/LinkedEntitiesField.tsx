@@ -133,7 +133,7 @@ function EntityLinkSearchPopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="sm" className="h-auto inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1.5 text-xs text-muted-foreground">
+        <Button type="button" variant="ghost" size="sm" className="h-auto inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground">
           <span className="text-sm">+</span>
           {t('customers.schedule.addLink', 'Add link')}
         </Button>
@@ -154,7 +154,7 @@ function EntityLinkSearchPopover({
             </Button>
           ))}
         </div>
-        <div className="flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 mb-2">
+        <div className="flex items-center gap-2 rounded-md border bg-surface px-2 py-1.5 mb-2">
           <Search className="size-3.5 text-muted-foreground shrink-0" />
           <input
             type="text"

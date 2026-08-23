@@ -67,7 +67,7 @@ export function MobileDefinitionDetail({
               return (
                 <div
                   key={step.stepId || idx}
-                  className="flex items-center gap-3 rounded-lg border bg-background p-3"
+                  className="flex items-center gap-3 rounded-lg border bg-surface p-3"
                 >
                   <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
@@ -117,7 +117,7 @@ export function MobileDefinitionDetail({
             {transitions.map((transition: WorkflowTransition, idx: number) => (
               <div
                 key={transition.transitionId || idx}
-                className="flex items-center gap-3 rounded-lg border bg-background p-3"
+                className="flex items-center gap-3 rounded-lg border bg-surface p-3"
               >
                 <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">

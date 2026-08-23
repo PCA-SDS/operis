@@ -58,7 +58,7 @@ export function FooterFields({
           <label className="text-overline font-semibold text-muted-foreground tracking-wider">
             {getFieldLabel(activityType, 'reminder', t, 'customers.schedule.reminder', 'Reminder')}
           </label>
-          <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2.5">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2.5">
             <Bell className="size-3.5 text-muted-foreground" />
             <select
               value={reminderMinutes}
@@ -80,7 +80,7 @@ export function FooterFields({
           <label className="text-overline font-semibold text-muted-foreground tracking-wider">
             {getFieldLabel(activityType, 'visibility', t, 'customers.schedule.visibility', 'Visibility')}
           </label>
-          <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2.5">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2.5">
             <Eye className="size-3.5 text-muted-foreground" />
             <select
               value={visibility}

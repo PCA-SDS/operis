@@ -400,7 +400,7 @@ export function AssignRoleDialog({
                       aria-labelledby="assign-role-dialog-type-label"
                       value={selectedRoleType}
                       onChange={(event) => setSelectedRoleType(event.target.value)}
-                      className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
+                      className="h-10 w-full rounded-md border border-border bg-input-bg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
                     >
                       <option value="">
                         {t('customers.roles.selectRoleType', 'Select role type...')}
@@ -598,7 +598,7 @@ export function AssignRoleDialog({
                             className={`flex size-6 shrink-0 items-center justify-center rounded-full border ${
                               isSelected
                                 ? 'border-primary bg-primary text-primary-foreground'
-                                : 'border-border/80 bg-background text-transparent'
+                                : 'border-border/80 bg-surface text-transparent'
                             }`}
                           >
                             <Check className="size-3.5" />

@@ -1881,7 +1881,7 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="px-8 pb-5 pt-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="inline-flex items-center rounded-md border border-border bg-background px-2.5 py-1 text-xs text-muted-foreground">
+                <div className="inline-flex items-center rounded-md border border-border bg-surface px-2.5 py-1 text-xs text-muted-foreground">
                   {t(`warranty_claims.claimType.${claim.claimType ?? 'warranty'}`)}
                   <span className="ml-1 font-semibold text-foreground">
                     {claim.claimNumber ?? t('warranty_claims.detail.unnumbered', 'Unnumbered claim')}

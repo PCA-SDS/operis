@@ -351,7 +351,7 @@ export function GlobalSearchDialog({
             {t('search.dialog.instructions')}
           </span>
           <div className="flex flex-col gap-3 border-b px-4 pb-3 pt-12">
-            <div className="flex items-center gap-2 rounded border border-border bg-background px-3 py-2 transition-colors focus-within:border-primary">
+            <div className="flex items-center gap-2 rounded border border-border bg-surface px-3 py-2 transition-colors focus-within:border-primary">
               <Search className="h-4 w-4 text-muted-foreground" />
               <TypedInput
                 ref={inputRef}

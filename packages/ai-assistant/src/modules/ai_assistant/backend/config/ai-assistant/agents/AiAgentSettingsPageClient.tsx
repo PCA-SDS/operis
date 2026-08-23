@@ -271,7 +271,7 @@ async function fetchMutationPolicy(agentId: string): Promise<MutationPolicyRespo
 function SettingsLoading({ message }: { message: string }) {
   return (
     <div
-      className="flex items-center gap-2 rounded-lg border border-border bg-background p-4 text-sm text-muted-foreground"
+      className="flex items-center gap-2 rounded-lg border border-border bg-surface p-4 text-sm text-muted-foreground"
       role="status"
     >
       <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -392,7 +392,7 @@ function PromptSectionEditor({
         />
       ) : (
         <pre
-          className="max-h-40 overflow-auto rounded border border-border bg-background p-2 text-xs font-mono whitespace-pre-wrap"
+          className="max-h-40 overflow-auto rounded border border-border bg-surface p-2 text-xs font-mono whitespace-pre-wrap"
           data-ai-agent-prompt-default={sectionId}
         >
           {defaultText}
@@ -406,7 +406,7 @@ function ToolRow({ tool }: { tool: AgentTool }) {
   const t = useT()
   return (
     <div
-      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2"
       data-ai-agent-tool-row={tool.name}
     >
       <div className="flex items-start gap-2 min-w-0">
@@ -632,7 +632,7 @@ function MutationPolicySection({ agent }: { agent: AgentSettings }) {
 
   return (
     <section
-      className="rounded-lg border border-border bg-background p-4"
+      className="rounded-lg border border-border bg-surface p-4"
       data-ai-agent-mutation-policy={agent.id}
     >
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
@@ -777,7 +777,7 @@ function MutationPolicySection({ agent }: { agent: AgentSettings }) {
                           ? 'border-border bg-muted/30 cursor-not-allowed opacity-60'
                           : isSelected
                             ? 'border-accent-strong bg-accent-strong/5'
-                            : 'border-border bg-background hover:bg-muted/40'
+                            : 'border-border bg-surface hover:bg-muted/40'
                       }`}
                       onClick={() => {
                         if (wouldEscalate) return
@@ -939,7 +939,7 @@ function ModerationSection({ agent }: { agent: AgentSettings }) {
 
   return (
     <section
-      className="rounded-lg border border-border bg-background p-4"
+      className="rounded-lg border border-border bg-surface p-4"
       data-ai-agent-moderation={agent.id}
     >
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
@@ -1272,7 +1272,7 @@ function AgentModelOverrideSection({ agent }: { agent: AgentSettings }) {
 
   return (
     <section
-      className="rounded-lg border border-border bg-background p-4"
+      className="rounded-lg border border-border bg-surface p-4"
       data-ai-agent-model-override={agent.id}
     >
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
@@ -1470,7 +1470,7 @@ function AgentModelOverrideSection({ agent }: { agent: AgentSettings }) {
                 configuredProviders.map((provider) => {
                   const providerEnabled = isProviderAllowedForPicker(provider.id)
                   return (
-                    <div key={provider.id} className="rounded-md border border-border bg-background p-3">
+                    <div key={provider.id} className="rounded-md border border-border bg-surface p-3">
                       <div className="flex items-center gap-2">
                         <Checkbox
                           id={`ai-agent-picker-provider-${agent.id}-${provider.id}`}
@@ -1762,7 +1762,7 @@ function LoopPolicySection({ agent }: { agent: AgentSettings }) {
 
   return (
     <section
-      className="rounded-lg border border-border bg-background p-4"
+      className="rounded-lg border border-border bg-surface p-4"
       data-ai-agent-loop-policy={agent.id}
     >
       <header className="flex items-center justify-between gap-3 border-b border-border pb-3">
@@ -2144,7 +2144,7 @@ function AgentDetailPanel({ agent }: { agent: AgentSettings }) {
 
   return (
     <div className="flex flex-col gap-4" data-ai-agent-detail={agent.id}>
-      <section className="rounded-lg border border-border bg-background p-4">
+      <section className="rounded-lg border border-border bg-surface p-4">
         <h2 className="text-xl font-semibold">{agent.label}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{agent.description}</p>
         <dl className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-3 text-sm">
@@ -2214,7 +2214,7 @@ function AgentDetailPanel({ agent }: { agent: AgentSettings }) {
       <LoopPolicySection agent={agent} />
 
       <section
-        className="rounded-lg border border-border bg-background p-4"
+        className="rounded-lg border border-border bg-surface p-4"
         data-ai-agent-prompt-editor={agent.id}
       >
         <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
@@ -2329,7 +2329,7 @@ function AgentDetailPanel({ agent }: { agent: AgentSettings }) {
       </section>
 
       <section
-        className="rounded-lg border border-border bg-background p-4"
+        className="rounded-lg border border-border bg-surface p-4"
         data-ai-agent-tools-list={agent.id}
       >
         <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
@@ -2363,7 +2363,7 @@ function AgentDetailPanel({ agent }: { agent: AgentSettings }) {
       </section>
 
       <section
-        className="rounded-lg border border-border bg-background p-4"
+        className="rounded-lg border border-border bg-surface p-4"
         data-ai-agent-override-history={agent.id}
       >
         <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
@@ -2423,7 +2423,7 @@ function AgentDetailPanel({ agent }: { agent: AgentSettings }) {
             (overrideQuery.data?.versions ?? []).slice(0, 5).map((entry) => (
               <div
                 key={entry.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2"
                 data-ai-agent-override-history-row={entry.version}
               >
                 <div className="flex flex-col min-w-0">
@@ -2445,7 +2445,7 @@ function AgentDetailPanel({ agent }: { agent: AgentSettings }) {
       </section>
 
       <section
-        className="rounded-lg border border-border bg-background p-4"
+        className="rounded-lg border border-border bg-surface p-4"
         data-ai-agent-attachments={agent.id}
       >
         <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
@@ -2549,7 +2549,7 @@ export function AiAgentSettingsPageClient() {
         </header>
 
         <section
-          className="flex flex-col gap-3 rounded-lg border border-border bg-background p-3"
+          className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3"
           data-ai-agent-settings-picker-wrap
         >
           <div className="flex flex-wrap items-end justify-between gap-3">

@@ -117,7 +117,7 @@ function StatTile({
 
   if (!href) {
     return (
-      <div className="flex min-h-16 items-center rounded-md border bg-background px-3 py-2">
+      <div className="flex min-h-16 items-center rounded-md border bg-surface px-3 py-2">
         {content}
       </div>
     )

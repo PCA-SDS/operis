@@ -242,7 +242,7 @@ export function PlotImportDialog({ open, onOpenChange, onImported }: PlotImportD
                   <p className="text-sm font-medium text-status-warning-text">
                     {translate('eudr.plots.import.failedTitle', { count: result.failed.length })}
                   </p>
-                  <div className="max-h-48 overflow-y-auto rounded-md border border-border bg-background">
+                  <div className="max-h-48 overflow-y-auto rounded-md border border-border bg-surface">
                     {result.failed.map((failure) => (
                       <div key={`${failure.index}:${failure.name}`} className="grid gap-2 border-b border-border px-3 py-2 text-sm last:border-b-0 md:grid-cols-[5rem_1fr_1.5fr]">
                         <span className="text-muted-foreground">{failure.index + 1}</span>

@@ -194,7 +194,7 @@ export function OrderEditingSettings() {
                 return (
                   <label
                     key={status.id}
-                    className="flex items-center gap-2 rounded-none border bg-background p-2 text-sm"
+                    className="flex items-center gap-2 rounded-none border bg-surface p-2 text-sm"
                   >
                     <input
                       type="checkbox"

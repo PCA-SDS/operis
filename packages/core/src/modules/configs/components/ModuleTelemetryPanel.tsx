@@ -1003,7 +1003,7 @@ export function ModuleTelemetryPanel() {
 
   if (state.loading) {
     return (
-      <section className="space-y-3 rounded-lg border bg-background p-6">
+      <section className="space-y-3 rounded-lg border bg-surface p-6">
         <header className="space-y-1">
           <h2 className="text-lg font-semibold">{t('configs.moduleTelemetry.title', 'Module telemetry')}</h2>
           <p className="text-sm text-muted-foreground">
@@ -1020,7 +1020,7 @@ export function ModuleTelemetryPanel() {
 
   if (state.error) {
     return (
-      <section className="space-y-3 rounded-lg border bg-background p-6">
+      <section className="space-y-3 rounded-lg border bg-surface p-6">
         <header className="space-y-1">
           <h2 className="text-lg font-semibold">{t('configs.moduleTelemetry.title', 'Module telemetry')}</h2>
           <p className="text-sm text-muted-foreground">
@@ -1044,7 +1044,7 @@ export function ModuleTelemetryPanel() {
   const telemetryStartedAtMs = firstAvailableTelemetryMs(report.buckets ?? [], Date.parse(report.startedAt), Date.now())
 
   return (
-    <section className="space-y-6 rounded-lg border bg-background p-6">
+    <section className="space-y-6 rounded-lg border bg-surface p-6">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <h2 className="text-lg font-semibold">{t('configs.moduleTelemetry.title', 'Module telemetry')}</h2>

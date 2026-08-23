@@ -510,7 +510,7 @@ export default function PipelineSettings(): React.ReactElement {
                       {t('customers.pipelines.stages.empty', 'No stages yet.')}
                     </p>
                   ) : (
-                    <div className="divide-y divide-border rounded-md border bg-background">
+                    <div className="divide-y divide-border rounded-md border bg-surface">
                       {pipelineStages.map((stage, idx) => (
                         <div key={stage.id} className="flex items-center justify-between gap-3 px-3 py-2">
                           <div className="flex items-center gap-2">

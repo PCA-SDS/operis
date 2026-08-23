@@ -143,7 +143,7 @@ export function AddressFormatSettings() {
   )
 
   return (
-    <section className="space-y-4 rounded-lg border bg-background p-4">
+    <section className="space-y-4 rounded-lg border bg-surface p-4">
       <header className="space-y-1">
         <h2 className="text-lg font-semibold">
           {t('customers.config.addressFormat.title', 'Customer address format')}

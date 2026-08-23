@@ -1432,7 +1432,7 @@ function TesterPanel(props: TesterPanelProps) {
             value={bodyContent}
             onChange={(event) => setBodyContent(event.target.value)}
             rows={8}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-mono leading-relaxed focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
+            className="w-full rounded-md border border-border bg-input-bg px-3 py-2 text-xs font-mono leading-relaxed focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/20"
             placeholder="Provide request payload"
           />
         </section>

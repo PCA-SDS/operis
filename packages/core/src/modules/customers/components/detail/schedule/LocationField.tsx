@@ -27,7 +27,7 @@ export function LocationField({
       <label className="text-overline font-semibold text-muted-foreground tracking-wider">
         {getFieldLabel(activityType, 'location', t, 'customers.schedule.location', 'Location')}
       </label>
-      <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2.5">
+      <div className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2.5">
         <MapPin className="size-3.5 text-muted-foreground shrink-0" />
         <input
           type="text"

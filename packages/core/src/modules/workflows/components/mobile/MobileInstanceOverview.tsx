@@ -176,7 +176,7 @@ export function MobileInstanceOverview({
           <div className="space-y-2">
             {timelineEvents.map((event, idx) => (
               <div key={event.id} className="flex items-start gap-2 rounded-lg border bg-muted p-2.5">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border bg-background text-overline font-medium">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border bg-surface text-overline font-medium">
                   {idx + 1}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -210,7 +210,7 @@ export function MobileInstanceOverview({
             {events.map((event) => {
               const isExpanded = expandedEvents.has(event.id)
               return (
-                <div key={event.id} className="rounded-lg border bg-background p-3">
+                <div key={event.id} className="rounded-lg border bg-surface p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5">

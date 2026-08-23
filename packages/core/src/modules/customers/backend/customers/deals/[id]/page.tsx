@@ -436,7 +436,7 @@ export default function DealDetailPage({ params }: { params?: { id?: string } })
               <select
                 id="deal-activity-entity"
                 aria-label={t('customers.deals.detail.activities.selectEntityLabel', 'Choose customer record')}
-                className="mt-4 h-9 w-full rounded border border-muted-foreground/40 bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="mt-4 h-9 w-full rounded border border-muted-foreground/40 bg-input-bg px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 value={selectedActivityEntityId ?? ''}
                 onChange={(event) => setSelectedActivityEntityId(event.target.value || null)}
               >

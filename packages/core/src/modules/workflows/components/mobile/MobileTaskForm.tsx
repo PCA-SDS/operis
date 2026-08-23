@@ -280,7 +280,7 @@ export function MobileTaskForm({
             />
           </div>
 
-          <div className="sticky bottom-0 border-t bg-background p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] z-10">
+          <div className="sticky bottom-0 border-t bg-surface p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] z-10">
             <div className="flex gap-3">
               <Button
                 type="submit"

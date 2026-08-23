@@ -263,7 +263,7 @@ export function DocumentNumberSettings() {
           </div>
           <div className="flex flex-wrap gap-2">
             {tokens.map((entry) => (
-              <div key={entry.token} className="flex items-center gap-2 rounded border bg-background px-2 py-1">
+              <div key={entry.token} className="flex items-center gap-2 rounded border bg-surface px-2 py-1">
                 <Badge variant="secondary" className="font-mono text-xs">
                   {entry.token}
                 </Badge>

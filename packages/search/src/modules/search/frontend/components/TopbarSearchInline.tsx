@@ -488,11 +488,11 @@ export function TopbarSearchInline({
                     )}
                   >
                     {Icon ? (
-                      <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md border bg-background">
+                      <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md border bg-surface">
                         <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
                       </span>
                     ) : (
-                      <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md border bg-background">
+                      <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md border bg-surface">
                         <FileText className="size-4 text-muted-foreground" aria-hidden="true" />
                       </span>
                     )}

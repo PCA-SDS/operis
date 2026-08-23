@@ -673,7 +673,7 @@ export function CompanyPeopleSection({
                         'customers.companies.detail.people.searchPlaceholder',
                         'Search by name, role, email...',
                       )}
-                      className="h-10 w-full rounded-md border bg-background px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="h-10 w-full rounded-md border bg-input-bg px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                     />
                   </div>
                 ) : null}
@@ -697,7 +697,7 @@ export function CompanyPeopleSection({
                       onChange={(event) =>
                         setSortMode(event.target.value as 'name-asc' | 'name-desc' | 'recent')
                       }
-                      className="h-10 min-w-[11rem] rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="h-10 min-w-[11rem] rounded-md border bg-input-bg px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                     >
                       <option value="name-asc">
                         {translate(

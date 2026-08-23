@@ -418,7 +418,7 @@ export function createDealLinkAdapter(options: DealAdapterOptions): LinkEntityAd
             'inline-flex size-5 shrink-0 items-center justify-center rounded-full border',
             ctx.selected
               ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border bg-background',
+              : 'border-border bg-surface',
           )}
         >
           {ctx.selected ? (

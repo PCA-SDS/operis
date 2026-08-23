@@ -1167,7 +1167,7 @@ export default function CustomersDealsPage() {
             <>
               {needsAttentionOnly ? (
                 <div
-                  className="flex items-center gap-2 overflow-x-auto border-b border-border bg-background px-4 py-2"
+                  className="flex items-center gap-2 overflow-x-auto border-b border-border bg-surface px-4 py-2"
                   data-testid="active-filter-chips"
                 >
                   <div

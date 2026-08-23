@@ -726,7 +726,7 @@ export default function VisualEditorPage() {
   return (
     <Page className="space-y-0 overflow-x-hidden">
       {/* Page Header */}
-      <div className="shrink-0 border-b border-border bg-background px-3 py-2 md:px-6 md:py-3">
+      <div className="shrink-0 border-b border-border bg-surface px-3 py-2 md:px-6 md:py-3">
         <FormHeader
           mode="detail"
           backHref="/backend/definitions"
@@ -835,7 +835,7 @@ export default function VisualEditorPage() {
 
       {/* Source banner (code-defined / customized) */}
       {(isCodeOnly || isCodeOverride) && (
-        <div className="shrink-0 border-b border-border bg-background px-3 py-2 md:px-6 md:py-3">
+        <div className="shrink-0 border-b border-border bg-surface px-3 py-2 md:px-6 md:py-3">
           {isCodeOnly && (
             <Alert status="information">
               <AlertTitle>{t('workflows.source.code.readonlyBanner')}</AlertTitle>
@@ -852,8 +852,8 @@ export default function VisualEditorPage() {
       {/* Workflow Metadata Form */}
       {showMetadata && (
         <div className={isCompactViewport
-          ? 'shrink-0 border-b border-border bg-background px-3 py-2 max-h-[60svh] overflow-y-auto overscroll-contain md:px-6 md:py-3'
-          : 'shrink-0 border-b border-border bg-background px-3 py-2 md:px-6 md:py-3'
+          ? 'shrink-0 border-b border-border bg-surface px-3 py-2 max-h-[60svh] overflow-y-auto overscroll-contain md:px-6 md:py-3'
+          : 'shrink-0 border-b border-border bg-surface px-3 py-2 md:px-6 md:py-3'
         }>
           <fieldset disabled={isCodeOnly} className="rounded-xl border border-border bg-surface shadow-sm p-3 disabled:opacity-70 md:p-4">
             <h2 className="mb-3 text-xs font-semibold uppercase text-muted-foreground">{t('workflows.visualEditor.workflowMetadata')}</h2>
@@ -1040,7 +1040,7 @@ export default function VisualEditorPage() {
                     <button
                       key={nodeType}
                       onClick={() => handleAddNode(nodeType)}
-                      className="flex shrink-0 items-center gap-1 rounded-md border bg-background px-2 py-1 text-xs hover:bg-muted active:bg-muted/50"
+                      className="flex shrink-0 items-center gap-1 rounded-md border bg-surface px-2 py-1 text-xs hover:bg-muted active:bg-muted/50"
                     >
                       <Icon className="h-3.5 w-3.5" />
                       <span>{NODE_TYPE_LABELS[nodeType].title}</span>
@@ -1055,7 +1055,7 @@ export default function VisualEditorPage() {
         <div className="flex min-h-[72svh] min-w-0 flex-1 border-t border-border">
           {/* Left Sidebar - Step Palette (hidden in read-only mode) */}
           {!isCodeOnly && (
-          <div className="w-[24rem] shrink-0 overflow-y-auto border-r border-border bg-background p-6">
+          <div className="w-[24rem] shrink-0 overflow-y-auto border-r border-border bg-surface p-6">
             <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
               <h2 className="mb-2 text-sm font-semibold uppercase text-muted-foreground">{t('workflows.visualEditor.stepPalette')}</h2>
               <p className="mb-4 text-xs text-muted-foreground">

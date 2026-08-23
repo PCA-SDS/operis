@@ -808,7 +808,7 @@ export default function SyncRunsDashboardPage() {
                       inputMode="numeric"
                     />
                   </div>
-                  <div className="rounded-lg border bg-background p-3">
+                  <div className="rounded-lg border bg-surface p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="space-y-1">
                         <Label className="text-sm font-medium">{t('data_sync.dashboard.start.fullSync', 'Run as full sync')}</Label>
@@ -934,7 +934,7 @@ export default function SyncRunsDashboardPage() {
                 </div>
 
                 <div className="mt-4 grid gap-3">
-                  <div className="rounded-lg border bg-background p-3">
+                  <div className="rounded-lg border bg-surface p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="space-y-1">
                         <Label className="text-sm font-medium">{t('data_sync.dashboard.schedule.fullSync', 'Run scheduled jobs as full sync')}</Label>
@@ -949,7 +949,7 @@ export default function SyncRunsDashboardPage() {
                       />
                     </div>
                   </div>
-                  <div className="rounded-lg border bg-background p-3">
+                  <div className="rounded-lg border bg-surface p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="space-y-1">
                         <Label className="text-sm font-medium">{t('data_sync.dashboard.schedule.enabled', 'Schedule enabled')}</Label>

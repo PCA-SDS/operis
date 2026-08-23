@@ -63,7 +63,7 @@ function StatCard({
   value: string
 }) {
   return (
-    <div className="rounded-2xl border bg-background px-4 py-4">
+    <div className="rounded-2xl border bg-surface px-4 py-4">
       <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
         {icon}
         {label}

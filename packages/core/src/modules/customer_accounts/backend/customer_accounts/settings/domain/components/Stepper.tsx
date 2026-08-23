@@ -41,7 +41,7 @@ export function DefaultStepper({ status }: StepperProps) {
                   'flex h-7 w-7 items-center justify-center rounded-full border text-xs font-medium',
                   isDone && 'border-status-success-icon bg-status-success-icon text-status-success-foreground',
                   isCurrent && 'border-primary bg-primary/10 text-primary',
-                  !isDone && !isCurrent && 'border-border bg-background text-muted-foreground',
+                  !isDone && !isCurrent && 'border-border bg-surface text-muted-foreground',
                 )}
                 aria-current={isCurrent ? 'step' : undefined}
               >

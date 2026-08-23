@@ -173,7 +173,7 @@ export function ConfirmDealLostDialog({
                   type="button"
                   variant="outline"
                   onClick={() => setReasonListOpen((current) => !current)}
-                  className="h-auto flex w-full items-center justify-between rounded-md border-2 border-foreground bg-background px-4 py-3 text-left"
+                  className="h-auto flex w-full items-center justify-between rounded-md border-2 border-foreground bg-surface px-4 py-3 text-left"
                 >
                   <div className="min-w-0">
                     <div className="truncate text-base font-semibold text-foreground">
@@ -190,7 +190,7 @@ export function ConfirmDealLostDialog({
                 </Button>
 
                 {reasonListOpen ? (
-                  <div className="overflow-hidden rounded-md border border-border/80 bg-background">
+                  <div className="overflow-hidden rounded-md border border-border/80 bg-surface">
                     {hasLossReasons ? lossReasons.map((reason, index) => {
                       const isSelected = reason.id === lossReasonId
                       return (

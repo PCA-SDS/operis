@@ -145,7 +145,7 @@ export function LogoUploadField({ entityId, recordId, attachmentId, logoUrl, err
         onChange={(event) => void handleUpload(event.target.files)}
       />
 
-      <div className="rounded-lg border border-dashed border-border/70 bg-background px-4 py-6">
+      <div className="rounded-lg border border-dashed border-border/70 bg-surface px-4 py-6">
         {previewUrl ? (
           <img src={previewUrl} alt={t('checkout.logoUpload.previewAlt')} className="max-h-24 w-auto object-contain" />
         ) : (

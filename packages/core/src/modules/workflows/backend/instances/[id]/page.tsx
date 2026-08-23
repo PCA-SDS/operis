@@ -737,7 +737,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
                   .reverse()
                   .map((event, idx) => (
                     <div key={event.id} className="flex items-start gap-3 p-3 bg-muted rounded-lg border">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-background border-2 border-border flex items-center justify-center text-xs font-medium">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-surface border-2 border-border flex items-center justify-center text-xs font-medium">
                         {idx + 1}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -799,7 +799,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-background divide-y divide-border">
+                  <tbody className="bg-surface divide-y divide-border">
                     {events.map((event) => (
                       <tr key={event.id} className="hover:bg-muted/50">
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground">

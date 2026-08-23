@@ -298,7 +298,7 @@ export default function CurrencyFetchingConfig() {
 
   if (loading || initializing) {
     return (
-      <section className="space-y-3 rounded-lg border bg-background p-4">
+      <section className="space-y-3 rounded-lg border bg-surface p-4">
         <header className="space-y-2">
           <h2 className="text-xl font-semibold">{t('currencies.fetch.title')}</h2>
           <p className="text-sm text-muted-foreground">
@@ -314,7 +314,7 @@ export default function CurrencyFetchingConfig() {
   }
 
   return (
-    <section className="space-y-6 rounded-lg border bg-background p-4">
+    <section className="space-y-6 rounded-lg border bg-surface p-4">
       <header className="space-y-2">
         <h2 className="text-xl font-semibold">{t('currencies.fetch.title')}</h2>
         <p className="text-sm text-muted-foreground">

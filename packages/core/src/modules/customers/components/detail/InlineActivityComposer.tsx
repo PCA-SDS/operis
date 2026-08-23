@@ -225,14 +225,14 @@ export function InlineActivityComposer({
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             placeholder={t('customers.activityComposer.descriptionPlaceholder', 'What happened?')}
-            className="min-h-[72px] w-full resize-none rounded-lg border bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="min-h-[72px] w-full resize-none rounded-lg border bg-input-bg px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             rows={3}
           />
           {errors.description ? (
             <p className="mt-1 text-xs text-destructive">{errors.description}</p>
           ) : null}
         </div>
-        <label className="mt-[22px] flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border bg-background px-3 py-2.5 text-sm text-muted-foreground">
+        <label className="mt-[22px] flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border bg-surface px-3 py-2.5 text-sm text-muted-foreground">
           <Calendar className="size-4" />
           <span className="text-sm font-medium text-foreground">{formatDateBadge(occurredAt, t)}</span>
           <input
@@ -292,7 +292,7 @@ export function InlineActivityComposer({
             type="datetime-local"
             value={scheduledAt}
             onChange={(event) => setScheduledAt(event.target.value)}
-            className="rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            className="rounded-md border bg-input-bg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
       ) : null}

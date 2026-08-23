@@ -48,7 +48,7 @@ export function ClaimStageProgress({ status }: ClaimStageProgressProps) {
                   'relative z-10 flex size-6 items-center justify-center rounded-full border text-xs font-semibold',
                   completed && 'border-status-success-icon bg-status-success-icon text-status-success-bg',
                   active && 'border-accent-strong bg-accent-strong text-primary-foreground',
-                  !completed && !active && 'border-border bg-background text-muted-foreground',
+                  !completed && !active && 'border-border bg-surface text-muted-foreground',
                 )}
               >
                 {completed ? <Check className="size-4" aria-hidden /> : index + 1}

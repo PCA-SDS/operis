@@ -224,7 +224,7 @@ function CurrencyInlineEditor({
                 map={appearanceMap}
                 fallback={<span className="text-sm text-muted-foreground">{emptyLabel}</span>}
                 className="text-sm text-foreground"
-                iconWrapperClassName="inline-flex h-5 w-5 items-center justify-center rounded border border-border bg-background"
+                iconWrapperClassName="inline-flex h-5 w-5 items-center justify-center rounded border border-border bg-surface"
                 iconClassName="h-3.5 w-3.5"
                 colorClassName="h-2.5 w-2.5 rounded-full border border-border/70"
               />
@@ -255,7 +255,7 @@ function CurrencyInlineEditor({
               map={appearanceMap}
               fallback={<span className="text-sm text-muted-foreground">{emptyLabel}</span>}
               className="mt-1 inline-flex items-center gap-2 text-sm text-foreground"
-              iconWrapperClassName="inline-flex h-5 w-5 items-center justify-center rounded border border-border bg-background"
+              iconWrapperClassName="inline-flex h-5 w-5 items-center justify-center rounded border border-border bg-surface"
               iconClassName="h-3.5 w-3.5"
               colorClassName="h-2.5 w-2.5 rounded-full border border-border/70"
             />

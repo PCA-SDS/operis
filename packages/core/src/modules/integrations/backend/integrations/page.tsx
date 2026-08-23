@@ -313,7 +313,7 @@ export default function IntegrationsMarketplacePage() {
   return (
     <Page>
       <PageBody className="space-y-6">
-        <section className="space-y-6 rounded-lg border bg-background p-6">
+        <section className="space-y-6 rounded-lg border bg-surface p-6">
           <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="space-y-0.5">
               <h2 className="text-lg font-semibold">{t('integrations.marketplace.title')}</h2>

@@ -476,7 +476,7 @@ export function EdgeEditDialog({ edge, isOpen, onClose, onSave, onDelete }: Edge
                       </Button>
 
                       {isExpanded && (
-                        <div className="px-4 pb-4 space-y-3 border-t border-border bg-background">
+                        <div className="px-4 pb-4 space-y-3 border-t border-border bg-surface">
                           <div className="pt-3">
                             <label className="block text-xs font-medium text-foreground mb-1">{t('workflows.edgeEditor.ruleId')}</label>
                             <Input
@@ -622,7 +622,7 @@ export function EdgeEditDialog({ edge, isOpen, onClose, onSave, onDelete }: Edge
                       </Button>
 
                       {isExpanded && (
-                        <div className="px-4 pb-4 space-y-3 border-t border-border bg-background">
+                        <div className="px-4 pb-4 space-y-3 border-t border-border bg-surface">
                           <div className="pt-3">
                             <label className="block text-xs font-medium text-foreground mb-1">{t('workflows.edgeEditor.ruleId')}</label>
                             <Input
@@ -752,7 +752,7 @@ export function EdgeEditDialog({ edge, isOpen, onClose, onSave, onDelete }: Edge
                       </Button>
 
                       {isExpanded && (
-                        <div className="px-4 pb-4 space-y-3 border-t border-border bg-background">
+                        <div className="px-4 pb-4 space-y-3 border-t border-border bg-surface">
                           {/* Activity ID */}
                           <div className="pt-3">
                             <label className="block text-xs font-medium text-foreground mb-1">{t('workflows.edgeEditor.activityId')} *</label>

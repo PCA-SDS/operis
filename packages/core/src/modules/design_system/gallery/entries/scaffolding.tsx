@@ -40,7 +40,7 @@ const demoSections: SectionNavGroup[] = [
 // it inside a fixed-height frame so the two-item nav plus content stay small.
 function SectionPageMiniDemo() {
   return (
-    <div className="h-80 w-full overflow-hidden rounded-lg border bg-background">
+    <div className="h-80 w-full overflow-hidden rounded-lg border bg-surface">
       <SectionPage title="Settings" sections={demoSections} activePath="#profile">
         <div className="space-y-2">
           <h2 className="text-sm font-semibold">Profile</h2>
@@ -55,7 +55,7 @@ function SectionPageMiniDemo() {
 function SectionNavDemo() {
   const [collapsed, setCollapsed] = React.useState(false)
   return (
-    <div className="w-64 rounded-lg border bg-background px-3 py-4">
+    <div className="w-64 rounded-lg border bg-surface px-3 py-4">
       <SectionNav
         title="Settings"
         sections={demoSections}

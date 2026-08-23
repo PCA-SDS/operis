@@ -160,7 +160,7 @@ export function ActivityTimelineFilters({
                 type="date"
                 value={dateFrom}
                 onChange={(event) => onDateFromChange(event.target.value)}
-                className="h-8 w-full rounded-md border bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                className="h-8 w-full rounded-md border bg-input-bg px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                 aria-label={t('customers.timeline.filter.from', 'From date')}
               />
               <span className="shrink-0 text-xs text-muted-foreground">—</span>
@@ -168,7 +168,7 @@ export function ActivityTimelineFilters({
                 type="date"
                 value={dateTo}
                 onChange={(event) => onDateToChange(event.target.value)}
-                className="h-8 w-full rounded-md border bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                className="h-8 w-full rounded-md border bg-input-bg px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
                 aria-label={t('customers.timeline.filter.to', 'To date')}
               />
             </div>

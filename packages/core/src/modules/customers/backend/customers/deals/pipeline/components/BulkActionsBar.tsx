@@ -60,7 +60,7 @@ export function BulkActionsBar({
         'customers.deals.kanban.bulk.aria.bar',
         'Bulk actions',
       )}
-      className="fixed bottom-6 left-1/2 z-toast flex w-[min(960px,calc(100%-2rem))] -translate-x-1/2 items-center gap-3 rounded-lg bg-primary px-4 py-3 text-background shadow-xl"
+      className="fixed bottom-6 left-1/2 z-toast flex w-[min(960px,calc(100%-2rem))] -translate-x-1/2 items-center gap-3 rounded-lg bg-primary px-4 py-3 text-primary-foreground shadow-xl"
     >
       <IconButton
         variant="ghost"
@@ -87,7 +87,7 @@ export function BulkActionsBar({
         )}
       </span>
       {totalLabel ? (
-        <span className="hidden text-sm text-background/80 sm:inline">
+        <span className="hidden text-sm text-primary-foreground/80 sm:inline">
           ·{' '}
           {translateWithFallback(
             t,

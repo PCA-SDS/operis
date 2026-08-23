@@ -279,7 +279,7 @@ const TimeReportingWidget: React.FC<DashboardWidgetComponentProps<TimeReportingS
         </label>
         <select
           id="timer-project"
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+          className="w-full rounded-md border bg-surface px-3 py-2 text-sm"
           value={selectedProjectId ?? ''}
           onChange={(e) => setSelectedProjectId(e.target.value || null)}
         >

@@ -706,7 +706,7 @@ export default function WarrantyClaimPortalDetailPage({ params }: Props) {
       <div className="w-full overflow-hidden rounded-lg border border-border bg-card">
         <div className="flex w-full flex-col gap-3 px-6 pb-5 pt-6">
           <div className="flex w-full items-center gap-2">
-            <div className="flex items-center gap-2 rounded-sm border border-border bg-background px-3 py-1">
+            <div className="flex items-center gap-2 rounded-sm border border-border bg-surface px-3 py-1">
               <span className="text-xs font-medium text-muted-foreground">
                 {t(`warranty_claims.claimType.${claim.claimType}`)}
               </span>
@@ -824,7 +824,7 @@ export default function WarrantyClaimPortalDetailPage({ params }: Props) {
                         })}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2 rounded-sm border border-border bg-background px-2 py-1">
+                <div className="flex shrink-0 items-center gap-2 rounded-sm border border-border bg-surface px-2 py-1">
                   <span
                     className={`size-2 shrink-0 rounded-full ${LINE_STATUS_DOT_CLASSES[line.lineStatus] ?? 'bg-status-neutral-icon'}`}
                     aria-hidden="true"

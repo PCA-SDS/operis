@@ -418,7 +418,7 @@ export function PersonCompaniesSection({
             onChange={(event) =>
               setSort(event.target.value as 'name-asc' | 'name-desc' | 'recent')
             }
-            className="h-10 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-10 rounded-md border bg-input-bg px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           >
             <option value="name-asc">
               {t('customers.people.detail.companies.sortNameAsc', 'Sort: Name A-Z')}

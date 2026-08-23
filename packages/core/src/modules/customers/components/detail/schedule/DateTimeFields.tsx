@@ -237,7 +237,7 @@ export function DateTimeFields({
                 onClick={() => toggleRecurrenceDay(i)}
                 className={cn(
                   'h-auto flex size-8 items-center justify-center rounded-full text-xs font-medium transition-colors p-0',
-                  recurrenceDays[i] ? 'bg-primary text-primary-foreground' : 'border border-border bg-background text-muted-foreground hover:bg-muted',
+                  recurrenceDays[i] ? 'bg-primary text-primary-foreground' : 'border border-border bg-surface text-muted-foreground hover:bg-muted',
                 )}
               >
                 {day.slice(0, 2)}
@@ -246,13 +246,13 @@ export function DateTimeFields({
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>{t('customers.schedule.recurrence.ends', 'Ends')}:</span>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setRecurrenceEndType('never')} className={cn('h-auto rounded-full px-3 py-1 text-xs font-medium', recurrenceEndType === 'never' ? 'bg-background border border-border text-foreground' : 'text-muted-foreground')}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setRecurrenceEndType('never')} className={cn('h-auto rounded-full px-3 py-1 text-xs font-medium', recurrenceEndType === 'never' ? 'bg-surface border border-border text-foreground' : 'text-muted-foreground')}>
               {t('customers.schedule.recurrence.never', 'Never')}
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={() => setRecurrenceEndType('count')} className={cn('h-auto rounded-full px-3 py-1 text-xs font-medium', recurrenceEndType === 'count' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground')}>
               {t('customers.schedule.recurrence.afterCount', 'After {{count}} occurrences', { count: recurrenceCount })}
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setRecurrenceEndType('date')} className={cn('h-auto rounded-full px-3 py-1 text-xs font-medium', recurrenceEndType === 'date' ? 'bg-background border border-border text-foreground' : 'text-muted-foreground')}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setRecurrenceEndType('date')} className={cn('h-auto rounded-full px-3 py-1 text-xs font-medium', recurrenceEndType === 'date' ? 'bg-surface border border-border text-foreground' : 'text-muted-foreground')}>
               {recurrenceEndDate || t('customers.schedule.recurrence.onDate', 'On date')}
             </Button>
           </div>

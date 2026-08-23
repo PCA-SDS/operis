@@ -102,7 +102,7 @@ export function RelatedToField({
     >
       <div
         className={cn(
-          'flex h-10 w-full items-center rounded-md bg-background pl-2.5 pr-3 transition-colors hover:bg-accent/50',
+          'flex h-10 w-full items-center rounded-md bg-input-bg pl-2.5 pr-3 transition-colors hover:bg-accent/50',
           error ? 'border border-status-error-border' : CONTROL_BORDER,
         )}
       >

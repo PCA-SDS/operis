@@ -1654,7 +1654,7 @@ export function AvailabilityRulesEditor({
                   {DAY_LABELS.map((day, index) => {
     const windows = weeklyWindows[index] ?? []
                     return (
-                      <div key={day.code} className="flex flex-wrap items-start gap-3 rounded-lg border bg-background p-3">
+                      <div key={day.code} className="flex flex-wrap items-start gap-3 rounded-lg border bg-surface p-3">
                         <div className="flex w-10 justify-center">
                           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-semibold">
                             {day.short}
@@ -1734,7 +1734,7 @@ export function AvailabilityRulesEditor({
                     const unavailableReason = resolveRuleReasonValue(unavailableRule)
                     const lockUnavailabilityActions = Boolean(unavailableRule) && !canManageUnavailability
                     return (
-                      <div key={date} className="flex flex-wrap items-start gap-3 rounded-lg border bg-background p-3">
+                      <div key={date} className="flex flex-wrap items-start gap-3 rounded-lg border bg-surface p-3">
                         <div className="flex w-10 justify-center pt-1">
                           <span
                             className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-xs font-semibold"

@@ -179,7 +179,7 @@ export default function ProfileChangePasswordPage() {
   }
 
   return (
-    <section className="space-y-6 rounded-lg border bg-background p-6 max-w-2xl">
+    <section className="space-y-6 rounded-lg border bg-surface p-6 max-w-2xl">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
           <h2 className="text-lg font-semibold">{t('auth.changePassword.title', 'Change Password')}</h2>

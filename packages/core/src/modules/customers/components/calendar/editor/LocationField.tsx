@@ -48,7 +48,7 @@ function PhoneSuggestions({
           type="button"
           onClick={() => onPick(contact.phone)}
           title={t('customers.calendar.editor.phoneSuggestion.use', 'Use {name}’s number', { name: contact.name })}
-          className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <Plus aria-hidden className="size-3 shrink-0" />
           <span className="shrink-0">{t('customers.calendar.editor.phoneSuggestion.add', 'Add')}</span>

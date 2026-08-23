@@ -48,7 +48,7 @@ export function DefaultDnsConfig({ hostname, cnameTarget, aRecordTarget }: DnsCo
           })}
         </p>
         {cnameTarget ? (
-          <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+          <div className="flex items-center gap-2 rounded-md border bg-surface px-3 py-2">
             <code className="flex-1 truncate font-mono text-sm">{cnameTarget}</code>
             <CopyButton value={cnameTarget} label={t('customer_accounts.domainMapping.copyTarget', 'Copy')} />
           </div>
@@ -62,7 +62,7 @@ export function DefaultDnsConfig({ hostname, cnameTarget, aRecordTarget }: DnsCo
               target: aRecordTarget,
             })}
           </p>
-          <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2">
+          <div className="flex items-center gap-2 rounded-md border bg-surface px-3 py-2">
             <code className="flex-1 truncate font-mono text-sm">{aRecordTarget}</code>
             <CopyButton value={aRecordTarget} label={t('customer_accounts.domainMapping.copyTarget', 'Copy')} />
           </div>

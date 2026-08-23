@@ -513,7 +513,7 @@ function GeneralSwitchField({
   onCheckedChange: (checked: boolean) => void
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-background px-4 py-3">
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface px-4 py-3">
       <div className="space-y-1">
         <Label htmlFor={id}>{label}</Label>
         <p className="text-xs text-muted-foreground">{description}</p>
@@ -645,7 +645,7 @@ function BusinessHoursField({
         {value.days.map((day) => {
           const dayCheckboxId = `${id}-${day.weekday}-enabled`
           return (
-            <div key={day.weekday} className="rounded-md border border-border bg-background p-3">
+            <div key={day.weekday} className="rounded-md border border-border bg-surface p-3">
               <div className="flex flex-wrap items-start gap-4">
                 <div className="flex w-28 items-center gap-2 pt-1.5">
                   <Checkbox
@@ -844,7 +844,7 @@ function GeneralQuarantineGradesField({
           return (
             <div
               key={grade}
-              className="flex items-center gap-2 rounded-md border border-border bg-background p-3"
+              className="flex items-center gap-2 rounded-md border border-border bg-surface p-3"
             >
               <Checkbox
                 id={checkboxId}
@@ -903,7 +903,7 @@ function EscalationTiersField({
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
       {rows.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
+        <p className="rounded-md border border-dashed border-border bg-surface p-4 text-sm text-muted-foreground">
           {translations.empty}
         </p>
       ) : (
@@ -914,7 +914,7 @@ function EscalationTiersField({
             const actionFieldId = `${id}-${row.key}-action`
             const toUserFieldId = `${id}-${row.key}-toUserId`
             return (
-              <div key={row.key} className="space-y-3 rounded-md border border-border bg-background p-4">
+              <div key={row.key} className="space-y-3 rounded-md border border-border bg-surface p-4">
                 <div className="flex items-center justify-between gap-3">
                   <h5 className="text-sm font-medium">{translations.rowLabel(index + 1)}</h5>
                   <IconButton

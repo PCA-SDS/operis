@@ -486,7 +486,7 @@ export function ScheduleActivityDialog({
         </VisuallyHidden>
 
         {/* Header */}
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-background px-6 py-5">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-6 py-5">
           <div className="flex flex-col gap-1">
             <h2 className="text-lg font-semibold leading-tight tracking-tight text-foreground">
               {isEditing ? t('customers.schedule.editTitle', 'Edit activity') : t(chrome.titleKey, chrome.titleFallback)}
@@ -501,7 +501,7 @@ export function ScheduleActivityDialog({
               </p>
             ) : null}
           </div>
-          <IconButton type="button" variant="ghost" size="sm" onClick={() => { void guardedClose() }} className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-background" aria-label={t('customers.schedule.cancel', 'Cancel')}>
+          <IconButton type="button" variant="ghost" size="sm" onClick={() => { void guardedClose() }} className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-surface" aria-label={t('customers.schedule.cancel', 'Cancel')}>
             <X className="size-4 text-muted-foreground" />
           </IconButton>
         </div>
@@ -557,7 +557,7 @@ export function ScheduleActivityDialog({
                 ? t('customers.schedule.subjectPlaceholder', 'Subject...')
                 : t('customers.schedule.titlePlaceholder', 'Activity title...')
             }
-            className="w-full rounded-md border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none focus:border-foreground"
+            className="w-full rounded-md border border-border bg-input-bg px-3 py-2.5 text-sm text-foreground outline-none focus:border-foreground"
             autoFocus
           />
         </div>

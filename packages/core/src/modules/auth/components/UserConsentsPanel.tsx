@@ -77,7 +77,7 @@ export function UserConsentsPanel({ userId }: UserConsentsPanelProps) {
       {consents.map((consent) => (
         <div
           key={consent.id}
-          className="rounded-lg border bg-background p-4 text-sm"
+          className="rounded-lg border bg-surface p-4 text-sm"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="font-medium">

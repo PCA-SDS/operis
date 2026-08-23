@@ -23,7 +23,7 @@ export function SegmentGroup<T extends string>({
     <div
       role="group"
       aria-label={ariaLabel}
-      className="flex w-full items-stretch overflow-hidden rounded-md border border-border bg-background"
+      className="flex w-full items-stretch overflow-hidden rounded-md border border-border bg-surface"
     >
       {options.map((option, index) => {
         const isActive = option.value === value

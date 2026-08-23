@@ -145,7 +145,7 @@ export function CustomerFieldsEditor({ value, onChange, errors }: Props) {
         </AlertDescription>
       </Alert>
 
-      <div className="overflow-hidden rounded-xl border border-border/70 bg-background">
+      <div className="overflow-hidden rounded-xl border border-border/70 bg-surface">
         <div className="hidden grid-cols-[1fr_1fr_1fr_180px_90px_110px] gap-3 border-b bg-muted/30 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid">
           <div>{t('checkout.customerFieldsEditor.columns.fieldKey')}</div>
           <div>{t('checkout.customerFieldsEditor.columns.label')}</div>
@@ -210,8 +210,8 @@ export function CustomerFieldsEditor({ value, onChange, errors }: Props) {
                       <Label>{t('checkout.customerFieldsEditor.columns.type')}</Label>
                       <select
                         className={kindError
-                          ? 'w-full rounded-md border border-destructive bg-background px-3 py-2 text-sm aria-invalid:ring-destructive'
-                          : 'w-full rounded-md border bg-background px-3 py-2 text-sm'}
+                          ? 'w-full rounded-md border border-destructive bg-surface px-3 py-2 text-sm aria-invalid:ring-destructive'
+                          : 'w-full rounded-md border bg-surface px-3 py-2 text-sm'}
                         value={field.kind}
                         onChange={(event) => updateField(index, { kind: event.target.value as CustomerFieldDefinitionInput['kind'] })}
                         disabled={field.fixed}
@@ -261,7 +261,7 @@ export function CustomerFieldsEditor({ value, onChange, errors }: Props) {
                         {t('checkout.customerFieldsEditor.options.title')}
                       </div>
                       {optionsError ? <p className="text-xs text-destructive">{optionsError}</p> : null}
-                      <div className="overflow-hidden rounded-lg border border-border/70 bg-background">
+                      <div className="overflow-hidden rounded-lg border border-border/70 bg-surface">
                         <table className="w-full table-fixed">
                           <thead className="border-b bg-muted/30">
                             <tr className="text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">

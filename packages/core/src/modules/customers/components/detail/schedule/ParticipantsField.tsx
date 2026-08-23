@@ -204,7 +204,7 @@ export function ParticipantsField({
       <label className="text-overline font-semibold uppercase text-muted-foreground tracking-wider">
         {sectionLabel}
       </label>
-      <div className="mt-2.5 flex flex-wrap content-center items-center gap-2 rounded-lg border border-border bg-background px-3 py-2.5">
+      <div className="mt-2.5 flex flex-wrap content-center items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2.5">
         {participants.map((p) => (
           <div key={p.userId} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1.5">
             <span className={cn('inline-flex size-5 items-center justify-center rounded-full text-xs font-bold text-white', p.color ?? 'bg-primary')}>

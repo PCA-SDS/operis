@@ -32,7 +32,7 @@ describe('ObjectHistoryButton', () => {
     expect(button.className).toEqual(expect.stringContaining('size-8'))
     expect(button.className).toEqual(expect.stringContaining('rounded-md'))
     expect(button.className).toEqual(expect.stringContaining('border'))
-    expect(button.className).toEqual(expect.stringContaining('bg-background'))
+    expect(button.className).toEqual(expect.stringContaining('bg-surface'))
   })
 
   it('does not render when resourceId is an empty string', () => {

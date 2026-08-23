@@ -1147,7 +1147,7 @@ export function EntityTagsDialog({
               type="button"
               variant="outline"
               size="xs"
-              className="size-7 rounded-sm border-border bg-background"
+              className="size-7 rounded-sm border-border bg-surface"
               onClick={onClose}
             >
               <X className="size-3.5" />
@@ -1202,7 +1202,7 @@ export function EntityTagsDialog({
                             {activeCategory.description}
                           </p>
                         </div>
-                        <div className="shrink-0 rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground">
+                        <div className="shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-muted-foreground">
                           {t('customers.personTags.activeCount', '{{count}} selected', {
                             count: activeSelection.size,
                           })}
@@ -1264,7 +1264,7 @@ export function EntityTagsDialog({
                           ) : null}
                         </div>
                       ) : activeCategoryLoading ? (
-                        <div className="rounded-lg border border-dashed border-border bg-background px-4 py-6 text-center text-sm text-muted-foreground">
+                        <div className="rounded-lg border border-dashed border-border bg-surface px-4 py-6 text-center text-sm text-muted-foreground">
                           {t('customers.personTags.loading', 'Loading...')}
                         </div>
                       ) : (
@@ -1375,7 +1375,7 @@ export function EntityTagsDialog({
               type="button"
               variant="outline"
               onClick={onClose}
-              className="rounded-md border-border bg-background px-4 py-2 text-sm font-semibold text-foreground"
+              className="rounded-md border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground"
             >
               {t('customers.personTags.cancel', 'Cancel')}
             </Button>

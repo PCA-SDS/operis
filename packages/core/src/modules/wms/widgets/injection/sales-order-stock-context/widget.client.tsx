@@ -357,7 +357,7 @@ export default function SalesOrderStockContextWidget(
               return (
                 <div
                   key={id}
-                  className="rounded-md border border-border/70 bg-background px-3 py-2"
+                  className="rounded-md border border-border/70 bg-surface px-3 py-2"
                 >
                   <p className="text-sm font-medium">{label}</p>
                   <div className="mt-1 flex flex-wrap gap-4 text-xs text-muted-foreground">
@@ -404,7 +404,7 @@ export default function SalesOrderStockContextWidget(
             {reservationIds.map((rid) => (
               <div
                 key={rid}
-                className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-background px-3 py-1.5"
+                className="flex items-center justify-between gap-2 rounded-md border border-border/70 bg-surface px-3 py-1.5"
               >
                 <span className="font-mono text-xs text-muted-foreground truncate">{rid}</span>
                 <Button

@@ -72,7 +72,7 @@ async function fetchAgents(): Promise<AgentsResponse> {
 function PlaygroundLoading({ message }: { message: string }) {
   return (
     <div
-      className="flex items-center gap-2 rounded-lg border border-border bg-background p-4 text-sm text-muted-foreground"
+      className="flex items-center gap-2 rounded-lg border border-border bg-surface p-4 text-sm text-muted-foreground"
       role="status"
     >
       <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -624,7 +624,7 @@ export function AiPlaygroundPageClient() {
         </p>
       </header>
 
-      <section className="flex flex-col gap-3 rounded-lg border border-border bg-background p-3">
+      <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-col gap-2 sm:flex-1">
             <Label htmlFor="ai-playground-agent-picker">

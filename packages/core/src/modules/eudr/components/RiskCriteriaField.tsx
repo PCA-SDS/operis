@@ -125,7 +125,7 @@ export function RiskCriteriaField({
               const entry = criteria[criterionKey]
               const criterionId = `${id}-${criterionKey}`
               return (
-                <div key={criterionKey} className="space-y-2 rounded-md border border-border bg-background p-3">
+                <div key={criterionKey} className="space-y-2 rounded-md border border-border bg-surface p-3">
                   <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                     <Label htmlFor={criterionId} className="text-sm font-medium">
                       {translate(`eudr.risk.criteria.${criterionKey}`)}

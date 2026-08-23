@@ -7,7 +7,7 @@ import DictionarySortSettings from './DictionarySortSettings'
 import DictionarySettings from './DictionarySettings'
 
 function SettingsSectionSkeleton() {
-  return <section className="min-h-32 rounded-lg border bg-background p-4" aria-hidden="true" />
+  return <section className="min-h-32 rounded-lg border bg-surface p-4" aria-hidden="true" />
 }
 
 export default function CustomersConfigurationSections() {

@@ -189,7 +189,7 @@ function SelectionIndicator({ checked, disabled, label }: SelectionIndicatorProp
         'inline-flex size-6 shrink-0 items-center justify-center rounded-full border transition-colors',
         checked
           ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-border bg-background',
+          : 'border-border bg-surface',
         disabled && 'opacity-50',
       )}
     >
@@ -610,8 +610,8 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
                             className={cn(
                               'inline-flex min-w-[14px] items-center justify-center rounded-full px-1 text-xs',
                               isActive
-                                ? 'bg-background/20 text-background'
-                                : 'bg-background text-muted-foreground',
+                                ? 'bg-primary-foreground/20 text-primary-foreground'
+                                : 'bg-surface text-muted-foreground',
                             )}
                           >
                             {filter.count}

@@ -1422,25 +1422,25 @@ export default function CreateWarrantyClaimPage() {
                   <ShieldCheck className="size-5" aria-hidden />
                   <h2 className="text-base font-semibold">{t('warranty_claims.create.summary.title', 'Claim summary')}</h2>
                 </div>
-                <p className="mt-2 text-sm text-background/70">
+                <p className="mt-2 text-sm text-primary-foreground/70">
                   {t('warranty_claims.create.summary.description', 'Review the intake context before creating the claim.')}
                 </p>
               </div>
               <dl className="space-y-4 p-5 text-sm">
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-background/70">{t('warranty_claims.form.claimType')}</dt>
+                <dt className="text-primary-foreground/70">{t('warranty_claims.form.claimType')}</dt>
                 <dd className="font-medium">{t(`warranty_claims.claimType.${claimType}`)}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-background/70">{t('warranty_claims.form.priority')}</dt>
+                <dt className="text-primary-foreground/70">{t('warranty_claims.form.priority')}</dt>
                 <dd className="font-medium">{t(`warranty_claims.priority.${nullableText(values.priority) ?? 'normal'}`)}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-background/70">{t('warranty_claims.create.summary.lines', 'Claim lines')}</dt>
+                <dt className="text-primary-foreground/70">{t('warranty_claims.create.summary.lines', 'Claim lines')}</dt>
                 <dd className="font-medium tabular-nums">{lineCount}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-background/70">{t('warranty_claims.create.summary.customer', 'Customer')}</dt>
+                <dt className="text-primary-foreground/70">{t('warranty_claims.create.summary.customer', 'Customer')}</dt>
                 <dd className="font-medium">
                   {nullableText(values.customerId)
                     ? t('warranty_claims.create.summary.selected', 'Selected')
@@ -1448,7 +1448,7 @@ export default function CreateWarrantyClaimPage() {
                 </dd>
               </div>
               <div className="flex items-center justify-between gap-3">
-                <dt className="text-background/70">{t('warranty_claims.list.column.order')}</dt>
+                <dt className="text-primary-foreground/70">{t('warranty_claims.list.column.order')}</dt>
                 <dd className="font-medium">
                   {nullableText(values.orderId)
                     ? t('warranty_claims.create.summary.linked', 'Linked')

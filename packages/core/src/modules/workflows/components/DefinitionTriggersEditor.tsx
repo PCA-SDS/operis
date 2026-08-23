@@ -312,7 +312,7 @@ export function DefinitionTriggersEditor({
             {value.map(trigger => (
               <div
                 key={trigger.triggerId}
-                className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border bg-background hover:bg-accent/50 transition-colors"
+                className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between p-3 rounded-lg border bg-surface hover:bg-accent/50 transition-colors"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <Badge variant={trigger.enabled ? 'default' : 'secondary'} className="shrink-0">

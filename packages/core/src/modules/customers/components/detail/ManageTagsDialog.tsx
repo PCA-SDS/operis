@@ -1256,7 +1256,7 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                     type="button"
                     variant="ghost"
                     onClick={handleAddEntry}
-                    className="flex h-auto w-full items-center justify-center gap-2 rounded-md border border-dashed border-border bg-background p-3 text-xs font-semibold text-foreground hover:bg-muted"
+                    className="flex h-auto w-full items-center justify-center gap-2 rounded-md border border-dashed border-border bg-surface p-3 text-xs font-semibold text-foreground hover:bg-muted"
                   >
                     <Plus className="size-3.5" />
                     {t('customers.tags.manage.addValue', 'Add new value')}

@@ -123,7 +123,7 @@ function MonthDayCell({
     <div
       className={cn(
         'relative flex h-full min-w-0 flex-1 flex-col items-start gap-1 overflow-hidden border-r border-border p-2 text-left last:border-r-0',
-        isWeekend(day) ? 'bg-muted/40' : 'bg-background',
+        isWeekend(day) ? 'bg-muted/40' : 'bg-surface',
       )}
     >
       <Button
@@ -189,7 +189,7 @@ export function MonthGrid({ anchor, items, onItemClick, onDayOpen }: MonthGridPr
   const weeks = React.useMemo(() => buildWeeks(anchor), [anchor])
   const itemsByDay = React.useMemo(() => groupItemsByDay(items), [items])
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden border border-border bg-background">
+    <div className="relative flex h-full w-full flex-col overflow-hidden border border-border bg-surface">
       <div className="flex h-9 w-full shrink-0 border-b border-border">
         {weeks[0]?.map((day) => {
           const label = day.toLocaleDateString(locale, { weekday: 'short' }).toLocaleUpperCase(locale)

@@ -179,7 +179,7 @@ export default function AuthProfilePage() {
         ) : error ? (
           <ErrorMessage label={error} />
         ) : (
-          <section className="space-y-6 rounded-lg border bg-background p-6">
+          <section className="space-y-6 rounded-lg border bg-surface p-6">
             <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold">{t('auth.profile.title', 'Profile')}</h2>

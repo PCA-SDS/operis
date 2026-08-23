@@ -1775,7 +1775,7 @@ export function CycleCountWizardDialog({
                   <FormField
                     label={t('wms.backend.inventory.cycleCount.review.matches', 'Matches')}
                   >
-                    <div className="rounded-md border bg-background px-3 py-2.5 text-sm text-foreground">
+                    <div className="rounded-md border bg-surface px-3 py-2.5 text-sm text-foreground">
                       {variance === 0
                         ? t(
                             'wms.backend.inventory.cycleCount.review.matchesWithinTolerance',
@@ -1788,7 +1788,7 @@ export function CycleCountWizardDialog({
                   <FormField
                     label={t('wms.backend.inventory.cycleCount.review.variances', 'Variances')}
                   >
-                    <div className="rounded-md border bg-background px-3 py-2.5 text-sm text-foreground">
+                    <div className="rounded-md border bg-surface px-3 py-2.5 text-sm text-foreground">
                       {variance === 0
                         ? t('wms.backend.inventory.cycleCount.review.variancesNone', 'None')
                         : formatSignedQuantity(variance)}
@@ -1805,7 +1805,7 @@ export function CycleCountWizardDialog({
                         {locationLabel} · {variantLabel}
                         {form.lotId ? ` · ${lotLabel}` : ''}
                       </p>
-                      <div className="rounded-md border bg-background px-3 py-2.5 text-sm text-foreground">
+                      <div className="rounded-md border bg-surface px-3 py-2.5 text-sm text-foreground">
                         {t(
                           'wms.backend.inventory.cycleCount.review.varianceLine',
                           'Counted {counted} vs expected {expected} · {delta}',

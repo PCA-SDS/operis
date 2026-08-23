@@ -990,7 +990,7 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
                       <div
                         key={order.id}
                         className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
-                          selected ? 'border-accent-strong bg-accent/50' : 'border-border bg-background hover:bg-muted/30'
+                          selected ? 'border-accent-strong bg-accent/50' : 'border-border bg-surface hover:bg-muted/30'
                         }`}
                         onClick={() => {
                           if (!submitting) selectListedOrder(order.id)
@@ -1083,7 +1083,7 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
                       const checked = selectedOrderLineIds.has(orderLine.orderLineId)
                       const label = orderLine.name ?? orderLine.sku ?? t('warranty_claims.portal.value.unnamedLine')
                       return (
-                        <div key={orderLine.orderLineId} className="rounded-lg border border-border bg-background p-4">
+                        <div key={orderLine.orderLineId} className="rounded-lg border border-border bg-surface p-4">
                           <div className="flex items-start gap-3">
                             <Checkbox
                               checked={checked}
@@ -1139,7 +1139,7 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
               </div>
             ) : null}
             {lines.map((line, index) => (
-              <div key={line.localId} className="rounded-lg border border-border bg-background p-4">
+              <div key={line.localId} className="rounded-lg border border-border bg-surface p-4">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <h3 className="text-sm font-semibold">
@@ -1269,7 +1269,7 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
                   {stagedFiles.map((staged) => (
                     <li
                       key={staged.localId}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2"
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2"
                     >
                       <div className="flex min-w-0 items-center gap-2">
                         <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -1303,7 +1303,7 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="flex flex-col gap-4 lg:col-span-2">
               {lines.map((line, index) => (
-                <div key={line.localId} className="rounded-lg border border-border bg-background p-4">
+                <div key={line.localId} className="rounded-lg border border-border bg-surface p-4">
                   <h3 className="text-sm font-semibold">{t('warranty_claims.portal.new.lineLabel', { number: index + 1 })}</h3>
                   <dl className="mt-4 grid gap-3 text-sm md:grid-cols-2">
                     <div>

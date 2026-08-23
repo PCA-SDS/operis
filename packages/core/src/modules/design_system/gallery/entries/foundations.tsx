@@ -46,7 +46,7 @@ function TokenSwatch({ tokenClass, label }: { tokenClass: string; label: string 
 function TextSwatch({ textClass, label }: { textClass: string; label: string }) {
   return (
     <SwatchCard copyText={textClass} label={label}>
-      <span aria-hidden className="flex h-10 w-full items-center justify-center rounded-sm border border-border bg-background">
+      <span aria-hidden className="flex h-10 w-full items-center justify-center rounded-sm border border-border bg-input-bg">
         <span className={`text-xl font-semibold leading-none ${textClass}`}>Aa</span>
       </span>
     </SwatchCard>
@@ -57,7 +57,7 @@ function TextSwatch({ textClass, label }: { textClass: string; label: string }) 
 function BorderSwatch({ borderClass, label }: { borderClass: string; label: string }) {
   return (
     <SwatchCard copyText={borderClass} label={label}>
-      <span aria-hidden className={`h-10 w-full rounded-sm border-2 bg-background ${borderClass}`} />
+      <span aria-hidden className={`h-10 w-full rounded-sm border-2 bg-input-bg ${borderClass}`} />
     </SwatchCard>
   )
 }
@@ -66,7 +66,7 @@ function BorderSwatch({ borderClass, label }: { borderClass: string; label: stri
 function IconSwatch({ iconClass, label }: { iconClass: string; label: string }) {
   return (
     <SwatchCard copyText={iconClass} label={label}>
-      <span aria-hidden className="flex h-10 w-full items-center justify-center rounded-sm border border-border bg-background">
+      <span aria-hidden className="flex h-10 w-full items-center justify-center rounded-sm border border-border bg-input-bg">
         <Circle className={`size-4 fill-current ${iconClass}`} />
       </span>
     </SwatchCard>
@@ -557,7 +557,7 @@ function RadiusCard({ cls, label, px }: { cls: string; label: string; px: string
       type="button"
       onClick={onCopy}
       title={`Copy ${label}`}
-      className="flex w-36 flex-col items-start gap-2 rounded-md border border-border bg-background p-2 text-left transition-colors hover:bg-muted/40"
+      className="flex w-36 flex-col items-start gap-2 rounded-md border border-border bg-surface p-2 text-left transition-colors hover:bg-muted/40"
     >
       <span aria-hidden className={`h-14 w-full border-2 border-dashed border-status-pink-icon bg-status-pink-bg ${cls}`} />
       <span className="space-y-0.5">
