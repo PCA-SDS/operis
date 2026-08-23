@@ -74,7 +74,7 @@ const alertVariants = cva(
       { status: 'information', style: 'lighter', className: 'border border-transparent bg-status-info-bg text-foreground' },
       { status: 'feature',     style: 'lighter', className: 'border border-transparent bg-status-neutral-bg text-foreground' },
       // === stroke (Figma: bg = white, border = stroke/soft-200, text = strong-950, shadow = regular-shadow/medium) ===
-      { style: 'stroke', className: 'border border-border bg-background text-foreground shadow-lg' },
+      { style: 'stroke', className: 'border border-border bg-surface text-foreground shadow-lg' },
     ],
     defaultVariants: {
       status: 'information',

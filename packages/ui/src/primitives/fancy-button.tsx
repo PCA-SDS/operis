@@ -21,7 +21,7 @@ const fancyTypeStyles: Record<
   },
   basic: {
     className:
-      'bg-background text-muted-foreground shadow-[0px_1px_3px_0px_rgba(14,18,27,0.12),0px_0px_0px_1px_var(--border,#ebebeb)] hover:bg-accent',
+      'bg-surface text-muted-foreground shadow-[0px_1px_3px_0px_rgba(14,18,27,0.12),0px_0px_0px_1px_var(--border,#ebebeb)] hover:bg-accent',
     style: {},
   },
   primary: {

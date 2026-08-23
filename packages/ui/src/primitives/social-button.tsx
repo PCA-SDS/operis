@@ -19,20 +19,20 @@ const filledByBrand: Record<SocialBrand, string> = {
   apple: 'bg-brand-apple text-white hover:bg-brand-apple/90',
   github: 'bg-brand-github text-white hover:bg-brand-github/90',
   x: 'bg-brand-x text-white hover:bg-brand-x/90',
-  google: 'bg-background text-foreground border border-brand-google-stroke hover:bg-accent',
+  google: 'bg-surface text-foreground border border-brand-google-stroke hover:bg-accent',
   facebook: 'bg-brand-facebook text-white hover:bg-brand-facebook/90',
   dropbox: 'bg-brand-dropbox text-white hover:bg-brand-dropbox/90',
   linkedin: 'bg-brand-linkedin text-white hover:bg-brand-linkedin/90',
 }
 
 const strokeByBrand: Record<SocialBrand, string> = {
-  apple: 'bg-background text-brand-apple border border-brand-apple/30 hover:bg-brand-apple/5',
-  github: 'bg-background text-brand-github border border-brand-github/30 hover:bg-brand-github/5',
-  x: 'bg-background text-brand-x border border-brand-x/30 hover:bg-brand-x/5',
-  google: 'bg-background text-foreground border border-brand-google-stroke hover:bg-accent',
-  facebook: 'bg-background text-brand-facebook border border-brand-facebook/40 hover:bg-brand-facebook/5',
-  dropbox: 'bg-background text-brand-dropbox border border-brand-dropbox/40 hover:bg-brand-dropbox/5',
-  linkedin: 'bg-background text-brand-linkedin border border-brand-linkedin/40 hover:bg-brand-linkedin/5',
+  apple: 'bg-surface text-brand-apple border border-brand-apple/30 hover:bg-brand-apple/5',
+  github: 'bg-surface text-brand-github border border-brand-github/30 hover:bg-brand-github/5',
+  x: 'bg-surface text-brand-x border border-brand-x/30 hover:bg-brand-x/5',
+  google: 'bg-surface text-foreground border border-brand-google-stroke hover:bg-accent',
+  facebook: 'bg-surface text-brand-facebook border border-brand-facebook/40 hover:bg-brand-facebook/5',
+  dropbox: 'bg-surface text-brand-dropbox border border-brand-dropbox/40 hover:bg-brand-dropbox/5',
+  linkedin: 'bg-surface text-brand-linkedin border border-brand-linkedin/40 hover:bg-brand-linkedin/5',
 }
 
 const socialButtonVariants = cva(baseClasses, {

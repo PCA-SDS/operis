@@ -12,10 +12,10 @@ export type CalendarProps = DayPickerProps
 
 const navButtonClassName = cn(
   'h-9 w-9 inline-flex items-center justify-center rounded-md shrink-0',
-  'border border-border bg-background text-muted-foreground transition-colors',
+  'border border-border bg-surface text-muted-foreground transition-colors',
   'hover:bg-accent hover:text-accent-foreground hover:border-input',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-  'disabled:opacity-30 disabled:pointer-events-none disabled:hover:bg-background',
+  'disabled:opacity-30 disabled:pointer-events-none disabled:hover:bg-surface',
 )
 
 function MonthNavButton({

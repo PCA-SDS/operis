@@ -80,14 +80,14 @@ describe('StepIndicator', () => {
     expect(currentDot.className).toContain('bg-accent-strong')
   })
 
-  it('renders the pending dot as an outlined circle (no glyph, transparent bg)', () => {
+  it('renders the pending dot as an outlined circle on the raised plane', () => {
     const { container } = render(<StepIndicator steps={baseSteps} />)
     const pendingDot = container.querySelector(
       '[data-slot="step-indicator-dot"][data-status="pending"]',
     ) as HTMLElement
     expect(pendingDot.querySelector('svg')).toBeNull()
     expect(pendingDot.className).toContain('border')
-    expect(pendingDot.className).toContain('bg-background')
+    expect(pendingDot.className).toContain('bg-surface')
   })
 
   it('renders the error dot with an X icon and status-error bg', () => {

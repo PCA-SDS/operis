@@ -162,10 +162,10 @@ const slotVariants = cva(
   {
     variants: {
       state: {
-        default: 'bg-background hover:bg-muted/50 text-muted-foreground cursor-pointer',
+        default: 'bg-surface hover:bg-muted/50 text-muted-foreground cursor-pointer',
         hover: 'bg-muted/50 text-muted-foreground cursor-pointer',
         active: 'bg-primary/10 text-primary cursor-pointer',
-        disabled: 'bg-background text-muted-foreground/40 cursor-not-allowed',
+        disabled: 'bg-surface text-muted-foreground/40 cursor-not-allowed',
       },
     },
     defaultVariants: { state: 'default' },
@@ -255,11 +255,11 @@ const durationChipVariants = cva(
     variants: {
       state: {
         default:
-          'bg-background border border-border shadow-xs text-muted-foreground hover:bg-muted/40 cursor-pointer',
+          'bg-surface border border-border shadow-xs text-muted-foreground hover:bg-muted/40 cursor-pointer',
         hover: 'bg-muted/40 border border-border text-muted-foreground cursor-pointer',
         active: 'bg-primary/10 text-primary cursor-pointer',
         disabled:
-          'bg-background border border-border text-muted-foreground/40 cursor-not-allowed shadow-xs',
+          'bg-surface border border-border text-muted-foreground/40 cursor-not-allowed shadow-xs',
       },
     },
     defaultVariants: { state: 'default' },
@@ -355,8 +355,8 @@ export const TimePickerStatusChip = React.forwardRef<HTMLButtonElement, TimePick
         : effectiveState === 'hover'
           ? cn('bg-muted/30 border-border', colors.text, 'cursor-pointer')
           : effectiveState === 'disabled'
-            ? cn('bg-background border-border', colors.text)
-            : cn('bg-background border-border text-muted-foreground hover:bg-muted/30 cursor-pointer')
+            ? cn('bg-surface border-border', colors.text)
+            : cn('bg-surface border-border text-muted-foreground hover:bg-muted/30 cursor-pointer')
 
     return (
       <button

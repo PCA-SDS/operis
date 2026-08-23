@@ -43,10 +43,10 @@ describe('Alert primitive', () => {
       expect(alert).toHaveClass('text-foreground')
     })
 
-    it('stroke style: bg-background + text-foreground + border-border + shadow-lg', () => {
+    it('stroke style: bg-surface + text-foreground + border-border + shadow-lg', () => {
       const { container } = render(<Alert status="warning" style="stroke">Heads up</Alert>)
       const alert = container.querySelector('[data-slot="alert"]')
-      expect(alert).toHaveClass('bg-background')
+      expect(alert).toHaveClass('bg-surface')
       expect(alert).toHaveClass('text-foreground')
       expect(alert).toHaveClass('border-border')
       expect(alert).toHaveClass('shadow-lg')

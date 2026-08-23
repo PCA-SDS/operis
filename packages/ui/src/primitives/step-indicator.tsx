@@ -94,7 +94,7 @@ const verticalItemVariants = cva(
     variants: {
       status: {
         pending: 'bg-muted/40',
-        current: 'bg-background ring-1 ring-border',
+        current: 'bg-surface ring-1 ring-border',
         complete: 'bg-muted/40',
         error: 'bg-status-error-bg ring-1 ring-status-error-border',
       },
@@ -114,7 +114,7 @@ const dotVariants = cva(
         default: 'size-5',
       },
       status: {
-        pending: 'border border-muted-foreground/30 bg-background',
+        pending: 'border border-muted-foreground/30 bg-surface',
         current: 'bg-accent-strong text-accent-strong-foreground',
         complete:
           'bg-status-success-icon text-status-success-bg',

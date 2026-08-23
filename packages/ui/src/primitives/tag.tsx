@@ -8,7 +8,7 @@ const tagVariants = cva(
   {
     variants: {
       variant: {
-        default: 'border-border bg-background text-muted-foreground',
+        default: 'border-border bg-surface text-muted-foreground',
         success: 'border-status-success-border bg-status-success-bg text-status-success-text',
         warning: 'border-status-warning-border bg-status-warning-bg text-status-warning-text',
         error:   'border-status-error-border bg-status-error-bg text-status-error-text',

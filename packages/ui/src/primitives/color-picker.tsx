@@ -155,7 +155,7 @@ function hexToHueDegrees(hex: string): number {
 }
 
 const triggerVariants = cva(
-  'inline-flex items-center gap-2 rounded-md border border-input bg-background px-2.5 py-1.5 text-sm shadow-xs outline-none transition-colors ' +
+  'inline-flex items-center gap-2 rounded-md border border-input bg-input-bg px-2.5 py-1.5 text-sm shadow-xs outline-none transition-colors ' +
     'hover:bg-muted/40 ' +
     'focus-visible:shadow-focus ' +
     'disabled:cursor-not-allowed disabled:opacity-60',
