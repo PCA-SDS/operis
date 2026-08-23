@@ -30,8 +30,8 @@ const TEMPLATE_CSS = path.join(ROOT, 'packages/create-app/template/src/app/globa
  * with the "theme-invariant" comments in globals.css — an entry here without
  * a comment there (or the reverse) should be treated as a review question. */
 const THEME_INVARIANT = new Set([
-  'font-geist-sans', 'font-geist-mono', 'radius',
-  'brand-lime', 'brand-yellow',
+  'font-geist-sans', 'font-geist-mono',
+  'brand-sky', 'brand-lilac',
   'brand-apple', 'brand-github', 'brand-x', 'brand-google-stroke',
   'brand-facebook', 'brand-dropbox', 'brand-linkedin',
 ])
@@ -45,10 +45,11 @@ const DARK_ONLY_OK = [/^shadow-/]
  * global page pair. Text-on-background pairs use AA normal text (4.5); pairs
  * marked `ui` are large/bold or non-text UI surfaces where 3.0 applies. */
 const EXTRA_PAIRS = [{ bg: 'background', fg: 'foreground', min: 4.5 }]
-/* accent-indigo backs selection controls (checkbox/radio/switch — see the
- * comment in globals.css), so the WCAG non-text UI threshold (3.0) applies,
- * not the 4.5 for body text. */
-const UI_PAIRS = new Set(['border', 'input', 'ring', 'accent-indigo'])
+/* `accent-strong` is deliberately NOT listed here. It backs selection controls
+ * (where the 3.0 non-text threshold would be enough) but it also carries text
+ * — link labels, active tab captions, filled notification chips — so it is
+ * held to the stricter 4.5 body-text bar. */
+const UI_PAIRS = new Set(['border', 'input', 'ring'])
 
 // ---------------------------------------------------------------- parsing
 
@@ -144,9 +145,13 @@ for (const name of THEME_INVARIANT) {
   if (!root.has(name)) console.warn(`  ⚠ allowlist entry --${name} no longer exists in :root — prune it`)
 }
 
-// 2. Template sync
+// 2. Template sync — the create-app template was removed from this fork (see
+// NOTICE.md); the check stays so it resumes automatically if a template copy
+// ever returns, rather than hard-failing on a path that no longer exists.
 const normalize = (s) => s.replace(/@source\s+"[^"]*"/g, '@source "<path>"')
-if (normalize(fs.readFileSync(TEMPLATE_CSS, 'utf8')) !== normalize(css)) {
+if (!fs.existsSync(TEMPLATE_CSS)) {
+  console.log('  – create-app template copy absent, sync check skipped')
+} else if (normalize(fs.readFileSync(TEMPLATE_CSS, 'utf8')) !== normalize(css)) {
   fail(`${path.relative(ROOT, TEMPLATE_CSS)} has drifted from the app globals.css (differences beyond @source depth)`)
 } else {
   console.log('  ✓ create-app template copy in sync')

@@ -4,11 +4,11 @@
   "tokens": {
     "accent": {
       "kind": "color",
-      "light": "oklch(0.97 0 0)",
-      "dark": "oklch(0.269 0 0)",
+      "light": "#EDF1F7",
+      "dark": "#1E2735",
       "hex": {
-        "light": "#f5f5f5",
-        "dark": "#262626"
+        "light": "#edf1f7",
+        "dark": "#1e2735"
       },
       "themeInvariant": false,
       "themeAlias": "color-accent",
@@ -17,13 +17,28 @@
         "type": "COLOR"
       }
     },
+    "accent-border": {
+      "kind": "color",
+      "light": "#B4CBE4",
+      "dark": "#35496A",
+      "hex": {
+        "light": "#b4cbe4",
+        "dark": "#35496a"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-accent-border",
+      "figma": {
+        "name": "accent/border",
+        "type": "COLOR"
+      }
+    },
     "accent-foreground": {
       "kind": "color",
-      "light": "oklch(0.205 0 0)",
-      "dark": "oklch(0.985 0 0)",
+      "light": "#1D2735",
+      "dark": "#E6ECF4",
       "hex": {
-        "light": "#171717",
-        "dark": "#fafafa"
+        "light": "#1d2735",
+        "dark": "#e6ecf4"
       },
       "themeInvariant": false,
       "themeAlias": "color-accent-foreground",
@@ -32,59 +47,136 @@
         "type": "COLOR"
       }
     },
-    "accent-indigo": {
+    "accent-soft": {
       "kind": "color",
-      "light": "#6366f1",
-      "dark": "#6d74f4",
+      "light": "#E9F1F9",
+      "dark": "#1C2A3D",
       "hex": {
-        "light": "#6366f1",
-        "dark": "#6d74f4"
+        "light": "#e9f1f9",
+        "dark": "#1c2a3d"
       },
       "themeInvariant": false,
-      "themeAlias": "color-accent-indigo",
+      "themeAlias": "color-accent-soft",
       "figma": {
-        "name": "accent/indigo",
+        "name": "accent/soft",
+        "type": "COLOR"
+      }
+    },
+    "accent-strong": {
+      "kind": "color",
+      "light": "#3F6DA3",
+      "dark": "#8CB4E4",
+      "hex": {
+        "light": "#3f6da3",
+        "dark": "#8cb4e4"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-accent-strong",
+      "figma": {
+        "name": "accent/strong",
         "type": "COLOR"
       },
-      "note": "Accent indigo — used for selection controls (checkbox, radio, switch)"
+      "note": "Accent-strong — the interactive accent (links, active tab, sort chevrons, sliders, progress, selection controls). `--accent` below stays the quiet hover SURFACE it has always been; the two are different jobs."
     },
-    "accent-indigo-foreground": {
+    "accent-strong-foreground": {
       "kind": "color",
-      "light": "#ffffff",
-      "dark": "#ffffff",
+      "light": "#FFFFFF",
+      "dark": "#101822",
       "hex": {
         "light": "#ffffff",
-        "dark": "#ffffff"
+        "dark": "#101822"
       },
-      "themeInvariant": true,
-      "themeAlias": "color-accent-indigo-foreground",
+      "themeInvariant": false,
+      "themeAlias": "color-accent-strong-foreground",
       "figma": {
-        "name": "accent/indigo-foreground",
+        "name": "accent/strong-foreground",
+        "type": "COLOR"
+      }
+    },
+    "accent-strong-hover": {
+      "kind": "color",
+      "light": "#345986",
+      "dark": "#A5C6EC",
+      "hex": {
+        "light": "#345986",
+        "dark": "#a5c6ec"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-accent-strong-hover",
+      "figma": {
+        "name": "accent-strong-hover",
         "type": "COLOR"
       }
     },
     "background": {
       "kind": "color",
-      "light": "oklch(1 0 0)",
-      "dark": "oklch(0.145 0 0)",
+      "light": "#F7F9FC",
+      "dark": "#10151E",
       "hex": {
-        "light": "#ffffff",
-        "dark": "#0a0a0a"
+        "light": "#f7f9fc",
+        "dark": "#10151e"
       },
       "themeInvariant": false,
       "themeAlias": "color-background",
       "figma": {
         "name": "background",
         "type": "COLOR"
+      },
+      "note": "═══ Operis pastel-navy palette — light ═══ Muted navy, deliberately not royal/saturated/neon and never near-black. Ink is navy (#1D2735) rather than grey so text belongs to the palette. Status hues stay semantic (see the status block below) — an error must never read as \"just more blue\"."
+    },
+    "badge-bg": {
+      "kind": "color",
+      "light": "#E7EEF8",
+      "dark": "#223047",
+      "hex": {
+        "light": "#e7eef8",
+        "dark": "#223047"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-badge-bg",
+      "figma": {
+        "name": "badge-bg",
+        "type": "COLOR"
+      },
+      "note": "Badge family — the default (non-status) pill."
+    },
+    "badge-border": {
+      "kind": "color",
+      "light": "#B6C7DF",
+      "dark": "#3B5175",
+      "hex": {
+        "light": "#b6c7df",
+        "dark": "#3b5175"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-badge-border",
+      "figma": {
+        "name": "badge-border",
+        "type": "COLOR"
+      }
+    },
+    "badge-text": {
+      "kind": "color",
+      "light": "#2D4363",
+      "dark": "#B6C7DF",
+      "hex": {
+        "light": "#2d4363",
+        "dark": "#b6c7df"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-badge-text",
+      "figma": {
+        "name": "badge-text",
+        "type": "COLOR"
       }
     },
     "bg-disabled": {
       "kind": "color",
-      "light": "#f7f7f7",
-      "dark": "oklch(0.25 0 0)",
+      "light": "#F1F4F8",
+      "dark": "#1B222E",
       "hex": {
-        "light": "#f7f7f7",
-        "dark": "#222222"
+        "light": "#f1f4f8",
+        "dark": "#1b222e"
       },
       "themeInvariant": false,
       "themeAlias": "color-bg-disabled",
@@ -92,15 +184,15 @@
         "name": "bg-disabled",
         "type": "COLOR"
       },
-      "note": "Disabled control tokens (Figma: bg/weak-25, text/disabled-300, stroke-soft-200)"
+      "note": "Disabled control tokens"
     },
     "border": {
       "kind": "color",
-      "light": "oklch(0.922 0 0)",
-      "dark": "oklch(1 0 0 / 10%)",
+      "light": "#D9E0EA",
+      "dark": "#2E3948",
       "hex": {
-        "light": "#e5e5e5",
-        "dark": "#ffffff1a"
+        "light": "#d9e0ea",
+        "dark": "#2e3948"
       },
       "themeInvariant": false,
       "themeAlias": "color-border",
@@ -111,16 +203,31 @@
     },
     "border-disabled": {
       "kind": "color",
-      "light": "#ebebeb",
-      "dark": "oklch(0.30 0 0)",
+      "light": "#E1E7EF",
+      "dark": "#29323F",
       "hex": {
-        "light": "#ebebeb",
-        "dark": "#2e2e2e"
+        "light": "#e1e7ef",
+        "dark": "#29323f"
       },
       "themeInvariant": false,
       "themeAlias": "color-border-disabled",
       "figma": {
         "name": "border-disabled",
+        "type": "COLOR"
+      }
+    },
+    "border-strong": {
+      "kind": "color",
+      "light": "#C3CEDC",
+      "dark": "#3C4859",
+      "hex": {
+        "light": "#c3cedc",
+        "dark": "#3c4859"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-border-strong",
+      "figma": {
+        "name": "border-strong",
         "type": "COLOR"
       }
     },
@@ -200,21 +307,20 @@
         "type": "COLOR"
       }
     },
-    "brand-lime": {
+    "brand-lilac": {
       "kind": "color",
-      "light": "#B4F372",
+      "light": "#C9C2F0",
       "dark": null,
       "hex": {
-        "light": "#b4f372",
-        "dark": "#b4f372"
+        "light": "#c9c2f0",
+        "dark": "#c9c2f0"
       },
       "themeInvariant": true,
-      "themeAlias": "color-brand-lime",
+      "themeAlias": "color-brand-lilac",
       "figma": {
-        "name": "brand/lime",
+        "name": "brand/lilac",
         "type": "COLOR"
-      },
-      "note": "Brand lime + yellow — theme-invariant (no .dark override). Brand violet is themed (see below + .dark)."
+      }
     },
     "brand-linkedin": {
       "kind": "color",
@@ -230,6 +336,22 @@
         "name": "brand/linkedin",
         "type": "COLOR"
       }
+    },
+    "brand-sky": {
+      "kind": "color",
+      "light": "#A9C4EC",
+      "dark": null,
+      "hex": {
+        "light": "#a9c4ec",
+        "dark": "#a9c4ec"
+      },
+      "themeInvariant": true,
+      "themeAlias": "color-brand-sky",
+      "figma": {
+        "name": "brand/sky",
+        "type": "COLOR"
+      },
+      "note": "Operis brand ramp — theme-invariant (no .dark override). These replace Open Mercato's lime/yellow pair, which read as a different company's identity against a pastel-navy product: a neon lime-to-yellow sweep is the one thing on screen that cannot belong to this palette. The Operis ramp runs sky → lilac → violet, so a brand moment still lifts off the page but stays inside the product's temperature."
     },
     "brand-violet": {
       "kind": "color",
@@ -276,28 +398,13 @@
         "type": "COLOR"
       }
     },
-    "brand-yellow": {
-      "kind": "color",
-      "light": "#EEFB63",
-      "dark": null,
-      "hex": {
-        "light": "#eefb63",
-        "dark": "#eefb63"
-      },
-      "themeInvariant": true,
-      "themeAlias": "color-brand-yellow",
-      "figma": {
-        "name": "brand/yellow",
-        "type": "COLOR"
-      }
-    },
     "card": {
       "kind": "color",
-      "light": "oklch(1 0 0)",
-      "dark": "oklch(0.205 0 0)",
+      "light": "#FFFFFF",
+      "dark": "#171E2A",
       "hex": {
         "light": "#ffffff",
-        "dark": "#171717"
+        "dark": "#171e2a"
       },
       "themeInvariant": false,
       "themeAlias": "color-card",
@@ -308,11 +415,11 @@
     },
     "card-foreground": {
       "kind": "color",
-      "light": "oklch(0.145 0 0)",
-      "dark": "oklch(0.985 0 0)",
+      "light": "#1D2735",
+      "dark": "#E6ECF4",
       "hex": {
-        "light": "#0a0a0a",
-        "dark": "#fafafa"
+        "light": "#1d2735",
+        "dark": "#e6ecf4"
       },
       "themeInvariant": false,
       "themeAlias": "color-card-foreground",
@@ -323,26 +430,27 @@
     },
     "chart-1": {
       "kind": "color",
-      "light": "oklch(0.646 0.222 41.116)",
-      "dark": "oklch(0.488 0.243 264.376)",
+      "light": "oklch(0.500 0.090 255)",
+      "dark": "oklch(0.680 0.100 255)",
       "hex": {
-        "light": "#f54900",
-        "dark": "#1447e6"
+        "light": "#3e6596",
+        "dark": "#6d9bd5"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-1",
       "figma": {
         "name": "chart/1",
         "type": "COLOR"
-      }
+      },
+      "note": "Chart series — chroma pulled back from the stock ramp so a dashboard sits inside the calm palette instead of shouting over it. Hues are kept far apart because a series still has to be told from its neighbour. The default series leads with the navy family."
     },
     "chart-2": {
       "kind": "color",
-      "light": "oklch(0.6 0.118 184.704)",
-      "dark": "oklch(0.696 0.17 162.48)",
+      "light": "oklch(0.610 0.100 185)",
+      "dark": "oklch(0.720 0.105 185)",
       "hex": {
-        "light": "#009689",
-        "dark": "#00bc7d"
+        "light": "#21968b",
+        "dark": "#46baad"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-2",
@@ -353,11 +461,11 @@
     },
     "chart-3": {
       "kind": "color",
-      "light": "oklch(0.398 0.07 227.392)",
-      "dark": "oklch(0.769 0.188 70.08)",
+      "light": "oklch(0.640 0.120 60)",
+      "dark": "oklch(0.775 0.125 60)",
       "hex": {
-        "light": "#104e64",
-        "dark": "#fe9a00"
+        "light": "#c17938",
+        "dark": "#f0a25f"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-3",
@@ -368,11 +476,11 @@
     },
     "chart-4": {
       "kind": "color",
-      "light": "oklch(0.828 0.189 84.429)",
-      "dark": "oklch(0.627 0.265 303.9)",
+      "light": "oklch(0.560 0.115 300)",
+      "dark": "oklch(0.690 0.120 300)",
       "hex": {
-        "light": "#ffb900",
-        "dark": "#ad46ff"
+        "light": "#7f63ae",
+        "dark": "#a789db"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-4",
@@ -383,11 +491,11 @@
     },
     "chart-5": {
       "kind": "color",
-      "light": "oklch(0.769 0.188 70.08)",
-      "dark": "oklch(0.645 0.246 16.439)",
+      "light": "oklch(0.600 0.110 145)",
+      "dark": "oklch(0.710 0.110 145)",
       "hex": {
-        "light": "#fe9a00",
-        "dark": "#ff2056"
+        "light": "#539156",
+        "dark": "#74b476"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-5",
@@ -398,11 +506,11 @@
     },
     "chart-amber": {
       "kind": "color",
-      "light": "oklch(0.769 0.188 70.08)",
-      "dark": "oklch(0.82 0.16 84.429)",
+      "light": "oklch(0.700 0.140 70)",
+      "dark": "oklch(0.800 0.140 70)",
       "hex": {
-        "light": "#fe9a00",
-        "dark": "#f4ba26"
+        "light": "#d58d25",
+        "dark": "#f7ac4d"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-amber",
@@ -413,11 +521,11 @@
     },
     "chart-blue": {
       "kind": "color",
-      "light": "oklch(0.546 0.245 262.881)",
-      "dark": "oklch(0.623 0.214 259.815)",
+      "light": "oklch(0.520 0.130 255)",
+      "dark": "oklch(0.690 0.135 255)",
       "hex": {
-        "light": "#155dfc",
-        "dark": "#2b7fff"
+        "light": "#2e69b2",
+        "dark": "#5e9ded"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-blue",
@@ -429,11 +537,11 @@
     },
     "chart-cyan": {
       "kind": "color",
-      "light": "oklch(0.715 0.143 215.221)",
-      "dark": "oklch(0.789 0.154 211.53)",
+      "light": "oklch(0.665 0.100 215)",
+      "dark": "oklch(0.760 0.105 215)",
       "hex": {
-        "light": "#00b8db",
-        "dark": "#00d3f2"
+        "light": "#39a3ba",
+        "dark": "#54c2db"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-cyan",
@@ -444,11 +552,11 @@
     },
     "chart-emerald": {
       "kind": "color",
-      "light": "oklch(0.596 0.145 163.225)",
-      "dark": "oklch(0.696 0.17 162.48)",
+      "light": "oklch(0.590 0.115 163)",
+      "dark": "oklch(0.710 0.120 163)",
       "hex": {
-        "light": "#009966",
-        "dark": "#00bc7d"
+        "light": "#269269",
+        "dark": "#4db98c"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-emerald",
@@ -459,11 +567,11 @@
     },
     "chart-indigo": {
       "kind": "color",
-      "light": "oklch(0.511 0.262 276.966)",
-      "dark": "oklch(0.585 0.233 277.117)",
+      "light": "oklch(0.500 0.140 277)",
+      "dark": "oklch(0.660 0.140 277)",
       "hex": {
-        "light": "#4f39f6",
-        "dark": "#615fff"
+        "light": "#5157b1",
+        "dark": "#7d88e6"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-indigo",
@@ -474,11 +582,11 @@
     },
     "chart-orange": {
       "kind": "color",
-      "light": "oklch(0.705 0.213 47.604)",
-      "dark": "oklch(0.792 0.184 56.043)",
+      "light": "oklch(0.665 0.135 48)",
+      "dark": "oklch(0.760 0.135 48)",
       "hex": {
-        "light": "#ff6900",
-        "dark": "#ff9624"
+        "light": "#d57743",
+        "dark": "#f69561"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-orange",
@@ -489,11 +597,11 @@
     },
     "chart-pink": {
       "kind": "color",
-      "light": "oklch(0.656 0.241 354.308)",
-      "dark": "oklch(0.718 0.202 349.761)",
+      "light": "oklch(0.620 0.145 354)",
+      "dark": "oklch(0.715 0.145 354)",
       "hex": {
-        "light": "#f6339a",
-        "dark": "#fb64b6"
+        "light": "#c75c8c",
+        "dark": "#e77aa9"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-pink",
@@ -504,11 +612,11 @@
     },
     "chart-rose": {
       "kind": "color",
-      "light": "oklch(0.645 0.246 16.439)",
-      "dark": "oklch(0.712 0.194 13.428)",
+      "light": "oklch(0.610 0.150 16)",
+      "dark": "oklch(0.715 0.150 16)",
       "hex": {
-        "light": "#ff2056",
-        "dark": "#ff637e"
+        "light": "#cd5764",
+        "dark": "#f27883"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-rose",
@@ -519,11 +627,11 @@
     },
     "chart-teal": {
       "kind": "color",
-      "light": "oklch(0.627 0.134 175.001)",
-      "dark": "oklch(0.704 0.14 180.72)",
+      "light": "oklch(0.600 0.100 175)",
+      "dark": "oklch(0.710 0.100 175)",
       "hex": {
-        "light": "#00a284",
-        "dark": "#00bba4"
+        "light": "#2b937d",
+        "dark": "#53b69e"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-teal",
@@ -534,11 +642,11 @@
     },
     "chart-violet": {
       "kind": "color",
-      "light": "oklch(0.606 0.25 292.717)",
-      "dark": "oklch(0.702 0.183 293.541)",
+      "light": "oklch(0.575 0.150 293)",
+      "dark": "oklch(0.700 0.145 293)",
       "hex": {
-        "light": "#8e51ff",
-        "dark": "#a684ff"
+        "light": "#7e64c8",
+        "dark": "#a38bf0"
       },
       "themeInvariant": false,
       "themeAlias": "color-chart-violet",
@@ -549,11 +657,11 @@
     },
     "destructive": {
       "kind": "color",
-      "light": "oklch(0.577 0.245 27.325)",
-      "dark": "oklch(0.704 0.191 22.216)",
+      "light": "#C0483F",
+      "dark": "#E0736A",
       "hex": {
-        "light": "#e7000b",
-        "dark": "#ff6467"
+        "light": "#c0483f",
+        "dark": "#e0736a"
       },
       "themeInvariant": false,
       "themeAlias": "color-destructive",
@@ -562,25 +670,58 @@
         "type": "COLOR"
       }
     },
-    "focus-ring-inner": {
+    "disabled-foreground": {
       "kind": "color",
-      "light": "rgba(255, 255, 255, 1)",
-      "dark": "var(--background)",
+      "light": "#94A2B5",
+      "dark": "#6B7889",
       "hex": {
-        "light": "#ffffff",
-        "dark": null
+        "light": "#94a2b5",
+        "dark": "#6b7889"
       },
       "themeInvariant": false,
-      "figma": null,
-      "note": "Focus ring tokens (Figma dual-shadow spec — opt-in via .focus-ring-fancy)"
+      "themeAlias": "color-disabled-foreground",
+      "figma": {
+        "name": "disabled-foreground",
+        "type": "COLOR"
+      }
+    },
+    "focus-ring": {
+      "kind": "color",
+      "light": "#7FA3CF",
+      "dark": "#5D82B4",
+      "hex": {
+        "light": "#7fa3cf",
+        "dark": "#5d82b4"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-focus-ring",
+      "figma": {
+        "name": "focus-ring",
+        "type": "COLOR"
+      }
+    },
+    "focus-ring-inner": {
+      "kind": "color",
+      "light": "#FFFFFF",
+      "dark": "#10151E",
+      "hex": {
+        "light": "#ffffff",
+        "dark": "#10151e"
+      },
+      "themeInvariant": false,
+      "figma": {
+        "name": "focus-ring-inner",
+        "type": "COLOR"
+      },
+      "note": "Focus ring halo — navy at low alpha so the ring belongs to the palette rather than reading as a browser default."
     },
     "focus-ring-outer": {
       "kind": "color",
-      "light": "rgba(153, 160, 174, 0.16)",
-      "dark": "rgba(255, 255, 255, 0.18)",
+      "light": "rgba(63, 109, 163, 0.35)",
+      "dark": "rgba(143, 174, 218, 0.40)",
       "hex": {
-        "light": "#99a0ae29",
-        "dark": "#ffffff2e"
+        "light": "#3f6da359",
+        "dark": "#8faeda66"
       },
       "themeInvariant": false,
       "figma": {
@@ -590,7 +731,7 @@
     },
     "font-geist-mono": {
       "kind": "fontStack",
-      "light": "ui-monospace, \"SFMono-Regular\", \"SF Mono\", Consolas, \"Liberation Mono\", Menlo, monospace",
+      "light": "\"DM Mono\", ui-monospace, \"SFMono-Regular\", \"SF Mono\", Consolas, \"Liberation Mono\", Menlo, monospace",
       "dark": null,
       "themeInvariant": true,
       "themeAlias": "font-mono",
@@ -598,30 +739,67 @@
     },
     "font-geist-sans": {
       "kind": "fontStack",
-      "light": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+      "light": "\"Figtree\", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
       "dark": null,
       "themeInvariant": true,
       "themeAlias": "font-sans",
-      "figma": null
+      "figma": null,
+      "note": "Figtree / DM Mono are loaded from Google Fonts in the root layout (same delivery the design reference uses). The system stack stays behind them so an offline or blocked-font environment degrades to native type rather than to a serif fallback."
     },
     "font-size-overline": {
       "kind": "dimension",
       "value": "0.6875rem",
       "figma": null,
-      "note": "═══ Design System: Typography ═══"
+      "note": "═══ Design System: Typography ═══ The scale is deliberately narrow. A page title is LIGHT (400) and large; weight is spent on the things that must be scanned — table headers, tabs, nav items — not on the heading, which already has size."
     },
     "font-size-overline--line-height": {
       "kind": "dimension",
       "value": "1rem",
       "figma": null
     },
+    "font-size-page-title": {
+      "kind": "dimension",
+      "value": "1.875rem",
+      "figma": null
+    },
+    "font-size-page-title--font-weight": {
+      "kind": "number",
+      "value": "400",
+      "figma": {
+        "name": "font-size-page-title--font-weight",
+        "type": "FLOAT"
+      }
+    },
+    "font-size-page-title--line-height": {
+      "kind": "dimension",
+      "value": "2.25rem",
+      "figma": null
+    },
+    "font-size-section-title": {
+      "kind": "dimension",
+      "value": "1.25rem",
+      "figma": null
+    },
+    "font-size-section-title--font-weight": {
+      "kind": "number",
+      "value": "600",
+      "figma": {
+        "name": "font-size-section-title--font-weight",
+        "type": "FLOAT"
+      }
+    },
+    "font-size-section-title--line-height": {
+      "kind": "dimension",
+      "value": "1.75rem",
+      "figma": null
+    },
     "foreground": {
       "kind": "color",
-      "light": "oklch(0.145 0 0)",
-      "dark": "oklch(0.985 0 0)",
+      "light": "#1D2735",
+      "dark": "#E6ECF4",
       "hex": {
-        "light": "#0a0a0a",
-        "dark": "#fafafa"
+        "light": "#1d2735",
+        "dark": "#e6ecf4"
       },
       "themeInvariant": false,
       "themeAlias": "color-foreground",
@@ -632,11 +810,11 @@
     },
     "input": {
       "kind": "color",
-      "light": "oklch(0.922 0 0)",
-      "dark": "oklch(1 0 0 / 15%)",
+      "light": "#D9E0EA",
+      "dark": "#2E3948",
       "hex": {
-        "light": "#e5e5e5",
-        "dark": "#ffffff26"
+        "light": "#d9e0ea",
+        "dark": "#2e3948"
       },
       "themeInvariant": false,
       "themeAlias": "color-input",
@@ -645,13 +823,104 @@
         "type": "COLOR"
       }
     },
+    "input-bg": {
+      "kind": "color",
+      "light": "#FFFFFF",
+      "dark": "#171E2A",
+      "hex": {
+        "light": "#ffffff",
+        "dark": "#171e2a"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-input-bg",
+      "figma": {
+        "name": "input-bg",
+        "type": "COLOR"
+      },
+      "note": "Input family — text-entry chrome. A filled field takes `modal-muted` so a populated form reads at a glance without adding a border weight."
+    },
+    "input-border": {
+      "kind": "color",
+      "light": "#D9E0EA",
+      "dark": "#2E3948",
+      "hex": {
+        "light": "#d9e0ea",
+        "dark": "#2e3948"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-input-border",
+      "figma": {
+        "name": "input-border",
+        "type": "COLOR"
+      }
+    },
+    "input-border-focus": {
+      "kind": "color",
+      "light": "#43608E",
+      "dark": "#8FAEDA",
+      "hex": {
+        "light": "#43608e",
+        "dark": "#8faeda"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-input-border-focus",
+      "figma": {
+        "name": "input-border-focus",
+        "type": "COLOR"
+      }
+    },
+    "input-disabled-bg": {
+      "kind": "color",
+      "light": "#F1F4F8",
+      "dark": "#1B222E",
+      "hex": {
+        "light": "#f1f4f8",
+        "dark": "#1b222e"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-input-disabled-bg",
+      "figma": {
+        "name": "input-disabled-bg",
+        "type": "COLOR"
+      }
+    },
+    "input-placeholder": {
+      "kind": "color",
+      "light": "#94A2B5",
+      "dark": "#6B7889",
+      "hex": {
+        "light": "#94a2b5",
+        "dark": "#6b7889"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-input-placeholder",
+      "figma": {
+        "name": "input-placeholder",
+        "type": "COLOR"
+      }
+    },
+    "modal-muted": {
+      "kind": "color",
+      "light": "#F4F7FB",
+      "dark": "#212B39",
+      "hex": {
+        "light": "#f4f7fb",
+        "dark": "#212b39"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-modal-muted",
+      "figma": {
+        "name": "modal-muted",
+        "type": "COLOR"
+      }
+    },
     "muted": {
       "kind": "color",
-      "light": "oklch(0.97 0 0)",
-      "dark": "oklch(0.269 0 0)",
+      "light": "#EDF1F7",
+      "dark": "#1E2735",
       "hex": {
-        "light": "#f5f5f5",
-        "dark": "#262626"
+        "light": "#edf1f7",
+        "dark": "#1e2735"
       },
       "themeInvariant": false,
       "themeAlias": "color-muted",
@@ -662,27 +931,26 @@
     },
     "muted-foreground": {
       "kind": "color",
-      "light": "oklch(0.545 0 0)",
-      "dark": "oklch(0.708 0 0)",
+      "light": "#54637A",
+      "dark": "#9AA8BB",
       "hex": {
-        "light": "#707070",
-        "dark": "#a1a1a1"
+        "light": "#54637a",
+        "dark": "#9aa8bb"
       },
       "themeInvariant": false,
       "themeAlias": "color-muted-foreground",
       "figma": {
         "name": "muted-foreground",
         "type": "COLOR"
-      },
-      "note": "darkened from 0.556: 4.54:1 on --muted (AA), was 4.34"
+      }
     },
     "popover": {
       "kind": "color",
-      "light": "oklch(1 0 0)",
-      "dark": "oklch(0.205 0 0)",
+      "light": "#FFFFFF",
+      "dark": "#171E2A",
       "hex": {
         "light": "#ffffff",
-        "dark": "#171717"
+        "dark": "#171e2a"
       },
       "themeInvariant": false,
       "themeAlias": "color-popover",
@@ -693,11 +961,11 @@
     },
     "popover-foreground": {
       "kind": "color",
-      "light": "oklch(0.145 0 0)",
-      "dark": "oklch(0.985 0 0)",
+      "light": "#1D2735",
+      "dark": "#E6ECF4",
       "hex": {
-        "light": "#0a0a0a",
-        "dark": "#fafafa"
+        "light": "#1d2735",
+        "dark": "#e6ecf4"
       },
       "themeInvariant": false,
       "themeAlias": "color-popover-foreground",
@@ -708,11 +976,11 @@
     },
     "primary": {
       "kind": "color",
-      "light": "oklch(0.205 0 0)",
-      "dark": "oklch(0.922 0 0)",
+      "light": "#43608E",
+      "dark": "#8FAEDA",
       "hex": {
-        "light": "#171717",
-        "dark": "#e5e5e5"
+        "light": "#43608e",
+        "dark": "#8faeda"
       },
       "themeInvariant": false,
       "themeAlias": "color-primary",
@@ -721,13 +989,43 @@
         "type": "COLOR"
       }
     },
+    "primary-active": {
+      "kind": "color",
+      "light": "#2D4363",
+      "dark": "#B5CBEA",
+      "hex": {
+        "light": "#2d4363",
+        "dark": "#b5cbea"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-primary-active",
+      "figma": {
+        "name": "primary-active",
+        "type": "COLOR"
+      }
+    },
+    "primary-border": {
+      "kind": "color",
+      "light": "#B6C7DF",
+      "dark": "#3B5175",
+      "hex": {
+        "light": "#b6c7df",
+        "dark": "#3b5175"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-primary-border",
+      "figma": {
+        "name": "primary-border",
+        "type": "COLOR"
+      }
+    },
     "primary-foreground": {
       "kind": "color",
-      "light": "oklch(0.985 0 0)",
-      "dark": "oklch(0.205 0 0)",
+      "light": "#FFFFFF",
+      "dark": "#101822",
       "hex": {
-        "light": "#fafafa",
-        "dark": "#171717"
+        "light": "#ffffff",
+        "dark": "#101822"
       },
       "themeInvariant": false,
       "themeAlias": "color-primary-foreground",
@@ -738,11 +1036,11 @@
     },
     "primary-hover": {
       "kind": "color",
-      "light": "oklch(0.145 0 0)",
-      "dark": "oklch(0.85 0 0)",
+      "light": "#375077",
+      "dark": "#A3BEE4",
       "hex": {
-        "light": "#0a0a0a",
-        "dark": "#cecece"
+        "light": "#375077",
+        "dark": "#a3bee4"
       },
       "themeInvariant": false,
       "themeAlias": "color-primary-hover",
@@ -751,48 +1049,57 @@
         "type": "COLOR"
       }
     },
-    "radius": {
-      "kind": "dimension",
-      "light": "0.625rem",
-      "dark": null,
-      "resolvedPx": 10,
-      "themeInvariant": true,
+    "primary-soft": {
+      "kind": "color",
+      "light": "#E7EEF8",
+      "dark": "#223047",
+      "hex": {
+        "light": "#e7eef8",
+        "dark": "#223047"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-primary-soft",
       "figma": {
-        "name": "radius/base",
+        "name": "primary-soft",
+        "type": "COLOR"
+      }
+    },
+    "radius-2xl": {
+      "kind": "dimension",
+      "value": "16px",
+      "figma": {
+        "name": "radius/2xl",
         "type": "FLOAT"
       }
     },
     "radius-lg": {
-      "kind": "expression",
-      "value": "var(--radius)",
-      "resolvedPx": 10,
+      "kind": "dimension",
+      "value": "8px",
       "figma": {
         "name": "radius/lg",
         "type": "FLOAT"
       }
     },
     "radius-md": {
-      "kind": "expression",
-      "value": "calc(var(--radius) - 2px)",
-      "resolvedPx": 8,
+      "kind": "dimension",
+      "value": "6px",
       "figma": {
         "name": "radius/md",
         "type": "FLOAT"
       }
     },
     "radius-sm": {
-      "kind": "expression",
-      "value": "calc(var(--radius) - 4px)",
-      "resolvedPx": 6,
+      "kind": "dimension",
+      "value": "4px",
       "figma": {
         "name": "radius/sm",
         "type": "FLOAT"
-      }
+      },
+      "note": "═══ Design System: Radius Scale ═══ Explicit values rather than offsets from a single `--radius`, so each step is a decision instead of a side effect: sm = inline chips and checkboxes, md = compact buttons and menu items, lg = default controls (button, input, nav item), xl = cards, tables and popovers, 2xl = modals."
     },
     "radius-xl": {
-      "kind": "expression",
-      "value": "calc(var(--radius) + 6px)",
-      "resolvedPx": 16,
+      "kind": "dimension",
+      "value": "12px",
       "figma": {
         "name": "radius/xl",
         "type": "FLOAT"
@@ -800,11 +1107,11 @@
     },
     "ring": {
       "kind": "color",
-      "light": "oklch(0.708 0 0)",
-      "dark": "oklch(0.556 0 0)",
+      "light": "#7FA3CF",
+      "dark": "#5D82B4",
       "hex": {
-        "light": "#a1a1a1",
-        "dark": "#737373"
+        "light": "#7fa3cf",
+        "dark": "#5d82b4"
       },
       "themeInvariant": false,
       "themeAlias": "color-ring",
@@ -815,11 +1122,11 @@
     },
     "secondary": {
       "kind": "color",
-      "light": "oklch(0.97 0 0)",
-      "dark": "oklch(0.269 0 0)",
+      "light": "#EDF1F7",
+      "dark": "#1E2735",
       "hex": {
-        "light": "#f5f5f5",
-        "dark": "#262626"
+        "light": "#edf1f7",
+        "dark": "#1e2735"
       },
       "themeInvariant": false,
       "themeAlias": "color-secondary",
@@ -830,11 +1137,11 @@
     },
     "secondary-foreground": {
       "kind": "color",
-      "light": "oklch(0.205 0 0)",
-      "dark": "oklch(0.985 0 0)",
+      "light": "#1D2735",
+      "dark": "#E6ECF4",
       "hex": {
-        "light": "#171717",
-        "dark": "#fafafa"
+        "light": "#1d2735",
+        "dark": "#e6ecf4"
       },
       "themeInvariant": false,
       "themeAlias": "color-secondary-foreground",
@@ -845,7 +1152,7 @@
     },
     "shadow-2xl": {
       "kind": "shadow",
-      "value": "0 25px 50px rgb(16 24 40 / 0.20)",
+      "value": "0 25px 50px rgb(29 39 53 / 0.22)",
       "dark": "0 25px 50px rgb(0 0 0 / 0.80)",
       "themeInvariant": false,
       "figma": null
@@ -854,25 +1161,25 @@
       "kind": "shadow",
       "value": "0 0 0 2px var(--focus-ring-inner), 0 0 0 4px var(--focus-ring-outer)",
       "figma": null,
-      "note": "Figma button focus: 2px white inner + 4px slate-alpha-16 outer"
+      "note": "Focus indicator — ONE mechanism for the whole product. The design reference suppresses focus rings entirely; we keep them (a keyboard user must be able to see where they are) but adopt the intent: quiet. A 2px ground-coloured inner ring separates the halo from the control, then a 4px navy halo at low alpha. Because it is a token, the whole app's focus treatment moves as one decision."
     },
     "shadow-lg": {
       "kind": "shadow",
-      "value": "0 12px 32px rgb(16 24 40 / 0.10)",
-      "dark": "0 12px 32px rgb(0 0 0 / 0.60)",
+      "value": "0 12px 28px rgb(29 39 53 / 0.12), 0 2px 6px rgb(29 39 53 / 0.06)",
+      "dark": "0 12px 28px rgb(0 0 0 / 0.60)",
       "themeInvariant": false,
       "figma": null
     },
     "shadow-md": {
       "kind": "shadow",
-      "value": "0 4px 12px rgb(16 24 40 / 0.08)",
+      "value": "0 4px 12px rgb(29 39 53 / 0.08), 0 1px 3px rgb(29 39 53 / 0.04)",
       "dark": "0 4px 12px rgb(0 0 0 / 0.50)",
       "themeInvariant": false,
       "figma": null
     },
     "shadow-sm": {
       "kind": "shadow",
-      "value": "0 1px 3px rgb(16 24 40 / 0.08), 0 1px 2px rgb(16 24 40 / 0.06)",
+      "value": "0 1px 3px rgb(29 39 53 / 0.08), 0 1px 2px rgb(29 39 53 / 0.05)",
       "dark": "0 1px 3px rgb(0 0 0 / 0.40), 0 1px 2px rgb(0 0 0 / 0.30)",
       "themeInvariant": false,
       "figma": null
@@ -887,41 +1194,42 @@
     },
     "shadow-xl": {
       "kind": "shadow",
-      "value": "0 20px 40px rgb(16 24 40 / 0.12)",
+      "value": "0 20px 40px rgb(29 39 53 / 0.14)",
       "dark": "0 20px 40px rgb(0 0 0 / 0.70)",
       "themeInvariant": false,
       "figma": null
     },
     "shadow-xs": {
       "kind": "shadow",
-      "value": "0 1px 2px rgb(16 24 40 / 0.05)",
+      "value": "0 1px 2px rgb(29 39 53 / 0.05)",
       "dark": "0 1px 2px rgb(0 0 0 / 0.30)",
       "themeInvariant": false,
       "figma": null,
-      "note": "═══ Design System: Shadow Scale ═══ Tuned to ink #101828. Dark mode overrides in .dark below. xs → flat controls (button, input, icon-button) sm → cards, panels, sections md → hover elevation, slightly raised cards lg → dialogs, overlays, popovers xl → floating panels (drawers, side sheets) 2xl → top-level modals, command palette"
+      "note": "═══ Design System: Shadow Scale ═══ Tuned to the navy ink #1D2735 so elevation reads as a cool shadow rather than a grey smudge over the pastel-navy surfaces. Dark overrides in .dark. xs → flat controls (button, input, icon-button) sm → cards, panels, sections md → the list-view card (a table carries elevation instead of a border) lg → menus, popovers, dropdowns xl → floating panels (drawers, side sheets) 2xl → top-level modals, command palette"
     },
     "sidebar": {
       "kind": "color",
-      "light": "oklch(0.985 0 0)",
-      "dark": "oklch(0.205 0 0)",
+      "light": "#FFFFFF",
+      "dark": "#171E2A",
       "hex": {
-        "light": "#fafafa",
-        "dark": "#171717"
+        "light": "#ffffff",
+        "dark": "#171e2a"
       },
       "themeInvariant": false,
       "themeAlias": "color-sidebar",
       "figma": {
         "name": "sidebar",
         "type": "COLOR"
-      }
+      },
+      "note": "Sidebar — the reference sidebar sits on the raised surface, not on a tinted panel, so it reads as part of the same sheet as the content."
     },
     "sidebar-accent": {
       "kind": "color",
-      "light": "oklch(0.97 0 0)",
-      "dark": "oklch(0.269 0 0)",
+      "light": "#EDF1F7",
+      "dark": "#1E2735",
       "hex": {
-        "light": "#f5f5f5",
-        "dark": "#262626"
+        "light": "#edf1f7",
+        "dark": "#1e2735"
       },
       "themeInvariant": false,
       "themeAlias": "color-sidebar-accent",
@@ -932,11 +1240,11 @@
     },
     "sidebar-accent-foreground": {
       "kind": "color",
-      "light": "oklch(0.205 0 0)",
-      "dark": "oklch(0.985 0 0)",
+      "light": "#1D2735",
+      "dark": "#E6ECF4",
       "hex": {
-        "light": "#171717",
-        "dark": "#fafafa"
+        "light": "#1d2735",
+        "dark": "#e6ecf4"
       },
       "themeInvariant": false,
       "themeAlias": "color-sidebar-accent-foreground",
@@ -947,11 +1255,11 @@
     },
     "sidebar-border": {
       "kind": "color",
-      "light": "oklch(0.922 0 0)",
-      "dark": "oklch(1 0 0 / 10%)",
+      "light": "#D9E0EA",
+      "dark": "#2E3948",
       "hex": {
-        "light": "#e5e5e5",
-        "dark": "#ffffff1a"
+        "light": "#d9e0ea",
+        "dark": "#2e3948"
       },
       "themeInvariant": false,
       "themeAlias": "color-sidebar-border",
@@ -962,11 +1270,11 @@
     },
     "sidebar-foreground": {
       "kind": "color",
-      "light": "oklch(0.145 0 0)",
-      "dark": "oklch(0.985 0 0)",
+      "light": "#1D2735",
+      "dark": "#E6ECF4",
       "hex": {
-        "light": "#0a0a0a",
-        "dark": "#fafafa"
+        "light": "#1d2735",
+        "dark": "#e6ecf4"
       },
       "themeInvariant": false,
       "themeAlias": "color-sidebar-foreground",
@@ -977,11 +1285,11 @@
     },
     "sidebar-primary": {
       "kind": "color",
-      "light": "oklch(0.205 0 0)",
-      "dark": "oklch(0.488 0.243 264.376)",
+      "light": "#43608E",
+      "dark": "#8FAEDA",
       "hex": {
-        "light": "#171717",
-        "dark": "#1447e6"
+        "light": "#43608e",
+        "dark": "#8faeda"
       },
       "themeInvariant": false,
       "themeAlias": "color-sidebar-primary",
@@ -992,13 +1300,13 @@
     },
     "sidebar-primary-foreground": {
       "kind": "color",
-      "light": "oklch(0.985 0 0)",
-      "dark": "oklch(0.985 0 0)",
+      "light": "#FFFFFF",
+      "dark": "#101822",
       "hex": {
-        "light": "#fafafa",
-        "dark": "#fafafa"
+        "light": "#ffffff",
+        "dark": "#101822"
       },
-      "themeInvariant": true,
+      "themeInvariant": false,
       "themeAlias": "color-sidebar-primary-foreground",
       "figma": {
         "name": "sidebar-primary-foreground",
@@ -1007,11 +1315,11 @@
     },
     "sidebar-ring": {
       "kind": "color",
-      "light": "oklch(0.708 0 0)",
-      "dark": "oklch(0.556 0 0)",
+      "light": "#7FA3CF",
+      "dark": "#5D82B4",
       "hex": {
-        "light": "#a1a1a1",
-        "dark": "#737373"
+        "light": "#7fa3cf",
+        "dark": "#5d82b4"
       },
       "themeInvariant": false,
       "themeAlias": "color-sidebar-ring",
@@ -1022,11 +1330,11 @@
     },
     "status-error-bg": {
       "kind": "color",
-      "light": "oklch(0.971 0.013 17.38)",
-      "dark": "oklch(0.258 0.092 26.042)",
+      "light": "#FBF0EF",
+      "dark": "#2B1614",
       "hex": {
-        "light": "#fef2f2",
-        "dark": "#460809"
+        "light": "#fbf0ef",
+        "dark": "#2b1614"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-error-bg",
@@ -1034,31 +1342,30 @@
         "name": "status/error/bg",
         "type": "COLOR"
       },
-      "note": "red-50 #fef2f2"
+      "note": "Error — muted brick red. Pulled back from the stock red-600 so a warning row does not shout across the pastel-navy chrome, while staying unmistakably red and AA-legible. `icon` tracks `--destructive` by design."
     },
     "status-error-border": {
       "kind": "color",
-      "light": "oklch(0.885 0.062 18.334)",
-      "dark": "oklch(0.444 0.177 26.899)",
+      "light": "#EBC5C1",
+      "dark": "#6B2E28",
       "hex": {
-        "light": "#ffc9c9",
-        "dark": "#9f0712"
+        "light": "#ebc5c1",
+        "dark": "#6b2e28"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-error-border",
       "figma": {
         "name": "status/error/border",
         "type": "COLOR"
-      },
-      "note": "red-200 #fecaca"
+      }
     },
     "status-error-icon": {
       "kind": "color",
-      "light": "oklch(0.577 0.245 27.325)",
-      "dark": "oklch(0.637 0.237 25.331)",
+      "light": "#C0483F",
+      "dark": "#E0736A",
       "hex": {
-        "light": "#e7000b",
-        "dark": "#fb2c36"
+        "light": "#c0483f",
+        "dark": "#e0736a"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-error-icon",
@@ -1066,15 +1373,15 @@
         "name": "status/error/icon",
         "type": "COLOR"
       },
-      "note": "red-600 #dc2626 = --destructive"
+      "note": "= --destructive"
     },
     "status-error-solid": {
       "kind": "color",
-      "light": "oklch(0.577 0.245 27.325)",
-      "dark": "oklch(0.577 0.245 27.325)",
+      "light": "#B03A31",
+      "dark": "#B03A31",
       "hex": {
-        "light": "#e7000b",
-        "dark": "#e7000b"
+        "light": "#b03a31",
+        "dark": "#b03a31"
       },
       "themeInvariant": true,
       "themeAlias": "color-status-error-solid",
@@ -1082,7 +1389,7 @@
         "name": "status-error-solid",
         "type": "COLOR"
       },
-      "note": "red-600 #dc2626, on white 4.83"
+      "note": "on white 6.01"
     },
     "status-error-solid-foreground": {
       "kind": "color",
@@ -1101,27 +1408,26 @@
     },
     "status-error-text": {
       "kind": "color",
-      "light": "oklch(0.396 0.141 25.723)",
-      "dark": "oklch(0.808 0.114 19.571)",
+      "light": "#7A2823",
+      "dark": "#EEA8A1",
       "hex": {
-        "light": "#82181a",
-        "dark": "#ffa2a2"
+        "light": "#7a2823",
+        "dark": "#eea8a1"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-error-text",
       "figma": {
         "name": "status/error/text",
         "type": "COLOR"
-      },
-      "note": "red-900 #7f1d1d"
+      }
     },
     "status-info-bg": {
       "kind": "color",
-      "light": "oklch(0.962 0.018 272.314)",
-      "dark": "oklch(0.257 0.09 281.288)",
+      "light": "#EEF1FA",
+      "dark": "#1A1F33",
       "hex": {
-        "light": "#eef2ff",
-        "dark": "#1e1a4d"
+        "light": "#eef1fa",
+        "dark": "#1a1f33"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-info-bg",
@@ -1129,47 +1435,45 @@
         "name": "status/info/bg",
         "type": "COLOR"
       },
-      "note": "indigo-50 #eef2ff"
+      "note": "Info — indigo-leaning blue, held one hue away from `--accent-strong` so an informational chip is never mistaken for an interactive element."
     },
     "status-info-border": {
       "kind": "color",
-      "light": "oklch(0.870 0.065 274.039)",
-      "dark": "oklch(0.398 0.195 277.366)",
+      "light": "#C4CDE9",
+      "dark": "#37426B",
       "hex": {
-        "light": "#c6d2ff",
-        "dark": "#372aac"
+        "light": "#c4cde9",
+        "dark": "#37426b"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-info-border",
       "figma": {
         "name": "status/info/border",
         "type": "COLOR"
-      },
-      "note": "indigo-200 #c7d2fe"
+      }
     },
     "status-info-icon": {
       "kind": "color",
-      "light": "oklch(0.511 0.262 276.966)",
-      "dark": "oklch(0.585 0.233 277.117)",
+      "light": "#4F63A8",
+      "dark": "#7E90CE",
       "hex": {
-        "light": "#4f39f6",
-        "dark": "#615fff"
+        "light": "#4f63a8",
+        "dark": "#7e90ce"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-info-icon",
       "figma": {
         "name": "status/info/icon",
         "type": "COLOR"
-      },
-      "note": "indigo-600 #4f46e5 = --chart-indigo"
+      }
     },
     "status-info-solid": {
       "kind": "color",
-      "light": "oklch(0.511 0.262 276.966)",
-      "dark": "oklch(0.511 0.262 276.966)",
+      "light": "#3F5B99",
+      "dark": "#3F5B99",
       "hex": {
-        "light": "#4f39f6",
-        "dark": "#4f39f6"
+        "light": "#3f5b99",
+        "dark": "#3f5b99"
       },
       "themeInvariant": true,
       "themeAlias": "color-status-info-solid",
@@ -1177,7 +1481,7 @@
         "name": "status-info-solid",
         "type": "COLOR"
       },
-      "note": "indigo-600 #4f46e5, on white 6.29"
+      "note": "on white 6.63"
     },
     "status-info-solid-foreground": {
       "kind": "color",
@@ -1196,27 +1500,26 @@
     },
     "status-info-text": {
       "kind": "color",
-      "light": "oklch(0.359 0.144 278.697)",
-      "dark": "oklch(0.785 0.115 274.713)",
+      "light": "#2A3763",
+      "dark": "#AEB9DD",
       "hex": {
-        "light": "#312c85",
-        "dark": "#a3b3ff"
+        "light": "#2a3763",
+        "dark": "#aeb9dd"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-info-text",
       "figma": {
         "name": "status/info/text",
         "type": "COLOR"
-      },
-      "note": "indigo-900 #312e81"
+      }
     },
     "status-neutral-bg": {
       "kind": "color",
-      "light": "oklch(0.97 0 0)",
-      "dark": "oklch(0.205 0 0)",
+      "light": "#EDF1F7",
+      "dark": "#1E2735",
       "hex": {
-        "light": "#f5f5f5",
-        "dark": "#171717"
+        "light": "#edf1f7",
+        "dark": "#1e2735"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-neutral-bg",
@@ -1224,31 +1527,30 @@
         "name": "status/neutral/bg",
         "type": "COLOR"
       },
-      "note": "neutral-100 #f5f5f5"
+      "note": "Neutral — navy-grey rather than pure grey, so a \"no status\" chip reads as part of the palette instead of as an unstyled leftover."
     },
     "status-neutral-border": {
       "kind": "color",
-      "light": "oklch(0.922 0 0)",
-      "dark": "oklch(0.371 0 0)",
+      "light": "#D9E0EA",
+      "dark": "#3C4859",
       "hex": {
-        "light": "#e5e5e5",
-        "dark": "#404040"
+        "light": "#d9e0ea",
+        "dark": "#3c4859"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-neutral-border",
       "figma": {
         "name": "status/neutral/border",
         "type": "COLOR"
-      },
-      "note": "neutral-200 #e5e5e5 (≈ Figma #ebebeb)"
+      }
     },
     "status-neutral-icon": {
       "kind": "color",
-      "light": "oklch(0.556 0 0)",
-      "dark": "oklch(0.708 0 0)",
+      "light": "#6B7B92",
+      "dark": "#9AA8BB",
       "hex": {
-        "light": "#737373",
-        "dark": "#a1a1a1"
+        "light": "#6b7b92",
+        "dark": "#9aa8bb"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-neutral-icon",
@@ -1256,15 +1558,15 @@
         "name": "status/neutral/icon",
         "type": "COLOR"
       },
-      "note": "neutral-500 #737373 (≈ Figma #7b7b7b)"
+      "note": "= dark --muted-foreground"
     },
     "status-neutral-solid": {
       "kind": "color",
-      "light": "oklch(0.439 0 0)",
-      "dark": "oklch(0.439 0 0)",
+      "light": "#4A5768",
+      "dark": "#4A5768",
       "hex": {
-        "light": "#525252",
-        "dark": "#525252"
+        "light": "#4a5768",
+        "dark": "#4a5768"
       },
       "themeInvariant": true,
       "themeAlias": "color-status-neutral-solid",
@@ -1272,7 +1574,7 @@
         "name": "status-neutral-solid",
         "type": "COLOR"
       },
-      "note": "neutral-600 #525252, on white 7.81"
+      "note": "on white 7.36"
     },
     "status-neutral-solid-foreground": {
       "kind": "color",
@@ -1291,27 +1593,26 @@
     },
     "status-neutral-text": {
       "kind": "color",
-      "light": "oklch(0.371 0 0)",
-      "dark": "oklch(0.872 0 0)",
+      "light": "#37455A",
+      "dark": "#C2CDDC",
       "hex": {
-        "light": "#404040",
-        "dark": "#d5d5d5"
+        "light": "#37455a",
+        "dark": "#c2cddc"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-neutral-text",
       "figma": {
         "name": "status/neutral/text",
         "type": "COLOR"
-      },
-      "note": "neutral-700 #404040"
+      }
     },
     "status-pink-bg": {
       "kind": "color",
-      "light": "oklch(0.965 0.020 340)",
-      "dark": "oklch(0.225 0.045 340)",
+      "light": "oklch(0.962 0.018 340)",
+      "dark": "#2B1A24",
       "hex": {
-        "light": "#fdeff8",
-        "dark": "#291322"
+        "light": "#fbeef6",
+        "dark": "#2b1a24"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-pink-bg",
@@ -1319,47 +1620,45 @@
         "name": "status/pink/bg",
         "type": "COLOR"
       },
-      "note": "pink-50 #FDF2F8"
+      "note": "Pink (hue ~340°) — a CATEGORICAL accent for stage/category chips, never a semantic outcome. Chroma pulled back to match the rest of the palette."
     },
     "status-pink-border": {
       "kind": "color",
-      "light": "oklch(0.840 0.090 340)",
-      "dark": "oklch(0.405 0.155 340)",
+      "light": "oklch(0.845 0.070 340)",
+      "dark": "#63314A",
       "hex": {
-        "light": "#f3b4dd",
-        "dark": "#7b1763"
+        "light": "#ecbbdb",
+        "dark": "#63314a"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-pink-border",
       "figma": {
         "name": "status/pink/border",
         "type": "COLOR"
-      },
-      "note": "pink-200 #FBCFE8"
+      }
     },
     "status-pink-icon": {
       "kind": "color",
-      "light": "oklch(0.633 0.238 340)",
-      "dark": "oklch(0.700 0.225 340)",
+      "light": "oklch(0.615 0.165 340)",
+      "dark": "#C4749A",
       "hex": {
-        "light": "#df36b6",
-        "dark": "#f357c9"
+        "light": "#c356a3",
+        "dark": "#c4749a"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-pink-icon",
       "figma": {
         "name": "status/pink/icon",
         "type": "COLOR"
-      },
-      "note": "pink-500 #EC4899"
+      }
     },
     "status-pink-solid": {
       "kind": "color",
-      "light": "oklch(0.388 0.180 340)",
-      "dark": "oklch(0.388 0.180 340)",
+      "light": "#A83262",
+      "dark": "#A83262",
       "hex": {
-        "light": "#7b0062",
-        "dark": "#7b0062"
+        "light": "#a83262",
+        "dark": "#a83262"
       },
       "themeInvariant": true,
       "themeAlias": "color-status-pink-solid",
@@ -1367,7 +1666,7 @@
         "name": "status-pink-solid",
         "type": "COLOR"
       },
-      "note": "pink-700 #be185d, on white 6.04"
+      "note": "on white 6.37"
     },
     "status-pink-solid-foreground": {
       "kind": "color",
@@ -1386,27 +1685,26 @@
     },
     "status-pink-text": {
       "kind": "color",
-      "light": "oklch(0.388 0.180 340)",
-      "dark": "oklch(0.815 0.135 340)",
+      "light": "oklch(0.400 0.130 340)",
+      "dark": "#E4A9C4",
       "hex": {
-        "light": "#7b0062",
-        "dark": "#fc9fde"
+        "light": "#72235d",
+        "dark": "#e4a9c4"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-pink-text",
       "figma": {
         "name": "status/pink/text",
         "type": "COLOR"
-      },
-      "note": "pink-700 #BE185D"
+      }
     },
     "status-success-bg": {
       "kind": "color",
-      "light": "oklch(0.982 0.018 155.826)",
-      "dark": "oklch(0.266 0.065 152.934)",
+      "light": "#EFF6F1",
+      "dark": "#12241A",
       "hex": {
-        "light": "#f0fdf4",
-        "dark": "#032e15"
+        "light": "#eff6f1",
+        "dark": "#12241a"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-success-bg",
@@ -1414,47 +1712,45 @@
         "name": "status/success/bg",
         "type": "COLOR"
       },
-      "note": "green-50 #f0fdf4"
+      "note": "Success — muted forest green."
     },
     "status-success-border": {
       "kind": "color",
-      "light": "oklch(0.925 0.084 155.995)",
-      "dark": "oklch(0.448 0.119 151.328)",
+      "light": "#C3DECD",
+      "dark": "#2C4E38",
       "hex": {
-        "light": "#b9f8cf",
-        "dark": "#016630"
+        "light": "#c3decd",
+        "dark": "#2c4e38"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-success-border",
       "figma": {
         "name": "status/success/border",
         "type": "COLOR"
-      },
-      "note": "green-200 #bbf7d0"
+      }
     },
     "status-success-icon": {
       "kind": "color",
-      "light": "oklch(0.627 0.194 149.214)",
-      "dark": "oklch(0.723 0.219 149.579)",
+      "light": "#3B7A53",
+      "dark": "#63A87D",
       "hex": {
-        "light": "#00a63e",
-        "dark": "#00c950"
+        "light": "#3b7a53",
+        "dark": "#63a87d"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-success-icon",
       "figma": {
         "name": "status/success/icon",
         "type": "COLOR"
-      },
-      "note": "green-600 #16a34a"
+      }
     },
     "status-success-solid": {
       "kind": "color",
-      "light": "oklch(0.527 0.154 150.069)",
-      "dark": "oklch(0.527 0.154 150.069)",
+      "light": "#2F6B45",
+      "dark": "#2F6B45",
       "hex": {
-        "light": "#008236",
-        "dark": "#008236"
+        "light": "#2f6b45",
+        "dark": "#2f6b45"
       },
       "themeInvariant": true,
       "themeAlias": "color-status-success-solid",
@@ -1462,7 +1758,7 @@
         "name": "status-success-solid",
         "type": "COLOR"
       },
-      "note": "green-700 #15803d, on white 5.02"
+      "note": "on white 6.85"
     },
     "status-success-solid-foreground": {
       "kind": "color",
@@ -1481,27 +1777,26 @@
     },
     "status-success-text": {
       "kind": "color",
-      "light": "oklch(0.393 0.095 152.535)",
-      "dark": "oklch(0.871 0.15 154.449)",
+      "light": "#1E4D33",
+      "dark": "#9CD4B1",
       "hex": {
-        "light": "#0d542b",
-        "dark": "#7bf1a8"
+        "light": "#1e4d33",
+        "dark": "#9cd4b1"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-success-text",
       "figma": {
         "name": "status/success/text",
         "type": "COLOR"
-      },
-      "note": "green-900 #14532d"
+      }
     },
     "status-warning-bg": {
       "kind": "color",
-      "light": "oklch(0.987 0.022 95.277)",
-      "dark": "oklch(0.279 0.077 45.635)",
+      "light": "#FBF5E9",
+      "dark": "#2A2113",
       "hex": {
-        "light": "#fffbeb",
-        "dark": "#461901"
+        "light": "#fbf5e9",
+        "dark": "#2a2113"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-warning-bg",
@@ -1509,47 +1804,45 @@
         "name": "status/warning/bg",
         "type": "COLOR"
       },
-      "note": "amber-50 #fffbeb"
+      "note": "Warning — muted ochre. Amber is the hardest hue to keep legible on a light tint, so the icon sits deliberately darker than a stock amber-600."
     },
     "status-warning-border": {
       "kind": "color",
-      "light": "oklch(0.924 0.12 95.746)",
-      "dark": "oklch(0.473 0.137 46.201)",
+      "light": "#E8D5AC",
+      "dark": "#5C4620",
       "hex": {
-        "light": "#fee685",
-        "dark": "#973c00"
+        "light": "#e8d5ac",
+        "dark": "#5c4620"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-warning-border",
       "figma": {
         "name": "status/warning/border",
         "type": "COLOR"
-      },
-      "note": "amber-200 #fde68a"
+      }
     },
     "status-warning-icon": {
       "kind": "color",
-      "light": "oklch(0.666 0.179 58.318)",
-      "dark": "oklch(0.769 0.188 70.08)",
+      "light": "#A6721A",
+      "dark": "#C99A3E",
       "hex": {
-        "light": "#e17100",
-        "dark": "#fe9a00"
+        "light": "#a6721a",
+        "dark": "#c99a3e"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-warning-icon",
       "figma": {
         "name": "status/warning/icon",
         "type": "COLOR"
-      },
-      "note": "amber-600 #d97706"
+      }
     },
     "status-warning-solid": {
       "kind": "color",
-      "light": "oklch(0.555 0.163 48.998)",
-      "dark": "oklch(0.555 0.163 48.998)",
+      "light": "#96660F",
+      "dark": "#96660F",
       "hex": {
-        "light": "#bb4d00",
-        "dark": "#bb4d00"
+        "light": "#96660f",
+        "dark": "#96660f"
       },
       "themeInvariant": true,
       "themeAlias": "color-status-warning-solid",
@@ -1557,7 +1850,7 @@
         "name": "status-warning-solid",
         "type": "COLOR"
       },
-      "note": "amber-700 #b45309, on white 5.02"
+      "note": "on white 6.02"
     },
     "status-warning-solid-foreground": {
       "kind": "color",
@@ -1576,27 +1869,147 @@
     },
     "status-warning-text": {
       "kind": "color",
-      "light": "oklch(0.414 0.112 45.904)",
-      "dark": "oklch(0.879 0.169 91.605)",
+      "light": "#6B4A16",
+      "dark": "#E2C489",
       "hex": {
-        "light": "#7b3306",
-        "dark": "#ffd230"
+        "light": "#6b4a16",
+        "dark": "#e2c489"
       },
       "themeInvariant": false,
       "themeAlias": "color-status-warning-text",
       "figma": {
         "name": "status/warning/text",
         "type": "COLOR"
+      }
+    },
+    "surface": {
+      "kind": "color",
+      "light": "#FFFFFF",
+      "dark": "#171E2A",
+      "hex": {
+        "light": "#ffffff",
+        "dark": "#171e2a"
       },
-      "note": "amber-900 #78350f"
+      "themeInvariant": false,
+      "themeAlias": "color-surface",
+      "figma": {
+        "name": "surface",
+        "type": "COLOR"
+      }
+    },
+    "surface-modal": {
+      "kind": "color",
+      "light": "#E9EEF5",
+      "dark": "#1A2230",
+      "hex": {
+        "light": "#e9eef5",
+        "dark": "#1a2230"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-surface-modal",
+      "figma": {
+        "name": "surface-modal",
+        "type": "COLOR"
+      }
+    },
+    "surface-muted": {
+      "kind": "color",
+      "light": "#EDF1F7",
+      "dark": "#1E2735",
+      "hex": {
+        "light": "#edf1f7",
+        "dark": "#1e2735"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-surface-muted",
+      "figma": {
+        "name": "surface-muted",
+        "type": "COLOR"
+      }
+    },
+    "surface-strong": {
+      "kind": "color",
+      "light": "#E2E8F1",
+      "dark": "#28323F",
+      "hex": {
+        "light": "#e2e8f1",
+        "dark": "#28323f"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-surface-strong",
+      "figma": {
+        "name": "surface-strong",
+        "type": "COLOR"
+      }
+    },
+    "table-border": {
+      "kind": "color",
+      "light": "#D9E0EA",
+      "dark": "#2E3948",
+      "hex": {
+        "light": "#d9e0ea",
+        "dark": "#2e3948"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-table-border",
+      "figma": {
+        "name": "table-border",
+        "type": "COLOR"
+      }
+    },
+    "table-header": {
+      "kind": "color",
+      "light": "#EDF1F7",
+      "dark": "#1E2735",
+      "hex": {
+        "light": "#edf1f7",
+        "dark": "#1e2735"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-table-header",
+      "figma": {
+        "name": "table-header",
+        "type": "COLOR"
+      },
+      "note": "Table family — a list view is the most-used surface in the product, so its parts are named instead of expressed as opacity math at call sites."
+    },
+    "table-row-hover": {
+      "kind": "color",
+      "light": "#F4F7FB",
+      "dark": "#1A2230",
+      "hex": {
+        "light": "#f4f7fb",
+        "dark": "#1a2230"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-table-row-hover",
+      "figma": {
+        "name": "table-row-hover",
+        "type": "COLOR"
+      }
+    },
+    "table-selected": {
+      "kind": "color",
+      "light": "#E7EEF8",
+      "dark": "#223047",
+      "hex": {
+        "light": "#e7eef8",
+        "dark": "#223047"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-table-selected",
+      "figma": {
+        "name": "table-selected",
+        "type": "COLOR"
+      }
     },
     "text-disabled": {
       "kind": "color",
-      "light": "#d1d1d1",
-      "dark": "oklch(0.45 0 0)",
+      "light": "#B3BECD",
+      "dark": "#4C5768",
       "hex": {
-        "light": "#d1d1d1",
-        "dark": "#555555"
+        "light": "#b3becd",
+        "dark": "#4c5768"
       },
       "themeInvariant": false,
       "themeAlias": "color-text-disabled",

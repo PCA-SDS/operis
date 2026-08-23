@@ -45,7 +45,7 @@ const FIXTURE = `@import "tailwindcss";
   --brand-lime: #B4F372;
   --focus-ring-inner: rgba(255, 255, 255, 1);
   --status-error-bg: oklch(0.971 0.013 17.38);     /* red-50  #fef2f2 */
-  --accent-indigo: #6366f1;
+  --accent-strong: #6366f1;
 }
 
 .dark {
@@ -53,7 +53,7 @@ const FIXTURE = `@import "tailwindcss";
   --shadow-xs:  0 1px 2px rgb(0 0 0 / 0.30);
   --focus-ring-inner: var(--background);
   --status-error-bg: oklch(0.258 0.092 26.042);
-  --accent-indigo: #818cf8;
+  --accent-strong: #818cf8;
 }
 `
 
@@ -66,11 +66,11 @@ test('extractBlocks finds exactly the three token blocks', () => {
 
 test('braces inside comments do not break block extraction', () => {
   const withComment = FIXTURE.replace(
-    '--accent-indigo: #6366f1;',
-    '/* mirrors Figma state/{x}/{base,light,lighter} */\n  --accent-indigo: #6366f1;',
+    '--accent-strong: #6366f1;',
+    '/* mirrors Figma state/{x}/{base,light,lighter} */\n  --accent-strong: #6366f1;',
   )
   const snapshot = buildSnapshot(withComment)
-  assert.equal(snapshot.tokens['accent-indigo'].note, 'mirrors Figma state/{x}/{base,light,lighter}')
+  assert.equal(snapshot.tokens['accent-strong'].note, 'mirrors Figma state/{x}/{base,light,lighter}')
 })
 
 test('classifyValue covers every authored value shape', () => {
@@ -101,7 +101,7 @@ test('figmaFor applies the deterministic prefix table', () => {
   assert.deepEqual(figmaFor('status-error-bg', 'color'), { name: 'status/error/bg', type: 'COLOR' })
   assert.deepEqual(figmaFor('chart-blue', 'color'), { name: 'chart/blue', type: 'COLOR' })
   assert.deepEqual(figmaFor('brand-lime', 'color'), { name: 'brand/lime', type: 'COLOR' })
-  assert.deepEqual(figmaFor('accent-indigo-foreground', 'color'), { name: 'accent/indigo-foreground', type: 'COLOR' })
+  assert.deepEqual(figmaFor('accent-strong-foreground', 'color'), { name: 'accent/indigo-foreground', type: 'COLOR' })
   assert.deepEqual(figmaFor('z-index-modal-elevated', 'number'), { name: 'z/modal-elevated', type: 'FLOAT' })
   assert.deepEqual(figmaFor('radius-md', 'expression'), { name: 'radius/md', type: 'FLOAT' })
   assert.deepEqual(figmaFor('background', 'color'), { name: 'background', type: 'COLOR' })
@@ -121,7 +121,7 @@ test('buildSnapshot detects theme invariance from the file, not a hardcoded list
   assert.equal(snapshot.tokens['brand-lime'].themeInvariant, true)
   assert.equal(snapshot.tokens['brand-lime'].dark, null)
   assert.equal(snapshot.tokens['status-error-bg'].themeInvariant, false)
-  assert.equal(snapshot.tokens['accent-indigo'].themeInvariant, false)
+  assert.equal(snapshot.tokens['accent-strong'].themeInvariant, false)
 })
 
 test('buildSnapshot folds @theme aliases into the underlying token', () => {
@@ -156,7 +156,7 @@ test('non-resolvable colors and shadows stay snapshot-only (figma: null)', () =>
 })
 
 test('unparseable content inside a token block is a hard error, never a silent skip', () => {
-  assert.throws(() => buildSnapshot(FIXTURE.replace('--accent-indigo: #6366f1;', '--broken value here')), /unparseable line/)
+  assert.throws(() => buildSnapshot(FIXTURE.replace('--accent-strong: #6366f1;', '--broken value here')), /unparseable line/)
   assert.throws(() => buildSnapshot(FIXTURE.replace('color-scheme: light;', 'display: block;')), /non-token declaration/)
   assert.throws(
     () => buildSnapshot(FIXTURE.replace('--color-brand-lime: var(--brand-lime);', '--color-ghost: var(--ghost);')),
@@ -198,7 +198,7 @@ test('buildFigmaOps emits RGBA colors and FLOAT scalars with WEB code syntax', (
 test('token lifecycle: added, removed, and new-family tokens flow through without code changes', () => {
   const committed = buildSnapshot(FIXTURE)
   const grown = FIXTURE
-    .replace('--accent-indigo: #6366f1;', '--accent-indigo: #6366f1;\n  --status-teal-bg: oklch(0.97 0.02 180);\n  --brand-ocean: #0061FF;')
+    .replace('--accent-strong: #6366f1;', '--accent-strong: #6366f1;\n  --status-teal-bg: oklch(0.97 0.02 180);\n  --brand-ocean: #0061FF;')
     .replace('  --brand-lime: #B4F372;\n', '')
     .replace('  --color-brand-lime: var(--brand-lime);\n', '')
   const live = buildSnapshot(grown)

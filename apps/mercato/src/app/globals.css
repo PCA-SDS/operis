@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./fonts.css";
 @import "tw-animate-css";
 @import "../../.mercato/generated/module-package-sources.css";
 
@@ -88,10 +89,73 @@ TODO: Fix that latter to have reference by the package names
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 6px);
+
+  /* ═══ Design System: Surface & Chrome Scale ═══
+     The four-step neutral ladder the whole product is built on. `surface` is
+     the raised plane (cards, tables, menus) that sits on `background`;
+     `surface-muted` is the quiet fill (table headers, chips, inactive tiles);
+     `surface-strong` is the third step, reserved for CHROME HOVER (topbar
+     buttons, toolbar tiles) so a hover reads as "quieter chrome" rather than
+     as an accent tint; `surface-modal` / `modal-muted` are the dialog-chrome
+     equivalents, with `modal-muted` doubling as the filled-input background.
+     `border-strong` is the emphasised edge for a hairline that must read as
+     structural rather than incidental. */
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-strong: var(--surface-strong);
+  --color-surface-modal: var(--surface-modal);
+  --color-modal-muted: var(--modal-muted);
+  --color-border-strong: var(--border-strong);
+  --color-disabled-foreground: var(--disabled-foreground);
+
+  /* Primary family — CTA fill plus its soft/border companions for selected
+     rows, tinted chips and emphasis edges. */
+  --color-primary-active: var(--primary-active);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-border: var(--primary-border);
+
+  /* Accent-strong — the INTERACTIVE accent: links, inline actions, active tab
+     underline, sort indicators, sliders, progress. Distinct from `--accent`,
+     which is a quiet hover surface (shadcn semantics, kept for compatibility). */
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-strong-hover: var(--accent-strong-hover);
+  --color-accent-strong-foreground: var(--accent-strong-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-border: var(--accent-border);
+
+  /* Table family — a list view is the product's most-used surface, so its
+     parts are named rather than expressed as opacity math at call sites. */
+  --color-table-header: var(--table-header);
+  --color-table-row-hover: var(--table-row-hover);
+  --color-table-selected: var(--table-selected);
+  --color-table-border: var(--table-border);
+
+  /* Badge family — the default (non-status) pill. */
+  --color-badge-bg: var(--badge-bg);
+  --color-badge-text: var(--badge-text);
+  --color-badge-border: var(--badge-border);
+
+  /* Input family — text-entry chrome, separate from the generic surface ladder
+     so form density can be tuned without moving cards and menus. */
+  --color-input-bg: var(--input-bg);
+  --color-input-border: var(--input-border);
+  --color-input-border-focus: var(--input-border-focus);
+  --color-input-placeholder: var(--input-placeholder);
+  --color-input-disabled-bg: var(--input-disabled-bg);
+
+  /* Focus ring hue — see the `:focus-visible` policy note in the base layer. */
+  --color-focus-ring: var(--focus-ring);
+
+  /* ═══ Design System: Radius Scale ═══
+     Explicit values rather than offsets from a single `--radius`, so each step
+     is a decision instead of a side effect: sm = inline chips and checkboxes,
+     md = compact buttons and menu items, lg = default controls (button, input,
+     nav item), xl = cards, tables and popovers, 2xl = modals. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
 
   /* ═══ Design System: Semantic Status Colors ═══ */
   --color-status-error-bg: var(--status-error-bg);
@@ -138,14 +202,10 @@ TODO: Fix that latter to have reference by the package names
   --color-status-pink-solid: var(--status-pink-solid);
   --color-status-pink-solid-foreground: var(--status-pink-solid-foreground);
 
-  /* ═══ Design System: Accent Colors ═══ */
-  --color-accent-indigo: var(--accent-indigo);
-  --color-accent-indigo-foreground: var(--accent-indigo-foreground);
-
   /* ═══ Design System: Brand Colors ═══ */
   --color-brand-violet: var(--brand-violet);
-  --color-brand-lime: var(--brand-lime);
-  --color-brand-yellow: var(--brand-yellow);
+  --color-brand-sky: var(--brand-sky);
+  --color-brand-lilac: var(--brand-lilac);
 
   /* ═══ Design System: Social Brand Colors (theme-invariant) ═══ */
   --color-brand-apple: var(--brand-apple);
@@ -156,9 +216,18 @@ TODO: Fix that latter to have reference by the package names
   --color-brand-dropbox: var(--brand-dropbox);
   --color-brand-linkedin: var(--brand-linkedin);
 
-  /* ═══ Design System: Typography ═══ */
+  /* ═══ Design System: Typography ═══
+     The scale is deliberately narrow. A page title is LIGHT (400) and large;
+     weight is spent on the things that must be scanned — table headers, tabs,
+     nav items — not on the heading, which already has size. */
   --font-size-overline: 0.6875rem;
   --font-size-overline--line-height: 1rem;
+  --font-size-page-title: 1.875rem;
+  --font-size-page-title--line-height: 2.25rem;
+  --font-size-page-title--font-weight: 400;
+  --font-size-section-title: 1.25rem;
+  --font-size-section-title--line-height: 1.75rem;
+  --font-size-section-title--font-weight: 600;
 
   /* ═══ Design System: Z-Index Scale ═══ */
   --z-index-base: 0;
@@ -174,22 +243,28 @@ TODO: Fix that latter to have reference by the package names
   --z-index-top: 100;
 
   /* ═══ Design System: Shadow Scale ═══
-     Tuned to ink #101828. Dark mode overrides in .dark below.
+     Tuned to the navy ink #1D2735 so elevation reads as a cool shadow rather
+     than a grey smudge over the pastel-navy surfaces. Dark overrides in .dark.
      xs  → flat controls (button, input, icon-button)
      sm  → cards, panels, sections
-     md  → hover elevation, slightly raised cards
-     lg  → dialogs, overlays, popovers
+     md  → the list-view card (a table carries elevation instead of a border)
+     lg  → menus, popovers, dropdowns
      xl  → floating panels (drawers, side sheets)
      2xl → top-level modals, command palette
   */
-  --shadow-xs:  0 1px 2px rgb(16 24 40 / 0.05);
-  --shadow-sm:  0 1px 3px rgb(16 24 40 / 0.08), 0 1px 2px rgb(16 24 40 / 0.06);
-  --shadow-md:  0 4px 12px rgb(16 24 40 / 0.08);
-  --shadow-lg:  0 12px 32px rgb(16 24 40 / 0.10);
-  --shadow-xl:  0 20px 40px rgb(16 24 40 / 0.12);
-  --shadow-2xl: 0 25px 50px rgb(16 24 40 / 0.20);
+  --shadow-xs:  0 1px 2px rgb(29 39 53 / 0.05);
+  --shadow-sm:  0 1px 3px rgb(29 39 53 / 0.08), 0 1px 2px rgb(29 39 53 / 0.05);
+  --shadow-md:  0 4px 12px rgb(29 39 53 / 0.08), 0 1px 3px rgb(29 39 53 / 0.04);
+  --shadow-lg:  0 12px 28px rgb(29 39 53 / 0.12), 0 2px 6px rgb(29 39 53 / 0.06);
+  --shadow-xl:  0 20px 40px rgb(29 39 53 / 0.14);
+  --shadow-2xl: 0 25px 50px rgb(29 39 53 / 0.22);
 
-  /* Figma button focus: 2px white inner + 4px slate-alpha-16 outer */
+  /* Focus indicator — ONE mechanism for the whole product.
+     The design reference suppresses focus rings entirely; we keep them (a
+     keyboard user must be able to see where they are) but adopt the intent:
+     quiet. A 2px ground-coloured inner ring separates the halo from the
+     control, then a 4px navy halo at low alpha. Because it is a token, the
+     whole app's focus treatment moves as one decision. */
   --shadow-focus: 0 0 0 2px var(--focus-ring-inner), 0 0 0 4px var(--focus-ring-outer);
 
   /* Switch thumb: thin drop shadow + hairline outline (matches Figma switch spec). */
@@ -198,15 +273,24 @@ TODO: Fix that latter to have reference by the package names
 
 :root {
   color-scheme: light;
-  --font-geist-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-geist-mono: ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
-  --radius: 0.625rem;
-  /* Brand lime + yellow — theme-invariant (no .dark override). Brand violet is themed (see below + .dark). */
-  --brand-lime: #B4F372;
-  --brand-yellow: #EEFB63;
-  /* Focus ring tokens (Figma dual-shadow spec — opt-in via .focus-ring-fancy) */
-  --focus-ring-inner: rgba(255, 255, 255, 1);
-  --focus-ring-outer: rgba(153, 160, 174, 0.16);
+  /* Figtree / DM Mono are loaded from Google Fonts in the root layout (same
+     delivery the design reference uses). The system stack stays behind them so
+     an offline or blocked-font environment degrades to native type rather than
+     to a serif fallback. */
+  --font-geist-sans: "Figtree", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-geist-mono: "DM Mono", ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  /* Operis brand ramp — theme-invariant (no .dark override).
+     These replace Open Mercato's lime/yellow pair, which read as a different
+     company's identity against a pastel-navy product: a neon lime-to-yellow
+     sweep is the one thing on screen that cannot belong to this palette.
+     The Operis ramp runs sky → lilac → violet, so a brand moment still lifts
+     off the page but stays inside the product's temperature. */
+  --brand-sky: #A9C4EC;
+  --brand-lilac: #C9C2F0;
+  /* Focus ring halo — navy at low alpha so the ring belongs to the palette
+     rather than reading as a browser default. */
+  --focus-ring-inner: #FFFFFF;
+  --focus-ring-outer: rgba(63, 109, 163, 0.35);
   /* Social brand colors — theme-invariant */
   --brand-apple: #000000;
   --brand-github: #181717;
@@ -215,58 +299,102 @@ TODO: Fix that latter to have reference by the package names
   --brand-facebook: #1877F2;
   --brand-dropbox: #0061FF;
   --brand-linkedin: #0A66C2;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  /* ═══ Operis pastel-navy palette — light ═══
+     Muted navy, deliberately not royal/saturated/neon and never near-black.
+     Ink is navy (#1D2735) rather than grey so text belongs to the palette.
+     Status hues stay semantic (see the status block below) — an error must
+     never read as "just more blue". */
+  --background: #F7F9FC;
+  --foreground: #1D2735;
+  --surface: #FFFFFF;
+  --surface-muted: #EDF1F7;
+  --surface-strong: #E2E8F1;
+  --surface-modal: #E9EEF5;
+  --modal-muted: #F4F7FB;
+  --disabled-foreground: #94A2B5;
+  --card: #FFFFFF;
+  --card-foreground: #1D2735;
+  --popover: #FFFFFF;
+  --popover-foreground: #1D2735;
+  --primary: #43608E;
+  --primary-foreground: #FFFFFF;
+  --primary-hover: #375077;
+  --primary-active: #2D4363;
+  --primary-soft: #E7EEF8;
+  --primary-border: #B6C7DF;
   --brand-violet: #BC9AFF;
   --brand-violet-foreground: #0C0C0C;
-  --primary-hover: oklch(0.145 0 0);
-  /* Accent indigo — used for selection controls (checkbox, radio, switch) */
-  --accent-indigo: #6366f1;
-  --accent-indigo-foreground: #ffffff;
-  /* Disabled control tokens (Figma: bg/weak-25, text/disabled-300, stroke-soft-200) */
-  --bg-disabled: #f7f7f7;
-  --text-disabled: #d1d1d1;
-  --border-disabled: #ebebeb;
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.545 0 0); /* darkened from 0.556: 4.54:1 on --muted (AA), was 4.34 */
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  /* Accent-strong — the interactive accent (links, active tab, sort chevrons,
+     sliders, progress, selection controls). `--accent` below stays the quiet
+     hover SURFACE it has always been; the two are different jobs. */
+  --accent-strong: #3F6DA3;
+  --accent-strong-hover: #345986;
+  --accent-strong-foreground: #FFFFFF;
+  --accent-soft: #E9F1F9;
+  --accent-border: #B4CBE4;
+  /* Disabled control tokens */
+  --bg-disabled: #F1F4F8;
+  --text-disabled: #B3BECD;
+  --border-disabled: #E1E7EF;
+  --secondary: #EDF1F7;
+  --secondary-foreground: #1D2735;
+  --muted: #EDF1F7;
+  --muted-foreground: #54637A;
+  --accent: #EDF1F7;
+  --accent-foreground: #1D2735;
+  --destructive: #C0483F;
+  --border: #D9E0EA;
+  --border-strong: #C3CEDC;
+  --input: #D9E0EA;
+  --ring: #7FA3CF;
+  --focus-ring: #7FA3CF;
+  /* Table family — a list view is the most-used surface in the product, so its
+     parts are named instead of expressed as opacity math at call sites. */
+  --table-header: #EDF1F7;
+  --table-row-hover: #F4F7FB;
+  --table-selected: #E7EEF8;
+  --table-border: #D9E0EA;
+  /* Badge family — the default (non-status) pill. */
+  --badge-bg: #E7EEF8;
+  --badge-text: #2D4363;
+  --badge-border: #B6C7DF;
+  /* Input family — text-entry chrome. A filled field takes `modal-muted` so a
+     populated form reads at a glance without adding a border weight. */
+  --input-bg: #FFFFFF;
+  --input-border: #D9E0EA;
+  --input-border-focus: #43608E;
+  --input-placeholder: #94A2B5;
+  --input-disabled-bg: #F1F4F8;
+  /* Chart series — chroma pulled back from the stock ramp so a dashboard sits
+     inside the calm palette instead of shouting over it. Hues are kept far
+     apart because a series still has to be told from its neighbour. The
+     default series leads with the navy family. */
+  --chart-1: oklch(0.500 0.090 255);
+  --chart-2: oklch(0.610 0.100 185);
+  --chart-3: oklch(0.640 0.120 60);
+  --chart-4: oklch(0.560 0.115 300);
+  --chart-5: oklch(0.600 0.110 145);
   /* Chart named colors - light theme */
-  --chart-blue: oklch(0.546 0.245 262.881);
-  --chart-emerald: oklch(0.596 0.145 163.225);
-  --chart-amber: oklch(0.769 0.188 70.08);
-  --chart-rose: oklch(0.645 0.246 16.439);
-  --chart-violet: oklch(0.606 0.25 292.717);
-  --chart-cyan: oklch(0.715 0.143 215.221);
-  --chart-indigo: oklch(0.511 0.262 276.966);
-  --chart-pink: oklch(0.656 0.241 354.308);
-  --chart-teal: oklch(0.627 0.134 175.001);
-  --chart-orange: oklch(0.705 0.213 47.604);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --chart-blue: oklch(0.520 0.130 255);
+  --chart-emerald: oklch(0.590 0.115 163);
+  --chart-amber: oklch(0.700 0.140 70);
+  --chart-rose: oklch(0.610 0.150 16);
+  --chart-violet: oklch(0.575 0.150 293);
+  --chart-cyan: oklch(0.665 0.100 215);
+  --chart-indigo: oklch(0.500 0.140 277);
+  --chart-pink: oklch(0.620 0.145 354);
+  --chart-teal: oklch(0.600 0.100 175);
+  --chart-orange: oklch(0.665 0.135 48);
+  /* Sidebar — the reference sidebar sits on the raised surface, not on a
+     tinted panel, so it reads as part of the same sheet as the content. */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #1D2735;
+  --sidebar-primary: #43608E;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #EDF1F7;
+  --sidebar-accent-foreground: #1D2735;
+  --sidebar-border: #D9E0EA;
+  --sidebar-ring: #7FA3CF;
 
   /* ═══ Design System: Semantic Status Tokens — Light Mode ═══
      Token values match the Tailwind v4 default palette so the
@@ -280,56 +408,62 @@ TODO: Fix that latter to have reference by the package names
      status-{x}-text uses Tailwind 900 for high contrast on the
      light/lighter tints. */
 
-  /* Error — Tailwind red (Figma state/error/*) */
-  --status-error-bg: oklch(0.971 0.013 17.38);     /* red-50  #fef2f2 */
-  --status-error-text: oklch(0.396 0.141 25.723);  /* red-900 #7f1d1d */
-  --status-error-border: oklch(0.885 0.062 18.334);/* red-200 #fecaca */
-  --status-error-icon: oklch(0.577 0.245 27.325);  /* red-600 #dc2626 = --destructive */
+  /* Error — muted brick red. Pulled back from the stock red-600 so a warning
+     row does not shout across the pastel-navy chrome, while staying
+     unmistakably red and AA-legible. `icon` tracks `--destructive` by design. */
+  --status-error-bg: #FBF0EF;
+  --status-error-text: #7A2823;
+  --status-error-border: #EBC5C1;
+  --status-error-icon: #C0483F;                    /* = --destructive */
 
-  /* Success — Tailwind green (Figma state/success/*) */
-  --status-success-bg: oklch(0.982 0.018 155.826);    /* green-50  #f0fdf4 */
-  --status-success-text: oklch(0.393 0.095 152.535);  /* green-900 #14532d */
-  --status-success-border: oklch(0.925 0.084 155.995);/* green-200 #bbf7d0 */
-  --status-success-icon: oklch(0.627 0.194 149.214);  /* green-600 #16a34a */
+  /* Success — muted forest green. */
+  --status-success-bg: #EFF6F1;
+  --status-success-text: #1E4D33;
+  --status-success-border: #C3DECD;
+  --status-success-icon: #3B7A53;
 
-  /* Warning — Tailwind amber (Figma state/warning/*) */
-  --status-warning-bg: oklch(0.987 0.022 95.277);    /* amber-50  #fffbeb */
-  --status-warning-text: oklch(0.414 0.112 45.904);  /* amber-900 #78350f */
-  --status-warning-border: oklch(0.924 0.12 95.746); /* amber-200 #fde68a */
-  --status-warning-icon: oklch(0.666 0.179 58.318);  /* amber-600 #d97706 */
+  /* Warning — muted ochre. Amber is the hardest hue to keep legible on a light
+     tint, so the icon sits deliberately darker than a stock amber-600. */
+  --status-warning-bg: #FBF5E9;
+  --status-warning-text: #6B4A16;
+  --status-warning-border: #E8D5AC;
+  --status-warning-icon: #A6721A;
 
-  /* Info — Tailwind indigo (Figma state/information/*) */
-  --status-info-bg: oklch(0.962 0.018 272.314);    /* indigo-50  #eef2ff */
-  --status-info-text: oklch(0.359 0.144 278.697);  /* indigo-900 #312e81 */
-  --status-info-border: oklch(0.870 0.065 274.039);/* indigo-200 #c7d2fe */
-  --status-info-icon: oklch(0.511 0.262 276.966);  /* indigo-600 #4f46e5 = --chart-indigo */
+  /* Info — indigo-leaning blue, held one hue away from `--accent-strong` so an
+     informational chip is never mistaken for an interactive element. */
+  --status-info-bg: #EEF1FA;
+  --status-info-text: #2A3763;
+  --status-info-border: #C4CDE9;
+  --status-info-icon: #4F63A8;
 
-  /* Neutral — Tailwind neutral (Figma state/faded/*) */
-  --status-neutral-bg: oklch(0.97 0 0);    /* neutral-100 #f5f5f5 */
-  --status-neutral-text: oklch(0.371 0 0); /* neutral-700 #404040 */
-  --status-neutral-border: oklch(0.922 0 0);/* neutral-200 #e5e5e5 (≈ Figma #ebebeb) */
-  --status-neutral-icon: oklch(0.556 0 0);  /* neutral-500 #737373 (≈ Figma #7b7b7b) */
+  /* Neutral — navy-grey rather than pure grey, so a "no status" chip reads as
+     part of the palette instead of as an unstyled leftover. */
+  --status-neutral-bg: #EDF1F7;
+  --status-neutral-text: #37455A;
+  --status-neutral-border: #D9E0EA;
+  --status-neutral-icon: #6B7B92;
 
-  /* Pink (hue ~340° — Figma SPEC-048 ACCENT / PINK Stage badges; Tailwind pink-500/-200/-700/-50) */
-  --status-pink-bg: oklch(0.965 0.020 340);   /* pink-50 #FDF2F8 */
-  --status-pink-text: oklch(0.388 0.180 340); /* pink-700 #BE185D */
-  --status-pink-border: oklch(0.840 0.090 340);/* pink-200 #FBCFE8 */
-  --status-pink-icon: oklch(0.633 0.238 340); /* pink-500 #EC4899 */
+  /* Pink (hue ~340°) — a CATEGORICAL accent for stage/category chips, never a
+     semantic outcome. Chroma pulled back to match the rest of the palette. */
+  --status-pink-bg: oklch(0.962 0.018 340);
+  --status-pink-text: oklch(0.400 0.130 340);
+  --status-pink-border: oklch(0.845 0.070 340);
+  --status-pink-icon: oklch(0.615 0.165 340);
 
   /* Solid role — filled surfaces that carry text (chips, badges, dots with
      labels). All pairs hold WCAG AA 4.5:1 with their foreground; verified by
      scripts/check-token-parity.mjs. Shades follow each family's 600-700. */
-  --status-error-solid: oklch(0.577 0.245 27.325);   /* red-600   #dc2626, on white 4.83 */
+  --status-error-solid: #B03A31;   /* on white 6.01 */
   --status-error-solid-foreground: #ffffff;
-  --status-success-solid: oklch(0.527 0.154 150.069);/* green-700 #15803d, on white 5.02 */
+  --status-success-solid: #2F6B45; /* on white 6.85 */
   --status-success-solid-foreground: #ffffff;
-  --status-warning-solid: oklch(0.555 0.163 48.998); /* amber-700 #b45309, on white 5.02 */
+  --status-warning-solid: #96660F; /* on white 6.02 */
   --status-warning-solid-foreground: #ffffff;
-  --status-info-solid: oklch(0.511 0.262 276.966);   /* indigo-600 #4f46e5, on white 6.29 */
+  --status-info-solid: #3F5B99;    /* on white 6.63 */
   --status-info-solid-foreground: #ffffff;
-  --status-neutral-solid: oklch(0.439 0 0);          /* neutral-600 #525252, on white 7.81 */
+  --status-neutral-solid: #4A5768; /* on white 7.36 */
   --status-neutral-solid-foreground: #ffffff;
-  --status-pink-solid: oklch(0.388 0.180 340);       /* pink-700  #be185d, on white 6.04 */
+  --status-pink-solid: #A83262;    /* on white 6.37 */
   --status-pink-solid-foreground: #ffffff;
 }
 
@@ -343,129 +477,185 @@ TODO: Fix that latter to have reference by the package names
 
 .dark {
   color-scheme: dark;
-  /* Focus ring tokens — dark variant */
-  --focus-ring-inner: var(--background);
-  --focus-ring-outer: rgba(255, 255, 255, 0.18);
-  /* Shadow scale — dark mode: use pure black, higher opacity for visibility */
+  /* Focus ring halo — dark variant */
+  --focus-ring-inner: #10151E;
+  --focus-ring-outer: rgba(143, 174, 218, 0.40);
+  /* Shadow scale — dark mode: pure black, higher opacity for visibility */
   --shadow-xs:  0 1px 2px rgb(0 0 0 / 0.30);
   --shadow-sm:  0 1px 3px rgb(0 0 0 / 0.40), 0 1px 2px rgb(0 0 0 / 0.30);
   --shadow-md:  0 4px 12px rgb(0 0 0 / 0.50);
-  --shadow-lg:  0 12px 32px rgb(0 0 0 / 0.60);
+  --shadow-lg:  0 12px 28px rgb(0 0 0 / 0.60);
   --shadow-xl:  0 20px 40px rgb(0 0 0 / 0.70);
   --shadow-2xl: 0 25px 50px rgb(0 0 0 / 0.80);
 
   /* Switch thumb: brighter outline in dark mode for visibility against the muted track. */
   --shadow-switch-thumb: 0 1px 2px rgb(0 0 0 / 0.40), 0 0 0 0.5px rgb(0 0 0 / 0.30);
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+
+  /* ═══ Operis pastel-navy palette — dark ═══
+     The reference design ships light-mode only, so dark is an Operis-specific
+     extension of the same language rather than a copy: every neutral keeps the
+     navy hue instead of collapsing to grey, and the CTA lifts to a light navy
+     so it still reads as the palette's blue rather than as an inverted chip.
+     Surfaces are solid (not white-at-N%) so stacked panels stay separable. */
+  --background: #10151E;
+  --foreground: #E6ECF4;
+  --surface: #171E2A;
+  --surface-muted: #1E2735;
+  --surface-strong: #28323F;
+  --surface-modal: #1A2230;
+  --modal-muted: #212B39;
+  --disabled-foreground: #6B7889;
+  --card: #171E2A;
+  --card-foreground: #E6ECF4;
+  --popover: #171E2A;
+  --popover-foreground: #E6ECF4;
+  --primary: #8FAEDA;
+  --primary-foreground: #101822;
+  --primary-hover: #A3BEE4;
+  --primary-active: #B5CBEA;
+  --primary-soft: #223047;
+  --primary-border: #3B5175;
   --brand-violet: #BC9AFF;
   --brand-violet-foreground: #0C0C0C;
-  --primary-hover: oklch(0.85 0 0);
-  /* Accent indigo — slightly lighter in dark mode for contrast */
-  --accent-indigo: #6d74f4; /* was indigo-400 #818cf8: white glyph 2.98:1 < 3.0 (WCAG non-text); now 3.85:1 */
-  --accent-indigo-foreground: #ffffff;
+  --accent-strong: #8CB4E4;
+  --accent-strong-hover: #A5C6EC;
+  --accent-strong-foreground: #101822;
+  --accent-soft: #1C2A3D;
+  --accent-border: #35496A;
   /* Disabled control tokens (dark) */
-  --bg-disabled: oklch(0.25 0 0);
-  --text-disabled: oklch(0.45 0 0);
-  --border-disabled: oklch(0.30 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
+  --bg-disabled: #1B222E;
+  --text-disabled: #4C5768;
+  --border-disabled: #29323F;
+  --secondary: #1E2735;
+  --secondary-foreground: #E6ECF4;
+  --muted: #1E2735;
+  --muted-foreground: #9AA8BB;
+  --accent: #1E2735;
+  --accent-foreground: #E6ECF4;
+  --destructive: #E0736A;
+  --border: #2E3948;
+  --border-strong: #3C4859;
+  --input: #2E3948;
+  --ring: #5D82B4;
+  --focus-ring: #5D82B4;
+  --table-header: #1E2735;
+  --table-row-hover: #1A2230;
+  --table-selected: #223047;
+  --table-border: #2E3948;
+  --badge-bg: #223047;
+  --badge-text: #B6C7DF;
+  --badge-border: #3B5175;
+  --input-bg: #171E2A;
+  --input-border: #2E3948;
+  --input-border-focus: #8FAEDA;
+  --input-placeholder: #6B7889;
+  --input-disabled-bg: #1B222E;
+  /* Chart series — lifted for a dark ground, chroma still held back. */
+  --chart-1: oklch(0.680 0.100 255);
+  --chart-2: oklch(0.720 0.105 185);
+  --chart-3: oklch(0.775 0.125 60);
+  --chart-4: oklch(0.690 0.120 300);
+  --chart-5: oklch(0.710 0.110 145);
   /* Chart named colors - dark theme (increased lightness) */
-  --chart-blue: oklch(0.623 0.214 259.815);
-  --chart-emerald: oklch(0.696 0.17 162.48);
-  --chart-amber: oklch(0.82 0.16 84.429);
-  --chart-rose: oklch(0.712 0.194 13.428);
-  --chart-violet: oklch(0.702 0.183 293.541);
-  --chart-cyan: oklch(0.789 0.154 211.53);
-  --chart-indigo: oklch(0.585 0.233 277.117);
-  --chart-pink: oklch(0.718 0.202 349.761);
-  --chart-teal: oklch(0.704 0.14 180.72);
-  --chart-orange: oklch(0.792 0.184 56.043);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --chart-blue: oklch(0.690 0.135 255);
+  --chart-emerald: oklch(0.710 0.120 163);
+  --chart-amber: oklch(0.800 0.140 70);
+  --chart-rose: oklch(0.715 0.150 16);
+  --chart-violet: oklch(0.700 0.145 293);
+  --chart-cyan: oklch(0.760 0.105 215);
+  --chart-indigo: oklch(0.660 0.140 277);
+  --chart-pink: oklch(0.715 0.145 354);
+  --chart-teal: oklch(0.710 0.100 175);
+  --chart-orange: oklch(0.760 0.135 48);
+  --sidebar: #171E2A;
+  --sidebar-foreground: #E6ECF4;
+  --sidebar-primary: #8FAEDA;
+  --sidebar-primary-foreground: #101822;
+  --sidebar-accent: #1E2735;
+  --sidebar-accent-foreground: #E6ECF4;
+  --sidebar-border: #2E3948;
+  --sidebar-ring: #5D82B4;
 
   /* ═══ Design System: Semantic Status Tokens — Dark Mode ═══
-     Dark-mode counterparts mirror the Tailwind v4 dark palette
-     (`*-950` for bg, `*-300` for text, `*-800` for border, `*-500`
-     for icon) so the Alert primitive stays pixel-perfect against
-     the Figma dark variants. */
+     Same hues as light, re-seated for a dark ground: a deep desaturated tint
+     for `bg`, a light legible tone for `text`, a mid tone for `border`, and an
+     `icon` bright enough to clear the WCAG 3.0 non-text threshold. */
 
-  /* Error — Tailwind red (dark) */
-  --status-error-bg: oklch(0.258 0.092 26.042);    /* red-950 #450a0a */
-  --status-error-text: oklch(0.808 0.114 19.571); /* red-300 #fca5a5 */
-  --status-error-border: oklch(0.444 0.177 26.899);/* red-800 #991b1b */
-  --status-error-icon: oklch(0.637 0.237 25.331);  /* red-500 #ef4444 */
+  /* Error — muted brick red (dark) */
+  --status-error-bg: #2B1614;
+  --status-error-text: #EEA8A1;
+  --status-error-border: #6B2E28;
+  --status-error-icon: #E0736A;                    /* = dark --destructive */
 
-  /* Success — Tailwind green (dark) */
-  --status-success-bg: oklch(0.266 0.065 152.934);    /* green-950 #052e16 */
-  --status-success-text: oklch(0.871 0.15 154.449);  /* green-300 #86efac */
-  --status-success-border: oklch(0.448 0.119 151.328);/* green-800 #166534 */
-  --status-success-icon: oklch(0.723 0.219 149.579);  /* green-500 #22c55e */
+  /* Success — muted forest green (dark) */
+  --status-success-bg: #12241A;
+  --status-success-text: #9CD4B1;
+  --status-success-border: #2C4E38;
+  --status-success-icon: #63A87D;
 
-  /* Warning — Tailwind amber (dark) */
-  --status-warning-bg: oklch(0.279 0.077 45.635);    /* amber-950 #451a03 */
-  --status-warning-text: oklch(0.879 0.169 91.605); /* amber-300 #fcd34d */
-  --status-warning-border: oklch(0.473 0.137 46.201);/* amber-800 #92400e */
-  --status-warning-icon: oklch(0.769 0.188 70.08);  /* amber-500 #f59e0b */
+  /* Warning — muted ochre (dark) */
+  --status-warning-bg: #2A2113;
+  --status-warning-text: #E2C489;
+  --status-warning-border: #5C4620;
+  --status-warning-icon: #C99A3E;
 
-  /* Info — Tailwind indigo (dark) */
-  --status-info-bg: oklch(0.257 0.09 281.288);    /* indigo-950 #1e1b4b */
-  --status-info-text: oklch(0.785 0.115 274.713);  /* indigo-300 #a5b4fc */
-  --status-info-border: oklch(0.398 0.195 277.366);/* indigo-800 #3730a3 */
-  --status-info-icon: oklch(0.585 0.233 277.117); /* indigo-500 #6366f1 */
+  /* Info — indigo-leaning blue (dark) */
+  --status-info-bg: #1A1F33;
+  --status-info-text: #AEB9DD;
+  --status-info-border: #37426B;
+  --status-info-icon: #7E90CE;
 
-  /* Neutral — Tailwind neutral (dark) */
-  --status-neutral-bg: oklch(0.205 0 0);    /* neutral-900 #171717 */
-  --status-neutral-text: oklch(0.872 0 0);  /* neutral-300 #d4d4d4 */
-  --status-neutral-border: oklch(0.371 0 0);/* neutral-700 #404040 */
-  --status-neutral-icon: oklch(0.708 0 0);  /* neutral-400 #a3a3a3 = dark --muted-foreground */
+  /* Neutral — navy-grey (dark) */
+  --status-neutral-bg: #1E2735;
+  --status-neutral-text: #C2CDDC;
+  --status-neutral-border: #3C4859;
+  --status-neutral-icon: #9AA8BB;                  /* = dark --muted-foreground */
 
-  /* Pink (dark mode) — Figma SPEC-048 ACCENT / PINK Stage badges */
-  --status-pink-bg: oklch(0.225 0.045 340);
-  --status-pink-text: oklch(0.815 0.135 340);
-  --status-pink-border: oklch(0.405 0.155 340);
-  --status-pink-icon: oklch(0.700 0.225 340);
+  /* Pink (dark mode) — categorical accent, not a semantic state. */
+  --status-pink-bg: #2B1A24;
+  --status-pink-text: #E4A9C4;
+  --status-pink-border: #63314A;
+  --status-pink-icon: #C4749A;
 
   /* Solid role — same values as light: the fills are saturated enough to
      read on dark surfaces, and keeping one value preserves chip identity
      across themes. Listed explicitly so the parity check stays honest. */
-  --status-error-solid: oklch(0.577 0.245 27.325);
+  --status-error-solid: #B03A31;
   --status-error-solid-foreground: #ffffff;
-  --status-success-solid: oklch(0.527 0.154 150.069);
+  --status-success-solid: #2F6B45;
   --status-success-solid-foreground: #ffffff;
-  --status-warning-solid: oklch(0.555 0.163 48.998);
+  --status-warning-solid: #96660F;
   --status-warning-solid-foreground: #ffffff;
-  --status-info-solid: oklch(0.511 0.262 276.966);
+  --status-info-solid: #3F5B99;
   --status-info-solid-foreground: #ffffff;
-  --status-neutral-solid: oklch(0.439 0 0);
+  --status-neutral-solid: #4A5768;
   --status-neutral-solid-foreground: #ffffff;
-  --status-pink-solid: oklch(0.388 0.180 340);
+  --status-pink-solid: #A83262;
   --status-pink-solid-foreground: #ffffff;
+}
+
+/* Invalid form fields.
+ *
+ * `CrudForm` marks a field region with `data-crud-field-invalid` when it has a
+ * validation error. The error MESSAGE alone is not enough: the control itself
+ * has to carry the failure, or a user who has scrolled the message out of view
+ * (or is tabbing with a screen reader) has no signal on the thing they are
+ * about to edit.
+ *
+ * Declared once here rather than per control because a field region can hold
+ * any control family — Input, Select trigger, Textarea, phone field, combobox,
+ * or a module's own widget — and those must never disagree about what invalid
+ * looks like. `:where()` keeps specificity at zero so a control that needs a
+ * deliberate exception can still override with a plain utility class. */
+[data-crud-field-invalid='true']
+  :where(
+    input:not([type='checkbox']):not([type='radio']),
+    textarea,
+    select,
+    [data-slot='input-wrapper'],
+    [data-slot='select-trigger']
+  ) {
+  border-color: var(--destructive);
 }
 
 @layer base {
@@ -475,10 +665,11 @@ TODO: Fix that latter to have reference by the package names
   body {
     @apply bg-background text-foreground;
   }
-  /* Native form controls — use the DS indigo accent instead of browser default */
+  /* Native form controls — a safety net for legacy markup only. New code MUST
+     use the `Checkbox` / `Radio` primitives, which draw their own box. */
   input[type="checkbox"],
   input[type="radio"] {
-    accent-color: var(--accent-indigo);
+    accent-color: var(--accent-strong);
   }
   select,
   select option {
@@ -522,6 +713,43 @@ TODO: Fix that latter to have reference by the package names
 
 .schedule-calendar .rbc-time-content {
   font-size: 0.8125rem;
+}
+
+/* ═══ Design System: Motion ═══
+   Two entrances cover the whole product. `fadeInUp` is the menu/popover/dialog
+   entrance — a short rise with a hair of scale, so a panel reads as arriving
+   from its trigger rather than being switched on. `fadeIn` is the quieter
+   variant for content that swaps in place. Both are short enough to feel
+   immediate on a dense ERP screen. */
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.animate-fadeInUp {
+  animation: fadeInUp 180ms ease-out;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 150ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fadeInUp,
+  .animate-fadeIn {
+    animation: none;
+  }
 }
 
 /* Flash message animations */
