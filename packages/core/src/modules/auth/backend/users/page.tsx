@@ -11,6 +11,8 @@ import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
+import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
+import { hasFeature } from '@open-mercato/shared/security/features'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { raiseCrudError } from '@open-mercato/ui/backend/utils/serverErrors'
@@ -134,6 +136,8 @@ export default function UsersListPage() {
   const scopeVersion = useOrganizationScopeVersion()
   const queryClient = useQueryClient()
   const t = useT()
+  const { payload: chromePayload } = useBackendChrome()
+  const canManageUserModules = hasFeature(chromePayload?.grantedFeatures, 'auth.users.modules.view')
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'email', desc: false }])
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState('')
@@ -453,6 +457,9 @@ export default function UsersListPage() {
             <RowActions items={[
               { id: 'edit', label: t('common.edit', 'Edit'), href: `/backend/users/${row.id}/edit` },
               { id: 'show-roles', label: t('auth.users.list.actions.showRoles', 'Show roles'), href: `/backend/roles?userId=${encodeURIComponent(row.id)}` },
+              ...(canManageUserModules
+                ? [{ id: 'modules', label: t('auth.users.list.actions.modules', 'Modules'), href: `/backend/users/${row.id}/modules` }]
+                : []),
               { id: 'delete', label: t('common.delete', 'Delete'), destructive: true, onSelect: () => { void handleDelete(row) } },
             ]} />
           )}

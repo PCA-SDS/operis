@@ -87,11 +87,9 @@ function createContainer(
       getAllEntityConfigs: () => [...configMap.values()],
     },
     rbacService: {
-      loadAcl: async () => ({
-        isSuperAdmin: acl.isSuperAdmin ?? false,
-        features: acl.features,
-        organizations: null,
-      }),
+      // Routes read entitlement-filtered grants, not the raw ACL. `*` survives
+      // unchanged here because no module registry is bootstrapped in this suite.
+      getGrantedFeatures: async () => (acl.isSuperAdmin ? ['*'] : acl.features),
     },
   }
   return {

@@ -9,6 +9,7 @@ import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { resolveFeatureCheckContext } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { FEATURE_NOT_AVAILABLE } from '@open-mercato/shared/security/entitlementErrors'
 import { enforceTenantSelection, normalizeTenantId } from '@open-mercato/core/modules/auth/lib/tenantAccess'
 import { runWithCacheTenant } from '@open-mercato/cache'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
@@ -151,7 +152,8 @@ function normalizeLoadedMetadata(
 export async function checkAuthorization(
   methodMetadata: MethodMetadata | null,
   auth: AuthContext,
-  req: NextRequest
+  req: NextRequest,
+  moduleId?: string
 ): Promise<NextResponse | null> {
   const { t } = await resolveTranslations()
   const requiresAuthentication = methodMetadata?.requireAuth !== false
@@ -202,6 +204,31 @@ export async function checkAuthorization(
         }
         throw error
       }
+    }
+  }
+
+  // Module entitlement is checked independently of `requireFeatures`. A route may
+  // deliberately require no feature (a message recipient reading their own thread
+  // holds no `messages.*` grant), and an empty required list matches everything —
+  // so feature-derived entitlement would never see such a route. Keying on the
+  // route's owning module closes that gap for every endpoint at once, instead of
+  // relying on each one remembering to declare a feature it does not actually want.
+  if (moduleId && auth) {
+    const entitlementContainer = await ensureContainer()
+    const entitlementRbac = entitlementContainer.resolve<RbacService>('rbacService')
+    const entitlementContext = await resolveFeatureCheckContext({ container: entitlementContainer, auth, request: req })
+    const moduleAllowed = await entitlementRbac.isModuleAllowedForUser(auth.sub, moduleId, {
+      tenantId: entitlementContext.scope.tenantId ?? auth.tenantId ?? null,
+      organizationId: entitlementContext.organizationId,
+    })
+    if (!moduleAllowed) {
+      return NextResponse.json(
+        {
+          error: t('api.errors.featureNotAvailable', 'This feature is not available.'),
+          code: FEATURE_NOT_AVAILABLE,
+        },
+        { status: 403 },
+      )
     }
   }
 
@@ -376,7 +403,7 @@ async function handleRequest(
   })
 
   const methodMetadata = extractMethodMetadata(routeMetadata, method)
-  const authError = await checkAuthorization(methodMetadata, auth, req)
+  const authError = await checkAuthorization(methodMetadata, auth, req, match.route.moduleId)
   if (authError) {
     // Auth could not be verified because of a transient/unexpected failure (DB
     // unavailable, pool exhausted, timeout). Do NOT clear the session cookies or

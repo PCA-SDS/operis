@@ -2,6 +2,7 @@ import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { getModules } from '@open-mercato/shared/lib/i18n/server'
 import { authorizeFeatures } from '@open-mercato/shared/security/featurePolicy'
+import { isEntitleableModule } from '@open-mercato/core/modules/directory/lib/tenantModules'
 import { deriveCustomEntityRecordFeature } from './recordFeatures'
 
 export type EntityAclRequirement = {
@@ -92,6 +93,60 @@ export function getDeclaredCustomEntityRestriction(entityId: string): boolean | 
 
 export function isDeclaredCustomEntity(entityId: string): boolean {
   return loadDeclaredCustomEntityRestrictions().has(entityId)
+}
+
+type ReachableModuleResolver = {
+  getReachableModuleIds: (
+    userId: string,
+    scope: { tenantId: string | null; organizationId: string | null },
+  ) => Promise<string[]>
+}
+
+/**
+ * The caller's reachable-module set, or `null` when it cannot be resolved.
+ *
+ * Shared by the three entity-metadata routes so the narrowing is written once.
+ * Failing soft to `null` keeps the registry readable in contexts without a
+ * usable entitlement lookup; the underlying data routes stay gated regardless.
+ */
+export async function resolveReachableModuleSet(
+  rbac: ReachableModuleResolver,
+  auth: { sub?: string | null; tenantId?: string | null; orgId?: string | null },
+): Promise<ReadonlySet<string> | null> {
+  if (!auth?.sub || !auth.tenantId) return null
+  try {
+    return new Set(await rbac.getReachableModuleIds(auth.sub, {
+      tenantId: auth.tenantId,
+      organizationId: auth.orgId ?? null,
+    }))
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Whether an entity's owning module is still reachable for the caller.
+ *
+ * Entity metadata is served by `entities`, a platform module, so the route-level
+ * entitlement gate never fires for it — yet the payload enumerates every other
+ * module's entity types. Without this the pickers, link targets, workflow
+ * triggers and sidebar built from that payload would keep offering
+ * `customers:person` to a tenant that no longer has CRM: a reference to a
+ * module that does not exist for them.
+ *
+ * Entity ids are `<module>:<entity>`, and platform-owned ids are never gated.
+ * A null set means entitlement could not be resolved, which stands down rather
+ * than blanking the registry.
+ */
+export function isEntityModuleReachable(
+  entityId: string,
+  reachableModuleIds: ReadonlySet<string> | null,
+): boolean {
+  if (!reachableModuleIds) return true
+  const separator = entityId.indexOf(':')
+  const owningModule = separator === -1 ? entityId : entityId.slice(0, separator)
+  if (!isEntitleableModule(owningModule)) return true
+  return reachableModuleIds.has(owningModule)
 }
 
 export function resolveEntityAclRequirement(entityId: string): EntityAclRequirement | null {

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isEntityModuleReachable, resolveReachableModuleSet } from '@open-mercato/core/modules/entities/lib/entityAcl'
 import { z } from 'zod'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
@@ -24,6 +25,8 @@ export async function GET(req: Request) {
     tenantId: auth.tenantId,
     organizationId: auth.orgId ?? null,
   })
+  // Feeds the sidebar; an entry for a module the caller cannot reach is a dead link.
+  const reachableModules = await resolveReachableModuleSet(rbac, auth)
 
   const where: any = { 
     isActive: true,
@@ -65,6 +68,7 @@ export async function GET(req: Request) {
   }
 
   const items = candidates
+    .filter((entity) => isEntityModuleReachable(entity.entityId, reachableModules))
     .filter((entity) => canReadEntityMetadata({
       entityId: entity.entityId,
       isCustomEntity: true,

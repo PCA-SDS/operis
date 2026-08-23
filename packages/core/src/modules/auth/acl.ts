@@ -7,6 +7,18 @@ export const features = [
   { id: 'auth.roles.list', title: 'List roles', module: 'auth' },
   { id: 'auth.roles.manage', title: 'Manage roles', module: 'auth' },
   { id: 'auth.acl.manage', title: 'Manage ACLs', module: 'auth' },
+  {
+    id: 'auth.users.modules.view',
+    title: 'View per-user module availability',
+    module: 'auth',
+    dependsOn: ['auth.users.list'],
+  },
+  {
+    id: 'auth.users.modules.manage',
+    title: 'Manage per-user module availability',
+    module: 'auth',
+    dependsOn: ['auth.users.modules.view'],
+  },
   { id: 'auth.sidebar.manage', title: 'Manage sidebar presets', module: 'auth' },
 ]
 

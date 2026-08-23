@@ -60,20 +60,21 @@ export async function createMcpServer(options: McpServerOptions): Promise<Server
 
     try {
       const rbacService = container.resolve('rbacService') as {
-        loadAcl: (
+        getGrantedFeatures: (
           userId: string,
           scope: { tenantId: string | null; organizationId: string | null }
-        ) => Promise<{
-          isSuperAdmin: boolean
-          features: string[]
-        }>
+        ) => Promise<string[]>
       }
-      const acl = await rbacService.loadAcl(userId, {
+      // `getGrantedFeatures` rather than `loadAcl().features`: the raw grant list
+      // is entitlement-unaware, so tools belonging to a module the tenant lost — or
+      // that was withheld from this user — would stay callable over MCP. It expands
+      // a super admin's `*` into one wildcard per module they may actually reach,
+      // so `isSuperAdmin` stays false and no bypass re-opens them.
+      userFeatures = await rbacService.getGrantedFeatures(userId, {
         tenantId,
         organizationId,
       })
-      userFeatures = acl.features
-      isSuperAdmin = acl.isSuperAdmin
+      isSuperAdmin = false
     } catch (error) {
       writeStderrLine(`[MCP Server] Failed to load user ACL: ${formatStderrError(error)}`)
     }

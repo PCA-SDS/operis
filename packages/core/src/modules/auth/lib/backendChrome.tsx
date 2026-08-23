@@ -27,6 +27,7 @@ import {
   resolveFeatureCheckContext,
 } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { isAllOrganizationsSelection } from '@open-mercato/core/modules/directory/constants'
+import { isEntitleableModule } from '@open-mercato/core/modules/directory/lib/tenantModules'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { CustomEntity } from '@open-mercato/core/modules/entities/data/entities'
 import { Role } from '@open-mercato/core/modules/auth/data/entities'
@@ -322,6 +323,7 @@ export async function resolveBackendChromePayload({
   const rbac = container.resolve('rbacService') as {
     getEffectiveFeatures: (userId: string, scope: { tenantId: string | null; organizationId: string | null }) => Promise<string[]>
     userHasAllFeatures: (userId: string, required: string[], scope: { tenantId: string | null; organizationId: string | null }) => Promise<boolean>
+    getReachableModuleIds: (userId: string, scope: { tenantId: string | null; organizationId: string | null }) => Promise<string[]>
   }
 
   let scopedOrganizationId: string | null = auth.orgId ?? null
@@ -404,13 +406,37 @@ export async function resolveBackendChromePayload({
     tenantId: scopedTenantId,
     orgId: scopedOrganizationId,
   }
+  // Resolved once for the whole nav build: entitlement is a per-module fact, and
+  // probing it per route would repeat the same two cached lookups for every page.
+  let reachableModuleIds: Set<string> | null = null
+  if (allowNavigation) {
+    try {
+      reachableModuleIds = new Set(await rbac.getReachableModuleIds(auth.sub, {
+        tenantId: scopedTenantId,
+        organizationId: scopedOrganizationId,
+      }))
+    } catch {
+      // Fail soft on the nav payload itself; the route and API guards still deny.
+      reachableModuleIds = null
+    }
+  }
+
   const entries = allowNavigation
     ? await buildAdminNav(
         modules,
         { auth: ctxAuth },
         userEntities,
         translate,
-        { checkFeatures: featureChecker },
+        {
+          checkFeatures: featureChecker,
+          ...(reachableModuleIds
+            ? {
+              isModuleAllowed: (moduleId: string) => (
+                !isEntitleableModule(moduleId) || reachableModuleIds!.has(moduleId)
+              ),
+            }
+            : {}),
+        },
       )
     : []
 

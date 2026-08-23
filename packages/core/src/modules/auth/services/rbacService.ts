@@ -10,7 +10,8 @@ import {
   resolveEffectiveFeatures,
 } from '@open-mercato/shared/security/featurePolicy'
 import { filterGrantsByEnabledModules, getOwningModuleId } from '@open-mercato/shared/security/enabledModulesRegistry'
-import { TenantModuleService, isEntitleableModule, isEntitlementEnforceable } from '@open-mercato/core/modules/directory/lib/tenantModules'
+import { TenantModuleService, isEntitleableModule, isEntitlementEnforceable, listEntitleableModuleIds } from '@open-mercato/core/modules/directory/lib/tenantModules'
+import { UserModuleService } from '@open-mercato/core/modules/auth/lib/userModules'
 
 interface AclData {
   isSuperAdmin: boolean
@@ -35,17 +36,23 @@ export class RbacService {
   private cache: CacheStrategy | null = null
   private globalSuperAdminCache = new Map<string, boolean>()
   private tenantModules: TenantModuleService
+  private userModules: UserModuleService
 
   constructor(private em: EntityManager, cache?: CacheStrategy) {
     this.cache = cache || null
     this.tenantModules = new TenantModuleService(em, cache)
+    this.userModules = new UserModuleService(em, cache)
   }
 
   /**
-   * Per-tenant module entitlement, evaluated before grants and before the
-   * super-admin bypass — a tenant that does not have a module cannot reach it
-   * through any role, mirroring how removed/disabled features already deny
-   * ahead of `unrestricted`.
+   * Module entitlement, evaluated before grants and before the super-admin
+   * bypass — a module the tenant does not have, or that the tenant admin has
+   * withheld from this user, cannot be reached through any role, mirroring how
+   * removed/disabled features already deny ahead of `unrestricted`.
+   *
+   * The two layers compose as `tenantEnabled AND NOT userRestricted`, so a user
+   * setting can only narrow what the Super Admin granted the tenant, never
+   * widen it (see `UserModuleService`).
    *
    * A null tenant means the caller is not operating inside a tenant at all
    * (CLI, worker, tenant-less API key), so there is no entitlement to consult
@@ -54,6 +61,7 @@ export class RbacService {
   private async requiredFeaturesAreEntitled(
     required: readonly string[],
     tenantId: string | null,
+    userId?: string | null,
   ): Promise<boolean> {
     if (!tenantId || !isEntitlementEnforceable()) return true
     const modulesNeeded = new Set<string>()
@@ -66,18 +74,31 @@ export class RbacService {
     for (const moduleId of modulesNeeded) {
       if (!enabled.has(moduleId)) return false
     }
+    if (!userId) return true
+    const restricted = new Set(await this.userModules.getRestrictedModuleIds(userId, tenantId))
+    for (const moduleId of modulesNeeded) {
+      if (restricted.has(moduleId)) return false
+    }
     return true
   }
 
-  /** Grants the tenant may actually exercise, with `*` expanded per entitled module. */
+  /**
+   * Grants the subject may actually exercise: the tenant's entitlement (with
+   * `*` expanded per entitled module) minus the modules withheld from this
+   * user. The user pass only ever removes entries from the tenant's result.
+   */
   private async entitledGrants(
     grants: readonly string[],
     tenantId: string | null,
     isSuperAdmin: boolean,
+    userId?: string | null,
   ): Promise<string[]> {
     if (!tenantId || !isEntitlementEnforceable()) return isSuperAdmin ? ['*'] : [...grants]
-    if (isSuperAdmin) return this.tenantModules.expandUnrestrictedGrants(tenantId)
-    return this.tenantModules.filterGrantsByEntitlement(tenantId, grants)
+    const tenantEntitled = isSuperAdmin
+      ? await this.tenantModules.expandUnrestrictedGrants(tenantId)
+      : await this.tenantModules.filterGrantsByEntitlement(tenantId, grants)
+    if (!userId) return tenantEntitled
+    return this.userModules.filterGrantsByRestrictions(userId, tenantId, tenantEntitled)
   }
 
   /**
@@ -390,6 +411,54 @@ export class RbacService {
   }
 
   /**
+   * Whether the subject may reach a module at all, independently of any feature
+   * grant.
+   *
+   * `requireFeatures` answers an RBAC question ("may this person do X"); module
+   * reachability is an entitlement question ("is this capability part of the
+   * plan at all"). Routes legitimately exist with no required features — a
+   * message recipient reading their own thread does not hold `messages.view` —
+   * and those must still disappear when the module does. Feature-derived
+   * entitlement cannot see them, because an empty `required` list matches
+   * everything, so the route guards call this directly using the route's owning
+   * module id.
+   *
+   * Same order and same fail-closed rules as the feature path: platform modules
+   * are never gated, a tenant-less caller has no entitlement to consult, and the
+   * user layer can only subtract from what the tenant holds.
+   */
+  async isModuleAllowedForUser(
+    userId: string | null | undefined,
+    moduleId: string,
+    scope: { tenantId: string | null; organizationId: string | null },
+  ): Promise<boolean> {
+    if (!moduleId || !isEntitleableModule(moduleId)) return true
+    if (!scope.tenantId || !isEntitlementEnforceable()) return true
+    const enabled = await this.tenantModules.getEnabledModuleIds(scope.tenantId)
+    if (!enabled.includes(moduleId)) return false
+    if (!userId) return true
+    return this.userModules.isModuleAllowed(userId, scope.tenantId, moduleId)
+  }
+
+  /**
+   * Every governed module this subject can currently reach.
+   *
+   * The navigation builder needs the whole set rather than a per-module probe:
+   * a menu entry whose page declares no `requireFeatures` is otherwise kept by
+   * the feature filter (an empty requirement matches everything) and would
+   * survive as a dead link into a module the route guard now denies.
+   */
+  async getReachableModuleIds(
+    userId: string | null | undefined,
+    scope: { tenantId: string | null; organizationId: string | null },
+  ): Promise<string[]> {
+    if (!scope.tenantId || !isEntitlementEnforceable()) return listEntitleableModuleIds()
+    const tenantEnabled = await this.tenantModules.getEnabledModuleIds(scope.tenantId)
+    if (!userId) return tenantEnabled
+    return this.userModules.filterModuleIds(userId, scope.tenantId, tenantEnabled)
+  }
+
+  /**
    * Checks whether any tenant role grants a feature.
    *
    * This supports non-user runtimes such as scheduler workers that execute with
@@ -459,7 +528,7 @@ export class RbacService {
    */
   async userHasAllFeatures(userId: string, required: string[], scope: { tenantId: string | null; organizationId: string | null }): Promise<boolean> {
     if (!required.length) return true
-    if (!(await this.requiredFeaturesAreEntitled(required, scope.tenantId))) return false
+    if (!(await this.requiredFeaturesAreEntitled(required, scope.tenantId, userId))) return false
     const acl = await this.loadAcl(userId, scope)
     const organizationAllowed = acl.isSuperAdmin
       || !acl.organizations
@@ -492,7 +561,7 @@ export class RbacService {
     ) {
       return []
     }
-    const entitled = await this.entitledGrants(acl.features, scope.tenantId, acl.isSuperAdmin)
+    const entitled = await this.entitledGrants(acl.features, scope.tenantId, acl.isSuperAdmin, userId)
     return filterGrantsByEnabledModules(entitled)
   }
 
@@ -508,7 +577,7 @@ export class RbacService {
       || acl.organizations.includes(scope.organizationId)
       || acl.organizations.includes('__all__')
     if (!organizationAllowed) return []
-    const entitled = await this.entitledGrants(acl.features, scope.tenantId, acl.isSuperAdmin)
+    const entitled = await this.entitledGrants(acl.features, scope.tenantId, acl.isSuperAdmin, userId)
     return resolveEffectiveFeatures(entitled)
   }
 }

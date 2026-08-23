@@ -28,6 +28,14 @@ export type AdminNavFeatureChecker = (features: string[]) => Promise<Iterable<st
 
 export type BuildAdminNavOptions = {
   checkFeatures?: AdminNavFeatureChecker
+  /**
+   * Module-entitlement predicate, evaluated per module before any of its routes
+   * are considered. Distinct from `checkFeatures`, which answers the RBAC
+   * question — a module can be fully granted by role and still be absent from
+   * the tenant's plan. Omit it to keep every module (tests, callers with no
+   * entitlement context).
+   */
+  isModuleAllowed?: (moduleId: string) => boolean
 }
 
 /**
@@ -292,6 +300,11 @@ export async function buildAdminNav(
 
   // Icons are defined per-page in metadata; no heuristic derivation here.
   for (const m of modules) {
+    // Entitlement, not RBAC. A page with no `requireFeatures` passes the feature
+    // filter unconditionally (an empty requirement matches everything), so
+    // without this its menu entry would survive into a module the tenant or user
+    // no longer has — a visible link straight to an Access Denied page.
+    if (options?.isModuleAllowed && !options.isModuleAllowed(m.id)) continue
     const groupDefault = capitalize(m.id)
     for (const r of (m.backendRoutes ?? []) as NavRoute[]) {
       const href = r.pattern ?? r.path ?? ''

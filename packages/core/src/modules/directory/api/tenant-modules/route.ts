@@ -3,6 +3,8 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import type { TenantModuleService } from '@open-mercato/core/modules/directory/lib/tenantModules'
@@ -25,7 +27,11 @@ const updateBodySchema = z.object({
 
 const tenantModuleSchema = z.object({
   moduleId: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
   isEnabled: z.boolean(),
+  missingDependencies: z.array(z.string()),
+  dependents: z.array(z.string()),
 })
 
 const listResponseSchema = z.object({
@@ -88,10 +94,23 @@ export async function PUT(req: Request) {
   }
 
   try {
-    const service = await resolveService()
-    await service.setModuleEnabled(parsed.data.tenantId, parsed.data.moduleId, parsed.data.isEnabled)
+    const container = await createRequestContainer()
+    const commandBus = container.resolve('commandBus') as CommandBus
+    // Routed through the command bus so the entitlement change lands in the
+    // existing audit trail (actor, tenant, module, old value, new value) rather
+    // than growing a second, parallel audit path.
+    const ctx: CommandRuntimeContext = {
+      container,
+      auth,
+      organizationScope: null,
+      selectedOrganizationId: auth.orgId ?? null,
+      organizationIds: null,
+      request: req,
+    }
+    await commandBus.execute('directory.tenant_modules.set', { input: parsed.data, ctx })
     return NextResponse.json({ ok: true })
   } catch (err) {
+    if (isCrudHttpError(err)) return NextResponse.json(err.body, { status: err.status })
     logger.error('Failed to update tenant module entitlement', { err })
     return NextResponse.json(
       { error: translate('directory.errors.tenant_modules_save_failed', 'Failed to update module entitlement') },

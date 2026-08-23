@@ -48,18 +48,30 @@ type MockOrganizationScope = {
   tenantId: string | null
 }
 
+const ORG_SCOPING_ENTITY_CONFIGS = [
+  { entityId: 'demo:thing', enabled: true, aclFeatures: ['demo.view'] },
+]
+
 /**
  * The hybrid search route resolves `rbacService` + `searchIndexer` to drop results
  * whose entity type the caller has no view feature for (issue #5168). These org-scoping
- * cases are about organization filtering, so the caller is a superadmin and the
- * per-entity gate stays out of the way.
+ * cases are about organization filtering, so the caller holds a `*` grant that matches
+ * every declared entity and the per-entity gate stays out of the way. The registry has
+ * to carry at least one entity for that to be true: readable entity types are resolved
+ * from declared configs, not assumed, now that entitlement is applied to super admins
+ * too and there is no unconditional bypass to fall back on.
  */
 function createSearchContainer(searchService: { search: jest.Mock }) {
   const registrations: Record<string, unknown> = {
     searchService,
-    searchIndexer: { getEntityConfig: () => undefined, getAllEntityConfigs: () => [] },
+    searchIndexer: {
+      getEntityConfig: (entityId: string) => ORG_SCOPING_ENTITY_CONFIGS.find((config) => config.entityId === entityId),
+      getAllEntityConfigs: () => ORG_SCOPING_ENTITY_CONFIGS,
+    },
     rbacService: {
-      loadAcl: jest.fn().mockResolvedValue({ isSuperAdmin: true, features: ['*'], organizations: null }),
+      // Routes read entitlement-filtered grants, not the raw ACL. For a super
+      // admin with no module registry bootstrapped that is the `*` grant itself.
+      getGrantedFeatures: jest.fn().mockResolvedValue(['*']),
     },
   }
   return {
@@ -115,9 +127,12 @@ describe('Search API organizationId scoping', () => {
     // by per-entity view features (issue #5163).
     const registrations: Record<string, unknown> = {
       searchService,
-      searchIndexer: { getEntityConfig: () => undefined, getAllEntityConfigs: () => [] },
+      searchIndexer: {
+      getEntityConfig: (entityId: string) => ORG_SCOPING_ENTITY_CONFIGS.find((config) => config.entityId === entityId),
+      getAllEntityConfigs: () => ORG_SCOPING_ENTITY_CONFIGS,
+    },
       rbacService: {
-        loadAcl: jest.fn().mockResolvedValue({ isSuperAdmin: true, features: ['*'], organizations: null }),
+        getGrantedFeatures: jest.fn().mockResolvedValue(['*']),
       },
     }
     const container = {

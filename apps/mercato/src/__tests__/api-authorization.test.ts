@@ -26,7 +26,14 @@ const mockRbac = {
   loadAcl: jest.fn<
     ReturnType<RbacService['loadAcl']>,
     Parameters<RbacService['loadAcl']>
-  >()
+  >(),
+  // Module entitlement is evaluated for every route ahead of the feature guard.
+  // These cases are about the feature guard, so the module is always reachable;
+  // entitlement denial has its own coverage in `rbacService.userEntitlement`.
+  isModuleAllowedForUser: jest.fn<
+    ReturnType<RbacService['isModuleAllowedForUser']>,
+    Parameters<RbacService['isModuleAllowedForUser']>
+  >().mockResolvedValue(true)
 }
 jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: async () => ({

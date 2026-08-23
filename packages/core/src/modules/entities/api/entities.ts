@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isEntityModuleReachable, resolveReachableModuleSet } from '@open-mercato/core/modules/entities/lib/entityAcl'
 import { z } from 'zod'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
@@ -36,6 +37,10 @@ export async function GET(req: Request) {
     tenantId: auth.tenantId,
     organizationId: auth.orgId ?? null,
   })
+  // `entities` is a platform module, so the route-level entitlement gate never
+  // fires here — but this payload enumerates every module's entity types. Narrow
+  // it to the modules the caller can actually reach.
+  const reachableModules = await resolveReachableModuleSet(rbac, auth)
 
   // Generated entities from code
   const AllEntities = getEntityIds()
@@ -45,6 +50,7 @@ export async function GET(req: Request) {
     for (const k of Object.keys(entities)) {
       const id = entities[k]
       if (!isSystemEntitySelectable(id)) continue
+      if (!isEntityModuleReachable(id, reachableModules)) continue
       generated.push({ entityId: id, source: 'code', label: id })
     }
   }
@@ -67,6 +73,7 @@ export async function GET(req: Request) {
 
   const custom = Array.from(customByEntityId.values())
     .filter((c) => isSystemEntitySelectable(c.entityId))
+    .filter((c) => isEntityModuleReachable(c.entityId, reachableModules))
     .map((c) => ({
       entityId: c.entityId,
       source: 'custom' as const,

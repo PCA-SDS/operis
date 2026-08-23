@@ -31,12 +31,12 @@ jest.mock('../auth', () => ({
   hasRequiredFeatures: jest.fn(() => true),
 }))
 
-const loadAcl = jest.fn()
+const getGrantedFeatures = jest.fn()
 
 function makeContainer() {
   return {
     resolve: (name: string) => {
-      if (name === 'rbacService') return { loadAcl }
+      if (name === 'rbacService') return { getGrantedFeatures }
       return {}
     },
   } as unknown as McpServerOptions['container']
@@ -53,8 +53,8 @@ function baseOptions(overrides: Partial<McpServerOptions>): McpServerOptions {
 describe('issue #2673 — MCP stdio server must fail closed without auth', () => {
   beforeEach(() => {
     authenticateMcpRequest.mockReset()
-    loadAcl.mockReset()
-    loadAcl.mockResolvedValue({ isSuperAdmin: false, features: ['ai_assistant.view'] })
+    getGrantedFeatures.mockReset()
+    getGrantedFeatures.mockResolvedValue(['ai_assistant.view'])
     jest.spyOn(console, 'error').mockImplementation(() => {})
   })
 
@@ -66,7 +66,7 @@ describe('issue #2673 — MCP stdio server must fail closed without auth', () =>
     await expect(createMcpServer(baseOptions({}))).rejects.toThrow(
       /refused to start: no authentication/i,
     )
-    expect(loadAcl).not.toHaveBeenCalled()
+    expect(getGrantedFeatures).not.toHaveBeenCalled()
   })
 
   it('throws when context lacks a userId (the mcp:serve --tenant-without-user path)', async () => {
@@ -75,7 +75,7 @@ describe('issue #2673 — MCP stdio server must fail closed without auth', () =>
         baseOptions({ context: { tenantId: 't1', organizationId: 'o1', userId: null } }),
       ),
     ).rejects.toThrow(/refused to start: no authentication/i)
-    expect(loadAcl).not.toHaveBeenCalled()
+    expect(getGrantedFeatures).not.toHaveBeenCalled()
   })
 
   it('treats an empty-string apiKeySecret as missing and fails closed', async () => {
@@ -92,12 +92,14 @@ describe('issue #2673 — MCP stdio server must fail closed without auth', () =>
     expect(authenticateMcpRequest).not.toHaveBeenCalled()
   })
 
-  it('loads the real user ACL when context carries a non-empty userId', async () => {
+  it('loads the real user grants when context carries a non-empty userId', async () => {
     const server = await createMcpServer(
       baseOptions({ context: { tenantId: 't1', organizationId: 'o1', userId: 'u1' } }),
     )
     expect(server).toBeDefined()
-    expect(loadAcl).toHaveBeenCalledWith('u1', { tenantId: 't1', organizationId: 'o1' })
+    // `getGrantedFeatures`, not `loadAcl`: the raw ACL is entitlement-unaware, so
+    // tools from a module the tenant lost would stay callable over MCP.
+    expect(getGrantedFeatures).toHaveBeenCalledWith('u1', { tenantId: 't1', organizationId: 'o1' })
   })
 
   it('allows unauthenticated superadmin only behind the explicit opt-in, without loading an ACL', async () => {
@@ -108,7 +110,7 @@ describe('issue #2673 — MCP stdio server must fail closed without auth', () =>
       }),
     )
     expect(server).toBeDefined()
-    expect(loadAcl).not.toHaveBeenCalled()
+    expect(getGrantedFeatures).not.toHaveBeenCalled()
   })
 
   it('allows fully unauthenticated superadmin behind the opt-in with no context', async () => {

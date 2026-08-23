@@ -1,5 +1,10 @@
 import type { Kysely } from 'kysely'
 import { authorizeFeatures } from '@open-mercato/shared/security/featurePolicy'
+import { getOwningModuleId } from '@open-mercato/shared/security/enabledModulesRegistry'
+import {
+  isEntitleableModule,
+  isEntitlementEnforceable,
+} from '@open-mercato/core/modules/directory/lib/tenantModules'
 
 interface AclRow {
   user_id: string
@@ -75,6 +80,59 @@ export async function getRecipientUserIdsForRole(
   return userRoles.map((row) => row.user_id)
 }
 
+/**
+ * Narrows a feature-derived recipient list to the users who may actually reach
+ * the owning module.
+ *
+ * Recipients are selected from raw `role_acls` / `user_acls` rows for fan-out
+ * efficiency, which skips `RbacService` and therefore both entitlement layers.
+ * Without this pass a user whose tenant lost the module — or who a tenant admin
+ * withheld it from — would still be notified about it, leaving a visible
+ * reference to something they cannot open.
+ *
+ * The policy itself is not reimplemented here: owning-module resolution and the
+ * platform-module exemption come from the same helpers `RbacService` and
+ * `TenantModuleService` use, and the two entitlement tables are read with the
+ * same fail-closed / subtract-only semantics. Only the data access differs,
+ * because this path has a Kysely handle rather than a container.
+ */
+async function filterRecipientsByEntitlement(
+  db: Kysely<any>,
+  tenantId: string,
+  requiredFeature: string,
+  userIds: string[],
+): Promise<string[]> {
+  if (!userIds.length) return userIds
+  const owningModule = getOwningModuleId(requiredFeature)
+  if (!isEntitlementEnforceable() || !isEntitleableModule(owningModule)) return userIds
+
+  const builder: any = db
+  const tenantRow = await builder
+    .selectFrom('tenant_modules')
+    .where('tenant_modules.tenant_id', '=', tenantId)
+    .where('tenant_modules.module_id', '=', owningModule)
+    .where('tenant_modules.is_enabled', '=', true)
+    .where('tenant_modules.deleted_at', 'is', null)
+    .select('tenant_modules.module_id as module_id')
+    .executeTakeFirst() as { module_id: string } | undefined
+  // Fail-closed, matching `TenantModuleService`: no enabled row means the tenant
+  // does not have the module, so nobody in it is a valid recipient.
+  if (!tenantRow) return []
+
+  const restrictedRows = await builder
+    .selectFrom('user_modules')
+    .where('user_modules.user_id', 'in', userIds)
+    .where('user_modules.module_id', '=', owningModule)
+    .where('user_modules.is_enabled', '=', false)
+    .where('user_modules.deleted_at', 'is', null)
+    .select('user_modules.user_id as user_id')
+    .execute() as Array<{ user_id: string }>
+  if (!restrictedRows.length) return userIds
+
+  const restricted = new Set(restrictedRows.map((row) => row.user_id))
+  return userIds.filter((userId) => !restricted.has(userId))
+}
+
 export async function getRecipientUserIdsForFeature(
   db: Kysely<any>,
   tenantId: string,
@@ -117,5 +175,5 @@ export async function getRecipientUserIdsForFeature(
 
   collectUsersWithFeature(userIdsSet, roleAcls, requiredFeature)
 
-  return Array.from(userIdsSet)
+  return filterRecipientsByEntitlement(db, tenantId, requiredFeature, Array.from(userIdsSet))
 }

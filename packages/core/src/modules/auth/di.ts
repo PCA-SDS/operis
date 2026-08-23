@@ -4,6 +4,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CacheStrategy } from '@open-mercato/cache'
 import { AuthService } from '@open-mercato/core/modules/auth/services/authService'
 import { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
+import { UserModuleService } from '@open-mercato/core/modules/auth/lib/userModules'
 import {
   createRbacFallbackCache,
   isRbacDefaultCacheEnabled,
@@ -15,6 +16,10 @@ export { resetRbacFallbackCache }
 export function register(container: AppContainer) {
   // Register or override core auth service
   container.register({ authService: asClass(AuthService).scoped() })
+  // Per-user module restrictions — the second entitlement layer. `asClass` for the
+  // same reason as `tenantModuleService`: CLASSIC injection resolves the constructor's
+  // `em` / `cache` parameter names, which an `asFunction((cradle) => …)` form would break.
+  container.register({ userModuleService: asClass(UserModuleService).scoped() })
   // RBAC service. The bare `asClass(...).scoped()` registration matches
   // develop and is the default. Setting `OM_RBAC_DEFAULT_CACHE=on` opts
   // into the in-process LRU fallback for deployments that don't wire a

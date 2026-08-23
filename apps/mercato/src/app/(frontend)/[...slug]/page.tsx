@@ -9,6 +9,8 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import type { CustomerRbacService } from '@open-mercato/core/modules/customer_accounts/services/customerRbacService'
+import type { TenantModuleService } from '@open-mercato/core/modules/directory/lib/tenantModules'
+import { isEntitleableModule } from '@open-mercato/core/modules/directory/lib/tenantModules'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import type { Metadata } from 'next'
 import type { EntityManager } from '@mikro-orm/postgresql'
@@ -82,6 +84,18 @@ export default async function SiteCatchAll({ params }: FrontendParams) {
     const organizationId = org ? String(org.id) : null
     if (!organizationId || organizationId !== customerAuth.orgId) return renderAccessDenied()
 
+    // Module entitlement, ahead of the portal RBAC check. The portal is a
+    // separate realm with its own role model, but it is served by ordinary
+    // modules — a tenant that lost `portal` must not keep serving its pages to
+    // customers. Only the tenant layer applies: `user_modules` keys on staff
+    // users, and a portal customer is not one.
+    const portalModuleId = match.route.moduleId
+    if (portalModuleId && isEntitleableModule(portalModuleId)) {
+      const tenantModules = portalContainer.resolve('tenantModuleService') as TenantModuleService
+      const moduleAllowed = await tenantModules.isModuleEnabled(customerAuth.tenantId ?? null, portalModuleId)
+      if (!moduleAllowed) return renderAccessDenied()
+    }
+
     const customerFeatures = match.route.requireCustomerFeatures
     if (customerFeatures && customerFeatures.length) {
       const customerRbac = portalContainer.resolve('customerRbacService') as CustomerRbacService
@@ -114,6 +128,18 @@ export default async function SiteCatchAll({ params }: FrontendParams) {
       const roles = auth.roles || []
       const ok = required.some(r => roles.includes(r))
       if (!ok) return renderAccessDenied()
+    }
+    // Same two-step as the backend catch-all: module entitlement first (it
+    // applies even to a page that declares no features), then RBAC.
+    const staffModuleId = match.route.moduleId
+    if (staffModuleId) {
+      const scopeContainer = await ensureContainer()
+      const rbac = scopeContainer.resolve('rbacService') as RbacService
+      const moduleAllowed = await rbac.isModuleAllowedForUser(auth.sub, staffModuleId, {
+        tenantId: auth.tenantId ?? null,
+        organizationId: auth.orgId ?? null,
+      })
+      if (!moduleAllowed) return renderAccessDenied()
     }
     const features = match.route.requireFeatures
     if (features && features.length) {

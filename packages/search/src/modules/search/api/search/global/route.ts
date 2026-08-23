@@ -29,10 +29,10 @@ export const metadata = {
 }
 
 type RbacLike = {
-  loadAcl: (
+  getGrantedFeatures: (
     userId: string,
     scope: { tenantId: string | null; organizationId: string | null },
-  ) => Promise<{ isSuperAdmin: boolean; features: string[]; organizations: string[] | null }>
+  ) => Promise<string[]>
 }
 
 function parseLimit(value: string | null): number {
@@ -136,11 +136,16 @@ export async function GET(req: Request) {
     // `search.global` authorizes using the palette, not reading every indexed
     // record. Narrow the query to the entity types this caller may read so the
     // result budget is not spent on records that would only be filtered out.
-    const acl = await rbac.loadAcl(auth.sub, {
+    // `getGrantedFeatures` rather than `loadAcl().features`: the raw grant list is
+    // entitlement-unaware, so a module the tenant lost — or that was withheld from
+    // this user — would keep surfacing its records in the palette. It expands a
+    // super admin's `*` into one wildcard per module they may actually reach, which
+    // is why the subject no longer needs (or wants) the `isSuperAdmin` short circuit.
+    const grantedFeatures = await rbac.getGrantedFeatures(auth.sub, {
       tenantId: scope.tenantId ?? auth.tenantId ?? null,
       organizationId: organizationId ?? null,
     })
-    const subject = { grantedFeatures: acl.features, isSuperAdmin: acl.isSuperAdmin }
+    const subject = { grantedFeatures, isSuperAdmin: false }
     const readableEntityTypes = resolveReadableEntityTypes(searchIndexer, subject, entityTypes)
     if (readableEntityTypes && readableEntityTypes.length === 0) {
       return NextResponse.json({
@@ -169,7 +174,7 @@ export async function GET(req: Request) {
     const results = filterSearchResultsByEntityAccess(
       rawResults,
       searchIndexer,
-      { grantedFeatures: acl.features, isSuperAdmin: acl.isSuperAdmin },
+      subject,
       {
         onDeny: (deniedEntityId, reason) => {
           searchDebug('search.api.global', 'entity-filtered', { entityId: deniedEntityId, reason })

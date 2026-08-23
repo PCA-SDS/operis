@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isEntityModuleReachable, resolveReachableModuleSet } from '@open-mercato/core/modules/entities/lib/entityAcl'
 import { z } from 'zod'
 import type { CacheStrategy } from '@open-mercato/cache'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
@@ -249,6 +250,7 @@ export async function GET(req: Request) {
   const { resolve } = container
   const em = resolve('em') as any
   const rbac = resolve('rbacService') as RbacService
+  const reachableModules = await resolveReachableModuleSet(rbac, auth)
   const acl = await rbac.loadAcl(auth.sub ?? '', {
     tenantId,
     organizationId,
@@ -281,7 +283,9 @@ export async function GET(req: Request) {
       }
     }
   }
-  const entityIds = selectableEntityIds.filter((entityId) => canReadEntityMetadata({
+  const entityIds = selectableEntityIds
+    .filter((entityId) => isEntityModuleReachable(entityId, reachableModules))
+    .filter((entityId) => canReadEntityMetadata({
     entityId,
     isCustomEntity: customEntityRestrictions.has(entityId),
     isRestricted: customEntityRestrictions.get(entityId) === true,

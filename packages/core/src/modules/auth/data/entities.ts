@@ -50,6 +50,43 @@ export class User {
   deletedAt?: Date | null
 }
 
+/**
+ * Per-user module restriction — the second entitlement layer.
+ *
+ * A row with `isEnabled = false` withholds one module from one user. Absence of
+ * a row means "not restricted": the resolver subtracts restricted ids from the
+ * tenant's entitled set and never adds to it, so this table can only ever
+ * narrow access, never widen it past what the Super Admin granted the tenant.
+ */
+@Entity({ tableName: 'user_modules' })
+@Unique({ name: 'user_modules_user_module_uniq', properties: ['user', 'moduleId'] })
+@Index({ name: 'user_modules_tenant_idx', properties: ['tenantId'] })
+export class UserModule {
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @ManyToOne(() => User, { fieldName: 'user_id' })
+  user!: User
+
+  @Property({ name: 'tenant_id', type: 'uuid', nullable: true })
+  tenantId?: string | null
+
+  @Property({ name: 'module_id', type: 'text' })
+  moduleId!: string
+
+  @Property({ name: 'is_enabled', type: 'boolean', default: true })
+  isEnabled: boolean = true
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date(), nullable: true })
+  updatedAt?: Date | null
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
+
 @Entity({ tableName: 'roles' })
 @Unique({ properties: ['tenantId', 'name'] })
 export class Role {

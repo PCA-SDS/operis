@@ -65,20 +65,106 @@ export function isEntitlementEnforceable(): boolean {
   return hasEnabledModulesRegistry()
 }
 
-/** Every registered module id that entitlement governs, in registry order. */
-export function listEntitleableModuleIds(): string[] {
-  let moduleIds: string[] = []
+type RegistryModule = {
+  id: string
+  info?: { title?: string; description?: string; requires?: string[] }
+}
+
+function readRegistry(): ReadonlyArray<RegistryModule> {
   try {
-    moduleIds = (getModules() as ReadonlyArray<{ id: string }>).map((mod) => mod.id)
+    return getModules() as ReadonlyArray<RegistryModule>
   } catch {
     return []
   }
-  return moduleIds.filter(isEntitleableModule)
+}
+
+/** Every registered module id that entitlement governs, in registry order. */
+export function listEntitleableModuleIds(): string[] {
+  return readRegistry().map((mod) => mod.id).filter(isEntitleableModule)
+}
+
+export type EntitleableModule = {
+  moduleId: string
+  title: string
+  description: string | null
+  /** Entitleable modules this one hard-depends on (`info.requires`, platform deps dropped). */
+  requires: string[]
+}
+
+/**
+ * The entitlement catalog: one entry per governed module with the display
+ * metadata the management screens need, plus its hard dependencies.
+ *
+ * Platform ids are stripped from `requires` because they are never gated — a
+ * module requiring `auth` places no constraint an operator can violate, and
+ * listing it would only invite an unsatisfiable prerequisite in the UI.
+ */
+export function listEntitleableModules(): EntitleableModule[] {
+  return readRegistry()
+    .filter((mod) => isEntitleableModule(mod.id))
+    .map((mod) => ({
+      moduleId: mod.id,
+      title: typeof mod.info?.title === 'string' && mod.info.title.length ? mod.info.title : mod.id,
+      description: typeof mod.info?.description === 'string' && mod.info.description.length
+        ? mod.info.description
+        : null,
+      requires: Array.isArray(mod.info?.requires)
+        ? Array.from(new Set(mod.info!.requires.filter((dep): dep is string => typeof dep === 'string' && isEntitleableModule(dep))))
+        : [],
+    }))
+}
+
+/** moduleId → its entitleable hard dependencies. */
+export function buildModuleDependencyGraph(): Map<string, string[]> {
+  const graph = new Map<string, string[]>()
+  for (const mod of listEntitleableModules()) graph.set(mod.moduleId, mod.requires)
+  return graph
+}
+
+/**
+ * Resolves stored entitlement into *reachable* entitlement.
+ *
+ * `info.requires` declares a hard dependency — `wms` cannot function without
+ * `catalog` and `sales`, `staff` cannot without `planner` and `resources`. If
+ * entitlement honoured only the stored row, an operator could leave a tenant in
+ * exactly the invalid state the hierarchy is supposed to make unrepresentable:
+ * a dependent module switched on while its prerequisite is switched off, whose
+ * pages then load and fail on data that is not there.
+ *
+ * Fixed-point removal, so a transitive chain collapses in one pass
+ * (`planner` off ⇒ `resources` off ⇒ `staff` off). A dependency cycle is left
+ * intact when every member is enabled — removal is driven by an *absent*
+ * dependency, so mutually-requiring modules never delete each other.
+ */
+export function resolveReachableModuleIds(
+  storedEnabled: readonly string[],
+  graph: Map<string, string[]> = buildModuleDependencyGraph(),
+): string[] {
+  const reachable = new Set(storedEnabled)
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const moduleId of Array.from(reachable)) {
+      const requires = graph.get(moduleId)
+      if (!requires || requires.length === 0) continue
+      if (requires.some((dep) => !reachable.has(dep))) {
+        reachable.delete(moduleId)
+        changed = true
+      }
+    }
+  }
+  return Array.from(reachable)
 }
 
 export type TenantModuleState = {
   moduleId: string
+  title: string
+  description: string | null
   isEnabled: boolean
+  /** Hard dependencies the operator has not enabled — the module stays unreachable until they are. */
+  missingDependencies: string[]
+  /** Enabled modules that would become unreachable if this one were switched off. */
+  dependents: string[]
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -114,7 +200,24 @@ export class TenantModuleService {
     return `tenant-modules:tenant:${tenantId}`
   }
 
-  /** Enabled entitleable module ids for the tenant. Empty when nothing is granted. */
+  /** Raw stored entitlement, before dependency resolution. Management screens read this. */
+  private async getStoredEnabledModuleIds(tenantId: string): Promise<string[]> {
+    const em = this.em.fork()
+    const rows = await em.find(TenantModule, { tenant: tenantId, isEnabled: true, deletedAt: null } as never, {})
+    return Array.from(new Set(
+      (Array.isArray(rows) ? rows : [])
+        .map((row) => row.moduleId)
+        .filter((moduleId): moduleId is string => typeof moduleId === 'string' && moduleId.length > 0),
+    ))
+  }
+
+  /**
+   * Module ids the tenant can actually reach: stored entitlement narrowed to
+   * the modules whose hard dependencies are also entitled. Every gate in the
+   * app funnels through here, so a dependent module switched on above a
+   * withheld prerequisite is unreachable everywhere at once rather than
+   * half-working.
+   */
   async getEnabledModuleIds(tenantId: string | null | undefined): Promise<string[]> {
     if (!tenantId) return []
     const cacheKey = this.getCacheKey(tenantId)
@@ -122,13 +225,7 @@ export class TenantModuleService {
       const cached = await this.cache.get(cacheKey)
       if (isStringArray(cached)) return cached
     }
-    const em = this.em.fork()
-    const rows = await em.find(TenantModule, { tenant: tenantId, isEnabled: true, deletedAt: null } as never, {})
-    const enabled = Array.from(new Set(
-      (Array.isArray(rows) ? rows : [])
-        .map((row) => row.moduleId)
-        .filter((moduleId): moduleId is string => typeof moduleId === 'string' && moduleId.length > 0),
-    ))
+    const enabled = resolveReachableModuleIds(await this.getStoredEnabledModuleIds(tenantId))
     if (this.cache) {
       await this.cache.set(cacheKey, enabled, {
         ttl: this.cacheTtlMs,
@@ -175,6 +272,15 @@ export class TenantModuleService {
     ]
   }
 
+  /**
+   * The management view: every governed module with its *stored* state, plus the
+   * dependency context an operator needs to act.
+   *
+   * Stored state — not reachable state — because the toggle must reflect what
+   * the operator set. Showing the resolved value would make a switch silently
+   * spring back when a prerequisite is missing; `missingDependencies` explains
+   * that instead, and `dependents` warns what a switch-off would take with it.
+   */
   async listTenantModules(tenantId: string): Promise<TenantModuleState[]> {
     const em = this.em.fork()
     const rows = await em.find(TenantModule, { tenant: tenantId, deletedAt: null } as never, {})
@@ -182,9 +288,26 @@ export class TenantModuleService {
     for (const row of Array.isArray(rows) ? rows : []) {
       byModuleId.set(row.moduleId, !!row.isEnabled)
     }
-    return listEntitleableModuleIds().map((moduleId) => ({
-      moduleId,
-      isEnabled: byModuleId.get(moduleId) ?? false,
+    const catalog = listEntitleableModules()
+    const storedEnabled = new Set(
+      catalog.map((mod) => mod.moduleId).filter((moduleId) => byModuleId.get(moduleId) ?? false),
+    )
+    const dependentsOf = new Map<string, string[]>()
+    for (const mod of catalog) {
+      for (const dep of mod.requires) {
+        if (!storedEnabled.has(mod.moduleId)) continue
+        dependentsOf.set(dep, [...(dependentsOf.get(dep) ?? []), mod.moduleId])
+      }
+    }
+    return catalog.map((mod) => ({
+      moduleId: mod.moduleId,
+      title: mod.title,
+      description: mod.description,
+      isEnabled: storedEnabled.has(mod.moduleId),
+      missingDependencies: storedEnabled.has(mod.moduleId)
+        ? mod.requires.filter((dep) => !storedEnabled.has(dep))
+        : [],
+      dependents: dependentsOf.get(mod.moduleId) ?? [],
     }))
   }
 
@@ -198,7 +321,18 @@ export class TenantModuleService {
     if (!this.cache) return
     const current = getCurrentCacheTenant()
     const contexts = new Set<string | null>([current ?? null, null, tenantId])
-    const tags = [TenantModuleService.tenantTag(tenantId)]
+    // Entitlement decides what the navigation payload contains, and that payload
+    // is cached separately for 30 minutes under its own tags. Dropping only the
+    // entitlement entry leaves every user in the tenant looking at a sidebar full
+    // of links into a module the guards now deny — enforcement stays correct, but
+    // the UI lies until the TTL expires. These are the tags `RbacService` and the
+    // nav route already publish; no new vocabulary, just the missing sweep.
+    const tags = [
+      TenantModuleService.tenantTag(tenantId),
+      `rbac:tenant:${tenantId}`,
+      `nav:sidebar:tenant:${tenantId}`,
+      `nav:entities:${tenantId}`,
+    ]
     for (const ctx of contexts) {
       if (ctx === current) {
         await this.cache.deleteByTags(tags)

@@ -77,7 +77,8 @@ export default async function BackendCatchAll(props: BackendParams) {
       if (!ok) return renderAccessDenied()
     }
     const features = match.route.requireFeatures
-    if (features && features.length) {
+    const moduleId = match.route.moduleId
+    if (moduleId || (features && features.length)) {
       const scopeContainer = await ensureContainer()
       const rbac = scopeContainer.resolve('rbacService') as RbacService
       let organizationIdForCheck: string | null = auth.orgId ?? null
@@ -95,8 +96,21 @@ export default async function BackendCatchAll(props: BackendParams) {
         organizationIdForCheck = auth.orgId ?? null
         tenantIdForCheck = auth.tenantId ?? null
       }
-      const ok = await rbac.userHasAllFeatures(auth.sub, features, { tenantId: tenantIdForCheck, organizationId: organizationIdForCheck })
-      if (!ok) return renderAccessDenied()
+      // Module entitlement is checked independently of `requireFeatures`, because a
+      // page may deliberately require no feature and an empty required list matches
+      // everything. Keying on the route's owning module makes "the tenant does not
+      // have this module" deny every one of its pages, declared features or not.
+      if (moduleId) {
+        const moduleAllowed = await rbac.isModuleAllowedForUser(auth.sub, moduleId, {
+          tenantId: tenantIdForCheck,
+          organizationId: organizationIdForCheck,
+        })
+        if (!moduleAllowed) return renderAccessDenied()
+      }
+      if (features && features.length) {
+        const ok = await rbac.userHasAllFeatures(auth.sub, features, { tenantId: tenantIdForCheck, organizationId: organizationIdForCheck })
+        if (!ok) return renderAccessDenied()
+      }
     }
   }
   const middlewareRedirect = await resolvePageMiddlewareRedirect({
