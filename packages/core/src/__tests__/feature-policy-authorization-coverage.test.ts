@@ -4,12 +4,29 @@ import fg from 'fast-glob'
 
 const repoRoot = resolve(__dirname, '../../../..')
 
+// Every package that ships server-side modules. The list was previously five
+// roots, which left 13 module-shipping packages unscanned — a violation in
+// checkout or any channel package would not have been caught. Keep this in sync
+// when a package gains src/modules; the guard is only as wide as this list.
 const serverRuntimeRoots = [
   'apps/mercato/src/app',
   'packages/core/src/modules',
   'packages/ai-assistant/src/modules',
   'packages/search/src/modules',
   'packages/webhooks/src/modules',
+  'packages/checkout/src/modules',
+  'packages/scheduler/src/modules',
+  'packages/storage-s3/src/modules',
+  'packages/onboarding/src/modules',
+  'packages/content/src/modules',
+  'packages/sync-akeneo/src/modules',
+  'packages/gateway-stripe/src/modules',
+  'packages/channel-apns/src/modules',
+  'packages/channel-expo/src/modules',
+  'packages/channel-fcm/src/modules',
+  'packages/channel-gmail/src/modules',
+  'packages/channel-imap/src/modules',
+  'packages/events/src/modules',
 ]
 
 const sharedAuthorizationRunners = [

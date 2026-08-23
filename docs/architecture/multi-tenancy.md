@@ -344,11 +344,15 @@ decision**, because it moves tenant selection from server-derived to client-supp
 | `INV-TENANT-005` | Org slugs are unique per tenant, not globally | `organizations_tenant_slug_uniq` |
 | `INV-TENANT-006` | Cache keys are tenant-partitioned without caller effort | `resolveTenantPrefixes` |
 | `INV-TENANT-007` | Tables without a `tenant_id` column inherit tenancy via FK; the parent MUST be scoped explicitly | convention — the engine adds **no** predicate and does not warn (§3.2) |
-| `INV-AUTHZ-001` | Authorization asks the RBAC service; it does not read `loadAcl().features` | convention — **not** mechanically enforced |
+| `INV-AUTHZ-001` | Authorization asks the RBAC service; it does not read `loadAcl().features` | `feature-policy-authorization-coverage.test.ts` — scans 18 server roots for low-level matchers, `loadAcl()` + `hasFeature`, and locally-ordered super-admin/grant checks |
 | `INV-AUTHZ-002` | Invalid scope / disabled features deny before super-admin or wildcards | `rbacService` policy order |
 
-`INV-AUTHZ-001` is the weakest link: it is the only invariant here with no
-mechanical guard.
+Every invariant here now has a mechanical guard. `INV-AUTHZ-001` is still the
+subtlest: the guard is a static scan, so it reasons about files rather than call
+graphs. It catches a file that both loads an ACL and matches features itself; it
+cannot catch a decision split across two files. Its scan roots are also a hand-
+maintained list — it covers the 18 roots that ship server modules today, and a
+new package needs adding to that list or it is simply not scanned.
 
 ## 8. What this baseline does *not* yet have
 
@@ -356,7 +360,7 @@ Honest gaps at the fork point:
 
 - **No MFA and no SSO.** Both were commercial-only upstream and are excluded — see
   [ADR-0002](adr/ADR-0002-exclude-enterprise-edition.md).
-- **No mechanical guard for `INV-AUTHZ-001`.** This is the highest-value gap to close.
+- **`INV-AUTHZ-001`'s guard is a static scan, not a call-graph analysis.** It cannot see an authorization decision split across two files, and its scan roots are hand-maintained.
 - **No end-to-end cross-tenant security test suite.** `INV-TENANT-001` is now guarded
   by `packages/shared/src/lib/query/__tests__/engine.tenant-guard.test.ts` (added with
   the fork, and mutation-tested: relaxing the engine's `throw` to a `console.warn`
