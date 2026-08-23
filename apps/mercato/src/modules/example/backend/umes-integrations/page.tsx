@@ -210,7 +210,7 @@ export default function UmesIntegrationsPage() {
                           status === 'completed'
                             ? 'bg-primary text-primary-foreground'
                             : status === 'current'
-                              ? 'border-2 border-primary bg-background text-primary'
+                              ? 'border-2 border-primary bg-surface text-primary'
                               : 'border border-muted-foreground/30 bg-muted text-muted-foreground'
                         }`}
                         aria-current={status === 'current' ? 'step' : undefined}

@@ -247,7 +247,7 @@ export function StartPageContent({ showStartPage: initialShowStartPage, showOnbo
               href={resource.href}
               target={resource.external ? '_blank' : undefined}
               rel={resource.external ? 'noreferrer' : undefined}
-              className="rounded border bg-background p-4 text-sm transition hover:border-primary"
+              className="rounded border bg-surface p-4 text-sm transition hover:border-primary"
             >
               <div className="font-medium text-foreground">{resource.label}</div>
               <p className="mt-1 text-xs text-muted-foreground">{resource.description}</p>

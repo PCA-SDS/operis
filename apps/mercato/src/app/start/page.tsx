@@ -128,7 +128,7 @@ export default async function StartPage() {
               const api = counts.api
               const i18n = m.translations ? Object.keys(m.translations).length : 0
               return (
-                <div key={m.id} className="rounded border p-3 bg-background">
+                <div key={m.id} className="rounded border p-3 bg-surface">
                   <div className="text-sm font-medium">{m.info?.title || m.id}{m.info?.version ? <span className="ml-2 text-xs text-muted-foreground">v{m.info.version}</span> : null}</div>
                   {m.info?.description ? <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{m.info.description}</div> : null}
                   <div className="mt-2 flex flex-wrap gap-1">

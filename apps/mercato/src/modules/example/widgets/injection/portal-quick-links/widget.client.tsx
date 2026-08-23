@@ -16,7 +16,7 @@ export default function PortalQuickLinksWidget() {
           href={link.href}
           className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted"
         >
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-background">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
             {link.icon}
           </div>
           <div className="min-w-0">

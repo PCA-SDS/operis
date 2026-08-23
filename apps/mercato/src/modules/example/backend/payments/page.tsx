@@ -186,7 +186,7 @@ function StripePaymentForm({
         </p>
       </div>
 
-      <div className="rounded-md border bg-background px-3 py-3">
+      <div className="rounded-md border bg-surface px-3 py-3">
         <CardElement
           options={{
             hidePostalCode: true,
