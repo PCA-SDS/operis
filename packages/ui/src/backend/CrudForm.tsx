@@ -4443,11 +4443,11 @@ const FieldControl = React.memo(function FieldControlImpl({
     const region = regionRef.current
     if (!region) return
 
-    const apply = () => {
+    const apply = (): boolean => {
       const control = region.querySelector<HTMLElement>(
         'input:not([type="hidden"]), textarea, select, [role="combobox"], [role="textbox"], [contenteditable="true"]',
       )
-      if (!control) return
+      if (!control) return false
       // NOTE: `CSS` in this module is `@dnd-kit/utilities`' transform helper,
       // not the global `CSS` object — so no `CSS.escape` here. Comparing
       // `htmlFor` directly avoids the collision and needs no escaping at all.
@@ -4465,14 +4465,20 @@ const FieldControl = React.memo(function FieldControlImpl({
       const described = [field.description ? descriptionDomId : null, error ? errorDomId : null].filter(Boolean)
       if (described.length) control.setAttribute('aria-describedby', described.join(' '))
       else control.removeAttribute('aria-describedby')
+      return true
     }
 
-    apply()
-    // Relation and dictionary fields mount their trigger only once options have
-    // loaded, which is after this effect first runs. Watching the region keeps
-    // the wiring correct for those without every field type having to announce
-    // when it is ready.
-    const observer = new MutationObserver(apply)
+    // Relation and dictionary fields mount their control only once options have
+    // loaded, which is after this effect first runs — so when it is not there
+    // yet, watch for it. The observer stops at the first control it wires: its
+    // job is to catch a late mount, not to police the subtree for the lifetime
+    // of the form. Left running, a rich-text field would re-run this on every
+    // keystroke. Anything that changes the wiring afterwards (an error
+    // appearing, a description changing) re-runs the whole effect anyway.
+    if (apply()) return
+    const observer = new MutationObserver(() => {
+      if (apply()) observer.disconnect()
+    })
     observer.observe(region, { childList: true, subtree: true })
     return () => observer.disconnect()
   }, [error, field.description, hasVisibleLabel, labelDomId, descriptionDomId, errorDomId])
