@@ -88,7 +88,7 @@ export function UserMenu({ email }: { email?: string }) {
         <div
           ref={menuRef}
           id="user-menu-dropdown"
-          className="absolute right-0 top-full mt-0 w-56 rounded-md border bg-background p-1 shadow z-dropdown"
+          className="absolute right-0 top-full mt-0 w-56 rounded-md border bg-surface p-1 shadow z-dropdown"
           role="menu"
           aria-labelledby="user-menu-button"
           tabIndex={-1}

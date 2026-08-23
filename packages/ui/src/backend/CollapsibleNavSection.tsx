@@ -117,14 +117,14 @@ export function CollapsibleNavSection({
           style={indent}
           className={`relative text-sm rounded inline-flex items-center ${base} ${
             isActive && !showChildren
-              ? 'bg-background border shadow-sm'
+              ? 'bg-surface border shadow-sm'
               : 'hover:bg-accent hover:text-accent-foreground'
           } ${item.enabled === false ? 'pointer-events-none opacity-50' : ''}`}
           aria-disabled={item.enabled === false}
           title={compact ? item.title : undefined}
         >
           {isActive && !showChildren && (
-            <span className="absolute left-0 top-1 bottom-1 w-0.5 rounded bg-foreground" />
+            <span className="absolute left-0 top-1 bottom-1 w-0.5 rounded bg-primary" />
           )}
           <span className={`flex items-center justify-center shrink-0 ${compact ? '' : 'text-muted-foreground'}`}>
             {item.icon ?? DefaultIcon}

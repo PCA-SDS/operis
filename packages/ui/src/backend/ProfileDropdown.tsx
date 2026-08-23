@@ -311,7 +311,7 @@ export function ProfileDropdown({
                     onClick={() => handleLocaleChange(locale)}
                   >
                     <span className="truncate">{localeLabels[locale]}</span>
-                    {locale === currentLocale && <Check className="size-3.5 shrink-0 text-accent-indigo" aria-hidden="true" />}
+                    {locale === currentLocale && <Check className="size-3.5 shrink-0 text-accent-strong" aria-hidden="true" />}
                   </button>
                 ))}
               </div>
@@ -377,7 +377,7 @@ export function ProfileDropdown({
           {/* User info header */}
           {(displayName || email) && (
             <div className="flex items-center gap-3 border-b bg-muted/30 px-3 py-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent-indigo/10 text-accent-indigo">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent-strong/10 text-accent-strong">
                 <User className="size-4" aria-hidden="true" />
               </div>
               <div className="flex min-w-0 flex-1 flex-col">

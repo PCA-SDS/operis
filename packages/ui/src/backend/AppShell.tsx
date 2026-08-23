@@ -73,6 +73,37 @@ import {
 // neighbouring `om:sidebarCollapsed` / `om:progress:expanded` flags are trivial
 // scalar booleans and deliberately stay raw (see their write sites). See
 // `@open-mercato/shared/lib/browser/versionedPreference`.
+/* Sidebar item chrome, declared once.
+ *
+ * Four call sites render a navigation row — settings sections, main groups,
+ * their children, and the compact rail — and they must stay identical or the
+ * sidebar reads as several lists stacked together. Keeping the classes here
+ * makes the row a single decision.
+ *
+ * Active is a soft primary wash plus primary ink (and a primary-tinted icon);
+ * there is no separate marker bar, because the tint already carries the state
+ * and a bar on top of a tint is two signals for one fact. Idle rows use FULL
+ * ink with a muted icon — a sidebar is a reading surface, and greying every
+ * label to make one stand out costs more than it buys. */
+const SIDEBAR_ITEM_BASE =
+  'relative inline-flex items-center rounded-lg text-sm font-medium transition-colors'
+
+function sidebarItemStateClass(active: boolean): string {
+  return active
+    ? 'bg-primary-soft text-primary [&_svg]:text-primary'
+    : 'text-foreground hover:bg-surface-muted [&_svg]:text-muted-foreground'
+}
+
+/** Row box for a top-level item: fixed height so rows scan as a rhythm. */
+const SIDEBAR_ITEM_BOX_COMPACT = 'w-10 h-10 justify-center'
+const SIDEBAR_ITEM_BOX = 'w-full h-10 px-3 gap-2.5'
+/** Children sit one step shorter, which reads as depth without indent alone. */
+const SIDEBAR_CHILD_BOX_COMPACT = 'w-10 h-9 justify-center'
+const SIDEBAR_CHILD_BOX = 'w-full h-9 pl-5 pr-3 gap-2.5'
+/** Group heading — a quiet overline, not a button that competes with the rows. */
+const SIDEBAR_GROUP_LABEL =
+  'w-full px-2 justify-between flex text-overline font-semibold uppercase tracking-wider text-disabled-foreground py-1'
+
 const SIDEBAR_OPEN_GROUPS_KEY = 'om:sidebarOpenGroups'
 const SIDEBAR_OPEN_GROUPS_VERSION = 1
 
@@ -726,7 +757,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
 
   const asideWidth = effectiveCollapsed ? '80px' : expandedSidebarWidth
   // Use min-h-svh so the border extends with tall content; no overflow so sticky bottom works
-  const asideClassesBase = `border-r bg-background py-4`;
+  const asideClassesBase = `border-r border-border bg-sidebar py-4`;
 
   // Persist collapse state to localStorage and cookie. Both writes can throw in
   // private/incognito mode (storage blocked) or when cookies are disabled —
@@ -813,7 +844,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           <div className="mb-2">
             <Link
               href="/backend"
-              className={`flex items-center gap-3 rounded-xl transition-colors hover:bg-muted ${compact ? 'p-2 justify-center' : 'p-3'}`}
+              className={`flex h-14 items-center gap-3 rounded-lg transition-colors hover:bg-surface-muted ${compact ? 'justify-center px-2' : 'px-3'}`}
               aria-label={t('appShell.goToDashboard')}
             >
               <ShellBrandLogo logo={resolvedLogo} brandName={resolvedBrandName} compact={compact} unoptimized={resolvedLogoBypassesOptimization} />
@@ -870,7 +901,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
               )))
               const showChildren = childItems.length > 0 && (isOnItemBranch || sectionNavQueryActive)
               const isActive = isOnItemBranch || hasActiveChild
-              const base = compact ? 'w-10 h-10 justify-center' : 'w-full py-2 gap-2'
+              const base = compact ? SIDEBAR_ITEM_BOX_COMPACT : 'w-full h-10 gap-2.5'
               const spacingStyle = !compact
                 ? {
                     paddingLeft: `${12 + depth * 16}px`,
@@ -882,19 +913,12 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                 <React.Fragment key={item.id}>
                   <Link
                     href={item.href}
-                    className={`relative text-sm font-medium rounded-lg inline-flex items-center ${base} ${
-                      isActive
-                        ? 'bg-muted text-foreground'
-                        : 'text-muted-foreground hover:bg-muted'
-                    }`}
+                    className={`${SIDEBAR_ITEM_BASE} ${base} ${sidebarItemStateClass(isActive)}`}
                     style={spacingStyle}
                     title={compact ? label : undefined}
                     data-menu-item-id={item.id}
                     onClick={() => setMobileOpen(false)}
                   >
-                    {isActive && (
-                      <span aria-hidden className={`absolute ${compact ? 'left-[-20px]' : 'left-[-12px]'} top-2 w-1 h-5 rounded-r bg-foreground`} />
-                    )}
                     <span className="flex items-center justify-center shrink-0">
                       {renderIcon(
                         item.icon,
@@ -916,7 +940,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                   <Button
                     variant="muted"
                     onClick={() => toggleGroup(sectionKey)}
-                    className="w-full px-1 justify-between flex text-xs font-medium uppercase tracking-wider text-muted-foreground/70 py-1"
+                    className={SIDEBAR_GROUP_LABEL}
                     aria-expanded={open}
                   >
                     <span>{sectionLabel}</span>
@@ -946,7 +970,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
             <div className="mb-2">
               <Link
                 href="/backend"
-                className={`flex items-center gap-3 rounded-xl transition-colors hover:bg-muted ${compact ? 'p-2 justify-center' : 'p-3'}`}
+                className={`flex h-14 items-center gap-3 rounded-lg transition-colors hover:bg-surface-muted ${compact ? 'justify-center px-2' : 'px-3'}`}
                 aria-label={t('appShell.goToDashboard')}
               >
                 <ShellBrandLogo logo={resolvedLogo} brandName={resolvedBrandName} compact={compact} unoptimized={resolvedLogoBypassesOptimization} />
@@ -1012,7 +1036,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           <div className="mb-2">
             <Link
               href="/backend"
-              className={`flex items-center gap-3 rounded-xl transition-colors hover:bg-muted ${compact ? 'p-2 justify-center' : 'p-3'}`}
+              className={`flex h-14 items-center gap-3 rounded-lg transition-colors hover:bg-surface-muted ${compact ? 'justify-center px-2' : 'px-3'}`}
               aria-label={t('appShell.goToDashboard')}
             >
               <ShellBrandLogo logo={resolvedLogo} brandName={resolvedBrandName} compact={compact} unoptimized={resolvedLogoBypassesOptimization} />
@@ -1087,7 +1111,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                             <Button
                               variant="muted"
                               onClick={() => toggleGroup(groupId)}
-                              className="w-full px-1 justify-between flex text-xs font-medium uppercase tracking-wider text-muted-foreground/70 py-1"
+                              className={SIDEBAR_GROUP_LABEL}
                               aria-expanded={open}
                             >
                               <span>{g.name}</span>
@@ -1107,22 +1131,17 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                                   : (!!pathname && allChildItems.length > 0 && pathname.startsWith(i.href))
                                 const hasActiveChild = !!(pathname && allChildItems.some((c) => pathname.startsWith(c.href)))
                                 const isParentActive = (pathname === i.href) || (!navQueryActive && showChildren && !hasActiveChild)
-                                const base = compact ? 'w-10 h-10 justify-center' : 'w-full px-3 py-2 gap-2'
+                                const base = compact ? SIDEBAR_ITEM_BOX_COMPACT : SIDEBAR_ITEM_BOX
                                 return (
                                   <React.Fragment key={i.href}>
                                     <Link
                                       href={i.href}
-                                      className={`relative text-sm font-medium rounded-lg inline-flex items-center ${base} ${
-                                        isParentActive ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted'
-                                      } ${i.enabled === false ? 'pointer-events-none opacity-50' : ''}`}
+                                      className={`${SIDEBAR_ITEM_BASE} ${base} ${sidebarItemStateClass(isParentActive)} ${i.enabled === false ? 'pointer-events-none opacity-50' : ''}`}
                                       aria-disabled={i.enabled === false}
                                       title={compact ? i.title : undefined}
                                       data-menu-item-id={i.id ?? i.href}
                                       onClick={() => setMobileOpen(false)}
                                     >
-                                      {isParentActive ? (
-                                        <span aria-hidden className={`absolute ${compact ? 'left-[-20px]' : 'left-[-12px]'} top-2 w-1 h-5 rounded-r bg-foreground`} />
-                                      ) : null}
                                       <span className="flex items-center justify-center shrink-0">
                                         {renderIcon(
                                           i.icon,
@@ -1140,22 +1159,17 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                                         )}
                                         {childItems.map((c) => {
                                           const childActive = pathname?.startsWith(c.href)
-                                          const childBase = compact ? 'w-10 h-8 justify-center' : 'w-full pl-5 pr-3 py-2 gap-2'
+                                          const childBase = compact ? SIDEBAR_CHILD_BOX_COMPACT : SIDEBAR_CHILD_BOX
                                           return (
                                             <Link
                                               key={c.href}
                                               href={c.href}
-                                              className={`relative text-sm font-medium rounded-lg inline-flex items-center ${childBase} ${
-                                                childActive ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted'
-                                              } ${c.enabled === false ? 'pointer-events-none opacity-50' : ''}`}
+                                              className={`${SIDEBAR_ITEM_BASE} ${childBase} ${sidebarItemStateClass(!!childActive)} ${c.enabled === false ? 'pointer-events-none opacity-50' : ''}`}
                                               aria-disabled={c.enabled === false}
                                               title={compact ? c.title : undefined}
                                               data-menu-item-id={c.id ?? c.href}
                                               onClick={() => setMobileOpen(false)}
                                             >
-                                              {childActive ? (
-                                                <span aria-hidden className={`absolute ${compact ? 'left-[-20px]' : 'left-[-12px]'} top-2 w-1 h-5 rounded-r bg-foreground`} />
-                                              ) : null}
                                               <span className="flex items-center justify-center shrink-0">
                                                 {renderIcon(
                                                   c.icon,
@@ -1184,7 +1198,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
               )
             })()}
         </div>
-        <div className="sticky bottom-0 bg-background pb-1">
+        <div className="sticky bottom-0 border-t border-border bg-sidebar pt-2 pb-1">
           {shouldRenderSidebarInjectionSpots ? (
             <InjectionSpot
               spotId={BACKEND_SIDEBAR_NAV_FOOTER_INJECTION_SPOT_ID}
@@ -1300,7 +1314,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
         type="button"
         onClick={() => setCollapsed((c) => !c)}
         aria-label={t('appShell.toggleSidebar')}
-        className="hidden lg:flex fixed top-4 z-dropdown size-7 items-center justify-center rounded-md border bg-background text-muted-foreground shadow-sm transition-all hover:text-foreground hover:bg-muted focus:outline-none focus-visible:shadow-focus"
+        className="hidden lg:flex fixed top-4 z-dropdown size-7 items-center justify-center rounded-md border border-border bg-surface text-muted-foreground shadow-sm transition-colors hover:text-foreground hover:bg-surface-strong focus:outline-none focus-visible:shadow-focus"
         style={{ left: `calc(${asideWidth} - 14px)` }}
       >
         {effectiveCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
@@ -1317,7 +1331,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
             IconButton restores `pointer-events-auto` so it stays interactive. */}
         {sidebarScrollState !== 'none' ? (
           <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 flex h-10 items-end justify-center bg-gradient-to-t from-background via-background/80 to-transparent pb-1.5"
+            className="pointer-events-none absolute inset-x-0 bottom-0 flex h-10 items-end justify-center bg-gradient-to-t from-sidebar via-sidebar/80 to-transparent pb-1.5"
           >
             {/* The IconButton owns hover/focus affordance; the inner span owns the
                 rotate transition so it doesn't fight with the animate-bounce
@@ -1361,13 +1375,13 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
               affordance but without the chevron / scroll-state machinery. */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background via-background/80 to-transparent"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-sidebar via-sidebar/80 to-transparent"
           />
         </aside>
       ) : null}
 
       <div className="flex min-h-svh flex-col min-w-0">
-        <header className="sticky top-0 z-sticky border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-3 sm:px-4 lg:px-6 py-3 flex items-center justify-between gap-2 sm:gap-3">
+        <header className="sticky top-0 z-sticky h-16 shrink-0 border-b border-border bg-surface-muted px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-2 sm:gap-3">
           <div
             data-testid="backend-chrome-ready"
             data-ready={isChromeReady ? 'true' : 'false'}
@@ -1468,7 +1482,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           </div>
         </header>
         <ProgressTopBar t={t} className="sticky top-0 z-sticky" completedAutoHideMs={progressCompletedAutoHideMs} />
-        <main className="flex-1 p-4 lg:p-6 mx-auto w-full max-w-screen-2xl">
+        <main className="flex-1 px-4 pb-8 pt-6 sm:px-6 lg:px-8 lg:pt-8 mx-auto w-full max-w-screen-2xl">
           <InjectionSpot spotId={BACKEND_LAYOUT_TOP_INJECTION_SPOT_ID} context={injectionContext} />
           <FlashMessages />
           <PartialIndexBanner />
@@ -1489,7 +1503,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           <InjectionSpot spotId={BACKEND_LAYOUT_FOOTER_INJECTION_SPOT_ID} context={injectionContext} />
         </main>
         {hideFooter ? null : (
-          <footer className="border-t bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-4 py-3 flex flex-wrap items-center justify-end gap-4">
+          <footer className="border-t border-border bg-background px-4 py-3 sm:px-6 lg:px-8 flex flex-wrap items-center justify-end gap-4">
             {version ? (
               <span className="text-xs text-muted-foreground">
                 {t('appShell.version', { version })}
@@ -1511,7 +1525,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-modal">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileOpen(false)} aria-hidden="true" />
-          <aside className="absolute left-0 top-0 flex h-full w-[280px] max-w-[85vw] flex-col bg-background border-r shadow-lg overflow-hidden">
+          <aside className="absolute left-0 top-0 flex h-full w-[280px] max-w-[85vw] flex-col bg-surface border-r shadow-lg overflow-hidden">
             <div className="shrink-0 flex items-center justify-between gap-2 border-b px-4 py-3">
               <Link href="/backend" className="flex items-center gap-2 min-w-0 text-sm font-semibold" onClick={() => setMobileOpen(false)} aria-label={t('appShell.goToDashboard')}>
                 <ShellBrandLogo logo={resolvedLogo} brandName={resolvedBrandName} mobile unoptimized={resolvedLogoBypassesOptimization} />
@@ -1556,7 +1570,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                       <span>{tab.label}</span>
                       {isActive ? (
                         <span
-                          className="absolute -bottom-px left-0 right-0 h-0.5 bg-accent-indigo"
+                          className="absolute -bottom-px left-0 right-0 h-0.5 bg-accent-strong"
                           aria-hidden="true"
                         />
                       ) : null}
