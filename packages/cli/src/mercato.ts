@@ -1449,6 +1449,73 @@ export async function run(argv = process.argv) {
     return runWithCapturedExitCode(() => runUmesCheck())
   }
 
+  if (first === 'seed:dev') {
+    await ensureEnvLoaded()
+    if (process.env.NODE_ENV === 'production' && !parts.includes('--force')) {
+      console.error('❌ seed:dev creates well-known development credentials and refuses to run with NODE_ENV=production. Pass --force only if you understand the consequences.')
+      return 1
+    }
+
+    try {
+      const [{ bootstrapFromAppRoot }, { createResolver }] = await Promise.all([
+        import('@open-mercato/shared/lib/bootstrap/dynamicLoader'),
+        import('./lib/resolver'),
+      ])
+      const resolver = createResolver()
+      const data = await bootstrapFromAppRoot(resolver.getAppDir())
+      registerCliModules(data.modules)
+
+      const { createRequestContainer } = await import('@open-mercato/shared/lib/di/container')
+      const container = await createRequestContainer()
+      const em = container.resolve('em') as any
+
+      const { seedDevEnvironment } = await import('@open-mercato/core/modules/auth/lib/seed-dev')
+      console.log('🌱 Seeding the Operis development environment...\n')
+      const result = await seedDevEnvironment(em, { modules: data.modules })
+
+      // Structural reference data (dictionaries, statuses, tax rates) is what
+      // makes a seeded tenant actually navigable, so seed:dev is self-contained
+      // rather than requiring a second seed:defaults pass.
+      const { ensureCustomRoleAcls } = await import('@open-mercato/core/modules/auth/lib/setup-app')
+      console.log('📚 Seeding module defaults...')
+      for (const tenant of result.tenants) {
+        const seedCtx = {
+          em,
+          tenantId: tenant.tenantId,
+          organizationId: tenant.organizationId,
+          container,
+        }
+        for (const mod of data.modules) {
+          if (mod.setup?.seedDefaults) await mod.setup.seedDefaults(seedCtx)
+        }
+        // Custom roles declared by app modules are created during seedDefaults,
+        // which runs after the tenant bootstrap, so their ACLs need a second pass.
+        await ensureCustomRoleAcls(em, tenant.tenantId, data.modules)
+      }
+      console.log('📚 ✅ Module defaults seeded\n')
+
+      for (const tenant of result.tenants) {
+        const kind = tenant.isPlatform ? 'platform' : 'tenant'
+        console.log(`🏢 ${tenant.name} (${kind})  tenant=${tenant.tenantId}`)
+        console.log(`   organization=${tenant.organizationId}  slug=${tenant.slug}`)
+        console.log(`   modules granted: ${tenant.modulesGranted}${tenant.modulesWithheld.length ? `, withheld: ${tenant.modulesWithheld.join(', ')}` : ''}`)
+        for (const user of tenant.users) {
+          console.log(`   👤 ${user.email}  roles=[${user.roles.join(', ')}]  ${user.created ? 'created' : 'already present'}`)
+        }
+        console.log('')
+      }
+      console.log(result.passwordFromEnv
+        ? `🔑 Password for every seeded account: (from ${'OM_DEV_SEED_PASSWORD'})`
+        : `🔑 Password for every seeded account: ${result.password}`)
+      console.log('\n✅ seed:dev complete.')
+      return 0
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error(`❌ seed:dev failed: ${message}`)
+      return 1
+    }
+  }
+
   if (first === 'seed:defaults') {
     await ensureEnvLoaded()
     const moduleFilter = parts.includes('--module') ? parts[parts.indexOf('--module') + 1] : null

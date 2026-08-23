@@ -156,6 +156,99 @@ export class DerivedUserPasswordRequiredError extends Error {
   }
 }
 
+export type EnsureTenantUserOptions = {
+  email: string
+  roles: string[]
+  tenantId: string
+  organizationId: string
+  passwordHash?: string | null
+  name?: string | null
+  confirm?: boolean
+}
+
+/**
+ * Idempotently upserts one user into a tenant and links the requested roles.
+ *
+ * Shared by `setupInitialTenant` and the development seed so there is exactly
+ * one place that knows how a user row is written — in particular the encrypted
+ * `email` / `emailHash` pair, which a second hand-rolled implementation would
+ * get subtly wrong and leave unfindable at login.
+ *
+ * Lookup is by `emailHash` first because under tenant data encryption the
+ * stored `email` column holds ciphertext and never matches a plaintext filter.
+ */
+export async function ensureTenantUser(
+  em: EntityManager,
+  options: EnsureTenantUserOptions,
+  encryptionService?: TenantDataEncryptionService | null,
+): Promise<{ user: User; created: boolean }> {
+  const { email, roles, tenantId, organizationId } = options
+  const confirm = options.confirm ?? true
+  const service = encryptionService === undefined
+    ? (isTenantDataEncryptionEnabled() ? new TenantDataEncryptionService(em as any, { kms: createKmsService() }) : null)
+    : encryptionService
+
+  const existing = await findOneWithDecryption(
+    em,
+    User,
+    { emailHash: { $in: emailHashLookupValues(email) }, deletedAt: null },
+    {},
+    { tenantId, organizationId },
+  ) ?? await findOneWithDecryption(
+    em,
+    User,
+    { email, deletedAt: null },
+    {},
+    { tenantId, organizationId },
+  )
+
+  const encryptedPayload = service
+    ? await service.encryptEntityPayload('auth:user', { email }, tenantId, organizationId)
+    : { email, emailHash: computeEmailHash(email) }
+
+  let user: User
+  let created: boolean
+  if (existing) {
+    user = existing
+    created = false
+    if (options.passwordHash !== undefined && options.passwordHash !== null) {
+      user.passwordHash = options.passwordHash
+    }
+    user.organizationId = organizationId
+    user.tenantId = tenantId
+    if (isTenantDataEncryptionEnabled()) {
+      user.email = (encryptedPayload as any).email
+      user.emailHash = (encryptedPayload as any).emailHash ?? computeEmailHash(email)
+    }
+    if (options.name) user.name = options.name
+    if (confirm) user.isConfirmed = true
+    em.persist(user)
+  } else {
+    user = em.create(User, {
+      email: (encryptedPayload as any).email ?? email,
+      emailHash: isTenantDataEncryptionEnabled() ? (encryptedPayload as any).emailHash ?? computeEmailHash(email) : undefined,
+      passwordHash: options.passwordHash ?? null,
+      organizationId,
+      tenantId,
+      name: options.name ?? undefined,
+      isConfirmed: confirm,
+      createdAt: new Date(),
+    })
+    em.persist(user)
+    created = true
+  }
+  await em.flush()
+
+  for (const roleName of roles) {
+    const role = await findRoleByNameOrFail(em, roleName, tenantId)
+    const existingLink = await findOneWithDecryption(em, UserRole, { user, role }, {}, { tenantId, organizationId: null })
+    if (!existingLink) em.persist(em.create(UserRole, { user, role, createdAt: new Date() }))
+  }
+  await em.flush()
+
+  return { user, created }
+}
+
 export type SetupInitialTenantResult = {
   tenantId: string
   organizationId: string
@@ -213,10 +306,17 @@ export async function setupInitialTenant(
       em,
       Organization,
       { slug: options.orgSlug },
-      {},
+      { populate: ['tenant'] },
       { tenantId: null, organizationId: null },
     )
-    if (slugConflict) {
+    // The slug that already belongs to the tenant we are about to reuse is not
+    // a collision — it is the same organization. Without this, re-running a
+    // provisioning command with unchanged inputs (the development seed, a
+    // re-applied infrastructure script) aborts instead of being a no-op.
+    const conflictTenantId = slugConflict?.tenant?.id ? String(slugConflict.tenant.id) : null
+    const reusedTenantId = existingUser?.tenantId ? String(existingUser.tenantId) : null
+    const conflictIsSameTenant = !!conflictTenantId && conflictTenantId === reusedTenantId
+    if (slugConflict && !conflictIsSameTenant) {
       throw new OrgSlugExistsError(options.orgSlug)
     }
   }
@@ -409,45 +509,20 @@ export async function setupInitialTenant(
       }
 
       for (const base of baseUsers) {
-        const resolvedPasswordHash = base.passwordHash ?? passwordHash
-        let user = await findOneWithDecryption(tem, User, { email: base.email }, {}, { tenantId: tenantId ?? null, organizationId: organizationId ?? null })
-        const confirm = primaryUser.confirm ?? true
-        const encryptedPayload = encryptionService
-          ? await encryptionService.encryptEntityPayload('auth:user', { email: base.email }, tenantId, organizationId)
-          : { email: base.email, emailHash: computeEmailHash(base.email) }
-        if (user) {
-          user.passwordHash = resolvedPasswordHash
-          user.organizationId = organizationId
-          user.tenantId = tenantId
-          if (isTenantDataEncryptionEnabled()) {
-            user.email = encryptedPayload.email as any
-            user.emailHash = (encryptedPayload as any).emailHash ?? computeEmailHash(base.email)
-          }
-          if (base.name) user.name = base.name
-          if (confirm) user.isConfirmed = true
-          tem.persist(user)
-          userSnapshots.push({ user, roles: base.roles, created: false, generatedPassword: base.generatedPassword ?? null })
-        } else {
-          user = tem.create(User, {
-            email: (encryptedPayload as any).email ?? base.email,
-            emailHash: isTenantDataEncryptionEnabled() ? (encryptedPayload as any).emailHash ?? computeEmailHash(base.email) : undefined,
-            passwordHash: resolvedPasswordHash,
+        const { user, created } = await ensureTenantUser(
+          tem,
+          {
+            email: base.email,
+            roles: base.roles,
+            tenantId: roleTenantId,
             organizationId,
-            tenantId,
-            name: base.name ?? undefined,
-            isConfirmed: confirm,
-            createdAt: new Date(),
-          })
-          tem.persist(user)
-          userSnapshots.push({ user, roles: base.roles, created: true, generatedPassword: base.generatedPassword ?? null })
-        }
-        await tem.flush()
-        for (const roleName of base.roles) {
-          const role = await findRoleByNameOrFail(tem, roleName, roleTenantId)
-          const existingLink = await findOneWithDecryption(tem, UserRole, { user, role }, {}, { tenantId: tenantId ?? null, organizationId: null })
-          if (!existingLink) tem.persist(tem.create(UserRole, { user, role, createdAt: new Date() }))
-        }
-        await tem.flush()
+            passwordHash: base.passwordHash ?? passwordHash,
+            name: base.name ?? null,
+            confirm: primaryUser.confirm ?? true,
+          },
+          encryptionService,
+        )
+        userSnapshots.push({ user, roles: base.roles, created, generatedPassword: base.generatedPassword ?? null })
       }
     })
   }
@@ -575,7 +650,15 @@ export async function ensureDefaultRoleAcls(
     }
   }
 
+  // The full grant lists run to hundreds of entries per role, which buries every
+  // other line of `mercato init` / `seed:dev` output. Counts at info, detail at debug.
   logger.info('Seeded default role features', {
+    superadmin: superadminFeatures.length,
+    admin: adminFeatures.length,
+    employee: employeeFeatures.length,
+    customRoles: customRoleFeatures.size,
+  })
+  logger.debug('Default role feature grants', {
     superadmin: superadminFeatures,
     admin: adminFeatures,
     employee: employeeFeatures,

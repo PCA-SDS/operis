@@ -20,7 +20,8 @@
     "db:reset": "mercato db reset",
     "initialize": "mercato init",
     "reinstall": "mercato init --reinstall",
-    "seed:defaults": "mercato seed:defaults"
+    "seed:defaults": "mercato seed:defaults",
+    "seed:dev": "mercato seed:dev"
   },
   "engines": {
     "node": "24.x"
