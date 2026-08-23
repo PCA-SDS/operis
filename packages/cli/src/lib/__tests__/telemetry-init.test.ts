@@ -4,7 +4,8 @@ import os from 'node:os'
 import * as ts from 'typescript'
 import { runTelemetryInit } from '../telemetry-init'
 
-const TEMPLATE_DIR = path.join(__dirname, '../../../../../packages/create-app/template')
+// create-app was removed; the app itself is now the live reference wiring.
+const TEMPLATE_DIR = path.join(__dirname, '../../../../../apps/mercato')
 const TEMPLATE_DISPATCHER = path.join(TEMPLATE_DIR, 'src/app/api/[...slug]/route.ts')
 const TEMPLATE_NEXT_CONFIG = path.join(TEMPLATE_DIR, 'next.config.ts')
 const TEMPLATE_INSTRUMENTATION = path.join(TEMPLATE_DIR, 'src/instrumentation.ts')

@@ -94,11 +94,7 @@
     "ds:tokens:figma": "node scripts/ds-tokens-export.mjs --figma-ops",
     "ds:code-connect:check": "yarn workspace @open-mercato/ui figma connect parse",
     "ds:code-connect:publish": "yarn workspace @open-mercato/ui figma connect publish",
-    "template:sync": "tsx scripts/template-sync.ts",
-    "template:sync:fix": "tsx scripts/template-sync.ts --fix",
     "template:sync:ask": "tsx scripts/template-sync.ts --ask",
-    "test:create-app": "tsx scripts/test-create-app.ts",
-    "test:create-app:integration": "tsx scripts/test-create-app-integration.ts",
     "test:scripts": "node --test scripts/__tests__/*.test.mjs apps/mercato/scripts/__tests__/*.test.mjs",
     "test:repo-wide-guards": "node scripts/repo-wide-guards.mjs",
     "official-modules": "node scripts/official-modules.mjs",
@@ -118,7 +114,7 @@
     "check:time-bombs": "node scripts/time-bomb-scanner.mjs",
     "check:time-bombs:fail": "node scripts/time-bomb-scanner.mjs --fail",
     "agents:check-budget": "node scripts/check-agents-md-budget.mjs",
-    "lessons:check": "node packages/create-app/agentic/shared/scripts/check-lessons.mjs --root .",
+    "lessons:check": "node packages/cli/agentic/shared/scripts/check-lessons.mjs --root .",
     "mutation:changed": "node scripts/stryker/mutation-changed.mjs"
   },
   "dependencies": {

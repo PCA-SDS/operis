@@ -3,14 +3,12 @@ import path from 'node:path'
 
 const repoRoot = path.resolve(__dirname, '../../../../..')
 
+// The create-app standalone template was removed with that package, so the app
+// is now the only starter chrome to check.
 const componentPairs = [
   [
     'app',
     path.join(repoRoot, 'apps/mercato/src/components'),
-  ],
-  [
-    'template',
-    path.join(repoRoot, 'packages/create-app/template/src/components'),
   ],
 ] as const
 
@@ -35,14 +33,6 @@ describe('starter chrome design-system coverage', () => {
 
   // The two copies are the only writers of `om_selected_tenant`, and only the app copy is covered
   // by behavioral tests — parity is what keeps a scaffolded app from silently keeping the bug.
-  // See packages/create-app/AGENTS.md § Template Sync Checklist.
-  it('keeps the app and template OrganizationSwitcher byte-identical', () => {
-    const [[, appDir], [, templateDir]] = componentPairs
-
-    expect(fs.readFileSync(path.join(templateDir, 'OrganizationSwitcher.tsx'), 'utf8')).toBe(
-      fs.readFileSync(path.join(appDir, 'OrganizationSwitcher.tsx'), 'utf8'),
-    )
-  })
 
   // Behavioral coverage lives in OrganizationSwitcher.tenantCookie.test.tsx against the app copy;
   // this only pins that the template carries the expiring write, since the parity test above is

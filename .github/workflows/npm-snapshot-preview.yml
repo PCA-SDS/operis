@@ -162,7 +162,6 @@ jobs:
             echo ""
             echo '```bash'
             echo "yarn add @open-mercato/core@${{ steps.release.outputs.version }}"
-            echo "npx create-mercato-app@${{ steps.release.outputs.version }} my-app"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -182,7 +181,6 @@ jobs:
               table += `\n| \`${pkg.name}\` | \`${pkg.version}\` |`;
             }
 
-            const createAppPkg = packages.find(p => p.name === 'create-mercato-app');
             const createAppVersion = createAppPkg?.version || 'VERSION';
 
             const body = `${marker}
@@ -195,7 +193,6 @@ jobs:
             ### Create a new app
 
             \`\`\`bash
-            npx create-mercato-app@${createAppVersion} my-app
             \`\`\`
             `;
 
@@ -304,7 +301,6 @@ jobs:
         # Retry through npm's post-publish quarantine window (see the script).
         run: |
           bash "$GITHUB_WORKSPACE/scripts/ci/npm-retry-on-quarantine.sh" \
-            npx "create-mercato-app@${{ needs.snapshot.outputs.snapshot_version }}" /tmp/standalone-app --skip-agentic-setup --registry https://registry.npmjs.org
 
       - name: Configure standalone app environment
         working-directory: /tmp/standalone-app

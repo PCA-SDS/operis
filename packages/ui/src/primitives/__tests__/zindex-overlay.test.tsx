@@ -94,12 +94,11 @@ describe('Issue #1836: portaled overlay primitives sit above modals (z-popover >
     expect(Z_INDEX_BY_TOKEN[token!]).toBeGreaterThan(Z_INDEX_BY_TOKEN['z-modal'])
   })
 
-  it('z-index scale defines --z-index-popover (45) between modal (40) and toast (50) in both globals.css files', () => {
+  it('z-index scale defines --z-index-popover (45) between modal (40) and toast (50) in the app globals.css', () => {
     const repoRoot = path.resolve(__dirname, '../../../../..')
-    const cssPaths = [
-      path.join(repoRoot, 'apps/mercato/src/app/globals.css'),
-      path.join(repoRoot, 'packages/create-app/template/src/app/globals.css'),
-    ]
+    // The create-app standalone template was removed with that package, so the
+    // app's globals.css is now the only copy of the z-index scale.
+    const cssPaths = [path.join(repoRoot, 'apps/mercato/src/app/globals.css')]
 
     for (const cssPath of cssPaths) {
       const css = fs.readFileSync(cssPath, 'utf8')
@@ -122,10 +121,9 @@ describe('Issue #1836: portaled overlay primitives sit above modals (z-popover >
 
   it('globals.css explicitly emits the z-popover utility used by portaled UI package overlays', () => {
     const repoRoot = path.resolve(__dirname, '../../../../..')
-    const cssPaths = [
-      path.join(repoRoot, 'apps/mercato/src/app/globals.css'),
-      path.join(repoRoot, 'packages/create-app/template/src/app/globals.css'),
-    ]
+    // The create-app standalone template was removed with that package, so the
+    // app's globals.css is now the only copy of the z-index scale.
+    const cssPaths = [path.join(repoRoot, 'apps/mercato/src/app/globals.css')]
 
     for (const cssPath of cssPaths) {
       const css = fs.readFileSync(cssPath, 'utf8')
@@ -137,10 +135,9 @@ describe('Issue #1836: portaled overlay primitives sit above modals (z-popover >
 
   it('globals.css defines z-modal-elevated (55) above z-popover so dialogs opened from inside popovers are visible', () => {
     const repoRoot = path.resolve(__dirname, '../../../../..')
-    const cssPaths = [
-      path.join(repoRoot, 'apps/mercato/src/app/globals.css'),
-      path.join(repoRoot, 'packages/create-app/template/src/app/globals.css'),
-    ]
+    // The create-app standalone template was removed with that package, so the
+    // app's globals.css is now the only copy of the z-index scale.
+    const cssPaths = [path.join(repoRoot, 'apps/mercato/src/app/globals.css')]
 
     for (const cssPath of cssPaths) {
       const css = fs.readFileSync(cssPath, 'utf8')

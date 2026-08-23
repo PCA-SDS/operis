@@ -27,7 +27,6 @@ COPY packages/checkout/package.json ./packages/checkout/
 COPY packages/cli/package.json ./packages/cli/
 COPY packages/content/package.json ./packages/content/
 COPY packages/core/package.json ./packages/core/
-COPY packages/create-app/package.json ./packages/create-app/
 COPY packages/eslint-plugin-ds/package.json ./packages/eslint-plugin-ds/
 COPY packages/events/package.json ./packages/events/
 COPY packages/gateway-stripe/package.json ./packages/gateway-stripe/
@@ -101,7 +100,6 @@ COPY packages/checkout/package.json ./packages/checkout/
 COPY packages/cli/package.json ./packages/cli/
 COPY packages/content/package.json ./packages/content/
 COPY packages/core/package.json ./packages/core/
-COPY packages/create-app/package.json ./packages/create-app/
 COPY packages/eslint-plugin-ds/package.json ./packages/eslint-plugin-ds/
 COPY packages/events/package.json ./packages/events/
 COPY packages/gateway-stripe/package.json ./packages/gateway-stripe/
@@ -165,7 +163,6 @@ COPY --from=dev-build /app/packages/queue/dist /opt/prebuilt/dist/queue
 COPY --from=dev-build /app/packages/search/dist /opt/prebuilt/dist/search
 COPY --from=dev-build /app/packages/scheduler/dist /opt/prebuilt/dist/scheduler
 COPY --from=dev-build /app/packages/ai-assistant/dist /opt/prebuilt/dist/ai-assistant
-COPY --from=dev-build /app/packages/create-app/dist /opt/prebuilt/dist/create-app
 
 # Entrypoint scripts are also bind-mounted at runtime (.:/app); baking them in
 # keeps the image runnable/consistent on its own and matches the runner stage.
@@ -213,7 +210,6 @@ COPY --from=builder /app/packages/checkout/package.json ./packages/checkout/
 COPY --from=builder /app/packages/cli/package.json ./packages/cli/
 COPY --from=builder /app/packages/content/package.json ./packages/content/
 COPY --from=builder /app/packages/core/package.json ./packages/core/
-COPY --from=builder /app/packages/create-app/package.json ./packages/create-app/
 COPY --from=builder /app/packages/eslint-plugin-ds/package.json ./packages/eslint-plugin-ds/
 COPY --from=builder /app/packages/events/package.json ./packages/events/
 COPY --from=builder /app/packages/gateway-stripe/package.json ./packages/gateway-stripe/

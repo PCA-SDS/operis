@@ -111,7 +111,6 @@ describe('sort/toSorted call sites use explicit comparators (#3620)', () => {
       'packages/ai-assistant/src',
       'packages/checkout/src',
       'packages/sync-akeneo/src',
-      'packages/create-app/src',
       'scripts',
     ]) {
       expect(SCAN_ROOTS).toContain(expected)

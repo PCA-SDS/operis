@@ -24,14 +24,4 @@ describe('AppProviders import graph', () => {
     expect(overridesSource).toContain("import('@/.mercato/generated/component-overrides.generated')")
   })
 
-  it('keeps the scoped bootstrap implementation identical in the standalone template', () => {
-    for (const file of ['ClientBootstrap.tsx', 'ComponentOverridesBootstrap.tsx']) {
-      const appSource = fs.readFileSync(path.join(process.cwd(), 'src/components', file), 'utf8')
-      const templateSource = fs.readFileSync(
-        path.join(process.cwd(), '../../packages/create-app/template/src/components', file),
-        'utf8',
-      )
-      expect(templateSource).toBe(appSource)
-    }
-  })
 })

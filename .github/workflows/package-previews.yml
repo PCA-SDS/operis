@@ -103,8 +103,6 @@ jobs:
           './packages/cli'
           './packages/content'
           './packages/core'
-          './packages/create-app'
-          './packages/enterprise'
           './packages/events'
           './packages/gateway-stripe'
           './packages/onboarding'

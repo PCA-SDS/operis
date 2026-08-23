@@ -17,9 +17,11 @@ import { galleryFamilies } from '../registry'
  */
 
 const REPO_ROOT = path.resolve(__dirname, '../../../../../../..')
+// create-app was removed; its harness assets moved to packages/cli/agentic/,
+// which carries the derived design-system inventory this parity check reads.
 const INVENTORY_PATH = path.join(
   REPO_ROOT,
-  'packages/create-app/scripts/design-system/design-system-inventory.json',
+  'packages/cli/agentic/shared/ai/harness/design-system-inventory.json',
 )
 
 type InventoryItem = {

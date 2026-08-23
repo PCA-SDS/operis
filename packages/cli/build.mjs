@@ -34,7 +34,7 @@ await buildPackage(packageDir, {
     atomicWriteFileSync(binPath, '#!/usr/bin/env node\n' + binContent)
     chmodSync(binPath, 0o755)
 
-    // Copy agentic source files from create-app so generators can read them at runtime.
+    // Copy agentic source files into dist so generators can read them at runtime.
     // The tree is assembled in a staging directory and swapped in at the end of the build: refreshing
     // dist/agentic in place deletes the whole harness plus ~55 fact-sheets and copies them back, which
     // leaves the published tree incomplete for seconds and makes any concurrent reader fail with ENOENT
@@ -49,10 +49,10 @@ await buildPackage(packageDir, {
     const agenticPrevious = join(outdir, 'agentic.previous')
     for (const leftover of [agenticStaging, agenticPrevious]) rmSync(leftover, { recursive: true, force: true })
     mkdirSync(agenticStaging, { recursive: true })
-    const agenticSrc = join(packageDir, '..', 'create-app', 'agentic')
+    const agenticSrc = join(packageDir, 'agentic')
     if (existsSync(agenticSrc)) {
       cpSync(agenticSrc, agenticStaging, { recursive: true })
-      console.log('Copied create-app/agentic/ → dist/agentic.staging/')
+      console.log('Copied agentic/ → dist/agentic.staging/')
     }
 
     const repositoryRoot = join(packageDir, '..', '..')
@@ -165,11 +165,15 @@ await buildPackage(packageDir, {
 
       const referenceBundle = {}
       const referenceGuidesDir = join(guidesDestDir, 'reference-modules')
-      const templateRoot = join(packagesDir, 'create-app', 'template')
+      // Reference projections used to be generated from the create-app standalone
+      // template. That package was removed (it scaffolded apps against PUBLISHED
+      // @open-mercato/* packages, a distribution path Operis does not use), so the
+      // projections now come from the real app — which is more accurate anyway.
+      const templateRoot = join(packagesDir, '..', 'apps', 'mercato')
       for (const moduleId of REFERENCE_MODULE_IDS) {
         const reference = discoverLocalReferenceModuleSource({ appRoot: templateRoot, moduleId })
         if (!reference) {
-          throw new Error(`[module-facts] reference module "${moduleId}" is missing from the create-app template`)
+          throw new Error(`[module-facts] reference module "${moduleId}" is missing from apps/mercato`)
         }
         const { entry, directory, warnings: referenceWarnings, unresolvedTargets } = extractLocalReferenceModuleFacts({
           packageSources: sources,

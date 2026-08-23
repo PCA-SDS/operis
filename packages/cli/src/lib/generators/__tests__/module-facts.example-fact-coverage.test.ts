@@ -464,10 +464,9 @@ describe('requiresGeneratedRegistry — the only skip out of the non-zero proof 
 
 describe('factCoverage published into the example surface inventories', () => {
   const ledger = buildModuleFactCoverageLedger()
-  const inventoryPaths = [
-    'apps/mercato/src/modules/example/references/surface-inventory.json',
-    'packages/create-app/template/src/modules/example/references/surface-inventory.json',
-  ]
+  // The create-app template mirror was removed with that package, so the app's
+  // inventory is now the only copy.
+  const inventoryPaths = ['apps/mercato/src/modules/example/references/surface-inventory.json']
 
   function readInventory(relativePath: string): {
     factCoverage?: { generatedNote?: string; families?: ModuleFactCoverageFamily[] }
@@ -493,10 +492,4 @@ describe('factCoverage published into the example surface inventories', () => {
     expect(undocumented).toEqual([])
   })
 
-  it('keeps the app inventory and the create-app template mirror byte-identical', () => {
-    const [appInventory, templateInventory] = inventoryPaths.map((relativePath) =>
-      fs.readFileSync(path.join(findRepoRoot(), relativePath), 'utf8'),
-    )
-    expect(templateInventory).toBe(appInventory)
-  })
 })

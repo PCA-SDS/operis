@@ -380,7 +380,8 @@ describe('local-reference module fact emission', () => {
 
 describe('local-reference projection of the canonical example module', () => {
   const repoRoot = findRepoRoot()
-  const templateRoot = path.join(repoRoot, 'packages', 'create-app', 'template')
+  // Mirrors packages/cli/build.mjs: reference projections come from the real app.
+  const templateRoot = path.join(repoRoot, 'apps', 'mercato')
   const authoringRoot = path.join(repoRoot, 'apps', 'mercato')
 
   it('emits every example fact under the portable app-local root', () => {

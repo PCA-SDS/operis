@@ -42,23 +42,8 @@ describe('StartPageContent', () => {
     }
   })
 
-  it.each([
-    join(__dirname, '..', 'StartPageContent.tsx'),
-    join(
-      __dirname,
-      '..',
-      '..',
-      '..',
-      '..',
-      '..',
-      'packages',
-      'create-app',
-      'template',
-      'src',
-      'components',
-      'StartPageContent.tsx',
-    ),
-  ])(
+  // The create-app template copy was removed with that package.
+  it.each([join(__dirname, '..', 'StartPageContent.tsx')])(
     'does not resolve the API base URL client-side (hydration-safety guard): %s',
     (componentPath) => {
       const source = readFileSync(componentPath, 'utf8')

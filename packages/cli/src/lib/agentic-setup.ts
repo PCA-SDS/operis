@@ -1,7 +1,7 @@
 /**
  * Agentic setup for the CLI `agentic:init` command.
  *
- * Source files live in packages/create-app/agentic/ and are copied
+ * Source files live in packages/cli/agentic/ and are copied
  * to packages/cli/dist/agentic/ during build (see build.mjs).
  * This module reads those files at runtime — no embedded string constants.
  */
@@ -34,7 +34,7 @@ const moduleDir = dirname(fileURLToPath(import.meta.url))
 const bundledAgenticDir = join(moduleDir, '..', 'agentic')
 const AGENTIC_DIR = existsSync(bundledAgenticDir)
   ? bundledAgenticDir
-  : join(moduleDir, '..', '..', '..', 'create-app', 'agentic')
+  : join(moduleDir, '..', '..', 'agentic')  // dev: packages/cli/src/lib -> packages/cli/agentic
 const GUIDES_DIR = join(AGENTIC_DIR, 'guides')
 
 type AskFn = (question: string) => Promise<string>

@@ -4,11 +4,11 @@ import { isTelemetryBackendEnabled } from '@open-mercato/shared/lib/telemetry/ru
 
 const repoRoot = path.resolve(__dirname, '../../../..')
 
+// The create-app standalone template was removed with that package; the app is
+// now the only Next.js host to check.
 const runtimeHosts = [
   'apps/mercato/src/instrumentation.ts',
   'apps/mercato/src/app/api/[...slug]/route.ts',
-  'packages/create-app/template/src/instrumentation.ts',
-  'packages/create-app/template/src/app/api/[...slug]/route.ts',
   'packages/cli/src/bin.ts',
   'packages/queue/src/tracing.ts',
   'packages/queue/src/strategies/async.ts',
@@ -48,7 +48,6 @@ describe('default-unloaded host wiring', () => {
   it('Next config imports only the runtime-free telemetry config entrypoint', () => {
     for (const relativePath of [
       'apps/mercato/next.config.ts',
-      'packages/create-app/template/next.config.ts',
     ]) {
       const source = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8')
       expect(source).toContain("from '@open-mercato/telemetry/nextjs-config'")

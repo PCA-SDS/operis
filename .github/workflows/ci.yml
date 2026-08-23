@@ -95,7 +95,7 @@ jobs:
           CHANGED=$(git diff origin/${{ github.base_ref }} --name-only)
 
           # These paths affect behaviour across all modules — run the full sharded suite.
-          FULL_SUITE_PATTERN='^packages/shared/|^packages/ui/|^packages/events/|^packages/queue/|^packages/cache/|^packages/search/|^packages/onboarding/|^packages/webhooks/|^packages/core/src/lib/|^packages/enterprise/src/lib/|^apps/mercato/src/(app|lib|components|layout\.|page\.)'
+          FULL_SUITE_PATTERN='^packages/shared/|^packages/ui/|^packages/events/|^packages/queue/|^packages/cache/|^packages/search/|^packages/onboarding/|^packages/webhooks/|^packages/core/src/lib/|^apps/mercato/src/(app|lib|components|layout\.|page\.)'
           if echo "$CHANGED" | grep -qE "$FULL_SUITE_PATTERN"; then
             echo "skip=false" >> "$GITHUB_OUTPUT"
             echo "modules=" >> "$GITHUB_OUTPUT"
@@ -638,19 +638,8 @@ jobs:
         # running `yarn ds:tokens` fails here instead of drifting silently.
         run: yarn ds:tokens:check
 
-      - name: Check create-app template parity (always, unfiltered)
-        # The create-app package guards byte-parity between the monorepo app shell
-        # (apps/mercato/**) and the standalone template (packages/create-app/template/**).
-        # Those guards read files across BOTH trees, but the turbo-scoped "Test" step
-        # above uses --filter=[base]... which selects packages by the dependency graph
-        # and never pulls in create-mercato-app when only apps/mercato changes — so on
-        # PRs the parity tests can silently skip while the post-merge push build (full,
-        # unfiltered `yarn test`) turns develop red (see #3779). Run the create-app unit
-        # suite unconditionally here so template drift fails the PR, not develop.
-        run: yarn workspace create-mercato-app test
-
       - name: Run repo-wide audit guards (always, unfiltered)
-        # Same class as the create-app parity step above, generalized (#4534). A handful of
+        # Repo-wide audit guards (#4534). A handful of
         # tests are repo-wide AUDITS rather than package unit tests: they deliberately scan
         # other packages, apps/ or scripts/. The turbo filter selects packages, not paths, so
         # a PR touching only scripts/ selects no package and those audits never run — the
@@ -665,7 +654,7 @@ jobs:
         # and a stale list in CI config is worse than none because the next reader trusts it.
         # scripts/__tests__/repo-wide-guards.test.mjs fails if the enumeration reappears here.
         #
-        # Not here because they already run unfiltered: the create-app parity guards (step
+        # Not here because they already run unfiltered: the guards (step
         # above), `yarn agents:check-budget`, `yarn test:scripts`. All guards are static file
         # scans — the whole set is ~10 s, so it stays on the common PR path.
         run: yarn test:repo-wide-guards
