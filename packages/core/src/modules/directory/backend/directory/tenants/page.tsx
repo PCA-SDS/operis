@@ -201,6 +201,7 @@ export default function DirectoryTenantsPage() {
               <RowActions
                 items={[
                   { id: 'edit', label: t('common.edit', 'Edit'), href: `/backend/directory/tenants/${row.id}/edit` },
+                  { id: 'modules', label: t('directory.tenantModules.breadcrumb', 'Modules'), href: `/backend/directory/tenants/${row.id}/modules` },
                   { id: 'delete', label: t('common.delete', 'Delete'), destructive: true, onSelect: () => handleDelete(row) },
                 ]}
               />
