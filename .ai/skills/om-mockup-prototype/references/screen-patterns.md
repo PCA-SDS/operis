@@ -64,7 +64,7 @@ Table details from `primitives/table.tsx`:
 - `td` uses `px-4 py-2`.
 - Rows use `border-b last:border-b-0` and `bg-muted/30` on hover.
 - The selection column is `w-8`; the action column is `w-0 text-right`.
-- Checkboxes use `--accent-indigo`, not `--primary`.
+- Checkboxes use `--primary`, the same fill as Radio and Switch.
 
 Pagination copy follows “Showing 1 to 25 of 312 results” with `tabular-nums`. Page buttons use `size-8 rounded-lg`, the active page uses `bg-muted`, and the page-size select sits on the right.
 

@@ -98,12 +98,12 @@ When you need… use this. Details (variants, sizes, props, MUST rules) live in 
 
 ## Critical Primitive Rules
 
-1. **NEVER use raw `<button>` or `<input type="checkbox">`** — always use the primitives. Native checkboxes get `accent-color: var(--accent-indigo)` as a safety net for legacy code, but new code MUST use `Checkbox`.
+1. **NEVER use raw `<button>` or `<input type="checkbox">`** — always use the primitives. Native checkboxes get `accent-color: var(--accent-strong)` as a safety net, but new code MUST use `Checkbox`.
 2. **Always pass `type="button"` explicitly** on non-submit `Button`/`IconButton` — HTML defaults to `submit`.
 3. **Same-row buttons MUST share `size`.** Mixing `sm` (h-8) + `default`/`icon` (h-9) is a regression. Standardized rows: DataTable toolbar = `default`/`icon` h-9, FormActionButtons = `default` h-9.
 4. **NEVER raw `<Link>` styled as a button** — wrap with `<Button asChild>` to inherit size + radius.
 5. **`<Button className="h-9">` is an anti-pattern** — redundant with default size, hides contract from grep.
-6. **`Checkbox` checked color is `--accent-indigo` (NOT `--primary`)** — matches Figma and distinguishes selection from primary actions.
+6. **Filled selection controls (`Checkbox`, `Radio`, `Switch`) use `--primary`.** `--accent-strong` is the *interactive* accent — links, active tab underline, sort indicators, sliders, progress — i.e. things that take you somewhere. Do not mix the two.
 
 ## CrudForm Guidelines
 

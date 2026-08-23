@@ -16,11 +16,21 @@ Decision tree — ask "what color do I need?":
 | Is it the confirm button inside a confirmation dialog? | Yes → | `Button variant="destructive-solid"` (the only filled-red control) |
 | Is it primary text? | Yes → | `text-foreground` |
 | Is it secondary/placeholder text? | Yes → | `text-muted-foreground` |
-| Is it a primary action (button, link)? | Yes → | `bg-primary`, `text-primary-foreground` |
-| Is it a subtle background (hover, accent)? | Yes → | `bg-secondary`, `bg-accent`, `bg-muted` |
-| Is it a border? | Yes → | `border-border`, `border-input` |
-| Is it a focus ring? | Yes → | `ring-ring` |
+| Is it disabled/placeholder-weight text? | Yes → | `text-disabled-foreground` |
+| Is it a primary action (the CTA)? | Yes → | `bg-primary`, `text-primary-foreground`, hover `bg-primary-hover` |
+| Is it an *interactive* accent (link, active tab underline, sort indicator, slider, progress)? | Yes → | `text-accent-strong`, `bg-accent-strong`, `border-accent-border`, tint `bg-accent-soft` |
+| Is it a filled selection control (Checkbox / Radio / Switch, checked)? | Yes → | `bg-primary`, `text-primary-foreground` — NOT `accent-strong` |
+| Is it a raised plane (card, table, menu, sidebar)? | Yes → | `bg-surface` |
+| Is it a quiet fill (table header, chip, inactive tile)? | Yes → | `bg-surface-muted` |
+| Is it a **chrome hover** (topbar button, toolbar tile)? | Yes → | `bg-surface-strong` |
+| Is it modal chrome / a filled input? | Yes → | `bg-surface-modal`, `bg-modal-muted` |
+| Is it a selected row / soft primary tint? | Yes → | `bg-primary-soft`, `border-primary-border` |
+| Is it a subtle background (legacy hover, accent)? | Yes → | `bg-secondary`, `bg-accent`, `bg-muted` |
+| Is it a border? | Yes → | `border-border`; emphasised `border-border-strong`; inputs `border-input` |
+| Is it a focus ring? | Yes → | `ring-ring` / `ring-focus-ring` |
 | Is it a card/popover surface? | Yes → | `bg-card`, `bg-popover` |
+| Is it part of a data table? | Yes → | `bg-table-header`, `bg-table-row-hover`, `bg-table-selected`, `border-table-border` |
+| Is it a non-status pill? | Yes → | `bg-badge-bg`, `text-badge-text`, `border-badge-border` |
 | Is it a chart/data visualization? | Yes → | `chart-blue`, `chart-emerald`, `chart-amber`, etc. |
 | Is it brand accent? | Yes → | `brand-violet` |
 
@@ -34,8 +44,8 @@ Brand colors express identity and are **separate from semantic tokens**. Semanti
 
 | Token | Hex |
 |-------|-----|
-| Brand Lime | `#B4F372` |
-| Brand Yellow | `#EEFB63` |
+| Brand Sky | `#A9C4EC` |
+| Brand Lilac | `#C9C2F0` |
 | Brand Violet | `#BC9AFF` |
 | Brand Black | `#0C0C0C` |
 | Brand Gray 700 | `#434343` |
@@ -51,8 +61,8 @@ Brand colors do NOT flip in dark mode.
 |----------|-------|
 | **AI / intelligence touchpoints** (buttons, dots, chips marking AI features) | `brand-violet` |
 | **Custom views / perspectives pills** (user-created views saved by user) | `brand-violet` (10% bg, 30% border, 100% text) |
-| **Floating feedback / onboarding widgets** | Full gradient (`#B4F372 → #EEFB63 → #BC9AFF`) |
-| **Hero sections on marketing / landing pages** | Full gradient OR Brand Lime as standalone hero bg |
+| **Floating feedback / onboarding widgets** | Full gradient (`#A9C4EC → #C9C2F0 → #BC9AFF`) |
+| **Hero sections on marketing / landing pages** | Full gradient OR Brand Sky as standalone hero bg |
 | **Loading / progress for AI operations** | `brand-violet` or gradient stroke |
 | **Splash / onboarding / success celebration moments** | Full gradient |
 
@@ -62,7 +72,7 @@ Decision tree — ask "is this a brand moment?":
 |----------|--------|-------|
 | Is it flagging AI functionality or AI-generated content? | Yes → | `brand-violet` |
 | Is it a user-saved view / perspective / custom entity pill? | Yes → | `brand-violet` (10% bg, 30% border, 100% text) |
-| Is it a landing page hero, marketing banner, or splash screen? | Yes → | Full gradient `from-[#B4F372] via-[#EEFB63] to-[#BC9AFF]` |
+| Is it a landing page hero, marketing banner, or splash screen? | Yes → | Full gradient `from-brand-sky via-brand-lilac to-brand-violet` |
 | Is it a floating CTA widget (feedback, onboarding invite, celebration)? | Yes → | Full gradient |
 | Is it a standard UI element in the backend admin (button, input, card, table)? | **No brand** → | Use semantic tokens |
 | Is it a status indicator (error/success/warning/info)? | **No brand** → | Use status tokens |
@@ -73,7 +83,7 @@ Decision tree — ask "is this a brand moment?":
 <div className="bg-brand-violet/10 border-brand-violet/30 text-brand-violet" />
 
 // Brand gradient — inline style (floating widgets and hero sections only)
-<div style={{ background: 'linear-gradient(135deg, #B4F372 0%, #EEFB63 50%, #BC9AFF 100%)' }} />
+<div style={{ background: 'linear-gradient(135deg, #A9C4EC 0%, #C9C2F0 50%, #BC9AFF 100%)' }} />
 ```
 
 ## Chart Colors
@@ -90,17 +100,39 @@ Data visualization uses the dedicated `--chart-*` palette — never status token
 - Exception: a chart that literally encodes status (e.g. error-rate line) may use `status-{status}-icon` for that one series — document it in the component
 - All `chart-*` tokens have dedicated dark-mode values — no `dark:` overrides
 
+## Surfaces & Elevation
+
+The product sits on a four-step neutral ladder. Pick by **job**, not by how dark you want it:
+
+| Step | Token | Job |
+|---|---|---|
+| 0 | `bg-background` | the page ground; nothing else uses it |
+| 1 | `bg-surface` (= `bg-card`, `bg-popover`) | the raised plane: cards, tables, menus, sidebar, dialogs |
+| 2 | `bg-surface-muted` (= `bg-muted`, `bg-accent`, `bg-secondary`) | quiet fill inside step 1: table headers, chips, inactive tiles |
+| 3 | `bg-surface-strong` | **chrome hover only** — topbar buttons, toolbar tiles |
+
+`surface-strong` exists so a chrome hover reads as "quieter chrome" rather than as an accent
+tint. Do NOT use `bg-primary/10` for a hover on a neutral control — that is the *selected* look.
+
+`bg-surface-modal` / `bg-modal-muted` are the dialog-chrome equivalents; `modal-muted` also marks
+a **filled** input so a populated form reads at a glance without adding border weight.
+
+Elevation is carried by the shadow scale, not by stacking borders. A list-view card takes
+`rounded-xl bg-surface shadow-md` with **no border** — a border plus a shadow reads as two
+competing edges.
+
 ## Corner Radius
 - NEVER use arbitrary radius values (`rounded-[24px]`, `rounded-[32px]`, etc.)
-- NEVER use `rounded-2xl` or `rounded-3xl` — use `rounded-xl` (16px) for large radius
+- The scale is explicit in `globals.css` (`--radius-sm|md|lg|xl|2xl`), not derived from one base
 
 | What am I rounding? | Token |
 |---------------------|-------|
 | Pill / badge / avatar / toggle | `rounded-full` |
-| Large standalone card, hero section, full-page panel | `rounded-xl` (16px) |
-| Container holding other elements (card, dialog, alert, tabs) | `rounded-lg` (10px) |
-| Interactive element (button, input, select, popover, dropdown) | `rounded-md` (8px) |
-| Tiny inline element (checkbox, color dot, small chip) | `rounded-sm` (6px) |
+| Modal / dialog panel | `rounded-2xl` (16px) |
+| Card, table card, popover, menu, large panel | `rounded-xl` (12px) |
+| Default control (button, input, select, nav item) | `rounded-lg` (8px) |
+| Compact control (xs/sm button, menu item, chip) | `rounded-md` (6px) |
+| Tiny inline element (checkbox, color dot) | `rounded-sm` (4px) |
 | Remove radius (table cells, flush edges) | `rounded-none` |
 
 Pill vs no-pill chips: the shipped primitives (`Badge`, `Tag` pill variant, `SegmentedControl`, `ActiveFilterChips`) are `rounded-full` by design. When a design explicitly calls for **no-pill chips** (dense filter rows, "Add filter" affordances, toolbar chips), do NOT force the pill primitives — build the chip on semantic tokens with `rounded-md` (or use `Tag shape="square"`). Never mix pill and no-pill chips in one row.
@@ -113,16 +145,24 @@ Pill vs no-pill chips: the shipped primitives (`Badge`, `Tag` pill variant, `Seg
 - Exception: `text-[9px]` for notification badge count and `Avatar size="sm"` initials (documented exceptions)
 - Font families come from tokens: `--font-geist-sans` (default UI) and `--font-geist-mono` (`font-mono`) — never declare `font-family` inline
 
+Weight is spent where things are **scanned** — table headers, tabs, nav items — not on the page
+title, which already has size. A page title is therefore LIGHT and large, never bold.
+
 | What text am I styling? | Classes |
 |--------------------------|---------|
-| Main page title (one per page) | `text-2xl font-bold tracking-tight` |
+| Main page title (one per page) | `text-2xl sm:text-3xl font-normal` (use `PageHeader`) |
+| Page description under the title | `text-sm font-medium text-muted-foreground` |
 | Major section heading | `text-xl font-semibold` |
+| Dialog title | `text-base sm:text-xl font-semibold tracking-tight` |
 | Subsection / card title | `text-sm font-semibold` |
+| Table column header | `text-xs font-bold uppercase tracking-wide text-muted-foreground` |
+| Table cell | `text-sm font-medium` |
 | Form label | `text-sm font-medium` (use `Label` component) |
 | Default body text | `text-sm` |
 | Emphasized body text | `text-base` |
 | Secondary info, timestamps, hints | `text-xs text-muted-foreground` |
 | Section label / category tag (uppercase) | `text-overline font-semibold uppercase tracking-widest` |
+| Placeholder text | `font-normal text-input-placeholder` |
 | Code / technical content | `text-sm font-mono` |
 
 ## Feedback

@@ -315,7 +315,7 @@ type CheckboxFieldProps = {
 ```
 
 **Rules:**
-- ON state uses `--accent-indigo` (#6366f1). NEVER override with `data-[state=checked]:bg-primary`.
+- ON state uses `--accent-strong` (#6366f1). NEVER override with `data-[state=checked]:bg-primary`.
 - Use `<CheckboxField>` whenever the checkbox has a label — it handles `htmlFor`, alignment, and disabled propagation.
 - For indeterminate state, pass `checked="indeterminate"`.
 
@@ -349,7 +349,7 @@ type SwitchFieldProps = {
 - **Checkbox** — deferred state (collected on form submit)
 
 **Rules:**
-- ON state uses `--accent-indigo` (color contract with Checkbox/Radio).
+- ON state uses `--primary` (shared with Checkbox/Radio).
 - Track is 28×16, thumb 12px — do NOT override sizing.
 - `<SwitchField>` defaults to label-LEFT, switch-RIGHT (preference style). Use `flip` to swap.
 
@@ -377,7 +377,7 @@ import { RadioField } from '@open-mercato/ui/primitives/radio-field'
 ```
 
 **Rules:**
-- ON state uses `--accent-indigo` (color contract).
+- ON state uses `--accent-strong` (color contract).
 - Always wrap `<Radio>` in `<RadioGroup>` — provides keyboard navigation and shared name.
 - For card-style selectors with selected highlighting, use Pattern A and keep custom card styling.
 

@@ -81,14 +81,14 @@ Lookup reference for DS Guardian. No prose — just tables.
 
 | Current | Replace with | Notes |
 |---------|-------------|-------|
-| `data-[state=checked]:bg-primary` | `data-[state=checked]:bg-accent-indigo` | Color contract for selection controls |
-| `data-[state=checked]:text-primary-foreground` | `data-[state=checked]:text-accent-indigo-foreground` | |
-| `bg-primary` (on Checkbox/Radio/Switch) | `bg-accent-indigo` | Selection only — leave Button `bg-primary` alone |
-| Custom `#6366f1` / `#818cf8` hex on toggles | `bg-accent-indigo` | Use the token |
+| `data-[state=checked]:bg-accent-strong` | `data-[state=checked]:bg-primary` | Filled selection controls use the CTA fill |
+| `data-[state=checked]:text-primary-foreground` | `data-[state=checked]:text-accent-strong-foreground` | |
+| `bg-accent-strong` (on Checkbox/Radio/Switch) | `bg-primary` | `accent-strong` is for links / tabs / sort / slider, not filled selection |
+| Any hex on toggles | `bg-primary` | Use the token |
 
 Tokens (defined in `apps/mercato/src/app/globals.css` + `packages/create-app/template/src/app/globals.css`):
-- `--accent-indigo` — light `#6366f1`, dark `#818cf8`
-- `--accent-indigo-foreground` — `white`
+- `--accent-strong` — light `#6366f1`, dark `#818cf8`
+- `--accent-strong-foreground` — `white`
 
 ## Disabled State
 

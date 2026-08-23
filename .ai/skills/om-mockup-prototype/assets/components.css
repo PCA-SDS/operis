@@ -116,7 +116,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   box-shadow: 0 1px 2px rgb(10 13 20 / 0.10), 0 0 0 0.5px rgb(10 13 20 / 0.04);
   transition: transform 150ms;
 }
-.switch[aria-checked="true"] { background: var(--accent-indigo); border-color: var(--accent-indigo); }
+.switch[aria-checked="true"] { background: var(--accent-strong); border-color: var(--accent-strong); }
 .switch[aria-checked="true"]::after { transform: translateX(1rem); }
 
 /* Checkbox */
@@ -126,7 +126,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   background: var(--background);
   display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
 }
-.check[aria-checked="true"] { background: var(--accent-indigo); border-color: var(--accent-indigo); color: var(--accent-indigo-foreground); }
+.check[aria-checked="true"] { background: var(--accent-strong); border-color: var(--accent-strong); color: var(--accent-strong-foreground); }
 .check svg { width: 0.75rem; height: 0.75rem; }
 .check[aria-checked="false"] svg { visibility: hidden; }
 

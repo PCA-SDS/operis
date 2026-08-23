@@ -91,7 +91,7 @@ echo "--- Old focus ring (use shadow-focus token) ---"
 grep -rn 'focus.*ring-2.*ring-offset-2\|focus:ring-2 focus:ring-blue-' \
   "$MODULE_PATH/" --include="*.tsx" 2>/dev/null
 
-echo "--- bg-primary on selection controls (use bg-accent-indigo) ---"
+echo "--- accent-strong on selection controls (use bg-primary) ---"
 grep -rn 'data-\[state=checked\]:bg-primary\|state=checked.*bg-primary' \
   "$MODULE_PATH/" --include="*.tsx" 2>/dev/null
 
@@ -210,11 +210,11 @@ Use the recipes in `references/token-mapping.md` ("Raw HTML → DS Primitive" se
 | Raw HTML | Replace with | Critical migration rules |
 |----------|--------------|--------------------------|
 | `<input type="text\|email\|password\|number\|tel\|url\|search">` | `<Input>` | Drop width/height/border/radius/padding classes; map `h-8`→`size="sm"` / `h-10`→`size="lg"`; convert absolute icons to `leftIcon` / `rightIcon`; replace `border-red-*` with `aria-invalid={...}`; drop `disabled:opacity-50` |
-| `<input type="checkbox">` | `<Checkbox>` or `<CheckboxField>` | Use `<CheckboxField>` whenever there's a label; ON state is `--accent-indigo`, never `bg-primary` |
+| `<input type="checkbox">` | `<Checkbox>` or `<CheckboxField>` | Use `<CheckboxField>` whenever there's a label; ON state is `--primary`, never `bg-primary` |
 | `<input type="radio">` | `<Radio>` inside `<RadioGroup>` (or `<RadioField>`) | RadioGroup provides keyboard nav and shared name; for card-style selectors keep custom styling but wrap in `<RadioGroup>` |
 | `<select>` | `<Select>` family | NEVER use `<SelectItem value="">` (Radix forbids); move empty label to `<SelectValue placeholder="...">`; pass `value={x \|\| undefined}` for optional; `<optgroup>` → `<SelectGroup><SelectLabel>` |
 | `<textarea>` | `<Textarea>` | Drop hardcoded styling; for character counters set `maxLength` + `showCount` |
-| Custom `role="switch"` button | `<Switch>` or `<SwitchField>` | Track is 28×16 — do not override sizing; ON state is `--accent-indigo` |
+| Custom `role="switch"` button | `<Switch>` or `<SwitchField>` | Track is 36×20 — do not override sizing; ON state is `--primary` |
 
 Skip when: forwardRef-bound `<select>` with consumer tests asserting native `getByRole('option')` (Tenant/Organization/Category selects). Migration requires updating consumers + tests — escalate to a separate task.
 
@@ -289,7 +289,7 @@ Review code (file, PR diff, or staged changes) against DS principles. Check thes
 | Typography | `text-[Npx]` arbitrary sizes | Use scale (`text-xs`, `text-sm`) or `text-overline` |
 | Components | Raw `<table>`, custom error div, hardcoded status badge | Use `DataTable`, `Alert`, `StatusBadge` |
 | Form controls | Raw `<input>` / `<select>` / `<textarea>` / `<input type=checkbox\|radio>` / custom `role="switch"` | Use `<Input>` / `<Select>` / `<Textarea>` / `<Checkbox>` / `<Radio>+<RadioGroup>` / `<Switch>` |
-| Selection color | `data-[state=checked]:bg-primary` on Checkbox/Radio/Switch | Use `bg-accent-indigo` (color contract) |
+| Selection color | `data-[state=checked]:bg-accent-strong` on Checkbox/Radio/Switch | Use `bg-primary` (filled selection controls share the CTA fill) |
 | Disabled state | `disabled:opacity-50` | Use `disabled:bg-bg-disabled disabled:text-text-disabled disabled:border-border-disabled` |
 | Focus ring | `focus:ring-2 ring-offset-2` | Use `focus-visible:outline-none focus-visible:shadow-focus` |
 | Brand colors | Hardcoded brand hex (`#1877F2`, `#0A66C2`, `#181717`, etc.) | Use `bg-brand-*` tokens or `<SocialButton>` |

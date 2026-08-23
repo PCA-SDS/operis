@@ -248,7 +248,7 @@ Marketing-grade CTA with gradient bg + dual-shadow ring. Use sparingly — landi
 ### MUST rules
 
 - Use sparingly — one FancyButton per page section at most.
-- The `primary` gradient pulls from `--brand-lime` and `--brand-violet`; do NOT swap to other brand pairs.
+- The `primary` gradient runs `--brand-sky` → `--brand-lilac` → `--brand-violet`; do NOT swap to other brand pairs.
 - For dialog footers, settings pages, data tables → use `Button` not `FancyButton`.
 
 ---
@@ -307,7 +307,7 @@ Set `checked="indeterminate"` to render a horizontal dash. Useful for "select al
 
 ### MUST rules
 
-- **NEVER use raw `<input type="checkbox">`** anywhere. Always use `Checkbox`. Native `accent-color: var(--accent-indigo)` is set globally as a safety net for legacy code, but new code MUST use `Checkbox`.
+- **NEVER use raw `<input type="checkbox">`** anywhere. Always use `Checkbox`. Native `accent-color: var(--accent-strong)` is set globally as a safety net for legacy code, but new code MUST use `Checkbox`.
 - One source of truth — `apps/mercato/src/components/ui/checkbox.tsx` and `packages/create-app/template/src/components/ui/checkbox.tsx` re-export from `@open-mercato/ui/primitives/checkbox`. Do NOT fork.
 - NEVER render `<Checkbox />` next to raw `<label>` — use `CheckboxField`.
 - Use `size="md"` for form fields; `size="sm"` for table rows / inline lists.
@@ -315,7 +315,7 @@ Set `checked="indeterminate"` to render a horizontal dash. Useful for "select al
 
 ### Color contract
 
-Checkbox checked state uses `--accent-indigo` (#6366f1 light / #818cf8 dark), NOT `--primary`. This matches Figma DS and visually distinguishes selection from primary action surfaces.
+Checkbox checked state uses `--primary` — the same fill as `Radio` checked and `Switch` on, so every filled selection control reads as one family. `--accent-strong` is the *interactive* accent (links, active tab underline, sort indicators, slider, progress) and is never used as a filled selection state.
 
 ---
 
@@ -1141,14 +1141,14 @@ Single size — Figma spec is fixed at 28×16 (track), thumb 12px. Matches the r
 |---|---|---|---|
 | Off Default | `bg-input` (`#ebebeb` light / dark equivalent) | white | flat track |
 | Off Hover | `bg-input/70` | white | track darkens |
-| On Default | `bg-accent-indigo` (`#6366f1`) | white | thumb at right |
-| On Hover | `bg-accent-indigo/85` | white | track darkens |
+| On Default | `bg-primary` | white thumb | thumb at right |
+| On Hover | `bg-primary-hover` | white thumb | track darkens |
 | Focus | (any state) | — | `shadow-focus` (Figma 2-ring halo) |
 | Disabled | (state-specific) | white | `opacity-60`, no hover change |
 
 ### Color contract
 
-The "on" state uses `--accent-indigo` (matches `Checkbox` checked state) — NOT `--primary`. This keeps selection controls visually consistent and distinct from primary action surfaces (Buttons).
+The "on" state uses `--primary`, matching `Checkbox` checked and `Radio` checked. The off track is `bg-surface-strong` with a hairline — the chrome step, not a grey slab.
 
 ### Switch usage
 
@@ -1230,13 +1230,13 @@ Single size — Figma spec is fixed at 20×20 (matches `Checkbox size="md"` and 
 |---|---|---|
 | Off Default | `border-input` (#ebebeb) + `bg-background` | — |
 | Off Hover | `border-muted-foreground/40` | — |
-| On Default | `border-accent-indigo` + `bg-accent-indigo` | white 8px dot |
+| On Default | `border-primary` + `bg-primary` | `primary-foreground` 8px dot |
 | Focus | (any state) | `shadow-focus` (Figma 2-ring halo) |
 | Disabled | (state-specific) `opacity-60` | (preserved if checked) |
 
 ### Color contract
 
-The "on" state uses `--accent-indigo` (#6366f1) — same as `Checkbox` checked and `Switch` on. Selection controls share one accent across the DS.
+The "on" state uses `--primary` — same as `Checkbox` checked and `Switch` on. Filled selection controls share one fill across the DS.
 
 ### Basic usage (RadioGroup with bare items + custom labels)
 
@@ -3531,7 +3531,7 @@ const [range, setRange] = React.useState([10, 80])
 ### Notes
 
 - Anchored on Figma `Slider [1.1]` (DS Open Mercato componentSet id `2617:1169`). 5-variant component set parameterized by `Percentage` (0% / 25% / 50% / 75% / 100%) and Boolean props for Label / Sublabel / Tooltip. The standalone "Level Slider" entry elsewhere in the file is an emoji icon, not this primitive.
-- Track: `bg-muted` `h-1.5` `rounded-full` (Figma: 6px track height, `#EBEBEB` BG, fully-pill corner-radius 999). Selected range: `bg-accent-indigo` `rounded-full` (Figma: `#6366F1` indigo-500 — the DS OM `--accent-indigo` token, same value Radio uses for the checked state). Thumb: `size-4` (16px, Figma exact) outer ring is pure `bg-background` (NO border — Figma shows `fills: white, no strokes`), separation from the track comes from `shadow-sm` (hover → `shadow-md`). Inner 6×6 indigo dot rendered via `::after` so the entire thumb stays a single DOM node. Focus-visible → `shadow-focus`.
+- Track: `bg-muted` `h-1.5` `rounded-full` (Figma: 6px track height, `#EBEBEB` BG, fully-pill corner-radius 999). Selected range: `bg-accent-strong` `rounded-full` (Figma: `#6366F1` indigo-500 — the DS OM `--accent-strong` token, same value Radio uses for the checked state). Thumb: `size-4` (16px, Figma exact) outer ring is pure `bg-background` (NO border — Figma shows `fills: white, no strokes`), separation from the track comes from `shadow-sm` (hover → `shadow-md`). Inner 6×6 indigo dot rendered via `::after` so the entire thumb stays a single DOM node. Focus-visible → `shadow-focus`.
 - Built on `@radix-ui/react-slider` (new direct dep — added in the Slider commit). No transitive availability.
 
 ### Labeled use (matches Figma `Label / (Optional) / value` row)
@@ -3694,7 +3694,7 @@ type StepIndicatorStep = {
 | Status | Dot | Label | Use |
 |---|---|---|---|
 | `pending` | outline circle (`border-muted-foreground/30`, transparent bg, no glyph) | `text-muted-foreground` | Future step |
-| `current` | solid `bg-accent-indigo` (Figma `#6366F1`), no glyph | `text-foreground` + `font-medium` | Active step (carries `aria-current="step"`) |
+| `current` | solid `bg-accent-strong`, no glyph | `text-foreground` + `font-medium` | Active step (carries `aria-current="step"`) |
 | `complete` | solid `bg-status-success-icon` (Figma `#16A34A`) + white Check icon | `text-muted-foreground` | Past step |
 | `error` | solid `bg-status-error-icon` + white X icon | `text-status-error-text` + `font-medium` | Extension beyond Figma — failed sub-step |
 
@@ -3762,7 +3762,7 @@ const failedSteps: StepIndicatorStep[] = [
 - Figma source defines **three** states (Default / Active / Completed). `'error'` is an extension beyond the source — Figma does not model it, but real product surfaces (failed checkout step, rejected workflow step) need one, so the primitive ships it. Renders parallel to `'complete'` (solid status-error fill + white X glyph).
 - Horizontal connector is a `ChevronRight` lucide icon — matches Figma `arrow-right-s-line` between every item pair. NOT a line.
 - Vertical layout: every item is its own pill (`rounded-lg` + bg). Active item flips to `bg-background` + `ring-1 ring-border` (raises above the muted siblings); past + future items sit on `bg-muted/40`. The active item adds a trailing `ChevronRight` cue per Figma's "Active" variant.
-- Active dot color is `bg-accent-indigo` (same `#6366F1` token used by `Slider`, `Radio` checked, etc.) — keeps the "you are here" signal consistent across primitives.
+- Active dot color is `bg-accent-strong` (the same interactive-accent token used by `Slider` and `Progress`) — keeps the "you are here" signal consistent across primitives.
 - Built without Radix — single component, plain `<ol>` / `<li>` markup. Accessibility comes from `aria-current="step"` on the current dot + `aria-orientation` on the list.
 
 ---
@@ -3900,7 +3900,7 @@ Result (matches Figma 1:1):
 
 ```ts
 ['#71777C', // Gray
- '#6366F1', // Blue (= DS OM accent-indigo)
+ '#6366F1', // Blue
  '#F59E0B', // Orange
  '#EF4343', // Red
  '#22C55E', // Green
@@ -4389,7 +4389,7 @@ React.useEffect(() => {
 | Country flag | `<img src="/flags/us.svg" className="size-5 rounded-full" />` |
 | User avatar | `<Avatar size="sm" label="James Brown" />` |
 | Generic icon | `<Search className="size-4 text-muted-foreground" />` |
-| Filled-circle icon | `<div className="size-6 rounded-full bg-accent-indigo flex items-center justify-center"><Spotify className="size-3 text-white" /></div>` |
+| Filled-circle icon | `<div className="size-6 rounded-full bg-accent-strong flex items-center justify-center"><Spotify className="size-3 text-white" /></div>` |
 
 The slot is a `size-6` flex box that centers the leading content — pass any element, the wrapper handles alignment.
 
@@ -4627,7 +4627,7 @@ Matches Figma `Notifications Items [1.1]` assembled examples. Surface is a soft 
 
 | `tone` | Background tint | Icon color |
 |---|---|---|
-| `indigo` (default) | `bg-accent-indigo/10` | `text-accent-indigo` |
+| `indigo` (default) | `bg-accent-strong/10` | `text-accent-strong` |
 | `success` | `bg-status-success-icon/10` | `text-status-success-icon` |
 | `warning` | `bg-status-warning-icon/10` | `text-status-warning-icon` |
 | `error` | `bg-status-error-icon/10` | `text-status-error-icon` |
@@ -4679,7 +4679,7 @@ Backward-compatible with the original `<Progress value={n} max={100} className="
 <Progress value={50} size="lg" />   // h-3
 
 // Tones per Figma `Progress Bar Line [1.1]`
-<Progress value={42} tone="accent" />       // bg-accent-indigo (default)
+<Progress value={42} tone="accent" />       // bg-accent-strong (default)
 <Progress value={42} tone="success" />      // bg-status-success-icon
 <Progress value={42} tone="warning" />      // bg-status-warning-icon
 <Progress value={42} tone="destructive" />  // bg-status-error-icon
@@ -4696,7 +4696,7 @@ Backward-compatible with the original `<Progress value={n} max={100} className="
 // Custom fill via fillClassName (e.g. brand gradient)
 <Progress
   value={50}
-  fillClassName="bg-gradient-to-r from-brand-violet to-accent-indigo"
+  fillClassName="bg-gradient-to-r from-brand-violet to-accent-strong"
 />
 ```
 
@@ -4737,7 +4737,7 @@ Backward-compatible with the original `<Progress value={n} max={100} className="
 
 | `tone` | Fill (Progress) | Stroke (CircularProgress) |
 |---|---|---|
-| `accent` (default) | `bg-accent-indigo` | `stroke-accent-indigo` |
+| `accent` (default) | `bg-accent-strong` | `stroke-accent-strong` |
 | `success` | `bg-status-success-icon` | `stroke-status-success-icon` |
 | `warning` | `bg-status-warning-icon` | `stroke-status-warning-icon` |
 | `destructive` | `bg-status-error-icon` | `stroke-status-error-icon` |
@@ -4758,7 +4758,7 @@ Track on both: `bg-input` (Progress) / `stroke-input` (CircularProgress).
 
 - Figma source: DS Open Mercato `Progress Bar` page (`450:17758`) — `Progress Bar [1.1]` (`450:17821`), `Progress Bar Label [1.1]` (`515:3758`), `Progress Bar Line [1.1]` (`450:17810`, 5 tone variants), `Circular Progress Bar [1.1]` (`466:4652`).
 - Both primitives announce as `role="progressbar"` with `aria-valuenow` / `aria-valuemin` / `aria-valuemax`. `CircularProgress` adds `aria-label` defaulting to `${percentage}%`; override via the `ariaLabel` prop for richer labels (e.g. `"Sprint completion"`).
-- Phase B.1 rewrite — original `<Progress value={n} max={100} className="..." />` callable verbatim. The 3 existing call sites (`packages/ui/src/backend/NextStepCallout.tsx`, `packages/core/.../data_sync/.../runs/[id]/page.tsx`, `packages/sync-akeneo/.../akeneo-config/widget.client.tsx`) keep working without changes; the only visible delta is the colour (was `bg-primary` / black, now `bg-accent-indigo` per Figma) and the track tone (was `bg-secondary`, now `bg-input` — both muted greys, no contrast regression).
+- Phase B.1 rewrite — original `<Progress value={n} max={100} className="..." />` callable verbatim. The 3 existing call sites (`packages/ui/src/backend/NextStepCallout.tsx`, `packages/core/.../data_sync/.../runs/[id]/page.tsx`, `packages/sync-akeneo/.../akeneo-config/widget.client.tsx`) keep working without changes; the only visible delta is the colour (was `bg-primary` / black, now `bg-accent-strong` per Figma) and the track tone (was `bg-secondary`, now `bg-input` — both muted greys, no contrast regression).
 - Tests: 18 smoke tests cover percentage clamping, custom `max`, all 3 sizes, all 5 tones, label / showValue / description slots, label-row omission when no slots, `fillClassName` override, `className` forwarding (+ CircularProgress dashoffset math, ariaLabel override, all 4 sizes, all 5 stroke tones, custom center children).
 
 ---
