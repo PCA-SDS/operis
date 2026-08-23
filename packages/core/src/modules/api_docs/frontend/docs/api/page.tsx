@@ -83,7 +83,10 @@ export default async function ApiDocsViewerPage() {
       operations={operations}
       tagOrder={tagOrder}
       servers={doc.servers ?? []}
-      docsUrl="https://docs.openmercato.com"
+      docsUrl={process.env.OM_API_DOCS_URL || 'https://docs.openmercato.com'}
+      brandName={process.env.OM_BRAND_NAME || undefined}
+      privacyUrl={process.env.OM_PRIVACY_URL || undefined}
+      termsUrl={process.env.OM_TERMS_URL || undefined}
       jsonSpecUrl="/api/docs/openapi"
       markdownSpecUrl="/api/docs/markdown"
     />

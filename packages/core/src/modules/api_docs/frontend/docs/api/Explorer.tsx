@@ -51,6 +51,16 @@ type ApiDocsExplorerProps = {
   docsUrl: string
   jsonSpecUrl: string
   markdownSpecUrl: string
+  /**
+   * Footer branding. Upstream hardcoded "Open Mercato" plus openmercato.com
+   * privacy/terms links here, so a fork served another company's copyright
+   * notice and legal pages to its own API consumers. These are now supplied by
+   * the caller: `brandName` falls back to the OpenAPI document title, and the
+   * legal links render only when configured.
+   */
+  brandName?: string
+  privacyUrl?: string
+  termsUrl?: string
 }
 
 type ContentVariant = {
@@ -245,7 +255,7 @@ function toPythonLiteral(value: unknown, indent = 0): string {
 }
 
 export default function ApiDocsExplorer(props: ApiDocsExplorerProps) {
-  const { title, version, description, operations, tagOrder, servers, docsUrl, jsonSpecUrl, markdownSpecUrl } = props
+  const { title, version, description, operations, tagOrder, servers, docsUrl, jsonSpecUrl, markdownSpecUrl, brandName, privacyUrl, termsUrl } = props
 
   const methodOptions = useMemo(
     () => Array.from(new Set(operations.map((operation) => operation.method))).sort((a, b) => a.localeCompare(b)),
@@ -809,27 +819,31 @@ export default function ApiDocsExplorer(props: ApiDocsExplorerProps) {
 
       <footer className="border-t bg-card">
         <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-6 py-6 md:flex-row md:items-center md:justify-between">
-          <div className="text-sm text-muted-foreground">© {new Date().getFullYear()} Open Mercato. All rights reserved.</div>
+          <div className="text-sm text-muted-foreground">© {new Date().getFullYear()} {brandName ?? title}. All rights reserved.</div>
           <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
             <Link href={docsUrl} target="_blank" rel="noreferrer" className="hover:text-foreground hover:underline">
               Documentation
             </Link>
-            <Link
-              href="https://openmercato.com/privacy"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-foreground hover:underline"
-            >
-              Privacy
-            </Link>
-            <Link
-              href="https://openmercato.com/terms"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-foreground hover:underline"
-            >
-              Terms
-            </Link>
+            {privacyUrl ? (
+              <Link
+                href={privacyUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-foreground hover:underline"
+              >
+                Privacy
+              </Link>
+            ) : null}
+            {termsUrl ? (
+              <Link
+                href={termsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-foreground hover:underline"
+              >
+                Terms
+              </Link>
+            ) : null}
           </div>
         </div>
       </footer>

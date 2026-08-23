@@ -17,7 +17,7 @@ Leverage the module system and follow strict naming and coding conventions to ke
 - Preserve behavior unless the user or a spec explicitly asks for a behavior change.
 - Keep changes minimal, focused, and integrated through real call sites.
 - Use the closest package/module `AGENTS.md` for local architecture, imports, and validation commands.
-- Follow `BACKWARD_COMPATIBILITY.md` before touching any contract surface.
+- `BACKWARD_COMPATIBILITY.md`: only **persisted** ids are frozen (ACL features, event IDs, notification types, schema) — they live in rows, so renaming one needs a migration. Code shape is internal.
 - Run `yarn generate` after adding or modifying module files that rely on auto-discovery.
 - Support optimistic locking on every NEW user-editable entity and edit/delete form (it is **default ON**): give the entity an `updated_at` column, return `updatedAt` in its list/detail API responses, and let `CrudForm` auto-derive the header from `initialValues.updatedAt` (covers update **and** delete) — or, for custom non-`CrudForm` handlers, wrap the mutating call with `withScopedApiRequestHeaders(buildOptimisticLockHeader(record.updatedAt), …)` and surface conflicts via `surfaceRecordConflict(err, t)`. When a form's `onSubmit` mutates OTHER entities, override the parent header per child with that child's own version (avoid false 409s). Details: the Task Router row.
 
@@ -213,9 +213,9 @@ Import strategy:
 
 ## Backward Compatibility Contract
 
-> **Full specification**: [`BACKWARD_COMPATIBILITY.md`](BACKWARD_COMPATIBILITY.md) — MUST be read before modifying any contract surface. It enumerates the 13 contract-surface categories (auto-discovery files, types, signatures, import paths, event IDs, widget spot IDs, API routes, DB schema, DI keys, ACL features, notification IDs, CLI commands, generated files) and their FROZEN / STABLE / ADDITIVE-ONLY classification.
+> **Full spec**: [`BACKWARD_COMPATIBILITY.md`](BACKWARD_COMPATIBILITY.md). Operis publishes nothing, so only identifiers **written into the database** are frozen — ACL features, event IDs, notification types, schema. Renaming one is a data migration; skipping it silently drops grants.
 
-Third-party module developers depend on stable platform APIs. Any change to a **contract surface** is a breaking change that blocks merge unless the deprecation protocol is followed.
+Upstream froze these surfaces for external module developers building against its published packages. Operis has no such consumers — see `docs/architecture/adr/ADR-0004-compatibility-scope.md`.
 
 **Deprecation protocol** (summary): (1) never remove in one release, (2) add `@deprecated` JSDoc, (3) provide a bridge (re-export/alias/dual-emit) for ≥1 minor version, (4) document in UPGRADE_NOTES.md, (5) reference a spec with "Migration & Backward Compatibility" section.
 

@@ -1,28 +1,75 @@
-# Backward Compatibility Contract
+# Compatibility Contract
 
-Open Mercato modules are developed by third-party developers who depend on stable platform APIs. Every surface listed below is a **public contract**. Changes to these surfaces MUST follow the deprecation protocol or they are **breaking changes** that block merge.
+## Who this protects
 
-## Deprecation Protocol
+Operis publishes no packages and has no third-party module authors. Every
+`@open-mercato/*` package in this repository resolves through `workspace:*`,
+so the only consumer of these APIs is this repository, and it is refactored
+atomically.
 
-1. **Never remove or rename** a public contract surface in a single release.
-2. **Deprecate first**: add `@deprecated` JSDoc with migration guidance and the target removal version.
-3. **Provide a bridge**: re-export the old name/path, accept the old signature, or keep the old behavior alongside the new one for at least one minor version.
-4. **Document in UPGRADE_NOTES.md**: every deprecation and every removal must be listed with migration instructions.
-5. **Spec requirement**: any PR that modifies a contract surface MUST reference a spec (in `.ai/specs/`) that includes a "Migration & Backward Compatibility" section.
+That makes the question "is this change breaking?" answerable by one test:
 
-### Emergency Security Exception
+> **Does anything outside the code depend on this identifier?**
 
-Steps 1-3 — stage the removal, deprecate first, ship a bridge — are waived, and **only** those three, when the contract surface being removed *is itself* the vulnerability: keeping it alongside the replacement would leave the flaw exploitable for the whole deprecation window. A surface that merely makes an insecure usage possible does not qualify; the exception applies only where continued acceptance of the old shape **is** the exploit.
+Upstream Open Mercato answers yes for almost everything — it ships to npm and
+an ecosystem of external module developers builds against it. Operis answers
+yes only where an identifier is **written into the database**, because rows
+outlive refactors. Everything else we are free to rename, reshape, and delete
+in a single commit.
 
-This is not author or reviewer discretion. Every one of the following MUST hold, and a change that cannot satisfy all of them follows the ordinary protocol instead:
+See `docs/architecture/adr/ADR-0004-compatibility-scope.md` for the reasoning
+and the evidence behind the split below.
 
-1. **The qualifying condition is argued, not asserted.** The PR names the surface, the vulnerability, and why a bridge release would keep it reachable.
-2. **The removal is the narrowest one that closes the hole.** No unrelated tightening rides along, and **no partial bridge retains the vulnerable branch** behind a flag, a config toggle, or an opt-in — a retained branch is the bridge the exception exists to refuse.
-3. **Steps 4 and 5 still apply in full.** An `UPGRADE_NOTES.md` entry with both client *and* operator migration instructions, and a spec under `.ai/specs/` or `.ai/specs/enterprise/` with a "Migration & Backward Compatibility" section.
-4. **A dated entry is added at the end of this document**, recording the surface, its classification, the qualifying argument, and the migration path.
-5. **A maintainer signs off on the exception by name.** The PR carries the `security` label and a human maintainer approval that acknowledges the waiver; an automated review cannot clear it.
+## The line: persisted identifiers vs code shape
 
-Downstream authors get no bridge in this case, so the compensating obligation is disclosure. The `UPGRADE_NOTES.md` entry MUST state plainly what stops working, for whom, and what to do about it — including any stored credential or data state that becomes unusable, or that becomes newly suspect, as a result.
+### Data-backed — treat as FROZEN, changing these is a data migration
+
+These identifiers are stored in table rows. Renaming one in code does not
+rename it in the database, so the old value silently stops matching. For ACL
+features that is a **security** regression: a role quietly loses a permission,
+or a wildcard grant stops covering a feature it used to cover.
+
+| Identifier | Persisted in |
+|---|---|
+| ACL feature IDs (§10) | `role_acls.features_json`, `user_acls.features_json`, `customer_role_acls.features_json`, `customer_user_acls.features_json`, `scheduled_jobs.require_feature`, `inbox_proposal_actions.required_feature` |
+| Event IDs (§5) | `business_rules.event_type`, `carrier_webhook_events.event_type`, `gateway_webhook_events.event_type` |
+| Notification type IDs (§11) | `notification_preferences.notification_type_id`, `notification_type_overrides.notification_type_id`, `push_notification_deliveries.notification_type_id` |
+| Database schema (§8) | the schema itself |
+
+Changing any of these requires a migration that rewrites the stored values in
+the same change. Not a deprecation cycle — a migration.
+
+### Code shape — free to change
+
+Import paths, exported names, function signatures, public TypeScript types,
+DI keys, CLI command names, widget spot IDs, and the module convention file
+shapes (§1-4, §6, §7, §9, §12-14) are **internal**. Rename them, change their
+signatures, delete them. Update the call sites in the same commit and let
+typecheck prove it. No deprecation window, no re-export bridge, no
+`@deprecated` tombstone — those exist to give external consumers time to
+migrate, and there are none.
+
+The sections below are retained as an accurate description of each surface and
+where it is consumed. Read them to understand blast radius, not as a freeze.
+
+## Still worth doing regardless
+
+- **API route URLs (§7).** No external consumer, but the frontend in this repo
+  is one, and integrations may hold saved webhook URLs. Change them freely;
+  grep the app and check `webhooks`/`integrations` config for stored URLs.
+- **Generated file contracts (§14).** Not compatibility — correctness. If a
+  generator's output shape changes, run `yarn generate` and commit the result,
+  or the app boots against a stale registry.
+- **Anything already released to a running deployment.** Once Operis is
+  deployed, its own database and integrations become the external consumer.
+  The persisted-identifier rule above is what protects them.
+
+## Emergency Security Exception
+
+Retained from upstream and still correct: when the contract surface being
+removed *is itself* the vulnerability, ship the removal without a bridge, and
+document what stops working, for whom, and what to do about it — including any
+stored credential or data state that becomes unusable or newly suspect.
 
 ---
 

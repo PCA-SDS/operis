@@ -1,5 +1,6 @@
 {
-  "repo": "https://github.com/open-mercato/official-modules.git",
+  "$comment": "External module submodule. `repo` is intentionally empty: set it to the repository you choose before activating anything. Operis does not default to Open Mercato's official-modules (see ADR-0001).",
+  "repo": "",
   "path": "external/official-modules",
   "branch": "main",
   "available": [],

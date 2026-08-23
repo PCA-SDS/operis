@@ -66,6 +66,12 @@ function run() {
 
   if (activated.length > 0) {
     if (!registered) {
+      if (!config.repo) {
+        log('activation requested but no `repo` is configured in official-modules.json.')
+        log('set it to the external module repository you intend to use, then re-run `yarn install`.')
+        writeGenerated([])
+        return
+      }
       log(`registering submodule ${submodulePath} -> ${config.repo}`)
       try {
         git(['submodule', 'add', '-b', config.branch, config.repo, submodulePath])

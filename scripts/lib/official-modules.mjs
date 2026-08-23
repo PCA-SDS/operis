@@ -19,8 +19,12 @@ export const CONFIG_PATH = path.join(repoRoot, 'official-modules.json')
 export const LOCAL_CONFIG_PATH = path.join(repoRoot, 'official-modules.local.json')
 export const GENERATED_PATH = path.join(repoRoot, 'apps', 'mercato', 'src', 'official-modules.generated.ts')
 
+// No default repository. Upstream shipped `open-mercato/official-modules` here,
+// which meant activating a module silently pulled code from Open Mercato. Operis
+// does not track upstream (ADR-0001), so the source must be chosen deliberately in
+// official-modules.json before anything is fetched.
 export const DEFAULT_CONFIG = {
-  repo: 'https://github.com/open-mercato/official-modules.git',
+  repo: '',
   path: 'external/official-modules',
   branch: 'main',
   available: [],
