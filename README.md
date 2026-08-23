@@ -48,93 +48,180 @@ Next.js App Router · TypeScript · MikroORM (PostgreSQL) · Awilix · zod · Re
 
 ### ⚡ Quick start
 
-**You need:** [Node.js 24](https://nodejs.org/en/download) · [Git](https://git-scm.com/) · PostgreSQL + Redis (easiest via [Docker Desktop](https://www.docker.com/products/docker-desktop/))
+This is **the** local development workflow. Every command below was executed against a
+freshly dropped database while writing this section; nothing here is aspirational.
 
-<details>
-<summary><strong>🔧 Monorepo</strong> — core development / full demo</summary>
+#### Prerequisites
+
+| Runtime | Version | Notes |
+|---|---|---|
+| Node.js | **24.x** | pinned by [`.nvmrc`](.nvmrc) and `engines.node`; `nvm use` picks it up |
+| Yarn | **4.17.1** | pinned by `packageManager`; enable with `corepack enable` |
+| Docker | any recent | supplies PostgreSQL, Redis and Meilisearch |
+| PostgreSQL | **17** (pgvector) | via `docker compose`; the `pgvector` image is required |
+| Redis | **7** | via `docker compose`; optional for a single-process dev run |
+
+#### Initial setup
 
 ```bash
-# macOS / Linux
-brew install node@24   # or: nvm install 24 && nvm use 24
-corepack enable && corepack prepare yarn@4.12.0 --activate
+git clone <repository-url> operis
+cd operis
 
-git clone https://github.com/open-mercato/open-mercato.git
-cd open-mercato && git checkout develop
-docker compose up -d                  # starts PostgreSQL, Redis, Meilisearch
+corepack enable                       # Yarn 4 from packageManager
+nvm use                               # Node 24 from .nvmrc
+
+docker compose up -d postgres redis   # PostgreSQL + Redis
 cp apps/mercato/.env.example apps/mercato/.env
-# set DATABASE_URL / JWT_SECRET / REDIS_URL in apps/mercato/.env
-yarn dev:greenfield                   # installs, builds, seeds, starts the app
+
+yarn install
+yarn build:packages                   # workspace packages the app imports
+yarn generate                         # module registries (routes, DI, entities)
+yarn db:migrate                       # create the schema
+yarn seed:dev                         # create the development tenants and accounts
+yarn dev                              # http://localhost:3000
 ```
 
-```powershell
-# Windows (PowerShell as Administrator — or use Git Bash / cmd)
-# 1. Install Node.js 24 MSI from https://nodejs.org/en/download, then open a new terminal
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-corepack enable; corepack prepare yarn@4.12.0 --activate
+#### Environment variables
 
-git clone https://github.com/open-mercato/open-mercato.git
-cd open-mercato; git checkout develop
-docker compose up -d                  # or use native PostgreSQL + pgAdmin: https://www.postgresql.org/download/windows/
-Copy-Item apps\mercato\.env.example apps\mercato\.env
-# set DATABASE_URL / JWT_SECRET / REDIS_URL in apps\mercato\.env
-yarn dev:greenfield
-```
+`apps/mercato/.env.example` is the complete template — copy it and adjust. The
+values that must be set for the MVP to run:
 
-Open **http://localhost:3000/backend** — credentials printed in the terminal.
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string. Required; the app fails fast without it. |
+| `JWT_SECRET` | Signs session tokens. The template ships a dev placeholder; production refuses to start on a placeholder or a secret under 32 characters. |
+| `AUTH_SECRET` | Session/cookie signing, preferred over `JWT_SECRET` when set. |
+| `TENANT_DATA_ENCRYPTION` | `yes` by default — user emails and other PII are encrypted at rest. |
+| `TENANT_DATA_ENCRYPTION_FALLBACK_KEY` | Derives tenant keys when no KMS/Vault is configured. **Losing it makes existing encrypted rows unreadable.** |
+| `REDIS_URL` | Optional locally; required for the event bus and queue in multi-process setups. |
+| `OM_DEV_SEED_PASSWORD` | Overrides the password `yarn seed:dev` assigns. Defaults to `Operis!23`. |
 
-</details>
+#### Database setup
 
-<details>
-<summary><strong>📦 Standalone app</strong> — build on Open Mercato without touching the core</summary>
+Schema comes entirely from migrations — never create tables by hand.
 
 ```bash
-# macOS / Linux
-brew install node@24   # or: nvm install 24 && nvm use 24
-corepack enable && corepack prepare yarn@4.12.0 --activate
-
-npx create-mercato-app my-app
-cd my-app
-docker compose up -d                  # starts PostgreSQL, Redis, Meilisearch
-# set DATABASE_URL / JWT_SECRET / REDIS_URL in .env
-yarn setup                            # installs, seeds, starts the app
+yarn db:migrate      # apply all module migrations (safe to re-run)
+yarn db:generate     # after changing an entity: emit a new migration to review
 ```
 
-```powershell
-# Windows (PowerShell as Administrator — or use Git Bash / cmd)
-# 1. Install Node.js 24 MSI from https://nodejs.org/en/download, then open a new terminal
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-corepack enable; corepack prepare yarn@4.12.0 --activate
+To wipe local data and rebuild from migrations:
 
-npx create-mercato-app my-app
-cd my-app
-docker compose up -d                  # or use native PostgreSQL + pgAdmin: https://www.postgresql.org/download/windows/
-# set DATABASE_URL / JWT_SECRET / REDIS_URL in .env
-yarn setup
+```bash
+yarn db:reset --yes    # drops every table, re-applies all migrations
+yarn seed:dev          # recreates the development tenants and accounts
 ```
 
-Open **http://localhost:3000/backend** — credentials printed in the terminal.
+> `yarn db:greenfield` is **not** a database reset. It also deletes every migration
+> file and snapshot from the **source tree** and re-baselines them into one squashed
+> migration — a repository rewrite. Use `db:reset` for local data.
 
-</details>
+#### Seed development data
+
+```bash
+yarn seed:dev
+```
+
+Idempotent — re-running it creates no duplicate tenant, organization, user, role or
+module assignment. It also seeds each module's reference data, so no second command
+is needed.
+
+#### Default development accounts
+
+All accounts share the password **`Operis!23`** (override with `OM_DEV_SEED_PASSWORD`).
+These are development credentials and are refused when `NODE_ENV=production`.
+
+| Account | Company | Role | Purpose |
+|---|---|---|---|
+| `admin@operis.local` | **Operis** | `superadmin` | Platform Superadmin — administers the platform and every tenant |
+| `admin@acme.local` | Acme | `admin` | Tenant Administrator — administers Acme only |
+| `user@acme.local` | Acme | `employee` | Tenant User — restricted day-to-day access |
+| `admin@globex.local` | Globex | `admin` | Second tenant, for proving cross-tenant isolation |
+| `user@globex.local` | Globex | `employee` | Second-tenant user |
+
+Operis is a **separate company** from any customer tenant. The `superadmin` role
+exists only in the Operis tenant, so no tenant administrator can escalate into
+platform administration. Globex intentionally has the **`wms` module withheld**, which
+is what makes module entitlement observable: Acme sees Warehouse in its navigation,
+Globex does not.
+
+Sign in at **http://localhost:3000/login**, then land on **/backend**.
+
+#### Run the development environment
+
+```bash
+yarn dev
+```
+
+One canonical command. It starts Next.js plus the workers the app needs.
+Supporting variants (`yarn dev:verbose`, `yarn dev:app`) exist for narrower use but
+are not the documented path.
+
+#### Testing
+
+```bash
+yarn typecheck        # TypeScript across every workspace
+yarn lint             # ESLint across every workspace
+yarn test             # unit tests (Jest)
+yarn verify:mvp       # end-to-end MVP scenarios against a running app
+yarn test:integration # Playwright integration suite
+```
+
+`yarn verify:mvp` needs `yarn dev` running and the seed applied. It signs in as each
+seeded account and asserts platform-vs-tenant separation, module entitlement,
+cross-tenant isolation, authentication failure handling, health and logout.
+
+#### Health
+
+```bash
+curl -fsS http://localhost:3000/api/configs/health
+```
+
+Unauthenticated liveness/readiness probe: `200` with `{"status":"ok"}` when the
+process is up and can reach its database, `503` otherwise. It deliberately exposes
+nothing else — `/api/configs/system-status` carries the detailed, authenticated view.
+
+#### Managing tenant module entitlement
+
+```bash
+yarn mercato directory list-tenant-modules --tenant <tenantId>
+yarn mercato directory set-tenant-module --tenant <tenantId> --module wms --enabled true
+yarn mercato directory sync-tenant-modules            # grant newly added modules to every tenant
+```
+
+Entitlement is fail-closed: a tenant reaches a business module only when a
+`tenant_modules` row grants it. Tenants created through `mercato init`,
+`mercato auth setup`, `yarn seed:dev` or the admin UI are provisioned automatically;
+`sync-tenant-modules` backfills tenants that predate a newly added module.
+
+#### Troubleshooting
+
+| Symptom | Cause and fix |
+|---|---|
+| `DATABASE_URL is not set` | `apps/mercato/.env` is missing — copy it from `.env.example`. |
+| Login fails for every seeded account | The seed has not run, or `TENANT_DATA_ENCRYPTION_FALLBACK_KEY` changed since it did (emails are encrypted with it). Reset the database and re-seed. |
+| A module is missing from the sidebar | The tenant is not entitled to it. Check `yarn mercato directory list-tenant-modules --tenant <id>`. |
+| `Cannot find module '.mercato/generated/...'` | Run `yarn generate` (and `yarn build:packages` first if package sources changed). |
+| Stale chunks after switching branches | `yarn dev:reset` clears the Turbopack/Next cache. |
+| Port 3000 already in use | Stop the other dev server; the app does not auto-select a port. |
+| `DATABASE_URL=… yarn db:migrate` migrated the wrong database | `db:migrate` runs through Turbo, and `turbo.json` declares only `NODE_ENV` in `globalEnv` — every other exported variable is **stripped before the task runs**, so the value in `.env` wins and the command reports success against the wrong database. Edit `apps/mercato/.env`, or bypass Turbo with `yarn workspace @open-mercato/app db:migrate`. |
 
 #### Running multiple persistent local instances
 
-To keep two long-lived local instances pointing at the same PostgreSQL server (e.g. `client-a` next to a stock `open-mercato`), pass an optional database-name override to `yarn dev`, `yarn dev:greenfield`, or `yarn setup`:
+To keep two long-lived local instances pointing at the same PostgreSQL server (e.g. `client-a` next to a stock `open-mercato`), pass an optional database-name override to `yarn dev`:
 
 ```bash
-# Monorepo: explicit database name; .env update is offered (default yes)
-yarn dev:greenfield --database-name=my_db
+# Explicit database name; .env update is offered (default yes)
+yarn dev --database-name=my_db
 
-# Monorepo: derive database name from the current working directory
+# Derive the database name from the current working directory
 yarn dev --database-name
-
-# Standalone app: same flag, applied to ./.env
-yarn setup --database-name=client_a
 
 # One-off run that does not touch .env (current child process only)
 yarn dev --database-name=review_1720 --no-update-env
 ```
 
-Without the flag, behavior is unchanged (no prompt, no `.env` mutation). See the [installation guides](https://docs.openmercato.com/installation/monorepo) and [`yarn setup`](https://docs.openmercato.com/installation/setup) for details.
+Without the flag, behavior is unchanged (no prompt, no `.env` mutation).
 
 #### Reducing dev-mode memory usage
 
@@ -158,12 +245,16 @@ Set `OM_WATCH_SCOPE=all` (or `--watch=all`) to restore watching every package. S
 
 ### Detailed guides (prerequisites, native services, troubleshooting)
 
-Each guide below is self-contained and covers all prerequisites, infrastructure setup (native services or Docker), and every command from zero to a running app.
+> **These link to upstream Open Mercato's documentation site.** They remain useful for
+> platform prerequisites and OS-specific infrastructure setup, but the **Quick start
+> above is authoritative for this repository** — where they disagree, follow the Quick
+> start. In particular, the standalone-app path (`create-mercato-app`, `yarn setup`)
+> does **not** exist in this fork; `packages/create-app` was removed. See
+> [`docs/architecture/upstream-coupling-audit.md`](docs/architecture/upstream-coupling-audit.md).
 
 | | Guide |
 |---|---|
 | 🔧 **Monorepo** — contribute to the core or demo the full platform | [🍎 macOS](https://docs.openmercato.com/installation/monorepo#macos) · [🐧 Linux](https://docs.openmercato.com/installation/monorepo#linux) · [🪟 Windows](https://docs.openmercato.com/installation/monorepo#windows) |
-| 📦 **Standalone app** — build your product without modifying the core | [🍎 macOS](https://docs.openmercato.com/installation/standalone#macos) · [🐧 Linux](https://docs.openmercato.com/installation/standalone#linux) · [🪟 Windows](https://docs.openmercato.com/installation/standalone#windows) |
 | 🐧 **Windows with WSL2** — Ubuntu on Windows: memory config, Docker, GitHub CLI, native Postgres bridging | [WSL2 guide →](https://docs.openmercato.com/installation/wsl2) |
 | 🐳 **Docker dev** — full containerized dev with hot reload, no local toolchain | [All platforms →](https://docs.openmercato.com/installation/docker) |
 | 🚀 **VPS / production** — deploy a full stack to any Linux server | [Deploy guide →](https://docs.openmercato.com/installation/vps) |
