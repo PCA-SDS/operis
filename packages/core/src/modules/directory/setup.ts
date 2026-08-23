@@ -2,6 +2,7 @@ import type { ModuleSetupConfig } from '@open-mercato/shared/modules/setup'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { slugify } from '@open-mercato/shared/lib/slugify'
+import { TenantModuleService } from '@open-mercato/core/modules/directory/lib/tenantModules'
 
 async function backfillOrganizationSlugs(em: EntityManager, tenantId: string) {
   const filter: FilterQuery<Organization> = {
@@ -43,8 +44,20 @@ export const setup: ModuleSetupConfig = {
     admin: ['directory.organizations.view', 'directory.organizations.manage'],
   },
 
+  // Module entitlement is fail-closed, so a tenant that is never provisioned
+  // can reach no business module at all. Provisioning here is what makes the
+  // canonical bootstrap path (`mercato init`, `mercato auth setup`) produce a
+  // usable tenant; `mercato directory sync-tenant-modules` covers tenants that
+  // predate a newly added module.
+  async onTenantCreated({ em, tenantId }) {
+    const service = new TenantModuleService(em as EntityManager)
+    await service.provisionTenant(tenantId, { enabledByDefault: true })
+  },
+
   async seedDefaults({ em, tenantId }) {
     await backfillOrganizationSlugs(em as EntityManager, tenantId)
+    const service = new TenantModuleService(em as EntityManager)
+    await service.provisionTenant(tenantId, { enabledByDefault: true })
   },
 }
 

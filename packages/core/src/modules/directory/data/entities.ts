@@ -1,5 +1,5 @@
 import { Collection } from '@mikro-orm/core'
-import { Entity, ManyToOne, OneToMany, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, ManyToOne, OneToMany, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
 
 @Entity({ tableName: 'tenants' })
 export class Tenant {
@@ -23,6 +23,43 @@ export class Tenant {
 
   @OneToMany(() => Organization, (o) => o.tenant)
   organizations = new Collection<Organization>(this)
+}
+
+/**
+ * Per-tenant module entitlement.
+ *
+ * Answers "does this tenant have this module at all", which is a different
+ * question from "may this user use it" (that stays in RoleAcl/UserAcl). A row
+ * is required for a tenant to reach an entitleable module: the absence of a row
+ * denies, so a newly shipped module stays dark until it is granted explicitly.
+ *
+ * Infrastructure modules listed in `PLATFORM_MODULE_IDS` are never represented
+ * here — gating auth or directory would lock every tenant out of its own login.
+ */
+@Entity({ tableName: 'tenant_modules' })
+@Unique({ name: 'tenant_modules_tenant_module_uniq', properties: ['tenant', 'moduleId'] })
+@Index({ name: 'tenant_modules_tenant_idx', properties: ['tenant'] })
+export class TenantModule {
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @ManyToOne(() => Tenant)
+  tenant!: Tenant
+
+  @Property({ name: 'module_id', type: 'text' })
+  moduleId!: string
+
+  @Property({ name: 'is_enabled', type: 'boolean', default: true })
+  isEnabled: boolean = true
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date(), nullable: true })
+  updatedAt?: Date | null
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
 }
 
 @Entity({ tableName: 'organizations' })

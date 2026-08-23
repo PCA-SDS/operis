@@ -9,7 +9,8 @@ import {
   authorizeFeatures,
   resolveEffectiveFeatures,
 } from '@open-mercato/shared/security/featurePolicy'
-import { filterGrantsByEnabledModules } from '@open-mercato/shared/security/enabledModulesRegistry'
+import { filterGrantsByEnabledModules, getOwningModuleId } from '@open-mercato/shared/security/enabledModulesRegistry'
+import { TenantModuleService, isEntitleableModule, isEntitlementEnforceable } from '@open-mercato/core/modules/directory/lib/tenantModules'
 
 interface AclData {
   isSuperAdmin: boolean
@@ -33,9 +34,50 @@ export class RbacService {
   private cacheTtlMs: number = 5 * 60 * 1000 // 5 minutes default
   private cache: CacheStrategy | null = null
   private globalSuperAdminCache = new Map<string, boolean>()
+  private tenantModules: TenantModuleService
 
   constructor(private em: EntityManager, cache?: CacheStrategy) {
     this.cache = cache || null
+    this.tenantModules = new TenantModuleService(em, cache)
+  }
+
+  /**
+   * Per-tenant module entitlement, evaluated before grants and before the
+   * super-admin bypass — a tenant that does not have a module cannot reach it
+   * through any role, mirroring how removed/disabled features already deny
+   * ahead of `unrestricted`.
+   *
+   * A null tenant means the caller is not operating inside a tenant at all
+   * (CLI, worker, tenant-less API key), so there is no entitlement to consult
+   * and the decision falls back to the grant check alone.
+   */
+  private async requiredFeaturesAreEntitled(
+    required: readonly string[],
+    tenantId: string | null,
+  ): Promise<boolean> {
+    if (!tenantId || !isEntitlementEnforceable()) return true
+    const modulesNeeded = new Set<string>()
+    for (const featureId of required) {
+      const owningModule = getOwningModuleId(featureId)
+      if (isEntitleableModule(owningModule)) modulesNeeded.add(owningModule)
+    }
+    if (!modulesNeeded.size) return true
+    const enabled = new Set(await this.tenantModules.getEnabledModuleIds(tenantId))
+    for (const moduleId of modulesNeeded) {
+      if (!enabled.has(moduleId)) return false
+    }
+    return true
+  }
+
+  /** Grants the tenant may actually exercise, with `*` expanded per entitled module. */
+  private async entitledGrants(
+    grants: readonly string[],
+    tenantId: string | null,
+    isSuperAdmin: boolean,
+  ): Promise<string[]> {
+    if (!tenantId || !isEntitlementEnforceable()) return isSuperAdmin ? ['*'] : [...grants]
+    if (isSuperAdmin) return this.tenantModules.expandUnrestrictedGrants(tenantId)
+    return this.tenantModules.filterGrantsByEntitlement(tenantId, grants)
   }
 
   /**
@@ -359,6 +401,7 @@ export class RbacService {
     opts?: { organizationId?: string | null },
   ): Promise<boolean> {
     if (!tenantId || !feature) return false
+    if (!(await this.requiredFeaturesAreEntitled([feature], tenantId))) return false
 
     const em = this.em.fork()
     const roleAcls = await em.find(RoleAcl, { tenantId, deletedAt: null } as any, {})
@@ -416,6 +459,7 @@ export class RbacService {
    */
   async userHasAllFeatures(userId: string, required: string[], scope: { tenantId: string | null; organizationId: string | null }): Promise<boolean> {
     if (!required.length) return true
+    if (!(await this.requiredFeaturesAreEntitled(required, scope.tenantId))) return false
     const acl = await this.loadAcl(userId, scope)
     const organizationAllowed = acl.isSuperAdmin
       || !acl.organizations
@@ -439,8 +483,8 @@ export class RbacService {
     scope: { tenantId: string | null; organizationId: string | null },
   ): Promise<string[]> {
     const acl = await this.loadAcl(userId, scope)
-    if (acl.isSuperAdmin) return filterGrantsByEnabledModules(['*'])
     if (
+      !acl.isSuperAdmin &&
       acl.organizations &&
       scope.organizationId &&
       !acl.organizations.includes(scope.organizationId) &&
@@ -448,7 +492,8 @@ export class RbacService {
     ) {
       return []
     }
-    return filterGrantsByEnabledModules(acl.features)
+    const entitled = await this.entitledGrants(acl.features, scope.tenantId, acl.isSuperAdmin)
+    return filterGrantsByEnabledModules(entitled)
   }
 
   /** Returns concrete active feature IDs for browser capability payloads. */
@@ -463,6 +508,7 @@ export class RbacService {
       || acl.organizations.includes(scope.organizationId)
       || acl.organizations.includes('__all__')
     if (!organizationAllowed) return []
-    return resolveEffectiveFeatures(acl.isSuperAdmin ? ['*'] : acl.features)
+    const entitled = await this.entitledGrants(acl.features, scope.tenantId, acl.isSuperAdmin)
+    return resolveEffectiveFeatures(entitled)
   }
 }

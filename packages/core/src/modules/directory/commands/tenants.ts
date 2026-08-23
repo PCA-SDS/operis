@@ -19,6 +19,7 @@ import type { CrudEventsConfig, CrudIndexerConfig } from '@open-mercato/shared/l
 import { isTenantDataEncryptionEnabled } from '@open-mercato/shared/lib/encryption/toggles'
 import { makeCreateRedo } from '@open-mercato/shared/lib/commands/redo'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import type { TenantModuleService } from '@open-mercato/core/modules/directory/lib/tenantModules'
 
 const logger = createLogger('directory').child({ component: 'tenants' })
 
@@ -82,6 +83,16 @@ const createTenantCommand: CommandHandler<TenantPayload, Tenant> = {
       } catch (err) {
         logger.warn('Failed to provision tenant key', { err })
       }
+    }
+
+    // Module entitlement is fail-closed, so a tenant created here would be able
+    // to reach nothing at all until it is provisioned. Grant the current module
+    // set immediately; an operator can withhold individual modules afterwards.
+    try {
+      const tenantModules = ctx.container.resolve('tenantModuleService') as TenantModuleService
+      await tenantModules.provisionTenant(String(tenant.id), { enabledByDefault: true })
+    } catch (err) {
+      logger.error('Failed to provision tenant modules', { tenantId: String(tenant.id), err })
     }
 
     const identifiers = {
