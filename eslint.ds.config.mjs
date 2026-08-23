@@ -104,4 +104,40 @@ export default [
   //   files: ['packages/core/src/modules/audit_logs/backend/**/*.{ts,tsx}'],
   //   rules: { 'om-ds/require-empty-state': 'error', 'om-ds/require-status-badge': 'error' },
   // },
+  //
+  // `tasks` ships strict from day one: a new module has no baseline debt, so
+  // every rule is an error rather than a warning it could accumulate against.
+  // The glob covers `components/` as well as `backend/` because the module's UI
+  // lives there — its `backend/` files are thin page shells.
+  {
+    files: [
+      'packages/core/src/modules/tasks/backend/**/*.{ts,tsx}',
+      'packages/core/src/modules/tasks/components/**/*.{ts,tsx}',
+    ],
+    ignores: ['**/__tests__/**', '**/*.generated.*'],
+    linterOptions,
+    languageOptions,
+    plugins,
+    rules: {
+      'om-ds/require-empty-state': 'error',
+      'om-ds/require-page-wrapper': 'error',
+      'om-ds/no-raw-table': 'error',
+      'om-ds/require-loading-state': 'error',
+      'om-ds/require-status-badge': 'error',
+      'om-ds/no-hardcoded-status-colors': 'error',
+      'om-ds/no-legacy-alert-variant': 'error',
+    },
+  },
+  // The module's HTTP client is not a rendering surface: it returns promises and
+  // never draws anything, so it has no loading state to require. Its consumers
+  // do — every hook and component that calls it renders one. The exception sits
+  // here rather than as an inline disable because `om-ds/*` rules exist only in
+  // this config; an inline disable is an unknown-rule error under the general one.
+  {
+    files: ['packages/core/src/modules/tasks/components/api.ts'],
+    linterOptions,
+    languageOptions,
+    plugins,
+    rules: { 'om-ds/require-loading-state': 'off' },
+  },
 ]

@@ -100,6 +100,10 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'planner', from: '@open-mercato/core' },
   { id: 'resources', from: '@open-mercato/core' },
   { id: 'staff', from: '@open-mercato/core' },
+  // Work management: projects, Kanban boards, milestones, docs and the personal
+  // task views. Disable by removing this line — the nav group, routes and APIs
+  // all disappear with it.
+  { id: 'tasks', from: '@open-mercato/core' },
   { id: 'events', from: '@open-mercato/events' },
   { id: 'notifications', from: '@open-mercato/core' },
   { id: 'progress', from: '@open-mercato/core' },

@@ -60,6 +60,7 @@ yarn workspace @open-mercato/core test
 | `perspectives` | `src/modules/perspectives/` | Data perspectives and views |
 | `query_index` | `src/modules/query_index/` | Query indexing for fast lookups |
 | `sales` | `src/modules/sales/` | Sales orders, quotes, invoices |
+| `tasks` | `src/modules/tasks/` | Task management (projects, board, milestones, docs) |
 | `widgets` | `src/modules/widgets/` | Widget infrastructure |
 | `workflows` | `src/modules/workflows/` | Workflow automation |
 
