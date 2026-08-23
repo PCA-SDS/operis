@@ -141,8 +141,15 @@ function parsePortNumber(value) {
 function resolveSplashPortConfig() {
   const rawValue = process.env.OM_DEV_SPLASH_PORT?.trim()
 
+  // Default OFF. Upstream opens a startup dashboard on :4000 and pops a browser
+  // tab at it on every `yarn dev`, which interrupts the terminal-first workflow
+  // and holds a port for a page that is only interesting during a cold install.
+  // Opt back in with OM_DEV_SPLASH_PORT=4000 (or `random` for an ephemeral port);
+  // set OM_DEV_AUTO_OPEN=0 alongside it to keep the dashboard without the tab.
+  // NOTE: this script reads process.env directly and never loads a .env file,
+  // so these must be real environment variables, not entries in apps/mercato/.env.
   if (!rawValue) {
-    return { enabled: true, port: 4000 }
+    return { enabled: false, port: null }
   }
 
   const normalized = rawValue.toLowerCase()
