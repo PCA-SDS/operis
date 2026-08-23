@@ -24,9 +24,14 @@ export function register(container: AppContainer) {
   // registration wins when `RbacService` reaches for it.
   if (isRbacDefaultCacheEnabled()) {
     container.register({
+      // `.proxy()` is required: the container runs Awilix CLASSIC injection,
+      // which resolves a factory's *parameter names* as registrations — so the
+      // `cradle` parameter below was itself looked up as a dependency and threw
+      // `Could not resolve 'cradle'`, taking down every RBAC check the moment
+      // OM_RBAC_DEFAULT_CACHE was turned on.
       rbacService: asFunction((cradle: { em: EntityManager; cache?: CacheStrategy }) => {
         return new RbacService(cradle.em, cradle.cache ?? createRbacFallbackCache())
-      }).scoped(),
+      }).proxy().scoped(),
     })
   } else {
     container.register({ rbacService: asClass(RbacService).scoped() })
