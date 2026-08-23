@@ -49,6 +49,7 @@
         "om-migrate-mikro-orm",
         "om-create-ai-agent",
         "om-help",
+        "om-code-map",
         "om-refresh-standalone-harness",
         "om-judge-agent-session",
         "om-share-this-session"

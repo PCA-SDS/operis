@@ -19,7 +19,8 @@ Leverage the module system and follow strict naming and coding conventions to ke
 - Use the closest package/module `AGENTS.md` for local architecture, imports, and validation commands.
 - `BACKWARD_COMPATIBILITY.md`: only **persisted** ids are frozen (ACL features, event IDs, notification types, schema) — they live in rows, so renaming one needs a migration. Code shape is internal.
 - Run `yarn generate` after adding or modifying module files that rely on auto-discovery.
-- Support optimistic locking on every NEW user-editable entity and edit/delete form (it is **default ON**): give the entity an `updated_at` column, return `updatedAt` in its list/detail API responses, and let `CrudForm` auto-derive the header from `initialValues.updatedAt` (covers update **and** delete) — or, for custom non-`CrudForm` handlers, wrap the mutating call with `withScopedApiRequestHeaders(buildOptimisticLockHeader(record.updatedAt), …)` and surface conflicts via `surfaceRecordConflict(err, t)`. When a form's `onSubmit` mutates OTHER entities, override the parent header per child with that child's own version (avoid false 409s). Details: the Task Router row.
+- Optimistic locking is **default ON** for every NEW user-editable entity and edit/delete form: add an `updated_at` column, return `updatedAt` from list/detail APIs, and let `CrudForm` derive the header from `initialValues.updatedAt` (covers update **and** delete). Non-`CrudForm` handlers wrap the write in `withScopedApiRequestHeaders(buildOptimisticLockHeader(record.updatedAt), …)` and surface conflicts via `surfaceRecordConflict(err, t)`. If `onSubmit` mutates OTHER entities, override the parent header per child with that child's own version (avoids false 409s).
+- Answer "where is X / who calls it" with `yarn graft ask|skeleton|callers` and "why / which spec" with `graphify query` before Grep sweeps.
 
 ## Ask First
 
@@ -64,6 +65,7 @@ Guide shorthand: `<pkg>` = `packages/<pkg>/AGENTS.md` (so `core` = `packages/cor
 
 | Task | Guide |
 |------|-------|
+| Finding code without grepping (`graft`), concepts/specs (`graphify`), their MCP tools | [`.ai/docs/code-navigation.md`](.ai/docs/code-navigation.md) + `om-code-map` |
 | **Module Development** | |
 | New module, scaffolding, auto-discovery paths | `core` + [`.ai/docs/module-development.md`](.ai/docs/module-development.md). **Standalone apps**: the `om-module-scaffold` skill scaffolds a module end-to-end |
 | Official modules via the `external/official-modules` submodule, activation (`yarn official-modules`, `official-modules.json`), committing to the submodule's git | [`.ai/docs/official-modules.md`](.ai/docs/official-modules.md) |
@@ -85,7 +87,7 @@ Guide shorthand: `<pkg>` = `packages/<pkg>/AGENTS.md` (so `core` = `packages/cor
 | Encrypted queries (`findWithDecryption`), encryption defaults, GDPR fields | `core` → Encryption |
 | Response enrichers for other modules' API responses | `core` → Response Enrichers |
 | Filtering CRUD list APIs by multiple IDs (`?ids=uuid1,uuid2`), interceptor-driven ID narrowing | `core` → API Interceptors + `shared` |
-| Optimistic locking / concurrent-edit conflicts: `updated_at` versioning (**default ON** for every `makeCrudRoute` entity, opt out with `OM_OPTIMISTIC_LOCK=off`), the 409 body, client helpers (`buildOptimisticLockHeader`, `extractOptimisticLockConflict`), command-pattern writes (`enforceCommandOptimisticLock`, the DI-overridable `createCommandOptimisticLockGuardService`), the unified conflict bar (`surfaceRecordConflict`) | `apps/docs/docs/framework/data-integrity/concurrency-locking.mdx` (§ Protecting command/action endpoints) + `.ai/specs/implemented/2026-05-25-oss-optimistic-locking.md` + `.ai/specs/2026-05-28-optimistic-locking-coverage-completion.md` + `packages/shared/src/lib/crud/optimistic-lock{,-command}.ts` + `packages/ui/src/backend/conflicts/` |
+| Optimistic locking / concurrent-edit conflicts: `updated_at` versioning (**default ON** per `makeCrudRoute` entity, opt out `OM_OPTIMISTIC_LOCK=off`), the 409 body, `buildOptimisticLockHeader`, `extractOptimisticLockConflict`, `enforceCommandOptimisticLock`, `createCommandOptimisticLockGuardService`, `surfaceRecordConflict` | `apps/docs/docs/framework/data-integrity/concurrency-locking.mdx` (§ Protecting command/action endpoints) + `.ai/specs/implemented/2026-05-25-oss-optimistic-locking.md` + `.ai/specs/2026-05-28-optimistic-locking-coverage-completion.md` + `packages/shared/src/lib/crud/optimistic-lock{,-command}.ts` + `packages/ui/src/backend/conflicts/` |
 | DOM Event Bridge (SSE real-time events to browser), `useAppEvent`, `useOperationProgress` | `events` → DOM Event Bridge |
 | Customer portal pages, portal auth, portal nav injection, portal event bridge | `ui` → Portal Extension + `om-backend-ui-design` skill |
 | Widget event handlers (`onFieldChange`, `onBeforeNavigate`, transformers) | `ui` |
@@ -127,7 +129,7 @@ Guide shorthand: `<pkg>` = `packages/<pkg>/AGENTS.md` (so `core` = `packages/cor
 | **Agent harness itself** | |
 | Editing this file or a package `AGENTS.md`; the instruction budget and boundary labels | [`.ai/docs/agent-instructions.md`](.ai/docs/agent-instructions.md) + `scripts/check-agents-md-budget.mjs` (`yarn agents:check-budget`) |
 
-Most `om-*` automation skills come from the shared [open-mercato/skills](https://github.com/open-mercato/skills) collection; `yarn install-skills` installs and updates them. Repo-specific settings live in `.ai/agentic.config.json` (+ the tracker descriptor `.ai/trackers/github.md`); a folder under `.ai/skills/` matching an external skill name is a repo-local override those skills follow on top of their built-in workflow, and the remaining `.ai/skills/` folders are repo-local skills installed by tier (`.ai/skills/tiers.json`). Both sources install into **one canonical directory**, `.agents/skills/` (Claude Code cannot read it, so it also gets a symlink layer under `.claude/skills/`). Installer flags: [`.ai/skills/README.md`](.ai/skills/README.md).
+Most `om-*` automation skills come from the shared [open-mercato/skills](https://github.com/open-mercato/skills) collection; `yarn install-skills` installs and updates them. Repo settings live in `.ai/agentic.config.json` (+ tracker descriptor `.ai/trackers/github.md`); a `.ai/skills/` folder matching an external skill name is a repo-local override that skill follows on top of its built-in workflow, and the rest are repo-local skills installed by tier (`.ai/skills/tiers.json`). Both install into **one canonical directory**, `.agents/skills/` (Claude Code cannot read it, so it also gets `.claude/skills/` symlinks). Flags: [`.ai/skills/README.md`](.ai/skills/README.md).
 
 ## Core Principles
 

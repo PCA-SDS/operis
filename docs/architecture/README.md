@@ -20,6 +20,8 @@ deliberately.
 | [ADR-0001](adr/ADR-0001-fork-from-open-mercato.md) | Fork the Open Mercato OSS monorepo as the baseline; do not track upstream |
 | [ADR-0002](adr/ADR-0002-exclude-enterprise-edition.md) | Exclude the commercially-licensed Enterprise Edition — and the resulting MFA/SSO gap |
 | [ADR-0003](adr/ADR-0003-platform-domains-default.md) | Remove the foreign domain from the `PLATFORM_DOMAINS` default |
+| [ADR-0004](adr/ADR-0004-compatibility-scope.md) | Scope the compatibility contract to persisted identifiers |
+| [ADR-0005](adr/ADR-0005-agent-code-navigation-layer.md) | Add a prebuilt code-navigation layer (graft + graphify) for coding agents |
 
 ### Writing a new ADR
 

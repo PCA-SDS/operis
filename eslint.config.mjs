@@ -34,6 +34,9 @@ const ignores = [
   'docs/.docusaurus/**',
   'docs/build/**',
   'next-env.d.ts',
+  // Agent code-navigation indexes — generated caches, see .ai/docs/code-navigation.md
+  'graft/**',
+  '**/graphify-out/**',
 ]
 
 const ruleOverrides = {

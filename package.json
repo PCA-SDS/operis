@@ -105,6 +105,11 @@
     "check:time-bombs": "node scripts/time-bomb-scanner.mjs",
     "check:time-bombs:fail": "node scripts/time-bomb-scanner.mjs --fail",
     "agents:check-budget": "node scripts/check-agents-md-budget.mjs",
+    "graft": "node scripts/graft.mjs",
+    "graft:init": "node scripts/graft.mjs init --agents claude",
+    "graft:build": "node scripts/graft.mjs build",
+    "graft:check": "node scripts/graft.mjs check",
+    "graphify:build": "node scripts/graphify-build.mjs",
     "lessons:check": "node packages/cli/agentic/shared/scripts/check-lessons.mjs --root .",
     "mutation:changed": "node scripts/stryker/mutation-changed.mjs"
   },

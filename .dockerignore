@@ -73,6 +73,11 @@ data
 storage
 apps/mercato/storage
 
+# Agent code-navigation indexes (regenerable local caches, never needed in an image)
+graft
+.graft
+**/graphify-out
+
 # CI/CD
 .github
 .vscode
