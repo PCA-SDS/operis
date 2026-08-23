@@ -348,8 +348,15 @@ export default function LoginPage() {
 
   const formReady = clientReady && !authOverridePending
 
+  // `pb-56` below is load-bearing, not spacing taste. The global notice bars
+  // (cookie consent, demo-instance warning) are `fixed` to the bottom of the
+  // viewport and overlay whatever is under them. This card is vertically
+  // centred, so on a 1280x720 / 1366x768 / 1440x900 viewport the notices sat
+  // directly on top of the password field and the submit button and sign-in
+  // could not be clicked at all. Reserving bottom space keeps the primary
+  // action clear of them however the notices are configured.
   return (
-    <div className="min-h-svh flex items-center justify-center p-4">
+    <div className="min-h-svh flex items-center justify-center p-4 pb-56">
       <Card className="w-full max-w-sm">
         <CardHeader className="flex flex-col items-center gap-4 text-center p-10">
           <Image alt={translate('auth.login.logoAlt', 'Open Mercato logo')} src="/open-mercato.svg" width={150} height={150} priority />
