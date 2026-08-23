@@ -31,17 +31,17 @@ type ExternalIdRow = {
 
 const STATUS_CYCLE: BadgeStatusKey[] = ['healthy', 'warning', 'error', 'unknown']
 const STATUS_BADGE_CLASSES: Record<BadgeStatusKey, string> = {
-  healthy: 'bg-green-500',
-  warning: 'bg-yellow-500',
-  error: 'bg-red-500',
-  unknown: 'bg-gray-400',
+  healthy: 'bg-status-success-solid',
+  warning: 'bg-status-warning-solid',
+  error: 'bg-status-error-solid',
+  unknown: 'bg-status-neutral-icon',
 }
 const EXTERNAL_ID_STATUS_CLASSES: Record<ExternalIdRow['syncStatus'], string> = {
-  synced: 'bg-green-500',
-  pending: 'bg-yellow-500',
+  synced: 'bg-status-success-solid',
+  pending: 'bg-status-warning-solid',
 }
 
-const hintClassName = 'rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-400/10 p-2 text-xs text-amber-800 dark:text-amber-100/90'
+const hintClassName = 'rounded-md border border-status-warning-icon/40 bg-status-warning-bg p-2 text-xs text-status-warning-text'
 
 function print(value: unknown): string {
   try {
@@ -188,7 +188,7 @@ export default function UmesIntegrationsPage() {
             </p>
           </div>
           <div className={`grid gap-1 ${hintClassName}`}>
-            <div className="font-medium text-amber-900 dark:text-amber-50">{t('example.umes.integrations.hintHeading', 'What should be visible and how it should work')}</div>
+            <div className="font-medium text-status-warning-text">{t('example.umes.integrations.hintHeading', 'What should be visible and how it should work')}</div>
             <div>{t('example.umes.integrations.wizard.hint1', '1. Step indicator should show 3 numbered circles with connecting lines.')}</div>
             <div>{t('example.umes.integrations.wizard.hint2', '2. Step 1 requires both `apiKey` and `apiSecret` — leaving them empty should show validation error.')}</div>
             <div>{t('example.umes.integrations.wizard.hint3', '3. Completing all steps should display the accumulated wizard data below.')}</div>
@@ -234,7 +234,7 @@ export default function UmesIntegrationsPage() {
                   <input
                     value={wizardData.apiKey ?? ''}
                     onChange={(event) => handleWizardChange('apiKey', event.target.value)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                   />
                 </div>
                 <div data-crud-field-id="apiSecret" className="space-y-1">
@@ -242,7 +242,7 @@ export default function UmesIntegrationsPage() {
                   <input
                     value={wizardData.apiSecret ?? ''}
                     onChange={(event) => handleWizardChange('apiSecret', event.target.value)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                   />
                 </div>
               </div>
@@ -323,7 +323,7 @@ export default function UmesIntegrationsPage() {
             </p>
           </div>
           <div className={`grid gap-1 ${hintClassName}`}>
-            <div className="font-medium text-amber-900 dark:text-amber-50">{t('example.umes.integrations.hintHeading', 'What should be visible and how it should work')}</div>
+            <div className="font-medium text-status-warning-text">{t('example.umes.integrations.hintHeading', 'What should be visible and how it should work')}</div>
             <div>{t('example.umes.integrations.badges.hint1', '1. Four badges should render with colored dots (green, yellow, red, gray).')}</div>
             <div>{t('example.umes.integrations.badges.hint2', '2. Hovering over badges with tooltips should show the tooltip text.')}</div>
             <div>{t('example.umes.integrations.badges.hint3', '3. Clicking `Cycle statuses` should rotate all badge statuses forward.')}</div>
@@ -356,12 +356,12 @@ export default function UmesIntegrationsPage() {
             </p>
           </div>
           <div className={`grid gap-1 ${hintClassName}`}>
-            <div className="font-medium text-amber-900 dark:text-amber-50">{t('example.umes.integrations.hintHeading', 'What should be visible and how it should work')}</div>
+            <div className="font-medium text-status-warning-text">{t('example.umes.integrations.hintHeading', 'What should be visible and how it should work')}</div>
             <div>{t('example.umes.integrations.externalIds.hint1', '1. Two integration rows should display: Shopify (synced, green dot) and Stripe (pending, yellow dot).')}</div>
             <div>{t('example.umes.integrations.externalIds.hint2', '2. Shopify row should show an external link icon.')}</div>
             <div>{t('example.umes.integrations.externalIds.hint3', '3. Each row shows the external ID in a monospace code badge.')}</div>
           </div>
-          <div data-testid="phase-l-external-ids" className="rounded-lg border bg-card p-4">
+          <div data-testid="phase-l-external-ids" className="rounded-xl border border-border bg-surface shadow-sm p-4">
             <h3 className="mb-3 text-sm font-medium">External IDs</h3>
             <div className="space-y-2">
               {externalIdRows.map((row) => (
@@ -399,7 +399,7 @@ export default function UmesIntegrationsPage() {
             </p>
           </div>
           <div className={`grid gap-1 ${hintClassName}`}>
-            <div className="font-medium text-amber-900 dark:text-amber-50">{t('example.umes.integrations.hintHeading', 'What should be visible and how it should work')}</div>
+            <div className="font-medium text-status-warning-text">{t('example.umes.integrations.hintHeading', 'What should be visible and how it should work')}</div>
             <div>{t('example.umes.integrations.registry.hint1', "1. Two integrations should be registered on mount (sync_shopify, gateway_stripe).")}</div>
             <div>{t('example.umes.integrations.registry.hint2', "2. `getIntegrationTitle('sync_shopify')` should return 'Shopify' (not the raw ID).")}</div>
             <div>{t('example.umes.integrations.registry.hint3', "3. `getIntegrationTitle('unknown_id')` should fall back to 'unknown_id'.")}</div>

@@ -212,7 +212,7 @@ export function TimerBar({ projects, staffMemberId, onTimerStopped }: TimerBarPr
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border bg-card p-3 mb-4">
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-surface shadow-sm p-3 mb-4">
       <input
         type="text"
         value={description}

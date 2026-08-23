@@ -214,7 +214,7 @@ export function ConfirmDealLostDialog({
                             </div>
                           </div>
                           {isSelected ? (
-                            <span className="ml-3 flex size-6 shrink-0 items-center justify-center rounded-full bg-foreground text-background">
+                            <span className="ml-3 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
                               <Check className="size-3.5" />
                             </span>
                           ) : null}

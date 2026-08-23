@@ -499,7 +499,7 @@ export default function TimesheetProjectsPage() {
             <ProjectColorDot colorKey={row.original.color} projectName={row.original.name} size="sm" />
             <div className="flex min-w-0 flex-col">
               <span className="truncate text-sm font-medium text-foreground">{row.original.name}</span>
-              <span className="truncate font-mono text-[11px] text-muted-foreground">
+              <span className="truncate font-mono text-overline text-muted-foreground">
                 {row.original.code ?? '—'}
                 {row.original.customerName ? ` · ${row.original.customerName}` : ''}
               </span>
@@ -514,15 +514,15 @@ export default function TimesheetProjectsPage() {
         cell: ({ row }) => {
           const badgeClass =
             row.original.status === 'active'
-              ? 'bg-lime-100 text-lime-800 dark:bg-lime-900/30 dark:text-lime-300'
+              ? 'bg-status-success-bg text-status-success-text'
               : row.original.status === 'on_hold'
-                ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+                ? 'bg-status-warning-bg text-status-warning-text'
                 : 'bg-muted text-muted-foreground'
           const statusLabel =
             labels.statuses[row.original.status as keyof typeof labels.statuses] ?? row.original.status
           return (
             <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${badgeClass}`}
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-overline font-medium ${badgeClass}`}
             >
               {statusLabel}
             </span>

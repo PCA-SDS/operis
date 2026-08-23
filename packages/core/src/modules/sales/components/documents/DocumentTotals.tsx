@@ -54,7 +54,7 @@ export function DocumentTotals({ title, currency, items, className }: DocumentTo
 
   return (
     <div className={cn('space-y-3', className)}>
-      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm shadow-sm">
         <div className="flex items-center justify-between border-b bg-muted/50 px-4 py-3">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{heading}</span>
           {currency ? (

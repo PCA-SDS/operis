@@ -326,7 +326,7 @@ export default function CurrencyFetchingConfig() {
         {configs.map((config) => (
           <div
             key={config.id}
-            className="rounded-lg border bg-card p-4"
+            className="rounded-xl border border-border bg-surface shadow-sm p-4"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">

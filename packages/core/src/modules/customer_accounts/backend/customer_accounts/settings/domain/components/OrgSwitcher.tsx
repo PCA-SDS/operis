@@ -22,7 +22,7 @@ export function OrgSwitcher({ options, selectedId, onChange }: OrgSwitcherProps)
     <label className="flex items-center gap-2 text-sm text-muted-foreground">
       <span>{t('customer_accounts.domainMapping.orgSwitcher.label', 'Organization')}</span>
       <select
-        className="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="h-9 rounded-md border border-input bg-input-bg px-3 text-sm text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
         value={selectedId ?? ''}
         onChange={(event) => onChange(event.target.value)}
       >

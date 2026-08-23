@@ -176,7 +176,7 @@ export default function ChannelInfoPanelWidget({
 
   return (
     <aside
-      className="rounded-md border bg-card p-4 text-sm"
+      className="rounded-lg border border-border bg-surface p-4 text-sm"
       aria-label={t('communication_channels.infoPanel.aria', 'Channel info')}
     >
       <header className="mb-2 text-overline text-muted-foreground">

@@ -776,7 +776,7 @@ function MutationPolicySection({ agent }: { agent: AgentSettings }) {
                         wouldEscalate
                           ? 'border-border bg-muted/30 cursor-not-allowed opacity-60'
                           : isSelected
-                            ? 'border-accent-indigo bg-accent-indigo/5'
+                            ? 'border-accent-strong bg-accent-strong/5'
                             : 'border-border bg-background hover:bg-muted/40'
                       }`}
                       onClick={() => {

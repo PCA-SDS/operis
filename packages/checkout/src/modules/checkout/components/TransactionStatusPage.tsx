@@ -148,11 +148,11 @@ export function TransactionStatusPage({
 
   const statusCopy = resolveStatusCopy(payload?.status ?? null, variant, payload?.link, t)
   const iconToneClassName = statusCopy.tone === 'success'
-    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+    ? 'border-status-success-border bg-status-success-bg text-status-success-text'
     : statusCopy.tone === 'error'
-      ? 'border-red-200 bg-red-50 text-red-700'
+      ? 'border-status-error-border bg-status-error-bg text-status-error-text'
       : statusCopy.tone === 'warning'
-        ? 'border-amber-200 bg-amber-50 text-amber-700'
+        ? 'border-status-warning-border bg-status-warning-bg text-status-warning-text'
         : 'border-border/70 bg-muted/30 text-foreground'
 
   return (

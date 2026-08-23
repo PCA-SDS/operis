@@ -363,20 +363,25 @@ function DayCard({ day, isActive, isToday, busyness, label, dayName, onSelect }:
       aria-pressed={isActive}
       aria-label={`${dayName} ${dayNumber}`}
       className={cn(
-        'flex h-[104px] w-[101px] flex-col items-center gap-[6px] overflow-hidden rounded-[10px] border p-[12px] transition-colors',
+        'flex h-[104px] w-[101px] flex-col items-center gap-[6px] overflow-hidden rounded-lg border p-[12px] transition-colors',
         isActive
-          ? 'border-transparent bg-foreground'
+          ? 'border-transparent bg-primary'
           : 'border-border bg-card hover:border-foreground/40',
       )}
     >
-      <span className="text-[11px] font-medium leading-none tracking-[0.44px] text-muted-foreground">
+      <span
+        className={cn(
+          'text-overline font-medium leading-none tracking-[0.44px]',
+          isActive ? 'text-primary-foreground/80' : 'text-muted-foreground',
+        )}
+      >
         {dayName}
       </span>
       <div className="flex items-center gap-[5px]">
         <span
           className={cn(
             'text-2xl font-semibold leading-7',
-            isActive ? 'text-background' : 'text-foreground',
+            isActive ? 'text-primary-foreground' : 'text-foreground',
           )}
         >
           {dayNumber}
@@ -393,7 +398,12 @@ function DayCard({ day, isActive, isToday, busyness, label, dayName, onSelect }:
           <BusySlot key={index} state={state} active={isActive} />
         ))}
       </div>
-      <span className="text-[11px] leading-[14px] font-normal whitespace-nowrap text-muted-foreground">
+      <span
+        className={cn(
+          'text-overline leading-[14px] font-normal whitespace-nowrap',
+          isActive ? 'text-primary-foreground/80' : 'text-muted-foreground',
+        )}
+      >
         {label}
       </span>
     </button>
@@ -410,13 +420,13 @@ function BusySlot({ state, active }: { state: SlotState; active: boolean }) {
   if (state === 'conflict') {
     bgClass = 'bg-status-error-icon'
   } else if (active) {
-    if (state === 'empty') bgClass = 'bg-background/30'
-    else if (state === 'partial') bgClass = 'bg-background/60'
-    else bgClass = 'bg-background'
+    if (state === 'empty') bgClass = 'bg-primary-foreground/30'
+    else if (state === 'partial') bgClass = 'bg-primary-foreground/60'
+    else bgClass = 'bg-primary-foreground'
   } else {
     if (state === 'empty') bgClass = 'bg-border'
     else if (state === 'partial') bgClass = 'bg-muted-foreground'
-    else bgClass = 'bg-foreground'
+    else bgClass = 'bg-primary'
   }
   return <div className={cn('w-[7px] shrink-0 rounded-[1.5px]', heightClass, bgClass)} aria-hidden />
 }

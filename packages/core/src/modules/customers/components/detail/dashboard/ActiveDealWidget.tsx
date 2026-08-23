@@ -16,7 +16,7 @@ export function ActiveDealWidget({ deals, t }: { deals: DealSummary[]; t: Transl
 
   if (!topDeal) {
     return (
-      <div className="rounded-lg border bg-card p-5">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-5">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Users className="size-4" />
           {t('customers.companies.dashboard.activeDeal', 'Active deal')}
@@ -29,7 +29,7 @@ export function ActiveDealWidget({ deals, t }: { deals: DealSummary[]; t: Transl
   const amount = typeof topDeal.valueAmount === 'number' ? topDeal.valueAmount : parseFloat(String(topDeal.valueAmount ?? '0'))
 
   return (
-    <div className="rounded-lg border bg-card p-5">
+    <div className="rounded-xl border border-border bg-surface shadow-sm p-5">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Users className="size-4" />

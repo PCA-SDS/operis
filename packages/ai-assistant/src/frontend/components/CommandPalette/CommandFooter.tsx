@@ -15,10 +15,10 @@ interface CommandFooterProps {
 
 function ConnectionIndicator({ status }: { status: ConnectionStatus }) {
   const statusConfig: Record<ConnectionStatus, { color: string; text: string }> = {
-    connected: { color: 'bg-emerald-500', text: 'Connected' },
-    connecting: { color: 'bg-yellow-500 animate-pulse', text: 'Connecting...' },
-    disconnected: { color: 'bg-gray-400', text: 'Disconnected' },
-    error: { color: 'bg-red-500', text: 'Error' },
+    connected: { color: 'bg-status-success-solid', text: 'Connected' },
+    connecting: { color: 'bg-status-warning-solid animate-pulse', text: 'Connecting...' },
+    disconnected: { color: 'bg-status-neutral-icon', text: 'Disconnected' },
+    error: { color: 'bg-status-error-solid', text: 'Error' },
   }
 
   const config = statusConfig[status]
@@ -75,7 +75,7 @@ export function CommandFooter({
 
         {/* Session authorization indicator */}
         {isSessionAuthorized && (
-          <div className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center gap-1 text-xs text-status-success-icon dark:text-status-success-icon">
             <ShieldCheck className="h-3 w-3" />
             <span>Authorized</span>
           </div>
@@ -89,7 +89,7 @@ export function CommandFooter({
             className={cn(
               'flex items-center gap-1 transition-colors',
               showDebug
-                ? 'text-blue-500 hover:text-blue-400'
+                ? 'text-status-info-icon hover:text-status-info-icon'
                 : 'text-muted-foreground hover:text-foreground'
             )}
             title="Toggle debug panel"

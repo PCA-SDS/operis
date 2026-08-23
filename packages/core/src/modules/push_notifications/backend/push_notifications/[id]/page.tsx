@@ -108,7 +108,7 @@ export default function PushDeliveryDetailPage({ params }: { params?: { id?: str
                 </StatusBadge>
               )}
             />
-            <section className="rounded-lg border bg-card p-6">
+            <section className="rounded-xl border border-border bg-surface shadow-sm p-6">
               <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <DetailRow label={t('push_notifications.deliveries.columns.type')}>{item.notification_type_id}</DetailRow>
                 <DetailRow label={t('push_notifications.deliveries.columns.provider')}>{item.provider}</DetailRow>

@@ -46,8 +46,8 @@ function TimerSidebarIndicator() {
       title={t('staff.timesheets.sidebar.timerRunning', 'Timer running — click to view')}
     >
       <span className="relative flex h-2.5 w-2.5 shrink-0">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-error-icon opacity-75" />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-status-error-solid" />
       </span>
       {timer.projectName ? (
         <span className="inline-flex items-center gap-1 truncate">

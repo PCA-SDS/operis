@@ -689,7 +689,7 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
 
           {activeTab === 'details' ? (
             <>
-              <div className="rounded-lg border bg-card p-4">
+              <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <Tabs
                     value={activeDetailTab}
@@ -763,7 +763,7 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
                 ) : null}
               </div>
 
-              <div className="rounded-lg border bg-card p-4">
+              <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
                 <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
                   {t('resources.resources.detail.formTitle', 'Resource settings')}
                 </h2>

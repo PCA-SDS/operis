@@ -630,7 +630,7 @@ export function CompanyPeopleSection({
           entityName={companyName ?? null}
         />
 
-        <section className="rounded-lg border bg-card px-4 py-4 sm:px-5">
+        <section className="rounded-xl border border-border bg-surface shadow-sm px-4 py-4 sm:px-5">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
               <div className="space-y-1">

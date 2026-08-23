@@ -18,6 +18,7 @@ import {
   Users,
 } from 'lucide-react'
 import { Badge } from '@open-mercato/ui/primitives/badge'
+import { entityColorStyle } from '@open-mercato/ui/primitives/tag'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -129,7 +130,7 @@ function ColorBadge({
   const icon = entry?.icon ?? null
   const label = entry?.label ?? formatFallbackLabel(value)
   const colorStyle: React.CSSProperties | undefined = color
-    ? { color, borderColor: color, backgroundColor: `${color}1A` }
+    ? entityColorStyle(color)
     : undefined
   return (
     <Badge
@@ -154,7 +155,7 @@ function StatusDotBadge({
   const color = entry?.color ?? null
   const label = entry?.label ?? formatFallbackLabel(value)
   const colorStyle: React.CSSProperties | undefined = color
-    ? { color, borderColor: color, backgroundColor: `${color}1A` }
+    ? entityColorStyle(color)
     : undefined
   return (
     <Badge

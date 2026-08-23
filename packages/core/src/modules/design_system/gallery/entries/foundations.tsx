@@ -25,11 +25,11 @@ function SwatchCard({ copyText, label, children }: { copyText: string; label: st
     <button
       type="button"
       onClick={onCopy}
-      className="flex w-36 flex-col items-start gap-1 rounded-md border border-border bg-background p-2 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:shadow-focus"
+      className="flex w-36 flex-col items-start gap-1 rounded-md border border-border bg-surface p-2 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:shadow-focus"
       title={`Copy ${copyText}`}
     >
       {children}
-      <code className="break-all text-[11px] leading-tight text-muted-foreground">{label}</code>
+      <code className="break-all text-overline leading-tight text-muted-foreground">{label}</code>
     </button>
   )
 }
@@ -88,8 +88,8 @@ const brandColorsEntry: GalleryEntry = {
   title: 'Brand colors',
   importPath: TOKENS_IMPORT,
   usage: {
-    do: ['brand-violet 10/30/100 pattern (bg/border/text) for proposed and feature accents.'],
-    dont: ['Never theme or repurpose accent-indigo — it is the selection-control contract.'],
+    do: ['brand-violet 10/30/100 pattern (bg/border/text) for AI and feature accents; the sky → lilac → violet ramp for brand moments.'],
+    dont: ['Never repurpose accent-strong for a CTA — it is the interactive accent (links, tabs, sort, slider, progress), not the primary fill.'],
   },
   figmaNodeId: FIGMA_COLORS_NODE,
   variants: [
@@ -100,12 +100,12 @@ const brandColorsEntry: GalleryEntry = {
         <div className="space-y-2">
           <div
             aria-hidden
-            className="h-16 w-full max-w-md rounded-md border border-border bg-linear-135 from-brand-lime from-0% via-brand-yellow via-35% to-brand-violet to-70%"
+            className="h-16 w-full max-w-md rounded-md border border-border bg-linear-135 from-brand-sky from-0% via-brand-lilac via-35% to-brand-violet to-70%"
           />
-          <code className="text-xs text-muted-foreground">brand-lime 0%, brand-yellow 35%, brand-violet 70%</code>
+          <code className="text-xs text-muted-foreground">brand-sky 0%, brand-lilac 35%, brand-violet 70%</code>
         </div>
       ),
-      code: `<div className="bg-linear-135 from-brand-lime from-0% via-brand-yellow via-35% to-brand-violet to-70%" />`,
+      code: `<div className="bg-linear-135 from-brand-sky from-0% via-brand-lilac via-35% to-brand-violet to-70%" />`,
     },
     {
       id: 'identity',
@@ -113,11 +113,11 @@ const brandColorsEntry: GalleryEntry = {
       render: () => (
         <SwatchRow
           items={[
-            { tokenClass: 'bg-brand-lime', label: 'brand-lime' },
-            { tokenClass: 'bg-brand-yellow', label: 'brand-yellow' },
+            { tokenClass: 'bg-brand-sky', label: 'brand-sky' },
+            { tokenClass: 'bg-brand-lilac', label: 'brand-lilac' },
             { tokenClass: 'bg-brand-violet', label: 'brand-violet' },
             { tokenClass: 'bg-brand-violet-foreground', label: 'brand-violet-foreground' },
-            { tokenClass: 'bg-accent-indigo', label: 'accent-indigo' },
+            { tokenClass: 'bg-accent-strong', label: 'accent-strong' },
           ]}
         />
       ),
@@ -169,12 +169,28 @@ const colorTokensEntry: GalleryEntry = {
       code: `<div className="bg-primary text-primary-foreground hover:bg-primary-hover" />`,
     },
     {
-      id: 'background',
-      title: 'background (bg)',
+      id: 'surface-ladder',
+      title: 'surface ladder',
       render: () => (
         <SwatchRow
           items={[
             { tokenClass: 'bg-background', label: 'background' },
+            { tokenClass: 'bg-surface', label: 'surface' },
+            { tokenClass: 'bg-surface-muted', label: 'surface-muted' },
+            { tokenClass: 'bg-surface-strong', label: 'surface-strong' },
+            { tokenClass: 'bg-surface-modal', label: 'surface-modal' },
+            { tokenClass: 'bg-modal-muted', label: 'modal-muted' },
+          ]}
+        />
+      ),
+      code: `<div className="bg-surface hover:bg-surface-strong" />`,
+    },
+    {
+      id: 'background',
+      title: 'background (aliases)',
+      render: () => (
+        <SwatchRow
+          items={[
             { tokenClass: 'bg-card', label: 'card' },
             { tokenClass: 'bg-popover', label: 'popover' },
             { tokenClass: 'bg-muted', label: 'muted' },
@@ -187,6 +203,69 @@ const colorTokensEntry: GalleryEntry = {
       code: `<div className="bg-card text-card-foreground" />`,
     },
     {
+      id: 'accent-strong',
+      title: 'interactive accent',
+      render: () => (
+        <SwatchRow
+          items={[
+            { tokenClass: 'bg-accent-strong', label: 'accent-strong' },
+            { tokenClass: 'bg-accent-strong-hover', label: 'accent-strong-hover' },
+            { tokenClass: 'bg-accent-soft', label: 'accent-soft' },
+            { tokenClass: 'bg-accent-border', label: 'accent-border' },
+            { tokenClass: 'bg-focus-ring', label: 'focus-ring' },
+          ]}
+        />
+      ),
+      code: `<a className="text-accent-strong hover:text-accent-strong-hover" />`,
+    },
+    {
+      id: 'primary-family',
+      title: 'primary family',
+      render: () => (
+        <SwatchRow
+          items={[
+            { tokenClass: 'bg-primary', label: 'primary' },
+            { tokenClass: 'bg-primary-hover', label: 'primary-hover' },
+            { tokenClass: 'bg-primary-active', label: 'primary-active' },
+            { tokenClass: 'bg-primary-soft', label: 'primary-soft' },
+            { tokenClass: 'bg-primary-border', label: 'primary-border' },
+          ]}
+        />
+      ),
+      code: `<tr className="bg-primary-soft" />`,
+    },
+    {
+      id: 'table-family',
+      title: 'table family',
+      render: () => (
+        <SwatchRow
+          items={[
+            { tokenClass: 'bg-table-header', label: 'table-header' },
+            { tokenClass: 'bg-table-row-hover', label: 'table-row-hover' },
+            { tokenClass: 'bg-table-selected', label: 'table-selected' },
+            { tokenClass: 'bg-table-border', label: 'table-border' },
+          ]}
+        />
+      ),
+      code: `<thead className="bg-table-header" />`,
+    },
+    {
+      id: 'input-family',
+      title: 'input family',
+      render: () => (
+        <SwatchRow
+          items={[
+            { tokenClass: 'bg-input-bg', label: 'input-bg' },
+            { tokenClass: 'bg-input-border', label: 'input-border' },
+            { tokenClass: 'bg-input-border-focus', label: 'input-border-focus' },
+            { tokenClass: 'bg-input-placeholder', label: 'input-placeholder' },
+            { tokenClass: 'bg-input-disabled-bg', label: 'input-disabled-bg' },
+          ]}
+        />
+      ),
+      code: `<input className="bg-input-bg border-input-border" />`,
+    },
+    {
       id: 'text',
       title: 'text',
       render: () => (
@@ -195,6 +274,8 @@ const colorTokensEntry: GalleryEntry = {
           <TextSwatch textClass="text-muted-foreground" label="text-muted-foreground" />
           <TextSwatch textClass="text-card-foreground" label="text-card-foreground" />
           <TextSwatch textClass="text-accent-foreground" label="text-accent-foreground" />
+          <TextSwatch textClass="text-disabled-foreground" label="text-disabled-foreground" />
+          <TextSwatch textClass="text-accent-strong" label="text-accent-strong" />
           <TextSwatch textClass="text-text-disabled" label="text-text-disabled" />
         </div>
       ),
@@ -411,7 +492,7 @@ const colorRolesEntry: GalleryEntry = {
             { surface: 'primary', onSurface: 'primary-foreground', surfaceCls: 'bg-primary', onSurfaceCls: 'text-primary-foreground' },
             { surface: 'destructive', onSurface: 'white', surfaceCls: 'bg-destructive', onSurfaceCls: 'text-white' },
             { surface: 'brand-violet', onSurface: 'brand-violet-foreground', surfaceCls: 'bg-brand-violet', onSurfaceCls: 'text-brand-violet-foreground' },
-            { surface: 'accent-indigo', onSurface: 'accent-indigo-foreground', surfaceCls: 'bg-accent-indigo', onSurfaceCls: 'text-accent-indigo-foreground' },
+            { surface: 'accent-strong', onSurface: 'accent-strong-foreground', surfaceCls: 'bg-accent-strong', onSurfaceCls: 'text-accent-strong-foreground' },
           ]}
         />
       ),
@@ -494,12 +575,12 @@ const radiusEntry: GalleryEntry = {
   keywords: ['radius', 'rounded', 'border-radius', 'corners'],
   usage: {
     do: [
-      'The scale derives from the --radius base token (10px): sm 6px, md 8px, lg 10px, xl 16px.',
-      'Cards and panels use rounded-lg; controls, chips and filter buttons use rounded-md.',
+      'The scale is explicit, not derived: sm 4px, md 6px, lg 8px, xl 12px, 2xl 16px.',
+      'Cards, tables, menus and popovers use rounded-xl; default controls use rounded-lg; compact controls and menu items use rounded-md; modals use rounded-2xl.',
       'rounded-full is reserved for Badge, Tag, SegmentedControl, Avatar and status dots.',
     ],
     dont: [
-      'No arbitrary values (rounded-[24px]) — pick from the scale.',
+      'No arbitrary values (rounded-2xl) — pick from the scale.',
       'No full-pill radii on filter chips or custom controls outside the reserved primitives.',
     ],
   },

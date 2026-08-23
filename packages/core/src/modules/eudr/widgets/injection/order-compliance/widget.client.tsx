@@ -64,7 +64,7 @@ export default function OrderComplianceWidget({ data }: InjectionWidgetComponent
   const statements = statementsData?.items ?? []
 
   return (
-    <div className="space-y-3 rounded-lg border bg-card p-4 shadow-sm">
+    <div className="space-y-3 rounded-xl border border-border bg-surface shadow-sm p-4 shadow-sm">
       <div className="text-sm font-semibold text-foreground">
         {t('eudr.orderPanel.groupLabel', 'EUDR compliance')}
       </div>

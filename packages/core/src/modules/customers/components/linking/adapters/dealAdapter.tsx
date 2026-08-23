@@ -417,7 +417,7 @@ export function createDealLinkAdapter(options: DealAdapterOptions): LinkEntityAd
           className={cn(
             'inline-flex size-5 shrink-0 items-center justify-center rounded-full border',
             ctx.selected
-              ? 'border-foreground bg-foreground text-background'
+              ? 'border-primary bg-primary text-primary-foreground'
               : 'border-border bg-background',
           )}
         >
@@ -493,7 +493,7 @@ export function createDealLinkAdapter(options: DealAdapterOptions): LinkEntityAd
               Stage
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="inline-block size-2 rounded-full bg-foreground" />
+              <span className="inline-block size-2 rounded-full bg-primary" />
               <span className="text-xs font-semibold text-foreground">{derived.stage}</span>
             </div>
           </>

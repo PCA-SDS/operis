@@ -21,7 +21,7 @@ type SyncProbeResult = {
 }
 
 const syncProbeOrder: SyncProbeKey[] = ['defaultPriority', 'preventUncomplete', 'auditDelete']
-const hintClassName = 'rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-400/10 p-2 text-xs text-amber-800 dark:text-amber-100/90'
+const hintClassName = 'rounded-md border border-status-warning-icon/40 bg-status-warning-bg p-2 text-xs text-status-warning-text'
 
 function print(value: unknown): string {
   try {
@@ -266,7 +266,7 @@ export default function MutationLifecyclePage() {
             </p>
           </div>
           <div className={`grid gap-1 ${hintClassName}`}>
-            <div className="font-medium text-amber-900 dark:text-amber-50">{t('example.mutationLifecycle.hintHeading', 'What should be visible and how it should work')}</div>
+            <div className="font-medium text-status-warning-text">{t('example.mutationLifecycle.hintHeading', 'What should be visible and how it should work')}</div>
             <div>{t('example.mutationLifecycle.m1.hint1', '1. Guard `example.todo-limit` targets `example.todo` on `create` operations with priority 50.')}</div>
             <div>{t('example.mutationLifecycle.m1.hint2', '2. Guard validates `organizationId` presence — creation fails with 422 if missing.')}</div>
             <div>{t('example.mutationLifecycle.m1.hint3', '3. Multiple guards run by priority order; first rejection stops the pipeline.')}</div>
@@ -293,7 +293,7 @@ export default function MutationLifecyclePage() {
             </p>
           </div>
           <div className={`grid gap-1 ${hintClassName}`}>
-            <div className="font-medium text-amber-900 dark:text-amber-50">{t('example.mutationLifecycle.hintHeading', 'What should be visible and how it should work')}</div>
+            <div className="font-medium text-status-warning-text">{t('example.mutationLifecycle.hintHeading', 'What should be visible and how it should work')}</div>
             <div>{t('example.mutationLifecycle.m2.hint1', '1. `auto-default-priority`: Injects `priority: \'normal\'` when creating a todo without explicit priority (sync before-create).')}</div>
             <div>{t('example.mutationLifecycle.m2.hint2', '2. `prevent-uncomplete`: Blocks reverting completed todos to pending with 422 (sync before-update).')}</div>
             <div>{t('example.mutationLifecycle.m2.hint3', '3. `audit-delete`: Logs deletion audit trail to server console (sync after-delete, non-blocking).')}</div>
@@ -332,7 +332,7 @@ export default function MutationLifecyclePage() {
             </p>
           </div>
           <div className={`grid gap-1 ${hintClassName}`}>
-            <div className="font-medium text-amber-900 dark:text-amber-50">{t('example.mutationLifecycle.hintHeading', 'What should be visible and how it should work')}</div>
+            <div className="font-medium text-status-warning-text">{t('example.mutationLifecycle.hintHeading', 'What should be visible and how it should work')}</div>
             <div>{t('example.mutationLifecycle.m3.hint1', '1. Widgets can declare `eventHandlers.filter.operations` to skip specific CRUD operations (e.g., only fire on `update`).')}</div>
             <div>{t('example.mutationLifecycle.m3.hint2', '2. CrudForm now passes `operation` (\'create\' or \'update\') in the injection context.')}</div>
             <div>{t('example.mutationLifecycle.m3.hint3', '3. Widgets without a filter continue to fire for all operations (backward compatible).')}</div>
@@ -358,7 +358,7 @@ export default function MutationLifecyclePage() {
             </p>
           </div>
           <div className={`grid gap-1 ${hintClassName}`}>
-            <div className="font-medium text-amber-900 dark:text-amber-50">{t('example.mutationLifecycle.hintHeading', 'What should be visible and how it should work')}</div>
+            <div className="font-medium text-status-warning-text">{t('example.mutationLifecycle.hintHeading', 'What should be visible and how it should work')}</div>
             <div>{t('example.mutationLifecycle.m4.hint1', '1. `example.audit-logging` intercepts all `customers.*` commands (wildcard pattern).')}</div>
             <div>{t('example.mutationLifecycle.m4.hint2', '2. `beforeExecute` stores `auditStartedAt` timestamp in metadata.')}</div>
             <div>{t('example.mutationLifecycle.m4.hint3', '3. `afterExecute` reads metadata and logs: `[example:audit] Command {id} completed in {ms}ms`.')}</div>

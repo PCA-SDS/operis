@@ -726,8 +726,8 @@ export default function CheckoutDemoPage() {
     const fieldDescription = fieldSchema.description
     const enumValues = fieldSchema.enum
 
-    const inputClasses = "w-full px-3 py-2 border border-gray-300 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-sm"
-    const labelClasses = "block text-sm font-medium text-gray-700 mb-1"
+    const inputClasses = "w-full px-3 py-2 border border-border rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-sm"
+    const labelClasses = "block text-sm font-medium text-muted-foreground mb-1"
 
     // Handle enum (select dropdown)
     if (enumValues && Array.isArray(enumValues)) {
@@ -738,7 +738,7 @@ export default function CheckoutDemoPage() {
             {required && <span className="text-status-error-text ml-1">*</span>}
           </label>
           {fieldDescription && (
-            <p className="text-xs text-gray-500 mb-1">{fieldDescription}</p>
+            <p className="text-xs text-muted-foreground mb-1">{fieldDescription}</p>
           )}
           <Select
             value={(formData[fieldName] as string) || undefined}
@@ -770,7 +770,7 @@ export default function CheckoutDemoPage() {
                 {required && <span className="text-status-error-text ml-1">*</span>}
               </label>
               {fieldDescription && (
-                <p className="text-xs text-gray-500 mb-1">{fieldDescription}</p>
+                <p className="text-xs text-muted-foreground mb-1">{fieldDescription}</p>
               )}
               <EmailInput
                 id={fieldName}
@@ -789,7 +789,7 @@ export default function CheckoutDemoPage() {
                 {required && <span className="text-status-error-text ml-1">*</span>}
               </label>
               {fieldDescription && (
-                <p className="text-xs text-gray-500 mb-1">{fieldDescription}</p>
+                <p className="text-xs text-muted-foreground mb-1">{fieldDescription}</p>
               )}
               <Input
                 type="date"
@@ -809,7 +809,7 @@ export default function CheckoutDemoPage() {
                 {required && <span className="text-status-error-text ml-1">*</span>}
               </label>
               {fieldDescription && (
-                <p className="text-xs text-gray-500 mb-1">{fieldDescription}</p>
+                <p className="text-xs text-muted-foreground mb-1">{fieldDescription}</p>
               )}
               <Textarea
                 id={fieldName}
@@ -828,7 +828,7 @@ export default function CheckoutDemoPage() {
               {required && <span className="text-status-error-text ml-1">*</span>}
             </label>
             {fieldDescription && (
-              <p className="text-xs text-gray-500 mb-1">{fieldDescription}</p>
+              <p className="text-xs text-muted-foreground mb-1">{fieldDescription}</p>
             )}
             <Input
               type="text"
@@ -849,7 +849,7 @@ export default function CheckoutDemoPage() {
               {required && <span className="text-status-error-text ml-1">*</span>}
             </label>
             {fieldDescription && (
-              <p className="text-xs text-gray-500 mb-1">{fieldDescription}</p>
+              <p className="text-xs text-muted-foreground mb-1">{fieldDescription}</p>
             )}
             <Input
               type="number"
@@ -871,13 +871,13 @@ export default function CheckoutDemoPage() {
                 checked={!!formData[fieldName]}
                 onCheckedChange={(v) => handleFieldChange(fieldName, v === true)}
               />
-              <label htmlFor={fieldName} className="text-sm font-medium text-gray-700">
+              <label htmlFor={fieldName} className="text-sm font-medium text-muted-foreground">
                 {fieldTitle}
                 {required && <span className="text-status-error-text ml-1">*</span>}
               </label>
             </div>
             {fieldDescription && (
-              <p className="text-xs text-gray-500 ml-6">{fieldDescription}</p>
+              <p className="text-xs text-muted-foreground ml-6">{fieldDescription}</p>
             )}
           </div>
         )
@@ -890,7 +890,7 @@ export default function CheckoutDemoPage() {
               {required && <span className="text-status-error-text ml-1">*</span>}
             </label>
             {fieldDescription && (
-              <p className="text-xs text-gray-500 mb-1">{fieldDescription}</p>
+              <p className="text-xs text-muted-foreground mb-1">{fieldDescription}</p>
             )}
             <Input
               type="text"
@@ -905,14 +905,14 @@ export default function CheckoutDemoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-surface-muted py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
             {t('workflows.checkoutDemo.title', 'Checkout Demo with Payment Webhooks')}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-muted-foreground">
             {t(
               'workflows.checkoutDemo.subtitle',
               'Interactive workflow demonstration featuring signal-based payment confirmation (WAIT_FOR_SIGNAL)',
@@ -927,13 +927,13 @@ export default function CheckoutDemoPage() {
             {!result && (
               <>
                 {/* Customer Selection */}
-                <div className="mb-6 pb-6 border-b border-gray-200">
-                  <label htmlFor="customer-select" className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="mb-6 pb-6 border-b border-border">
+                  <label htmlFor="customer-select" className="block text-sm font-medium text-muted-foreground mb-2">
                     {t('workflows.checkoutDemo.customer.selectLabel', 'Select Customer')}{' '}
                     <span className="text-status-error-text">*</span>
                   </label>
                   {customersLoading ? (
-                    <div className="flex items-center justify-center py-3 text-sm text-gray-500">
+                    <div className="flex items-center justify-center py-3 text-sm text-muted-foreground">
                       <Spinner size="sm" className="mr-2" />
                       {t('workflows.checkoutDemo.customer.loading', 'Loading customers...')}
                     </div>
@@ -959,7 +959,7 @@ export default function CheckoutDemoPage() {
                         </SelectContent>
                       </Select>
                       <div className="mt-2">
-                        <label htmlFor="currency-select" className="block text-xs font-medium text-gray-600 mb-1">
+                        <label htmlFor="currency-select" className="block text-xs font-medium text-muted-foreground mb-1">
                           {t('workflows.checkoutDemo.currency.label', 'Currency')}
                         </label>
                         <Select
@@ -982,12 +982,12 @@ export default function CheckoutDemoPage() {
                 </div>
 
                 {/* Product Selection */}
-                <div className="mb-6 pb-6 border-b border-gray-200">
-                  <label htmlFor="product-select" className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="mb-6 pb-6 border-b border-border">
+                  <label htmlFor="product-select" className="block text-sm font-medium text-muted-foreground mb-2">
                     {t('workflows.checkoutDemo.product.addLabel', 'Add Products to Cart')}
                   </label>
                   {productsLoading ? (
-                    <div className="flex items-center justify-center py-3 text-sm text-gray-500">
+                    <div className="flex items-center justify-center py-3 text-sm text-muted-foreground">
                       <Spinner size="sm" className="mr-2" />
                       {t('workflows.checkoutDemo.product.loading', 'Loading products...')}
                     </div>
@@ -1026,7 +1026,7 @@ export default function CheckoutDemoPage() {
                         </SelectContent>
                       </Select>
                       {cart.length === 0 && (
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-muted-foreground mt-1">
                           {t('workflows.checkoutDemo.cart.selectHint', 'Select products from the dropdown to add them to your cart')}
                         </p>
                       )}
@@ -1034,27 +1034,27 @@ export default function CheckoutDemoPage() {
                   )}
                 </div>
 
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                <h2 className="text-xl font-semibold text-foreground mb-4">
                   {t('workflows.checkoutDemo.orderSummary.title', 'Order Summary')}
                 </h2>
 
                 {/* Cart Items */}
                 {cart.length === 0 ? (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center mb-6">
-                    <p className="text-gray-500 text-sm">
+                  <div className="bg-surface-muted border border-border rounded-lg p-6 text-center mb-6">
+                    <p className="text-muted-foreground text-sm">
                       {t('workflows.checkoutDemo.cart.empty.title', 'Your cart is empty')}
                     </p>
-                    <p className="text-gray-400 text-xs mt-1">
+                    <p className="text-disabled-foreground text-xs mt-1">
                       {t('workflows.checkoutDemo.cart.empty.hint', 'Add products from the dropdown above')}
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-4 mb-6">
                     {demoCart.map((item) => (
-                      <div key={item.id} className="flex justify-between items-center gap-4 pb-3 border-b border-gray-100 last:border-0">
+                      <div key={item.id} className="flex justify-between items-center gap-4 pb-3 border-b border-border last:border-0">
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 truncate">{item.name}</p>
-                          <p className="text-xs text-gray-500">{currencySymbol}{item.price.toFixed(2)} {t('workflows.checkoutDemo.cart.pricePerUnitSuffix', 'each')}</p>
+                          <p className="font-medium text-foreground truncate">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">{currencySymbol}{item.price.toFixed(2)} {t('workflows.checkoutDemo.cart.pricePerUnitSuffix', 'each')}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <IconButton
@@ -1078,7 +1078,7 @@ export default function CheckoutDemoPage() {
                           </IconButton>
                         </div>
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-gray-900 min-w-[80px] text-right">
+                          <p className="font-medium text-foreground min-w-[80px] text-right">
                             {currencySymbol}{(item.price * item.quantity).toFixed(2)}
                           </p>
                           <IconButton
@@ -1098,22 +1098,22 @@ export default function CheckoutDemoPage() {
                 )}
 
                 {/* Totals */}
-                <div className="border-t border-gray-200 pt-4 space-y-2">
+                <div className="border-t border-border pt-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{t('workflows.checkoutDemo.cart.subtotal', 'Subtotal')}</span>
-                    <span className="text-gray-900">{currencySymbol}{subtotal.toFixed(2)}</span>
+                    <span className="text-muted-foreground">{t('workflows.checkoutDemo.cart.subtotal', 'Subtotal')}</span>
+                    <span className="text-foreground">{currencySymbol}{subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{t('workflows.checkoutDemo.cart.tax', 'Tax (8%)')}</span>
-                    <span className="text-gray-900">{currencySymbol}{tax.toFixed(2)}</span>
+                    <span className="text-muted-foreground">{t('workflows.checkoutDemo.cart.tax', 'Tax (8%)')}</span>
+                    <span className="text-foreground">{currencySymbol}{tax.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">{t('workflows.checkoutDemo.cart.shipping', 'Shipping')}</span>
-                    <span className="text-gray-900">{currencySymbol}{shipping.toFixed(2)}</span>
+                    <span className="text-muted-foreground">{t('workflows.checkoutDemo.cart.shipping', 'Shipping')}</span>
+                    <span className="text-foreground">{currencySymbol}{shipping.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between font-semibold text-lg pt-2 border-t border-gray-200">
-                    <span className="text-gray-900">{t('workflows.checkoutDemo.cart.total', 'Total')}</span>
-                    <span className="text-gray-900">{currencySymbol}{total.toFixed(2)}</span>
+                  <div className="flex justify-between font-semibold text-lg pt-2 border-t border-border">
+                    <span className="text-foreground">{t('workflows.checkoutDemo.cart.total', 'Total')}</span>
+                    <span className="text-foreground">{currencySymbol}{total.toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -1154,7 +1154,7 @@ export default function CheckoutDemoPage() {
                             : t('workflows.checkoutDemo.checkout.start', 'Start Checkout Workflow')}
                 </Button>
                 {!selectedCustomerId && customers.length > 0 && validationErrors.length === 0 && (
-                  <p className="text-xs text-gray-500 text-center mt-2">
+                  <p className="text-xs text-muted-foreground text-center mt-2">
                     {t('workflows.checkoutDemo.checkout.pleaseSelectCustomer', 'Please select a customer to continue')}
                   </p>
                 )}
@@ -1164,7 +1164,7 @@ export default function CheckoutDemoPage() {
             {/* Cart Validation Step */}
             {result && (result.currentStepId === 'start' || result.currentStepId === 'cart_validation') && (
               <>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
                   <span className="inline-block w-2 h-2 bg-status-info-icon rounded-full animate-pulse"></span>
                   {t('workflows.checkoutDemo.cartValidation.title', 'Validating Cart')}
                 </h2>
@@ -1180,16 +1180,16 @@ export default function CheckoutDemoPage() {
                     </div>
                   )}
                   {demoCart.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center border-b border-gray-200 pb-2">
+                    <div key={item.id} className="flex justify-between items-center border-b border-border pb-2">
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">{item.name}</p>
-                        <p className="text-xs text-gray-500">{t('workflows.checkoutDemo.cartValidation.qtyPrefix', 'Qty:')} {item.quantity}</p>
+                        <p className="font-medium text-foreground">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">{t('workflows.checkoutDemo.cartValidation.qtyPrefix', 'Qty:')} {item.quantity}</p>
                       </div>
                       <span className="text-status-success-text text-sm">{t('workflows.checkoutDemo.cartValidation.available', '✓ Available')}</span>
                     </div>
                   ))}
-                  <div className="pt-2 border-t border-gray-200">
-                    <p className="text-sm font-medium text-gray-900">{t('workflows.checkoutDemo.cartValidation.totalPrefix', 'Total:')} {currencySymbol}{total.toFixed(2)}</p>
+                  <div className="pt-2 border-t border-border">
+                    <p className="text-sm font-medium text-foreground">{t('workflows.checkoutDemo.cartValidation.totalPrefix', 'Total:')} {currencySymbol}{total.toFixed(2)}</p>
                   </div>
                 </div>
               </>
@@ -1198,7 +1198,7 @@ export default function CheckoutDemoPage() {
             {/* Customer Information Step - USER_TASK */}
             {result && result.currentStepId === 'customer_info' && (
               <>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
                   <span className="inline-block w-2 h-2 bg-status-warning-icon rounded-full animate-pulse"></span>
                   {t('workflows.checkoutDemo.customerInfo.title', 'Customer Information Required')}
                 </h2>
@@ -1233,11 +1233,11 @@ export default function CheckoutDemoPage() {
                     <div className="bg-status-info-bg border border-status-info-border rounded-lg p-4">
                       <div className="flex items-center justify-center py-4">
                         <Spinner size="lg" />
-                        <p className="ml-3 text-sm text-gray-600">{t('workflows.checkoutDemo.customerInfo.loading', 'Loading task...')}</p>
+                        <p className="ml-3 text-sm text-muted-foreground">{t('workflows.checkoutDemo.customerInfo.loading', 'Loading task...')}</p>
                       </div>
                     </div>
                   ) : userTasks.length > 0 ? (
-                    <form onSubmit={handleTaskSubmit} className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
+                    <form onSubmit={handleTaskSubmit} className="bg-white border border-border rounded-lg p-4 space-y-4">
                       {taskError && (
                         <div className="bg-status-error-bg border border-status-error-border rounded-lg p-3">
                           <p className="text-sm text-status-error-text">{taskError}</p>
@@ -1253,7 +1253,7 @@ export default function CheckoutDemoPage() {
                         </div>
                       )}
 
-                      <div className="pt-3 border-t border-gray-200">
+                      <div className="pt-3 border-t border-border">
                         <Button
                           type="submit"
                           disabled={submittingTask}
@@ -1290,7 +1290,7 @@ export default function CheckoutDemoPage() {
             {/* Payment Initiation Step */}
             {result && result.currentStepId === 'payment_initiation' && (
               <>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
                   <span className="inline-block w-2 h-2 bg-status-info-icon rounded-full animate-pulse"></span>
                   {t('workflows.checkoutDemo.paymentInitiation.title', 'Initiating Payment')}
                 </h2>
@@ -1299,19 +1299,19 @@ export default function CheckoutDemoPage() {
                     <p className="text-sm text-status-info-text font-medium mb-2">{t('workflows.checkoutDemo.paymentInitiation.detailsTitle', 'Payment Details')}</p>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">{t('workflows.checkoutDemo.paymentInitiation.methodLabel', 'Method:')}</span>
-                        <span className="text-gray-900">{t('workflows.checkoutDemo.paymentInitiation.methodValue', 'Credit Card ****4242')}</span>
+                        <span className="text-muted-foreground">{t('workflows.checkoutDemo.paymentInitiation.methodLabel', 'Method:')}</span>
+                        <span className="text-foreground">{t('workflows.checkoutDemo.paymentInitiation.methodValue', 'Credit Card ****4242')}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">{t('workflows.checkoutDemo.paymentInitiation.amountLabel', 'Amount:')}</span>
-                        <span className="text-gray-900 font-semibold">{currencySymbol}{total.toFixed(2)}</span>
+                        <span className="text-muted-foreground">{t('workflows.checkoutDemo.paymentInitiation.amountLabel', 'Amount:')}</span>
+                        <span className="text-foreground font-semibold">{currencySymbol}{total.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center justify-center py-8">
                     <div className="text-center">
                       <Spinner size="lg" className="mb-4" />
-                      <p className="text-sm text-gray-600">{t('workflows.checkoutDemo.paymentInitiation.sending', 'Sending payment request...')}</p>
+                      <p className="text-sm text-muted-foreground">{t('workflows.checkoutDemo.paymentInitiation.sending', 'Sending payment request...')}</p>
                     </div>
                   </div>
                 </div>
@@ -1321,7 +1321,7 @@ export default function CheckoutDemoPage() {
             {/* Wait for Payment Confirmation Step - SIGNAL */}
             {result && result.currentStepId === 'wait_payment_confirmation' && (
               <>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
                   <span className="inline-block w-2 h-2 bg-status-warning-icon rounded-full animate-pulse"></span>
                   {t('workflows.checkoutDemo.waitPayment.title', 'Waiting for Payment Confirmation')}
                 </h2>
@@ -1370,9 +1370,9 @@ export default function CheckoutDemoPage() {
                   )}
 
                   {result.status === 'PAUSED' && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <p className="text-sm font-medium text-gray-900 mb-2">{t('workflows.checkoutDemo.waitPayment.demoTestingTitle', 'For Demo Testing:')}</p>
-                      <p className="text-xs text-gray-600 mb-3">
+                    <div className="bg-white border border-border rounded-lg p-4">
+                      <p className="text-sm font-medium text-foreground mb-2">{t('workflows.checkoutDemo.waitPayment.demoTestingTitle', 'For Demo Testing:')}</p>
+                      <p className="text-xs text-muted-foreground mb-3">
                         {t('workflows.checkoutDemo.waitPayment.demoTestingHint', 'Click the button below to simulate a payment provider webhook confirming the transaction.')}
                       </p>
                       <Button
@@ -1384,8 +1384,8 @@ export default function CheckoutDemoPage() {
                           ? t('workflows.checkoutDemo.waitPayment.sendingSignal', 'Sending Signal...')
                           : t('workflows.checkoutDemo.waitPayment.simulateWebhook', '🔔 Simulate Payment Webhook')}
                       </Button>
-                      <p className="text-xs text-gray-500 mt-2 text-center">
-                        {t('workflows.checkoutDemo.waitPayment.sendsPrefix', 'This sends a ')}<code className="bg-gray-100 px-1 py-0.5 rounded text-xs">SIGNAL_RECEIVED</code>{t('workflows.checkoutDemo.waitPayment.sendsSuffix', ' event')}
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        {t('workflows.checkoutDemo.waitPayment.sendsPrefix', 'This sends a ')}<code className="bg-surface-muted px-1 py-0.5 rounded text-xs">SIGNAL_RECEIVED</code>{t('workflows.checkoutDemo.waitPayment.sendsSuffix', ' event')}
                       </p>
                     </div>
                   )}
@@ -1410,7 +1410,7 @@ export default function CheckoutDemoPage() {
             {/* Order Confirmation Step */}
             {result && result.currentStepId === 'order_confirmation' && (
               <>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-foreground mb-4 flex items-center gap-2">
                   <span className="inline-block w-2 h-2 bg-status-info-icon rounded-full animate-pulse"></span>
                   {t('workflows.checkoutDemo.orderConfirmation.title', 'Creating Order')}
                 </h2>
@@ -1422,15 +1422,15 @@ export default function CheckoutDemoPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm">
                       <span className="text-status-success-text">✓</span>
-                      <span className="text-gray-700">{t('workflows.checkoutDemo.orderConfirmation.creatingRecord', 'Creating order record')}</span>
+                      <span className="text-muted-foreground">{t('workflows.checkoutDemo.orderConfirmation.creatingRecord', 'Creating order record')}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Spinner size="sm" />
-                      <span className="text-gray-700">{t('workflows.checkoutDemo.orderConfirmation.sendingEmail', 'Sending confirmation email')}</span>
+                      <span className="text-muted-foreground">{t('workflows.checkoutDemo.orderConfirmation.sendingEmail', 'Sending confirmation email')}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
-                      <span className="text-gray-400">○</span>
-                      <span className="text-gray-500">{t('workflows.checkoutDemo.orderConfirmation.updatingInventory', 'Updating inventory')}</span>
+                      <span className="text-disabled-foreground">○</span>
+                      <span className="text-muted-foreground">{t('workflows.checkoutDemo.orderConfirmation.updatingInventory', 'Updating inventory')}</span>
                     </div>
                   </div>
                 </div>
@@ -1444,32 +1444,32 @@ export default function CheckoutDemoPage() {
                   <div className="inline-flex items-center justify-center w-16 h-16 bg-status-success-bg rounded-full mb-4">
                     <Check className="w-8 h-8 text-status-success-text" />
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('workflows.checkoutDemo.completed.title', 'Order Confirmed!')}</h2>
-                  <p className="text-sm text-gray-600">{t('workflows.checkoutDemo.completed.orderNumberPrefix', 'Order #')}{result.instanceId.slice(0, 8).toUpperCase()}</p>
+                  <h2 className="text-2xl font-bold text-foreground mb-2">{t('workflows.checkoutDemo.completed.title', 'Order Confirmed!')}</h2>
+                  <p className="text-sm text-muted-foreground">{t('workflows.checkoutDemo.completed.orderNumberPrefix', 'Order #')}{result.instanceId.slice(0, 8).toUpperCase()}</p>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                  <div className="bg-surface-muted rounded-lg p-4 space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{t('workflows.checkoutDemo.completed.orderDateLabel', 'Order Date:')}</span>
-                      <span className="text-gray-900">{new Date().toLocaleDateString()}</span>
+                      <span className="text-muted-foreground">{t('workflows.checkoutDemo.completed.orderDateLabel', 'Order Date:')}</span>
+                      <span className="text-foreground">{new Date().toLocaleDateString()}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{t('workflows.checkoutDemo.completed.paymentMethodLabel', 'Payment Method:')}</span>
-                      <span className="text-gray-900">{t('workflows.checkoutDemo.completed.paymentMethodValue', 'Credit Card ****4242')}</span>
+                      <span className="text-muted-foreground">{t('workflows.checkoutDemo.completed.paymentMethodLabel', 'Payment Method:')}</span>
+                      <span className="text-foreground">{t('workflows.checkoutDemo.completed.paymentMethodValue', 'Credit Card ****4242')}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">{t('workflows.checkoutDemo.completed.totalPaidLabel', 'Total Paid:')}</span>
-                      <span className="text-gray-900 font-semibold">{currencySymbol}{total.toFixed(2)}</span>
+                      <span className="text-muted-foreground">{t('workflows.checkoutDemo.completed.totalPaidLabel', 'Total Paid:')}</span>
+                      <span className="text-foreground font-semibold">{currencySymbol}{total.toFixed(2)}</span>
                     </div>
                   </div>
 
-                  <div className="border-t border-gray-200 pt-4">
-                    <p className="text-xs text-gray-600 mb-3">{t('workflows.checkoutDemo.completed.orderItemsLabel', 'Order Items:')}</p>
+                  <div className="border-t border-border pt-4">
+                    <p className="text-xs text-muted-foreground mb-3">{t('workflows.checkoutDemo.completed.orderItemsLabel', 'Order Items:')}</p>
                     {demoCart.map((item) => (
                       <div key={item.id} className="flex justify-between text-sm mb-2">
-                        <span className="text-gray-700">{item.quantity}x {item.name}</span>
-                        <span className="text-gray-900">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
+                        <span className="text-muted-foreground">{item.quantity}x {item.name}</span>
+                        <span className="text-foreground">{currencySymbol}{(item.price * item.quantity).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>
@@ -1518,12 +1518,12 @@ export default function CheckoutDemoPage() {
 
           {/* Workflow Status */}
           <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('workflows.checkoutDemo.progress.title', 'Workflow Progress')}</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-4">{t('workflows.checkoutDemo.progress.title', 'Workflow Progress')}</h2>
 
             {!result && !error && (
               <div className="text-center py-12">
                 <Zap className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-4 text-gray-600">
+                <p className="mt-4 text-muted-foreground">
                   {t('workflows.checkoutDemo.progress.prompt', 'Click "Start Checkout Workflow" to begin')}
                 </p>
               </div>
@@ -1532,7 +1532,7 @@ export default function CheckoutDemoPage() {
             {loading && (
               <div className="text-center py-12">
                 <Spinner size="lg" className="mx-auto" />
-                <p className="mt-4 text-gray-600">{t('workflows.checkoutDemo.progress.startingWorkflow', 'Starting workflow...')}</p>
+                <p className="mt-4 text-muted-foreground">{t('workflows.checkoutDemo.progress.startingWorkflow', 'Starting workflow...')}</p>
               </div>
             )}
 
@@ -1560,7 +1560,7 @@ export default function CheckoutDemoPage() {
               <div className="space-y-6">
                 {/* Status Badge */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-muted-foreground mb-2">
                     {t('workflows.checkoutDemo.progress.statusLabel', 'Status')}
                   </label>
                   <span
@@ -1574,7 +1574,7 @@ export default function CheckoutDemoPage() {
 
                 {/* Workflow Steps Visual */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="block text-sm font-medium text-muted-foreground mb-3">
                     {t('workflows.checkoutDemo.progress.stepsLabel', 'Steps')}
                   </label>
                   <div className="space-y-2">
@@ -1621,7 +1621,7 @@ export default function CheckoutDemoPage() {
 
                 {/* User Task Required */}
                 {result.status === 'PAUSED' && userTasks.length > 0 && (
-                  <div className="border-t border-gray-200 pt-4">
+                  <div className="border-t border-border pt-4">
                     <div className="bg-status-warning-bg border border-status-warning-border rounded-lg p-4">
                       <div className="flex items-start mb-3">
                         <AlertTriangle className="h-5 w-5 text-status-warning-text mt-0.5" />
@@ -1639,12 +1639,12 @@ export default function CheckoutDemoPage() {
                         <div key={task.id} className="mt-3 bg-white rounded-md p-3 border border-status-warning-border">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <h4 className="text-sm font-semibold text-gray-900">{task.taskName}</h4>
+                              <h4 className="text-sm font-semibold text-foreground">{task.taskName}</h4>
                               {task.description && (
-                                <p className="text-sm text-gray-600 mt-1">{task.description}</p>
+                                <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
                               )}
                               {task.dueDate && (
-                                <p className="text-xs text-gray-500 mt-2">
+                                <p className="text-xs text-muted-foreground mt-2">
                                   {t('workflows.checkoutDemo.progress.duePrefix', 'Due: ')}{new Date(task.dueDate).toLocaleString()}
                                 </p>
                               )}
@@ -1665,11 +1665,11 @@ export default function CheckoutDemoPage() {
 
                 {/* Manual Progression */}
                 {result.status === 'RUNNING' && currentStep && currentStep.stepType !== 'END' && (
-                  <div className="border-t border-gray-200 pt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <div className="border-t border-border pt-4">
+                    <label className="block text-sm font-medium text-muted-foreground mb-2">
                       {t('workflows.checkoutDemo.progress.manualProgression', 'Manual Progression')}
                     </label>
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="text-sm text-muted-foreground mb-3">
                       {t('workflows.checkoutDemo.progress.manualProgressionHint', 'Manually advance to the next step for testing')}
                     </p>
                     <Button
@@ -1702,7 +1702,7 @@ export default function CheckoutDemoPage() {
                 )}
 
                 {/* Actions */}
-                <div className="border-t border-gray-200 pt-4 space-y-3">
+                <div className="border-t border-border pt-4 space-y-3">
                   <Button asChild className="w-full">
                     <Link href={`/backend/instances/${result.instanceId}`}>
                       {t('workflows.checkoutDemo.progress.viewInAdmin', 'View in Admin')}
@@ -1730,9 +1730,9 @@ export default function CheckoutDemoPage() {
           <div className="mt-8 bg-white shadow rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <h2 className="text-xl font-semibold text-gray-900">
+                <h2 className="text-xl font-semibold text-foreground">
                   {t('workflows.checkoutDemo.events.title', 'Workflow Events')}
-                  <span className="ml-2 text-sm font-normal text-gray-500">
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
                     ({events.length})
                   </span>
                 </h2>
@@ -1755,7 +1755,7 @@ export default function CheckoutDemoPage() {
               {events.map((event: WorkflowEvent) => (
                 <div
                   key={event.id}
-                  className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors"
+                  className="border border-border rounded-lg p-3 hover:bg-surface-muted transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -1767,16 +1767,16 @@ export default function CheckoutDemoPage() {
                         >
                           {formatEventType(event.eventType)}
                         </span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-muted-foreground">
                           {new Date(event.occurredAt).toLocaleTimeString()}
                         </span>
                       </div>
                       {event.eventData && Object.keys(event.eventData).length > 0 && (
                         <details className="mt-2">
-                          <summary className="text-xs text-gray-600 cursor-pointer hover:text-gray-900">
+                          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
                             {t('workflows.checkoutDemo.events.viewData', 'View event data')}
                           </summary>
-                          <pre className="mt-2 text-xs bg-gray-100 p-2 rounded overflow-x-auto max-h-32 overflow-y-auto">
+                          <pre className="mt-2 text-xs bg-surface-muted p-2 rounded overflow-x-auto max-h-32 overflow-y-auto">
                             {JSON.stringify(event.eventData, null, 2)}
                           </pre>
                         </details>

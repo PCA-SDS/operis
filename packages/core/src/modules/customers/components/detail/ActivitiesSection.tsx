@@ -352,10 +352,10 @@ export function ActivitiesSection({
   const visibleCount = visibleActivities.length
 
   return (
-    <div className="flex flex-col gap-3.5 rounded-[10px] border border-border bg-card pt-4 pb-[18px] px-[18px]">
+    <div className="flex flex-col gap-3.5 rounded-lg border border-border bg-card pt-4 pb-[18px] px-[18px]">
       <div className="flex items-center gap-2">
         <Clock className="size-[15px] text-muted-foreground" />
-        <h3 className="text-[13px] font-semibold text-foreground">
+        <h3 className="text-sm font-semibold text-foreground">
           {entityName
             ? t('customers.timeline.history.title', 'Interaction history with {{name}}', { name: entityName })
             : t('customers.timeline.history.titleGeneric', 'Interaction history')}
@@ -371,9 +371,9 @@ export function ActivitiesSection({
           onChange={(event) => setSearchTerm(event.target.value)}
           placeholder={t('customers.timeline.history.searchPlaceholder', 'Search...')}
           aria-label={t('customers.timeline.history.searchAriaLabel', 'Search interaction history')}
-          className="h-9 w-full rounded-[10px] border border-border bg-card pl-9 pr-14 text-sm text-foreground shadow-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+          className="h-9 w-full rounded-lg border border-border bg-card pl-9 pr-14 text-sm text-foreground shadow-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
         />
-        <Kbd className="pointer-events-none absolute right-2 hidden text-[11px] uppercase tracking-[0.48px] sm:inline-flex">
+        <Kbd className="pointer-events-none absolute right-2 hidden text-overline uppercase tracking-[0.48px] sm:inline-flex">
           ⌘1
         </Kbd>
       </label>

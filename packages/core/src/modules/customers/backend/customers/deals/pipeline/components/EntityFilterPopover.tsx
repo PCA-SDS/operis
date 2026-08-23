@@ -227,7 +227,7 @@ export function EntityFilterPopover({
                         <span
                           className={`flex size-4 shrink-0 items-center justify-center rounded-sm border ${
                             checked
-                              ? 'border-accent-indigo bg-accent-indigo text-accent-indigo-foreground'
+                              ? 'border-accent-strong bg-accent-strong text-accent-strong-foreground'
                               : 'border-input bg-card'
                           }`}
                           aria-hidden="true"

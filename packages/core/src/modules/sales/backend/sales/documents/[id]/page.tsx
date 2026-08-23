@@ -173,7 +173,7 @@ function CurrencyInlineEditor({
   return (
     <div
       className={cn(
-        'group rounded-lg border bg-card p-4',
+        'group rounded-xl border border-border bg-surface shadow-sm p-4',
         !editing ? 'cursor-pointer' : null,
         locked ? 'cursor-not-allowed opacity-80' : null
       )}
@@ -504,7 +504,7 @@ function CustomerInlineEditor({
   if (mode === 'select') {
     return (
       <div
-        className="group h-full rounded-lg border bg-card p-4"
+        className="group h-full rounded-xl border border-border bg-surface shadow-sm p-4"
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             event.preventDefault()
@@ -604,7 +604,7 @@ function CustomerInlineEditor({
   if (mode === 'snapshot') {
     return (
       <div
-        className="group h-full rounded-lg border bg-card p-4"
+        className="group h-full rounded-xl border border-border bg-surface shadow-sm p-4"
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
             event.preventDefault()
@@ -1142,7 +1142,7 @@ function ContactEmailInlineEditor({
       : {}
 
   return (
-    <div className={cn('group rounded-lg border bg-card p-4', !editing ? 'cursor-pointer' : null)}>
+    <div className={cn('group rounded-xl border border-border bg-surface shadow-sm p-4', !editing ? 'cursor-pointer' : null)}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0" {...interactiveProps}>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
@@ -1325,7 +1325,7 @@ function ChannelInlineEditor({
 
   return (
     <div
-      className={cn('group rounded-lg border bg-card p-4', !editing ? 'cursor-pointer' : null)}
+      className={cn('group rounded-xl border border-border bg-surface shadow-sm p-4', !editing ? 'cursor-pointer' : null)}
       role={!editing ? 'button' : undefined}
       tabIndex={!editing ? 0 : undefined}
       onClick={handleActivate}
@@ -1778,7 +1778,7 @@ function StatusInlineEditor({
 
   return (
     <div
-      className={cn('group rounded-lg border bg-card p-4', !editing ? 'cursor-pointer' : null)}
+      className={cn('group rounded-xl border border-border bg-surface shadow-sm p-4', !editing ? 'cursor-pointer' : null)}
       role={!editing ? 'button' : undefined}
       tabIndex={!editing ? 0 : undefined}
       onClick={() => {
@@ -4863,7 +4863,7 @@ export default function SalesDocumentDetailPage({
                   className={cn(
                     'h-auto rounded-none border-b-2 px-3 py-2 text-sm font-medium transition-colors hover:bg-transparent',
                     activeTab === tab.id
-                      ? 'border-b-2 border-accent-indigo text-foreground'
+                      ? 'border-b-2 border-accent-strong text-foreground'
                       : 'border-transparent text-muted-foreground hover:text-foreground'
                   )}
                   onClick={() => setActiveTab(tab.id)}

@@ -133,7 +133,7 @@ export function WorkflowSelectorField({
 
       {!workflowId ? (
         /* No Workflow Selected */
-        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+        <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
           <Workflow className="size-8 text-muted-foreground mx-auto mb-2" />
           <p className="text-sm text-muted-foreground mb-3">{t('workflows.fieldEditors.workflowSelector.noWorkflowSelected')}</p>
           <Button
@@ -148,7 +148,7 @@ export function WorkflowSelectorField({
         </div>
       ) : (
         /* Workflow Selected */
-        <div className="border border-gray-200 rounded-lg bg-white p-4">
+        <div className="border border-border rounded-lg bg-white p-4">
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0 space-y-2">
               {workflowDetails?.loading ? (
@@ -160,7 +160,7 @@ export function WorkflowSelectorField({
                 <>
                   <div className="flex items-center gap-2">
                     <AlertCircle className="size-4 text-status-warning-text" />
-                    <span className="text-sm font-semibold text-gray-900">{workflowId}</span>
+                    <span className="text-sm font-semibold text-foreground">{workflowId}</span>
                   </div>
                   <p className="text-xs text-status-warning-text">{t('workflows.common.workflowNotFoundOrUnavailable')}</p>
                 </>
@@ -168,7 +168,7 @@ export function WorkflowSelectorField({
                 <>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-900">
+                      <span className="text-sm font-semibold text-foreground">
                         {workflowDetails?.workflowName || workflowId}
                       </span>
                       {workflowDetails?.version !== undefined && (

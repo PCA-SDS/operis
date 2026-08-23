@@ -375,7 +375,7 @@ export default function PaymentGatewayDemoPage() {
             <CardContent className="space-y-4">
               <div>
                 <h4 className="text-sm font-semibold flex items-center gap-2 mb-1">
-                  <Zap className="size-4 text-emerald-500" />
+                  <Zap className="size-4 text-status-success-icon" />
                   {t('example.payments.setup.mock', 'Mock Gateway (No Configuration Needed)')}
                 </h4>
                 <p className="text-sm text-muted-foreground">
@@ -385,7 +385,7 @@ export default function PaymentGatewayDemoPage() {
 
               <div>
                 <h4 className="text-sm font-semibold flex items-center gap-2 mb-1">
-                  <CreditCard className="size-4 text-indigo-500" />
+                  <CreditCard className="size-4 text-status-info-icon" />
                   {t('example.payments.setup.stripe', 'Stripe Gateway')}
                 </h4>
                 <p className="mb-2 text-sm text-muted-foreground">
@@ -418,7 +418,7 @@ export default function PaymentGatewayDemoPage() {
               variant="outline"
               onClick={() => createSession('stripe')}
               disabled={loading || stripeAvailable === false}
-              className="border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-600 dark:text-indigo-300 dark:hover:bg-indigo-950"
+              className="border-status-info-border text-status-info-text hover:bg-status-info-bg"
             >
               {loading ? <Spinner className="mr-2 size-4" /> : <CreditCard className="mr-2 size-4" />}
               {t('example.payments.payStripe', 'Pay with Stripe')}
@@ -508,7 +508,7 @@ export default function PaymentGatewayDemoPage() {
                     size="sm"
                     onClick={() => performAction('capture')}
                     disabled={loading || !canCapture}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    className="bg-status-success-solid hover:bg-status-success-solid text-white"
                   >
                     <ArrowDownToLine className="mr-1.5 size-3.5" />
                     {t('example.payments.capture', 'Capture')}
@@ -519,7 +519,7 @@ export default function PaymentGatewayDemoPage() {
                     variant="outline"
                     onClick={() => performAction('refund')}
                     disabled={loading || !canRefund}
-                    className="border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-950"
+                    className="border-status-warning-icon text-status-warning-text hover:bg-status-warning-bg"
                   >
                     <Undo2 className="mr-1.5 size-3.5" />
                     {t('example.payments.refund', 'Refund')}

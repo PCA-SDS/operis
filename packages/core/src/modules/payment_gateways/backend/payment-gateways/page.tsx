@@ -92,16 +92,16 @@ type TransactionsResponse = {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  pending: 'bg-slate-100 text-slate-800',
-  authorized: 'bg-blue-100 text-blue-800',
-  captured: 'bg-green-100 text-green-800',
-  partially_captured: 'bg-emerald-100 text-emerald-800',
-  refunded: 'bg-amber-100 text-amber-800',
-  partially_refunded: 'bg-orange-100 text-orange-800',
-  cancelled: 'bg-zinc-200 text-zinc-900',
-  failed: 'bg-red-100 text-red-800',
-  expired: 'bg-neutral-200 text-neutral-900',
-  unknown: 'bg-purple-100 text-purple-800',
+  pending: 'bg-surface-muted text-foreground',
+  authorized: 'bg-status-info-bg text-status-info-text',
+  captured: 'bg-status-success-bg text-status-success-text',
+  partially_captured: 'bg-status-success-bg text-status-success-text',
+  refunded: 'bg-status-warning-bg text-status-warning-text',
+  partially_refunded: 'bg-status-warning-bg text-status-warning-text',
+  cancelled: 'bg-surface-strong text-foreground',
+  failed: 'bg-status-error-bg text-status-error-text',
+  expired: 'bg-surface-strong text-foreground',
+  unknown: 'bg-status-pink-bg text-status-pink-text',
 }
 
 function formatDateTime(value: string | null | undefined): string {

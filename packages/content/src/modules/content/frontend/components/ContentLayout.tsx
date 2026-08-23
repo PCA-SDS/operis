@@ -64,7 +64,7 @@ export function ContentLayout({ title, intro, breadcrumb, children }: ContentLay
             </nav>
           ) : null}
 
-          <section className="overflow-hidden rounded-xl border bg-card shadow-sm">
+          <section className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm shadow-sm">
             <header className="border-b bg-background/80 px-6 py-8 sm:px-10">
               <div className="flex flex-col gap-2">
                 <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">{title}</h1>

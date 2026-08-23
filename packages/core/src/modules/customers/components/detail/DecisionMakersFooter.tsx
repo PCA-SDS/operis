@@ -21,7 +21,7 @@ export function DecisionMakersFooter({ names, suggestion, onSendInvitation }: De
   const hiddenCount = Math.max(0, names.length - visibleNames.length)
 
   return (
-    <div className="sticky bottom-0 flex flex-col gap-3 rounded-lg border bg-card px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <div className="sticky bottom-0 flex flex-col gap-3 rounded-xl border border-border bg-surface shadow-sm px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-start gap-3">
         <Lightbulb className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0">

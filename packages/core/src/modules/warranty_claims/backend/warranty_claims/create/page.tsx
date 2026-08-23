@@ -1416,7 +1416,7 @@ export default function CreateWarrantyClaimPage() {
         const lineCount = readSubmittedLineValues(values.lines).filter(lineHasContent).length
         return (
           <div className="sticky top-4 space-y-4">
-            <aside className="overflow-hidden rounded-xl bg-foreground text-background shadow-sm">
+            <aside className="overflow-hidden rounded-xl bg-primary text-primary-foreground shadow-sm">
               <div className="border-b border-background/20 p-5">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="size-5" aria-hidden />

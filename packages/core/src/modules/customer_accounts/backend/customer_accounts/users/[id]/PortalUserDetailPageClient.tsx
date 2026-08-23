@@ -606,7 +606,7 @@ export function PortalUserDetailPageClient({ params, portalOrigin }: PortalUserD
                       placeholder={t('customer_accounts.admin.detail.fields.searchPerson', 'Search people by name...')}
                     />
                     {personResults.length > 0 && (
-                      <div className="absolute z-10 mt-1 w-full rounded-md border bg-background shadow-lg max-h-40 overflow-y-auto">
+                      <div className="absolute z-10 mt-1 w-full rounded-md border bg-surface shadow-lg max-h-40 overflow-y-auto">
                         {personResults.map((person) => (
                           <button
                             key={person.id}
@@ -649,7 +649,7 @@ export function PortalUserDetailPageClient({ params, portalOrigin }: PortalUserD
                       placeholder={t('customer_accounts.admin.detail.fields.searchCompany', 'Search companies by name...')}
                     />
                     {companyResults.length > 0 && (
-                      <div className="absolute z-10 mt-1 w-full rounded-md border bg-background shadow-lg max-h-40 overflow-y-auto">
+                      <div className="absolute z-10 mt-1 w-full rounded-md border bg-surface shadow-lg max-h-40 overflow-y-auto">
                         {companyResults.map((company) => (
                           <button
                             key={company.id}

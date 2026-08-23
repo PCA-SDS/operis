@@ -11,6 +11,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { entityColorStyle } from '@open-mercato/ui/primitives/tag'
 import {
   Dialog,
   DialogContent,
@@ -324,7 +325,7 @@ function TagChip({
 }) {
   const activeColorStyle: React.CSSProperties | undefined =
     active && color
-      ? { color, borderColor: color, backgroundColor: `${color}1A` }
+      ? entityColorStyle(color)
       : undefined
   return (
     <Button
@@ -1117,7 +1118,7 @@ export function EntityTagsDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
       <DialogContent
-        className="flex max-h-[85vh] flex-col overflow-hidden border-border bg-background p-0 shadow-[0px_16px_40px_0px_rgba(0,0,0,0.14)] sm:max-w-[760px] sm:rounded-xl [&>[data-dialog-close]]:hidden"
+        className="flex max-h-[85vh] flex-col overflow-hidden border-border bg-surface p-0 shadow-[0px_16px_40px_0px_rgba(0,0,0,0.14)] sm:max-w-[760px] sm:rounded-xl [&>[data-dialog-close]]:hidden"
         aria-describedby={undefined}
       >
         <VisuallyHidden>
@@ -1210,7 +1211,7 @@ export function EntityTagsDialog({
                     </div>
 
                     <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-                      <div className="flex items-center gap-2 rounded-lg border border-input bg-background px-3 py-2">
+                      <div className="flex items-center gap-2 rounded-lg border border-input bg-input-bg px-3 py-2">
                         <Search className="size-3.5 shrink-0 text-muted-foreground" />
                         <input
                           type="text"
@@ -1382,7 +1383,7 @@ export function EntityTagsDialog({
               type="button"
               onClick={() => { void handleSave() }}
               disabled={saving || !hasChanges}
-              className="rounded-md bg-foreground px-4 py-2 text-sm font-semibold text-background hover:bg-foreground/90"
+              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover"
             >
               <Check className="mr-2 size-3.5" />
               {saving

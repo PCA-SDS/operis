@@ -435,7 +435,7 @@ export function TimeGrid({
                 {dragRange ? (
                   <div
                     aria-hidden
-                    className="pointer-events-none absolute z-30 flex flex-col gap-0.5 overflow-hidden rounded-md border-2 border-dashed border-foreground bg-accent-indigo/10 px-2 pt-1.5"
+                    className="pointer-events-none absolute z-30 flex flex-col gap-0.5 overflow-hidden rounded-md border-2 border-dashed border-foreground bg-accent-strong/10 px-2 pt-1.5"
                     style={{
                       top: (dragStartMinutes / 60) * HOUR_HEIGHT_PX,
                       height: Math.max(MIN_BLOCK_HEIGHT_PX, (dragDurationMinutes / 60) * HOUR_HEIGHT_PX),

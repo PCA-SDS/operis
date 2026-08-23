@@ -452,7 +452,7 @@ export default function SyncRunDetailPage({ params }: SyncRunDetailPageProps) {
             <CardContent>
               <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {Object.entries(run.parameters).map(([key, value]) => (
-                  <div key={key} className="flex items-center justify-between gap-3 rounded-md border bg-card px-3 py-2 text-sm">
+                  <div key={key} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
                     <dt className="font-medium text-muted-foreground">{parameterLabels[key] ?? key}</dt>
                     <dd className="font-mono text-foreground">
                       {typeof value === 'boolean' ? String(value) : String(value ?? '')}
@@ -490,7 +490,7 @@ export default function SyncRunDetailPage({ params }: SyncRunDetailPageProps) {
                   level: log.level,
                   message: log.message,
                   body: log.payload ? (
-                    <pre className="overflow-x-auto whitespace-pre-wrap rounded-md border bg-card p-3 text-xs">
+                    <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-border bg-surface p-3 text-xs">
                       {log.payload.kind === 'export-item-failure' && typeof log.payload.summary === 'string'
                         ? log.payload.summary
                         : JSON.stringify(log.payload, null, 2)}

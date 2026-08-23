@@ -456,7 +456,7 @@ export default function ApiDocsExplorer(props: ApiDocsExplorerProps) {
 
       <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-6 py-8 lg:flex-row lg:gap-6">
         <aside className="hidden w-64 shrink-0 lg:block">
-          <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-lg border bg-card p-4">
+          <div className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl border border-border bg-surface shadow-sm p-4">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">API Categories</h2>
             <nav className="mt-4 space-y-4 text-sm">
               {categories.map((category) => {
@@ -510,7 +510,7 @@ export default function ApiDocsExplorer(props: ApiDocsExplorerProps) {
         </aside>
 
         <section className="flex-1 space-y-6">
-          <div className="rounded-lg border bg-card p-5 shadow-sm">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-5 shadow-sm">
             <div className="space-y-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -597,7 +597,7 @@ export default function ApiDocsExplorer(props: ApiDocsExplorerProps) {
                       <article
                         key={operation.id}
                         id={operationId}
-                        className={`rounded-lg border bg-card shadow-sm transition ${
+                        className={`rounded-xl border border-border bg-surface shadow-sm shadow-sm transition ${
                           selectedOperation?.id === operation.id ? 'ring-2 ring-primary/40' : ''
                         }`}
                       >
@@ -872,7 +872,7 @@ export default function ApiDocsExplorer(props: ApiDocsExplorerProps) {
                           type="button"
                           className={`flex w-full items-center gap-2 rounded-md border px-3 py-2 text-left text-sm ${
                             selectedOperation?.id === operation.id
-                              ? 'border-accent-indigo text-foreground'
+                              ? 'border-accent-strong text-foreground'
                               : 'border-border text-muted-foreground'
                           }`}
                           onClick={() => handleSelectOperation(operation.id)}
@@ -1249,7 +1249,7 @@ function TesterPanel(props: TesterPanelProps) {
 
   if (!operation) {
     return (
-      <div className="rounded-lg border bg-card p-5 text-sm text-muted-foreground">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-5 text-sm text-muted-foreground">
         Select an endpoint to start testing requests.
       </div>
     )
@@ -1312,7 +1312,7 @@ function TesterPanel(props: TesterPanelProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border bg-card p-5 shadow-sm">
+    <div className="flex flex-col gap-4 rounded-xl border border-border bg-surface shadow-sm p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Interactive tester</h2>

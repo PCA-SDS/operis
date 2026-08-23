@@ -190,7 +190,7 @@ function DashboardKpiCard({
   href,
 }: DashboardKpiCardProps) {
   return (
-    <section className="flex min-h-52 flex-col rounded-lg border bg-card p-5 text-card-foreground shadow-sm">
+    <section className="flex min-h-52 flex-col rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground shadow-sm">
       <div>
         <p className="text-sm font-medium">{title}</p>
         <p className="mt-3 text-xs text-muted-foreground">{caption}</p>
@@ -780,7 +780,7 @@ export default function WmsOperationalDashboardPage() {
               })}
             </section>
 
-            <section className="rounded-lg border bg-card shadow-sm">
+            <section className="rounded-xl border border-border bg-surface shadow-sm shadow-sm">
               <div className="border-b px-5 py-4">
                 <h2 className="text-base font-semibold">
                   {t('wms.backend.dashboard.expiry.title', 'Expiry watch')}
@@ -834,7 +834,7 @@ export default function WmsOperationalDashboardPage() {
               </div>
             </section>
 
-            <section className="rounded-lg border bg-card shadow-sm">
+            <section className="rounded-xl border border-border bg-surface shadow-sm shadow-sm">
               <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
                 <h2 className="text-base font-semibold">
                   {t('wms.backend.dashboard.trends.title', 'Monthly trends')}
@@ -881,7 +881,7 @@ export default function WmsOperationalDashboardPage() {
               )}
             />
 
-            <section className="flex flex-col gap-4 rounded-lg border bg-card px-5 py-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+            <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface shadow-sm px-5 py-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="text-base font-semibold">
                   {t('wms.backend.dashboard.quickActions.title', 'Quick actions')}

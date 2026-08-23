@@ -128,7 +128,7 @@ function UpcomingCardItem({
   const { item } = card
 
   return (
-    <article className="flex w-[260px] shrink-0 snap-start flex-col gap-3 rounded-xl border bg-card px-2 pb-2 pt-4 shadow-xs sm:w-auto sm:shrink">
+    <article className="flex w-[260px] shrink-0 snap-start flex-col gap-3 rounded-xl border border-border bg-surface shadow-sm px-2 pb-2 pt-4 shadow-xs sm:w-auto sm:shrink">
       <div className="flex items-start gap-2 px-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="truncate text-sm font-medium text-foreground">{item.title}</p>

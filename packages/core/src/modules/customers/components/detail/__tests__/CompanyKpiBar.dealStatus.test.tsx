@@ -75,7 +75,7 @@ function buildOverview(deals: DealSummary[]): CompanyOverview {
 }
 
 function tile(title: string): HTMLElement {
-  const card = screen.getByText(title).closest('div.rounded-lg')
+  const card = screen.getByText(title).closest('div.rounded-xl')
   if (!card) throw new Error(`[internal] KPI tile "${title}" is not rendered`)
   return card as HTMLElement
 }

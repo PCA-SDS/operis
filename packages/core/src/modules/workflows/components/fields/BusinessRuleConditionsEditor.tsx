@@ -187,7 +187,7 @@ export function BusinessRuleConditionsEditor({
           {conditionsWithDetails.map((condition, index) => {
             const normalized = normalizeCondition(conditions[index])
             return (
-              <div key={index} className="border border-gray-200 rounded-lg bg-white p-4">
+              <div key={index} className="border border-border rounded-lg bg-white p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0 space-y-2">
                     {/* Rule Name/ID */}
@@ -199,10 +199,10 @@ export function BusinessRuleConditionsEditor({
                         </>
                       ) : condition.error ? (
                         <>
-                          <AlertCircle className="size-4 text-amber-600" />
+                          <AlertCircle className="size-4 text-status-warning-icon" />
                           <div>
                             <span className="text-sm font-semibold text-foreground">{condition.ruleId}</span>
-                            <p className="text-xs text-amber-600">{t('workflows.common.ruleNotFound')}</p>
+                            <p className="text-xs text-status-warning-icon">{t('workflows.common.ruleNotFound')}</p>
                           </div>
                         </>
                       ) : (

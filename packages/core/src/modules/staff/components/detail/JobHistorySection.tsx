@@ -220,7 +220,7 @@ export function JobHistorySection({ memberId }: { memberId: string | null }) {
       ) : (
         <div className="space-y-3">
           {items.map((record) => (
-            <div key={record.id} className="rounded-lg border bg-card p-4">
+            <div key={record.id} className="rounded-xl border border-border bg-surface shadow-sm p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="space-y-1">
                   <div className="text-base font-semibold text-foreground">{record.name}</div>

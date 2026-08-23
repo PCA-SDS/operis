@@ -200,7 +200,7 @@ export function SystemStatusPanel() {
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
               {category.items.map((item) => (
-                <article key={item.key} className="flex flex-col gap-4 rounded-lg border bg-card p-4">
+                <article key={item.key} className="flex flex-col gap-4 rounded-xl border border-border bg-surface shadow-sm p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <h4 className="text-sm font-semibold">{t(item.labelKey)}</h4>

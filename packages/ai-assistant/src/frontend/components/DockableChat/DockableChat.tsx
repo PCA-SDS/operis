@@ -245,7 +245,7 @@ export function DockableChat() {
         <div
           className={cn(
             'fixed z-modal',
-            'rounded-xl border bg-background shadow-2xl',
+            'rounded-xl border bg-surface shadow-2xl',
             'flex flex-col',
             'transition-all duration-200 ease-out'
           )}
@@ -350,7 +350,7 @@ export function DockableChat() {
         {showDebug && (
           <div
             data-debug-panel
-            className="fixed z-top bg-gray-900 rounded-xl border border-gray-700 shadow-2xl flex flex-col overflow-hidden"
+            className="fixed z-top bg-surface rounded-xl border border-border shadow-2xl flex flex-col overflow-hidden"
             style={{
               top: '24px',
               left: '24px',
@@ -406,7 +406,7 @@ export function DockableChat() {
   return typeof document !== 'undefined' ? createPortal(
     <div
       className={cn(
-        'bg-background border shadow-xl flex flex-col',
+        'bg-surface border shadow-xl flex flex-col',
         panelPosition === 'right' && 'border-l',
         panelPosition === 'left' && 'border-r',
         panelPosition === 'bottom' && 'border-t'
@@ -510,7 +510,7 @@ export function DockableChat() {
       {showDebug && (
         <div
           className={cn(
-            'bg-gray-900 border-gray-700 flex flex-col overflow-hidden',
+            'bg-surface border-border flex flex-col overflow-hidden',
             panelPosition === 'right' && 'absolute left-0 top-0 bottom-0 w-[400px] -translate-x-full border-r',
             panelPosition === 'left' && 'absolute right-0 top-0 bottom-0 w-[400px] translate-x-full border-l',
             panelPosition === 'bottom' && 'absolute bottom-full left-0 right-0 h-[300px] border-t'

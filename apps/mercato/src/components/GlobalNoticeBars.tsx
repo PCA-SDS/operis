@@ -100,7 +100,7 @@ export function GlobalNoticeBars({ demoModeEnabled }: { demoModeEnabled: boolean
       ) : null}
 
       {showCookieNotice ? (
-        <div className="pointer-events-auto w-full max-w-[calc(100vw-2rem)] sm:max-w-4xl rounded-lg border border-border bg-background/95 p-4 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="pointer-events-auto w-full max-w-[calc(100vw-2rem)] sm:max-w-4xl rounded-lg border border-border bg-surface/95 p-4 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-surface/80">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
               {t('notices.cookies.description', 'We use essential cookies to remember your preferences. Learn how we handle data in our')}{' '}

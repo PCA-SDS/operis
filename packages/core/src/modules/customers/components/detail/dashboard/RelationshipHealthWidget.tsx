@@ -10,7 +10,7 @@ type TranslateFnWithParams = (key: string, fallback?: string, params?: Record<st
 
 export function RelationshipHealthWidget({ health, t }: { health: HealthScore; t: TranslateFnWithParams }) {
   return (
-    <div className="rounded-lg border bg-card p-5">
+    <div className="rounded-xl border border-border bg-surface shadow-sm p-5">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
         <Heart className={cn('size-4', HEALTH_ICON_CLASSES[health.variant])} />
         {t('customers.companies.dashboard.relationshipHealth', 'Relationship health')}

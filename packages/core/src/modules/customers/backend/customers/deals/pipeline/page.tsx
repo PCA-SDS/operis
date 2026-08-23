@@ -2898,7 +2898,7 @@ export default function DealsKanbanPage(): React.ReactElement {
             <DragOverlay dropAnimation={null}>
               {activeDragDeal ? (
                 <div className="relative">
-                  <div className={`pointer-events-none ${LANE_WIDTH_CLASS} rotate-2 cursor-grabbing select-none rounded-lg border border-border bg-card px-4 py-3.5 shadow-xl ring-2 ring-accent-indigo/40`}>
+                  <div className={`pointer-events-none ${LANE_WIDTH_CLASS} rotate-2 cursor-grabbing select-none rounded-lg border border-border bg-card px-4 py-3.5 shadow-xl ring-2 ring-accent-strong/40`}>
                     <div className="flex flex-col gap-2">
                       <h3 className="line-clamp-2 text-base font-semibold leading-normal text-foreground">
                         {activeDragDeal.title}
@@ -2937,7 +2937,7 @@ export default function DealsKanbanPage(): React.ReactElement {
                         '{count} more selected',
                         { count: selectedDealIds.size - 1 },
                       )}
-                      className="pointer-events-none absolute -right-3 -top-3 inline-flex h-7 min-w-7 rotate-2 items-center justify-center rounded-full border-2 border-card bg-foreground px-2 text-xs font-bold tabular-nums text-background shadow-lg"
+                      className="pointer-events-none absolute -right-3 -top-3 inline-flex h-7 min-w-7 rotate-2 items-center justify-center rounded-full border-2 border-card bg-primary px-2 text-xs font-bold tabular-nums text-background shadow-lg"
                     >
                       +{selectedDealIds.size - 1}
                     </span>

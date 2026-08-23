@@ -215,7 +215,7 @@ function StripeEmbeddedPaymentRenderer(props: EmbeddedPaymentGatewayRendererProp
         }}
       >
         <div className="space-y-4">
-          <div className="rounded-xl border bg-background px-4 py-4 shadow-sm">
+          <div className="rounded-xl border bg-surface px-4 py-4 shadow-sm">
             <PaymentElement options={paymentElementOptions} />
           </div>
           <StripeEmbeddedPaymentForm

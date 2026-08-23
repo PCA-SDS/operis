@@ -344,7 +344,7 @@ export default function CustomerDomainSettingsPage() {
 
       <PageBody className="space-y-6">
         {orgOptions.length > 1 ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface shadow-sm px-4 py-3">
             <OrgSwitcher
               options={orgOptions}
               selectedId={selectedOrgId}

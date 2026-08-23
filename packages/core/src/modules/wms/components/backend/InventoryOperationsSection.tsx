@@ -22,7 +22,7 @@ function SectionCard({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-lg border bg-card p-5 text-card-foreground shadow-sm">
+    <section className="rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground shadow-sm">
       <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1">
           <h2 className="text-xl font-semibold">{title}</h2>

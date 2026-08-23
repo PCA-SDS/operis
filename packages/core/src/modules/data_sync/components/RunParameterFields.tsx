@@ -168,7 +168,7 @@ export function RunParameterFields({ params, values, onChange }: RunParameterFie
         // so `required` can never fail for them (see RunParameter.required).
         if (param.type === 'boolean') {
           return (
-            <div key={param.key} className="rounded-lg border bg-card p-3 sm:col-span-2">
+            <div key={param.key} className="rounded-xl border border-border bg-surface shadow-sm p-3 sm:col-span-2">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-1">
                   <Label htmlFor={fieldId} className="text-sm font-medium">{label}</Label>

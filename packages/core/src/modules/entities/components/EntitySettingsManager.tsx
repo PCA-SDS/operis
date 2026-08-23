@@ -129,7 +129,7 @@ export function EntitySettingsManager(): React.ReactElement {
         </p>
       </div>
 
-      <div className="rounded-lg border bg-card p-4 space-y-4">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-4 space-y-4">
         <div className="flex items-start gap-3">
           <Checkbox
             id="newEntitiesRestrictedByDefault"

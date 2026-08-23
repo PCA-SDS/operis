@@ -1506,7 +1506,7 @@ export function AvailabilityRulesEditor({
 
   return (
     <>
-      <div className="rounded-xl border bg-card p-4 shadow-sm">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-foreground">

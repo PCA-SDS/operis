@@ -404,7 +404,7 @@ function SortableEntryRow({
           type="text"
           value={entry.label}
           onChange={(e) => onLabelChange(e.target.value)}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-medium text-foreground outline-none focus:border-foreground"
+          className="w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm font-medium text-foreground outline-none focus:border-foreground"
         />
         {isDefault && (
           <div className="flex items-center gap-1.5">
@@ -1012,7 +1012,7 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
           <>
             {createCategoryOpen ? (
               <div className="flex shrink-0 flex-wrap items-center gap-2.5 border-b border-border px-6 py-3">
-                <div className="min-w-[220px] flex-1 rounded-md border border-input bg-background px-3 py-2">
+                <div className="min-w-[220px] flex-1 rounded-md border border-input bg-input-bg px-3 py-2">
                   <input
                     type="text"
                     value={newCategoryName}
@@ -1097,7 +1097,7 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                         }}
                         className={`flex h-auto shrink-0 items-center gap-1.5 rounded-none border-b-2 px-2.5 py-2 hover:bg-transparent -mb-px ${
                           isActive
-                            ? 'border-accent-indigo text-foreground'
+                            ? 'border-accent-strong text-foreground'
                             : 'border-transparent text-muted-foreground'
                         }`}
                       >
@@ -1166,7 +1166,7 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                         value={searchValue}
                         onChange={(e) => setSearchValue(e.target.value)}
                         placeholder={t('customers.tags.manage.search', 'Search values...')}
-                        className="w-full rounded-md border border-input bg-background py-2 pl-9 pr-3 text-xs text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-foreground"
+                        className="w-full rounded-md border border-input bg-input-bg py-2 pl-9 pr-3 text-xs text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-foreground"
                       />
                     </div>
                   </div>
@@ -1312,7 +1312,7 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                     void handleSave()
                   }}
                   disabled={saving || !hasChanges}
-                  className="rounded-md bg-foreground px-4 py-2.5 text-sm font-semibold text-background hover:bg-foreground/90"
+                  className="rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary-hover"
                 >
                   <Save className="mr-2 size-4" />
                   {saving

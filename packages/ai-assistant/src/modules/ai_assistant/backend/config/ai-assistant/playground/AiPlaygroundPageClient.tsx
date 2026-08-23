@@ -633,7 +633,7 @@ export function AiPlaygroundPageClient() {
             <select
               id="ai-playground-agent-picker"
               data-ai-playground-agent-picker
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-9 rounded-md border border-input bg-input-bg px-3 text-sm"
               value={selectedAgentId ?? ''}
               onChange={(event) => setSelectedAgentId(event.target.value)}
             >

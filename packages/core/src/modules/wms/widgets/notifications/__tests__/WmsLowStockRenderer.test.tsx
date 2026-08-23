@@ -99,11 +99,11 @@ describe('WmsLowStockRenderer', () => {
     expect(defaultProps.onDismiss).toHaveBeenCalledTimes(1)
   })
 
-  it('renders a CTA button that does not use manual accent-indigo override class', () => {
+  it('renders a CTA button that does not use manual accent-strong override class', () => {
     const { container } = render(<WmsLowStockRenderer {...defaultProps} />)
     const buttons = container.querySelectorAll('button')
     buttons.forEach((btn) => {
-      expect(btn.className).not.toContain('bg-accent-indigo')
+      expect(btn.className).not.toContain('bg-accent-strong')
     })
   })
 

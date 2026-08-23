@@ -117,22 +117,22 @@ export default function WorkflowEventDetailPage() {
   }
 
   const getEventTypeBadgeClass = (eventType: string) => {
-    if (eventType.includes('STARTED')) return 'bg-blue-100 text-blue-800'
-    if (eventType.includes('COMPLETED')) return 'bg-green-100 text-green-800'
-    if (eventType.includes('FAILED') || eventType.includes('REJECTED')) return 'bg-red-100 text-red-800'
+    if (eventType.includes('STARTED')) return 'bg-status-info-bg text-status-info-text'
+    if (eventType.includes('COMPLETED')) return 'bg-status-success-bg text-status-success-text'
+    if (eventType.includes('FAILED') || eventType.includes('REJECTED')) return 'bg-status-error-bg text-status-error-text'
     if (eventType.includes('CANCELLED')) return 'bg-muted text-foreground'
-    if (eventType.includes('ENTERED') || eventType.includes('EXITED')) return 'bg-purple-100 text-purple-800'
+    if (eventType.includes('ENTERED') || eventType.includes('EXITED')) return 'bg-status-pink-bg text-status-pink-text'
     return 'bg-muted text-foreground'
   }
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case 'COMPLETED':
-        return 'bg-green-100 text-green-800'
+        return 'bg-status-success-bg text-status-success-text'
       case 'RUNNING':
-        return 'bg-blue-100 text-blue-800'
+        return 'bg-status-info-bg text-status-info-text'
       case 'FAILED':
-        return 'bg-red-100 text-red-800'
+        return 'bg-status-error-bg text-status-error-text'
       case 'CANCELLED':
         return 'bg-muted text-foreground'
       default:
@@ -165,7 +165,7 @@ export default function WorkflowEventDetailPage() {
           />
 
           {/* Event Summary */}
-          <div className="rounded-lg border bg-card p-6">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('workflows.events.detail.summary')}
             </h2>
@@ -215,7 +215,7 @@ export default function WorkflowEventDetailPage() {
 
           {/* Workflow Instance Information */}
           {event.workflowInstance && (
-            <div className="rounded-lg border bg-card p-6">
+            <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
               <h2 className="text-lg font-semibold mb-4">
                 {t('workflows.events.detail.workflowInstance')}
               </h2>
@@ -320,7 +320,7 @@ export default function WorkflowEventDetailPage() {
           )}
 
           {/* Technical Details */}
-          <div className="rounded-lg border bg-card p-6">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('workflows.events.detail.technicalDetails')}
             </h2>

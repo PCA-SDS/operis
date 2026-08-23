@@ -344,7 +344,7 @@ export function ActivityHistorySection({
   }, [])
 
   return (
-    <div className="rounded-xl border bg-card">
+    <div className="rounded-xl border border-border bg-surface shadow-sm">
       <div className="flex items-center gap-2 border-b px-5 py-4">
         <Clock3 className="size-4 text-muted-foreground" />
         <div className="min-w-0">

@@ -188,7 +188,7 @@ function GlobalOverrideForm({
   const configuredProviders = availableProviders.filter((p) => p.configured)
 
   return (
-    <div className="rounded-lg border bg-card p-6" data-ai-settings-override-form="">
+    <div className="rounded-xl border border-border bg-surface shadow-sm p-6" data-ai-settings-override-form="">
       <h2 className="mb-1 text-sm font-semibold">
         {t('ai_assistant.settings.defaultOverrideTitle', 'Default model override')}
       </h2>
@@ -332,7 +332,7 @@ function PerAgentOverrideList({
   const overriddenAgents = agents.filter((agent) => agent.source !== 'env_default' && agent.source !== 'provider_default')
 
   return (
-    <div className="rounded-lg border bg-card p-6" data-ai-settings-agent-overrides="">
+    <div className="rounded-xl border border-border bg-surface shadow-sm p-6" data-ai-settings-agent-overrides="">
       <h2 className="mb-1 text-sm font-semibold">
         {t('ai_assistant.settings.agentOverridesTitle', 'Per-agent model resolution')}
       </h2>
@@ -418,7 +418,7 @@ function AiAssistantLauncherCard({
   }
 
   return (
-    <div className="rounded-lg border bg-card p-6">
+    <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
@@ -555,7 +555,7 @@ function AiAssistantSettingsContent({
         />
       ) : null}
 
-      <div className="rounded-lg border bg-card p-6">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <Link2 className="size-4" />
@@ -764,7 +764,7 @@ function AiAssistantSettingsContent({
         </p>
       </div>
 
-      <div className="rounded-lg border bg-card p-6">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
         <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
           <Settings className="size-4" />
           {t('ai_assistant.settings.developerToolsTitle', 'Developer Tools')}
@@ -836,7 +836,7 @@ function AiAssistantSettingsContent({
         onOpenChange={setSessionKeyOpen}
       />
 
-      <div className="rounded-lg border bg-card p-6">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
         <button
           type="button"
           onClick={() => setToolsExpanded((prev) => !prev)}

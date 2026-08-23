@@ -101,21 +101,21 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
   const getStatusBadgeClass = (status: WorkflowInstance['status']) => {
     switch (status) {
       case 'RUNNING':
-        return 'bg-blue-100 text-blue-800'
+        return 'bg-status-info-bg text-status-info-text'
       case 'PAUSED':
-        return 'bg-yellow-100 text-yellow-800'
+        return 'bg-status-warning-bg text-status-warning-text'
       case 'WAITING_FOR_ACTIVITIES':
-        return 'bg-cyan-100 text-cyan-800'
+        return 'bg-status-info-bg text-status-info-text'
       case 'COMPLETED':
-        return 'bg-green-100 text-green-800'
+        return 'bg-status-success-bg text-status-success-text'
       case 'FAILED':
-        return 'bg-red-100 text-red-800'
+        return 'bg-status-error-bg text-status-error-text'
       case 'CANCELLED':
         return 'bg-muted text-foreground'
       case 'COMPENSATING':
-        return 'bg-orange-100 text-orange-800'
+        return 'bg-status-warning-bg text-status-warning-text'
       case 'COMPENSATED':
-        return 'bg-purple-100 text-purple-800'
+        return 'bg-status-pink-bg text-status-pink-text'
       default:
         return 'bg-muted text-muted-foreground'
     }
@@ -123,17 +123,17 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
 
   const getEventTypeBadgeClass = (eventType: string) => {
     if (eventType.includes('COMPENSATION') || eventType.includes('Compensation')) {
-      return 'bg-orange-100 text-orange-800'
+      return 'bg-status-warning-bg text-status-warning-text'
     } else if (eventType.includes('STARTED') || eventType.includes('ENTERED')) {
-      return 'bg-blue-100 text-blue-800'
+      return 'bg-status-info-bg text-status-info-text'
     } else if (eventType.includes('COMPLETED') || eventType.includes('EXITED')) {
-      return 'bg-green-100 text-green-800'
+      return 'bg-status-success-bg text-status-success-text'
     } else if (eventType.includes('FAILED') || eventType.includes('REJECTED')) {
-      return 'bg-red-100 text-red-800'
+      return 'bg-status-error-bg text-status-error-text'
     } else if (eventType.includes('CANCELLED')) {
       return 'bg-muted text-foreground'
     } else if (eventType.includes('PAUSED')) {
-      return 'bg-yellow-100 text-yellow-800'
+      return 'bg-status-warning-bg text-status-warning-text'
     } else {
       return 'bg-muted text-foreground'
     }
@@ -498,7 +498,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
           />
 
           {/* Execution Summary */}
-          <div className="rounded-lg border bg-card p-6">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('workflows.instances.sections.overview')}
             </h2>
@@ -571,7 +571,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
                   {t('workflows.instances.fields.retryCount')}
                 </dt>
                 <dd className="mt-1">
-                  <span className={instance.retryCount > 0 ? 'text-orange-600 font-medium text-sm' : 'text-sm text-foreground'}>
+                  <span className={instance.retryCount > 0 ? 'text-status-warning-icon font-medium text-sm' : 'text-sm text-foreground'}>
                     {instance.retryCount}
                   </span>
                 </dd>
@@ -581,7 +581,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
 
           {/* Visual Workflow Graph */}
           {definitionLoading && (
-            <div className="rounded-lg border bg-card p-6">
+            <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
               <div className="flex items-center justify-center py-8">
                 <Spinner className="h-6 w-6" />
                 <span className="ml-2 text-sm text-muted-foreground">Loading workflow visualization...</span>
@@ -589,7 +589,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
             </div>
           )}
           {!definitionLoading && workflowDefinition && graphNodes.length > 0 && (
-            <div className="rounded-lg border bg-card p-4 md:p-6">
+            <div className="rounded-xl border border-border bg-surface shadow-sm p-4 md:p-6">
               <h2 className="text-lg font-semibold text-foreground mb-4">
                 {t('workflows.instances.sections.visualFlow') || 'Visual Workflow Flow'}
               </h2>
@@ -612,7 +612,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
             </div>
           )}
           {!definitionLoading && !workflowDefinition && instance && (
-            <div className="rounded-lg border bg-card p-6">
+            <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
               <h2 className="text-lg font-semibold mb-4">
                 {t('workflows.instances.sections.visualFlow') || 'Visual Workflow Flow'}
               </h2>
@@ -625,12 +625,12 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
 
           {/* Compensation Status */}
           {(instance.status === 'COMPENSATING' || instance.status === 'COMPENSATED') && (
-            <div className="rounded-lg border border-orange-300 bg-orange-50 p-6">
-              <h2 className="text-lg font-semibold mb-4 text-orange-800">
+            <div className="rounded-lg border border-status-warning-border bg-status-warning-bg p-6">
+              <h2 className="text-lg font-semibold mb-4 text-status-warning-text">
                 {t('workflows.instances.sections.compensation') || 'Compensation (Saga Pattern)'}
               </h2>
               <div className="space-y-4">
-                <p className="text-sm text-orange-700">
+                <p className="text-sm text-status-warning-text">
                   {instance.status === 'COMPENSATING'
                     ? (t('workflows.instances.compensation.inProgress') || 'Workflow is currently executing compensation activities to rollback changes.')
                     : (t('workflows.instances.compensation.completed') || 'Compensation has been completed. All changes have been rolled back.')}
@@ -642,7 +642,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
                   e.eventType.includes('Compensation')
                 ).length > 0 && (
                   <div className="mt-4">
-                    <h3 className="text-sm font-medium text-orange-800 mb-2">
+                    <h3 className="text-sm font-medium text-status-warning-text mb-2">
                       {t('workflows.instances.compensation.activities') || 'Compensation Activities'}
                     </h3>
                     <div className="space-y-2">
@@ -650,7 +650,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
                         .filter(e => e.eventType.includes('COMPENSATION') || e.eventType.includes('Compensation'))
                         .reverse()
                         .map((event) => (
-                          <div key={event.id} className="flex items-start gap-2 p-2 bg-card rounded border border-orange-200">
+                          <div key={event.id} className="flex items-start gap-2 p-2 bg-card rounded border border-status-warning-border">
                             <span
                               className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getEventTypeBadgeClass(
                                 event.eventType
@@ -658,11 +658,11 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
                             >
                               {event.eventType}
                             </span>
-                            <span className="text-xs text-orange-600">
+                            <span className="text-xs text-status-warning-icon">
                               {new Date(event.occurredAt).toLocaleTimeString()}
                             </span>
                             {event.eventData?.activityName && (
-                              <span className="text-xs text-orange-700 font-medium">
+                              <span className="text-xs text-status-warning-text font-medium">
                                 {event.eventData.activityName}
                               </span>
                             )}
@@ -711,7 +711,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
           )}
 
           {/* Execution Timeline */}
-          <div className="rounded-lg border bg-card p-6">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('workflows.instances.sections.executionTimeline') || 'Execution Timeline'}
             </h2>
@@ -767,7 +767,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
           </div>
 
           {/* Event Log */}
-          <div className="rounded-lg border bg-card p-6">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('workflows.instances.sections.executionHistory')}
             </h2>

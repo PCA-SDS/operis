@@ -74,7 +74,7 @@ export function MessageRecordObjectDetail({
       </div>
 
       {actionRequired ? (
-        <p className="text-xs text-amber-700">
+        <p className="text-xs text-status-warning-text">
           {actionLabel
             ? t('messages.composer.objectAction', 'Action: {action}', { action: actionLabel })
             : t('messages.composer.objectActionRequired', 'Action required')}

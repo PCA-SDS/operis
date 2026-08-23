@@ -530,9 +530,9 @@ export function ScheduleActivityDialog({
                 onClick={() => state.setActivityType(type)}
                 aria-pressed={isActive}
                 className={cn(
-                  'flex h-[80px] flex-col items-center justify-center gap-2 rounded-md border text-[14px] font-semibold transition-colors',
+                  'flex h-[80px] flex-col items-center justify-center gap-2 rounded-md border text-sm font-semibold transition-colors',
                   isActive
-                    ? 'border-transparent bg-foreground text-background'
+                    ? 'border-transparent bg-primary text-primary-foreground'
                     : 'border-border bg-card text-muted-foreground hover:border-foreground/40 hover:text-foreground',
                 )}
               >
@@ -606,7 +606,7 @@ export function ScheduleActivityDialog({
                       className={cn(
                         'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium transition-colors',
                         isActive
-                          ? 'border-transparent bg-foreground text-background'
+                          ? 'border-transparent bg-primary text-primary-foreground'
                           : 'border-border bg-card text-muted-foreground hover:border-foreground/40',
                       )}
                     >
@@ -633,7 +633,7 @@ export function ScheduleActivityDialog({
                       className={cn(
                         'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium transition-colors',
                         isActive
-                          ? 'border-transparent bg-foreground text-background'
+                          ? 'border-transparent bg-primary text-primary-foreground'
                           : 'border-border bg-card text-muted-foreground hover:border-foreground/40',
                       )}
                     >
@@ -665,7 +665,7 @@ export function ScheduleActivityDialog({
                     className={cn(
                       'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium transition-colors',
                       isActive
-                        ? 'border-transparent bg-foreground text-background'
+                        ? 'border-transparent bg-primary text-primary-foreground'
                         : 'border-border bg-card text-muted-foreground hover:border-foreground/40',
                     )}
                   >
@@ -754,10 +754,10 @@ export function ScheduleActivityDialog({
 
         {/* Footer */}
         <div className="flex shrink-0 items-center justify-end gap-2.5 border-t border-border bg-muted/50 px-6 py-4">
-          <Button type="button" variant="outline" onClick={() => { void guardedClose() }} className="rounded-md border border-input bg-background px-5 py-3 text-sm font-semibold text-foreground">
+          <Button type="button" variant="outline" onClick={() => { void guardedClose() }} className="rounded-md border border-input bg-input-bg px-5 py-3 text-sm font-semibold text-foreground">
             {t('customers.schedule.cancel', 'Cancel')}
           </Button>
-          <Button type="button" onClick={handleSave} disabled={isSubmitDisabled} className="flex items-center gap-2 rounded-md bg-foreground px-5 py-3 text-sm font-semibold text-background hover:bg-foreground/90 disabled:opacity-50">
+          <Button type="button" onClick={handleSave} disabled={isSubmitDisabled} className="flex items-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50">
             <SaveIcon className="size-3.5" />
             {state.saving
               ? t('customers.schedule.saving', 'Saving...')

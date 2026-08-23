@@ -182,7 +182,7 @@ export function WarrantyClaimNotificationRenderer({
         <meta.Icon className={cn('size-5', classes.icon)} aria-hidden="true" />
         {isUnread ? (
           <span
-            className="absolute -right-1 -top-1 size-3 rounded-full bg-accent-indigo ring-2 ring-background"
+            className="absolute -right-1 -top-1 size-3 rounded-full bg-accent-strong ring-2 ring-background"
             aria-hidden="true"
           />
         ) : null}
@@ -200,7 +200,7 @@ export function WarrantyClaimNotificationRenderer({
           ) : null}
         </div>
         {body ? (
-          <div className="mt-2 inline-flex max-w-full self-start rounded-tr-lg rounded-br-lg rounded-bl-lg rounded-tl-sm border border-border bg-background px-3 py-2 text-sm leading-5 text-muted-foreground shadow-xs">
+          <div className="mt-2 inline-flex max-w-full self-start rounded-tr-lg rounded-br-lg rounded-bl-lg rounded-tl-sm border border-border bg-surface px-3 py-2 text-sm leading-5 text-muted-foreground shadow-xs">
             <p className="line-clamp-2 break-words">{body}</p>
           </div>
         ) : null}

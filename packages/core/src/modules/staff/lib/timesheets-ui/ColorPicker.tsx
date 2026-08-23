@@ -53,7 +53,7 @@ export function ColorPicker({
           title={resetLabel}
           disabled={disabled}
           onClick={() => onChange(null)}
-          className={`inline-flex h-6 items-center cursor-pointer rounded-full border border-dashed border-muted-foreground/50 bg-transparent px-2 text-[11px] text-muted-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
+          className={`inline-flex h-6 items-center cursor-pointer rounded-full border border-dashed border-muted-foreground/50 bg-transparent px-2 text-overline text-muted-foreground transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
             value == null ? 'ring-2 ring-offset-1 ring-ring' : ''
           }`}
         >

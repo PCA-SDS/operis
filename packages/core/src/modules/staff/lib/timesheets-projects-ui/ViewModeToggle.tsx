@@ -35,7 +35,7 @@ export function ViewModeToggle({
         aria-pressed={mode === 'table'}
         className={`h-auto gap-1.5 px-2.5 py-1 text-xs ${
           mode === 'table'
-            ? 'bg-foreground text-background hover:bg-foreground'
+            ? 'bg-primary text-primary-foreground hover:bg-foreground'
             : 'text-muted-foreground hover:bg-muted'
         }`}
         onClick={() => onChange('table')}
@@ -50,7 +50,7 @@ export function ViewModeToggle({
         aria-pressed={mode === 'cards'}
         className={`h-auto gap-1.5 px-2.5 py-1 text-xs ${
           mode === 'cards'
-            ? 'bg-foreground text-background hover:bg-foreground'
+            ? 'bg-primary text-primary-foreground hover:bg-foreground'
             : 'text-muted-foreground hover:bg-muted'
         }`}
         onClick={() => onChange('cards')}

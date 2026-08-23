@@ -93,7 +93,7 @@ export default function StaffMyLeaveRequestCreatePage() {
     return (
       <Page>
         <PageBody>
-          <div className="space-y-3 rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+          <div className="space-y-3 rounded-xl border border-border bg-surface shadow-sm p-6 text-center text-sm text-muted-foreground">
             <p>{t('staff.leaveRequests.empty.profileRequired', 'Create your team member profile to submit leave requests.')}</p>
             <Button asChild size="sm">
               <Link href="/backend/staff/profile/create">

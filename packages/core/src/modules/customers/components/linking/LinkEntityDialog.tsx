@@ -188,7 +188,7 @@ function SelectionIndicator({ checked, disabled, label }: SelectionIndicatorProp
       className={cn(
         'inline-flex size-6 shrink-0 items-center justify-center rounded-full border transition-colors',
         checked
-          ? 'border-foreground bg-foreground text-background'
+          ? 'border-primary bg-primary text-primary-foreground'
           : 'border-border bg-background',
         disabled && 'opacity-50',
       )}
@@ -593,7 +593,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
                         className={cn(
                           'inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold transition-colors',
                           isActive
-                            ? 'bg-foreground text-background'
+                            ? 'bg-primary text-primary-foreground'
                             : 'bg-muted/70 text-muted-foreground hover:bg-muted',
                         )}
                       >
@@ -704,7 +704,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
                         </span>
                       ) : null}
                     </span>
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-foreground text-background">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
                       <Plus className="size-3.5" />
                     </span>
                   </button>
@@ -897,7 +897,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
                   void handleSave()
                 }}
                 disabled={saving || !hasChanges}
-                className="h-9 rounded-md bg-foreground px-5 text-background hover:bg-foreground/90"
+                className="h-9 rounded-md bg-primary px-5 text-primary-foreground hover:bg-primary-hover"
               >
                 {saving ? (
                   <>

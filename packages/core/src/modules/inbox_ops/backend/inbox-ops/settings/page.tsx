@@ -120,7 +120,7 @@ export default function InboxSettingsPage() {
                     <code className="text-sm font-mono">{settings.inboxAddress}</code>
                   </div>
                   <Button type="button" variant="outline" size="sm" className="h-11 md:h-9" onClick={handleCopy}>
-                    {copied ? <CheckCircle className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                    {copied ? <CheckCircle className="h-4 w-4 text-status-success-icon" /> : <Copy className="h-4 w-4" />}
                     <span className="ml-1">{copied ? t('inbox_ops.settings.copied', 'Copied') : t('inbox_ops.settings.copy', 'Copy')}</span>
                   </Button>
                 </div>
@@ -130,7 +130,7 @@ export default function InboxSettingsPage() {
                 <label className="text-sm font-medium text-foreground">{t('inbox_ops.settings.status', 'Status')}</label>
                 <div className="mt-1">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                    settings.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    settings.isActive ? 'bg-status-success-bg text-status-success-text' : 'bg-status-error-bg text-status-error-text'
                   }`}>
                     {settings.isActive ? t('inbox_ops.settings.active', 'Active') : t('inbox_ops.settings.inactive', 'Inactive')}
                   </span>

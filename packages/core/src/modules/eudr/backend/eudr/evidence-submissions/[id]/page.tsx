@@ -531,7 +531,7 @@ export default function EditEudrEvidenceSubmissionPage({ params }: { params?: { 
             })
           }}
         />
-        <div className="rounded-lg border bg-card px-4 py-3 space-y-3">
+        <div className="rounded-xl border border-border bg-surface shadow-sm px-4 py-3 space-y-3">
           <h3 className="text-sm font-semibold">{translate('eudr.evidenceSubmissions.form.documents')}</h3>
           <AttachmentInput
             entityId="eudr:eudr_evidence_submission"

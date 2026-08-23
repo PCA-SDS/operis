@@ -236,9 +236,9 @@ export function DemoFeedbackWidget({ demoModeEnabled }: { demoModeEnabled: boole
     <button
       type="button"
       onClick={() => { setOpen(true); if (submitState === 'sent') resetForm() }}
-      className="om-demo-feedback-floating fixed bottom-6 right-6 z-banner flex max-w-[calc(100vw-3rem)] items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-black shadow-xl transition-all hover:scale-105 hover:shadow-2xl active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 animate-[subtle-bounce_2s_ease-in-out_infinite]"
+      className="om-demo-feedback-floating fixed bottom-6 right-6 z-banner flex max-w-[calc(100vw-3rem)] items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-brand-violet-foreground shadow-xl transition-all hover:scale-105 hover:shadow-2xl active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 animate-[subtle-bounce_2s_ease-in-out_infinite]"
       style={{
-        backgroundImage: 'linear-gradient(135deg, var(--brand-lime, #B4F372) 0%, #EEFB63 50%, var(--brand-violet, #BC9AFF) 100%)',
+        backgroundImage: 'linear-gradient(135deg, var(--brand-sky, #A9C4EC) 0%, var(--brand-lilac, #C9C2F0) 50%, var(--brand-violet, #BC9AFF) 100%)',
       }}
       aria-label={t('demoFeedback.button.ariaLabel', 'Open feedback form')}
     >
@@ -383,7 +383,7 @@ export function DemoFeedbackWidget({ demoModeEnabled }: { demoModeEnabled: boole
                   // Pin text to `text-black` — the gradient is a fixed light
                   // surface in both themes; `text-foreground` would flip white
                   // in dark mode and vanish against the pale gradient.
-                  backgroundImage: 'linear-gradient(135deg, var(--brand-lime, #B4F372) 0%, #EEFB63 50%, var(--brand-violet, #BC9AFF) 100%)',
+                  backgroundImage: 'linear-gradient(135deg, var(--brand-sky, #A9C4EC) 0%, var(--brand-lilac, #C9C2F0) 50%, var(--brand-violet, #BC9AFF) 100%)',
                 }}
               >
                 {submitState === 'sending' ? (

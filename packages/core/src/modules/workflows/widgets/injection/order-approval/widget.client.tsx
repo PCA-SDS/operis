@@ -343,7 +343,7 @@ export default function OrderApprovalWidget({ data }: InjectionWidgetComponentPr
   }
 
   return (
-    <div className="space-y-3 rounded-lg border bg-card p-4 shadow-sm">
+    <div className="space-y-3 rounded-xl border border-border bg-surface shadow-sm p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-foreground">
@@ -357,7 +357,7 @@ export default function OrderApprovalWidget({ data }: InjectionWidgetComponentPr
       </div>
 
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-800">
+        <div className="rounded-md border border-status-error-border bg-status-error-bg p-3 text-xs text-status-error-text">
           {error}
         </div>
       )}
@@ -383,11 +383,11 @@ export default function OrderApprovalWidget({ data }: InjectionWidgetComponentPr
       {/* Active workflow with pending task - show approve/reject UI */}
       {activeInstance && pendingTask && (
         <div className="space-y-3" onKeyDown={handleKeyDown}>
-          <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
-            <p className="text-sm font-medium text-amber-800">
+          <div className="rounded-md border border-status-warning-border bg-status-warning-bg p-3">
+            <p className="text-sm font-medium text-status-warning-text">
               {t('workflows.orderApproval.pendingTitle', 'Pending Approval')}
             </p>
-            <p className="text-xs text-amber-700 mt-1">
+            <p className="text-xs text-status-warning-text mt-1">
               {t('workflows.orderApproval.pendingDescription', 'This order requires approval before processing.')}
             </p>
           </div>
@@ -401,7 +401,7 @@ export default function OrderApprovalWidget({ data }: InjectionWidgetComponentPr
                 variant={decision === 'approve' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setDecision('approve')}
-                className={decision === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                className={decision === 'approve' ? 'bg-status-success-solid hover:bg-status-success-solid' : ''}
               >
                 {t('workflows.orderApproval.approveButton', 'Approve')}
               </Button>
@@ -442,8 +442,8 @@ export default function OrderApprovalWidget({ data }: InjectionWidgetComponentPr
 
       {/* Active workflow but no pending task (processing) */}
       {activeInstance && !pendingTask && activeInstance.status !== 'COMPLETED' && (
-        <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
-          <p className="text-sm text-blue-800">
+        <div className="rounded-md border border-status-info-border bg-status-info-bg p-3">
+          <p className="text-sm text-status-info-text">
             {t('workflows.orderApproval.processing', 'Workflow is processing...')}
           </p>
         </div>
@@ -451,8 +451,8 @@ export default function OrderApprovalWidget({ data }: InjectionWidgetComponentPr
 
       {/* Completed workflow */}
       {activeInstance && activeInstance.status === 'COMPLETED' && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
-          <p className="text-sm text-emerald-800">
+        <div className="rounded-md border border-status-success-border bg-status-success-bg p-3">
+          <p className="text-sm text-status-success-text">
             {t('workflows.orderApproval.completed', 'Approval workflow completed.')}
           </p>
         </div>

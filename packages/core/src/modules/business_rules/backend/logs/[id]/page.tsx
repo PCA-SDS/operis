@@ -118,11 +118,11 @@ export default function ExecutionLogDetailPage() {
   const getResultBadgeClass = (result: string) => {
     switch (result) {
       case 'SUCCESS':
-        return 'bg-green-100 text-green-800'
+        return 'bg-status-success-bg text-status-success-text'
       case 'FAILURE':
-        return 'bg-yellow-100 text-yellow-800'
+        return 'bg-status-warning-bg text-status-warning-text'
       case 'ERROR':
-        return 'bg-red-100 text-red-800'
+        return 'bg-status-error-bg text-status-error-text'
       default:
         return 'bg-muted text-foreground'
     }
@@ -148,7 +148,7 @@ export default function ExecutionLogDetailPage() {
           </div>
 
           {/* Execution Summary */}
-          <div className="rounded-lg border bg-card p-6">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('business_rules.logs.detail.summary')}
             </h2>
@@ -193,7 +193,7 @@ export default function ExecutionLogDetailPage() {
           </div>
 
           {/* Rule Information */}
-          <div className="rounded-lg border bg-card p-6">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('business_rules.logs.detail.ruleInfo')}
             </h2>
@@ -231,7 +231,7 @@ export default function ExecutionLogDetailPage() {
           </div>
 
           {/* Entity Information */}
-          <div className="rounded-lg border bg-card p-6">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('business_rules.logs.detail.entityInfo')}
             </h2>

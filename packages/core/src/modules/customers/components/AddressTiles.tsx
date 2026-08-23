@@ -584,7 +584,7 @@ export function CustomerAddressTiles({
             return (
               <div
                 key={address.id}
-                className="rounded-lg border bg-background p-4 text-sm shadow-sm"
+                className="rounded-lg border bg-surface p-4 text-sm shadow-sm"
                 title={formattedString}
                 data-address-json={JSON.stringify(formattedJson)}
                 data-address-string={formattedString}

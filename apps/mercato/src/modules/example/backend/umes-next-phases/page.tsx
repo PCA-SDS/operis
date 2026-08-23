@@ -287,7 +287,7 @@ export default function UmesNextPhasesPage() {
               ref={idsInputRef}
               value={idsInput}
               onChange={(event) => setIdsInput(event.target.value)}
-              className="h-9 rounded border border-input bg-background px-3 text-sm"
+              className="h-9 rounded border border-input bg-input-bg px-3 text-sm"
               placeholder={t('example.umes.next.probe.idsPlaceholder')}
             />
           </label>

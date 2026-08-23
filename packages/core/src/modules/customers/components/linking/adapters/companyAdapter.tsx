@@ -274,7 +274,7 @@ export function createCompanyLinkAdapter(
           className={cn(
             'inline-flex size-5 shrink-0 items-center justify-center rounded-full border',
             ctx.selected
-              ? 'border-foreground bg-foreground text-background'
+              ? 'border-primary bg-primary text-primary-foreground'
               : 'border-border bg-background',
           )}
         >

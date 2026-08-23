@@ -247,7 +247,7 @@ export default function WmsLotsListPage() {
         ) : null}
 
         {lotsQuery.data ? (
-          <section className="rounded-lg border bg-card p-5 text-card-foreground shadow-sm">
+          <section className="rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground shadow-sm">
             <div className="mb-4 flex items-start gap-3">
               <div className="rounded-md border bg-muted/40 p-2 text-muted-foreground">
                 <Layers className="size-5" />

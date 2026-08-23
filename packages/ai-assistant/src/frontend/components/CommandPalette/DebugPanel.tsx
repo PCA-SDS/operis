@@ -40,19 +40,19 @@ export function DebugPanel({ events, onClear, isOpen, onToggle }: DebugPanelProp
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-gray-700">
-        <span className="text-xs font-medium text-gray-300">Debug Events ({filteredEvents.length})</span>
+      <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-border">
+        <span className="text-xs font-medium text-disabled-foreground">Debug Events ({filteredEvents.length})</span>
         <div className="flex gap-2">
           <button
             onClick={onClear}
-            className="text-gray-400 hover:text-gray-200"
+            className="text-disabled-foreground hover:text-foreground"
             title="Clear events"
           >
             <Trash2 className="w-3 h-3" />
           </button>
           <button
             onClick={onToggle}
-            className="text-gray-400 hover:text-gray-200"
+            className="text-disabled-foreground hover:text-foreground"
             title="Close debug panel"
           >
             <X className="w-3 h-3" />
@@ -64,7 +64,7 @@ export function DebugPanel({ events, onClear, isOpen, onToggle }: DebugPanelProp
           <DebugEventRow key={event.id} event={event} />
         ))}
         {filteredEvents.length === 0 && (
-          <p className="text-xs text-gray-500 text-center py-4">No events yet</p>
+          <p className="text-xs text-muted-foreground text-center py-4">No events yet</p>
         )}
       </div>
     </div>
@@ -98,33 +98,33 @@ function parseNestedJson(data: unknown): unknown {
 const customDarkStyles: Record<string, string> = {
   container: 'bg-transparent text-overline leading-relaxed font-mono',
   basicChildStyle: 'pl-4 ml-0',
-  label: 'text-purple-400 mr-1',
-  nullValue: 'text-gray-500 italic',
-  undefinedValue: 'text-gray-500 italic',
-  stringValue: 'text-green-400',
-  booleanValue: 'text-yellow-400',
-  numberValue: 'text-blue-400',
-  otherValue: 'text-gray-300',
-  punctuation: 'text-gray-500',
-  collapseIcon: 'text-gray-400 cursor-pointer select-none mr-1',
-  expandIcon: 'text-gray-400 cursor-pointer select-none mr-1',
-  collapsedContent: 'text-gray-500',
+  label: 'text-status-pink-icon mr-1',
+  nullValue: 'text-muted-foreground italic',
+  undefinedValue: 'text-muted-foreground italic',
+  stringValue: 'text-status-success-icon',
+  booleanValue: 'text-status-warning-icon',
+  numberValue: 'text-status-info-icon',
+  otherValue: 'text-disabled-foreground',
+  punctuation: 'text-muted-foreground',
+  collapseIcon: 'text-disabled-foreground cursor-pointer select-none mr-1',
+  expandIcon: 'text-disabled-foreground cursor-pointer select-none mr-1',
+  collapsedContent: 'text-muted-foreground',
 }
 
 function DebugEventRow({ event }: { event: DebugEvent }) {
   const [expanded, setExpanded] = React.useState(false)
   const typeColors: Record<string, string> = {
-    'thinking': 'text-orange-400',
-    'tool-call': 'text-blue-400',
-    'tool-result': 'text-green-400',
-    'text': 'text-gray-300',
-    'error': 'text-red-400',
-    'done': 'text-purple-400',
-    'message': 'text-yellow-400',
-    'connection': 'text-cyan-400',
-    'metadata': 'text-teal-400',
-    'debug': 'text-gray-500',
-    'question': 'text-amber-400',
+    'thinking': 'text-status-warning-icon',
+    'tool-call': 'text-status-info-icon',
+    'tool-result': 'text-status-success-icon',
+    'text': 'text-disabled-foreground',
+    'error': 'text-status-error-icon',
+    'done': 'text-status-pink-icon',
+    'message': 'text-status-warning-icon',
+    'connection': 'text-status-info-icon',
+    'metadata': 'text-accent-strong',
+    'debug': 'text-muted-foreground',
+    'question': 'text-status-warning-icon',
   }
 
   const formatTime = (date: Date) => {
@@ -143,23 +143,23 @@ function DebugEventRow({ event }: { event: DebugEvent }) {
     <div className="text-xs font-mono">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full text-left flex items-center gap-2 hover:bg-gray-800 rounded px-1 py-0.5"
+        className="w-full text-left flex items-center gap-2 hover:bg-surface-muted rounded px-1 py-0.5"
       >
-        <span className="text-gray-500 flex-shrink-0">
+        <span className="text-muted-foreground flex-shrink-0">
           {formatTime(event.timestamp)}
         </span>
-        <span className={cn('font-medium flex-shrink-0', typeColors[event.type] || 'text-gray-400')}>
+        <span className={cn('font-medium flex-shrink-0', typeColors[event.type] || 'text-disabled-foreground')}>
           {event.type}
         </span>
-        <span className="text-gray-400 truncate flex-1">
+        <span className="text-disabled-foreground truncate flex-1">
           {getEventPreview(event)}
         </span>
-        <span className="text-gray-600 flex-shrink-0">
+        <span className="text-muted-foreground flex-shrink-0">
           {expanded ? '▼' : '▶'}
         </span>
       </button>
       {expanded && (
-        <div className="bg-gray-800 rounded p-2 mt-1 overflow-x-auto max-h-[300px] overflow-y-auto">
+        <div className="bg-surface-muted rounded p-2 mt-1 overflow-x-auto max-h-[300px] overflow-y-auto">
           <JsonView
             data={parsedData as object}
             style={customDarkStyles}
@@ -245,7 +245,7 @@ export function DebugToggleButton({
       className={cn(
         'flex items-center gap-1 text-xs transition-colors',
         isOpen
-          ? 'text-blue-500 hover:text-blue-400'
+          ? 'text-status-info-icon hover:text-status-info-icon'
           : 'text-muted-foreground hover:text-foreground'
       )}
       title="Toggle debug panel"

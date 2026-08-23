@@ -176,7 +176,7 @@ const handleSubmit = React.useCallback(async (values: LeaveRequestFormValues) =>
   return (
     <Page>
       <PageBody>
-        <div className="mb-6 space-y-2 rounded-lg border bg-card p-4">
+        <div className="mb-6 space-y-2 rounded-xl border border-border bg-surface shadow-sm p-4">
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant={resolveStatusVariant(status)}>
               {t(`staff.leaveRequests.status.${status}`, status)}
@@ -198,7 +198,7 @@ const handleSubmit = React.useCallback(async (values: LeaveRequestFormValues) =>
         </div>
 
         {status === 'pending' ? (
-          <div className="mb-6 rounded-lg border bg-card p-4">
+          <div className="mb-6 rounded-xl border border-border bg-surface shadow-sm p-4">
             <div className="mb-3 text-sm font-medium">{t('staff.leaveRequests.decision.title', 'Decision')}</div>
             <Textarea
               value={decisionComment}
@@ -216,7 +216,7 @@ const handleSubmit = React.useCallback(async (values: LeaveRequestFormValues) =>
             </div>
           </div>
         ) : record.decisionComment ? (
-          <div className="mb-6 rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+          <div className="mb-6 rounded-xl border border-border bg-surface shadow-sm p-4 text-sm text-muted-foreground">
             <div className="mb-1 font-medium text-foreground">{t('staff.leaveRequests.decision.comment', 'Decision comment')}</div>
             <p>{record.decisionComment}</p>
           </div>

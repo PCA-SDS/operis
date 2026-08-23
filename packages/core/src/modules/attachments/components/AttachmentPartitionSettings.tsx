@@ -384,7 +384,7 @@ export function AttachmentPartitionSettings({ s3Enabled }: AttachmentPartitionSe
   )
 
   return (
-    <div className="space-y-6 rounded-lg border bg-card p-6">
+    <div className="space-y-6 rounded-xl border border-border bg-surface shadow-sm p-6">
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-lg font-semibold">
@@ -475,7 +475,7 @@ export function AttachmentPartitionSettings({ s3Enabled }: AttachmentPartitionSe
               <Label htmlFor="partition-description">{t('attachments.partitions.form.descriptionLabel', 'Description')}</Label>
               <textarea
                 id="partition-description"
-                className="min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="min-h-[80px] w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                 value={form.description}
                 onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
                 placeholder={t('attachments.partitions.form.descriptionPlaceholder', 'Explain how this partition is used.')}
@@ -543,7 +543,7 @@ export function AttachmentPartitionSettings({ s3Enabled }: AttachmentPartitionSe
               </Label>
               <select
                 id="partition-storage-driver"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                 value={form.storageDriver}
                 onChange={(event) => setForm((prev) => ({ ...prev, storageDriver: event.target.value }))}
               >
@@ -577,7 +577,7 @@ export function AttachmentPartitionSettings({ s3Enabled }: AttachmentPartitionSe
                   </Label>
                   <select
                     id="partition-s3-creds-source"
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                     value={form.s3CredentialsSource}
                     onChange={(event) =>
                       setForm((prev) => ({

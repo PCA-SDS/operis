@@ -202,7 +202,7 @@ export function CurrencyFilterPopover({
             <Button
               type="button"
               onClick={handleApply}
-              className="h-auto rounded-lg bg-foreground px-5 py-2 text-sm font-semibold text-background hover:bg-foreground/90"
+              className="h-auto rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover"
             >
               {applyLabel}
             </Button>

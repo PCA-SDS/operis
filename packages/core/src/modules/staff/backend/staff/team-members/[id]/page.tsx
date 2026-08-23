@@ -454,7 +454,7 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
             <>
               <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr),minmax(0,1.1fr)]">
                 <div className="space-y-6">
-                  <div className="rounded-lg border bg-card p-4">
+                  <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
                     <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
                       {t('staff.teamMembers.detail.highlights', 'Highlights')}
                     </h2>
@@ -492,7 +492,7 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
                     </div>
                   </div>
 
-                  <div className="rounded-lg border bg-card p-4">
+                  <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <Tabs
                         value={activeTab}
@@ -582,7 +582,7 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <div className="rounded-lg border bg-card p-4">
+                  <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
                     <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
                       {t('staff.teamMembers.detail.details', 'Member details')}
                     </h2>
@@ -599,7 +599,7 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
                 </div>
               </div>
 
-              <div className="rounded-lg border bg-card p-4">
+              <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
                 <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
                   {t('staff.teamMembers.detail.formTitle', 'Member settings')}
                 </h2>
@@ -630,7 +630,7 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
               )}
             />
           ) : (
-            <div className="rounded-lg border bg-card p-4">
+            <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
               <JobHistorySection memberId={memberId ?? null} />
             </div>
           )}

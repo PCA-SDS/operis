@@ -265,7 +265,7 @@ export function StartPreConditionsEditor({
 
       <div className="space-y-3">
         {conditionsWithDetails.map((condition, index) => (
-          <div key={index} className="border border-gray-200 rounded-lg bg-white p-4">
+          <div key={index} className="border border-border rounded-lg bg-white p-4">
             <div className="space-y-3">
               {/* Header row with rule info and actions */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -278,10 +278,10 @@ export function StartPreConditionsEditor({
                     </div>
                   ) : condition.error ? (
                     <div className="flex items-center gap-2">
-                      <AlertCircle className="size-4 text-amber-600" />
+                      <AlertCircle className="size-4 text-status-warning-icon" />
                       <div>
                         <span className="text-sm font-semibold text-foreground">{condition.ruleId}</span>
-                        <p className="text-xs text-amber-600">{t('workflows.common.ruleNotFound')}</p>
+                        <p className="text-xs text-status-warning-icon">{t('workflows.common.ruleNotFound')}</p>
                       </div>
                     </div>
                   ) : (

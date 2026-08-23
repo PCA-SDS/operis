@@ -7,7 +7,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 export default function StripeConfigWidget(_props: InjectionWidgetComponentProps) {
   const t = useT()
   return (
-    <div className="space-y-3 rounded-lg border bg-card p-4">
+    <div className="space-y-3 rounded-xl border border-border bg-surface shadow-sm p-4">
       <p className="text-sm text-muted-foreground">
         {t('gateway_stripe.config.help', 'Configure credentials in Integration details. Consumer modules decide how to bind Stripe to their payment UIs.')}
       </p>

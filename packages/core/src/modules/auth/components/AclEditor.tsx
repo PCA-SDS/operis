@@ -312,11 +312,11 @@ export function AclEditor({
   return (
     <div className="space-y-4">
       {showRoleBanner && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-          <div className="text-sm font-medium text-blue-900 mb-2">
+        <div className="rounded-lg border border-status-info-border bg-status-info-bg p-4">
+          <div className="text-sm font-medium text-status-info-text mb-2">
             Permissions inherited from roles
           </div>
-          <div className="text-sm text-blue-700 mb-3">
+          <div className="text-sm text-status-info-text mb-3">
             This user currently inherits permissions from their assigned roles.
             {roleDetails.length > 0 && (
               <span>
@@ -329,7 +329,7 @@ export function AclEditor({
                       {idx > 0 && ', '}
                       <Link 
                         href={`/backend/roles/${roleId}/edit`}
-                        className="font-semibold text-blue-900 underline hover:text-blue-950 transition-colors"
+                        className="font-semibold text-status-info-text underline hover:text-status-info-text transition-colors"
                       >
                         {roleName}
                       </Link>
@@ -347,7 +347,7 @@ export function AclEditor({
               checked={overrideEnabled} 
               onChange={(e) => setOverrideEnabled(e.target.checked)} 
             />
-            <label htmlFor="overrideAcl" className="text-sm text-blue-900 font-medium">
+            <label htmlFor="overrideAcl" className="text-sm text-status-info-text font-medium">
               Override permissions for this user only
             </label>
           </div>
@@ -372,9 +372,9 @@ export function AclEditor({
       {!isSuperAdmin && (
         <>
           {hasGlobalWildcard && (
-            <div className="rounded border border-blue-200 bg-blue-50 p-3">
-              <div className="text-sm font-medium text-blue-900">Global wildcard (*) enabled</div>
-              <div className="text-xs text-blue-700 mt-1">This grants access to all features in the system.</div>
+            <div className="rounded border border-status-info-border bg-status-info-bg p-3">
+              <div className="text-sm font-medium text-status-info-text">Global wildcard (*) enabled</div>
+              <div className="text-xs text-status-info-text mt-1">This grants access to all features in the system.</div>
               <Button
                 variant="outline"
                 size="sm"
@@ -433,7 +433,7 @@ export function AclEditor({
                         onChange={(e) => toggleModuleWildcard(group.moduleId, e.target.checked)} 
                       />
                       <label htmlFor={`module-${group.moduleId}`} className="text-sm text-muted-foreground">
-                        All {moduleWildcard && !hasGlobalWildcard ? <span className="font-medium text-blue-600">({group.moduleId}.*)</span> : ''}
+                        All {moduleWildcard && !hasGlobalWildcard ? <span className="font-medium text-status-info-icon">({group.moduleId}.*)</span> : ''}
                         {moduleRestricted ? <span className="ml-2 text-xs font-medium text-muted-foreground">(manage via super admin)</span> : null}
                       </label>
                     </div>
@@ -557,7 +557,7 @@ export function AclEditor({
                 <Button variant="outline" onClick={() => setOrganizations(null)}>{t('auth.acl.allowAllOrganizations', 'Allow all organizations')}</Button>
               </div>
               {showOrganizationWarning && (
-                <div className="mt-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <div className="mt-3 rounded border border-status-warning-border bg-status-warning-bg px-3 py-2 text-sm text-status-warning-text">
                   {t('auth.acl.organizationWarning', 'Organization restrictions are saved only when at least one feature override is selected. Add a feature or enable a module wildcard before saving.')}
                 </div>
               )}

@@ -139,7 +139,7 @@ function AiAssistantSettingsContent() {
       </div>
 
       {/* Test AI Assistant Section */}
-      <div className="rounded-lg border bg-card p-6">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <h2 className="text-lg font-semibold flex items-center gap-2">
@@ -158,7 +158,7 @@ function AiAssistantSettingsContent() {
       </div>
 
       {/* Configuration Section */}
-      <div className="rounded-lg border bg-card p-6">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
         <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
           <Server className="h-4 w-4" />
           Configuration
@@ -220,7 +220,7 @@ function AiAssistantSettingsContent() {
       </div>
 
       {/* Requirements Section */}
-      <div className="rounded-lg border bg-card p-6">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
         <h2 className="text-sm font-semibold mb-4 flex items-center gap-2">
           <AlertTriangle className="h-4 w-4" />
           Requirements
@@ -248,7 +248,7 @@ function AiAssistantSettingsContent() {
       </div>
 
       {/* OpenCode Connection Section */}
-      <div className="rounded-lg border bg-card p-6">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold flex items-center gap-2">
             <Server className="h-4 w-4" />
@@ -366,7 +366,7 @@ function AiAssistantSettingsContent() {
       </div>
 
       {/* MCP Tools Section */}
-      <div className="rounded-lg border bg-card p-6">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
         <button
           onClick={() => setToolsExpanded(!toolsExpanded)}
           className="w-full flex items-center justify-between text-left"

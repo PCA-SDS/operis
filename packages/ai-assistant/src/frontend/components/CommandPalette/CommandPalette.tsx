@@ -150,7 +150,7 @@ export function CommandPalette() {
           className={cn(
             'fixed left-1/2 top-[10vh] z-modal -translate-x-1/2',
             'w-full max-w-2xl p-0',
-            'rounded-xl border bg-background shadow-2xl',
+            'rounded-xl border bg-surface shadow-2xl',
             'flex flex-col'
           )}
           style={{ maxHeight: 500, overflow: 'hidden' }}
@@ -264,7 +264,7 @@ export function CommandPalette() {
       {isOpen && showDebug && typeof document !== 'undefined' && createPortal(
         <div
           data-debug-panel
-          className="fixed z-top bg-gray-900 rounded-xl border border-gray-700 shadow-2xl flex flex-col overflow-hidden"
+          className="fixed z-top bg-surface rounded-xl border border-border shadow-2xl flex flex-col overflow-hidden"
           style={{ top: '80px', right: '20px', width: '400px', minWidth: '400px', maxWidth: '400px', maxHeight: 'calc(100vh - 100px)' }}
         >
           <DebugPanel

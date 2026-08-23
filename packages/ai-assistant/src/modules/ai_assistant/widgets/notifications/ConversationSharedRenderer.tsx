@@ -58,7 +58,7 @@ export function ConversationSharedRenderer({
         <Share2 className="size-5 text-status-info-icon" aria-hidden="true" />
         {isUnread ? (
           <span
-            className="absolute -right-1 -top-1 size-3 rounded-full bg-accent-indigo ring-2 ring-background"
+            className="absolute -right-1 -top-1 size-3 rounded-full bg-accent-strong ring-2 ring-background"
             aria-hidden="true"
           />
         ) : null}
@@ -77,7 +77,7 @@ export function ConversationSharedRenderer({
           <Button
             type="button"
             size="sm"
-            className="h-8 rounded-md px-2.5 bg-accent-indigo text-accent-indigo-foreground hover:bg-accent-indigo/90"
+            className="h-8 rounded-md px-2.5 bg-accent-strong text-accent-strong-foreground hover:bg-accent-strong/90"
             onClick={(e) => {
               e.stopPropagation()
               handleView()

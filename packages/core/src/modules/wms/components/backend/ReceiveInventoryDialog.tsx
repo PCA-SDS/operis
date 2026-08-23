@@ -570,7 +570,7 @@ export function ReceiveInventoryDialog({
                 required
                 error={fieldErrors.quantity}
               >
-                <div className="flex w-32 items-center gap-2 rounded-md border bg-background p-2 shadow-xs">
+                <div className="flex w-32 items-center gap-2 rounded-md border bg-surface p-2 shadow-xs">
                   <IconButton
                     type="button"
                     variant="ghost"

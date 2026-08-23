@@ -150,17 +150,17 @@ export function FormFieldArrayEditor({
           {formFields.map((field, index) => {
             const isExpanded = expandedIndices.has(index)
             return (
-              <div key={index} className="border border-gray-200 rounded-lg bg-gray-50">
+              <div key={index} className="border border-border rounded-lg bg-surface-muted">
                 {/* Collapsed Header */}
                 <button
                   type="button"
                   onClick={() => toggleExpanded(index)}
                   disabled={disabled}
-                  className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-gray-100 transition-colors rounded-t-lg disabled:opacity-50"
+                  className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-surface-muted transition-colors rounded-t-lg disabled:opacity-50"
                 >
                   <div className="flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-900">
+                      <span className="text-sm font-semibold text-foreground">
                         {field.label || field.name}
                       </span>
                       <Badge variant="secondary" className="text-xs">
@@ -172,18 +172,18 @@ export function FormFieldArrayEditor({
                         </Badge>
                       )}
                     </div>
-                    <p className="text-xs text-gray-600 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       Field name: <code className="bg-white px-1 rounded">{field.name}</code>
                     </p>
                   </div>
                   <ChevronDown
-                    className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    className={`w-5 h-5 text-disabled-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                   />
                 </button>
 
                 {/* Expanded Content */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 space-y-3 border-t border-gray-200 bg-white">
+                  <div className="px-4 pb-4 space-y-3 border-t border-border bg-white">
                     {/* Field Name */}
                     <div className="pt-3">
                       <Label htmlFor={`${id}-${index}-name`} className="text-xs font-medium mb-1">
@@ -316,7 +316,7 @@ export function FormFieldArrayEditor({
                           id={`${id}-${index}-required`}
                           checked={field.required}
                           onChange={(e) => updateFormField(index, 'required', e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus-visible:ring-ring"
+                          className="h-4 w-4 rounded border-border text-status-info-icon focus-visible:ring-ring"
                           disabled={disabled}
                         />
                         <Label htmlFor={`${id}-${index}-required`} className="text-xs font-medium cursor-pointer">
@@ -326,7 +326,7 @@ export function FormFieldArrayEditor({
                     </div>
 
                     {/* Delete Button */}
-                    <div className="border-t border-gray-200 pt-3">
+                    <div className="border-t border-border pt-3">
                       <Button
                         type="button"
                         variant="destructive"

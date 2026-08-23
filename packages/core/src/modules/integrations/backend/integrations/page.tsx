@@ -78,8 +78,8 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
 }
 
 const HEALTH_BADGE_CLASS: Record<string, string> = {
-  healthy: 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300',
-  degraded: 'bg-amber-500/15 text-amber-900 dark:text-amber-300',
+  healthy: 'bg-status-success-solid/15 text-status-success-text',
+  degraded: 'bg-status-warning-solid/15 text-status-warning-text',
   unhealthy: 'bg-destructive/15 text-destructive',
   unconfigured: 'bg-muted text-muted-foreground',
 }
@@ -334,7 +334,7 @@ export default function IntegrationsMarketplacePage() {
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span className="sr-only">{t('integrations.marketplace.sort.label', 'Sort by')}</span>
                 <select
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-9 rounded-md border border-input bg-input-bg px-2 text-sm"
                   value={sortField}
                   onChange={(e) => setSortField(e.target.value as typeof sortField)}
                 >
@@ -345,7 +345,7 @@ export default function IntegrationsMarketplacePage() {
                 </select>
               </label>
               <select
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                className="h-9 rounded-md border border-input bg-input-bg px-2 text-sm"
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value as typeof sortOrder)}
                 aria-label={t('integrations.marketplace.sort.order', 'Sort order')}

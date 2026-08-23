@@ -914,7 +914,7 @@ export function AttachmentLibrary() {
                   <a
                     key={`${assignment.type}-${assignment.id}-${assignment.href}`}
                     href={assignment.href}
-                    className="text-sm text-blue-600 underline"
+                    className="text-sm text-status-info-icon underline"
                     target="_blank"
                     rel="noreferrer"
                     onClick={(event) => event.stopPropagation()}

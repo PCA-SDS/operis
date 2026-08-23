@@ -23,7 +23,7 @@ function MenuShortcut({ children }: { children: React.ReactNode }): React.ReactE
   return (
     <kbd
       aria-hidden="true"
-      className="ml-auto inline-flex items-center rounded border border-border bg-muted px-1.5 py-px font-mono text-[10px] font-medium leading-none text-muted-foreground"
+      className="ml-auto inline-flex items-center rounded border border-border bg-muted px-1.5 py-px font-mono text-overline font-medium leading-none text-muted-foreground"
     >
       {children}
     </kbd>
@@ -170,7 +170,7 @@ export function DealCardMenu({ items, ariaLabel }: DealCardMenuProps): React.Rea
               ref={menuRef}
               role="menu"
               onKeyDown={handleMenuKeyDown}
-              className="fixed z-dropdown w-52 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-background p-1.5 shadow-md"
+              className="fixed z-dropdown w-52 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-surface p-1.5 shadow-md"
               style={{
                 top:
                   direction === 'down'

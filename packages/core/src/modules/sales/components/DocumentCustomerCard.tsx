@@ -43,7 +43,7 @@ export function DocumentCustomerCard({
   return (
     <div
       className={cn(
-        'group rounded-lg border bg-card p-3',
+        'group rounded-xl border border-border bg-surface shadow-sm p-3',
         onSelectCustomer ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring' : null,
         className,
       )}

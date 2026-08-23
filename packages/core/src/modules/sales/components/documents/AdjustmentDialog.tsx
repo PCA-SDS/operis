@@ -446,7 +446,7 @@ export function AdjustmentDialog({
                   key={option}
                   type="button"
                   className={`rounded px-3 py-1 transition-colors ${
-                    currentMode === option ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                    currentMode === option ? 'bg-surface text-foreground shadow-sm' : 'text-muted-foreground'
                   }`}
                   onClick={() => {
                     setMode(option)

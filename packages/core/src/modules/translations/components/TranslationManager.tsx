@@ -444,7 +444,7 @@ export function TranslationManager({
                   <td className="px-3 py-2 align-top">
                     {field.multiline ? (
                       <textarea
-                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         rows={3}
                         value={translatedVal}
                         onChange={(e) => updateFieldValue(activeLocale, field.key, e.target.value)}
@@ -503,7 +503,7 @@ export function TranslationManager({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface shadow-sm p-4 shadow-sm">
         <div className="space-y-2">
           <h2 className="text-xl font-semibold">{t('translations.manager.title', 'Translations')}</h2>
           <p className="text-sm text-muted-foreground">
@@ -636,7 +636,7 @@ export function LocaleManager() {
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm">
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface shadow-sm p-4 shadow-sm">
       <div className="space-y-1">
         <h3 className="text-lg font-semibold">{t('translations.locales.title', 'Supported locales')}</h3>
         <p className="text-sm text-muted-foreground">

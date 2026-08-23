@@ -25,12 +25,16 @@ export type ConditionGroupProps = {
   entityType?: string
 }
 
+/* Nesting depth is a CATEGORICAL signal — a group three levels deep is not
+   "a warning". The cycle uses the token families purely to stay distinguishable,
+   and needs no `dark:` overrides because every status token carries its own
+   dark value. */
 const DEPTH_COLORS = [
-  'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-950/50',
-  'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-950/50',
-  'border-purple-300 bg-purple-50 dark:border-purple-700 dark:bg-purple-950/50',
-  'border-orange-300 bg-orange-50 dark:border-orange-700 dark:bg-orange-950/50',
-  'border-pink-300 bg-pink-50 dark:border-pink-700 dark:bg-pink-950/50',
+  'border-status-info-border bg-status-info-bg',
+  'border-status-success-border bg-status-success-bg',
+  'border-status-pink-border bg-status-pink-bg',
+  'border-status-warning-border bg-status-warning-bg',
+  'border-status-neutral-border bg-status-neutral-bg',
 ]
 
 export function ConditionGroup({ group, onChange, onDelete, depth, maxDepth = 5, entityType }: ConditionGroupProps) {

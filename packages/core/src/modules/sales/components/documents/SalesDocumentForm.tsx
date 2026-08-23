@@ -1131,7 +1131,7 @@ export function SalesDocumentForm({ onCreated, isSubmitting = false, initialKind
           <div className="space-y-2 pt-0">
             <div className="flex items-center justify-between gap-3">
               <div className="text-sm font-semibold text-foreground">{label}</div>
-              <div className="inline-flex rounded-lg border bg-background p-1 shadow-sm">
+              <div className="inline-flex rounded-lg border bg-surface p-1 shadow-sm">
                 {(['quote', 'order'] as DocumentKind[]).map((kind) => (
                   <Button
                     key={kind}

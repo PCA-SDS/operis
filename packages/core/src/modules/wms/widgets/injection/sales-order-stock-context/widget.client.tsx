@@ -258,7 +258,7 @@ export default function SalesOrderStockContextWidget(
     : null
 
   return (
-    <div className="rounded-lg border bg-card px-4 py-3 space-y-4">
+    <div className="rounded-xl border border-border bg-surface shadow-sm px-4 py-3 space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="text-sm font-medium">

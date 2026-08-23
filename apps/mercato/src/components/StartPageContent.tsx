@@ -34,7 +34,7 @@ function RoleTile({
   const t = useT()
   const defaultDisabledCtaLabel = t('startPage.roleTile.loginUnavailable', 'Login unavailable')
   return (
-    <div className="rounded-lg border bg-card p-6 flex flex-col gap-4 transition-all hover:shadow-md">
+    <div className="rounded-xl border border-border bg-surface shadow-sm p-6 flex flex-col gap-4 transition-all hover:shadow-md">
       <div className="flex items-start gap-4">
         <div className="rounded-lg bg-primary/10 p-3 text-primary">
           {icon}
@@ -226,7 +226,7 @@ export function StartPageContent({ showStartPage: initialShowStartPage, showOnbo
         </div>
       </section>
 
-      <section className="rounded-lg border bg-card p-6 space-y-4">
+      <section className="rounded-xl border border-border bg-surface shadow-sm p-6 space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-3">
             <span className="rounded-full bg-primary/10 p-2 text-primary">

@@ -293,7 +293,7 @@ export function ProductUomSection({
   return (
     <div
       className={
-        embedded ? "space-y-5" : "space-y-5 rounded-lg border bg-card p-4"
+        embedded ? "space-y-5" : "space-y-5 rounded-xl border border-border bg-surface shadow-sm p-4"
       }
     >
       <div className="space-y-1">

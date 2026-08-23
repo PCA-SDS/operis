@@ -9,6 +9,7 @@ import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Badge } from '@open-mercato/ui/primitives/badge'
+import { entityColorStyle } from '@open-mercato/ui/primitives/tag'
 import { SendObjectMessageDialog } from '@open-mercato/ui/backend/messages'
 import { useQueryClient } from '@tanstack/react-query'
 import { ObjectHistoryButton } from './ObjectHistoryButton'
@@ -49,7 +50,7 @@ function DictionaryBadge({ value, map, categoryIcon, className }: { value: strin
   const icon = entry?.icon ?? null
   const label = entry?.label ?? formatFallbackLabel(value)
   const colorStyle: React.CSSProperties | undefined = color
-    ? { color, borderColor: color, backgroundColor: `${color}1A` }
+    ? entityColorStyle(color)
     : undefined
   return (
     <Badge
@@ -69,7 +70,7 @@ function DictionaryBadge({ value, map, categoryIcon, className }: { value: strin
 /** Renders a tag badge with color-based text/border/background from TagSummary.color. */
 function TagBadge({ tag }: { tag: TagSummary }) {
   const colorStyle: React.CSSProperties | undefined = tag.color
-    ? { color: tag.color, borderColor: tag.color, backgroundColor: `${tag.color}1A` }
+    ? entityColorStyle(tag.color)
     : undefined
   return (
     <Badge variant="outline" className="rounded-sm gap-1.5 text-xs font-medium" style={colorStyle}>
@@ -123,7 +124,7 @@ export function PersonDetailHeader({
   const { data: renewalQuarterDict } = useCustomerDictionary('renewal-quarters', 0, personOrgId)
 
   return (
-    <div className="rounded-lg border bg-card px-6 py-5">
+    <div className="rounded-xl border border-border bg-surface shadow-sm px-6 py-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
         {/* Avatar */}
         <Avatar label={displayName} size="xl" variant="monochrome" />

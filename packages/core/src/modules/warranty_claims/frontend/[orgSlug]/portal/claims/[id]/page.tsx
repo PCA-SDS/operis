@@ -939,7 +939,7 @@ export default function WarrantyClaimPortalDetailPage({ params }: Props) {
               placeholder={t('warranty_claims.portal.tracker.messagePlaceholder')}
               disabled={commentSubmitting}
               maxLength={8000}
-              className="h-40 resize-none rounded-lg border-input bg-background px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground"
+              className="h-40 resize-none rounded-lg border-input bg-input-bg px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground"
             />
             <div className="flex w-full items-center gap-2">
               <label className={`flex items-center gap-2 ${uploading ? 'cursor-default opacity-70' : 'cursor-pointer'}`}>

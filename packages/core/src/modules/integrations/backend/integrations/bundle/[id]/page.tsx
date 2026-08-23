@@ -296,7 +296,7 @@ export default function BundleConfigPage({ params }: BundleConfigPageProps) {
               {credFields.filter(isFieldVisible).map((field) => (
                 <div key={field.key} className="space-y-1.5">
                   <label className="text-sm font-medium">
-                    {field.label}{field.required && <span className="text-red-500 ml-0.5">*</span>}
+                    {field.label}{field.required && <span className="text-status-error-icon ml-0.5">*</span>}
                   </label>
                   {field.type === 'select' && field.options ? (
                     <Select

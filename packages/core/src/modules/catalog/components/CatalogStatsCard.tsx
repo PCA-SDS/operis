@@ -94,7 +94,7 @@ export function CatalogStatsCard({ payload }: AiUiPartProps) {
         <p className="mt-2 text-xs text-muted-foreground">{data.note}</p>
       ) : null}
       {data.generatedAt ? (
-        <p className="mt-2 text-[10px] text-muted-foreground">
+        <p className="mt-2 text-overline text-muted-foreground">
           {t('catalog.stats.snapshotAt', 'Snapshot at {time}').replace('{time}', new Date(data.generatedAt).toLocaleString())}
         </p>
       ) : null}

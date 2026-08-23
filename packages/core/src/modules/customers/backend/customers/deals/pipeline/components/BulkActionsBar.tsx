@@ -60,7 +60,7 @@ export function BulkActionsBar({
         'customers.deals.kanban.bulk.aria.bar',
         'Bulk actions',
       )}
-      className="fixed bottom-6 left-1/2 z-toast flex w-[min(960px,calc(100%-2rem))] -translate-x-1/2 items-center gap-3 rounded-lg bg-foreground px-4 py-3 text-background shadow-xl"
+      className="fixed bottom-6 left-1/2 z-toast flex w-[min(960px,calc(100%-2rem))] -translate-x-1/2 items-center gap-3 rounded-lg bg-primary px-4 py-3 text-background shadow-xl"
     >
       <IconButton
         variant="ghost"

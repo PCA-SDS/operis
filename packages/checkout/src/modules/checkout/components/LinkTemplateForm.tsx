@@ -90,7 +90,7 @@ const DEFAULT_COLORS = {
 } as const
 
 const SETTINGS_TABS_LIST_CLASS = 'h-auto w-full justify-start overflow-x-auto rounded-none border-b border-border bg-transparent p-0'
-const SETTINGS_TABS_TRIGGER_CLASS = 'mr-8 h-auto rounded-none border-b-2 border-transparent bg-transparent px-0 py-2.5 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground aria-selected:border-accent-indigo aria-selected:bg-transparent aria-selected:text-foreground aria-selected:shadow-none last:mr-0'
+const SETTINGS_TABS_TRIGGER_CLASS = 'mr-8 h-auto rounded-none border-b-2 border-transparent bg-transparent px-0 py-2.5 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground aria-selected:border-accent-strong aria-selected:bg-transparent aria-selected:text-foreground aria-selected:shadow-none last:mr-0'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -1563,7 +1563,7 @@ export function LinkTemplateForm({ mode, recordId }: Props) {
     </Alert>
   ) : undefined
   const lockedOverlay = isLocked ? (
-    <div className="mx-auto mt-6 max-w-md rounded-xl border border-status-warning-border bg-background/95 px-5 py-4 text-center shadow-sm">
+    <div className="mx-auto mt-6 max-w-md rounded-xl border border-status-warning-border bg-surface/95 px-5 py-4 text-center shadow-sm">
       <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-status-warning-bg text-status-warning-icon">
         <Shield className="h-5 w-5" />
       </div>

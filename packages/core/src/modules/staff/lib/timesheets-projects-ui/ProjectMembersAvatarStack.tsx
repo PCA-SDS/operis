@@ -17,12 +17,12 @@ export type ProjectMembersAvatarStackProps = {
 }
 
 const AVATAR_PALETTE = [
-  'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
-  'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
-  'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
-  'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200',
-  'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200',
-  'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-200',
+  'bg-status-info-bg text-status-info-text',
+  'bg-status-success-bg text-status-success-text',
+  'bg-status-warning-bg text-status-warning-text',
+  'bg-status-error-bg text-status-error-text',
+  'bg-status-pink-bg text-status-pink-text',
+  'bg-status-info-bg text-status-info-text',
 ]
 
 function pickPalette(id: string): string {
@@ -53,14 +53,14 @@ export function ProjectMembersAvatarStack({
           <span
             key={member.id}
             title={member.name}
-            className={`inline-flex h-6 w-6 items-center justify-center rounded-full border border-background text-[10px] font-semibold ${pickPalette(member.id)}`}
+            className={`inline-flex h-6 w-6 items-center justify-center rounded-full border border-background text-overline font-semibold ${pickPalette(member.id)}`}
           >
             {member.initials}
           </span>
         ))}
         {overflow > 0 ? (
           <span
-            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-background bg-muted text-[10px] font-semibold text-foreground"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-background bg-muted text-overline font-semibold text-foreground"
             title={`+${overflow}`}
           >
             +{overflow}

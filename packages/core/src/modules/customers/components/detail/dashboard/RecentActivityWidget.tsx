@@ -19,7 +19,7 @@ function interactionIcon(type: string) {
 
 export function RecentActivityWidget({ interactions, t }: { interactions: InteractionSummary[]; t: TranslateFn }) {
   return (
-    <div className="rounded-lg border bg-card p-5">
+    <div className="rounded-xl border border-border bg-surface shadow-sm p-5">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Clock className="size-4" />

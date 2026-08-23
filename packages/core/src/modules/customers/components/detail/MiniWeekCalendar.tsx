@@ -244,7 +244,7 @@ export function MiniWeekCalendar({ entityId, useCanonicalInteractions = true, re
               onClick={() => setSelectedDay(isSameDay(day, selectedDay ?? today) ? null : day)}
               className={cn(
                 'h-auto flex flex-col items-center border-r last:border-r-0 py-3 text-sm transition-colors cursor-pointer rounded-none',
-                isSelected ? 'bg-foreground text-background font-bold' : 'hover:bg-accent/50',
+                isSelected ? 'bg-primary text-primary-foreground font-bold' : 'hover:bg-accent/50',
               )}
             >
               <span className="text-base">{day.getDate()}</span>

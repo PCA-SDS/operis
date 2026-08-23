@@ -13,7 +13,7 @@ import type { QueryOptions } from '@open-mercato/shared/lib/query/types'
 
 type PhaseStatus = 'idle' | 'pending' | 'ok' | 'error'
 
-const hintClassName = 'rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-400/10 p-2 text-xs text-amber-800 dark:text-amber-100/90'
+const hintClassName = 'rounded-md border border-status-warning-icon/40 bg-status-warning-bg p-2 text-xs text-status-warning-text'
 
 function print(value: unknown): string {
   try {
@@ -316,7 +316,7 @@ export default function UmesQueryExtensionsPage() {
             </p>
           </div>
           <div className={`grid gap-1 ${hintClassName}`}>
-            <div className="font-medium text-amber-900 dark:text-amber-50">{t('example.umes.queryExtensions.hintHeading', 'What should be visible and how it should work')}</div>
+            <div className="font-medium text-status-warning-text">{t('example.umes.queryExtensions.hintHeading', 'What should be visible and how it should work')}</div>
             <div>{t('example.umes.queryExtensions.enrichers.hint1', '1. No selector / `api-response` surface: returns all 3 enrichers (backward compatible).')}</div>
             <div>{t('example.umes.queryExtensions.enrichers.hint2', '2. `query-engine` surface (no engine filter): returns 2 enrichers (query-enabled + basic-only).')}</div>
             <div>{t('example.umes.queryExtensions.enrichers.hint3', '3. `query-engine` + `basic` engine: returns 2 enrichers (query-enabled defaults to both, basic-only matches).')}</div>
@@ -342,7 +342,7 @@ export default function UmesQueryExtensionsPage() {
             </p>
           </div>
           <div className={`grid gap-1 ${hintClassName}`}>
-            <div className="font-medium text-amber-900 dark:text-amber-50">{t('example.umes.queryExtensions.hintHeading', 'What should be visible and how it should work')}</div>
+            <div className="font-medium text-status-warning-text">{t('example.umes.queryExtensions.hintHeading', 'What should be visible and how it should work')}</div>
             <div>{t('example.umes.queryExtensions.subscribers.hint1', '1. `example.todo.querying` should match 2 subscribers (exact + wildcard `example.*.querying`).')}</div>
             <div>{t('example.umes.queryExtensions.subscribers.hint2', '2. `example.todo.queried` should match 1 subscriber (exact match only).')}</div>
             <div>{t('example.umes.queryExtensions.subscribers.hint3', '3. `customers.person.querying` should match 0 subscribers (no cross-entity leakage).')}</div>
@@ -367,7 +367,7 @@ export default function UmesQueryExtensionsPage() {
             </p>
           </div>
           <div className={`grid gap-1 ${hintClassName}`}>
-            <div className="font-medium text-amber-900 dark:text-amber-50">{t('example.umes.queryExtensions.hintHeading', 'What should be visible and how it should work')}</div>
+            <div className="font-medium text-status-warning-text">{t('example.umes.queryExtensions.hintHeading', 'What should be visible and how it should work')}</div>
             <div>{t('example.umes.queryExtensions.scopeGuards.hint1', '1. Tampered tenantId/organizationId should be restored to original values.')}</div>
             <div>{t('example.umes.queryExtensions.scopeGuards.hint2', '2. Non-scope fields (filters, withDeleted) should remain unchanged.')}</div>
             <div>{t('example.umes.queryExtensions.scopeGuards.hint3', '3. This ensures subscribers cannot bypass multi-tenant isolation.')}</div>
@@ -392,7 +392,7 @@ export default function UmesQueryExtensionsPage() {
             </p>
           </div>
           <div className={`grid gap-1 ${hintClassName}`}>
-            <div className="font-medium text-amber-900 dark:text-amber-50">{t('example.umes.queryExtensions.hintHeading', 'What should be visible and how it should work')}</div>
+            <div className="font-medium text-status-warning-text">{t('example.umes.queryExtensions.hintHeading', 'What should be visible and how it should work')}</div>
             <div>{t('example.umes.queryExtensions.entityIds.hint1', '1. `customers:person` should convert to `customers.person`.')}</div>
             <div>{t('example.umes.queryExtensions.entityIds.hint2', '2. `catalog:product:variant` should convert to `catalog.product.variant` (multiple colons).')}</div>
             <div>{t('example.umes.queryExtensions.entityIds.hint3', '3. All conversions should show `ok: true`.')}</div>

@@ -193,7 +193,7 @@ function MetricCard({
   subValue?: React.ReactNode
 }) {
   return (
-    <div className="rounded-lg border bg-card p-4">
+    <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
       <MetricTitle label={label} tooltip={tooltip} />
       <div className="mt-2 text-2xl font-semibold">{value}</div>
       {subValue ? <div className="mt-1 text-xs text-muted-foreground">{subValue}</div> : null}
@@ -519,7 +519,7 @@ function RangeOverview({
   )
 
   return (
-    <div className="space-y-4 rounded-lg border bg-card p-4">
+    <div className="space-y-4 rounded-xl border border-border bg-surface shadow-sm p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
           <h3 className="text-base font-semibold">{translate('configs.moduleTelemetry.overview.title', 'Usage overview')}</h3>
@@ -865,7 +865,7 @@ function RangeModuleSection({
   translate: (key: string, fallback?: string, values?: Record<string, string | number>) => string
 }) {
   return (
-    <div className="space-y-4 rounded-lg border bg-card p-4">
+    <div className="space-y-4 rounded-xl border border-border bg-surface shadow-sm p-4">
       <div className="space-y-1">
         <h3 className="text-base font-semibold">{translate('configs.moduleTelemetry.modules.title', 'Modules')}</h3>
         <p className="text-sm text-muted-foreground">

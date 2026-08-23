@@ -990,7 +990,7 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
                       <div
                         key={order.id}
                         className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
-                          selected ? 'border-accent-indigo bg-accent/50' : 'border-border bg-background hover:bg-muted/30'
+                          selected ? 'border-accent-strong bg-accent/50' : 'border-border bg-background hover:bg-muted/30'
                         }`}
                         onClick={() => {
                           if (!submitting) selectListedOrder(order.id)

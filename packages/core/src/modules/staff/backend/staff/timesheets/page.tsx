@@ -760,7 +760,7 @@ export default function MyTimesheetsPage() {
 
         {/* Summary cards */}
         <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-4">
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
             <p className="text-sm text-muted-foreground">
               {viewMode === 'weekly'
                 ? t('staff.timesheets.my.weekTotal', 'Week Total')
@@ -768,18 +768,18 @@ export default function MyTimesheetsPage() {
             </p>
             <p className="text-2xl font-semibold">{formatMinutesAsDecimal(grandTotal) || '0'}</p>
           </div>
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
             <p className="text-sm text-muted-foreground">{t('staff.timesheets.my.working_days', 'Working Days')}</p>
             <p className="text-2xl font-semibold">{workingDays}</p>
           </div>
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
             <p className="text-sm text-muted-foreground">{t('staff.timesheets.my.daily_average', 'Daily Average')}</p>
             <p className="text-2xl font-semibold">{formatMinutesAsDecimal(Math.round(dailyAverage)) || '0'}</p>
           </div>
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
             <p className="text-sm text-muted-foreground">{t('staff.timesheets.my.status', 'Status')}</p>
             <p className="text-2xl font-semibold">
-              <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+              <span className="inline-flex items-center rounded-full bg-status-success-bg px-2.5 py-0.5 text-xs font-medium text-status-success-text">
                 {t('staff.timesheets.my.status_open', 'Open')}
               </span>
             </p>
@@ -877,7 +877,7 @@ export default function MyTimesheetsPage() {
                         key={formatDateKey(date)}
                         className={`py-2 text-center font-medium px-1 ${weekend ? 'bg-muted/80 text-muted-foreground' : ''}`}
                       >
-                        <div className="text-[10px] uppercase text-muted-foreground">{dayName}</div>
+                        <div className="text-overline uppercase text-muted-foreground">{dayName}</div>
                         <div className="text-xs">{date.getDate()}</div>
                       </th>
                     )
@@ -898,7 +898,7 @@ export default function MyTimesheetsPage() {
                             <span className="truncate">{project.name}</span>
                           </div>
                           {project.code && (
-                            <div className="text-[10px] text-muted-foreground">{project.code}</div>
+                            <div className="text-overline text-muted-foreground">{project.code}</div>
                           )}
                         </div>
                         <button

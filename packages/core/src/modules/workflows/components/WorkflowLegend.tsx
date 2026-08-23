@@ -14,20 +14,20 @@ export function WorkflowLegend() {
         </h3>
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <div className="flex-shrink-0 w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center">
-              <Check className="w-3 h-3 text-emerald-600" />
+            <div className="flex-shrink-0 w-4 h-4 rounded-full bg-status-success-bg flex items-center justify-center">
+              <Check className="w-3 h-3 text-status-success-icon" />
             </div>
             <span className="text-xs text-muted-foreground">{t('workflows.legend.status.completed')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex-shrink-0 w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center">
-              <Play className="w-3 h-3 text-blue-600" />
+            <div className="flex-shrink-0 w-4 h-4 rounded-full bg-status-info-bg flex items-center justify-center">
+              <Play className="w-3 h-3 text-status-info-icon" />
             </div>
             <span className="text-xs text-muted-foreground">{t('workflows.legend.status.inProgress')}</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex-shrink-0 w-4 h-4 rounded-full bg-yellow-100 flex items-center justify-center">
-              <Pause className="w-3 h-3 text-yellow-600" />
+            <div className="flex-shrink-0 w-4 h-4 rounded-full bg-status-warning-bg flex items-center justify-center">
+              <Pause className="w-3 h-3 text-status-warning-icon" />
             </div>
             <span className="text-xs text-muted-foreground">{t('workflows.legend.status.pending')}</span>
           </div>

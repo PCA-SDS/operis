@@ -416,7 +416,7 @@ export function EncryptionManager() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface shadow-sm p-4 shadow-sm">
         <div className="space-y-2">
           <h2 className="text-xl font-semibold">{t('entities.encryption.title', 'Encryption')}</h2>
           <p className="text-sm text-muted-foreground">

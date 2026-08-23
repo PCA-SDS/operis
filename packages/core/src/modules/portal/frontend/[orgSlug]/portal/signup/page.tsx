@@ -112,7 +112,7 @@ export default function PortalSignupPage({ params }: Props) {
   if (success) {
     return (
       <div className="mx-auto w-full max-w-sm text-center">
-        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-foreground text-background">
+        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
           <Check className="size-6" />
         </div>
         <h1 className="text-2xl font-bold tracking-tight">{t('portal.signup.success.title', 'Check your email')}</h1>

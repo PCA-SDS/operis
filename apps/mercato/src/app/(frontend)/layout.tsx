@@ -134,7 +134,7 @@ export default async function FrontendLayout({ children }: LayoutProps) {
     const { t } = await resolveTranslations()
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-        <div className="rounded-xl border bg-card p-6 text-center sm:p-8">
+        <div className="rounded-xl border border-border bg-surface shadow-sm p-6 text-center sm:p-8">
           <h1 className="text-xl font-semibold tracking-tight text-foreground">
             {t('portal.disabled.title', 'Portal Not Available')}
           </h1>

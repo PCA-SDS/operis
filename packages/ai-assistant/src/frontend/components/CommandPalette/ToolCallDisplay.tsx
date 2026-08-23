@@ -18,10 +18,10 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
       <div
         className={cn(
           'flex items-center justify-center w-6 h-6 rounded shrink-0',
-          toolCall.status === 'completed' && 'bg-green-100 text-green-600',
-          toolCall.status === 'error' && 'bg-red-100 text-red-600',
-          toolCall.status === 'running' && 'bg-blue-100 text-blue-600',
-          toolCall.status === 'pending' && 'bg-gray-100 text-gray-600'
+          toolCall.status === 'completed' && 'bg-status-success-bg text-status-success-icon',
+          toolCall.status === 'error' && 'bg-status-error-bg text-status-error-icon',
+          toolCall.status === 'running' && 'bg-status-info-bg text-status-info-icon',
+          toolCall.status === 'pending' && 'bg-surface-muted text-muted-foreground'
         )}
       >
         {toolCall.status === 'running' && <Loader2 className="h-3 w-3 animate-spin" />}
@@ -43,13 +43,13 @@ export function ToolCallDisplay({ toolCall }: ToolCallDisplayProps) {
         )}
 
         {toolCall.status === 'completed' && toolCall.result !== undefined && (
-          <div className="text-green-600 mt-1">
+          <div className="text-status-success-icon mt-1">
             Result: {typeof toolCall.result === 'object' ? 'Success' : String(toolCall.result)}
           </div>
         )}
 
         {toolCall.status === 'error' && toolCall.error && (
-          <div className="text-red-600 mt-1">Error: {toolCall.error}</div>
+          <div className="text-status-error-icon mt-1">Error: {toolCall.error}</div>
         )}
       </div>
     </div>

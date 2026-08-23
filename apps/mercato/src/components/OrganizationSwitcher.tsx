@@ -504,7 +504,7 @@ export default function OrganizationSwitcher({ compact }: OrganizationSwitcherEx
                 className="h-auto w-full justify-between rounded-sm px-2 py-1.5 text-left font-normal hover:bg-muted/40 focus-visible:bg-muted/40"
               >
                 <span className="truncate min-w-0">{t('organizationSwitcher.allOrganizations', 'All organizations')}</span>
-                {!value ? <Check className="size-4 shrink-0 text-accent-indigo" aria-hidden="true" /> : null}
+                {!value ? <Check className="size-4 shrink-0 text-accent-strong" aria-hidden="true" /> : null}
               </Button>
             ) : null}
             {flatOrgOptions.map((opt) => {
@@ -526,7 +526,7 @@ export default function OrganizationSwitcher({ compact }: OrganizationSwitcherEx
                   className="h-auto w-full justify-between rounded-sm py-1.5 pr-2 text-left font-normal hover:bg-muted/40 disabled:bg-transparent disabled:text-muted-foreground disabled:shadow-none focus-visible:bg-muted/40"
                 >
                   <span className="truncate min-w-0">{opt.label.trim()}</span>
-                  {isActive ? <Check className="size-4 shrink-0 text-accent-indigo" aria-hidden="true" /> : null}
+                  {isActive ? <Check className="size-4 shrink-0 text-accent-strong" aria-hidden="true" /> : null}
                 </Button>
               )
             })}

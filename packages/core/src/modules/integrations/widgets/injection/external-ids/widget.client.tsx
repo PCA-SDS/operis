@@ -50,7 +50,7 @@ export default function ExternalIdsWidget({ data }: InjectionWidgetComponentProp
   if (!integrations || Object.keys(integrations).length === 0) return null
 
   return (
-    <div className="rounded-lg border bg-card p-4">
+    <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
       <h3 className="mb-3 text-sm font-medium">
         {t('integrations.externalIds.title', 'External IDs')}
       </h3>

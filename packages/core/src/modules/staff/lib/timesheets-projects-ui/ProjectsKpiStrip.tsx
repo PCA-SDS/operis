@@ -44,12 +44,12 @@ type KpiLabels = {
 
 function DeltaBadge({ pct, labels }: { pct: number | null; labels: KpiLabels }) {
   if (pct === null) {
-    return <span className="text-[11px] text-muted-foreground/70">{labels.noPrevious}</span>
+    return <span className="text-overline text-muted-foreground/70">{labels.noPrevious}</span>
   }
   if (pct > 0) {
     return (
       <span
-        className="inline-flex items-center gap-0.5 text-[11px] font-medium text-emerald-600 tabular-nums"
+        className="inline-flex items-center gap-0.5 text-overline font-medium text-status-success-icon tabular-nums"
         aria-label={labels.deltaUp(pct)}
       >
         <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
@@ -60,7 +60,7 @@ function DeltaBadge({ pct, labels }: { pct: number | null; labels: KpiLabels }) 
   if (pct < 0) {
     return (
       <span
-        className="inline-flex items-center gap-0.5 text-[11px] font-medium text-rose-600 tabular-nums"
+        className="inline-flex items-center gap-0.5 text-overline font-medium text-status-error-icon tabular-nums"
         aria-label={labels.deltaDown(Math.abs(pct))}
       >
         <ArrowDownRight className="h-3 w-3" aria-hidden="true" />
@@ -70,7 +70,7 @@ function DeltaBadge({ pct, labels }: { pct: number | null; labels: KpiLabels }) 
   }
   return (
     <span
-      className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground/70"
+      className="inline-flex items-center gap-0.5 text-overline text-muted-foreground/70"
       aria-label={labels.deltaFlat}
     >
       <Minus className="h-3 w-3" aria-hidden="true" />
@@ -95,7 +95,7 @@ function KpiCard({
   return (
     <div className="flex flex-col gap-1 rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="text-overline uppercase tracking-wide text-muted-foreground">{label}</p>
         {delta ? <DeltaBadge pct={delta.deltaPct} labels={labels} /> : null}
       </div>
       <p className="text-2xl font-semibold tabular-nums text-foreground">{value}</p>

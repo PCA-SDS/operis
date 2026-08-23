@@ -8,6 +8,7 @@ import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Badge } from '@open-mercato/ui/primitives/badge'
+import { entityColorStyle } from '@open-mercato/ui/primitives/tag'
 import { SendObjectMessageDialog } from '@open-mercato/ui/backend/messages'
 import { CompanyTagsDialog } from './CompanyTagsDialog'
 import { ObjectHistoryButton } from './ObjectHistoryButton'
@@ -39,7 +40,7 @@ function CompanyDictionaryBadge({ value, map }: { value: string; map: CustomerDi
   const icon = entry?.icon ?? null
   const label = entry?.label ?? formatFallbackLabel(value)
   const colorStyle: React.CSSProperties | undefined = color
-    ? { color, borderColor: color, backgroundColor: `${color}1A` }
+    ? entityColorStyle(color)
     : undefined
   return (
     <Badge variant="outline" className="rounded-sm gap-1.5 text-xs font-medium" style={colorStyle}>
@@ -100,7 +101,7 @@ export function CompanyDetailHeader({
   const { data: renewalQuarterDict } = useCustomerDictionary('renewal-quarters', 0, companyOrgId)
 
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="rounded-xl border border-border bg-surface shadow-sm">
       {/* Top row: avatar + company info + account manager + actions */}
       <div className="flex flex-col gap-4 px-6 pt-6 pb-3 sm:flex-row sm:items-start sm:gap-5">
         {/* Avatar */}
@@ -165,7 +166,7 @@ export function CompanyDetailHeader({
             )}
             {visibleCustomTags.map((tag) => {
               const colorStyle: React.CSSProperties | undefined = tag.color
-                ? { color: tag.color, borderColor: tag.color, backgroundColor: `${tag.color}1A` }
+                ? entityColorStyle(tag.color)
                 : undefined
               return (
                 <Badge

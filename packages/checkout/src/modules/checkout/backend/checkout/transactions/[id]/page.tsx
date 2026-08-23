@@ -432,7 +432,7 @@ export default function CheckoutTransactionDetailPage({ params }: { params: Prom
               <CardHeader className="border-b border-border/70 bg-muted/30">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="flex items-center gap-3 text-lg">
-                    <span className="flex size-10 items-center justify-center rounded-xl bg-background shadow-sm">
+                    <span className="flex size-10 items-center justify-center rounded-xl bg-surface shadow-sm">
                       <Icon className="size-5 text-muted-foreground" />
                     </span>
                     <span>{section.title}</span>

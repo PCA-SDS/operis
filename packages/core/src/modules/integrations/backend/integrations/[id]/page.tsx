@@ -1135,7 +1135,7 @@ export default function IntegrationDetailPage({ params }: IntegrationDetailPageP
           </CardContent>
         </Card>
 
-        <section className="rounded-lg border bg-card p-4">
+        <section className="rounded-xl border border-border bg-surface shadow-sm p-4">
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-2">
               <p className="text-overline uppercase tracking-wide text-muted-foreground">
@@ -1240,7 +1240,7 @@ export default function IntegrationDetailPage({ params }: IntegrationDetailPageP
 
           {showCredentialsTab ? (
             <TabsContent value="credentials" className="mt-0">
-              <section className="space-y-4 rounded-lg border bg-card p-6">
+              <section className="space-y-4 rounded-xl border border-border bg-surface shadow-sm p-6">
                 {detail.bundle ? (
                   <div className="rounded-lg border border-status-info-border bg-status-info-bg p-3 text-sm text-status-info-text">
                     {t('integrations.detail.credentials.bundleShared', { bundle: detail.bundle.title })}

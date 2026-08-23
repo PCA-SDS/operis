@@ -135,11 +135,11 @@ export default function ExecutionLogsPage() {
   const getResultBadgeClass = (result: string) => {
     switch (result) {
       case 'SUCCESS':
-        return 'bg-green-100 text-green-800'
+        return 'bg-status-success-bg text-status-success-text'
       case 'FAILURE':
-        return 'bg-yellow-100 text-yellow-800'
+        return 'bg-status-warning-bg text-status-warning-text'
       case 'ERROR':
-        return 'bg-red-100 text-red-800'
+        return 'bg-status-error-bg text-status-error-text'
       default:
         return 'bg-muted text-foreground'
     }
@@ -164,7 +164,7 @@ export default function ExecutionLogsPage() {
           {row.original.rule ? (
             <Link
               href={`/backend/rules/${row.original.rule.id}`}
-              className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+              className="text-status-info-icon hover:text-status-info-text hover:underline font-medium"
             >
               {row.original.rule.ruleName}
             </Link>
@@ -225,7 +225,7 @@ export default function ExecutionLogsPage() {
       cell: ({ row }) => (
         <Link
           href={`/backend/logs/${row.original.id}`}
-          className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+          className="text-sm text-status-info-icon hover:text-status-info-text hover:underline"
         >
           {t('common.details')}
         </Link>

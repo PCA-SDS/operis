@@ -398,7 +398,7 @@ export function IntegrationScheduleTab(props: IntegrationScheduleTabProps) {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-40 items-center justify-center rounded-lg border bg-card">
+      <div className="flex min-h-40 items-center justify-center rounded-xl border border-border bg-surface shadow-sm">
         <Spinner />
       </div>
     )
@@ -415,7 +415,7 @@ export function IntegrationScheduleTab(props: IntegrationScheduleTabProps) {
   }
 
   return (
-    <section className="space-y-4 rounded-lg border bg-card p-6">
+    <section className="space-y-4 rounded-xl border border-border bg-surface shadow-sm p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">

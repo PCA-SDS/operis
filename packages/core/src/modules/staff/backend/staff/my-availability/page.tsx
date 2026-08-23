@@ -96,7 +96,7 @@ export default function StaffMyAvailabilityPage() {
     return (
       <Page>
         <PageBody>
-          <div className="space-y-3 rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+          <div className="space-y-3 rounded-xl border border-border bg-surface shadow-sm p-6 text-center text-sm text-muted-foreground">
             <p>{t('staff.myAvailability.empty.profileRequired', 'Create your team member profile to manage availability.')}</p>
             <Button asChild size="sm">
               <Link href="/backend/staff/profile/create">
@@ -127,7 +127,7 @@ export default function StaffMyAvailabilityPage() {
             </div>
           ) : null}
           {!canManageAvailability ? (
-            <div className="space-y-2 rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+            <div className="space-y-2 rounded-xl border border-border bg-surface shadow-sm p-4 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">
                 {t('staff.myAvailability.readOnly.title', 'Only an administrator can manage your availability.')}
               </p>

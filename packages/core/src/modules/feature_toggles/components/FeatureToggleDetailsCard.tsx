@@ -56,7 +56,7 @@ export function FeatureToggleDetailsCard({ featureToggleItem }: FeatureToggleDet
   const t = useT()
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border bg-card p-4">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
         <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
           {t('feature_toggles.detail.details', 'Details')}
         </h2>
@@ -81,11 +81,11 @@ export function FeatureToggleDetailsCard({ featureToggleItem }: FeatureToggleDet
           </div>
         </div>
       </div>
-      <div className="rounded-lg border bg-card p-4">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
         <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">{t('feature_toggles.detail.description', 'Description')}</h2>
         <p className="text-base text-foreground">{featureToggleItem?.description ?? '-'}</p>
       </div>
-      <div className="rounded-lg border bg-card p-4">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
         <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">{t('feature_toggles.detail.defaultValue', 'Default Value')}</h2>
         <DefaultValueDisplay featureToggleItem={featureToggleItem} />
       </div>

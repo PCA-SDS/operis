@@ -99,7 +99,7 @@ export default async function StartPage() {
       <StartPageContent showStartPage={showStartPage} showOnboardingCta={onboardingAvailable} apiBaseUrl={resolveApiDocsBaseUrl()} />
 
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="rounded-lg border bg-card p-4">
+        <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
           <div className="text-sm font-medium mb-2">{t('app.page.dbStatus.title', 'Database Status')}</div>
           <div className="text-sm text-muted-foreground">{t('app.page.dbStatus.label', 'Status:')} <span className="font-medium text-foreground">{dbStatus}</span></div>
           <div className="mt-3 space-y-1.5 text-sm">
@@ -118,7 +118,7 @@ export default async function StartPage() {
           </div>
         </div>
 
-        <div className="rounded-lg border bg-card p-4 md:col-span-2">
+        <div className="rounded-xl border border-border bg-surface shadow-sm p-4 md:col-span-2">
           <div className="text-sm font-medium mb-3">{t('app.page.activeModules.title', 'Active Modules')}</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[200px] overflow-y-auto pr-2">
             {modules.map((m) => {
@@ -144,7 +144,7 @@ export default async function StartPage() {
         </div>
       </section>
 
-      <section className="rounded-lg border bg-card p-4">
+      <section className="rounded-xl border border-border bg-surface shadow-sm p-4">
         <div className="text-sm font-medium mb-2">{t('app.page.quickLinks.title', 'Quick Links')}</div>
         <div className="flex flex-wrap items-center gap-3 text-sm">
           {quickLinks.map((link, index) => (

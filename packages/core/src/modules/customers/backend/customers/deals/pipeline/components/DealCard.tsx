@@ -278,7 +278,7 @@ function DealCardImpl({
           : bulkSelectionActive
             ? 'cursor-pointer hover:shadow-sm'
             : 'cursor-grab hover:shadow-sm active:cursor-grabbing'
-      } ${selected ? 'ring-2 ring-accent-indigo' : ''}`}
+      } ${selected ? 'ring-2 ring-accent-strong' : ''}`}
     >
       <div className="flex items-start justify-between gap-2.5">
         <div

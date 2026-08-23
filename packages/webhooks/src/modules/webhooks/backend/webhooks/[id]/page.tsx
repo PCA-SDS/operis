@@ -624,7 +624,7 @@ export default function WebhookDetailPage() {
         </div>
 
         {testDelivery ? (
-          <div className="mt-8 rounded-lg border bg-card p-4">
+          <div className="mt-8 rounded-xl border border-border bg-surface shadow-sm p-4">
             <h2 className="text-sm font-semibold">{t('webhooks.detail.testResult')}</h2>
             <div className="mt-3 grid gap-2 text-sm">
               <div>{t('webhooks.deliveries.columns.status')}: {testDelivery.status}</div>
@@ -693,7 +693,7 @@ export default function WebhookDetailPage() {
         </div>
 
         {selectedDelivery || selectedDeliveryLoading ? (
-          <div className="mt-6 rounded-lg border bg-card p-4">
+          <div className="mt-6 rounded-xl border border-border bg-surface shadow-sm p-4">
             <h2 className="text-sm font-semibold">{t('webhooks.deliveries.detailTitle')}</h2>
             {selectedDeliveryLoading || !selectedDelivery ? (
               <div className="mt-3 text-sm text-muted-foreground">{t('common.loading')}</div>

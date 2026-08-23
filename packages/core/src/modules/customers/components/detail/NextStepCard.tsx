@@ -25,7 +25,7 @@ export function NextStepCard({ nextInteractionAt, nextInteractionName, onHide }:
 
   if (!nextInteractionAt) {
     return (
-      <div className="rounded-lg border bg-card p-5">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-5">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <CalendarClock className="size-4" />
           {t('customers.companies.detail.nextStep.title', 'Next Step')}
@@ -47,7 +47,7 @@ export function NextStepCard({ nextInteractionAt, nextInteractionName, onHide }:
     : null
 
   return (
-    <div className="group relative rounded-lg border bg-card p-5">
+    <div className="group relative rounded-xl border border-border bg-surface shadow-sm p-5">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <CalendarClock className="size-4" />

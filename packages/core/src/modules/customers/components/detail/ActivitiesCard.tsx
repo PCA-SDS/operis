@@ -278,7 +278,7 @@ function PlannedEventRow({ activity, onClick, entityCompanyName, t }: PlannedEve
           <span className="text-xs font-semibold leading-none text-foreground">
             {validDate ? formatTime(date) : ''}
           </span>
-          <span className="text-[10px] leading-none font-normal text-muted-foreground">
+          <span className="text-overline leading-none font-normal text-muted-foreground">
             {validDate ? formatRelativeDay(date, t) : ''}
           </span>
         </div>
@@ -300,7 +300,7 @@ function PlannedEventRow({ activity, onClick, entityCompanyName, t }: PlannedEve
               {formatDuration(duration, t)}
             </span>
           ) : null}
-          <span className="text-[11px] font-normal text-muted-foreground">{subtitle}</span>
+          <span className="text-overline font-normal text-muted-foreground">{subtitle}</span>
         </div>
       </button>
     </li>

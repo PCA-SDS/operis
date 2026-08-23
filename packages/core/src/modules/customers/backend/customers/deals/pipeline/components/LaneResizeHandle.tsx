@@ -98,7 +98,7 @@ export function LaneResizeHandle({ onResize, onResizeEnd, onReset }: LaneResizeH
         'Drag to resize · double-click to reset',
       )}
       className={`absolute -right-0.5 top-0 z-20 h-full w-1.5 cursor-col-resize touch-none select-none ${
-        isActive ? 'bg-accent-indigo/40' : 'bg-transparent hover:bg-accent-indigo/20'
+        isActive ? 'bg-accent-strong/40' : 'bg-transparent hover:bg-accent-strong/20'
       }`}
     />
   )

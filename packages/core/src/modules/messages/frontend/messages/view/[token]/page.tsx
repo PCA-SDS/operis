@@ -312,7 +312,7 @@ export default function MessageTokenPage({ params }: { params: { token: string }
         </p>
       </header>
 
-      <section className="rounded-xl border bg-card p-4">
+      <section className="rounded-xl border border-border bg-surface shadow-sm p-4">
         {ContentComponent ? (
           <ContentComponent {...contentProps} />
         ) : (
@@ -325,7 +325,7 @@ export default function MessageTokenPage({ params }: { params: { token: string }
       </section>
 
       {tokenActions.length > 0 ? (
-        <section className="space-y-3 rounded-xl border bg-card p-4">
+        <section className="space-y-3 rounded-xl border border-border bg-surface shadow-sm p-4">
           <h2 className="text-base font-semibold">{t('messages.actions.title', 'Actions')}</h2>
           {ActionsComponent ? (
             <ActionsComponent
@@ -358,7 +358,7 @@ export default function MessageTokenPage({ params }: { params: { token: string }
         </section>
       ) : null}
 
-      <section className="space-y-2 rounded-xl border bg-card p-4">
+      <section className="space-y-2 rounded-xl border border-border bg-surface shadow-sm p-4">
         <h2 className="text-base font-semibold">{t('messages.attachedObjects', 'Attached objects')}</h2>
         {data.objects.length === 0 ? (
           null

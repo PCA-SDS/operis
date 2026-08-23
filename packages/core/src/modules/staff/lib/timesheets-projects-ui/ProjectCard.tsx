@@ -40,8 +40,8 @@ export type ProjectCardProps = {
 }
 
 const STATUS_BADGE_CLASSES: Record<string, string> = {
-  active: 'bg-lime-100 text-lime-800 dark:bg-lime-900/30 dark:text-lime-300',
-  on_hold: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+  active: 'bg-status-success-bg text-status-success-text',
+  on_hold: 'bg-status-warning-bg text-status-warning-text',
   completed: 'bg-muted text-muted-foreground',
 }
 
@@ -60,7 +60,7 @@ export function ProjectCard({ data, labels, showTeam, href }: ProjectCardProps) 
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-2">
           <span
-            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${badgeClass}`}
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-overline font-medium ${badgeClass}`}
           >
             {statusLabel}
           </span>
@@ -70,13 +70,13 @@ export function ProjectCard({ data, labels, showTeam, href }: ProjectCardProps) 
           <h3 className="truncate text-sm font-semibold text-foreground" title={data.name}>
             {data.name}
           </h3>
-          <p className="truncate font-mono text-[11px] text-muted-foreground">
+          <p className="truncate font-mono text-overline text-muted-foreground">
             {data.code ?? '—'}
             {data.customerName ? ` · ${data.customerName}` : ''}
           </p>
         </div>
         <div className="rounded-md border border-border/50 bg-muted/40 p-3">
-          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{hoursPanelLabel}</p>
+          <p className="text-overline uppercase tracking-wide text-muted-foreground">{hoursPanelLabel}</p>
           <div className="mt-1 flex items-end justify-between gap-3">
             <p className="text-xl font-semibold tabular-nums text-foreground">
               {data.hoursWeek > 0 ? `${data.hoursWeek}h` : '—'}

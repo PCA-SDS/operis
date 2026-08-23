@@ -40,7 +40,7 @@ export function PlannedActivitiesSection({ activities, onComplete, onSchedule, o
   const upcoming = classified.filter((a) => !a.isOverdue)
 
   return (
-    <div className="rounded-lg border bg-card">
+    <div className="rounded-xl border border-border bg-surface shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b">
         <div className="flex items-center gap-2 text-sm font-medium">

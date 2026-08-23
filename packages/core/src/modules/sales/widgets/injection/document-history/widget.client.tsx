@@ -235,7 +235,7 @@ function TimelineItem({
 
       {/* Content card */}
       <div className="flex-1 pb-4">
-        <div className="group rounded-lg border bg-card p-3 space-y-1.5">
+        <div className="group rounded-xl border border-border bg-surface shadow-sm p-3 space-y-1.5">
           {/* Header: actor + time */}
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
@@ -316,7 +316,7 @@ function FilterDropdown({ filter, onChange }: { filter: FilterKind; onChange: (k
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen(prev => !prev)}
-        className="inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-medium shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors select-none"
+        className="inline-flex items-center gap-1.5 rounded-md border border-input bg-input-bg px-2.5 py-1 text-xs font-medium shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors select-none"
       >
         <Filter className="h-3 w-3" aria-hidden />
         {t('sales.documents.history.filter.label', 'Filters')}
@@ -329,7 +329,7 @@ function FilterDropdown({ filter, onChange }: { filter: FilterKind; onChange: (k
         <div
           role="listbox"
           aria-label={t('sales.documents.history.filter.label', 'Filters')}
-          className="absolute left-0 top-full mt-1 z-dropdown w-48 rounded-md border bg-background p-1 shadow-md"
+          className="absolute left-0 top-full mt-1 z-dropdown w-48 rounded-md border bg-surface p-1 shadow-md"
         >
           {options.map(opt => (
             <button

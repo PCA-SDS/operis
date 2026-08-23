@@ -1227,8 +1227,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
     <Badge
       variant="outline"
       className={exists
-        ? 'inline-flex items-center gap-1.5 border-emerald-200 bg-emerald-50 text-emerald-700'
-        : 'inline-flex items-center gap-1.5 border-amber-200 bg-amber-50 text-amber-700'}
+        ? 'inline-flex items-center gap-1.5 border-status-success-border bg-status-success-bg text-status-success-text'
+        : 'inline-flex items-center gap-1.5 border-status-warning-border bg-status-warning-bg text-status-warning-text'}
     >
       {exists ? <CheckCircle2 className="size-3.5" /> : <AlertCircle className="size-3.5" />}
       <span>
@@ -1241,7 +1241,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
   const renderSkippedCustomFieldBadge = React.useCallback(() => (
     <Badge
       variant="outline"
-      className="inline-flex items-center gap-1.5 border-slate-300 bg-slate-100 text-slate-700"
+      className="inline-flex items-center gap-1.5 border-border bg-surface-muted text-muted-foreground"
     >
       <X className="size-3.5" />
       <span>{t('sync_akeneo.customFields.status.skipped', 'Skipped')}</span>
@@ -1447,7 +1447,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
   }
 
   return (
-    <div className="space-y-6 rounded-lg border bg-card p-4">
+    <div className="space-y-6 rounded-xl border border-border bg-surface shadow-sm p-4">
       <div className="space-y-3">
             <h3 className="text-sm font-semibold">
               {t('sync_akeneo.setup.heading', 'Akeneo API setup')}
@@ -1629,7 +1629,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                   value={state.productLocale}
                   onChange={(event) => setState((current) => ({ ...current, productLocale: event.target.value }))}
                   disabled={isLoading || isSaving || (discovery?.locales?.length ?? 0) === 0}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background"
                 >
                   {(discovery?.locales ?? []).map((locale) => (
                     <option key={locale.code} value={locale.code}>
@@ -1657,7 +1657,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                     }
                   })}
                   disabled={isLoading || isSaving || (discovery?.channels?.length ?? 0) === 0}
-                  className="h-10 w-full appearance-auto rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  className="h-10 w-full appearance-auto rounded-md border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background"
                 >
                   <option value="">{t('sync_akeneo.mapping.channelPlaceholder', 'Optional')}</option>
                   {(discovery?.channels ?? []).map((channel) => (
@@ -1748,7 +1748,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                   value={state.categoryLocale}
                   onChange={(event) => setState((current) => ({ ...current, categoryLocale: event.target.value }))}
                   disabled={isLoading || isSaving || (discovery?.locales?.length ?? 0) === 0}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background"
                 >
                   {(discovery?.locales ?? []).map((locale) => (
                     <option key={locale.code} value={locale.code}>
@@ -1792,7 +1792,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                 <p className="text-xs text-muted-foreground">
                   {t('sync_akeneo.mapping.customFields.help', 'One mapping per line: attribute_code,target(product|variant),field_key[,kind][,skip]. After valid Akeneo credentials are saved, Open Mercato discovers mappings automatically: variant axes stay as product options, and other relevant Akeneo attributes are auto-mapped as custom fields unless you override them here. Use the editor skip checkbox when an Akeneo attribute should be ignored entirely. Product imports create or update missing Open Mercato custom field definitions automatically and store the Akeneo metadata, validation rules, and groups on those fields.')}
                 </p>
-                <div className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-800">
+                <div className="flex items-start gap-2 rounded-md border border-status-success-border bg-status-success-bg/70 px-3 py-2 text-xs text-status-success-text">
                   <Sparkles className="mt-0.5 size-3.5 shrink-0" />
                   <span>
                     {t('sync_akeneo.mapping.customFields.autoCreate', 'Running the Akeneo product import also creates any missing mapped fields automatically. Use the manual action only when you want to provision them before the first import.')}
@@ -1847,7 +1847,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                         {t('sync_akeneo.mapping.customFields.skipped', `${skippedCustomFieldCount} skipped`)}
                       </span>
                     ) : null}
-                    <span className={`rounded border px-2 py-1 ${missingCustomFieldCount > 0 ? 'border-amber-300 text-amber-700' : ''}`}>
+                    <span className={`rounded border px-2 py-1 ${missingCustomFieldCount > 0 ? 'border-status-warning-border text-status-warning-text' : ''}`}>
                       {missingCustomFieldCount > 0
                         ? t('sync_akeneo.mapping.customFields.missing', `${missingCustomFieldCount} missing locally`)
                         : t('sync_akeneo.mapping.customFields.ready', 'All mapped fields already exist')}
@@ -1902,7 +1902,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                           </td>
                           <td className="px-3 py-2">
                             <select
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                               value={row.priceKindCode}
                               onChange={(event) => {
                                 const nextRows = [...priceMappingRows]
@@ -1919,7 +1919,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                           </td>
                           <td className="px-3 py-2">
                             <select
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                               value={row.akeneoChannel}
                               onChange={(event) => {
                                 const nextRows = [...priceMappingRows]
@@ -1936,7 +1936,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                           </td>
                           <td className="px-3 py-2">
                             <select
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                               value={row.localChannelCode}
                               onChange={(event) => {
                                 const nextRows = [...priceMappingRows]
@@ -2021,7 +2021,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                           </td>
                           <td className="px-3 py-2">
                             <select
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                               value={row.target}
                               onChange={(event) => {
                                 const nextRows = [...mediaMappingRows]
@@ -2036,7 +2036,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                           </td>
                           <td className="px-3 py-2">
                             <select
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                               value={row.kind}
                               onChange={(event) => {
                                 const nextRows = [...mediaMappingRows]
@@ -2117,7 +2117,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                         <tr key={`fieldset-mapping-${index}`} className="border-t">
                           <td className="px-3 py-2">
                             <select
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                               value={row.sourceType}
                               onChange={(event) => {
                                 const nextRows = [...fieldsetMappingRows]
@@ -2152,7 +2152,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                           </td>
                           <td className="px-3 py-2">
                             <select
-                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                               value={row.target}
                               onChange={(event) => {
                                 const nextRows = [...fieldsetMappingRows]
@@ -2435,7 +2435,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
               <span className="rounded border px-2 py-1 text-xs">
                 {t('sync_akeneo.customFields.dialog.summary.total', `${customFieldEditorRows.length} mapping rows`)}
               </span>
-              <span className={`rounded border px-2 py-1 text-xs ${dialogMissingCustomFieldCount > 0 ? 'border-amber-300 text-amber-700' : ''}`}>
+              <span className={`rounded border px-2 py-1 text-xs ${dialogMissingCustomFieldCount > 0 ? 'border-status-warning-border text-status-warning-text' : ''}`}>
                 {dialogMissingCustomFieldCount > 0
                   ? t('sync_akeneo.customFields.dialog.summary.missing', `${dialogMissingCustomFieldCount} rows missing local fields`)
                   : t('sync_akeneo.customFields.dialog.summary.ready', 'Everything in this mapping already exists locally')}
@@ -2494,7 +2494,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                         </td>
                         <td className="px-3 py-2">
                           <select
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2"
+                            className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2"
                             value={row.target}
                             onChange={(event) => {
                               const nextRows = [...customFieldEditorRows]
@@ -2520,7 +2520,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                         </td>
                         <td className="px-3 py-2">
                           <select
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2"
+                            className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2"
                             value={row.kind}
                             onChange={(event) => {
                               const nextRows = [...customFieldEditorRows]

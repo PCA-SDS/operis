@@ -52,17 +52,17 @@ type StatusCounts = {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  partial: 'bg-blue-100 text-blue-800',
-  accepted: 'bg-green-100 text-green-800',
-  rejected: 'bg-red-100 text-red-800',
-  processing: 'bg-purple-100 text-purple-800',
+  pending: 'bg-status-warning-bg text-status-warning-text',
+  partial: 'bg-status-info-bg text-status-info-text',
+  accepted: 'bg-status-success-bg text-status-success-text',
+  rejected: 'bg-status-error-bg text-status-error-text',
+  processing: 'bg-status-pink-bg text-status-pink-text',
 }
 
 function ConfidenceBadge({ value }: { value: string }) {
   const num = parseFloat(value)
   const pct = Math.round(num * 100)
-  const color = num >= 0.8 ? 'bg-green-100 text-green-800' : num >= 0.6 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+  const color = num >= 0.8 ? 'bg-status-success-bg text-status-success-text' : num >= 0.6 ? 'bg-status-warning-bg text-status-warning-text' : 'bg-status-error-bg text-status-error-text'
   return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${color}`}>{pct}%</span>
 }
 
@@ -75,7 +75,7 @@ function StatusBadge({ status }: { status: string }) {
     rejected: t('inbox_ops.status.rejected', 'Rejected'),
     processing: t('inbox_ops.status.processing', 'Processing'),
   }
-  const color = STATUS_COLORS[status] || 'bg-gray-100 text-gray-800'
+  const color = STATUS_COLORS[status] || 'bg-surface-muted text-foreground'
   return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${color}`}>{statusLabels[status] || status}</span>
 }
 

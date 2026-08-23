@@ -432,7 +432,7 @@ export function AvailabilitySchedule({
 
   return (
     <>
-      <div className="rounded-xl border bg-card p-4">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-foreground">
             {availabilityLabels.sectionTitle}

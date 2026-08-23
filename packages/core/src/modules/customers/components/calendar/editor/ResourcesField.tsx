@@ -157,7 +157,7 @@ export function ResourcesField({
                 aria-haspopup="listbox"
                 aria-expanded={typeMenuOpen}
                 onClick={() => setTypeMenuOpen((previous) => !previous)}
-                className={cn('h-8 w-full justify-between bg-background px-2 text-sm font-normal shadow-none', CONTROL_BORDER)}
+                className={cn('h-8 w-full justify-between bg-surface px-2 text-sm font-normal shadow-none', CONTROL_BORDER)}
               >
                 <span className="truncate">
                   {activeType

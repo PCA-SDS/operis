@@ -87,9 +87,9 @@ export function DefaultMessageListItem({ message, onClick }: MessageListItemProp
           {message.hasObjects ? <FileText className="h-3.5 w-3.5" aria-hidden /> : null}
           {message.hasAttachments ? <Paperclip className="h-3.5 w-3.5" aria-hidden /> : null}
           {message.hasActions && !message.actionTaken ? (
-            <Zap className="h-3.5 w-3.5 text-amber-600" aria-hidden />
+            <Zap className="h-3.5 w-3.5 text-status-warning-icon" aria-hidden />
           ) : null}
-          {message.actionTaken ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600" aria-hidden /> : null}
+          {message.actionTaken ? <CheckCircle2 className="h-3.5 w-3.5 text-status-success-icon" aria-hidden /> : null}
         </div>
 
         <span

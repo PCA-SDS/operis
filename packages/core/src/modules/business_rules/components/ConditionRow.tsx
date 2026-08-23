@@ -129,7 +129,7 @@ export function ConditionRow({ condition, onChange, onDelete, error }: Condition
               <button
                 type="button"
                 onClick={toggleFieldComparison}
-                className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                className="text-xs text-accent-strong hover:text-accent-strong-hover"
                 title={t('business_rules.components.conditionRow.toggleFieldComparison')}
               >
                 {useFieldComparison

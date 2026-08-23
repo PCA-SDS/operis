@@ -31,7 +31,7 @@ export function WebhookSecretPanel({ secret, onClose }: WebhookSecretPanelProps)
   const CopyIcon = copied ? Check : Copy
 
   return (
-    <div className="mx-auto w-full max-w-3xl rounded-xl border bg-card shadow-sm">
+    <div className="mx-auto w-full max-w-3xl rounded-xl border border-border bg-surface shadow-sm shadow-sm">
       <div className="border-b p-6">
         <h1 className="text-lg font-semibold leading-7">{t('webhooks.form.secret')}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{t('webhooks.form.secretVisibleOnce')}</p>
@@ -53,7 +53,7 @@ export function WebhookSecretPanel({ secret, onClose }: WebhookSecretPanelProps)
             title={t('webhooks.form.secretCopy')}
             onClick={() => { void handleCopySecret() }}
           >
-            <CopyIcon className={`h-4 w-4 ${copied ? 'text-green-600' : ''}`} />
+            <CopyIcon className={`h-4 w-4 ${copied ? 'text-status-success-icon' : ''}`} />
           </Button>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
@@ -66,7 +66,7 @@ export function WebhookSecretPanel({ secret, onClose }: WebhookSecretPanelProps)
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => { void handleCopySecret() }}>
-            <CopyIcon className={`mr-2 h-4 w-4 ${copied ? 'text-green-600' : ''}`} />
+            <CopyIcon className={`mr-2 h-4 w-4 ${copied ? 'text-status-success-icon' : ''}`} />
             {t('webhooks.form.secretCopy')}
           </Button>
           {onClose ? (

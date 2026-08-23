@@ -104,7 +104,7 @@ export function FeatureToggleOverrideCard({ toggleId }: { toggleId: string }) {
                 <CardTitle>{t('feature_toggles.override.title', 'Override')}</CardTitle>
                 {overrideData ? (
                     <CardDescription>{t('feature_toggles.override.tenant', 'Tenant: {{name}}', { name: overrideData.tenantName })}</CardDescription>
-                ) : <CardDescription className="h-5 w-48 animate-pulse bg-zinc-100 dark:bg-zinc-800 rounded-md" />}
+                ) : <CardDescription className="h-5 w-48 animate-pulse bg-surface-muted dark:bg-foreground rounded-md" />}
             </CardHeader>
             <CardContent>
                 <DataLoader
@@ -112,8 +112,8 @@ export function FeatureToggleOverrideCard({ toggleId }: { toggleId: string }) {
                     showSkeleton
                     skeletonComponent={
                         <div className="space-y-4">
-                            <div className="h-9 w-full animate-pulse rounded-md bg-zinc-100 dark:bg-zinc-800" />
-                            <div className="h-20 w-full animate-pulse rounded-md bg-zinc-100 dark:bg-zinc-800" />
+                            <div className="h-9 w-full animate-pulse rounded-md bg-surface-muted dark:bg-foreground" />
+                            <div className="h-20 w-full animate-pulse rounded-md bg-surface-muted dark:bg-foreground" />
                         </div>
                     }
                 >

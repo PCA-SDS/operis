@@ -46,7 +46,7 @@ export function DomainPanel(props: DomainPanelProps) {
   const showDnsConfig = mapping.status !== 'active'
 
   return (
-    <section className="space-y-4 rounded-xl border bg-card p-6 shadow-sm">
+    <section className="space-y-4 rounded-xl border border-border bg-surface shadow-sm p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">

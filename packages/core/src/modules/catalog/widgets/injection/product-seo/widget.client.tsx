@@ -89,7 +89,7 @@ export default function ProductSeoWidget({ data }: InjectionWidgetComponentProps
   }
 
   return (
-    <div className="mt-4 w-full space-y-3 rounded-lg border bg-card p-4 shadow-sm">
+    <div className="mt-4 w-full space-y-3 rounded-xl border border-border bg-surface shadow-sm p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-foreground">{t('catalog.products.create.seoWidget.title', 'SEO Optimization')}</div>

@@ -1354,7 +1354,7 @@ function ProductBuilder({
               />
             ) : null}
             {currentStep === index ? (
-              <span className="absolute inset-x-0 -bottom-px h-0.5 bg-foreground rounded-full" />
+              <span className="absolute inset-x-0 -bottom-px h-0.5 bg-primary rounded-full" />
             ) : null}
           </Button>
         ))}
@@ -1418,7 +1418,7 @@ function ProductBuilder({
               />
             ) : (
               <textarea
-                className="min-h-[180px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="min-h-[180px] w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 value={values.description}
                 onChange={(event) =>
                   setValue("description", event.target.value)

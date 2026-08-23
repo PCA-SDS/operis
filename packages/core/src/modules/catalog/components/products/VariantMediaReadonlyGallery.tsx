@@ -52,7 +52,7 @@ export function VariantMediaReadonlyGallery({ groups }: Props) {
               const thumbnail =
                 item.thumbnailUrl || buildAttachmentImageUrl(item.id, { width: 360, height: 360, slug })
               return (
-                <div key={item.id} className="flex flex-col rounded-md border bg-card">
+                <div key={item.id} className="flex flex-col rounded-lg border border-border bg-surface">
                   <div className="relative aspect-square overflow-hidden rounded-t-md bg-muted">
                     <img src={thumbnail} alt={item.fileName} className="h-full w-full object-cover" />
                     {isDefault ? (

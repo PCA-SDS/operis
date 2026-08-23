@@ -316,7 +316,7 @@ export function AiTenantAllowlistPageClient(): React.JSX.Element {
         </Alert>
       ) : null}
 
-      <div className="rounded-lg border bg-card p-6 space-y-6">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-6 space-y-6">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <h2 className="text-lg font-semibold">{t('ai_assistant.allowlist.providers.title', 'Providers')}</h2>

@@ -19,7 +19,7 @@ function print(value: unknown) {
   return JSON.stringify(value ?? null)
 }
 
-const hintClassName = 'inline-flex items-center rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-400/10 px-2 py-1 text-xs text-amber-800 dark:text-amber-100/90'
+const hintClassName = 'inline-flex items-center rounded-md border border-status-warning-icon/40 bg-status-warning-bg px-2 py-1 text-xs text-status-warning-text'
 
 type CustomerRecord = {
   id?: string
@@ -420,7 +420,7 @@ export default function UmesHandlersPage() {
                 </div>
                 <div
                   data-testid={`phase-ad-status-${row.id.toLowerCase()}`}
-                  className={row.ok ? 'text-sm text-green-700' : 'text-sm text-amber-700'}
+                  className={row.ok ? 'text-sm text-status-success-text' : 'text-sm text-status-warning-text'}
                 >
                   {row.ok ? t('example.umes.handlers.phaseAD.status.ok') : t('example.umes.handlers.phaseAD.status.missing')}
                 </div>
@@ -521,7 +521,7 @@ export default function UmesHandlersPage() {
                 ref={personIdInputRef}
                 value={personId}
                 onChange={(event) => setPersonId(event.target.value)}
-                className="h-9 rounded border border-input bg-background px-3 text-sm"
+                className="h-9 rounded border border-input bg-input-bg px-3 text-sm"
                 placeholder={t('example.umes.handlers.phaseD.fields.personIdPlaceholder')}
               />
               <span className={hintClassName}>{t('example.umes.handlers.guide.expect.personId')}</span>
@@ -533,7 +533,7 @@ export default function UmesHandlersPage() {
                 ref={probeTodoTitleInputRef}
                 value={probeTodoTitle}
                 onChange={(event) => setProbeTodoTitle(event.target.value)}
-                className="h-9 rounded border border-input bg-background px-3 text-sm"
+                className="h-9 rounded border border-input bg-input-bg px-3 text-sm"
                 placeholder={t('example.umes.handlers.phaseD.fields.probeTodoTitlePlaceholder')}
               />
               <span className={hintClassName}>{t('example.umes.handlers.guide.expect.probeTodoTitle')}</span>

@@ -135,7 +135,7 @@ const handleSubmit = React.useCallback(async (values: LeaveRequestFormValues) =>
   return (
     <Page>
       <PageBody>
-        <div className="mb-6 space-y-2 rounded-lg border bg-card p-4">
+        <div className="mb-6 space-y-2 rounded-xl border border-border bg-surface shadow-sm p-4">
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant={resolveStatusVariant(status)}>
               {t(`staff.leaveRequests.status.${status}`, status)}
@@ -196,7 +196,7 @@ const handleSubmit = React.useCallback(async (values: LeaveRequestFormValues) =>
             ) : null}
           />
         ) : (
-          <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-4 text-sm text-muted-foreground">
             <div className="font-medium text-foreground">{t('staff.leaveRequests.detail.summary', 'Request details')}</div>
             <p>{memberLabel ? t('staff.leaveRequests.detail.member', 'Team member') + `: ${memberLabel}` : null}</p>
             <p>{t('staff.leaveRequests.detail.dates', 'Dates')}: {formatDateRange(record.startDate, record.endDate)}</p>

@@ -27,7 +27,7 @@ type MetricCardProps = {
 
 function MetricCard({ title, value, subtitle, trend, loading }: MetricCardProps) {
   return (
-    <div className="rounded-xl border bg-card px-5 py-4">
+    <div className="rounded-xl border border-border bg-surface shadow-sm px-5 py-4">
       <div className="text-overline font-semibold uppercase tracking-[0.12em] text-muted-foreground">{title}</div>
       <div className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
         {loading ? '...' : value.toLocaleString()}

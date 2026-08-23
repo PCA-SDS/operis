@@ -32,7 +32,7 @@ export default function ChannelPayloadRendererWidget({
   if (channelContentType.startsWith('email/') && typeof sanitizedHtml === 'string') {
     return (
       <section
-        className="rounded-md border bg-card p-4 text-sm"
+        className="rounded-lg border border-border bg-surface p-4 text-sm"
         aria-label={t(
           'communication_channels.channelPayload.email.aria',
           'Channel payload — email',

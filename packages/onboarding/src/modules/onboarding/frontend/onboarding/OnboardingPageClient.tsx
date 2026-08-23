@@ -190,7 +190,7 @@ export default function OnboardingPageClient({ onboardingEnabled }: Props) {
         {onboardingDisabled ? (
           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/80 p-6 backdrop-blur-[2px]">
             <div
-              className="max-w-sm rounded-xl border border-border/70 bg-background/95 px-5 py-4 text-center shadow-sm"
+              className="max-w-sm rounded-xl border border-border/70 bg-surface/95 px-5 py-4 text-center shadow-sm"
               role="alert"
               aria-live="polite"
             >
@@ -412,7 +412,7 @@ export default function OnboardingPageClient({ onboardingEnabled }: Props) {
             <Button
               type="submit"
               disabled={disabled}
-              className="mt-2 h-11 bg-foreground text-background transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-2 h-11 bg-primary text-primary-foreground transition hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting
                 ? translate('onboarding.form.loading', 'Sending...')

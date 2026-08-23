@@ -9,7 +9,7 @@ import type { InteractionSummary } from '../../formConfig'
 export function UpcomingMeetingsWidget({ meetings, t }: { meetings: InteractionSummary[]; t: TranslateFn }) {
   if (meetings.length === 0) {
     return (
-      <div className="rounded-lg border bg-card p-5">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-5">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Calendar className="size-4" />
           {t('customers.companies.dashboard.upcomingMeetings', 'Upcoming meetings')}
@@ -20,7 +20,7 @@ export function UpcomingMeetingsWidget({ meetings, t }: { meetings: InteractionS
   }
 
   return (
-    <div className="rounded-lg border bg-card p-5">
+    <div className="rounded-xl border border-border bg-surface shadow-sm p-5">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Calendar className="size-4" />

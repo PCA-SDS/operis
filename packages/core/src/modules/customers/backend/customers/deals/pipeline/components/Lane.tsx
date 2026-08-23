@@ -297,7 +297,7 @@ function LaneImpl({
         ref={setNodeRef}
         className={`flex min-h-[40vh] flex-col gap-3 rounded-lg p-1.5 ${
           isOver
-            ? 'bg-accent-indigo/10 outline-dashed outline-2 outline-accent-indigo -outline-offset-[2px]'
+            ? 'bg-accent-strong/10 outline-dashed outline-2 outline-accent-strong -outline-offset-[2px]'
             : showDropHighlight
               ? 'bg-muted/40 outline-dashed outline-1 outline-muted-foreground/40 -outline-offset-[2px]'
               : ''

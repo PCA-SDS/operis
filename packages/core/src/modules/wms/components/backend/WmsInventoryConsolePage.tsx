@@ -189,7 +189,7 @@ function SectionCard({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-lg border bg-card p-5 text-card-foreground shadow-sm">
+    <section className="rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground shadow-sm">
       <div className="mb-4 flex items-start gap-3">
         <div className="rounded-md border bg-muted/40 p-2 text-muted-foreground">
           {icon}
@@ -438,7 +438,7 @@ function InventoryScopeBar({
   const hasScope = warehouseId.trim() || variantId.trim()
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card px-4 py-3 shadow-sm">
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface shadow-sm px-4 py-3 shadow-sm">
       <div className="flex items-center gap-2 text-muted-foreground">
         <WarehouseIcon className="size-4 shrink-0" />
         <span className="text-sm font-medium">

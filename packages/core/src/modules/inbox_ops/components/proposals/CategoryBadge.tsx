@@ -17,14 +17,14 @@ import { ALL_CATEGORIES } from '../../data/validators'
 export { ALL_CATEGORIES }
 
 export const CATEGORY_CONFIG: Record<string, { color: string; Icon: React.ComponentType<{ className?: string }> }> = {
-  rfq: { color: 'bg-blue-100 text-blue-800', Icon: FileQuestion },
-  order: { color: 'bg-green-100 text-green-800', Icon: ShoppingCart },
-  order_update: { color: 'bg-amber-100 text-amber-800', Icon: RefreshCw },
-  complaint: { color: 'bg-red-100 text-red-800', Icon: AlertTriangle },
-  shipping_update: { color: 'bg-purple-100 text-purple-800', Icon: Truck },
-  inquiry: { color: 'bg-slate-100 text-slate-800', Icon: HelpCircle },
-  payment: { color: 'bg-emerald-100 text-emerald-800', Icon: CreditCard },
-  other: { color: 'bg-gray-100 text-gray-800', Icon: Tag },
+  rfq: { color: 'bg-status-info-bg text-status-info-text', Icon: FileQuestion },
+  order: { color: 'bg-status-success-bg text-status-success-text', Icon: ShoppingCart },
+  order_update: { color: 'bg-status-warning-bg text-status-warning-text', Icon: RefreshCw },
+  complaint: { color: 'bg-status-error-bg text-status-error-text', Icon: AlertTriangle },
+  shipping_update: { color: 'bg-status-pink-bg text-status-pink-text', Icon: Truck },
+  inquiry: { color: 'bg-surface-muted text-foreground', Icon: HelpCircle },
+  payment: { color: 'bg-status-success-bg text-status-success-text', Icon: CreditCard },
+  other: { color: 'bg-surface-muted text-foreground', Icon: Tag },
 }
 
 export function useCategoryLabels() {
@@ -45,7 +45,7 @@ export function CategoryBadge({ category }: { category: string | null | undefine
   const labels = useCategoryLabels()
   const t = useT()
   if (!category) {
-    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-50 text-gray-500">{t('inbox_ops.category.uncategorized', 'Uncategorized')}</span>
+    return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-muted text-muted-foreground">{t('inbox_ops.category.uncategorized', 'Uncategorized')}</span>
   }
   const config = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.other
   const { color, Icon } = config

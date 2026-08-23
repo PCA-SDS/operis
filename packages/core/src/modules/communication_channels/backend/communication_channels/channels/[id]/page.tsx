@@ -144,7 +144,7 @@ export default function ChannelDetailPage() {
         </header>
 
         <section
-          className="mb-4 rounded-md border bg-card p-4"
+          className="mb-4 rounded-lg border border-border bg-surface p-4"
           aria-label={t('communication_channels.detail.capabilities', 'Capabilities')}
         >
           <header className="mb-2 text-overline text-muted-foreground">
@@ -170,7 +170,7 @@ export default function ChannelDetailPage() {
         </section>
 
         <section
-          className="rounded-md border bg-card p-4"
+          className="rounded-lg border border-border bg-surface p-4"
           aria-label={t('communication_channels.detail.health', 'Delivery health (last 24h)')}
         >
           <header className="mb-2 flex items-baseline justify-between text-overline text-muted-foreground">

@@ -44,8 +44,8 @@ export function SegmentGroup<T extends string>({
                 // Keep the indigo fill on hover in BOTH themes — the ghost Button
                 // ships `dark:hover:bg-accent/50`, which would otherwise wash the
                 // active segment out on hover in dark mode.
-                ? 'bg-accent-indigo font-semibold text-accent-indigo-foreground hover:bg-accent-indigo hover:text-accent-indigo-foreground dark:hover:bg-accent-indigo'
-                : 'bg-background text-muted-foreground hover:bg-muted hover:text-foreground',
+                ? 'bg-accent-strong font-semibold text-accent-strong-foreground hover:bg-accent-strong hover:text-accent-strong-foreground dark:hover:bg-accent-strong'
+                : 'bg-surface text-muted-foreground hover:bg-muted hover:text-foreground',
             )}
           >
             {option.icon ? <span aria-hidden className={cn('shrink-0', isActive ? 'opacity-100' : 'opacity-70')}>{option.icon}</span> : null}

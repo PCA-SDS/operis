@@ -180,7 +180,7 @@ export function CalendarPicker({ selectedWeekStart, onWeekSelect }: CalendarPick
           <div className="grid grid-cols-[32px_repeat(7,1fr)] gap-0 mb-1">
             <div />
             {dayHeaders.map((day, idx) => (
-              <div key={idx} className="text-center text-[11px] font-medium text-muted-foreground py-1">
+              <div key={idx} className="text-center text-overline font-medium text-muted-foreground py-1">
                 {day}
               </div>
             ))}
@@ -201,7 +201,7 @@ export function CalendarPicker({ selectedWeekStart, onWeekSelect }: CalendarPick
                   ${isSelected ? 'bg-primary text-primary-foreground hover:bg-primary/90' : ''}`}
                 onClick={() => handleWeekClick(monday)}
               >
-                <span className={`text-[10px] font-medium py-1.5 text-center ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                <span className={`text-overline font-medium py-1.5 text-center ${isSelected ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                   {weekNum}
                 </span>
                 {week.map((date) => {

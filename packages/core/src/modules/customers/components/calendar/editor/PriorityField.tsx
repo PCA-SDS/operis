@@ -50,7 +50,7 @@ export function PriorityField({
         aria-expanded={open}
         aria-label={ariaLabel}
         onClick={() => setOpen((previous) => !previous)}
-        className={cn('h-9 w-full justify-between bg-background px-3 font-normal shadow-none', CONTROL_BORDER)}
+        className={cn('h-9 w-full justify-between bg-surface px-3 font-normal shadow-none', CONTROL_BORDER)}
       >
         <span className="flex min-w-0 items-center gap-2">
           <SelectedIcon aria-hidden className={cn('size-4 shrink-0', selected.color)} />

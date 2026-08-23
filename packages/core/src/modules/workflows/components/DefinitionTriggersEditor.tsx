@@ -282,7 +282,7 @@ export function DefinitionTriggersEditor({
 
   return (
     <div className={className}>
-      <div className="rounded-lg border bg-card p-3 md:p-4">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-3 md:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div className="flex items-center gap-2">
             <Zap className="w-5 h-5 text-status-warning-icon" />

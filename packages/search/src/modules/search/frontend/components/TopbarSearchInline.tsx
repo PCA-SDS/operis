@@ -376,8 +376,8 @@ export function TopbarSearchInline({
     >
       <div
         className={cn(
-          'flex h-9 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm shadow-xs transition-colors hover:bg-muted/40',
-          open ? 'border-foreground bg-background shadow-focus' : '',
+          'flex h-9 items-center gap-2 rounded-md border border-input bg-input-bg px-3 text-sm shadow-xs transition-colors hover:bg-muted/40',
+          open ? 'border-foreground bg-input-bg shadow-focus' : '',
         )}
         onClick={() => inputRef.current?.focus()}
       >

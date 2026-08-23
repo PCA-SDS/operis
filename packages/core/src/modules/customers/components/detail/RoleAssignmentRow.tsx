@@ -151,7 +151,7 @@ export function RoleAssignmentRow({
   return (
     <>
       {ConfirmDialogElement}
-      <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-xl border bg-card p-4 shadow-sm">
+      <div className="flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-sm p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <Badge variant="outline" className="max-w-full break-words rounded-full px-2 py-0 text-left text-xs font-semibold">
             {roleTypeLabel}

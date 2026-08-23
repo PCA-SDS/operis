@@ -124,7 +124,7 @@ export default function ProcessingLogPage() {
           needs_review: t('inbox_ops.log.tab_needs_review', 'Needs Review'),
           failed: t('inbox_ops.log.tab_failed', 'Failed'),
         }
-        const color = STATUS_COLORS[row.original.status] || 'bg-gray-100 text-gray-800'
+        const color = STATUS_COLORS[row.original.status] || 'bg-surface-muted text-foreground'
         const label = statusLabels[row.original.status] || row.original.status
         return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${color}`}>{label}</span>
       },

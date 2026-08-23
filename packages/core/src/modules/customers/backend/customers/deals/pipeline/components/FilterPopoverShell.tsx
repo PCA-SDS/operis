@@ -88,7 +88,7 @@ export function FilterPopoverShell({
           <Button
             type="button"
             onClick={onApply}
-            className="h-auto rounded-lg bg-foreground px-5 py-2 text-sm font-semibold text-background hover:bg-foreground/90"
+            className="h-auto rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover"
           >
             {applyLabel ?? translateWithFallback(t, 'customers.deals.kanban.filter.apply', 'Apply')}
           </Button>

@@ -46,7 +46,7 @@ export function MobileDefinitionDetail({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border bg-card p-4">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold">{t('workflows.form.stepsLabel', 'Steps')} ({steps.length})</h2>
           <Button variant="outline" size="sm" onClick={onAddStep} className="h-8 text-xs">
@@ -99,7 +99,7 @@ export function MobileDefinitionDetail({
         )}
       </div>
 
-      <div className="rounded-lg border bg-card p-4">
+      <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold">{t('workflows.form.transitionsLabel', 'Transitions')} ({transitions.length})</h2>
           <Button variant="outline" size="sm" onClick={onAddTransition} className="h-8 text-xs">

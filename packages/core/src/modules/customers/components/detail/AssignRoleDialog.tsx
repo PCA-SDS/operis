@@ -559,8 +559,8 @@ export function AssignRoleDialog({
                           onClick={() => setSelectedUser(user)}
                           className={`h-auto flex w-full items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors ${
                             isSelected
-                              ? 'border-foreground bg-background shadow-sm'
-                              : 'border-border/70 bg-background hover:bg-accent/40'
+                              ? 'border-foreground bg-surface shadow-sm'
+                              : 'border-border/70 bg-surface hover:bg-accent/40'
                           }`}
                         >
                           <Avatar label={user.displayName} size="lg" variant="monochrome" />
@@ -597,7 +597,7 @@ export function AssignRoleDialog({
                           <span
                             className={`flex size-6 shrink-0 items-center justify-center rounded-full border ${
                               isSelected
-                                ? 'border-foreground bg-foreground text-background'
+                                ? 'border-primary bg-primary text-primary-foreground'
                                 : 'border-border/80 bg-background text-transparent'
                             }`}
                           >

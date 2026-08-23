@@ -19,7 +19,7 @@ export function RelationshipHealthCard({ interactions, onHide }: RelationshipHea
   const health = React.useMemo(() => computeHealthScore(interactions), [interactions])
 
   return (
-    <div className="group relative rounded-lg border bg-card p-5">
+    <div className="group relative rounded-xl border border-border bg-surface shadow-sm p-5">
       <div className="flex items-center justify-between">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Heart className={cn('size-4', HEALTH_ICON_CLASSES[health.variant])} />

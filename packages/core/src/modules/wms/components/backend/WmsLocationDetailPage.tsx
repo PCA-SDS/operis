@@ -397,7 +397,7 @@ function LocationKpiCard({
   progress,
 }: LocationKpiCardProps) {
   return (
-    <section className="flex min-h-52 flex-col rounded-lg border bg-card p-5 text-card-foreground shadow-sm">
+    <section className="flex min-h-52 flex-col rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground shadow-sm">
       <div>
         <p className="text-sm font-medium">{title}</p>
         <p className="mt-3 text-xs text-muted-foreground">{caption}</p>
@@ -1105,7 +1105,7 @@ export default function WmsLocationDetailPage({ locationId }: WmsLocationDetailP
 
             <section
               id="location-items"
-              className="rounded-lg border bg-card text-card-foreground shadow-sm"
+              className="rounded-xl border border-border bg-surface shadow-sm text-card-foreground shadow-sm"
             >
               <div className="border-b px-5 py-4">
                 <h2 className="text-base font-semibold">
@@ -1217,7 +1217,7 @@ export default function WmsLocationDetailPage({ locationId }: WmsLocationDetailP
               )}
             />
 
-            <section className="flex flex-col gap-4 rounded-lg border bg-card px-5 py-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+            <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface shadow-sm px-5 py-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="text-base font-semibold">
                   {t('wms.backend.location.quickActions.title', 'Quick actions')}

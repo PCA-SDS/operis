@@ -26,18 +26,18 @@ type PipelineFilterPopoverProps = {
 
 /**
  * Single radio button matching the Figma spec at 1045:11917 — an outlined 16px circle that
- * fills with the accent-indigo when selected. Reused for every row + the "All pipelines"
+ * fills with the accent-strong when selected. Reused for every row + the "All pipelines"
  * sentinel so the visual is consistent.
  */
 function RadioDot({ selected }: { selected: boolean }): React.ReactElement {
   return (
     <span
       className={`flex size-4 shrink-0 items-center justify-center rounded-full border ${
-        selected ? 'border-accent-indigo' : 'border-input bg-card'
+        selected ? 'border-accent-strong' : 'border-input bg-card'
       }`}
       aria-hidden="true"
     >
-      {selected ? <span className="size-2 rounded-full bg-accent-indigo" /> : null}
+      {selected ? <span className="size-2 rounded-full bg-accent-strong" /> : null}
     </span>
   )
 }
@@ -119,7 +119,7 @@ export function PipelineFilterPopover({
         >
           {/*
             "All pipelines" sentinel row. Per Figma it shows the total deal count in
-            accent-indigo (active emphasis), regardless of whether it's selected.
+            accent-strong (active emphasis), regardless of whether it's selected.
           */}
           <Button
             type="button"
@@ -147,7 +147,7 @@ export function PipelineFilterPopover({
                 )}
               </span>
             </div>
-            <span className="text-xs font-semibold leading-normal text-accent-indigo">
+            <span className="text-xs font-semibold leading-normal text-accent-strong">
               {totalCount}
             </span>
           </Button>
@@ -177,7 +177,7 @@ export function PipelineFilterPopover({
                   <span
                     className={`text-xs leading-normal ${
                       isSelected
-                        ? 'font-semibold text-accent-indigo'
+                        ? 'font-semibold text-accent-strong'
                         : 'font-normal text-muted-foreground'
                     }`}
                   >

@@ -157,17 +157,17 @@ export function ActivityArrayEditor({ id, value = [], error, setValue, disabled 
           {activities.map((activity, index) => {
             const isExpanded = expandedIndices.has(index)
             return (
-              <div key={index} className="border border-gray-200 rounded-lg bg-gray-50">
+              <div key={index} className="border border-border rounded-lg bg-surface-muted">
                 {/* Collapsed Header */}
                 <button
                   type="button"
                   onClick={() => toggleExpanded(index)}
                   disabled={disabled}
-                  className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-gray-100 transition-colors rounded-t-lg disabled:opacity-50"
+                  className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-surface-muted transition-colors rounded-t-lg disabled:opacity-50"
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-900">
+                      <span className="text-sm font-semibold text-foreground">
                         {activity.activityName || activity.activityId || `Activity ${index + 1}`}
                       </span>
                       <Badge variant="secondary" className="text-xs">
@@ -179,18 +179,18 @@ export function ActivityArrayEditor({ id, value = [], error, setValue, disabled 
                         </Badge>
                       )}
                     </div>
-                    <p className="text-xs text-gray-600 mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       ID: <code className="bg-white px-1 rounded">{activity.activityId}</code>
                     </p>
                   </div>
                   <ChevronDown
-                    className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    className={`w-5 h-5 text-disabled-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                   />
                 </button>
 
                 {/* Expanded Content */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 space-y-3 border-t border-gray-200 bg-white">
+                  <div className="px-4 pb-4 space-y-3 border-t border-border bg-white">
                     {/* Activity ID */}
                     <div className="pt-3">
                       <Label htmlFor={`${id}-${index}-activityId`} className="text-xs font-medium mb-1">
@@ -268,11 +268,11 @@ export function ActivityArrayEditor({ id, value = [], error, setValue, disabled 
                     </div>
 
                     {/* Retry Policy */}
-                    <div className="border-t border-gray-200 pt-3">
+                    <div className="border-t border-border pt-3">
                       <Label className="text-xs font-semibold mb-2 block">{t('workflows.fieldEditors.activities.retryPolicy')}</Label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
-                          <Label htmlFor={`${id}-${index}-maxAttempts`} className="text-xs text-gray-600 mb-1">
+                          <Label htmlFor={`${id}-${index}-maxAttempts`} className="text-xs text-muted-foreground mb-1">
                             {t('workflows.fieldEditors.activities.maxAttempts')}
                           </Label>
                           <Input
@@ -288,7 +288,7 @@ export function ActivityArrayEditor({ id, value = [], error, setValue, disabled 
                           />
                         </div>
                         <div>
-                          <Label htmlFor={`${id}-${index}-initialIntervalMs`} className="text-xs text-gray-600 mb-1">
+                          <Label htmlFor={`${id}-${index}-initialIntervalMs`} className="text-xs text-muted-foreground mb-1">
                             {t('workflows.fieldEditors.activities.initialInterval')}
                           </Label>
                           <Input
@@ -303,7 +303,7 @@ export function ActivityArrayEditor({ id, value = [], error, setValue, disabled 
                           />
                         </div>
                         <div>
-                          <Label htmlFor={`${id}-${index}-backoffCoefficient`} className="text-xs text-gray-600 mb-1">
+                          <Label htmlFor={`${id}-${index}-backoffCoefficient`} className="text-xs text-muted-foreground mb-1">
                             {t('workflows.fieldEditors.activities.backoffCoefficient')}
                           </Label>
                           <Input
@@ -320,7 +320,7 @@ export function ActivityArrayEditor({ id, value = [], error, setValue, disabled 
                           />
                         </div>
                         <div>
-                          <Label htmlFor={`${id}-${index}-maxIntervalMs`} className="text-xs text-gray-600 mb-1">
+                          <Label htmlFor={`${id}-${index}-maxIntervalMs`} className="text-xs text-muted-foreground mb-1">
                             {t('workflows.fieldEditors.activities.maxInterval')}
                           </Label>
                           <Input
@@ -338,7 +338,7 @@ export function ActivityArrayEditor({ id, value = [], error, setValue, disabled 
                     </div>
 
                     {/* Activity Options */}
-                    <div className="border-t border-gray-200 pt-3">
+                    <div className="border-t border-border pt-3">
                       <Label className="text-xs font-semibold mb-2 block">{t('workflows.fieldEditors.activities.activityOptions')}</Label>
                       <div className="space-y-2">
                         <div className="flex items-center space-x-2">
@@ -347,10 +347,10 @@ export function ActivityArrayEditor({ id, value = [], error, setValue, disabled 
                             id={`${id}-${index}-async`}
                             checked={activity.async || false}
                             onChange={(e) => updateActivity(index, 'async', e.target.checked)}
-                            className="h-4 w-4 rounded border-gray-300"
+                            className="h-4 w-4 rounded border-border"
                             disabled={disabled}
                           />
-                          <Label htmlFor={`${id}-${index}-async`} className="text-xs text-gray-700 cursor-pointer">
+                          <Label htmlFor={`${id}-${index}-async`} className="text-xs text-muted-foreground cursor-pointer">
                             {t('workflows.fieldEditors.activities.asyncOption')}
                           </Label>
                         </div>
@@ -360,10 +360,10 @@ export function ActivityArrayEditor({ id, value = [], error, setValue, disabled 
                             id={`${id}-${index}-compensate`}
                             checked={activity.compensate || false}
                             onChange={(e) => updateActivity(index, 'compensate', e.target.checked)}
-                            className="h-4 w-4 rounded border-gray-300"
+                            className="h-4 w-4 rounded border-border"
                             disabled={disabled}
                           />
-                          <Label htmlFor={`${id}-${index}-compensate`} className="text-xs text-gray-700 cursor-pointer">
+                          <Label htmlFor={`${id}-${index}-compensate`} className="text-xs text-muted-foreground cursor-pointer">
                             {t('workflows.fieldEditors.activities.compensateOption')}
                           </Label>
                         </div>
@@ -371,7 +371,7 @@ export function ActivityArrayEditor({ id, value = [], error, setValue, disabled 
                     </div>
 
                     {/* Configuration JSON */}
-                    <div className="border-t border-gray-200 pt-3">
+                    <div className="border-t border-border pt-3">
                       <Label className="text-xs font-medium mb-1">
                         {t('workflows.fieldEditors.activities.configurationJson')}
                       </Label>
@@ -386,7 +386,7 @@ export function ActivityArrayEditor({ id, value = [], error, setValue, disabled 
                     </div>
 
                     {/* Delete Button */}
-                    <div className="border-t border-gray-200 pt-3">
+                    <div className="border-t border-border pt-3">
                       <Button
                         type="button"
                         variant="destructive"

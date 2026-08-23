@@ -47,7 +47,7 @@ export function ClaimStageProgress({ status }: ClaimStageProgressProps) {
                 className={cn(
                   'relative z-10 flex size-6 items-center justify-center rounded-full border text-xs font-semibold',
                   completed && 'border-status-success-icon bg-status-success-icon text-status-success-bg',
-                  active && 'border-accent-indigo bg-accent-indigo text-primary-foreground',
+                  active && 'border-accent-strong bg-accent-strong text-primary-foreground',
                   !completed && !active && 'border-border bg-background text-muted-foreground',
                 )}
               >

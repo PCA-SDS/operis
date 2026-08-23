@@ -119,7 +119,7 @@ function ImportStepIndicator({ step }: { step: WizardStep }) {
               <div
                 className={cn(
                   'h-0.5 w-4 shrink-0',
-                  stepNumber <= step ? 'bg-foreground' : 'bg-border',
+                  stepNumber <= step ? 'bg-primary' : 'bg-border',
                 )}
                 aria-hidden="true"
               />
@@ -128,7 +128,7 @@ function ImportStepIndicator({ step }: { step: WizardStep }) {
               className={cn(
                 'flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
                 completed || current
-                  ? 'bg-foreground text-primary-foreground'
+                  ? 'bg-primary text-primary-foreground'
                   : 'bg-muted text-muted-foreground',
               )}
               aria-current={current ? 'step' : undefined}

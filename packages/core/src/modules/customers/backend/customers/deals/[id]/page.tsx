@@ -416,14 +416,14 @@ export default function DealDetailPage({ params }: { params?: { id?: string } })
   )
 
   const zone2Content = (
-    <div className="rounded-[10px] border border-border bg-card px-5 py-5">
+    <div className="rounded-lg border border-border bg-card px-5 py-5">
       {(() => {
         const injected = injectedTabMap.get(activeTab)
         if (injected) return injected()
 
         if (activeTab === 'activities') {
           const activityEntitySelection = activityEntities.length > 1 ? (
-            <div className="rounded-[10px] border border-border bg-muted/20 px-5 py-5">
+            <div className="rounded-lg border border-border bg-muted/20 px-5 py-5">
               <label htmlFor="deal-activity-entity" className="text-sm font-semibold text-foreground">
                 {t('customers.deals.detail.activities.selectEntityLabel', 'Choose customer record')}
               </label>
@@ -456,7 +456,7 @@ export default function DealDetailPage({ params }: { params?: { id?: string } })
             <div className="space-y-4">
               {activityEntities.length > 1 ? activityEntitySelection : null}
               {activityEntities.length === 0 ? (
-                <div className="rounded-[10px] border border-border bg-muted/20 px-5 py-5">
+                <div className="rounded-lg border border-border bg-muted/20 px-5 py-5">
                   <div className="text-sm font-semibold text-foreground">
                     {t('customers.deals.detail.activities.linkEntityTitle', 'Link a person or company first')}
                   </div>

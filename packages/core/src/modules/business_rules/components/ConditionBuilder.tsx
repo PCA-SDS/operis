@@ -154,8 +154,8 @@ export function ConditionBuilder({
 
       {/* JSON Preview */}
       {showDebug && value && (
-        <div className="p-3 bg-zinc-900 dark:bg-zinc-950 rounded text-xs font-mono overflow-x-auto border border-border">
-          <pre className="text-zinc-100">{JSON.stringify(value, null, 2)}</pre>
+        <div className="p-3 bg-foreground dark:bg-foreground rounded text-xs font-mono overflow-x-auto border border-border">
+          <pre className="text-background">{JSON.stringify(value, null, 2)}</pre>
         </div>
       )}
 

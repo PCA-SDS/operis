@@ -209,7 +209,7 @@ export default function IntegrationDeliveriesWidget(_props: InjectionWidgetCompo
         toolbar={(
           <div className="flex flex-wrap items-center gap-3">
             <select
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-10 rounded-md border border-input bg-input-bg px-3 text-sm"
               value={status}
               onChange={(event) => {
                 setPage(1)
@@ -240,7 +240,7 @@ export default function IntegrationDeliveriesWidget(_props: InjectionWidgetCompo
       />
 
       {selectedRow || selectedDeliveryLoading ? (
-        <div className="rounded-lg border bg-card p-4">
+        <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-semibold">{t('webhooks.deliveries.detailTitle')}</h2>
             {selectedRow ? (

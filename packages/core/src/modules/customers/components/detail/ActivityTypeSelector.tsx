@@ -38,7 +38,7 @@ export function ActivityTypeSelector({ selectedType, onSelect }: ActivityTypeSel
             className={cn(
               'h-10 gap-2 rounded-lg',
               isSelected
-                ? 'border-foreground bg-background text-foreground shadow-sm'
+                ? 'border-foreground bg-surface text-foreground shadow-sm'
                 : 'border-border text-muted-foreground',
             )}
           >

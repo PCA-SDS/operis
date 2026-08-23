@@ -74,7 +74,7 @@ export function ProductComplianceSection({
   return (
     <div
       className={
-        embedded ? "space-y-6" : "space-y-6 rounded-lg border bg-card p-4"
+        embedded ? "space-y-6" : "space-y-6 rounded-xl border border-border bg-surface shadow-sm p-4"
       }
     >
       <div className="space-y-4">

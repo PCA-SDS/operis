@@ -855,7 +855,7 @@ export default function VisualEditorPage() {
           ? 'shrink-0 border-b border-border bg-background px-3 py-2 max-h-[60svh] overflow-y-auto overscroll-contain md:px-6 md:py-3'
           : 'shrink-0 border-b border-border bg-background px-3 py-2 md:px-6 md:py-3'
         }>
-          <fieldset disabled={isCodeOnly} className="rounded-lg border bg-card p-3 disabled:opacity-70 md:p-4">
+          <fieldset disabled={isCodeOnly} className="rounded-xl border border-border bg-surface shadow-sm p-3 disabled:opacity-70 md:p-4">
             <h2 className="mb-3 text-xs font-semibold uppercase text-muted-foreground">{t('workflows.visualEditor.workflowMetadata')}</h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 md:gap-4">
               {/* Workflow ID */}
@@ -998,7 +998,7 @@ export default function VisualEditorPage() {
       {isCompactViewport ? (
         <div className="px-3 py-3 md:px-6 md:py-4">
           <div className="relative min-w-0">
-            <div className="h-[64svh] min-h-[360px] rounded-lg border bg-card">
+            <div className="h-[64svh] min-h-[360px] rounded-xl border border-border bg-surface shadow-sm">
               <WorkflowGraph
                 initialNodes={nodes}
                 initialEdges={edges}
@@ -1029,7 +1029,7 @@ export default function VisualEditorPage() {
           </div>
 
           {!isCodeOnly && (
-            <div className="mt-3 rounded-lg border bg-card p-3">
+            <div className="mt-3 rounded-xl border border-border bg-surface shadow-sm p-3">
               <h2 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">{t('workflows.visualEditor.stepPalette')}</h2>
               <p className="mb-3 text-xs text-muted-foreground">{t('workflows.visualEditor.tapToAdd')}</p>
 
@@ -1056,7 +1056,7 @@ export default function VisualEditorPage() {
           {/* Left Sidebar - Step Palette (hidden in read-only mode) */}
           {!isCodeOnly && (
           <div className="w-[24rem] shrink-0 overflow-y-auto border-r border-border bg-background p-6">
-            <div className="rounded-lg border bg-card p-4">
+            <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
               <h2 className="mb-2 text-sm font-semibold uppercase text-muted-foreground">{t('workflows.visualEditor.stepPalette')}</h2>
               <p className="mb-4 text-xs text-muted-foreground">
                 {t('workflows.visualEditor.clickToAdd')}
@@ -1066,7 +1066,7 @@ export default function VisualEditorPage() {
                 {/* START Step */}
                 <button
                   onClick={() => handleAddNode('start')}
-                  className="group relative w-full cursor-pointer rounded-xl border-2 border-border bg-background px-4 py-3 text-left transition-all hover:border-muted-foreground/30 hover:shadow-md"
+                  className="group relative w-full cursor-pointer rounded-xl border-2 border-border bg-surface px-4 py-3 text-left transition-all hover:border-muted-foreground/30 hover:shadow-md"
                 >
                   <div className={`absolute right-2 top-2 ${NODE_TYPE_COLORS.start} opacity-60 transition-opacity group-hover:opacity-100`}>
                     {(() => {
@@ -1081,7 +1081,7 @@ export default function VisualEditorPage() {
                 {/* USER_TASK Step */}
                 <button
                   onClick={() => handleAddNode('userTask')}
-                  className="group relative w-full cursor-pointer rounded-xl border-2 border-border bg-background px-4 py-3 text-left transition-all hover:border-muted-foreground/30 hover:shadow-md"
+                  className="group relative w-full cursor-pointer rounded-xl border-2 border-border bg-surface px-4 py-3 text-left transition-all hover:border-muted-foreground/30 hover:shadow-md"
                 >
                   <div className={`absolute right-2 top-2 ${NODE_TYPE_COLORS.userTask} opacity-60 transition-opacity group-hover:opacity-100`}>
                     {(() => {
@@ -1096,7 +1096,7 @@ export default function VisualEditorPage() {
                 {/* AUTOMATED Step */}
                 <button
                   onClick={() => handleAddNode('automated')}
-                  className="group relative w-full cursor-pointer rounded-xl border-2 border-border bg-background px-4 py-3 text-left transition-all hover:border-muted-foreground/30 hover:shadow-md"
+                  className="group relative w-full cursor-pointer rounded-xl border-2 border-border bg-surface px-4 py-3 text-left transition-all hover:border-muted-foreground/30 hover:shadow-md"
                 >
                   <div className={`absolute right-2 top-2 ${NODE_TYPE_COLORS.automated} opacity-60 transition-opacity group-hover:opacity-100`}>
                     {(() => {
@@ -1111,7 +1111,7 @@ export default function VisualEditorPage() {
                 {/* WAIT_FOR_SIGNAL Step */}
                 <button
                   onClick={() => handleAddNode('waitForSignal')}
-                  className="group relative w-full cursor-pointer rounded-xl border-2 border-border bg-background px-4 py-3 text-left transition-all hover:border-muted-foreground/30 hover:shadow-md"
+                  className="group relative w-full cursor-pointer rounded-xl border-2 border-border bg-surface px-4 py-3 text-left transition-all hover:border-muted-foreground/30 hover:shadow-md"
                 >
                   <div className={`absolute right-2 top-2 ${NODE_TYPE_COLORS.waitForSignal} opacity-60 transition-opacity group-hover:opacity-100`}>
                     {(() => {
@@ -1126,7 +1126,7 @@ export default function VisualEditorPage() {
                 {/* WAIT_FOR_TIMER Step */}
                 <button
                   onClick={() => handleAddNode('waitForTimer')}
-                  className="group relative w-full cursor-pointer rounded-xl border-2 border-border bg-background px-4 py-3 text-left transition-all hover:border-muted-foreground/30 hover:shadow-md"
+                  className="group relative w-full cursor-pointer rounded-xl border-2 border-border bg-surface px-4 py-3 text-left transition-all hover:border-muted-foreground/30 hover:shadow-md"
                 >
                   <div className={`absolute right-2 top-2 ${NODE_TYPE_COLORS.waitForTimer} opacity-60 transition-opacity group-hover:opacity-100`}>
                     {(() => {
@@ -1141,7 +1141,7 @@ export default function VisualEditorPage() {
                 {/* SUB_WORKFLOW Step */}
                 <button
                   onClick={() => handleAddNode('subWorkflow')}
-                  className="group relative w-full cursor-pointer rounded-xl border-2 border-border bg-background px-4 py-3 text-left transition-all hover:border-muted-foreground/30 hover:shadow-md"
+                  className="group relative w-full cursor-pointer rounded-xl border-2 border-border bg-surface px-4 py-3 text-left transition-all hover:border-muted-foreground/30 hover:shadow-md"
                 >
                   <div className={`absolute right-2 top-2 ${NODE_TYPE_COLORS.subWorkflow} opacity-60 transition-opacity group-hover:opacity-100`}>
                     {(() => {
@@ -1156,7 +1156,7 @@ export default function VisualEditorPage() {
                 {/* END Step */}
                 <button
                   onClick={() => handleAddNode('end')}
-                  className="group relative w-full cursor-pointer rounded-xl border-2 border-border bg-background px-4 py-3 text-left transition-all hover:border-muted-foreground/30 hover:shadow-md"
+                  className="group relative w-full cursor-pointer rounded-xl border-2 border-border bg-surface px-4 py-3 text-left transition-all hover:border-muted-foreground/30 hover:shadow-md"
                 >
                   <div className={`absolute right-2 top-2 ${NODE_TYPE_COLORS.end} opacity-60 transition-opacity group-hover:opacity-100`}>
                     {(() => {
@@ -1189,7 +1189,7 @@ export default function VisualEditorPage() {
           {/* Main Canvas */}
           <div className="min-w-0 flex-1 p-6">
             <div className="relative h-[72svh] min-h-[640px]">
-              <div className="h-full rounded-lg border bg-card">
+              <div className="h-full rounded-xl border border-border bg-surface shadow-sm">
                 <WorkflowGraph
                   initialNodes={nodes}
                   initialEdges={edges}

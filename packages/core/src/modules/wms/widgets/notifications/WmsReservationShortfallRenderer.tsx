@@ -134,7 +134,7 @@ export function WmsReservationShortfallRenderer({
           <Button
             type="button"
             size="sm"
-            className="h-8 rounded-md px-2.5 bg-accent-indigo text-accent-indigo-foreground hover:bg-accent-indigo/90"
+            className="h-8 rounded-md px-2.5 bg-accent-strong text-accent-strong-foreground hover:bg-accent-strong/90"
             onClick={(event) => {
               event.stopPropagation()
               void handleAction('view-order', notification.linkHref ?? undefined)
