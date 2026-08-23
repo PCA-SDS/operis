@@ -6,7 +6,7 @@ export function AiIcon({ className, ...props }: LucideProps) {
     <Sparkles
       aria-hidden
       {...props}
-      className={cn('text-accent-indigo', className)}
+      className={cn('text-accent-strong', className)}
     />
   )
 }

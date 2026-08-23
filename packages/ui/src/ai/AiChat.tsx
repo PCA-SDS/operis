@@ -484,7 +484,7 @@ function AiChatTaskPlan({ tasks }: { tasks: AiAgentTaskSnapshot[] }) {
       data-ai-chat-task-plan=""
       data-ai-chat-task-plan-count={tasks.length}
     >
-      <div className="flex items-center gap-2 border-b border-border/60 px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center gap-2 border-b border-border/60 px-2 py-1.5 text-overline font-medium uppercase tracking-wide text-muted-foreground">
         <ListChecks className="size-3.5 text-muted-foreground" aria-hidden />
         <span>{t('ai_assistant.chat.taskPlanTitle', 'Plan')}</span>
         <span className="ml-auto font-mono">{tasks.length}</span>
@@ -529,7 +529,7 @@ function AiChatTaskRow({ task }: { task: AiAgentTaskSnapshot }) {
     task.state === 'pending' && 'text-muted-foreground',
   )
   const statusBadgeClassName = cn(
-    'ml-auto text-[10px] uppercase tracking-wide',
+    'ml-auto text-overline uppercase tracking-wide',
     task.state === 'done' && 'text-status-success-text',
     task.state === 'failed' && 'text-destructive',
     task.state !== 'done' && task.state !== 'failed' && 'text-muted-foreground',
@@ -561,7 +561,7 @@ function ToolCallList({ toolCalls }: { toolCalls: AiChatToolCallSnapshot[] }) {
       data-ai-chat-tool-calls=""
       data-ai-chat-tool-call-count={toolCalls.length}
     >
-      <div className="flex items-center gap-2 border-b border-border/60 px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center gap-2 border-b border-border/60 px-2 py-1.5 text-overline font-medium uppercase tracking-wide text-muted-foreground">
         <Wrench className="size-3.5 text-muted-foreground" aria-hidden />
         <span>{t('ai_assistant.chat.agentTasksTitle', 'Tool calls')}</span>
         <span className="ml-auto font-mono">{toolCalls.length}</span>
@@ -614,7 +614,7 @@ function ToolCallList({ toolCalls }: { toolCalls: AiChatToolCallSnapshot[] }) {
               </span>
               <span
                 className={cn(
-                  'ml-auto text-[10px] uppercase tracking-wide',
+                  'ml-auto text-overline uppercase tracking-wide',
                   isError
                     ? 'text-destructive'
                     : isComplete
@@ -629,20 +629,20 @@ function ToolCallList({ toolCalls }: { toolCalls: AiChatToolCallSnapshot[] }) {
               <div className="space-y-1 border-t border-border/60 px-2 py-1.5 text-xs">
                 {call.input !== undefined ? (
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <div className="text-overline uppercase tracking-wide text-muted-foreground">
                       {t('ai_assistant.chat.toolInput', 'Input')}
                     </div>
-                    <pre className="mt-0.5 max-h-32 overflow-auto rounded bg-background p-1.5 font-mono text-[11px]">
+                    <pre className="mt-0.5 max-h-32 overflow-auto rounded bg-background p-1.5 font-mono text-overline">
                       {safeStringify(call.input)}
                     </pre>
                   </div>
                 ) : null}
                 {call.output !== undefined && !isError ? (
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <div className="text-overline uppercase tracking-wide text-muted-foreground">
                       {t('ai_assistant.chat.toolOutput', 'Output')}
                     </div>
-                    <pre className="mt-0.5 max-h-32 overflow-auto rounded bg-background p-1.5 font-mono text-[11px]">
+                    <pre className="mt-0.5 max-h-32 overflow-auto rounded bg-background p-1.5 font-mono text-overline">
                       {safeStringify(call.output)}
                     </pre>
                   </div>
@@ -757,7 +757,7 @@ function MessageFileAttachment({ file }: { file: AiChatMessageFile }) {
             alt={file.name}
             className="max-h-32 max-w-[200px] rounded-md object-cover"
           />
-          <span className="pointer-events-none absolute right-1 top-1 inline-flex size-6 items-center justify-center rounded-md bg-background/90 text-muted-foreground opacity-0 shadow-xs transition-opacity group-hover/file:opacity-100 group-focus-within/file:opacity-100">
+          <span className="pointer-events-none absolute right-1 top-1 inline-flex size-6 items-center justify-center rounded-md bg-surface/90 text-muted-foreground opacity-0 shadow-xs transition-opacity group-hover/file:opacity-100 group-focus-within/file:opacity-100">
             <Maximize2 className="size-3.5" aria-hidden />
           </span>
         </button>

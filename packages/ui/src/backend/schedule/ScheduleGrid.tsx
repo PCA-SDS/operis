@@ -83,7 +83,7 @@ export function ScheduleGrid({ items, range, timezone, onItemClick, onSlotClick,
         const slotStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 9, 0, 0)
         const slotEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 10, 0, 0)
         return (
-          <div key={day.toISOString()} className="rounded-xl border bg-card p-4 shadow-sm">
+          <div key={day.toISOString()} className="rounded-xl border border-border bg-surface shadow-sm p-4 shadow-sm">
             <div className="flex items-center justify-between gap-2">
               <div className="text-sm font-semibold text-foreground">{formatDayLabel(day)}</div>
               {onSlotClick ? (

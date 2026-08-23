@@ -181,7 +181,7 @@ export function NotificationItem({
         <IconComponent className={cn('size-5', avatarText)} aria-hidden="true" />
         {isUnread ? (
           <span
-            className="absolute -right-1 -top-1 size-3 rounded-full bg-accent-indigo ring-2 ring-background"
+            className="absolute -right-1 -top-1 size-3 rounded-full bg-accent-strong ring-2 ring-background"
             aria-hidden="true"
           />
         ) : null}
@@ -204,7 +204,7 @@ export function NotificationItem({
 
         {/* Optional body bubble */}
         {showBodyBubble ? (
-          <div className="mt-2 inline-flex max-w-full self-start rounded-tr-lg rounded-br-lg rounded-bl-lg rounded-tl-sm border bg-background px-3 py-2 text-sm leading-5 tracking-tight text-muted-foreground shadow-xs">
+          <div className="mt-2 inline-flex max-w-full self-start rounded-tr-lg rounded-br-lg rounded-bl-lg rounded-tl-sm border bg-surface px-3 py-2 text-sm leading-5 tracking-tight text-muted-foreground shadow-xs">
             <p className="whitespace-pre-line break-words">{bodyText}</p>
           </div>
         ) : null}
@@ -222,7 +222,7 @@ export function NotificationItem({
                   size="sm"
                   className={cn(
                     'h-8 rounded-md px-2.5 py-1.5 text-sm font-medium',
-                    isPrimary && 'bg-accent-indigo text-accent-indigo-foreground hover:bg-accent-indigo/90',
+                    isPrimary && 'bg-accent-strong text-accent-strong-foreground hover:bg-accent-strong/90',
                   )}
                   onClick={(event) => handleAction(action.id, event)}
                   disabled={executing !== null}

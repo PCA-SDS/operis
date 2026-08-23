@@ -360,7 +360,7 @@ export const FieldDefinitionsManager = React.forwardRef<FieldDefinitionsManagerH
             <AlertDescription>{statusError}</AlertDescription>
           </Alert>
         ) : null}
-        <div className="rounded-lg border bg-card p-3 sm:p-4 max-h-[70vh] overflow-y-auto">
+        <div className="rounded-xl border border-border bg-surface shadow-sm p-3 sm:p-4 max-h-[70vh] overflow-y-auto">
           {content}
         </div>
         <div className="flex justify-end gap-2">

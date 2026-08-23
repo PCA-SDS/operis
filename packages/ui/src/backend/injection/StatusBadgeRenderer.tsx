@@ -17,10 +17,10 @@ type StatusBadgeRendererProps = {
 }
 
 const STATUS_DOT_CLASSES: Record<StatusBadgeResult['status'], string> = {
-  healthy: 'bg-green-500',
-  warning: 'bg-yellow-500',
-  error: 'bg-red-500',
-  unknown: 'bg-gray-400',
+  healthy: 'bg-status-success-solid',
+  warning: 'bg-status-warning-solid',
+  error: 'bg-status-error-solid',
+  unknown: 'bg-status-neutral-icon',
 }
 
 function StatusDot({ status }: { status: StatusBadgeResult['status'] }) {

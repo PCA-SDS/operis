@@ -150,7 +150,7 @@ export function VersionHistoryPanel({
         aria-hidden="true"
       />
       <div
-        className="fixed right-0 top-0 z-modal h-full w-full max-w-md border-l bg-background shadow-lg"
+        className="fixed right-0 top-0 z-modal h-full w-full max-w-md border-l bg-surface shadow-lg"
         role="dialog"
         aria-modal="true"
         aria-label={t('audit_logs.version_history.title')}
@@ -308,7 +308,7 @@ export function VersionHistoryPanel({
                 ) : null}
 
                 {error && visibleEntries.length > 0 ? (
-                  <div className="text-xs text-red-500">{error}</div>
+                  <div className="text-xs text-status-error-icon">{error}</div>
                 ) : null}
 
                 {hasMore ? (

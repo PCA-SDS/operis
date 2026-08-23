@@ -104,7 +104,7 @@ export function KpiCard({
   titleClassName,
 }: KpiCardProps) {
   const hasWrapper = !!title
-  const wrapperClass = hasWrapper ? `rounded-lg border bg-card p-4 ${className}` : className
+  const wrapperClass = hasWrapper ? `rounded-xl border border-border bg-surface shadow-sm p-4 ${className}` : className
 
   const headerRow = (title || headerAction) ? (
     <div className="flex items-center justify-between gap-2 mb-2">

@@ -137,7 +137,7 @@ export function NotificationPanel({
                 size="sm"
                 onClick={handleMarkAllRead}
                 disabled={markingAllRead}
-                className="gap-1 px-1 text-accent-indigo hover:text-accent-indigo/80 hover:no-underline"
+                className="gap-1 px-1 text-accent-strong hover:text-accent-strong/80 hover:no-underline"
               >
                 {markingAllRead ? <Loader2 className="size-3.5 animate-spin" /> : null}
                 {t('notifications.markAllRead', 'Mark all read')}

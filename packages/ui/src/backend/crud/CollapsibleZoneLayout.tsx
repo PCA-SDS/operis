@@ -186,13 +186,13 @@ export function CollapsibleZoneLayout({
               variant="default"
               size="sm"
               onClick={handleExpand}
-              className="h-auto rounded-[10px] px-1.5 py-2 shadow-sm"
+              className="h-auto rounded-lg px-1.5 py-2 shadow-sm"
               aria-label={t('ui.zone.expand', 'Expand form panel')}
             >
               <ChevronsRight className="size-4" />
             </Button>
             {sections?.length ? (
-              <div className="flex flex-col items-center gap-2 rounded-[14px] border border-border/70 bg-card px-2 py-3">
+              <div className="flex flex-col items-center gap-2 rounded-xl border border-border/70 bg-card px-2 py-3">
                 {sections.map((section) => {
                   const SectionIcon = section.icon
                   const hasErrors = Boolean(section.errorCount && section.errorCount > 0)
@@ -203,7 +203,7 @@ export function CollapsibleZoneLayout({
                       variant="ghost"
                       size="default"
                       onClick={() => handleSectionActivate(section)}
-                      className="relative size-9 rounded-[10px] border border-transparent bg-muted/70 text-muted-foreground hover:border-border hover:bg-accent hover:text-accent-foreground"
+                      className="relative size-9 rounded-lg border border-transparent bg-muted/70 text-muted-foreground hover:border-border hover:bg-accent hover:text-accent-foreground"
                       title={section.label}
                       aria-label={section.ariaLabel ?? section.label}
                     >
@@ -232,7 +232,7 @@ export function CollapsibleZoneLayout({
                   variant="outline"
                   size="sm"
                   onClick={handleCollapse}
-                  className="h-auto rounded-[6px] border bg-card px-1.5 py-2"
+                  className="h-auto rounded-md border bg-card px-1.5 py-2"
                   aria-label={t('ui.zone.collapse', 'Collapse form panel')}
                 >
                   <ChevronsLeft className="size-4" />
@@ -266,7 +266,7 @@ export function CollapsibleZoneLayout({
               variant="outline"
               size="sm"
               onClick={handleCollapse}
-              className="relative z-10 h-auto rounded-[6px] border bg-card px-1.5 py-2"
+              className="relative z-10 h-auto rounded-md border bg-card px-1.5 py-2"
               aria-label={t('ui.zone.collapse', 'Collapse form panel')}
             >
               <ChevronsLeft className="size-4" />

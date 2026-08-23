@@ -60,7 +60,7 @@ export function PieChart({
   }, [data])
 
   const hasWrapper = !!title
-  const wrapperClass = hasWrapper ? `rounded-lg border bg-card p-4 ${className}` : className
+  const wrapperClass = hasWrapper ? `rounded-xl border border-border bg-surface shadow-sm p-4 ${className}` : className
 
   if (error) {
     return (

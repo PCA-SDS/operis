@@ -32,7 +32,7 @@ export function ProductCard(props: ProductCardProps) {
   )
 
   const items = [
-    props.sku ? { label: t('ai_assistant.chat.records.fields.sku', 'SKU'), value: <span className="font-mono text-[11px]">{props.sku}</span> } : null,
+    props.sku ? { label: t('ai_assistant.chat.records.fields.sku', 'SKU'), value: <span className="font-mono text-overline">{props.sku}</span> } : null,
     price ? { label: t('ai_assistant.chat.records.fields.price', 'Price'), value: <span className="font-medium">{price}</span> } : null,
     props.category ? { label: t('ai_assistant.chat.records.fields.category', 'Category'), value: props.category } : null,
   ].filter(Boolean) as { label: string; value: React.ReactNode }[]

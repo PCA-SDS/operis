@@ -903,7 +903,7 @@ function ExportMenu({ config, sections }: { config: DataTableExportConfig; secti
         <div
           ref={menuRef}
           role="menu"
-          className="absolute right-0 mt-2 w-60 max-w-[calc(100vw-1rem)] rounded-md border bg-background py-2 shadow z-dropdown"
+          className="absolute right-0 mt-2 w-60 max-w-[calc(100vw-1rem)] rounded-md border bg-surface py-2 shadow z-dropdown"
           style={menuOffsetX ? { transform: `translateX(${menuOffsetX}px)` } : undefined}
         >
           {sections.map((section, idx) => (
@@ -2643,7 +2643,7 @@ export function DataTable<T extends RowData>({
       : [10, 25, 50, 100]
 
     return (
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 border-t">
+      <div className="flex flex-col gap-3 border-t border-table-border bg-surface-muted/70 px-4 py-2.5 text-xs sm:flex-row sm:items-center sm:px-5">
         {cacheBadge ? (
           <div className="flex items-center justify-center sm:justify-start gap-2 text-sm text-muted-foreground">
             {cacheBadge}
@@ -2976,7 +2976,7 @@ export function DataTable<T extends RowData>({
         type="button"
         variant={advancedFilterRuleCount > 0 ? 'default' : 'outline'}
         size="default"
-        className={advancedFilterRuleCount > 0 ? 'bg-foreground text-background hover:bg-foreground/90' : ''}
+        className={advancedFilterRuleCount > 0 ? 'bg-primary text-primary-foreground hover:bg-primary-hover' : ''}
         onClick={() => {
           if (advancedFilter.externalPopover) {
             advancedFilter.onTriggerClick?.()
@@ -3190,11 +3190,31 @@ export function DataTable<T extends RowData>({
   const shouldRenderActionsWrapper = hasActions || hasRefreshButton || shouldReserveActionsSpace || hasExport || hasToolbarInjection
   const renderToolbarInline = embedded && hasToolbar
   const shouldRenderToolbarBelow = hasToolbar && !renderToolbarInline
-  const shouldRenderHeader = hasTitle || renderToolbarInline || shouldRenderActionsWrapper || shouldRenderToolbarBelow
-  const containerClassName = embedded ? '' : 'rounded-lg border bg-card mx-1 sm:mx-2'
-  const headerWrapperClassName = embedded ? 'pb-3' : 'px-4 py-3 border-b'
-  const headerContentClassName = 'flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'
-  const toolbarWrapperClassName = embedded ? 'mt-2' : 'mt-3 pt-3 border-t'
+  const shouldRenderHeader = hasTitle || renderToolbarInline || shouldRenderActionsWrapper || !!headerInjectionSpotId
+  /* List-view chrome.
+   *
+   * The page header — title and primary actions — sits ABOVE the card, not
+   * inside it. A list page then reads the same as every other page in the
+   * product: title, then a bounded region of content. Putting the title inside
+   * the card made a table look like a widget on a page rather than the page
+   * itself, and left detail pages and list pages with two unrelated header
+   * treatments.
+   *
+   * The card itself carries elevation instead of a border: a border plus a
+   * shadow reads as two competing edges. Toolbar (search / filters) stays
+   * inside the card, directly above the rows it filters. */
+  const containerClassName = embedded ? '' : 'flex flex-col gap-5'
+  /* In light the card is borderless and carries its edge with elevation, as the
+     design reference does. Dark mode is our own extension of that rule and a
+     shadow cannot describe an edge on a dark ground, so the card takes a
+     hairline there instead — same intent, the only mechanism available. */
+  const cardClassName = embedded
+    ? ''
+    : 'overflow-hidden rounded-xl bg-surface shadow-md dark:border dark:border-border'
+  const headerWrapperClassName = embedded ? 'pb-3' : ''
+  const headerContentClassName =
+    'flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4'
+  const toolbarWrapperClassName = embedded ? 'mt-2' : 'border-b border-table-border px-4 py-3 sm:px-5'
   const tableScrollWrapperClassName = embedded ? '' : 'overflow-auto'
 
   const virtualScrollRef = React.useRef<HTMLDivElement>(null)
@@ -3237,10 +3257,20 @@ export function DataTable<T extends RowData>({
     : undefined
 
   const titleContent = hasTitle ? (
-    <div className="text-base font-semibold leading-tight min-h-[2.25rem] flex items-center">
-      {typeof title === 'string' ? <h2 className="text-base font-semibold">{title}</h2> : title}
+    <div className="flex min-h-9 min-w-0 items-end">
+      {typeof title === 'string' ? (
+        /* Embedded tables stay a section heading; a standalone list view owns
+           the page, so its title takes the page-title treatment. */
+        embedded ? (
+          <h2 className="text-sm font-semibold leading-tight text-foreground">{title}</h2>
+        ) : (
+          <h1 className="text-2xl font-normal leading-tight text-foreground sm:text-3xl">{title}</h1>
+        )
+      ) : (
+        title
+      )}
     </div>
-  ) : <div className="min-h-[2.25rem]" />
+  ) : <div className="min-h-9" />
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -3294,7 +3324,6 @@ export function DataTable<T extends RowData>({
               ) : null}
             </div>
           )}
-          {shouldRenderToolbarBelow ? <div className={toolbarWrapperClassName}>{builtToolbar}</div> : null}
           {headerInjectionSpotId ? (
             <div className={embedded ? 'mt-2' : 'mt-3'}>
               <InjectionSpot spotId={headerInjectionSpotId} context={resolvedInjectionContext} />
@@ -3302,8 +3331,12 @@ export function DataTable<T extends RowData>({
           ) : null}
         </div>
       )}
+      {/* Card — everything that operates ON the rows (toolbar, filters, the
+          table itself, pagination) lives inside one bounded region. */}
+      <div className={cardClassName}>
+      {shouldRenderToolbarBelow ? <div className={toolbarWrapperClassName}>{builtToolbar}</div> : null}
       {advancedFilter && !advancedFilter.externalPopover && isAdvancedFilterOpen ? (
-        <div className="border-b">
+        <div className="border-b border-table-border">
           <AdvancedFilterBuilder
             fields={resolvedAdvancedFilterFields}
             value={advancedFilter.value}
@@ -3314,7 +3347,7 @@ export function DataTable<T extends RowData>({
         </div>
       ) : null}
       {advancedFilter && !advancedFilter.externalPopover && advancedFilterRuleCount > 0 && !isAdvancedFilterOpen ? (
-        <div className="flex items-center gap-2 flex-wrap px-4 py-2 border-b text-sm">
+        <div className="flex items-center gap-2 flex-wrap border-b border-table-border px-4 py-2 text-sm sm:px-5">
           <span className="text-muted-foreground">
             {t('ui.advancedFilter.activeCount', '{count} active filters', { count: advancedFilterRuleCount })}
           </span>
@@ -3354,7 +3387,7 @@ export function DataTable<T extends RowData>({
                   const columnMeta = (header.column.columnDef as any)?.meta
                   const priority = resolvePriority(header.column)
                   const isFirstDataColumn = headerIndex === 0
-                  const stickyClass = stickyFirstColumn && isFirstDataColumn ? ` md:sticky md:left-0 md:z-10 md:bg-background ${STICKY_LEFT_SHADOW_CLASS}` : ''
+                  const stickyClass = stickyFirstColumn && isFirstDataColumn ? ` md:sticky md:left-0 md:z-10 md:bg-table-header ${STICKY_LEFT_SHADOW_CLASS}` : ''
                   const isColumnSortable = sortable && !!header.column.getCanSort?.()
                   const headerContent = header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())
                   // Columns that can't be sorted (e.g. a manual "select" checkbox column) may render
@@ -3365,19 +3398,19 @@ export function DataTable<T extends RowData>({
                     <Button
                       variant="ghost"
                       type="button"
-                      className="h-auto p-0 has-[>svg]:px-0 font-medium cursor-pointer select-none"
+                      className="h-auto p-0 has-[>svg]:px-0 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:bg-transparent hover:text-foreground cursor-pointer select-none"
                       onClick={() => header.column.toggleSorting?.(header.column.getIsSorted() === 'asc')}
                     >
                       {headerContent}
                       {(() => {
                         const sortState = header.column.getIsSorted()
-                        if (sortState === 'asc') return <ChevronUp className="ml-1 size-3.5 shrink-0 text-foreground" aria-hidden="true" />
-                        if (sortState === 'desc') return <ChevronDown className="ml-1 size-3.5 shrink-0 text-foreground" aria-hidden="true" />
-                        return <ChevronsUpDown className="ml-1 size-3.5 shrink-0 text-muted-foreground/50" aria-hidden="true" />
+                        if (sortState === 'asc') return <ChevronUp className="ml-1 size-3.5 shrink-0 text-accent-strong" aria-hidden="true" />
+                        if (sortState === 'desc') return <ChevronDown className="ml-1 size-3.5 shrink-0 text-accent-strong" aria-hidden="true" />
+                        return <ChevronsUpDown className="ml-1 size-3.5 shrink-0 text-disabled-foreground" aria-hidden="true" />
                       })()}
                     </Button>
                   ) : (
-                    <div className="h-auto p-0 has-[>svg]:px-0 font-medium">{headerContent}</div>
+                    <div className="h-auto p-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">{headerContent}</div>
                   )
                   const columnId = header.column.id
                   const sizedWidth = enableColumnResize && columnId ? columnSizing[columnId] : undefined
@@ -3410,7 +3443,7 @@ export function DataTable<T extends RowData>({
                   <TableHead
                     className={cn(
                       actionsColumnAlign === 'center' ? 'w-0 text-center' : 'w-0 text-right',
-                      stickyActionsColumn && `md:sticky md:right-0 md:z-20 md:bg-background ${STICKY_RIGHT_SHADOW_CLASS}`,
+                      stickyActionsColumn && `md:sticky md:right-0 md:z-20 md:bg-table-header ${STICKY_RIGHT_SHADOW_CLASS}`,
                     )}
                   >
                     {t('ui.dataTable.actionsColumn', 'Actions')}
@@ -3538,7 +3571,7 @@ export function DataTable<T extends RowData>({
                       return (
                         <TableCell
                           key={cell.id}
-                          className={responsiveClass(priority, columnMeta?.hidden) + (isStickyCell ? ` md:sticky md:left-0 md:z-10 md:bg-background ${STICKY_LEFT_SHADOW_CLASS}` : '')}
+                          className={responsiveClass(priority, columnMeta?.hidden) + (isStickyCell ? ` md:sticky md:left-0 md:z-10 md:bg-surface ${STICKY_LEFT_SHADOW_CLASS}` : '')}
                           style={typeof sizedWidth === 'number' ? { width: sizedWidth, minWidth: sizedWidth, maxWidth: sizedWidth } : undefined}
                         >
                           {wrappedContent}
@@ -3549,7 +3582,7 @@ export function DataTable<T extends RowData>({
                       <TableCell
                         className={cn(
                           actionsColumnAlign === 'center' ? 'text-center whitespace-nowrap' : 'text-right whitespace-nowrap',
-                          stickyActionsColumn && `md:sticky md:right-0 md:z-10 md:bg-background ${STICKY_RIGHT_SHADOW_CLASS}`,
+                          stickyActionsColumn && `md:sticky md:right-0 md:z-10 md:bg-surface ${STICKY_RIGHT_SHADOW_CLASS}`,
                         )}
                         data-actions-cell
                       >
@@ -3614,11 +3647,12 @@ export function DataTable<T extends RowData>({
       </div>
       </HeaderDndWrapper>
       {footerInjectionSpotId ? (
-        <div className={embedded ? 'mt-3' : 'px-4 py-3 border-t'}>
+        <div className={embedded ? 'mt-3' : 'border-t border-table-border px-4 py-3 sm:px-5'}>
           <InjectionSpot spotId={footerInjectionSpotId} context={resolvedInjectionContext} />
         </div>
       ) : null}
       {paginationNode}
+      </div>
       {ConfirmDialogElement}
       {canUsePerspectives ? (
         <PerspectiveSidebar

@@ -96,7 +96,7 @@ export function FilterFieldPicker({ fields, open, onOpenChange, onSelect, trigge
               value={query}
               onChange={(e) => { setQuery(e.target.value); setActiveIdx(0) }}
               placeholder={t('ui.advancedFilter.fieldPicker.search', 'Search field…')}
-              className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
+              className="h-8 w-full rounded-md border border-input bg-input-bg pl-8 pr-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
               aria-label={t('ui.advancedFilter.fieldPicker.search', 'Search field…')}
             />
           </div>

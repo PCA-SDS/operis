@@ -382,7 +382,7 @@ function AiDockPanel({
         // primary surface (full-screen sheet) and a fixed side panel would
         // crowd the viewport.
         'hidden lg:flex',
-        'fixed top-0 right-0 z-overlay h-svh min-w-0 flex-col overflow-hidden border-l bg-background shadow-lg',
+        'fixed top-0 right-0 z-overlay h-svh min-w-0 flex-col overflow-hidden border-l bg-surface shadow-lg',
         collapsed ? 'w-12' : '',
       )}
       style={collapsed ? undefined : { width }}
@@ -419,7 +419,7 @@ function AiDockPanel({
               <div className="flex items-center gap-2 text-sm font-medium" data-ai-dock-label="">
                 <span className="truncate">{assistant.label}</span>
                 <span
-                  className="inline-flex shrink-0 items-center rounded-full border border-border bg-secondary px-1.5 py-0 text-[10px] font-medium uppercase tracking-wide text-secondary-foreground"
+                  className="inline-flex shrink-0 items-center rounded-full border border-border bg-secondary px-1.5 py-0 text-overline font-medium uppercase tracking-wide text-secondary-foreground"
                   data-ai-beta-chip=""
                 >
                   {t('ai_assistant.chat.betaChip', 'beta')}

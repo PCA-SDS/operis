@@ -2167,7 +2167,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
     const text = t('entities.customFields.empty')
     const action = t('entities.customFields.addFirst')
     return (
-      <div className="rounded-md border border-dashed border-muted-foreground/50 bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
+      <div className="rounded-xl border border-dashed border-border-strong bg-surface-muted/50 px-4 py-5 text-sm text-muted-foreground">
         <span>{text} </span>
         {customFieldsManageHref ? (
           <Link href={customFieldsManageHref} className="font-medium text-primary hover:underline">
@@ -3265,7 +3265,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
   const renderCustomFieldsContent = React.useCallback((): React.ReactNode[] => {
     if (!customFieldLayout.length) {
       return [
-        <div key="custom-fields-empty" className="rounded-lg border bg-card p-4">
+        <div key="custom-fields-empty" className="rounded-xl border border-border bg-surface p-5 shadow-sm">
           {customFieldsEmptyState}
         </div>,
       ]
@@ -3285,7 +3285,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
         nodes.push(
           <div
             key={`custom-fields-entity-${entityLayout.entityId}`}
-            className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+            className="px-1 text-overline font-semibold uppercase tracking-widest text-muted-foreground"
           >
             {entityLayout.entityId}
           </div>,
@@ -3294,7 +3294,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
 
       if (showSelector) {
         nodes.push(
-          <div key={`custom-fields-selector-${entityLayout.entityId}`} className="rounded-lg border bg-card p-4">
+          <div key={`custom-fields-selector-${entityLayout.entityId}`} className="rounded-xl border border-border bg-surface p-5 shadow-sm">
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <label className="text-xs uppercase tracking-wide text-muted-foreground">
                 {fieldsetSelectorLabel}
@@ -3341,14 +3341,14 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           const sectionKey = `${entityLayout.entityId}:${section.fieldsetCode ?? 'default'}`
           const manageDisabled = !manageHref
           nodes.push(
-            <div key={sectionKey} className="rounded-lg border bg-card p-4 space-y-4">
+            <div key={sectionKey} className="rounded-xl border border-border bg-surface p-5 shadow-sm space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-2">
                   {FieldsetIcon ? (
                     <FieldsetIcon className="size-5 text-muted-foreground" />
                   ) : null}
                   <div>
-                    <div className="text-sm font-medium">{section.title}</div>
+                    <div className="text-sm font-semibold text-foreground">{section.title}</div>
                     {section.description ? (
                       <div className="text-xs text-muted-foreground">
                         {section.description}
@@ -3378,7 +3378,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
                   <div key={groupKey} className="space-y-2">
                     {group.label ? (
                       <div>
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <div className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">
                           {group.label}
                         </div>
                         {group.hint ? (
@@ -3398,7 +3398,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
         })
       } else {
         nodes.push(
-          <div key={`custom-fields-empty-${entityLayout.entityId}`} className="rounded-lg border bg-card p-4">
+          <div key={`custom-fields-empty-${entityLayout.entityId}`} className="rounded-xl border border-border bg-surface p-5 shadow-sm">
             {customFieldsEmptyState}
           </div>,
         )
@@ -3481,7 +3481,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           {children}
         </div>
         <div className="absolute inset-0 z-10 flex items-start justify-center rounded-lg bg-background/80 p-4 backdrop-blur-[1px] sm:p-6">
-          {readOnlyOverlay ?? <div className="rounded-xl border border-border/70 bg-background/95 px-4 py-3 shadow-sm" />}
+          {readOnlyOverlay ?? <div className="rounded-xl border border-border/70 bg-surface/95 px-4 py-3 shadow-sm" />}
         </div>
       </div>
     )
@@ -3514,7 +3514,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
         if (isCustomFieldsGroup) {
           if (isLoadingCustomFields) {
             const loadingContent = (
-              <div key={`${g.id}-loading`} className="rounded-lg border bg-card p-4">
+              <div key={`${g.id}-loading`} className="rounded-xl border border-border bg-surface p-5 shadow-sm">
                 <DataLoader
                   isLoading
                   loadingMessage={resolvedCustomFieldsLoadingMessage}
@@ -3546,7 +3546,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           const customFieldsInnerNodes: React.ReactNode[] = []
           if (g.component) {
             customFieldsInnerNodes.push(
-              <div key={`${g.id}-component`} className="rounded-lg border bg-card px-4 py-3">
+              <div key={`${g.id}-component`} className="rounded-xl border border-border bg-surface px-5 py-4 shadow-sm">
                 {g.component({ values, setValue, errors, requiredFieldIds: widgetRequiredFieldIds })}
               </div>,
             )
@@ -3644,9 +3644,9 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           )
         } else {
           nodes.push(
-            <div key={g.id} className="rounded-lg border bg-card px-4 py-3 space-y-3">
+            <div key={g.id} className="rounded-xl border border-border bg-surface px-5 py-4 shadow-sm space-y-3">
               {g.title ? (
-                <div className="text-sm font-medium">{t(g.title, g.title)}</div>
+                <div className="text-sm font-semibold text-foreground">{t(g.title, g.title)}</div>
               ) : null}
               {groupContent}
             </div>,
@@ -3784,7 +3784,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           <form
             id={formId}
             onSubmit={handleSubmit}
-            className={`${embedded ? 'space-y-4' : 'rounded-lg border bg-card p-4 space-y-4'} ${dialogFormPadding}`}
+            className={`${embedded ? 'space-y-4' : 'rounded-xl border border-border bg-surface p-5 shadow-sm space-y-4'} ${dialogFormPadding}`}
           >
             {resolvedInjectionSpotId ? (
               <InjectionSpot
@@ -4341,10 +4341,10 @@ const ListboxMultiSelect = React.memo(function ListboxMultiSelect({
                     checkbox look without any of that. */}
                 <span
                   aria-hidden="true"
-                  className={`inline-flex size-4 shrink-0 items-center justify-center rounded-[4px] border transition-colors ${
+                  className={`inline-flex size-4 shrink-0 items-center justify-center rounded-sm border transition-colors ${
                     isSel
-                      ? 'border-accent-indigo bg-accent-indigo text-accent-indigo-foreground'
-                      : 'border-input bg-background'
+                      ? 'border-accent-strong bg-accent-strong text-accent-strong-foreground'
+                      : 'border-input bg-input-bg'
                   }`}
                 >
                   {isSel ? <Check className="size-3.5" aria-hidden="true" /> : null}
@@ -4407,7 +4407,7 @@ const FieldControl = React.memo(function FieldControlImpl({
   }, [field, hasLoader, loadFieldOptions])
 
   const placeholder = builtin?.placeholder
-  const rootClassName = wrapperClassName ? `space-y-1 ${wrapperClassName}` : 'space-y-1'
+  const rootClassName = wrapperClassName ? `space-y-1.5 ${wrapperClassName}` : 'space-y-1.5'
   const validateOnWrapperBlur = supportsWrapperBlurValidation(field)
   const singleSelectValue = Array.isArray(value)
     ? String(value[0] ?? '')
@@ -4422,10 +4422,67 @@ const FieldControl = React.memo(function FieldControlImpl({
     ? options.find((option) => option.value === singleSelectValue)?.label
     : undefined
 
+  /* Accessible name / validity / description for whatever control this field
+   * renders.
+   *
+   * A field region hosts one of ~17 built-in control types plus any widget a
+   * module injects, so the association cannot be threaded as a prop without
+   * touching every branch and still missing third-party widgets. Instead the
+   * region wires it once, after render, on the first control it contains.
+   *
+   * Only attributes React never sets here are added, so this cannot fight
+   * reconciliation, and anything that already carries its own accessible name
+   * (a control with `aria-label`, or one wrapped in its own `<label>`) is left
+   * untouched. */
+  const labelDomId = React.useId()
+  const descriptionDomId = React.useId()
+  const errorDomId = React.useId()
+  const regionRef = React.useRef<HTMLDivElement | null>(null)
+  const hasVisibleLabel = field.type !== 'checkbox' && field.label.trim().length > 0
+  React.useEffect(() => {
+    const region = regionRef.current
+    if (!region) return
+
+    const apply = () => {
+      const control = region.querySelector<HTMLElement>(
+        'input:not([type="hidden"]), textarea, select, [role="combobox"], [role="textbox"], [contenteditable="true"]',
+      )
+      if (!control) return
+      // NOTE: `CSS` in this module is `@dnd-kit/utilities`' transform helper,
+      // not the global `CSS` object — so no `CSS.escape` here. Comparing
+      // `htmlFor` directly avoids the collision and needs no escaping at all.
+      const namedAlready =
+        control.hasAttribute('aria-label') ||
+        control.hasAttribute('aria-labelledby') ||
+        !!control.closest('label') ||
+        (!!control.id &&
+          Array.from(region.querySelectorAll('label')).some((el) => el.htmlFor === control.id))
+      if (hasVisibleLabel && !namedAlready) control.setAttribute('aria-labelledby', labelDomId)
+
+      if (error) control.setAttribute('aria-invalid', 'true')
+      else control.removeAttribute('aria-invalid')
+
+      const described = [field.description ? descriptionDomId : null, error ? errorDomId : null].filter(Boolean)
+      if (described.length) control.setAttribute('aria-describedby', described.join(' '))
+      else control.removeAttribute('aria-describedby')
+    }
+
+    apply()
+    // Relation and dictionary fields mount their trigger only once options have
+    // loaded, which is after this effect first runs. Watching the region keeps
+    // the wiring correct for those without every field type having to announce
+    // when it is ready.
+    const observer = new MutationObserver(apply)
+    observer.observe(region, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [error, field.description, hasVisibleLabel, labelDomId, descriptionDomId, errorDomId])
+
   return (
     <div
+      ref={regionRef}
       className={rootClassName}
       data-crud-field-id={field.id}
+      data-crud-field-invalid={error ? 'true' : undefined}
       onBlur={validateOnWrapperBlur
         ? (event) => {
             const nextFocused = event.relatedTarget
@@ -4435,9 +4492,11 @@ const FieldControl = React.memo(function FieldControlImpl({
         : undefined}
     >
       {field.type !== 'checkbox' && field.label.trim().length > 0 ? (
-        <label className="block text-sm font-medium">
+        <label id={labelDomId} className="block text-sm font-medium text-foreground">
           {field.label}
-          {field.required || markRequired ? <span className="text-status-error-text"> *</span> : null}
+          {field.required || markRequired ? (
+            <span className="text-destructive" aria-hidden="true"> *</span>
+          ) : null}
         </label>
       ) : null}
       {field.type === 'text' && (
@@ -4718,13 +4777,13 @@ const FieldControl = React.memo(function FieldControlImpl({
         </>
       )}
       {field.description ? (
-        <div className="flex items-start gap-2 text-xs text-muted-foreground">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <div id={descriptionDomId} className="flex items-start gap-2 text-xs text-muted-foreground">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-disabled-foreground" />
           <div>{field.description}</div>
         </div>
       ) : null}
       {error && !(field.type === 'custom' && field.rendersOwnError) ? (
-        <div className="text-xs text-status-error-text">{error}</div>
+        <div id={errorDomId} role="alert" className="text-xs font-medium text-destructive">{error}</div>
       ) : null}
     </div>
   )

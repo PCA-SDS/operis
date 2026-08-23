@@ -97,7 +97,7 @@ export function ChatPaneTabs({ agentId, className }: ChatPaneTabsProps) {
               className={cn(
                 'group flex max-w-[12rem] shrink-0 items-center gap-1 rounded-t-md border-b-2 px-2 py-1',
                 isActive
-                  ? 'border-accent-indigo bg-background text-foreground'
+                  ? 'border-accent-strong bg-background text-foreground'
                   : 'border-transparent text-muted-foreground hover:text-foreground',
               )}
             >
@@ -117,7 +117,7 @@ export function ChatPaneTabs({ agentId, className }: ChatPaneTabsProps) {
                       cancelRename()
                     }
                   }}
-                  className="h-6 max-w-[10rem] rounded border border-input bg-background px-1 text-xs outline-none focus:ring-2 focus:ring-ring/40"
+                  className="h-6 max-w-[10rem] rounded border border-input bg-input-bg px-1 text-xs outline-none focus:ring-2 focus:ring-ring/40"
                   data-ai-chat-tab-rename-input=""
                 />
               ) : (
@@ -293,7 +293,7 @@ function HistoryDropdown({ open, onOpenChange, closed, onPick }: HistoryDropdown
                   <span className="min-w-0 flex-1 truncate">
                     {defaultSessionLabel(session)}
                   </span>
-                  <span className="shrink-0 text-[10px] text-muted-foreground">
+                  <span className="shrink-0 text-overline text-muted-foreground">
                     {new Date(session.lastUsedAt).toLocaleDateString(undefined, {
                       month: 'short',
                       day: 'numeric',

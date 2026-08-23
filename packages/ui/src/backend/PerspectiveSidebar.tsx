@@ -361,7 +361,7 @@ export function PerspectiveSidebar({
   return (
     <div className="fixed inset-0 z-modal">
       <div className="absolute inset-0 bg-black/20" onClick={() => onOpenChange(false)} role="presentation" />
-      <div className="fixed right-0 top-0 h-full w-full sm:w-80 bg-background shadow-xl border-l flex flex-col">
+      <div className="fixed right-0 top-0 h-full w-full sm:w-80 bg-surface shadow-xl border-l flex flex-col">
         <div className="flex items-center p-4 border-b">
           <Button
             type="button"

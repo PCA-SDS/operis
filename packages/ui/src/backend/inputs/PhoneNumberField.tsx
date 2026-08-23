@@ -572,7 +572,7 @@ export function PhoneNumberField({
     <div className="space-y-2">
       <div
         className={cn(
-          'flex items-stretch w-full rounded-md border bg-background shadow-xs transition-colors',
+          'flex items-stretch w-full rounded-md border bg-surface shadow-xs transition-colors',
           disabled
             ? 'bg-bg-disabled border-border-disabled cursor-not-allowed'
             : focused

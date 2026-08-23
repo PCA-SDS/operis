@@ -29,7 +29,7 @@ export function PortalFeatureCard({ icon, title, description, href, onClick }: P
     </>
   )
 
-  const cls = 'flex flex-col rounded-xl border bg-card p-5 transition-colors hover:bg-accent/50'
+  const cls = 'flex flex-col rounded-xl border border-border bg-surface shadow-sm p-5 transition-colors hover:bg-accent/50'
 
   if (href) {
     return <a href={href} className={cls}>{content}</a>
@@ -37,5 +37,5 @@ export function PortalFeatureCard({ icon, title, description, href, onClick }: P
   if (onClick) {
     return <button type="button" onClick={onClick} className={`${cls} text-left`}>{content}</button>
   }
-  return <div className="flex flex-col rounded-xl border bg-card p-5">{content}</div>
+  return <div className="flex flex-col rounded-xl border border-border bg-surface shadow-sm p-5">{content}</div>
 }

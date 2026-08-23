@@ -64,7 +64,7 @@ export default function MdxEditorImpl({ value = '', onChange }: MdxEditorImplPro
   }, [onChange])
 
   return (
-    <div className="w-full overflow-hidden rounded-md border border-input bg-background" onBlur={commit}>
+    <div className="w-full overflow-hidden rounded-md border border-input bg-input-bg" onBlur={commit}>
       <MDXEditor
         ref={editorRef}
         markdown={value ?? ''}

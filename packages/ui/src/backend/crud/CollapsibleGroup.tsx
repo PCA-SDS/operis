@@ -80,7 +80,7 @@ export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, Collaps
           // hover-while-closed = bg-muted + no border + no shadow,
           // open = bg-muted + no border + no shadow). Destructive border
           // wins over the Figma states when the group has validation errors.
-          'rounded-[10px] border bg-card transition-colors',
+          'rounded-lg border bg-card transition-colors',
           !isHydrated && 'invisible',
           errorCount > 0
             ? 'border-destructive'

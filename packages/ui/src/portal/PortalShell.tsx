@@ -97,7 +97,7 @@ function SidebarNavItem({
   const cls = [
     'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
     active
-      ? 'bg-foreground text-background'
+      ? 'bg-primary text-primary-foreground'
       : 'text-muted-foreground hover:bg-muted hover:text-foreground',
   ].join(' ')
 
@@ -136,7 +136,7 @@ function UserAvatar({ name, className }: { name?: string; className?: string }) 
     ? name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()
     : '?'
   return (
-    <div className={`flex items-center justify-center rounded-full bg-foreground text-overline font-semibold text-background ${className ?? 'size-8'}`}>
+    <div className={`flex items-center justify-center rounded-full bg-primary text-overline font-semibold text-background ${className ?? 'size-8'}`}>
       {initials}
     </div>
   )
@@ -406,7 +406,7 @@ export function PortalShell({
       {mobileOpen ? (
         <div className="fixed inset-0 z-modal lg:hidden">
           <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={closeMobile} />
-          <aside className="relative z-10 h-full w-[280px] bg-background shadow-2xl">
+          <aside className="relative z-10 h-full w-[280px] bg-surface shadow-2xl">
             <div className="absolute right-3 top-4 z-20">
               <IconButton variant="ghost" size="sm" type="button" onClick={closeMobile} aria-label="Close menu">
                 <XIcon className="size-4" />

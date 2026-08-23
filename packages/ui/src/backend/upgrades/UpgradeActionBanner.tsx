@@ -109,19 +109,19 @@ export function UpgradeActionBanner() {
   const description = action.message && action.message !== title ? action.message : null
 
   return (
-    <div className="mb-4 flex flex-col gap-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-sm text-amber-900 md:flex-row md:items-center md:justify-between">
+    <div className="mb-4 flex flex-col gap-3 rounded-md border border-status-warning-border bg-status-warning-bg px-3 py-3 text-sm text-status-warning-text md:flex-row md:items-center md:justify-between">
       <div className="flex items-start gap-2 text-sm">
-        <Sparkles className="mt-0.5 size-4 text-amber-700" aria-hidden="true" />
+        <Sparkles className="mt-0.5 size-4 text-status-warning-text" aria-hidden="true" />
         <div className="flex flex-col gap-1">
-          <div className="font-medium text-amber-950">
+          <div className="font-medium text-status-warning-text">
             {title}
           </div>
           {description ? (
-            <div className="text-xs text-amber-900/80">
+            <div className="text-xs text-status-warning-text/80">
               {description}
             </div>
           ) : null}
-          <div className="text-xs text-amber-900/80">{t('upgrades.versionLabel', { version: action.version })}</div>
+          <div className="text-xs text-status-warning-text/80">{t('upgrades.versionLabel', { version: action.version })}</div>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -130,7 +130,7 @@ export function UpgradeActionBanner() {
           size="sm"
           onClick={() => { void handleRun() }}
           disabled={loading}
-          className="border-amber-300 text-amber-900 hover:bg-amber-100"
+          className="border-status-warning-border text-status-warning-text hover:bg-status-warning-bg"
         >
           {loading ? loadingLabel : action.ctaLabel}
         </Button>

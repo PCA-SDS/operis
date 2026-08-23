@@ -3,11 +3,11 @@
 import type { UmesExtensionInfo } from '@open-mercato/shared/lib/umes/devtools-types'
 
 const TYPE_COLORS: Record<string, string> = {
-  enricher: 'bg-blue-500',
-  interceptor: 'bg-amber-500',
-  'component-override': 'bg-violet-500',
-  'injection-widget': 'bg-emerald-500',
-  'injection-data-widget': 'bg-cyan-500',
+  enricher: 'bg-status-info-solid',
+  interceptor: 'bg-status-warning-solid',
+  'component-override': 'bg-status-pink-icon',
+  'injection-widget': 'bg-status-success-solid',
+  'injection-data-widget': 'bg-status-info-icon',
 }
 
 export function ExtensionPointList({ extensions }: { extensions: UmesExtensionInfo[] }) {

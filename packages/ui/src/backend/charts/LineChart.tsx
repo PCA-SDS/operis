@@ -64,7 +64,7 @@ export function LineChart({
 }: LineChartProps) {
   if (error) {
     return (
-      <div className={`rounded-lg border bg-card p-4 ${className}`}>
+      <div className={`rounded-xl border border-border bg-surface shadow-sm p-4 ${className}`}>
         {title && <h3 className="mb-4 text-base font-medium text-card-foreground">{title}</h3>}
         <div className="flex h-48 items-center justify-center">
           <p className="text-sm text-destructive">{error}</p>
@@ -75,7 +75,7 @@ export function LineChart({
 
   if (loading) {
     return (
-      <div className={`rounded-lg border bg-card p-4 ${className}`}>
+      <div className={`rounded-xl border border-border bg-surface shadow-sm p-4 ${className}`}>
         {title && <h3 className="mb-4 text-base font-medium text-card-foreground">{title}</h3>}
         <div className="flex h-48 items-center justify-center">
           <Spinner className="h-6 w-6 text-muted-foreground" />
@@ -86,7 +86,7 @@ export function LineChart({
 
   if (!data || data.length === 0) {
     return (
-      <div className={`rounded-lg border bg-card p-4 ${className}`}>
+      <div className={`rounded-xl border border-border bg-surface shadow-sm p-4 ${className}`}>
         {title && <h3 className="mb-4 text-base font-medium text-card-foreground">{title}</h3>}
         <div className="flex h-48 items-center justify-center">
           <p className="text-sm text-muted-foreground">{emptyMessage}</p>
@@ -96,7 +96,7 @@ export function LineChart({
   }
 
   return (
-    <div className={`rounded-lg border bg-card p-4 ${className}`}>
+    <div className={`rounded-xl border border-border bg-surface shadow-sm p-4 ${className}`}>
       {title && <h3 className="mb-4 text-base font-medium text-card-foreground">{title}</h3>}
       <div className="h-52 w-full">
         <LineChartImpl

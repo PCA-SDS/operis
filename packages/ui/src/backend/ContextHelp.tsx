@@ -17,7 +17,7 @@ export function ContextHelp({ title, children, defaultOpen = false, bulb = true,
   const [open, setOpen] = React.useState<boolean>(defaultOpen)
   const Icon = bulb ? Lightbulb : Info
   return (
-    <div className={`rounded-md border bg-card ${className}`}>
+    <div className={`rounded-lg border border-border bg-surface ${className}`}>
       <Button
         type="button"
         variant="ghost"
@@ -25,7 +25,7 @@ export function ContextHelp({ title, children, defaultOpen = false, bulb = true,
         aria-expanded={open}
         onClick={() => setOpen(v => !v)}
       >
-        <Icon size={16} className={`shrink-0 ${open ? 'text-amber-500' : 'text-muted-foreground'}`} />
+        <Icon size={16} className={`shrink-0 ${open ? 'text-status-warning-icon' : 'text-muted-foreground'}`} />
         <span className="font-medium">{title}</span>
         <span className="ml-auto text-xs text-muted-foreground">{open ? t('ui.contextHelp.hide', 'Hide') : t('ui.contextHelp.show', 'Show')}</span>
       </Button>

@@ -54,7 +54,7 @@ export function RecordCardShell({
         )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="text-overline font-semibold uppercase tracking-wide text-muted-foreground">
               {kindLabel}
             </span>
             {status ? (
@@ -111,7 +111,7 @@ export function KeyValueList({ items }: { items: KeyValueListItem[] }) {
     <dl className="grid grid-cols-[minmax(80px,auto)_1fr] gap-x-3 gap-y-1">
       {items.map((item, idx) => (
         <React.Fragment key={`${item.label}-${idx}`}>
-          <dt className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
+          <dt className="truncate text-overline uppercase tracking-wide text-muted-foreground">
             {item.label}
           </dt>
           <dd className="min-w-0 truncate text-foreground">{item.value}</dd>

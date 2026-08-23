@@ -290,7 +290,7 @@ function AttachmentsSectionImpl({
               <div
                 key={item.id}
                 role="group"
-                className="group relative flex flex-col overflow-hidden rounded-lg border bg-card text-left transition-shadow hover:shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
+                className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-sm text-left transition-shadow hover:shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
               >
                 <Button
                   type="button"

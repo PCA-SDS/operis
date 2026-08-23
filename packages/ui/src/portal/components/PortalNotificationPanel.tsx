@@ -89,7 +89,7 @@ export function PortalNotificationPanel({
       {/* Panel */}
       <div
         ref={panelRef}
-        className="fixed right-0 top-0 z-modal flex h-full w-full max-w-md flex-col border-l bg-background shadow-2xl"
+        className="fixed right-0 top-0 z-modal flex h-full w-full max-w-md flex-col border-l bg-surface shadow-2xl"
       >
         {/* Header */}
         <div className="flex h-16 items-center justify-between border-b px-5">
@@ -137,7 +137,7 @@ export function PortalNotificationPanel({
                 ? t('portal.notifications.tab.all', 'All')
                 : t('portal.notifications.tab.unread', 'Unread')}
               {tabId === 'unread' && unreadCount > 0 ? (
-                <span className="ml-1.5 inline-flex size-5 items-center justify-center rounded-full bg-foreground text-overline font-bold text-background">
+                <span className="ml-1.5 inline-flex size-5 items-center justify-center rounded-full bg-primary text-overline font-bold text-background">
                   {unreadCount}
                 </span>
               ) : null}

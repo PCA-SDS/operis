@@ -61,7 +61,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
       {/* Sliding indicator */}
       <span
         className={cn(
-          'absolute size-5 rounded-full bg-background shadow-sm transition-transform duration-200 motion-reduce:transition-none',
+          'absolute size-5 rounded-full bg-surface shadow-sm transition-transform duration-200 motion-reduce:transition-none',
           isDark ? 'translate-x-7' : 'translate-x-0'
         )}
       />
@@ -70,7 +70,7 @@ export function ThemeToggle({ className }: ThemeToggleProps) {
         <Sun
           className={cn(
             'size-3.5 transition-colors motion-reduce:transition-none',
-            isDark ? 'text-muted-foreground' : 'text-amber-500'
+            isDark ? 'text-muted-foreground' : 'text-status-warning-icon'
           )}
         />
         <Moon

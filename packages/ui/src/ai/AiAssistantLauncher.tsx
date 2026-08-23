@@ -562,7 +562,7 @@ export function AiAssistantLauncher({
                   setHighlight(0)
                 }}
                 placeholder={placeholder}
-                className="w-full rounded-md border border-input bg-background px-8 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="w-full rounded-md border border-input bg-input-bg px-8 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
                 data-ai-launcher-search-input=""
               />
             </div>
@@ -607,14 +607,14 @@ export function AiAssistantLauncher({
                           {agent.label}
                         </span>
                         <span
-                          className="inline-flex items-center rounded-full border border-border bg-secondary px-1.5 py-0 text-[10px] font-medium uppercase tracking-wide text-secondary-foreground"
+                          className="inline-flex items-center rounded-full border border-border bg-secondary px-1.5 py-0 text-overline font-medium uppercase tracking-wide text-secondary-foreground"
                           data-ai-beta-chip=""
                         >
                           {t('ai_assistant.chat.betaChip', 'beta')}
                         </span>
                         {writes ? (
                           <span
-                            className="inline-flex items-center rounded-full border border-border bg-secondary px-1.5 py-0 text-[10px] font-medium text-secondary-foreground"
+                            className="inline-flex items-center rounded-full border border-border bg-secondary px-1.5 py-0 text-overline font-medium text-secondary-foreground"
                             data-ai-launcher-writes=""
                           >
                             {writesBadge}
@@ -626,7 +626,7 @@ export function AiAssistantLauncher({
                           {agent.description}
                         </span>
                       ) : null}
-                      <span className="block truncate font-mono text-[10px] text-muted-foreground/80">
+                      <span className="block truncate font-mono text-overline text-muted-foreground/80">
                         {agent.id}
                       </span>
                     </span>
@@ -635,7 +635,7 @@ export function AiAssistantLauncher({
               })
             )}
           </div>
-          <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-[11px] text-muted-foreground">
+          <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-overline text-muted-foreground">
             <span className="flex items-center gap-2">
               <KbdShortcut keys={['↑', '↓']} />{' '}
               {t('ai_assistant.launcher.hint.navigate', 'Navigate')}
@@ -650,7 +650,7 @@ export function AiAssistantLauncher({
           </div>
           {agentsError ? (
             <div
-              className="border-t border-status-error-border bg-status-error-bg px-3 py-1.5 text-[11px] text-status-error-foreground"
+              className="border-t border-status-error-border bg-status-error-bg px-3 py-1.5 text-overline text-status-error-foreground"
               data-ai-launcher-error=""
             >
               <Loader2 className="mr-1 inline size-3 animate-spin" aria-hidden />
@@ -729,7 +729,7 @@ export function AiAssistantLauncher({
                 <AiIcon className="size-4 shrink-0" />
                 <span className="min-w-0 truncate">{activeAgent?.label ?? dialogTitle}</span>
                 <span
-                  className="inline-flex shrink-0 items-center rounded-full border border-border bg-secondary px-1.5 py-0 text-[10px] font-medium uppercase tracking-wide text-secondary-foreground"
+                  className="inline-flex shrink-0 items-center rounded-full border border-border bg-secondary px-1.5 py-0 text-overline font-medium uppercase tracking-wide text-secondary-foreground"
                   data-ai-beta-chip=""
                 >
                   {t('ai_assistant.chat.betaChip', 'beta')}
@@ -858,7 +858,7 @@ function AiProviderSetupPanel({ t }: AiProviderSetupPanelProps) {
                 )}
               </p>
             </div>
-            <div className="rounded-md border border-status-warning-border/70 bg-background/80 p-3 font-mono text-[11px] leading-5 text-foreground">
+            <div className="rounded-md border border-status-warning-border/70 bg-background/80 p-3 font-mono text-overline leading-5 text-foreground">
               <div>OPENCODE_PROVIDER=anthropic</div>
               <div>ANTHROPIC_API_KEY=...</div>
               <div className="mt-2 text-muted-foreground"># or</div>

@@ -107,7 +107,7 @@ function EditHeader({
             &larr; {resolvedBackLabel}
           </Link>
         ) : null}
-        {title ? <div className="text-base font-medium">{title}</div> : null}
+        {title ? <div className="text-base font-semibold text-foreground">{title}</div> : null}
       </div>
       {actionsContent ?? (actions ? <FormActionButtons {...actions} /> : null)}
     </div>
@@ -137,7 +137,7 @@ function DetailHeader({
   const hasActions = actionsContent || utilityActions || menuActions?.length || onDelete
 
   return (
-    <div className="flex flex-col gap-2 md:gap-3 md:flex-row md:items-center md:justify-between">
+    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-4">
       <div className="flex flex-wrap items-center gap-2 md:gap-3 min-w-0">
         {backHref ? (
           <Link
@@ -150,18 +150,18 @@ function DetailHeader({
         ) : null}
         <div className="space-y-0.5 md:space-y-1 min-w-0">
           {entityTypeLabel ? (
-            <p className="text-xs uppercase text-muted-foreground">{entityTypeLabel}</p>
+            <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">{entityTypeLabel}</p>
           ) : null}
           {title ? (
             typeof title === 'string' ? (
-              <h1 className="text-lg md:text-2xl font-semibold leading-tight truncate">{title}</h1>
+              <h1 className="text-2xl font-normal leading-tight truncate sm:text-3xl">{title}</h1>
             ) : (
-              <div className="text-lg md:text-2xl font-semibold leading-tight">{title}</div>
+              <div className="text-2xl font-normal leading-tight sm:text-3xl">{title}</div>
             )
           ) : null}
           {statusBadge}
           {subtitle ? (
-            <p className="text-xs md:text-sm text-muted-foreground">{subtitle}</p>
+            <p className="text-sm font-medium text-muted-foreground">{subtitle}</p>
           ) : null}
         </div>
       </div>

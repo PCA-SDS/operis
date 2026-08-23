@@ -55,7 +55,7 @@ export function ScheduleView({
         onViewChange={onViewChange}
         onTimezoneChange={onTimezoneChange}
       />
-      <div className="schedule-calendar mt-4 rounded-xl border bg-card p-3">
+      <div className="schedule-calendar mt-4 rounded-xl border border-border bg-surface shadow-sm p-3">
         <ScheduleCalendar
           items={items}
           view={view}

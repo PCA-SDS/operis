@@ -774,7 +774,7 @@ export function InlineSelectEditor({
       ? 'relative rounded border bg-muted/30 p-3'
       : variant === 'plain'
         ? 'relative flex flex-col gap-1 rounded-none border-0 p-0'
-        : 'rounded-lg border bg-card p-4',
+        : 'rounded-xl border border-border bg-surface shadow-sm p-4',
     activateOnClick && !editing ? 'cursor-pointer' : null,
     containerClassName ?? null,
   )

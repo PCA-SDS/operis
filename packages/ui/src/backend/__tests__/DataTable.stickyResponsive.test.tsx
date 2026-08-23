@@ -59,10 +59,13 @@ describe('DataTable sticky columns are viewport-gated', () => {
       const firstHeader = headerCells[0]
       const firstBodyCell = container.querySelector('tbody tr td')
 
-      for (const cell of [firstHeader, firstBodyCell]) {
+      for (const [cell, fill] of [
+        [firstHeader, 'md:bg-table-header'],
+        [firstBodyCell, 'md:bg-surface'],
+      ] as const) {
         const tokens = tokensOf(cell)
         expect(tokens).toEqual(
-          expect.arrayContaining(['md:sticky', 'md:left-0', 'md:bg-background', 'md:after:absolute']),
+          expect.arrayContaining(['md:sticky', 'md:left-0', fill, 'md:after:absolute']),
         )
         expect(tokens).not.toContain('sticky')
         expect(tokens).not.toContain('left-0')
@@ -82,10 +85,13 @@ describe('DataTable sticky columns are viewport-gated', () => {
       const actionsBodyCell = container.querySelector('tbody tr td[data-actions-cell]')
       expect(actionsBodyCell).not.toBeNull()
 
-      for (const cell of [actionsHeader, actionsBodyCell]) {
+      for (const [cell, fill] of [
+        [actionsHeader, 'md:bg-table-header'],
+        [actionsBodyCell, 'md:bg-surface'],
+      ] as const) {
         const tokens = tokensOf(cell)
         expect(tokens).toEqual(
-          expect.arrayContaining(['md:sticky', 'md:right-0', 'md:bg-background', 'md:before:absolute']),
+          expect.arrayContaining(['md:sticky', 'md:right-0', fill, 'md:before:absolute']),
         )
         expect(tokens).not.toContain('sticky')
         expect(tokens).not.toContain('right-0')

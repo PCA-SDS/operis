@@ -59,7 +59,7 @@ export function JsonDisplay({
   }, [jsonString])
 
   const containerClasses = cn(
-    'rounded-lg border bg-card p-6',
+    'rounded-xl border border-border bg-surface shadow-sm p-6',
     className
   )
 
@@ -111,11 +111,15 @@ const JsonNode = React.memo<JsonNodeProps>(({ data, depth, maxInitialDepth, them
 
   const indent = depth * 16
 
+  /* Syntax highlighting: the colours encode JSON TYPES, not product meaning,
+     so they are categorical by design. They still come from tokens (each one
+     carries its own dark value) rather than a private palette, which is why
+     there is no longer a light/dark branch here. */
   const themeClasses = {
-    key: theme === 'light' ? 'text-blue-600' : 'text-blue-400',
-    string: theme === 'light' ? 'text-green-600' : 'text-green-400',
-    number: theme === 'light' ? 'text-purple-600' : 'text-purple-400',
-    boolean: theme === 'light' ? 'text-orange-600' : 'text-orange-400',
+    key: 'text-status-info-icon',
+    string: 'text-status-success-icon',
+    number: 'text-status-pink-icon',
+    boolean: 'text-status-warning-icon',
     null: 'text-muted-foreground',
     punctuation: 'text-muted-foreground',
   }

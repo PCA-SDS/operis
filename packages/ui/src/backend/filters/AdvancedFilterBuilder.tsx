@@ -786,7 +786,7 @@ function MultiValuePicker({
             so the operator + value pair stays visually consistent. */}
         <button
           type="button"
-          className={`inline-flex h-8 items-center justify-between gap-2 rounded-md border border-input bg-background px-2.5 text-xs shadow-xs transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:shadow-focus focus-visible:border-foreground w-auto min-w-[160px] ${errorClass}`}
+          className={`inline-flex h-8 items-center justify-between gap-2 rounded-md border border-input bg-input-bg px-2.5 text-xs shadow-xs transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:shadow-focus focus-visible:border-foreground w-auto min-w-[160px] ${errorClass}`}
           aria-label={t('ui.advancedFilter.selectValue', 'Select value')}
           data-testid="multi-value-trigger"
         >

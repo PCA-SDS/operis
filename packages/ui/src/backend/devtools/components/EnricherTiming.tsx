@@ -3,9 +3,9 @@
 import type { EnricherTimingEntry } from '@open-mercato/shared/lib/umes/devtools-types'
 
 function getTimingClasses(ms: number): { text: string; bar: string } {
-  if (ms >= 500) return { text: 'text-red-500', bar: 'bg-red-500' }
-  if (ms >= 100) return { text: 'text-amber-500', bar: 'bg-amber-500' }
-  return { text: 'text-emerald-500', bar: 'bg-emerald-500' }
+  if (ms >= 500) return { text: 'text-status-error-icon', bar: 'bg-status-error-solid' }
+  if (ms >= 100) return { text: 'text-status-warning-icon', bar: 'bg-status-warning-solid' }
+  return { text: 'text-status-success-icon', bar: 'bg-status-success-solid' }
 }
 
 function getTimingBarWidth(ms: number, maxMs: number): string {

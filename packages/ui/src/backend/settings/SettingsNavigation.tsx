@@ -42,7 +42,7 @@ export function SettingsNavigation({ sections, userFeatures }: SettingsNavigatio
     <Link
       key={card.href}
       href={card.href}
-      className="group flex flex-col gap-2 rounded-lg border bg-background p-4 shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+      className="group flex flex-col gap-2 rounded-lg border bg-surface p-4 shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
     >
       <div className="flex items-center gap-3">
         <span className="text-muted-foreground group-hover:text-accent-foreground">

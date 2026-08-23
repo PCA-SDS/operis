@@ -70,11 +70,11 @@ describe('CrudForm validation state', () => {
     })
 
     await waitFor(() => {
-      expect(wrapperOwnedField?.querySelector('.text-xs.text-status-error-text')).toHaveTextContent('This field is required')
+      expect(wrapperOwnedField?.querySelector('.text-xs.font-medium.text-destructive')).toHaveTextContent('This field is required')
       expect(getByTestId('component-owned-error')).toHaveTextContent('This field is required')
     })
 
-    expect(componentOwnedField?.querySelector('.text-xs.text-status-error-text')).toBeNull()
+    expect(componentOwnedField?.querySelector('.text-xs.font-medium.text-destructive')).toBeNull()
   })
 
   it('clears corrected field errors immediately without dropping unrelated errors', async () => {
@@ -115,8 +115,8 @@ describe('CrudForm validation state', () => {
     })
 
     await waitFor(() => {
-      expect(nameField?.querySelector('.text-xs.text-status-error-text')).toHaveTextContent('This field is required')
-      expect(gatewayField?.querySelector('.text-xs.text-status-error-text')).toHaveTextContent('This field is required')
+      expect(nameField?.querySelector('.text-xs.font-medium.text-destructive')).toHaveTextContent('This field is required')
+      expect(gatewayField?.querySelector('.text-xs.font-medium.text-destructive')).toHaveTextContent('This field is required')
     })
 
     await act(async () => {
@@ -124,8 +124,8 @@ describe('CrudForm validation state', () => {
     })
 
     await waitFor(() => {
-      expect(nameField?.querySelector('.text-xs.text-status-error-text')).toBeNull()
-      expect(gatewayField?.querySelector('.text-xs.text-status-error-text')).toHaveTextContent('This field is required')
+      expect(nameField?.querySelector('.text-xs.font-medium.text-destructive')).toBeNull()
+      expect(gatewayField?.querySelector('.text-xs.font-medium.text-destructive')).toHaveTextContent('This field is required')
     })
     expect(container.textContent).toContain('Gateway provider')
   })
