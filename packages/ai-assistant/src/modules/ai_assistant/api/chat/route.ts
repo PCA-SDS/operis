@@ -26,7 +26,7 @@ const logger = createLogger('ai_assistant')
  * These ensure the AI follows the correct workflow for data operations.
  */
 const CHAT_SYSTEM_INSTRUCTIONS = `
-You are a helpful business assistant for Open Mercato.
+You are a helpful business assistant for Operis.
 
 ═══════════════════════════════════════
 ABSOLUTE RULES — FOLLOW THESE OR BE CUT OFF

@@ -402,7 +402,7 @@ export default function ApiDocsExplorer(props: ApiDocsExplorerProps) {
               ☰
             </button>
             <Link href="/" className="flex items-center gap-3">
-              <Image src="/open-mercato.svg" alt="Open Mercato" width={36} height={36} />
+              <Image src="/operis.svg" alt="Operis" width={36} height={36} />
               <div>
                 <div className="text-base font-semibold leading-tight">{title}</div>
                 <div className="text-xs text-muted-foreground">Version {version}</div>

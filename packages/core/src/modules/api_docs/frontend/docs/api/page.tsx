@@ -64,7 +64,7 @@ export default async function ApiDocsViewerPage() {
     : {
         openapi: '3.1.0',
         info: {
-          title: 'Open Mercato API',
+          title: 'Operis API',
           version: APP_VERSION,
           description: 'Auto-generated OpenAPI definition for all enabled modules.',
         },
@@ -77,7 +77,7 @@ export default async function ApiDocsViewerPage() {
 
   return (
     <ApiDocsExplorer
-      title={doc.info?.title ?? 'Open Mercato API'}
+      title={doc.info?.title ?? 'Operis API'}
       version={doc.info?.version ?? APP_VERSION}
       description={doc.info?.description}
       operations={operations}

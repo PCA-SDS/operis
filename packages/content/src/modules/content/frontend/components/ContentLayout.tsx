@@ -22,15 +22,15 @@ export function ContentLayout({ title, intro, breadcrumb, children }: ContentLay
     <div className="flex min-h-svh flex-col bg-muted/30">
       <header className="border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="mx-auto flex w-full max-w-screen-lg items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-3 text-foreground transition hover:text-primary" aria-label="Go to the Open Mercato home page">
+          <Link href="/" className="flex items-center gap-3 text-foreground transition hover:text-primary" aria-label="Go to the Operis home page">
             <Image
-              src="/open-mercato.svg"
-              alt="Open Mercato logo"
+              src="/operis.svg"
+              alt="Operis logo"
               width={32}
               height={32}
               priority
             />
-            <span className="text-base font-semibold tracking-tight">Open Mercato</span>
+            <span className="text-base font-semibold tracking-tight">Operis</span>
           </Link>
           <nav aria-label="Primary" className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm">
@@ -102,10 +102,10 @@ export function ContentLayout({ title, intro, breadcrumb, children }: ContentLay
           <Link
             href="/"
             className="flex items-center gap-2 text-muted-foreground transition hover:text-foreground"
-            aria-label="Open Mercato"
+            aria-label="Operis"
           >
-            <Image src="/open-mercato.svg" alt="Open Mercato logo" width={28} height={28} />
-            <span className="font-medium text-foreground">Open Mercato</span>
+            <Image src="/operis.svg" alt="Operis logo" width={28} height={28} />
+            <span className="font-medium text-foreground">Operis</span>
           </Link>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link className="transition hover:text-foreground" href="/">
@@ -122,7 +122,7 @@ export function ContentLayout({ title, intro, breadcrumb, children }: ContentLay
             </Link>
           </div>
           <p className="text-xs text-muted-foreground/80 sm:text-right">
-            © {new Date().getFullYear()} Open Mercato. All rights reserved.
+            © {new Date().getFullYear()} Operis. All rights reserved.
           </p>
         </div>
       </footer>

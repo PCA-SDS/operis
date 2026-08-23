@@ -104,11 +104,11 @@
   "messages.detail.thread": "Wątek",
   "messages.detail.type": "Typ",
   "messages.email.attachments": "Załączniki",
-  "messages.email.footer": "Wiadomości Open Mercato",
+  "messages.email.footer": "Wiadomości Operis",
   "messages.email.from": "Od",
   "messages.email.heading": "Nowa wiadomość",
   "messages.email.objects": "Powiązane rekordy",
-  "messages.email.preview": "Otrzymano wiadomość w Open Mercato",
+  "messages.email.preview": "Otrzymano wiadomość w Operis",
   "messages.email.sentAt": "Wysłano",
   "messages.email.viewCta": "Zobacz wiadomość",
   "messages.errors.actionFailed": "Nie udało się wykonać akcji.",
@@ -140,7 +140,7 @@
   "messages.filters.hasActionsTooltip": "Pokazuje wiadomości, w których co najmniej jeden powiązany rekord wymaga odpowiedzi (zatwierdzenia, odrzucenia lub przeglądu).",
   "messages.filters.hasAttachments": "Ma załączniki",
   "messages.filters.hasObjects": "Ma powiązane rekordy",
-  "messages.filters.hasObjectsTooltip": "Pokazuje wiadomości zawierające powiązane rekordy Open Mercato, takie jak zamówienia, oferty lub klienci.",
+  "messages.filters.hasObjectsTooltip": "Pokazuje wiadomości zawierające powiązane rekordy Operis, takie jak zamówienia, oferty lub klienci.",
   "messages.filters.sender": "Nadawca",
   "messages.filters.senderEmpty": "Wpisz, aby wyszukać użytkowników",
   "messages.filters.since": "Wysłane po",
@@ -260,5 +260,5 @@
   "messages.visibilityInternalHint": "Wiadomości wewnętrzne są wysyłane do wybranych użytkowników systemu.",
   "messages.visibilityPublic": "Publiczna",
   "messages.visibilityPublicHint": "Wiadomości publiczne są wysyłane wyłącznie na zewnętrzny e-mail.",
-  "notifications.categories.messages": "Wiadomo\u015bci"
+  "notifications.categories.messages": "Wiadomości"
 }

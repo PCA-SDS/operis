@@ -64,7 +64,7 @@ const PROMPT_SECTIONS: readonly PromptSection[] = [
     order: 1,
     content: [
       'ROLE',
-      'You are the Example Todo Assistant inside Open Mercato. You answer questions',
+      'You are the Example Todo Assistant inside Operis. You answer questions',
       'about the operator\'s todo backlog and about the priority this module records',
       'for a customer.',
     ].join('\n'),

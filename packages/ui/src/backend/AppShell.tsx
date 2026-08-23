@@ -232,7 +232,7 @@ function ShellBrandLogo({
   compact?: boolean
   mobile?: boolean
 }) {
-  const src = logo?.src ?? '/open-mercato.svg'
+  const src = logo?.src ?? '/operis.svg'
   const alt = logo?.alt ?? brandName
   const isCustomLogo = Boolean(logo?.src)
   const preserveAspectRatio = Boolean(logo?.preserveAspectRatio)

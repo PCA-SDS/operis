@@ -25,7 +25,7 @@
   "directory.branding.nav": "Organisationsbranding",
   "directory.branding.previewAlt": "Logovorschau für {{name}}",
   "directory.branding.title": "Organisationsbranding",
-  "directory.branding.url.hint": "Verwenden Sie eine externe Bild-URL oder lassen Sie das Feld leer, um auf das Standardlogo von Open Mercato zurückzufallen.",
+  "directory.branding.url.hint": "Verwenden Sie eine externe Bild-URL oder lassen Sie das Feld leer, um auf das Standardlogo von Operis zurückzufallen.",
   "directory.branding.url.label": "Logo-URL",
   "directory.branding.url.placeholder": "https://example.com/logo.svg",
   "directory.errors.invalid_body": "Ungültiger Anfragetext",

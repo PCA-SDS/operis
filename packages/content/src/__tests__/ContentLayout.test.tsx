@@ -232,9 +232,9 @@ describe('ContentLayout', () => {
           <p>Body</p>
         </ContentLayout>,
       )
-      const logoLink = screen.getByLabelText('Go to the Open Mercato home page')
+      const logoLink = screen.getByLabelText('Go to the Operis home page')
       expect(logoLink).toHaveAttribute('href', '/')
-      const logoImage = within(logoLink).getByAltText('Open Mercato logo')
+      const logoImage = within(logoLink).getByAltText('Operis logo')
       expect(logoImage).toBeTruthy()
     })
   })
@@ -265,7 +265,7 @@ describe('ContentLayout', () => {
       const currentYear = new Date().getFullYear().toString()
       const footer = document.querySelector('footer')
       expect(footer!.textContent).toContain(currentYear)
-      expect(footer!.textContent).toContain('Open Mercato')
+      expect(footer!.textContent).toContain('Operis')
     })
   })
 

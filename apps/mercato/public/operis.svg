@@ -1,0 +1,13 @@
+<svg width="176" height="176" viewBox="0 0 176 176" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Operis">
+  <title>Operis</title>
+  <desc>Placeholder Operis mark — replace with the final brand asset when available.</desc>
+  <defs>
+    <linearGradient id="operisMark" x1="0" y1="0" x2="176" y2="176" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3B5BDB"/>
+      <stop offset="0.55" stop-color="#4C6EF5"/>
+      <stop offset="1" stop-color="#7048E8"/>
+    </linearGradient>
+  </defs>
+  <path d="M0 24C0 10.7452 10.7452 0 24 0H152C165.255 0 176 10.7452 176 24V152C176 165.255 165.255 176 152 176H24C10.7452 176 0 165.255 0 152V24Z" fill="url(#operisMark)"/>
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M88 36C59.2812 36 36 59.2812 36 88C36 116.719 59.2812 140 88 140C116.719 140 140 116.719 140 88C140 59.2812 116.719 36 88 36ZM88 62C102.359 62 114 73.6406 114 88C114 102.359 102.359 114 88 114C73.6406 114 62 102.359 62 88C62 73.6406 73.6406 62 88 62Z" fill="#FFFFFF"/>
+</svg>

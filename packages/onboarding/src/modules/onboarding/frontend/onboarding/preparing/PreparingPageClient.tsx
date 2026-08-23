@@ -103,7 +103,7 @@ export default function PreparingPageClient() {
       <Card className="relative w-full max-w-lg overflow-hidden shadow-lg">
         <CardHeader className="flex flex-col gap-4 p-10 text-center">
           <div className="flex flex-col items-center gap-4">
-            <Image alt="Open Mercato" src="/open-mercato.svg" width={120} height={120} priority />
+            <Image alt="Operis" src="/operis.svg" width={120} height={120} priority />
             <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-foreground/5">
               <Spinner size="lg" />
             </span>

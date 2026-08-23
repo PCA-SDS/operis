@@ -215,7 +215,7 @@ export default function OnboardingPageClient({ onboardingEnabled }: Props) {
         ) : null}
         <CardHeader className="flex flex-col gap-4 p-10 text-center">
           <div className="flex flex-col items-center gap-3">
-            <Image alt="Open Mercato" src="/open-mercato.svg" width={120} height={120} priority />
+            <Image alt="Operis" src="/operis.svg" width={120} height={120} priority />
             <CardTitle className="text-2xl font-semibold">
               {translate('onboarding.title', 'Create your Open Mercato workspace')}
             </CardTitle>

@@ -25,7 +25,7 @@
   "directory.branding.nav": "조직 브랜딩",
   "directory.branding.previewAlt": "{{name}} 로고 미리보기",
   "directory.branding.title": "조직 브랜딩",
-  "directory.branding.url.hint": "외부 이미지 URL을 사용하거나 비워 두면 기본 Open Mercato 로고로 대체됩니다.",
+  "directory.branding.url.hint": "외부 이미지 URL을 사용하거나 비워 두면 기본 Operis 로고로 대체됩니다.",
   "directory.branding.url.label": "로고 URL",
   "directory.branding.url.placeholder": "https://example.com/logo.svg",
   "directory.errors.invalid_body": "잘못된 요청 본문입니다",

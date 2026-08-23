@@ -410,7 +410,7 @@ export function NotificationSettingsPageClient() {
             <Input
               id="notifications-email-subject-prefix"
               value={settings.strategies.email.subjectPrefix ?? ''}
-              placeholder="[Open Mercato]"
+              placeholder="[Operis]"
               onChange={(event) => updateStrategy('email', { subjectPrefix: event.target.value || undefined })}
             />
           </div>
