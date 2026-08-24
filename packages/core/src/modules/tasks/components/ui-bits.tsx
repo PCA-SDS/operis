@@ -1,14 +1,14 @@
 "use client"
 
 import * as React from 'react'
-import { Plus } from 'lucide-react'
+import { Clock, Plus } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { DatePicker } from '@open-mercato/ui/primitives/date-picker'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Progress } from '@open-mercato/ui/primitives/progress'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
-import { TimePicker } from '@open-mercato/ui/primitives/time-picker'
+import { TimePicker, formatTimePickerDisplay } from '@open-mercato/ui/primitives/time-picker'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 
@@ -212,6 +212,18 @@ const PICKER_BASE: Record<PickerVariant, string> = {
   dense: 'h-8 w-full',
 }
 
+/** The chrome the DS `DatePicker` puts on its own trigger. `TimeInput` has to
+ *  restate it because the time picker leaves the trigger to its caller, and the
+ *  two controls sit side by side in every due-date row. */
+const PICKER_TRIGGER_CLASS =
+  'inline-flex w-full items-center gap-2 rounded-md border border-input bg-input-bg text-left shadow-xs transition-colors hover:bg-muted/40 focus-visible:border-foreground focus-visible:shadow-focus focus-visible:outline-none disabled:cursor-not-allowed disabled:border-border-disabled disabled:bg-bg-disabled disabled:shadow-none disabled:hover:bg-bg-disabled'
+
+const PICKER_TRIGGER_SIZE: Record<PickerVariant, string> = {
+  form: 'h-9 px-3 text-sm',
+  compact: 'h-9 px-2.5 text-xs',
+  dense: 'h-8 px-2.5 text-xs',
+}
+
 /** Date input over the DS `DatePicker`, speaking the module's `YYYY-MM-DD`
  *  strings instead of `Date` objects so a due date never picks up a timezone. */
 export function DateInput({
@@ -256,6 +268,11 @@ function isoDayOf(date: Date): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
+/** Time input over the DS `TimePicker`. The primitive only anchors itself in a
+ *  popover when it is handed a `trigger` — without one it renders its 320px slot
+ *  card straight into the layout, where the row's height clamps it to a sliver.
+ *  The trigger also portals the card out of the composer's scroll container, so
+ *  no ancestor's `overflow` can crop it. */
 export function TimeInput({
   value,
   onChange,
@@ -272,17 +289,43 @@ export function TimeInput({
   variant?: PickerVariant
 }) {
   const t = useT()
+  const [open, setOpen] = React.useState(false)
+  const placeholderText = placeholder ?? t('tasks.panel.noDueTime', 'No time')
+  const display = value ? formatTimePickerDisplay(value, '12h') : null
+  const label = display ? [display.main, display.suffix].filter(Boolean).join(' ') : placeholderText
+
   return (
     <TimePicker
       value={value || null}
-      onChange={(next) => onChange(next ?? '')}
+      // Picking a slot is the entire interaction, and the card runs without a
+      // footer — so the choice commits and dismisses in one click.
+      onChange={(next) => {
+        onChange(next ?? '')
+        setOpen(false)
+      }}
       disabled={disabled}
       showHeader={false}
       showFooter={false}
       intervalMinutes={30}
-      headerPlaceholder={placeholder ?? t('tasks.panel.noDueTime', 'No time')}
-      aria-label={ariaLabel}
-      className={PICKER_BASE[variant]}
+      headerPlaceholder={placeholderText}
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <button
+          type="button"
+          disabled={disabled}
+          aria-haspopup="dialog"
+          aria-label={ariaLabel}
+          className={cn(
+            PICKER_TRIGGER_CLASS,
+            PICKER_TRIGGER_SIZE[variant],
+            !value && 'text-muted-foreground',
+          )}
+        >
+          <Clock className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="flex-1 truncate">{label}</span>
+        </button>
+      }
     />
   )
 }

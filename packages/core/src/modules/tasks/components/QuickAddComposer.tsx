@@ -4,6 +4,7 @@ import * as React from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { CornerDownRight, Plus } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { Popover, PopoverAnchor, PopoverContent } from '@open-mercato/ui/primitives/popover'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -450,113 +451,126 @@ export function QuickAddComposer({
       )}
     >
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pt-3">
-        <div className="relative -mx-1">
-          {/* An overlay tints the spans the parser claimed while the real
-              textarea sits on top with transparent text, so the caret, IME and
-              selection all stay native. */}
-          {segments && (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-1 py-1 text-lg font-bold text-foreground"
-            >
-              {segments.map((segment, index) =>
-                segment.token ? (
-                  <span
-                    key={index}
-                    className="-ml-1 -mr-0.5 rounded-md bg-primary-soft py-0.5 pl-1 pr-0.5 text-primary"
-                  >
-                    {segment.text}
-                  </span>
-                ) : (
-                  <span key={index}>{segment.text}</span>
-                ),
-              )}
-            </div>
-          )}
-
-          <textarea
-            ref={inputRef}
-            rows={1}
-            maxLength={QUICK_ADD_TEXT_MAX_LENGTH}
-            value={text}
-            onChange={(event) => {
-              // Newlines would break the one-line contract and the overlay's
-              // offset maths along with it.
-              const value = event.target.value.replace(/\n+/g, ' ')
-              setText(value)
-              setOverrides(NO_OVERRIDES)
-              syncMention(value, event.target.selectionStart)
-            }}
-            onKeyUp={(event) => syncMention(event.currentTarget.value, event.currentTarget.selectionStart)}
-            onClick={(event) => syncMention(event.currentTarget.value, event.currentTarget.selectionStart)}
-            onKeyDown={onInputKeyDown}
-            autoFocus={autoFocus}
-            placeholder={
-              parentTask
-                ? t('tasks.quickAdd.subtaskPlaceholder', 'Subtask name')
-                : t('tasks.quickAdd.placeholder', '"Plan lunch with @team by tomorrow 3pm +design"')
-            }
-            aria-label={
-              parentTask
-                ? t('tasks.quickAdd.subtaskNameLabel', 'Subtask name')
-                : t('tasks.quickAdd.taskNameLabel', 'Task name')
-            }
-            className={cn(
-              'relative min-h-16 w-full resize-none overflow-hidden whitespace-pre-wrap break-words border-0 bg-transparent px-1 py-1 text-lg font-semibold caret-foreground placeholder:text-muted-foreground focus:outline-none',
-              segments ? 'text-transparent' : 'text-foreground',
-            )}
-          />
-
-          {menuOpen && (
-            <div
-              role="listbox"
-              aria-label={t('tasks.quickAdd.suggestions', 'Mention suggestions')}
-              className="absolute inset-x-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-xl border border-border bg-surface p-2 text-foreground shadow-lg"
-            >
-              {menuItems.map((item, index) => (
-                <button
-                  key={item.kind === 'create' ? '__create' : item.id}
-                  type="button"
-                  onMouseDown={(event) => event.preventDefault()}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onClick={() => selectMenuItem(item)}
-                  role="option"
-                  aria-selected={index === activeIndex}
-                  className={cn(
-                    'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-foreground transition-colors',
-                    index === activeIndex && 'bg-surface-muted',
-                  )}
+        {/* The menu is portalled rather than absolutely positioned: this column
+            scrolls, and an in-flow menu would be cropped at its edge. */}
+        <Popover open={menuOpen} onOpenChange={(next) => (next ? undefined : setMention(null))}>
+          <PopoverAnchor asChild>
+            <div className="relative -mx-1">
+              {/* An overlay tints the spans the parser claimed while the real
+                  textarea sits on top with transparent text, so the caret, IME
+                  and selection all stay native. */}
+              {segments && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-1 py-1 text-lg font-bold text-foreground"
                 >
-                  {item.kind === 'user' && (
-                    <>
-                      <UserAvatar name={item.name} size="xs" />
-                      <span className="min-w-0 flex-1 truncate">{item.name}</span>
-                      <span className="truncate text-xs text-muted-foreground">{item.email}</span>
-                    </>
-                  )}
-                  {item.kind === 'label' && (
-                    <>
+                  {segments.map((segment, index) =>
+                    segment.token ? (
                       <span
-                        aria-hidden="true"
-                        className="size-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span className="min-w-0 flex-1 truncate">{item.name}</span>
-                    </>
-                  )}
-                  {item.kind === 'create' && (
-                    <>
-                      <Plus className="size-4 text-primary" aria-hidden="true" />
-                      <span className="truncate text-primary">
-                        {t('tasks.quickAdd.createLabel', 'Create “{name}”', { name: item.name })}
+                        key={index}
+                        className="-ml-1 -mr-0.5 rounded-md bg-primary-soft py-0.5 pl-1 pr-0.5 text-primary"
+                      >
+                        {segment.text}
                       </span>
-                    </>
+                    ) : (
+                      <span key={index}>{segment.text}</span>
+                    ),
                   )}
-                </button>
-              ))}
+                </div>
+              )}
+
+              <textarea
+                ref={inputRef}
+                rows={1}
+                maxLength={QUICK_ADD_TEXT_MAX_LENGTH}
+                value={text}
+                onChange={(event) => {
+                  // Newlines would break the one-line contract and the overlay's
+                  // offset maths along with it.
+                  const value = event.target.value.replace(/\n+/g, ' ')
+                  setText(value)
+                  setOverrides(NO_OVERRIDES)
+                  syncMention(value, event.target.selectionStart)
+                }}
+                onKeyUp={(event) => syncMention(event.currentTarget.value, event.currentTarget.selectionStart)}
+                onClick={(event) => syncMention(event.currentTarget.value, event.currentTarget.selectionStart)}
+                onKeyDown={onInputKeyDown}
+                autoFocus={autoFocus}
+                placeholder={
+                  parentTask
+                    ? t('tasks.quickAdd.subtaskPlaceholder', 'Subtask name')
+                    : t('tasks.quickAdd.placeholder', '"Plan lunch with @team by tomorrow 3pm +design"')
+                }
+                aria-label={
+                  parentTask
+                    ? t('tasks.quickAdd.subtaskNameLabel', 'Subtask name')
+                    : t('tasks.quickAdd.taskNameLabel', 'Task name')
+                }
+                className={cn(
+                  'relative min-h-16 w-full resize-none overflow-hidden whitespace-pre-wrap break-words border-0 bg-transparent px-1 py-1 text-lg font-semibold caret-foreground placeholder:text-muted-foreground focus:outline-none',
+                  segments ? 'text-transparent' : 'text-foreground',
+                )}
+              />
             </div>
-          )}
-        </div>
+          </PopoverAnchor>
+
+          <PopoverContent
+            role="listbox"
+            aria-label={t('tasks.quickAdd.suggestions', 'Mention suggestions')}
+            align="start"
+            className="max-h-64 w-[var(--radix-popover-trigger-width)] overflow-y-auto bg-surface p-2 text-foreground"
+            // The caret has to stay in the textarea — it is what drives the menu.
+            onOpenAutoFocus={(event) => event.preventDefault()}
+            onCloseAutoFocus={(event) => event.preventDefault()}
+            // Clicking back into the textarea is not a dismissal; its own handler
+            // re-reads the caret and decides whether the mention is still live.
+            onPointerDownOutside={(event) => {
+              if (inputRef.current?.contains(event.target as Node)) event.preventDefault()
+            }}
+          >
+            {menuItems.map((item, index) => (
+              <button
+                key={item.kind === 'create' ? '__create' : item.id}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => selectMenuItem(item)}
+                role="option"
+                aria-selected={index === activeIndex}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-foreground transition-colors',
+                  index === activeIndex && 'bg-surface-muted',
+                )}
+              >
+                {item.kind === 'user' && (
+                  <>
+                    <UserAvatar name={item.name} size="xs" />
+                    <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                    <span className="truncate text-xs text-muted-foreground">{item.email}</span>
+                  </>
+                )}
+                {item.kind === 'label' && (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className="size-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: item.color }}
+                    />
+                    <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                  </>
+                )}
+                {item.kind === 'create' && (
+                  <>
+                    <Plus className="size-4 text-primary" aria-hidden="true" />
+                    <span className="truncate text-primary">
+                      {t('tasks.quickAdd.createLabel', 'Create “{name}”', { name: item.name })}
+                    </span>
+                  </>
+                )}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
 
         <div className="-mx-3 border-t border-border px-3 pt-3">
           <div className="-mx-1 px-1 text-sm">
