@@ -29,10 +29,15 @@ log()  { printf '[%s] %s\n' "$(date -u '+%Y-%m-%d %H:%M:%S')" "$*"; }
 fail() { printf '[%s] ERROR: %s\n' "$(date -u '+%Y-%m-%d %H:%M:%S')" "$*" >&2; exit 1; }
 
 [ -f "$ENV_FILE" ] || fail "$ENV_FILE not found"
-# shellcheck disable=SC1090
-set -a; . "$ENV_FILE"; set +a
-PGUSER="${POSTGRES_USER:-operis}"
-PGDB="${POSTGRES_DB:-operis}"
+
+# Read values without letting the shell interpret them — see the same note in
+# deploy.sh. Sourcing a file full of generated secrets expands '$', executes
+# backticks, and truncates at '#'.
+read_env() {
+  sed -n "s/^$1=//p" "$ENV_FILE" | tail -1
+}
+PGUSER="$(read_env POSTGRES_USER)"; PGUSER="${PGUSER:-operis}"
+PGDB="$(read_env POSTGRES_DB)";     PGDB="${PGDB:-operis}"
 
 dc() { docker compose --env-file "$ENV_FILE" --env-file "$APP_DIR/.image.env" -f "$APP_DIR/docker-compose.yml" "$@"; }
 

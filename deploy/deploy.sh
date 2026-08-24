@@ -137,19 +137,35 @@ flock -n 9 || fail "another deploy is in progress (lock: $LOCK_FILE)"
 perms="$(stat -c '%a' "$ENV_FILE")"
 [ "$perms" = "600" ] || fail ".env has permissions $perms — run: chmod 600 $ENV_FILE"
 
-# shellcheck disable=SC1090
-set -a; . "$ENV_FILE"; set +a
+# Read one variable out of .env.
+#
+# Deliberately NOT `. "$ENV_FILE"`. That file holds generated secrets, and
+# sourcing it hands them to the shell to interpret: a '$' expands, a backtick
+# executes, a '#' truncates. Worse, Docker Compose parses the same file with
+# its own non-shell parser, so a sourced value can silently disagree with what
+# the container actually receives — and the check below would then be
+# validating a string no process ever sees.
+read_env() {
+  sed -n "s/^$1=//p" "$ENV_FILE" | tail -1
+}
 
-: "${APP_IMAGE:?APP_IMAGE is not set in .env}"
-: "${APP_DOMAIN:?APP_DOMAIN is not set in .env}"
-: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set in .env}"
-: "${JWT_SECRET:?JWT_SECRET is not set in .env}"
+APP_IMAGE="$(read_env APP_IMAGE)"
+APP_DOMAIN="$(read_env APP_DOMAIN)"
+POSTGRES_USER="$(read_env POSTGRES_USER)"; POSTGRES_USER="${POSTGRES_USER:-operis}"
+POSTGRES_DB="$(read_env POSTGRES_DB)";     POSTGRES_DB="${POSTGRES_DB:-operis}"
+POSTGRES_PASSWORD="$(read_env POSTGRES_PASSWORD)"
+JWT_SECRET="$(read_env JWT_SECRET)"
+
+[ -n "$APP_IMAGE" ]         || fail "APP_IMAGE is not set in $ENV_FILE"
+[ -n "$APP_DOMAIN" ]        || fail "APP_DOMAIN is not set in $ENV_FILE"
+[ -n "$POSTGRES_PASSWORD" ] || fail "POSTGRES_PASSWORD is not set in $ENV_FILE"
+[ -n "$JWT_SECRET" ]        || fail "JWT_SECRET is not set in $ENV_FILE"
 [ "${#JWT_SECRET}" -ge 32 ] || fail "JWT_SECRET must be at least 32 characters (the app refuses to boot otherwise)"
 
 # The gateway network belongs to the pca-erp stack, not to this compose file.
 # Without this check a missing/renamed network surfaces as an opaque compose
 # error after the pull and the backup have already run.
-EDGE_NET="${EDGE_NETWORK:-pca-erp-network}"
+EDGE_NET="$(read_env EDGE_NETWORK)"; EDGE_NET="${EDGE_NET:-pca-erp-network}"
 docker network inspect "$EDGE_NET" >/dev/null 2>&1 || fail "docker network '$EDGE_NET' does not exist.
        Operis joins it so pca-erp-nginx can reach the app container. If the
        pca-erp stack was renamed or torn down, set EDGE_NETWORK in .env to the

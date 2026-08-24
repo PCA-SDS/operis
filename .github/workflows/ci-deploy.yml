@@ -53,9 +53,12 @@ concurrency:
   group: ci-deploy-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Least privilege by default; each job widens only what it needs. This matters
+# because the deploy job SHIPS ITS TOKEN to the VPS for a `docker login`. A
+# workflow-wide `packages: write` would hand that host a token able to publish
+# images to this repository; `packages: read` can only pull.
 permissions:
   contents: read
-  packages: write
 
 env:
   NODE_VERSION: '24.19.0'
@@ -67,6 +70,8 @@ jobs:
     name: Lint, typecheck, unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
     if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_quality) }}
 
     steps:
@@ -139,6 +144,9 @@ jobs:
     name: Build and push image
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
     # Deliberately no `needs: quality` — see the header. Skipped for PRs, and
     # skipped when redeploying an existing tag.
     if: >-
@@ -210,6 +218,10 @@ jobs:
     name: Deploy to VPS
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # read, not write: this token is handed to the VPS to pull the image.
+    permissions:
+      contents: read
+      packages: read
     needs: [quality, build]
     # `always()` so this is evaluated even when a dependency was skipped —
     # without it, one skipped `needs` would skip this job outright. Each result

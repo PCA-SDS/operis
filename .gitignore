@@ -98,7 +98,15 @@ tmp/
 public/uploads/*
 apps/mercato/storage/*
 apps/mercato/storage/attachments/*
-storage
+# Anchored to the repo root. A bare `storage` is recursive in gitignore and
+# matched any directory of that name at any depth — including the SOURCE
+# directory packages/core/src/modules/attachments/backend/storage/, whose
+# page.meta.ts and page.tsx were silently never committed. The Attachments
+# library page was therefore absent from every clone and every built image,
+# and backend-sidebar-icons.test.ts could not resolve its import in CI.
+# (.dockerignore's identical-looking `storage` is root-only — Docker does not
+# match nested paths without `**/`, so it was never part of this bug.)
+/storage/
 packages/client/src/generated/openapi.types.ts
 package-lock.json
 

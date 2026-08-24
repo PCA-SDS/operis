@@ -66,8 +66,10 @@ filter produces a byte-identical file — no nginx runtime variable gets eaten.
 | `nginx/operis.conf.template` | pca-erp templates dir | The vhost. Installed **by hand, once**. |
 | `redis.conf` | server | Redis with persistence on (queues live here). |
 | `env.production.example` | → server `.env` | Every environment variable, annotated. |
+| `init-env.sh` | server | Generates every secret straight into `.env` — never to stdout. |
+| `install-backup-timer.sh` | server | Installs the nightly backup systemd timer. Run once. |
 | `deploy.sh` | server | Pull → back up → start → health-check → roll back on failure. |
-| `backup.sh` | server | Nightly `pg_dump` with retention and integrity check. |
+| `backup.sh` | server | `pg_dump` with retention and an integrity check. Scheduled by the timer above. |
 | `dc` | server | `docker compose` wrapper that supplies both env files. |
 | `../.github/workflows/ci-deploy.yml` | GitHub | The pipeline: quality + build + deploy in one run. |
 
@@ -247,6 +249,24 @@ which is why the health check allows 10 minutes.
 
 Then sign in at `https://operis.faheemkamel.com` with `OM_INIT_SUPERADMIN_EMAIL` /
 `OM_INIT_SUPERADMIN_PASSWORD` and **change that password immediately**.
+
+### 10 — Nightly backups
+
+`backup.sh` is synced by CI but **nothing calls it until the timer is installed**.
+On a single-purpose host `01-bootstrap-server.sh` would have done this; here it is a
+separate step, because that script cannot run on a shared box.
+
+```bash
+scp deploy/install-backup-timer.sh ubuntu@148.113.44.174:/tmp/
+ssh ubuntu@148.113.44.174 'sudo bash /tmp/install-backup-timer.sh --verify'
+```
+
+`--verify` takes one backup immediately, so you find out now — rather than in a
+crisis — that the dump works and restores. Confirm afterwards:
+
+```bash
+ssh operis@148.113.44.174 'systemctl list-timers operis-backup.timer --no-pager; ls -lh /opt/operis/backups/'
+```
 
 ---
 
