@@ -7,17 +7,28 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 10
+    # Headroom for the batched minor/patch PR plus one PR per pending major.
+    open-pull-requests-limit: 15
     groups:
       # Batch minor/patch updates for non-security deps to reduce noise
       minor-and-patch:
         update-types:
           - minor
           - patch
-      # Surface major version bumps as a separate grouped PR for manual review
-      major:
+    # Majors are deliberately left ungrouped so each lands as its own PR. A
+    # grouped major PR is all-or-nothing: one incompatible package red-lines the
+    # whole batch and blocks every other upgrade in it, and the failure cannot be
+    # bisected to the bump that caused it.
+    ignore:
+      # ESLint 10 dropped the deprecated context.getFilename(), which
+      # eslint-plugin-react still calls; its latest release (7.37.5) peers on
+      # eslint "^9.7". It reaches us both directly and through
+      # eslint-config-next, so v10 fails lint with
+      # "contextOrFilename.getFilename is not a function" before any rule runs.
+      # Remove this entry once eslint-plugin-react supports ESLint 10.
+      - dependency-name: eslint
         update-types:
-          - major
+          - version-update:semver-major
 
   # GitHub Actions — pin digests and keep versions current
   - package-ecosystem: github-actions
