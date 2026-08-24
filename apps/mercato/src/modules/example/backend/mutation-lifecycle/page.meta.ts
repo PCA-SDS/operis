@@ -8,7 +8,7 @@ export const metadata = {
   pageOrder: 20700,
   icon: 'shield',
   breadcrumb: [
-    { label: 'General tasks', labelKey: 'example.todos.page.title', href: '/backend/todos' },
+    { label: 'General Tasks', labelKey: 'example.todos.page.title', href: '/backend/todos' },
     { label: 'Phase M — Mutation Lifecycle', labelKey: 'example.mutationLifecycle.title' },
   ],
 }

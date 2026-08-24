@@ -136,7 +136,7 @@ export default function StaffMyAvailabilityPage() {
               </p>
               <Button asChild size="sm" variant="outline">
                 <Link href="/backend/staff/my-leave-requests">
-                  {t('staff.leaveRequests.my.title', 'My leave requests')}
+                  {t('staff.leaveRequests.my.title', 'My Leave Requests')}
                 </Link>
               </Button>
             </div>

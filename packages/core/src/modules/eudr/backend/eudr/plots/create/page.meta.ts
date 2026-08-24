@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['eudr.plots.manage'],
-  pageTitle: 'Create plot',
+  pageTitle: 'Create Plot',
   pageTitleKey: 'eudr.plots.create.title',
   pageGroup: 'Compliance',
   pageGroupKey: 'eudr.nav.group',

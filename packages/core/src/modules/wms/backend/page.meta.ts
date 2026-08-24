@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['wms.view'],
-  pageTitle: 'Operational dashboard',
+  pageTitle: 'Operational Dashboard',
   pageTitleKey: 'wms.backend.dashboard.title',
   pageGroup: 'WMS',
   pageGroupKey: 'wms.nav.group',

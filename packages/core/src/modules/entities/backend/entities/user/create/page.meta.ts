@@ -13,7 +13,7 @@ export const metadata = {
   requireFeatures: ['entities.definitions.manage'],
   pageTitle: 'Create Entity',
   pageTitleKey: 'entities.nav.userEntities.create',
-  pageGroup: 'Data designer',
+  pageGroup: 'Data Designer',
   pageGroupKey: 'entities.nav.group',
   pageOrder: 11,
   icon: filePlusIcon,

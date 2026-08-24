@@ -204,7 +204,7 @@ export function CreateDealForm({ returnTo, initialValues }: CreateDealFormProps)
         <div className="space-y-4">
           <DealSectionCard
             icon={Briefcase}
-            title={tr('customers.deals.create.title', 'Create deal')}
+            title={tr('customers.deals.create.title', 'Create Deal')}
             subtitle={tr('customers.deals.create.sections.details.subtitle', 'Core opportunity info')}
             actions={
               <>

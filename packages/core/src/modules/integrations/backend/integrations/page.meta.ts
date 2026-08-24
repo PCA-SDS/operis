@@ -9,7 +9,7 @@ export const metadata = {
   requireFeatures: ['integrations.view'],
   pageTitle: 'Integrations',
   pageTitleKey: 'integrations.nav.title',
-  pageGroup: 'External systems',
+  pageGroup: 'External Systems',
   pageGroupKey: 'backend.nav.externalSystems',
   pageOrder: 50,
   icon: puzzleIcon,

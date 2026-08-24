@@ -769,7 +769,7 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
                 </h2>
                 <ResourcesResourceForm
                   embedded
-                  title={t('resources.resources.form.editTitle', 'Edit resource')}
+                  title={t('resources.resources.form.editTitle', 'Edit Resource')}
                   backHref="/backend/resources/resources"
                   cancelHref="/backend/resources/resources"
                   successRedirect="/backend/resources/resources"

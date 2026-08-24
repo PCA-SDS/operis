@@ -36,14 +36,14 @@ const KPI_TITLES = [
  * UI smoke for /backend/wms operational dashboard.
  * Complements API coverage in TC-WMS-DASHBOARD-001.spec.ts
  */
-test.describe('TC-WMS-DASHBOARD-UI-001: Operational dashboard UI', () => {
+test.describe('TC-WMS-DASHBOARD-UI-001: Operational Dashboard UI', () => {
   test('renders KPI cards, warehouse filter, and quick-action links', async ({ page }) => {
     test.slow()
 
     await login(page, 'admin')
     await page.goto('/backend/wms')
 
-    await expect(page.getByRole('heading', { level: 1, name: 'Operational dashboard' })).toBeVisible({
+    await expect(page.getByRole('heading', { level: 1, name: 'Operational Dashboard' })).toBeVisible({
       timeout: 15_000,
     })
 
@@ -177,7 +177,7 @@ test.describe('TC-WMS-DASHBOARD-UI-001: Operational dashboard UI', () => {
       await login(page, 'admin')
       await page.goto('/backend/wms')
 
-      await expect(page.getByRole('heading', { level: 1, name: 'Operational dashboard' })).toBeVisible({
+      await expect(page.getByRole('heading', { level: 1, name: 'Operational Dashboard' })).toBeVisible({
         timeout: 15_000,
       })
 

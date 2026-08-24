@@ -14,7 +14,7 @@ const aiIcon = React.createElement(
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['ai_assistant.settings.manage'],
-  pageTitle: 'AI Assistant (legacy)',
+  pageTitle: 'AI Assistant (Legacy)',
   pageTitleKey: 'ai_assistant.config.nav.settingsLegacy',
   pageGroup: 'Module Configs',
   pageGroupKey: 'settings.sections.moduleConfigs',
@@ -23,6 +23,6 @@ export const metadata = {
   pageContext: 'settings' as const,
   breadcrumb: [
     { label: 'AI Agents', labelKey: 'ai_assistant.agents.navTitle' },
-    { label: 'AI Assistant (legacy)', labelKey: 'ai_assistant.config.nav.settingsLegacy' },
+    { label: 'AI Assistant (Legacy)', labelKey: 'ai_assistant.config.nav.settingsLegacy' },
   ],
 } as const

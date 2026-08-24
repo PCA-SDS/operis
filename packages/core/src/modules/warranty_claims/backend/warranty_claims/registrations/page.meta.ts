@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['warranty_claims.registration.view'],
   pageTitle: 'Registrations',
   pageTitleKey: 'warranty_claims.registrations.nav.title',
-  pageGroup: 'Warranty claims',
+  pageGroup: 'Warranty Claims',
   pageGroupKey: 'warranty_claims.nav.group',
   pagePriority: 40,
   pageOrder: 200,

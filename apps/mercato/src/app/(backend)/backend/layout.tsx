@@ -77,8 +77,6 @@ export default async function BackendLayout({
     label: item.labelKey ? translate(item.labelKey, item.label || item.labelKey) : item.label,
   }))
 
-  const collapsedCookie = cookieStore.get('om_sidebar_collapsed')?.value
-  const initialCollapsed = collapsedCookie === '1'
   const demoModeEnabled = parseBooleanWithDefault(process.env.DEMO_MODE, true)
   const hideBackendFooter = parseBooleanWithDefault(process.env.OM_HIDE_BACKEND_FOOTER, false)
   const deployEnv = process.env.DEPLOY_ENV
@@ -110,7 +108,6 @@ export default async function BackendLayout({
         groups={[]}
         currentTitle={currentTitle}
         breadcrumb={breadcrumb}
-        sidebarCollapsedDefault={initialCollapsed}
         rightHeaderSlot={(
           <BackendHeaderChrome
             email={auth?.email}

@@ -9,7 +9,7 @@ import { login } from '@open-mercato/core/helpers/integration/auth';
  * configuration sections for profiling, logging, security, caching,
  * query index, and entities.
  *
- * Navigation: Settings → System → System status
+ * Navigation: Settings → System → System Status
  */
 test.describe('TC-ADMIN-009: View System Status Dashboard', () => {
   test('should display system status sections with environment variable details', async ({ page }) => {
@@ -42,7 +42,7 @@ test.describe('TC-ADMIN-009: View System Status Dashboard', () => {
     await expect(page.getByRole('heading', { name: 'Password min length', level: 4 })).toBeVisible();
 
     // Verify the page is accessible via Settings sidebar
-    await expect(page.getByRole('link', { name: 'System status' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'System Status' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Cache' })).toBeVisible();
   });
 });

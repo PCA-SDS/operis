@@ -25,7 +25,7 @@ export default function StaffTeamCreatePage() {
     <Page>
       <PageBody>
         <TeamForm
-          title={t('staff.teams.form.createTitle', 'Add team')}
+          title={t('staff.teams.form.createTitle', 'Add Team')}
           backHref="/backend/staff/teams"
           cancelHref="/backend/staff/teams"
           submitLabel={t('staff.teams.form.actions.create', 'Create')}

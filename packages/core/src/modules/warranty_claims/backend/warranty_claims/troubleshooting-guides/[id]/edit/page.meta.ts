@@ -1,14 +1,14 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['warranty_claims.troubleshooting.manage'],
-  pageTitle: 'Edit troubleshooting guide',
+  pageTitle: 'Edit Troubleshooting Guide',
   pageTitleKey: 'warranty_claims.troubleshootingGuides.edit.title',
-  pageGroup: 'Warranty claims',
+  pageGroup: 'Warranty Claims',
   pageGroupKey: 'warranty_claims.nav.group',
   breadcrumb: [
     { label: 'Claims', labelKey: 'warranty_claims.nav.claims', href: '/backend/warranty_claims' },
-    { label: 'Troubleshooting guides', labelKey: 'warranty_claims.troubleshootingGuides.nav.title', href: '/backend/warranty_claims/troubleshooting-guides' },
-    { label: 'Edit troubleshooting guide', labelKey: 'warranty_claims.troubleshootingGuides.edit.title' },
+    { label: 'Troubleshooting Guides', labelKey: 'warranty_claims.troubleshootingGuides.nav.title', href: '/backend/warranty_claims/troubleshooting-guides' },
+    { label: 'Edit Troubleshooting Guide', labelKey: 'warranty_claims.troubleshootingGuides.edit.title' },
   ],
 }
 

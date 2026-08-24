@@ -503,7 +503,7 @@ export default function ProfileCommunicationChannelsPage() {
         <header className="mb-4 flex items-baseline justify-between">
           <div>
             <h2 className="text-2xl font-semibold">
-              {t('communication_channels.profile.title', 'My communication channels')}
+              {t('communication_channels.profile.title', 'My Communication Channels')}
             </h2>
             <p className="text-sm text-muted-foreground">
               {t(

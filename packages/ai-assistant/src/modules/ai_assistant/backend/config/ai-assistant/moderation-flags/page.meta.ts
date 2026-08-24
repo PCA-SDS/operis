@@ -11,7 +11,7 @@ const moderationIcon = React.createElement(
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['ai_assistant.settings.manage'],
-  pageTitle: 'Moderation flags',
+  pageTitle: 'Moderation Flags',
   pageTitleKey: 'ai_assistant.moderationFlags.navTitle',
   pageGroup: 'Module Configs',
   pageGroupKey: 'settings.sections.moduleConfigs',
@@ -19,6 +19,6 @@ export const metadata = {
   icon: moderationIcon,
   pageContext: 'settings' as const,
   breadcrumb: [
-    { label: 'Moderation flags', labelKey: 'ai_assistant.moderationFlags.navTitle' },
+    { label: 'Moderation Flags', labelKey: 'ai_assistant.moderationFlags.navTitle' },
   ],
 } as const

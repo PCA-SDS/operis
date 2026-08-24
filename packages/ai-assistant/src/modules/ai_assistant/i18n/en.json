@@ -365,7 +365,7 @@
   "ai_assistant.moderationFlags.filters.apply": "Apply",
   "ai_assistant.moderationFlags.filters.from": "From",
   "ai_assistant.moderationFlags.filters.to": "To",
-  "ai_assistant.moderationFlags.navTitle": "Moderation flags",
+  "ai_assistant.moderationFlags.navTitle": "Moderation Flags",
   "ai_assistant.moderationFlags.subtitle": "Inputs blocked by the content safety filter. Category flags and scores only — no prompt content is stored.",
   "ai_assistant.moderationFlags.title": "Moderation flags",
   "ai_assistant.notifications.conversation_shared.body": "An AI conversation has been shared with you.",

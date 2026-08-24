@@ -31,7 +31,7 @@ export default function PlannerAvailabilityRuleSetCreatePage() {
     <Page>
       <PageBody>
         <AvailabilityRuleSetForm
-          title={translate('planner.availabilityRuleSets.form.createTitle', 'Create schedule')}
+          title={translate('planner.availabilityRuleSets.form.createTitle', 'Create Schedule')}
           backHref="/backend/planner/availability-rulesets"
           cancelHref="/backend/planner/availability-rulesets"
           submitLabel={translate('planner.availabilityRuleSets.form.actions.create', 'Create')}

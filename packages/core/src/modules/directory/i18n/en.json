@@ -22,7 +22,7 @@
   "directory.branding.file.label": "Upload logo",
   "directory.branding.flash.saved": "Organization branding updated",
   "directory.branding.loading": "Loading organization branding...",
-  "directory.branding.nav": "Organization branding",
+  "directory.branding.nav": "Organization Branding",
   "directory.branding.previewAlt": "{{name}} logo preview",
   "directory.branding.title": "Organization branding",
   "directory.branding.url.hint": "Use an external image URL or leave empty to fall back to the default Operis logo.",

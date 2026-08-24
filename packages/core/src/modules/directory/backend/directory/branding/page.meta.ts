@@ -11,14 +11,14 @@ const brandingIcon = React.createElement(
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['directory.organizations.manage'],
-  pageTitle: 'Organization branding',
+  pageTitle: 'Organization Branding',
   pageTitleKey: 'directory.branding.nav',
   pageGroup: 'Directory',
   pageGroupKey: 'settings.sections.directory',
   pageOrder: 0,
   icon: brandingIcon,
   pageContext: 'settings' as const,
-  breadcrumb: [{ label: 'Organization branding', labelKey: 'directory.branding.nav' }],
+  breadcrumb: [{ label: 'Organization Branding', labelKey: 'directory.branding.nav' }],
 }
 
 export default metadata

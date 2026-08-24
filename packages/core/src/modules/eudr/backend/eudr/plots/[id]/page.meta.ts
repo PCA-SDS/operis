@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['eudr.plots.manage'],
-  pageTitle: 'Edit plot',
+  pageTitle: 'Edit Plot',
   pageTitleKey: 'eudr.plots.edit.title',
   pageGroup: 'Compliance',
   pageGroupKey: 'eudr.nav.group',
@@ -9,6 +9,6 @@ export const metadata = {
   breadcrumb: [
     { label: 'EUDR', labelKey: 'eudr.nav.module', href: '/backend/eudr' },
     { label: 'Plots', labelKey: 'eudr.nav.plots', href: '/backend/eudr/plots' },
-    { label: 'Edit plot', labelKey: 'eudr.plots.edit.title' },
+    { label: 'Edit Plot', labelKey: 'eudr.plots.edit.title' },
   ],
 }

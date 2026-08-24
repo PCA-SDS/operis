@@ -20,7 +20,8 @@ Decision tree — ask "what color do I need?":
 | Is it a primary action (the CTA)? | Yes → | `bg-primary`, `text-primary-foreground`, hover `bg-primary-hover` |
 | Is it an *interactive* accent (link, active tab underline, sort indicator, slider, progress)? | Yes → | `text-accent-strong`, `bg-accent-strong`, `border-accent-border`, tint `bg-accent-soft` |
 | Is it a filled selection control (Checkbox / Radio / Switch, checked)? | Yes → | `bg-primary`, `text-primary-foreground` — NOT `accent-strong` |
-| Is it a raised plane (card, table, menu, sidebar)? | Yes → | `bg-surface` |
+| Is it a raised plane (card, table, menu, dialog)? | Yes → | `bg-surface` |
+| Is it inside the backend sidebar (rail, nav row, group overline, hairline)? | Yes → | the `sidebar-*` family — see **Sidebar** below. NEVER the content-side neutrals |
 | Is it a quiet fill (table header, chip, inactive tile)? | Yes → | `bg-surface-muted` |
 | Is it a **chrome hover** (topbar button, toolbar tile)? | Yes → | `bg-surface-strong` |
 | Is it modal chrome / a filled input? | Yes → | `bg-surface-modal`, `bg-modal-muted` |
@@ -107,7 +108,7 @@ The product sits on a four-step neutral ladder. Pick by **job**, not by how dark
 | Step | Token | Job |
 |---|---|---|
 | 0 | `bg-background` | the page ground; nothing else uses it |
-| 1 | `bg-surface` (= `bg-card`, `bg-popover`) | the raised plane: cards, tables, menus, sidebar, dialogs |
+| 1 | `bg-surface` (= `bg-card`, `bg-popover`) | the raised plane: cards, tables, menus, dialogs |
 | 2 | `bg-surface-muted` (= `bg-muted`, `bg-accent`, `bg-secondary`) | quiet fill inside step 1: table headers, chips, inactive tiles |
 | 3 | `bg-surface-strong` | **chrome hover only** — topbar buttons, toolbar tiles |
 
@@ -120,6 +121,74 @@ a **filled** input so a populated form reads at a glance without adding border w
 Elevation is carried by the shadow scale, not by stacking borders. A list-view card takes
 `rounded-xl bg-surface shadow-md` with **no border** — a border plus a shadow reads as two
 competing edges.
+
+## Sidebar
+
+The backend rail is **not** a step on the neutral ladder. It is painted in the CTA navy
+(`--sidebar` is the same value as `--primary` in light mode), so anything rendered inside it
+must come from the `sidebar-*` family — `text-foreground` on navy is unreadable and a
+`surface-muted` hover is invisible.
+
+| Part of the rail | Token |
+|---|---|
+| The column itself, and anything that must match it (sticky footer, scroll fade) | `bg-sidebar` |
+| Row label at rest, brand mark, drawer ink | `text-sidebar-foreground` |
+| Icons at rest, group overlines, quiet meta | `text-sidebar-muted-foreground` |
+| Row hover fill / ink | `bg-sidebar-accent`, `text-sidebar-accent-foreground` |
+| Active row pill / its ink | `bg-sidebar-primary`, `text-sidebar-primary-foreground` |
+| Hairline, divider, child guide line | `border-sidebar-border` / `bg-sidebar-border` |
+| Focus ring inside the rail | `ring-sidebar-ring` |
+
+### The rail's one grid
+
+The aside owns a 12px gutter (`px-3`). **Every** box inside spans that full inner width — no
+negative margins, no extra right pad — and every box carrying an icon pads another 12px, so the
+logo, the search glyph, the group overlines and every row icon start at the same x. Break this and
+the rows silently end up a few pixels narrower than the search field above them.
+
+| Element | Box |
+|---|---|
+| Brand row | `h-16` — the topbar's height, so the two share a centre line and the aside takes no top padding |
+| Search field | `h-10`, `px-3` (size `default`; `lg` would move the glyph off the icon column) |
+| Group heading | `h-8`, `px-3` |
+| Nav row | `h-10`, `px-3`, `gap-3` |
+| Subpage row | `h-9`, `pl-6 pr-3`, `gap-3` — one 12px step in, so a child icon lands where a parent label starts |
+| Icon slot | `size-5` with `[&_svg]:size-4`, `shrink-0` |
+| Label | `min-w-0 flex-1 truncate` — without `min-w-0` a flex item keeps its content width and `truncate` overflows the row instead of clipping |
+| Column stack / between groups | `gap-3` |
+| Between rows in a group | `gap-1` |
+| Group divider | `mt-3 border-t`, inset to the row edges (the nav's own `gap-3` supplies the 12px below) |
+| Sticky footer | `-mx-3 px-3 pt-3 border-t empty:hidden` — the ONE full-bleed rule, because it divides the column rather than the list |
+
+`AppShell` (`packages/ui/src/backend/AppShell.tsx`) owns the rail. Its contract:
+
+- It is a fixed, always-open 240px column — no collapse toggle, no persisted collapsed flag, no
+  icon-only variant. Below `lg:` the same nav renders inside the mobile drawer, same tokens.
+- Row chrome is declared once at the top of the file (`SIDEBAR_ITEM_BASE`, `SIDEBAR_ITEM_BOX`,
+  `SIDEBAR_CHILD_BOX`, `SIDEBAR_GROUP_LABEL`, `sidebarItemStateClass`). Reuse those constants — a
+  hand-rolled row makes the rail read as several lists stacked together.
+- Group headings are `text-xs font-bold uppercase tracking-wide text-sidebar-muted-foreground`
+  (the table-column-header treatment), NOT `text-overline` — see the Typography caveat.
+- Settings / Profile **swap** their section nav into the same rail, with
+  `appshell-section-back-to-main` as the way out. Do not reintroduce a second aside.
+- Main-nav **subpages are always listed** — indented via `SIDEBAR_CHILD_BOX`, with no guide line
+  beside them. A subpage that only unfolds once you are already on its parent cannot be found from
+  the sidebar. (The Settings / Profile section nav still reveals children on their branch: its
+  "User Entities" row expands to one child per user-defined entity.)
+- Group expand/collapse goes through `SidebarCollapse`: a `grid-template-rows` `0fr → 1fr`
+  transition plus an opacity fade, with the clip released once open so hover pills and focus rings
+  are not cropped. `Chevron` turns a quarter turn. Keep both at `SIDEBAR_COLLAPSE_MS`, and keep the
+  `motion-reduce:` escapes.
+- The brand header is a link with **no hover fill** — it is an identity mark, not a nav row.
+- Every interactive element in the rail takes `outline-none focus-visible:shadow-focus`.
+- Group headings are real `Button`s with `type="button"`, `aria-expanded` and `aria-controls`
+  pointing at the collapse region's id; the `<nav>` carries an `aria-label`.
+- The scroll affordance anchors to the nav's own scroll frame, not to the aside — from the aside it
+  paints over the sticky footer, whose top edge is not the aside's bottom edge. Its fade paints
+  ONLY while there is more list below (held on at the bottom it washes out the last row and
+  promises content that is not there), and the list reserves the overlay's band (`pb-10`) while it
+  is on screen so the last row can always be scrolled clear of the chevron.
+- A widget injected into a `backend:sidebar:*` spot MUST style itself from this family too.
 
 ## Corner Radius
 - NEVER use arbitrary radius values (`rounded-[24px]`, `rounded-[32px]`, etc.)
@@ -142,6 +211,10 @@ Pill vs no-pill chips: the shipped primitives (`Badge`, `Tag` pill variant, `Seg
 - NEVER use arbitrary tracking — use `tracking-widest` (0.1em) for uppercase labels
 - USE Tailwind scale: `text-xs` (12px), `text-sm` (14px), `text-base` (16px), `text-lg` (18px), `text-xl` (20px), `text-2xl` (24px)
 - For 11px uppercase labels: use `text-overline` (custom token, 11px / 16px line-height)
+- `text-overline` is a CUSTOM utility, so `tailwind-merge` classifies it as a text *colour*, not a
+  size. Passing it through a component that runs `cn()` (any `Button`, `Input`, primitive with a
+  `className` prop) alongside another `text-{color}` token silently DROPS it and the component's
+  own `text-sm` wins. On such a call site use a real scale size (`text-xs`) instead
 - Exception: `text-[9px]` for notification badge count and `Avatar size="sm"` initials (documented exceptions)
 - Font families come from tokens: `--font-geist-sans` (default UI) and `--font-geist-mono` (`font-mono`) — never declare `font-family` inline
 
@@ -344,12 +417,12 @@ When building a new module UI, use the **customers module** as reference:
 | Form field full-width → half-width side-by-side | `md:grid-cols-2` |
 | Dashboard 1-col → 2-col layout | `md:grid-cols-2` (not `sm:`) |
 | 2-col → 3-col dashboard | `lg:grid-cols-3` |
-| Sidebar collapse → always-visible | `lg:grid-cols-[240px_1fr]` |
+| Sidebar drawer → always-visible rail | `lg:grid-cols-[240px_1fr]` |
 | 4th column for dense dashboards | `xl:grid-cols-4` |
 | Constrain max content width | `max-w-screen-2xl mx-auto` |
 | Show/hide based on device | `hidden lg:block` or `lg:hidden` |
 
-`md:` is the first breakpoint for layout changes. Backend sidebar collapses at `lg:` (1024px) — mobile drawer is shown below that.
+`md:` is the first breakpoint for layout changes. The backend sidebar is a fixed 240px rail at `lg:` (1024px) and above; below that it is the mobile drawer. It never collapses to an icon rail.
 
 ## Borders (Widths & Styles)
 - NEVER use arbitrary border widths (`border-[3px]`, `border-[1.5px]`)

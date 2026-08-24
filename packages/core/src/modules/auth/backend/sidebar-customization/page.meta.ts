@@ -12,7 +12,7 @@ const sidebarCustomizeIcon = React.createElement(
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['auth.sidebar.manage'],
-  pageTitle: 'Customize sidebar',
+  pageTitle: 'Customize Sidebar',
   pageTitleKey: 'appShell.customizeSidebar',
   pageGroup: 'Customization',
   pageGroupKey: 'appShell.sidebarCustomizationGroup',
@@ -20,7 +20,7 @@ export const metadata = {
   icon: sidebarCustomizeIcon,
   pageContext: 'settings' as const,
   breadcrumb: [
-    { label: 'Customize sidebar', labelKey: 'appShell.customizeSidebar' },
+    { label: 'Customize Sidebar', labelKey: 'appShell.customizeSidebar' },
   ],
 }
 

@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['eudr.mappings.view'],
-  pageTitle: 'Product mappings',
+  pageTitle: 'Product Mappings',
   pageTitleKey: 'eudr.nav.mappings',
   pageGroup: 'Compliance',
   pageGroupKey: 'eudr.nav.group',
@@ -10,6 +10,6 @@ export const metadata = {
   icon: 'package',
   breadcrumb: [
     { label: 'EUDR', labelKey: 'eudr.nav.module', href: '/backend/eudr' },
-    { label: 'Product mappings', labelKey: 'eudr.nav.mappings' },
+    { label: 'Product Mappings', labelKey: 'eudr.nav.mappings' },
   ],
 }

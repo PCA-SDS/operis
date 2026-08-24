@@ -107,8 +107,8 @@ export function ResourceTypeCrudForm({
   return (
     <CrudForm<ResourceTypeFormValues>
       title={mode === 'create'
-        ? t('resources.resourceTypes.form.createTitle', 'Add resource type')
-        : t('resources.resourceTypes.form.editTitle', 'Edit resource type')}
+        ? t('resources.resourceTypes.form.createTitle', 'Add Resource Type')
+        : t('resources.resourceTypes.form.editTitle', 'Edit Resource Type')}
       backHref="/backend/resources/resource-types"
       versionHistory={mode === 'edit'
         ? { resourceKind: 'resources.resourceType', resourceId: initialValues.id ?? '' }

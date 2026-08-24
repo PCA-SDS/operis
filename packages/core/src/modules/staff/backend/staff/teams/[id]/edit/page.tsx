@@ -383,7 +383,7 @@ export default function StaffTeamEditPage({ params }: { params?: { id?: string }
 
           {activeTab === 'details' ? (
             <TeamForm
-              title={t('staff.teams.form.editTitle', 'Edit team')}
+              title={t('staff.teams.form.editTitle', 'Edit Team')}
               backHref="/backend/staff/teams"
               cancelHref="/backend/staff/teams"
               initialValues={initialValues ?? { name: '', description: '', isActive: true }}

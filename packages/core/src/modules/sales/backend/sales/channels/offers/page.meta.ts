@@ -15,7 +15,7 @@ export const metadata = {
   requireAuth: true,
   requireFeatures: ['sales.channels.manage'],
   visible: (ctx: RouteVisibilityContext) => isSalesChannelsEnabledForTenant(ctx.auth?.tenantId ?? null),
-  pageTitle: 'Sales channel offers',
+  pageTitle: 'Sales Channel Offers',
   pageTitleKey: 'sales.channels.offers.listTitle',
   pageGroup: 'Sales',
   pageGroupKey: 'customers~sales.nav.group',

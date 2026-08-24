@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['eudr.statements.manage'],
-  pageTitle: 'Edit statement',
+  pageTitle: 'Edit Statement',
   pageTitleKey: 'eudr.statements.edit.title',
   pageGroup: 'Compliance',
   pageGroupKey: 'eudr.nav.group',
@@ -9,6 +9,6 @@ export const metadata = {
   breadcrumb: [
     { label: 'EUDR', labelKey: 'eudr.nav.module', href: '/backend/eudr' },
     { label: 'Statements', labelKey: 'eudr.nav.statements', href: '/backend/eudr/statements' },
-    { label: 'Edit statement', labelKey: 'eudr.statements.edit.title' },
+    { label: 'Edit Statement', labelKey: 'eudr.statements.edit.title' },
   ],
 }

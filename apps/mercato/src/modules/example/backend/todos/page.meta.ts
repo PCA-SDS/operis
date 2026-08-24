@@ -1,13 +1,13 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['example.todos.view'],
-  pageTitle: 'General tasks',
+  pageTitle: 'General Tasks',
   pageTitleKey: 'example.todos.page.title',
-  pageGroup: 'Work plan',
+  pageGroup: 'Work Plan',
   pageGroupKey: 'example.workPlan.nav.group',
   pageOrder: 120,
   icon: 'check-square',
   breadcrumb: [
-    { label: 'General tasks', labelKey: 'example.todos.page.title' },
+    { label: 'General Tasks', labelKey: 'example.todos.page.title' },
   ],
 }

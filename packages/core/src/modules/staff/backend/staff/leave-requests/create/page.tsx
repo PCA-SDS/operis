@@ -34,7 +34,7 @@ export default function StaffLeaveRequestCreatePage() {
     <Page>
       <PageBody>
         <LeaveRequestForm
-          title={t('staff.leaveRequests.form.createTitle', 'Create leave request')}
+          title={t('staff.leaveRequests.form.createTitle', 'Create Leave Request')}
           submitLabel={t('staff.leaveRequests.form.actions.create', 'Create')}
           backHref="/backend/staff/leave-requests"
           cancelHref="/backend/staff/leave-requests"

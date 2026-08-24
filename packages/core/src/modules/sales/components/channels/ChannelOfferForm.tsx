@@ -698,8 +698,8 @@ export function ChannelOfferForm({ channelId: lockedChannelId, offerId, mode }: 
       {error ? <ErrorMessage label={error} className="mb-4" /> : null}
       <CrudForm<OfferFormValues>
         title={mode === 'create'
-          ? t('sales.channels.offers.form.createTitle', 'Create offer')
-          : t('sales.channels.offers.form.editTitle', 'Edit offer')}
+          ? t('sales.channels.offers.form.createTitle', 'Create Offer')
+          : t('sales.channels.offers.form.editTitle', 'Edit Offer')}
         entityId={E.catalog.catalog_offer}
         fields={fields}
         groups={groups}

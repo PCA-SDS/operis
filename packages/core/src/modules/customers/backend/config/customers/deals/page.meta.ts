@@ -21,7 +21,7 @@ const settingsIcon = React.createElement(
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['customers.deals.manage'],
-  pageTitle: 'Deal settings',
+  pageTitle: 'Deal Settings',
   pageTitleKey: 'customers.deals.settings.pageTitle',
   pageGroup: 'Customers',
   pageGroupKey: 'customers.nav.group',
@@ -31,6 +31,6 @@ export const metadata = {
   breadcrumb: [
     { label: 'Settings', labelKey: 'config.nav.group' },
     { label: 'Customers', labelKey: 'customers.nav.group' },
-    { label: 'Deal settings', labelKey: 'customers.deals.settings.pageTitle' },
+    { label: 'Deal Settings', labelKey: 'customers.deals.settings.pageTitle' },
   ],
 }

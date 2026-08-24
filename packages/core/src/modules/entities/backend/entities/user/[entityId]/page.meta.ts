@@ -3,6 +3,6 @@ export const metadata = {
   requireFeatures: ['entities.definitions.manage'],
   pageTitle: 'Edit Definitions',
   pageTitleKey: 'entities.userEntities.edit.pageTitle',
-  pageGroup: 'Data designer',
+  pageGroup: 'Data Designer',
   navHidden: true,
 }

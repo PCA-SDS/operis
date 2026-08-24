@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['eudr.submissions.view'],
-  pageTitle: 'Evidence submissions',
+  pageTitle: 'Evidence Submissions',
   pageTitleKey: 'eudr.nav.submissions',
   pageGroup: 'Compliance',
   pageGroupKey: 'eudr.nav.group',
@@ -10,6 +10,6 @@ export const metadata = {
   icon: 'files',
   breadcrumb: [
     { label: 'EUDR', labelKey: 'eudr.nav.module', href: '/backend/eudr' },
-    { label: 'Evidence submissions', labelKey: 'eudr.nav.submissions' },
+    { label: 'Evidence Submissions', labelKey: 'eudr.nav.submissions' },
   ],
 }

@@ -108,7 +108,7 @@ export default function EditWarrantyTroubleshootingGuidePage({ params }: { param
     <Page>
       <PageBody>
         <CrudForm<TroubleshootingGuideFormValues>
-          title={t('warranty_claims.troubleshootingGuides.edit.title', 'Edit troubleshooting guide')}
+          title={t('warranty_claims.troubleshootingGuides.edit.title', 'Edit Troubleshooting Guide')}
           backHref="/backend/warranty_claims/troubleshooting-guides"
           fields={fields}
           groups={groups}

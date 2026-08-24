@@ -11,9 +11,9 @@ const createPageIcon = React.createElement(
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['resources.manage_resources'],
-  pageTitle: 'Create resource',
+  pageTitle: 'Create Resource',
   pageTitleKey: 'resources.resources.form.createTitle',
-  pageGroup: 'Resource planning',
+  pageGroup: 'Resource Planning',
   pageGroupKey: 'resources.nav.group',
   pageOrder: 31.1,
   icon: createPageIcon,

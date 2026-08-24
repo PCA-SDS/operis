@@ -19,7 +19,7 @@ const heartbeatIcon = React.createElement(
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['configs.system_status.view'],
-  pageTitle: 'System status',
+  pageTitle: 'System Status',
   pageTitleKey: 'configs.config.nav.systemStatus',
   pageGroup: 'System',
   pageGroupKey: 'settings.sections.system',
@@ -27,6 +27,6 @@ export const metadata = {
   icon: heartbeatIcon,
   pageContext: 'settings' as const,
   breadcrumb: [
-    { label: 'System status', labelKey: 'configs.config.nav.systemStatus' },
+    { label: 'System Status', labelKey: 'configs.config.nav.systemStatus' },
   ],
 } as const

@@ -89,9 +89,6 @@ jest.mock('../devtools', () => ({
 const dict = {
   'appShell.productName': 'Mercato',
   'appShell.menu': 'Menu',
-  'appShell.toggleSidebar': 'Toggle sidebar',
-  'appShell.collapseSidebar': 'Collapse',
-  'appShell.expandSidebar': 'Expand',
   'appShell.userFallback': 'User',
   'appShell.goToDashboard': 'Go to dashboard',
   'appShell.closeMenu': 'Close',
@@ -401,6 +398,212 @@ describe('AppShell', () => {
     })
   })
 
+  describe('sidebar layout contract', () => {
+    function renderRail() {
+      mockPathname = '/backend/users'
+      return renderWithProviders(
+        <AppShell email="demo@example.com" groups={groups} productName="Operis">
+          <div>Content</div>
+        </AppShell>,
+        { dict },
+      )
+    }
+
+    it('gives the brand row the same height as the topbar so the two share a centre line', () => {
+      renderRail()
+      const brand = screen.getByLabelText('Go to dashboard')
+      expect(brand.className).toContain('h-16')
+      expect(document.querySelector('header')?.className).toContain('h-16')
+    })
+
+    it('lets the nav scroll area span the same width as the search field above it', () => {
+      const { container } = renderRail()
+      const scrollArea = container.querySelector('[data-sidebar-scroll="true"]') as HTMLElement
+      // A negative margin or an extra right pad here is what made the rows 4px
+      // narrower than the search input.
+      expect(scrollArea.className).not.toMatch(/-ml-|-mr-|\bpr-\d/)
+      expect(scrollArea.className).toContain('min-h-0')
+    })
+
+    it('lets every row label shrink so long titles truncate instead of overflowing', () => {
+      renderRail()
+      const label = screen.getByText('Users List')
+      expect(label.className).toContain('min-w-0')
+      expect(label.className).toContain('truncate')
+    })
+
+    it('hides the sidebar footer entirely when no module fills its spots', () => {
+      const { container } = renderRail()
+      const footer = container.querySelector('.sticky.bottom-0') as HTMLElement
+      expect(footer.className).toContain('empty:hidden')
+    })
+
+    it('wires each group heading to the region it expands', () => {
+      renderRail()
+      const heading = screen.getByRole('button', { name: /Core/ })
+      expect(heading).toHaveAttribute('type', 'button')
+      const regionId = heading.getAttribute('aria-controls')
+      expect(regionId).toBeTruthy()
+      expect(document.getElementById(regionId as string)).not.toBeNull()
+    })
+
+    it('names the nav landmark', () => {
+      renderRail()
+      expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
+    })
+
+    it('publishes a --topbar-height that clears the topbar and its rule', () => {
+      const { container } = renderRail()
+      const shell = container.querySelector('[style*="--topbar-height"]') as HTMLElement
+      expect(shell.style.getPropertyValue('--topbar-height')).toBe('65px')
+    })
+  })
+
+  describe('sidebar scroll affordance', () => {
+    function renderScrollableRail() {
+      mockPathname = '/backend/users'
+      const many = {
+        id: 'core',
+        name: 'Core',
+        items: Array.from({ length: 40 }, (unused, index) => ({
+          href: `/backend/item-${index}`,
+          title: `Item ${index}`,
+        })),
+      }
+      const view = renderWithProviders(
+        <AppShell email="demo@example.com" groups={[many]}>
+          <div>Content</div>
+        </AppShell>,
+        { dict },
+      )
+      const scrollArea = view.container.querySelector('[data-sidebar-scroll="true"]') as HTMLElement
+      // jsdom has no layout, so the scroll geometry the affordance reads is staged here.
+      Object.defineProperty(scrollArea, 'clientHeight', { configurable: true, value: 400 })
+      Object.defineProperty(scrollArea, 'scrollHeight', { configurable: true, value: 1600 })
+      return { ...view, scrollArea }
+    }
+
+    it('fades the list only while there is more of it below', async () => {
+      const { container, scrollArea } = renderScrollableRail()
+
+      scrollArea.scrollTop = 0
+      scrollArea.dispatchEvent(new Event('scroll'))
+      await waitFor(() => {
+        expect(container.querySelector('[data-sidebar-scroll-chevron="down"]')).not.toBeNull()
+      })
+      expect(container.querySelector('.bg-gradient-to-t')).not.toBeNull()
+
+      // At the bottom there is nothing left to hint at, and a fade held on here
+      // is what washed out the last row.
+      scrollArea.scrollTop = 1200
+      scrollArea.dispatchEvent(new Event('scroll'))
+      await waitFor(() => {
+        expect(container.querySelector('[data-sidebar-scroll-chevron="up"]')).not.toBeNull()
+      })
+      expect(container.querySelector('.bg-gradient-to-t')).toBeNull()
+    })
+
+    it('reserves the affordance band so the last row can scroll clear of the chevron', async () => {
+      const { scrollArea } = renderScrollableRail()
+
+      scrollArea.scrollTop = 0
+      scrollArea.dispatchEvent(new Event('scroll'))
+      await waitFor(() => {
+        expect(scrollArea.className).toContain('pb-10')
+      })
+    })
+
+    it('reserves nothing when the nav fits without scrolling', () => {
+      mockPathname = '/backend/users'
+      const { container } = renderWithProviders(
+        <AppShell email="demo@example.com" groups={groups}>
+          <div>Content</div>
+        </AppShell>,
+        { dict },
+      )
+      const scrollArea = container.querySelector('[data-sidebar-scroll="true"]') as HTMLElement
+      expect(scrollArea.className).not.toContain('pb-10')
+      expect(container.querySelector('[data-testid="sidebar-scroll-chevron"]')).toBeNull()
+    })
+  })
+
+  describe('main-nav subpages', () => {
+    const dealsGroups = [
+      {
+        id: 'customers',
+        name: 'Customers',
+        items: [
+          {
+            href: '/backend/customers/deals',
+            title: 'Deals',
+            children: [
+              { href: '/backend/customers/deals/pipeline', title: 'Sales Pipeline' },
+              { href: '/backend/customers/deals/map', title: 'Deals Map' },
+            ],
+          },
+        ],
+      },
+    ]
+
+    it('lists subpages even when the route is nowhere near their parent', async () => {
+      mockPathname = '/backend/users'
+
+      renderWithProviders(
+        <AppShell email="demo@example.com" groups={dealsGroups}>
+          <div>Content</div>
+        </AppShell>,
+        { dict },
+      )
+
+      expect(screen.getByRole('link', { name: 'Sales Pipeline' })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'Deals Map' })).toBeInTheDocument()
+    })
+
+    it('indents subpages without drawing a guide line beside them', async () => {
+      mockPathname = '/backend/users'
+
+      const { container } = renderWithProviders(
+        <AppShell email="demo@example.com" groups={dealsGroups}>
+          <div>Content</div>
+        </AppShell>,
+        { dict },
+      )
+
+      const child = screen.getByRole('link', { name: 'Sales Pipeline' })
+      // One 12px step in from the parent's `px-3`, so a child icon lands where
+      // a parent label starts.
+      expect(child.className).toContain('pl-6')
+      expect(container.querySelector('.bg-sidebar-border.w-px')).toBeNull()
+    })
+
+    it('keeps the parent row inactive while the route sits outside its branch', async () => {
+      mockPathname = '/backend/users'
+
+      renderWithProviders(
+        <AppShell email="demo@example.com" groups={dealsGroups}>
+          <div>Content</div>
+        </AppShell>,
+        { dict },
+      )
+
+      expect(screen.getByRole('link', { name: 'Deals' }).className).not.toContain('bg-sidebar-primary')
+    })
+
+    it('marks the subpage active, not its parent, when the route is on the subpage', async () => {
+      mockPathname = '/backend/customers/deals/pipeline'
+
+      renderWithProviders(
+        <AppShell email="demo@example.com" groups={dealsGroups}>
+          <div>Content</div>
+        </AppShell>,
+        { dict },
+      )
+
+      expect(screen.getByRole('link', { name: 'Sales Pipeline' }).className).toContain('bg-sidebar-primary')
+      expect(screen.getByRole('link', { name: 'Deals' }).className).not.toContain('bg-sidebar-primary')
+    })
+  })
+
   it('renders the upgrade action banner only for users who can manage upgrade actions', () => {
     const { rerender } = renderWithProviders(
       <AppShell
@@ -506,7 +709,7 @@ describe('AppShell', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: 'User Entities' })).toHaveClass('bg-primary-soft')
+      expect(screen.getByRole('link', { name: 'User Entities' })).toHaveClass('bg-sidebar-primary')
       expect(screen.getByRole('link', { name: 'Calendar Entity' })).toBeInTheDocument()
     })
   })
@@ -577,8 +780,8 @@ describe('AppShell', () => {
     }
   })
 
-  describe('two-level sidebar (settings/profile mode)', () => {
-    it('renders main + section sidebars side-by-side when on a settings path', async () => {
+  describe('section sidebar (settings/profile mode)', () => {
+    it('swaps the section nav into the single rail, replacing the main nav', async () => {
       mockPathname = '/backend/entities/user'
 
       const { container } = renderWithProviders(
@@ -606,12 +809,45 @@ describe('AppShell', () => {
       })
 
       const sectionAside = screen.getByTestId('appshell-section-sidebar')
-      expect(sectionAside).toBeInTheDocument()
       expect(within(sectionAside).getByText('User Entities')).toBeInTheDocument()
-      // Main aside is auto-collapsed (icons only) when on a section path; the
-      // labels live in the `title` tooltip attribute, not as visible text.
-      expect(container.querySelector('a[href="/backend/users"]')).not.toBeNull()
-      expect(container.querySelector('a[href="/backend/roles"]')).not.toBeNull()
+      // One rail: the main nav is not rendered alongside the section nav on
+      // desktop. The mobile drawer still mounts it, so scope to the aside.
+      const desktopAside = container.querySelector('aside') as HTMLElement
+      expect(desktopAside.contains(sectionAside)).toBe(true)
+      expect(desktopAside.querySelector('a[href="/backend/users"]')).toBeNull()
+      expect(desktopAside.querySelector('a[href="/backend/roles"]')).toBeNull()
+    })
+
+    it('renders exactly one desktop sidebar column', async () => {
+      mockPathname = '/backend/entities/user'
+
+      const { container } = renderWithProviders(
+        <AppShell
+          email="demo@example.com"
+          groups={groups}
+          settingsPathPrefixes={['/backend/entities/user']}
+          settingsSections={[
+            {
+              id: 'data-designer',
+              label: 'Data Designer',
+              items: [
+                { id: 'user-entities', label: 'User Entities', href: '/backend/entities/user' },
+              ],
+            },
+          ]}
+        >
+          <div>Settings content</div>
+        </AppShell>,
+        { dict },
+      )
+
+      await waitFor(() => {
+        expect(screen.getByText('User Entities')).toBeInTheDocument()
+      })
+
+      const asides = container.querySelectorAll('aside')
+      expect(asides.length).toBe(1)
+      expect((asides[0] as HTMLElement).style.width).toBe('240px')
     })
 
     it('section header renders chevron + title as a single Back-to-Main link', async () => {
@@ -679,7 +915,7 @@ describe('AppShell', () => {
       expect(header.querySelector('svg')).not.toBeNull()
     })
 
-    it('renders the settings section nav as a panel, and profile as the chrome column', async () => {
+    it('renders settings and profile section navs with identical chrome-row treatment', async () => {
       const settingsSections = [
         {
           id: 'data-designer',
@@ -717,12 +953,9 @@ describe('AppShell', () => {
       )
 
       const settingsAside = await screen.findByTestId('appshell-section-sidebar')
-      expect(settingsAside.querySelector('.bg-surface-muted.rounded-xl')).not.toBeNull()
-      // Idle rows hover to `surface-strong`; `surface-muted` would be invisible
-      // against the panel they sit on.
       const settingsIdle = within(settingsAside).getByText('User Records').closest('a')
-      expect(settingsIdle?.className).toContain('hover:bg-surface-strong')
-      expect(settingsIdle?.className).toContain('rounded-md')
+      expect(settingsIdle?.className).toContain('hover:bg-sidebar-accent')
+      expect(settingsIdle?.className).toContain('rounded-lg')
 
       settingsRender.unmount()
 
@@ -742,13 +975,12 @@ describe('AppShell', () => {
       )
 
       const profileAside = await screen.findByTestId('appshell-section-sidebar')
-      expect(profileAside.querySelector('.bg-surface-muted.rounded-xl')).toBeNull()
       const profileIdle = within(profileAside).getByText('Sessions').closest('a')
-      expect(profileIdle?.className).toContain('hover:bg-surface-muted')
+      expect(profileIdle?.className).toContain('hover:bg-sidebar-accent')
       expect(profileIdle?.className).toContain('rounded-lg')
     })
 
-    it('does not render a duplicate search input inside the section sidebar', async () => {
+    it('gives the section sidebar its own nav search now that it is the only column', async () => {
       mockPathname = '/backend/entities/user'
 
       renderWithProviders(
@@ -772,37 +1004,7 @@ describe('AppShell', () => {
       )
 
       const sectionAside = await screen.findByTestId('appshell-section-sidebar')
-      expect(within(sectionAside).queryByLabelText('Search navigation')).toBeNull()
-    })
-
-    it('auto-collapses the main sidebar to 80px when mounting directly on a settings path', async () => {
-      mockPathname = '/backend/entities/user'
-
-      const { container } = renderWithProviders(
-        <AppShell
-          email="demo@example.com"
-          groups={groups}
-          settingsPathPrefixes={['/backend/entities/user']}
-          settingsSections={[
-            {
-              id: 'data-designer',
-              label: 'Data Designer',
-              items: [
-                { id: 'user-entities', label: 'User Entities', href: '/backend/entities/user' },
-              ],
-            },
-          ]}
-        >
-          <div>Settings content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      await waitFor(() => {
-        const mainAside = container.querySelector('aside') as HTMLElement | null
-        expect(mainAside).not.toBeNull()
-        expect(mainAside!.style.width).toBe('80px')
-      })
+      expect(within(sectionAside).getAllByLabelText('Search navigation').length).toBeGreaterThan(0)
     })
 
     it('does not render the section sidebar when on a main route', async () => {

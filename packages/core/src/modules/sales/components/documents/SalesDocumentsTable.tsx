@@ -686,7 +686,7 @@ export function SalesDocumentsTable({ kind }: { kind: SalesDocumentKind }) {
           actions={(
             <Button asChild>
               <Link href={`/backend/sales/documents/create?kind=${kind}`}>
-                {t('sales.documents.create.title', 'Create sales document')}
+                {t('sales.documents.create.title', 'Create Sales Document')}
               </Link>
             </Button>
           )}

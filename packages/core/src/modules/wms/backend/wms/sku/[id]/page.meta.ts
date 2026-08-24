@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['wms.view'],
-  pageTitle: 'SKU detail',
+  pageTitle: 'SKU Detail',
   pageTitleKey: 'wms.backend.sku.detail.pageTitle',
   pageGroup: 'WMS',
   pageGroupKey: 'wms.nav.group',

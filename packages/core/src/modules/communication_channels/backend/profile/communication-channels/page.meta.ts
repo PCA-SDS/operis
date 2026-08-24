@@ -19,7 +19,7 @@ const channelsIcon = React.createElement(
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['communication_channels.connect_user_channel'],
-  pageTitle: 'My communication channels',
+  pageTitle: 'My Communication Channels',
   pageTitleKey: 'communication_channels.profile.title',
   pageGroup: 'Profile',
   pageGroupKey: 'communication_channels.profile.group',
@@ -29,7 +29,7 @@ export const metadata = {
   breadcrumb: [
     { label: 'Profile', labelKey: 'communication_channels.profile.group' },
     {
-      label: 'My communication channels',
+      label: 'My Communication Channels',
       labelKey: 'communication_channels.profile.title',
     },
   ],

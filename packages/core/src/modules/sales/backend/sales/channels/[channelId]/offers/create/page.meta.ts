@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['sales.channels.manage'],
-  pageTitle: 'Create channel offer',
+  pageTitle: 'Create Channel Offer',
   pageTitleKey: 'sales.channels.offers.form.createTitle',
   pageGroup: 'Sales',
   pageGroupKey: 'customers~sales.nav.group',

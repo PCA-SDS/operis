@@ -63,7 +63,7 @@ export default function StaffTeamRolesPage() {
   const [teamFilterOptions, setTeamFilterOptions] = React.useState<Array<{ value: string; label: string }>>([])
 
   const labels = React.useMemo(() => ({
-    title: t('staff.teamRoles.page.title', 'Team roles'),
+    title: t('staff.teamRoles.page.title', 'Team Roles'),
     description: t('staff.teamRoles.page.description', 'Define roles that can be assigned to team members.'),
     table: {
       name: t('staff.teamRoles.table.name', 'Name'),

@@ -12,7 +12,7 @@ const createPageIcon = React.createElement(
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['staff.manage_team'],
-  pageTitle: 'Create team',
+  pageTitle: 'Create Team',
   pageTitleKey: 'staff.teams.form.createTitle',
   pageGroup: 'Employees',
   pageGroupKey: 'staff.nav.group',

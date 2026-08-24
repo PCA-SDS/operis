@@ -11,7 +11,7 @@ export const metadata = {
   requireFeatures: ['webhooks.view'],
   pageTitle: 'Webhooks',
   pageTitleKey: 'webhooks.nav.title',
-  pageGroup: 'External systems',
+  pageGroup: 'External Systems',
   pageGroupKey: 'backend.nav.externalSystems',
   pageOrder: 1,
   icon: webhookIcon,

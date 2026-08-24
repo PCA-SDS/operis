@@ -29,6 +29,6 @@ export const metadata = {
   navHidden: true,
   breadcrumb: [
     { label: 'Communication Channels', labelKey: 'communication_channels.nav.title', href: '/backend/communication_channels/channels' },
-    { label: 'Channel detail', labelKey: 'communication_channels.detail.title' },
+    { label: 'Channel Detail', labelKey: 'communication_channels.detail.title' },
   ],
 } as const
