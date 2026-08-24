@@ -119,6 +119,10 @@ export const enabledModules: ModuleEntry[] = [
   // Fans out to `devices` tokens and sends through the `communication_channels` hub.
   { id: 'push_notifications', from: '@open-mercato/core' },
   { id: 'ai_assistant', from: '@open-mercato/ai-assistant' },
+  // OAuth 2.1 protected MCP endpoint. Exposes only what a module publishes as an
+  // MCP scope (today: the tasks module's tasks:read / tasks:write). Removing this
+  // line removes the endpoint and its OAuth discovery documents.
+  { id: 'mcp', from: '@open-mercato/core' },
   { id: 'translations', from: '@open-mercato/core' },
   { id: 'scheduler', from: '@open-mercato/scheduler' },
   { id: 'inbox_ops', from: '@open-mercato/core' },

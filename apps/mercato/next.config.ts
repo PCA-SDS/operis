@@ -67,6 +67,36 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
   env: {
     OM_SEARCH_MIN_LEN: process.env.OM_SEARCH_MIN_LEN,
   },
+  /**
+   * RFC 8414 / RFC 9728 require these documents at the ORIGIN root, but the
+   * handlers live in the `mcp` module and are therefore served under
+   * `/api/mcp/...`. Rewriting keeps the spec-mandated URLs without adding route
+   * files outside the module.
+   *
+   * The `:path*` variants cover RFC 9728 §3.1 path-insertion — a client
+   * discovering the resource `https://host/api/mcp/tasks` fetches
+   * `https://host/.well-known/oauth-protected-resource/api/mcp/tasks`.
+   */
+  async rewrites() {
+    return [
+      {
+        source: '/.well-known/oauth-protected-resource',
+        destination: '/api/mcp/oauth/protected-resource-metadata',
+      },
+      {
+        source: '/.well-known/oauth-protected-resource/:path*',
+        destination: '/api/mcp/oauth/protected-resource-metadata',
+      },
+      {
+        source: '/.well-known/oauth-authorization-server',
+        destination: '/api/mcp/oauth/authorization-server-metadata',
+      },
+      {
+        source: '/.well-known/oauth-authorization-server/:path*',
+        destination: '/api/mcp/oauth/authorization-server-metadata',
+      },
+    ]
+  },
   async headers() {
     const originHeaderName = (process.env.CUSTOMER_DOMAIN_ORIGIN_HEADER ?? 'X-Open-Mercato-Origin').trim()
     return [
