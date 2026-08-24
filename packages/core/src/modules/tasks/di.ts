@@ -10,6 +10,7 @@ import { DefaultQuickAddService } from './services/quickAddService'
 import { DefaultTaskService } from './services/taskService'
 import { DefaultTeamService } from './services/teamService'
 import './commands'
+import './mcp-scopes'
 
 export function register(container: AppContainer) {
   container.register({
