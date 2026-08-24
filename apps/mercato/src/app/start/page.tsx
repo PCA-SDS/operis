@@ -6,7 +6,6 @@ import { StartPageContent } from '@/components/StartPageContent'
 import { resolveApiDocsBaseUrl } from '@open-mercato/core/modules/api_docs/lib/resources'
 import type { Metadata } from 'next'
 import { resolveLocalizedAppMetadata } from '@/lib/metadata'
-import { cookies } from 'next/headers'
 import Image from 'next/image'
 import Link from 'next/link'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
@@ -53,11 +52,6 @@ export default async function StartPage() {
   const { t } = await resolveTranslations()
   const quickLinks = buildHomeQuickLinks(modules)
 
-  // The checkbox reflects whether this start page is the default landing (the
-  // `/` router honors the dismissal cookie); visiting /start always renders it.
-  const cookieStore = await cookies()
-  const showStartPage = cookieStore.get('start_page_dismissed')?.value !== '1'
-
   // Database status and counts
   let dbStatus = t('app.page.dbStatus.unknown', 'Unknown')
   let usersCount = 0
@@ -96,7 +90,7 @@ export default async function StartPage() {
         </div>
       </header>
 
-      <StartPageContent showStartPage={showStartPage} showOnboardingCta={onboardingAvailable} apiBaseUrl={resolveApiDocsBaseUrl()} />
+      <StartPageContent showOnboardingCta={onboardingAvailable} apiBaseUrl={resolveApiDocsBaseUrl()} />
 
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="rounded-xl border border-border bg-surface shadow-sm p-4">

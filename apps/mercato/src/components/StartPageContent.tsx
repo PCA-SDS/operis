@@ -1,8 +1,7 @@
 'use client'
 
-import React, { useState, type ReactNode } from 'react'
+import React, { type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Shield, Users, Briefcase, Info, Rocket, ArrowRight, BookOpen } from 'lucide-react'
 import { getApiDocsResources } from '@open-mercato/core/modules/api_docs/lib/resources'
 import Link from 'next/link'
@@ -78,32 +77,17 @@ function RoleTile({
 }
 
 interface StartPageContentProps {
-  showStartPage: boolean
   showOnboardingCta?: boolean
   // Resolved server-side: the fallback env vars (APP_URL) are unavailable in the
   // client bundle, so resolving here would hydrate a different URL than SSR.
   apiBaseUrl: string
 }
 
-export function StartPageContent({ showStartPage: initialShowStartPage, showOnboardingCta = false, apiBaseUrl }: StartPageContentProps) {
+export function StartPageContent({ showOnboardingCta = false, apiBaseUrl }: StartPageContentProps) {
   const t = useT()
-  const [showStartPage, setShowStartPage] = useState(initialShowStartPage)
 
   const superAdminDisabled = showOnboardingCta
   const apiDocs = getApiDocsResources()
-
-  const handleCheckboxChange = (checked: boolean) => {
-    setShowStartPage(checked)
-    if (checked) {
-      // Re-enable: clear the dismissal so `/` routes back here.
-      document.cookie = 'start_page_dismissed=; path=/; max-age=0; SameSite=Lax'
-    } else {
-      // Dismiss and leave now — `/` routes to the backend (authenticated) or
-      // login from here on. The `/` router reads this cookie server-side.
-      document.cookie = `start_page_dismissed=1; path=/; max-age=${365 * 24 * 60 * 60}; SameSite=Lax`
-      window.location.assign('/')
-    }
-  }
 
   return (
     <>
@@ -261,19 +245,6 @@ export function StartPageContent({ showStartPage: initialShowStartPage, showOnbo
         </p>
       </section>
 
-      <section className="rounded-lg border p-4 flex items-center justify-center gap-3">
-        <Checkbox
-          id="show-start-page"
-          checked={showStartPage}
-          onCheckedChange={handleCheckboxChange}
-        />
-        <label
-          htmlFor="show-start-page"
-          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-50 cursor-pointer"
-        >
-          {t('startPage.showNextTime', 'Display this start page next time')}
-        </label>
-      </section>
     </>
   )
 }
