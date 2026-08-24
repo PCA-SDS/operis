@@ -10,6 +10,10 @@
 #   ./deploy.sh --rollback           return to the previously deployed tag
 #   ./deploy.sh --status             what is running right now
 #
+# CI additionally passes:
+#   --image  ghcr.io/owner/repo      which image to pull (authoritative)
+#   --digest sha256:…                the artifact it built, verified after pull
+#
 # Safe to re-run: deploying a tag that is already live just restarts cleanly.
 # ==============================================================================
 
@@ -108,20 +112,50 @@ backup_database() {
 # ------------------------------------------------------------------------------
 # Argument handling
 # ------------------------------------------------------------------------------
-case "${1:-}" in
-  # Read-only, so it deliberately runs without taking the deploy lock — you
-  # want `--status` to answer while a deploy is in flight, not block on it.
-  --status)   status; exit 0 ;;
-  --rollback)
-    PREVIOUS="$(read_state PREVIOUS_TAG)"
-    [ -n "$PREVIOUS" ] || fail "no previous tag recorded in $STATE_FILE"
-    TAG="$PREVIOUS"
-    log "MANUAL ROLLBACK to $TAG"
-    ;;
-  "")         fail "usage: $0 <image-tag> | --rollback | --status" ;;
-  -*)         fail "unknown option: $1" ;;
-  *)          TAG="$1" ;;
-esac
+MODE=deploy
+TAG=""
+CLI_IMAGE=""
+CLI_DIGEST=""
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --status)   MODE=status;   shift ;;
+    --rollback) MODE=rollback; shift ;;
+    --image)    CLI_IMAGE="${2:-}";  [ -n "$CLI_IMAGE" ]  || fail "--image needs a value";  shift 2 ;;
+    --digest)   CLI_DIGEST="${2:-}"; [ -n "$CLI_DIGEST" ] || fail "--digest needs a value"; shift 2 ;;
+    -*)         fail "unknown option: $1" ;;
+    *)          [ -z "$TAG" ] || fail "unexpected argument: $1"; TAG="$1"; shift ;;
+  esac
+done
+
+# Read-only, so it deliberately runs without taking the deploy lock — you want
+# `--status` to answer while a deploy is in flight, not block on it.
+if [ "$MODE" = status ]; then status; exit 0; fi
+
+# Both values arrive over SSH from CI. Validate rather than trust: whatever
+# lands here is interpolated into a docker command running as the deploy user.
+if [ -n "$CLI_IMAGE" ]; then
+  printf '%s' "$CLI_IMAGE" | grep -Eq '^[a-z0-9][a-z0-9._/-]*$' \
+    || fail "--image is not a bare registry reference: $CLI_IMAGE
+       Expected the form ghcr.io/owner/repo. The tag is passed separately, so
+       a ':' here is a mistake rather than a tag."
+fi
+if [ -n "$CLI_DIGEST" ]; then
+  printf '%s' "$CLI_DIGEST" | grep -Eq '^sha256:[0-9a-f]{64}$' \
+    || fail "--digest is not a sha256 digest: $CLI_DIGEST"
+fi
+
+if [ "$MODE" = rollback ]; then
+  PREVIOUS="$(read_state PREVIOUS_TAG)"
+  [ -n "$PREVIOUS" ] || fail "no previous tag recorded in $STATE_FILE"
+  TAG="$PREVIOUS"
+  log "MANUAL ROLLBACK to $TAG"
+  # The recorded tag was verified when it first shipped; the digest CI passed
+  # belongs to the release we are backing out of, so it must not be reused.
+  CLI_DIGEST=""
+fi
+
+[ -n "$TAG" ] || fail "usage: $0 <image-tag> [--image REF] [--digest sha256:…] | --rollback | --status"
 
 # ------------------------------------------------------------------------------
 # One deploy at a time. The workflow's concurrency group covers CI-driven runs;
@@ -149,18 +183,77 @@ read_env() {
   sed -n "s/^$1=//p" "$ENV_FILE" | tail -1
 }
 
-APP_IMAGE="$(read_env APP_IMAGE)"
+ENV_IMAGE="$(read_env APP_IMAGE)"
 APP_DOMAIN="$(read_env APP_DOMAIN)"
 POSTGRES_USER="$(read_env POSTGRES_USER)"; POSTGRES_USER="${POSTGRES_USER:-operis}"
 POSTGRES_DB="$(read_env POSTGRES_DB)";     POSTGRES_DB="${POSTGRES_DB:-operis}"
-POSTGRES_PASSWORD="$(read_env POSTGRES_PASSWORD)"
-JWT_SECRET="$(read_env JWT_SECRET)"
 
-[ -n "$APP_IMAGE" ]         || fail "APP_IMAGE is not set in $ENV_FILE"
-[ -n "$APP_DOMAIN" ]        || fail "APP_DOMAIN is not set in $ENV_FILE"
-[ -n "$POSTGRES_PASSWORD" ] || fail "POSTGRES_PASSWORD is not set in $ENV_FILE"
-[ -n "$JWT_SECRET" ]        || fail "JWT_SECRET is not set in $ENV_FILE"
-[ "${#JWT_SECRET}" -ge 32 ] || fail "JWT_SECRET must be at least 32 characters (the app refuses to boot otherwise)"
+# ------------------------------------------------------------------------------
+# The env contract, checked before anything is pulled, backed up or restarted.
+#
+# The alternative is discovering a missing variable from a container that boots,
+# crashes and triggers an automatic rollback — which reads like a bad release
+# rather than an unset key. The manifest ships with the release (rsynced next to
+# this script), so adding a required variable is a reviewed change rather than
+# something to remember to do on the box afterwards.
+# ------------------------------------------------------------------------------
+REQUIRED_ENV_FILE="$APP_DIR/required-env"
+
+check_required_env() {
+  local key minlen value bad=0 line
+  if [ ! -f "$REQUIRED_ENV_FILE" ]; then
+    log "no $REQUIRED_ENV_FILE on this server — skipping env contract check"
+    return 0
+  fi
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%%#*}"
+    line="$(printf '%s' "$line" | tr -d '[:space:]')"
+    [ -n "$line" ] || continue
+    key="${line%%:*}"
+    minlen=""
+    if [ "$line" != "$key" ]; then minlen="${line##*:}"; fi
+    value="$(read_env "$key")"
+    if [ -z "$value" ]; then
+      printf '       missing:   %s\n' "$key" >&2
+      bad=$((bad + 1))
+    elif [ -n "$minlen" ] && [ "${#value}" -lt "$minlen" ]; then
+      printf '       too short: %s (%s chars, needs %s)\n' "$key" "${#value}" "$minlen" >&2
+      bad=$((bad + 1))
+    fi
+  done < "$REQUIRED_ENV_FILE"
+  [ "$bad" -eq 0 ] || fail "$bad required variable(s) missing or too short in $ENV_FILE.
+       The contract is $REQUIRED_ENV_FILE and ships with the release. Generate
+       secrets with the snippet at the top of deploy/env.production.example."
+}
+check_required_env
+
+# Conditional, so it cannot live in the manifest: the fallback key only matters
+# when encryption is on — but with encryption on and the key absent, already
+# encrypted tenant data is unreadable.
+if [ "$(read_env TENANT_DATA_ENCRYPTION)" = "true" ]; then
+  [ -n "$(read_env TENANT_DATA_ENCRYPTION_FALLBACK_KEY)" ] \
+    || fail "TENANT_DATA_ENCRYPTION=true but TENANT_DATA_ENCRYPTION_FALLBACK_KEY is empty.
+       Encrypted tenant data would be unreadable. Set the key, or set
+       TENANT_DATA_ENCRYPTION=false if this deployment stores no PII."
+fi
+
+# ------------------------------------------------------------------------------
+# Which image to pull. CI is authoritative.
+#
+# CI derives the image from the GitHub repository at build time and hands it over
+# with --image; the copy in .env is only a fallback for manual runs on the box.
+# Stating this one fact in two places is what broke a deploy once already: the
+# repository moved organisations, CI followed it automatically, the hand-edited
+# copy on the server did not, and the mismatch surfaced as a pull failure that
+# reads exactly like a registry login problem.
+# ------------------------------------------------------------------------------
+APP_IMAGE="${CLI_IMAGE:-$ENV_IMAGE}"
+[ -n "$APP_IMAGE" ] || fail "no image to deploy — CI passed no --image and APP_IMAGE is unset in $ENV_FILE"
+
+if [ -n "$CLI_IMAGE" ] && [ -n "$ENV_IMAGE" ] && [ "$CLI_IMAGE" != "$ENV_IMAGE" ]; then
+  log "note: deploying $CLI_IMAGE (from CI); $ENV_FILE says APP_IMAGE=$ENV_IMAGE"
+  log "      the .env value is unused — correct or delete it at your convenience"
+fi
 
 # The gateway network belongs to the pca-erp stack, not to this compose file.
 # Without this check a missing/renamed network surfaces as an opaque compose
@@ -180,13 +273,46 @@ log "=============================================================="
 # ------------------------------------------------------------------------------
 # 1. Pull first. A registry/auth failure must not take the running app down.
 # ------------------------------------------------------------------------------
-printf 'APP_IMAGE_TAG=%s\n' "$TAG" > "$IMAGE_ENV_FILE"
+# Compose resolves ${APP_IMAGE} from the env files it is given, and the later
+# --env-file wins — so writing the image here is what makes the CI-supplied
+# value reach the container rather than the stale copy in .env.
+printf 'APP_IMAGE=%s\nAPP_IMAGE_TAG=%s\n' "$APP_IMAGE" "$TAG" > "$IMAGE_ENV_FILE"
 
 log "pulling image…"
 docker pull "$APP_IMAGE:$TAG" >>"$LOG_FILE" 2>&1 \
-  || fail "cannot pull $APP_IMAGE:$TAG — is the server logged in to the registry?
-       Run: docker login ghcr.io -u <github-user>"
-log "pulled $(docker image inspect -f '{{index .RepoDigests 0}}' "$APP_IMAGE:$TAG" 2>/dev/null || echo "$APP_IMAGE:$TAG")"
+  || fail "cannot pull $APP_IMAGE:$TAG
+       1. The server is not authenticated to the registry. CI logs it in for the
+          life of the run; a manual deploy needs:
+            docker login ghcr.io -u <github-user>
+       2. The tag does not exist in that repository. Compare it with the
+          'Building ghcr.io/…' line in the build job.
+       3. The package is not readable by this account — check that the GHCR
+          package is linked to the repository and its visibility matches."
+
+# ------------------------------------------------------------------------------
+# Verify we got the artifact CI built.
+#
+# A tag is a mutable pointer: it can be re-pushed, and an identically tagged
+# image already on this host would satisfy the pull without a download. The
+# digest is the only stable identity, so when CI tells us which one it built,
+# a mismatch stops the deploy here — before the backup and before anything
+# restarts.
+# ------------------------------------------------------------------------------
+PULLED_REF="$(docker image inspect -f '{{if .RepoDigests}}{{index .RepoDigests 0}}{{end}}' "$APP_IMAGE:$TAG" 2>/dev/null || true)"
+PULLED_DIGEST="${PULLED_REF##*@}"
+log "pulled ${PULLED_REF:-$APP_IMAGE:$TAG}"
+
+if [ -n "$CLI_DIGEST" ]; then
+  [ "$PULLED_DIGEST" = "$CLI_DIGEST" ] || fail "digest mismatch — refusing to deploy.
+       CI built:      $CLI_DIGEST
+       server pulled: ${PULLED_DIGEST:-<none>}
+       The tag $TAG no longer resolves to the image this run produced. Either it
+       was re-pushed, or the registry served a stale manifest. Nothing has been
+       changed on this server."
+  log "digest verified"
+else
+  log "no digest supplied (manual run or redeploy of an existing tag) — digest not verified"
+fi
 
 # Sidecars too, so a compose `up` never stalls on a slow registry mid-restart.
 dc pull --quiet postgres redis meilisearch >>"$LOG_FILE" 2>&1 || true
@@ -234,7 +360,7 @@ if [ -z "${PREVIOUS_TAG:-}" ]; then
 fi
 
 log "rolling back to $PREVIOUS_TAG …"
-printf 'APP_IMAGE_TAG=%s\n' "$PREVIOUS_TAG" > "$IMAGE_ENV_FILE"
+printf 'APP_IMAGE=%s\nAPP_IMAGE_TAG=%s\n' "$APP_IMAGE" "$PREVIOUS_TAG" > "$IMAGE_ENV_FILE"
 dc up -d --remove-orphans >>"$LOG_FILE" 2>&1 || true
 
 if wait_for_health; then

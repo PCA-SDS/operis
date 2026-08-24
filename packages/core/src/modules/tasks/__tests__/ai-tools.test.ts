@@ -128,6 +128,58 @@ describe('tool input schemas reject scope smuggling', () => {
     expect(schema.safeParse({ query: 'find me' }).success).toBe(true)
   })
 
+  it('accepts a weekly recurrence with a weekday', () => {
+    const schema = schemaOf(byName.get('tasks_create') as Tool)
+    const parsed = schema.safeParse({
+      projectId: '22222222-2222-4222-8222-222222222222',
+      title: 'Weekly report review',
+      recurrence: { freq: 'weekly', weekday: 1 },
+      dueTime: '09:00',
+      timeZone: 'Asia/Singapore',
+    })
+    expect(parsed.success).toBe(true)
+    expect((parsed.data as Record<string, unknown>).recurrence).toEqual({ freq: 'weekly', weekday: 1 })
+  })
+
+  it('accepts every frequency the Task domain defines, and nothing else', () => {
+    const schema = schemaOf(byName.get('tasks_create') as Tool)
+    const base = { projectId: '22222222-2222-4222-8222-222222222222', title: 'x' }
+    for (const freq of ['daily', 'weekdays', 'weekly', 'monthly']) {
+      expect(schema.safeParse({ ...base, recurrence: { freq } }).success).toBe(true)
+    }
+    // No second recurrence vocabulary: anything the domain cannot store is refused.
+    expect(schema.safeParse({ ...base, recurrence: { freq: 'yearly' } }).success).toBe(false)
+    expect(schema.safeParse({ ...base, recurrence: { freq: 'every-2-weeks' } }).success).toBe(false)
+  })
+
+  it('bounds weekday and dayOfMonth to the domain ranges', () => {
+    const schema = schemaOf(byName.get('tasks_create') as Tool)
+    const base = { projectId: '22222222-2222-4222-8222-222222222222', title: 'x' }
+    expect(schema.safeParse({ ...base, recurrence: { freq: 'weekly', weekday: 7 } }).success).toBe(false)
+    expect(schema.safeParse({ ...base, recurrence: { freq: 'weekly', weekday: -1 } }).success).toBe(false)
+    expect(schema.safeParse({ ...base, recurrence: { freq: 'monthly', dayOfMonth: 0 } }).success).toBe(false)
+    expect(schema.safeParse({ ...base, recurrence: { freq: 'monthly', dayOfMonth: 32 } }).success).toBe(false)
+    expect(schema.safeParse({ ...base, recurrence: { freq: 'monthly', dayOfMonth: 31 } }).success).toBe(true)
+  })
+
+  it('lets an update stop a task repeating', () => {
+    const schema = schemaOf(byName.get('tasks_update') as Tool)
+    const parsed = schema.safeParse({
+      taskId: '11111111-1111-4111-8111-111111111111',
+      recurrence: null,
+    })
+    expect(parsed.success).toBe(true)
+    expect((parsed.data as Record<string, unknown>).recurrence).toBeNull()
+  })
+
+  it('rejects a malformed due time', () => {
+    const schema = schemaOf(byName.get('tasks_create') as Tool)
+    const base = { projectId: '22222222-2222-4222-8222-222222222222', title: 'x' }
+    expect(schema.safeParse({ ...base, dueTime: '9am' }).success).toBe(false)
+    expect(schema.safeParse({ ...base, dueTime: '25:00' }).success).toBe(false)
+    expect(schema.safeParse({ ...base, dueTime: '09:00' }).success).toBe(true)
+  })
+
   it('caps assignee and label collections', () => {
     const schema = schemaOf(byName.get('tasks_create') as Tool)
     const uuids = Array.from({ length: 21 }, (_, index) =>

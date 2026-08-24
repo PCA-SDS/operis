@@ -10,7 +10,7 @@ them, with exactly one exception that is called out where it happens.
   git push main
         │
         ▼
-  GitHub Actions ── docker build (Dockerfile, target: runner) ──► ghcr.io/f4heemmmmm/operis:sha-abc1234
+  GitHub Actions ── docker build (Dockerfile, target: runner) ──► ghcr.io/pca-sds/operis:sha-abc1234
         │                                                                    │
         │ ssh + rsync (compose, redis.conf, scripts)                         │ docker pull
         ▼                                                                    ▼
@@ -68,14 +68,24 @@ filter produces a byte-identical file — no nginx runtime variable gets eaten.
 | `env.production.example` | → server `.env` | Every environment variable, annotated. |
 | `init-env.sh` | server | Generates every secret straight into `.env` — never to stdout. |
 | `install-backup-timer.sh` | server | Installs the nightly backup systemd timer. Run once. |
-| `deploy.sh` | server | Pull → back up → start → health-check → roll back on failure. |
+| `deploy.sh` | server | Pull → verify digest → back up → start → health-check → roll back on failure. |
+| `required-env` | → server, next to `deploy.sh` | The variables `.env` must define. Checked before anything is pulled or restarted. |
 | `backup.sh` | server | `pg_dump` with retention and an integrity check. Scheduled by the timer above. |
 | `dc` | server | `docker compose` wrapper that supplies both env files. |
 | `../.github/workflows/ci-deploy.yml` | GitHub | The pipeline: quality + build + deploy in one run. |
 
-CI rsyncs `deploy.sh`, `backup.sh`, `dc`, the compose file and `redis.conf` on every
-deploy — edit them in git, never on the box. `.env`, `backups/` and `logs/` are
-server-only and CI never touches them.
+CI rsyncs `deploy.sh`, `backup.sh`, `required-env`, `dc`, the compose file and
+`redis.conf` on every deploy — edit them in git, never on the box. `.env`,
+`backups/` and `logs/` are server-only and CI never touches them.
+
+**Which image gets deployed is decided by CI, not by the server.** The workflow
+derives it from `github.repository` and passes it to `deploy.sh` as `--image`,
+along with the `--digest` of the artifact it just built. `deploy.sh` verifies the
+digest after pulling and refuses to continue on a mismatch. `APP_IMAGE` in `.env`
+is only a fallback for running `deploy.sh` by hand; when the two disagree, CI
+wins and the deploy log says which one it used. This is deliberate — the value
+used to live only on the server, and an org transfer left it pointing at an image
+namespace that no longer existed.
 
 The nginx template is **excluded from that sync on purpose**: it lives in another
 stack's directory, and an automated bad copy there would break four other hostnames.
@@ -373,7 +383,9 @@ ports and carries `no-new-privileges`.
 | Symptom | Where to look |
 |---|---|
 | Workflow fails at *Verify connectivity* | `DEPLOY_KNOWN_HOSTS` wrong, or the `operis` user's key not installed |
-| `cannot pull … is the server logged in?` | redo the GHCR `docker login` as the `operis` user; token needs `read:packages` |
+| `cannot pull …` | CI passes the image, so the namespace is no longer a suspect. Check the tag exists in the `Building ghcr.io/…` line of the build job, then redo the GHCR `docker login` as the `operis` user (token needs `read:packages`), then confirm the GHCR package is linked to this repository and its visibility allows the pull |
+| `digest mismatch — refusing to deploy` | the tag no longer resolves to the image CI built: it was re-pushed, or the registry served a stale manifest. Nothing was changed on the server. Re-run the workflow to build and deploy a fresh tag |
+| `N required variable(s) missing or too short` | `.env` does not satisfy `required-env`; the failing keys are listed by name. Nothing was pulled or restarted. Generate secrets with the snippet at the top of `env.production.example` |
 | `network pca-erp-network does not exist` | the pca-erp stack was torn down or renamed; `docker network ls`, then set `EDGE_NETWORK` in `.env` |
 | Browser shows the PCA ERP site or a cert warning | the vhost is not loaded — `docker exec pca-erp-nginx nginx -T \| grep operis` |
 | 502 from the gateway | app container down or not on the edge network: `./dc ps`, then `docker inspect operis-app --format '{{json .NetworkSettings.Networks}}'` |
