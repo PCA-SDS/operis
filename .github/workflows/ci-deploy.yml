@@ -1,56 +1,149 @@
-name: Deploy to production
+name: CI & Deploy
 
 # ==============================================================================
-# push to main  ->  build image  ->  push to GHCR  ->  ship to the VPS
+# ONE workflow, one run per push.
 # ==============================================================================
-# The image is built ONCE here and pulled by the server. Nothing is compiled on
-# the VPS: builds need ~4 GB of heap and would compete with the running app.
+#   pull request  ->  quality
+#   push to main  ->  quality ─┐
+#                     build  ──┴─► deploy
 #
-# `next build` type-checks and lints as part of the Docker build, so a broken
-# main never produces an image and therefore never reaches the server. Unit and
-# integration tests belong on the pull request — turn on branch protection so
-# main can only be reached through a green PR.
+# quality and build run CONCURRENTLY and deploy waits for both. Chaining them
+# would add the test time to the deploy time for no benefit: a failed test set
+# and a successful image build simply mean nothing ships. Wall clock is
+# max(quality, build) rather than the sum.
 #
-# Runners: stock `ubuntu-latest`. Every other workflow in this repo targets
-# upstream's `blacksmith-*` fleet, which this fork does not have.
+# The image is built here, once, and pulled by the server. Building on the VPS
+# needs ~4 GB of heap and would compete with the four other production stacks
+# sharing that host.
+#
+# Runners are stock `ubuntu-latest`. Every workflow inherited from upstream
+# targets `blacksmith-4vcpu-ubuntu-2404`, a runner fleet this fork has no
+# access to — none of them has ever completed a run here. Disable them
+# (`gh workflow disable "<name>"`) or they queue and cancel on every push.
 # ==============================================================================
 
 on:
   push:
     branches: [main]
+    # Docs-only commits on main should not trigger a 40-minute build + deploy.
+    # Deliberately NOT applied to pull_request: a PR should always produce a
+    # green/red signal, so it can become a required status check later.
     paths-ignore:
       - '**/*.md'
       - 'docs/**'
       - 'apps/docs/**'
       - '.ai/**'
-      - 'SCREENSHOTS.md'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       image_tag:
-        description: 'Existing image tag to (re)deploy, e.g. sha-1a2b3c4. Leave empty to build this branch.'
+        description: 'Existing image tag to (re)deploy, e.g. sha-1a2b3c4. Empty = build this branch.'
         required: false
         default: ''
+      skip_quality:
+        description: 'Skip lint/typecheck/tests. Emergency use only.'
+        type: boolean
+        default: false
 
-# One deploy at a time; never cancel one midway — a half-applied migration is
-# far worse than a queued job.
+# One run at a time per ref. PR runs cancel on a new push (the old result is
+# worthless). Runs on main never cancel — killing a deploy halfway through a
+# migration is far worse than waiting.
 concurrency:
-  group: deploy-production
-  cancel-in-progress: false
+  group: ci-deploy-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
   packages: write
 
 env:
+  NODE_VERSION: '24.19.0'
   REGISTRY: ghcr.io
 
 jobs:
+  # ---------------------------------------------------------------------------
+  quality:
+    name: Lint, typecheck, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_quality) }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - run: corepack enable
+
+      - name: Cache Yarn packages
+        uses: actions/cache@v6
+        with:
+          path: .yarn/cache
+          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: yarn-${{ runner.os }}-
+
+      - name: Cache node_modules
+        uses: actions/cache@v6
+        with:
+          path: |
+            node_modules
+            packages/*/node_modules
+            apps/*/node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+
+      - name: Cache Turbo outputs
+        uses: actions/cache@v6
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ github.ref_name }}-
+            turbo-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Lint
+        # lint:check-graph first: turbo silently reports success when the task
+        # graph resolves to zero packages, so a misconfigured filter would make
+        # "lint passed" mean "lint never ran".
+        run: |
+          yarn lint:check-graph
+          yarn lint
+
+      - name: Build packages and generate module registries
+        # build -> generate -> build is the sequence the Dockerfile and the dev
+        # entrypoint both use. The second build is not redundant: `generate`
+        # writes packages/core/generated/, and core has to be rebuilt before
+        # anything can typecheck against it.
+        run: |
+          yarn build:packages
+          yarn generate
+          yarn build:packages
+
+      - name: Typecheck
+        run: yarn typecheck
+
+      - name: Unit tests
+        # test:serial, not test. The default runner (turbo concurrency 2, 1 GB
+        # heap) segfaults a worker on this codebase; that surfaces as
+        # "failed suite, 0 failed tests" and hides genuine failures behind what
+        # looks like a flake. Serial with a 6 GB heap is slower and truthful.
+        run: yarn test:serial
+
   # ---------------------------------------------------------------------------
   build:
     name: Build and push image
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    if: ${{ github.event_name != 'workflow_dispatch' || inputs.image_tag == '' }}
+    # Deliberately no `needs: quality` — see the header. Skipped for PRs, and
+    # skipped when redeploying an existing tag.
+    if: >-
+      github.event_name != 'pull_request'
+      && (github.event_name != 'workflow_dispatch' || inputs.image_tag == '')
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
       image: ${{ steps.meta.outputs.image }}
@@ -117,11 +210,17 @@ jobs:
     name: Deploy to VPS
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: build
-    if: ${{ always() && needs.build.result != 'failure' && needs.build.result != 'cancelled' }}
-    # Create this environment in Settings -> Environments to add required
-    # reviewers (manual approval before production) and scope the SSH secrets
-    # to it. Nothing else in the repo can then read them.
+    needs: [quality, build]
+    # `always()` so this is evaluated even when a dependency was skipped —
+    # without it, one skipped `needs` would skip this job outright. Each result
+    # is then checked explicitly: success or skipped is fine, failure is not.
+    # skipped is legitimate for `quality` (skip_quality) and for `build`
+    # (redeploying an existing tag).
+    if: >-
+      always()
+      && github.event_name != 'pull_request'
+      && (needs.quality.result == 'success' || needs.quality.result == 'skipped')
+      && (needs.build.result == 'success'   || needs.build.result == 'skipped')
     environment:
       name: production
       url: https://${{ vars.APP_DOMAIN }}
@@ -142,11 +241,6 @@ jobs:
           set -euo pipefail
           TAG="${REQUESTED_TAG:-$BUILT_TAG}"
           [ -n "$TAG" ] || { echo "::error::no image tag to deploy"; exit 1; }
-          # Docker tag grammar: [A-Za-z0-9_][A-Za-z0-9._-]{0,127}
-          case "$TAG" in
-            [A-Za-z0-9_]*) : ;;
-            *) echo "::error::invalid image tag"; exit 1 ;;
-          esac
           printf '%s' "$TAG" | grep -Eq '^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$' \
             || { echo "::error::image tag contains illegal characters"; exit 1; }
           echo "value=$TAG" >> "$GITHUB_OUTPUT"
@@ -200,7 +294,7 @@ jobs:
         # deploy/nginx/operis.conf.template is deliberately NOT synced. It lives
         # in the pca-erp stack's directory and a bad copy there would break the
         # gateway for four other hostnames, so it is installed by hand, once,
-        # behind an `nginx -t`. See README.md.
+        # behind an `nginx -t`. See deploy/README.md.
         run: |
           set -euo pipefail
           rsync -az --checksum \

@@ -69,7 +69,7 @@ filter produces a byte-identical file — no nginx runtime variable gets eaten.
 | `deploy.sh` | server | Pull → back up → start → health-check → roll back on failure. |
 | `backup.sh` | server | Nightly `pg_dump` with retention and integrity check. |
 | `dc` | server | `docker compose` wrapper that supplies both env files. |
-| `../.github/workflows/deploy-production.yml` | GitHub | The pipeline. |
+| `../.github/workflows/ci-deploy.yml` | GitHub | The pipeline: quality + build + deploy in one run. |
 
 CI rsyncs `deploy.sh`, `backup.sh`, `dc`, the compose file and `redis.conf` on every
 deploy — edit them in git, never on the box. `.env`, `backups/` and `logs/` are
@@ -239,7 +239,7 @@ the repo can read the deploy key.
 
 ### 9 — First deploy
 
-Actions → **Deploy to production** → Run workflow.
+Actions → **CI & Deploy** → Run workflow.
 
 The first build takes **30–60 minutes** (cold cache, whole monorepo). First container
 start is also slow: `mercato init` creates the schema and seeds before the app answers,
@@ -277,8 +277,9 @@ docker exec pca-erp-certbot certbot certificates
 docker exec pca-erp-nginx nginx -t && docker exec pca-erp-nginx nginx -s reload
 ```
 
-Redeploy an older build without rebuilding: Actions → Run workflow → put the tag
-(`sha-abc1234`) in the **image_tag** input.
+Redeploy an older build without rebuilding: Actions → **CI & Deploy** → Run workflow →
+put the tag (`sha-abc1234`) in the **image_tag** input. `skip_quality` is the
+emergency escape hatch when a flaky test is blocking a needed deploy.
 
 ### Restoring the database
 
@@ -295,8 +296,10 @@ docker exec -i $(./dc ps -q postgres) \
 
 ## What happens on each deploy
 
-1. CI builds the image. `next build` type-checks and lints (no `ignoreBuildErrors` in
-   `next.config.ts`), so a broken `main` never produces an image.
+1. `quality` (lint + typecheck + unit tests) and `build` (the Docker image) run
+   concurrently. `deploy` waits for both, so nothing ships unless both are green.
+   The image build is itself a second gate: `next build` type-checks and lints,
+   with no `ignoreBuildErrors` in `next.config.ts`.
 2. CI rsyncs the compose file, `redis.conf` and the scripts.
 3. `deploy.sh` checks that `pca-erp-network` still exists, then pulls the image
    **first** — a registry failure cannot take the running app down.
