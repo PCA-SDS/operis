@@ -42,7 +42,7 @@ function TimerSidebarIndicator() {
   return (
     <a
       href="/backend/staff/timesheets"
-      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted transition-colors cursor-pointer"
+      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors cursor-pointer"
       title={t('staff.timesheets.sidebar.timerRunning', 'Timer running — click to view')}
     >
       <span className="relative flex h-2.5 w-2.5 shrink-0">

@@ -50,6 +50,7 @@ TODO: Fix that latter to have reference by the package names
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-muted-foreground: var(--sidebar-muted-foreground);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
   --color-chart-5: var(--chart-5);
@@ -395,16 +396,26 @@ TODO: Fix that latter to have reference by the package names
   --chart-pink: oklch(0.620 0.145 354);
   --chart-teal: oklch(0.600 0.100 175);
   --chart-orange: oklch(0.665 0.135 48);
-  /* Sidebar — the reference sidebar sits on the raised surface, not on a
-     tinted panel, so it reads as part of the same sheet as the content. */
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #1D2735;
-  --sidebar-primary: #43608E;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #EDF1F7;
-  --sidebar-accent-foreground: #1D2735;
-  --sidebar-border: #D9E0EA;
-  --sidebar-ring: #7FA3CF;
+  /* Sidebar — an inked chrome column, NOT a step on the neutral surface ladder.
+     The rail is painted in the CTA navy (`--sidebar` == `--primary`) so the
+     product's one saturated colour anchors the left edge, and every piece of
+     nav chrome therefore has to read on navy rather than on white. That is why
+     the family is complete — ink, quiet ink, hover fill, active pill, hairline
+     — instead of borrowing `foreground` / `surface-muted` / `border` from the
+     content side: those are tuned for a light ground and vanish here.
+     `--sidebar-muted-foreground` is the quiet ink (rest-state icons, group
+     overlines); the active row is a pale `--sidebar-primary` pill with
+     `--sidebar-primary-foreground` ink, which reads as the rail colour cut out
+     of the row. */
+  --sidebar: #43608E;
+  --sidebar-foreground: #EDF2FA;
+  --sidebar-muted-foreground: #CAD9EF;
+  --sidebar-primary: #EAF1FA;
+  --sidebar-primary-foreground: #33507B;
+  --sidebar-accent: #55719C;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #5A749D;
+  --sidebar-ring: #B6C7DF;
 
   /* ═══ Design System: Semantic Status Tokens — Light Mode ═══
      Token values match the Tailwind v4 default palette so the
@@ -577,13 +588,19 @@ TODO: Fix that latter to have reference by the package names
   --chart-pink: oklch(0.715 0.145 354);
   --chart-teal: oklch(0.710 0.100 175);
   --chart-orange: oklch(0.760 0.135 48);
-  --sidebar: #171E2A;
-  --sidebar-foreground: #E6ECF4;
-  --sidebar-primary: #8FAEDA;
-  --sidebar-primary-foreground: #101822;
-  --sidebar-accent: #1E2735;
-  --sidebar-accent-foreground: #E6ECF4;
-  --sidebar-border: #2E3948;
+  /* Sidebar (dark) — the light rail takes the CTA fill verbatim, but the dark
+     CTA is a PALE navy (`--primary: #8FAEDA`); painting a full-height column in
+     it would make the chrome the brightest object on the screen. Dark keeps the
+     same idea one octave down: a deep navy that still reads as the palette's
+     blue against `--background`, with the row treatments unchanged. */
+  --sidebar: #1B2A42;
+  --sidebar-foreground: #DFE8F4;
+  --sidebar-muted-foreground: #9DB3D3;
+  --sidebar-primary: #31496F;
+  --sidebar-primary-foreground: #CFE0F8;
+  --sidebar-accent: #26385A;
+  --sidebar-accent-foreground: #EAF1FB;
+  --sidebar-border: #32456A;
   --sidebar-ring: #5D82B4;
 
   /* ═══ Design System: Semantic Status Tokens — Dark Mode ═══
