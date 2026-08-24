@@ -11,7 +11,7 @@ import {
   resetMcpScopeRegistryForTests,
 } from '../lib/scope-registry'
 import { resetMcpScopedToolsForTests } from '../lib/tool-loading'
-import { resolveAccessibleTools } from '../lib/server'
+import { resolveAccessibleTools, toolAnnotations } from '../lib/server'
 import type { McpAuthenticatedContext } from '../lib/resource-auth'
 
 const readTool = {
@@ -125,5 +125,38 @@ describe('accessible tool resolution', () => {
       context({ scopes: ['tasks:read'], grantedFeatures: [] }),
     )
     expect(tools.size).toBe(0)
+  })
+})
+
+
+describe('tool annotations advertised to the client', () => {
+  it('marks a read tool read-only and non-destructive', () => {
+    expect(toolAnnotations(readTool as never)).toEqual({
+      title: 'tasks_list',
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    })
+  })
+
+  it('marks a mutation as not read-only, so ChatGPT asks before writing', () => {
+    const annotations = toolAnnotations(writeTool as never)
+    expect(annotations.readOnlyHint).toBe(false)
+    expect(annotations.idempotentHint).toBe(false)
+    expect(annotations.openWorldHint).toBe(false)
+  })
+
+  it('reports the safe upper bound when destructiveness is a predicate', () => {
+    // A predicate cannot be evaluated at discovery time, so a mutation must be
+    // advertised as potentially destructive rather than assumed safe.
+    const predicateTool = { ...writeTool, isDestructive: () => false }
+    expect(toolAnnotations(predicateTool as never).destructiveHint).toBe(true)
+  })
+
+  it('never advertises a mutation as read-only', () => {
+    for (const tool of [writeTool, { ...writeTool, isDestructive: true }]) {
+      expect(toolAnnotations(tool as never).readOnlyHint).toBe(false)
+    }
   })
 })

@@ -1,0 +1,60 @@
+# ==============================================================================
+# Operis — env contract for /opt/operis/.env
+# ==============================================================================
+# deploy.sh checks every key listed here BEFORE it pulls, backs up or restarts
+# anything. A missing key stops the deploy while the old release is still
+# serving, instead of letting the new container boot, crash, and trigger a
+# rollback that looks like a bad release rather than a missing variable.
+#
+# This file is rsynced to the server with deploy.sh, so the contract travels
+# with the release that introduced it: adding a required variable is a reviewed
+# code change, not something to remember to do on the box afterwards.
+#
+# Format — one per line:
+#   KEY            must be present and non-empty
+#   KEY:32         must also be at least 32 characters
+#   # comment      ignored, as are blank lines
+#
+# Only list what genuinely breaks the stack. Anything with a working default
+# belongs in env.production.example, not here. Mirrors section A of that file.
+#
+# NOT listed, deliberately:
+#   APP_IMAGE       supplied per-deploy by CI (--image); the .env value is only
+#                   a fallback for manual on-box runs, so deploy.sh checks it
+#                   separately and reports which source it used.
+#   EDGE_NETWORK    deploy.sh defaults it to pca-erp-network and verifies the
+#                   network actually exists, which is the stronger check.
+#   TENANT_DATA_ENCRYPTION_FALLBACK_KEY
+#                   required only when TENANT_DATA_ENCRYPTION=true; deploy.sh
+#                   applies that condition itself.
+# ==============================================================================
+
+# --- Identity of this deployment ---------------------------------------------
+APP_DOMAIN
+APP_URL
+
+# --- Database -----------------------------------------------------------------
+# docker-compose builds DATABASE_URL from all three; a missing one yields a
+# malformed URL rather than an obvious error.
+POSTGRES_USER
+POSTGRES_PASSWORD
+POSTGRES_DB
+
+# --- Signing and encryption secrets -------------------------------------------
+# The app refuses to start in production on a short or absent JWT_SECRET.
+JWT_SECRET:32
+AUTH_SECRET:32
+CONSENT_INTEGRITY_SECRET:32
+# Permanent: rotating this orphans every existing hashed lookup.
+LOOKUP_HASH_PEPPER:32
+
+# --- Search backend -----------------------------------------------------------
+# Meilisearch runs with MEILI_ENV=production, which refuses a key under 16 bytes.
+MEILISEARCH_MASTER_KEY:16
+
+# --- First-boot superadmin ----------------------------------------------------
+# Used once by `mercato init`; without it the first deploy comes up with no way
+# to log in.
+OM_INIT_SUPERADMIN_EMAIL
+OM_INIT_SUPERADMIN_PASSWORD
+ADMIN_EMAIL

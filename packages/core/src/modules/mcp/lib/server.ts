@@ -47,6 +47,32 @@ function toolIsMutation(tool: AiToolDefinition): boolean {
 }
 
 /**
+ * MCP tool annotations, derived from metadata the tool already declares.
+ *
+ * ChatGPT reads these to decide its confirmation and safety behaviour — a tool
+ * without `readOnlyHint: false` may not be recognised as modifying external
+ * data, so a write could run without the confirmation the operator expects.
+ * They are a hint to the client, never a substitute for the server-side scope,
+ * RBAC and tenant checks below.
+ */
+export function toolAnnotations(tool: AiToolDefinition): Record<string, unknown> {
+  const mutation = toolIsMutation(tool)
+  // A predicate-based `isDestructive` cannot be evaluated without arguments, so
+  // discovery reports the safe upper bound: any mutation may be destructive.
+  const destructive =
+    typeof tool.isDestructive === 'function' ? mutation : tool.isDestructive === true
+
+  return {
+    title: tool.displayName ?? tool.name,
+    readOnlyHint: !mutation,
+    destructiveHint: destructive,
+    idempotentHint: !mutation,
+    // Everything reachable here is this tenant's own task data, not the open web.
+    openWorldHint: false,
+  }
+}
+
+/**
  * Tools this caller may both *see* and *run*.
  *
  * Two independent gates, and a tool must clear both:
@@ -138,6 +164,7 @@ export async function createScopedMcpServer(options: ScopedMcpServerOptions): Pr
         name: tool.name,
         description: tool.description,
         inputSchema: toolInputJsonSchema(tool.inputSchema),
+        annotations: toolAnnotations(tool),
       })),
     }
   })
@@ -266,7 +293,15 @@ export async function createScopedMcpServer(options: ScopedMcpServerOptions): Pr
         isMutation,
         durationMs: Date.now() - startedAt,
       })
-      return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] }
+      return {
+        // Both shapes on purpose: `structuredContent` is what a model inspects
+        // directly, while the JSON text block keeps clients that only read
+        // `content` working. Same payload, so the two cannot disagree.
+        content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+        ...(result && typeof result === 'object' && !Array.isArray(result)
+          ? { structuredContent: result as Record<string, unknown> }
+          : {}),
+      }
     } catch (error) {
       const failure = classifyError(error)
       // The full error goes to the server log; the client gets the coarse shape.

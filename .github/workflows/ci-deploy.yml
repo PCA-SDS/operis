@@ -258,6 +258,36 @@ jobs:
           echo "value=$TAG" >> "$GITHUB_OUTPUT"
           echo "Deploying tag: $TAG"
 
+      - name: Resolve image to deploy
+        id: image
+        # The image coordinate is derived HERE and handed to the server, rather
+        # than read from a copy kept on the server. github.repository follows a
+        # rename or an org transfer automatically; a hand-maintained APP_IMAGE in
+        # the VPS's .env does not, and its staleness surfaces only as a failed
+        # pull that reads like a registry login problem. One fact, one source.
+        env:
+          BUILT_IMAGE: ${{ needs.build.outputs.image }}
+          BUILT_DIGEST: ${{ needs.build.outputs.digest }}
+          REQUESTED_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -euo pipefail
+          # BUILT_IMAGE is empty when the build job was skipped (redeploying an
+          # existing tag), so fall back to the same derivation the build uses.
+          IMAGE="${BUILT_IMAGE:-${REGISTRY}/$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')}"
+
+          # A digest pins the exact artifact, but only this run's build knows it.
+          # Redeploying an arbitrary existing tag has nothing to pin to, so the
+          # server is told to skip verification rather than be handed a digest
+          # belonging to a different image.
+          DIGEST=""
+          if [ -n "$BUILT_DIGEST" ] && [ -z "$REQUESTED_TAG" ]; then
+            DIGEST="$BUILT_DIGEST"
+          fi
+
+          echo "value=$IMAGE"   >> "$GITHUB_OUTPUT"
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "Deploying image: $IMAGE${DIGEST:+  (digest $DIGEST)}"
+
       - name: Configure SSH
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -300,8 +330,12 @@ jobs:
         run: ssh target 'echo "connected as $(id -un)@$(hostname)"; docker version --format "docker {{.Server.Version}}"'
 
       - name: Sync deployment files
-        # Only these five files. The server's .env, backups/ and logs/ are never
+        # Only these six files. The server's .env, backups/ and logs/ are never
         # touched by CI — secrets stay on the server, out of the pipeline.
+        #
+        # required-env travels with deploy.sh on purpose: it lists the variables
+        # this release needs, so adding one is a reviewed change in git rather
+        # than something to remember to set on the box afterwards.
         #
         # deploy/nginx/operis.conf.template is deliberately NOT synced. It lives
         # in the pca-erp stack's directory and a bad copy there would break the
@@ -313,6 +347,7 @@ jobs:
             deploy/redis.conf \
             deploy/deploy.sh \
             deploy/backup.sh \
+            deploy/required-env \
             deploy/dc \
             target:/opt/operis/
           rsync -az --checksum deploy/docker-compose.prod.yml target:/opt/operis/docker-compose.yml
@@ -332,18 +367,33 @@ jobs:
           printf '%s' "$GHCR_TOKEN" | ssh target "docker login ghcr.io -u $(printf '%q' "$GHCR_USER") --password-stdin"
 
       - name: Deploy
+        # Same rule as the tag step: every value reaches the shell as an
+        # environment variable and is quoted with printf %q before it becomes
+        # part of a remote command line.
         env:
           TAG: ${{ steps.tag.outputs.value }}
-        run: ssh target "/opt/operis/deploy.sh $(printf '%q' "$TAG")"
+          IMAGE: ${{ steps.image.outputs.value }}
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          ARGS="$(printf '%q' "$TAG") --image $(printf '%q' "$IMAGE")"
+          if [ -n "$DIGEST" ]; then
+            ARGS="$ARGS --digest $(printf '%q' "$DIGEST")"
+          fi
+          ssh target "/opt/operis/deploy.sh $ARGS"
 
       - name: Smoke test through the public URL
         env:
           DOMAIN: ${{ vars.APP_DOMAIN }}
         run: |
           set -euo pipefail
+          # Deliberately fatal. Skipping the only external check because a
+          # variable is unset reports a green deploy that nothing verified —
+          # the one outcome worse than a red one, because it is trusted.
           if [ -z "$DOMAIN" ]; then
-            echo "::warning::repository variable APP_DOMAIN is not set — skipping external smoke test"
-            exit 0
+            echo "::error::repository variable APP_DOMAIN is not set, so the deploy cannot be verified."
+            echo "::error::Set it with: gh variable set APP_DOMAIN --body <hostname>"
+            exit 1
           fi
           for attempt in $(seq 1 12); do
             code="$(curl -sS -o /tmp/health.json -w '%{http_code}' --max-time 20 "https://$DOMAIN/api/configs/health" || echo 000)"
