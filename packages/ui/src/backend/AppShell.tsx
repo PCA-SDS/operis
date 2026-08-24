@@ -46,6 +46,7 @@ import { LEGACY_GLOBAL_MUTATION_INJECTION_SPOT_ID } from './injection/mutationEv
 import { mergeMenuItems } from './injection/mergeMenuItems'
 import { useInjectedMenuItems } from './injection/useInjectedMenuItems'
 import { resolveInjectedIcon } from './injection/resolveInjectedIcon'
+import { OperisLogo } from './brand/OperisLogo'
 import { useEventBridge } from './injection/eventBridge'
 import { StatusBadgeInjectionSpot } from './injection/StatusBadgeInjectionSpot'
 import { UmesDevToolsPanel } from './devtools'
@@ -102,7 +103,34 @@ const SIDEBAR_CHILD_BOX_COMPACT = 'w-10 h-9 justify-center'
 const SIDEBAR_CHILD_BOX = 'w-full h-9 pl-5 pr-3 gap-2.5'
 /** Group heading — a quiet overline, not a button that competes with the rows. */
 const SIDEBAR_GROUP_LABEL =
-  'w-full px-2 justify-between flex text-overline font-semibold uppercase tracking-wider text-disabled-foreground py-1'
+  'w-full px-3 justify-between flex text-overline font-semibold uppercase tracking-wider text-disabled-foreground py-1'
+
+/* Panel chrome — the settings sub-nav.
+ *
+ * Settings is a second column beside the collapsed main rail, not the product's
+ * main navigation, so it reads better as a contained panel — the shape the
+ * tasks module already uses for its own in-page nav — than as another
+ * full-bleed chrome column stacked next to one. Active stays the shell's
+ * primary wash and idle rows keep full ink; only the box, the radius and the
+ * hover step change, because a `surface-muted` hover is invisible on a
+ * `surface-muted` panel and `surface-strong` is the chrome hover above it. */
+const SIDEBAR_PANEL = 'rounded-xl bg-surface-muted p-2'
+const SIDEBAR_PANEL_ITEM_BASE =
+  'relative inline-flex items-center rounded-md text-sm font-medium transition-colors'
+const SIDEBAR_PANEL_ITEM_BOX = 'w-full h-9 gap-2.5'
+const SIDEBAR_PANEL_GROUP_LABEL =
+  'w-full px-3 justify-between flex text-overline font-semibold uppercase tracking-widest text-muted-foreground py-1'
+
+function sidebarPanelItemStateClass(active: boolean): string {
+  return active
+    ? 'bg-primary-soft text-primary [&_svg]:text-primary'
+    : 'text-foreground hover:bg-surface-strong [&_svg]:text-muted-foreground'
+}
+
+/* Icons come from lucide, from injected modules and from serialized markup, each
+ * at its own intrinsic size. Pinning them to one box is what keeps every label in
+ * the sidebar starting at the same x. */
+const SIDEBAR_ICON_BOX = 'flex size-5 shrink-0 items-center justify-center [&_svg]:size-4'
 
 const SIDEBAR_OPEN_GROUPS_KEY = 'om:sidebarOpenGroups'
 const SIDEBAR_OPEN_GROUPS_VERSION = 1
@@ -219,6 +247,14 @@ function shouldBypassLogoOptimization(src?: string | null): boolean {
   return /^https?:\/\//.test(value) || /^\/api\/attachments\/(?:image|file)\//.test(value)
 }
 
+/**
+ * The built-in wordmark spells "Operis" itself, so the header text beside it
+ * would say the name twice. A whitelabel name gets the mark plus its own text.
+ */
+function usesBuiltInWordmark(logo: ShellLogo | undefined, brandName: string): boolean {
+  return !logo?.src && brandName.trim().toLowerCase() === 'operis'
+}
+
 function ShellBrandLogo({
   logo,
   brandName,
@@ -232,14 +268,30 @@ function ShellBrandLogo({
   compact?: boolean
   mobile?: boolean
 }) {
-  const src = logo?.src ?? '/operis.svg'
+  const src = logo?.src
   const alt = logo?.alt ?? brandName
-  const isCustomLogo = Boolean(logo?.src)
+  const isCustomLogo = Boolean(src)
   const preserveAspectRatio = Boolean(logo?.preserveAspectRatio)
-  if (!isCustomLogo || !preserveAspectRatio) {
+
+  if (!isCustomLogo) {
+    // Inline rather than <Image src="/operis.svg">: an external SVG renders in
+    // its own document, where `currentColor` cannot reach the sidebar's ink.
+    const showWordmark = usesBuiltInWordmark(logo, brandName) && !compact
+    return (
+      <OperisLogo
+        variant={showWordmark ? 'wordmark' : 'mark'}
+        title={showWordmark ? brandName : null}
+        className={`w-auto shrink-0 text-foreground ${
+          showWordmark ? (mobile ? 'h-5' : 'h-6') : mobile ? 'h-6' : 'h-7'
+        }`}
+      />
+    )
+  }
+
+  if (!preserveAspectRatio) {
     return (
       <Image
-        src={src}
+        src={src as string}
         alt={alt}
         width={mobile ? 28 : 40}
         height={mobile ? 28 : 40}
@@ -259,7 +311,7 @@ function ShellBrandLogo({
 
   return (
     <Image
-      src={src}
+      src={src as string}
       alt={alt}
       width={width}
       height={height}
@@ -523,9 +575,41 @@ const BackArrowIcon = (
   </svg>
 )
 
+/**
+ * Height animation for a nav group, without measuring anything.
+ *
+ * The outer grid animates its single row between `0fr` and `1fr` and the inner
+ * child clips — the one CSS trick that transitions to content height, which
+ * `height: auto` cannot do. The rows stay mounted while collapsed, so `inert`
+ * takes them out of the tab order and the accessibility tree; without it a
+ * closed group would still be reachable by keyboard.
+ */
+function SidebarCollapse({
+  open,
+  center,
+  children,
+}: {
+  open: boolean
+  center?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      className={`grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none ${
+        open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+      }`}
+      inert={!open}
+    >
+      <div className={`flex flex-col gap-1 overflow-hidden ${center ? 'items-center' : ''}`}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 function Chevron({ open }: { open: boolean }) {
   return (
-    <svg className={`transition-transform ${open ? 'rotate-180' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+    <svg className={`transition-transform duration-200 ease-out motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
   )
 }
 
@@ -568,6 +652,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
     ? chromePayload.brand.name ?? resolvedProductName
     : resolvedProductName
   const resolvedLogoBypassesOptimization = shouldBypassLogoOptimization(resolvedLogo?.src)
+  const brandNameIsInLogo = usesBuiltInWordmark(resolvedLogo, resolvedBrandName)
   const [mobileOpen, setMobileOpen] = React.useState(false)
   // When the mobile drawer opens on a settings/profile route, it follows the
   // section sidebar by default. Set to 'main' to force-show the main nav even
@@ -828,30 +913,49 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
     setNavGroups(cloneSidebarGroups(resolvedGroups))
   }, [resolvedGroups])
 
+  /** The brand header. Shared by the main nav, the section navs and the loading
+   *  skeleton so the three can never drift out of alignment. */
+  function renderBrandHeader(compact: boolean) {
+    return (
+      <Link
+        href="/backend"
+        className={`flex h-14 shrink-0 items-center gap-2.5 rounded-lg transition-colors hover:bg-surface-muted motion-reduce:transition-none ${compact ? 'justify-center px-2' : 'px-3'}`}
+        aria-label={t('appShell.goToDashboard')}
+      >
+        <ShellBrandLogo
+          logo={resolvedLogo}
+          brandName={resolvedBrandName}
+          compact={compact}
+          unoptimized={resolvedLogoBypassesOptimization}
+        />
+        {!compact && !brandNameIsInLogo && (
+          <span className="truncate text-sm font-medium text-foreground">{resolvedBrandName}</span>
+        )}
+      </Link>
+    )
+  }
+
   function renderSectionSidebar(
     sections: SectionNavGroup[],
     title: string,
     compact: boolean,
     hideHeader?: boolean,
-    hideSearch?: boolean
+    hideSearch?: boolean,
+    variant: 'chrome' | 'panel' = 'chrome'
   ) {
     const sortedSections = [...sections].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     const lastVisibleIndex = sortedSections.length - 1
+    // The compact rail is 80px of icons; a panel inset would leave no room for a
+    // row, so the panel treatment only applies to the expanded column.
+    const isPanel = variant === 'panel' && !compact
+    const scrollAreaClass = isPanel
+      ? 'flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto scrollbar-hide'
+      : `flex flex-1 flex-col gap-3 overflow-y-auto scrollbar-hide pr-1 ${compact ? '-ml-2 pl-2' : '-ml-3 pl-3'}`
 
     return (
       <div className="flex h-full flex-col gap-3">
-        {!hideHeader && (
-          <div className="mb-2">
-            <Link
-              href="/backend"
-              className={`flex h-14 items-center gap-3 rounded-lg transition-colors hover:bg-surface-muted ${compact ? 'justify-center px-2' : 'px-3'}`}
-              aria-label={t('appShell.goToDashboard')}
-            >
-              <ShellBrandLogo logo={resolvedLogo} brandName={resolvedBrandName} compact={compact} unoptimized={resolvedLogoBypassesOptimization} />
-              {!compact && <span className="truncate text-sm font-medium text-foreground">{resolvedBrandName}</span>}
-            </Link>
-          </div>
-        )}
+        {!hideHeader && renderBrandHeader(compact)}
+        <div className={isPanel ? `${SIDEBAR_PANEL} relative flex min-h-0 flex-1 flex-col gap-2` : 'contents'}>
         {!compact && !hideSearch && (
           <SearchInput
             value={navQuery}
@@ -859,10 +963,10 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
             placeholder={t('appShell.searchNavPlaceholder', 'Search...')}
             aria-label={t('appShell.searchNavAria', 'Search navigation')}
             clearLabel={t('appShell.searchNavClear', 'Clear search')}
-            className="mb-2"
+            className={isPanel ? 'mb-1' : 'mb-2'}
           />
         )}
-        <div data-sidebar-scroll="true" className={`flex flex-1 flex-col gap-3 overflow-y-auto scrollbar-hide pr-1 ${compact ? '-ml-2 pl-2' : '-ml-3 pl-3'}`}>
+        <div data-sidebar-scroll="true" className={scrollAreaClass}>
           <nav className="flex flex-col gap-2">
           {sortedSections.map((section, sectionIndex) => {
             const sectionNavQueryActive = hideSearch ? false : navQueryActive
@@ -901,7 +1005,11 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
               )))
               const showChildren = childItems.length > 0 && (isOnItemBranch || sectionNavQueryActive)
               const isActive = isOnItemBranch || hasActiveChild
-              const base = compact ? SIDEBAR_ITEM_BOX_COMPACT : 'w-full h-10 gap-2.5'
+              const base = compact
+                ? SIDEBAR_ITEM_BOX_COMPACT
+                : isPanel
+                  ? SIDEBAR_PANEL_ITEM_BOX
+                  : 'w-full h-10 gap-2.5'
               const spacingStyle = !compact
                 ? {
                     paddingLeft: `${12 + depth * 16}px`,
@@ -913,13 +1021,15 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                 <React.Fragment key={item.id}>
                   <Link
                     href={item.href}
-                    className={`${SIDEBAR_ITEM_BASE} ${base} ${sidebarItemStateClass(isActive)}`}
+                    className={`${isPanel ? SIDEBAR_PANEL_ITEM_BASE : SIDEBAR_ITEM_BASE} ${base} ${
+                      isPanel ? sidebarPanelItemStateClass(isActive) : sidebarItemStateClass(isActive)
+                    }`}
                     style={spacingStyle}
                     title={compact ? label : undefined}
                     data-menu-item-id={item.id}
                     onClick={() => setMobileOpen(false)}
                   >
-                    <span className="flex items-center justify-center shrink-0">
+                    <span className={SIDEBAR_ICON_BOX}>
                       {renderIcon(
                         item.icon,
                         item.iconName,
@@ -940,23 +1050,39 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                   <Button
                     variant="muted"
                     onClick={() => toggleGroup(sectionKey)}
-                    className={SIDEBAR_GROUP_LABEL}
+                    className={isPanel ? SIDEBAR_PANEL_GROUP_LABEL : SIDEBAR_GROUP_LABEL}
                     aria-expanded={open}
                   >
                     <span>{sectionLabel}</span>
                     <Chevron open={open} />
                   </Button>
                 )}
-                {(open || compact) && (
-                  <div className={`flex flex-col ${compact ? 'items-center' : ''} gap-1`}>
-                    {sortedItems.map((item) => renderSectionItem(item))}
-                  </div>
+                <SidebarCollapse open={open || compact} center={compact}>
+                  {sortedItems.map((item) => renderSectionItem(item))}
+                </SidebarCollapse>
+                {sectionIndex !== lastVisibleIndex && (
+                  <div
+                    className={
+                      isPanel
+                        ? 'my-2 border-t border-border'
+                        : `my-2 border-t ${compact ? '-ml-2 -mr-3' : '-ml-3 -mr-4'}`
+                    }
+                  />
                 )}
-                {sectionIndex !== lastVisibleIndex && <div className={`my-2 border-t ${compact ? '-ml-2 -mr-3' : '-ml-3 -mr-4'}`} />}
               </div>
             )
           })}
         </nav>
+        </div>
+        {isPanel && (
+          /* The column-level fade is suppressed for this variant (it would wash
+             over the panel's edge), so the panel carries its own — inset by the
+             panel padding and tinted to the panel fill. */
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-2 bottom-2 h-8 bg-gradient-to-t from-surface-muted via-surface-muted/80 to-transparent"
+          />
+        )}
         </div>
       </div>
     )
@@ -966,18 +1092,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
     if (!isChromeReady && isChromeLoading) {
       return (
         <div className="flex flex-col min-h-full gap-3" data-testid="backend-chrome-loading">
-          {!hideHeader ? (
-            <div className="mb-2">
-              <Link
-                href="/backend"
-                className={`flex h-14 items-center gap-3 rounded-lg transition-colors hover:bg-surface-muted ${compact ? 'justify-center px-2' : 'px-3'}`}
-                aria-label={t('appShell.goToDashboard')}
-              >
-                <ShellBrandLogo logo={resolvedLogo} brandName={resolvedBrandName} compact={compact} unoptimized={resolvedLogoBypassesOptimization} />
-                {!compact && <span className="truncate text-sm font-medium text-foreground">{resolvedBrandName}</span>}
-              </Link>
-            </div>
-          ) : null}
+          {!hideHeader ? renderBrandHeader(compact) : null}
           <div className="flex flex-1 flex-col gap-3 pr-1">
             <div className="space-y-3">
               <div className="h-8 rounded bg-muted/50" />
@@ -1009,7 +1124,9 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
         mergedSettingsSections,
         settingsSectionTitle ?? t('backend.nav.settings', 'Settings'),
         compact,
-        hideHeader
+        hideHeader,
+        undefined,
+        'panel'
       )
     }
 
@@ -1032,18 +1149,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
 
     return (
       <div className="flex h-full flex-col gap-3">
-        {!hideHeader && (
-          <div className="mb-2">
-            <Link
-              href="/backend"
-              className={`flex h-14 items-center gap-3 rounded-lg transition-colors hover:bg-surface-muted ${compact ? 'justify-center px-2' : 'px-3'}`}
-              aria-label={t('appShell.goToDashboard')}
-            >
-              <ShellBrandLogo logo={resolvedLogo} brandName={resolvedBrandName} compact={compact} unoptimized={resolvedLogoBypassesOptimization} />
-              {!compact && <span className="truncate text-sm font-medium text-foreground">{resolvedBrandName}</span>}
-            </Link>
-          </div>
-        )}
+        {!hideHeader && renderBrandHeader(compact)}
         {shouldRenderSidebarInjectionSpots ? (
           <InjectionSpot
             spotId={BACKEND_SIDEBAR_TOP_INJECTION_SPOT_ID}
@@ -1118,9 +1224,8 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                               <Chevron open={open} />
                             </Button>
                           )}
-                          {(open || compact) && (
-                            <div className={`flex flex-col ${compact ? 'items-center' : ''} gap-1`}>
-                              {visibleItems.map((i) => {
+                          <SidebarCollapse open={open || compact} center={compact}>
+                            {visibleItems.map((i) => {
                                 const allChildItems = (i.children ?? []).filter((child) => child.hidden !== true)
                                 const matchingChildItems = navQueryActive
                                   ? allChildItems.filter((c) => matchesQuery(c.title))
@@ -1142,7 +1247,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                                       data-menu-item-id={i.id ?? i.href}
                                       onClick={() => setMobileOpen(false)}
                                     >
-                                      <span className="flex items-center justify-center shrink-0">
+                                      <span className={SIDEBAR_ICON_BOX}>
                                         {renderIcon(
                                           i.icon,
                                           i.iconName,
@@ -1155,7 +1260,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                                     {showChildren ? (
                                       <div className={`relative flex flex-col ${compact ? 'items-center' : ''} gap-1`}>
                                         {!compact && (
-                                          <span aria-hidden className="pointer-events-none absolute left-1.5 top-1 bottom-1 w-px bg-border" />
+                                          <span aria-hidden className="pointer-events-none absolute left-3 top-1 bottom-1 w-px bg-border" />
                                         )}
                                         {childItems.map((c) => {
                                           const childActive = pathname?.startsWith(c.href)
@@ -1170,7 +1275,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                                               data-menu-item-id={c.id ?? c.href}
                                               onClick={() => setMobileOpen(false)}
                                             >
-                                              <span className="flex items-center justify-center shrink-0">
+                                              <span className={SIDEBAR_ICON_BOX}>
                                                 {renderIcon(
                                                   c.icon,
                                                   c.iconName,
@@ -1186,9 +1291,8 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                                     ) : null}
                                   </React.Fragment>
                                 )
-                              })}
-                            </div>
-                          )}
+                            })}
+                          </SidebarCollapse>
                           {gi !== mainLastVisibleGroupIndex && <div className={`my-2 border-t ${compact ? '-ml-2 -mr-3' : '-ml-3 -mr-4'}`} />}
                         </div>
                       )
@@ -1225,6 +1329,9 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
   function renderSectionAside() {
     let sections: SectionNavGroup[] | null = null
     let title = ''
+    // Settings is the only section nav on the panel treatment; profile keeps the
+    // chrome column until the two are deliberately unified.
+    let variant: 'chrome' | 'panel' = 'chrome'
     if (sidebarMode === 'settings' && resolvedSettingsSections && resolvedSettingsSections.length > 0) {
       sections = mergeSectionGroupsWithInjected(
         resolvedSettingsSections,
@@ -1232,6 +1339,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
         t,
       )
       title = settingsSectionTitle ?? t('backend.nav.settings', 'Settings')
+      variant = 'panel'
     } else if (sidebarMode === 'profile' && resolvedProfileSections && resolvedProfileSections.length > 0) {
       sections = mergeSectionGroupsWithInjected(
         resolvedProfileSections,
@@ -1253,14 +1361,18 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           <span className="truncate">{title}</span>
         </Link>
         <div className="min-h-0 flex-1">
-          {renderSectionSidebar(sections, title, false, true, true)}
+          {/* No search here: the user can re-expand the main sidebar while in
+              settings mode, and that column already owns the nav search. */}
+          {renderSectionSidebar(sections, title, false, true, true, variant)}
         </div>
       </div>
     )
   }
 
+  const isSettingsSectionView =
+    sidebarMode === 'settings' && !!resolvedSettingsSections && resolvedSettingsSections.length > 0
   const isSectionView =
-    (sidebarMode === 'settings' && !!resolvedSettingsSections && resolvedSettingsSections.length > 0) ||
+    isSettingsSectionView ||
     (sidebarMode === 'profile' && !!resolvedProfileSections && resolvedProfileSections.length > 0)
   const gridColsClass = isSectionView
     ? (effectiveCollapsed ? 'lg:grid-cols-[80px_240px_1fr]' : 'lg:grid-cols-[240px_240px_1fr]')
@@ -1314,7 +1426,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
         type="button"
         onClick={() => setCollapsed((c) => !c)}
         aria-label={t('appShell.toggleSidebar')}
-        className="hidden lg:flex fixed top-4 z-dropdown size-7 items-center justify-center rounded-md border border-border bg-surface text-muted-foreground shadow-sm transition-colors hover:text-foreground hover:bg-surface-strong focus:outline-none focus-visible:shadow-focus"
+        className="hidden lg:flex fixed top-4 z-dropdown size-7 items-center justify-center rounded-md border border-border bg-surface text-muted-foreground shadow-sm transition-[left,color,background-color] duration-200 ease-out hover:text-foreground hover:bg-surface-strong focus:outline-none focus-visible:shadow-focus motion-reduce:transition-none"
         style={{ left: `calc(${asideWidth} - 14px)` }}
       >
         {effectiveCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
@@ -1372,11 +1484,15 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           {renderSectionAside()}
           {/* Static bottom fade — covers the native iOS scroll indicator and signals
               that the section list is scrollable. Same look as the main sidebar's
-              affordance but without the chevron / scroll-state machinery. */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-sidebar via-sidebar/80 to-transparent"
-          />
+              affordance but without the chevron / scroll-state machinery. The
+              panel variant paints its own, inset to the panel, so a column-wide
+              fade here would wash over the panel's bottom edge. */}
+          {!isSettingsSectionView && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-sidebar via-sidebar/80 to-transparent"
+            />
+          )}
         </aside>
       ) : null}
 
@@ -1529,7 +1645,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
             <div className="shrink-0 flex items-center justify-between gap-2 border-b px-4 py-3">
               <Link href="/backend" className="flex items-center gap-2 min-w-0 text-sm font-semibold" onClick={() => setMobileOpen(false)} aria-label={t('appShell.goToDashboard')}>
                 <ShellBrandLogo logo={resolvedLogo} brandName={resolvedBrandName} mobile unoptimized={resolvedLogoBypassesOptimization} />
-                <span className="truncate">{resolvedBrandName}</span>
+                {!brandNameIsInLogo && <span className="truncate">{resolvedBrandName}</span>}
               </Link>
               <IconButton variant="ghost" size="sm" onClick={() => setMobileOpen(false)} aria-label={t('appShell.closeMenu')}>
                 <X className="size-4" />

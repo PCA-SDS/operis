@@ -644,6 +644,110 @@ describe('AppShell', () => {
       expect(backLink.textContent).toContain('Settings')
     })
 
+    it('renders the built-in wordmark inline, once, without repeating the name beside it', async () => {
+      mockPathname = '/backend'
+      const { container } = renderWithProviders(
+        <AppShell email="demo@example.com" groups={groups} productName="Operis">
+          <div>Content</div>
+        </AppShell>,
+        { dict },
+      )
+
+      const header = await screen.findByLabelText('Go to dashboard')
+      // Inline <svg>, not <img>: an external file cannot inherit the sidebar's ink.
+      const svg = header.querySelector('svg')
+      expect(svg).not.toBeNull()
+      expect(header.querySelector('img')).toBeNull()
+      // <title> is the lockup's accessible name, so the header still reads "Operis"...
+      expect(within(header).getByTitle('Operis')).toBeInTheDocument()
+      // ...but only once: the brand <span> beside it would be the same word twice.
+      expect(header.querySelector('span')).toBeNull()
+      expect(container.querySelectorAll('a[aria-label="Go to dashboard"]').length).toBe(1)
+    })
+
+    it('keeps the name beside the mark when the brand is whitelabelled', async () => {
+      mockPathname = '/backend'
+      renderWithProviders(
+        <AppShell email="demo@example.com" groups={groups} productName="Acme Ops">
+          <div>Content</div>
+        </AppShell>,
+        { dict },
+      )
+
+      const header = await screen.findByLabelText('Go to dashboard')
+      expect(header.textContent).toContain('Acme Ops')
+      expect(header.querySelector('svg')).not.toBeNull()
+    })
+
+    it('renders the settings section nav as a panel, and profile as the chrome column', async () => {
+      const settingsSections = [
+        {
+          id: 'data-designer',
+          label: 'Data Designer',
+          items: [
+            { id: 'user-entities', label: 'User Entities', href: '/backend/entities/user' },
+            { id: 'user-records', label: 'User Records', href: '/backend/entities/records' },
+          ],
+        },
+      ]
+      const profileSections = [
+        {
+          id: 'account',
+          label: 'Account',
+          items: [
+            { id: 'security', label: 'Security', href: '/backend/profile/security' },
+            { id: 'sessions', label: 'Sessions', href: '/backend/profile/sessions' },
+          ],
+        },
+      ]
+
+      mockPathname = '/backend/entities/user'
+      const settingsRender = renderWithProviders(
+        <AppShell
+          email="demo@example.com"
+          groups={groups}
+          settingsPathPrefixes={['/backend/entities/user']}
+          settingsSections={settingsSections}
+          profileSections={profileSections}
+          profilePathPrefixes={['/backend/profile/']}
+        >
+          <div>Settings content</div>
+        </AppShell>,
+        { dict },
+      )
+
+      const settingsAside = await screen.findByTestId('appshell-section-sidebar')
+      expect(settingsAside.querySelector('.bg-surface-muted.rounded-xl')).not.toBeNull()
+      // Idle rows hover to `surface-strong`; `surface-muted` would be invisible
+      // against the panel they sit on.
+      const settingsIdle = within(settingsAside).getByText('User Records').closest('a')
+      expect(settingsIdle?.className).toContain('hover:bg-surface-strong')
+      expect(settingsIdle?.className).toContain('rounded-md')
+
+      settingsRender.unmount()
+
+      mockPathname = '/backend/profile/security'
+      renderWithProviders(
+        <AppShell
+          email="demo@example.com"
+          groups={groups}
+          settingsPathPrefixes={['/backend/entities/user']}
+          settingsSections={settingsSections}
+          profileSections={profileSections}
+          profilePathPrefixes={['/backend/profile/']}
+        >
+          <div>Profile content</div>
+        </AppShell>,
+        { dict },
+      )
+
+      const profileAside = await screen.findByTestId('appshell-section-sidebar')
+      expect(profileAside.querySelector('.bg-surface-muted.rounded-xl')).toBeNull()
+      const profileIdle = within(profileAside).getByText('Sessions').closest('a')
+      expect(profileIdle?.className).toContain('hover:bg-surface-muted')
+      expect(profileIdle?.className).toContain('rounded-lg')
+    })
+
     it('does not render a duplicate search input inside the section sidebar', async () => {
       mockPathname = '/backend/entities/user'
 
