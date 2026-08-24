@@ -10,7 +10,7 @@ export const metadata = {
   requireFeatures: ['payment_gateways.view'],
   pageTitle: 'Payment Transactions',
   pageTitleKey: 'payment_gateways.nav.transactions',
-  pageGroup: 'External systems',
+  pageGroup: 'External Systems',
   pageGroupKey: 'backend.nav.externalSystems',
   pageOrder: 52,
   icon: cardIcon,

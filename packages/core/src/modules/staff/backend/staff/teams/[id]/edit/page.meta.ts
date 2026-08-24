@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['staff.manage_team'],
-  pageTitle: 'Edit team',
+  pageTitle: 'Edit Team',
   pageTitleKey: 'staff.teams.form.editTitle',
   pageGroup: 'Employees',
   pageGroupKey: 'staff.nav.group',

@@ -59,7 +59,7 @@ export default function StaffTeamRoleCreatePage() {
     <Page>
       <PageBody>
         <TeamRoleForm
-          title={t('staff.teamRoles.form.createTitle', 'Add team role')}
+          title={t('staff.teamRoles.form.createTitle', 'Add Team Role')}
           backHref="/backend/staff/team-roles"
           cancelHref="/backend/staff/team-roles"
           submitLabel={t('staff.teamRoles.form.actions.create', 'Create')}

@@ -12,7 +12,7 @@ export const metadata = {
   requireFeatures: ['push_notifications.view_deliveries'],
   pageTitle: 'Push Deliveries',
   pageTitleKey: 'push_notifications.deliveries.pageTitle',
-  pageGroup: 'External systems',
+  pageGroup: 'External Systems',
   pageGroupKey: 'backend.nav.externalSystems',
   pageOrder: 54,
   icon: sendIcon,

@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['eudr.risk.view'],
-  pageTitle: 'Risk assessments',
+  pageTitle: 'Risk Assessments',
   pageTitleKey: 'eudr.nav.riskAssessments',
   pageGroup: 'Compliance',
   pageGroupKey: 'eudr.nav.group',
@@ -10,6 +10,6 @@ export const metadata = {
   icon: 'shield-alert',
   breadcrumb: [
     { label: 'EUDR', labelKey: 'eudr.nav.module', href: '/backend/eudr' },
-    { label: 'Risk assessments', labelKey: 'eudr.nav.riskAssessments' },
+    { label: 'Risk Assessments', labelKey: 'eudr.nav.riskAssessments' },
   ],
 }

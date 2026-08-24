@@ -104,7 +104,7 @@ export default function StaffTeamMembersPage() {
   }, [roleFilterParam])
 
   const labels = React.useMemo(() => ({
-    title: t('staff.teamMembers.page.title', 'Team members'),
+    title: t('staff.teamMembers.page.title', 'Team Members'),
     description: t('staff.teamMembers.page.description', 'Manage employees and their team assignments.'),
     table: {
       name: t('staff.teamMembers.table.name', 'Name'),

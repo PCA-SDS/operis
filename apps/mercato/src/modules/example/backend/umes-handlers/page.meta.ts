@@ -8,8 +8,8 @@ export const metadata = {
   pageOrder: 20500,
   icon: 'settings',
   breadcrumb: [
-    { label: 'General tasks', labelKey: 'example.todos.page.title', href: '/backend/todos' },
-    { label: 'Phase A-D handlers', labelKey: 'example.umes.handlers.title' },
+    { label: 'General Tasks', labelKey: 'example.todos.page.title', href: '/backend/todos' },
+    { label: 'Phase A-D Handlers', labelKey: 'example.umes.handlers.title' },
   ],
 }
 

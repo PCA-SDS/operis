@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['entities.records.view'],
   pageTitle: 'Entity Records',
   pageTitleKey: 'entities.nav.entityRecords',
-  pageGroup: 'Data designer',
+  pageGroup: 'Data Designer',
   pageGroupKey: 'entities.nav.group',
   pageOrder: 60,
 }

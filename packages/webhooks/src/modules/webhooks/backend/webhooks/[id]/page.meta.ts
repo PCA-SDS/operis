@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['webhooks.view'],
   pageTitle: 'Webhook Detail',
   pageTitleKey: 'webhooks.detail.title',
-  pageGroup: 'External systems',
+  pageGroup: 'External Systems',
   pageGroupKey: 'backend.nav.externalSystems',
   navHidden: false,
   breadcrumb: [

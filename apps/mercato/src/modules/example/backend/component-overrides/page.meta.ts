@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['example.backend'],
-  pageTitle: 'Component overrides',
+  pageTitle: 'Component Overrides',
   pageTitleKey: 'example.componentOverrides.page.title',
   pageGroup: 'Example',
   pageGroupKey: 'example.nav.group',
@@ -11,7 +11,7 @@ export const metadata = {
   // the sidebar so it cannot be mistaken for a feature.
   navHidden: true,
   breadcrumb: [
-    { label: 'Component overrides', labelKey: 'example.componentOverrides.page.title' },
+    { label: 'Component Overrides', labelKey: 'example.componentOverrides.page.title' },
   ],
 }
 

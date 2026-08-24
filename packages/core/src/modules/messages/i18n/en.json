@@ -181,7 +181,7 @@
   "messages.message.sent": "Message sent",
   "messages.message.unarchived": "Message unarchived",
   "messages.nav.compose": "Compose",
-  "messages.nav.detail": "Message details",
+  "messages.nav.detail": "Message Details",
   "messages.nav.group": "Messages",
   "messages.nav.inbox": "Messages",
   "messages.notifications.new.body": "You have received a new message from {from}: {title}",

@@ -646,7 +646,7 @@ export default function WmsOperationalDashboardPage() {
     <Page>
       <PageBody className="space-y-6">
         <PageHeader
-          title={t('wms.backend.dashboard.title', 'Operational dashboard')}
+          title={t('wms.backend.dashboard.title', 'Operational Dashboard')}
           description={subtitle}
           actions={(
             <>

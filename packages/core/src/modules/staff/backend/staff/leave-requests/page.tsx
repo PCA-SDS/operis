@@ -45,7 +45,7 @@ export default function StaffLeaveRequestsPage() {
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'startDate', desc: true }])
 
   const labels = React.useMemo(() => ({
-    title: t('staff.leaveRequests.page.title', 'Leave requests'),
+    title: t('staff.leaveRequests.page.title', 'Leave Requests'),
     table: {
       member: t('staff.leaveRequests.table.member', 'Team member'),
       dates: t('staff.leaveRequests.table.dates', 'Dates'),

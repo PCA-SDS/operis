@@ -51,7 +51,7 @@ export default function ResourcesResourceCreatePage() {
     <Page>
       <PageBody>
         <ResourcesResourceForm
-          title={t('resources.resources.form.createTitle', 'Create resource')}
+          title={t('resources.resources.form.createTitle', 'Create Resource')}
           backHref="/backend/resources/resources"
           cancelHref="/backend/resources/resources"
           submitLabel={t('resources.resources.form.actions.create', 'Create')}

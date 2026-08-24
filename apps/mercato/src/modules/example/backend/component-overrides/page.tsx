@@ -18,7 +18,7 @@ export default function ExampleComponentOverridesPage() {
   return (
     <Page>
       <PageHeader
-        title={t('example.componentOverrides.page.title', 'Component overrides')}
+        title={t('example.componentOverrides.page.title', 'Component Overrides')}
         description={t('example.componentOverrides.page.description', 'The section below is resolved through the component-override registry. Remove the entries in widgets/components.ts to see the host implementation instead.')}
       />
       <PageBody>

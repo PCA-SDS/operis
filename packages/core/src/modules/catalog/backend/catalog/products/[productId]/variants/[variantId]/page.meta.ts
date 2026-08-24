@@ -6,7 +6,7 @@ export const metadata = {
   navHidden: true,
   breadcrumb: [
     {
-      label: 'Products & services',
+      label: 'Products & Services',
       labelKey: 'catalog.products.page.title',
       href: '/backend/catalog/products',
     },

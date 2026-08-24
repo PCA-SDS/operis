@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['customers.people.view'],
-  pageTitle: 'Person details',
+  pageTitle: 'Person Details',
   pageTitleKey: 'customers.people.detail.title',
   pageGroup: 'Customers',
   pageGroupKey: 'customers.nav.group',

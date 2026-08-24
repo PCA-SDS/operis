@@ -107,7 +107,7 @@ export default function EditWarrantyClaimRegistrationPage({ params }: { params?:
     <Page>
       <PageBody>
         <CrudForm<RegistrationFormValues>
-          title={t('warranty_claims.registrations.edit.title', 'Edit warranty registration')}
+          title={t('warranty_claims.registrations.edit.title', 'Edit Warranty Registration')}
           backHref="/backend/warranty_claims/registrations"
           fields={fields}
           groups={groups}

@@ -10,13 +10,13 @@ const editIcon = React.createElement(
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['resources.manage_resources'],
-  pageTitle: 'Edit resource type',
+  pageTitle: 'Edit Resource Type',
   pageTitleKey: 'resources.resourceTypes.form.editTitle',
-  pageGroup: 'Resource planning',
+  pageGroup: 'Resource Planning',
   pageGroupKey: 'resources.nav.group',
   icon: editIcon,
   breadcrumb: [
-    { label: 'Resource types', labelKey: 'resources.resourceTypes.page.title', href: '/backend/resources/resource-types' },
+    { label: 'Resource Types', labelKey: 'resources.resourceTypes.page.title', href: '/backend/resources/resource-types' },
     { label: 'Edit', labelKey: 'common.edit' },
   ],
 }

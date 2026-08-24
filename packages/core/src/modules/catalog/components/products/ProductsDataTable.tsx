@@ -662,7 +662,7 @@ export default function ProductsDataTable({
   return (
     <>
       <DataTable<ProductRow>
-        title={t('catalog.products.page.title', 'Products & services')}
+        title={t('catalog.products.page.title', 'Products & Services')}
         entityId={ENTITY_ID}
         customFieldFilterKeyExtras={[scopeVersion, reloadToken]}
         refreshButton={{
@@ -684,7 +684,7 @@ export default function ProductsDataTable({
         data={rows}
         emptyState={(
           <ListEmptyState
-            entityName={t('catalog.products.page.title', 'Products & services')}
+            entityName={t('catalog.products.page.title', 'Products & Services')}
             createHref="/backend/catalog/products/create"
             createLabel={t('catalog.products.actions.create', 'Create')}
           />

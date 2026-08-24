@@ -12,7 +12,7 @@ export const metadata = {
   requireFeatures: ['push_notifications.send_custom'],
   pageTitle: 'Send Push',
   pageTitleKey: 'push_notifications.send.pageTitle',
-  pageGroup: 'External systems',
+  pageGroup: 'External Systems',
   pageGroupKey: 'backend.nav.externalSystems',
   pageOrder: 55,
   icon: megaphoneIcon,

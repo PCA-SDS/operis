@@ -11,13 +11,13 @@ const createIcon = React.createElement(
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['resources.manage_resources'],
-  pageTitle: 'Add resource type',
+  pageTitle: 'Add Resource Type',
   pageTitleKey: 'resources.resourceTypes.form.createTitle',
-  pageGroup: 'Resource planning',
+  pageGroup: 'Resource Planning',
   pageGroupKey: 'resources.nav.group',
   icon: createIcon,
   breadcrumb: [
-    { label: 'Resource types', labelKey: 'resources.resourceTypes.page.title', href: '/backend/resources/resource-types' },
+    { label: 'Resource Types', labelKey: 'resources.resourceTypes.page.title', href: '/backend/resources/resource-types' },
     { label: 'Create', labelKey: 'common.create' },
   ],
 }

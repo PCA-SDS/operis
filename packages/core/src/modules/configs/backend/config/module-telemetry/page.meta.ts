@@ -21,7 +21,7 @@ const moduleTelemetryIcon = React.createElement(
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['configs.system_status.view'],
-  pageTitle: 'Module telemetry',
+  pageTitle: 'Module Telemetry',
   pageTitleKey: 'configs.config.nav.moduleTelemetry',
   pageGroup: 'System',
   pageGroupKey: 'settings.sections.system',
@@ -29,6 +29,6 @@ export const metadata = {
   icon: moduleTelemetryIcon,
   pageContext: 'settings' as const,
   breadcrumb: [
-    { label: 'Module telemetry', labelKey: 'configs.config.nav.moduleTelemetry' },
+    { label: 'Module Telemetry', labelKey: 'configs.config.nav.moduleTelemetry' },
   ],
 } as const

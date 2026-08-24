@@ -1,11 +1,11 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['staff.leave_requests.manage'],
-  pageTitle: 'Leave requests',
+  pageTitle: 'Leave Requests',
   pageTitleKey: 'staff.leaveRequests.page.title',
   pageGroup: 'Employees',
   pageGroupKey: 'staff.nav.group',
   pageOrder: 90,
   icon: 'calendar-check',
-  breadcrumb: [{ label: 'Leave requests', labelKey: 'staff.leaveRequests.page.title' }],
+  breadcrumb: [{ label: 'Leave Requests', labelKey: 'staff.leaveRequests.page.title' }],
 }

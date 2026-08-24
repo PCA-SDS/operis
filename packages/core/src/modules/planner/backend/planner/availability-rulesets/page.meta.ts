@@ -12,12 +12,12 @@ const scheduleIcon = React.createElement(
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['planner.manage_availability'],
-  pageTitle: 'Availability schedules',
+  pageTitle: 'Availability Schedules',
   pageTitleKey: 'planner.availabilityRuleSets.page.title',
   pageGroup: 'Module Configs',
   pageGroupKey: 'settings.sections.moduleConfigs',
   pageOrder: 9,
   icon: scheduleIcon,
   pageContext: 'settings' as const,
-  breadcrumb: [{ label: 'Availability schedules', labelKey: 'planner.availabilityRuleSets.page.title' }],
+  breadcrumb: [{ label: 'Availability Schedules', labelKey: 'planner.availabilityRuleSets.page.title' }],
 }

@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['eudr.statements.manage'],
-  pageTitle: 'Create statement',
+  pageTitle: 'Create Statement',
   pageTitleKey: 'eudr.statements.create.title',
   pageGroup: 'Compliance',
   pageGroupKey: 'eudr.nav.group',

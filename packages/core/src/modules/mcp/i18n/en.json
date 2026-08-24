@@ -11,5 +11,5 @@
   "mcp.consent.organizationHelp": "The connection is locked to one organization. It cannot reach data in any other.",
   "mcp.consent.permissions": "It will be able to:",
   "mcp.consent.rbacNote": "It can never do more than you can. Your own permissions still apply to every action.",
-  "mcp.consent.title": "Connect an MCP client"
+  "mcp.consent.title": "Connect an MCP Client"
 }

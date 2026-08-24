@@ -10,7 +10,7 @@
   "push_notifications.deliveries.detail.lastError": "Last error",
   "push_notifications.deliveries.detail.loading": "Loading delivery…",
   "push_notifications.deliveries.detail.nextRetry": "Next retry",
-  "push_notifications.deliveries.detail.pageTitle": "Push delivery",
+  "push_notifications.deliveries.detail.pageTitle": "Push Delivery",
   "push_notifications.deliveries.detail.payload": "Payload",
   "push_notifications.deliveries.detail.providerResponse": "Provider response",
   "push_notifications.deliveries.detail.tokenSnapshot": "Token (last 8)",

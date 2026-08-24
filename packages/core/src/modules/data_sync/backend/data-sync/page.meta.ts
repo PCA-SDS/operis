@@ -12,7 +12,7 @@ export const metadata = {
   requireFeatures: ['data_sync.view'],
   pageTitle: 'Data Sync',
   pageTitleKey: 'data_sync.nav.title',
-  pageGroup: 'External systems',
+  pageGroup: 'External Systems',
   pageGroupKey: 'backend.nav.externalSystems',
   pageOrder: 51,
   icon: syncIcon,

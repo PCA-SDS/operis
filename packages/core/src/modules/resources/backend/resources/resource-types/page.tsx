@@ -90,7 +90,7 @@ export default function ResourcesResourceTypesPage() {
   )
 
   const translations = React.useMemo(() => ({
-    title: translate('resources.resourceTypes.page.title', 'Resource types'),
+    title: translate('resources.resourceTypes.page.title', 'Resource Types'),
     description: translate('resources.resourceTypes.page.description', 'Organize shared resources by category.'),
     table: {
       name: translate('resources.resourceTypes.table.name', 'Name'),
@@ -110,8 +110,8 @@ export default function ResourcesResourceTypesPage() {
       refresh: translate('resources.resourceTypes.actions.refresh', 'Refresh'),
     },
     form: {
-      createTitle: translate('resources.resourceTypes.form.createTitle', 'Add resource type'),
-      editTitle: translate('resources.resourceTypes.form.editTitle', 'Edit resource type'),
+      createTitle: translate('resources.resourceTypes.form.createTitle', 'Add Resource Type'),
+      editTitle: translate('resources.resourceTypes.form.editTitle', 'Edit Resource Type'),
       name: translate('resources.resourceTypes.form.name', 'Name'),
       description: translate('resources.resourceTypes.form.description', 'Description'),
       save: translate('resources.resourceTypes.form.save', 'Save'),

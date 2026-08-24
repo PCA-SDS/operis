@@ -1,9 +1,9 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['resources.manage_resources'],
-  pageTitle: 'Edit resource',
+  pageTitle: 'Edit Resource',
   pageTitleKey: 'resources.resources.form.editTitle',
-  pageGroup: 'Resource planning',
+  pageGroup: 'Resource Planning',
   pageGroupKey: 'resources.nav.group',
   navHidden: true,
   breadcrumb: [

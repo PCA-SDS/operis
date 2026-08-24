@@ -46,7 +46,7 @@ export default function StaffMyLeaveRequestsPage() {
   const [canSend, setCanSend] = React.useState(false)
 
   const labels = React.useMemo(() => ({
-    title: t('staff.leaveRequests.my.title', 'My leave requests'),
+    title: t('staff.leaveRequests.my.title', 'My Leave Requests'),
     table: {
       dates: t('staff.leaveRequests.table.dates', 'Dates'),
       status: t('staff.leaveRequests.table.status', 'Status'),

@@ -73,7 +73,7 @@ export default function PlannerAvailabilityRuleSetsPage() {
   const [reloadToken, setReloadToken] = React.useState(0)
 
   const labels = React.useMemo(() => ({
-    title: t('planner.availabilityRuleSets.page.title', 'Availability schedules'),
+    title: t('planner.availabilityRuleSets.page.title', 'Availability Schedules'),
     description: t('planner.availabilityRuleSets.page.description', 'Manage shared availability rulesets.'),
     table: {
       name: t('planner.availabilityRuleSets.table.name', 'Name'),

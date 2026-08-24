@@ -1,6 +1,6 @@
 export const metadata = {
   requireAuth: true,
-  pageTitle: 'Message details',
+  pageTitle: 'Message Details',
   pageTitleKey: 'messages.nav.detail',
   pageGroup: 'Messages',
   pageGroupKey: 'messages.nav.group',
