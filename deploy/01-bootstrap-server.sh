@@ -2,6 +2,15 @@
 # ==============================================================================
 # Operis — Server Bootstrap (idempotent, DRY-RUN BY DEFAULT)
 # ==============================================================================
+# NOT USED BY THE CURRENT DEPLOYMENT. The production host (148.113.44.174)
+# already runs four other stacks; it arrived with Docker installed, ufw
+# configured and sshd hardened, and this script's `systemctl restart docker`
+# would have bounced all 23 running containers at once. Operis was installed
+# there with the targeted steps in README.md instead.
+#
+# Kept because it is the right first move on a FRESH single-purpose VPS.
+# Run 00-audit-server.sh first, every time, and believe what it says.
+# ==============================================================================
 # Prepares a fresh Ubuntu 22.04/24.04 VPS to receive deploys:
 #   deploy user + CI key -> SSH hardening -> firewall -> fail2ban ->
 #   unattended security upgrades -> Docker CE -> log rotation -> swap ->
@@ -145,9 +154,9 @@ for p in 80 443; do
     else
       die "port $p is already in use:
     $holder
-  The Caddy reverse proxy cannot bind it. Either stop/reconfigure that service,
-  or re-run with --force if you intend to put Operis behind it instead
-  (see deploy/README.md -> 'Running behind an existing nginx')."
+  A reverse proxy for Operis cannot bind it. Either stop/reconfigure that
+  service, or put Operis BEHIND the existing one instead of running this
+  script at all — that is what README.md describes."
     fi
   fi
 done
@@ -237,9 +246,9 @@ run ufw allow 80/tcp   comment 'http (acme + redirect)'
 run ufw allow 443/tcp  comment 'https'
 run ufw --force enable
 warn "Docker publishes ports by writing its own iptables rules, which BYPASS ufw.
-       The production compose file therefore publishes ONLY 80/443 (Caddy).
-       Postgres, Redis, Meilisearch and the app itself are never published —
-       they are reachable only on the internal Docker network."
+       The production compose file publishes NO host ports at all: the app is
+       reached over a shared Docker network by the gateway, and Postgres,
+       Redis and Meilisearch only by the app."
 
 # ------------------------------------------------------------------------------
 step "5/11  fail2ban (SSH brute-force protection)"
@@ -367,7 +376,7 @@ step "10/11  Application directory: $APP_DIR"
 run install -d -m 750 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$APP_DIR"
 run install -d -m 700 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$APP_DIR/backups"
 run install -d -m 750 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$APP_DIR/logs"
-ok "layout: $APP_DIR/{.env,docker-compose.yml,Caddyfile,backups/,logs/}"
+ok "layout: $APP_DIR/{.env,docker-compose.yml,redis.conf,backups/,logs/}"
 
 # ------------------------------------------------------------------------------
 step "11/11  Nightly database backup timer"

@@ -51,7 +51,7 @@ status() {
   printf '\n=== containers ===\n'
   dc ps
   printf '\n=== health ===\n'
-  for svc in app postgres redis meilisearch caddy; do
+  for svc in app postgres redis meilisearch; do
     cid="$(dc ps -q "$svc" 2>/dev/null || true)"
     if [ -n "$cid" ]; then
       printf '%-12s %s\n' "$svc" "$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null)"
@@ -146,6 +146,15 @@ set -a; . "$ENV_FILE"; set +a
 : "${JWT_SECRET:?JWT_SECRET is not set in .env}"
 [ "${#JWT_SECRET}" -ge 32 ] || fail "JWT_SECRET must be at least 32 characters (the app refuses to boot otherwise)"
 
+# The gateway network belongs to the pca-erp stack, not to this compose file.
+# Without this check a missing/renamed network surfaces as an opaque compose
+# error after the pull and the backup have already run.
+EDGE_NET="${EDGE_NETWORK:-pca-erp-network}"
+docker network inspect "$EDGE_NET" >/dev/null 2>&1 || fail "docker network '$EDGE_NET' does not exist.
+       Operis joins it so pca-erp-nginx can reach the app container. If the
+       pca-erp stack was renamed or torn down, set EDGE_NETWORK in .env to the
+       right network. Check with: docker network ls"
+
 PREVIOUS_TAG="$(read_state CURRENT_TAG)"
 
 log "=============================================================="
@@ -164,7 +173,7 @@ docker pull "$APP_IMAGE:$TAG" >>"$LOG_FILE" 2>&1 \
 log "pulled $(docker image inspect -f '{{index .RepoDigests 0}}' "$APP_IMAGE:$TAG" 2>/dev/null || echo "$APP_IMAGE:$TAG")"
 
 # Sidecars too, so a compose `up` never stalls on a slow registry mid-restart.
-dc pull --quiet caddy postgres redis meilisearch >>"$LOG_FILE" 2>&1 || true
+dc pull --quiet postgres redis meilisearch >>"$LOG_FILE" 2>&1 || true
 
 # ------------------------------------------------------------------------------
 # 2. Back up the database BEFORE the new container gets a chance to migrate it.

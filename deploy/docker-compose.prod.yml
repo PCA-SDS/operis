@@ -1,16 +1,19 @@
 # ==============================================================================
-# Operis — production stack (single VPS)
+# Operis — production stack (behind the existing pca-erp nginx gateway)
 # ==============================================================================
 # Deployed to /opt/operis/docker-compose.yml by the GitHub Actions workflow.
-# It never builds: the image is built once in CI and pulled by digest-pinned tag.
+# It never builds: the image is built once in CI and pulled by tag.
 #
-#   internet ──443──> caddy ──(internal docker network)──> app ──> postgres
-#                                                              ├─> redis
-#                                                              └─> meilisearch
+#   internet ─443─> pca-erp-nginx ──(pca-erp-network)──> operis-app ─┐
+#                   (not ours; owns 80/443)                          │
+#                                                    ┌───────────────┘
+#                                                    ├─> postgres  ┐
+#                                                    ├─> redis     │ operis-internal
+#                                                    └─> meilisearch ┘
 #
-# Only Caddy publishes ports. Postgres, Redis, Meilisearch and the app itself
-# are reachable ONLY on the internal network — nothing to firewall, nothing
-# for Docker's iptables rules to accidentally expose past ufw.
+# NOTHING here publishes a host port. The app is reachable only by containers
+# on pca-erp-network (i.e. the gateway); the datastores only by the app. That
+# also sidesteps Docker's iptables rules, which bypass ufw for published ports.
 #
 # Run it by hand with the ./dc helper (which supplies both env files):
 #   ./dc ps          ./dc logs -f app          ./dc restart app
@@ -26,36 +29,6 @@ x-logging: &default-logging
 
 services:
   # ---------------------------------------------------------------------------
-  # Edge: TLS termination, HTTP->HTTPS redirect, automatic Let's Encrypt certs
-  # ---------------------------------------------------------------------------
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"          # HTTP/3
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data       # certificates + ACME account — do not delete
-      - caddy_config:/config
-    environment:
-      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env (e.g. app.example.com)}
-      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env — Let'"'"'s Encrypt expiry notices go here}
-      APP_UPSTREAM: app:${CONTAINER_PORT:-3000}
-    depends_on:
-      app:
-        condition: service_started
-    security_opt: [ "no-new-privileges:true" ]
-    logging: *default-logging
-    healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
-  # ---------------------------------------------------------------------------
   # Application (Next.js server + background workers + scheduler)
   # ---------------------------------------------------------------------------
   # On start it runs docker/scripts/init-or-migrate.sh:
@@ -65,8 +38,18 @@ services:
   # than re-initialising.
   app:
     image: ${APP_IMAGE:?set APP_IMAGE}:${APP_IMAGE_TAG:?APP_IMAGE_TAG is injected by deploy.sh}
+    # Fixed name because the gateway resolves this host by DNS. nginx uses
+    # `set $upstream_operis http://operis-app:3000` + a resolver, so a
+    # redeployed container is picked up without reloading nginx — but only if
+    # the name stays put. Compose's default (operis-app-1) would work too;
+    # pinning it keeps the nginx template readable.
+    container_name: operis-app
     restart: unless-stopped
-    pull_policy: always
+    # `missing`, not `always`: deploy.sh pulls the tag explicitly while CI holds
+    # a short-lived registry login. With `always`, a later manual `./dc up -d`
+    # would try to re-pull with no credentials on the box and fail on an image
+    # that is already sitting in the local store.
+    pull_policy: missing
     # Upstream's own compose runs this container as uid 0 because the entrypoint
     # writes the init marker and the attachments volume before dropping work to
     # the app. Kept as-is deliberately — the container publishes no ports and
@@ -102,14 +85,14 @@ services:
       QUEUE_STRATEGY: async
       NEXT_PUBLIC_QUEUE_STRATEGY: async
       RATE_LIMIT_STRATEGY: redis
-      # Exactly one reverse proxy (Caddy) sits in front, so trust exactly one
-      # X-Forwarded-For hop. Higher values let a client spoof its own IP and
-      # walk straight through the login rate limiter.
+      # Exactly one reverse proxy (pca-erp-nginx) sits in front, and it
+      # overwrites X-Forwarded-For with $proxy_add_x_forwarded_for. Trust one
+      # hop. A higher value lets a client spoof its own IP and walk straight
+      # through the login rate limiter.
       RATE_LIMIT_TRUST_PROXY_DEPTH: "1"
       MEILISEARCH_HOST: http://meilisearch:7700
       MEILISEARCH_API_KEY: ${MEILISEARCH_MASTER_KEY:?set MEILISEARCH_MASTER_KEY in .env}
-      INTERNAL_APP_ORIGIN: http://app:${CONTAINER_PORT:-3000}
-      # Marker + attachments both land on volumes owned by this container.
+      INTERNAL_APP_ORIGIN: http://operis-app:${CONTAINER_PORT:-3000}
       INIT_MARKER_FILE: /tmp/init-marker/.seeded
     volumes:
       - init_marker:/tmp/init-marker
@@ -118,6 +101,14 @@ services:
       postgres:  { condition: service_healthy }
       redis:     { condition: service_healthy }
       meilisearch: { condition: service_healthy }
+    networks:
+      # Datastores.
+      - internal
+      # The gateway. Declared external below: it belongs to the pca-erp stack,
+      # is not created or destroyed by this compose file, and joining it here
+      # (rather than running `docker network connect` by hand) means the link
+      # survives a pca-erp redeploy that recreates the nginx container.
+      - edge
     security_opt: [ "no-new-privileges:true" ]
     stop_grace_period: 30s
     logging: *default-logging
@@ -134,8 +125,12 @@ services:
   # ---------------------------------------------------------------------------
   # Postgres (pgvector — required by the search module's vector indexes)
   # ---------------------------------------------------------------------------
+  # Deliberately a SEPARATE instance from pca-erp-postgres. Sharing one server
+  # would couple two products' upgrade cycles, connection budgets and restore
+  # windows: a pg_restore for one is downtime for both.
   postgres:
     image: pgvector/pgvector:pg17-trixie
+    container_name: operis-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-operis}
@@ -148,17 +143,18 @@ services:
       - -c
       - max_connections=${PG_MAX_CONNECTIONS:-120}
       - -c
-      - shared_buffers=${PG_SHARED_BUFFERS:-512MB}
+      - shared_buffers=${PG_SHARED_BUFFERS:-1GB}
       - -c
-      - effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-1536MB}
+      - effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-3GB}
       - -c
       - work_mem=${PG_WORK_MEM:-16MB}
       - -c
-      - maintenance_work_mem=${PG_MAINTENANCE_WORK_MEM:-128MB}
+      - maintenance_work_mem=${PG_MAINTENANCE_WORK_MEM:-256MB}
       - -c
       - log_min_duration_statement=${PG_LOG_MIN_DURATION_MS:-2000}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks: [ internal ]
     security_opt: [ "no-new-privileges:true" ]
     stop_grace_period: 60s
     logging: *default-logging
@@ -176,11 +172,13 @@ services:
   # is async here: queued jobs live in Redis and must survive a restart.
   redis:
     image: redis:7-alpine
+    container_name: operis-redis
     restart: unless-stopped
     command: redis-server /usr/local/etc/redis/redis.conf --maxmemory ${REDIS_MAXMEMORY:-768mb}
     volumes:
       - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
       - redis_data:/data
+    networks: [ internal ]
     security_opt: [ "no-new-privileges:true" ]
     logging: *default-logging
     healthcheck:
@@ -192,10 +190,9 @@ services:
   # ---------------------------------------------------------------------------
   # Meilisearch — full-text search backend
   # ---------------------------------------------------------------------------
-  # Optional: comment this service out (and MEILISEARCH_HOST above) on a small
-  # VPS. The search module falls back to token-based Postgres search.
   meilisearch:
     image: getmeili/meilisearch:v1.11
+    container_name: operis-meilisearch
     restart: unless-stopped
     environment:
       MEILI_ENV: production
@@ -203,6 +200,7 @@ services:
       MEILI_NO_ANALYTICS: "true"
     volumes:
       - meilisearch_data:/meili_data
+    networks: [ internal ]
     security_opt: [ "no-new-privileges:true" ]
     logging: *default-logging
     healthcheck:
@@ -212,11 +210,16 @@ services:
       retries: 5
       start_period: 30s
 
+networks:
+  internal:
+    name: operis-internal
+  edge:
+    external: true
+    name: ${EDGE_NETWORK:-pca-erp-network}
+
 volumes:
   postgres_data:    { name: operis_postgres_data }
   redis_data:       { name: operis_redis_data }
   meilisearch_data: { name: operis_meilisearch_data }
   attachments:      { name: operis_attachments }
   init_marker:      { name: operis_init_marker }
-  caddy_data:       { name: operis_caddy_data }
-  caddy_config:     { name: operis_caddy_config }

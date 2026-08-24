@@ -1,29 +1,58 @@
-# Deploying Operis to an OVHcloud VPS
+# Deploying Operis to the OVH VPS (148.113.44.174)
 
 Push to `main` → GitHub Actions builds a container image → the VPS pulls it and restarts.
 
-Nothing is compiled on the server. The image is built once in CI, pushed to GitHub
-Container Registry, and pulled by tag. The server holds only the compose file, the
-reverse-proxy config, and a `.env` that never leaves it.
+**This is a shared host.** It already runs four unrelated production stacks. Everything
+below is written to be additive: nothing here restarts, reconfigures or competes with
+them, with exactly one exception that is called out where it happens.
 
 ```
   git push main
         │
         ▼
-  GitHub Actions ── docker build (Dockerfile, target: runner) ──► ghcr.io/<you>/operis:sha-abc1234
+  GitHub Actions ── docker build (Dockerfile, target: runner) ──► ghcr.io/f4heemmmmm/operis:sha-abc1234
         │                                                                    │
-        │ ssh + rsync (compose, Caddyfile, scripts)                          │ docker pull
+        │ ssh + rsync (compose, redis.conf, scripts)                         │ docker pull
         ▼                                                                    ▼
   ┌──────────────────────────── OVH VPS ──────────────────────────────────────┐
-  │  :80 :443  caddy ──► app ──► postgres (pgvector)                          │
-  │            (TLS)      │  ├─► redis        (cache + BullMQ + rate limits)  │
-  │                       │  └─► meilisearch  (search)                        │
-  │                       └─ runs migrations on boot, then `yarn start`       │
+  │                                                                           │
+  │  :80 :443 ── pca-erp-nginx ─┬─► erp / auth / cloud / files.pca-sds.com    │
+  │  (NOT OURS)                 │                                             │
+  │                             └─► operis.faheemkamel.com                    │
+  │                                        │ pca-erp-network                  │
+  │                                        ▼                                  │
+  │                                   operis-app ──┬─► operis-postgres  ┐     │
+  │                                                ├─► operis-redis     │ operis-
+  │                                                └─► operis-meilisearch┘ internal
   └───────────────────────────────────────────────────────────────────────────┘
 ```
 
-Only Caddy publishes ports. Postgres, Redis, Meilisearch and the app are reachable
-only on the internal Docker network — there is nothing else exposed to firewall.
+Operis publishes **no host ports at all**. The app is reachable only by containers on
+`pca-erp-network` (i.e. the gateway); the datastores only by the app. That also
+sidesteps Docker's iptables rules, which bypass ufw for published ports.
+
+---
+
+## Why the gateway is shared
+
+`pca-erp-nginx` owns :80 and :443 and is `default_server` on both. There is no second
+port 443 to hand out. Operis therefore serves through it.
+
+Three properties of that stack's config make this cheap, and they are why this works
+without touching their files:
+
+- nginx mounts the whole `docker/nginx/templates/` **directory**, so a new
+  `operis.conf.template` is picked up without editing `default.conf.template`
+- their `:80` block is `server_name _` and serves `/.well-known/acme-challenge/` for
+  **any** hostname — so the ACME HTTP-01 challenge for our domain works through it
+  before our vhost exists
+- their certbot runs `certbot renew` (every cert on the box, not a fixed list) twice a
+  day, and nginx reloads every 6h — so our certificate renews with **zero** changes to
+  their setup
+
+`NGINX_ENVSUBST_FILTER` is restricted to five variable names, so our template hardcodes
+the hostname rather than adding a sixth. Verified: rendering our template through their
+filter produces a byte-identical file — no nginx runtime variable gets eaten.
 
 ---
 
@@ -31,10 +60,10 @@ only on the internal Docker network — there is nothing else exposed to firewal
 
 | File | Runs where | Purpose |
 |---|---|---|
-| `00-audit-server.sh` | server | **Read-only** inventory. Changes nothing. Run first. |
-| `01-bootstrap-server.sh` | server | Hardening + Docker install. **Dry-run unless `--apply`.** |
+| `00-audit-server.sh` | server | **Read-only** inventory. Changes nothing. Run before touching an unfamiliar box. |
+| `01-bootstrap-server.sh` | — | **Not used on this host.** Correct for a *fresh* single-purpose VPS; see its header. |
 | `docker-compose.prod.yml` | server (as `docker-compose.yml`) | The stack. Never builds; pulls the CI image. |
-| `Caddyfile` | server | TLS termination, automatic Let's Encrypt. |
+| `nginx/operis.conf.template` | pca-erp templates dir | The vhost. Installed **by hand, once**. |
 | `redis.conf` | server | Redis with persistence on (queues live here). |
 | `env.production.example` | → server `.env` | Every environment variable, annotated. |
 | `deploy.sh` | server | Pull → back up → start → health-check → roll back on failure. |
@@ -42,213 +71,194 @@ only on the internal Docker network — there is nothing else exposed to firewal
 | `dc` | server | `docker compose` wrapper that supplies both env files. |
 | `../.github/workflows/deploy-production.yml` | GitHub | The pipeline. |
 
-`deploy.sh`, `backup.sh`, `dc`, the compose file, `Caddyfile` and `redis.conf` are
-rsynced to the server by every deploy — edit them here, in git, never on the box.
-`.env`, `backups/` and `logs/` are server-only and CI never touches them.
+CI rsyncs `deploy.sh`, `backup.sh`, `dc`, the compose file and `redis.conf` on every
+deploy — edit them in git, never on the box. `.env`, `backups/` and `logs/` are
+server-only and CI never touches them.
+
+The nginx template is **excluded from that sync on purpose**: it lives in another
+stack's directory, and an automated bad copy there would break four other hostnames.
 
 ---
 
-## Requirements
+## What the audit found (2026-08-24)
 
-- Ubuntu 22.04 or 24.04 VPS
-- **4 GB RAM minimum, 8 GB recommended.** Postgres + Redis + Meilisearch + a Next.js
-  server on 2 GB will thrash. Check section 2 of the audit before committing.
-- 40 GB disk
-- A domain with an A record you can point at the VPS
-- Ports 80 and 443 reachable (check the OVH control-panel firewall too — it is
-  separate from anything on the machine)
-- **x86_64.** The workflow builds `linux/amd64`, which covers every standard OVH VPS.
-  If §1 of the audit reports `arch: aarch64`, change `--platform linux/amd64` to
-  `linux/arm64` in the workflow — otherwise the server pulls the image and fails with
-  `exec format error`.
+| | |
+|---|---|
+| OS | Ubuntu 26.04 LTS, kernel 7.0.0-28, x86_64, KVM/OpenStack |
+| CPU / RAM | 8 vCPU AMD EPYC-Milan, 22 GB (19 GB available), **no swap** |
+| Disk | 193 GB, 8% used |
+| Docker | 29.6.2 + Compose v5.3.1, **no `daemon.json`** (no global log rotation) |
+| ufw | active; 22, 80, 443, 8088, 8090, 8091 open |
+| sshd | `PermitRootLogin no`, `PasswordAuthentication no`, port 22 — already hardened |
+| Existing stacks | pca-erp (80/443), pca_accounting (8080), pca-client-profile (8088), prive-booking (8090/8091), portainer (127.0.0.1:9090) |
+| Pending | kernel reboot required; 27 package updates including Docker 29.7.2 |
+
+Deliberately **not** changed: the pending reboot (it would restart four production
+stacks — schedule it yourself), and `/etc/docker/daemon.json` (writing it needs
+`systemctl restart docker`, which bounces all 23 containers). Operis's compose sets
+per-container log limits, so it does not add to the un-rotated-logs problem.
 
 ---
 
-## Phase 1 — Look before you touch
+## Setup
 
-From your laptop, without copying anything to the server:
+### 1 — DNS
+
+```
+A    operis    148.113.44.174    TTL 300
+```
+
+No AAAA record: the box has IPv6, but the existing gateway's vhosts are the only
+tested path and there is no reason to introduce a second one.
 
 ```bash
-ssh root@YOUR_SERVER_IP 'bash -s' < deploy/00-audit-server.sh | tee server-audit.txt
+dig +short operis.faheemkamel.com     # must return 148.113.44.174
 ```
 
-Read `server-audit.txt`. The four things that decide the plan:
+### 2 — Deploy account
 
-- **§2 Resources** — enough RAM and disk?
-- **§3 Open ports** — is anything already on `:80`/`:443`? If yes, see
-  [Running behind an existing nginx](#running-behind-an-existing-nginx).
-- **§8 Docker** — already installed? Already running containers you care about?
-- **§9 Directories** — anything of value in `/opt`, `/srv`, `/var/www`?
-
-The script prints SSH key **fingerprints**, never key material, and never reads a
-`.env`. It runs no `apt update` and starts nothing.
-
----
-
-## Phase 2 — DNS
-
-Point the domain at the server *before* bootstrapping. Caddy proves control of the
-hostname to Let's Encrypt over port 80; without DNS, certificate issuance fails.
-
-```
-Type  Name   Value             TTL
-A     app    <SERVER_IPv4>     300
-```
-
-Verify (allow for propagation):
+A dedicated account, not `ubuntu`. `ubuntu` currently carries five authorized keys —
+including a contractor's and an intern's — and is in the `docker` group, so anyone
+holding one of those keys can already read every `.env` on the box. Operis should not
+widen that.
 
 ```bash
-dig +short app.your-domain.com          # must return the server IP
+# on the server, as ubuntu (which has passwordless sudo)
+sudo adduser --disabled-password --gecos "Operis deploy" operis
+sudo usermod -aG docker operis
+sudo install -d -m 750 -o operis -g operis /opt/operis
+sudo install -d -m 700 -o operis -g operis /opt/operis/backups
+sudo install -d -m 750 -o operis -g operis /opt/operis/logs
 ```
 
----
+`docker` group membership is root-equivalent on this host. That is the standard
+tradeoff for a CI deploy account; it is why this account is key-only and gets no sudo.
 
-## Phase 3 — Create the CI deploy key
-
-On your laptop. This key is what GitHub Actions authenticates with — it belongs to
-the pipeline, not to you, and has no passphrase because CI cannot type one.
+### 3 — CI key
 
 ```bash
+# laptop
 ssh-keygen -t ed25519 -C 'github-actions@operis' -f ~/.ssh/operis_deploy -N ''
-cat ~/.ssh/operis_deploy.pub      # public  → goes on the server
-cat ~/.ssh/operis_deploy          # private → goes in a GitHub secret
+ssh-copy-id -i ~/.ssh/operis_deploy.pub -o 'IdentityFile ~/.ssh/id_ed25519' operis@148.113.44.174
+# or paste the .pub into /home/operis/.ssh/authorized_keys via sudo
+ssh -i ~/.ssh/operis_deploy operis@148.113.44.174 'docker ps >/dev/null && echo OK'
 ```
 
----
-
-## Phase 4 — Bootstrap the server
-
-Copy the script over and **look at the plan first** — it does nothing without `--apply`:
+### 4 — Secrets
 
 ```bash
-scp deploy/01-bootstrap-server.sh root@YOUR_SERVER_IP:/tmp/
-ssh root@YOUR_SERVER_IP
-
-# 1) dry run — prints every change it would make, changes nothing
-bash /tmp/01-bootstrap-server.sh --ci-key "ssh-ed25519 AAAA... github-actions@operis"
-
-# 2) if the plan looks right
-bash /tmp/01-bootstrap-server.sh --ci-key "ssh-ed25519 AAAA... github-actions@operis" --apply
+scp deploy/env.production.example operis@148.113.44.174:/opt/operis/.env
+ssh operis@148.113.44.174 'chmod 600 /opt/operis/.env'
 ```
 
-It creates the `deploy` user, authorizes the CI key, hardens sshd (drop-in file,
-validated with `sshd -t`, applied with `reload` so your session survives), enables
-ufw + fail2ban + unattended security upgrades, installs Docker CE with log rotation,
-adds swap if RAM < 8 GB, creates `/opt/operis`, and installs a nightly backup timer.
+Generate every secret with the block at the top of that file and fill it in. Minimum
+set: `POSTGRES_PASSWORD`, `JWT_SECRET`, `AUTH_SECRET`, `CONSENT_INTEGRITY_SECRET`,
+`TENANT_DATA_ENCRYPTION_FALLBACK_KEY`, `LOOKUP_HASH_PEPPER`, `MEILISEARCH_MASTER_KEY`,
+`OM_INIT_SUPERADMIN_EMAIL`, `OM_INIT_SUPERADMIN_PASSWORD`, `ADMIN_EMAIL`.
 
-**Before closing that session**, open a second terminal and prove you are not locked out:
+> **Back up `TENANT_DATA_ENCRYPTION_FALLBACK_KEY` and `LOOKUP_HASH_PEPPER` off this
+> server, today.** Operis encrypts PII at rest with them. Lose them and a database
+> backup restores unreadable data.
+
+### 5 — Registry access
+
+Nothing to do. The server holds **no** registry credential: the deploy job pipes the
+run-scoped `GITHUB_TOKEN` over stdin for a `docker login`, pulls, and runs
+`docker logout` again in an `always()` step. The token is valid only for the life of
+that run, so there is no long-lived password on the VPS to leak or rotate.
+
+That is also why the app service uses `pull_policy: missing` rather than `always` —
+`deploy.sh` pulls explicitly while the login is held, and a later manual `./dc up -d`
+must not try to re-pull an image already in the local store.
+
+### 6 — Issue the certificate
+
+Before the vhost exists, using the existing certbot volumes and webroot. This adds a
+new certificate; it does not touch the `erp.pca-sds.com` one.
 
 ```bash
-ssh -i ~/.ssh/operis_deploy deploy@YOUR_SERVER_IP 'docker ps && echo OK'
+docker run --rm \
+  -v pca-erp-certbot-certs:/etc/letsencrypt \
+  -v pca-erp-certbot-webroot:/var/www/certbot \
+  certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot \
+  -d operis.faheemkamel.com \
+  --email <you@example.com> --agree-tos --no-eff-email \
+  --key-type ecdsa --non-interactive
+
+# verify before going further
+docker run --rm -v pca-erp-certbot-certs:/etc/letsencrypt \
+  certbot/certbot:v3.1.0 certificates
 ```
 
-> The script sets `PermitRootLogin prohibit-password` rather than `no`. Tighten it to
-> `no` in `/etc/ssh/sshd_config.d/99-operis.conf` once you have confirmed you can get
-> in as `deploy`.
+Rehearse with `--staging` first if DNS has only just propagated — Let's Encrypt allows
+5 failures per account per hostname per hour.
 
----
+### 7 — Install the vhost
 
-## Phase 5 — Secrets on the server
+**Order matters.** nginx refuses to start when `ssl_certificate` points at a missing
+file, so the certificate must already exist (step 6) before this file lands.
 
 ```bash
-scp deploy/env.production.example deploy@YOUR_SERVER_IP:/opt/operis/.env
-ssh deploy@YOUR_SERVER_IP
-chmod 600 /opt/operis/.env
+# laptop
+scp deploy/nginx/operis.conf.template \
+    ubuntu@148.113.44.174:/opt/pca-erp/docker/nginx/templates/
 
-# generate every secret at once, then paste the values in
-for v in JWT_SECRET AUTH_SECRET NEXTAUTH_SECRET CONSENT_INTEGRITY_SECRET \
-         TENANT_DATA_ENCRYPTION_FALLBACK_KEY LOOKUP_HASH_PEPPER MEILISEARCH_MASTER_KEY; do
-  echo "$v=$(openssl rand -hex 32)"
-done
-echo "POSTGRES_PASSWORD=$(openssl rand -base64 33 | tr -d '/+=' | head -c 40)"
-echo "OM_INIT_SUPERADMIN_PASSWORD=$(openssl rand -base64 18)"
-
-nano /opt/operis/.env
+# server — render + validate BEFORE reloading
+docker exec pca-erp-nginx sh -c 'ls /etc/nginx/templates/'
+docker compose -f /opt/pca-erp/docker-compose.prod.yml --env-file /opt/pca-erp/.env.prod \
+  up -d --no-deps nginx        # re-renders templates
+docker exec pca-erp-nginx nginx -t     # MUST print "syntax is ok" / "test is successful"
+docker exec pca-erp-nginx nginx -s reload
 ```
 
-Fill in at minimum: `APP_DOMAIN`, `APP_URL`, `ACME_EMAIL`, `APP_IMAGE`,
-`POSTGRES_PASSWORD`, `JWT_SECRET`, `AUTH_SECRET`, `TENANT_DATA_ENCRYPTION_FALLBACK_KEY`,
-`LOOKUP_HASH_PEPPER`, `MEILISEARCH_MASTER_KEY`, `OM_INIT_SUPERADMIN_EMAIL`,
-`OM_INIT_SUPERADMIN_PASSWORD`, `ADMIN_EMAIL`. Every variable is documented in the file.
+`nginx -t` is the gate. A config it rejects never reaches the running process, so a
+mistake here fails closed rather than taking the pca-sds.com hostnames down.
 
-> **Back up `TENANT_DATA_ENCRYPTION_FALLBACK_KEY` and `LOOKUP_HASH_PEPPER` somewhere
-> other than this server, today.** Operis encrypts PII at rest with them. Lose them and
-> the data is unreadable — a database backup will not save you.
+The file is untracked inside `/opt/pca-erp`'s git checkout. `git pull` leaves untracked
+files alone, so it survives their deploys — but `git clean -fd` would remove it. Commit
+it to the pca-erp repo when convenient.
 
-### Let the server pull from GHCR
+### 8 — GitHub configuration
 
-Create a GitHub Personal Access Token (classic) with **only** `read:packages`
-(Settings → Developer settings → Personal access tokens), then:
-
-```bash
-echo 'ghp_YOUR_READ_PACKAGES_TOKEN' | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
-```
-
-Stored once in `~/.docker/config.json`; the pipeline never carries it.
-
----
-
-## Phase 6 — GitHub configuration
-
-**Settings → Secrets and variables → Actions → Secrets:**
+**Secrets** (Settings → Secrets and variables → Actions):
 
 | Secret | Value |
 |---|---|
-| `DEPLOY_SSH_KEY` | contents of `~/.ssh/operis_deploy` (the **private** key, whole file including header/footer lines) |
-| `DEPLOY_HOST` | server IPv4 |
-| `DEPLOY_USER` | `deploy` |
-| `DEPLOY_PORT` | SSH port (omit if 22) |
-| `DEPLOY_KNOWN_HOSTS` | output of the command below |
+| `DEPLOY_SSH_KEY` | contents of `~/.ssh/operis_deploy` (private key, whole file) |
+| `DEPLOY_HOST` | `148.113.44.174` |
+| `DEPLOY_USER` | `operis` |
+| `DEPLOY_KNOWN_HOSTS` | `148.113.44.174 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBdKBpdKv5F5XFVMa80QQFZyplaJLmdoG5v5R0m9PdK3` |
 
-```bash
-ssh-keyscan -t ed25519 YOUR_SERVER_IP        # run from your laptop
-```
+`DEPLOY_PORT` is not needed (22).
 
-Pinning the host key is deliberate: `StrictHostKeyChecking=accept-new` would make CI
-trust whatever answers on first connect, which is a machine-in-the-middle handing your
-deploy key to someone else.
+**Variables** tab: `APP_DOMAIN` = `operis.faheemkamel.com`.
 
-**Variables** tab:
+**Environments → `production`** (recommended): move those secrets into it and add
+yourself as a required reviewer, so deploys pause for a click and no other workflow in
+the repo can read the deploy key.
 
-| Variable | Value |
-|---|---|
-| `APP_DOMAIN` | `app.your-domain.com` — used for the post-deploy smoke test |
-
-**Settings → Environments → New environment → `production`** *(recommended)*: move the
-five secrets above into it and add yourself as a required reviewer. Deploys then pause
-for a click, and no other workflow in the repo can read those secrets.
-
----
-
-## Phase 7 — First deploy
+### 9 — First deploy
 
 Actions → **Deploy to production** → Run workflow.
 
-Expect the first run to take **30–60 minutes**: the image build compiles the whole
-monorepo with no warm cache. Later runs reuse the registry build cache and are much
-faster. First container start is also slow — `mercato init` creates the schema and
-seeds data before the app answers, which is why the health check allows 10 minutes.
+The first build takes **30–60 minutes** (cold cache, whole monorepo). First container
+start is also slow: `mercato init` creates the schema and seeds before the app answers,
+which is why the health check allows 10 minutes.
 
-Then visit `https://app.your-domain.com` and sign in with `OM_INIT_SUPERADMIN_EMAIL` /
-`OM_INIT_SUPERADMIN_PASSWORD`. **Change that password immediately.**
-
-Once HTTPS works, uncomment the `Strict-Transport-Security` header in `Caddyfile` and
-push. (Enabling HSTS before HTTPS works locks browsers out of the domain for a year.)
-
-After that, every push to `main` deploys automatically.
+Then sign in at `https://operis.faheemkamel.com` with `OM_INIT_SUPERADMIN_EMAIL` /
+`OM_INIT_SUPERADMIN_PASSWORD` and **change that password immediately**.
 
 ---
 
 ## Day-2 operations
 
-All from `/opt/operis` on the server:
+From `/opt/operis`:
 
 ```bash
 ./dc ps                       # what is running
 ./dc logs -f app              # follow application logs
-./dc logs --tail 200 caddy    # TLS / certificate problems
 ./dc restart app
-./dc stats                    # live CPU/memory per container
+./dc stats
 ./deploy.sh --status          # deployed tag + health of every service
 
 ./deploy.sh --rollback        # back to the previous image, immediately
@@ -257,6 +267,14 @@ All from `/opt/operis` on the server:
 ./backup.sh --verify          # restore into a scratch DB and count tables
 
 ./dc exec postgres psql -U operis -d operis
+```
+
+Gateway and TLS live in the other stack:
+
+```bash
+docker logs --tail 100 pca-erp-nginx
+docker exec pca-erp-certbot certbot certificates
+docker exec pca-erp-nginx nginx -t && docker exec pca-erp-nginx nginx -s reload
 ```
 
 Redeploy an older build without rebuilding: Actions → Run workflow → put the tag
@@ -277,51 +295,53 @@ docker exec -i $(./dc ps -q postgres) \
 
 ## What happens on each deploy
 
-1. CI builds the image. `next build` type-checks and lints, so a broken `main` never
-   produces an image and never reaches the server.
-2. CI rsyncs the compose file, `Caddyfile`, `redis.conf` and the scripts.
-3. `deploy.sh` pulls the image **first** — a registry failure cannot take the running
-   app down.
+1. CI builds the image. `next build` type-checks and lints (no `ignoreBuildErrors` in
+   `next.config.ts`), so a broken `main` never produces an image.
+2. CI rsyncs the compose file, `redis.conf` and the scripts.
+3. `deploy.sh` checks that `pca-erp-network` still exists, then pulls the image
+   **first** — a registry failure cannot take the running app down.
 4. It takes a `pg_dump` and **refuses to continue if the backup fails**.
 5. `docker compose up -d`. The app container runs `init-or-migrate.sh`: migrations plus
    role-ACL sync, then `yarn start`.
-6. It polls the container health check (which hits `/api/configs/health`, a real DB
-   round-trip) for up to 10 minutes.
+6. It polls the container health check (`/api/configs/health`, a real DB round-trip)
+   for up to 10 minutes.
 7. On failure it prints the app log and rolls the **image** back to the previous tag.
-8. CI then curls `https://APP_DOMAIN/api/configs/health` from outside as an independent
-   check.
+8. CI curls `https://operis.faheemkamel.com/api/configs/health` from outside.
+
+nginx needs no reload on deploy: it resolves `operis-app` per request via
+`resolver 127.0.0.11 valid=10s`, so a recreated container is picked up within seconds.
 
 ---
 
 ## Honest limitations
 
-**There is a downtime window of roughly 30–90 seconds per deploy.** One app container
-is replaced by another, and migrations run at boot. This is not blue/green. If you need
-zero downtime later, run two app replicas behind Caddy and move migrations into a
-separate one-shot job that runs before the new replicas start.
+**30–90 seconds of downtime per deploy.** One app container is replaced by another and
+migrations run at boot. Not blue/green.
 
-**Rolling the image back does not roll the database back.** If a bad release applied a
-migration, the previous image may then be running against a newer schema. The
-pre-deploy dump is the escape hatch, and restoring it is a deliberate manual act — see
-above. Write backward-compatible migrations (add columns, don't rename or drop in the
-same release as the code change) and this stays theoretical.
+**Rolling the image back does not roll the database back.** If a bad release migrated,
+the previous image may run against a newer schema. The pre-deploy dump is the escape
+hatch, restored deliberately. Write backward-compatible migrations and this stays
+theoretical.
 
-**Backups live on the machine they protect.** Losing the VPS loses them. Add an off-site
-copy — `backup.sh` ends with a worked rclone example.
+**Operis shares `pca-erp-network` with that stack's Postgres, Redis, MinIO and
+Zitadel.** Network reachability is not access — those services have their own
+credentials — but a compromised Operis container is one hop closer to them than it
+would be on an isolated network. The alternative (`docker network connect` onto a
+private network) does not survive a pca-erp redeploy recreating nginx, which is a worse
+failure mode.
 
-**The app container runs as uid 0.** Upstream's own compose does the same; the
-entrypoint writes the init marker and attachment volume before handing off. It
-publishes no ports and carries `no-new-privileges`. Moving to the image's `omuser`
-(uid 1001) is possible but needs the marker path and corepack cache relocated first —
-worth doing, not worth doing untested on your first deploy.
+**Backups live on the machine they protect.** Losing the VPS loses them. `backup.sh`
+ends with a worked rclone example.
 
-**The `deploy` user is in the `docker` group, which is root-equivalent** on that host.
-That is the standard tradeoff for a CI deploy account; it is why the account is
-key-only and has no sudo rights.
+**The app container runs as uid 0**, matching upstream's own compose. It publishes no
+ports and carries `no-new-privileges`.
 
-**No monitoring or alerting is included.** You will not be told when the site goes down.
-Point an uptime checker at `https://app.your-domain.com/api/configs/health` — it returns
-200/`ok` or 503/`degraded` — and set `TELEMETRY_BACKEND` in `.env` when you want traces.
+**One shared gateway is one shared blast radius.** A future change to
+`operis.conf.template` is a change to the process serving four other hostnames. Always
+`nginx -t` first.
+
+**No monitoring or alerting.** Point an uptime checker at
+`https://operis.faheemkamel.com/api/configs/health` — 200/`ok` or 503/`degraded`.
 
 ---
 
@@ -329,51 +349,13 @@ Point an uptime checker at `https://app.your-domain.com/api/configs/health` — 
 
 | Symptom | Where to look |
 |---|---|
-| Workflow fails at *Verify connectivity* | `DEPLOY_KNOWN_HOSTS` wrong or stale (rebuilt server = new host key), or ufw is blocking the SSH port |
-| `cannot pull … is the server logged in?` | redo the GHCR `docker login` in Phase 5; token needs `read:packages` |
-| Browser shows a certificate warning | `./dc logs caddy` — usually DNS not pointing here yet, or :80 blocked so the ACME challenge fails |
-| App container restarts in a loop | `./dc logs --tail 100 app` — most often a missing/short secret in `.env`; `JWT_SECRET` under 32 chars refuses to boot |
-| Health check times out on first deploy | normal for `mercato init` on a slow VPS; watch `./dc logs -f app`, raise `HEALTH_TIMEOUT` if genuinely needed |
-| `503 degraded` from the health endpoint | the app cannot reach Postgres — `./dc ps`, `./dc logs postgres` |
-| Deploy blocked by *another deploy is in progress* | a previous run died holding the lock: `rm /opt/operis/.deploy.lock` after confirming nothing is running |
-| Out of disk | `docker system df`, `./backup.sh --list`; log rotation is capped at 10 MB × 5 per container |
-
----
-
-## Running behind an existing nginx
-
-If the audit showed something already on `:80`/`:443`, do not fight it. Remove the
-`caddy` service from `docker-compose.prod.yml`, publish the app on loopback only:
-
-```yaml
-  app:
-    ports:
-      - "127.0.0.1:3000:3000"
-```
-
-and proxy to it from the existing server, keeping the forwarded headers intact:
-
-```nginx
-location / {
-    proxy_pass http://127.0.0.1:3000;
-    proxy_set_header Host              $host;
-    proxy_set_header X-Real-IP         $remote_addr;
-    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_http_version 1.1;
-    proxy_buffering off;          # required: the app streams SSE
-    client_max_body_size 32m;     # attachment uploads
-}
-```
-
-`127.0.0.1:` on the port binding matters. A bare `"3000:3000"` publishes on every
-interface and Docker's iptables rules bypass ufw, so the app would be reachable
-from the internet on port 3000 while ufw insists the port is closed.
-
-## Custom domains per customer
-
-The single-domain Caddy setup here serves exactly `APP_DOMAIN`. If you later let
-customers point their own domains at the portal, switch the edge to the repo's Traefik
-overlay (`docker-compose.fullapp.traefik.yml` + `docker/traefik/README.md`), which
-implements the ForwardAuth domain-check gate and on-demand certificates. Section F of
-`env.production.example` lists the variables that turns on.
+| Workflow fails at *Verify connectivity* | `DEPLOY_KNOWN_HOSTS` wrong, or the `operis` user's key not installed |
+| `cannot pull … is the server logged in?` | redo the GHCR `docker login` as the `operis` user; token needs `read:packages` |
+| `network pca-erp-network does not exist` | the pca-erp stack was torn down or renamed; `docker network ls`, then set `EDGE_NETWORK` in `.env` |
+| Browser shows the PCA ERP site or a cert warning | the vhost is not loaded — `docker exec pca-erp-nginx nginx -T \| grep operis` |
+| 502 from the gateway | app container down or not on the edge network: `./dc ps`, then `docker inspect operis-app --format '{{json .NetworkSettings.Networks}}'` |
+| App container restarts in a loop | `./dc logs --tail 100 app` — usually a missing/short secret; `JWT_SECRET` under 32 chars refuses to boot |
+| Health check times out on first deploy | normal for `mercato init`; watch `./dc logs -f app` |
+| `503 degraded` from the health endpoint | app cannot reach Postgres — `./dc logs postgres` |
+| SSE / live updates never arrive | the streaming `location` block in the vhost — confirm `proxy_buffering off` survived a template edit |
+| Deploy blocked by *another deploy is in progress* | stale lock: `rm /opt/operis/.deploy.lock` after confirming nothing is running |

@@ -194,12 +194,16 @@ jobs:
         run: ssh target 'echo "connected as $(id -un)@$(hostname)"; docker version --format "docker {{.Server.Version}}"'
 
       - name: Sync deployment files
-        # Only these six files. The server's .env, backups/ and logs/ are never
+        # Only these five files. The server's .env, backups/ and logs/ are never
         # touched by CI — secrets stay on the server, out of the pipeline.
+        #
+        # deploy/nginx/operis.conf.template is deliberately NOT synced. It lives
+        # in the pca-erp stack's directory and a bad copy there would break the
+        # gateway for four other hostnames, so it is installed by hand, once,
+        # behind an `nginx -t`. See README.md.
         run: |
           set -euo pipefail
           rsync -az --checksum \
-            deploy/Caddyfile \
             deploy/redis.conf \
             deploy/deploy.sh \
             deploy/backup.sh \
@@ -207,6 +211,19 @@ jobs:
             target:/opt/operis/
           rsync -az --checksum deploy/docker-compose.prod.yml target:/opt/operis/docker-compose.yml
           ssh target 'chmod +x /opt/operis/deploy.sh /opt/operis/backup.sh /opt/operis/dc'
+
+      - name: Authenticate the server to GHCR (ephemeral)
+        # No permanent registry password is stored on the VPS. This is the
+        # job-scoped GITHUB_TOKEN, valid only for the life of this run, and the
+        # "Revoke" step below removes it again. Piped over stdin so it never
+        # lands in the server's argv (readable via /proc by any local user) or
+        # in a shell history file.
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" | ssh target "docker login ghcr.io -u $(printf '%q' "$GHCR_USER") --password-stdin"
 
       - name: Deploy
         env:
@@ -264,6 +281,10 @@ jobs:
           echo "::group::app logs"
           ssh target 'cd /opt/operis && ./dc logs --tail 100 app' || true
           echo "::endgroup::"
+
+      - name: Revoke the server's registry credentials
+        if: always()
+        run: ssh target 'docker logout ghcr.io' || true
 
       - name: Remove SSH key
         if: always()
