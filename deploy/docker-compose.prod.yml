@@ -1,0 +1,222 @@
+# ==============================================================================
+# Operis — production stack (single VPS)
+# ==============================================================================
+# Deployed to /opt/operis/docker-compose.yml by the GitHub Actions workflow.
+# It never builds: the image is built once in CI and pulled by digest-pinned tag.
+#
+#   internet ──443──> caddy ──(internal docker network)──> app ──> postgres
+#                                                              ├─> redis
+#                                                              └─> meilisearch
+#
+# Only Caddy publishes ports. Postgres, Redis, Meilisearch and the app itself
+# are reachable ONLY on the internal network — nothing to firewall, nothing
+# for Docker's iptables rules to accidentally expose past ufw.
+#
+# Run it by hand with the ./dc helper (which supplies both env files):
+#   ./dc ps          ./dc logs -f app          ./dc restart app
+# ==============================================================================
+
+name: operis
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  # ---------------------------------------------------------------------------
+  # Edge: TLS termination, HTTP->HTTPS redirect, automatic Let's Encrypt certs
+  # ---------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"          # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # certificates + ACME account — do not delete
+      - caddy_config:/config
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env (e.g. app.example.com)}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env — Let'"'"'s Encrypt expiry notices go here}
+      APP_UPSTREAM: app:${CONTAINER_PORT:-3000}
+    depends_on:
+      app:
+        condition: service_started
+    security_opt: [ "no-new-privileges:true" ]
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # Application (Next.js server + background workers + scheduler)
+  # ---------------------------------------------------------------------------
+  # On start it runs docker/scripts/init-or-migrate.sh:
+  #   first boot  -> `mercato init` (schema + seed + superadmin), writes a marker
+  #   every boot  -> `db:migrate` + `auth sync-role-acls`, then `yarn start`
+  # The marker lives on the init_marker volume, so a redeploy migrates rather
+  # than re-initialising.
+  app:
+    image: ${APP_IMAGE:?set APP_IMAGE}:${APP_IMAGE_TAG:?APP_IMAGE_TAG is injected by deploy.sh}
+    restart: unless-stopped
+    pull_policy: always
+    # Upstream's own compose runs this container as uid 0 because the entrypoint
+    # writes the init marker and the attachments volume before dropping work to
+    # the app. Kept as-is deliberately — the container publishes no ports and
+    # cannot gain further privileges. See deploy/README.md "Residual risks".
+    user: "0"
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        set -e
+        if [ ! -f /app/docker/scripts/init-or-migrate.sh ]; then
+          echo "FATAL: init-or-migrate.sh missing from the image" >&2
+          exit 1
+        fi
+        INIT_COMMAND='yarn mercato init' sh /app/docker/scripts/init-or-migrate.sh
+        exec yarn start
+    working_dir: /app/apps/mercato
+    # Everything the operator put in .env reaches the container...
+    env_file:
+      - .env
+    # ...and these override it, because they describe THIS topology and must not
+    # be overridable by a stale value copied out of a dev .env file.
+    environment:
+      NODE_ENV: production
+      PORT: ${CONTAINER_PORT:-3000}
+      HOSTNAME: 0.0.0.0
+      DATABASE_URL: postgres://${POSTGRES_USER:-operis}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-operis}
+      REDIS_URL: redis://redis:6379
+      CACHE_REDIS_URL: redis://redis:6379
+      QUEUE_REDIS_URL: redis://redis:6379
+      EVENTS_REDIS_URL: redis://redis:6379
+      CACHE_STRATEGY: redis
+      QUEUE_STRATEGY: async
+      NEXT_PUBLIC_QUEUE_STRATEGY: async
+      RATE_LIMIT_STRATEGY: redis
+      # Exactly one reverse proxy (Caddy) sits in front, so trust exactly one
+      # X-Forwarded-For hop. Higher values let a client spoof its own IP and
+      # walk straight through the login rate limiter.
+      RATE_LIMIT_TRUST_PROXY_DEPTH: "1"
+      MEILISEARCH_HOST: http://meilisearch:7700
+      MEILISEARCH_API_KEY: ${MEILISEARCH_MASTER_KEY:?set MEILISEARCH_MASTER_KEY in .env}
+      INTERNAL_APP_ORIGIN: http://app:${CONTAINER_PORT:-3000}
+      # Marker + attachments both land on volumes owned by this container.
+      INIT_MARKER_FILE: /tmp/init-marker/.seeded
+    volumes:
+      - init_marker:/tmp/init-marker
+      - attachments:/app/apps/mercato/storage
+    depends_on:
+      postgres:  { condition: service_healthy }
+      redis:     { condition: service_healthy }
+      meilisearch: { condition: service_healthy }
+    security_opt: [ "no-new-privileges:true" ]
+    stop_grace_period: 30s
+    logging: *default-logging
+    healthcheck:
+      # /api/configs/health is unauthenticated and checks the DB round-trip.
+      # 503 (degraded) makes wget exit non-zero, which is what we want.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:${CONTAINER_PORT:-3000}/api/configs/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      # First boot runs `mercato init` (schema + seed) — minutes, not seconds.
+      start_period: 300s
+
+  # ---------------------------------------------------------------------------
+  # Postgres (pgvector — required by the search module's vector indexes)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: pgvector/pgvector:pg17-trixie
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-operis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-operis}
+      # Checksums catch silent corruption; worth the ~2% write cost.
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    command:
+      - postgres
+      - -c
+      - max_connections=${PG_MAX_CONNECTIONS:-120}
+      - -c
+      - shared_buffers=${PG_SHARED_BUFFERS:-512MB}
+      - -c
+      - effective_cache_size=${PG_EFFECTIVE_CACHE_SIZE:-1536MB}
+      - -c
+      - work_mem=${PG_WORK_MEM:-16MB}
+      - -c
+      - maintenance_work_mem=${PG_MAINTENANCE_WORK_MEM:-128MB}
+      - -c
+      - log_min_duration_statement=${PG_LOG_MIN_DURATION_MS:-2000}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    security_opt: [ "no-new-privileges:true" ]
+    stop_grace_period: 60s
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-operis} -d ${POSTGRES_DB:-operis}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # Redis — cache + BullMQ queues + rate limiter
+  # ---------------------------------------------------------------------------
+  # Persistence is ON (unlike the repo's dev redis.conf) because QUEUE_STRATEGY
+  # is async here: queued jobs live in Redis and must survive a restart.
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server /usr/local/etc/redis/redis.conf --maxmemory ${REDIS_MAXMEMORY:-768mb}
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis_data:/data
+    security_opt: [ "no-new-privileges:true" ]
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Meilisearch — full-text search backend
+  # ---------------------------------------------------------------------------
+  # Optional: comment this service out (and MEILISEARCH_HOST above) on a small
+  # VPS. The search module falls back to token-based Postgres search.
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    restart: unless-stopped
+    environment:
+      MEILI_ENV: production
+      MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:?set MEILISEARCH_MASTER_KEY in .env}
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - meilisearch_data:/meili_data
+    security_opt: [ "no-new-privileges:true" ]
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:7700/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  postgres_data:    { name: operis_postgres_data }
+  redis_data:       { name: operis_redis_data }
+  meilisearch_data: { name: operis_meilisearch_data }
+  attachments:      { name: operis_attachments }
+  init_marker:      { name: operis_init_marker }
+  caddy_data:       { name: operis_caddy_data }
+  caddy_config:     { name: operis_caddy_config }

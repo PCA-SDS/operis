@@ -1,0 +1,270 @@
+name: Deploy to production
+
+# ==============================================================================
+# push to main  ->  build image  ->  push to GHCR  ->  ship to the VPS
+# ==============================================================================
+# The image is built ONCE here and pulled by the server. Nothing is compiled on
+# the VPS: builds need ~4 GB of heap and would compete with the running app.
+#
+# `next build` type-checks and lints as part of the Docker build, so a broken
+# main never produces an image and therefore never reaches the server. Unit and
+# integration tests belong on the pull request — turn on branch protection so
+# main can only be reached through a green PR.
+#
+# Runners: stock `ubuntu-latest`. Every other workflow in this repo targets
+# upstream's `blacksmith-*` fleet, which this fork does not have.
+# ==============================================================================
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'apps/docs/**'
+      - '.ai/**'
+      - 'SCREENSHOTS.md'
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Existing image tag to (re)deploy, e.g. sha-1a2b3c4. Leave empty to build this branch.'
+        required: false
+        default: ''
+
+# One deploy at a time; never cancel one midway — a half-applied migration is
+# far worse than a queued job.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build and push image
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.image_tag == '' }}
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      image: ${{ steps.meta.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compute image coordinates
+        id: meta
+        run: |
+          set -euo pipefail
+          IMAGE="${REGISTRY}/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          TAG="sha-${GITHUB_SHA::7}"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG"     >> "$GITHUB_OUTPUT"
+          echo "Building $IMAGE:$TAG"
+
+      - name: Log in to GHCR
+        run: echo '${{ secrets.GITHUB_TOKEN }}' | docker login "$REGISTRY" -u '${{ github.actor }}' --password-stdin
+
+      - name: Create buildx builder
+        # The docker-container driver is what makes --cache-to work. Using the
+        # CLI directly keeps this workflow free of third-party actions.
+        run: docker buildx create --name operis --driver docker-container --use
+
+      - name: Build and push
+        id: build
+        run: |
+          set -euo pipefail
+          IMAGE='${{ steps.meta.outputs.image }}'
+          TAG='${{ steps.meta.outputs.tag }}'
+
+          docker buildx build \
+            --file Dockerfile \
+            --target runner \
+            --platform linux/amd64 \
+            --tag "$IMAGE:$TAG" \
+            --tag "$IMAGE:latest" \
+            --cache-from "type=registry,ref=$IMAGE:buildcache" \
+            --cache-to   "type=registry,ref=$IMAGE:buildcache,mode=max" \
+            --metadata-file /tmp/build-meta.json \
+            --push \
+            .
+
+          DIGEST="$(jq -r '."containerimage.digest"' /tmp/build-meta.json)"
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Image built"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| image | \`${{ steps.meta.outputs.image }}\` |"
+            echo "| tag | \`${{ steps.meta.outputs.tag }}\` |"
+            echo "| digest | \`${{ steps.build.outputs.digest }}\` |"
+            echo "| commit | ${{ github.sha }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build
+    if: ${{ always() && needs.build.result != 'failure' && needs.build.result != 'cancelled' }}
+    # Create this environment in Settings -> Environments to add required
+    # reviewers (manual approval before production) and scope the SSH secrets
+    # to it. Nothing else in the repo can then read them.
+    environment:
+      name: production
+      url: https://${{ vars.APP_DOMAIN }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve tag to deploy
+        id: tag
+        # Both values reach the shell as environment variables, never as
+        # interpolated text: a workflow_dispatch input is attacker-controlled
+        # from the moment anyone gains write access, and `'${{ ... }}'` inside
+        # run: would let a quote character break out into arbitrary commands.
+        env:
+          REQUESTED_TAG: ${{ inputs.image_tag }}
+          BUILT_TAG: ${{ needs.build.outputs.tag }}
+        run: |
+          set -euo pipefail
+          TAG="${REQUESTED_TAG:-$BUILT_TAG}"
+          [ -n "$TAG" ] || { echo "::error::no image tag to deploy"; exit 1; }
+          # Docker tag grammar: [A-Za-z0-9_][A-Za-z0-9._-]{0,127}
+          case "$TAG" in
+            [A-Za-z0-9_]*) : ;;
+            *) echo "::error::invalid image tag"; exit 1 ;;
+          esac
+          printf '%s' "$TAG" | grep -Eq '^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$' \
+            || { echo "::error::image tag contains illegal characters"; exit 1; }
+          echo "value=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Deploying tag: $TAG"
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USERNAME: ${{ secrets.DEPLOY_USER }}
+          PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+        run: |
+          set -euo pipefail
+          : "${SSH_KEY:?DEPLOY_SSH_KEY secret is not set}"
+          : "${KNOWN_HOSTS:?DEPLOY_KNOWN_HOSTS secret is not set — run: ssh-keyscan -t ed25519 <host>}"
+          : "${HOST:?DEPLOY_HOST secret is not set}"
+          : "${USERNAME:?DEPLOY_USER secret is not set}"
+
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Pinned host key. StrictHostKeyChecking=accept-new would trust
+          # whatever answers on first connect — that is a machine-in-the-middle
+          # waiting to happen for a job that carries a deploy key.
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          # Built from shell variables, so nothing from a secret is ever
+          # interpolated into this file as workflow text.
+          {
+            echo "Host target"
+            echo "  HostName $HOST"
+            echo "  User $USERNAME"
+            echo "  Port $PORT"
+            echo "  IdentityFile ~/.ssh/id_deploy"
+            echo "  IdentitiesOnly yes"
+            echo "  StrictHostKeyChecking yes"
+            echo "  ConnectTimeout 15"
+            echo "  ServerAliveInterval 30"
+          } >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      - name: Verify connectivity
+        run: ssh target 'echo "connected as $(id -un)@$(hostname)"; docker version --format "docker {{.Server.Version}}"'
+
+      - name: Sync deployment files
+        # Only these six files. The server's .env, backups/ and logs/ are never
+        # touched by CI — secrets stay on the server, out of the pipeline.
+        run: |
+          set -euo pipefail
+          rsync -az --checksum \
+            deploy/Caddyfile \
+            deploy/redis.conf \
+            deploy/deploy.sh \
+            deploy/backup.sh \
+            deploy/dc \
+            target:/opt/operis/
+          rsync -az --checksum deploy/docker-compose.prod.yml target:/opt/operis/docker-compose.yml
+          ssh target 'chmod +x /opt/operis/deploy.sh /opt/operis/backup.sh /opt/operis/dc'
+
+      - name: Deploy
+        env:
+          TAG: ${{ steps.tag.outputs.value }}
+        run: ssh target "/opt/operis/deploy.sh $(printf '%q' "$TAG")"
+
+      - name: Smoke test through the public URL
+        env:
+          DOMAIN: ${{ vars.APP_DOMAIN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DOMAIN" ]; then
+            echo "::warning::repository variable APP_DOMAIN is not set — skipping external smoke test"
+            exit 0
+          fi
+          for attempt in $(seq 1 12); do
+            code="$(curl -sS -o /tmp/health.json -w '%{http_code}' --max-time 20 "https://$DOMAIN/api/configs/health" || echo 000)"
+            if [ "$code" = "200" ]; then
+              echo "health OK: $(cat /tmp/health.json)"
+              exit 0
+            fi
+            echo "attempt $attempt: HTTP $code — retrying in 10s"
+            sleep 10
+          done
+          echo "::error::$DOMAIN did not return a healthy response after 2 minutes"
+          cat /tmp/health.json 2>/dev/null || true
+          exit 1
+
+      - name: Deployment summary
+        if: always()
+        env:
+          TAG: ${{ steps.tag.outputs.value }}
+          DOMAIN: ${{ vars.APP_DOMAIN }}
+          STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### Deployment $STATUS"
+            echo ""
+            echo "- tag: \`$TAG\`"
+            echo "- url: https://$DOMAIN"
+            echo "- commit: $GITHUB_SHA"
+            echo ""
+            echo "Roll back with: \`ssh <user>@<host> '/opt/operis/deploy.sh --rollback'\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report failure details
+        if: failure()
+        run: |
+          echo "::group::deploy log (tail)"
+          ssh target 'tail -80 /opt/operis/logs/deploy.log' || true
+          echo "::endgroup::"
+          echo "::group::container state"
+          ssh target '/opt/operis/deploy.sh --status' || true
+          echo "::endgroup::"
+          echo "::group::app logs"
+          ssh target 'cd /opt/operis && ./dc logs --tail 100 app' || true
+          echo "::endgroup::"
+
+      - name: Remove SSH key
+        if: always()
+        run: rm -f ~/.ssh/id_deploy ~/.ssh/config

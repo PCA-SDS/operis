@@ -8,15 +8,74 @@ Two prebuilt indexes answer most "where / who / why" questions without reading s
 **graft** for code, **graphify** for specs and decisions. Details in
 [`.ai/docs/code-navigation.md`](../.ai/docs/code-navigation.md).
 
-## Setup, once per checkout
+## Setup, once per clone
+
+Neither index is committed — `graft/` is 336 MB and `graphify-out/` is 90 MB, both
+gitignored. A fresh clone has neither. Build them locally, the same way you build
+`node_modules`.
+
+Assumes `yarn install` has already run.
+
+### graft — about a minute
 
 ```bash
 npm install -g @nanonets/graft@0.12.0
 yarn graft:init
 yarn graft:build
+```
+
+The global install is optional. `yarn graft <args>` falls back to
+`npx -y @nanonets/graft@0.12.0` when the pinned version is not on PATH, so it works
+either way — install it globally so editor hooks resolve without the npx delay on
+every call.
+
+`yarn graft:init` shows a picker for which assistants to wire. Two flags worth knowing:
+
+- `--dry-run` prints every file it would touch, then exits without writing. Run this first.
+- `--no-global` skips the `~/.codex/` writes, which otherwise apply to every repo on the machine.
+
+### graphify — about four minutes
+
+```bash
 uv tool install graphifyy
 yarn graphify:build
 ```
+
+Needs [uv](https://docs.astral.sh/uv/). Free with no API key: code is indexed by AST and
+documents structurally, so specs and ADRs are searchable. Set `GEMINI_API_KEY` before
+building if you also want documents read semantically and communities given real names —
+it costs tokens once, then caches by content hash.
+
+### MCP tools, optional
+
+```bash
+cp .mcp.json.example .mcp.json
+```
+
+`.mcp.json` is gitignored, so it does not exist after a clone. The graphify entry needs
+the interpreter that `uv` installed:
+
+```bash
+head -1 "$(which graphify)" | cut -c3-
+```
+
+Paste that path as the graphify `command`. Drop the `open-mercato` entry unless you are
+running the app's own MCP server.
+
+### Check it works
+
+```bash
+yarn graft ask "where is tenant scoping enforced" --source
+graphify query "how do modules declare permissions"
+```
+
+### Keeping them fresh
+
+graft refreshes itself before every query and rebuilds after edits via its hook — you
+should never rebuild it by hand. `yarn graft:check` fails if it is stale.
+
+graphify is manual and takes minutes, which is why it is deliberately not in a git hook.
+Re-run `yarn graphify:build` when specs or the module layout have moved meaningfully.
 
 ## Paste this at the start of an AI session
 

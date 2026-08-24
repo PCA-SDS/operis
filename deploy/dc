@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# `dc` — docker compose wrapper for /opt/operis
+# ==============================================================================
+# The stack reads two env files: .env (your secrets, hand-written) and
+# .image.env (the current image tag, written by deploy.sh). Plain
+# `docker compose` only picks up the first, so it would fail substitution on
+# ${APP_IMAGE_TAG}. This wrapper supplies both.
+#
+#   ./dc ps                     what is running
+#   ./dc logs -f app            follow application logs
+#   ./dc logs --tail 200 caddy  TLS / certificate issues
+#   ./dc restart app            restart just the app
+#   ./dc exec app sh            shell inside the app container
+#   ./dc exec postgres psql -U operis -d operis
+#   ./dc down                   stop everything (volumes and data survive)
+#   ./dc stats                  live resource usage
+# ==============================================================================
+
+set -Eeuo pipefail
+
+APP_DIR="${APP_DIR:-/opt/operis}"
+cd "$APP_DIR"
+
+[ -f .env ]       || { echo "ERROR: $APP_DIR/.env missing" >&2; exit 1; }
+[ -f .image.env ] || printf 'APP_IMAGE_TAG=latest\n' > .image.env
+
+case "${1:-}" in
+  stats)
+    shift
+    exec docker stats --no-stream "$@"
+    ;;
+  "")
+    sed -n '5,20p' "$0"
+    exit 0
+    ;;
+esac
+
+exec docker compose \
+  --env-file .env \
+  --env-file .image.env \
+  -f docker-compose.yml \
+  "$@"
