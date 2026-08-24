@@ -37,6 +37,7 @@ import {
   ColorPicker,
   COLOR_PICKER_DEFAULT_SWATCHES,
 } from '@open-mercato/ui/primitives/color-picker'
+import { Dropdown } from '@open-mercato/ui/primitives/dropdown'
 import { TagInput } from '@open-mercato/ui/primitives/tag-input'
 import { RichEditor } from '@open-mercato/ui/primitives/rich-editor'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
@@ -1486,10 +1487,208 @@ const [html, setHtml] = React.useState('')
   ],
 }
 
+// ---------------------------------------------------------------------------
+// Dropdown — controlled in every mode, so the gallery drives it with local state.
+// ---------------------------------------------------------------------------
+
+const DROPDOWN_STATUSES = [
+  { value: 'open', label: 'Open' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'closed', label: 'Closed' },
+]
+
+function DemoDropdown() {
+  const [value, setValue] = React.useState<string | null>('open')
+  return (
+    <Dropdown
+      value={value}
+      onChange={setValue}
+      options={DROPDOWN_STATUSES}
+      placeholder="Status"
+      resetLabel="All statuses"
+    />
+  )
+}
+
+function DemoDropdownSearchable() {
+  const [value, setValue] = React.useState<string | null>(null)
+  const options = React.useMemo(
+    () =>
+      ['Austria', 'Belgium', 'Croatia', 'Denmark', 'Estonia', 'Finland', 'France', 'Germany'].map(
+        (name) => ({ value: name.toLowerCase(), label: name }),
+      ),
+    [],
+  )
+  return (
+    <Dropdown
+      value={value}
+      onChange={setValue}
+      options={options}
+      placeholder="Country"
+      searchable="Search countries…"
+    />
+  )
+}
+
+function DemoDropdownMulti() {
+  const [values, setValues] = React.useState<string[]>(['open'])
+  return (
+    <Dropdown
+      multiValues={values}
+      onMultiChange={setValues}
+      multiIndicator="checkbox"
+      options={DROPDOWN_STATUSES}
+      placeholder="Statuses"
+      searchable
+    />
+  )
+}
+
+function DemoDropdownGrouped() {
+  const [value, setValue] = React.useState<string | null>('eur')
+  return (
+    <Dropdown
+      value={value}
+      onChange={setValue}
+      placeholder="Currency"
+      groups={[
+        {
+          label: 'Europe',
+          options: [
+            { value: 'eur', label: 'Euro', description: 'EUR' },
+            { value: 'pln', label: 'Polish Zloty', description: 'PLN' },
+          ],
+        },
+        {
+          label: 'Americas',
+          options: [
+            { value: 'usd', label: 'US Dollar', description: 'USD' },
+            { value: 'brl', label: 'Brazilian Real', description: 'BRL' },
+          ],
+        },
+      ]}
+    />
+  )
+}
+
+function DemoDropdownField() {
+  const [value, setValue] = React.useState<string | null>(null)
+  return (
+    <div className="w-72">
+      <Dropdown
+        variant="field"
+        value={value}
+        onChange={setValue}
+        options={DROPDOWN_STATUSES}
+        placeholder="Select a status"
+        triggerLeading={false}
+      />
+    </div>
+  )
+}
+
+const dropdownEntry: GalleryEntry = {
+  id: 'dropdown',
+  title: 'Dropdown',
+  importPath: '@open-mercato/ui/primitives/dropdown',
+  docsAnchor: '#dropdown',
+  keywords: ['combobox', 'multiselect', 'picker', 'menu', 'filter'],
+  usage: {
+    do: [
+      'Use for filter-bar selects, searchable pickers, multi-select and grouped option lists.',
+      'Pass `variant="field"` with `matchTriggerWidth` when the dropdown is a form field beside text inputs.',
+      'Let it portal — the menu is positioned against the viewport, so it escapes table and drawer clipping.',
+    ],
+    dont: [
+      'Do not reach for it when a plain `Select` will do — `Select` is the lighter Radix-backed field.',
+      'Do not nest interactive controls in option labels; use `renderOptionTrailing` for a trailing control.',
+    ],
+  },
+  variants: [
+    {
+      id: 'default',
+      title: 'default (filter)',
+      render: () => <DemoDropdown />,
+      code: `import { Dropdown } from '@open-mercato/ui/primitives/dropdown'
+
+const [status, setStatus] = React.useState<string | null>('open')
+
+<Dropdown
+  value={status}
+  onChange={setStatus}
+  options={statusOptions}
+  placeholder="Status"
+  resetLabel="All statuses"
+/>`,
+    },
+    {
+      id: 'searchable',
+      title: 'Searchable',
+      render: () => <DemoDropdownSearchable />,
+      code: `import { Dropdown } from '@open-mercato/ui/primitives/dropdown'
+
+<Dropdown
+  value={country}
+  onChange={setCountry}
+  options={countryOptions}
+  placeholder="Country"
+  searchable="Search countries…"
+/>`,
+    },
+    {
+      id: 'multi-select',
+      title: 'Multi-select',
+      render: () => <DemoDropdownMulti />,
+      code: `import { Dropdown } from '@open-mercato/ui/primitives/dropdown'
+
+<Dropdown
+  multiValues={statuses}
+  onMultiChange={setStatuses}
+  multiIndicator="checkbox"
+  options={statusOptions}
+  placeholder="Statuses"
+  searchable
+/>`,
+    },
+    {
+      id: 'grouped',
+      title: 'Grouped',
+      render: () => <DemoDropdownGrouped />,
+      code: `import { Dropdown } from '@open-mercato/ui/primitives/dropdown'
+
+<Dropdown
+  value={currency}
+  onChange={setCurrency}
+  placeholder="Currency"
+  groups={[
+    { label: 'Europe', options: [{ value: 'eur', label: 'Euro', description: 'EUR' }] },
+    { label: 'Americas', options: [{ value: 'usd', label: 'US Dollar', description: 'USD' }] },
+  ]}
+/>`,
+    },
+    {
+      id: 'field',
+      title: 'Form field',
+      render: () => <DemoDropdownField />,
+      code: `import { Dropdown } from '@open-mercato/ui/primitives/dropdown'
+
+<Dropdown
+  variant="field"
+  value={status}
+  onChange={setStatus}
+  options={statusOptions}
+  placeholder="Select a status"
+  triggerLeading={false}
+/>`,
+    },
+  ],
+}
+
 export const entries: GalleryEntry[] = [
   inputEntry,
   textareaEntry,
   selectEntry,
+  dropdownEntry,
   compactSelectEntry,
   inlineSelectEntry,
   inlineInputEntry,

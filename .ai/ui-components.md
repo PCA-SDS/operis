@@ -20,6 +20,7 @@ Detailed variant tables, size matrices, props, examples, and MUST rules for ever
 - [CardInput](#cardinput)
 - [Textarea](#textarea)
 - [Select](#select)
+- [Dropdown](#dropdown)
 - [Switch / SwitchField](#switch--switchfield)
 - [Radio / RadioGroup / RadioField](#radio--radiogroup--radiofield)
 - [Tooltip / SimpleTooltip](#tooltip--simpletooltip)
@@ -1119,6 +1120,112 @@ For Brand or any case where the trigger always shows the SAME leading visual reg
 | Multi-value tags with rich labels | `TagsInput` (backend) | Available — see [TagsInput (backend)](#tagsinput-backend) section. |
 | Rich card-list lookup (entity picker) | `LookupSelect` | Available — see [LookupSelect](#lookupselect) section. |
 | Date picker | `DatePicker` (primitive) | Available — see [DatePicker](#datepicker) section. |
+
+---
+
+## Dropdown
+
+```typescript
+import { Dropdown } from '@open-mercato/ui/primitives/dropdown'
+import type { DropdownOption, DropdownGroup } from '@open-mercato/ui/primitives/dropdown'
+```
+
+One menu for every dropdown scenario: single select, multi select, grouped options, in-menu
+search, creatable values, command rows, async loading and empty states.
+
+**`Dropdown` vs `Select`.** `Select` is the lighter Radix-backed **form field** — reach for it
+first when you need a plain value picker in a form. `Dropdown` is the richer control: use it when
+you need search inside the menu, multi-select, command rows, a create-new affordance, or a
+filter-bar trigger that goes accent once a value is set.
+
+### Variants
+
+| Variant | Chrome | Use case |
+|---|---|---|
+| `filter` (default) | Bordered `surface` control, accent border + text once selected | Filter bars, toolbars, view switchers |
+| `field` | Matches `Input`/`SelectTrigger` (`border-input`, `bg-input-bg`), full width | A dropdown sitting in a `CrudForm` beside text inputs |
+| `ghost` | Transparent until hover | Dense table cells, inline editors |
+
+Sizes follow the field scale: `xs` (h-7), `sm` (h-8), `default` (h-9), `lg` (h-10).
+
+### Placement and layering
+
+The menu portals to `document.body` and is positioned against the **viewport**, so no ancestor's
+`overflow: hidden`, transform, or stacking context can clip or bury it. It flips above the trigger
+when the space below cannot hold it, shifts horizontally to stay on screen, and shrinks its own max
+height to scroll internally rather than run past the fold. Scrolling **repositions** the menu
+(capture-phase, so it tracks inside scrollable panels and table bodies) and hides it only once the
+trigger itself leaves view.
+
+Layering uses the DS z-index scale: `z-popover` (45), which sits above `z-modal` (40) so a dropdown
+opened inside a dialog or filter panel renders over it. Pass `elevated` for `z-top` (100) when it
+must clear even that.
+
+### Keyboard
+
+Arrow keys move, `Home`/`End` jump, `Enter`/`Space` select, `Escape` closes and restores focus to
+the trigger, `Tab` closes. Without a search field, typing jumps to the matching option. Hover and
+keyboard share one active state, so the row under the cursor is the row `Enter` picks.
+
+### Usage
+
+```tsx
+// Filter-bar select with a clear row
+<Dropdown
+  value={status}
+  onChange={setStatus}
+  options={statusOptions}
+  placeholder="Status"
+  resetLabel="All statuses"
+/>
+
+// Searchable multi-select in a form
+<Dropdown
+  variant="field"
+  matchTriggerWidth
+  multiValues={tagIds}
+  onMultiChange={setTagIds}
+  multiIndicator="checkbox"
+  options={tagOptions}
+  placeholder="Select tags"
+  searchable="Search tags…"
+/>
+
+// Grouped, with descriptions
+<Dropdown
+  value={currency}
+  onChange={setCurrency}
+  placeholder="Currency"
+  groups={[
+    { label: 'Europe', options: [{ value: 'eur', label: 'Euro', description: 'EUR' }] },
+    { label: 'Americas', options: [{ value: 'usd', label: 'US Dollar', description: 'USD' }] },
+  ]}
+/>
+
+// Creatable, with a command row
+<Dropdown
+  value={tag}
+  onChange={setTag}
+  options={tagOptions}
+  placeholder="Tag"
+  searchable
+  createOption={{ onCreate: (name) => createTag(name) }}
+  actions={[{ label: 'Manage tags', onSelect: openTagManager }]}
+/>
+```
+
+
+### Usage Rules
+
+- MUST pass `placeholder` — it doubles as the trigger's accessible name when `ariaLabel` is absent.
+- Use `variant="field"` (which implies `matchTriggerWidth`) for form fields; leave the default
+  `filter` variant for toolbars.
+- Prefer `onMultiChange` (full next selection) over `onToggleValue` — passing both fires both.
+- Option labels must be safe to render twice: `stableWidth` renders invisible copies to reserve the
+  trigger's width. Keep them plain text or an icon, never stateful components.
+- Use `renderOptionTrailing` for a trailing control in a row; do NOT nest interactive elements
+  inside an option label.
+- NEVER hard-code the menu's z-index — `z-popover` / `elevated` cover the real cases.
 
 ---
 

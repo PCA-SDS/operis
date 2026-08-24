@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedNote": "Derived design-system reference inventory for the PR #4301 gallery and its PR #4891 design foundation sidecar. Never hand-edit: regenerate with `yarn workspace create-mercato-app harness:generate-design-system-inventory`. Mutable surface facts are computed from the packed registry, the real `figma.connect` calls and the real `npm pack` file lists; immutable PR baselines are verified as ancestors of HEAD. `entrySource` and `implementationSource` are installed, app-relative, read-only paths. `codeConnectExportStatus` answers importability, which is NOT implied by being packed. `publicationStatus` is closed at `not-evidenced`: nothing in this repository can evidence an external Figma publication.",
+  "generatedNote": "Derived design-system reference inventory for the PR #4301 gallery and its PR #4891 design foundation sidecar. Never hand-edit: regenerate with `yarn workspace create-mercato-app harness:generate-design-system-inventory`. Mutable surface facts are computed from the packed registry, the real `figma.connect` calls and the real `npm pack` file lists; immutable PR baselines are verified as ancestors of HEAD. `entrySource` and `implementationSource` are installed, app-relative, read-only paths. `codeConnectExportStatus` answers importability, which is NOT implied by being packed. `publicationStatus` is closed at `not-evidenced`: nothing in this repository can evidence an external Figma publication. FORK NOTE (operis): the regeneration command above does not exist here \u2014 `packages/create-app` was not imported into this fork, so no `harness:generate-design-system-inventory` script is defined. Until a replacement generator lands, entries added in-repo are maintained by hand to keep `inventory-parity.test.ts` honest; such entries use repo-relative sources and carry null PR/SHA provenance, because they are not part of the upstream PR #4301 baseline that the generated rows share.",
   "derived": {
     "familyCount": 17,
     "familyIds": [
@@ -22,9 +22,9 @@
       "schedule",
       "messages"
     ],
-    "itemCount": 113,
-    "variantCount": 302,
-    "installedImplementationCount": 106,
+    "itemCount": 114,
+    "variantCount": 307,
+    "installedImplementationCount": 107,
     "localTokenItemCount": 6,
     "externalImplementationCount": 1,
     "codeConnectCallCount": 18,
@@ -33,7 +33,7 @@
     "nodeComparisonCounts": {
       "match": 1,
       "mismatch": 0,
-      "not-comparable": 112
+      "not-comparable": 113
     },
     "designSkillAvailability": "unavailable",
     "availabilityByPreset": {
@@ -1730,6 +1730,61 @@
         "galleryNodeId": null,
         "codeConnectNodeStatus": "placeholder",
         "codeConnectNodeId": "0:1",
+        "nodeComparison": "not-comparable",
+        "publicationStatus": "not-evidenced",
+        "designSkillAvailability": "unavailable",
+        "designSkillSourceReferenceId": null,
+        "designSkillUnavailableReason": "the standalone skill manifest declares no \"design\" tier, om-figma-design-with-ds is not selected, no portable copy is emitted"
+      }
+    },
+    {
+      "galleryItemId": "inputs/dropdown",
+      "familyId": "inputs",
+      "entryId": "dropdown",
+      "title": "Dropdown",
+      "importPath": "@open-mercato/ui/primitives/dropdown",
+      "entrySource": "packages/core/src/modules/design_system/gallery/entries/inputs.tsx",
+      "implementationKind": "installed-package",
+      "implementationSource": "packages/ui/src/primitives/dropdown.tsx",
+      "localTokenSource": null,
+      "variantIds": [
+        "default",
+        "searchable",
+        "multi-select",
+        "grouped",
+        "field"
+      ],
+      "route": "/backend/design-system?family=inputs&entry=dropdown",
+      "availabilityByPreset": {
+        "classic": "source-only",
+        "crm": "source-only",
+        "empty": "source-only",
+        "wms": "source-only"
+      },
+      "featureId": "design_system.view",
+      "baselinePrUrl": null,
+      "provenanceHeadSha": null,
+      "baselineSha": null,
+      "designFoundation": {
+        "prUrl": null,
+        "landedPrUrl": null,
+        "auditedHeadSha": null,
+        "baselineSha": null,
+        "packageName": "@open-mercato/ui",
+        "packageVersion": "0.7.0",
+        "packageContentHash": null,
+        "tokenApplicability": "not-applicable",
+        "snapshotAvailability": "unavailable",
+        "snapshotSourceReferenceId": null,
+        "codeConnectStatus": "unmapped",
+        "codeConnectArtifactAvailability": "not-emitted",
+        "codeConnectExportStatus": "not-exported",
+        "codeConnectSourceReferenceId": null,
+        "mappingCoverage": "none",
+        "galleryNodeStatus": "absent",
+        "galleryNodeId": null,
+        "codeConnectNodeStatus": "absent",
+        "codeConnectNodeId": null,
         "nodeComparison": "not-comparable",
         "publicationStatus": "not-evidenced",
         "designSkillAvailability": "unavailable",

@@ -126,4 +126,92 @@ describe('SegmentedControl', () => {
     expect(root.className).toContain('rounded-lg')
     expect(root.className).toContain('bg-surface')
   })
+
+  it('renders the sliding indicator only inside the checked item', () => {
+    const { container, getByRole } = render(<Controlled initial="active" />)
+    const indicators = container.querySelectorAll('[data-slot="segmented-control-indicator"]')
+    expect(indicators.length).toBe(1)
+    const checked = getByRole('radio', { name: 'Active' })
+    expect(checked.contains(indicators[0])).toBe(true)
+  })
+
+  it('moves the indicator into the newly checked item on selection', () => {
+    const { container, getByRole } = render(<Controlled initial="all" />)
+    fireEvent.click(getByRole('radio', { name: 'Archived' }))
+    const indicators = container.querySelectorAll('[data-slot="segmented-control-indicator"]')
+    expect(indicators.length).toBe(1)
+    expect(getByRole('radio', { name: 'Archived' }).contains(indicators[0])).toBe(true)
+    expect(getByRole('radio', { name: 'All' }).querySelector('[data-slot="segmented-control-indicator"]')).toBeNull()
+  })
+
+  it('paints the selected fill on the indicator, not on the item', () => {
+    // The item carries only the text treatment; the pill carries the fill, so
+    // that the fill is a single element able to slide between segments.
+    const { container, getByRole } = render(<Controlled initial="all" />)
+    const indicator = container.querySelector('[data-slot="segmented-control-indicator"]') as HTMLElement
+    expect(indicator.className).toContain('bg-surface-muted')
+    expect(indicator.className).toContain('absolute')
+    const checked = getByRole('radio', { name: 'All' })
+    expect(checked.className).toContain('data-[state=checked]:font-semibold')
+    expect(checked.className).not.toContain('data-[state=checked]:bg-surface-muted')
+  })
+
+  it('keeps the indicator radius inline so framer-motion can counter-scale it', () => {
+    // A layout animation resizes the pill via scaleX/scaleY, which stretches
+    // corner radii. framer-motion corrects that only for a numeric radius it
+    // can read off `style` — moving this back to a `rounded-md` class would
+    // silently reintroduce elliptical corners mid-slide.
+    const { container } = render(<Controlled />)
+    const indicator = container.querySelector('[data-slot="segmented-control-indicator"]') as HTMLElement
+    expect(indicator.style.borderRadius).toBe('6px')
+    expect(indicator.className).not.toContain('rounded-md')
+  })
+
+  it('reserves the semibold width on every item so selection cannot reflow the track', () => {
+    // Checked labels are semibold and unchecked ones medium; without a
+    // reserved column, selecting would widen the item and shift its siblings
+    // while the pill is mid-slide.
+    const { getByRole } = render(<Controlled initial="all" />)
+    const unchecked = getByRole('radio', { name: 'Active' })
+    const ghost = unchecked.querySelector('[aria-hidden="true"].invisible') as HTMLElement
+    expect(ghost).not.toBeNull()
+    expect(ghost.className).toContain('font-semibold')
+    expect(ghost.textContent).toBe('Active')
+  })
+
+  it('does not compound the item dim with the track dim when the group is disabled', () => {
+    // opacity-60 on the track multiplied by opacity-50 on each item rendered
+    // the disabled control at ~0.3 — fainter than either dim intends.
+    const { container } = render(<Controlled disabled />)
+    const root = container.querySelector('[data-slot="segmented-control"]') as HTMLElement
+    expect(root.className).toContain('opacity-60')
+    const item = container.querySelector('[data-slot="segmented-control-item"]') as HTMLElement
+    expect(item.className).toContain('disabled:opacity-100')
+    expect(item.className).not.toContain('disabled:opacity-50')
+  })
+
+  it('keeps the item dim when only a single item is disabled inside an enabled group', () => {
+    const { container } = render(
+      <SegmentedControl value="a" onValueChange={() => {}} aria-label="x">
+        <SegmentedControlItem value="a">A</SegmentedControlItem>
+        <SegmentedControlItem value="b" disabled>B</SegmentedControlItem>
+      </SegmentedControl>,
+    )
+    const items = container.querySelectorAll('[data-slot="segmented-control-item"]')
+    expect((items[1] as HTMLElement).className).toContain('disabled:opacity-50')
+  })
+
+  it('scopes the indicator layout id per instance so two controls do not share a pill', () => {
+    // A shared layoutId is global to framer-motion: without per-instance
+    // scoping, selecting in one control would fly the other control's pill
+    // across the page.
+    const { container } = render(
+      <>
+        <Controlled initial="all" />
+        <Controlled initial="active" />
+      </>,
+    )
+    const indicators = container.querySelectorAll('[data-slot="segmented-control-indicator"]')
+    expect(indicators.length).toBe(2)
+  })
 })

@@ -72,3 +72,34 @@ if (typeof window !== 'undefined' && window.location) {
     }
   }
 }
+
+// jsdom does not implement matchMedia. framer-motion's `useReducedMotion` —
+// used by Dropdown and SegmentedControl to honour `prefers-reduced-motion` —
+// calls it during render, so without this every test rendering a motion
+// component throws. Reports "no preference" so tests exercise the animated
+// path by default; a test that wants the reduced path can override the mock.
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    configurable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      // Deprecated pair, still probed by some libraries.
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }),
+  })
+}
+
+// jsdom implements no scrolling, so `Element.prototype.scrollIntoView` is
+// absent. Dropdown calls it to keep the active option inside the menu's scroll
+// viewport during keyboard navigation. Stub it globally rather than guarding
+// the call site — in a real browser it always exists.
+if (typeof Element !== 'undefined' && typeof Element.prototype.scrollIntoView !== 'function') {
+  Element.prototype.scrollIntoView = function scrollIntoView(): void {}
+}
