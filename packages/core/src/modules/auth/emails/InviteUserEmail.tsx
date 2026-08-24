@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Html, Head, Preview, Body, Container, Text, Section, Link } from '@react-email/components'
+import { EmailFont, EMAIL_FONT_FAMILY } from '@open-mercato/shared/lib/email/typography'
 
 export type InviteUserEmailCopy = {
   preview: string
@@ -17,7 +18,9 @@ export type InviteUserEmailProps = {
 export function InviteUserEmail({ inviteUrl, copy }: InviteUserEmailProps) {
   return (
     <Html>
-      <Head />
+      <Head>
+        <EmailFont />
+      </Head>
       <Preview>{copy.preview}</Preview>
       <Body style={body}>
         <Container style={container}>
@@ -35,7 +38,7 @@ export function InviteUserEmail({ inviteUrl, copy }: InviteUserEmailProps) {
   )
 }
 
-const body: React.CSSProperties = { backgroundColor: '#f9fafb', margin: 0, padding: '24px 0' }
+const body: React.CSSProperties = { backgroundColor: '#f9fafb', margin: 0, padding: '24px 0', fontFamily: EMAIL_FONT_FAMILY }
 const container: React.CSSProperties = { backgroundColor: '#ffffff', borderRadius: 12, padding: 24, margin: '0 auto', maxWidth: 520, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }
 const section: React.CSSProperties = { }
 const title: React.CSSProperties = { fontSize: 20, fontWeight: 600, color: '#111827', margin: '0 0 12px' }

@@ -1,5 +1,6 @@
 import React from 'react'
 import { Html, Head, Preview, Body, Container, Heading, Text, Section, Button, Hr } from '@react-email/components'
+import { EmailFont, EMAIL_FONT_FAMILY } from '@open-mercato/shared/lib/email/typography'
 
 export type QuoteSentEmailCopy = {
   preview: string
@@ -19,10 +20,11 @@ export function QuoteSentEmail({ url, copy }: QuoteSentEmailProps) {
   return (
     <Html>
       <Head>
+        <EmailFont />
         <title>{copy.heading}</title>
       </Head>
       <Preview>{copy.preview}</Preview>
-      <Body style={{ backgroundColor: '#f1f5f9', fontFamily: 'Helvetica, Arial, sans-serif', padding: '24px 0' }}>
+      <Body style={{ backgroundColor: '#f1f5f9', fontFamily: EMAIL_FONT_FAMILY, padding: '24px 0' }}>
         <Container
           style={{
             backgroundColor: '#ffffff',

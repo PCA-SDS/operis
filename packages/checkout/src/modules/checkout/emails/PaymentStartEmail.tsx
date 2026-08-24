@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { Html, Head, Preview, Body, Container, Text, Section, Hr } from '@react-email/components'
+import { EmailFont, EMAIL_FONT_FAMILY } from '@open-mercato/shared/lib/email/typography'
 
 export type PaymentStartEmailProps = {
   firstName: string
@@ -17,7 +18,7 @@ export type PaymentStartEmailProps = {
 }
 
 const styles = {
-  body: { backgroundColor: '#f9fafb', margin: 0, padding: '24px 0', fontFamily: 'Helvetica, Arial, sans-serif' } as React.CSSProperties,
+  body: { backgroundColor: '#f9fafb', margin: 0, padding: '24px 0', fontFamily: EMAIL_FONT_FAMILY } as React.CSSProperties,
   container: { backgroundColor: '#ffffff', borderRadius: 12, padding: 32, margin: '0 auto', maxWidth: 520, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' } as React.CSSProperties,
   title: { fontSize: 20, fontWeight: 600, color: '#111827', margin: '0 0 12px' } as React.CSSProperties,
   paragraph: { fontSize: 14, color: '#4b5563', lineHeight: '22px', margin: '0 0 16px' } as React.CSSProperties,
@@ -28,7 +29,7 @@ const styles = {
 export function PaymentStartEmail({ amount, currencyCode, bodyHtml, copy }: PaymentStartEmailProps) {
   return (
     <Html>
-      <Head><title>{copy.title}</title></Head>
+      <Head><title>{copy.title}</title><EmailFont /></Head>
       <Preview>{copy.preview}</Preview>
       <Body style={styles.body}>
         <Container style={styles.container}>

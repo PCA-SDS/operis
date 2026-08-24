@@ -8,6 +8,9 @@ module.exports = {
   rootDir: '.',
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   moduleNameMapper: {
+    // Must precede the '^@/(.*)$' alias below: a component importing
+    // './globals.css' has no loader under Jest and would be parsed as JS.
+    '\\.(css|scss|sass)$': '<rootDir>/jest.style-mock.cjs',
     '^@/\\.mercato/generated/(.*)$': '<rootDir>/.mercato/generated/$1',
     '^@/generated/(.*)$': '<rootDir>/.mercato/generated/$1',
     '^@/(.*)$': '<rootDir>/src/$1',

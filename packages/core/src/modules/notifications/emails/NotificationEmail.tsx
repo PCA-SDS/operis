@@ -1,5 +1,6 @@
 import React from 'react'
 import { Html, Head, Preview, Body, Container, Heading, Text, Section, Button, Hr } from '@react-email/components'
+import { EmailFont, EMAIL_FONT_FAMILY } from '@open-mercato/shared/lib/email/typography'
 
 export type NotificationEmailAction = {
   id: string
@@ -27,9 +28,11 @@ type NotificationEmailProps = {
 export function NotificationEmail({ title, body, actions, panelUrl, copy }: NotificationEmailProps) {
   return (
     <Html>
-      <Head />
+      <Head>
+        <EmailFont />
+      </Head>
       <Preview>{copy.preview}</Preview>
-      <Body style={{ backgroundColor: '#f5f5f5', fontFamily: 'Arial, sans-serif', margin: 0, padding: 0 }}>
+      <Body style={{ backgroundColor: '#f5f5f5', fontFamily: EMAIL_FONT_FAMILY, margin: 0, padding: 0 }}>
         <Container style={{ maxWidth: 560, margin: '0 auto', padding: '24px' }}>
           <Section style={{ backgroundColor: '#ffffff', padding: '24px', borderRadius: 12 }}>
             <Heading as="h1" style={{ fontSize: '22px', margin: '0 0 8px', color: '#111827' }}>

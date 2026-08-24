@@ -273,12 +273,22 @@ TODO: Fix that latter to have reference by the package names
 
 :root {
   color-scheme: light;
-  /* Figtree / DM Mono are loaded from Google Fonts in the root layout (same
-     delivery the design reference uses). The system stack stays behind them so
-     an offline or blocked-font environment degrades to native type rather than
-     to a serif fallback. */
+  /* Figtree / DM Mono are SELF-HOSTED — see ./fonts.css, imported at the top of
+     this file. They are deliberately not pulled from fonts.googleapis.com: the
+     app's CSP is `style-src 'self' 'unsafe-inline'` with no external hosts, so a
+     Google Fonts <link> is blocked at runtime and the product would silently
+     fall back to system type. The system stack stays behind them so an offline
+     or blocked-font environment degrades to native type, never to a serif. */
   --font-geist-sans: "Figtree", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-geist-mono: "DM Mono", ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  /* Third-party components that theme themselves through their own custom
+     properties rather than inheriting. MDXEditor's stylesheet sets
+     `font-family: var(--font-body)` / `var(--font-mono)` on its editing surface
+     and defines neither, so without these two lines its rich-text area is the
+     one input in the product whose typeface depends on undefined-variable
+     fallback behaviour. Binding them to the product faces makes it explicit. */
+  --font-body: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
   /* Operis brand ramp — theme-invariant (no .dark override).
      These replace Open Mercato's lime/yellow pair, which read as a different
      company's identity against a pastel-navy product: a neon lime-to-yellow
@@ -662,8 +672,20 @@ TODO: Fix that latter to have reference by the package names
   * {
     @apply border-border outline-ring/50;
   }
+  /* Figtree is pinned to the document root EXPLICITLY rather than being left to
+     Tailwind Preflight's `--default-font-family` indirection. Preflight already
+     resolves to the same stack today, so this changes nothing visually — it
+     removes the dependency. The product typeface should not be a side effect of
+     a framework internal that a Tailwind upgrade, or disabling Preflight, could
+     quietly rename. Everything else inherits from here; Preflight's
+     `font: inherit` on button/input/select/textarea carries it into form
+     controls, which otherwise take a UA font. */
+  html {
+    font-family: var(--font-geist-sans);
+  }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-geist-sans);
   }
   /* Native form controls — a safety net for legacy markup only. New code MUST
      use the `Checkbox` / `Radio` primitives, which draw their own box. */

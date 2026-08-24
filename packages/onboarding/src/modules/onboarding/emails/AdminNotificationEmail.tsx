@@ -1,5 +1,6 @@
 import React from 'react'
 import { Html, Head, Preview, Body, Container, Heading, Text, Hr } from '@react-email/components'
+import { EmailFont, EMAIL_FONT_FAMILY } from '@open-mercato/shared/lib/email/typography'
 
 export type AdminNotificationCopy = {
   preview: string
@@ -17,10 +18,11 @@ export default function AdminNotificationEmail({ copy }: AdminNotificationEmailP
   return (
     <Html>
       <Head>
+        <EmailFont />
         <title>{copy.heading}</title>
       </Head>
       <Preview>{copy.preview}</Preview>
-      <Body style={{ backgroundColor: '#f8fafc', fontFamily: 'Helvetica, Arial, sans-serif', padding: '24px 0' }}>
+      <Body style={{ backgroundColor: '#f8fafc', fontFamily: EMAIL_FONT_FAMILY, padding: '24px 0' }}>
         <Container style={{ backgroundColor: '#ffffff', padding: '28px', borderRadius: '12px', margin: '0 auto', maxWidth: '520px' }}>
           <Heading style={{ fontSize: '22px', fontWeight: 600, margin: '0 0 16px', color: '#0f172a' }}>{copy.heading}</Heading>
           <Text style={{ fontSize: '15px', color: '#1f2937', lineHeight: '24px', marginBottom: '12px' }}>{copy.body}</Text>

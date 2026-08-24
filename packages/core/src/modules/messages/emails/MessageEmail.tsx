@@ -10,6 +10,7 @@ import {
   Link,
   Hr,
 } from '@react-email/components'
+import { EmailFont, EMAIL_FONT_FAMILY } from '@open-mercato/shared/lib/email/typography'
 
 export type MessageEmailCopy = {
   preview: string
@@ -48,13 +49,14 @@ export function MessageEmail({
   return (
     <Html>
       <Head>
+        <EmailFont />
         <title>{subject}</title>
       </Head>
       <Preview>{copy.preview}</Preview>
       <Body
         style={{
           backgroundColor: '#ffffff',
-          fontFamily: 'Arial, Helvetica, sans-serif',
+          fontFamily: EMAIL_FONT_FAMILY,
           padding: '12px 0',
           margin: 0,
           textAlign: 'left',
