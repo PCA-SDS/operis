@@ -867,6 +867,17 @@
           "keyName": "attachments_pkey",
           "primary": true,
           "unique": true
+        },
+        {
+          "columnNames": [
+            "tenant_id",
+            "file_size"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "attachments_tenant_file_size_idx",
+          "primary": false,
+          "unique": false
         }
       ],
       "checks": [],

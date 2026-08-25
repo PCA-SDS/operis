@@ -49,6 +49,12 @@ export class AttachmentPartition {
 }
 
 @Entity({ tableName: 'attachments' })
+// `quota-service.recalculate` runs `sum(file_size) where tenant_id = ?` under a
+// tenant-wide advisory lock on every upload, and the table had no tenant index —
+// so the aggregate was a full sequential scan and concurrent uploads in a tenant
+// serialized behind it. Both columns are in the key so Postgres can answer the
+// sum with an index-only scan.
+@Index({ name: 'attachments_tenant_file_size_idx', properties: ['tenantId', 'fileSize'] })
 export class Attachment {
   [OptionalProps]?: 'createdAt'
 

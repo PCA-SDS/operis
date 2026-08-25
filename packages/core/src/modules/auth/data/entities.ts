@@ -287,6 +287,15 @@ export class PasswordReset {
 
 // RBAC: Role-level ACL
 @Entity({ tableName: 'role_acls' })
+// Read on every RBAC cache miss — `rbacService.getGrantedFeatures` loads
+// `{ tenantId, role: { $in: roleIds } }` and `isGlobalSuperAdmin` probes by role.
+// The table shipped with no index at all beyond the PK, so both were sequential
+// scans on the authorization path of every cold request. `role` leads so the
+// role-only probes are served by the same index.
+// Deliberately an index, not the @Unique its customer_accounts twin carries
+// (customer_role_acls): adding a unique constraint to a populated table fails on
+// pre-existing duplicates, which is a data-integrity decision, not a perf one.
+@Index({ name: 'role_acls_role_tenant_idx', properties: ['role', 'tenantId'] })
 export class RoleAcl {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -322,6 +331,10 @@ export class RoleAcl {
 
 // RBAC: Per-user ACL override
 @Entity({ tableName: 'user_acls' })
+// Same story as role_acls above: `em.findOne(UserAcl, { user, tenantId })` runs on
+// every RBAC cache miss against a table with no non-PK index. Mirrors the
+// customer_accounts twin (customer_user_acls), minus the uniqueness.
+@Index({ name: 'user_acls_user_tenant_idx', properties: ['user', 'tenantId'] })
 export class UserAcl {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
