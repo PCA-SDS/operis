@@ -40,6 +40,7 @@ describe('customers people check route', () => {
         phoneCountryCode: '65',
         phoneCountry: 'sg',
         source: 'booking_form',
+        organizationId: '33333333-3333-4333-8333-333333333333',
       },
       lastBooking: null,
     })
@@ -51,7 +52,6 @@ describe('customers people check route', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           tenantId: '22222222-2222-4222-8222-222222222222',
-          organizationId: '33333333-3333-4333-8333-333333333333',
           phone: '+65 9123 4567',
         }),
       }),
@@ -62,6 +62,11 @@ describe('customers people check route', () => {
     expect(payload.exists).toBe(true)
     expect(payload.lastBooking).toBeNull()
     expect(payload.customer.name).toBe('Ada Lovelace')
+    expect(mockCheckPersonIdentity).toHaveBeenCalledWith(
+      expect.anything(),
+      { tenantId: '22222222-2222-4222-8222-222222222222' },
+      expect.objectContaining({ phone: '+65 9123 4567' }),
+    )
   })
 
   it('maps identity conflicts to HTTP 409', async () => {
@@ -76,7 +81,6 @@ describe('customers people check route', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           tenantId: '22222222-2222-4222-8222-222222222222',
-          organizationId: '33333333-3333-4333-8333-333333333333',
           phone: '+65 9123 4567',
           email: 'other@example.com',
         }),
