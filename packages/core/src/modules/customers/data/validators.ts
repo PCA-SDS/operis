@@ -102,6 +102,8 @@ const baseEntitySchema = {
   ownerUserId: uuid().optional(),
   primaryEmail: clearableEmailSchema,
   primaryPhone: phoneSchema,
+  phoneCountryCode: clearableStringSchema(8),
+  phoneCountry: clearableStringSchema(120),
   status: z.string().trim().max(100).optional(),
   lifecycleStage: z.string().trim().max(100).optional(),
   source: z.string().trim().max(150).optional(),
@@ -113,6 +115,7 @@ const baseEntitySchema = {
 }
 
 const personDetailsSchema = {
+  salutation: clearableStringSchema(150),
   preferredName: z.string().trim().max(120).optional(),
   jobTitle: z.string().trim().max(150).optional(),
   department: z.string().trim().max(150).optional(),
@@ -334,6 +337,7 @@ const KNOWN_DICTIONARY_KINDS = [
   'deal_status',
   'pipeline_stage',
   'job_title',
+  'salutation',
   'industry',
   'temperature',
   'renewal_quarter',
@@ -799,3 +803,24 @@ export const personCompanyLinkDeleteSchema = scopedSchema.extend({
 export type PersonCompanyLinkCreateInput = z.infer<typeof personCompanyLinkCreateSchema>
 export type PersonCompanyLinkUpdateInput = z.infer<typeof personCompanyLinkUpdateSchema>
 export type PersonCompanyLinkDeleteInput = z.infer<typeof personCompanyLinkDeleteSchema>
+
+export const personCheckSchema = scopedSchema.extend({
+  phone: z.string().trim().max(50).optional(),
+  email: clearableEmailSchema,
+  phoneCountryCode: clearableStringSchema(8),
+  phoneCountry: clearableStringSchema(120),
+})
+
+export const personFindOrCreateSchema = scopedSchema.extend({
+  firstName: personFirstNameSchema,
+  lastName: personLastNameSchema,
+  phone: phoneSchema,
+  email: clearableEmailSchema,
+  salutation: clearableStringSchema(150),
+  source: clearableStringSchema(150),
+  phoneCountryCode: clearableStringSchema(8),
+  phoneCountry: clearableStringSchema(120),
+})
+
+export type PersonCheckInput = z.infer<typeof personCheckSchema>
+export type PersonFindOrCreateInput = z.infer<typeof personFindOrCreateSchema>
