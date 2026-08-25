@@ -7,6 +7,7 @@ export const metadata: ModuleInfo = {
   description: 'Organization-scoped dictionaries for reusable enumerations and appearance presets.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  category: 'Administrative',
 }
 
 export { features } from './acl'

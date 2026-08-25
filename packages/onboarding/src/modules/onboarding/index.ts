@@ -7,6 +7,7 @@ export const metadata: ModuleInfo = {
   description: 'Self-service tenant and organization onboarding flow.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  category: 'Customer Portal',
 }
 
 export { features } from './acl'

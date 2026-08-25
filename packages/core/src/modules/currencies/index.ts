@@ -9,4 +9,5 @@ export const metadata: ModuleInfo = {
   license: 'MIT',
   ejectable: true,
   defaultEntitlement: 'enabled',
+  category: 'Sales',
 }

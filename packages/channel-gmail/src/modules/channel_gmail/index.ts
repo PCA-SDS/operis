@@ -4,4 +4,5 @@ export const metadata = {
   description:
     'Connect per-user Gmail accounts via OAuth2. Outbound via gmail.users.messages.send; inbound via History API polling. Pairs with the Communications Hub.',
   defaultEntitlement: 'enabled' as const,
+  category: 'Communication' as const,
 }

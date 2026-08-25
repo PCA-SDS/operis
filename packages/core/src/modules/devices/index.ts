@@ -10,6 +10,7 @@ export const metadata: ModuleInfo = {
   license: 'MIT',
   requires: ['auth'],
   ejectable: true,
+  category: 'Operations',
 }
 
 export { features } from './acl'

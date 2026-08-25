@@ -7,6 +7,7 @@ export const metadata: ModuleInfo = {
   description: 'Standard Webhooks compliant outbound webhook delivery for platform events.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  category: 'Automation',
 }
 
 export { features } from './acl'
