@@ -7,7 +7,7 @@ import { EdgeEditDialog } from '../../../components/EdgeEditDialog'
 import { NodeEditDialogCrudForm } from '../../../components/NodeEditDialogCrudForm'
 import { EdgeEditDialogCrudForm } from '../../../components/EdgeEditDialogCrudForm'
 import type { Node, Edge, Connection } from '@xyflow/react'
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { graphToDefinition, definitionToGraph, validateWorkflowGraph, generateStepId, generateTransitionId, appendWorkflowEdge, ValidationError } from '../../../lib/graph-utils'
 import { performDeleteEdgeFlow, performDeleteNodeFlow } from '../../../lib/visual-editor-delete-flow'
@@ -263,10 +263,16 @@ export default function VisualEditorPage() {
     })
   }, [confirm, t])
 
+  // The edit dialogs are memo()'d; keeping `handleDeleteNode` out of the node
+  // array's identity is what lets them bail out of re-rendering their (very
+  // large) trees on every pointermove of a node drag.
+  const latestNodesRef = useRef(nodes)
+  latestNodesRef.current = nodes
+
   // Delete node
   const handleDeleteNode = useCallback(async (nodeId: string) => {
     await performDeleteNodeFlow(nodeId, {
-      nodes,
+      nodes: latestNodesRef.current,
       confirm,
       t,
       setShowNodeDialog,
@@ -275,7 +281,10 @@ export default function VisualEditorPage() {
       setEdges,
       notifyDeleted: () => flash('Step deleted successfully', 'success'),
     })
-  }, [confirm, nodes, t])
+  }, [confirm, t])
+
+  const handleCloseNodeDialog = useCallback(() => setShowNodeDialog(false), [])
+  const handleCloseEdgeDialog = useCallback(() => setShowEdgeDialog(false), [])
 
   // Handle new connections
   const handleConnect = useCallback((connection: Connection) => {
@@ -671,14 +680,14 @@ export default function VisualEditorPage() {
   const sharedDialogs = (
     <>
       {process.env.NEXT_PUBLIC_WORKFLOW_CRUDFORM_ENABLED === 'true' ? (
-        <NodeEditDialogCrudForm node={selectedNode} isOpen={showNodeDialog} onClose={() => setShowNodeDialog(false)} onSave={handleSaveNode} onDelete={handleDeleteNode} />
+        <NodeEditDialogCrudForm node={selectedNode} isOpen={showNodeDialog} onClose={handleCloseNodeDialog} onSave={handleSaveNode} onDelete={handleDeleteNode} />
       ) : (
-        <NodeEditDialog node={selectedNode} isOpen={showNodeDialog} onClose={() => setShowNodeDialog(false)} onSave={handleSaveNode} onDelete={handleDeleteNode} />
+        <NodeEditDialog node={selectedNode} isOpen={showNodeDialog} onClose={handleCloseNodeDialog} onSave={handleSaveNode} onDelete={handleDeleteNode} />
       )}
       {process.env.NEXT_PUBLIC_WORKFLOW_CRUDFORM_ENABLED === 'true' ? (
-        <EdgeEditDialogCrudForm edge={selectedEdge} isOpen={showEdgeDialog} onClose={() => setShowEdgeDialog(false)} onSave={handleSaveEdge} onDelete={handleDeleteEdge} />
+        <EdgeEditDialogCrudForm edge={selectedEdge} isOpen={showEdgeDialog} onClose={handleCloseEdgeDialog} onSave={handleSaveEdge} onDelete={handleDeleteEdge} />
       ) : (
-        <EdgeEditDialog edge={selectedEdge} isOpen={showEdgeDialog} onClose={() => setShowEdgeDialog(false)} onSave={handleSaveEdge} onDelete={handleDeleteEdge} />
+        <EdgeEditDialog edge={selectedEdge} isOpen={showEdgeDialog} onClose={handleCloseEdgeDialog} onSave={handleSaveEdge} onDelete={handleDeleteEdge} />
       )}
       <Dialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
         <DialogContent className="sm:max-w-md">

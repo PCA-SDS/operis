@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { Handle, Position, NodeProps } from '@xyflow/react'
 import { WorkflowNodeCard } from '../WorkflowNodeCard'
 import { WorkflowStatus } from '../../lib/status-colors'
@@ -16,21 +17,21 @@ export interface WaitForSignalNodeData {
   executionStatus?: 'completed' | 'active' | 'pending' | 'failed' | 'skipped'
 }
 
+// Map old status values to new WorkflowStatus types
+function mapStatus(status?: string): WorkflowStatus {
+  if (!status || status === 'pending') return 'not_started'
+  if (status === 'running' || status === 'in_progress') return 'in_progress'
+  if (status === 'completed') return 'completed'
+  if (status === 'error') return 'not_started'
+  return 'not_started'
+}
+
 /**
  * WaitForSignalNodeData - Waiting for external signal step in a workflow
  * Uses WorkflowNodeCard for consistent styling
  */
-export function WaitForSignalNode({ data, isConnectable, selected }: NodeProps) {
+export const WaitForSignalNode = memo(function WaitForSignalNode({ data, isConnectable, selected }: NodeProps) {
   const nodeData = data as unknown as WaitForSignalNodeData
-
-  // Map old status values to new WorkflowStatus types
-  const mapStatus = (status?: string): WorkflowStatus => {
-    if (!status || status === 'pending') return 'not_started'
-    if (status === 'running' || status === 'in_progress') return 'in_progress'
-    if (status === 'completed') return 'completed'
-    if (status === 'error') return 'not_started'
-    return 'not_started'
-  }
 
   const workflowStatus = mapStatus(nodeData.status)
 
@@ -66,4 +67,4 @@ export function WaitForSignalNode({ data, isConnectable, selected }: NodeProps) 
       />
     </div>
   )
-}
+})

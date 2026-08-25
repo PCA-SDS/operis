@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { Handle, Position, NodeProps } from '@xyflow/react'
 import { WorkflowNodeCard } from '../WorkflowNodeCard'
 import { WorkflowStatus } from '../../lib/status-colors'
@@ -17,21 +18,21 @@ export interface SubWorkflowNodeData {
   executionStatus?: 'completed' | 'active' | 'pending' | 'failed' | 'skipped'
 }
 
+// Map old status values to new WorkflowStatus types
+function mapStatus(status?: string): WorkflowStatus {
+  if (!status || status === 'pending') return 'not_started'
+  if (status === 'running' || status === 'in_progress') return 'in_progress'
+  if (status === 'completed') return 'completed'
+  if (status === 'error') return 'not_started'
+  return 'not_started'
+}
+
 /**
  * SubWorkflowNode - Sub-workflow invocation step in a workflow
  * Uses WorkflowNodeCard for consistent styling
  */
-export function SubWorkflowNode({ data, isConnectable, selected }: NodeProps) {
+export const SubWorkflowNode = memo(function SubWorkflowNode({ data, isConnectable, selected }: NodeProps) {
   const nodeData = data as unknown as SubWorkflowNodeData
-
-  // Map old status values to new WorkflowStatus types
-  const mapStatus = (status?: string): WorkflowStatus => {
-    if (!status || status === 'pending') return 'not_started'
-    if (status === 'running' || status === 'in_progress') return 'in_progress'
-    if (status === 'completed') return 'completed'
-    if (status === 'error') return 'not_started'
-    return 'not_started'
-  }
 
   const workflowStatus = mapStatus(nodeData.status)
 
@@ -72,4 +73,4 @@ export function SubWorkflowNode({ data, isConnectable, selected }: NodeProps) {
       />
     </div>
   )
-}
+})

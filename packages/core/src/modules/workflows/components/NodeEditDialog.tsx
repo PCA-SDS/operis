@@ -1,7 +1,7 @@
 'use client'
 
 import type {Node} from '@xyflow/react'
-import {useEffect, useState} from 'react'
+import {memo, useEffect, useState} from 'react'
 import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from '@open-mercato/ui/primitives/dialog'
 import {Button} from '@open-mercato/ui/primitives/button'
 import {Input} from '@open-mercato/ui/primitives/input'
@@ -54,7 +54,7 @@ interface FormField {
   defaultValue?: string
 }
 
-export function NodeEditDialog({ node, isOpen, onClose, onSave, onDelete }: NodeEditDialogProps) {
+export const NodeEditDialog = memo(function NodeEditDialog({ node, isOpen, onClose, onSave, onDelete }: NodeEditDialogProps) {
   const t = useT()
   const { confirm: confirmDialog, ConfirmDialogElement } = useConfirmDialog()
   const [stepName, setStepName] = useState('')
@@ -1607,4 +1607,4 @@ export function NodeEditDialog({ node, isOpen, onClose, onSave, onDelete }: Node
       {ConfirmDialogElement}
     </Dialog>
   )
-}
+})

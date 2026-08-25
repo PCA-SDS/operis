@@ -1,7 +1,7 @@
 'use client'
 
 import type { Edge } from '@xyflow/react'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { memo, useState, useEffect, useCallback, useMemo } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@open-mercato/ui/primitives/dialog'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -50,7 +50,7 @@ export interface EdgeEditDialogCrudFormProps {
  * - Delete functionality with confirmation
  * - Keyboard shortcuts (Cmd/Ctrl+Enter save, Escape cancel)
  */
-export function EdgeEditDialogCrudForm({ edge, isOpen, onClose, onSave, onDelete }: EdgeEditDialogCrudFormProps) {
+export const EdgeEditDialogCrudForm = memo(function EdgeEditDialogCrudForm({ edge, isOpen, onClose, onSave, onDelete }: EdgeEditDialogCrudFormProps) {
   const [initialValues, setInitialValues] = useState<Partial<EdgeFormValues>>({})
 
   // Load edge data when dialog opens
@@ -253,4 +253,4 @@ export function EdgeEditDialogCrudForm({ edge, isOpen, onClose, onSave, onDelete
       </DialogContent>
     </Dialog>
   )
-}
+})

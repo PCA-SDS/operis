@@ -40,6 +40,19 @@ type LogsResponse = {
   totalPages: number
 }
 
+function getResultBadgeClass(result: string) {
+  switch (result) {
+    case 'SUCCESS':
+      return 'bg-status-success-bg text-status-success-text'
+    case 'FAILURE':
+      return 'bg-status-warning-bg text-status-warning-text'
+    case 'ERROR':
+      return 'bg-status-error-bg text-status-error-text'
+    default:
+      return 'bg-muted text-foreground'
+  }
+}
+
 export default function ExecutionLogsPage() {
   const [page, setPage] = React.useState(1)
   const [pageSize] = React.useState(50)
@@ -96,7 +109,7 @@ export default function ExecutionLogsPage() {
     setPage(1)
   }, [])
 
-  const filters: FilterDef[] = [
+  const filters = React.useMemo<FilterDef[]>(() => [
     {
       id: 'entityType',
       type: 'text',
@@ -130,22 +143,9 @@ export default function ExecutionLogsPage() {
       type: 'dateRange',
       label: t('business_rules.logs.filters.dateTo'),
     },
-  ]
+  ], [t])
 
-  const getResultBadgeClass = (result: string) => {
-    switch (result) {
-      case 'SUCCESS':
-        return 'bg-status-success-bg text-status-success-text'
-      case 'FAILURE':
-        return 'bg-status-warning-bg text-status-warning-text'
-      case 'ERROR':
-        return 'bg-status-error-bg text-status-error-text'
-      default:
-        return 'bg-muted text-foreground'
-    }
-  }
-
-  const columns: ColumnDef<RuleExecutionLog>[] = [
+  const columns = React.useMemo<ColumnDef<RuleExecutionLog>[]>(() => [
     {
       id: 'executedAt',
       header: t('business_rules.logs.fields.executedAt'),
@@ -231,7 +231,7 @@ export default function ExecutionLogsPage() {
         </Link>
       ),
     },
-  ]
+  ], [t])
 
   return (
     <Page>

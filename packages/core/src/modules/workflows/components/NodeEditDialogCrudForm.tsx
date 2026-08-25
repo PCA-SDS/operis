@@ -1,7 +1,7 @@
 'use client'
 
 import type { Node } from '@xyflow/react'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { memo, useState, useEffect, useCallback, useMemo } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@open-mercato/ui/primitives/dialog'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Alert, AlertDescription } from '@open-mercato/ui/primitives/alert'
@@ -56,7 +56,7 @@ export interface NodeEditDialogCrudFormProps {
  * - waitForSignal: Signal name + timeout
  * - decision: Basic fields only
  */
-export function NodeEditDialogCrudForm({ node, isOpen, onClose, onSave, onDelete }: NodeEditDialogCrudFormProps) {
+export const NodeEditDialogCrudForm = memo(function NodeEditDialogCrudForm({ node, isOpen, onClose, onSave, onDelete }: NodeEditDialogCrudFormProps) {
   const [initialValues, setInitialValues] = useState<Partial<NodeFormValues>>({})
   const [showJsonSchemaWarning, setShowJsonSchemaWarning] = useState(false)
 
@@ -507,4 +507,4 @@ export function NodeEditDialogCrudForm({ node, isOpen, onClose, onSave, onDelete
       </DialogContent>
     </Dialog>
   )
-}
+})

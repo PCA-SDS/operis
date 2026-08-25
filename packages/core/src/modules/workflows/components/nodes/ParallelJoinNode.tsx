@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { Handle, Position, NodeProps } from '@xyflow/react'
 import { WorkflowNodeCard } from '../WorkflowNodeCard'
 import { WorkflowStatus } from '../../lib/status-colors'
@@ -33,7 +34,7 @@ function mapStatus(status?: string): WorkflowStatus {
  * ParallelJoinNode - synchronizes concurrent branches (wait-all).
  * One target handle (in) collecting all branches; one source handle (out).
  */
-export function ParallelJoinNode({ data, isConnectable, selected }: NodeProps) {
+export const ParallelJoinNode = memo(function ParallelJoinNode({ data, isConnectable, selected }: NodeProps) {
   const nodeData = data as unknown as ParallelJoinNodeData
 
   return (
@@ -63,4 +64,4 @@ export function ParallelJoinNode({ data, isConnectable, selected }: NodeProps) {
       />
     </div>
   )
-}
+})

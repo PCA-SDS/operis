@@ -45,6 +45,27 @@ type InstancesResponse = {
   }
 }
 
+function getStatusBadgeClass(status: WorkflowInstance['status']) {
+  switch (status) {
+    case 'RUNNING':
+      return 'bg-status-info-bg text-status-info-text'
+    case 'PAUSED':
+      return 'bg-status-warning-bg text-status-warning-text'
+    case 'COMPLETED':
+      return 'bg-status-success-bg text-status-success-text'
+    case 'FAILED':
+      return 'bg-status-error-bg text-status-error-text'
+    case 'CANCELLED':
+      return 'bg-muted text-foreground'
+    case 'COMPENSATING':
+      return 'bg-status-warning-bg text-status-warning-text'
+    case 'COMPENSATED':
+      return 'bg-status-neutral-bg text-status-neutral-text'
+    default:
+      return 'bg-muted text-muted-foreground'
+  }
+}
+
 export default function WorkflowInstancesListPage() {
   const [page, setPage] = React.useState(1)
   const [pageSize] = React.useState(50)
@@ -89,7 +110,7 @@ export default function WorkflowInstancesListPage() {
     },
   })
 
-  const handleCancel = async (id: string, workflowId: string) => {
+  const handleCancel = React.useCallback(async (id: string, workflowId: string) => {
     const confirmed = await confirmDialog({
       title: t('workflows.instances.confirm.cancel', { id: workflowId }),
       variant: 'destructive',
@@ -108,9 +129,9 @@ export default function WorkflowInstancesListPage() {
     } else {
       flash(t('workflows.instances.messages.cancelFailed'), 'error')
     }
-  }
+  }, [confirmDialog, queryClient, t])
 
-  const handleRetry = async (id: string, workflowId: string) => {
+  const handleRetry = React.useCallback(async (id: string, workflowId: string) => {
     const ok = await confirmDialog({
       title: t('workflows.instances.confirm.retry', { id: workflowId }),
       variant: 'default',
@@ -129,7 +150,7 @@ export default function WorkflowInstancesListPage() {
     } else {
       flash(t('workflows.instances.messages.retryFailed'), 'error')
     }
-  }
+  }, [confirmDialog, queryClient, t])
 
   const handleFiltersApply = React.useCallback((values: FilterValues) => {
     const next: FilterValues = {}
@@ -145,28 +166,7 @@ export default function WorkflowInstancesListPage() {
     setPage(1)
   }, [])
 
-  const getStatusBadgeClass = (status: WorkflowInstance['status']) => {
-    switch (status) {
-      case 'RUNNING':
-        return 'bg-status-info-bg text-status-info-text'
-      case 'PAUSED':
-        return 'bg-status-warning-bg text-status-warning-text'
-      case 'COMPLETED':
-        return 'bg-status-success-bg text-status-success-text'
-      case 'FAILED':
-        return 'bg-status-error-bg text-status-error-text'
-      case 'CANCELLED':
-        return 'bg-muted text-foreground'
-      case 'COMPENSATING':
-        return 'bg-status-warning-bg text-status-warning-text'
-      case 'COMPENSATED':
-        return 'bg-status-neutral-bg text-status-neutral-text'
-      default:
-        return 'bg-muted text-muted-foreground'
-    }
-  }
-
-  const filters: FilterDef[] = [
+  const filters = React.useMemo<FilterDef[]>(() => [
     {
       id: 'status',
       type: 'select',
@@ -206,9 +206,9 @@ export default function WorkflowInstancesListPage() {
       label: t('workflows.instances.filters.entityId'),
       placeholder: t('workflows.instances.filters.entityIdPlaceholder'),
     },
-  ]
+  ], [t])
 
-  const columns: ColumnDef<WorkflowInstance>[] = [
+  const columns = React.useMemo<ColumnDef<WorkflowInstance>[]>(() => [
     {
       id: 'workflowId',
       header: t('workflows.instances.fields.workflowId'),
@@ -304,7 +304,7 @@ export default function WorkflowInstancesListPage() {
         return <RowActions items={items} />
       },
     },
-  ]
+  ], [handleCancel, handleRetry, t])
 
   if (error) {
     return (

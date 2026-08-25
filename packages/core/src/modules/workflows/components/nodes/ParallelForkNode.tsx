@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { Handle, Position, NodeProps } from '@xyflow/react'
 import { WorkflowNodeCard } from '../WorkflowNodeCard'
 import { WorkflowStatus } from '../../lib/status-colors'
@@ -33,7 +34,7 @@ function mapStatus(status?: string): WorkflowStatus {
  * ParallelForkNode - splits the workflow into concurrent branches.
  * One target handle (in); one source handle (out) that fans out to each branch.
  */
-export function ParallelForkNode({ data, isConnectable, selected }: NodeProps) {
+export const ParallelForkNode = memo(function ParallelForkNode({ data, isConnectable, selected }: NodeProps) {
   const nodeData = data as unknown as ParallelForkNodeData
 
   return (
@@ -63,4 +64,4 @@ export function ParallelForkNode({ data, isConnectable, selected }: NodeProps) {
       />
     </div>
   )
-}
+})

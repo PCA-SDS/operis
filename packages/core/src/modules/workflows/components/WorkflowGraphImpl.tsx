@@ -31,6 +31,40 @@ import { Edit3 } from 'lucide-react'
 import { useTheme } from '@open-mercato/ui/theme'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 
+// React Flow tracks `defaultEdgeOptions`, `fitViewOptions` and friends by identity
+// (see reactFlowFieldsToTrack in @xyflow/react) and writes any new reference
+// straight into its zustand store. A fresh object literal per render therefore
+// re-renders every edge and rebuilds every marker def on each render — during a
+// node drag that is once per pointermove. These are frozen at module scope so the
+// identity never changes.
+const WORKFLOW_EDGE_MARKER_END = {
+  type: MarkerType.ArrowClosed,
+  width: 16,
+  height: 16,
+  color: '#9ca3af',
+} as const
+
+const DEFAULT_EDGE_OPTIONS = {
+  type: 'workflowTransition',
+  animated: false,
+  markerEnd: WORKFLOW_EDGE_MARKER_END,
+} as const
+
+const PRO_OPTIONS = { hideAttribution: true } as const
+
+// React Flow only recommends `onlyRenderVisibleElements` past a few dozen nodes:
+// below that the per-node visibility test costs more than the DOM it saves, and
+// it also disables node-measurement for off-screen nodes. Above it, an offscreen
+// step no longer pays for a React render on every viewport change.
+const VIEWPORT_CULLING_NODE_THRESHOLD = 50
+
+// MiniMap is memo()'d internally; an inline arrow here would defeat it and redraw
+// every node rect on every render of this component.
+function miniMapNodeColor(node: Node): string {
+  const status = (node.data?.status || 'not_started') as keyof typeof STATUS_COLORS
+  return STATUS_COLORS[status]?.hex || STATUS_COLORS.not_started.hex
+}
+
 export interface WorkflowGraphImplProps {
   initialNodes?: Node[]
   initialEdges?: Edge[]
@@ -101,14 +135,7 @@ export default function WorkflowGraphImpl({
       } else {
         const newEdge = {
           ...connection,
-          type: 'workflowTransition',
-          animated: false,
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            width: 16,
-            height: 16,
-            color: '#9ca3af',
-          },
+          ...DEFAULT_EDGE_OPTIONS,
         }
         setEdges((eds) => addEdge(newEdge, eds))
       }
@@ -160,6 +187,16 @@ export default function WorkflowGraphImpl({
     []
   )
 
+  const fitViewOptions = useMemo(
+    () => ({ padding: 0.2, maxZoom: isCompactViewport ? 0.9 : 1 }),
+    [isCompactViewport]
+  )
+
+  // Safe alongside `fitView`: getNodesInside() force-renders any node that has
+  // no handleBounds yet, so every node is still mounted and measured once
+  // before culling can hide it, and the initial fit sees real dimensions.
+  const onlyRenderVisibleElements = nodes.length > VIEWPORT_CULLING_NODE_THRESHOLD
+
   return (
     <div className={`workflow-graph-container ${className}`} style={{ height }}>
       <ReactFlow
@@ -174,26 +211,15 @@ export default function WorkflowGraphImpl({
         onEdgeClick={onEdgeClickProp}
         connectionMode={ConnectionMode.Loose}
         fitView
-        fitViewOptions={{
-          padding: 0.2,
-          maxZoom: isCompactViewport ? 0.9 : 1,
-        }}
+        fitViewOptions={fitViewOptions}
         minZoom={0.1}
         maxZoom={2}
-        defaultEdgeOptions={{
-          type: 'workflowTransition',
-          animated: false,
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            width: 16,
-            height: 16,
-            color: '#9ca3af',
-          },
-        }}
+        defaultEdgeOptions={DEFAULT_EDGE_OPTIONS}
         nodesDraggable={editable}
         nodesConnectable={editable}
         elementsSelectable={editable}
-        proOptions={{ hideAttribution: true }}
+        onlyRenderVisibleElements={onlyRenderVisibleElements}
+        proOptions={PRO_OPTIONS}
       >
         <Background
           variant={BackgroundVariant.Dots}
@@ -213,10 +239,7 @@ export default function WorkflowGraphImpl({
         {!isCompactViewport && (
           <MiniMap
             nodeStrokeWidth={3}
-            nodeColor={(node) => {
-              const status = (node.data?.status || 'not_started') as keyof typeof STATUS_COLORS
-              return STATUS_COLORS[status]?.hex || STATUS_COLORS.not_started.hex
-            }}
+            nodeColor={miniMapNodeColor}
             maskColor="rgba(0, 0, 0, 0.1)"
             position="bottom-left"
             className="!bg-card !border !border-border !rounded-lg"

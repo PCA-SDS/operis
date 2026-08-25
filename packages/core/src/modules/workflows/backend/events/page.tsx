@@ -36,6 +36,15 @@ type EventsResponse = {
   totalPages: number
 }
 
+function getEventTypeBadgeClass(eventType: string) {
+  if (eventType.includes('STARTED')) return 'bg-status-info-bg text-status-info-text'
+  if (eventType.includes('COMPLETED')) return 'bg-status-success-bg text-status-success-text'
+  if (eventType.includes('FAILED') || eventType.includes('REJECTED')) return 'bg-status-error-bg text-status-error-text'
+  if (eventType.includes('CANCELLED')) return 'bg-muted text-foreground'
+  if (eventType.includes('ENTERED') || eventType.includes('EXITED')) return 'bg-status-neutral-bg text-status-neutral-text'
+  return 'bg-muted text-foreground'
+}
+
 export default function WorkflowEventsPage() {
   const [page, setPage] = React.useState(1)
   const [pageSize] = React.useState(50)
@@ -91,7 +100,7 @@ export default function WorkflowEventsPage() {
     setPage(1)
   }, [])
 
-  const filters: FilterDef[] = [
+  const filters = React.useMemo<FilterDef[]>(() => [
     {
       id: 'eventType',
       type: 'select',
@@ -123,18 +132,9 @@ export default function WorkflowEventsPage() {
       label: t('workflows.events.filters.userId'),
       placeholder: t('workflows.events.filters.userIdPlaceholder'),
     },
-  ]
+  ], [t])
 
-  const getEventTypeBadgeClass = (eventType: string) => {
-    if (eventType.includes('STARTED')) return 'bg-status-info-bg text-status-info-text'
-    if (eventType.includes('COMPLETED')) return 'bg-status-success-bg text-status-success-text'
-    if (eventType.includes('FAILED') || eventType.includes('REJECTED')) return 'bg-status-error-bg text-status-error-text'
-    if (eventType.includes('CANCELLED')) return 'bg-muted text-foreground'
-    if (eventType.includes('ENTERED') || eventType.includes('EXITED')) return 'bg-status-neutral-bg text-status-neutral-text'
-    return 'bg-muted text-foreground'
-  }
-
-  const columns: ColumnDef<WorkflowEvent>[] = [
+  const columns = React.useMemo<ColumnDef<WorkflowEvent>[]>(() => [
     {
       id: 'occurredAt',
       header: t('workflows.events.fields.occurredAt'),
@@ -252,7 +252,7 @@ export default function WorkflowEventsPage() {
         </Link>
       ),
     },
-  ]
+  ], [t])
 
   if (error) {
     return (

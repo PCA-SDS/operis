@@ -88,7 +88,7 @@ export default function RulesListPage() {
     },
   })
 
-  const handleDelete = async (id: string, ruleName: string) => {
+  const handleDelete = React.useCallback(async (id: string, ruleName: string) => {
     const confirmed = await confirm({
       title: t('business_rules.confirm.delete', { name: ruleName }),
       variant: 'destructive',
@@ -109,9 +109,9 @@ export default function RulesListPage() {
     } else {
       flash(t('business_rules.messages.deleteFailed'), 'error')
     }
-  }
+  }, [confirm, data, queryClient, t])
 
-  const handleToggleEnabled = async (id: string, currentEnabled: boolean) => {
+  const handleToggleEnabled = React.useCallback(async (id: string, currentEnabled: boolean) => {
     const record = (data || []).find((item) => item.id === id)
     const result = await withScopedApiRequestHeaders(
       buildOptimisticLockHeader(record?.updatedAt),
@@ -131,7 +131,7 @@ export default function RulesListPage() {
     } else {
       flash(t('business_rules.messages.updateFailed'), 'error')
     }
-  }
+  }, [data, queryClient, t])
 
   const handleFiltersApply = React.useCallback((values: FilterValues) => {
     const next: FilterValues = {}
@@ -147,7 +147,7 @@ export default function RulesListPage() {
     setPage(1)
   }, [setFilterValues, setPage])
 
-  const filters: FilterDef[] = [
+  const filters = React.useMemo<FilterDef[]>(() => [
     {
       id: 'search',
       type: 'text',
@@ -189,9 +189,9 @@ export default function RulesListPage() {
       label: t('business_rules.filters.eventType'),
       placeholder: t('business_rules.filters.eventTypePlaceholder'),
     },
-  ]
+  ], [t])
 
-  const columns: ColumnDef<Rule>[] = [
+  const columns = React.useMemo<ColumnDef<Rule>[]>(() => [
     {
       id: 'ruleId',
       header: t('business_rules.fields.ruleId'),
@@ -306,7 +306,7 @@ export default function RulesListPage() {
         />
       ),
     },
-  ]
+  ], [handleDelete, handleToggleEnabled, t])
 
   if (error) {
     return (

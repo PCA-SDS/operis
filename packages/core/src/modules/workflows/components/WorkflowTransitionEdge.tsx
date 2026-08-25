@@ -1,8 +1,9 @@
+import { memo } from 'react'
 import { BaseEdge, EdgeProps, EdgeLabelRenderer, getStraightPath } from '@xyflow/react'
 import { WorkflowTransitionLabel } from './WorkflowTransitionLabel'
 import { EDGE_COLORS, EdgeState } from '../lib/status-colors'
 
-export function WorkflowTransitionEdge({
+export const WorkflowTransitionEdge = memo(function WorkflowTransitionEdge({
   id,
   sourceX,
   sourceY,
@@ -52,4 +53,4 @@ export function WorkflowTransitionEdge({
       )}
     </>
   )
-}
+})

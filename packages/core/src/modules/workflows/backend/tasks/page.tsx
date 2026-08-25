@@ -53,6 +53,28 @@ type TasksResponse = {
   }
 }
 
+function getStatusBadgeClass(status: UserTaskStatus) {
+  switch (status) {
+    case 'PENDING':
+      return 'bg-status-warning-bg text-status-warning-text'
+    case 'IN_PROGRESS':
+      return 'bg-status-info-bg text-status-info-text'
+    case 'COMPLETED':
+      return 'bg-status-success-bg text-status-success-text'
+    case 'CANCELLED':
+      return 'bg-muted text-foreground'
+    default:
+      return 'bg-muted text-muted-foreground'
+  }
+}
+
+function isOverdue(task: UserTask) {
+  if (!task.dueDate || task.status === 'COMPLETED' || task.status === 'CANCELLED') {
+    return false
+  }
+  return new Date(task.dueDate) < new Date()
+}
+
 export default function UserTasksListPage() {
   const [page, setPage] = React.useState(1)
   const [pageSize] = React.useState(50)
@@ -97,7 +119,7 @@ export default function UserTasksListPage() {
     },
   })
 
-  const handleClaim = async (id: string, taskName: string) => {
+  const handleClaim = React.useCallback(async (id: string, taskName: string) => {
     const confirmed = await confirmDialog({
       title: t('workflows.tasks.confirm.claim', { name: taskName }),
       variant: 'default',
@@ -116,7 +138,7 @@ export default function UserTasksListPage() {
     } else {
       flash(t('workflows.tasks.messages.claimFailed'), 'error')
     }
-  }
+  }, [confirmDialog, queryClient, t])
 
   const handleFiltersApply = React.useCallback((values: FilterValues) => {
     const next: FilterValues = {}
@@ -132,29 +154,7 @@ export default function UserTasksListPage() {
     setPage(1)
   }, [])
 
-  const getStatusBadgeClass = (status: UserTaskStatus) => {
-    switch (status) {
-      case 'PENDING':
-        return 'bg-status-warning-bg text-status-warning-text'
-      case 'IN_PROGRESS':
-        return 'bg-status-info-bg text-status-info-text'
-      case 'COMPLETED':
-        return 'bg-status-success-bg text-status-success-text'
-      case 'CANCELLED':
-        return 'bg-muted text-foreground'
-      default:
-        return 'bg-muted text-muted-foreground'
-    }
-  }
-
-  const isOverdue = (task: UserTask) => {
-    if (!task.dueDate || task.status === 'COMPLETED' || task.status === 'CANCELLED') {
-      return false
-    }
-    return new Date(task.dueDate) < new Date()
-  }
-
-  const filters: FilterDef[] = [
+  const filters = React.useMemo<FilterDef[]>(() => [
     {
       id: 'status',
       type: 'select',
@@ -191,9 +191,9 @@ export default function UserTasksListPage() {
       label: t('workflows.tasks.filters.workflowInstanceId'),
       placeholder: t('workflows.tasks.filters.workflowInstanceIdPlaceholder'),
     },
-  ]
+  ], [t])
 
-  const columns: ColumnDef<UserTask>[] = [
+  const columns = React.useMemo<ColumnDef<UserTask>[]>(() => [
     {
       id: 'taskName',
       header: t('workflows.tasks.fields.taskName'),
@@ -313,7 +313,7 @@ export default function UserTasksListPage() {
         return <RowActions items={items} />
       },
     },
-  ]
+  ], [handleClaim, t])
 
   if (error) {
     return (

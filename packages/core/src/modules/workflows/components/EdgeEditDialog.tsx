@@ -1,7 +1,7 @@
 'use client'
 
 import type {Edge} from '@xyflow/react'
-import {useEffect, useState} from 'react'
+import {memo, useEffect, useState} from 'react'
 import {
   Dialog,
   DialogContent,
@@ -54,7 +54,7 @@ interface TransitionCondition {
  * - Activities
  * - Business rules integration
  */
-export function EdgeEditDialog({ edge, isOpen, onClose, onSave, onDelete }: EdgeEditDialogProps) {
+export const EdgeEditDialog = memo(function EdgeEditDialog({ edge, isOpen, onClose, onSave, onDelete }: EdgeEditDialogProps) {
   const t = useT()
   const { confirm: confirmDialog, ConfirmDialogElement } = useConfirmDialog()
   const [transitionName, setTransitionName] = useState('')
@@ -1003,4 +1003,4 @@ export function EdgeEditDialog({ edge, isOpen, onClose, onSave, onDelete }: Edge
       {ConfirmDialogElement}
     </Dialog>
   )
-}
+})

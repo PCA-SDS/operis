@@ -125,9 +125,9 @@ export default function WorkflowDefinitionsListPage() {
     },
   })
 
-  const handleDelete = (id: string, workflowName: string, updatedAt: string | null) => {
+  const handleDelete = React.useCallback((id: string, workflowName: string, updatedAt: string | null) => {
     setDeleteTarget({ id, name: workflowName, updatedAt })
-  }
+  }, [])
 
   const confirmDelete = async () => {
     if (!deleteTarget) return
@@ -154,7 +154,7 @@ export default function WorkflowDefinitionsListPage() {
     setDeleteTarget(null)
   }
 
-  const handleToggleEnabled = async (id: string, currentEnabled: boolean, updatedAt: string | null) => {
+  const handleToggleEnabled = React.useCallback(async (id: string, currentEnabled: boolean, updatedAt: string | null) => {
     const result = await withScopedApiRequestHeaders(
       buildOptimisticLockHeader(updatedAt),
       () => apiCall(`/api/workflows/definitions/${id}`, {
@@ -178,9 +178,9 @@ export default function WorkflowDefinitionsListPage() {
         flash(t('workflows.messages.updateFailed'), 'error')
       }
     }
-  }
+  }, [queryClient, t])
 
-  const handleDuplicate = async (definition: WorkflowDefinition) => {
+  const handleDuplicate = React.useCallback(async (definition: WorkflowDefinition) => {
     for (let attempt = 0; attempt < 10; attempt += 1) {
       const duplicateWorkflowId = buildDuplicateWorkflowId(definition.workflowId, attempt)
       const result = await apiCall<CreateDefinitionResponse>('/api/workflows/definitions', {
@@ -209,7 +209,7 @@ export default function WorkflowDefinitionsListPage() {
     }
 
     flash(t('workflows.errors.createFailed'), 'error')
-  }
+  }, [queryClient, t])
 
   const handleFiltersApply = React.useCallback((values: FilterValues) => {
     const next: FilterValues = {}
@@ -225,7 +225,7 @@ export default function WorkflowDefinitionsListPage() {
     setPage(1)
   }, [])
 
-  const filters: FilterDef[] = [
+  const filters = React.useMemo<FilterDef[]>(() => [
     {
       id: 'search',
       type: 'text',
@@ -248,9 +248,9 @@ export default function WorkflowDefinitionsListPage() {
       label: t('workflows.filters.workflowId'),
       placeholder: t('workflows.filters.workflowIdPlaceholder'),
     },
-  ]
+  ], [t])
 
-  const columns: ColumnDef<WorkflowDefinition>[] = [
+  const columns = React.useMemo<ColumnDef<WorkflowDefinition>[]>(() => [
     {
       id: 'workflowId',
       header: t('workflows.fields.workflowId'),
@@ -383,7 +383,7 @@ export default function WorkflowDefinitionsListPage() {
         return <RowActions items={items} />
       },
     },
-  ]
+  ], [handleDelete, handleDuplicate, handleToggleEnabled, t])
 
   if (error) {
     return (
