@@ -148,5 +148,6 @@ const installExamplesBundle: ModuleCli = {
 }
 
 import { migrateTpsCategoriesCommand } from './migrate-tps/categories'
+import { migrateTpsProductsCommand } from './migrate-tps/products'
 
-export default [seedUnitsCommand, seedPriceKindsCommand, seedExamplesCommand, installExamplesBundle, migrateTpsCategoriesCommand]
+export default [seedUnitsCommand, seedPriceKindsCommand, seedExamplesCommand, installExamplesBundle, migrateTpsCategoriesCommand, migrateTpsProductsCommand]
