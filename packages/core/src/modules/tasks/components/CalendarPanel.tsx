@@ -84,6 +84,13 @@ export function CalendarPanel({ onClose }: { onClose: () => void }) {
   const scheduleItems = React.useMemo(() => items.map(toScheduleItem), [items])
   const isEmpty = !isLoading && !errorMessage && items.length === 0
 
+  // Stable identity: ScheduleCalendar hands this to react-big-calendar, and an inline
+  // arrow would change every render.
+  const handleItemClick = React.useCallback((item: ScheduleItem) => {
+    const projectId = item.metadata?.projectId
+    if (typeof projectId === 'string') setSelected({ id: item.id, projectId })
+  }, [])
+
   return (
     <>
       <Sheet open onOpenChange={(open) => (open ? undefined : onClose())}>
@@ -130,10 +137,7 @@ export function CalendarPanel({ onClose }: { onClose: () => void }) {
                   timezone={browserTimeZone()}
                   onViewChange={setView}
                   onRangeChange={setRange}
-                  onItemClick={(item) => {
-                    const projectId = item.metadata?.projectId
-                    if (typeof projectId === 'string') setSelected({ id: item.id, projectId })
-                  }}
+                  onItemClick={handleItemClick}
                 />
               </div>
             )}

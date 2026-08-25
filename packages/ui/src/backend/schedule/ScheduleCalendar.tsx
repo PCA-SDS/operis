@@ -83,6 +83,45 @@ function getEventStyles(item: ScheduleItem): React.CSSProperties {
   return { backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.5)', color: '#064e3b' }
 }
 
+type ItemClickHandlerRef = React.MutableRefObject<((item: ScheduleItem) => void) | undefined>
+
+/**
+ * Builds the `components.event` renderer once per calendar instance.
+ *
+ * react-big-calendar treats `components.event` as a *component type*: a new function
+ * identity unmounts and remounts every event cell in the view, which loses focus and
+ * flashes on dense months. The renderer therefore closes over a ref instead of the
+ * `onItemClick` prop, so its identity survives every parent render while still calling
+ * the current handler (the ref is refreshed during the parent's render pass, before any
+ * child reads it).
+ */
+function createEventRenderer(onItemClickRef: ItemClickHandlerRef) {
+  return function ScheduleCalendarEvent({ event }: { event: CalendarEvent }) {
+    const resource = event.resource
+    const onItemClick = onItemClickRef.current
+    const hasLink = Boolean(resource.linkLabel) && typeof onItemClick === 'function'
+    return (
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-xs font-medium">{resource.title}</span>
+        {hasLink ? (
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="h-auto p-0 text-overline"
+            onClick={(clickEvent) => {
+              clickEvent.stopPropagation()
+              onItemClickRef.current?.(resource)
+            }}
+          >
+            {resource.linkLabel}
+          </Button>
+        ) : null}
+      </div>
+    )
+  }
+}
+
 export type ScheduleCalendarProps = {
   items: ScheduleItem[]
   view: ScheduleViewMode
@@ -158,34 +197,12 @@ export default function ScheduleCalendar({
 
   const calendarStyle = React.useMemo<React.CSSProperties>(() => ({ height: 640 }), [])
 
-  const components = React.useMemo(
-    () => ({
-      event: ({ event }: { event: CalendarEvent }) => {
-        const resource = event.resource
-        const hasLink = Boolean(resource.linkLabel) && typeof onItemClick === 'function'
-        return (
-          <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-xs font-medium">{resource.title}</span>
-            {hasLink ? (
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-overline"
-                onClick={(clickEvent) => {
-                  clickEvent.stopPropagation()
-                  onItemClick?.(resource)
-                }}
-              >
-                {resource.linkLabel}
-              </Button>
-            ) : null}
-          </div>
-        )
-      },
-    }),
-    [onItemClick],
-  )
+  const onItemClickRef = React.useRef(onItemClick)
+  onItemClickRef.current = onItemClick
+
+  // Empty deps on purpose: the renderer reads the handler from the ref, so its
+  // component type must stay stable for the lifetime of this calendar.
+  const components = React.useMemo(() => ({ event: createEventRenderer(onItemClickRef) }), [])
 
   return (
     <Calendar

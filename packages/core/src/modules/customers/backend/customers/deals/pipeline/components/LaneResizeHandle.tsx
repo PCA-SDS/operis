@@ -23,25 +23,23 @@ type LaneResizeHandleProps = {
  *
  * The pointer listeners attach to `window` during the drag so the handle keeps tracking
  * even when the cursor moves off the handle's narrow hit area.
+ *
+ * Pointer moves are accumulated and flushed once per animation frame (same shape as
+ * `ColumnResizeHandle` in `@open-mercato/ui/backend/DataTable`): a high-polling mouse
+ * fires `pointermove` far faster than the display refreshes, and every un-coalesced
+ * `onResize` commits React state on the 3000-line pipeline page. Deltas are summed
+ * between frames and the residual is flushed on pointerup, so the cumulative delta the
+ * page receives — and therefore the final lane width — is unchanged.
  */
 export function LaneResizeHandle({ onResize, onResizeEnd, onReset }: LaneResizeHandleProps): React.ReactElement {
   const t = useT()
   const dragStateRef = React.useRef<{ lastX: number } | null>(null)
   const [isActive, setIsActive] = React.useState(false)
-
-  const stopDrag = React.useCallback(
-    (handlers: { move: (e: PointerEvent) => void; up: () => void }) => {
-      window.removeEventListener('pointermove', handlers.move)
-      window.removeEventListener('pointerup', handlers.up)
-      window.removeEventListener('pointercancel', handlers.up)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-      setIsActive(false)
-      onResizeEnd?.()
-      dragStateRef.current = null
-    },
-    [onResizeEnd],
-  )
+  // Holds the current drag's teardown so an unmount mid-drag (lane removal, pipeline
+  // switch, data reload) still removes the window listeners, cancels the pending frame
+  // and restores the body cursor/selection instead of leaking them.
+  const dragCleanupRef = React.useRef<(() => void) | null>(null)
+  React.useEffect(() => () => { dragCleanupRef.current?.() }, [])
 
   const handlePointerDown = React.useCallback(
     (event: React.PointerEvent) => {
@@ -54,22 +52,50 @@ export function LaneResizeHandle({ onResize, onResizeEnd, onReset }: LaneResizeH
       document.body.style.userSelect = 'none'
       dragStateRef.current = { lastX: event.clientX }
 
-      const handlers = {
-        move: (e: PointerEvent) => {
-          if (!dragStateRef.current) return
-          const delta = e.clientX - dragStateRef.current.lastX
-          if (delta !== 0) {
-            dragStateRef.current.lastX = e.clientX
-            onResize(delta)
-          }
-        },
-        up: () => stopDrag(handlers),
+      let frame = 0
+      let pendingDelta = 0
+      const flush = () => {
+        frame = 0
+        const delta = pendingDelta
+        pendingDelta = 0
+        if (delta !== 0) onResize(delta)
       }
-      window.addEventListener('pointermove', handlers.move)
-      window.addEventListener('pointerup', handlers.up)
-      window.addEventListener('pointercancel', handlers.up)
+      const onMove = (moveEvent: PointerEvent) => {
+        if (!dragStateRef.current) return
+        const delta = moveEvent.clientX - dragStateRef.current.lastX
+        if (delta === 0) return
+        dragStateRef.current.lastX = moveEvent.clientX
+        pendingDelta += delta
+        if (frame) return
+        frame = window.requestAnimationFrame(flush)
+      }
+      const teardown = () => {
+        if (frame) {
+          window.cancelAnimationFrame(frame)
+          frame = 0
+        }
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+        window.removeEventListener('pointercancel', onUp)
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+        dragStateRef.current = null
+        dragCleanupRef.current = null
+      }
+      const onUp = () => {
+        teardown()
+        // Commit whatever the last frame did not get to, so the released width is exact.
+        flush()
+        setIsActive(false)
+        onResizeEnd?.()
+      }
+
+      dragCleanupRef.current = teardown
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+      window.addEventListener('pointercancel', onUp)
     },
-    [onResize, stopDrag],
+    [onResize, onResizeEnd],
   )
 
   const handleDoubleClick = React.useCallback(
