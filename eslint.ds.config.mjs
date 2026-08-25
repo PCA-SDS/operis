@@ -128,6 +128,25 @@ export default [
       'om-ds/no-legacy-alert-variant': 'error',
     },
   },
+  {
+    files: [
+      'packages/core/src/modules/invoice/backend/**/*.{ts,tsx}',
+      'packages/core/src/modules/invoice/components/**/*.{ts,tsx}',
+    ],
+    ignores: ['**/__tests__/**', '**/*.generated.*'],
+    linterOptions,
+    languageOptions,
+    plugins,
+    rules: {
+      'om-ds/require-empty-state': 'error',
+      'om-ds/require-page-wrapper': 'error',
+      'om-ds/no-raw-table': 'error',
+      'om-ds/require-loading-state': 'error',
+      'om-ds/require-status-badge': 'error',
+      'om-ds/no-hardcoded-status-colors': 'error',
+      'om-ds/no-legacy-alert-variant': 'error',
+    },
+  },
   // The module's HTTP client is not a rendering surface: it returns promises and
   // never draws anything, so it has no loading state to require. Its consumers
   // do — every hook and component that calls it renders one. The exception sits
