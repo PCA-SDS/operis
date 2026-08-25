@@ -21,7 +21,13 @@ type ImplProps = Pick<
   total: number
 }
 
-export default function PieChartImpl({
+const LEGEND_LABEL_STYLE: React.CSSProperties = { color: 'hsl(var(--muted-foreground))', fontSize: '12px' }
+
+function renderLegendLabel(value: React.ReactNode): React.ReactNode {
+  return <span style={LEGEND_LABEL_STYLE}>{value}</span>
+}
+
+function PieChartImpl({
   data,
   colors,
   variant = 'donut',
@@ -30,9 +36,22 @@ export default function PieChartImpl({
   showTooltip = true,
   total,
 }: ImplProps) {
-  const getSliceColor = (idx: number): string => resolveChartColor(colors?.[idx], idx)
+  const getSliceColor = React.useCallback(
+    (idx: number): string => resolveChartColor(colors?.[idx], idx),
+    [colors],
+  )
   const innerRadius = variant === 'donut' ? '60%' : 0
   const outerRadius = '80%'
+
+  const tooltipContent = React.useMemo(
+    () => (
+      <ChartTooltipContent
+        valueFormatter={valueFormatter}
+        hideLabel
+      />
+    ),
+    [valueFormatter],
+  )
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -61,22 +80,17 @@ export default function PieChartImpl({
         </Pie>
         {showTooltip && (
           <Tooltip
-            content={
-              <ChartTooltipContent
-                valueFormatter={valueFormatter}
-                hideLabel
-              />
-            }
+            content={tooltipContent}
           />
         )}
         <Legend
           verticalAlign="bottom"
           height={36}
-          formatter={(value) => (
-            <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: '12px' }}>{value}</span>
-          )}
+          formatter={renderLegendLabel}
         />
       </RechartsPieChart>
     </ResponsiveContainer>
   )
 }
+
+export default React.memo(PieChartImpl)

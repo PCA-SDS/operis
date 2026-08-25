@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -178,11 +179,15 @@ export function PortalProvider({ orgSlug, children, initialAuth, initialTenant }
     // Fallback: kept for backward compat but shouldn't be hit when layout provides data
   }, [initialTenant])
 
-  const value: PortalContextValue = {
-    auth: { ...authState, logout },
-    tenant: tenantState,
-    orgSlug,
-  }
+  const auth = useMemo<PortalContextValue['auth']>(
+    () => ({ ...authState, logout }),
+    [authState, logout],
+  )
+
+  const value = useMemo<PortalContextValue>(
+    () => ({ auth, tenant: tenantState, orgSlug }),
+    [auth, tenantState, orgSlug],
+  )
 
   return <PortalCtx.Provider value={value}>{children}</PortalCtx.Provider>
 }

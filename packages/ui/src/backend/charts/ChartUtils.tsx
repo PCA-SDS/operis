@@ -36,9 +36,10 @@ export function ChartContainer({
   ...props
 }: ChartContainerProps) {
   const configId = React.useId()
+  const chartContextValue = React.useMemo<ChartContextProps>(() => ({ config }), [config])
 
   return (
-    <ChartContext.Provider value={{ config }}>
+    <ChartContext.Provider value={chartContextValue}>
       <div
         data-chart={configId}
         className={className}

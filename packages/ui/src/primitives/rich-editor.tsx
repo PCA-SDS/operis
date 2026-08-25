@@ -130,6 +130,18 @@ const EMPTY_SELECTION_STATE: SelectionState = {
   align: 'left',
 }
 
+// Derived from the canonical empty state so a new `SelectionState` field is
+// always compared — a missed field would leave toolbar active-states stale.
+const SELECTION_STATE_KEYS = Object.keys(EMPTY_SELECTION_STATE) as (keyof SelectionState)[]
+
+function selectionStatesEqual(a: SelectionState, b: SelectionState): boolean {
+  if (a === b) return true
+  for (const key of SELECTION_STATE_KEYS) {
+    if (a[key] !== b[key]) return false
+  }
+  return true
+}
+
 type RichEditorContextValue = {
   exec: (command: string, arg?: string) => void
   selection: SelectionState
@@ -379,7 +391,10 @@ export const RichEditor = React.memo(function RichEditor({
   }, [value])
 
   const refreshSelectionState = React.useCallback(() => {
-    setSelection(deriveSelectionState())
+    // `selectionchange` fires on every caret move; keeping the previous object
+    // when nothing changed stops the toolbar from rebuilding on plain typing.
+    const next = deriveSelectionState()
+    setSelection((prev) => (selectionStatesEqual(prev, next) ? prev : next))
   }, [])
 
   const exec = React.useCallback(
@@ -1122,6 +1137,21 @@ type ToolbarItem =
       colorLabels: Record<RichEditorColorKey, string>
     }
 
+const EMPTY_TOOLBAR_ITEMS: ToolbarItem[] = []
+
+/**
+ * Identity-stable description of what the toolbar renders, so the overflow
+ * measurement re-runs on a real layout change (item set or dropdown caption)
+ * rather than on every new `items` array.
+ */
+function toolbarLayoutSignature(items: ToolbarItem[]): string {
+  return items
+    .map((item) => (item.kind === 'textDropdown' && typeof item.label === 'string'
+      ? `${item.key}~${item.label}`
+      : item.key))
+    .join('|')
+}
+
 function renderToolbarItem(item: ToolbarItem): React.ReactNode {
   switch (item.kind) {
     case 'divider':
@@ -1249,232 +1279,234 @@ function usePresetToolbarItems({
     exec('insertHTML', `<code>${selectionText}</code>`)
   }, [exec])
 
-  const showHeading = variant === 'full' || variant === 'standard'
-  const showFontSize = variant === 'full'
-  const showColor = variant === 'full'
-  const showStrike = variant === 'full'
-  const showHr = variant === 'full'
-  const showQuoteAndCode = variant === 'full'
-  const showImageTable = variant === 'full'
-  const showChecklist = variant === 'full'
-  const showOrdered = variant === 'full' || variant === 'standard' || variant === 'basic'
-  const showAlign = variant === 'full'
-  // Comment + Mention are always available in the `full` variant — when the
-  // consumer doesn't wire a custom popover we fall back to inserting a
-  // sensible plain-text marker at the caret so the buttons never feel dead.
-  // Consumers can still pass `onComment` / `onMention` to fully override and
-  // open their own popover / picker / inline UI.
-  const showComment = variant === 'full'
-  const commentHandler = onComment ?? (() => exec('insertText', '[comment: ]'))
-  const showMention = variant === 'full'
-  const mentionHandler = onMention ?? (() => exec('insertText', '@'))
-  const showLink = variant === 'full' || variant === 'standard' || variant === 'basic'
-  const showLists = variant !== 'minimal'
-  const showHelp = variant === 'full'
-  const showFullscreen = variant === 'full' && (onFullscreen !== undefined)
+  return React.useMemo<ToolbarItem[]>(() => {
+    if (variant === 'custom') return EMPTY_TOOLBAR_ITEMS
 
-  const keyboardShortcutsHelp = (
-    <div className="flex w-64 flex-col gap-1 p-1 text-sm" role="menu">
-      <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Keyboard</div>
-      <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted">
-        <span>{labels.bold}</span>
-        <kbd className="rounded border bg-card px-1.5 py-0.5 text-xs">⌘ B</kbd>
+    const showHeading = variant === 'full' || variant === 'standard'
+    const showFontSize = variant === 'full'
+    const showColor = variant === 'full'
+    const showStrike = variant === 'full'
+    const showHr = variant === 'full'
+    const showQuoteAndCode = variant === 'full'
+    const showImageTable = variant === 'full'
+    const showChecklist = variant === 'full'
+    const showOrdered = variant === 'full' || variant === 'standard' || variant === 'basic'
+    const showAlign = variant === 'full'
+    // Comment + Mention are always available in the `full` variant — when the
+    // consumer doesn't wire a custom popover we fall back to inserting a
+    // sensible plain-text marker at the caret so the buttons never feel dead.
+    // Consumers can still pass `onComment` / `onMention` to fully override and
+    // open their own popover / picker / inline UI.
+    const showComment = variant === 'full'
+    const commentHandler = onComment ?? (() => exec('insertText', '[comment: ]'))
+    const showMention = variant === 'full'
+    const mentionHandler = onMention ?? (() => exec('insertText', '@'))
+    const showLink = variant === 'full' || variant === 'standard' || variant === 'basic'
+    const showLists = variant !== 'minimal'
+    const showHelp = variant === 'full'
+    const showFullscreen = variant === 'full' && (onFullscreen !== undefined)
+
+    const keyboardShortcutsHelp = (
+      <div className="flex w-64 flex-col gap-1 p-1 text-sm" role="menu">
+        <div className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Keyboard</div>
+        <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted">
+          <span>{labels.bold}</span>
+          <kbd className="rounded border bg-card px-1.5 py-0.5 text-xs">⌘ B</kbd>
+        </div>
+        <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted">
+          <span>{labels.italic}</span>
+          <kbd className="rounded border bg-card px-1.5 py-0.5 text-xs">⌘ I</kbd>
+        </div>
+        <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted">
+          <span>{labels.underline}</span>
+          <kbd className="rounded border bg-card px-1.5 py-0.5 text-xs">⌘ U</kbd>
+        </div>
       </div>
-      <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted">
-        <span>{labels.italic}</span>
-        <kbd className="rounded border bg-card px-1.5 py-0.5 text-xs">⌘ I</kbd>
-      </div>
-      <div className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted">
-        <span>{labels.underline}</span>
-        <kbd className="rounded border bg-card px-1.5 py-0.5 text-xs">⌘ U</kbd>
-      </div>
-    </div>
-  )
+    )
 
-  const headingMenu = (
-    <div className="flex flex-col gap-0.5" role="menu">
-      <button
-        type="button"
-        role="menuitem"
-        className="cursor-pointer rounded px-2 py-1 text-left text-sm hover:bg-muted"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => exec('formatBlock', '<p>')}
-      >
-        {labels.paragraph}
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        className="cursor-pointer rounded px-2 py-1 text-left text-lg font-semibold hover:bg-muted"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => exec('formatBlock', '<h1>')}
-      >
-        {labels.heading1}
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        className="cursor-pointer rounded px-2 py-1 text-left text-base font-semibold hover:bg-muted"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => exec('formatBlock', '<h2>')}
-      >
-        {labels.heading2}
-      </button>
-      <button
-        type="button"
-        role="menuitem"
-        className="cursor-pointer rounded px-2 py-1 text-left text-sm font-semibold hover:bg-muted"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => exec('formatBlock', '<h3>')}
-      >
-        {labels.heading3}
-      </button>
-    </div>
-  )
-
-  const headingLabel: string = (() => {
-    switch (selection.heading) {
-      case 'h1':
-        return labels.heading1
-      case 'h2':
-        return labels.heading2
-      case 'h3':
-        return labels.heading3
-      default:
-        return labels.heading
-    }
-  })()
-
-  const fontSizeMenu = (
-    <div className="flex flex-col gap-0.5" role="menu">
-      {FONT_SIZE_OPTIONS.map((size) => (
+    const headingMenu = (
+      <div className="flex flex-col gap-0.5" role="menu">
         <button
-          key={size}
           type="button"
           role="menuitem"
           className="cursor-pointer rounded px-2 py-1 text-left text-sm hover:bg-muted"
           onMouseDown={(e) => e.preventDefault()}
-          onClick={() => {
-            // execCommand('fontSize', …) requires 1–7 — translate the px label
-            // through a CSS-driven span instead.
-            exec('removeFormat')
-            const px = parseInt(size, 10)
-            if (px > 0) {
-              exec('insertHTML', `<span style="font-size:${px}px">${window.getSelection()?.toString() ?? ''}</span>`)
-            }
-          }}
+          onClick={() => exec('formatBlock', '<p>')}
         >
-          {size}
+          {labels.paragraph}
         </button>
-      ))}
-    </div>
-  )
+        <button
+          type="button"
+          role="menuitem"
+          className="cursor-pointer rounded px-2 py-1 text-left text-lg font-semibold hover:bg-muted"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => exec('formatBlock', '<h1>')}
+        >
+          {labels.heading1}
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className="cursor-pointer rounded px-2 py-1 text-left text-base font-semibold hover:bg-muted"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => exec('formatBlock', '<h2>')}
+        >
+          {labels.heading2}
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          className="cursor-pointer rounded px-2 py-1 text-left text-sm font-semibold hover:bg-muted"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => exec('formatBlock', '<h3>')}
+        >
+          {labels.heading3}
+        </button>
+      </div>
+    )
 
-  const alignMenu = (
-    <div className="flex flex-col gap-0.5" role="menu">
-      {(['left', 'center', 'right', 'justify'] as RichEditorAlign[]).map((option) => {
-        const Icon = ALIGN_ICONS[option]
-        const command = option === 'justify' ? 'justifyFull' : `justify${option[0].toUpperCase()}${option.slice(1)}`
-        const label = option === 'left'
-          ? labels.alignLeft
-          : option === 'center'
-            ? labels.alignCenter
-            : option === 'right'
-              ? labels.alignRight
-              : labels.alignJustify
-        return (
+    const headingLabel: string = (() => {
+      switch (selection.heading) {
+        case 'h1':
+          return labels.heading1
+        case 'h2':
+          return labels.heading2
+        case 'h3':
+          return labels.heading3
+        default:
+          return labels.heading
+      }
+    })()
+
+    const fontSizeMenu = (
+      <div className="flex flex-col gap-0.5" role="menu">
+        {FONT_SIZE_OPTIONS.map((size) => (
           <button
-            key={option}
+            key={size}
             type="button"
             role="menuitem"
-            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-muted"
+            className="cursor-pointer rounded px-2 py-1 text-left text-sm hover:bg-muted"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec(command)}
+            onClick={() => {
+              // execCommand('fontSize', …) requires 1–7 — translate the px label
+              // through a CSS-driven span instead.
+              exec('removeFormat')
+              const px = parseInt(size, 10)
+              if (px > 0) {
+                exec('insertHTML', `<span style="font-size:${px}px">${window.getSelection()?.toString() ?? ''}</span>`)
+              }
+            }}
           >
-            <Icon className="size-4" aria-hidden="true" />
-            <span>{label}</span>
+            {size}
           </button>
-        )
-      })}
-    </div>
-  )
+        ))}
+      </div>
+    )
 
-  const AlignActiveIcon = ALIGN_ICONS[selection.align]
+    const alignMenu = (
+      <div className="flex flex-col gap-0.5" role="menu">
+        {(['left', 'center', 'right', 'justify'] as RichEditorAlign[]).map((option) => {
+          const Icon = ALIGN_ICONS[option]
+          const command = option === 'justify' ? 'justifyFull' : `justify${option[0].toUpperCase()}${option.slice(1)}`
+          const label = option === 'left'
+            ? labels.alignLeft
+            : option === 'center'
+              ? labels.alignCenter
+              : option === 'right'
+                ? labels.alignRight
+                : labels.alignJustify
+          return (
+            <button
+              key={option}
+              type="button"
+              role="menuitem"
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-muted"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => exec(command)}
+            >
+              <Icon className="size-4" aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          )
+        })}
+      </div>
+    )
 
-  if (variant === 'custom') return []
+    const AlignActiveIcon = ALIGN_ICONS[selection.align]
 
-  const items: ToolbarItem[] = []
-  if (showHeading) {
-    items.push({ kind: 'textDropdown', key: 'heading', ariaLabel: labels.heading, label: headingLabel, menu: headingMenu })
-    items.push({ kind: 'divider', key: 'd-heading' })
-  }
-  if (showFontSize) {
-    items.push({ kind: 'textDropdown', key: 'fontSize', ariaLabel: labels.fontSize, label: '14px', menu: fontSizeMenu })
-    items.push({ kind: 'divider', key: 'd-fontSize' })
-  }
-  if (showColor) {
-    items.push({ kind: 'colorButton', key: 'color', ariaLabel: labels.color, colorLabels: labels.colors })
-    items.push({ kind: 'divider', key: 'd-color' })
-  }
-  items.push({ kind: 'iconButton', key: 'bold', icon: <Bold />, command: 'bold', ariaLabel: labels.bold, tooltipLabel: labels.bold, active: selection.bold })
-  items.push({ kind: 'iconButton', key: 'italic', icon: <Italic />, command: 'italic', ariaLabel: labels.italic, tooltipLabel: labels.italic, active: selection.italic })
-  items.push({ kind: 'iconButton', key: 'underline', icon: <Underline />, command: 'underline', ariaLabel: labels.underline, tooltipLabel: labels.underline, active: selection.underline })
-  if (showStrike) {
-    items.push({ kind: 'iconButton', key: 'strike', icon: <Strikethrough />, command: 'strikeThrough', ariaLabel: labels.strikethrough, tooltipLabel: labels.strikethrough, active: selection.strikethrough })
-  }
-  if (showLists) {
-    items.push({ kind: 'divider', key: 'd-lists' })
-    items.push({ kind: 'iconButton', key: 'ul', icon: <List />, command: 'insertUnorderedList', ariaLabel: labels.unorderedList, tooltipLabel: labels.unorderedList, active: selection.unorderedList })
-    if (showOrdered) {
-      items.push({ kind: 'iconButton', key: 'ol', icon: <ListOrdered />, command: 'insertOrderedList', ariaLabel: labels.orderedList, tooltipLabel: labels.orderedList, active: selection.orderedList })
+    const items: ToolbarItem[] = []
+    if (showHeading) {
+      items.push({ kind: 'textDropdown', key: 'heading', ariaLabel: labels.heading, label: headingLabel, menu: headingMenu })
+      items.push({ kind: 'divider', key: 'd-heading' })
     }
-  }
-  if (showHr || showQuoteAndCode) {
-    items.push({ kind: 'divider', key: 'd-structure' })
-    if (showHr) {
-      items.push({ kind: 'iconButton', key: 'hr', icon: <Minus />, ariaLabel: labels.horizontalRule, tooltipLabel: labels.horizontalRule, onActivate: () => exec('insertHorizontalRule') })
+    if (showFontSize) {
+      items.push({ kind: 'textDropdown', key: 'fontSize', ariaLabel: labels.fontSize, label: '14px', menu: fontSizeMenu })
+      items.push({ kind: 'divider', key: 'd-fontSize' })
     }
-    if (showQuoteAndCode) {
-      items.push({ kind: 'iconButton', key: 'quote', icon: <Quote />, ariaLabel: labels.blockquote, tooltipLabel: labels.blockquote, active: selection.blockquote, onActivate: () => exec('formatBlock', selection.blockquote ? '<p>' : '<blockquote>') })
-      items.push({ kind: 'iconButton', key: 'inlineCode', icon: <Code />, ariaLabel: labels.inlineCode, tooltipLabel: labels.inlineCode, onActivate: onInsertInlineCode })
-      items.push({ kind: 'iconButton', key: 'codeBlock', icon: <FileCode />, ariaLabel: labels.codeBlock, tooltipLabel: labels.codeBlock, active: selection.code, onActivate: () => exec('formatBlock', selection.code ? '<p>' : '<pre>') })
+    if (showColor) {
+      items.push({ kind: 'colorButton', key: 'color', ariaLabel: labels.color, colorLabels: labels.colors })
+      items.push({ kind: 'divider', key: 'd-color' })
     }
-  }
-  if (showImageTable) {
-    items.push({ kind: 'divider', key: 'd-media' })
-    items.push({ kind: 'iconButton', key: 'image', icon: <ImageIcon />, ariaLabel: labels.image, tooltipLabel: labels.image, onActivate: onImage })
-    items.push({ kind: 'iconButton', key: 'table', icon: <TableIcon />, ariaLabel: labels.table, tooltipLabel: labels.table, onActivate: onInsertTable })
-  }
-  if (showChecklist) {
-    items.push({ kind: 'iconButton', key: 'checklist', icon: <ListChecks />, ariaLabel: labels.checklist, tooltipLabel: labels.checklist, onActivate: onInsertChecklist })
-  }
-  if (showAlign) {
-    items.push({ kind: 'divider', key: 'd-align' })
-    items.push({ kind: 'dropdownButton', key: 'align', icon: <AlignActiveIcon />, ariaLabel: labels.align, menu: alignMenu })
-  }
-  if (showLink || showComment || showMention) {
-    items.push({ kind: 'divider', key: 'd-anchors' })
-  }
-  if (showComment) {
-    items.push({ kind: 'iconButton', key: 'comment', icon: <MessageCircle />, ariaLabel: labels.comment, tooltipLabel: labels.comment, onActivate: commentHandler })
-  }
-  if (showLink) {
-    items.push({ kind: 'iconButton', key: 'link', icon: <Link />, ariaLabel: labels.link, tooltipLabel: labels.link, onActivate: onLink })
-  }
-  if (showMention) {
-    items.push({ kind: 'iconButton', key: 'mention', icon: <AtSign />, ariaLabel: labels.mention, tooltipLabel: labels.mention, onActivate: mentionHandler })
-  }
-  if (showHelp || showFullscreen) {
-    items.push({ kind: 'divider', key: 'd-trailing' })
-    if (showHelp) {
-      items.push({ kind: 'dropdownButton', key: 'help', icon: <HelpCircle />, ariaLabel: labels.help, menu: keyboardShortcutsHelp, showChevron: false })
+    items.push({ kind: 'iconButton', key: 'bold', icon: <Bold />, command: 'bold', ariaLabel: labels.bold, tooltipLabel: labels.bold, active: selection.bold })
+    items.push({ kind: 'iconButton', key: 'italic', icon: <Italic />, command: 'italic', ariaLabel: labels.italic, tooltipLabel: labels.italic, active: selection.italic })
+    items.push({ kind: 'iconButton', key: 'underline', icon: <Underline />, command: 'underline', ariaLabel: labels.underline, tooltipLabel: labels.underline, active: selection.underline })
+    if (showStrike) {
+      items.push({ kind: 'iconButton', key: 'strike', icon: <Strikethrough />, command: 'strikeThrough', ariaLabel: labels.strikethrough, tooltipLabel: labels.strikethrough, active: selection.strikethrough })
     }
-    if (showFullscreen && onFullscreen) {
-      items.push({ kind: 'iconButton', key: 'fullscreen', icon: <Maximize2 />, ariaLabel: labels.fullscreen, tooltipLabel: labels.fullscreen, onActivate: onFullscreen })
+    if (showLists) {
+      items.push({ kind: 'divider', key: 'd-lists' })
+      items.push({ kind: 'iconButton', key: 'ul', icon: <List />, command: 'insertUnorderedList', ariaLabel: labels.unorderedList, tooltipLabel: labels.unorderedList, active: selection.unorderedList })
+      if (showOrdered) {
+        items.push({ kind: 'iconButton', key: 'ol', icon: <ListOrdered />, command: 'insertOrderedList', ariaLabel: labels.orderedList, tooltipLabel: labels.orderedList, active: selection.orderedList })
+      }
     }
-  }
+    if (showHr || showQuoteAndCode) {
+      items.push({ kind: 'divider', key: 'd-structure' })
+      if (showHr) {
+        items.push({ kind: 'iconButton', key: 'hr', icon: <Minus />, ariaLabel: labels.horizontalRule, tooltipLabel: labels.horizontalRule, onActivate: () => exec('insertHorizontalRule') })
+      }
+      if (showQuoteAndCode) {
+        items.push({ kind: 'iconButton', key: 'quote', icon: <Quote />, ariaLabel: labels.blockquote, tooltipLabel: labels.blockquote, active: selection.blockquote, onActivate: () => exec('formatBlock', selection.blockquote ? '<p>' : '<blockquote>') })
+        items.push({ kind: 'iconButton', key: 'inlineCode', icon: <Code />, ariaLabel: labels.inlineCode, tooltipLabel: labels.inlineCode, onActivate: onInsertInlineCode })
+        items.push({ kind: 'iconButton', key: 'codeBlock', icon: <FileCode />, ariaLabel: labels.codeBlock, tooltipLabel: labels.codeBlock, active: selection.code, onActivate: () => exec('formatBlock', selection.code ? '<p>' : '<pre>') })
+      }
+    }
+    if (showImageTable) {
+      items.push({ kind: 'divider', key: 'd-media' })
+      items.push({ kind: 'iconButton', key: 'image', icon: <ImageIcon />, ariaLabel: labels.image, tooltipLabel: labels.image, onActivate: onImage })
+      items.push({ kind: 'iconButton', key: 'table', icon: <TableIcon />, ariaLabel: labels.table, tooltipLabel: labels.table, onActivate: onInsertTable })
+    }
+    if (showChecklist) {
+      items.push({ kind: 'iconButton', key: 'checklist', icon: <ListChecks />, ariaLabel: labels.checklist, tooltipLabel: labels.checklist, onActivate: onInsertChecklist })
+    }
+    if (showAlign) {
+      items.push({ kind: 'divider', key: 'd-align' })
+      items.push({ kind: 'dropdownButton', key: 'align', icon: <AlignActiveIcon />, ariaLabel: labels.align, menu: alignMenu })
+    }
+    if (showLink || showComment || showMention) {
+      items.push({ kind: 'divider', key: 'd-anchors' })
+    }
+    if (showComment) {
+      items.push({ kind: 'iconButton', key: 'comment', icon: <MessageCircle />, ariaLabel: labels.comment, tooltipLabel: labels.comment, onActivate: commentHandler })
+    }
+    if (showLink) {
+      items.push({ kind: 'iconButton', key: 'link', icon: <Link />, ariaLabel: labels.link, tooltipLabel: labels.link, onActivate: onLink })
+    }
+    if (showMention) {
+      items.push({ kind: 'iconButton', key: 'mention', icon: <AtSign />, ariaLabel: labels.mention, tooltipLabel: labels.mention, onActivate: mentionHandler })
+    }
+    if (showHelp || showFullscreen) {
+      items.push({ kind: 'divider', key: 'd-trailing' })
+      if (showHelp) {
+        items.push({ kind: 'dropdownButton', key: 'help', icon: <HelpCircle />, ariaLabel: labels.help, menu: keyboardShortcutsHelp, showChevron: false })
+      }
+      if (showFullscreen && onFullscreen) {
+        items.push({ kind: 'iconButton', key: 'fullscreen', icon: <Maximize2 />, ariaLabel: labels.fullscreen, tooltipLabel: labels.fullscreen, onActivate: onFullscreen })
+      }
+    }
 
-  return trimTrailingDividers(items)
+    return trimTrailingDividers(items)
+  }, [variant, labels, onComment, onMention, onFullscreen, onImageInsert, exec, selection, onLink, onImage, onInsertTable, onInsertChecklist, onInsertInlineCode])
 }
 
 function RichEditorAutoToolbar({
@@ -1489,6 +1521,7 @@ function RichEditorAutoToolbar({
   const measureRef = React.useRef<HTMLDivElement>(null)
   const containerRef = React.useRef<HTMLDivElement>(null)
   const [firstHidden, setFirstHidden] = React.useState<number | null>(null)
+  const layoutSignature = toolbarLayoutSignature(items)
 
   React.useLayoutEffect(() => {
     if (typeof window === 'undefined') return
@@ -1532,7 +1565,10 @@ function RichEditorAutoToolbar({
     const ro = new ResizeObserver(measure)
     ro.observe(container)
     return () => ro.disconnect()
-  }, [items])
+    // Measurement reads the DOM, so it only needs to re-run when the rendered
+    // item set changes — not when `items` is merely a new array of equal items.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layoutSignature])
 
   const visibleItems = firstHidden === null ? items : trimTrailingDividers(items.slice(0, firstHidden))
   const hiddenItems = firstHidden === null ? [] : trimLeadingDividers(items.slice(firstHidden))

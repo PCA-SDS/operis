@@ -33,7 +33,17 @@ type ImplProps = Pick<
   valueFormatter: (value: number) => string
 }
 
-export default function LineChartImpl({
+const CHART_MARGIN = { top: 5, right: 10, left: 10, bottom: 5 }
+const AXIS_TICK = { fontSize: 12 }
+const TOOLTIP_CURSOR = { stroke: 'hsl(var(--muted-foreground))', strokeDasharray: '3 3' }
+const ACTIVE_DOT = { r: 4, strokeWidth: 0 }
+const LEGEND_LABEL_STYLE: React.CSSProperties = { color: 'hsl(var(--muted-foreground))', fontSize: '12px' }
+
+function renderLegendLabel(value: React.ReactNode): React.ReactNode {
+  return <span style={LEGEND_LABEL_STYLE}>{value}</span>
+}
+
+function LineChartImpl({
   data,
   index,
   categories,
@@ -46,14 +56,22 @@ export default function LineChartImpl({
   connectNulls = true,
   categoryLabels,
 }: ImplProps) {
-  const getLineColor = (idx: number): string => resolveChartColor(colors?.[idx], idx)
+  const getLineColor = React.useCallback(
+    (idx: number): string => resolveChartColor(colors?.[idx], idx),
+    [colors],
+  )
   const ChartComponent = showArea ? RechartsAreaChart : RechartsLineChart
+
+  const tooltipContent = React.useMemo(
+    () => <ChartTooltipContent valueFormatter={valueFormatter} categoryLabels={categoryLabels} />,
+    [valueFormatter, categoryLabels],
+  )
 
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ChartComponent
         data={data}
-        margin={{ top: 5, right: 10, left: 10, bottom: 5 }}
+        margin={CHART_MARGIN}
       >
         {showGridLines && (
           <CartesianGrid
@@ -63,28 +81,26 @@ export default function LineChartImpl({
         )}
         <XAxis
           dataKey={index}
-          tick={{ fontSize: 12 }}
+          tick={AXIS_TICK}
           tickLine={false}
           axisLine={false}
         />
         <YAxis
           tickFormatter={valueFormatter}
-          tick={{ fontSize: 12 }}
+          tick={AXIS_TICK}
           tickLine={false}
           axisLine={false}
           width={56}
         />
         <Tooltip
-          content={<ChartTooltipContent valueFormatter={valueFormatter} categoryLabels={categoryLabels} />}
-          cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeDasharray: '3 3' }}
+          content={tooltipContent}
+          cursor={TOOLTIP_CURSOR}
         />
         {showLegend && categories.length > 1 && (
           <Legend
             verticalAlign="top"
             height={36}
-            formatter={(value) => (
-              <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: '12px' }}>{value}</span>
-            )}
+            formatter={renderLegendLabel}
           />
         )}
         {showArea
@@ -99,7 +115,7 @@ export default function LineChartImpl({
                 strokeWidth={2}
                 connectNulls={connectNulls}
                 dot={false}
-                activeDot={{ r: 4, strokeWidth: 0 }}
+                activeDot={ACTIVE_DOT}
               />
             ))
           : categories.map((category, idx) => (
@@ -111,10 +127,12 @@ export default function LineChartImpl({
                 strokeWidth={2}
                 connectNulls={connectNulls}
                 dot={false}
-                activeDot={{ r: 4, strokeWidth: 0 }}
+                activeDot={ACTIVE_DOT}
               />
             ))}
       </ChartComponent>
     </ResponsiveContainer>
   )
 }
+
+export default React.memo(LineChartImpl)
