@@ -1241,6 +1241,7 @@ export class HybridQueryEngine implements QueryEngine {
           .select('id')
           .where('entity_id', '=', entity)
           .where('is_active', '=', true)
+          .limit(1)
           .executeTakeFirst()
         if (row) {
           result = true
@@ -1987,6 +1988,7 @@ export class HybridQueryEngine implements QueryEngine {
       .selectFrom('information_schema.tables')
       .select(sql<number>`1`.as('one'))
       .where('table_name', '=', table)
+      .limit(1)
       .executeTakeFirst()
     return !!exists
   }
@@ -2062,12 +2064,17 @@ export class HybridQueryEngine implements QueryEngine {
       .select(sql<number>`1`.as('one'))
       .where('entity_type', '=', entity)
       .where('indexed_count', '>', 0)
+      .limit(1)
       .executeTakeFirst()
     if (coverage) return true
     const exists = await db
       .selectFrom('entity_indexes')
       .select('entity_id')
       .where('entity_type', '=', entity)
+      // Kysely's executeTakeFirst() does NOT add a LIMIT — it runs the query and
+      // discards all but the first row. `entity_type` alone is not selective, so
+      // without this the probe transferred every indexed row for the type.
+      .limit(1)
       .executeTakeFirst()
     return !!exists
   }
@@ -2244,6 +2251,7 @@ export class HybridQueryEngine implements QueryEngine {
       .select(sql<number>`1`.as('one'))
       .where('table_name', '=', table)
       .where('column_name', '=', column)
+      .limit(1)
       .executeTakeFirst()
     const present = !!exists
     if (present) this.columnCache.set(key, true)

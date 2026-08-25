@@ -41,6 +41,7 @@ function makeBuilder(manyResult: unknown[] = [], oneResult?: unknown) {
     select: jest.fn(() => builder),
     distinct: jest.fn(() => builder),
     where: jest.fn(() => builder),
+    limit: jest.fn(() => builder),
     execute: jest.fn(async () => manyResult),
     executeTakeFirst: jest.fn(async () => oneResult),
   }

@@ -203,7 +203,7 @@ export function register(container: AppContainer) {
           } else {
             cfQuery = cfQuery.where('tenant_id' as any, 'is', null as any)
           }
-          hasCustomFields = !!await cfQuery.executeTakeFirst()
+          hasCustomFields = !!await cfQuery.limit(1).executeTakeFirst()
         } catch {}
         if (hasCustomFields === false) {
           if (!sourceValidated) {

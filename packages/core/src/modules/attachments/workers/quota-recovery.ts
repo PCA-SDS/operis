@@ -47,6 +47,7 @@ export default async function handle(
       .where('tenant_id', '=', claimed.tenantId)
       .where('storage_driver', '=', claimed.storageDriver)
       .where('storage_path', '=', claimed.storagePath)
+      .limit(1)
       .executeTakeFirst()
     if (!existingAttachment) {
       if (!claimed.partitionCode) throw new Error('Attachment quota recovery is missing its partition code.')
