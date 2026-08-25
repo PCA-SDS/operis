@@ -53,6 +53,14 @@ export const REPO_WIDE_GUARDS = [
         scans: 'every packages/*/src root plus scripts/ — sort calls without an explicit comparator (#3620)',
       },
       {
+        path: 'src/__tests__/module-ui-gating.test.ts',
+        scans: 'every packages/*/src root plus apps/mercato/src — hardcoded links into another module with no module gate',
+      },
+      {
+        path: 'src/__tests__/mvp-module-scope.test.ts',
+        scans: 'every module index.ts across packages/ and apps/ — the shipped default-entitlement plan and its dependency closure',
+      },
+      {
         path: 'src/__tests__/alert-duplicate-icon-coverage.test.ts',
         scans: 'every packages/*/src root — duplicated alert icons',
       },

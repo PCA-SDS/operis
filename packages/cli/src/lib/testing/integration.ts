@@ -3469,6 +3469,22 @@ export async function startEphemeralEnvironment(options: EphemeralRuntimeOptions
           silent: !options.verbose,
         }, appDirectory))
 
+      // `mercato init` provisions module entitlement from the shipped plan,
+      // which is deliberately narrower than the product — see
+      // `ModuleInfo.defaultEntitlement`. The spec suite covers every module,
+      // against this single tenant, so it needs the full surface entitled.
+      // Deliberately an explicit opt-in here rather than a different default in
+      // the app: the environment under test should differ from production in
+      // exactly one visible place.
+      console.log(`[${options.logPrefix}] Entitling every module for the test tenant...`)
+      await runTimedStep(options.logPrefix, 'Entitling test tenant modules', { expectedSeconds: 5 }, async () =>
+        runYarnCommand(
+          ['mercato', 'directory', 'sync-tenant-modules', '--apply-defaults', '--enable-all'],
+          commandEnvironment,
+          { silent: !options.verbose },
+          appDirectory,
+        ))
+
       if (!needsBuild) {
         console.log(
           `[${options.logPrefix}] Build cache valid (within ${BUILD_CACHE_TTL_ENV_VAR}=${buildCacheTtlSeconds}s). Skipping build pipeline.`,
