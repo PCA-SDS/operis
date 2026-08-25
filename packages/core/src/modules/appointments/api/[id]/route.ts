@@ -6,9 +6,9 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import { Appointment, AppointmentLine, AppointmentStatus } from '../../../data/entities'
-import { appointmentStatusUpdateSchema } from '../../../data/validators'
-import { emitAppointmentEvent } from '../../../events'
+import { Appointment, AppointmentLine, AppointmentStatus } from '../../data/entities'
+import { appointmentStatusUpdateSchema } from '../../data/validators'
+import { emitAppointmentEvent } from '../../events'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
