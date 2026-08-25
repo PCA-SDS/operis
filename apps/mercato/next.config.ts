@@ -28,8 +28,6 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
   // generated files would be untracked churn outside that system.
   agentRules: false,
   experimental: {
-    serverMinification: false,
-    turbopackMinify: false,
     // Tell Turbopack/Webpack to treat these packages as having modularized
     // exports — only the named exports actually used in source are
     // evaluated. Big win in dev mode for barrel-heavy libraries.
@@ -39,6 +37,33 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
     //   - date-fns: already uses deep imports everywhere; listing it here
     //     is defense-in-depth and harmless.
     optimizePackageImports: ['lucide-react', 'recharts', 'date-fns'],
+    // BOTH minifiers MUST stay off in EVERY environment, production included.
+    // This is not a dev-speed preference — it is load-bearing for MikroORM.
+    //
+    // The legacy MikroORM decorators key entity metadata off the class name
+    // (`getMetadataFromDecorator(target.constructor)`). The minifier mangles
+    // distinct entity classes down to the same short identifier, so their
+    // metadata buckets collide. `comments` is declared as a `@OneToMany` in
+    // customers/data/entities.ts:115 and :383 but as a scalar `@Property` in
+    // sales/data/entities.ts:425,886 and workflows/data/entities.ts:540 — once
+    // two of those classes share a mangled name the kinds disagree and
+    // `validateSingleDecorator` throws:
+    //   MetadataError: Multiple property decorators used on 'I.comments'
+    //
+    // Verified empirically: enabling either flag makes `next build` fail while
+    // collecting page data for /api/docs/markdown. Turbopack applies
+    // `turbopackMinify` to the server graph too, so disabling only
+    // `serverMinification` is NOT sufficient. Next exposes no `keep_classnames`
+    // escape hatch.
+    //
+    // Cost of this workaround: production client chunks ship unminified
+    // (~62 MB raw across static/chunks; measured ~40% gzip / ~69% raw headroom).
+    // Lifting it requires migrating entities off the legacy decorators to the
+    // Stage-3 (`Symbol.metadata`) ones, which are per-class and immune to name
+    // mangling. Tracked as a remaining recommendation — do not flip these
+    // without doing that first.
+    serverMinification: false,
+    turbopackMinify: false,
     ...(isDevelopment
       ? {
           preloadEntriesOnStart: false,
