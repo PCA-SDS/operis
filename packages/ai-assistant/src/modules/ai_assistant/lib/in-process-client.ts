@@ -5,6 +5,7 @@ import { getToolRegistry } from './tool-registry'
 import { executeTool } from './tool-executor'
 import { loadAllModuleTools } from './tool-loader'
 import { authenticateMcpRequest, hasRequiredFeatures, type McpAuthSuccess } from './auth'
+import { isToolAiAllowed, resolveAiDisabledModuleIds } from './ai-entitlement'
 import type { McpToolContext, McpClientInterface, ToolInfo, ToolResult, McpToolDefinition } from './types'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 
@@ -117,6 +118,15 @@ export class InProcessMcpClient implements McpClientInterface {
       await loadAllModuleTools()
       this.toolsLoaded = true
     }
+    // Resolved once per client, alongside the tools it filters. Kept on the
+    // shared tool context so `executeTool` enforces the same decision the
+    // listings made.
+    if (this.toolContext.aiDisabledModuleIds === undefined) {
+      this.toolContext.aiDisabledModuleIds = await resolveAiDisabledModuleIds(
+        this.container,
+        this.auth.tenantId,
+      )
+    }
   }
 
   /**
@@ -132,6 +142,7 @@ export class InProcessMcpClient implements McpClientInterface {
     const rbacService = this.container.resolve<RbacService>('rbacService')
     const accessibleTools = tools.filter((tool) =>
       hasRequiredFeatures(tool.requiredFeatures, this.auth.features, this.auth.isSuperAdmin, rbacService)
+      && isToolAiAllowed(tool.name, this.toolContext.aiDisabledModuleIds)
     )
 
     return accessibleTools.map((tool) => ({
@@ -154,6 +165,7 @@ export class InProcessMcpClient implements McpClientInterface {
     const rbacService = this.container.resolve<RbacService>('rbacService')
     const accessibleTools = tools.filter((tool) =>
       hasRequiredFeatures(tool.requiredFeatures, this.auth.features, this.auth.isSuperAdmin, rbacService)
+      && isToolAiAllowed(tool.name, this.toolContext.aiDisabledModuleIds)
     )
 
     return accessibleTools.map((tool) => ({
