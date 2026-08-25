@@ -1179,16 +1179,10 @@ export const searchConfig: SearchModuleConfig = {
         return base ? `${base}#tasks` : null
       },
 
-      resolveLinks: async (ctx: SearchBuildContext): Promise<SearchResultLink[] | null> => {
-        const { t } = await resolveTranslations()
-        const todoId = ctx.record.todo_id ?? ctx.record.todoId
-        if (!todoId) return null
-        return [{
-          href: `/backend/todos/${encodeURIComponent(todoId as string)}/edit`,
-          label: t('customers.search.link.openTodo', 'Open todo'),
-          kind: 'secondary',
-        }]
-      },
+      // No secondary "open todo" link: the todo detail route it pointed at
+      // belonged to the `example` module, which this app no longer registers.
+      // `resolveUrl` above already lands on the customer's Tasks tab, which is
+      // where the record actually lives.
 
       fieldPolicy: {
         searchable: [],

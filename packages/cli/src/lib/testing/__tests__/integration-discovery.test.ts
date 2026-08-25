@@ -49,6 +49,42 @@ describe('integration discovery', () => {
     previousTestEnvValues.clear()
   })
 
+  it('excludes specs for a module the app does not register', async () => {
+    // The module directory exists on disk — unregistering a module does not
+    // delete its source — so only the declared list can tell the two apart.
+    // Without this, every spec of a retired module runs against a server that
+    // no longer serves its routes and fails for an unrelated reason.
+    await writeTestFile(tempRoot, 'apps/mercato/src/modules/customers/.gitkeep')
+    await writeTestFile(tempRoot, 'apps/mercato/src/modules/example/.gitkeep')
+    await writeTestFile(tempRoot, 'apps/mercato/src/modules/customers/__integration__/TC-CRM-001.spec.ts')
+    await writeTestFile(tempRoot, 'apps/mercato/src/modules/example/__integration__/TC-EXAMPLE-001.spec.ts')
+    await writeTestFile(
+      tempRoot,
+      'apps/mercato/src/modules.ts',
+      "export const enabledModules = [\n  { id: 'customers', from: '@open-mercato/core' },\n]\n",
+    )
+
+    const discovered = await discoverIntegrationSpecFiles(tempRoot)
+
+    expect(discovered.map((file) => file.path)).toEqual([
+      'apps/mercato/src/modules/customers/__integration__/TC-CRM-001.spec.ts',
+    ])
+  })
+
+  it('falls back to the filesystem when no app declares a module list', async () => {
+    // A published package tree or a partial checkout has no readable app
+    // config. Over-including there is the safer error: a spec that should not
+    // have run fails loudly, where a silently skipped one hides a regression.
+    await writeTestFile(tempRoot, 'apps/mercato/src/modules/customers/.gitkeep')
+    await writeTestFile(tempRoot, 'apps/mercato/src/modules/customers/__integration__/TC-CRM-001.spec.ts')
+
+    const discovered = await discoverIntegrationSpecFiles(tempRoot)
+
+    expect(discovered.map((file) => file.path)).toEqual([
+      'apps/mercato/src/modules/customers/__integration__/TC-CRM-001.spec.ts',
+    ])
+  })
+
   it('applies folder and per-test metadata dependencies', async () => {
     await writeTestFile(tempRoot, 'apps/mercato/src/modules/sales/.gitkeep')
     await writeTestFile(tempRoot, 'apps/mercato/src/modules/auth/.gitkeep')

@@ -68,6 +68,22 @@ export const moduleOverrideExamples: ModuleOverrides = {
   },
 }
 
+/**
+ * Every module compiled into this deployment.
+ *
+ * Presence here is a *build* decision — it registers routes, APIs, DI, entities
+ * and migrations. It is NOT the decision about who may see a module: that is
+ * tenant entitlement (`tenant_modules`) narrowed by per-user restrictions
+ * (`user_modules`), and each module declares whether a newly provisioned tenant
+ * gets it switched on via `ModuleInfo.defaultEntitlement` in its `index.ts`.
+ * A super admin re-enables a withheld module from
+ * `/backend/directory/tenants/[id]/modules` with no redeploy.
+ *
+ * Remove an entry here only when the module has no place in the product at all
+ * — development fixtures, or public pages that carry no tenant context for
+ * entitlement to evaluate. See
+ * `.ai/specs/2026-08-25-mvp-module-scope-and-ui-gating.md`.
+ */
 export const enabledModules: ModuleEntry[] = [
   { id: 'dashboards', from: '@open-mercato/core' },
   { id: 'auth', from: '@open-mercato/core' },
@@ -86,7 +102,6 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'api_keys', from: '@open-mercato/core' },
   { id: 'devices', from: '@open-mercato/core' },
   { id: 'dictionaries', from: '@open-mercato/core' },
-  { id: 'content', from: '@open-mercato/content' },
   { id: 'onboarding', from: '@open-mercato/onboarding' },
   { id: 'api_docs', from: '@open-mercato/core' },
   // Live DS component gallery at /backend/design-system (feature-gated by
@@ -146,43 +161,12 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'webhooks', from: '@open-mercato/webhooks' },
   { id: 'customer_accounts', from: '@open-mercato/core' },
   { id: 'portal', from: '@open-mercato/core' },
-  {
-    id: 'example',
-    from: '@app',
-    overrides: {
-      acl: {
-        features: { 'example.manage': null },
-      },
-      // Keep the real-bootstrap nav override probe isolated from normal app behavior. The integration
-      // runner sets OM_INTEGRATION_TEST, while development and production keep Example at the tail.
-      nav: parseBooleanWithDefault(process.env.OM_INTEGRATION_TEST, false)
-        ? { groupOrder: ['example.nav.group'] }
-        : undefined,
-      routes: {
-        api: {
-          'GET /api/example/override-probe': {
-            handler: async () => Response.json({
-              ok: true,
-              source: 'modules.ts override',
-              route: 'example.override-probe',
-            }),
-            metadata: { requireAuth: false },
-          },
-        },
-      },
-    },
-  },
-  { id: 'ratelimit_probe', from: '@app' },
 ]
 
 // Official modules activated via official-modules.json / official-modules.local.json
 // (managed by `yarn official-modules`; backed by the external/official-modules submodule).
 for (const entry of officialModuleEntries) {
   if (!enabledModules.some((existing) => existing.id === entry.id)) enabledModules.push(entry)
-}
-
-if (enabledModules.some((entry) => entry.id === 'example')) {
-  enabledModules.push({ id: 'example_customers_sync', from: '@app' })
 }
 
 if (parseBooleanWithDefault(process.env.OM_ENABLE_STORAGE_S3, false)) {

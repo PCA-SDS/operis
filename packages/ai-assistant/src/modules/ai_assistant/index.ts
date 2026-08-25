@@ -6,6 +6,7 @@ export const metadata: ModuleInfo = {
   version: '0.1.0',
   description: 'MCP server for AI assistant integration with multi-tenant support.',
   author: 'FreightTech Team',
+  defaultEntitlement: 'enabled',
 }
 
 export { features } from './acl'

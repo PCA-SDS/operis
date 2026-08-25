@@ -27,6 +27,7 @@ import { formatDateTime } from '@open-mercato/shared/lib/time'
 import { ComponentReplacementHandles } from '@open-mercato/shared/modules/widgets/component-registry'
 import { MarkdownPreview } from '../markdown'
 import { useRegisteredComponent } from '../injection/useRegisteredComponent'
+import { useModuleEnabled } from '../BackendChromeProvider'
 type Translator = (key: string, fallback?: string, params?: Record<string, string | number>) => string
 
 const NOTES_PAGE_SIZE = 20
@@ -316,6 +317,9 @@ function NotesSectionImpl<C = unknown>({
 }: NotesSectionProps<C>) {
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
   const t = React.useMemo<Translator>(() => translator ?? ((key, fallback) => fallback ?? key), [translator])
+  // Notes render on detail pages across several modules; the linked-deal
+  // affordance must not appear for a viewer whose tenant does not have CRM.
+  const customersEnabled = useModuleEnabled('customers')
   const label = React.useCallback(
     (suffix: string, fallback?: string, params?: Record<string, string | number>) =>
       t(`${labelPrefix}.${suffix}`, fallback, params),
@@ -1187,7 +1191,7 @@ function NotesSectionImpl<C = unknown>({
                       renderIcon={renderIcon}
                       renderColor={renderColor}
                     />
-                    {note.dealId ? (
+                    {note.dealId && customersEnabled ? (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <ArrowUpRightSquare className="h-3.5 w-3.5" />
                         <a

@@ -21,7 +21,7 @@ import { generateTempId } from '@open-mercato/core/modules/customers/lib/detailH
 import { formatAddressString, type AddressValue } from '@open-mercato/core/modules/customers/utils/addressFormat'
 import { ShipmentDialog } from './ShipmentDialog'
 import { handleSectionMutationError, readRowUpdatedAt } from './optimisticLock'
-import { extractCustomFieldValues } from './customFieldHelpers'
+import { extractCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import type { OrderLine, ShipmentRow, ShipmentItem } from './shipmentTypes'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 

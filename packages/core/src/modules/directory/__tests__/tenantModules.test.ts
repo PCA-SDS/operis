@@ -46,10 +46,12 @@ function createMockEm(rows: Row[] = []) {
   return em
 }
 
+// `customers` opts into the shipped plan; `sales` and `wms` do not declare one
+// and therefore default to disabled — the fail-closed rule under test.
 const TEST_MODULES: Module[] = [
   { id: 'auth' },
   { id: 'directory' },
-  { id: 'customers' },
+  { id: 'customers', info: { defaultEntitlement: 'enabled' } },
   { id: 'sales' },
   { id: 'wms' },
 ] as unknown as Module[]
@@ -144,7 +146,7 @@ describe('tenant module entitlement', () => {
   })
 
   describe('provisionTenant', () => {
-    it('grants every registered business module and is idempotent', async () => {
+    it('records every registered business module and is idempotent', async () => {
       const em = createMockEm([])
       const service = new TenantModuleService(em)
 
@@ -158,13 +160,88 @@ describe('tenant module entitlement', () => {
       expect(em.rows).toHaveLength(3)
     })
 
+    it('switches on only the modules the shipped plan declares', async () => {
+      const em = createMockEm([])
+      const service = new TenantModuleService(em)
+
+      await service.provisionTenant('t1')
+
+      expect(await service.getEnabledModuleIds('t1')).toEqual(['customers'])
+    })
+
+    it('switches everything on under forceEnabledByDefault', async () => {
+      const em = createMockEm([])
+      const service = new TenantModuleService(em)
+
+      await service.provisionTenant('t1', { forceEnabledByDefault: true })
+
+      expect((await service.getEnabledModuleIds('t1')).sort()).toEqual(['customers', 'sales', 'wms'])
+    })
+
     it('leaves an operator-disabled module disabled across re-runs', async () => {
-      const em = createMockEm([{ tenant: 't1', moduleId: 'wms', isEnabled: false, deletedAt: null }])
+      const em = createMockEm([{ tenant: 't1', moduleId: 'customers', isEnabled: false, deletedAt: null }])
       const service = new TenantModuleService(em)
 
       const result = await service.provisionTenant('t1')
-      expect(result.created.sort()).toEqual(['customers', 'sales'])
-      expect(await service.getEnabledModuleIds('t1')).not.toContain('wms')
+      expect(result.created.sort()).toEqual(['sales', 'wms'])
+      expect(await service.getEnabledModuleIds('t1')).not.toContain('customers')
+    })
+  })
+
+  describe('applyDefaultPlan', () => {
+    it('reconciles in both directions against the shipped plan', async () => {
+      const em = createMockEm([
+        { tenant: 't1', moduleId: 'customers', isEnabled: false, deletedAt: null },
+        { tenant: 't1', moduleId: 'sales', isEnabled: true, deletedAt: null },
+        { tenant: 't1', moduleId: 'wms', isEnabled: true, deletedAt: null },
+      ])
+      const service = new TenantModuleService(em)
+
+      const result = await service.applyDefaultPlan('t1')
+
+      expect(result.enabled).toEqual(['customers'])
+      expect(result.disabled.sort()).toEqual(['sales', 'wms'])
+      expect(await service.getEnabledModuleIds('t1')).toEqual(['customers'])
+    })
+
+    it('reports no change when the tenant already matches the plan', async () => {
+      const em = createMockEm([
+        { tenant: 't1', moduleId: 'customers', isEnabled: true, deletedAt: null },
+        { tenant: 't1', moduleId: 'sales', isEnabled: false, deletedAt: null },
+        { tenant: 't1', moduleId: 'wms', isEnabled: false, deletedAt: null },
+      ])
+      const service = new TenantModuleService(em)
+
+      const result = await service.applyDefaultPlan('t1')
+
+      expect(result.enabled).toEqual([])
+      expect(result.disabled).toEqual([])
+      expect(result.unchanged.sort()).toEqual(['customers', 'sales', 'wms'])
+    })
+
+    it('provisions missing rows before reconciling', async () => {
+      const em = createMockEm([])
+      const service = new TenantModuleService(em)
+
+      const result = await service.applyDefaultPlan('t1')
+
+      expect(em.rows).toHaveLength(3)
+      expect(result.unchanged.sort()).toEqual(['customers', 'sales', 'wms'])
+      expect(await service.getEnabledModuleIds('t1')).toEqual(['customers'])
+    })
+
+    it('switches everything on under forceEnabledByDefault', async () => {
+      const em = createMockEm([
+        { tenant: 't1', moduleId: 'customers', isEnabled: true, deletedAt: null },
+        { tenant: 't1', moduleId: 'sales', isEnabled: false, deletedAt: null },
+        { tenant: 't1', moduleId: 'wms', isEnabled: false, deletedAt: null },
+      ])
+      const service = new TenantModuleService(em)
+
+      const result = await service.applyDefaultPlan('t1', { forceEnabledByDefault: true })
+
+      expect(result.enabled.sort()).toEqual(['sales', 'wms'])
+      expect((await service.getEnabledModuleIds('t1')).sort()).toEqual(['customers', 'sales', 'wms'])
     })
   })
 

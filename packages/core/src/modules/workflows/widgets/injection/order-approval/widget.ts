@@ -7,6 +7,7 @@ const widget: InjectionWidgetModule<any, any> = {
     title: 'Order Approval',
     description: 'Approve or reject orders requiring authorization',
     features: ['sales.orders.approve'],
+    requiredModules: ['sales'],
     priority: 100,
     enabled: true,
   },
