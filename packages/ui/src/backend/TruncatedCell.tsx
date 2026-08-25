@@ -50,6 +50,31 @@ function extractTextContent(node: React.ReactNode): string {
   return ''
 }
 
+// A list view mounts one TruncatedCell per data cell — hundreds per page. Giving
+// each its own ResizeObserver costs an allocation plus a separate browser-side
+// observation record per cell, so every cell shares this one. Created lazily so
+// server rendering never touches the constructor.
+const truncationCallbacks = new WeakMap<Element, () => void>()
+let sharedTruncationObserver: ResizeObserver | null = null
+
+function observeTruncation(element: Element, onResize: () => void): () => void {
+  truncationCallbacks.set(element, onResize)
+  if (typeof ResizeObserver === 'undefined') {
+    return () => { truncationCallbacks.delete(element) }
+  }
+  if (!sharedTruncationObserver) {
+    sharedTruncationObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) truncationCallbacks.get(entry.target)?.()
+    })
+  }
+  const observer = sharedTruncationObserver
+  observer.observe(element)
+  return () => {
+    truncationCallbacks.delete(element)
+    observer.unobserve(element)
+  }
+}
+
 /**
  * A cell wrapper that truncates content and shows a tooltip on hover
  * only when the content is wider than the available space.
@@ -66,32 +91,51 @@ export function TruncatedCell({
   tooltipContent,
   disabled = false,
 }: TruncatedCellProps) {
-  const contentRef = React.useRef<HTMLDivElement>(null)
+  const contentRef = React.useRef<HTMLDivElement | null>(null)
+  const unobserveRef = React.useRef<(() => void) | null>(null)
   const [isTruncated, setIsTruncated] = React.useState(false)
 
   // Get tooltip content - prefer explicit tooltipContent, fall back to extracting from children
   const resolvedTooltipContent = tooltipContent ?? extractTextContent(children)
 
-  // Check if content is truncated after render and on resize
-  React.useEffect(() => {
-    const checkTruncation = () => {
-      const el = contentRef.current
-      if (el) {
-        setIsTruncated(el.scrollWidth > el.clientWidth)
-      }
-    }
+  // Re-measurement keys off the rendered *text*, not the `children` element: the
+  // host rebuilds that element on every render (flexRender), so keying on it
+  // re-ran the effect for every cell on every table render. ResizeObserver only
+  // reports box changes, so a cell whose text changed inside an unchanged box
+  // (paging a list) still needs this explicit re-check.
+  const truncationKey = typeof resolvedTooltipContent === 'string'
+    ? resolvedTooltipContent
+    : extractTextContent(children)
 
-    // Check on mount
-    checkTruncation()
-
-    // Use ResizeObserver to detect size changes
+  const measureTruncation = React.useCallback(() => {
     const el = contentRef.current
-    if (el) {
-      const observer = new ResizeObserver(checkTruncation)
-      observer.observe(el)
-      return () => observer.disconnect()
-    }
-  }, [children, maxWidth])
+    if (!el) return
+    const next = el.scrollWidth > el.clientWidth
+    setIsTruncated((prev) => (prev === next ? prev : next))
+  }, [])
+
+  // A callback ref, not an effect: this div is genuinely remounted during the
+  // component's life. Flipping `isTruncated` swaps the returned tree between a
+  // bare <div> and <SimpleTooltip><div/></SimpleTooltip>, and toggling
+  // `disabled` drops it entirely — both give React a different element type at
+  // this position, so it destroys the node and builds a new one. A mount-only
+  // effect would keep observing the detached node and silently stop reacting to
+  // column resizes. The ref fires on every attach and detach, so observation
+  // always follows the live node.
+  const setContentNode = React.useCallback((node: HTMLDivElement | null) => {
+    unobserveRef.current?.()
+    unobserveRef.current = null
+    contentRef.current = node
+    if (!node) return
+    unobserveRef.current = observeTruncation(node, measureTruncation)
+    measureTruncation()
+  }, [measureTruncation])
+
+  // ResizeObserver only reports box changes, so a cell whose text changed inside
+  // an unchanged box (paging a list) needs this explicit re-check.
+  React.useEffect(() => {
+    measureTruncation()
+  }, [measureTruncation, truncationKey, maxWidth])
 
   if (disabled) {
     return <>{children}</>
@@ -104,7 +148,7 @@ export function TruncatedCell({
 
   const content = (
     <div
-      ref={contentRef}
+      ref={setContentNode}
       className={cn(
         'overflow-hidden text-ellipsis whitespace-nowrap',
         classMaxWidth,
