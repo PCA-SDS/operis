@@ -210,6 +210,17 @@ export type ModuleInfo = {
   copyright?: string
   // Optional hard dependencies: module ids that must be enabled
   requires?: string[]
+  /**
+   * Whether a newly provisioned tenant receives this module switched on.
+   *
+   * Read by `provisionTenant` (see
+   * `packages/core/src/modules/directory/lib/tenantModules.ts`). Absent means
+   * `'disabled'`: entitlement is fail-closed, so a module that has not declared
+   * itself part of the shipped plan is never silently exposed to every tenant.
+   * Platform modules ignore this field entirely — entitlement does not govern
+   * them.
+   */
+  defaultEntitlement?: 'enabled' | 'disabled'
   // Whether this module can be ejected into the app's src/modules/ for customization
   ejectable?: boolean
 }

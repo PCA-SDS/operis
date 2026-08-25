@@ -47,17 +47,18 @@ export const setup: ModuleSetupConfig = {
   // Module entitlement is fail-closed, so a tenant that is never provisioned
   // can reach no business module at all. Provisioning here is what makes the
   // canonical bootstrap path (`mercato init`, `mercato auth setup`) produce a
-  // usable tenant; `mercato directory sync-tenant-modules` covers tenants that
-  // predate a newly added module.
+  // usable tenant, switched on to the plan each module declares;
+  // `mercato directory sync-tenant-modules` covers tenants that predate a newly
+  // added module.
   async onTenantCreated({ em, tenantId }) {
     const service = new TenantModuleService(em as EntityManager)
-    await service.provisionTenant(tenantId, { enabledByDefault: true })
+    await service.provisionTenant(tenantId)
   },
 
   async seedDefaults({ em, tenantId }) {
     await backfillOrganizationSlugs(em as EntityManager, tenantId)
     const service = new TenantModuleService(em as EntityManager)
-    await service.provisionTenant(tenantId, { enabledByDefault: true })
+    await service.provisionTenant(tenantId)
   },
 }
 

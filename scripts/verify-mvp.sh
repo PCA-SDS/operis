@@ -68,27 +68,27 @@ code=$(get acmeuser /api/auth/users)
 code=$(get acmeuser /api/customers/people)
 [ "$code" = "200" ] && pass "can reach what its role permits (customers)" || fail "customers (got $code)"
 
-head2 "Scenario — Module entitlement (Globex has wms withheld)"
+head2 "Scenario — Module entitlement (Globex has tasks withheld)"
 code=$(login globex admin@globex.local)
 [ "$code" = "200" ] && pass "Globex admin authenticates" || fail "Globex admin login (got $code)"
-code=$(get acme /api/wms/warehouses)
-[ "$code" = "200" ] && pass "Acme (wms granted) reaches wms" || fail "Acme wms (got $code)"
-code=$(get globex /api/wms/warehouses)
-[ "$code" = "403" ] || [ "$code" = "401" ] && pass "Globex (wms withheld) is DENIED wms ($code)" || fail "Globex reached withheld wms (got $code)"
+code=$(get acme /api/tasks/tasks)
+[ "$code" = "200" ] && pass "Acme (tasks granted) reaches tasks" || fail "Acme tasks (got $code)"
+code=$(get globex /api/tasks/tasks)
+[ "$code" = "403" ] || [ "$code" = "401" ] && pass "Globex (tasks withheld) is DENIED tasks ($code)" || fail "Globex reached withheld tasks (got $code)"
 
 # Entitlement must also shape what the UI offers, not only what the API allows.
 get acme /api/auth/admin/nav >/dev/null; cp "$JAR_DIR/last.body" "$JAR_DIR/nav-acme.json"
 get globex /api/auth/admin/nav >/dev/null; cp "$JAR_DIR/last.body" "$JAR_DIR/nav-globex.json"
-read -r a_wms a_cust a_nav <<<"$(node -e "
+read -r a_tasks a_cust a_nav <<<"$(node -e "
 const d=JSON.parse(require('fs').readFileSync('$JAR_DIR/nav-acme.json','utf8'));const g=d.grantedFeatures||[];
-console.log(g.filter(x=>x.startsWith('wms.')).length, g.filter(x=>x.startsWith('customers.')).length, (JSON.stringify(d.groups||[]).match(/\/backend\/wms/g)||[]).length)")"
-read -r g_wms g_cust g_nav <<<"$(node -e "
+console.log(g.filter(x=>x.startsWith('tasks.')).length, g.filter(x=>x.startsWith('customers.')).length, (JSON.stringify(d.groups||[]).match(/\/backend\/tasks/g)||[]).length)")"
+read -r g_tasks g_cust g_nav <<<"$(node -e "
 const d=JSON.parse(require('fs').readFileSync('$JAR_DIR/nav-globex.json','utf8'));const g=d.grantedFeatures||[];
-console.log(g.filter(x=>x.startsWith('wms.')).length, g.filter(x=>x.startsWith('customers.')).length, (JSON.stringify(d.groups||[]).match(/\/backend\/wms/g)||[]).length)")"
-[ "$a_wms" -gt 0 ] && pass "Acme capability payload carries wms grants ($a_wms)" || fail "Acme has no wms grants"
-[ "$g_wms" -eq 0 ] && pass "Globex capability payload carries NO wms grants" || fail "Globex still has $g_wms wms grants"
-[ "$a_nav" -gt 0 ] && pass "Acme navigation offers wms ($a_nav entries)" || fail "Acme nav has no wms entries"
-[ "$g_nav" -eq 0 ] && pass "Globex navigation does NOT offer wms" || fail "Globex nav still offers wms ($g_nav entries)"
+console.log(g.filter(x=>x.startsWith('tasks.')).length, g.filter(x=>x.startsWith('customers.')).length, (JSON.stringify(d.groups||[]).match(/\/backend\/tasks/g)||[]).length)")"
+[ "$a_tasks" -gt 0 ] && pass "Acme capability payload carries tasks grants ($a_tasks)" || fail "Acme has no tasks grants"
+[ "$g_tasks" -eq 0 ] && pass "Globex capability payload carries NO tasks grants" || fail "Globex still has $g_tasks tasks grants"
+[ "$a_nav" -gt 0 ] && pass "Acme navigation offers tasks ($a_nav entries)" || fail "Acme nav has no tasks entries"
+[ "$g_nav" -eq 0 ] && pass "Globex navigation does NOT offer tasks" || fail "Globex nav still offers tasks ($g_nav entries)"
 [ "$a_cust" = "$g_cust" ] && pass "both tenants keep identical customers grants ($a_cust) — only the withheld module differs" \
   || fail "customers grants differ ($a_cust vs $g_cust)"
 

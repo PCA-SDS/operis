@@ -10,8 +10,13 @@ import { getUserRoleIds } from '../../lib/user-role-ids'
 
 const logger = createLogger('ai_assistant')
 
+// Minting an MCP key is an AI-assistant capability, not general API-key
+// administration: the key is scoped to the caller's own roles (see below) and
+// its only purpose is to authenticate that user's MCP client. Guarding it with
+// `api_keys.create` demanded a far broader permission than the action needs,
+// and tied the AI Assistant's MCP setup to a module a tenant may not have.
 export const metadata = {
-  POST: { requireAuth: true, requireFeatures: ['api_keys.create'] },
+  POST: { requireAuth: true, requireFeatures: ['ai_assistant.mcp.serve'] },
 }
 
 const bodySchema = z.object({
