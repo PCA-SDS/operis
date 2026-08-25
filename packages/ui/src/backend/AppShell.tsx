@@ -134,16 +134,12 @@ const SIDEBAR_GROUP_LABEL =
  * the sidebar starting at the same x. */
 const SIDEBAR_ICON_BOX = 'flex size-5 shrink-0 items-center justify-center [&_svg]:size-4'
 
-/* The nav search sits ON the rail, so the input primitive's light-ground chrome
- * has to be restated in the sidebar family — otherwise it reads as a piece of
- * the page that fell into the sidebar. The resting border goes transparent
- * rather than away: it keeps the 1px box so focus can paint an edge without the
- * field shifting, and a visible hairline plus a fill would be two edges on a
- * control that sits among rows carrying neither. */
-const SIDEBAR_SEARCH_WRAPPER =
-  'h-10 border-transparent bg-sidebar-accent/50 hover:bg-sidebar-accent focus-within:bg-sidebar-accent focus-within:border-sidebar-ring [&_svg]:text-sidebar-muted-foreground'
-const SIDEBAR_SEARCH_INPUT =
-  'text-sidebar-foreground placeholder:text-sidebar-muted-foreground'
+/* The nav search sits ON the rail, so it takes the search primitive's `sidebar`
+ * tone — the light-ground chrome would read as a piece of the page that fell
+ * into the sidebar. `size="lg"` is the rail's `h-10 / px-3` grid: the glyph then
+ * lands on the same icon column as every row below it. */
+const SIDEBAR_SEARCH_SIZE = 'lg' as const
+const SIDEBAR_SEARCH_TONE = 'sidebar' as const
 
 /* `min-h-0` on both: a column flex child will not shrink below its content
  * height without it, and the wrapper (which is not itself a scroll box, so it
@@ -1068,8 +1064,9 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           placeholder={t('appShell.searchNavPlaceholder', 'Search...')}
           aria-label={t('appShell.searchNavAria', 'Search navigation')}
           clearLabel={t('appShell.searchNavClear', 'Clear search')}
-          className={`shrink-0 ${SIDEBAR_SEARCH_WRAPPER}`}
-          inputClassName={SIDEBAR_SEARCH_INPUT}
+          size={SIDEBAR_SEARCH_SIZE}
+          tone={SIDEBAR_SEARCH_TONE}
+          className="shrink-0"
         />
         <div className={SIDEBAR_SCROLL_FRAME}>
         <div data-sidebar-scroll="true" className={`${SIDEBAR_SCROLL_AREA} ${!hideHeader && sidebarScrollState !== 'none' ? SIDEBAR_SCROLL_AREA_RESERVED : ''}`}>
@@ -1235,8 +1232,9 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           placeholder={t('appShell.searchNavPlaceholder', 'Search...')}
           aria-label={t('appShell.searchNavAria', 'Search navigation')}
           clearLabel={t('appShell.searchNavClear', 'Clear search')}
-          className={`shrink-0 ${SIDEBAR_SEARCH_WRAPPER}`}
-          inputClassName={SIDEBAR_SEARCH_INPUT}
+          size={SIDEBAR_SEARCH_SIZE}
+          tone={SIDEBAR_SEARCH_TONE}
+          className="shrink-0"
         />
         <div className={SIDEBAR_SCROLL_FRAME}>
         <div data-sidebar-scroll="true" className={`${SIDEBAR_SCROLL_AREA} ${shouldRenderSidebarInjectionSpots && sidebarScrollState !== 'none' ? SIDEBAR_SCROLL_AREA_RESERVED : ''}`}>

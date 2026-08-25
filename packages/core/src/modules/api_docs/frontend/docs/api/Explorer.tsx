@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { SearchX } from 'lucide-react'
 import { Input } from '@open-mercato/ui/primitives/input'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import {
   Select,
@@ -523,10 +524,9 @@ export default function ApiDocsExplorer(props: ApiDocsExplorerProps) {
               </div>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex flex-1 items-center gap-3">
-                  <Input
-                    type="search"
+                  <SearchInput
                     value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
+                    onChange={setSearchTerm}
                     placeholder="Search endpoints by path or summary"
                     className="flex-1"
                   />

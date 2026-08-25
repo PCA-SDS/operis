@@ -15,7 +15,6 @@ import {
   Radio,
   RefreshCw,
   Save,
-  Search,
   Tag,
   Thermometer,
   Trash2,
@@ -54,6 +53,7 @@ import {
 } from '@open-mercato/ui/primitives/dialog'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 
 const logger = createLogger('customers')
 
@@ -1159,14 +1159,12 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                         </span>
                       </div>
                     </div>
-                    <div className="relative w-[220px] shrink-0">
-                      <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
-                      <input
-                        type="text"
+                    <div className="w-[220px] shrink-0">
+                      <SearchInput
+                        size="sm"
                         value={searchValue}
-                        onChange={(e) => setSearchValue(e.target.value)}
+                        onChange={setSearchValue}
                         placeholder={t('customers.tags.manage.search', 'Search values...')}
-                        className="w-full rounded-md border border-input bg-input-bg py-2 pl-9 pr-3 text-xs text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-foreground"
                       />
                     </div>
                   </div>

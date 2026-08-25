@@ -24,7 +24,7 @@ import { Switch } from '@open-mercato/ui/primitives/switch'
 import { SwitchField } from '@open-mercato/ui/primitives/switch-field'
 import { Slider } from '@open-mercato/ui/primitives/slider'
 import { FormField } from '@open-mercato/ui/primitives/form-field'
-import { SearchInput } from '@open-mercato/ui/primitives/search-input'
+import { SearchInput, type SearchInputProps } from '@open-mercato/ui/primitives/search-input'
 import { EmailInput } from '@open-mercato/ui/primitives/email-input'
 import { PasswordInput } from '@open-mercato/ui/primitives/password-input'
 import { WebsiteInput } from '@open-mercato/ui/primitives/website-input'
@@ -54,11 +54,54 @@ import type { GalleryEntry } from '../types'
 // these wrappers.
 // ---------------------------------------------------------------------------
 
-function DemoSearchInput({ size }: { size?: 'sm' | 'default' | 'lg' }) {
-  const [value, setValue] = React.useState('open orders')
+function DemoSearchInput({
+  size,
+  tone,
+  shortcut,
+  loading,
+  initial = 'open orders',
+  width = 'w-72',
+}: {
+  size?: SearchInputProps['size']
+  tone?: SearchInputProps['tone']
+  shortcut?: React.ReactNode
+  loading?: boolean
+  initial?: string
+  width?: string
+}) {
+  const [value, setValue] = React.useState(initial)
   return (
-    <div className="w-72">
-      <SearchInput value={value} onChange={setValue} size={size} />
+    <div className={width}>
+      <SearchInput
+        value={value}
+        onChange={setValue}
+        size={size}
+        tone={tone}
+        shortcut={shortcut}
+        loading={loading}
+      />
+    </div>
+  )
+}
+
+/* `sidebar` is only legible on the rail it is designed for, so the swatch
+   supplies that ground rather than letting it render on the gallery card. */
+function DemoSidebarSearchInput() {
+  return (
+    <div className="w-72 rounded-lg bg-sidebar p-3">
+      <DemoSearchInput size="lg" tone="sidebar" initial="" width="w-full" />
+    </div>
+  )
+}
+
+/* `plain` owns no chrome of its own — the popover it heads does. */
+function DemoPlainSearchInput() {
+  return (
+    <div className="w-72 overflow-hidden rounded-xl border border-border bg-surface">
+      <div className="border-b border-border px-3">
+        <DemoSearchInput tone="plain" initial="" width="w-full" />
+      </div>
+      <p className="px-3 py-4 text-sm text-muted-foreground">Results render here.</p>
     </div>
   )
 }
@@ -1067,6 +1110,58 @@ const [query, setQuery] = React.useState('')
       code: `import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 
 <SearchInput size="sm" value={query} onChange={setQuery} />`,
+    },
+    {
+      id: 'large',
+      title: 'Large (sidebar / hero box)',
+      render: () => <DemoSearchInput size="lg" />,
+      code: `import { SearchInput } from '@open-mercato/ui/primitives/search-input'
+
+<SearchInput size="lg" value={query} onChange={setQuery} />`,
+    },
+    {
+      id: 'shortcut',
+      title: 'Keyboard hint (empty state)',
+      render: () => <DemoSearchInput size="lg" initial="" shortcut="⌘K" />,
+      code: `import { SearchInput } from '@open-mercato/ui/primitives/search-input'
+
+// The hint gives way to the clear button as soon as there is a value.
+<SearchInput size="lg" shortcut="⌘K" value={query} onChange={setQuery} />`,
+    },
+    {
+      id: 'loading',
+      title: 'Pending (debounce / request in flight)',
+      render: () => <DemoSearchInput loading />,
+      code: `import { SearchInput } from '@open-mercato/ui/primitives/search-input'
+
+<SearchInput loading={query !== appliedQuery} value={query} onChange={setQuery} />`,
+    },
+    {
+      id: 'tone-raised',
+      title: 'tone="raised" (on the page ground)',
+      render: () => <DemoSearchInput size="lg" tone="raised" shortcut="⌘K" initial="" />,
+      code: `import { SearchInput } from '@open-mercato/ui/primitives/search-input'
+
+<SearchInput tone="raised" size="lg" shortcut="⌘K" value={query} onChange={setQuery} />`,
+    },
+    {
+      id: 'tone-sidebar',
+      title: 'tone="sidebar" (on the navy rail)',
+      render: () => <DemoSidebarSearchInput />,
+      code: `import { SearchInput } from '@open-mercato/ui/primitives/search-input'
+
+<SearchInput tone="sidebar" size="lg" value={query} onChange={setQuery} />`,
+    },
+    {
+      id: 'tone-plain',
+      title: 'tone="plain" (popover header row)',
+      render: () => <DemoPlainSearchInput />,
+      code: `import { SearchInput } from '@open-mercato/ui/primitives/search-input'
+
+// The popover owns the border and the padding; the field owns nothing but the row.
+<div className="border-b border-border px-3">
+  <SearchInput tone="plain" value={query} onChange={setQuery} />
+</div>`,
     },
   ],
 }

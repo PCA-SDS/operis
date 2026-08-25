@@ -23,7 +23,7 @@
       "messages"
     ],
     "itemCount": 114,
-    "variantCount": 309,
+    "variantCount": 315,
     "installedImplementationCount": 107,
     "localTokenItemCount": 6,
     "externalImplementationCount": 1,
@@ -2382,7 +2382,13 @@
       "localTokenSource": null,
       "variantIds": [
         "default",
-        "small"
+        "small",
+        "large",
+        "shortcut",
+        "loading",
+        "tone-raised",
+        "tone-sidebar",
+        "tone-plain"
       ],
       "route": "/backend/design-system?family=inputs&entry=search-input",
       "availabilityByPreset": {

@@ -6,7 +6,6 @@ import NextLink from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Search,
-  Loader2,
   Zap,
   User,
   Users,
@@ -43,7 +42,6 @@ import {
   Folder,
   Database,
   Activity,
-  X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -58,6 +56,8 @@ import { isAllOrganizationsSelection } from '@open-mercato/core/modules/director
 import { parseSelectedOrganizationCookie } from '@open-mercato/core/modules/directory/utils/scopeCookies'
 import { ForbiddenError } from '@open-mercato/ui/backend/utils/api'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { Kbd } from '@open-mercato/ui/primitives/kbd'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { resolveSearchMinTokenLength } from '@open-mercato/shared/lib/search/config'
 import { fetchGlobalSearchResults } from '../utils'
 
@@ -319,7 +319,6 @@ export function TopbarSearchInline({
   const tooShort = trimmed.length > 0 && trimmed.length < MIN_QUERY_LENGTH
   const showPopover =
     open && (loading || results.length > 0 || error !== null || tooShort || showVectorWarning)
-  const showClear = query.length > 0
 
   // The results panel is portaled to <body> so it escapes the sticky header's
   // stacking context (z-sticky) — rendered inline it stays trapped at the
@@ -374,55 +373,31 @@ export function TopbarSearchInline({
       data-search-expanded="true"
       className="relative min-w-0 sm:w-[260px] md:w-[320px] max-sm:absolute max-sm:inset-x-3 max-sm:top-1/2 max-sm:-translate-y-1/2 max-sm:z-popover"
     >
-      <div
-        className={cn(
-          'flex h-9 items-center gap-2 rounded-md border border-input bg-input-bg px-3 text-sm shadow-xs transition-colors hover:bg-muted/40',
-          open ? 'border-foreground bg-input-bg shadow-focus' : '',
-        )}
-        onClick={() => inputRef.current?.focus()}
-      >
-        <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value)
-            if (!open) setOpen(true)
-          }}
-          onFocus={() => setOpen(true)}
-          onKeyDown={handleKeyDown}
-          placeholder={t('search.dialog.actions.search', 'Search')}
-          aria-label={t('search.dialog.actions.openGlobalSearch', 'Search')}
-          aria-autocomplete="list"
-          aria-expanded={open}
-          aria-controls="topbar-search-results"
-          className="flex-1 min-w-0 bg-transparent placeholder:text-muted-foreground/70 focus:outline-none"
-          // Inline search; no need for native browser autocomplete or autocapitalize
-          autoComplete="off"
-          spellCheck={false}
-        />
-        {loading ? (
-          <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />
-        ) : showClear ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              setQuery('')
-              inputRef.current?.focus()
-            }}
-            className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label={t('search.dialog.actions.clear', 'Clear search')}
-          >
-            <X className="size-3.5" aria-hidden="true" />
-          </button>
-        ) : (
-          <kbd className="hidden md:inline-flex shrink-0 items-center rounded border bg-muted/50 px-1.5 text-overline font-medium uppercase tracking-wider text-muted-foreground">
-            ⌘K
-          </kbd>
-        )}
-      </div>
+      <SearchInput
+        ref={inputRef}
+        tone="raised"
+        value={query}
+        onChange={(next) => {
+          setQuery(next)
+          if (!open) setOpen(true)
+        }}
+        onClear={() => {
+          setQuery('')
+          inputRef.current?.focus()
+        }}
+        loading={loading}
+        // No ⌘K on touch widths: a key hint for keys the device does not have.
+        shortcut={<Kbd className="hidden md:inline-flex">⌘K</Kbd>}
+        onFocus={() => setOpen(true)}
+        onKeyDown={handleKeyDown}
+        placeholder={t('search.dialog.actions.search', 'Search')}
+        aria-label={t('search.dialog.actions.openGlobalSearch', 'Search')}
+        clearLabel={t('search.dialog.actions.clear', 'Clear search')}
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-controls="topbar-search-results"
+        spellCheck={false}
+      />
 
       {showPopover && anchor ? createPortal(
         <div

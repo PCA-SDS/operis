@@ -466,9 +466,15 @@ Forwards all `Input` props except `type` (locked to `email`) and `leftIcon` (man
 import { SearchInput, type SearchInputProps } from '@open-mercato/ui/primitives/search-input'
 ```
 
-Search input matching Figma `Text Input [1.1]` (node `266:5251`) **Search** variant — leading `Search` icon, the text input, and an optional trailing `X` button that clears the value. Built on the shared `inputWrapperVariants` / `inputElementVariants` CVA so the visual contract matches the foundation `Input` primitive.
+**The one search field in the product.** Every search affordance renders this component — DataTable
+filter, sidebar nav filter, command palette header, lookup picker, popover header, portal wizards.
+The shape, the clear button, the keyboard hint and the a11y contract are identical everywhere; only
+`size` and `tone` change.
 
-Use for any search affordance: DataTable global filter, command-palette inputs, lookup picker chrome, list-view live filter.
+A search box is deliberately **not** a form field. `Input` is a bordered box on `input-bg`, because a
+form asks you to fill it in and the border is the invitation. `SearchInput` is borderless and carries
+a fill one step darker than whatever it sits on — the shape alone reads as "type here", and nothing
+competes with the rows of results beneath it.
 
 ### Quick usage
 
@@ -478,17 +484,71 @@ const [query, setQuery] = React.useState('')
 <SearchInput
   value={query}
   onChange={setQuery}
-  size="default"
   placeholder={t('customers.list.search', 'Search people by name or email')}
 />
 ```
 
+### Sizing — `size` is the box, width comes from the caller
+
+`size` sets height, radius, padding, glyph slot and text size. It **never** sets a width: the wrapper
+is `w-full`, so the caller sizes the container. That is what lets the same component be a 320px
+toolbar filter and a full-bleed popover header.
+
+| `size` | Box | Use |
+|---|---|---|
+| `sm` | `h-8 rounded-md px-2.5 gap-1.5`, `text-xs` | Dense popovers, column chooser, inline pickers |
+| `default` | `h-9 rounded-lg px-3 gap-2`, `text-sm` | Toolbars, FilterBar, dialogs — the everyday field |
+| `lg` | `h-10 rounded-xl px-3 gap-3`, `size-5` glyph slot | The backend rail's row box, hero/global search |
+
+```tsx
+// Width is the container's job, never the variant's.
+<div className="w-full sm:w-72 lg:w-80"><SearchInput … /></div>
+```
+
+`size="lg"` is deliberately the sidebar rail's row box (`h-10 / px-3 / gap-3` with a `size-5` icon
+slot). That is what puts the magnifier on the same icon column as every nav row beneath it. See
+`.ai/ds-rules.md` § **The rail's one grid**.
+
+### Grounds — `tone`
+
+All four tones are borderless and share the box; only the fill and the ink move.
+
+| `tone` | Ground | Use |
+|---|---|---|
+| `default` | `bg-surface-muted` → hover `bg-surface-strong` → focus `shadow-focus` | On a card or the page. The everyday choice. |
+| `raised` | `bg-surface shadow-md` → hover `bg-modal-muted` → focus `ring-2 ring-focus-ring/30` | Hero / topbar search sitting on the **page ground**, where `surface-muted` would be invisible. |
+| `sidebar` | `bg-sidebar-accent/50` → hover/focus `bg-sidebar-accent`, sidebar ink, `focus-within:border-sidebar-ring` | Inside the navy rail. Content neutrals are unreadable there. |
+| `plain` | transparent, `rounded-none px-0`, no hover, **no focus halo** | When the field **is** the popover's header row — the popover owns the border and the padding. |
+
+> **Why `raised` uses a ring and the others a shadow:** every Tailwind `shadow-*` writes the same
+> `--tw-shadow` slot, so `focus-within:shadow-focus` on top of `shadow-md` *replaces* the elevation —
+> the field visibly flattens on click. `--tw-ring-shadow` is a separate slot in the same `box-shadow`
+> list, so a ring composes with the drop shadow. Never pair `shadow-focus` with a resting `shadow-*`.
+>
+> **Why `plain` has no focus halo:** it is a popover header row that is always auto-focused and holds
+> the only field, so the caret is the indicator — the command-palette convention. A ring would draw a
+> box around a row that deliberately has no box. This is intentional; do not "fix" it.
+
+```tsx
+// Popover header: the container owns the chrome, the field owns the row.
+<div className="border-b border-border px-3">
+  <SearchInput tone="plain" value={query} onChange={setQuery} />
+</div>
+```
+
 ### Behaviors
 
-- **Leading**: non-interactive `Search` icon (`size-4`, `text-muted-foreground`).
-- **Trailing**: `X` button — renders only when `value.length > 0 && !disabled && clearable`. Real `<button>` (focusable, screen-reader-labelled via `clearLabel`).
-- **`onClear`**: if not provided, the clear button calls `onChange('')`. Pass an explicit handler to also reset adjacent state (cancel in-flight request, reset paging).
-- **Native search clear button**: suppressed via `appearance: none` on `::-webkit-search-cancel-button` / `::-webkit-search-decoration` so the only clear affordance is our DS button.
+- **Leading**: non-interactive magnifier in a size-scaled slot, `aria-hidden`, ink per tone.
+- **Trailing (one slot, three states)**: `loading` spinner → clear `×` when there is a value →
+  `shortcut` hint when empty. They never stack, so the field never reflows mid-typing.
+- **Clear button**: a real `<button>` (keyboard-focusable, labelled via `clearLabel`), not a
+  decorative span. `onClear` defaults to `onChange('')`.
+- **Native clear**: suppressed via `appearance: none` on `::-webkit-search-cancel-button` /
+  `::-webkit-search-decoration`, so the DS button is the only clear affordance.
+- **`type="search"` is fixed**, so the element always exposes `role="searchbox"` — integration tests
+  bind to `getByRole('searchbox')`.
+- **Resting border is transparent, not absent**: the 1px box is kept so a tone that paints a focus
+  edge does not shift its own contents.
 
 ### Props
 
@@ -496,20 +556,40 @@ const [query, setQuery] = React.useState('')
 |---|---|---|---|
 | `value` | `string` | — | Controlled. |
 | `onChange` | `(next: string) => void` | — | Called on every keystroke with the new string. |
-| `onClear` | `() => void` | `() => onChange('')` | Custom clear handler. |
+| `size` | `'sm' \| 'default' \| 'lg'` | `'default'` | The box. Never a width. |
+| `tone` | `'default' \| 'raised' \| 'sidebar' \| 'plain'` | `'default'` | The ground. |
+| `onClear` | `() => void` | `() => onChange('')` | Also reset adjacent state (cancel in-flight request, reset paging). |
 | `clearable` | `boolean` | `true` | Show the trailing × when value is non-empty. |
 | `clearLabel` | `string` | `t('ui.inputs.searchInput.clear', 'Clear search')` | Auto-translated aria-label for the clear button. |
+| `loading` | `boolean` | `false` | Trailing spinner while the typed value has not been applied. Field stays editable. |
+| `shortcut` | `React.ReactNode` | — | Keyboard hint shown **while empty**. A bare string is wrapped in `Kbd`. |
+| `trailing` | `React.ReactNode` | — | Extra adornment after the clear/shortcut slot (scope hints, counters). |
 | `placeholder` | `string` | `t('ui.inputs.searchInput.placeholder', 'Search…')` | Auto-translated. |
-| `size` | `'sm' \| 'default' \| 'lg'` | `'default'` | Forwarded to `inputWrapperVariants`. |
 | `className` / `inputClassName` | `string` | — | Wrapper / inner-`<input>` overrides. |
 
-Forwards all other `<input>` props (e.g. `name`, `id`, `aria-label`, `disabled`, `autoFocus`).
+Forwards all other `<input>` props — `name`, `id`, `aria-label`, `disabled`, `autoFocus`,
+`onKeyDown`, and the `role="combobox"` / `aria-expanded` / `aria-controls` / `aria-activedescendant`
+set that picker hosts need.
+
+### Shared variants (for non-`<input>` hosts)
+
+`searchInputWrapperVariants`, `searchInputElementVariants`, `searchInputAdornmentVariants` and
+`searchInputClearVariants` are exported from the same module. Use them **only** when the element
+cannot be a plain `<input>` — `CommandMenuInput` must render `cmdk`'s `CommandPrimitive.Input`, so it
+composes these CVAs instead of a private copy. This is the same pattern `Input` and `SearchInput`
+already share.
 
 ### MUST rules
 
-- Always use `SearchInput` for search affordances — do NOT roll your own `<Input leftIcon={<Search />}>` plus a hand-rolled clear button. The DS variant handles a11y for both leading icon (decorative `aria-hidden`) and trailing clear (real button) consistently.
+- **NEVER hand-roll a search box.** No absolutely-positioned `<Search>` icon next to a raw `<input>`,
+  no `<Input leftIcon={<Search />}>` plus a bespoke clear button, no `<Input type="search">`. Those
+  were the ten divergent variants this primitive replaced.
+- **NEVER re-paint it from the outside** with `className` fills, borders or focus rings. If a surface
+  needs a ground the tones do not cover, add a tone to the CVA — do not override at the call site.
+- Width belongs to the caller's container; `size` belongs to the primitive.
 - Forward i18n-resolved `placeholder` for surface-specific copy; the default is generic.
-- For DataTable global filter, pass `searchValue` / `onSearchChange` from `DataTable` directly into `SearchInput`'s `value` / `onChange`.
+- For the DataTable global filter, pass `searchValue` / `onSearchChange` from `DataTable` straight
+  into `value` / `onChange` — `FilterBar` already does this and owns the debounce plus `loading`.
 
 ---
 

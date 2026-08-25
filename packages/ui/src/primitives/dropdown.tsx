@@ -3,11 +3,12 @@
 import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { Check, ChevronDown, Filter, Plus, Search, X } from 'lucide-react'
+import { Check, ChevronDown, Filter, Plus, X } from 'lucide-react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Spinner } from './spinner'
+import { SearchInput } from './search-input'
 
 /* ------------------------------------------------------------------ *
  * Types
@@ -952,52 +953,32 @@ export function Dropdown<T>({
     >
       {searchable ? (
         <div className="mb-1 shrink-0 pb-1">
-          <label className="relative block w-full">
-            <span className="sr-only">{searchPlaceholder}</span>
-            <Search
-              className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-disabled-foreground"
-              aria-hidden="true"
-            />
-            <input
-              ref={searchRef}
-              type="text"
-              role="combobox"
-              aria-expanded="true"
-              aria-controls={`${baseId}-listbox`}
-              // Only an option may be the active descendant: the attribute has
-              // to name an element inside the controlled listbox, and command
-              // rows deliberately live outside it.
-              aria-activedescendant={
-                navItems[activeIndex]?.kind === 'option' ? navItems[activeIndex]?.id : undefined
-              }
-              autoComplete="off"
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value)
-                onSearchChange?.(event.target.value)
-              }}
-              placeholder={searchPlaceholder}
-              className={cn(
-                'w-full rounded-md border border-border py-1.5 pl-7 text-sm font-medium text-foreground outline-none transition-colors',
-                'placeholder:font-normal placeholder:text-disabled-foreground',
-                query ? 'bg-modal-muted pr-7' : 'bg-surface pr-2 hover:bg-modal-muted',
-              )}
-            />
-            {query ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery('')
-                  onSearchChange?.('')
-                  searchRef.current?.focus()
-                }}
-                aria-label={t('ui.dropdown.clearSearch', 'Clear search')}
-                className="absolute right-1.5 top-1/2 inline-flex size-5 -translate-y-1/2 items-center justify-center rounded-md text-disabled-foreground transition-colors hover:bg-modal-muted hover:text-foreground"
-              >
-                <X className="size-3.5" aria-hidden="true" />
-              </button>
-            ) : null}
-          </label>
+          <SearchInput
+            ref={searchRef}
+            size="sm"
+            value={query}
+            onChange={(next) => {
+              setQuery(next)
+              onSearchChange?.(next)
+            }}
+            onClear={() => {
+              setQuery('')
+              onSearchChange?.('')
+              searchRef.current?.focus()
+            }}
+            placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder}
+            clearLabel={t('ui.dropdown.clearSearch', 'Clear search')}
+            role="combobox"
+            aria-expanded="true"
+            aria-controls={`${baseId}-listbox`}
+            // Only an option may be the active descendant: the attribute has
+            // to name an element inside the controlled listbox, and command
+            // rows deliberately live outside it.
+            aria-activedescendant={
+              navItems[activeIndex]?.kind === 'option' ? navItems[activeIndex]?.id : undefined
+            }
+          />
         </div>
       ) : null}
 
