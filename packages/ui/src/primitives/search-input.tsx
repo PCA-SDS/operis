@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Search, X } from 'lucide-react'
+import { Spinner } from './spinner'
 import type { VariantProps } from 'class-variance-authority'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -27,6 +28,12 @@ export type SearchInputProps = Omit<React.ComponentPropsWithoutRef<'input'>, 'si
     inputClassName?: string
     /** Translated aria-label for the clear button. Defaults to `t('ui.inputs.searchInput.clear', 'Clear search')`. */
     clearLabel?: string
+    /**
+     * Show a trailing spinner while the typed value has not yet been applied
+     * (debounce still pending, or the resulting request still in flight).
+     * Purely an affordance — the field stays editable.
+     */
+    loading?: boolean
   }
 
 /**
@@ -39,11 +46,11 @@ export type SearchInputProps = Omit<React.ComponentPropsWithoutRef<'input'>, 'si
  * span), so it remains keyboard-focusable and screen-reader-accessible.
  */
 export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
-  ({ className, inputClassName, size, value, onChange, onClear, clearable = true, clearLabel, placeholder, disabled, ...props }, ref) => {
+  ({ className, inputClassName, size, value, onChange, onClear, clearable = true, clearLabel, placeholder, disabled, loading = false, ...props }, ref) => {
     const t = useT()
     const resolvedPlaceholder = placeholder ?? t('ui.inputs.searchInput.placeholder', 'Search…')
     const resolvedClearLabel = clearLabel ?? t('ui.inputs.searchInput.clear', 'Clear search')
-    const showClear = clearable && value.length > 0 && !disabled
+    const showClear = clearable && value.length > 0 && !disabled && !loading
 
     const handleClear = React.useCallback(() => {
       if (onClear) onClear()
@@ -70,6 +77,9 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
           )}
           {...props}
         />
+        {loading ? (
+          <Spinner className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        ) : null}
         {showClear ? (
           <button
             type="button"

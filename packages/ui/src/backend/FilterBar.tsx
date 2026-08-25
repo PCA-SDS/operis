@@ -6,10 +6,18 @@ import { SearchInput } from '../primitives/search-input'
 import { FilterDef, FilterOverlay, FilterValues } from './FilterOverlay'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 
+const DEFAULT_SEARCH_DEBOUNCE_MS = 300
+
 export type FilterBarProps = {
   searchValue?: string
   onSearchChange?: (v: string) => void
   searchPlaceholder?: string
+  /**
+   * Debounce before a typed query is applied. Default 300 ms — it was a
+   * hard-coded 1000 ms, which read as a full second of nothing happening on the
+   * most-used interaction in the product.
+   */
+  searchDebounceMs?: number
   searchAlign?: 'left' | 'right'
   filters?: FilterDef[]
   values?: FilterValues
@@ -33,6 +41,7 @@ export function FilterBar({
   searchValue,
   onSearchChange,
   searchPlaceholder,
+  searchDebounceMs = DEFAULT_SEARCH_DEBOUNCE_MS,
   searchAlign = 'left',
   filters = [],
   values = {},
@@ -57,17 +66,19 @@ export function FilterBar({
     setSearchDraft((prev) => (prev === next ? prev : next))
   }, [searchValue])
 
+  const searchPending = Boolean(onSearchChange) && searchDraft !== (searchValue ?? '')
+
   React.useEffect(() => {
     if (!onSearchChange) return
     const handle = window.setTimeout(() => {
       if (lastAppliedSearchRef.current === searchDraft) return
       lastAppliedSearchRef.current = searchDraft
       onSearchChange(searchDraft)
-    }, 1000)
+    }, searchDebounceMs)
     return () => {
       window.clearTimeout(handle)
     }
-  }, [searchDraft, onSearchChange])
+  }, [searchDraft, onSearchChange, searchDebounceMs])
 
   const activeCount = React.useMemo(() => {
     const isActive = (v: any) => {
@@ -88,6 +99,7 @@ export function FilterBar({
           value={searchDraft}
           onChange={setSearchDraft}
           placeholder={resolvedSearchPlaceholder}
+          loading={searchPending}
           suppressHydrationWarning
         />
       </div>

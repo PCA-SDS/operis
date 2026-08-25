@@ -298,6 +298,13 @@ export type DataTableProps<T extends RowData> = {
   /** Render the query duration in the pagination footer. Set to false for a count-only footer. */
   showQueryTime?: boolean
   isLoading?: boolean
+  /**
+   * Explicit "a refetch is in flight, but the rows on screen are still valid"
+   * signal. When set (or when `isLoading` is true while rows from the previous
+   * result are still mounted) the table keeps those rows visible, dimmed and
+   * inert, instead of tearing the body down to a spinner.
+   */
+  isRefetching?: boolean
   emptyState?: React.ReactNode
   error?: React.ReactNode | string | null
   rowActions?: (row: T) => React.ReactNode
@@ -563,6 +570,14 @@ function resolveExportSections(config: DataTableExportConfig | null | undefined)
 // Bounds for user-driven column resizing (#1835). Widths outside this range are
 // clamped so a persisted/dragged value can never collapse a column to nothing or
 // blow the table out horizontally.
+// Mirrors the dim-while-busy idiom CrudForm already uses for an in-flight form
+// (`pointer-events-none select-none opacity-70`). Keeping the previous rows
+// visible-but-inert is what stops a filter change from collapsing the tbody and
+// bouncing the user's scroll position.
+const DATATABLE_MAX_PAGE_SIZE = 100
+
+const STALE_ROWS_CLASS = 'pointer-events-none select-none opacity-70 transition-opacity'
+
 const COLUMN_MIN_WIDTH = 60
 const COLUMN_MAX_WIDTH = 900
 
@@ -685,7 +700,11 @@ export function sanitizePerspectiveSettings(source?: PerspectiveSettings | null)
   }
 
   if (typeof source.pageSize === 'number' && Number.isFinite(source.pageSize)) {
-    const pageSize = Math.max(1, Math.min(500, Math.floor(source.pageSize)))
+    // packages/ui/AGENTS.md: "keep `pageSize` at or below 100". A saved
+    // perspective could previously restore up to 500 rows, and only three pages
+    // in the repo opt into row virtualization — so a restored view could mount
+    // 500 unvirtualized rows.
+    const pageSize = Math.max(1, Math.min(DATATABLE_MAX_PAGE_SIZE, Math.floor(source.pageSize)))
     result.pageSize = pageSize
   }
 
@@ -796,6 +815,7 @@ function ExportMenu({ config, sections }: { config: DataTableExportConfig; secti
   const disabled = Boolean(config.disabled)
   const hasSections = sections.length > 0
   const [open, setOpen] = React.useState(false)
+  const [pendingFormatKey, setPendingFormatKey] = React.useState<string | null>(null)
   const [menuOffsetX, setMenuOffsetX] = React.useState(0)
   const buttonRef = React.useRef<HTMLButtonElement>(null)
   const menuRef = React.useRef<HTMLDivElement>(null)
@@ -848,6 +868,14 @@ function ExportMenu({ config, sections }: { config: DataTableExportConfig; secti
   if (!hasSections) return null
 
   const handleSelect = async (section: ResolvedExportSection, format: DataTableExportFormat) => {
+    const formatKey = `${section.key}-${format}`
+    if (pendingFormatKey) return
+    // `section.prepare(format)` typically refetches the WHOLE dataset with
+    // `all: true`, which takes seconds. Previously the menu just sat there with
+    // no spinner and then closed abruptly, and a failure closed it with no
+    // message at all — so the user concluded the button was broken and clicked
+    // again, firing another full export.
+    setPendingFormatKey(formatKey)
     try {
       if (section.prepare) {
         const preparedResult = await section.prepare(format)
@@ -876,9 +904,15 @@ function ExportMenu({ config, sections }: { config: DataTableExportConfig; secti
           window.open(url, '_blank', 'noopener,noreferrer')
         }
       }
-    } catch {
-      // ignore export errors
+    } catch (error) {
+      flash(
+        error instanceof Error
+          ? error.message
+          : t('ui.dataTable.export.error', 'Export failed.'),
+        'error',
+      )
     } finally {
+      setPendingFormatKey(null)
       setOpen(false)
     }
   }
@@ -923,8 +957,11 @@ function ExportMenu({ config, sections }: { config: DataTableExportConfig; secti
                     size="sm"
                     className="w-full justify-start font-normal"
                     onClick={() => void handleSelect(section, format)}
-                    disabled={section.disabled}
+                    disabled={section.disabled || pendingFormatKey !== null}
                   >
+                    {pendingFormatKey === `${section.key}-${format}`
+                      ? <Spinner className="mr-2 h-4 w-4 shrink-0" />
+                      : null}
                     {EXPORT_LABELS[format]}
                   </Button>
                 ))}
@@ -1210,6 +1247,7 @@ export function DataTable<T extends RowData>({
   pagination,
   showQueryTime = true,
   isLoading,
+  isRefetching,
   emptyState,
   error,
   rowActions,
@@ -2883,9 +2921,16 @@ export function DataTable<T extends RowData>({
     [clearTrackedBulkProgressJob],
   )
 
+  // Neither bulk-action button was disabled while its work ran — `disabled`
+  // reflected selection emptiness only, and `setRowSelection({})` happens AFTER
+  // the await — so double-clicking "Delete 500 selected" fired two bulk deletes.
+  const [runningBulkActionId, setRunningBulkActionId] = React.useState<string | null>(null)
+
   const runBulkAction = React.useCallback(
     async (action: InjectionBulkActionDefinition) => {
       if (action.requiresSelection !== false && !selectedRows.length) return
+      if (runningBulkActionId) return
+      setRunningBulkActionId(action.id)
       try {
         const result = await action.onExecute(selectedRows, {
           tableId: extensionTableId,
@@ -2933,19 +2978,37 @@ export function DataTable<T extends RowData>({
             : t('ui.dataTable.bulkAction.error', 'Bulk action failed.'),
           'error',
         )
+      } finally {
+        setRunningBulkActionId(null)
       }
     },
-    [confirm, extensionTableId, refreshButton, resolvedInjectionContext, router, selectedRows, t],
+    [confirm, extensionTableId, refreshButton, resolvedInjectionContext, router, runningBulkActionId, selectedRows, t],
   )
 
   const runPropBulkAction = React.useCallback(
     async (action: BulkAction<T>) => {
-      const result = await action.onExecute(selectedRows)
-      if (result !== false) {
-        setRowSelection({})
+      if (runningBulkActionId) return
+      setRunningBulkActionId(action.id)
+      try {
+        const result = await action.onExecute(selectedRows)
+        if (result !== false) {
+          setRowSelection({})
+        }
+      } catch (error) {
+        // Previously uncaught: a throw here was an unhandled rejection with no
+        // flash and no state change, so the failure was completely invisible.
+        // Matches the sibling `runBulkAction` above.
+        flash(
+          error instanceof Error
+            ? error.message
+            : t('ui.dataTable.bulkAction.error', 'Bulk action failed.'),
+          'error',
+        )
+      } finally {
+        setRunningBulkActionId(null)
       }
     },
-    [selectedRows],
+    [runningBulkActionId, selectedRows, t],
   )
 
   const builtToolbar = React.useMemo(() => {
@@ -3092,10 +3155,13 @@ export function DataTable<T extends RowData>({
               title={label}
               aria-label={label}
               className={iconNode ? 'px-2 sm:px-3' : undefined}
-              disabled={action.requiresSelection !== false && selectedRows.length === 0}
+              disabled={
+                (action.requiresSelection !== false && selectedRows.length === 0)
+                || runningBulkActionId !== null
+              }
               onClick={() => void runBulkAction(action)}
             >
-              {iconNode}
+              {runningBulkActionId === action.id ? <Spinner className="h-4 w-4 shrink-0" /> : iconNode}
               <span className={iconNode ? 'hidden sm:inline' : undefined}>{label}</span>
             </Button>
           )
@@ -3107,9 +3173,12 @@ export function DataTable<T extends RowData>({
               key={action.id}
               type="button"
               variant={action.destructive ? 'destructive' : 'outline'}
+              disabled={runningBulkActionId !== null}
               onClick={() => void runPropBulkAction(action)}
             >
-              {ActionIcon ? <ActionIcon className="h-4 w-4 shrink-0" /> : null}
+              {runningBulkActionId === action.id
+                ? <Spinner className="h-4 w-4 shrink-0" />
+                : ActionIcon ? <ActionIcon className="h-4 w-4 shrink-0" /> : null}
               <span>{action.label}</span>
             </Button>
           )
@@ -3235,6 +3304,15 @@ export function DataTable<T extends RowData>({
     return () => observer.disconnect()
   }, [tableScrollEl])
   const allRows = table.getRowModel().rows
+
+  // `isLoading` is true on EVERY fetch at most call sites, not just the first —
+  // so treating it as "erase the table" collapsed the body from full height to
+  // a 96px spinner row on every filter, sort and page change, cratering the page
+  // height and bouncing the scroll position before the rows came back. Rows from
+  // the previous result still being mounted means this is a refetch, not a first
+  // load: keep them, dim them, and let the new data swap in underneath.
+  const isFirstLoad = Boolean(isLoading) && allRows.length === 0
+  const showingStaleRows = (Boolean(isRefetching) || Boolean(isLoading)) && allRows.length > 0
   // Hooks must run on every render regardless of props (Rules of Hooks). Call
   // useVirtualizer unconditionally and keep it inert when virtualization is off
   // (count 0, no scroll element → no observers, no measurement work), then
@@ -3452,8 +3530,11 @@ export function DataTable<T extends RowData>({
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
-            {isLoading ? (
+          <TableBody
+            aria-busy={showingStaleRows || undefined}
+            className={showingStaleRows ? STALE_ROWS_CLASS : undefined}
+          >
+            {isFirstLoad ? (
               <TableRow>
                 <TableCell colSpan={mergedColumns.length + (rowActions || injectedRowActions.length > 0 ? 1 : 0) + (hasInjectedBulkActions ? 1 : 0)} className="h-24 text-center">
                   <div className="flex items-center justify-center gap-2">
