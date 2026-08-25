@@ -3437,10 +3437,12 @@ import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primiti
 
 ### When to use
 
-- **SegmentedControl**: list filters ("All / Active / Archived"), chart period selectors (1D / 1W / 1M), layout toggles (List / Grid). The thing being switched changes the *view*, not the action.
+This is the **one toggle primitive for mutually-exclusive state** — reach for it in every scenario where exactly one of N options is selected and the choice changes what is shown, not what is done. Do not hand-roll a row of `aria-pressed` buttons; `fullWidth` and `icon` cover the shapes that used to justify one.
+
+- **SegmentedControl**: list filters ("All / Active / Archived"), chart period selectors (1D / 1W / 1M), layout toggles (List / Grid), and full-width form-style choosers (an event-type switcher, a scope selector). The thing being switched changes the *view*, not the action.
 - **ButtonGroup** (separate primitive): related actions where each child does something different (Save / Save & New / overflow). NOT for selection.
 - **Tabs** (separate primitive): when each option swaps a content panel, not just a state filter. Tabs carry their own ARIA `tabpanel` contract.
-- **RadioGroup + Radio** (separate primitive): when the choice is part of a form (one of several options for a field), not chrome state.
+- **RadioGroup + Radio** (separate primitive): when the choice is a stacked list of form options with descriptions, not a compact inline control.
 
 ### API
 
@@ -3449,6 +3451,7 @@ import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primiti
   value={view}                                  // current selected value
   onValueChange={(next) => setView(next)}       // fires on selection change
   size="sm" | "default"                         // optional, default "default"
+  fullWidth={false}                             // optional; span the container, equal-width segments
   disabled={false}                              // optional
   aria-label="View filter"                      // recommended
 >
@@ -3458,14 +3461,26 @@ import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primiti
 </SegmentedControl>
 ```
 
+`SegmentedControlItem` also takes an optional `icon` (a leading `size-4` glyph). It renders `aria-hidden`, so the item's accessible name stays its label:
+
+```tsx
+<SegmentedControlItem value="meetings" icon={<List className="size-4" />}>Meetings</SegmentedControlItem>
+```
+
 Built on Radix `RadioGroup` — inherits arrow-key navigation, roving tabindex, `role="radiogroup"` + `role="radio"` + `aria-checked` for free.
 
 ### Sizes
 
 | Size | Track height | Item height | Item text | Use case |
 |---|---|---|---|---|
-| `default` (default) | `h-8` (32px) | `h-7` (28px) | `text-sm` | Standard toolbar density |
-| `sm` | `h-7` (28px) | `h-6` (24px) | `text-xs` | Tight rows, chart period selectors |
+| `default` (default) | `h-9` (36px) | stretches to the track (30px) | `text-sm` | Standard toolbar density, matches Button/Input |
+| `sm` | `h-8` (32px) | stretches to the track (26px) | `text-xs` | Tight rows, chart period selectors |
+
+Items deliberately carry **no height of their own** — the track is `items-stretch` with a uniform `p-0.5`, so the selected pill is inset by exactly 2px on all four sides. Giving an item a fixed height reintroduces a vertical gap different from the horizontal one, which is plainly visible now that the pill is a filled colour.
+
+### Selected state
+
+The selected segment is painted by the sliding pill, in `bg-sidebar` with `text-sidebar-foreground` ink — the same navy as the app sidebar, so "selected" reads identically everywhere in the product. Label colour transitions over `duration-200`, matching the pill's travel, so ink and fill arrive together instead of the text snapping to its selected colour mid-slide.
 
 ### Usage
 
@@ -3496,6 +3511,9 @@ const [period, setPeriod] = React.useState('1M')
 3. **Every item MUST have a unique `value`.** Duplicate values break Radix's keyboard navigation and selection state.
 4. **NEVER nest `Button` / `IconButton` inside `SegmentedControlItem`.** Radix RadioGroup.Item already provides a `<button>` — nesting another interactive element breaks ARIA.
 5. **`disabled` on the root cascades to every item** via Radix; do not pass `disabled` per-item unless intentionally locking a subset.
+6. **NEVER build a parallel segmented toggle** out of `Button` + `aria-pressed`. Use this primitive with `fullWidth` / `icon`; a local copy loses the radio ARIA contract, the sliding pill, and the shared selected colour.
+7. **Pass icons via `icon`, not inside `children`.** Children are duplicated into an invisible ghost copy to reserve the semibold label width; an icon in there renders twice for nothing and lands inside the truncation box.
+8. **Keep `children` render-safe to duplicate** — plain text or simple inline markup, nothing stateful, for the same ghost-copy reason.
 
 ### Anti-patterns
 

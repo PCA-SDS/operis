@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedNote": "Derived design-system reference inventory for the PR #4301 gallery and its PR #4891 design foundation sidecar. Never hand-edit: regenerate with `yarn workspace create-mercato-app harness:generate-design-system-inventory`. Mutable surface facts are computed from the packed registry, the real `figma.connect` calls and the real `npm pack` file lists; immutable PR baselines are verified as ancestors of HEAD. `entrySource` and `implementationSource` are installed, app-relative, read-only paths. `codeConnectExportStatus` answers importability, which is NOT implied by being packed. `publicationStatus` is closed at `not-evidenced`: nothing in this repository can evidence an external Figma publication. FORK NOTE (operis): the regeneration command above does not exist here \u2014 `packages/create-app` was not imported into this fork, so no `harness:generate-design-system-inventory` script is defined. Until a replacement generator lands, entries added in-repo are maintained by hand to keep `inventory-parity.test.ts` honest; such entries use repo-relative sources and carry null PR/SHA provenance, because they are not part of the upstream PR #4301 baseline that the generated rows share.",
+  "generatedNote": "Derived design-system reference inventory for the PR #4301 gallery and its PR #4891 design foundation sidecar. Never hand-edit: regenerate with `yarn workspace create-mercato-app harness:generate-design-system-inventory`. Mutable surface facts are computed from the packed registry, the real `figma.connect` calls and the real `npm pack` file lists; immutable PR baselines are verified as ancestors of HEAD. `entrySource` and `implementationSource` are installed, app-relative, read-only paths. `codeConnectExportStatus` answers importability, which is NOT implied by being packed. `publicationStatus` is closed at `not-evidenced`: nothing in this repository can evidence an external Figma publication. FORK NOTE (operis): the regeneration command above does not exist here — `packages/create-app` was not imported into this fork, so no `harness:generate-design-system-inventory` script is defined. Until a replacement generator lands, entries added in-repo are maintained by hand to keep `inventory-parity.test.ts` honest; such entries use repo-relative sources and carry null PR/SHA provenance, because they are not part of the upstream PR #4301 baseline that the generated rows share.",
   "derived": {
     "familyCount": 17,
     "familyIds": [
@@ -23,7 +23,7 @@
       "messages"
     ],
     "itemCount": 114,
-    "variantCount": 307,
+    "variantCount": 309,
     "installedImplementationCount": 107,
     "localTokenItemCount": 6,
     "externalImplementationCount": 1,
@@ -53,7 +53,7 @@
   },
   "notEvidenced": [
     "External Figma publication. Parse and type success are not publication proof, so every record closes at `publicationStatus: \"not-evidenced\"`.",
-    "The PR #4277 audited head is provenance only \u2014 that pull request was closed and merged nothing. This tree contains its content as PR #4891 at the recorded baseline, which is checked to be an ancestor of HEAD on every run.",
+    "The PR #4277 audited head is provenance only — that pull request was closed and merged nothing. This tree contains its content as PR #4891 at the recorded baseline, which is checked to be an ancestor of HEAD on every run.",
     "No local token snapshot is emitted, so `snapshotAvailability` is `unavailable` everywhere. Emitting one requires parity proof against the app-local stylesheet."
   ],
   "designSystemReferences": [
@@ -4175,6 +4175,8 @@
       "variantIds": [
         "default",
         "small",
+        "with-icons",
+        "full-width",
         "disabled"
       ],
       "route": "/backend/design-system?family=navigation&entry=segmented-control",

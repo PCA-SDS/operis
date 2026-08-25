@@ -384,6 +384,7 @@
   "customers.calendar.shortcuts.week": "Week",
   "customers.calendar.tabs.all": "All Scheduled",
   "customers.calendar.tabs.events": "Events",
+  "customers.calendar.tabs.label": "Calendar category",
   "customers.calendar.tabs.meetings": "Meetings",
   "customers.calendar.thisWeek": "This week",
   "customers.calendar.tomorrow": "Tomorrow",
