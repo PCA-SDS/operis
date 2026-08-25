@@ -3,7 +3,11 @@ import { getCachedRateLimiterService } from '@open-mercato/core/bootstrap'
 import { checkRateLimit, getClientIp, RATE_LIMIT_ERROR_KEY, RATE_LIMIT_ERROR_FALLBACK, RATE_LIMIT_FALLBACK_KEY } from '@open-mercato/shared/lib/ratelimit/helpers'
 import type { RateLimitConfig } from '@open-mercato/shared/lib/ratelimit/types'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+import { getTelemetryRuntime } from '@open-mercato/shared/lib/telemetry/runtime'
 import { computeEmailHash } from '@open-mercato/core/modules/auth/lib/emailHash'
+
+const logger = createLogger('auth').child({ component: 'rate-limit' })
 
 export interface CheckAuthRateLimitOptions {
   req: Request
@@ -19,9 +23,42 @@ export interface CheckAuthRateLimitResult {
 }
 
 /**
+ * Announce that an unexpected throw inside the rate-limit check let a login,
+ * refresh or reset request through uncounted.
+ *
+ * A Redis outage does NOT reach here: `RateLimiterService.consume()` absorbs it
+ * behind an in-memory insurance limiter and, when even that fails, returns a
+ * `degraded` result rather than throwing. What lands in the caller's catch is
+ * everything else — a bootstrap/DI failure, a translation load failure, a hash
+ * failure — and each of those silently disables brute-force protection.
+ *
+ * Reporting is best-effort and swallows its own errors: observability must
+ * never turn a fail-open into a failed login.
+ */
+function reportRateLimitCheckFailure(error: unknown, keyPrefix: string | undefined): void {
+  try {
+    logger.error(
+      'Auth rate limit check failed; brute-force protection was not enforced for this request',
+      { keyPrefix, err: error },
+    )
+    getTelemetryRuntime()?.reportError(error, {
+      module: 'auth',
+      attributes: { operation: 'checkAuthRateLimit', keyPrefix, degraded: true },
+    })
+  } catch {
+    // Reporting must never alter authentication behavior.
+  }
+}
+
+/**
  * Fail-open rate limit check for auth endpoints.
  * Layer 1: IP-only check with ipConfig.
  * Layer 2 (optional): compound IP + hashed identifier check with compoundConfig.
+ *
+ * Stays fail-open by design — see `reportRateLimitCheckFailure`. Flipping it to
+ * fail-closed would turn any unexpected throw in this path (DI, i18n, hashing)
+ * into a total login outage for every tenant, so the degradation is made loud
+ * instead of being changed silently.
  */
 export async function checkAuthRateLimit(options: CheckAuthRateLimitOptions): Promise<CheckAuthRateLimitResult> {
   try {
@@ -54,7 +91,8 @@ export async function checkAuthRateLimit(options: CheckAuthRateLimitOptions): Pr
     }
 
     return { error: null, compoundKey: null }
-  } catch {
+  } catch (error) {
+    reportRateLimitCheckFailure(error, options.ipConfig.keyPrefix)
     return { error: null, compoundKey: null }
   }
 }

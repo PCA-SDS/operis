@@ -54,6 +54,8 @@ describe('sendEmail', () => {
         from: 'from@example.com',
         reply_to: 'reply@example.com',
       })
+      ,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
   })
 
@@ -93,6 +95,8 @@ describe('sendEmail', () => {
           },
         ],
       })
+      ,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
   })
 
@@ -120,6 +124,8 @@ describe('sendEmail', () => {
       expect.objectContaining({
         from: 'notifications@example.com',
       })
+      ,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
   })
 
@@ -138,6 +144,8 @@ describe('sendEmail', () => {
       expect.objectContaining({
         from: 'admin@example.com',
       })
+      ,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
   })
 

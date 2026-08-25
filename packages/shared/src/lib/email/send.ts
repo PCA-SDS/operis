@@ -4,7 +4,29 @@ import { appendFile, mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { parseBooleanWithDefault } from '../boolean'
+import { parseNumberWithDefault } from '../number'
+import { createLogger } from '../logger'
+import { FetchTimeoutError, withTimeout } from '../http/fetchWithTimeout'
 import { resolveDefaultEmailFromAddress } from './config'
+
+const logger = createLogger('shared').child({ component: 'email' })
+
+export const EMAIL_SEND_TIMEOUT_ENV = 'OM_EMAIL_SEND_TIMEOUT_MS'
+const DEFAULT_EMAIL_SEND_TIMEOUT_MS = 15_000
+
+/**
+ * The Resend SDK applies no timeout of its own, so an unanswered call inherits
+ * undici's ~5 minute headers timeout. `sendEmail` runs on request paths (quote
+ * send/accept, portal invitations), and each hung request pins both a Node
+ * connection and its pooled DB connection — roughly `DB_POOL_MAX` concurrent
+ * hangs exhaust the pool for the whole process.
+ */
+export function resolveEmailSendTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
+  return parseNumberWithDefault(env[EMAIL_SEND_TIMEOUT_ENV], DEFAULT_EMAIL_SEND_TIMEOUT_MS, {
+    min: 1,
+    integer: true,
+  })
+}
 
 export type SendEmailOptions = {
   to: string
@@ -92,6 +114,47 @@ async function captureEmailForTests(options: SendEmailOptions): Promise<void> {
   await appendFile(capturePath, `${JSON.stringify(record)}\n`, 'utf8')
 }
 
+// `Resend` is exported as both a class and a namespace, so it resolves to the
+// namespace in type position (TS2709). Reach the instance type explicitly.
+type ResendClient = InstanceType<typeof Resend>
+
+const RESEND_SEND_LABEL = 'resend.emails.send'
+
+/**
+ * `Resend.post()` spreads its options object straight into the `fetch()` init,
+ * so an `AbortSignal` passed here reaches undici and actually cancels the
+ * in-flight request. The published request-options type does not declare
+ * `signal`, hence the local widening.
+ */
+type SendRequestOptions = NonNullable<Parameters<ResendClient['emails']['send']>[1]> & {
+  signal: AbortSignal
+}
+
+type ResendSendResult = Awaited<ReturnType<ResendClient['emails']['send']>>
+
+/**
+ * The SDK swallows every `fetch` rejection — an aborted request comes back as a
+ * generic `application_error` result rather than a throw — so the abort has to
+ * be re-raised for `withTimeout` to classify it. Anything thrown after the
+ * deadline is converted by `withTimeout` into a `FetchTimeoutError`.
+ */
+async function sendWithTimeout(
+  resend: ResendClient,
+  payload: Parameters<ResendClient['emails']['send']>[0],
+  timeoutMs: number,
+): Promise<ResendSendResult> {
+  return withTimeout(
+    async (signal) => {
+      const requestOptions: SendRequestOptions = { signal }
+      const response = await resend.emails.send(payload, requestOptions)
+      signal.throwIfAborted()
+      return response
+    },
+    timeoutMs,
+    RESEND_SEND_LABEL,
+  )
+}
+
 export async function sendEmail({ to, subject, react, from, replyTo, attachments }: SendEmailOptions) {
   const emailDisabled =
     parseBooleanWithDefault(process.env.OM_DISABLE_EMAIL_DELIVERY, false) ||
@@ -116,7 +179,18 @@ export async function sendEmail({ to, subject, react, from, replyTo, attachments
     ...(replyTo ? { reply_to: replyTo } : {}),
     ...(attachments?.length ? { attachments } : {}),
   }
-  const result = await resend.emails.send(payload)
+  const timeoutMs = resolveEmailSendTimeoutMs()
+  let result: ResendSendResult
+  try {
+    result = await sendWithTimeout(resend, payload, timeoutMs)
+  } catch (err) {
+    if (err instanceof FetchTimeoutError) {
+      logger.error('Email send timed out', { provider: 'resend', timeoutMs })
+      throw new Error(`RESEND_SEND_TIMEOUT: no response after ${timeoutMs}ms`)
+    }
+    logger.error('Email send failed', { provider: 'resend', timeoutMs, err })
+    throw err
+  }
   const errorMessage =
     typeof (result as any)?.error === 'string'
       ? (result as any).error

@@ -24,10 +24,28 @@ const SLOW_WARN_MS = 100
 const SLOW_ERROR_MS = 500
 const DEFAULT_CACHE_TTL_MS = 60_000
 
-function timeoutPromise(ms: number): Promise<never> {
-  return new Promise((_, reject) =>
-    setTimeout(() => reject(new Error(`Enricher timed out after ${ms}ms`)), ms),
-  )
+/**
+ * Race `task` against a timeout whose timer is always cleared.
+ *
+ * `Promise.race` settles on the first result but never cancels the loser, so a
+ * bare `setTimeout` rejection promise leaves an armed timer holding its closure
+ * for the full timeout window on every enriched request — under load that is
+ * requests-per-second x active enrichers of live timers inflating the timer
+ * heap and delaying shutdown, plus a rejection nobody is left to observe.
+ * Clearing in `finally` and pre-attaching a no-op catch mirrors `withTimeout`
+ * in `../http/fetchWithTimeout`.
+ */
+async function raceWithTimeout<T>(task: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Enricher timed out after ${ms}ms`)), ms)
+  })
+  timeout.catch(() => {})
+  try {
+    return await Promise.race([task, timeout])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
 }
 
 function hasRequiredFeatures(
@@ -245,10 +263,10 @@ export async function applyResponseEnrichers<T extends Record<string, unknown>>(
       }
 
       if (enricher.enrichMany) {
-        result = await Promise.race([
+        result = await raceWithTimeout(
           enricher.enrichMany(currentItems, context) as Promise<T[]>,
-          timeoutPromise(timeout),
-        ])
+          timeout,
+        )
       } else {
         throw new Error(
           `Enricher ${enricher.id} must implement enrichMany() for list endpoints`,
@@ -341,10 +359,10 @@ export async function applyResponseEnricherToRecord<T extends Record<string, unk
           continue
         }
       }
-      const result = await Promise.race([
+      const result = await raceWithTimeout(
         enricher.enrichOne(currentRecord, context) as Promise<T>,
-        timeoutPromise(timeout),
-      ])
+        timeout,
+      )
 
       const elapsedMs = Date.now() - startTime
       logEnricherTiming(enricher.id, entry.moduleId, targetEntity, elapsedMs)
