@@ -39,8 +39,6 @@ const LazyMessagesIcon = dynamic(
 type BackendHeaderChromeProps = {
   email?: string
   userId: string | null
-  embeddingConfigured: boolean
-  missingConfigMessage: string
   tenantId: string | null
   organizationId: string | null
 }
@@ -102,11 +100,38 @@ function MobileMoreMenu({ items }: { items: MobileMoreItem[] }) {
   )
 }
 
+type BackendHeaderSearchProps = {
+  embeddingConfigured: boolean
+  missingConfigMessage: string
+}
+
+/**
+ * The global search, published separately from the rest of the chrome so the
+ * shell can place it in the topbar's centre column while every other action
+ * stays right-aligned. It reads the same `BackendChromeProvider` payload, so the
+ * `search.global` gate is identical to the one it had inside the cluster.
+ */
+export function BackendHeaderSearch({
+  embeddingConfigured,
+  missingConfigMessage,
+}: BackendHeaderSearchProps) {
+  const { payload, isReady } = useBackendChrome()
+  const showSearch = React.useMemo(
+    () => hasFeature(payload?.grantedFeatures ?? [], 'search.global'),
+    [payload?.grantedFeatures],
+  )
+  if (!isReady || !showSearch) return null
+  return (
+    <LazyTopbarSearchInline
+      embeddingConfigured={embeddingConfigured}
+      missingConfigMessage={missingConfigMessage}
+    />
+  )
+}
+
 export function BackendHeaderChrome({
   email,
   userId,
-  embeddingConfigured,
-  missingConfigMessage,
   tenantId,
   organizationId,
 }: BackendHeaderChromeProps) {
@@ -119,10 +144,6 @@ export function BackendHeaderChrome({
   )
   const showAiAssistant = React.useMemo(
     () => hasFeature(grantedFeatures, 'ai_assistant.view'),
-    [grantedFeatures],
-  )
-  const showSearch = React.useMemo(
-    () => hasFeature(grantedFeatures, 'search.global'),
     [grantedFeatures],
   )
   const showMessages = React.useMemo(
@@ -168,12 +189,6 @@ export function BackendHeaderChrome({
         <AiAssistantShellIntegration tenantId={tenantId} organizationId={organizationId}>
           <LazyAiChatHeaderButton />
         </AiAssistantShellIntegration>
-      ) : null}
-      {isReady && showSearch ? (
-        <LazyTopbarSearchInline
-          embeddingConfigured={embeddingConfigured}
-          missingConfigMessage={missingConfigMessage}
-        />
       ) : null}
       {isReady ? <LazyOrganizationSwitcher /> : null}
 

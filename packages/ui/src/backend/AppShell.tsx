@@ -215,6 +215,8 @@ export type AppShellProps = {
   }[]
   children: React.ReactNode
   rightHeaderSlot?: React.ReactNode
+  /** Centred column of the topbar — the global search lives here. */
+  centerHeaderSlot?: React.ReactNode
   currentTitle?: string
   breadcrumb?: Array<{ label: string; href?: string }>
   // Optional: full admin nav API to refresh sidebar client-side
@@ -688,7 +690,7 @@ export function AppShell(props: AppShellProps) {
   )
 }
 
-function AppShellBody({ productName, logo, email, canManageUpgradeActions = false, groups, rightHeaderSlot, children, currentTitle, breadcrumb, version, settingsSectionTitle, settingsPathPrefixes = [], settingsSections, profileSections, profileSectionTitle, profilePathPrefixes = [], mobileSidebarSlot, hideFooter = false, progressCompletedAutoHideMs }: AppShellProps) {
+function AppShellBody({ productName, logo, email, canManageUpgradeActions = false, groups, rightHeaderSlot, centerHeaderSlot, children, currentTitle, breadcrumb, version, settingsSectionTitle, settingsPathPrefixes = [], settingsSections, profileSections, profileSectionTitle, profilePathPrefixes = [], mobileSidebarSlot, hideFooter = false, progressCompletedAutoHideMs }: AppShellProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const t = useT()
@@ -1462,13 +1464,13 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
       </aside>
 
       <div className="flex min-h-svh flex-col min-w-0">
-        <header className="sticky top-0 z-sticky h-16 shrink-0 border-b border-border bg-surface-muted px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-2 sm:gap-3">
+        <header className="sticky top-0 z-sticky h-16 shrink-0 border-b border-border bg-surface-muted px-3 sm:px-4 lg:px-6 flex items-center gap-2 sm:gap-3">
           <div
             data-testid="backend-chrome-ready"
             data-ready={isChromeReady ? 'true' : 'false'}
             className="hidden"
           />
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex flex-1 items-center gap-2 min-w-0">
             {/* Mobile menu button */}
             <IconButton variant="ghost" size="sm" className="lg:hidden" aria-label={t('appShell.openMenu')} onClick={() => setMobileOpen(true)}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
@@ -1544,7 +1546,13 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
               )
             })()}
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 text-sm shrink-0">
+          {centerHeaderSlot ? (
+            <div className="flex shrink-0 items-center justify-center">{centerHeaderSlot}</div>
+          ) : null}
+          {/* `min-w-fit` keeps the action cluster from shrinking under its own
+              icons: it may take more than its half and push the centre column
+              off-centre, but it never overlaps it. */}
+          <div className="flex flex-1 min-w-fit items-center justify-end gap-1.5 sm:gap-2 md:gap-3 text-sm">
             <StatusBadgeInjectionSpot
               spotId={GLOBAL_HEADER_STATUS_INDICATORS_INJECTION_SPOT_ID}
               context={injectionContext}

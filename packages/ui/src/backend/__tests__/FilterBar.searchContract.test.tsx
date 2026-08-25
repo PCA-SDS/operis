@@ -10,6 +10,12 @@
  *   getByRole('searchbox', { name: 'Search categories' })     TC-CAT-007, TC-CAT-008
  *   main input[placeholder="Search"]                          TC-EXAMPLE-003/017
  *
+ * Sibling invariant, held in `TopbarSearchInline`: the topbar's global search is
+ * permanent chrome, so it sits in the DOM on every page alongside this one. Its
+ * accessible name is "Open global search" and must stay distinct from "Search" —
+ * two searchboxes sharing one name is ambiguous for screen readers, and it would
+ * make the unscoped lookups above match two elements.
+ *
  * That contract is not a detail of `FilterBar` — it comes from the `SearchInput`
  * primitive underneath (`type="search"` → role `searchbox`, placeholder → the
  * accessible name). Restyling the primitive must never move it, and a jsdom
