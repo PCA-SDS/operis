@@ -1,0 +1,8 @@
+{
+  "appointments.public.create.invalidInput": "Invalid appointment payload.",
+  "appointments.public.create.failed": "Unable to create appointment.",
+  "appointments.list.failed": "Unable to list appointments.",
+  "appointments.detail.notFound": "Appointment not found.",
+  "appointments.status.invalid": "Invalid appointment status.",
+  "appointments.status.failed": "Unable to update appointment status."
+}
