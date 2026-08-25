@@ -33,15 +33,26 @@ export function toLocalDateTimeInput(value?: string | null): string {
   )}`
 }
 
-export function resolveTodoHref(source: string, todoId: string | null | undefined): string | null {
+/**
+ * Deep link to the owning module's todo editor for a linked task.
+ *
+ * The module is read from the `<module>:<kind>` source string, which is stored
+ * on the row — so a task can name a module this tenant is no longer entitled
+ * to. Pass `enabledModules` (from `useEnabledModules()`) wherever the result
+ * becomes a link: without it the row would offer a doorway into a module the
+ * guards deny, and the label alone is the correct degraded state.
+ */
+export function resolveTodoHref(
+  source: string,
+  todoId: string | null | undefined,
+  enabledModules?: ReadonlySet<string> | null,
+): string | null {
   if (!todoId) return null
   if (!source) return null
   if (source === CUSTOMER_INTERACTION_TASK_SOURCE || source === CUSTOMER_INTERACTION_TASK_TYPE) return null
   const [module] = source.split(':')
   if (!module) return null
-  if (module === 'example') {
-    return `/backend/todos/${encodeURIComponent(todoId)}/edit`
-  }
+  if (enabledModules && !enabledModules.has(module)) return null
   return `/backend/${module}/todos/${encodeURIComponent(todoId)}/edit`
 }
 

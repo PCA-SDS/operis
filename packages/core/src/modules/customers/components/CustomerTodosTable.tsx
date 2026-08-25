@@ -16,6 +16,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { resolveTodoHref } from './detail/utils'
+import { useEnabledModules } from '@open-mercato/ui/backend/BackendChromeProvider'
 
 type CustomerTodoItem = {
   id: string
@@ -92,6 +93,7 @@ export function CustomerTodosTable(): React.JSX.Element {
   const t = useT()
   const router = useRouter()
   const scopeVersion = useOrganizationScopeVersion()
+  const enabledModules = useEnabledModules()
 
   const [search, setSearch] = React.useState('')
   const [page, setPage] = React.useState(1)
@@ -125,7 +127,7 @@ export function CustomerTodosTable(): React.JSX.Element {
       header: t('customers.workPlan.customerTodos.table.column.todo'),
       cell: ({ row }) => {
         const title = row.original.todoTitle ?? t('customers.workPlan.customerTodos.table.column.todo.unnamed')
-        const todoHref = row.original.externalHref ?? resolveTodoHref(row.original.todoSource, row.original.todoId)
+        const todoHref = row.original.externalHref ?? resolveTodoHref(row.original.todoSource, row.original.todoId, enabledModules)
         if (!todoHref) return <span className="text-muted-foreground">{title}</span>
         return (
           <Link href={todoHref} className="underline-offset-2 hover:underline">
@@ -257,7 +259,7 @@ export function CustomerTodosTable(): React.JSX.Element {
       perspective={{ tableId: extensionPoints.hosts.todosTable.tableId }}
       rowActions={(row) => {
         const customerLink = buildCustomerHref(row)
-        const todoHref = row.externalHref ?? resolveTodoHref(row.todoSource, row.todoId)
+        const todoHref = row.externalHref ?? resolveTodoHref(row.todoSource, row.todoId, enabledModules)
         const items = [
           customerLink ? {
             id: 'open-customer',

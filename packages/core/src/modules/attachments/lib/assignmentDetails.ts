@@ -4,6 +4,7 @@ import type { CustomEntitySpec } from '@open-mercato/shared/modules/entities'
 import { getEntityIds } from '@open-mercato/shared/lib/encryption/entityIds'
 import { getModules } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { isEntitleableModule } from '@open-mercato/core/modules/directory/lib/tenantModules'
 
 const logger = createLogger('attachments')
 
@@ -223,9 +224,32 @@ function buildLabel(
   return null
 }
 
+/**
+ * The module that owns an entity id — entity ids are minted `<module>:<entity>`.
+ */
+function assignmentOwningModuleId(entityId: string): string {
+  const separator = entityId.indexOf(':')
+  return separator > 0 ? entityId.slice(0, separator) : ''
+}
+
+/**
+ * Resolves display labels and detail links for the records an attachment is
+ * assigned to.
+ *
+ * `enabledModuleIds` is the caller's reachable module set. An attachment can
+ * outlive the entitlement of the module whose record it is attached to — the
+ * data is deliberately not deleted when a module is withheld — and without this
+ * the library would keep rendering its title and a link into that module. Omit
+ * it only where there is no user to resolve entitlement for.
+ */
 export async function resolveAssignmentEnrichments(
   assignments: AttachmentAssignment[],
-  opts: { queryEngine?: QueryEngine | null; tenantId: string; organizationId: string | null },
+  opts: {
+    queryEngine?: QueryEngine | null
+    tenantId: string
+    organizationId: string | null
+    enabledModuleIds?: readonly string[] | null
+  },
 ): Promise<AssignmentEnrichmentMap> {
   const map: AssignmentEnrichmentMap = new Map()
   if (!assignments.length || !opts.queryEngine) return map
@@ -242,7 +266,14 @@ export async function resolveAssignmentEnrichments(
   if (!grouped.size) return map
 
   const entityLinkSpecs = getEntityLinkSpecs()
+  const reachableModules = opts.enabledModuleIds ? new Set(opts.enabledModuleIds) : null
   for (const [entityId, idsSet] of grouped.entries()) {
+    if (reachableModules) {
+      const owningModuleId = assignmentOwningModuleId(entityId)
+      // Platform modules are never entitled, so they are never in the reachable
+      // set and must not be filtered out by its absence.
+      if (owningModuleId && isEntitleableModule(owningModuleId) && !reachableModules.has(owningModuleId)) continue
+    }
     const ids = filterIdsForEntity(entityId, Array.from(idsSet.values()))
     if (!ids.length) continue
     const linkSpec = entityLinkSpecs[entityId]

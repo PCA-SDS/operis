@@ -25,7 +25,7 @@ import { PriceWithCurrency } from '../PriceWithCurrency'
 import { AdjustmentDialog, type AdjustmentRowData, type AdjustmentSubmitPayload } from './AdjustmentDialog'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
-import { extractCustomFieldValues } from './customFieldHelpers'
+import { extractCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 const logger = createLogger('sales')

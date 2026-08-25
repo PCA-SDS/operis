@@ -27,6 +27,7 @@ import {
   fetchRelationRecordDisplays,
 } from '@open-mercato/ui/backend/utils/customFieldRelationDisplay'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
+import { useEnabledModules } from '../BackendChromeProvider'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { ComponentReplacementHandles } from '@open-mercato/shared/modules/widgets/component-registry'
 import { MarkdownPreview } from '../markdown'
@@ -482,6 +483,12 @@ function CustomDataSectionImpl({
     }
   }, [definitions, fields, queryClient, resolvedEntityIds, resolvedScopeVersion])
 
+  // A relation can point at a record in a module this tenant does not have.
+  // Passing the reachable set down suppresses the link — the label still shows,
+  // so the value is not silently lost, but it stops being a doorway into a
+  // module the user is not supposed to know about.
+  const enabledModules = useEnabledModules()
+
   React.useEffect(() => {
     if (!definitions.length || !fields.length) {
       setRelationLoading((prev) => (prev ? false : prev))
@@ -534,7 +541,9 @@ function CustomDataSectionImpl({
                 remoteOptions.forEach((option) => {
                   const href = (() => {
                     const relation = parseRelationOptionsMetadata(definition.optionsUrl)
-                    return relation ? buildRelationHref(relation.entityId, option.value) : undefined
+                    return relation
+                      ? buildRelationHref(relation.entityId, option.value, undefined, enabledModules)
+                      : undefined
                   })()
                   displays[option.value] = { label: option.label, href }
                 })
@@ -552,7 +561,13 @@ function CustomDataSectionImpl({
             })
             if (relation && unresolvedIds.length) {
               try {
-                const fetchedDisplays = await fetchRelationRecordDisplays(definition.optionsUrl!, relation, unresolvedIds, abortController.signal)
+                const fetchedDisplays = await fetchRelationRecordDisplays(
+                  definition.optionsUrl!,
+                  relation,
+                  unresolvedIds,
+                  abortController.signal,
+                  enabledModules,
+                )
                 Object.assign(displays, fetchedDisplays)
               } catch (error) {
                 logger.debug('Failed to fetch relation record displays for field', { fieldId: field.id, err: error })
@@ -560,7 +575,7 @@ function CustomDataSectionImpl({
                   if (!displays[relationId]) {
                     displays[relationId] = {
                       label: relationId,
-                      href: buildRelationHref(relation.entityId, relationId),
+                      href: buildRelationHref(relation.entityId, relationId, undefined, enabledModules),
                     }
                   }
                 })
@@ -597,7 +612,7 @@ function CustomDataSectionImpl({
     return () => {
       abortController.abort()
     }
-  }, [definitions, fields, values])
+  }, [definitions, enabledModules, fields, values])
 
   const handleSubmit = React.useCallback(
     async (input: Record<string, unknown>) => {

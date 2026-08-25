@@ -24,7 +24,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { formatMoney, normalizeNumber } from './lineItemUtils'
 import type { OrderLine, ShipmentRow } from './shipmentTypes'
 import { formatAddressString, type AddressFormatStrategy, type AddressValue } from '@open-mercato/core/modules/customers/utils/addressFormat'
-import { normalizeCustomFieldSubmitValue, extractCustomFieldValues } from './customFieldHelpers'
+import { normalizeCustomFieldSubmitValue, extractCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 const logger = createLogger('sales')

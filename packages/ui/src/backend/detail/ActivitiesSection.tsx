@@ -25,6 +25,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@open-mercato/
 import { useConfirmDialog } from '../confirm-dialog'
 import { ComponentReplacementHandles } from '@open-mercato/shared/modules/widgets/component-registry'
 import { useRegisteredComponent } from '../injection/useRegisteredComponent'
+import { useModuleEnabled } from '../BackendChromeProvider'
 
 type Translator = (key: string, fallback?: string, params?: Record<string, string | number>) => string
 
@@ -1077,9 +1078,17 @@ function ActivitiesSectionImpl<C = unknown>({
     [resolveActivityPresentation],
   )
 
+  // Activities render on detail pages across several modules, so the built-in
+  // deal link can appear for a viewer whose tenant does not have CRM. An
+  // explicit `dealLinkHref` override is the host's decision and is left alone.
+  const customersEnabled = useModuleEnabled('customers')
   const resolveDealHref = React.useCallback(
-    (id: string) => (dealLinkHref ? dealLinkHref(id) : `/backend/customers/deals/${encodeURIComponent(id)}`),
-    [dealLinkHref],
+    (id: string) => {
+      if (dealLinkHref) return dealLinkHref(id)
+      if (!customersEnabled) return undefined
+      return `/backend/customers/deals/${encodeURIComponent(id)}`
+    },
+    [customersEnabled, dealLinkHref],
   )
 
   return (
@@ -1129,6 +1138,7 @@ function ActivitiesSectionImpl<C = unknown>({
                     : null
                   const isUpdatePending = pendingAction?.kind === 'update' && pendingAction.id === activity.id
                   const isDeletePending = pendingAction?.kind === 'delete' && pendingAction.id === activity.id
+                  const dealHref = activity.dealId ? resolveDealHref(activity.dealId) : undefined
 
                   return (
                     <div
@@ -1155,11 +1165,11 @@ function ActivitiesSectionImpl<C = unknown>({
                             renderIcon={renderIcon}
                             renderColor={renderColor}
                           />
-                          {activity.dealId ? (
+                          {dealHref ? (
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <ArrowUpRightSquare className="h-3.5 w-3.5" />
                               <Link
-                                href={resolveDealHref(activity.dealId)}
+                                href={dealHref}
                                 className="font-medium text-foreground hover:underline"
                                 onClick={(event) => event.stopPropagation()}
                               >
