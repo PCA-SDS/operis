@@ -147,4 +147,6 @@ const installExamplesBundle: ModuleCli = {
   },
 }
 
-export default [seedUnitsCommand, seedPriceKindsCommand, seedExamplesCommand, installExamplesBundle]
+import { migrateTpsCategoriesCommand } from './migrate-tps/categories'
+
+export default [seedUnitsCommand, seedPriceKindsCommand, seedExamplesCommand, installExamplesBundle, migrateTpsCategoriesCommand]
