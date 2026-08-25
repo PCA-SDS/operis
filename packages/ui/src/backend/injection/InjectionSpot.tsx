@@ -382,6 +382,22 @@ export function useInjectionSpotEvents<TContext = unknown, TData = unknown>(spot
         messages?: Array<{ text: string; severity: 'info' | 'warning' | 'error' }>
       }
     }> => {
+      // Nothing registered on this spot: skip allocating the normalizer closures
+      // and walking an empty list. CrudForm reaches this on every keystroke via
+      // onFieldChange, and the overwhelming majority of spots have no widgets.
+      // The returned shapes below are exactly what the loops produce with zero
+      // iterations, so callers cannot tell the difference.
+      if (eventWidgets.length === 0) {
+        if (TRANSFORMER_EVENTS.has(event)) return { ok: true, data, applyToForm: false }
+        if (event === 'onFieldChange') {
+          return {
+            ok: true,
+            fieldChange: { value: meta?.fieldValue, sideEffects: undefined, messages: undefined },
+          }
+        }
+        return { ok: true }
+      }
+
       const normalizeBeforeSave = (
         result: WidgetBeforeSaveResult,
       ): { ok: boolean; message?: string; fieldErrors?: Record<string, string>; requestHeaders?: Record<string, string>; details?: unknown } => {

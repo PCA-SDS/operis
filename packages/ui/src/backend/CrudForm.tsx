@@ -93,6 +93,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../primitives/
 import { FieldDefinitionsManager, type FieldDefinitionsManagerHandle } from './custom-fields/FieldDefinitionsManager'
 import { useConfirmDialog } from './confirm-dialog'
 import { useInjectionSpotEvents, InjectionSpot, useInjectionWidgets } from './injection/InjectionSpot'
+import { useDialogKeyHandler } from '../hooks/useDialogKeyHandler'
 import { dispatchBackendMutationError } from './injection/mutationEvents'
 import { VersionHistoryAction } from './version-history/VersionHistoryAction'
 import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
@@ -804,6 +805,22 @@ export function CrudForm<TValues extends Record<string, unknown>>({
   // double-clicks of "Save" while validation and network IO are still running).
   // React state is async, so `pending` cannot block a click that fires before
   // the next render; a ref flips on the first call and rejects duplicates.
+  // packages/ui/AGENTS.md: every dialog must support Cmd/Ctrl+Enter to submit.
+  // CrudForm hosts most dialog forms in the product and bound neither key, so
+  // keyboard users could not submit them. Escape is deliberately NOT wired here
+  // — the Radix dialog above already owns it, and a CrudForm rendered outside a
+  // dialog must not swallow Escape.
+  const submitViaKeyboard = React.useCallback(() => {
+    if (typeof document === 'undefined') return
+    const el = document.getElementById(formId)
+    if (el instanceof HTMLFormElement) el.requestSubmit()
+  }, [formId])
+
+  const handleFormKeyDown = useDialogKeyHandler({
+    onConfirm: submitViaKeyboard,
+    disabled: pending || formReadOnly,
+  })
+
   const submittingRef = React.useRef(false)
   const deletingRef = React.useRef(false)
   const [formError, setFormError] = React.useState<string | null>(null)
@@ -1138,8 +1155,23 @@ export function CrudForm<TValues extends Record<string, unknown>>({
       : '__disabled__:fields'
   )
   
-  const { triggerEvent: triggerInjectionEvent } = useInjectionSpotEvents(resolvedInjectionSpotId ?? '', injectionWidgets)
+  const { triggerEvent: triggerInjectionEvent, widgets: injectionSpotWidgets } = useInjectionSpotEvents(resolvedInjectionSpotId ?? '', injectionWidgets)
   const extendedInjectionEventsEnabled = CRUDFORM_EXTENDED_EVENTS_ENABLED && Boolean(resolvedInjectionSpotId)
+  // onFieldChange is the only injection event on the per-keystroke path, and it
+  // has no handler-fallback chain. Gating its enqueue + async dispatch on a
+  // widget actually handling it keeps every other extended event untouched while
+  // removing a Map clone and two `setFieldChangeDispatchVersion` renders from
+  // every character typed in the (common) form with no field-change widgets.
+  const fieldChangeInjectionEnabled = React.useMemo(() => {
+    if (!extendedInjectionEventsEnabled) return false
+    // Fail open: a host (or test double) that does not surface the widget list
+    // keeps the original always-dispatch behavior. Only a known-empty handler
+    // set turns the per-keystroke path off.
+    if (!Array.isArray(injectionSpotWidgets)) return true
+    return injectionSpotWidgets.some(
+      (widget) => typeof widget.module?.eventHandlers?.onFieldChange === 'function',
+    )
+  }, [extendedInjectionEventsEnabled, injectionSpotWidgets])
 
   // Fields that active injection widgets declare as required (e.g. the SEO helper
   // enforcing a description). The host renders a visual required marker for these;
@@ -2369,7 +2401,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
         dirtyBaselineSnapshotRef.current ??= createDirtySnapshot(currentValues as Record<string, unknown>)
         dirtyBaselineValuesRef.current = baselineSource
       }
-      if (extendedInjectionEventsEnabled) {
+      if (fieldChangeInjectionEnabled) {
         const fieldRevision = (fieldChangeRevisionByFieldRef.current.get(id) ?? 0) + 1
         fieldChangeRevisionByFieldRef.current.set(id, fieldRevision)
         nextFieldChangeEventIdRef.current += 1
@@ -2421,10 +2453,10 @@ export function CrudForm<TValues extends Record<string, unknown>>({
         return prev
       })
     }
-  }, [embedded, extendedInjectionEventsEnabled, t, trackDirtyWhenEmbedded, translateValidationMessage, updateEditedFieldMarker])
+  }, [embedded, fieldChangeInjectionEnabled, t, trackDirtyWhenEmbedded, translateValidationMessage, updateEditedFieldMarker])
 
   React.useEffect(() => {
-    if (!extendedInjectionEventsEnabled) {
+    if (!fieldChangeInjectionEnabled) {
       pendingFieldChangeEventsRef.current = []
       return
     }
@@ -2496,7 +2528,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
         setFieldChangeDispatchVersion((version) => version + 1)
       }
     })
-  }, [extendedInjectionEventsEnabled, fieldChangeDispatchVersion, triggerInjectionEvent, values])
+  }, [fieldChangeInjectionEnabled, fieldChangeDispatchVersion, triggerInjectionEvent, values])
 
   const onBlurRequest = React.useCallback((fieldId: string) => {
     void validateFieldOnBlur(fieldId)
@@ -3698,7 +3730,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           className={embedded ? 'min-h-[1px]' : 'min-h-[400px]'}
         >
           {wrapFormBody(
-            <form id={formId} onSubmit={handleSubmit} className={`space-y-4 ${dialogFormPadding}`}>
+            <form id={formId} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className={`space-y-4 ${dialogFormPadding}`}>
             {resolvedInjectionSpotId ? (
               <InjectionSpot
                 spotId={resolvedInjectionSpotId}
@@ -3784,6 +3816,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           <form
             id={formId}
             onSubmit={handleSubmit}
+            onKeyDown={handleFormKeyDown}
             className={`${embedded ? 'space-y-4' : 'rounded-xl border border-border bg-surface p-5 shadow-sm space-y-4'} ${dialogFormPadding}`}
           >
             {resolvedInjectionSpotId ? (
