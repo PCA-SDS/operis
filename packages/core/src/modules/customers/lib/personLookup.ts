@@ -14,6 +14,7 @@ export type PersonCheckCustomer = {
   phoneCountryCode: string | null
   phoneCountry: string | null
   source: string | null
+  organizationId: string
 }
 
 export type PersonCheckResult = {
@@ -22,8 +23,13 @@ export type PersonCheckResult = {
   lastBooking: null
 }
 
-export type PersonLookupScope = {
+/** Tenant-wide identity lookup (customers are shared across branches/orgs). */
+export type PersonTenantScope = {
   tenantId: string
+}
+
+/** Create still needs an organization_id row value (home org / booking branch). */
+export type PersonLookupScope = PersonTenantScope & {
   organizationId: string
 }
 
@@ -46,6 +52,7 @@ function mapPersonToCheckCustomer(
     phoneCountryCode: entity.phoneCountryCode ?? null,
     phoneCountry: entity.phoneCountry ?? null,
     source: entity.source ?? null,
+    organizationId: entity.organizationId,
   }
 }
 
@@ -58,7 +65,7 @@ async function loadPersonProfile(
 
 export async function findPersonByEmail(
   em: EntityManager,
-  scope: PersonLookupScope,
+  scope: PersonTenantScope,
   email: string,
 ): Promise<{ entity: CustomerEntity; profile: CustomerPersonProfile | null } | null> {
   const normalizedEmail = normalizeEmail(email)
@@ -68,7 +75,6 @@ export async function findPersonByEmail(
   qb.select(['person.id'])
   qb.where({
     tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
     kind: 'person',
     deletedAt: null,
   })
@@ -83,14 +89,21 @@ export async function findPersonByEmail(
   return { entity, profile }
 }
 
+export async function assertTenantActive(
+  em: EntityManager,
+  tenantId: string,
+): Promise<void> {
+  const tenant = await em.findOne(Tenant, { id: tenantId, isActive: true, deletedAt: null })
+  if (!tenant) {
+    throw new CrudHttpError(404, { error: 'Tenant not found.', code: 'TENANT_NOT_FOUND' })
+  }
+}
+
 export async function assertBookingPersonScope(
   em: EntityManager,
   scope: PersonLookupScope,
 ): Promise<void> {
-  const tenant = await em.findOne(Tenant, { id: scope.tenantId, isActive: true, deletedAt: null })
-  if (!tenant) {
-    throw new CrudHttpError(404, { error: 'Tenant not found.', code: 'TENANT_NOT_FOUND' })
-  }
+  await assertTenantActive(em, scope.tenantId)
 
   const organization = await em.findOne(Organization, {
     id: scope.organizationId,
@@ -105,7 +118,7 @@ export async function assertBookingPersonScope(
 
 export async function findPersonByPhoneIdentity(
   em: EntityManager,
-  scope: PersonLookupScope,
+  scope: PersonTenantScope,
   phone: string,
   phoneCountryCode?: string | null,
   phoneCountry?: string | null,
@@ -119,7 +132,6 @@ export async function findPersonByPhoneIdentity(
 
   const entity = await findOneWithDecryption(em, CustomerEntity, {
     tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
     kind: 'person',
     deletedAt: null,
     primaryPhone: identity.primaryPhone,
@@ -132,10 +144,10 @@ export async function findPersonByPhoneIdentity(
 
 export async function checkPersonIdentity(
   em: EntityManager,
-  scope: PersonLookupScope,
+  scope: PersonTenantScope,
   input: { phone?: string | null; email?: string | null; phoneCountryCode?: string | null; phoneCountry?: string | null },
 ): Promise<PersonCheckResult> {
-  await assertBookingPersonScope(em, scope)
+  await assertTenantActive(em, scope.tenantId)
 
   const phoneInput = typeof input.phone === 'string' ? input.phone.trim() : ''
   const emailInput = typeof input.email === 'string' ? input.email.trim() : ''
@@ -210,12 +222,16 @@ export async function findOrCreatePersonForIntake(
 ): Promise<FindOrCreatePersonResult> {
   await assertBookingPersonScope(em, input)
 
-  const existingCheck = await checkPersonIdentity(em, input, {
-    phone: input.phone,
-    email: input.email,
-    phoneCountryCode: input.phoneCountryCode,
-    phoneCountry: input.phoneCountry,
-  })
+  const existingCheck = await checkPersonIdentity(
+    em,
+    { tenantId: input.tenantId },
+    {
+      phone: input.phone,
+      email: input.email,
+      phoneCountryCode: input.phoneCountryCode,
+      phoneCountry: input.phoneCountry,
+    },
+  )
   if (existingCheck.exists && existingCheck.customer) {
     const profile = await loadPersonProfile(em, existingCheck.customer.id)
     return {

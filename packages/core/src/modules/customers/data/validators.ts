@@ -804,7 +804,8 @@ export type PersonCompanyLinkCreateInput = z.infer<typeof personCompanyLinkCreat
 export type PersonCompanyLinkUpdateInput = z.infer<typeof personCompanyLinkUpdateSchema>
 export type PersonCompanyLinkDeleteInput = z.infer<typeof personCompanyLinkDeleteSchema>
 
-export const personCheckSchema = scopedSchema.extend({
+export const personCheckSchema = z.object({
+  tenantId: uuid(),
   phone: z.string().trim().max(50).optional(),
   email: clearableEmailSchema,
   phoneCountryCode: clearableStringSchema(8),

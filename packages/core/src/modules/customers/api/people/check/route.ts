@@ -24,6 +24,7 @@ const successSchema = z.object({
       phoneCountryCode: z.string().nullable(),
       phoneCountry: z.string().nullable(),
       source: z.string().nullable(),
+      organizationId: z.string().uuid(),
     })
     .nullable(),
   lastBooking: z.null(),
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
     const em = (container.resolve('em') as EntityManager).fork()
     const result = await checkPersonIdentity(
       em,
-      { tenantId: body.tenantId, organizationId: body.organizationId },
+      { tenantId: body.tenantId },
       {
         phone: body.phone,
         email: body.email,
@@ -68,9 +69,9 @@ export const openApi: OpenApiRouteDoc = {
   summary: 'Check returning customer for booking intake',
   methods: {
     POST: {
-      summary: 'Find person by phone and/or email',
+      summary: 'Find person by phone and/or email within a tenant',
       description:
-        'Public booking helper. Requires tenantId and organizationId. Returns lastBooking as null until appointments module ships.',
+        'Public booking helper. Lookup is tenant-wide (customers are shared across organizations/branches). Requires tenantId. Returns lastBooking as null until appointments module ships.',
       requestBody: { contentType: 'application/json', schema: personCheckSchema },
       responses: [
         { status: 200, description: 'Lookup result', schema: successSchema },
