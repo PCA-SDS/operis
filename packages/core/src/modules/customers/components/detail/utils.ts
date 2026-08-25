@@ -146,6 +146,14 @@ export function createDictionarySelectLabels(
         addPrompt: translate('customers.people.form.dictionary.promptJobTitle', 'Name the job title'),
         dialogTitle: translate('customers.people.form.dictionary.dialogTitleJobTitle', 'Add job title'),
       }
+    case 'salutations':
+      return {
+        ...base,
+        placeholder: translate('customers.people.form.salutation.placeholder', 'Select a salutation'),
+        addLabel: translate('customers.people.form.dictionary.addSalutation', 'Add salutation'),
+        addPrompt: translate('customers.people.form.dictionary.promptSalutation', 'Name the salutation'),
+        dialogTitle: translate('customers.people.form.dictionary.dialogTitleSalutation', 'Add salutation'),
+      }
     case 'address-types':
       return {
         ...base,

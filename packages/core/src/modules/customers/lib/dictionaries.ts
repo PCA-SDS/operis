@@ -20,6 +20,7 @@ export const CUSTOMER_DICTIONARY_KINDS = [
   'deal-statuses',
   'pipeline-stages',
   'job-titles',
+  'salutations',
   'industries',
   'temperature',
   'renewal-quarters',

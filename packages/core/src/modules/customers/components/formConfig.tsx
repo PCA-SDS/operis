@@ -32,6 +32,7 @@ import { apiCall, apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
 import { PhoneNumberField } from '@open-mercato/ui/backend/inputs/PhoneNumberField'
 import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
+import { resolvePhoneIdentity } from '../lib/phoneIdentity'
 import type {
   CrudCustomFieldRenderProps,
   CrudField,
@@ -898,6 +899,40 @@ export const createPersonFormFields = (t: Translator, options?: { defaultCountry
     { id: 'firstName', label: t('customers.people.form.firstName'), type: 'text', required: true, layout: 'half' },
     { id: 'lastName', label: t('customers.people.form.lastName'), type: 'text', required: true, layout: 'half' },
     {
+      id: 'salutation',
+      label: t('customers.people.form.salutation', 'Salutation'),
+      type: 'custom',
+      layout: 'half',
+      component: ({ value, setValue }: CrudCustomFieldRenderProps) => (
+        <DictionarySelectField
+          kind="salutations"
+          value={typeof value === 'string' ? value : undefined}
+          onChange={(next) => setValue(next)}
+          labels={{
+            placeholder: t('customers.people.form.salutation.placeholder', 'Select a salutation'),
+            addLabel: t('customers.people.form.dictionary.addSalutation', 'Add salutation'),
+            addPrompt: t('customers.people.form.dictionary.promptSalutation', 'Enter a new salutation'),
+            dialogTitle: t('customers.people.form.dictionary.dialogTitleSalutation', 'Add salutation'),
+            valueLabel: t('customers.people.form.dictionary.valueLabel', 'Value'),
+            valuePlaceholder: t('customers.people.form.dictionary.valuePlaceholder', 'Value'),
+            labelLabel: t('customers.config.dictionaries.dialog.labelLabel', 'Label'),
+            labelPlaceholder: t('customers.people.form.dictionary.labelPlaceholder', 'Display name shown in UI'),
+            emptyError: t('customers.people.form.dictionary.errorRequired'),
+            cancelLabel: t('customers.people.form.dictionary.cancel'),
+            saveLabel: t('customers.people.form.dictionary.save'),
+            successCreateLabel: undefined,
+            errorLoad: t('customers.people.form.dictionary.errorLoad'),
+            errorSave: t('customers.people.form.dictionary.error'),
+            loadingLabel: t('customers.people.form.dictionary.loading'),
+            manageTitle: t('customers.people.form.dictionary.manage'),
+          }}
+          allowInlineCreate
+          allowAppearance
+          showManage
+        />
+      ),
+    },
+    {
       id: 'jobTitle',
       label: t('customers.people.form.jobTitle', 'Job title'),
       type: 'custom',
@@ -1052,6 +1087,7 @@ export const createPersonFormGroups = (t: Translator): CrudFormGroup[] => [
     fields: [
       'firstName',
       'lastName',
+      'salutation',
       '__contactInformationSection',
       'primaryEmail',
       'primaryPhone',
@@ -1109,6 +1145,14 @@ export function buildPersonPayload(
   assign('jobTitle', typeof values.jobTitle === 'string' ? values.jobTitle : undefined)
   assign('primaryEmail', typeof values.primaryEmail === 'string' ? values.primaryEmail : undefined)
   assign('primaryPhone', typeof values.primaryPhone === 'string' ? values.primaryPhone : undefined)
+  const phoneIdentity = resolvePhoneIdentity({
+    primaryPhone: typeof values.primaryPhone === 'string' ? values.primaryPhone : null,
+    phoneCountryCode: typeof values.phoneCountryCode === 'string' ? values.phoneCountryCode : null,
+    phoneCountry: typeof values.phoneCountry === 'string' ? values.phoneCountry : null,
+  })
+  assign('phoneCountryCode', phoneIdentity.phoneCountryCode)
+  assign('phoneCountry', phoneIdentity.phoneCountry)
+  assign('salutation', typeof values.salutation === 'string' ? values.salutation : undefined)
   assign('status', typeof values.status === 'string' ? values.status : undefined)
   assign('lifecycleStage', typeof values.lifecycleStage === 'string' ? values.lifecycleStage : undefined)
   assign('source', typeof values.source === 'string' ? values.source : undefined)
@@ -1806,6 +1850,7 @@ export const createPersonEditGroups = (t: Translator): CrudFormGroup[] => [
     fields: [
       'firstName',
       'lastName',
+      'salutation',
       '__contactInformationSection',
       'primaryEmail',
       'primaryPhone',
@@ -1876,7 +1921,7 @@ export const createPersonPersonalDataGroups = (
       id: 'personalData',
       title: t('customers.people.form.groups.personalData', 'Personal data'),
       column: 1,
-      fields: ['firstName', 'lastName', 'jobTitle', 'primaryEmail', 'primaryPhone'],
+      fields: ['firstName', 'lastName', 'salutation', 'jobTitle', 'primaryEmail', 'primaryPhone'],
     },
     {
       id: 'companyRole',
@@ -2076,6 +2121,8 @@ export type PersonOverview = {
     ownerUserId?: string | null
     primaryEmail?: string | null
     primaryPhone?: string | null
+    phoneCountryCode?: string | null
+    phoneCountry?: string | null
     status?: string | null
     lifecycleStage?: string | null
     source?: string | null
@@ -2092,6 +2139,7 @@ export type PersonOverview = {
   }
   profile: {
     id: string
+    salutation?: string | null
     firstName?: string | null
     lastName?: string | null
     preferredName?: string | null
@@ -2175,6 +2223,7 @@ export function mapPersonOverviewToFormValues(overview: PersonOverview): Partial
     displayName: coerceDisplayName(overview.person.displayName),
     firstName: overview.profile?.firstName ?? '',
     lastName: overview.profile?.lastName ?? '',
+    salutation: overview.profile?.salutation ?? '',
     primaryEmail: overview.person.primaryEmail ?? '',
     primaryPhone: phoneValue,
     companyEntityId: overview.profile?.companyEntityId ?? '',

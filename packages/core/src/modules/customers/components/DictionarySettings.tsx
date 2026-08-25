@@ -91,6 +91,11 @@ export default function DictionarySettings() {
       description: t('customers.config.dictionaries.sections.jobTitles.description', 'Configure job titles with their appearance.'),
     },
     {
+      kind: 'salutations',
+      title: t('customers.config.dictionaries.sections.salutations.title', 'Salutations'),
+      description: t('customers.config.dictionaries.sections.salutations.description', 'Configure salutations available for people records.'),
+    },
+    {
       kind: 'sources',
       title: t('customers.config.dictionaries.sections.sources.title', 'Sources'),
       description: t('customers.config.dictionaries.sections.sources.description', 'Capture how customers were acquired.'),
