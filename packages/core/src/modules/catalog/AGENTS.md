@@ -64,6 +64,14 @@ When multiple price rows match the same context, `selectBestPrice` resolves ties
 - **Offers** — time-limited promotional pricing. MUST have valid date ranges
 - **Option Schemas** — define variant option types. MUST NOT be deleted while variants reference them
 
+## Bookable services (appointment intake)
+
+- Public list: `GET /api/catalog/bookable-services?tenantId=&organizationId=` (`requireAuth: false`)
+- Returns active products in that org with `customFieldsetCode = service_schedule` (org-scoped menu; TPS decision A)
+- Duration from CF `service_duration_minutes`; prices via `selectBestPrice` (+ unscoped fallback)
+- Staff enablement: create/edit product in Catalog UI under the branch org, set fieldset `service_schedule`, set duration CF + price
+- Demo seed: `seedExamples` creates Signature Haircut / Restorative Massage per org
+
 ## Adding a New Catalog Entity
 
 1. Define the ORM entity in `data/entities.ts`
