@@ -71,7 +71,7 @@ export const openApi: OpenApiRouteDoc = {
       summary: 'Find person by phone and/or email',
       description:
         'Public booking helper. Requires tenantId and organizationId. Returns lastBooking as null until appointments module ships.',
-      body: personCheckSchema,
+      requestBody: { contentType: 'application/json', schema: personCheckSchema },
       responses: [
         { status: 200, description: 'Lookup result', schema: successSchema },
         { status: 400, description: 'Invalid input' },
