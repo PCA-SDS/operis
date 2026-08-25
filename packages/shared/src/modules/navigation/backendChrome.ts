@@ -79,6 +79,24 @@ export type BackendChromePayload = {
   profileSections: BackendChromeSectionGroup[]
   profilePathPrefixes: string[]
   grantedFeatures: string[]
+  /**
+   * Modules this user can actually reach: the deploy-level registry narrowed by
+   * tenant entitlement and per-user restrictions, platform ids included.
+   *
+   * Server-rendered surfaces do not need this — they are shaped by
+   * `grantedFeatures`, which `RbacService` already filters through both
+   * entitlement layers. Client components do: a hardcoded link or button that
+   * points into another module has no feature of its own to test, and the
+   * generated `enabled-module-ids` registry is deploy-level and tenant-blind.
+   * Read it through `useModuleEnabled` / `<ModuleGate>` rather than directly.
+   *
+   * An empty array means the caller may reach nothing — no organization is in
+   * scope. The field is **absent** when the module registry is not bootstrapped
+   * and reachability cannot be computed at all; that is "unknown", and clients
+   * must fall back to ungated rather than treating it as a denial. Absence also
+   * covers a payload from a server that predates this field.
+   */
+  enabledModuleIds?: string[]
   roles: string[]
   brand?: BackendChromeBrand | null
   currentOrganization?: BackendChromeCurrentOrganization | null

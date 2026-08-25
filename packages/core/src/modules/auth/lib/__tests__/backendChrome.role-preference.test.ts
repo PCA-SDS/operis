@@ -67,8 +67,14 @@ jest.mock('@open-mercato/core/modules/directory/constants', () => ({
   isAllOrganizationsSelection: () => true,
 }))
 
+// Spread the real module rather than enumerating its exports: these suites
+// assert navigation shape, and a partial mock breaks every time the payload
+// starts reading one more thing from the registry.
 jest.mock('@open-mercato/shared/security/enabledModulesRegistry', () => ({
+  ...jest.requireActual('@open-mercato/shared/security/enabledModulesRegistry'),
   filterGrantsByEnabledModules: (grants: string[]) => grants,
+  getEnabledModuleIds: () => ['auth', 'directory', 'customers'],
+  hasEnabledModulesRegistry: () => true,
 }))
 
 jest.mock('@open-mercato/ui/backend/utils/nav', () => ({
