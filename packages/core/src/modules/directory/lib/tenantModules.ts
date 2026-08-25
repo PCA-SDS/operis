@@ -28,13 +28,10 @@ export const PLATFORM_MODULE_IDS: readonly string[] = [
   'notifications',
   'attachments',
   'audit_logs',
-  'api_docs',
-  'api_keys',
   'dictionaries',
   'feature_toggles',
   'perspectives',
   'progress',
-  'design_system',
   'search',
   'scheduler',
   'telemetry',
@@ -67,7 +64,12 @@ export function isEntitlementEnforceable(): boolean {
 
 type RegistryModule = {
   id: string
-  info?: { title?: string; description?: string; requires?: string[] }
+  info?: {
+    title?: string
+    description?: string
+    requires?: string[]
+    defaultEntitlement?: 'enabled' | 'disabled'
+  }
 }
 
 function readRegistry(): ReadonlyArray<RegistryModule> {
@@ -89,6 +91,8 @@ export type EntitleableModule = {
   description: string | null
   /** Entitleable modules this one hard-depends on (`info.requires`, platform deps dropped). */
   requires: string[]
+  /** Whether a newly provisioned tenant receives this module switched on. */
+  defaultEntitlement: 'enabled' | 'disabled'
 }
 
 /**
@@ -111,7 +115,28 @@ export function listEntitleableModules(): EntitleableModule[] {
       requires: Array.isArray(mod.info?.requires)
         ? Array.from(new Set(mod.info!.requires.filter((dep): dep is string => typeof dep === 'string' && isEntitleableModule(dep))))
         : [],
+      defaultEntitlement: resolveDefaultEntitlement(mod),
     }))
+}
+
+/**
+ * The shipped plan for one module, as declared by its own `ModuleInfo`.
+ *
+ * Absent means `'disabled'`. Entitlement is fail-closed everywhere else — a
+ * missing `tenant_modules` row denies — and the default has to agree with that,
+ * otherwise adding a module to the build would hand it to every tenant the next
+ * time anything provisioned them. Opting a module into the shipped plan is
+ * therefore an explicit, reviewable declaration in its `index.ts`.
+ */
+function resolveDefaultEntitlement(mod: RegistryModule): 'enabled' | 'disabled' {
+  return mod.info?.defaultEntitlement === 'enabled' ? 'enabled' : 'disabled'
+}
+
+/** Module ids the shipped plan switches on for a newly provisioned tenant. */
+export function listDefaultEnabledModuleIds(): string[] {
+  return listEntitleableModules()
+    .filter((mod) => mod.defaultEntitlement === 'enabled')
+    .map((mod) => mod.moduleId)
 }
 
 /** moduleId → its entitleable hard dependencies. */
@@ -367,15 +392,22 @@ export class TenantModuleService {
   }
 
   /**
-   * Ensures a row exists for every entitleable module. Idempotent: existing
-   * rows keep whatever entitlement an operator already chose, so re-running it
-   * after adding a module grants only the newly discovered ones.
+   * Ensures a row exists for every entitleable module, switched on or off
+   * according to the shipped plan each module declares
+   * (`ModuleInfo.defaultEntitlement`). Idempotent: existing rows keep whatever
+   * entitlement an operator already chose, so re-running it after adding a
+   * module records only the newly discovered ones.
+   *
+   * `forceEnabledByDefault` overrides the plan and switches every newly created
+   * row on. It exists for environments that deliberately want the whole product
+   * surface — the integration-test harness, which runs the full spec suite
+   * against one tenant — and must not be used to provision a real one.
    */
   async provisionTenant(
     tenantId: string,
-    options: { enabledByDefault?: boolean; only?: readonly string[] } = {},
+    options: { only?: readonly string[]; forceEnabledByDefault?: boolean } = {},
   ): Promise<{ created: string[]; existing: string[] }> {
-    const enabledByDefault = options.enabledByDefault ?? true
+    const plan = this.resolvePlan(options.forceEnabledByDefault)
     const candidates = options.only
       ? options.only.filter(isEntitleableModule)
       : listEntitleableModuleIds()
@@ -397,7 +429,7 @@ export class TenantModuleService {
       em.persist(em.create(TenantModule, {
         tenant,
         moduleId,
-        isEnabled: enabledByDefault,
+        isEnabled: plan.has(moduleId),
         createdAt: new Date(),
         updatedAt: new Date(),
       }))
@@ -406,8 +438,69 @@ export class TenantModuleService {
     if (created.length) await em.flush()
     await this.invalidate(tenantId)
     if (created.length) {
-      logger.info('Provisioned tenant modules', { tenantId, created: created.length, enabledByDefault })
+      logger.info('Provisioned tenant modules', {
+        tenantId,
+        created: created.length,
+        enabled: created.filter((moduleId) => plan.has(moduleId)).length,
+      })
     }
     return { created, existing }
+  }
+
+  /**
+   * Reconciles a tenant's stored entitlement against the shipped plan in both
+   * directions — modules outside the plan are switched off, modules inside it
+   * are switched on.
+   *
+   * Distinct from `provisionTenant`, which only ever fills in modules the tenant
+   * has no decision recorded for. This one deliberately overwrites those
+   * decisions, which is why it is never called from a tenant-creation path: it
+   * is the explicit operator action behind
+   * `mercato directory sync-tenant-modules --apply-defaults`.
+   */
+  async applyDefaultPlan(
+    tenantId: string,
+    options: { forceEnabledByDefault?: boolean } = {},
+  ): Promise<{ enabled: string[]; disabled: string[]; unchanged: string[] }> {
+    const plan = this.resolvePlan(options.forceEnabledByDefault)
+    await this.provisionTenant(tenantId, { forceEnabledByDefault: options.forceEnabledByDefault })
+
+    const em = this.em.fork()
+    const rows = await em.find(TenantModule, { tenant: tenantId } as never, {})
+    const enabled: string[] = []
+    const disabled: string[] = []
+    const unchanged: string[] = []
+    let dirty = false
+    for (const row of Array.isArray(rows) ? rows : []) {
+      if (!isEntitleableModule(row.moduleId)) continue
+      const target = plan.has(row.moduleId)
+      if (row.isEnabled === target && !row.deletedAt) {
+        unchanged.push(row.moduleId)
+        continue
+      }
+      row.isEnabled = target
+      row.deletedAt = null
+      row.updatedAt = new Date()
+      em.persist(row)
+      dirty = true
+      ;(target ? enabled : disabled).push(row.moduleId)
+    }
+    if (dirty) await em.flush()
+    await this.invalidate(tenantId)
+    if (dirty) {
+      logger.info('Applied default module plan', {
+        tenantId,
+        enabled: enabled.length,
+        disabled: disabled.length,
+      })
+    }
+    return { enabled, disabled, unchanged }
+  }
+
+  /** The set of module ids the shipped plan switches on, per provisioning call. */
+  private resolvePlan(forceEnabledByDefault?: boolean): Set<string> {
+    return new Set(
+      forceEnabledByDefault ? listEntitleableModuleIds() : listDefaultEnabledModuleIds(),
+    )
   }
 }

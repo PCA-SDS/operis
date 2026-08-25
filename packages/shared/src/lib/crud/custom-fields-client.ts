@@ -1,3 +1,4 @@
+import { normalizeCustomFieldResponse } from '../custom-fields/normalize'
 export function extractCustomFieldEntries(item: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   if (!item || typeof item !== 'object') return out
@@ -55,4 +56,40 @@ export function extractCustomFieldEntries(item: Record<string, unknown>): Record
   assignEntries((item as any).custom_fields)
 
   return out
+}
+
+/**
+ * Normalizes a custom-field value for submission: an array keeps only defined
+ * entries, `undefined` becomes an explicit `null` so the server clears the
+ * field rather than ignoring it, everything else passes through.
+ */
+export const normalizeCustomFieldSubmitValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.filter((entry) => entry !== undefined)
+  if (value === undefined) return null
+  return value
+}
+
+/** Rewrites custom-field keys to the `cf_` form `CrudForm` fields are named with. */
+export const prefixCustomFieldValues = (input?: Record<string, unknown> | null): Record<string, unknown> => {
+  if (!input || typeof input !== 'object') return {}
+  return Object.entries(input).reduce<Record<string, unknown>>((acc, [key, value]) => {
+    const trimmedKey = key.trim()
+    if (!trimmedKey.length) return acc
+    const normalizedKey = trimmedKey.startsWith('cf_')
+      ? trimmedKey
+      : trimmedKey.startsWith('cf:')
+        ? `cf_${trimmedKey.slice(3)}`
+        : `cf_${trimmedKey}`
+    if (normalizedKey.endsWith('__is_multi')) return acc
+    acc[normalizedKey] = value
+    return acc
+  }, {})
+}
+
+/** Pulls the custom fields out of an API payload as `CrudForm` initial values. */
+export const extractCustomFieldValues = (source?: Record<string, unknown> | null): Record<string, unknown> => {
+  if (!source || typeof source !== 'object') return {}
+  const extracted = extractCustomFieldEntries(source)
+  const normalized = normalizeCustomFieldResponse(extracted)
+  return normalized ? prefixCustomFieldValues(normalized) : prefixCustomFieldValues(extracted)
 }

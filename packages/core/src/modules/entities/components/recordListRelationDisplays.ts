@@ -64,6 +64,7 @@ export async function resolveRecordListRelationDisplays(
   definitions: CustomFieldDefDto[],
   records: Array<Record<string, unknown>>,
   signal?: AbortSignal,
+  enabledModules?: ReadonlySet<string> | null,
 ): Promise<RelationDisplaysByField> {
   const displaysByField: RelationDisplaysByField = {}
   const lookups = collectRelationLookups(definitions, records)
@@ -76,6 +77,7 @@ export async function resolveRecordListRelationDisplays(
         lookup.relation,
         Array.from(lookup.recordIds),
         signal,
+        enabledModules,
       )
     } catch {
       fetchedDisplays = {}
@@ -87,7 +89,7 @@ export async function resolveRecordListRelationDisplays(
       recordIds.forEach((recordId) => {
         fieldDisplays[recordId] = fetchedDisplays[recordId] ?? {
           label: recordId,
-          href: buildRelationHref(lookup.relation.entityId, recordId),
+          href: buildRelationHref(lookup.relation.entityId, recordId, undefined, enabledModules),
         }
       })
       displaysByField[fieldKey] = fieldDisplays

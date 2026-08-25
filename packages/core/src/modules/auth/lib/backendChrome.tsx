@@ -28,6 +28,10 @@ import {
 } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { isAllOrganizationsSelection } from '@open-mercato/core/modules/directory/constants'
 import { isEntitleableModule } from '@open-mercato/core/modules/directory/lib/tenantModules'
+import {
+  getEnabledModuleIds as getDeployEnabledModuleIds,
+  hasEnabledModulesRegistry,
+} from '@open-mercato/shared/security/enabledModulesRegistry'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { CustomEntity } from '@open-mercato/core/modules/entities/data/entities'
 import { Role } from '@open-mercato/core/modules/auth/data/entities'
@@ -529,6 +533,26 @@ export async function resolveBackendChromePayload({
     }
   }
 
+  // Deliberately mirrors the state the navigation was built in, including its
+  // fail-soft branch: when the entitlement lookup above threw, the sidebar was
+  // rendered unfiltered, and client affordances that disagreed with it would
+  // read as a broken UI rather than a safe one. The route and API guards deny
+  // either way, so consistency here costs nothing and confusion costs a lot.
+  //
+  // Omitted — not emptied — when the module registry is not bootstrapped.
+  // `getEnabledModuleIds()` cannot distinguish "no modules" from "no registry",
+  // and an empty array reads to the client as "nothing is reachable", which
+  // would blank every gated affordance on the page. Absent means "unknown", and
+  // the client falls back to ungated, matching what `isEntitlementEnforceable`
+  // and `filterGrantsByEnabledModules` already do in the same situation.
+  const enabledModuleIds = hasEnabledModulesRegistry()
+    ? (allowNavigation
+      ? getDeployEnabledModuleIds().filter((moduleId) => (
+        !isEntitleableModule(moduleId) || !reachableModuleIds || reachableModuleIds.has(moduleId)
+      ))
+      : [])
+    : undefined
+
   return {
     groups: appliedGroups.map(({ weight: _weight, ...group }) => group),
     settingsSections,
@@ -536,6 +560,7 @@ export async function resolveBackendChromePayload({
     profileSections: await serializeSectionGroups(profileSections),
     profilePathPrefixes,
     grantedFeatures,
+    enabledModuleIds,
     roles: Array.isArray(auth.roles) ? auth.roles : [],
     brand,
     currentOrganization,

@@ -4,8 +4,8 @@
   "rootMaxBytes": 31232,
   "chains": {
     "packages/ai-assistant": 103617,
-    "packages/core": 41438,
-    "packages/core/src/modules/sales": 45769,
+    "packages/core": 38543,
+    "packages/core/src/modules/sales": 42874,
     "packages/ui": 35354
   }
 }

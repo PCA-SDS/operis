@@ -80,6 +80,8 @@ describe('module dependency catalog', () => {
       title: 'CRM',
       description: 'People and companies.',
       requires: [],
+      // The fixture declares no `defaultEntitlement`, and absence means off.
+      defaultEntitlement: 'disabled',
     })
   })
 

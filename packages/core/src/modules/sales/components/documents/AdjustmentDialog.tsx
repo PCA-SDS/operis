@@ -25,7 +25,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { SalesAdjustmentKind } from '../../data/entities'
 import { E } from '#generated/entities.ids.generated'
 import { Settings } from 'lucide-react'
-import { extractCustomFieldValues, normalizeCustomFieldSubmitValue } from './customFieldHelpers'
+import { extractCustomFieldValues, normalizeCustomFieldSubmitValue } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 const logger = createLogger('sales')

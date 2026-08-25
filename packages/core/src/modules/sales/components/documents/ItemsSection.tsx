@@ -29,7 +29,7 @@ import {
   resolveLineDiscountDisplay,
 } from "./lineItemUtils";
 import type { SectionAction } from "@open-mercato/ui/backend/detail";
-import { extractCustomFieldValues } from "./customFieldHelpers";
+import { extractCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields-client';
 import { canonicalizeUnitCode } from "@open-mercato/shared/lib/units/unitCodes";
 import type { SalesLineUomSnapshot } from "../../lib/types";
 import { useInjectionDataWidgets } from "@open-mercato/ui/backend/injection/useInjectionDataWidgets";

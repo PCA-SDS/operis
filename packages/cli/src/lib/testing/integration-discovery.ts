@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript-js'
 
@@ -148,14 +148,67 @@ function readDeclaredModuleIdsFromConfig(registryPath: string): string[] {
   return []
 }
 
-function resolveEnabledModuleIds(projectRoot: string): Set<string> {
+
+/**
+ * Reads `enabledModules` from every app in the monorepo that declares one.
+ *
+ * A read or parse failure yields an empty set for that app rather than
+ * throwing: discovery must keep working on a tree whose `modules.ts` is
+ * mid-edit, and the caller falls back to the filesystem scan.
+ */
+function readDeclaredModuleIdsFromApps(projectRoot: string): Set<string> {
+  const declared = new Set<string>()
+  const candidateRoots = [
+    path.join(projectRoot, 'src', 'modules.ts'),
+    ...collectDirectDirectoryNames(path.join(projectRoot, 'apps'))
+      .map((appName) => path.join(projectRoot, 'apps', appName, 'src', 'modules.ts')),
+  ]
+  for (const registryPath of candidateRoots) {
+    if (!existsSync(registryPath)) continue
+    try {
+      for (const moduleId of readDeclaredModuleIdsFromConfig(registryPath)) {
+        declared.add(normalizeModuleId(moduleId))
+      }
+    } catch {
+      // Treated as "this app declares nothing"; the caller decides the fallback.
+    }
+  }
+  return declared
+}
+
+/**
+ * Module ids the app under test actually registers.
+ *
+ * The declared `enabledModules` list is authoritative wherever it can be read:
+ * a module that exists on disk but is not in it has no routes, no APIs and no
+ * navigation, so every spec written against it would fail for a reason that has
+ * nothing to do with the change under test. The filesystem scan below is the
+ * fallback for layouts with no readable app config (a published package tree,
+ * a partial checkout), where over-including is the safer error.
+ */
+type EnabledModuleResolution = {
+  ids: Set<string>
+  /**
+   * True when the set came from a declared `enabledModules` list, so absence
+   * from it means "this app does not register the module". False when it was
+   * derived from the filesystem, where absence only means "no such directory"
+   * and filtering a spec out on it would be guesswork.
+   */
+  declared: boolean
+}
+
+function resolveEnabledModuleIds(projectRoot: string): EnabledModuleResolution {
   const configuredTestAppRoot = process.env.OM_TEST_APP_ROOT?.trim()
   if (configuredTestAppRoot) {
     const registryPath = path.join(path.resolve(configuredTestAppRoot), 'src', 'modules.ts')
-    return new Set(
-      readDeclaredModuleIdsFromConfig(registryPath).map(normalizeModuleId),
-    )
+    return {
+      ids: new Set(readDeclaredModuleIdsFromConfig(registryPath).map(normalizeModuleId)),
+      declared: true,
+    }
   }
+
+  const declared = readDeclaredModuleIdsFromApps(projectRoot)
+  if (declared.size > 0) return { ids: declared, declared: true }
 
   const enabledModules = new Set<string>()
   const appModulesRoot = path.join(projectRoot, 'src', 'modules')
@@ -189,7 +242,7 @@ function resolveEnabledModuleIds(projectRoot: string): Set<string> {
   const createAppTemplateModulesRoot = path.join(projectRoot, 'packages', 'create-app', 'template', 'src', 'modules')
   collectModuleIdsFromModulesRoot(createAppTemplateModulesRoot, enabledModules)
 
-  return enabledModules
+  return { ids: enabledModules, declared: false }
 }
 
 function extractModuleNameFromIntegrationPath(relativePath: string): string | null {
@@ -432,7 +485,7 @@ export function discoverIntegrationSpecFiles(projectRoot: string, legacyIntegrat
   }
 
   const discovered = Array.from(discoveredByPath.values())
-  const enabledModules = resolveEnabledModuleIds(projectRoot)
+  const { ids: enabledModules, declared: hasDeclaredModules } = resolveEnabledModuleIds(projectRoot)
   const enabledModuleNames = new Set<string>()
   for (const file of discovered) {
     if (!file.isOverlay && file.moduleName) {
@@ -455,6 +508,13 @@ export function discoverIntegrationSpecFiles(projectRoot: string, legacyIntegrat
         return false
       }
       if (!file.isOverlay) {
+        // A spec belonging to a module the app does not register would run
+        // against a server that serves none of its routes. Only enforceable
+        // against a declared list — the filesystem scan cannot tell an
+        // unregistered module from one that simply lives elsewhere.
+        if (hasDeclaredModules && file.moduleName) {
+          return enabledModules.has(normalizeModuleId(file.moduleName))
+        }
         return true
       }
       if (!enterpriseEnabled) {

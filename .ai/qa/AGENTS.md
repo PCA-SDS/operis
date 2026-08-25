@@ -342,6 +342,17 @@ Run the test to confirm it passes:
 npx playwright test --config .ai/qa/tests/playwright.config.ts <path-to-test-file>
 ```
 
+### Module entitlement in the test environment
+
+Tenant module entitlement is provisioned from the shipped plan
+(`ModuleInfo.defaultEntitlement`), which is narrower than the product — most
+modules are switched off for a new tenant. The ephemeral integration environment
+runs `mercato directory sync-tenant-modules --apply-defaults --enable-all` right
+after `yarn initialize`, so the whole spec suite keeps running against a fully
+entitled tenant. A spec that asserts *withheld* behaviour must therefore withhold
+the module itself (`mercato directory set-tenant-module`) and restore it in
+teardown. See `.ai/specs/2026-08-25-mvp-module-scope-and-ui-gating.md`.
+
 ### Conditional Metadata (Folder + Test)
 
 Use optional metadata to skip tests when required modules or external environment variables are not enabled.
@@ -355,6 +366,7 @@ Use optional metadata to skip tests when required modules or external environmen
 - Inheritance:
   - Metadata is inherited from `__integration__/` root through nested subfolders, then test-level metadata is applied
 - Behavior:
+  - "Enabled" means declared in the app's `enabledModules` (`apps/mercato/src/modules.ts`), not merely present on disk. A spec belonging to a module the app does not register is excluded automatically, with no metadata needed.
   - If any declared dependency module is not enabled, that folder/test is excluded from discovery and run
   - If any `requiredEnvVars` entry is missing or blank, that folder/test is excluded from discovery and run
   - If `requiredAnyEnvVars` is set and all listed env vars are missing or blank, that folder/test is excluded from discovery and run

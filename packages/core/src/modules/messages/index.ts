@@ -7,6 +7,7 @@ export const metadata: ModuleInfo = {
   description: 'Internal messaging system with attachments, actions, and email forwarding.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  defaultEntitlement: 'enabled',
 }
 
 export { features } from './acl'

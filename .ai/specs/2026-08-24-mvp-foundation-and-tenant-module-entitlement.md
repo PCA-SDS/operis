@@ -184,3 +184,14 @@ Globex withholds `wms` so entitlement has an observable effect.
   is "denied until provisioned", not "silently exposed".
 - Withholding a module hides its navigation and denies its APIs; it does not
   delete data the tenant already created in that module.
+
+## Superseded detail (2026-08-25)
+
+`provisionTenant` no longer switches every module on. Each module declares
+whether a newly provisioned tenant receives it
+(`ModuleInfo.defaultEntitlement`, absent = off), so the "Every tenant-creation
+path provisions rows" statement above still holds while the rows it writes now
+follow the shipped plan. `mercato directory sync-tenant-modules --apply-defaults`
+reconciles existing tenants; `--enable-all` is the test-environment override.
+`design_system`, `api_docs` and `api_keys` left `PLATFORM_MODULE_IDS` and are now
+entitleable. See `.ai/specs/2026-08-25-mvp-module-scope-and-ui-gating.md`.
