@@ -2,6 +2,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import type { CustomFieldDefDto } from '@open-mercato/ui/backend/utils/customFieldDefs'
+import { useEnabledModules } from '@open-mercato/ui/backend/BackendChromeProvider'
 import {
   getRecordListRelationDisplays,
   resolveRecordListRelationDisplays,
@@ -29,6 +30,7 @@ export function useRecordListRelationDisplays(
   records: Array<Record<string, unknown>>,
 ): RelationDisplaysByField {
   const [displaysByField, setDisplaysByField] = React.useState<RelationDisplaysByField>({})
+  const enabledModules = useEnabledModules()
 
   React.useEffect(() => {
     const abortController = new AbortController()
@@ -37,7 +39,7 @@ export function useRecordListRelationDisplays(
       return () => abortController.abort()
     }
 
-    void resolveRecordListRelationDisplays(definitions, records, abortController.signal)
+    void resolveRecordListRelationDisplays(definitions, records, abortController.signal, enabledModules)
       .then((resolvedDisplays) => {
         if (!abortController.signal.aborted) setDisplaysByField(resolvedDisplays)
       })
@@ -46,7 +48,7 @@ export function useRecordListRelationDisplays(
       })
 
     return () => abortController.abort()
-  }, [definitions, records])
+  }, [definitions, enabledModules, records])
 
   return displaysByField
 }

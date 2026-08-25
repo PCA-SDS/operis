@@ -6,6 +6,7 @@ import { Role } from '@open-mercato/core/modules/auth/data/entities'
 import { loadAllWidgets } from '@open-mercato/core/modules/dashboards/lib/widgets'
 import { appendWidgetsToRoles, resolveAnalyticsWidgetIds } from '@open-mercato/core/modules/dashboards/lib/role-widgets'
 import { seedAnalyticsData } from './seed/analytics'
+import type { TenantModuleService } from '@open-mercato/core/modules/directory/lib/tenantModules'
 import { parseCommaSeparatedList } from '@open-mercato/shared/lib/string'
 
 type Args = Record<string, string>
@@ -181,6 +182,25 @@ const seedAnalytics: ModuleCli = {
 
     const { resolve } = await createRequestContainer()
     const em = resolve('em') as EntityManager
+
+    // The seed writes sales orders, catalog products and CRM records. Without
+    // those modules entitled the tenant has no use for the data and the
+    // analytics widgets that read it stay hidden, so refuse with the reason
+    // rather than filling tables nobody can see.
+    const tenantModules = resolve('tenantModuleService') as TenantModuleService
+    const requiredModuleIds = ['sales', 'catalog', 'customers']
+    const missingModules: string[] = []
+    for (const moduleId of requiredModuleIds) {
+      if (!(await tenantModules.isModuleEnabled(tenantId, moduleId))) missingModules.push(moduleId)
+    }
+    if (missingModules.length) {
+      console.error(
+        `Cannot seed analytics: tenant ${tenantId} is not entitled to ${missingModules.join(', ')}. `
+        + `Enable them first with: mercato directory set-tenant-module --tenant ${tenantId} --module <id> --enabled true`,
+      )
+      process.exitCode = 2
+      return
+    }
 
     console.log(`Seeding analytics data for ${months} months with ~${ordersPerMonth} orders/month...`)
 

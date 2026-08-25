@@ -9,6 +9,7 @@ export const metadata: ModuleInfo = {
   license: 'MIT',
   requires: ['planner', 'resources'],
   ejectable: true,
+  defaultEntitlement: 'enabled',
 }
 
 export { features } from './acl'

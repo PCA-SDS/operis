@@ -53,10 +53,12 @@ type WidgetEntry = ModuleInjectionWidgetEntry & { moduleId: string }
 let _coreInjectionWidgetEntries: ModuleInjectionWidgetEntry[] | null = null
 let _coreInjectionTables: Array<{ moduleId: string; table: ModuleInjectionTable }> | null = null
 let _enabledModuleIds: ReadonlySet<string> | null = null
+let _entitledModuleIds: ReadonlySet<string> | null = null
 let _injectionRegistryVersion = 0
 const GLOBAL_INJECTION_WIDGETS_KEY = '__openMercatoCoreInjectionWidgetEntries__'
 const GLOBAL_INJECTION_TABLES_KEY = '__openMercatoCoreInjectionTables__'
 const GLOBAL_ENABLED_MODULE_IDS_KEY = '__openMercatoEnabledModuleIds__'
+const GLOBAL_ENTITLED_MODULE_IDS_KEY = '__openMercatoEntitledModuleIds__'
 const GLOBAL_INJECTION_REGISTRY_VERSION_KEY = '__openMercatoCoreInjectionRegistryVersion__'
 const INJECTION_REGISTRY_CHANGED_EVENT = '__openMercatoInjectionRegistryChanged__'
 
@@ -90,6 +92,24 @@ function readGlobalEnabledModuleIds(): ReadonlySet<string> | null {
 function writeGlobalEnabledModuleIds(ids: ReadonlySet<string>) {
   try {
     ;(globalThis as Record<string, unknown>)[GLOBAL_ENABLED_MODULE_IDS_KEY] = ids
+  } catch {
+    // ignore global assignment failures
+  }
+}
+
+function readGlobalEntitledModuleIds(): ReadonlySet<string> | null {
+  try {
+    const value = (globalThis as Record<string, unknown>)[GLOBAL_ENTITLED_MODULE_IDS_KEY]
+    if (value instanceof Set) return value as ReadonlySet<string>
+    return null
+  } catch {
+    return null
+  }
+}
+
+function writeGlobalEntitledModuleIds(ids: ReadonlySet<string> | null) {
+  try {
+    ;(globalThis as Record<string, unknown>)[GLOBAL_ENTITLED_MODULE_IDS_KEY] = ids
   } catch {
     // ignore global assignment failures
   }
@@ -198,6 +218,40 @@ export function registerEnabledModuleIds(moduleIds: Iterable<string>) {
 
 export function getEnabledModuleIds(): ReadonlySet<string> | null {
   return readGlobalEnabledModuleIds() ?? _enabledModuleIds
+}
+
+/**
+ * Narrow the enabled set to what the *current viewer* may reach — the deploy
+ * registry intersected with tenant entitlement and per-user restrictions.
+ *
+ * Deliberately a second layer rather than an overwrite of
+ * `registerEnabledModuleIds`: the two answer different questions ("is this
+ * module built into the app" vs "may this person reach it"), they are
+ * registered from different places at different times, and collapsing them
+ * would make the result depend on which bootstrap won the race.
+ *
+ * Browser-only. On the server a process serves every tenant, so there is no
+ * single viewer to narrow to — server surfaces gate on `grantedFeatures`, which
+ * `RbacService` has already filtered through both entitlement layers.
+ */
+export function registerEntitledModuleIds(moduleIds: Iterable<string> | null | undefined) {
+  if (moduleIds === null || moduleIds === undefined || typeof (moduleIds as Iterable<string>)[Symbol.iterator] !== 'function') {
+    _entitledModuleIds = null
+    writeGlobalEntitledModuleIds(null)
+    notifyInjectionRegistryChanged()
+    return
+  }
+  const next = new Set<string>()
+  for (const moduleId of moduleIds) {
+    if (typeof moduleId === 'string' && moduleId.length > 0) next.add(moduleId)
+  }
+  _entitledModuleIds = next
+  writeGlobalEntitledModuleIds(next)
+  notifyInjectionRegistryChanged()
+}
+
+export function getEntitledModuleIds(): ReadonlySet<string> | null {
+  return readGlobalEntitledModuleIds() ?? _entitledModuleIds
 }
 
 export function getInjectionRegistryVersion(): number {
@@ -502,7 +556,7 @@ function getEnabledModuleIdsForInjection(): ReadonlySet<string> {
   // (for example `ai_assistant`), so it is required for `requiredModules`
   // gating to be sound.
   const explicit = readGlobalEnabledModuleIds() ?? _enabledModuleIds
-  if (explicit) return explicit
+  if (explicit) return narrowToEntitlement(explicit)
 
   // Fallback: derive from injection tables and widget entries. This keeps
   // older bootstrap paths (and callers that have not yet wired
@@ -518,7 +572,17 @@ function getEnabledModuleIdsForInjection(): ReadonlySet<string> {
   for (const entry of entries) {
     if (entry?.moduleId) enabled.add(entry.moduleId)
   }
-  return enabled
+  return narrowToEntitlement(enabled)
+}
+
+function narrowToEntitlement(enabled: ReadonlySet<string>): ReadonlySet<string> {
+  const entitled = readGlobalEntitledModuleIds() ?? _entitledModuleIds
+  if (!entitled) return enabled
+  const narrowed = new Set<string>()
+  for (const moduleId of enabled) {
+    if (entitled.has(moduleId)) narrowed.add(moduleId)
+  }
+  return narrowed
 }
 
 function widgetMissingRequiredModules(

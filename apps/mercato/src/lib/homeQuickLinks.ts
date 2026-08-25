@@ -6,23 +6,27 @@ export type HomeQuickLink = {
   fallbackLabel: string
 }
 
-const EXAMPLE_MODULE_ID = 'example'
-
 const BASE_LINKS: HomeQuickLink[] = [
   { href: '/login', translationKey: 'app.page.quickLinks.login', fallbackLabel: 'Login' },
 ]
 
-const EXAMPLE_LINKS: HomeQuickLink[] = [
-  { href: '/example', translationKey: 'app.page.quickLinks.examplePage', fallbackLabel: 'Example Page' },
-  { href: '/backend/example', translationKey: 'app.page.quickLinks.exampleAdmin', fallbackLabel: 'Example Admin' },
-  { href: '/backend/todos', translationKey: 'app.page.quickLinks.exampleTodos', fallbackLabel: 'Example Todos with Custom Fields' },
-  { href: '/blog/123', translationKey: 'app.page.quickLinks.exampleBlog', fallbackLabel: 'Example Blog Post' },
-]
+/**
+ * Quick links for the starter page, filtered to the modules this build
+ * registers.
+ *
+ * `modules` is the deploy-level registry, which is the right signal here: the
+ * page is unauthenticated, so there is no tenant whose entitlement could be
+ * consulted. Any link added to a module-owned surface belongs in a
+ * `MODULE_LINKS` entry keyed by its module id, never in `BASE_LINKS` — that is
+ * what keeps the page from advertising a module the build does not ship.
+ */
+const MODULE_LINKS: Record<string, HomeQuickLink[]> = {}
 
 export function buildHomeQuickLinks(modules: readonly ModuleLike[]): HomeQuickLink[] {
-  if (modules.some((module) => module.id === EXAMPLE_MODULE_ID)) {
-    return [...BASE_LINKS, ...EXAMPLE_LINKS]
-  }
+  const registered = new Set(modules.map((module) => module.id))
+  const moduleLinks = Object.entries(MODULE_LINKS)
+    .filter(([moduleId]) => registered.has(moduleId))
+    .flatMap(([, links]) => links)
 
-  return BASE_LINKS
+  return [...BASE_LINKS, ...moduleLinks]
 }

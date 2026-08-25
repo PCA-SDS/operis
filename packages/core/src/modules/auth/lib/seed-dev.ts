@@ -69,7 +69,10 @@ export const DEV_SEED_TENANTS: DevSeedTenantSpec[] = [
   {
     name: 'Globex',
     slug: 'globex',
-    withheldModules: ['wms'],
+    // Withholds a module the shipped plan switches ON, so the seeded topology
+    // still demonstrates entitlement having a visible effect. Withholding one
+    // that is off everywhere by default would demonstrate nothing.
+    withheldModules: ['tasks'],
     users: [
       { email: 'admin@globex.local', roles: ['admin'], name: 'Globex Tenant Admin' },
       { email: 'user@globex.local', roles: ['employee'], name: 'Globex Tenant User' },
@@ -169,7 +172,7 @@ export async function seedDevEnvironment(
       users.push({ email: extra.email, roles: extra.roles, created })
     }
 
-    const { created, existing } = await tenantModules.provisionTenant(tenantId, { enabledByDefault: true })
+    const { created, existing } = await tenantModules.provisionTenant(tenantId)
     for (const moduleId of spec.withheldModules ?? []) {
       await tenantModules.setModuleEnabled(tenantId, moduleId, false)
     }

@@ -128,10 +128,44 @@ export function getRelationHrefContextFields(entityId: string): string[] {
   return []
 }
 
-export function buildRelationHref(entityId: string, recordId: string, record?: Record<string, unknown>): string | undefined {
+/**
+ * The module that owns an entity id.
+ *
+ * Entity ids are minted as `<module>:<entity>` by the entity-id generator, so
+ * the prefix is authoritative. `virtual:` ids are user-defined custom entities,
+ * which the `entities` module owns and serves.
+ */
+function relationOwningModuleId(entityId: string): string {
+  const separator = entityId.indexOf(':')
+  if (separator <= 0) return ''
+  const prefix = entityId.slice(0, separator)
+  return prefix === 'virtual' ? 'entities' : prefix
+}
+
+/**
+ * Builds the detail-page link for a related record.
+ *
+ * `enabledModules` is the viewer's reachable module set (`useEnabledModules()`).
+ * Pass it wherever the result becomes a link a user can click: a relation may
+ * point at a record in a module the tenant does not have, and a link into a
+ * withheld module is a dead end that also tells the user the module exists.
+ * Callers that omit it — non-React helpers, tests — keep the ungated behaviour,
+ * and the caller is then responsible for not rendering the href as a link.
+ */
+export function buildRelationHref(
+  entityId: string,
+  recordId: string,
+  record?: Record<string, unknown>,
+  enabledModules?: ReadonlySet<string> | null,
+): string | undefined {
   const trimmedEntityId = entityId.trim()
   const trimmedRecordId = recordId.trim()
   if (!trimmedEntityId || !trimmedRecordId) return undefined
+
+  if (enabledModules) {
+    const owningModuleId = relationOwningModuleId(trimmedEntityId)
+    if (owningModuleId && !enabledModules.has(owningModuleId)) return undefined
+  }
 
   const knownEntityIds = getEntityIds(false)
   const customers = knownEntityIds.customers ?? {}
@@ -238,6 +272,7 @@ export async function fetchRelationRecordDisplays(
   relation: RelationOptionsMetadata,
   recordIds: string[],
   signal?: AbortSignal,
+  enabledModules?: ReadonlySet<string> | null,
 ): Promise<Record<string, ResolvedValueDisplay>> {
   const displays: Record<string, ResolvedValueDisplay> = {}
   if (!recordIds.length) return displays
@@ -257,7 +292,7 @@ export async function fetchRelationRecordDisplays(
       chunk.forEach((recordId) => {
         displays[recordId] = {
           label: recordId,
-          href: buildRelationHref(relation.entityId, recordId),
+          href: buildRelationHref(relation.entityId, recordId, undefined, enabledModules),
         }
       })
       continue
@@ -285,7 +320,7 @@ export async function fetchRelationRecordDisplays(
           : undefined
       displays[recordId] = {
         label,
-        href: buildRelationHref(relation.entityId, recordId, routeContext),
+        href: buildRelationHref(relation.entityId, recordId, routeContext, enabledModules),
       }
     })
 
@@ -293,7 +328,7 @@ export async function fetchRelationRecordDisplays(
       if (resolvedIds.has(recordId) || displays[recordId]) return
       displays[recordId] = {
         label: recordId,
-        href: buildRelationHref(relation.entityId, recordId),
+        href: buildRelationHref(relation.entityId, recordId, undefined, enabledModules),
       }
     })
   }

@@ -16,7 +16,7 @@ import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/us
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { emitSalesDocumentTotalsRefresh } from '@open-mercato/core/modules/sales/lib/frontend/documentTotalsEvents'
 import { PaymentDialog, type PaymentFormData, type PaymentTotals } from './PaymentDialog'
-import { extractCustomFieldValues } from './customFieldHelpers'
+import { extractCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { Plus } from 'lucide-react'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 

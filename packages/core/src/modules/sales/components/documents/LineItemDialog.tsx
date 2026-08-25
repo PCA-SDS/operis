@@ -53,7 +53,7 @@ import type { SalesLineRecord } from "./lineItemTypes";
 import {
   normalizeCustomFieldSubmitValue,
   extractCustomFieldValues,
-} from "./customFieldHelpers";
+} from '@open-mercato/shared/lib/crud/custom-fields-client';
 import { canonicalizeUnitCode } from "@open-mercato/shared/lib/units/unitCodes";
 import { createLogger } from '@open-mercato/shared/lib/logger'
 

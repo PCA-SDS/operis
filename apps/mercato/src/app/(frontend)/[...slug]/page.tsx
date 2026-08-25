@@ -42,6 +42,34 @@ async function renderAccessDenied() {
   )
 }
 
+/**
+ * Whether an unauthenticated frontend route's module is entitled for the tenant
+ * that owns the organization slug in its path.
+ *
+ * Returns `true` when no organization can be resolved: a public route outside
+ * any organization namespace has no tenant to evaluate, and denying those would
+ * take down genuinely global pages. Entitlement only ever governs a route that
+ * names its organization.
+ */
+async function isPublicRouteModuleEnabled(pathname: string, moduleId: string): Promise<boolean> {
+  const orgSlug = pathname.split('/').filter(Boolean)[0]
+  if (!orgSlug) return true
+  try {
+    await ensureServerBootstrap()
+    const container = await createRequestContainer()
+    const em = container.resolve('em') as EntityManager
+    const org = await em.findOne(Organization, { slug: orgSlug, deletedAt: null } as never)
+    const tenantId = org?.tenant?.id ? String(org.tenant.id) : ''
+    if (!tenantId) return true
+    const tenantModules = container.resolve('tenantModuleService') as TenantModuleService
+    return await tenantModules.isModuleEnabled(tenantId, moduleId)
+  } catch {
+    // The authenticated gates below still deny, and a resolution failure here
+    // must not take out every public page on the instance.
+    return true
+  }
+}
+
 export async function generateMetadata({ params }: FrontendParams): Promise<Metadata> {
   const p = await params
   const pathname = '/' + (p.slug?.join('/') ?? '')
@@ -61,6 +89,17 @@ export default async function SiteCatchAll({ params }: FrontendParams) {
   const pathname = '/' + (p.slug?.join('/') ?? '')
   const match = findRouteManifestMatch(getFrontendRouteManifests(), pathname)
   if (!match) return notFound()
+
+  // A public portal page — login, signup, verify — carries no session, so the
+  // authenticated gate further down never runs for it. Without this the login
+  // form of a module the tenant does not have still renders, advertising a
+  // capability nobody can use and inviting credentials for a portal that is
+  // switched off. The organization slug in the path is the only tenant context
+  // such a request has, so resolve entitlement through it.
+  if (!match.route.requireCustomerAuth && isEntitleableModule(match.route.moduleId ?? '')) {
+    const publicPortalAllowed = await isPublicRouteModuleEnabled(pathname, match.route.moduleId as string)
+    if (!publicPortalAllowed) return notFound()
+  }
 
   // Customer portal auth gate — separate from staff auth
   if (match.route.requireCustomerAuth) {

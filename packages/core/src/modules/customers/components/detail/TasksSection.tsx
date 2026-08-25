@@ -15,6 +15,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { InteractionSummary, SectionAction, TabEmptyStateConfig, TodoLinkSummary, Translator } from './types'
 import { createTranslatorWithFallback } from '@open-mercato/shared/lib/i18n/translate'
 import { formatDate, resolveTodoHref } from './utils'
+import { useEnabledModules } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { formatDateTime } from '@open-mercato/shared/lib/time'
 import { TimelineItemHeader } from './TimelineItemHeader'
 import { TaskDialog } from './TaskDialog'
@@ -113,6 +114,7 @@ export function TasksSection({
   runGuardedMutation,
 }: TasksSectionProps) {
   const tHook = useT()
+  const enabledModules = useEnabledModules()
   const fallbackTranslator = React.useMemo<Translator>(() => createTranslatorWithFallback(tHook), [tHook])
   const t: Translator = React.useMemo(() => translator ?? fallbackTranslator, [translator, fallbackTranslator])
   const runWriteMutation = React.useCallback(
@@ -463,7 +465,7 @@ export function TasksSection({
               </div>
             ) : null}
             {sortedTasks.map((task) => {
-              const todoHref = task.externalHref ?? resolveTodoHref(task.todoSource, task.todoId)
+              const todoHref = task.externalHref ?? resolveTodoHref(task.todoSource, task.todoId, enabledModules)
               const createdLabel = formatDateTime(task.createdAt) ?? emptyLabel
               const meta = renderTaskMeta(task)
               const title = task.title ?? t('customers.people.detail.tasks.untitled', 'Untitled task')

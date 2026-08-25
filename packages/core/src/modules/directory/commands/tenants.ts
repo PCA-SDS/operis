@@ -86,11 +86,11 @@ const createTenantCommand: CommandHandler<TenantPayload, Tenant> = {
     }
 
     // Module entitlement is fail-closed, so a tenant created here would be able
-    // to reach nothing at all until it is provisioned. Grant the current module
-    // set immediately; an operator can withhold individual modules afterwards.
+    // to reach nothing at all until it is provisioned. Record the shipped plan
+    // immediately; a super admin can widen or narrow it afterwards.
     try {
       const tenantModules = ctx.container.resolve('tenantModuleService') as TenantModuleService
-      await tenantModules.provisionTenant(String(tenant.id), { enabledByDefault: true })
+      await tenantModules.provisionTenant(String(tenant.id))
     } catch (err) {
       logger.error('Failed to provision tenant modules', { tenantId: String(tenant.id), err })
     }

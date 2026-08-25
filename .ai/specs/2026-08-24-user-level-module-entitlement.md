@@ -268,6 +268,18 @@ are feature-gated and the user's effective feature set no longer carries
 `customers.*`. Cascading here would break Sales outright, which is the opposite
 of the requirement.
 
+## Superseded detail (2026-08-25)
+
+Two statements above changed. Provisioning is no longer "grant the current
+module set": each module declares its own default via
+`ModuleInfo.defaultEntitlement` and absence means off. And the browser is no
+longer limited to feature-derived gating — `BackendChromePayload.enabledModuleIds`
+carries the viewer's reachable module set, read through `useModuleEnabled` /
+`useEnabledModules` / `<ModuleGate>`, which is what finally covers hardcoded
+cross-module links that carry no feature of their own. The public-portal hole
+noted in that audit (entitlement checked only on `requireCustomerAuth` routes) is
+also closed. See `.ai/specs/2026-08-25-mvp-module-scope-and-ui-gating.md`.
+
 ### Verified live
 
 Against the seeded topology (`admin@operis.local`, `admin@acme.local`,
