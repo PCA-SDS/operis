@@ -2,11 +2,18 @@
 import * as React from 'react'
 import { apiCall } from '../utils/apiCall'
 import { useAppEvent } from '../injection/useAppEvent'
+import { useTabRestoreRefresh, useVisibilityAwareInterval } from '../utils/backgroundPolling'
 import { subscribeProgressUpdate } from '@open-mercato/shared/lib/frontend/progressEvents'
 import type { ProgressJobDto, UseProgressPollResult } from './useProgressPoll'
 import { applyLocalProgressUpdate, isLocalProgressJob } from './useProgressPoll'
 
+// Reconciliation safety net for jobs already in flight — SSE (`progress.job.*`)
+// is the primary channel, this only repairs a dropped frame. It is gated on
+// `activeJobs.length > 0` so an idle tab issues zero periodic requests.
 const SSE_PROGRESS_SYNC_INTERVAL = 5000
+// A single job emits `created` then `started` back to back; debouncing collapses
+// that burst into one `/api/progress/active` read.
+const SSE_PROGRESS_EVENT_DEBOUNCE = 250
 
 function isVisibleProgressJob(job: ProgressJobDto): boolean {
   return job.meta?.hiddenFromTopBar !== true
@@ -37,6 +44,7 @@ export function useProgressSse(): UseProgressPollResult {
   const [recentlyCompleted, setRecentlyCompleted] = React.useState<ProgressJobDto[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
+  const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchJobs = React.useCallback(async () => {
     try {
@@ -61,40 +69,38 @@ export function useProgressSse(): UseProgressPollResult {
     }
   }, [])
 
-  const refresh = React.useCallback(() => {
-    void fetchJobs()
-  }, [fetchJobs])
+  const cancelScheduledFetch = React.useCallback(() => {
+    if (debounceTimerRef.current === null) return
+    clearTimeout(debounceTimerRef.current)
+    debounceTimerRef.current = null
+  }, [])
 
-  React.useEffect(() => {
-    void fetchJobs()
-  }, [fetchJobs])
-
-  React.useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = setInterval(() => {
+  const scheduleFetch = React.useCallback(() => {
+    if (debounceTimerRef.current !== null) return
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null
       void fetchJobs()
-    }, SSE_PROGRESS_SYNC_INTERVAL)
-
-    const onVisibilityChange = () => {
-      if (document.hidden) {
-        if (interval) {
-          clearInterval(interval)
-          interval = null
-        }
-      } else {
-        void fetchJobs()
-        if (interval) clearInterval(interval)
-        interval = setInterval(() => {
-          void fetchJobs()
-        }, SSE_PROGRESS_SYNC_INTERVAL)
-      }
-    }
-
-    document.addEventListener('visibilitychange', onVisibilityChange)
-    return () => {
-      if (interval) clearInterval(interval)
-      document.removeEventListener('visibilitychange', onVisibilityChange)
-    }
+    }, SSE_PROGRESS_EVENT_DEBOUNCE)
   }, [fetchJobs])
+
+  const fetchNow = React.useCallback(() => {
+    cancelScheduledFetch()
+    void fetchJobs()
+  }, [cancelScheduledFetch, fetchJobs])
+
+  const refresh = React.useCallback(() => {
+    fetchNow()
+  }, [fetchNow])
+
+  React.useEffect(() => cancelScheduledFetch, [cancelScheduledFetch])
+
+  React.useEffect(() => {
+    void fetchJobs()
+  }, [fetchJobs])
+
+  useVisibilityAwareInterval(fetchNow, SSE_PROGRESS_SYNC_INTERVAL, activeJobs.length > 0)
+
+  useTabRestoreRefresh(fetchNow)
 
   React.useEffect(() => {
     return subscribeProgressUpdate((detail) => {
@@ -108,7 +114,7 @@ export function useProgressSse(): UseProgressPollResult {
       const payload = event.payload as Partial<ProgressJobDto> & { jobId?: string }
       const jobId = payload?.jobId
       if (!jobId) {
-        void fetchJobs()
+        scheduleFetch()
         return
       }
       const status = (payload.status as ProgressJobDto['status']) ?? 'running'
@@ -135,44 +141,27 @@ export function useProgressSse(): UseProgressPollResult {
         return
       }
 
-      setActiveJobs((prev) =>
-        upsertJob(prev, job),
-      )
+      setActiveJobs((prev) => upsertJob(prev, job))
     },
-    [fetchJobs],
+    [scheduleFetch],
   )
 
-  useAppEvent('progress.job.created', () => {
-    void fetchJobs()
-  }, [fetchJobs])
-
-  useAppEvent('progress.job.started', () => {
-    void fetchJobs()
-  }, [fetchJobs])
-
-  useAppEvent('progress.job.completed', () => {
-    void fetchJobs()
-  }, [fetchJobs])
-
-  useAppEvent('progress.job.failed', () => {
-    void fetchJobs()
-  }, [fetchJobs])
-
-  useAppEvent('progress.job.cancelled', () => {
-    void fetchJobs()
-  }, [fetchJobs])
+  // `created`, `started`, `completed`, `failed` and `cancelled` all mean the same
+  // thing here — the server-side job set moved — so they share one debounced read
+  // instead of the five back-to-back refetches they used to trigger. `updated`
+  // is handled above from its own payload and must not refetch.
+  useAppEvent(
+    'progress.job.*',
+    (event) => {
+      if (event.id === 'progress.job.updated') return
+      scheduleFetch()
+    },
+    [scheduleFetch],
+  )
 
   useAppEvent('om:bridge:reconnected', () => {
-    void fetchJobs()
-  }, [fetchJobs])
-
-  React.useEffect(() => {
-    const onFocus = () => {
-      void fetchJobs()
-    }
-    window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
-  }, [fetchJobs])
+    fetchNow()
+  }, [fetchNow])
 
   return { activeJobs, recentlyCompleted, isLoading, error, refresh }
 }
