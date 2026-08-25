@@ -39,6 +39,24 @@ export function useGuardedMutation<TContext extends GuardedMutationContext>({
   const { triggerEvent } = useInjectionSpotEvents<TContext, Record<string, unknown>>(spotId)
   const lastMutationRef = React.useRef<StoredMutation<TContext> | null>(null)
 
+  // Counted rather than boolean: a host may legitimately have more than one
+  // mutation in flight (per-row actions on a list), and a plain flag would clear
+  // while a sibling is still running. Deliberately NOT a re-entrancy guard —
+  // callers decide whether concurrent writes are valid; this only reports.
+  const pendingCountRef = React.useRef(0)
+  const mountedRef = React.useRef(true)
+  const [isPending, setIsPending] = React.useState(false)
+
+  React.useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
+
+  const syncPending = React.useCallback(() => {
+    if (!mountedRef.current) return
+    setIsPending(pendingCountRef.current > 0)
+  }, [])
+
   const emitMutationSaveError = React.useCallback((error: unknown) => {
     dispatchBackendMutationError({
       contextId,
@@ -71,30 +89,37 @@ export function useGuardedMutation<TContext extends GuardedMutationContext>({
       mutationPayload: payload,
     }
 
-    const beforeSave = await triggerEvent('onBeforeSave', payload, context)
-    if (!beforeSave.ok) {
-      emitMutationSaveError(beforeSave.details ?? beforeSave)
-      throw new Error(beforeSave.message || blockedMessage)
-    }
-
+    pendingCountRef.current += 1
+    syncPending()
     try {
-      const result =
-        beforeSave.requestHeaders && Object.keys(beforeSave.requestHeaders).length > 0
-          ? await withScopedApiRequestHeaders(beforeSave.requestHeaders, operation)
-          : await operation()
-
-      try {
-        await triggerEvent('onAfterSave', payload, context)
-      } catch (error) {
-        logger.error('Error in onAfterSave injection event', { err: error })
+      const beforeSave = await triggerEvent('onBeforeSave', payload, context)
+      if (!beforeSave.ok) {
+        emitMutationSaveError(beforeSave.details ?? beforeSave)
+        throw new Error(beforeSave.message || blockedMessage)
       }
 
-      return result
-    } catch (error) {
-      emitMutationSaveError(error)
-      throw error
+      try {
+        const result =
+          beforeSave.requestHeaders && Object.keys(beforeSave.requestHeaders).length > 0
+            ? await withScopedApiRequestHeaders(beforeSave.requestHeaders, operation)
+            : await operation()
+
+        try {
+          await triggerEvent('onAfterSave', payload, context)
+        } catch (error) {
+          logger.error('Error in onAfterSave injection event', { err: error })
+        }
+
+        return result
+      } catch (error) {
+        emitMutationSaveError(error)
+        throw error
+      }
+    } finally {
+      pendingCountRef.current -= 1
+      syncPending()
     }
-  }, [blockedMessage, emitMutationSaveError, triggerEvent])
+  }, [blockedMessage, emitMutationSaveError, syncPending, triggerEvent])
 
   const retryLastMutation = React.useCallback(async (): Promise<boolean> => {
     const lastMutation = lastMutationRef.current
@@ -115,5 +140,13 @@ export function useGuardedMutation<TContext extends GuardedMutationContext>({
   return {
     runMutation,
     retryLastMutation,
+    /**
+     * True while at least one `runMutation` started by this hook is in flight —
+     * including one started by `retryLastMutation`. Hosts that cannot use
+     * `CrudForm` should feed this to their submit/action `Button`'s `disabled`
+     * so a second click cannot fire a duplicate write, and so the click is
+     * visibly acknowledged.
+     */
+    isPending,
   }
 }

@@ -4,13 +4,38 @@ import { createPortal } from 'react-dom'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { IconButton } from '../primitives/icon-button'
 import { Button } from '../primitives/button'
+import { Spinner } from '../primitives/spinner'
 
 export type RowActionItem = {
   id?: string
   label: string
+  /**
+   * Returning a promise lets `RowActions` hold the entry disabled with a
+   * spinner until the write settles, so re-opening the menu mid-flight cannot
+   * fire the same (usually destructive) action twice.
+   */
+  /**
+   * Declared `() => void` on purpose. TypeScript's void-return assignability
+   * lets callers return anything — including `async () => {...}` and existing
+   * sites that return `window.open(...)` — whereas a `void | Promise<void>`
+   * union loses that exemption and breaks them. `runSelect` duck-types the
+   * result at runtime, so returning a promise still drives the pending state.
+   */
   onSelect?: () => void
   href?: string
   destructive?: boolean
+  /** Renders the entry inert — clicks do nothing and navigation is blocked. */
+  disabled?: boolean
+  /** Caller-driven in-flight state; implies `disabled` and shows a spinner. */
+  loading?: boolean
+}
+
+function itemKey(item: RowActionItem, index: number): string {
+  return item.id ? `id:${item.id}` : `idx:${index}`
+}
+
+function isSameRect(a: DOMRect, b: DOMRect): boolean {
+  return a.top === b.top && a.left === b.left && a.bottom === b.bottom && a.right === b.right
 }
 
 export function RowActions({ items = [] }: { items?: RowActionItem[] }) {
@@ -21,11 +46,14 @@ export function RowActions({ items = [] }: { items?: RowActionItem[] }) {
   const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
   const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null)
   const [direction, setDirection] = React.useState<'down' | 'up'>('down')
+  const [pendingKey, setPendingKey] = React.useState<string | null>(null)
 
   const updatePosition = React.useCallback(() => {
     if (!btnRef.current) return
     const rect = btnRef.current.getBoundingClientRect()
-    setAnchorRect(rect)
+    // Scrolling produces a fresh DOMRect per event even when the anchor has not
+    // moved; keeping the previous object lets React bail out of the re-render.
+    setAnchorRect((prev) => (prev && isSameRect(prev, rect) ? prev : rect))
     // Decide whether to open up or down based on available viewport space
     const spaceBelow = window.innerHeight - rect.bottom
     const spaceAbove = rect.top
@@ -47,14 +75,22 @@ export function RowActions({ items = [] }: { items?: RowActionItem[] }) {
         btnRef.current?.focus()
       }
     }
+    // Capture-phase scroll fires for every scrolling ancestor, faster than the
+    // browser paints; coalesce into one measurement per animation frame.
+    let frame = 0
     function onScrollOrResize() {
-      updatePosition()
+      if (frame) return
+      frame = window.requestAnimationFrame(() => {
+        frame = 0
+        updatePosition()
+      })
     }
     document.addEventListener('mousedown', onDocClick)
     document.addEventListener('keydown', onKey)
     window.addEventListener('scroll', onScrollOrResize, true)
     window.addEventListener('resize', onScrollOrResize)
     return () => {
+      if (frame) window.cancelAnimationFrame(frame)
       document.removeEventListener('mousedown', onDocClick)
       document.removeEventListener('keydown', onKey)
       window.removeEventListener('scroll', onScrollOrResize, true)
@@ -69,6 +105,16 @@ export function RowActions({ items = [] }: { items?: RowActionItem[] }) {
         clearTimeout(hoverTimeoutRef.current)
       }
     }
+  }, [])
+
+  const runSelect = React.useCallback((item: RowActionItem, key: string) => {
+    const result = item.onSelect?.() as unknown
+    if (!result || typeof (result as PromiseLike<unknown>).then !== 'function') return
+    setPendingKey(key)
+    void Promise.resolve(result).then(
+      () => { setPendingKey((current) => (current === key ? null : current)) },
+      () => { setPendingKey((current) => (current === key ? null : current)) },
+    )
   }, [])
 
   if (items.length === 0) return null
@@ -118,15 +164,24 @@ export function RowActions({ items = [] }: { items?: RowActionItem[] }) {
           onPointerEnter={handlePointerEnter}
           onPointerLeave={handlePointerLeave}
         >
-          {items.map((it, idx) => (
-            it.href ? (
+          {items.map((it, idx) => {
+            const key = itemKey(it, idx)
+            const isLoading = it.loading === true || pendingKey === key
+            const isDisabled = it.disabled === true || isLoading
+            return it.href ? (
               <a
                 key={idx}
                 href={it.href}
-                className={`block w-full text-left px-2 py-1 text-sm rounded hover:bg-accent ${it.destructive ? 'text-destructive' : ''}`}
+                className={`block w-full text-left px-2 py-1 text-sm rounded hover:bg-accent ${it.destructive ? 'text-destructive' : ''} ${isDisabled ? 'pointer-events-none opacity-60' : ''}`}
                 role="menuitem"
+                aria-disabled={isDisabled ? true : undefined}
+                tabIndex={isDisabled ? -1 : undefined}
                 onClick={(event) => {
                   event.stopPropagation()
+                  if (isDisabled) {
+                    event.preventDefault()
+                    return
+                  }
                   setOpen(false)
                 }}
               >
@@ -140,16 +195,23 @@ export function RowActions({ items = [] }: { items?: RowActionItem[] }) {
                 size="sm"
                 className={`w-full justify-start rounded-none font-normal ${it.destructive ? 'text-destructive' : ''}`}
                 role="menuitem"
+                disabled={isDisabled}
+                aria-busy={isLoading ? true : undefined}
                 onClick={(event) => {
                   event.stopPropagation()
                   setOpen(false)
-                  it.onSelect?.()
+                  runSelect(it, key)
                 }}
               >
+                {isLoading ? (
+                  <span aria-hidden="true" className="inline-flex">
+                    <Spinner size="sm" />
+                  </span>
+                ) : null}
                 {it.label}
               </Button>
             )
-          ))}
+          })}
         </div>,
         document.body
       )}
