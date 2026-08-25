@@ -1,19 +1,20 @@
 # Appointments Module
 
-Phase 1: public booking intake + staff list/detail/status. No public form UI and no seat planner in this slice.
+Phase 1: public booking intake + staff list/create/detail/status. No public form UI and no seat planner in this slice.
 
 ## Always
 
 - Scope appointment rows by `tenantId` (and org for booking create / catalog load).
 - Customer identity is tenant-wide via `customers` find-or-create; `organizationId` on create is first-touch / booking branch.
 - Snapshot customer + line fields on the appointment (do not rely on live catalog/customer joins for historical bookings).
-- Public create always lands in system status `new_request`.
+- Public and staff create always land in system status `new_request`.
 - Bookable services come from `catalog` `listBookableServicesForOrganization` only.
+- Staff create uses auth tenant/org — never trust client-supplied scope on `POST /api/appointments`.
 
 ## Ask First
 
 - Public create payload contract changes.
-- Adding staff UI pages or planner/seat assignment.
+- Adding public booking form UI or planner/seat assignment.
 
 ## Never
 
@@ -26,9 +27,12 @@ Phase 1: public booking intake + staff list/detail/status. No public form UI and
 | Path | Role |
 |------|------|
 | `POST /api/appointments/public/create` | Public intake (`requireAuth: false`) |
-| `GET /api/appointments` | Staff list |
-| `GET /api/appointments/:id` | Staff detail + lines |
-| `PATCH /api/appointments/:id` | Status update |
+| `GET/POST /api/appointments` | Staff list / create |
+| `GET /api/appointments/statuses` | Status catalog |
+| `GET/PATCH /api/appointments/:id` | Staff detail + status |
+| `/backend/appointments` | Staff list table |
+| `/backend/appointments/create` | Staff create form |
+| `/backend/appointments/:id` | Staff detail |
 | `lib/intake.ts` | Find-or-create + bookable validation + snapshots |
 
 ## Validation
