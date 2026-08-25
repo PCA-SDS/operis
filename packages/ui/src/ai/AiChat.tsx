@@ -414,13 +414,19 @@ function MarkdownChunk({ text }: { text: string }) {
 }
 
 function MessageContent({ content, isAssistant }: { content: string; isAssistant: boolean }) {
+  // Streaming rewrites the assistant message on every SSE chunk; without this
+  // memo every transcript row re-parses its markdown/record-card fences on
+  // each chunk.
+  const segments = React.useMemo(
+    () => (isAssistant && content ? parseAiContentSegments(content) : []),
+    [content, isAssistant],
+  )
   if (!isAssistant) {
     return <div className="whitespace-pre-wrap text-sm">{content}</div>
   }
   if (!content) {
     return null
   }
-  const segments = parseAiContentSegments(content)
   if (segments.length === 0) {
     return null
   }
@@ -819,18 +825,20 @@ function MessageFileAttachment({ file }: { file: AiChatMessageFile }) {
   )
 }
 
-function MessageRow({
-  message,
-  registry,
-  onMutationRequested,
-  isOwner,
-}: {
+type MessageRowProps = {
   message: AiChatMessage
   registry?: AiUiPartRegistry
   onMutationRequested?: (pendingActionId: string) => void
   /** Whether the current viewer owns the conversation. Used to label foreign user messages. */
   isOwner?: boolean | null
-}) {
+}
+
+function MessageRowImpl({
+  message,
+  registry,
+  onMutationRequested,
+  isOwner,
+}: MessageRowProps) {
   const t = useT()
   const isAssistant = message.role === 'assistant'
   const isOtherUsersMessage = !isAssistant && isOwner === false
@@ -953,6 +961,15 @@ function MessageRow({
     </div>
   )
 }
+
+/**
+ * Memoized: `useAiChat` rebuilds the messages array on every SSE chunk but
+ * only replaces the streaming assistant entry — every other row keeps its
+ * object identity, so a shallow prop compare keeps the rest of the transcript
+ * from re-rendering (and re-parsing its markdown) dozens of times a second.
+ */
+const MessageRow = React.memo(MessageRowImpl)
+MessageRow.displayName = 'MessageRow'
 
 function MessageUiParts({
   parts,
@@ -1197,6 +1214,17 @@ export function AiChat({
   React.useLayoutEffect(() => {
     onConversationIdChangeRef.current = onConversationIdChange
   })
+  // Hosts commonly pass an inline arrow here. Route calls through a ref so the
+  // identity handed to the memoized transcript rows never changes, while still
+  // invoking the latest prop.
+  const onMutationRequestedRef = React.useRef(onMutationRequested)
+  React.useLayoutEffect(() => {
+    onMutationRequestedRef.current = onMutationRequested
+  })
+  const stableOnMutationRequested = React.useCallback((pendingActionId: string) => {
+    onMutationRequestedRef.current?.(pendingActionId)
+  }, [])
+  const mutationRequestedHandler = onMutationRequested ? stableOnMutationRequested : undefined
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null)
   const transcriptRef = React.useRef<HTMLDivElement | null>(null)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
@@ -1371,31 +1399,6 @@ export function AiChat({
   const hasAnyVisibleSignal = !!(
     trimmedContent || hasReasoning || toolCalls.length > 0
   )
-
-  const assistantStreamSnapshot = React.useMemo(() => {
-    if (!lastAssistant) return ''
-    const toolSig = toolCalls
-      .map((call) => `${call.id}:${call.state}:${call.output != null ? 1 : 0}`)
-      .join('|')
-    return [
-      lastAssistant.id,
-      lastAssistant.content?.length ?? 0,
-      lastAssistant.reasoning?.length ?? 0,
-      lastAssistant.reasoningStreaming ? 1 : 0,
-      toolSig,
-    ].join('#')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastAssistant])
-
-  const lastSnapshotRef = React.useRef<string>('')
-  const [, setStreamTick] = React.useState(0)
-
-  React.useEffect(() => {
-    if (assistantStreamSnapshot !== lastSnapshotRef.current) {
-      lastSnapshotRef.current = assistantStreamSnapshot
-      setStreamTick((value) => value + 1)
-    }
-  }, [assistantStreamSnapshot])
 
   const showThinkingIndicator =
     isSubmitting ||
@@ -1674,7 +1677,7 @@ export function AiChat({
               key={message.id}
               message={message}
               registry={activeRegistry}
-              onMutationRequested={onMutationRequested}
+              onMutationRequested={mutationRequestedHandler}
               isOwner={chat.isOwner}
             />
           ))
@@ -1684,7 +1687,7 @@ export function AiChat({
             key={`${part.componentId}-${index}`}
             part={part}
             registry={activeRegistry}
-            onMutationRequested={onMutationRequested}
+            onMutationRequested={mutationRequestedHandler}
           />
         ))}
         {showThinkingIndicator ? (
