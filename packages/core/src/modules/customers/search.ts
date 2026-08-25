@@ -39,9 +39,78 @@ type LoadedCustomerEntity = {
 // Caching
 // =============================================================================
 
+/**
+ * Cross-record memo for customer entities resolved by UUID.
+ *
+ * Its two siblings below are `WeakMap`s keyed on the record object, so they collect
+ * with the record. This one cannot be: the whole point is that *different* records
+ * (a comment, an activity, a task link) pointing at the same customer share one load,
+ * so the key has to be the customer's id. A plain `Map` therefore never releases —
+ * keys are per-row UUIDs and values are the fully decrypted entity plus every custom
+ * field value, so a reindex pass grows the process without bound.
+ *
+ * Bounded as an LRU (recency refreshed by Map re-insertion, eviction from the head),
+ * reusing the `rbacDefaultCache` shape — the closest precedent that caches *values*
+ * under a string key. `ciphertext-search-warning`'s cap+clear fits a marker `Set`, and
+ * the `@open-mercato/cache` memory strategy is a full tag/TTL CacheStrategy that would
+ * have to be resolved through DI the search context does not carry.
+ *
+ * The cap is deliberately below those precedents' 5000: entries here are whole
+ * decrypted entities, and the working set that matters is the distinct customers
+ * referenced by one indexing batch.
+ */
+const ENTITY_CACHE_MAX_ENTRIES = 1000
 const entityIdCache = new Map<string, LoadedCustomerEntity | null>()
 const profileEntityCache = new WeakMap<Record<string, unknown>, Partial<Record<CustomerProfileKind, LoadedCustomerEntity | null>>>()
 const todoCache = new WeakMap<Record<string, unknown>, unknown>()
+
+/**
+ * Scope belongs in the key. `loadCustomerEntityBundle` filters by tenant and
+ * organization, so a bare UUID key lets one scope's decrypted entity — or its `null`
+ * miss — answer another scope's lookup.
+ */
+function entityCacheKey(ctx: SearchContext, entityId: string): string {
+  return `${ctx.tenantId}|${ctx.organizationId ?? 'null'}|${entityId}`
+}
+
+function readCachedCustomerEntity(
+  ctx: SearchContext,
+  entityId: string,
+): { found: boolean; value: LoadedCustomerEntity | null } {
+  const key = entityCacheKey(ctx, entityId)
+  if (!entityIdCache.has(key)) return { found: false, value: null }
+  const value = entityIdCache.get(key) ?? null
+  // Map preserves insertion order: re-inserting moves the entry to the tail so the
+  // head stays the least-recently-used candidate for eviction.
+  entityIdCache.delete(key)
+  entityIdCache.set(key, value)
+  return { found: true, value }
+}
+
+function writeCachedCustomerEntity(
+  ctx: SearchContext,
+  entityId: string,
+  value: LoadedCustomerEntity | null,
+): void {
+  const key = entityCacheKey(ctx, entityId)
+  entityIdCache.delete(key)
+  entityIdCache.set(key, value)
+  while (entityIdCache.size > ENTITY_CACHE_MAX_ENTRIES) {
+    const oldest = entityIdCache.keys().next().value
+    if (typeof oldest !== 'string') break
+    entityIdCache.delete(oldest)
+  }
+}
+
+/** Test seam: the entity memo is process-global by design. */
+export function resetCustomerSearchEntityCache(): void {
+  entityIdCache.clear()
+}
+
+/** Test seam: lets the bound be asserted directly instead of inferred. */
+export function getCustomerSearchEntityCacheSize(): number {
+  return entityIdCache.size
+}
 
 // =============================================================================
 // Query Configuration
@@ -234,7 +303,7 @@ async function loadCustomerEntityForProfile(ctx: SearchContext, kind: CustomerPr
   if (resolvedId && typeof resolvedId === 'string') {
     ctx.record.entity_id ??= resolvedId
     ctx.record.entityId ??= resolvedId
-    entityIdCache.set(resolvedId, loaded ?? null)
+    writeCachedCustomerEntity(ctx, resolvedId, loaded ?? null)
   }
   if (loaded?.entity) {
     if (!ctx.record.entity) ctx.record.entity = loaded.entity
@@ -246,11 +315,10 @@ async function loadCustomerEntityForProfile(ctx: SearchContext, kind: CustomerPr
 async function loadCustomerEntityById(ctx: SearchContext, entityId: string | null | undefined): Promise<LoadedCustomerEntity | null> {
   const resolvedId = typeof entityId === 'string' && entityId.length ? entityId : null
   if (!resolvedId) return null
-  if (entityIdCache.has(resolvedId)) {
-    return entityIdCache.get(resolvedId) ?? null
-  }
+  const cached = readCachedCustomerEntity(ctx, resolvedId)
+  if (cached.found) return cached.value
   const loaded = await loadCustomerEntityBundle(ctx, { entityId: resolvedId })
-  entityIdCache.set(resolvedId, loaded ?? null)
+  writeCachedCustomerEntity(ctx, resolvedId, loaded ?? null)
   return loaded ?? null
 }
 
@@ -267,7 +335,7 @@ async function getCustomerEntity(ctx: SearchContext, entityId?: string | null): 
   const inline = getInlineCustomerEntity(ctx.record)
   if (inline && (!entityId || inline.id === entityId)) {
     if (inline.id && typeof inline.id === 'string') {
-      entityIdCache.set(inline.id, { entity: inline, customFields: {} })
+      writeCachedCustomerEntity(ctx, inline.id, { entity: inline, customFields: {} })
     }
     return inline
   }

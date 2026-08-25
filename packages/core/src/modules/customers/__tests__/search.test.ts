@@ -11,7 +11,11 @@ jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
   }),
 }))
 
-import { searchConfig } from '../search'
+import {
+  getCustomerSearchEntityCacheSize,
+  resetCustomerSearchEntityCache,
+  searchConfig,
+} from '../search'
 
 describe('customers search config', () => {
   test('person profile buildSource loads customer entity by entity id without profile joins', async () => {
@@ -76,5 +80,73 @@ describe('customers search config', () => {
 
     const links = await companyConfig!.resolveLinks!(ctx)
     expect(links?.[0]?.href).toContain('/backend/customers/companies-v2/entity-2')
+  })
+})
+
+describe('customer entity memo (#memory bound)', () => {
+  const commentConfig = () =>
+    searchConfig.entities.find((entity) => entity.entityId === 'customers:customer_comment')!
+
+  function makeQueryEngine() {
+    return jest.fn(async (_entityId: string, options: any) => {
+      const id = options?.filters?.id?.$eq ?? options?.filters?.id
+      return { items: [{ id, kind: 'person', display_name: `Customer ${id}` }] }
+    })
+  }
+
+  function formatComment(query: jest.Mock, entityId: string, organizationId = 'org-1') {
+    return commentConfig().formatResult!({
+      tenantId: 'tenant-1',
+      organizationId,
+      queryEngine: { query } as any,
+      // A fresh record object each call: the sibling WeakMap caches cannot answer,
+      // so every lookup goes through the entity-id memo under test.
+      record: { id: `comment-${entityId}`, entity_id: entityId, body: 'note' },
+      customFields: {},
+    })
+  }
+
+  beforeEach(() => {
+    resetCustomerSearchEntityCache()
+  })
+
+  test('caches by entity id, so repeat lookups do not re-query', async () => {
+    const query = makeQueryEngine()
+    await formatComment(query, 'entity-1')
+    await formatComment(query, 'entity-1')
+
+    expect(query).toHaveBeenCalledTimes(1)
+    expect(getCustomerSearchEntityCacheSize()).toBe(1)
+  })
+
+  test('stays bounded and evicts least-recently-used entries instead of growing forever', async () => {
+    const query = makeQueryEngine()
+    const total = 1200
+    for (let index = 0; index < total; index += 1) {
+      await formatComment(query, `entity-${index}`)
+    }
+
+    const size = getCustomerSearchEntityCacheSize()
+    expect(size).toBeLessThanOrEqual(1000)
+    expect(size).toBeGreaterThan(0)
+    expect(query).toHaveBeenCalledTimes(total)
+
+    // The most recent entity is still cached; the oldest was evicted and re-queries.
+    await formatComment(query, `entity-${total - 1}`)
+    expect(query).toHaveBeenCalledTimes(total)
+
+    await formatComment(query, 'entity-0')
+    expect(query).toHaveBeenCalledTimes(total + 1)
+    expect(getCustomerSearchEntityCacheSize()).toBeLessThanOrEqual(1000)
+  })
+
+  test('does not reuse one scope’s entity for another organization', async () => {
+    const query = makeQueryEngine()
+    await formatComment(query, 'entity-1', 'org-1')
+    await formatComment(query, 'entity-1', 'org-2')
+
+    expect(query).toHaveBeenCalledTimes(2)
+    expect(query.mock.calls[0]?.[1]).toMatchObject({ organizationId: 'org-1' })
+    expect(query.mock.calls[1]?.[1]).toMatchObject({ organizationId: 'org-2' })
   })
 })
