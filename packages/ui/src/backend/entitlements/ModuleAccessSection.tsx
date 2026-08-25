@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Check, Pencil } from 'lucide-react'
+import { Check, Pencil, Sparkles } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Switch } from '../../primitives/switch'
 import { Badge } from '../../primitives/badge'
@@ -24,10 +24,18 @@ export type ModuleAccessRow = {
   isEnabled: boolean
   /** Rendered as a non-toggleable "Core" row — the platform always provides it. */
   alwaysOn?: boolean
+  /** Section heading this row sorts under. Rows with no category share one group. */
+  category?: string | null
   /** Prerequisites the operator has not granted; the row reads as blocked until they are. */
   missingDependencies?: string[]
   /** Modules that lose reachability if this row is switched off. */
   dependents?: string[]
+  /** ISO-8601 grant window, rendered as "Since … until …" when present. */
+  startsAt?: string | null
+  endsAt?: string | null
+  /** Whether this module ships an AI assistant that can be entitled separately. */
+  aiAssistantAvailable?: boolean
+  aiAssistantEnabled?: boolean
 }
 
 export type ModuleAccessLabels = {
@@ -48,12 +56,25 @@ export type ModuleAccessLabels = {
   confirmCta: (next: boolean) => string
   cancel: string
   toggleAriaLabel: (row: ModuleAccessRow, next: boolean) => string
+  /** Grant-window wording. Omit to hide the dates entirely. */
+  since?: (date: string) => string
+  until?: (date: string) => string
+  /** AI sub-toggle wording. Omit to hide the sub-row entirely. */
+  aiAssistant?: string
+  aiOn?: string
+  aiOff?: string
+  aiToggleAriaLabel?: (row: ModuleAccessRow, next: boolean) => string
 }
 
 export type ModuleAccessSectionProps = {
   rows: ModuleAccessRow[]
   labels: ModuleAccessLabels
   onToggle: (row: ModuleAccessRow, next: boolean) => Promise<void>
+  /**
+   * Applies the AI sub-toggle. Omit on screens that do not govern it — the
+   * sub-row then never renders, which is how the per-user screen opts out.
+   */
+  onToggleAiAssistant?: (row: ModuleAccessRow, next: boolean) => Promise<void>
   /** Optional right-hand slot in the header (counts, links). */
   headerAside?: React.ReactNode
   className?: string
@@ -74,13 +95,30 @@ export function ModuleAccessSection({
   rows,
   labels,
   onToggle,
+  onToggleAiAssistant,
   headerAside,
   className,
 }: ModuleAccessSectionProps) {
   const [editMode, setEditMode] = React.useState(false)
   const [pending, setPending] = React.useState<{ row: ModuleAccessRow; next: boolean } | null>(null)
   const [submitting, setSubmitting] = React.useState<string | null>(null)
+  const [aiSubmitting, setAiSubmitting] = React.useState<string | null>(null)
   const [checks, setChecks] = React.useState<boolean[]>([])
+
+  // The AI sub-toggle is deliberately NOT behind the attestation dialog: it
+  // narrows an affordance inside a surface the tenant keeps, where the module
+  // switch removes the surface itself. Same reveal, far lower stakes.
+  const toggleAi = React.useCallback(async (row: ModuleAccessRow, next: boolean) => {
+    if (!onToggleAiAssistant) return
+    setAiSubmitting(row.moduleId)
+    try {
+      await onToggleAiAssistant(row, next)
+    } finally {
+      setAiSubmitting(null)
+    }
+  }, [onToggleAiAssistant])
+
+  const groups = React.useMemo(() => groupRowsByCategory(rows), [rows])
 
   const openConfirm = React.useCallback((row: ModuleAccessRow, next: boolean) => {
     if (row.alwaysOn) return
@@ -132,50 +170,90 @@ export function ModuleAccessSection({
       {rows.length === 0 ? (
         <EmptyState title={labels.emptyTitle} description={labels.emptyDescription} />
       ) : (
-        <ul className="divide-y divide-border rounded-xl bg-surface shadow-md">
-          {rows.map((row) => {
-            const blockedBy = row.missingDependencies ?? []
-            const cascade = row.dependents ?? []
-            return (
-              <li key={row.moduleId} className="px-5 py-4 sm:px-6">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                  <div className="flex min-w-0 items-center">
-                    <EditReveal show={editMode}>
-                      <Switch
-                        checked={row.isEnabled}
-                        disabled={row.alwaysOn || submitting !== null}
-                        onCheckedChange={(next) => openConfirm(row, next)}
-                        tabIndex={editMode ? undefined : -1}
-                        aria-label={labels.toggleAriaLabel(row, !row.isEnabled)}
-                      />
-                    </EditReveal>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate text-base font-semibold text-foreground">{row.title}</span>
-                        {row.alwaysOn ? (
-                          <Badge variant="success" size="sm">{labels.core}</Badge>
-                        ) : (
-                          <Badge variant={row.isEnabled ? 'success' : 'neutral'} size="sm">
-                            {row.isEnabled ? labels.enabled : labels.disabled}
-                          </Badge>
-                        )}
+        <div className="flex flex-col gap-6">
+          {groups.map((group) => (
+            <section key={group.category} aria-label={group.category}>
+              {groups.length > 1 ? (
+                <h3 className="mb-2 text-overline text-muted-foreground">{group.category}</h3>
+              ) : null}
+              <ul className="divide-y divide-border rounded-xl bg-surface shadow-md">
+                {group.rows.map((row) => {
+                  const blockedBy = row.missingDependencies ?? []
+                  const cascade = row.dependents ?? []
+                  const showAi = Boolean(
+                    onToggleAiAssistant
+                    && labels.aiAssistant
+                    && row.aiAssistantAvailable
+                    && row.isEnabled
+                    && !row.alwaysOn,
+                  )
+                  return (
+                    <li key={row.moduleId} className="px-5 py-4 sm:px-6">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                          <div className="flex min-w-0 items-center">
+                            <EditReveal show={editMode}>
+                              <Switch
+                                checked={row.isEnabled}
+                                disabled={row.alwaysOn || submitting !== null}
+                                onCheckedChange={(next) => openConfirm(row, next)}
+                                tabIndex={editMode ? undefined : -1}
+                                aria-label={labels.toggleAriaLabel(row, !row.isEnabled)}
+                              />
+                            </EditReveal>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="truncate text-base font-semibold text-foreground">{row.title}</span>
+                                {row.alwaysOn ? (
+                                  <Badge variant="success" size="sm">{labels.core}</Badge>
+                                ) : (
+                                  <Badge variant={row.isEnabled ? 'success' : 'neutral'} size="sm">
+                                    {row.isEnabled ? labels.enabled : labels.disabled}
+                                  </Badge>
+                                )}
+                              </div>
+                              {row.description ? (
+                                <p className="mt-0.5 truncate text-sm text-muted-foreground">{row.description}</p>
+                              ) : null}
+                              {blockedBy.length > 0 ? (
+                                <p className="mt-1 text-xs text-status-warning-text">{labels.blocked(blockedBy.join(', '))}</p>
+                              ) : null}
+                              {editMode && row.isEnabled && cascade.length > 0 ? (
+                                <p className="mt-1 text-xs text-muted-foreground">{labels.cascade(cascade.join(', '))}</p>
+                              ) : null}
+                            </div>
+                          </div>
+                          <GrantWindow row={row} labels={labels} />
+                        </div>
+
+                        {showAi ? (
+                          <div className="flex items-center pl-1 sm:pl-9">
+                            <EditReveal show={editMode} width="max-w-14" gap="mr-2">
+                              <Switch
+                                checked={row.aiAssistantEnabled === true}
+                                disabled={aiSubmitting !== null}
+                                onCheckedChange={(next) => { void toggleAi(row, next) }}
+                                tabIndex={editMode ? undefined : -1}
+                                aria-label={(labels.aiToggleAriaLabel ?? labels.toggleAriaLabel)(row, row.aiAssistantEnabled !== true)}
+                              />
+                            </EditReveal>
+                            <div className="flex min-w-0 items-center gap-2">
+                              <Sparkles className="size-3.5 text-muted-foreground" aria-hidden />
+                              <span className="text-xs text-muted-foreground">{labels.aiAssistant}</span>
+                              <Badge variant={row.aiAssistantEnabled ? 'success' : 'neutral'} size="sm">
+                                {row.aiAssistantEnabled ? labels.aiOn : labels.aiOff}
+                              </Badge>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
-                      {row.description ? (
-                        <p className="mt-0.5 truncate text-sm text-muted-foreground">{row.description}</p>
-                      ) : null}
-                      {blockedBy.length > 0 ? (
-                        <p className="mt-1 text-xs text-status-warning-text">{labels.blocked(blockedBy.join(', '))}</p>
-                      ) : null}
-                      {editMode && row.isEnabled && cascade.length > 0 ? (
-                        <p className="mt-1 text-xs text-muted-foreground">{labels.cascade(cascade.join(', '))}</p>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
       )}
 
       <Dialog open={pending !== null} onOpenChange={(open) => { if (!open) closeConfirm() }}>
@@ -226,16 +304,75 @@ export function ModuleAccessSection({
  * Collapses the switch out of the row until Edit mode is on, matching PCA's
  * reveal. `max-width` rather than `display` so the row does not jump.
  */
-function EditReveal({ show, children }: { show: boolean; children: React.ReactNode }) {
+function EditReveal({
+  show,
+  width = 'max-w-14',
+  gap = 'mr-3',
+  children,
+}: {
+  show: boolean
+  width?: string
+  gap?: string
+  children: React.ReactNode
+}) {
   return (
     <div
       className={cn(
         'flex shrink-0 items-center overflow-hidden transition-[max-width,opacity,margin] duration-300 ease-out',
-        show ? 'max-w-14 opacity-100 mr-3' : 'max-w-0 opacity-0 mr-0 pointer-events-none',
+        show ? `${width} opacity-100 ${gap}` : 'max-w-0 opacity-0 mr-0 pointer-events-none',
       )}
       aria-hidden={!show}
     >
       {children}
     </div>
   )
+}
+
+/**
+ * "Since 3 Feb 2026 — until 9 Aug 2026".
+ *
+ * Renders nothing without `labels.since`, so a screen that has no grant window
+ * to report (the per-user restriction screen) simply omits the wording rather
+ * than passing empty dates.
+ */
+function GrantWindow({ row, labels }: { row: ModuleAccessRow; labels: ModuleAccessLabels }) {
+  if (!labels.since || row.alwaysOn) return null
+  const started = formatGrantDate(row.startsAt)
+  if (!started) return null
+  const ended = labels.until ? formatGrantDate(row.endsAt) : null
+  return (
+    <div className="shrink-0 text-xs text-muted-foreground sm:text-right">
+      <span>{labels.since(started)}</span>
+      {ended ? <span className="ml-2">{labels.until!(ended)}</span> : null}
+    </div>
+  )
+}
+
+/** Locale-aware short date; `null` for anything unparseable, so the row degrades to no window. */
+function formatGrantDate(value: string | null | undefined): string | null {
+  if (!value) return null
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+/**
+ * Groups rows under their category heading, preserving the order the server
+ * sent — the service already sorts by category, rank and title, and re-sorting
+ * here would let the two disagree.
+ */
+function groupRowsByCategory(rows: ModuleAccessRow[]): Array<{ category: string; rows: ModuleAccessRow[] }> {
+  const groups: Array<{ category: string; rows: ModuleAccessRow[] }> = []
+  const byCategory = new Map<string, ModuleAccessRow[]>()
+  for (const row of rows) {
+    const category = row.category && row.category.length ? row.category : ''
+    let bucket = byCategory.get(category)
+    if (!bucket) {
+      bucket = []
+      byCategory.set(category, bucket)
+      groups.push({ category, rows: bucket })
+    }
+    bucket.push(row)
+  }
+  return groups
 }

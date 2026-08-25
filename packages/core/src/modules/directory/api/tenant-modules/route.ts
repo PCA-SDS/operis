@@ -19,10 +19,17 @@ export const metadata = {
 
 const listQuerySchema = z.object({ tenantId: z.string().uuid() })
 
+/**
+ * `target` selects which switch the write moves: the module grant itself, or
+ * the module's AI assistant sub-toggle. One endpoint rather than two so the
+ * screen has a single write path, but two commands behind it so the audit log
+ * can tell a withheld module from a withheld assistant.
+ */
 const updateBodySchema = z.object({
   tenantId: z.string().uuid(),
   moduleId: z.string().min(1),
   isEnabled: z.boolean(),
+  target: z.enum(['module', 'aiAssistant']).default('module'),
 })
 
 const tenantModuleSchema = z.object({
@@ -30,8 +37,15 @@ const tenantModuleSchema = z.object({
   title: z.string(),
   description: z.string().nullable(),
   isEnabled: z.boolean(),
+  category: z.string(),
+  sortOrder: z.number(),
+  alwaysOn: z.boolean(),
   missingDependencies: z.array(z.string()),
   dependents: z.array(z.string()),
+  startsAt: z.string().nullable(),
+  endsAt: z.string().nullable(),
+  aiAssistantAvailable: z.boolean(),
+  aiAssistantEnabled: z.boolean(),
 })
 
 const listResponseSchema = z.object({
@@ -107,7 +121,11 @@ export async function PUT(req: Request) {
       organizationIds: null,
       request: req,
     }
-    await commandBus.execute('directory.tenant_modules.set', { input: parsed.data, ctx })
+    const { target, ...input } = parsed.data
+    const commandId = target === 'aiAssistant'
+      ? 'directory.tenant_modules.set_ai'
+      : 'directory.tenant_modules.set'
+    await commandBus.execute(commandId, { input, ctx })
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (isCrudHttpError(err)) return NextResponse.json(err.body, { status: err.status })

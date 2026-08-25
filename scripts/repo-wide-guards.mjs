@@ -61,6 +61,10 @@ export const REPO_WIDE_GUARDS = [
         scans: 'every module index.ts across packages/ and apps/ — the shipped default-entitlement plan and its dependency closure',
       },
       {
+        path: 'src/__tests__/module-ai-assistant-declaration.test.ts',
+        scans: 'every module across packages/ and apps/ — ModuleInfo.aiAssistant against the ai-tools/ai-agents files it claims',
+      },
+      {
         path: 'src/__tests__/alert-duplicate-icon-coverage.test.ts',
         scans: 'every packages/*/src root — duplicated alert icons',
       },

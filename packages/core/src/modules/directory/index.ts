@@ -7,4 +7,5 @@ export const metadata: ModuleInfo = {
   description: 'Multi-tenant directory with tenants and organizations.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  category: 'Administrative',
 }

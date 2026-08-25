@@ -15,4 +15,5 @@ export const metadata: ModuleInfo = {
   title: 'Scheduler',
   description: 'Database-managed scheduled jobs with admin UI',
   version: '0.1.0',
+  category: 'Administrative',
 }

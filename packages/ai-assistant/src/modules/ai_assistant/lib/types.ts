@@ -14,6 +14,12 @@ export interface McpToolContext {
   isSuperAdmin: boolean
   /** API key secret for authenticating HTTP requests to internal APIs */
   apiKeySecret?: string
+  /**
+   * Modules whose AI assistant this tenant has switched off. Populated per
+   * request by `resolveAiDisabledModuleIds`; absent means "not resolved", which
+   * every consumer treats as no restriction.
+   */
+  aiDisabledModuleIds?: ReadonlySet<string>
   /** Session token for memory layer (deduplication of search/GET calls) */
   sessionId?: string
   /** Pending action that the operator explicitly confirmed before this handler invocation. */
@@ -191,6 +197,9 @@ export interface McpToolRegistry {
   listToolNames(): string[]
 
   listToolsByModule(moduleId: string): string[]
+
+  /** The module a tool was registered from; `undefined` for module-less built-ins. */
+  getModuleIdForTool(name: string): string | undefined
 }
 
 /**

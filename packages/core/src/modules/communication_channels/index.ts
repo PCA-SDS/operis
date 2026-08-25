@@ -4,6 +4,7 @@ export const metadata = {
   description:
     'Unified hub bridging external chat/email channels (Slack, WhatsApp, Email) to the Messages module. Adapter contract, channel-native payload storage, reactions, and per-channel threading.',
   defaultEntitlement: 'enabled' as const,
+  category: 'Communication' as const,
 }
 
 export default metadata

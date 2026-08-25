@@ -10,6 +10,7 @@ export const metadata: ModuleInfo = {
   requires: ['planner', 'resources'],
   ejectable: true,
   defaultEntitlement: 'enabled',
+  category: 'Operations',
 }
 
 export { features } from './acl'
