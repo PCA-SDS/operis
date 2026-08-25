@@ -32,9 +32,17 @@ export function shouldRetryQuery(failureCount: number, error: unknown): boolean 
 }
 
 export function buildDefaultQueryOptions() {
+  // Default ON. With staleTime 0 (the react-query default) every mounted query
+  // is stale the instant it settles, so `refetchOnWindowFocus` — also on by
+  // default — refetched *everything* on every alt-tab, and every client-side
+  // navigation back to a page refetched the whole screen. The cache had no hit
+  // rate at all beyond in-render dedup. A 30 s window keeps focus refetching
+  // useful (you still get fresh data when you come back to a tab you left) while
+  // collapsing the storm. Set NEXT_PUBLIC_OM_QUERY_DEFAULT_STALE_TIME_ENABLED=0
+  // to restore the always-stale behavior.
   const enableDefaultStaleTime = parseBooleanWithDefault(
     process.env.NEXT_PUBLIC_OM_QUERY_DEFAULT_STALE_TIME_ENABLED,
-    false,
+    true,
   )
   return {
     retry: shouldRetryQuery,

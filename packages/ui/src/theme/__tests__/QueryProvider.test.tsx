@@ -27,7 +27,14 @@ describe('QueryProvider defaults', () => {
     expect(shouldRetryQuery(2, { status: 503 })).toBe(false)
   })
 
-  it('gates the shared staleTime default behind the public env flag', () => {
+  it('applies the shared staleTime default when the env flag is unset', () => {
+    // Regression: the flag defaulted to false, so every deployment shipped
+    // staleTime 0 and alt-tabbing refetched every mounted query.
+    delete process.env.NEXT_PUBLIC_OM_QUERY_DEFAULT_STALE_TIME_ENABLED
+    expect(buildDefaultQueryOptions().staleTime).toBe(DEFAULT_QUERY_STALE_TIME_MS)
+  })
+
+  it('lets the public env flag opt back out of the staleTime default', () => {
     process.env.NEXT_PUBLIC_OM_QUERY_DEFAULT_STALE_TIME_ENABLED = '0'
     expect(buildDefaultQueryOptions().staleTime).toBeUndefined()
 
