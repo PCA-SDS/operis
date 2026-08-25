@@ -69,6 +69,9 @@ type RegistryModule = {
     description?: string
     requires?: string[]
     defaultEntitlement?: 'enabled' | 'disabled'
+    category?: string
+    sortOrder?: number
+    aiAssistant?: boolean
   }
 }
 
@@ -93,7 +96,16 @@ export type EntitleableModule = {
   requires: string[]
   /** Whether a newly provisioned tenant receives this module switched on. */
   defaultEntitlement: 'enabled' | 'disabled'
+  /** Presentational grouping for the entitlement screens. */
+  category: string
+  /** Rank within the category; ties broken by title. */
+  sortOrder: number
+  /** Whether the module ships an in-app AI assistant the tenant can be given. */
+  aiAssistantAvailable: boolean
 }
+
+/** Modules with no declared category fall here, rendered last. */
+export const UNCATEGORISED_MODULE_GROUP = 'Other'
 
 /**
  * The entitlement catalog: one entry per governed module with the display
@@ -116,7 +128,47 @@ export function listEntitleableModules(): EntitleableModule[] {
         ? Array.from(new Set(mod.info!.requires.filter((dep): dep is string => typeof dep === 'string' && isEntitleableModule(dep))))
         : [],
       defaultEntitlement: resolveDefaultEntitlement(mod),
+      category: typeof mod.info?.category === 'string' && mod.info.category.length
+        ? mod.info.category
+        : UNCATEGORISED_MODULE_GROUP,
+      sortOrder: Number.isFinite(mod.info?.sortOrder) ? Number(mod.info!.sortOrder) : 0,
+      aiAssistantAvailable: mod.info?.aiAssistant === true,
     }))
+}
+
+/**
+ * Every registered module an operator should see on the entitlement screen,
+ * including the platform ones.
+ *
+ * `listEntitleableModules` deliberately omits platform modules — nothing can be
+ * decided about them. But omitting them from the *screen* is a different
+ * question: an operator looking for "Users" and not finding it cannot tell
+ * whether it is missing or simply not theirs to control. Platform rows are
+ * therefore returned with `alwaysOn: true`, rendered as a locked "Core" row.
+ */
+export type ModuleCatalogEntry = EntitleableModule & { alwaysOn: boolean }
+
+export function listModuleCatalog(): ModuleCatalogEntry[] {
+  const entitleable = new Map(listEntitleableModules().map((mod) => [mod.moduleId, mod]))
+  return readRegistry().map((mod) => {
+    const governed = entitleable.get(mod.id)
+    if (governed) return { ...governed, alwaysOn: false }
+    return {
+      moduleId: mod.id,
+      title: typeof mod.info?.title === 'string' && mod.info.title.length ? mod.info.title : mod.id,
+      description: typeof mod.info?.description === 'string' && mod.info.description.length
+        ? mod.info.description
+        : null,
+      requires: [],
+      defaultEntitlement: 'enabled' as const,
+      category: typeof mod.info?.category === 'string' && mod.info.category.length
+        ? mod.info.category
+        : UNCATEGORISED_MODULE_GROUP,
+      sortOrder: Number.isFinite(mod.info?.sortOrder) ? Number(mod.info!.sortOrder) : 0,
+      aiAssistantAvailable: mod.info?.aiAssistant === true,
+      alwaysOn: true,
+    }
+  })
 }
 
 /**
@@ -130,6 +182,24 @@ export function listEntitleableModules(): EntitleableModule[] {
  */
 function resolveDefaultEntitlement(mod: RegistryModule): 'enabled' | 'disabled' {
   return mod.info?.defaultEntitlement === 'enabled' ? 'enabled' : 'disabled'
+}
+
+/**
+ * Screen order: category, then the module's declared rank, then title.
+ *
+ * `Other` sinks to the bottom so an unannotated module is visibly unfiled
+ * rather than sorted into the middle of a real group.
+ */
+function compareModuleRows(
+  left: { category: string; sortOrder: number; title: string },
+  right: { category: string; sortOrder: number; title: string },
+): number {
+  const leftLast = left.category === UNCATEGORISED_MODULE_GROUP ? 1 : 0
+  const rightLast = right.category === UNCATEGORISED_MODULE_GROUP ? 1 : 0
+  if (leftLast !== rightLast) return leftLast - rightLast
+  if (left.category !== right.category) return left.category.localeCompare(right.category)
+  if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
+  return left.title.localeCompare(right.title)
 }
 
 /** Module ids the shipped plan switches on for a newly provisioned tenant. */
@@ -186,10 +256,23 @@ export type TenantModuleState = {
   title: string
   description: string | null
   isEnabled: boolean
+  /** Presentational grouping; `Other` when the module declares no category. */
+  category: string
+  sortOrder: number
+  /** Platform module — always provided, never toggleable. */
+  alwaysOn: boolean
   /** Hard dependencies the operator has not enabled — the module stays unreachable until they are. */
   missingDependencies: string[]
   /** Enabled modules that would become unreachable if this one were switched off. */
   dependents: string[]
+  /** When the tenant most recently gained the module, ISO-8601; null when never granted. */
+  startsAt: string | null
+  /** When the tenant last lost it, ISO-8601; null while the grant stands. */
+  endsAt: string | null
+  /** Whether the module ships an in-app AI assistant at all. */
+  aiAssistantAvailable: boolean
+  /** Whether that assistant is switched on for this tenant. */
+  aiAssistantEnabled: boolean
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -309,13 +392,15 @@ export class TenantModuleService {
   async listTenantModules(tenantId: string): Promise<TenantModuleState[]> {
     const em = this.em.fork()
     const rows = await em.find(TenantModule, { tenant: tenantId, deletedAt: null } as never, {})
-    const byModuleId = new Map<string, boolean>()
-    for (const row of Array.isArray(rows) ? rows : []) {
-      byModuleId.set(row.moduleId, !!row.isEnabled)
-    }
-    const catalog = listEntitleableModules()
+    const rowByModuleId = new Map<string, TenantModule>()
+    for (const row of Array.isArray(rows) ? rows : []) rowByModuleId.set(row.moduleId, row)
+
+    const catalog = listModuleCatalog()
     const storedEnabled = new Set(
-      catalog.map((mod) => mod.moduleId).filter((moduleId) => byModuleId.get(moduleId) ?? false),
+      catalog
+        .filter((mod) => !mod.alwaysOn)
+        .map((mod) => mod.moduleId)
+        .filter((moduleId) => rowByModuleId.get(moduleId)?.isEnabled ?? false),
     )
     const dependentsOf = new Map<string, string[]>()
     for (const mod of catalog) {
@@ -324,16 +409,96 @@ export class TenantModuleService {
         dependentsOf.set(dep, [...(dependentsOf.get(dep) ?? []), mod.moduleId])
       }
     }
-    return catalog.map((mod) => ({
-      moduleId: mod.moduleId,
-      title: mod.title,
-      description: mod.description,
-      isEnabled: storedEnabled.has(mod.moduleId),
-      missingDependencies: storedEnabled.has(mod.moduleId)
-        ? mod.requires.filter((dep) => !storedEnabled.has(dep))
-        : [],
-      dependents: dependentsOf.get(mod.moduleId) ?? [],
-    }))
+
+    const toIso = (value: Date | null | undefined): string | null => (
+      value instanceof Date && !Number.isNaN(value.getTime()) ? value.toISOString() : null
+    )
+
+    return catalog
+      .map((mod) => {
+        const row = rowByModuleId.get(mod.moduleId)
+        const isEnabled = mod.alwaysOn || storedEnabled.has(mod.moduleId)
+        return {
+          moduleId: mod.moduleId,
+          title: mod.title,
+          description: mod.description,
+          isEnabled,
+          category: mod.category,
+          sortOrder: mod.sortOrder,
+          alwaysOn: mod.alwaysOn,
+          missingDependencies: !mod.alwaysOn && storedEnabled.has(mod.moduleId)
+            ? mod.requires.filter((dep) => !storedEnabled.has(dep))
+            : [],
+          dependents: dependentsOf.get(mod.moduleId) ?? [],
+          // A platform module is provided by the deployment, not granted, so it
+          // has no grant window to report.
+          startsAt: mod.alwaysOn ? null : toIso(row?.startsAt),
+          endsAt: mod.alwaysOn ? null : toIso(row?.endsAt),
+          aiAssistantAvailable: mod.aiAssistantAvailable,
+          aiAssistantEnabled: !mod.alwaysOn && isEnabled && (row?.aiAssistantEnabled ?? false),
+        }
+      })
+      .sort(compareModuleRows)
+  }
+
+  /**
+   * Sets the module's AI assistant for a tenant.
+   *
+   * Refuses when the module ships no assistant, or when the tenant does not
+   * hold the module — a sub-toggle above a revoked grant would be a switch with
+   * nothing behind it, and re-enabling the module later would silently restore
+   * an AI state nobody chose.
+   */
+  async setModuleAiEnabled(tenantId: string, moduleId: string, isEnabled: boolean): Promise<void> {
+    const entry = listModuleCatalog().find((mod) => mod.moduleId === moduleId)
+    if (!entry || entry.alwaysOn || !entry.aiAssistantAvailable) {
+      throw new Error(`[internal] ${moduleId} does not provide an AI assistant that can be entitled`)
+    }
+    const em = this.em.fork()
+    const row = await em.findOne(TenantModule, { tenant: tenantId, moduleId } as never)
+    if (!row || !row.isEnabled || row.deletedAt) {
+      throw new Error(`[internal] ${moduleId} is not enabled for tenant ${tenantId}`)
+    }
+    if (row.aiAssistantEnabled !== isEnabled) {
+      row.aiAssistantEnabled = isEnabled
+      row.updatedAt = new Date()
+      await em.persist(row).flush()
+    }
+    await this.invalidate(tenantId)
+  }
+
+  /**
+   * Module ids that ship an AI assistant the tenant has switched OFF.
+   *
+   * The shape the AI runtime needs, and the reason it is not derived from
+   * `listTenantModules`: that builds the full catalog and a dependency graph to
+   * answer a screen's questions, and this runs once per MCP request and per
+   * in-process client. Returning the disabled set rather than the enabled one
+   * keeps the caller's test a membership check, so a module the toggle knows
+   * nothing about — a built-in, a module with no assistant — stays available by
+   * default.
+   */
+  async getAiDisabledModuleIds(tenantId: string | null | undefined): Promise<string[]> {
+    if (!tenantId) return []
+    const aiCapable = listModuleCatalog()
+      .filter((mod) => !mod.alwaysOn && mod.aiAssistantAvailable)
+      .map((mod) => mod.moduleId)
+    if (!aiCapable.length) return []
+
+    const em = this.em.fork()
+    const rows = await em.find(
+      TenantModule,
+      { tenant: tenantId, moduleId: { $in: aiCapable }, deletedAt: null } as never,
+      {},
+    )
+    const enabled = new Set(
+      (Array.isArray(rows) ? rows : [])
+        .filter((row) => row.isEnabled && row.aiAssistantEnabled)
+        .map((row) => row.moduleId),
+    )
+    // A capable module with no row, or a row with the assistant off, is
+    // disabled — same fail-closed default the grant itself uses.
+    return aiCapable.filter((moduleId) => !enabled.has(moduleId))
   }
 
   /**
@@ -369,23 +534,50 @@ export class TenantModuleService {
     }
   }
 
-  /** Idempotently sets one module's entitlement for a tenant. */
+  /**
+   * Idempotently sets one module's entitlement for a tenant, recording the
+   * grant window.
+   *
+   * Revocation keeps the row and stamps `endsAt` rather than deleting it, so
+   * the history survives for billing, and forces the AI sub-toggle off — a
+   * module switched back on later must not silently resurrect AI access the
+   * operator never re-granted.
+   */
   async setModuleEnabled(tenantId: string, moduleId: string, isEnabled: boolean): Promise<void> {
     if (!isEntitleableModule(moduleId)) {
       throw new Error(`[internal] ${moduleId} is a platform module and cannot be entitled per tenant`)
     }
+    const now = new Date()
     const em = this.em.fork()
     const existing = await em.findOne(TenantModule, { tenant: tenantId, moduleId } as never)
     if (existing) {
-      if (existing.isEnabled !== isEnabled || existing.deletedAt) {
+      const alreadyInState = existing.isEnabled === isEnabled && !existing.deletedAt
+      if (!alreadyInState) {
         existing.isEnabled = isEnabled
         existing.deletedAt = null
+        existing.updatedAt = now
+        if (isEnabled) {
+          existing.startsAt = now
+          existing.endsAt = null
+        } else {
+          existing.endsAt = now
+          existing.aiAssistantEnabled = false
+        }
         await em.persist(existing).flush()
       }
     } else {
       const tenant = await em.findOne(Tenant, { id: tenantId })
       if (!tenant) throw new Error(`[internal] tenant ${tenantId} not found`)
-      em.persist(em.create(TenantModule, { tenant, moduleId, isEnabled, createdAt: new Date(), updatedAt: new Date() }))
+      em.persist(em.create(TenantModule, {
+        tenant,
+        moduleId,
+        isEnabled,
+        startsAt: isEnabled ? now : null,
+        endsAt: isEnabled ? null : now,
+        aiAssistantEnabled: false,
+        createdAt: now,
+        updatedAt: now,
+      }))
       await em.flush()
     }
     await this.invalidate(tenantId)
@@ -426,12 +618,17 @@ export class TenantModuleService {
         existing.push(moduleId)
         continue
       }
+      const enabled = plan.has(moduleId)
+      const stamp = new Date()
       em.persist(em.create(TenantModule, {
         tenant,
         moduleId,
-        isEnabled: plan.has(moduleId),
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        isEnabled: enabled,
+        startsAt: enabled ? stamp : null,
+        endsAt: null,
+        aiAssistantEnabled: false,
+        createdAt: stamp,
+        updatedAt: stamp,
       }))
       created.push(moduleId)
     }
@@ -478,9 +675,17 @@ export class TenantModuleService {
         unchanged.push(row.moduleId)
         continue
       }
+      const stamp = new Date()
       row.isEnabled = target
       row.deletedAt = null
-      row.updatedAt = new Date()
+      row.updatedAt = stamp
+      if (target) {
+        row.startsAt = stamp
+        row.endsAt = null
+      } else {
+        row.endsAt = stamp
+        row.aiAssistantEnabled = false
+      }
       em.persist(row)
       dirty = true
       ;(target ? enabled : disabled).push(row.moduleId)

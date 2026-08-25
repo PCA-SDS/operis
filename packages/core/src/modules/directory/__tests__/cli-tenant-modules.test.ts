@@ -30,7 +30,9 @@ const provisionTenant = jest.fn(async () => ({ created: [], existing: ['customer
 const applyDefaultPlan = jest.fn(async () => ({ enabled: ['tasks'], disabled: ['sales'], unchanged: [] }))
 const setModuleEnabled = jest.fn(async () => {})
 const listTenantModules = jest.fn(async () => [
-  { moduleId: 'customers', title: 'CRM', description: null, isEnabled: true, missingDependencies: [], dependents: [] },
+  { moduleId: 'customers', title: 'CRM', description: null, isEnabled: true, alwaysOn: false, missingDependencies: [], dependents: [] },
+  { moduleId: 'sales', title: 'Sales', description: null, isEnabled: false, alwaysOn: false, missingDependencies: [], dependents: [] },
+  { moduleId: 'auth', title: 'Auth', description: null, isEnabled: true, alwaysOn: true, missingDependencies: [], dependents: [] },
 ])
 
 const command = (name: string) => {
@@ -87,5 +89,17 @@ describe('directory entitlement CLI', () => {
 
     await command('list-tenant-modules').run(['--tenant', TENANT_ID])
     expect(listTenantModules).toHaveBeenCalledWith(TENANT_ID)
+  })
+
+  it('marks core rows distinctly and counts only the entitleable ones', async () => {
+    await command('list-tenant-modules').run(['--tenant', TENANT_ID])
+
+    const printed = logSpy.mock.calls.map((call) => String(call[0]))
+    // A plain tick on a core row would read as a decision the operator could
+    // reverse, and `set-tenant-module --module auth` refuses.
+    expect(printed).toContain('🔒 auth (core — always available)')
+    expect(printed).toContain('✅ customers')
+    expect(printed).toContain('⛔ sales')
+    expect(printed.some((line) => line.includes('1/2 entitleable modules enabled'))).toBe(true)
   })
 })
