@@ -339,43 +339,40 @@ function OptionDialog({
               </p>
             </div>
 
-            <div className="space-y-1.5 col-span-2 sm:col-span-1">
+            <div className="space-y-1.5 col-span-2">
               <Label>
                 <Banknote className="inline h-3 w-3 text-muted-foreground mr-1" />
                 {t('catalog.options.price', 'Price')}
               </Label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <Input
                   id="opt-price-flat"
                   type="number"
                   value={form.price_flat}
                   onChange={(e) => setForm((f) => ({ ...f, price_flat: e.target.value }))}
-                  placeholder="Fixed (e.g. 50000)"
+                  placeholder="Fixed"
                   title="Fixed Price"
                 />
-                <div className="flex gap-1 items-center">
-                  <Input
-                    id="opt-price-min"
-                    type="number"
-                    value={form.price_min}
-                    onChange={(e) => setForm((f) => ({ ...f, price_min: e.target.value }))}
-                    placeholder="Min"
-                    title="Min Range"
-                  />
-                  <span className="text-muted-foreground">-</span>
-                  <Input
-                    id="opt-price-max"
-                    type="number"
-                    value={form.price_max}
-                    onChange={(e) => setForm((f) => ({ ...f, price_max: e.target.value }))}
-                    placeholder="Max"
-                    title="Max Range"
-                  />
-                </div>
+                <Input
+                  id="opt-price-min"
+                  type="number"
+                  value={form.price_min}
+                  onChange={(e) => setForm((f) => ({ ...f, price_min: e.target.value }))}
+                  placeholder="Min"
+                  title="Min Range"
+                />
+                <Input
+                  id="opt-price-max"
+                  type="number"
+                  value={form.price_max}
+                  onChange={(e) => setForm((f) => ({ ...f, price_max: e.target.value }))}
+                  placeholder="Max"
+                  title="Max Range"
+                />
               </div>
             </div>
 
-            <div className="space-y-1.5 col-span-2 sm:col-span-1">
+            <div className="space-y-1.5 col-span-2">
               <Label>
                 <Clock className="inline h-3 w-3 text-muted-foreground mr-1" />
                 {t('catalog.options.duration', 'Duration')}
@@ -540,15 +537,15 @@ function OptionRow({
             {opt.code}
           </Badge>
         )}
-        {(opt.price_flat && Number(opt.price_flat) > 0) ? (
-          <Badge variant="secondary" className="text-xs gap-1">
-            <Banknote className="h-2.5 w-2.5" />
-            {Number(opt.price_flat).toLocaleString('vi-VN')}đ
-          </Badge>
-        ) : (opt.price_min && opt.price_max && Number(opt.price_max) > 0) ? (
+        {(opt.price_min && opt.price_max && Number(opt.price_max) > 0) ? (
           <Badge variant="secondary" className="text-xs gap-1">
             <Banknote className="h-2.5 w-2.5" />
             {Number(opt.price_min).toLocaleString('vi-VN')}đ – {Number(opt.price_max).toLocaleString('vi-VN')}đ
+          </Badge>
+        ) : (opt.price_flat && Number(opt.price_flat) > 0) ? (
+          <Badge variant="secondary" className="text-xs gap-1">
+            <Banknote className="h-2.5 w-2.5" />
+            {Number(opt.price_flat).toLocaleString('vi-VN')}đ
           </Badge>
         ) : null}
         {opt.duration_value && (
