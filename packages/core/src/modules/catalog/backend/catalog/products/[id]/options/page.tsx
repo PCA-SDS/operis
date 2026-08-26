@@ -63,6 +63,39 @@ type OptionFormValues = {
 
 // ─── Group Dialog ──────────────────────────────────────────────────────────────
 
+function OptionTreeSkeleton() {
+  return (
+    <div className="space-y-3">
+      {[1, 2].map((i) => (
+        <div key={i} className="rounded-lg border border-border bg-card shadow-sm">
+          {/* Group Header Skeleton */}
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50">
+            <div className="h-4 w-4 rounded bg-muted animate-pulse shrink-0" />
+            <div className="h-4 w-4 rounded bg-muted animate-pulse shrink-0" />
+            <div className="flex-1">
+              <div className="h-5 w-48 rounded bg-muted animate-pulse" />
+            </div>
+            <div className="h-7 w-24 rounded bg-muted animate-pulse shrink-0" />
+          </div>
+          
+          {/* Options List Skeleton */}
+          <div className="px-4 py-2 space-y-2">
+            {[1, 2, 3].map((j) => (
+              <div key={j} className="flex items-center gap-3 py-2 pl-6">
+                <div className="h-3 w-3 rounded bg-muted animate-pulse shrink-0" />
+                <div className="h-4 w-4 rounded bg-muted animate-pulse shrink-0" />
+                <div className="h-4 w-32 rounded bg-muted animate-pulse flex-1" />
+                <div className="h-5 w-16 rounded bg-muted animate-pulse shrink-0" />
+                <div className="h-5 w-16 rounded bg-muted animate-pulse shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function GroupDialog({
   open,
   onOpenChange,
@@ -70,7 +103,6 @@ function GroupDialog({
   productId,
   parentOptionId,
   onSave,
-  editId,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
@@ -78,7 +110,6 @@ function GroupDialog({
   productId: string
   parentOptionId?: string | null
   onSave: (group: GroupItem) => void
-  editId?: string | null
 }) {
   const t = useT()
   const [form, setForm] = useState<GroupFormValues>(
@@ -94,7 +125,7 @@ function GroupDialog({
   const handleSave = useCallback(() => {
     if (!form.name.trim()) return
     onSave({
-      id: editId || crypto.randomUUID(),
+      id: crypto.randomUUID(),
       product_id: productId,
       parent_option_id: parentOptionId ?? null,
       name: form.name,
@@ -106,7 +137,7 @@ function GroupDialog({
       metadata: null,
     } as GroupItem)
     onOpenChange(false)
-  }, [form, editId, productId, parentOptionId, onSave, onOpenChange])
+  }, [form, productId, parentOptionId, onSave, onOpenChange])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -114,9 +145,7 @@ function GroupDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-primary" />
-            {editId
-              ? t('catalog.options.editGroup', 'Edit Option Group')
-              : t('catalog.options.addGroup', 'Add Option Group')}
+            {t('catalog.options.addGroup', 'Add Option Group')}
           </DialogTitle>
         </DialogHeader>
 
@@ -402,7 +431,27 @@ function OptionRow({
   const t = useT()
   const subGroups = allGroups.filter((g: any) => g.parent_option_id === opt.id)
   const [expanded, setExpanded] = useState(true)
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [editNameValue, setEditNameValue] = useState(opt.name)
   const hasSubGroups = subGroups.length > 0
+
+  const handleRenameConfirm = () => {
+    if (editNameValue.trim() && editNameValue !== opt.name) {
+      onSaveOption({ ...opt, name: editNameValue.trim() })
+    } else {
+      setEditNameValue(opt.name)
+    }
+    setIsEditingName(false)
+  }
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleRenameConfirm()
+    } else if (e.key === 'Escape') {
+      setEditNameValue(opt.name)
+      setIsEditingName(false)
+    }
+  }
 
   return (
     <div className="group/opt">
@@ -423,7 +472,23 @@ function OptionRow({
           <div className="w-5 shrink-0" />
         )}
 
-        <span className="font-medium text-sm flex-1">{opt.name}</span>
+        {isEditingName ? (
+          <Input
+            autoFocus
+            value={editNameValue}
+            onChange={e => setEditNameValue(e.target.value)}
+            onBlur={handleRenameConfirm}
+            onKeyDown={handleRenameKeyDown}
+            className="h-7 text-sm py-1 flex-1 min-w-0"
+          />
+        ) : (
+          <span
+            className="font-medium text-sm flex-1 cursor-pointer hover:underline underline-offset-4 decoration-primary/50"
+            onClick={() => setIsEditingName(true)}
+          >
+            {opt.name}
+          </span>
+        )}
 
         {opt.code && (
           <Badge variant="outline" className="text-xs font-mono hidden group-hover/opt:inline-flex">
@@ -516,13 +581,32 @@ function GroupCard({
 }) {
   const t = useT()
   const [expanded, setExpanded] = useState(true)
-  const [editGroupOpen, setEditGroupOpen] = useState(false)
   const [addOptionOpen, setAddOptionOpen] = useState(false)
   const [editingOption, setEditingOption] = useState<OptionItem | null>(null)
   const [addSubGroupForOption, setAddSubGroupForOption] = useState<string | null>(null)
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [editNameValue, setEditNameValue] = useState(group.name)
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
 
   const groupOptions = allOptions.filter((o: any) => o.group_id === group.id)
+
+  const handleRenameConfirm = () => {
+    if (editNameValue.trim() && editNameValue !== group.name) {
+      onSaveGroup({ ...group, name: editNameValue.trim() })
+    } else {
+      setEditNameValue(group.name)
+    }
+    setIsEditingName(false)
+  }
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleRenameConfirm()
+    } else if (e.key === 'Escape') {
+      setEditNameValue(group.name)
+      setIsEditingName(false)
+    }
+  }
 
   const handleDeleteGroup = async () => {
     const ok = await confirm({
@@ -568,7 +652,23 @@ function GroupCard({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-sm">{group.name}</span>
+            {isEditingName ? (
+              <Input
+                autoFocus
+                value={editNameValue}
+                onChange={e => setEditNameValue(e.target.value)}
+                onBlur={handleRenameConfirm}
+                onKeyDown={handleRenameKeyDown}
+                className="h-7 text-sm py-1 w-48"
+              />
+            ) : (
+              <span
+                className="font-semibold text-sm cursor-pointer hover:underline underline-offset-4 decoration-primary/50"
+                onClick={() => setIsEditingName(true)}
+              >
+                {group.name}
+              </span>
+            )}
             <Badge variant={requirementColor} className="text-xs capitalize">
               {group.requirement}
             </Badge>
@@ -593,13 +693,6 @@ function GroupCard({
             <Plus className="h-3.5 w-3.5" />
             {t('catalog.options.addOption', 'Add option')}
           </Button>
-          <button
-            type="button"
-            onClick={() => setEditGroupOpen(true)}
-            className="p-1.5 rounded hover:bg-muted text-muted-foreground transition-colors"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
           <button
             type="button"
             onClick={handleDeleteGroup}
@@ -650,20 +743,6 @@ function GroupCard({
 
       {/* Dialogs */}
       {ConfirmDialogElement}
-
-      <GroupDialog
-        open={editGroupOpen}
-        onOpenChange={setEditGroupOpen}
-        editId={group.id}
-        productId={productId}
-        initialValues={{
-          name: group.name,
-          description: (group as any).description ?? '',
-          requirement: group.requirement as 'required' | 'optional',
-          select_mode: group.select_mode as 'single' | 'multiple',
-        }}
-        onSave={onSaveGroup}
-      />
 
       <OptionDialog
         open={addOptionOpen}
@@ -914,19 +993,19 @@ export default function ProductOptionsPage({
 
           {/* Content */}
           {loading ? (
-            <div className="flex h-40 items-center justify-center">
-              <Spinner />
-            </div>
+            <OptionTreeSkeleton />
           ) : rootGroups.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-4 py-16 border-2 border-dashed rounded-xl text-muted-foreground">
-              <Layers className="h-10 w-10 opacity-30" />
-              <div className="text-center">
-                <p className="font-medium">{t('catalog.options.noGroups', 'No option groups yet')}</p>
-                <p className="text-sm mt-1">{t('catalog.options.noGroupsHint', 'Click "Add Group" to build your decision tree')}</p>
+            <div className="flex flex-col items-center justify-center gap-4 py-16 border-2 border-dashed rounded-xl bg-card text-muted-foreground shadow-sm">
+              <div className="p-4 rounded-full bg-primary/10">
+                <FolderTree className="h-12 w-12 text-primary/80" />
               </div>
-              <Button variant="outline" onClick={() => setAddGroupOpen(true)} className="gap-2">
+              <div className="text-center max-w-sm">
+                <h3 className="font-semibold text-lg text-foreground">{t('catalog.options.noGroups', 'No options configured yet')}</h3>
+                <p className="text-sm mt-1">{t('catalog.options.noGroupsHint', 'Add option groups to let customers choose service variants.')}</p>
+              </div>
+              <Button onClick={() => setAddGroupOpen(true)} className="gap-2 mt-2">
                 <Plus className="h-4 w-4" />
-                {t('catalog.options.addGroup', 'Add Group')}
+                {t('catalog.options.addFirstGroup', 'Add first group')}
               </Button>
             </div>
           ) : (
