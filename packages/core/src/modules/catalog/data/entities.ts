@@ -282,6 +282,9 @@ export class CatalogProduct {
 
   @OneToMany(() => CatalogProductUnitConversion, (conversion) => conversion.product)
   unitConversions = new Collection<CatalogProductUnitConversion>(this)
+
+  @OneToMany(() => CatalogProductOptionGroup, (group) => group.product)
+  optionGroups = new Collection<CatalogProductOptionGroup>(this)
 }
 
 @Entity({ tableName: 'catalog_product_unit_conversions' })
@@ -862,4 +865,143 @@ export class CatalogProductPrice {
 
   @Property({ name: 'updated_at', type: Date, onUpdate: () => new Date() })
   updatedAt: Date = new Date()
+}
+
+@Entity({ tableName: 'catalog_product_option_groups' })
+@Index({ name: 'catalog_product_option_groups_product_idx', properties: ['product', 'tenantId', 'sortOrder'] })
+export class CatalogProductOptionGroup {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'sortOrder' | 'isActive' | 'requirement' | 'selectMode'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @ManyToOne(() => CatalogProduct, { fieldName: 'product_id', deleteRule: 'cascade' })
+  product!: CatalogProduct
+
+  // Null = root group; non-null = sub-group sau khi chọn option cha
+  @ManyToOne(() => CatalogProductOption, {
+    fieldName: 'parent_option_id',
+    nullable: true,
+    deleteRule: 'cascade',
+  })
+  parentOption?: CatalogProductOption | null
+
+  @Property({ type: 'text' })
+  name!: string
+
+  @Property({ type: 'text', nullable: true })
+  description?: string | null
+
+  @Property({ type: 'text', default: 'required' })
+  requirement: 'required' | 'optional' = 'required'
+
+  @Property({ name: 'select_mode', type: 'text', default: 'single' })
+  selectMode: 'single' | 'multiple' = 'single'
+
+  @Property({ name: 'sort_order', type: 'integer', default: 0 })
+  sortOrder: number = 0
+
+  @Property({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean = true
+
+  @Property({ name: 'metadata', type: 'jsonb', nullable: true })
+  metadata?: Record<string, unknown> | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+
+  @OneToMany(() => CatalogProductOption, (opt) => opt.group)
+  options = new Collection<CatalogProductOption>(this)
+}
+
+@Entity({ tableName: 'catalog_product_options' })
+@Index({ name: 'catalog_product_options_group_idx', properties: ['group', 'sortOrder'] })
+@Unique({ name: 'catalog_product_options_code_scope_unique', properties: ['tenantId', 'organizationId', 'group', 'code'] })
+export class CatalogProductOption {
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'sortOrder' | 'isActive' | 'isAddon'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @ManyToOne(() => CatalogProductOptionGroup, { fieldName: 'group_id', deleteRule: 'cascade' })
+  group!: CatalogProductOptionGroup
+
+  @Property({ type: 'text', nullable: true })
+  code?: string | null  // stable slug dùng cho i18n key / API ref
+
+  @Property({ type: 'text' })
+  name!: string
+
+  @Property({ type: 'text', nullable: true })
+  description?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  note?: string | null  // badge/annotation ngắn
+
+  @Property({ type: 'text', nullable: true })
+  unit?: string | null
+
+  @Property({ name: 'price_flat', type: 'numeric', precision: 15, scale: 2, nullable: true })
+  priceFlat?: string | null
+
+  @Property({ name: 'price_min', type: 'numeric', precision: 15, scale: 2, nullable: true })
+  priceMin?: string | null
+
+  @Property({ name: 'price_max', type: 'numeric', precision: 15, scale: 2, nullable: true })
+  priceMax?: string | null
+
+  @Property({ name: 'duration_value', type: 'integer', nullable: true })
+  durationValue?: number | null
+
+  @Property({ name: 'duration_unit', type: 'text', nullable: true })
+  durationUnit?: string | null
+
+  @Property({ name: 'duration_min', type: 'integer', nullable: true })
+  durationMin?: number | null
+
+  @Property({ name: 'duration_max', type: 'integer', nullable: true })
+  durationMax?: number | null
+
+  @Property({ name: 'is_addon', type: 'boolean', default: false })
+  isAddon: boolean = false
+
+  @Property({ name: 'sort_order', type: 'integer', default: 0 })
+  sortOrder: number = 0
+
+  @Property({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean = true
+
+  @Property({ name: 'metadata', type: 'jsonb', nullable: true })
+  metadata?: Record<string, unknown> | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+
+  // Sub-groups xuất hiện sau khi option này được chọn
+  @OneToMany(() => CatalogProductOptionGroup, (g) => g.parentOption)
+  nextGroups = new Collection<CatalogProductOptionGroup>(this)
 }

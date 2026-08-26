@@ -89,3 +89,46 @@ export type CatalogPricingScope = {
 export const CATALOG_PRICE_DISPLAY_MODES = ['including-tax', 'excluding-tax'] as const
 
 export type CatalogPriceDisplayMode = (typeof CATALOG_PRICE_DISPLAY_MODES)[number]
+
+export type CatalogOptionRequirement = 'required' | 'optional'
+
+export type CatalogOptionSelectMode = 'single' | 'multiple'
+
+export type CatalogOptionGroupItem = {
+  id: string
+  product_id: string
+  parent_option_id: string | null
+  name: string
+  description: string | null
+  requirement: string
+  select_mode: string
+  sort_order: number
+  is_active: boolean
+  metadata: Record<string, unknown> | null
+}
+
+export type CatalogOptionItem = {
+  id: string
+  group_id: string
+  code: string | null
+  name: string
+  description: string | null
+  note: string | null
+  unit: string | null
+  price_flat: string | null
+  price_min: string | null
+  price_max: string | null
+  duration_value: number | null
+  duration_unit: string | null
+  duration_min: number | null
+  duration_max: number | null
+  is_addon: boolean
+  sort_order: number
+  is_active: boolean
+  metadata: Record<string, unknown> | null
+}
+
+export type CatalogOptionTreeData = {
+  groups: CatalogOptionGroupItem[]
+  options: CatalogOptionItem[]
+}

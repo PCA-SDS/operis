@@ -11,6 +11,8 @@ import {
   CatalogProductVariant,
   CatalogProductPrice,
   CatalogPriceKind,
+  CatalogProductOptionGroup,
+  CatalogProductOption,
 } from '../data/entities'
 import { randomUUID } from 'crypto'
 import { createLogger } from '@open-mercato/shared/lib/logger'
@@ -84,6 +86,57 @@ type OptionPath = {
   totalPrice: Price | undefined
   names: string[]
   durations: string[]
+}
+
+function traverseOptionTree(
+  em: EntityManager,
+  groups: any[],
+  product: CatalogProduct,
+  tenantId: string,
+  organizationId: string,
+  parentOption: CatalogProductOption | null = null
+) {
+  let sortOrderGroup = 0
+  for (const group of groups) {
+    const groupEntity = em.create(CatalogProductOptionGroup, {
+      id: randomUUID(),
+      tenantId,
+      organizationId,
+      product: product,
+      parentOption: parentOption,
+      name: group.label,
+      requirement: group.selection === 'single' ? 'required' : 'optional', // Guess based on common patterns
+      selectMode: group.selection === 'multiple' ? 'multiple' : 'single',
+      sortOrder: sortOrderGroup++,
+      isActive: true,
+    })
+    em.persist(groupEntity)
+
+    let sortOrderOption = 0
+    for (const opt of group.options) {
+      const parsedPrice = parsePrice(opt.price)
+      const duration = extractDuration(opt)
+      
+      const optionEntity = em.create(CatalogProductOption, {
+        id: randomUUID(),
+        tenantId,
+        organizationId,
+        group: groupEntity,
+        name: opt.name,
+        priceFlat: parsedPrice.unitPriceGross || undefined,
+        durationUnit: duration ? 'minute' : undefined, // Simplify duration parsing
+        durationValue: duration ? parseInt(duration) : undefined,
+        sortOrder: sortOrderOption++,
+        isActive: true,
+        metadata: parsedPrice.metadata,
+      })
+      em.persist(optionEntity)
+
+      if (opt.nextGroups && opt.nextGroups.length > 0) {
+        traverseOptionTree(em, opt.nextGroups, product, tenantId, organizationId, optionEntity)
+      }
+    }
+  }
 }
 
 function collectAllGroups(groups: any[], schemaGroups: Map<string, Set<string>>) {
@@ -204,6 +257,8 @@ export const migrateTpsProductsCommand: ModuleCli = {
     await em.nativeDelete(CatalogProductPrice, { tenantId })
     await em.nativeDelete(CatalogProductCategoryAssignment, { tenantId })
     await em.nativeDelete(CatalogProductVariant, { tenantId })
+    await em.nativeDelete(CatalogProductOption, { tenantId })
+    await em.nativeDelete(CatalogProductOptionGroup, { tenantId })
     await em.nativeDelete(CatalogOptionSchemaTemplate, { tenantId })
     await em.nativeDelete(CatalogProduct, { tenantId })
     
@@ -239,10 +294,18 @@ export const migrateTpsProductsCommand: ModuleCli = {
       for (const category of rootCat.categories) {
         for (const item of category.items) {
           const isConfigurable = (item.optionGroups?.length ?? 0) > 0
-          
+
+          // Detect if this item uses a nested decision-tree (nextGroups present at any level)
+          // If so, treat it as a service using the Option Tree, not Variants
+          function hasNestedTree(groups: any[]): boolean {
+            return groups.some(g => g.options?.some((o: any) => o.nextGroups?.length > 0))
+          }
+          const isNestedTree = isConfigurable && hasNestedTree(item.optionGroups ?? [])
+
           let mappedType: CatalogProductType = 'simple'
           if (category.type === 'service') mappedType = 'virtual'
           else if (category.type === 'package') mappedType = 'bundle'
+          else if (isNestedTree) mappedType = 'virtual' // Treat nested-tree items as services
 
           const finalProductType = isConfigurable ? 'configurable' : mappedType
 
@@ -288,7 +351,10 @@ export const migrateTpsProductsCommand: ModuleCli = {
             em.persist(assignment)
           }
 
-          if (isConfigurable && item.optionGroups) {
+          const isServiceOrBundle = mappedType === 'virtual' || mappedType === 'bundle'
+
+          if (isConfigurable && !isServiceOrBundle && item.optionGroups) {
+            // Retail configurable product (uses Variants)
             const optionSchema = em.create(CatalogOptionSchemaTemplate, {
               id: randomUUID(),
               tenantId,
@@ -340,7 +406,16 @@ export const migrateTpsProductsCommand: ModuleCli = {
               variantCount++
               isFirst = false
             }
+          } else if (isServiceOrBundle) {
+            // Service or Package (uses Option Tree + 1 Default Variant)
+            createVariantForOption(em, product, defaultPriceKind!, tenantId, organizationId, `${category.label} ${item.name}`, {}, item.price, 'Default', true, [])
+            variantCount++
+            
+            if (isConfigurable && item.optionGroups) {
+              traverseOptionTree(em, item.optionGroups, product, tenantId, organizationId)
+            }
           } else {
+            // Simple product (uses 1 Default Variant)
             createVariantForOption(em, product, defaultPriceKind!, tenantId, organizationId, `${category.label} ${item.name}`, {}, item.price, 'Default', true, [])
             variantCount++
           }
