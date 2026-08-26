@@ -333,7 +333,11 @@ export function DictionaryEntriesEditor({ dictionaryId, dictionaryName, readOnly
               fallback={<span className="text-sm text-muted-foreground">{t('dictionaries.config.entries.appearance.none', 'None')}</span>}
             />
           </TableCell>
-          <TableCell className="flex items-center gap-2">
+          {/* The flex lives on an inner box, never on the <td>: `display: flex` on a
+              table cell drops it out of the table's column model, so it stops
+              tracking the width of the header above it. */}
+          <TableCell align="right">
+            <div className="flex items-center justify-end gap-2">
             {readOnly ? (
               <span className="text-xs text-muted-foreground">
                 {t('dictionaries.config.entries.readOnlyActions', 'Managed in parent organization')}
@@ -368,6 +372,7 @@ export function DictionaryEntriesEditor({ dictionaryId, dictionaryName, readOnly
                 </Button>
               </>
             )}
+            </div>
           </TableCell>
       </TableRow>
       ))
@@ -410,13 +415,13 @@ export function DictionaryEntriesEditor({ dictionaryId, dictionaryName, readOnly
       </div>
 
       <div className="overflow-hidden rounded-md border">
-        <Table>
+        <Table density="compact">
           <TableHeader>
             <TableRow>
               <TableHead className="w-48">{t('dictionaries.config.entries.columns.value', 'Value')}</TableHead>
               <TableHead className="w-48">{t('dictionaries.config.entries.columns.label', 'Label')}</TableHead>
               <TableHead>{t('dictionaries.config.entries.columns.appearance', 'Appearance')}</TableHead>
-              <TableHead className="w-32 text-right">{t('dictionaries.config.entries.columns.actions', 'Actions')}</TableHead>
+              <TableHead align="right" className="w-32">{t('dictionaries.config.entries.columns.actions', 'Actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>{tableContent}</TableBody>

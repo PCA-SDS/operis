@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@open-mercato/ui/primi
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { LogList, type LogListEntry } from '@open-mercato/ui/backend/LogList'
 import { CreditCard, HandCoins, RefreshCw, Webhook } from 'lucide-react'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 type TransactionRow = {
   id: string
@@ -588,30 +589,30 @@ export default function PaymentTransactionsPage() {
                         </div>
                         {detail.transaction.webhookLog && detail.transaction.webhookLog.length > 0 ? (
                           <div className="overflow-hidden rounded-lg border">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b bg-muted/50">
-                                  <th className="px-4 py-2 text-left font-medium">{t('payment_gateways.transactions.columns.eventType', 'Event')}</th>
-                                  <th className="px-4 py-2 text-left font-medium">{t('payment_gateways.transactions.columns.status', 'Status')}</th>
-                                  <th className="px-4 py-2 text-left font-medium">{t('payment_gateways.transactions.columns.processed', 'Processed')}</th>
-                                  <th className="px-4 py-2 text-left font-medium">{t('payment_gateways.transactions.columns.receivedAt', 'Received')}</th>
-                                </tr>
-                              </thead>
-                              <tbody>
+                            <Table density="compact">
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>{t('payment_gateways.transactions.columns.eventType', 'Event')}</TableHead>
+                                  <TableHead>{t('payment_gateways.transactions.columns.status', 'Status')}</TableHead>
+                                  <TableHead>{t('payment_gateways.transactions.columns.processed', 'Processed')}</TableHead>
+                                  <TableHead>{t('payment_gateways.transactions.columns.receivedAt', 'Received')}</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
                                 {detail.transaction.webhookLog.map((entry) => (
-                                  <tr key={`${entry.idempotencyKey}:${entry.receivedAt}`} className="border-b last:border-0">
-                                    <td className="px-4 py-2 font-medium">{entry.eventType}</td>
-                                    <td className="px-4 py-2">
+                                  <TableRow key={`${entry.idempotencyKey}:${entry.receivedAt}`}>
+                                    <TableCell className="font-medium">{entry.eventType}</TableCell>
+                                    <TableCell>
                                       <Badge variant="secondary" className={STATUS_STYLES[entry.unifiedStatus] ?? ''}>
                                         {t(`payment_gateways.status.${entry.unifiedStatus}`, formatTypeLabel(entry.unifiedStatus))}
                                       </Badge>
-                                    </td>
-                                    <td className="px-4 py-2">{entry.processed ? t('common.yes', 'Yes') : t('common.no', 'No')}</td>
-                                    <td className="px-4 py-2 text-muted-foreground">{formatDateTime(entry.receivedAt)}</td>
-                                  </tr>
+                                    </TableCell>
+                                    <TableCell>{entry.processed ? t('common.yes', 'Yes') : t('common.no', 'No')}</TableCell>
+                                    <TableCell className="text-muted-foreground">{formatDateTime(entry.receivedAt)}</TableCell>
+                                  </TableRow>
                                 ))}
-                              </tbody>
-                            </table>
+                              </TableBody>
+                            </Table>
                           </div>
                         ) : (
                           <p className="text-sm text-muted-foreground">{t('payment_gateways.transactions.detail.webhooksEmpty', 'No webhook events have been recorded for this transaction yet.')}</p>

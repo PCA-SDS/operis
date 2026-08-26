@@ -25,14 +25,16 @@ function ScopeLabel({ label, count }: { label: string; count: number }) {
 
 /**
  * Calendar chrome row: the category filter on the left, the Day/Week/Month/Agenda
- * view switcher on the right.
+ * view switcher on the right, and transient status text in the slack between
+ * them. The status lives here rather than in a row of its own so it costs no
+ * vertical space when absent and shifts nothing when it appears.
  *
  * Both are `SegmentedControl`s. The category filter narrows the items rendered by
  * the single view area rather than swapping content panels, so it is mutually
  * exclusive *view state* — the case the segmented control exists for — and not
  * `Tabs`, which would additionally promise a `tabpanel` per option.
  */
-export function CalendarTabs({ tab, counts, view, onTabChange, onViewChange }: CalendarTabsProps) {
+export function CalendarTabs({ tab, counts, view, status, onTabChange, onViewChange }: CalendarTabsProps) {
   const t = useT()
 
   return (
@@ -63,6 +65,9 @@ export function CalendarTabs({ tab, counts, view, onTabChange, onViewChange }: C
           </SegmentedControlItem>
         </SegmentedControl>
       </div>
+      {status ? (
+        <div className="order-last min-w-0 flex-1 basis-full sm:order-none sm:basis-auto">{status}</div>
+      ) : null}
       <SegmentedControl
         value={view}
         onValueChange={(value) => onViewChange(value as CalendarView)}

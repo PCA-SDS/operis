@@ -582,6 +582,25 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
 
   const showInitialLoading = (isLoading && !hasLoadedOnce) || !preferencesHydrated
 
+  const showRefreshing = isRefreshing && hasLoadedOnce
+  const calendarStatus = truncated || showRefreshing ? (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {truncated ? (
+        <p className="text-xs text-muted-foreground" role="status">
+          {t('customers.calendar.notice.truncated', 'Showing first {count} items for this range.', {
+            count: MAX_WINDOW_ITEMS,
+          })}
+        </p>
+      ) : null}
+      {showRefreshing ? (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
+          <span aria-hidden className="size-1.5 rounded-full bg-primary motion-safe:animate-pulse" />
+          {t('customers.calendar.notice.refreshing', 'Refreshing…')}
+        </p>
+      ) : null}
+    </div>
+  ) : null
+
   let viewArea: React.ReactNode
   if (error) {
     viewArea = (
@@ -674,29 +693,15 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
         onEdit={openEditEditor}
         onCancel={handleCancelItem}
       />
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
         <CalendarTabs
           tab={tab}
           counts={tabCounts}
           view={view}
+          status={calendarStatus}
           onTabChange={setTab}
           onViewChange={handleViewChange}
         />
-        <div className="flex min-h-4 items-center gap-3">
-          {truncated ? (
-            <p className="text-xs text-muted-foreground" role="status">
-              {t('customers.calendar.notice.truncated', 'Showing first {count} items for this range.', {
-                count: MAX_WINDOW_ITEMS,
-              })}
-            </p>
-          ) : null}
-          {isRefreshing && hasLoadedOnce ? (
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
-              <span aria-hidden className="size-1.5 rounded-full bg-primary motion-safe:animate-pulse" />
-              {t('customers.calendar.notice.refreshing', 'Refreshing…')}
-            </p>
-          ) : null}
-        </div>
         <div className="flex min-h-[560px] flex-1 flex-col [&>*]:flex-1">{viewArea}</div>
       </div>
       <div className="hidden md:block">

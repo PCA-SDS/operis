@@ -5844,34 +5844,57 @@ Semantic HTML table primitives with DS spacing/typography. Pure presentational �
 - `Table` — root `<table>` wrapped in `<div class="overflow-x-auto">`
 - `TableHeader` (`<thead>`), `TableBody` (`<tbody>`), `TableFooter` (`<tfoot>`)
 - `TableRow` (`<tr>`) — hover bg, focus-within styles
-- `TableHead` (`<th>`) — uppercase mono header cell
+- `TableHead` (`<th>`) — uppercase micro-label header cell, `scope="col"`
 - `TableCell` (`<td>`) — body cell
 - `TableCaption` — `<caption>` for screen readers
+- `TableSortLabel` — the sort trigger for a sortable column
+- `tableAriaSort(direction)` — maps a direction to the `aria-sort` value
 
 ### Props
-All accept native HTML attributes. Style only via `className`.
+
+| Prop | On | Values | What it does |
+|---|---|---|---|
+| `density` | `Table` | `default` \| `compact` | Cell box only. `default` (`px-3 py-4 sm:px-5`) is the page-owning list view; `compact` (`px-3 py-2`) is a table nested in a card, panel or dialog. Header typography is identical in both. |
+| `variant` | `Table` | `default` \| `striped` | Even-row tint. |
+| `align` | `TableHead`, `TableCell` | `left` (default) \| `right` | Column alignment. |
+| `direction` | `TableSortLabel` | `'asc'` \| `'desc'` \| `false` | Active sort direction; `false` = sortable but inactive. |
+| `onToggle` | `TableSortLabel` | `() => void` | Fired on click. |
+
+Everything else is native HTML attributes; style via `className`.
 
 ### Usage
 ```tsx
-<Table>
+<Table density="compact">
   <TableHeader>
     <TableRow>
-      <TableHead>Name</TableHead>
+      <TableHead aria-sort={tableAriaSort(dir)}>
+        <TableSortLabel direction={dir} onToggle={toggleSort}>Name</TableSortLabel>
+      </TableHead>
       <TableHead>Status</TableHead>
+      <TableHead align="right">Amount</TableHead>
     </TableRow>
   </TableHeader>
   <TableBody>
     <TableRow>
       <TableCell>Acme</TableCell>
       <TableCell><Badge variant="success" dot>Active</Badge></TableCell>
+      <TableCell align="right">$1,250.00</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 ```
 
+### Rules
+- **`align` is a property of the COLUMN.** Set the same value on the `TableHead` and on every `TableCell` beneath it. Figures (amounts, quantities, counts) go `right`; everything else stays `left`. A right-aligned header over left-aligned digits is the most common way a table reads as unfinished.
+- **NEVER put `display:flex` on a `TableCell`/`TableHead`** — it drops the cell out of the table's column model, so it stops tracking the width of the header above it. Put the flex on an inner `<div>`.
+- **Sortable columns render `TableSortLabel`**, never a hand-rolled button — that is what keeps the affordance, the emphasis and the keyboard behaviour identical across `DataTable` and hand-built tables.
+- The header's bottom rule lives on `TableHead`, not on the header `TableRow`, so it survives a sticky header under `border-collapse: collapse`. Do not move it back.
+- Pin a header (`sticky top-0`) ONLY when the table owns a vertical scrollport. Without one it sticks to the viewport and slides under the app topbar.
+
 ### Accessibility
 - Use `TableCaption` to describe the table for screen readers
-- For sortable columns, render the sort affordance inside `TableHead` with `aria-sort`
+- `TableHead` emits `scope="col"` automatically
+- Sortable columns MUST carry `aria-sort` on the `<th>` — use `tableAriaSort(direction)`. A sortable-but-inactive column reports `none`; omitting the attribute announces a plain header.
 
 ---
 

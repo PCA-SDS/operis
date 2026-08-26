@@ -394,7 +394,7 @@ const tableEntry: GalleryEntry = {
               <TableHead>Order</TableHead>
               <TableHead>Customer</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Total</TableHead>
+              <TableHead align="right">Total</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -404,7 +404,7 @@ const tableEntry: GalleryEntry = {
               <TableCell>
                 <StatusBadge variant="success" dot>Paid</StatusBadge>
               </TableCell>
-              <TableCell className="text-right">$1,250.00</TableCell>
+              <TableCell align="right">$1,250.00</TableCell>
             </TableRow>
             <TableRow>
               <TableCell>#1041</TableCell>
@@ -412,7 +412,7 @@ const tableEntry: GalleryEntry = {
               <TableCell>
                 <StatusBadge variant="warning" dot>Pending</StatusBadge>
               </TableCell>
-              <TableCell className="text-right">$310.50</TableCell>
+              <TableCell align="right">$310.50</TableCell>
             </TableRow>
             <TableRow>
               <TableCell>#1040</TableCell>
@@ -420,7 +420,7 @@ const tableEntry: GalleryEntry = {
               <TableCell>
                 <StatusBadge variant="neutral" dot>Draft</StatusBadge>
               </TableCell>
-              <TableCell className="text-right">$89.00</TableCell>
+              <TableCell align="right">$89.00</TableCell>
             </TableRow>
           </TableBody>
         </Table>
@@ -434,7 +434,7 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
       <TableHead>Order</TableHead>
       <TableHead>Customer</TableHead>
       <TableHead>Status</TableHead>
-      <TableHead className="text-right">Total</TableHead>
+      <TableHead align="right">Total</TableHead>
     </TableRow>
   </TableHeader>
   <TableBody>
@@ -442,7 +442,7 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
       <TableCell>#1042</TableCell>
       <TableCell>Wei Chen</TableCell>
       <TableCell><StatusBadge variant="success" dot>Paid</StatusBadge></TableCell>
-      <TableCell className="text-right">$1,250.00</TableCell>
+      <TableCell align="right">$1,250.00</TableCell>
     </TableRow>
   </TableBody>
 </Table>`,
@@ -456,29 +456,29 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
             <TableRow>
               <TableHead>SKU</TableHead>
               <TableHead>Product</TableHead>
-              <TableHead className="text-right">Stock</TableHead>
+              <TableHead align="right">Stock</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             <TableRow>
               <TableCell>AP-100</TableCell>
               <TableCell>Apex Desk Lamp</TableCell>
-              <TableCell className="text-right">120</TableCell>
+              <TableCell align="right">120</TableCell>
             </TableRow>
             <TableRow>
               <TableCell>AP-101</TableCell>
               <TableCell>Apex Monitor Stand</TableCell>
-              <TableCell className="text-right">64</TableCell>
+              <TableCell align="right">64</TableCell>
             </TableRow>
             <TableRow>
               <TableCell>AP-102</TableCell>
               <TableCell>Apex Cable Kit</TableCell>
-              <TableCell className="text-right">310</TableCell>
+              <TableCell align="right">310</TableCell>
             </TableRow>
             <TableRow>
               <TableCell>AP-103</TableCell>
               <TableCell>Apex Laptop Riser</TableCell>
-              <TableCell className="text-right">18</TableCell>
+              <TableCell align="right">18</TableCell>
             </TableRow>
           </TableBody>
         </Table>
@@ -490,7 +490,7 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
     <TableRow>
       <TableHead>SKU</TableHead>
       <TableHead>Product</TableHead>
-      <TableHead className="text-right">Stock</TableHead>
+      <TableHead align="right">Stock</TableHead>
     </TableRow>
   </TableHeader>
   <TableBody>{/* rows */}</TableBody>
@@ -504,23 +504,23 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
           <TableHeader>
             <TableRow>
               <TableHead>Line</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
+              <TableHead align="right">Amount</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             <TableRow>
               <TableCell>Subtotal</TableCell>
-              <TableCell className="text-right">$1,560.50</TableCell>
+              <TableCell align="right">$1,560.50</TableCell>
             </TableRow>
             <TableRow>
               <TableCell>Shipping</TableCell>
-              <TableCell className="text-right">$24.00</TableCell>
+              <TableCell align="right">$24.00</TableCell>
             </TableRow>
           </TableBody>
           <TableFooter>
             <TableRow>
               <TableCell>Total</TableCell>
-              <TableCell className="text-right">$1,584.50</TableCell>
+              <TableCell align="right">$1,584.50</TableCell>
             </TableRow>
           </TableFooter>
         </Table>
@@ -533,7 +533,7 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
   <TableFooter>
     <TableRow>
       <TableCell>Total</TableCell>
-      <TableCell className="text-right">$1,584.50</TableCell>
+      <TableCell align="right">$1,584.50</TableCell>
     </TableRow>
   </TableFooter>
 </Table>`,

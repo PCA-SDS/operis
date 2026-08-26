@@ -12,6 +12,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableSortLabel,
+  tableAriaSort,
 } from '../table'
 
 describe('Table primitive (Phase B.6 polish)', () => {
@@ -150,7 +152,8 @@ describe('Table primitive (Phase B.6 polish)', () => {
     expect(head.className).toContain('uppercase')
     expect(head.className).toContain('tracking-wide')
     expect(head.className).toContain('whitespace-nowrap')
-    expect(head.className).toContain('px-5')
+    expect(head.className).toContain('px-3')
+    expect(head.className).toContain('sm:px-5')
     expect(head.className).toContain('py-3')
   })
 
@@ -165,10 +168,147 @@ describe('Table primitive (Phase B.6 polish)', () => {
       </Table>,
     )
     const cell = container.querySelector('[data-slot="table-cell"]') as HTMLElement
-    expect(cell.className).toContain('px-5')
+    expect(cell.className).toContain('px-3')
+    expect(cell.className).toContain('sm:px-5')
     expect(cell.className).toContain('py-4')
     expect(cell.className).toContain('text-sm')
     expect(cell.className).toContain('font-medium')
+  })
+
+  it('the header rule sits on the cell, not the row, so it survives a sticky header', () => {
+    const { container } = render(
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Header</TableHead>
+          </TableRow>
+        </TableHeader>
+      </Table>,
+    )
+    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
+    expect(head.className).toContain('border-b')
+    expect(head.className).toContain('border-table-border')
+    const strip = container.querySelector('[data-slot="table-header"]') as HTMLElement
+    expect(strip.className).not.toContain('[&_tr]:border-b')
+  })
+
+  it('TableHead is announced as a column header', () => {
+    const { container } = render(
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Header</TableHead>
+          </TableRow>
+        </TableHeader>
+      </Table>,
+    )
+    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
+    expect(head.getAttribute('scope')).toBe('col')
+  })
+
+  it('align moves the header and its column of cells together', () => {
+    const { container } = render(
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead align="right">Amount</TableHead>
+            <TableHead>Name</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell align="right">$10.00</TableCell>
+            <TableCell>Jan</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    )
+    const heads = Array.from(container.querySelectorAll('[data-slot="table-head"]')) as HTMLElement[]
+    const cells = Array.from(container.querySelectorAll('[data-slot="table-cell"]')) as HTMLElement[]
+    expect(heads[0].getAttribute('data-align')).toBe('right')
+    expect(heads[0].className).toContain('text-right')
+    expect(cells[0].getAttribute('data-align')).toBe('right')
+    expect(cells[0].className).toContain('text-right')
+    expect(heads[1].className).toContain('text-left')
+    expect(cells[1].className).toContain('text-left')
+  })
+
+  it('compact density tightens the cell box and leaves the header design alone', () => {
+    const { container } = render(
+      <Table density="compact">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Header</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell>cell</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    )
+    const root = container.querySelector('[data-slot="table"]') as HTMLElement
+    expect(root.getAttribute('data-density')).toBe('compact')
+    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
+    const cell = container.querySelector('[data-slot="table-cell"]') as HTMLElement
+    expect(head.className).toContain('py-2')
+    expect(head.className).not.toContain('sm:px-5')
+    expect(cell.className).toContain('py-2')
+    // typography is the part that must NOT change with density
+    expect(head.className).toContain('font-bold')
+    expect(head.className).toContain('uppercase')
+  })
+
+  describe('TableSortLabel', () => {
+    it('maps every direction to the right aria-sort value', () => {
+      expect(tableAriaSort('asc')).toBe('ascending')
+      expect(tableAriaSort('desc')).toBe('descending')
+      expect(tableAriaSort(false)).toBe('none')
+    })
+
+    it('lifts the label to full ink only while its column is the active sort', () => {
+      // Match the bare token, not the substring: `hover:text-foreground` is
+      // present in every state and would mask the difference.
+      const tokens = (el: HTMLElement) => el.className.split(/\s+/)
+      const { container, rerender } = render(<TableSortLabel>Name</TableSortLabel>)
+      const idle = container.querySelector('[data-slot="table-sort-label"]') as HTMLElement
+      expect(idle.getAttribute('data-direction')).toBe('none')
+      expect(tokens(idle)).not.toContain('text-foreground')
+      expect(tokens(idle)).toContain('hover:text-foreground')
+
+      rerender(<TableSortLabel direction="asc">Name</TableSortLabel>)
+      const active = container.querySelector('[data-slot="table-sort-label"]') as HTMLElement
+      expect(active.getAttribute('data-direction')).toBe('asc')
+      expect(tokens(active)).toContain('text-foreground')
+    })
+
+    it('keeps the indicator the same size in every state so the label never shifts', () => {
+      const sizes = (['asc', 'desc', false] as const).map((direction) => {
+        const { container, unmount } = render(
+          <TableSortLabel direction={direction}>Name</TableSortLabel>,
+        )
+        const icon = container.querySelector('svg') as SVGElement
+        const className = icon.getAttribute('class') ?? ''
+        unmount()
+        return className
+      })
+      for (const className of sizes) {
+        expect(className).toContain('size-3.5')
+        expect(className).toContain('shrink-0')
+      }
+    })
+
+    it('is a non-submitting button that reports its toggle', () => {
+      const onToggle = jest.fn()
+      const { container } = render(
+        <TableSortLabel direction={false} onToggle={onToggle}>Name</TableSortLabel>,
+      )
+      const button = container.querySelector('[data-slot="table-sort-label"]') as HTMLButtonElement
+      expect(button.getAttribute('type')).toBe('button')
+      button.click()
+      expect(onToggle).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('forwards className on every slot', () => {

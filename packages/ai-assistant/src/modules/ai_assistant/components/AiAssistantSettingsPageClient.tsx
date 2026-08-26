@@ -14,6 +14,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { useAiAssistantVisibility } from '../../../frontend/hooks/useAiAssistantVisibility'
 import McpConfigDialog from './McpConfigDialog'
 import SessionKeyDialog from './SessionKeyDialog'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 type OpenCodeHealthResponse = {
   status: 'ok' | 'error'
@@ -343,38 +344,34 @@ function PerAgentOverrideList({
         )}
       </p>
       <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="border-b border-border text-left text-muted-foreground">
-              <th className="pb-2 pr-4 font-medium">
+        <Table density="compact">
+          <TableHeader>
+            <TableRow className="border-border text-left">
+              <TableHead>
                 {t('ai_assistant.settings.agentIdColumn', 'Agent')}
-              </th>
-              <th className="pb-2 pr-4 font-medium">
+              </TableHead>
+              <TableHead>
                 {t('ai_assistant.settings.providerColumn', 'Provider')}
-              </th>
-              <th className="pb-2 pr-4 font-medium">
+              </TableHead>
+              <TableHead>
                 {t('ai_assistant.settings.modelColumn', 'Model')}
-              </th>
-              <th className="pb-2 pr-4 font-medium">
+              </TableHead>
+              <TableHead>
                 {t('ai_assistant.settings.sourceColumn', 'Source')}
-              </th>
-              <th className="pb-2 font-medium" />
-            </tr>
-          </thead>
-          <tbody>
+              </TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {agents.map((agent) => {
               const hasOverride = overriddenAgents.some((a) => a.agentId === agent.agentId)
               return (
-                <tr
-                  key={agent.agentId}
-                  className="border-b border-border/50 last:border-0"
-                  data-ai-settings-agent-row={agent.agentId}
-                >
-                  <td className="py-2 pr-4 font-mono">{agent.agentId}</td>
-                  <td className="py-2 pr-4">{agent.providerId}</td>
-                  <td className="py-2 pr-4">{agent.modelId}</td>
-                  <td className="py-2 pr-4 text-muted-foreground">{agent.source}</td>
-                  <td className="py-2">
+                <TableRow key={agent.agentId} className="border-border/50" data-ai-settings-agent-row={agent.agentId}>
+                  <TableCell className="pr-4 font-mono">{agent.agentId}</TableCell>
+                  <TableCell className="pr-4">{agent.providerId}</TableCell>
+                  <TableCell className="pr-4">{agent.modelId}</TableCell>
+                  <TableCell className="pr-4 text-muted-foreground">{agent.source}</TableCell>
+                  <TableCell>
                     {hasOverride ? (
                       <Button
                         type="button"
@@ -389,12 +386,12 @@ function PerAgentOverrideList({
                         {t('ai_assistant.settings.clearOverride', 'Clear override')}
                       </Button>
                     ) : null}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   )

@@ -1571,7 +1571,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           </div>
         </header>
         <ProgressTopBar t={t} className="sticky top-0 z-sticky" completedAutoHideMs={progressCompletedAutoHideMs} />
-        <main className="flex-1 px-4 pb-8 pt-6 sm:px-6 lg:px-8 lg:pt-8 mx-auto w-full max-w-screen-2xl">
+        <main className="flex-1 px-4 pb-8 pt-4 sm:px-6 lg:px-8 lg:pt-5 mx-auto w-full max-w-screen-2xl">
           <InjectionSpot spotId={BACKEND_LAYOUT_TOP_INJECTION_SPOT_ID} context={injectionContext} />
           <FlashMessages />
           <PartialIndexBanner />
@@ -1583,7 +1583,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
             spotId={LEGACY_GLOBAL_MUTATION_INJECTION_SPOT_ID}
             context={injectionContext}
           />
-          <div id="om-top-banners" className="mb-3 space-y-2" />
+          <div id="om-top-banners" className="mb-3 space-y-2 empty:hidden" />
           <OrganizationScopeBoundary active={isOnSettingsPath}>
             <BackendRecordInjectionContextProvider setCurrentRecordInjectionContext={setCurrentRecordInjectionContext}>
               {children}
