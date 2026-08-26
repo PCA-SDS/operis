@@ -1011,6 +1011,7 @@ export default function ProductOptionsPage({
       await runMutation({
         context: { productId },
         operation: async () => {
+          // optimistic-lock-exempt: bulk replace of option tree, no per-record version
           await apiCallOrThrow(`/api/catalog/products/${productId}/option-tree`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
