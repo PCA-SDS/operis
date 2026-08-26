@@ -8,6 +8,7 @@ import { normalizeCustomFieldValues } from '@open-mercato/shared/lib/custom-fiel
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { LookupSelect, type LookupSelectItem } from '@open-mercato/ui/backend/inputs'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import {
   Select,
   SelectContent,
@@ -402,11 +403,11 @@ export function TeamMemberForm(props: TeamMemberFormProps) {
                   {translate('staff.teamMembers.form.actions.defineRole', 'Define new role')}
                 </Button>
               </div>
-              <input
-                className="w-full h-8 rounded border px-2 text-sm"
+              <SearchInput
+                size="sm"
                 placeholder={translate('ui.forms.listbox.searchPlaceholder', 'Search...')}
                 value={roleSearch}
-                onChange={(event) => setRoleSearch(event.target.value)}
+                onChange={setRoleSearch}
                 data-crud-focus-target=""
                 disabled={disabled}
               />

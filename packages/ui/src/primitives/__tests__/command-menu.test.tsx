@@ -32,6 +32,8 @@ import {
   CommandMenuSeparator,
   CommandMenuFooter,
 } from '../command-menu'
+import { searchInputElementVariants, searchInputWrapperVariants } from '../search-input'
+import { cn } from '@open-mercato/shared/lib/utils'
 
 function ExampleMenu({
   onSelectMonday,
@@ -137,6 +139,44 @@ describe('CommandMenu', () => {
     const clear = document.querySelector('[data-slot="command-menu-input-clear"]') as HTMLButtonElement
     fireEvent.click(clear)
     expect(input.value).toBe('')
+  })
+
+  // The palette header IS a search field, so it must render the search primitive's
+  // own classes rather than a private copy — that shared CVA is what keeps the
+  // palette from drifting away from every other search box in the product. Only
+  // the two the header deliberately overrides (its taller box) may go missing.
+  it('draws its header from the shared search-input variants', () => {
+    render(<ExampleMenu />)
+    const wrapper = document.querySelector('[data-slot="command-menu-input-wrapper"]') as HTMLElement
+    const input = document.querySelector('[data-slot="command-menu-input"]') as HTMLInputElement
+
+    // Compare against the *resolved* variant (run through `cn`, as the component
+    // does) — the raw CVA string still carries classes its own tone overrides.
+    const isHeaderBoxClass = (cls: string) => /^(h|px)-/.test(cls)
+    const shared = cn(searchInputWrapperVariants({ size: 'lg', tone: 'plain' }))
+      .split(' ')
+      .filter((cls) => cls && !isHeaderBoxClass(cls))
+    expect(shared.length).toBeGreaterThan(0)
+    for (const cls of shared) expect(wrapper.className.split(' ')).toContain(cls)
+
+    for (const cls of cn(searchInputElementVariants({ size: 'lg', tone: 'plain' })).split(' ').filter(Boolean)) {
+      expect(input.className.split(' ')).toContain(cls)
+    }
+  })
+
+  it('keeps the taller header box and a hairline on the bottom edge only', () => {
+    render(<ExampleMenu />)
+    const wrapper = document.querySelector('[data-slot="command-menu-input-wrapper"]') as HTMLElement
+    const classes = wrapper.className.split(' ')
+    // tailwind-merge must resolve the box to the header's own values, not stack both.
+    expect(classes).toContain('h-12')
+    expect(classes).toContain('px-4')
+    expect(classes).not.toContain('h-10')
+    expect(classes).not.toContain('px-3')
+    // `border-b-input` colours only the bottom; `border-b border-input` would
+    // have painted the base ring's other three sides too.
+    expect(classes).toContain('border-b-input')
+    expect(classes).not.toContain('border-input')
   })
 
   it('renders item description and chevron slot when applicable', () => {

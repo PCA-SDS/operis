@@ -149,6 +149,55 @@ describe('AppShell', () => {
     }
   })
 
+  /* The topbar is a three-column grid: breadcrumb, centred slot, actions. Both
+     flanks grow from a zero basis so they split the slack evenly — that even
+     split is the only thing that actually centres the middle column, so a
+     change to either flank's flex is a change to where the search sits. */
+  it('renders centerHeaderSlot between the breadcrumb and the action cluster', async () => {
+    renderWithProviders(
+      <AppShell
+        email="demo@example.com"
+        groups={groups}
+        centerHeaderSlot={<div data-testid="header-center">search</div>}
+        rightHeaderSlot={<div data-testid="header-right">actions</div>}
+      >
+        <div>Child content</div>
+      </AppShell>,
+      { dict },
+    )
+
+    const header = document.querySelector('header') as HTMLElement
+    const center = screen.getByTestId('header-center')
+    const right = screen.getByTestId('header-right')
+    expect(header.contains(center)).toBe(true)
+    expect(
+      center.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    const [left, middle, actions] = Array.from(header.children).filter(
+      (el) => !el.classList.contains('hidden'),
+    ) as HTMLElement[]
+    expect(left.className).toContain('flex-1')
+    expect(middle.contains(center)).toBe(true)
+    expect(middle.className).toContain('shrink-0')
+    expect(actions.className).toContain('flex-1')
+    // Without `min-w-fit` the action cluster shrinks under its own icons and
+    // they spill leftwards over the centred search.
+    expect(actions.className).toContain('min-w-fit')
+  })
+
+  it('omits the centre column entirely when no centerHeaderSlot is given', async () => {
+    renderWithProviders(
+      <AppShell email="demo@example.com" groups={groups} rightHeaderSlot={<div data-testid="header-right">actions</div>}>
+        <div>Child content</div>
+      </AppShell>,
+      { dict },
+    )
+    const header = document.querySelector('header') as HTMLElement
+    const columns = Array.from(header.children).filter((el) => !el.classList.contains('hidden'))
+    expect(columns).toHaveLength(2)
+  })
+
   it('renders navigation and breadcrumbs with translations applied via ApplyBreadcrumb', async () => {
     renderWithProviders(
       <AppShell

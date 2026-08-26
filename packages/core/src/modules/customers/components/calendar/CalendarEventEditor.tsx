@@ -15,6 +15,10 @@ import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Dialog, DialogContent, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from '@open-mercato/ui/primitives/segmented-control'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { useDialogKeyHandler } from '@open-mercato/ui/hooks/useDialogKeyHandler'
@@ -38,7 +42,6 @@ import { renderDictionaryIcon } from '@open-mercato/core/modules/dictionaries/co
 import { normalizeCustomFieldSubmitValue } from '../detail/customFieldUtils'
 import type { CalendarItem } from './types'
 import { EDITOR_SCROLL_EVENT, Field } from './editor/inputs'
-import { SegmentGroup } from './editor/SegmentGroup'
 import { PriorityField } from './editor/PriorityField'
 import { RelatedToField } from './editor/RelatedToField'
 import { RepeatField } from './editor/RepeatField'
@@ -195,12 +198,18 @@ function EditorBody({
         </Alert>
       ) : null}
       <div className="w-full lg:col-span-2">
-        <SegmentGroup<string>
-          ariaLabel={t('customers.calendar.editor.typeSwitcher', 'Event type')}
+        <SegmentedControl
+          fullWidth
+          aria-label={t('customers.calendar.editor.typeSwitcher', 'Event type')}
           value={selectedType}
-          onChange={(type) => update({ kind: editorKindOfInteractionType(type), category: type })}
-          options={typeSwitcherOptions}
-        />
+          onValueChange={(type) => update({ kind: editorKindOfInteractionType(type), category: type })}
+        >
+          {typeSwitcherOptions.map((option) => (
+            <SegmentedControlItem key={option.value} value={option.value} icon={option.icon}>
+              {option.label}
+            </SegmentedControlItem>
+          ))}
+        </SegmentedControl>
       </div>
       <Field label={titleLabel} error={errors.title} className="lg:col-span-2">
         <Input

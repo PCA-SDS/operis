@@ -24,10 +24,11 @@ test.describe('TC-SEARCH-012: global search results escape the sticky header sta
     await page.goto('/backend')
     await page.waitForLoadState('domcontentloaded')
 
-    // Open the collapsed top-bar search (icon button) and focus its input.
-    await page.locator('header').getByRole('button', { name: 'Open global search' }).click()
+    // The top-bar search is permanent chrome in the header's centre column at
+    // desktop widths — there is no trigger to open first.
     const input = page.locator('input[aria-controls="topbar-search-results"]')
     await expect(input).toBeVisible()
+    await input.click()
 
     // A 2-char query (below the 3-char minimum) opens the panel in its hint state
     // — no search API call, so the assertion never depends on indexed records.

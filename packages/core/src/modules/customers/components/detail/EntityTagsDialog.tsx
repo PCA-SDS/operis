@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Check, Plus, Search, SearchX, SlidersHorizontal, Tag, X } from 'lucide-react'
+import { Check, Plus, SearchX, SlidersHorizontal, Tag, X } from 'lucide-react'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -12,6 +12,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { entityColorStyle } from '@open-mercato/ui/primitives/tag'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import {
   Dialog,
   DialogContent,
@@ -1211,20 +1212,15 @@ export function EntityTagsDialog({
                     </div>
 
                     <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-                      <div className="flex items-center gap-2 rounded-lg border border-input bg-input-bg px-3 py-2">
-                        <Search className="size-3.5 shrink-0 text-muted-foreground" />
-                        <input
-                          type="text"
-                          value={searchValue}
-                          onChange={(event) => setSearchValue(event.target.value)}
-                          placeholder={t(
-                            'customers.personTags.searchPlaceholder',
-                            'Search {{category}}...',
-                            { category: activeCategory.label.toLowerCase() },
-                          )}
-                          className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-                        />
-                      </div>
+                      <SearchInput
+                        value={searchValue}
+                        onChange={setSearchValue}
+                        placeholder={t(
+                          'customers.personTags.searchPlaceholder',
+                          'Search {{category}}...',
+                          { category: activeCategory.label.toLowerCase() },
+                        )}
+                      />
 
                       {filteredEntries.length > 0 ? (
                         <div className="space-y-3">

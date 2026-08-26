@@ -5,10 +5,13 @@ import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from '@open-mercato/ui/primitives/segmented-control'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import type { EditorRepeatEndType, EditorRepeatFreq } from '../../../lib/calendar/editorPayload'
 import { DateControl, LABEL_CLASS } from './inputs'
-import { SegmentGroup } from './SegmentGroup'
 
 const DAY_LABEL_KEYS = [
   { letterKey: 'customers.calendar.editor.repeat.days.mon', letterFallback: 'M', ariaKey: 'customers.calendar.day.mon', ariaFallback: 'MON' },
@@ -89,16 +92,21 @@ export function RepeatField({
       {freq !== 'none' ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className={LABEL_CLASS}>{t('customers.calendar.editor.repeat.ends', 'Ends')}</span>
-          <SegmentGroup
-            ariaLabel={t('customers.calendar.editor.repeat.ends', 'Ends')}
+          <SegmentedControl
+            aria-label={t('customers.calendar.editor.repeat.ends', 'Ends')}
             value={endType}
-            onChange={onEndTypeChange}
-            options={[
-              { value: 'never', label: t('customers.calendar.editor.repeat.never', 'Never') },
-              { value: 'date', label: t('customers.calendar.editor.repeat.onDate', 'On date') },
-              { value: 'count', label: t('customers.calendar.editor.repeat.after', 'After') },
-            ]}
-          />
+            onValueChange={(value) => onEndTypeChange(value as EditorRepeatEndType)}
+          >
+            <SegmentedControlItem value="never">
+              {t('customers.calendar.editor.repeat.never', 'Never')}
+            </SegmentedControlItem>
+            <SegmentedControlItem value="date">
+              {t('customers.calendar.editor.repeat.onDate', 'On date')}
+            </SegmentedControlItem>
+            <SegmentedControlItem value="count">
+              {t('customers.calendar.editor.repeat.after', 'After')}
+            </SegmentedControlItem>
+          </SegmentedControl>
           {endType === 'date' ? (
             <DateControl
               className="w-44"

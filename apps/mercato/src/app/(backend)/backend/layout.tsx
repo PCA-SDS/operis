@@ -11,7 +11,7 @@ import { APP_VERSION } from '@open-mercato/shared/lib/version'
 import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
 import { PageInjectionBoundary } from '@open-mercato/ui/backend/injection/PageInjectionBoundary'
 import { DemoFeedbackWidget } from '@/components/DemoFeedbackWidget'
-import { BackendHeaderChrome } from '@/components/BackendHeaderChrome'
+import { BackendHeaderChrome, BackendHeaderSearch } from '@/components/BackendHeaderChrome'
 
 function collectStaticSettingsPathPrefixes(): string[] {
   const prefixes = new Set<string>()
@@ -108,12 +108,16 @@ export default async function BackendLayout({
         groups={[]}
         currentTitle={currentTitle}
         breadcrumb={breadcrumb}
+        centerHeaderSlot={(
+          <BackendHeaderSearch
+            embeddingConfigured={embeddingConfigured}
+            missingConfigMessage={missingConfigMessage}
+          />
+        )}
         rightHeaderSlot={(
           <BackendHeaderChrome
             email={auth?.email}
             userId={auth?.sub ?? null}
-            embeddingConfigured={embeddingConfigured}
-            missingConfigMessage={missingConfigMessage}
             tenantId={auth?.tenantId ?? null}
             organizationId={auth?.orgId ?? null}
           />

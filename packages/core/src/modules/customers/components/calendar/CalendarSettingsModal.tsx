@@ -17,7 +17,10 @@ import {
   MAX_ACTIVITY_TYPES,
   MAX_EVENT_CATEGORIES,
 } from '../../lib/calendar/preferences'
-import { SegmentGroup } from './editor/SegmentGroup'
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from '@open-mercato/ui/primitives/segmented-control'
 
 export type CalendarSettingsModalProps = {
   open: boolean
@@ -157,15 +160,21 @@ export function CalendarSettingsModal({
                       'Choose whose overlaps the calendar flags as conflicts.',
                     )}
                   </span>
-                  <SegmentGroup<ConflictScope>
-                    ariaLabel={t('customers.calendar.settings.conflictScope', 'Conflict scope')}
+                  <SegmentedControl
+                    fullWidth
+                    aria-label={t('customers.calendar.settings.conflictScope', 'Conflict scope')}
                     value={draft.conflictScope}
-                    onChange={(conflictScope) => setDraft((current) => ({ ...current, conflictScope }))}
-                    options={[
-                      { value: 'mine', label: t('customers.calendar.settings.conflictScopeMine', 'My meetings') },
-                      { value: 'all', label: t('customers.calendar.settings.conflictScopeAll', 'All meetings') },
-                    ]}
-                  />
+                    onValueChange={(value) =>
+                      setDraft((current) => ({ ...current, conflictScope: value as ConflictScope }))
+                    }
+                  >
+                    <SegmentedControlItem value="mine">
+                      {t('customers.calendar.settings.conflictScopeMine', 'My meetings')}
+                    </SegmentedControlItem>
+                    <SegmentedControlItem value="all">
+                      {t('customers.calendar.settings.conflictScopeAll', 'All meetings')}
+                    </SegmentedControlItem>
+                  </SegmentedControl>
                 </div>
               ) : null}
             </React.Fragment>

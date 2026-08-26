@@ -4,7 +4,8 @@ import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { Plus, Search } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { ProjectColorDot } from './ProjectColorDot'
 
 type ProjectOption = {
@@ -121,15 +122,13 @@ export function AddRowDropdown({
       className="fixed z-50 rounded-lg border bg-popover shadow-lg"
       style={{ top: position.top, left: position.left, width: DROPDOWN_WIDTH }}
     >
-      <div className="flex items-center border-b px-3">
-        <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-        <input
+      <div className="border-b px-3">
+        <SearchInput
           ref={searchInputRef}
-          type="text"
-          className="w-full px-3 py-2 text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+          tone="plain"
           placeholder={t('staff.timesheets.my.addRow.searchPlaceholder', 'Search by project')}
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={setSearch}
         />
       </div>
 
