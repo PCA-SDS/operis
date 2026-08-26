@@ -232,7 +232,8 @@ export type AppShellProps = {
   /**
    * Hide the backend footer status bar (app version + terms/privacy links).
    * Intended for app developers and whitelabel/embedded deployments that want to
-   * suppress the footer entirely. Defaults to `false` (footer shown).
+   * suppress the footer entirely. Defaults to `false` (footer shown); the app
+   * layout passes `true` by default via `OM_HIDE_BACKEND_FOOTER`.
    */
   hideFooter?: boolean
   /**
