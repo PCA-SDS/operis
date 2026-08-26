@@ -1,99 +1,70 @@
 "use client"
 
 import * as React from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { addDays } from 'date-fns/addDays'
-import { isSameDay } from 'date-fns/isSameDay'
-import { startOfDay } from 'date-fns/startOfDay'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { packOverlaps } from '../../lib/calendar/layout'
+import { layoutTimedDay, packAllDayBars, type PositionedSegment } from '../../lib/calendar/layout'
+import { resolveJoinUrl } from '../../lib/calendar/mapItem'
 import { getVisibleRange } from '../../lib/calendar/range'
 import {
   applyWeekendVisibility,
   buildDragRange,
+  buildMovedRange,
+  buildResizedRange,
   DRAG_SNAP_MINUTES,
   isWeekendDay,
-  offsetYToMinutes,
+  MIN_EVENT_DURATION_MINUTES,
+  minutesOfDay,
+  toAllDayRange,
+  toTimedRange,
+  type ResizeEdge,
 } from '../../lib/calendar/grid'
-import { EventBlock, formatTimeRange, resolveEventTone } from './EventBlock'
+import {
+  HOURS_PER_DAY,
+  MINUTES_PER_DAY,
+  addCalendarDays,
+  isSameLocalDay,
+  snapMinutes,
+} from '../../lib/calendar/time'
+import { EventBlock, formatTimeRange } from './EventBlock'
+import { BAR_ROW_GAP_PX, BAR_ROW_HEIGHT_PX, CalendarBar } from './CalendarBar'
 import { EventPeekPopover } from './EventPeekPopover'
-import type { CalendarItem, TimeGridProps } from './types'
+import { useNowTick } from './useNowTick'
+import type { CalendarItem, CalendarReschedule, TimeGridProps } from './types'
 
-const HOUR_HEIGHT_PX = 120
-const HOURS_PER_DAY = 24
-const GRID_BODY_MAX_HEIGHT_PX = 654
-const INITIAL_SCROLL_HOUR = 8
+/** ~48px per hour keeps a full working day on screen, as a mature calendar does. */
+const HOUR_HEIGHT_PX = 48
+/**
+ * Hours visible before the timed region scrolls.
+ *
+ * `flex-1` alone cannot bound this: the calendar's ancestors have no definite
+ * height, so the region would grow to all 24 hours and push the page into a
+ * scroll instead of scrolling itself. Capping it keeps a full working day on
+ * screen and keeps the grid's own scrollport meaningful.
+ */
+const VISIBLE_HOURS = 13
+const MIN_BLOCK_HEIGHT_PX = 16
 const BLOCK_VERTICAL_GAP_PX = 1
-const MIN_BLOCK_HEIGHT_PX = 32
-const PACKED_COLUMN_GAP_PX = 2
+const COLUMN_GAP_PX = 2
+const DEFAULT_VISIBLE_ALL_DAY_ROWS = 2
+const DRAG_THRESHOLD_PX = 4
+const DEFAULT_WORKING_HOURS = { startHour: 8, endHour: 18 }
 
 const NON_WORKING_HATCH_BACKGROUND =
   'repeating-linear-gradient(45deg, transparent 0px, transparent 8px, var(--border) 8px, var(--border) 9px)'
 
-type PositionedBlock = {
-  item: CalendarItem
-  top: number
-  height: number
-  insetInlineStart: string
-  width: string
-}
-
-type DayColumnData = {
-  dayStart: Date
-  allDayItems: CalendarItem[]
-  blocks: PositionedBlock[]
-}
-
-type DragState = { dayMs: number; startMin: number; endMin: number; moved: boolean }
-
-function buildDayColumn(dayStart: Date, items: CalendarItem[]): DayColumnData {
-  const dayEnd = addDays(dayStart, 1)
-  const dayStartMs = dayStart.getTime()
-  const dayEndMs = dayEnd.getTime()
-  const allDayItems: CalendarItem[] = []
-  const segments: Array<{ original: CalendarItem; start: Date; end: Date }> = []
-
-  for (const item of items) {
-    const startMs = item.start.getTime()
-    const endMs = item.end.getTime()
-    if (startMs >= dayEndMs || endMs <= dayStartMs) continue
-    if (item.allDay) {
-      allDayItems.push(item)
-      continue
+type Gesture =
+  | { kind: 'create'; dayIndex: number; anchorMinutes: number; pointerMinutes: number; moved: boolean }
+  | {
+      kind: 'move'
+      item: CalendarItem
+      dayIndex: number
+      startMinutes: number
+      overAllDay: boolean
+      moved: boolean
     }
-    segments.push({
-      original: item,
-      start: startMs < dayStartMs ? dayStart : item.start,
-      end: endMs > dayEndMs ? dayEnd : item.end,
-    })
-  }
-
-  allDayItems.sort((first, second) => first.start.getTime() - second.start.getTime())
-
-  const clones = segments.map((segment) => ({ ...segment.original, start: segment.start, end: segment.end }))
-  const originalByClone = new Map<CalendarItem, CalendarItem>()
-  clones.forEach((clone, index) => originalByClone.set(clone, segments[index].original))
-
-  const blocks: PositionedBlock[] = packOverlaps(clones).map(({ item: clone, column, columns }) => {
-    const startMinutes = (clone.start.getTime() - dayStartMs) / 60000
-    const durationMinutes = (clone.end.getTime() - clone.start.getTime()) / 60000
-    const rawTop = (startMinutes / 60) * HOUR_HEIGHT_PX
-    const rawHeight = (durationMinutes / 60) * HOUR_HEIGHT_PX
-    const widthPct = 100 / columns
-    return {
-      item: originalByClone.get(clone) ?? clone,
-      top: rawTop + BLOCK_VERTICAL_GAP_PX,
-      height: Math.max(MIN_BLOCK_HEIGHT_PX, rawHeight - BLOCK_VERTICAL_GAP_PX * 2),
-      insetInlineStart: `calc(${column * widthPct}% + ${column * PACKED_COLUMN_GAP_PX}px)`,
-      width: `calc(${widthPct}% - ${((columns - 1) * PACKED_COLUMN_GAP_PX) / columns}px)`,
-    }
-  })
-
-  return { dayStart, allDayItems, blocks }
-}
+  | { kind: 'resize'; item: CalendarItem; edge: ResizeEdge; dayIndex: number; pointerMinutes: number; moved: boolean }
 
 type ConflictBadgeProps = { count: number }
 
@@ -104,52 +75,21 @@ function ConflictBadge({ count }: ConflictBadgeProps) {
       ? t('customers.calendar.grid.conflictCount', '1 conflict')
       : t('customers.calendar.grid.conflictsCount', '{count} conflicts', { count })
   return (
-    <span className="pointer-events-none absolute left-2 top-1 z-40 inline-flex items-center gap-1 rounded-full bg-status-error-bg px-2 py-0.5 text-overline font-medium uppercase tracking-wide text-status-error-text">
+    <span className="pointer-events-none absolute start-1 top-1 z-40 inline-flex items-center gap-1 rounded-full bg-status-error-bg px-2 py-0.5 text-overline font-medium uppercase tracking-wide text-status-error-text">
       <span aria-hidden className="size-1.5 rounded-full bg-status-error-icon" />
       {label}
     </span>
   )
 }
 
-type AllDayChipProps = {
-  item: CalendarItem
-  conflicted: boolean
-  highlighted: boolean
-  selected: boolean
-  nowMs: number
-} & Omit<React.ComponentProps<typeof Button>, 'style' | 'children'>
+function minutesToPx(minutes: number): number {
+  return (minutes / 60) * HOUR_HEIGHT_PX
+}
 
-const AllDayChip = React.forwardRef<HTMLButtonElement, AllDayChipProps>(function AllDayChip(
-  { item, conflicted, highlighted, selected, nowMs, className, ...buttonProps },
-  ref,
-) {
-  const t = useT()
-  const tone = resolveEventTone(item, nowMs)
-  const title = item.title || t('customers.calendar.grid.untitled', 'Untitled')
-  return (
-    <Button
-      ref={ref}
-      type="button"
-      variant="ghost"
-      aria-label={`${title}, ${t('customers.calendar.grid.allDay', 'All day')}`}
-      className={cn(
-        'h-auto w-full min-w-0 justify-start rounded-sm px-2 py-0.5 text-start hover:bg-muted/70',
-        tone.surfaceClassName,
-        conflicted && 'ring-1 ring-status-warning-icon',
-        selected && 'shadow-md ring-2 ring-foreground',
-        highlighted && 'motion-safe:animate-pulse',
-        'focus-visible:ring-2 focus-visible:ring-ring',
-        className,
-      )}
-      style={tone.style}
-      {...buttonProps}
-    >
-      <span className={cn('truncate text-xs font-medium', tone.titleClassName)}>{title}</span>
-    </Button>
-  )
-})
+function segmentKey(segment: PositionedSegment): string {
+  return `${segment.item.id}:${segment.startMinutes}`
+}
 
-AllDayChip.displayName = 'AllDayChip'
 
 export function TimeGrid({
   days,
@@ -161,331 +101,596 @@ export function TimeGrid({
   aiSummaries,
   canManage = true,
   highlightItemId,
+  snapMinutes: snapPreference = DRAG_SNAP_MINUTES,
+  workingHours = DEFAULT_WORKING_HOURS,
   onItemClick,
   onJoin,
-  onNavigate,
   onCreateRange,
+  onReschedule,
 }: TimeGridProps) {
   const t = useT()
   const locale = useLocale()
   const scrollRef = React.useRef<HTMLDivElement | null>(null)
-  const nowMs = Date.now()
-  const today = startOfDay(new Date())
-  const todayMs = today.getTime()
-  const anchorMs = anchor.getTime()
+  const gridRef = React.useRef<HTMLDivElement | null>(null)
+  const columnsRef = React.useRef<HTMLDivElement | null>(null)
+  const allDayLaneRef = React.useRef<HTMLDivElement | null>(null)
+  const didInitialScroll = React.useRef(false)
+
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
-  const [drag, setDrag] = React.useState<DragState | null>(null)
+  const [gesture, setGesture] = React.useState<Gesture | null>(null)
+  const [allDayExpanded, setAllDayExpanded] = React.useState(false)
+  const gestureOriginRef = React.useRef<{ x: number; y: number } | null>(null)
+
+  const nowMs = useNowTick()
+  const anchorMs = anchor.getTime()
 
   const dayStarts = React.useMemo(() => {
     const rangeStart = getVisibleRange(days === 7 ? 'week' : 'day', new Date(anchorMs), 0).from
-    const all = Array.from({ length: days }, (_, index) => addDays(rangeStart, index))
-    return days === 7 ? applyWeekendVisibility(all, showWeekends, new Date(todayMs)) : all
-  }, [days, anchorMs, showWeekends, todayMs])
+    const all = Array.from({ length: days }, (_, index) => addCalendarDays(rangeStart, index))
+    return days === 7 ? applyWeekendVisibility(all, showWeekends, new Date()) : all
+  }, [days, anchorMs, showWeekends])
 
-  const dayColumns = React.useMemo(
-    () => dayStarts.map((dayStart) => buildDayColumn(dayStart, items)),
+  const timedByDay = React.useMemo(
+    () => dayStarts.map((dayStart) => layoutTimedDay(items, dayStart)),
     [dayStarts, items],
   )
 
-  const resolveJoinUrl = React.useCallback((location: string | null): string | null => {
-    const trimmed = location?.trim() ?? ''
-    if (!trimmed) return null
-    if (/^https?:\/\//i.test(trimmed)) return trimmed
-    if (/^www\./i.test(trimmed)) return `https://${trimmed}`
-    return null
-  }, [])
+  const allDayBars = React.useMemo(() => packAllDayBars(items, dayStarts), [items, dayStarts])
 
-  const hasAllDayLane = dayColumns.some((column) => column.allDayItems.length > 0)
+  const allDayLaneCount = React.useMemo(
+    () => allDayBars.reduce((max, bar) => Math.max(max, bar.lane + 1), 0),
+    [allDayBars],
+  )
+  const visibleAllDayRows = allDayExpanded
+    ? allDayLaneCount
+    : Math.min(allDayLaneCount, DEFAULT_VISIBLE_ALL_DAY_ROWS)
+  const hiddenAllDayCount = allDayBars.filter((bar) => bar.lane >= visibleAllDayRows).length
 
   const formatters = React.useMemo(
     () => ({
-      dayNumber: new Intl.DateTimeFormat(locale, { day: '2-digit' }),
+      dayNumber: new Intl.DateTimeFormat(locale, { day: 'numeric' }),
+      dayNumberPadded: new Intl.DateTimeFormat(locale, { day: '2-digit' }),
       weekdayShort: new Intl.DateTimeFormat(locale, { weekday: 'short' }),
       weekdayLong: new Intl.DateTimeFormat(locale, { weekday: 'long' }),
+      fullDate: new Intl.DateTimeFormat(locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
     }),
     [locale],
   )
 
   const hourLabels = React.useMemo(() => {
     const formatter = new Intl.DateTimeFormat(locale, { hour: 'numeric' })
-    return Array.from({ length: HOURS_PER_DAY }, (_, hour) => formatter.format(new Date(2024, 0, 1, hour)))
+    return Array.from({ length: HOURS_PER_DAY }, (_, hour) => formatter.format(new Date(2026, 0, 1, hour)))
   }, [locale])
 
+  const nonWorkingLabel = t('customers.calendar.grid.nonWorking', 'Non-working day')
+  const canCreate = canManage && Boolean(onCreateRange)
+
+  // Scroll to the current time when today is on screen, otherwise to the start
+  // of the working day — never to a hardcoded hour.
   React.useEffect(() => {
     const node = scrollRef.current
-    if (!node) return
-    node.scrollTop = INITIAL_SCROLL_HOUR * HOUR_HEIGHT_PX
+    if (!node || didInitialScroll.current) return
+    const today = dayStarts.some((day) => isSameLocalDay(day, new Date(nowMs)))
+    const visibleMinutes = (node.clientHeight / HOUR_HEIGHT_PX) * 60
+    const targetMinutes = today
+      ? Math.max(0, minutesOfDay(new Date(nowMs)) - visibleMinutes / 2)
+      : workingHours.startHour * 60
+    node.scrollTop = Math.max(0, Math.min(minutesToPx(targetMinutes), node.scrollHeight - node.clientHeight))
+    didInitialScroll.current = true
+  }, [dayStarts, nowMs, workingHours.startHour])
+
+  const pointerToCell = React.useCallback(
+    (clientX: number, clientY: number): { dayIndex: number; minutes: number } | null => {
+      const grid = gridRef.current
+      const columns = columnsRef.current
+      if (!grid || !columns) return null
+      const gridRect = grid.getBoundingClientRect()
+      const columnsRect = columns.getBoundingClientRect()
+      const rawMinutes = ((clientY - gridRect.top) / HOUR_HEIGHT_PX) * 60
+      const columnWidth = columnsRect.width / dayStarts.length
+      const rawIndex = Math.floor((clientX - columnsRect.left) / columnWidth)
+      return {
+        dayIndex: Math.max(0, Math.min(dayStarts.length - 1, rawIndex)),
+        minutes: Math.max(0, Math.min(MINUTES_PER_DAY, rawMinutes)),
+      }
+    },
+    [dayStarts.length],
+  )
+
+  const isOverAllDayLane = React.useCallback((clientX: number, clientY: number): boolean => {
+    const lane = allDayLaneRef.current
+    if (!lane) return false
+    const rect = lane.getBoundingClientRect()
+    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
   }, [])
 
+  const beginCreate = React.useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!onCreateRange || event.button !== 0) return
+      const cell = pointerToCell(event.clientX, event.clientY)
+      if (!cell) return
+      const snapped = snapMinutes(cell.minutes, snapPreference)
+      gestureOriginRef.current = { x: event.clientX, y: event.clientY }
+      setGesture({
+        kind: 'create',
+        dayIndex: cell.dayIndex,
+        anchorMinutes: snapped,
+        pointerMinutes: snapped,
+        moved: false,
+      })
+    },
+    [onCreateRange, pointerToCell, snapPreference],
+  )
+
+  const beginMove = React.useCallback(
+    (item: CalendarItem, event: React.PointerEvent<HTMLElement>) => {
+      if (!onReschedule || !canManage || event.button !== 0) return
+      const cell = pointerToCell(event.clientX, event.clientY)
+      if (!cell) return
+      gestureOriginRef.current = { x: event.clientX, y: event.clientY }
+      setGesture({
+        kind: 'move',
+        item,
+        dayIndex: cell.dayIndex,
+        startMinutes: snapMinutes(minutesOfDay(item.start), snapPreference),
+        overAllDay: false,
+        moved: false,
+      })
+    },
+    [canManage, onReschedule, pointerToCell, snapPreference],
+  )
+
+  const beginResize = React.useCallback(
+    (item: CalendarItem, edge: ResizeEdge, event: React.PointerEvent<HTMLElement>) => {
+      if (!onReschedule || !canManage || event.button !== 0) return
+      event.stopPropagation()
+      const cell = pointerToCell(event.clientX, event.clientY)
+      if (!cell) return
+      gestureOriginRef.current = { x: event.clientX, y: event.clientY }
+      setGesture({ kind: 'resize', item, edge, dayIndex: cell.dayIndex, pointerMinutes: cell.minutes, moved: false })
+    },
+    [canManage, onReschedule, pointerToCell],
+  )
+
+  const beginAllDayMove = React.useCallback(
+    (item: CalendarItem, event: React.PointerEvent<HTMLElement>) => {
+      if (!onReschedule || !canManage || event.button !== 0) return
+      gestureOriginRef.current = { x: event.clientX, y: event.clientY }
+      setGesture({ kind: 'move', item, dayIndex: 0, startMinutes: 0, overAllDay: true, moved: false })
+    },
+    [canManage, onReschedule],
+  )
+
+  // Pointer tracking lives on the window while a gesture runs: pointer capture
+  // would pin every event to the timed grid and make the all-day lane
+  // unreachable as a drop target.
+  const gestureRef = React.useRef<Gesture | null>(null)
+  gestureRef.current = gesture
+
   React.useEffect(() => {
-    if (!highlightItemId) return
-    const node = scrollRef.current
-    if (!node) return
-    const target = items.find((item) => item.id === highlightItemId && !item.allDay)
-    if (!target) return
-    const minutes = (target.start.getTime() - startOfDay(target.start).getTime()) / 60000
-    const top = (minutes / 60) * HOUR_HEIGHT_PX
-    const reduceMotion =
-      typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    node.scrollTo({ top: Math.max(0, top - HOUR_HEIGHT_PX), behavior: reduceMotion ? 'auto' : 'smooth' })
-  }, [highlightItemId, items])
-
-  const nonWorkingLabel = t('customers.calendar.grid.nonWorking', 'Non-working day')
-  const previousLabel =
-    days === 7
-      ? t('customers.calendar.previousWeek', 'Previous week')
-      : t('customers.calendar.grid.previousDay', 'Previous day')
-  const nextLabel =
-    days === 7 ? t('customers.calendar.nextWeek', 'Next week') : t('customers.calendar.grid.nextDay', 'Next day')
-
-  const headerLabelFor = (dayStart: Date): string => {
-    const dayNumber = formatters.dayNumber.format(dayStart)
-    if (days === 1) return `${formatters.weekdayLong.format(dayStart).toUpperCase()} · ${dayNumber}`
-    return `${dayNumber} ${formatters.weekdayShort.format(dayStart).toUpperCase()}`
-  }
-
-  const canCreateRange = Boolean(onCreateRange)
-
-  const beginDrag = (event: React.PointerEvent<HTMLDivElement>, dayStart: Date) => {
-    if (!canCreateRange || event.button !== 0) return
-    const layer = event.currentTarget
-    const rect = layer.getBoundingClientRect()
-    const minute = offsetYToMinutes(event.clientY - rect.top, HOUR_HEIGHT_PX)
-    try {
-      layer.setPointerCapture(event.pointerId)
-    } catch {
-      // Pointer capture is best-effort; ignore environments that reject it.
+    if (!gesture) return
+    const handleMove = (event: PointerEvent) => {
+      const origin = gestureOriginRef.current
+      const movedFarEnough =
+        origin != null &&
+        (Math.abs(event.clientX - origin.x) > DRAG_THRESHOLD_PX ||
+          Math.abs(event.clientY - origin.y) > DRAG_THRESHOLD_PX)
+      const cell = pointerToCell(event.clientX, event.clientY)
+      if (!cell) return
+      const overAllDay = isOverAllDayLane(event.clientX, event.clientY)
+      setGesture((current) => {
+        if (!current) return current
+        const moved = current.moved || movedFarEnough
+        if (current.kind === 'create') {
+          return { ...current, pointerMinutes: snapMinutes(cell.minutes, snapPreference), moved }
+        }
+        if (current.kind === 'move') {
+          return {
+            ...current,
+            dayIndex: cell.dayIndex,
+            startMinutes: snapMinutes(cell.minutes, snapPreference),
+            overAllDay,
+            moved,
+          }
+        }
+        return { ...current, dayIndex: cell.dayIndex, pointerMinutes: cell.minutes, moved }
+      })
     }
-    setSelectedId(null)
-    setDrag({ dayMs: dayStart.getTime(), startMin: minute, endMin: minute, moved: false })
-  }
 
-  const moveDrag = (event: React.PointerEvent<HTMLDivElement>) => {
-    // Read the layer rect synchronously: `event.currentTarget` is only valid during
-    // event dispatch, but the setDrag updater below runs later during re-render.
-    const rect = event.currentTarget.getBoundingClientRect()
-    const minute = offsetYToMinutes(event.clientY - rect.top, HOUR_HEIGHT_PX)
-    setDrag((previous) => {
-      if (!previous) return previous
-      return {
-        ...previous,
-        endMin: minute,
-        moved: previous.moved || Math.abs(minute - previous.startMin) >= DRAG_SNAP_MINUTES,
-      }
-    })
-  }
+    const handleUp = (event: PointerEvent) => {
+      const current = gestureRef.current
+      gestureOriginRef.current = null
+      setGesture(null)
+      if (!current || !current.moved) return
+      const day = dayStarts[current.dayIndex]
+      if (!day) return
 
-  const endDrag = (dayStart: Date) => {
-    setDrag((previous) => {
-      if (previous && previous.moved && onCreateRange) {
-        const range = buildDragRange(dayStart, previous.startMin, previous.endMin)
-        onCreateRange(range.start, range.end)
+      if (current.kind === 'create') {
+        const range = buildDragRange(day, current.anchorMinutes, current.pointerMinutes)
+        onCreateRange?.(range.start, range.end)
+        return
       }
-      return null
-    })
-  }
+      if (!onReschedule) return
+
+      if (current.kind === 'move') {
+        // Dropping into the all-day lane converts the entry; dropping out of it
+        // puts the entry back on the clock at the pointer.
+        if (isOverAllDayLane(event.clientX, event.clientY)) {
+          const range = toAllDayRange({ start: day })
+          onReschedule({ item: current.item, start: range.start, end: range.end, allDay: true })
+          return
+        }
+        if (current.item.allDay) {
+          const range = toTimedRange(day, current.startMinutes, undefined, snapPreference)
+          onReschedule({ item: current.item, start: range.start, end: range.end, allDay: false })
+          return
+        }
+        const range = buildMovedRange(current.item, day, current.startMinutes, snapPreference)
+        onReschedule({ item: current.item, start: range.start, end: range.end, allDay: false })
+        return
+      }
+
+      const range = buildResizedRange(current.item, current.edge, day, current.pointerMinutes, snapPreference)
+      onReschedule({ item: current.item, start: range.start, end: range.end, allDay: false })
+    }
+
+    const handleCancel = () => {
+      gestureOriginRef.current = null
+      setGesture(null)
+    }
+
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
+    window.addEventListener('pointercancel', handleCancel)
+    return () => {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+      window.removeEventListener('pointercancel', handleCancel)
+    }
+  }, [
+    gesture,
+    dayStarts,
+    isOverAllDayLane,
+    onCreateRange,
+    onReschedule,
+    pointerToCell,
+    snapPreference,
+  ])
+
+  const previewRange = React.useMemo(() => {
+    if (!gesture || !gesture.moved) return null
+    const day = dayStarts[gesture.dayIndex]
+    if (!day) return null
+    if (gesture.kind === 'create') {
+      return { ...buildDragRange(day, gesture.anchorMinutes, gesture.pointerMinutes), dayIndex: gesture.dayIndex }
+    }
+    if (gesture.kind === 'move') {
+      if (gesture.overAllDay || gesture.item.allDay) return null
+      return { ...buildMovedRange(gesture.item, day, gesture.startMinutes, snapPreference), dayIndex: gesture.dayIndex }
+    }
+    return {
+      ...buildResizedRange(gesture.item, gesture.edge, day, gesture.pointerMinutes, snapPreference),
+      dayIndex: gesture.dayIndex,
+    }
+  }, [gesture, dayStarts, snapPreference])
+
+  const draggingItemId = gesture && gesture.kind !== 'create' ? gesture.item.id : null
+  const allDayDropActive = gesture?.kind === 'move' && gesture.moved && gesture.overAllDay
+
+  /** Keyboard equivalent of drag and resize, so neither depends on a pointer. */
+  const handleNudge = React.useCallback(
+    (item: CalendarItem, minutes: number, mode: 'move' | 'resize') => {
+      if (!onReschedule || !canManage) return
+      if (mode === 'move') {
+        // An all-day entry moves in whole days; a timed one in snap steps.
+        const step = item.allDay ? Math.sign(minutes) : 0
+        const start = item.allDay
+          ? addCalendarDays(item.start, step)
+          : new Date(item.start.getTime() + minutes * 60_000)
+        const end = item.allDay
+          ? addCalendarDays(item.end, step)
+          : new Date(item.end.getTime() + minutes * 60_000)
+        onReschedule({ item, start, end, allDay: item.allDay })
+        return
+      }
+      if (item.allDay) return
+      const end = new Date(item.end.getTime() + minutes * 60_000)
+      if (end.getTime() - item.start.getTime() < MIN_EVENT_DURATION_MINUTES * 60_000) return
+      onReschedule({ item, start: item.start, end, allDay: false })
+    },
+    [canManage, onReschedule],
+  )
+
+  const gridLabel =
+    days === 1
+      ? formatters.fullDate.format(dayStarts[0] ?? anchor)
+      : t('customers.calendar.views.week', 'Week')
+
+  const showNowIndicator = dayStarts.some((day) => isSameLocalDay(day, new Date(nowMs)))
+  const nowMinutes = minutesOfDay(new Date(nowMs))
+  const nowIndex = dayStarts.findIndex((day) => isSameLocalDay(day, new Date(nowMs)))
 
   return (
-    <div className="relative flex flex-col overflow-hidden rounded-lg border border-border bg-card">
-      <div
-        ref={scrollRef}
-        className="overflow-auto overscroll-contain"
-        style={{ maxHeight: GRID_BODY_MAX_HEIGHT_PX }}
-      >
-        <div className="sticky top-0 z-30 min-w-full bg-card max-md:w-max">
-          <div className="flex border-b border-border">
-            <div className="sticky start-0 z-10 flex w-14 shrink-0 bg-card md:w-26">
-              <span className="flex flex-1 items-center justify-center border-e border-border">
-                <IconButton type="button" variant="ghost" size="xs" aria-label={previousLabel} onClick={() => onNavigate(-days)}>
-                  <ChevronLeft aria-hidden />
-                </IconButton>
-              </span>
-              <span className="flex flex-1 items-center justify-center border-e border-border">
-                <IconButton type="button" variant="ghost" size="xs" aria-label={nextLabel} onClick={() => onNavigate(days)}>
-                  <ChevronRight aria-hidden />
-                </IconButton>
-              </span>
-            </div>
-            {dayColumns.map(({ dayStart }) => {
-              const isToday = isSameDay(dayStart, today)
-              return (
-                <div
-                  key={dayStart.getTime()}
-                  className={cn(
-                    'flex min-w-0 flex-1 items-center justify-center border-e border-border bg-muted px-1 py-2 last:border-e-0',
-                    days === 7 && 'min-w-[120px] max-md:max-w-[120px] md:min-w-0',
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'truncate text-xs uppercase tracking-wide',
-                      isToday ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground',
-                    )}
-                  >
-                    {headerLabelFor(dayStart)}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-          {hasAllDayLane ? (
-            <div className="flex border-b border-border">
-              <div className="sticky start-0 z-10 flex w-14 shrink-0 items-center justify-center border-e border-border bg-card py-1 md:w-26">
-                <span className="truncate text-overline uppercase tracking-wide text-muted-foreground">
-                  {t('customers.calendar.grid.allDay', 'All day')}
-                </span>
-              </div>
-              {dayColumns.map(({ dayStart, allDayItems }) => (
-                <div
-                  key={dayStart.getTime()}
-                  className={cn(
-                    'min-w-0 flex-1 space-y-1 border-e border-border p-1 last:border-e-0',
-                    days === 7 && 'min-w-[120px] max-md:max-w-[120px] md:min-w-0',
-                  )}
-                >
-                  {allDayItems.map((item) => (
-                    <EventPeekPopover
-                      key={item.id}
-                      item={item}
-                      open={selectedId === item.id}
-                      joinUrl={resolveJoinUrl(item.location)}
-                      aiSummaries={aiSummaries}
-                      canManage={canManage}
-                      onOpenChange={(open) => setSelectedId(open ? item.id : null)}
-                      onJoin={onJoin}
-                      onEdit={onItemClick}
-                    >
-                      <AllDayChip
-                        item={item}
-                        conflicted={showConflicts && conflictIds.has(item.id)}
-                        highlighted={highlightItemId === item.id}
-                        selected={selectedId === item.id}
-                        nowMs={nowMs}
-                      />
-                    </EventPeekPopover>
-                  ))}
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-        <div className="flex min-w-full max-md:w-max" style={{ height: HOURS_PER_DAY * HOUR_HEIGHT_PX }}>
-          <div className="sticky start-0 z-10 w-14 shrink-0 border-e border-border bg-card md:w-26">
-            <div className="relative h-full">
-              {hourLabels.map((label, hour) =>
-                hour === 0 ? null : (
-                  <span
-                    key={hour}
-                    className="absolute w-full -translate-y-1/2 px-1 text-center text-xs font-medium text-muted-foreground md:px-3 md:text-sm"
-                    style={{ top: hour * HOUR_HEIGHT_PX }}
-                  >
-                    {label}
-                  </span>
-                ),
-              )}
-            </div>
-          </div>
-          {dayColumns.map(({ dayStart, blocks }) => {
-            const nonWorking = isWeekendDay(dayStart)
-            const conflictCount = showConflicts
-              ? blocks.filter((block) => conflictIds.has(block.item.id)).length
-              : 0
-            const dragActive = drag && drag.moved && drag.dayMs === dayStart.getTime()
-            const dragRange = dragActive ? buildDragRange(dayStart, drag.startMin, drag.endMin) : null
-            const dragStartMinutes = dragRange
-              ? (dragRange.start.getTime() - startOfDay(dragRange.start).getTime()) / 60000
-              : 0
-            const dragDurationMinutes = dragRange
-              ? (dragRange.end.getTime() - dragRange.start.getTime()) / 60000
-              : 0
+    <div
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg border border-border bg-surface"
+      role="grid"
+      aria-label={gridLabel}
+      aria-rowcount={HOURS_PER_DAY}
+      aria-colcount={dayStarts.length}
+    >
+      {/* Header and all-day lane sit outside the scroll container, so they stay
+          pinned while the timed region scrolls. */}
+      <div className="shrink-0 border-b border-border bg-surface">
+        <div className="flex" role="row">
+          <div className="w-14 shrink-0 border-e border-border md:w-20" />
+          {dayStarts.map((dayStart, index) => {
+            const today = isSameLocalDay(dayStart, new Date(nowMs))
             return (
               <div
                 key={dayStart.getTime()}
+                role="columnheader"
+                aria-colindex={index + 1}
+                // The split weekday/numeral is a visual arrangement; screen
+                // readers get the whole date as one phrase.
+                aria-label={formatters.fullDate.format(dayStart)}
                 className={cn(
-                  'relative min-w-0 flex-1 border-e border-border last:border-e-0',
-                  days === 7 && 'min-w-[120px] max-md:max-w-[120px] md:min-w-0',
+                  'flex min-w-0 flex-1 flex-col items-center gap-0.5 border-e border-border px-1 py-2 last:border-e-0',
+                  today && 'bg-accent/40',
                 )}
-                title={nonWorking ? nonWorkingLabel : undefined}
               >
-                {nonWorking ? <span className="sr-only">{nonWorkingLabel}</span> : null}
-                <div aria-hidden className="absolute inset-0">
-                  {Array.from({ length: HOURS_PER_DAY }, (_, hour) => (
-                    <div key={hour} className="relative h-30 border-b border-border">
-                      <span className="absolute inset-x-0 top-1/2 h-px bg-border/50" />
-                    </div>
-                  ))}
-                </div>
-                {nonWorking ? (
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0"
-                    style={{ backgroundImage: NON_WORKING_HATCH_BACKGROUND }}
-                  />
-                ) : null}
-                {canCreateRange ? (
-                  <div
-                    className="absolute inset-0 cursor-cell"
-                    onPointerDown={(event) => beginDrag(event, dayStart)}
-                    onPointerMove={moveDrag}
-                    onPointerUp={() => endDrag(dayStart)}
-                    onPointerCancel={() => setDrag(null)}
-                    aria-hidden
-                  />
-                ) : null}
-                {dragRange ? (
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute z-30 flex flex-col gap-0.5 overflow-hidden rounded-md border-2 border-dashed border-foreground bg-accent-strong/10 px-2 pt-1.5"
-                    style={{
-                      top: (dragStartMinutes / 60) * HOUR_HEIGHT_PX,
-                      height: Math.max(MIN_BLOCK_HEIGHT_PX, (dragDurationMinutes / 60) * HOUR_HEIGHT_PX),
-                      insetInlineStart: 8,
-                      insetInlineEnd: 8,
-                    }}
-                  >
-                    <span className="text-overline font-semibold text-foreground">
-                      {t('customers.calendar.actions.newEvent', 'New event')}
+                {days === 1 ? (
+                  // A single wide column reads better on one line than stacked.
+                  <span aria-hidden className="text-sm font-medium tracking-wide text-foreground">
+                    {`${formatters.weekdayLong.format(dayStart).toLocaleUpperCase(locale)} · ${formatters.dayNumberPadded.format(dayStart)}`}
+                  </span>
+                ) : (
+                  <>
+                    <span aria-hidden className="text-overline tracking-wide text-muted-foreground">
+                      {formatters.weekdayShort.format(dayStart).toLocaleUpperCase(locale)}
                     </span>
-                    <span className="text-overline text-muted-foreground">
-                      {formatTimeRange(locale, dragRange.start, dragRange.end)}
-                    </span>
-                  </div>
-                ) : null}
-                {conflictCount > 0 ? <ConflictBadge count={conflictCount} /> : null}
-                {/* Click-through container so empty space reaches the drag-to-create layer
-                    below; each block re-enables pointer events for its own click/peek. */}
-                <div className="pointer-events-none absolute inset-y-0" style={{ insetInlineStart: 8, insetInlineEnd: 8 }}>
-                  {blocks.map((block) => (
-                    <EventPeekPopover
-                      key={`${block.item.id}-${block.top}`}
-                      item={block.item}
-                      open={selectedId === block.item.id}
-                      joinUrl={resolveJoinUrl(block.item.location)}
-                      aiSummaries={aiSummaries}
-                      canManage={canManage}
-                      onOpenChange={(open) => setSelectedId(open ? block.item.id : null)}
-                      onJoin={onJoin}
-                      onEdit={onItemClick}
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'flex size-7 items-center justify-center rounded-full text-sm font-medium',
+                        today ? 'bg-primary text-primary-foreground' : 'text-foreground',
+                      )}
                     >
-                      <EventBlock
-                        item={block.item}
-                        top={block.top}
-                        height={block.height}
-                        insetInlineStart={block.insetInlineStart}
-                        width={block.width}
-                        conflicted={showConflicts && conflictIds.has(block.item.id)}
-                        highlighted={highlightItemId === block.item.id}
-                        selected={selectedId === block.item.id}
-                        nowMs={nowMs}
-                      />
-                    </EventPeekPopover>
-                  ))}
-                </div>
+                      {formatters.dayNumber.format(dayStart)}
+                    </span>
+                  </>
+                )}
               </div>
             )
           })}
         </div>
+
+        {/* The all-day lane always renders, so it stays a drop target even when
+            empty. */}
+        <div className="flex border-t border-border">
+          <div className="flex w-14 shrink-0 items-start justify-end border-e border-border px-1 py-1 md:w-20 md:px-2">
+            <span className="text-overline uppercase tracking-wide text-muted-foreground">
+              {t('customers.calendar.grid.allDay', 'All day')}
+            </span>
+          </div>
+          <div
+            ref={allDayLaneRef}
+            className={cn(
+              'relative min-w-0 flex-1 transition-colors',
+              allDayDropActive && 'bg-accent-strong/15 ring-1 ring-inset ring-foreground',
+            )}
+            style={{
+              minHeight: BAR_ROW_HEIGHT_PX + BAR_ROW_GAP_PX,
+              height: Math.max(1, visibleAllDayRows) * (BAR_ROW_HEIGHT_PX + BAR_ROW_GAP_PX),
+            }}
+          >
+            <div aria-hidden className="absolute inset-0 flex">
+              {dayStarts.map((dayStart) => (
+                <div key={dayStart.getTime()} className="min-w-0 flex-1 border-e border-border last:border-e-0" />
+              ))}
+            </div>
+            {allDayBars
+              .filter((bar) => bar.lane < visibleAllDayRows)
+              .map((bar) => (
+                <EventPeekPopover
+                  key={`${bar.item.id}-allday`}
+                  item={bar.item}
+                  open={selectedId === bar.item.id}
+                  joinUrl={resolveJoinUrl(bar.item.location)}
+                  aiSummaries={aiSummaries}
+                  canManage={canManage}
+                  onOpenChange={(open) => setSelectedId(open ? bar.item.id : null)}
+                  onJoin={onJoin}
+                  onEdit={onItemClick}
+                >
+                  <CalendarBar
+                    bar={bar}
+                    dayCount={dayStarts.length}
+                    label={`${bar.item.title || t('customers.calendar.grid.untitled', 'Untitled')}, ${t('customers.calendar.grid.allDay', 'All day')}`}
+                    conflicted={showConflicts && conflictIds.has(bar.item.id)}
+                    highlighted={highlightItemId === bar.item.id}
+                    selected={selectedId === bar.item.id}
+                    dragging={draggingItemId === bar.item.id}
+                    nowMs={nowMs}
+                    onPointerDown={
+                      canManage && onReschedule ? (event) => beginAllDayMove(bar.item, event) : undefined
+                    }
+                  />
+                </EventPeekPopover>
+              ))}
+          </div>
+        </div>
+        {hiddenAllDayCount > 0 || allDayExpanded ? (
+          <div className="flex justify-end border-t border-border px-2 py-0.5">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-auto p-0 text-overline font-medium text-muted-foreground hover:bg-transparent hover:underline"
+              aria-expanded={allDayExpanded}
+              onClick={() => setAllDayExpanded((open) => !open)}
+            >
+              {allDayExpanded
+                ? t('customers.calendar.grid.showLess', 'Show less')
+                : t('customers.calendar.grid.more', '+{count} more', { count: hiddenAllDayCount })}
+            </Button>
+          </div>
+        ) : null}
       </div>
+
+      {/* Timed region — the only part that scrolls. */}
+      <div
+        ref={scrollRef}
+        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+        style={{ maxHeight: `min(${VISIBLE_HOURS * HOUR_HEIGHT_PX}px, 65vh)` }}
+      >
+        <div ref={gridRef} className="flex" style={{ height: HOURS_PER_DAY * HOUR_HEIGHT_PX }}>
+          <div className="relative w-14 shrink-0 border-e border-border md:w-20">
+            {hourLabels.map((label, hour) =>
+              hour === 0 ? null : (
+                <span
+                  key={hour}
+                  className="absolute end-0 w-full -translate-y-1/2 pe-1 text-end text-overline text-muted-foreground md:pe-2 md:text-xs"
+                  style={{ top: hour * HOUR_HEIGHT_PX }}
+                >
+                  {label}
+                </span>
+              ),
+            )}
+          </div>
+
+          <div
+            ref={columnsRef}
+            className={cn('relative flex min-w-0 flex-1 touch-none', gesture && 'select-none')}
+            onPointerDown={canCreate ? beginCreate : undefined}
+          >
+            {dayStarts.map((dayStart, dayIndex) => {
+              const nonWorking = isWeekendDay(dayStart)
+              const segments = timedByDay[dayIndex] ?? []
+              const today = isSameLocalDay(dayStart, new Date(nowMs))
+              const conflictCount = showConflicts
+                ? segments.filter((segment) => conflictIds.has(segment.item.id)).length
+                : 0
+              return (
+                <div
+                  key={dayStart.getTime()}
+                  role="gridcell"
+                  aria-colindex={dayIndex + 1}
+                  aria-label={formatters.fullDate.format(dayStart)}
+                  className={cn(
+                    'relative min-w-0 flex-1 border-e border-border last:border-e-0',
+                    today && 'bg-accent/20',
+                  )}
+                  title={nonWorking ? nonWorkingLabel : undefined}
+                >
+                  <div aria-hidden className="pointer-events-none absolute inset-0">
+                    {Array.from({ length: HOURS_PER_DAY }, (_, hour) => (
+                      <div
+                        key={hour}
+                        className="relative border-b border-border/70"
+                        style={{ height: HOUR_HEIGHT_PX }}
+                      >
+                        <span className="absolute inset-x-0 top-1/2 h-px bg-border/30" />
+                      </div>
+                    ))}
+                  </div>
+                  {nonWorking ? (
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0 opacity-40"
+                      style={{ backgroundImage: NON_WORKING_HATCH_BACKGROUND }}
+                    />
+                  ) : null}
+
+                  {canCreate ? <div aria-hidden className="absolute inset-0 cursor-cell" /> : null}
+
+                  {conflictCount > 0 ? <ConflictBadge count={conflictCount} /> : null}
+
+                  <div className="pointer-events-none absolute inset-y-0 inset-x-0.5">
+                    {segments.map((segment) => {
+                      const rawTop = minutesToPx(segment.startMinutes)
+                      const rawHeight = minutesToPx(segment.endMinutes - segment.startMinutes)
+                      const widthPercent = (segment.span / segment.columns) * 100
+                      const startPercent = (segment.column / segment.columns) * 100
+                      const isDragging = draggingItemId === segment.item.id
+                      return (
+                        <EventPeekPopover
+                          key={segmentKey(segment)}
+                          item={segment.item}
+                          open={selectedId === segment.item.id}
+                          joinUrl={resolveJoinUrl(segment.item.location)}
+                          aiSummaries={aiSummaries}
+                          canManage={canManage}
+                          onOpenChange={(open) => setSelectedId(open ? segment.item.id : null)}
+                          onJoin={onJoin}
+                          onEdit={onItemClick}
+                        >
+                          <EventBlock
+                            item={segment.item}
+                            top={rawTop + BLOCK_VERTICAL_GAP_PX}
+                            height={Math.max(MIN_BLOCK_HEIGHT_PX, rawHeight - BLOCK_VERTICAL_GAP_PX * 2)}
+                            insetInlineStart={`calc(${startPercent}% + ${segment.column * COLUMN_GAP_PX}px)`}
+                            width={`calc(${widthPercent}% - ${COLUMN_GAP_PX}px)`}
+                            continuesBefore={segment.continuesBefore}
+                            continuesAfter={segment.continuesAfter}
+                            resizable={canManage && Boolean(onReschedule)}
+                            draggable={canManage && Boolean(onReschedule)}
+                            dragging={isDragging}
+                            conflicted={showConflicts && conflictIds.has(segment.item.id)}
+                            highlighted={highlightItemId === segment.item.id}
+                            selected={selectedId === segment.item.id}
+                            nowMs={nowMs}
+                            onPointerDown={(event) => beginMove(segment.item, event)}
+                            onResizeStart={(edge, event) => beginResize(segment.item, edge, event)}
+                            onNudge={handleNudge}
+                          />
+                        </EventPeekPopover>
+                      )
+                    })}
+                  </div>
+
+                  {previewRange && previewRange.dayIndex === dayIndex ? (
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-x-1 z-30 flex flex-col gap-0.5 overflow-hidden rounded-md border-2 border-dashed border-foreground bg-accent-strong/10 px-1.5 pt-0.5"
+                      style={{
+                        top: minutesToPx(minutesOfDay(previewRange.start)),
+                        height: Math.max(
+                          MIN_BLOCK_HEIGHT_PX,
+                          minutesToPx((previewRange.end.getTime() - previewRange.start.getTime()) / 60_000),
+                        ),
+                      }}
+                    >
+                      <span className="truncate text-overline font-semibold text-foreground">
+                        {formatTimeRange(locale, previewRange.start, previewRange.end)}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })}
+
+            {showNowIndicator && nowIndex >= 0 ? (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute z-40 flex items-center"
+                style={{
+                  top: minutesToPx(nowMinutes),
+                  insetInlineStart: `${(nowIndex / dayStarts.length) * 100}%`,
+                  width: `${(1 / dayStarts.length) * 100}%`,
+                }}
+              >
+                <span className="-ms-1 size-2 shrink-0 rounded-full bg-status-error-icon" />
+                <span className="h-px flex-1 bg-status-error-icon" />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      <span className="sr-only" role="status">
+        {t('customers.calendar.grid.nowAnnouncement', 'Current time {time}', {
+          time: new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' }).format(new Date(nowMs)),
+        })}
+      </span>
     </div>
   )
 }

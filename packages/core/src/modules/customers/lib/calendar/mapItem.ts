@@ -1,6 +1,4 @@
 import { addMinutes } from 'date-fns/addMinutes'
-import { endOfDay } from 'date-fns/endOfDay'
-import { startOfDay } from 'date-fns/startOfDay'
 import type {
   CalendarInteractionPayload,
   CalendarItem,
@@ -10,8 +8,19 @@ import type {
   CalendarPlatform,
 } from '../../components/calendar/types'
 import { categoryOf } from './categories'
+import { MINUTES_PER_DAY, addCalendarDays, startOfLocalDay } from './time'
 
 const DEFAULT_DURATION_MINUTES = 30
+
+/**
+ * How many whole days an all-day entry covers. `durationMinutes` is the only
+ * field carrying span for an all-day interaction, so a null or sub-day value
+ * means a single day.
+ */
+export function allDaySpanDays(durationMinutes: number | null | undefined): number {
+  if (typeof durationMinutes !== 'number' || !Number.isFinite(durationMinutes) || durationMinutes <= 0) return 1
+  return Math.max(1, Math.ceil(durationMinutes / MINUTES_PER_DAY))
+}
 
 function narrowStatus(status: string): CalendarItemStatus {
   if (status === 'done') return 'done'
@@ -26,6 +35,19 @@ export function detectPlatform(location: string | null): CalendarPlatform | null
   if (normalized.includes('meet.google') || normalized.includes('on meet')) return 'meet'
   if (normalized.includes('slack')) return 'slack'
   if (normalized.includes('teams')) return 'teams'
+  return null
+}
+
+/**
+ * The joinable URL behind an entry's location, when there is one. Shared by the
+ * grid, the peek popover and the screen so "Join" means the same thing
+ * everywhere.
+ */
+export function resolveJoinUrl(location: string | null): string | null {
+  const trimmed = location?.trim() ?? ''
+  if (!trimmed) return null
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  if (/^www\./i.test(trimmed)) return `https://${trimmed}`
   return null
 }
 
@@ -63,9 +85,18 @@ export function mapInteractionToCalendarItem(
   if (Number.isNaN(parsedStart.getTime())) return null
 
   const allDay = payload.allDay === true
-  const durationMinutes = payload.durationMinutes ?? DEFAULT_DURATION_MINUTES
-  const start = allDay ? startOfDay(parsedStart) : parsedStart
-  const end = allDay ? endOfDay(parsedStart) : addMinutes(parsedStart, durationMinutes)
+  let start: Date
+  let end: Date
+  if (allDay) {
+    // All-day entries occupy whole calendar days: start at local midnight and
+    // end at the midnight closing the last day they cover, so a multi-day
+    // booking renders as one continuous bar instead of a single-day chip.
+    start = startOfLocalDay(parsedStart)
+    end = addCalendarDays(start, allDaySpanDays(payload.durationMinutes))
+  } else {
+    start = parsedStart
+    end = addMinutes(parsedStart, payload.durationMinutes ?? DEFAULT_DURATION_MINUTES)
+  }
 
   const location = payload.location ?? null
   const platform = detectPlatform(location)

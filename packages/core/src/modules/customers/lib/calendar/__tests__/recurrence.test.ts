@@ -31,18 +31,15 @@ describe('expandOccurrences', () => {
     expect(occurrences[0]).toBe(item)
   })
 
-  it('returns the base occurrence only for unsupported rules', () => {
-    const monthly = makeRecurringItem('FREQ=MONTHLY;COUNT=3')
-    expect(expandOccurrences(monthly, twoWeekWindow)).toEqual([monthly])
-
-    const withInterval = makeRecurringItem('FREQ=DAILY;INTERVAL=2')
-    expect(expandOccurrences(withInterval, twoWeekWindow)).toEqual([withInterval])
-
+  it('degrades an unparseable rule to the single stored event', () => {
     const malformed = makeRecurringItem('FREQ=WEEKLY;BYDAY=XX')
     expect(expandOccurrences(malformed, twoWeekWindow)).toEqual([malformed])
 
-    const malformedUntil = makeRecurringItem('FREQ=DAILY;UNTIL=2026-06-05')
-    expect(expandOccurrences(malformedUntil, twoWeekWindow)).toEqual([malformedUntil])
+    const unknownComponent = makeRecurringItem('FREQ=DAILY;BYSETPOS=2')
+    expect(expandOccurrences(unknownComponent, twoWeekWindow)).toEqual([unknownComponent])
+
+    const badFrequency = makeRecurringItem('FREQ=HOURLY')
+    expect(expandOccurrences(badFrequency, twoWeekWindow)).toEqual([badFrequency])
   })
 
   it('expands FREQ=DAILY with COUNT and suffixes occurrence ids', () => {
@@ -131,5 +128,98 @@ describe('expandOccurrences', () => {
     const occurrences = expandOccurrences(item, twoWeekWindow)
     expect(occurrences.map((occurrence) => occurrence.start.getDate())).toEqual([2, 9])
     expect(occurrences[0].id).toBe('series-base:0')
+  })
+})
+
+describe('expandOccurrences — monthly, yearly and intervals', () => {
+  function seriesFrom(start: Date, rule: string): CalendarItem {
+    const end = new Date(start.getTime() + 60 * 60 * 1000)
+    return makeCalendarItem({
+      id: 'series',
+      start,
+      end,
+      raw: makePayload({ id: 'series', recurrenceRule: rule, scheduledAt: start.toISOString() }),
+    })
+  }
+
+  it('honours INTERVAL on a daily rule', () => {
+    const item = seriesFrom(new Date(2026, 5, 1, 10, 0), 'FREQ=DAILY;INTERVAL=3;COUNT=4')
+    const occurrences = expandOccurrences(item, windowOf(new Date(2026, 5, 1), new Date(2026, 5, 30)))
+    expect(occurrences.map((occurrence) => occurrence.start.getDate())).toEqual([1, 4, 7, 10])
+  })
+
+  it('produces fortnightly occurrences for INTERVAL=2 weekly', () => {
+    const item = seriesFrom(new Date(2026, 5, 1, 10, 0), 'FREQ=WEEKLY;INTERVAL=2;COUNT=3')
+    const occurrences = expandOccurrences(item, windowOf(new Date(2026, 5, 1), new Date(2026, 6, 30)))
+    expect(occurrences.map((occurrence) => occurrence.start.getDate())).toEqual([1, 15, 29])
+  })
+
+  it('expands a monthly rule', () => {
+    const item = seriesFrom(new Date(2026, 0, 15, 10, 0), 'FREQ=MONTHLY;COUNT=4')
+    const occurrences = expandOccurrences(item, windowOf(new Date(2026, 0, 1), new Date(2026, 5, 30)))
+    expect(occurrences.map((occurrence) => [occurrence.start.getMonth(), occurrence.start.getDate()])).toEqual([
+      [0, 15],
+      [1, 15],
+      [2, 15],
+      [3, 15],
+    ])
+  })
+
+  it('clamps a 31st-of-the-month rule to short months', () => {
+    const item = seriesFrom(new Date(2026, 0, 31, 10, 0), 'FREQ=MONTHLY;COUNT=4')
+    const occurrences = expandOccurrences(item, windowOf(new Date(2026, 0, 1), new Date(2026, 5, 30)))
+    // January 31 → February 28 (2026 is not a leap year) → March 31 → April 30.
+    expect(occurrences.map((occurrence) => [occurrence.start.getMonth(), occurrence.start.getDate()])).toEqual([
+      [0, 31],
+      [1, 28],
+      [2, 31],
+      [3, 30],
+    ])
+  })
+
+  it('clamps to 29 February in a leap year', () => {
+    const item = seriesFrom(new Date(2028, 0, 31, 10, 0), 'FREQ=MONTHLY;COUNT=2')
+    const occurrences = expandOccurrences(item, windowOf(new Date(2028, 0, 1), new Date(2028, 3, 30)))
+    expect(occurrences[1].start.getMonth()).toBe(1)
+    expect(occurrences[1].start.getDate()).toBe(29)
+  })
+
+  it('expands a yearly rule and clamps 29 February in non-leap years', () => {
+    const item = seriesFrom(new Date(2028, 1, 29, 10, 0), 'FREQ=YEARLY;COUNT=3')
+    const occurrences = expandOccurrences(item, windowOf(new Date(2028, 0, 1), new Date(2031, 0, 1)))
+    expect(occurrences.map((occurrence) => [occurrence.start.getFullYear(), occurrence.start.getDate()])).toEqual([
+      [2028, 29],
+      [2029, 28],
+      [2030, 28],
+    ])
+  })
+
+  it('keeps the wall-clock time across a DST transition', () => {
+    const item = seriesFrom(new Date(2026, 2, 25, 9, 0), 'FREQ=DAILY;COUNT=10')
+    const occurrences = expandOccurrences(item, windowOf(new Date(2026, 2, 1), new Date(2026, 3, 30)))
+    for (const occurrence of occurrences) {
+      expect(occurrence.start.getHours()).toBe(9)
+      expect(occurrence.start.getMinutes()).toBe(0)
+    }
+  })
+
+  it('skips excepted dates without shifting the rest of the series', () => {
+    const item = seriesFrom(new Date(2026, 5, 1, 10, 0), 'FREQ=DAILY;COUNT=4;EXDATE=20260602')
+    const occurrences = expandOccurrences(item, windowOf(new Date(2026, 5, 1), new Date(2026, 5, 30)))
+    expect(occurrences.map((occurrence) => occurrence.start.getDate())).toEqual([1, 3, 4])
+  })
+
+  it('stops at UNTIL', () => {
+    const item = seriesFrom(new Date(2026, 5, 1, 10, 0), 'FREQ=DAILY;UNTIL=20260603T235959Z')
+    const occurrences = expandOccurrences(item, windowOf(new Date(2026, 5, 1), new Date(2026, 5, 30)))
+    expect(occurrences).toHaveLength(3)
+  })
+
+  it('expands a wide daily window without stalling', () => {
+    const item = seriesFrom(new Date(2026, 0, 1, 10, 0), 'FREQ=DAILY')
+    const started = Date.now()
+    const occurrences = expandOccurrences(item, windowOf(new Date(2026, 0, 1), new Date(2027, 0, 1)))
+    expect(occurrences.length).toBeLessThanOrEqual(100)
+    expect(Date.now() - started).toBeLessThan(200)
   })
 })

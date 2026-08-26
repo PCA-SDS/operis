@@ -79,6 +79,18 @@ export interface CalendarFiltersValue {
   ownerUserId: string | null
 }
 
+export type CalendarSnapMinutes = 15 | 30
+
+export type CalendarWorkingHours = { startHour: number; endHour: number }
+
+/** A drag or resize result, before it is validated and persisted. */
+export type CalendarReschedule = {
+  item: CalendarItem
+  start: Date
+  end: Date
+  allDay: boolean
+}
+
 export interface TimeGridProps {
   days: 1 | 7
   anchor: Date
@@ -89,19 +101,28 @@ export interface TimeGridProps {
   aiSummaries: boolean
   canManage?: boolean
   highlightItemId?: string | null
+  snapMinutes?: CalendarSnapMinutes
+  workingHours?: CalendarWorkingHours
   onItemClick(item: CalendarItem): void
   onJoin(item: CalendarItem): void
-  onNavigate(deltaDays: number): void
-  onCreate?: () => void
   onCreateRange?(start: Date, end: Date): void
+  onReschedule?(change: CalendarReschedule): void
 }
 
 export interface MonthGridProps {
   anchor: Date
   items: CalendarItem[]
+  weekStartsOn?: WeekStartDay
+  canManage?: boolean
+  aiSummaries?: boolean
   onItemClick(item: CalendarItem): void
+  onJoin?(item: CalendarItem): void
   onDayOpen(date: Date): void
+  onCreateAt?(date: Date): void
 }
+
+/** Locale week start, expressed the way date-fns expects it. */
+export type WeekStartDay = 0 | 1 | 2 | 3 | 4 | 5 | 6
 
 export interface AgendaListProps {
   anchor: Date
@@ -130,6 +151,9 @@ export interface UpcomingCardsProps {
 export interface CalendarHeaderProps {
   view: CalendarView
   anchor: Date
+  range: CalendarRange
+  onPrevious?: () => void
+  onNext?: () => void
   onNewEvent?: () => void
 }
 

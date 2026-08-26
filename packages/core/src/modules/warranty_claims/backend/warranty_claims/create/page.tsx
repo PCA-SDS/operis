@@ -17,6 +17,7 @@ import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Input } from '@open-mercato/ui/primitives/input'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import {
@@ -1091,10 +1092,9 @@ export function LineItemsEditor({
             ) : null}
             {!orderLinesLoading && orderLines.length ? (
               <div className="space-y-2">
-                <Input
-                  type="search"
+                <SearchInput
                   value={orderLineSearch}
-                  onChange={(event) => setOrderLineSearch(event.target.value)}
+                  onChange={setOrderLineSearch}
                   placeholder={t('warranty_claims.form.addFromOrder.search', 'Filter by product or SKU')}
                   aria-label={t('warranty_claims.form.addFromOrder.search', 'Filter by product or SKU')}
                 />

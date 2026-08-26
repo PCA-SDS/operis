@@ -4,7 +4,6 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Search,
-  Loader2,
   Zap,
   User,
   Users,
@@ -44,7 +43,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle } from '@open-mercato/ui/primitives/dialog'
-import { Input } from '@open-mercato/ui/primitives/input'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { cn } from '@open-mercato/shared/lib/utils'
 import type { SearchResult, SearchResultLink, SearchStrategyId } from '@open-mercato/shared/modules/search'
@@ -351,19 +350,16 @@ export function GlobalSearchDialog({
             {t('search.dialog.instructions')}
           </span>
           <div className="flex flex-col gap-3 border-b px-4 pb-3 pt-12">
-            <div className="flex items-center gap-2 rounded border border-border bg-surface px-3 py-2 transition-colors focus-within:border-primary">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <TypedInput
-                ref={inputRef}
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={t('search.dialog.input.placeholder')}
-                className="border-none px-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                autoFocus
-              />
-              {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-            </div>
+            <SearchInput
+              ref={inputRef}
+              size="lg"
+              value={query}
+              onChange={setQuery}
+              onKeyDown={handleKeyDown}
+              loading={loading}
+              placeholder={t('search.dialog.input.placeholder')}
+              autoFocus
+            />
 
             {error ? (
               <p className="rounded bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
@@ -478,4 +474,3 @@ export function GlobalSearchDialog({
 }
 
 export default GlobalSearchDialog
-const TypedInput = Input as React.ForwardRefExoticComponent<React.InputHTMLAttributes<HTMLInputElement> & React.RefAttributes<HTMLInputElement>>

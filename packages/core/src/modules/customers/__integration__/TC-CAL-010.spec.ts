@@ -22,12 +22,14 @@ import { waitForCalendarLoaded } from './helpers/calendarFixtures';
  * Determinism notes:
  * - June 2026 starts on a Monday, so 2026-06-27 is deterministically a Saturday
  *   inside the Mon-start week Jun 22–28, and 2026-06-24 is a Wednesday. The
- *   assertions key on weekday-token headers (`27 SAT` / `SUN` / `24 WED` / `SAT`),
- *   independent of the real run date.
- * - Week day headers read `${dd} ${EEE}` uppercased (e.g. "27 SAT"); weekend
- *   columns are asserted via their weekday tokens. `getByText(...).first()` on a
- *   hidden/absent column resolves to a not-visible locator, so `toBeHidden()`
- *   passes when the column is not rendered (same approach as TC-CAL-007).
+ *   assertions key on the column's accessible date name and the weekday tokens
+ *   (`SUN` / `SAT`), independent of the real run date.
+ * - Week day headers stack an uppercased weekday token above the date numeral,
+ *   and expose the whole date as the column's accessible name. Today's column is
+ *   asserted by that name; the rest of the weekend is asserted via its weekday
+ *   token. `getByText(...).first()` on a hidden/absent column resolves to a
+ *   not-visible locator, so `toBeHidden()` passes when the column is not
+ *   rendered (same approach as TC-CAL-007).
  * - `page.clock.setFixedTime` (NOT `clock.install`) freezes the wall clock but
  *   keeps timers running, so loaders/SSE still settle and `waitForCalendarLoaded`
  *   does not hang. The clock is frozen before `login`/`goto` so the browser
@@ -51,8 +53,8 @@ test.describe('TC-CAL-010: Week view keeps today\'s weekend column when weekends
     await page.goto('/backend/calendar');
     await waitForCalendarLoaded(page);
 
-    // Today's Saturday column (`27 SAT`) is restored even though weekends are OFF…
-    await expect(page.getByText(/\b27\s+SAT\b/).first()).toBeVisible();
+    // Today's Saturday column is restored even though weekends are OFF…
+    await expect(page.getByRole('columnheader', { name: 'Saturday, June 27, 2026' })).toBeVisible();
     // …but the rest of the weekend (Sunday) is still hidden.
     await expect(page.getByText(/\bSUN\b/).first()).toBeHidden();
   });
@@ -69,7 +71,7 @@ test.describe('TC-CAL-010: Week view keeps today\'s weekend column when weekends
     await waitForCalendarLoaded(page);
 
     // Today's weekday column is present…
-    await expect(page.getByText(/\b24\s+WED\b/).first()).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Wednesday, June 24, 2026' })).toBeVisible();
     // …and neither weekend day is rendered.
     await expect(page.getByText(/\bSAT\b/).first()).toBeHidden();
     await expect(page.getByText(/\bSUN\b/).first()).toBeHidden();
@@ -86,7 +88,7 @@ test.describe('TC-CAL-010: Week view keeps today\'s weekend column when weekends
       await waitForCalendarLoaded(page);
 
       // Default OFF: today's Saturday column shows, Sunday is hidden.
-      await expect(page.getByText(/\b27\s+SAT\b/).first()).toBeVisible();
+      await expect(page.getByRole('columnheader', { name: 'Saturday, June 27, 2026' })).toBeVisible();
       await expect(page.getByText(/\bSUN\b/).first()).toBeHidden();
 
       // Enable "Show weekends" via the settings modal and save.

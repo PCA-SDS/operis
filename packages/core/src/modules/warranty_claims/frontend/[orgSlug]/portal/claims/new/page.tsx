@@ -10,6 +10,7 @@ import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
 import { CheckboxField } from '@open-mercato/ui/primitives/checkbox-field'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Input } from '@open-mercato/ui/primitives/input'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { Radio, RadioGroup } from '@open-mercato/ui/primitives/radio'
 import {
   Select,
@@ -969,10 +970,10 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
           ) : (
             <div className="flex flex-col gap-4">
               <FormField label={t('warranty_claims.portal.new.orderSearch')}>
-                <Input
-                  type="search"
+                <SearchInput
                   value={orderSearchInput}
-                  onChange={(event) => setOrderSearchInput(event.target.value)}
+                  onChange={setOrderSearchInput}
+                  loading={orderSearchInput.trim() !== debouncedOrderSearch}
                   disabled={submitting}
                   placeholder={t('warranty_claims.portal.new.orderSearchPlaceholder')}
                 />
