@@ -197,19 +197,17 @@ export const migrateTpsProductsCommand: ModuleCli = {
     for (const rootCat of Object.values(SERVICE_MENU)) {
       for (const category of rootCat.categories) {
         for (const item of category.items) {
+          // Any item with optionGroups is a service using the Option Tree — never a retail configurable.
+          // (Retail configurable products like size/color variants are not part of the TPS service menu.)
           const isConfigurable = (item.optionGroups?.length ?? 0) > 0
-
-          // Detect if this item uses a nested decision-tree (nextGroups present at any level)
-          // If so, treat it as a service using the Option Tree, not Variants
-          const isNestedTree = isConfigurable && hasNestedTpsOptionTree(item.optionGroups ?? [])
 
           let mappedType: CatalogProductType = 'simple'
           if (category.type === 'service') mappedType = 'virtual'
           else if (category.type === 'package') mappedType = 'bundle'
-          else if (isNestedTree) mappedType = 'virtual' // Treat nested-tree items as services
+          else if (isConfigurable) mappedType = 'virtual' // All option-tree items are services
 
           const isServiceOrBundle = mappedType === 'virtual' || mappedType === 'bundle'
-          const finalProductType = (isConfigurable && !isServiceOrBundle) ? 'configurable' : mappedType
+          const finalProductType: CatalogProductType = isServiceOrBundle ? mappedType : 'simple'
 
           const productMetadata: Record<string, any> = {
             tps_id: item.id,
@@ -234,7 +232,7 @@ export const migrateTpsProductsCommand: ModuleCli = {
             sku: slugifyTpsText(`${category.label} ${item.name}`),
             handle: slugifyTpsText(`${category.label} ${item.name}`),
             productType: finalProductType,
-            isConfigurable: finalProductType === 'configurable',
+            isConfigurable: false, // Option Tree items are never retail-configurable
             isActive: true,
             metadata: productMetadata,
           })
