@@ -66,6 +66,8 @@ function traverseOptionTree(
         group: groupEntity,
         name: opt.name,
         priceFlat: parsedPrice.unitPriceGross || undefined,
+        priceMin: parsedPrice.priceMin || undefined,
+        priceMax: parsedPrice.priceMax || undefined,
         durationUnit: duration ? 'minute' : undefined, // Simplify duration parsing
         durationValue: duration ? parseInt(duration) : undefined,
         sortOrder: sortOrderOption++,

@@ -64,6 +64,8 @@ type OptionFormValues = {
   code: string
   description: string
   price_flat: string
+  price_min: string
+  price_max: string
   duration_value: string
   duration_unit: string
   is_addon: boolean
@@ -263,12 +265,12 @@ function OptionDialog({
 }) {
   const t = useT()
   const [form, setForm] = useState<OptionFormValues>(
-    initialValues ?? { name: '', code: '', description: '', price_flat: '', duration_value: '', duration_unit: 'minute', is_addon: false }
+    initialValues ?? { name: '', code: '', description: '', price_flat: '', price_min: '', price_max: '', duration_value: '', duration_unit: 'minute', is_addon: false }
   )
 
   useEffect(() => {
     if (open) {
-      setForm(initialValues ?? { name: '', code: '', description: '', price_flat: '', duration_value: '', duration_unit: 'minute', is_addon: false })
+      setForm(initialValues ?? { name: '', code: '', description: '', price_flat: '', price_min: '', price_max: '', duration_value: '', duration_unit: 'minute', is_addon: false })
     }
   }, [open, initialValues])
 
@@ -282,6 +284,8 @@ function OptionDialog({
       code: form.code || null,
       description: form.description || null,
       price_flat: form.price_flat ? form.price_flat : null,
+      price_min: form.price_min ? form.price_min : null,
+      price_max: form.price_max ? form.price_max : null,
       duration_value: form.duration_value ? parseInt(form.duration_value) : null,
       duration_unit: form.duration_value ? form.duration_unit : null,
       is_addon: form.is_addon,
@@ -290,8 +294,6 @@ function OptionDialog({
       metadata: null,
       note: null,
       unit: null,
-      price_min: null,
-      price_max: null,
       duration_min: null,
       duration_max: null,
     } as OptionItem)
@@ -338,17 +340,39 @@ function OptionDialog({
             </div>
 
             <div className="space-y-1.5 col-span-2 sm:col-span-1">
-              <Label htmlFor="opt-price">
+              <Label>
                 <Banknote className="inline h-3 w-3 text-muted-foreground mr-1" />
                 {t('catalog.options.price', 'Price')}
               </Label>
-              <Input
-                id="opt-price"
-                type="number"
-                value={form.price_flat}
-                onChange={(e) => setForm((f) => ({ ...f, price_flat: e.target.value }))}
-                placeholder="0"
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  id="opt-price-flat"
+                  type="number"
+                  value={form.price_flat}
+                  onChange={(e) => setForm((f) => ({ ...f, price_flat: e.target.value }))}
+                  placeholder="Fixed (e.g. 50000)"
+                  title="Fixed Price"
+                />
+                <div className="flex gap-1 items-center">
+                  <Input
+                    id="opt-price-min"
+                    type="number"
+                    value={form.price_min}
+                    onChange={(e) => setForm((f) => ({ ...f, price_min: e.target.value }))}
+                    placeholder="Min"
+                    title="Min Range"
+                  />
+                  <span className="text-muted-foreground">-</span>
+                  <Input
+                    id="opt-price-max"
+                    type="number"
+                    value={form.price_max}
+                    onChange={(e) => setForm((f) => ({ ...f, price_max: e.target.value }))}
+                    placeholder="Max"
+                    title="Max Range"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="space-y-1.5 col-span-2 sm:col-span-1">
@@ -516,12 +540,17 @@ function OptionRow({
             {opt.code}
           </Badge>
         )}
-        {opt.price_flat && Number(opt.price_flat) > 0 && (
+        {(opt.price_flat && Number(opt.price_flat) > 0) ? (
           <Badge variant="secondary" className="text-xs gap-1">
             <Banknote className="h-2.5 w-2.5" />
             {Number(opt.price_flat).toLocaleString('vi-VN')}đ
           </Badge>
-        )}
+        ) : (opt.price_min && opt.price_max && Number(opt.price_max) > 0) ? (
+          <Badge variant="secondary" className="text-xs gap-1">
+            <Banknote className="h-2.5 w-2.5" />
+            {Number(opt.price_min).toLocaleString('vi-VN')}đ – {Number(opt.price_max).toLocaleString('vi-VN')}đ
+          </Badge>
+        ) : null}
         {opt.duration_value && (
           <Badge variant="secondary" className="text-xs gap-1">
             <Clock className="h-2.5 w-2.5" />
@@ -783,6 +812,8 @@ function GroupCard({
             code: (editingOption as any).code ?? '',
             description: (editingOption as any).description ?? '',
             price_flat: (editingOption as any).price_flat ?? '',
+            price_min: (editingOption as any).price_min ?? '',
+            price_max: (editingOption as any).price_max ?? '',
             duration_value: String((editingOption as any).duration_value ?? ''),
             duration_unit: (editingOption as any).duration_unit ?? 'minute',
             is_addon: (editingOption as any).is_addon ?? false,

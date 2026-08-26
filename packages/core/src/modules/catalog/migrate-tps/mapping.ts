@@ -33,22 +33,22 @@ export function sumTpsPrices(p1: Price | undefined, p2: Price | undefined): Pric
   return min
 }
 
-export function parseTpsPrice(price: Price | undefined): { unitPriceGross: string | null; metadata: Record<string, unknown> | null } {
+export function parseTpsPrice(price: Price | undefined): { unitPriceGross: string | null; priceMin: string | null; priceMax: string | null; metadata: Record<string, unknown> | null } {
   if (price === undefined || price === null) {
-    return { unitPriceGross: null, metadata: null }
+    return { unitPriceGross: null, priceMin: null, priceMax: null, metadata: null }
   }
   if (typeof price === 'number') {
-    return { unitPriceGross: price.toString(), metadata: null }
+    return { unitPriceGross: price.toString(), priceMin: null, priceMax: null, metadata: null }
   }
   if (typeof price === 'object') {
     if (price.kind === 'range') {
-      return { unitPriceGross: price.min.toString(), metadata: price as unknown as Record<string, unknown> }
+      return { unitPriceGross: price.min.toString(), priceMin: price.min.toString(), priceMax: price.max.toString(), metadata: price as unknown as Record<string, unknown> }
     }
     if (price.kind === 'gender') {
-      return { unitPriceGross: price.women.toString(), metadata: price as unknown as Record<string, unknown> }
+      return { unitPriceGross: price.women.toString(), priceMin: null, priceMax: null, metadata: price as unknown as Record<string, unknown> }
     }
   }
-  return { unitPriceGross: null, metadata: null }
+  return { unitPriceGross: null, priceMin: null, priceMax: null, metadata: null }
 }
 
 export function extractTpsDuration(item: Pick<ServiceItem, 'duration' | 'name' | 'description'> | Pick<Option, 'duration' | 'name' | 'description'>): string | undefined {
