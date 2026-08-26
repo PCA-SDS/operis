@@ -5,7 +5,7 @@ import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
-import { apiCall, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCall, apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog/useConfirmDialog'
 import {
@@ -1011,7 +1011,7 @@ export default function ProductOptionsPage({
       await runMutation({
         context: { productId },
         operation: async () => {
-          await apiCall(`/api/catalog/products/${productId}/option-tree`, {
+          await apiCallOrThrow(`/api/catalog/products/${productId}/option-tree`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),

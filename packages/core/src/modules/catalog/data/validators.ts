@@ -30,7 +30,7 @@ const currencyCodeSchema = z
   .trim()
   .regex(/^[A-Z]{3}$/, 'currency code must be a three-letter ISO code')
 
-const metadataSchema = z.record(z.string(), z.unknown()).optional()
+const metadataSchema = z.record(z.string(), z.unknown()).nullable().optional()
 
 const slugSchema = z
   .string()
