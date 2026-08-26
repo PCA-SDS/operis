@@ -8,7 +8,7 @@ export const metadata: ModuleInfo = {
   author: 'Open Mercato Team',
   license: 'MIT',
   ejectable: true,
-  defaultEntitlement: 'enabled',
+  defaultEntitlement: 'disabled',
 }
 
 export { features } from './acl'
