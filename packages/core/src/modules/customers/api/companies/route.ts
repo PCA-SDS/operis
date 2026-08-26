@@ -39,6 +39,7 @@ import {
   withScopedCustomerDealLinkWhere,
 } from '../../lib/personCompanyLinkTable'
 import { normalizeCompanyProfilePayload } from './payload'
+import { toDateOnlyString } from '../../lib/dateOnly'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 const logger = createLogger('customers')
@@ -491,6 +492,15 @@ const crud = makeCrudRoute({
           industry: profile.industry ?? null,
           size_bucket: profile.sizeBucket ?? null,
           annual_revenue: profile.annualRevenue ?? null,
+          tax_code: profile.taxCode ?? null,
+          registration_country: profile.registrationCountry ?? null,
+          address: profile.address ?? null,
+          incorporation_date: toDateOnlyString(profile.incorporationDate),
+          client_tier: profile.clientTier ?? null,
+          onboarded_at: toDateOnlyString(profile.onboardedAt),
+          registered_at: toDateOnlyString(profile.registeredAt),
+          end_date: toDateOnlyString(profile.endDate),
+          reactivated_at: profile.reactivatedAt ? profile.reactivatedAt.toISOString() : null,
         }
       })
     },
@@ -520,6 +530,23 @@ const companyListItemSchema = z.object({
   organization_id: z.string().uuid().nullable().optional(),
   tenant_id: z.string().uuid().nullable().optional(),
   created_at: z.string().nullable().optional(),
+  // Stitched onto each row from customer_companies by the list transform below.
+  legal_name: z.string().nullable().optional(),
+  brand_name: z.string().nullable().optional(),
+  domain: z.string().nullable().optional(),
+  website_url: z.string().nullable().optional(),
+  industry: z.string().nullable().optional(),
+  size_bucket: z.string().nullable().optional(),
+  annual_revenue: z.string().nullable().optional(),
+  tax_code: z.string().nullable().optional(),
+  registration_country: z.string().nullable().optional(),
+  address: z.string().nullable().optional(),
+  incorporation_date: z.string().nullable().optional(),
+  client_tier: z.string().nullable().optional(),
+  onboarded_at: z.string().nullable().optional(),
+  registered_at: z.string().nullable().optional(),
+  end_date: z.string().nullable().optional(),
+  reactivated_at: z.string().nullable().optional(),
 })
 
 const companyCreateResponseSchema = z.object({

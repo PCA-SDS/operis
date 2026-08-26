@@ -37,7 +37,7 @@ export const messageObjectTypes: MessageObjectTypeDefinition[] = [
     messageTypes: objectMessageTypes,
     entityId: 'customers:customer_company_profile',
     optionLabelField: 'name',
-    optionSubtitleField: 'taxId',
+    optionSubtitleField: 'taxCode',
     labelKey: 'customers.companies.list.title',
     icon: 'building2',
     PreviewComponent: MessageObjectPreview,

@@ -9,6 +9,14 @@ const SUPPORTED_COMPANY_PROFILE_KEYS = new Set([
   'industry',
   'sizeBucket',
   'annualRevenue',
+  'taxCode',
+  'registrationCountry',
+  'address',
+  'incorporationDate',
+  'clientTier',
+  'onboardedAt',
+  'registeredAt',
+  'endDate',
 ])
 
 const IGNORED_ROUND_TRIP_KEYS = new Set(['id', 'updatedAt'])

@@ -24,6 +24,7 @@ export const CUSTOMER_COMPANY_CUSTOM_FIELDS = [
     label: 'Relationship health',
     description: 'Overall account health assessment.',
     filterable: true,
+    listVisible: false,
   }),
   cf.select('renewal_quarter', ['Q1', 'Q2', 'Q3', 'Q4'], {
     label: 'Renewal quarter',

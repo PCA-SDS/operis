@@ -60,6 +60,7 @@ import {
   resolveCrudCache,
 } from '@open-mercato/shared/lib/crud/cache'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toDateOnlyString } from '../../../lib/dateOnly'
 
 const logger = createLogger('customers')
 
@@ -1091,6 +1092,15 @@ export async function GET(_req: Request, ctx: { params?: { id?: string } }) {
           industry: profile.industry,
           sizeBucket: profile.sizeBucket,
           annualRevenue: profile.annualRevenue,
+          taxCode: profile.taxCode ?? null,
+          registrationCountry: profile.registrationCountry ?? null,
+          address: profile.address ?? null,
+          incorporationDate: toDateOnlyString(profile.incorporationDate),
+          clientTier: profile.clientTier ?? null,
+          onboardedAt: toDateOnlyString(profile.onboardedAt),
+          registeredAt: toDateOnlyString(profile.registeredAt),
+          endDate: toDateOnlyString(profile.endDate),
+          reactivatedAt: profile.reactivatedAt ? profile.reactivatedAt.toISOString() : null,
         }
       : null,
     customFields,
@@ -1325,6 +1335,15 @@ const companyDetailResponseSchema = z.object({
       industry: z.string().nullable().optional(),
       sizeBucket: z.string().nullable().optional(),
       annualRevenue: z.number().nullable().optional(),
+      taxCode: z.string().nullable().optional(),
+      registrationCountry: z.string().nullable().optional(),
+      address: z.string().nullable().optional(),
+      incorporationDate: z.string().nullable().optional(),
+      clientTier: z.string().nullable().optional(),
+      onboardedAt: z.string().nullable().optional(),
+      registeredAt: z.string().nullable().optional(),
+      endDate: z.string().nullable().optional(),
+      reactivatedAt: z.string().nullable().optional(),
     })
     .nullable(),
   customFields: z.record(z.string(), z.unknown()),
