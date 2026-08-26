@@ -35,7 +35,7 @@ import {
   GripVertical,
   Tag,
   Clock,
-  DollarSign,
+  Banknote,
   FolderTree,
   Layers,
   Save,
@@ -339,7 +339,7 @@ function OptionDialog({
 
             <div className="space-y-1.5 col-span-2 sm:col-span-1">
               <Label htmlFor="opt-price">
-                <DollarSign className="inline h-3 w-3 text-muted-foreground mr-1" />
+                <Banknote className="inline h-3 w-3 text-muted-foreground mr-1" />
                 {t('catalog.options.price', 'Price (+)')}
               </Label>
               <Input
@@ -518,7 +518,7 @@ function OptionRow({
         )}
         {opt.price_flat && Number(opt.price_flat) > 0 && (
           <Badge variant="secondary" className="text-xs gap-1">
-            <DollarSign className="h-2.5 w-2.5" />
+            <Banknote className="h-2.5 w-2.5" />
             {Number(opt.price_flat).toLocaleString('vi-VN')}đ
           </Badge>
         )}

@@ -1,11 +1,0 @@
-feat(catalog): complete TPS catalog migration and option tree atomic sync
-
-This commit finalizes the migration of the TPS-style service catalog into Operis, fulfilling all requirements outlined in the next steps specification:
-
-- CLI Migration Safety: Added --replace flag to migrate-tps-categories and migrate-tps-products. Legacy data cleanup is now non-destructive by default.
-- TPS Mapping Extraction: Extracted complex mapping logic into pure, testable helpers (migrate-tps/lib.ts), replacing ny with strict types and adding comprehensive unit tests.
-- Atomic Option Tree Sync: Implemented catalog.product_options.sync_tree command to atomically upsert option trees with stable IDs, exposed via PUT /api/catalog/products/[id]/option-tree.
-- Standardize Option Tree UI: Rebuilt ProductOptionsPage using local React state, lash messages, and useGuardedMutation to support atomic saving of the full tree.
-- API Isolation Tests: Added robust route tests to ensure strict organizationId scoping is maintained.
-- Test Fixtures: Added salon-service-option-tree.ts data fixture to assist with upcoming E2E/UI tests.
-- Domain Documentation: Created docs/domain/catalog-scheduling-integration.md detailing the architectural design pattern for integrating catalog option durations with the future scheduling module.
