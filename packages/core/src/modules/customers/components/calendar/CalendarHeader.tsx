@@ -36,7 +36,7 @@ export function CalendarHeader({ view, anchor, range, onPrevious, onNext, onNewE
         : t('customers.calendar.nextWeek', 'Next week')
 
   return (
-    <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b py-4">
+    <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b pb-4">
       {onPrevious && onNext ? (
         <div className="flex shrink-0 items-center gap-0.5">
           <IconButton type="button" variant="ghost" size="sm" aria-label={previousLabel} onClick={onPrevious}>

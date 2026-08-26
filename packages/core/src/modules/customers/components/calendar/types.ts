@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { z } from 'zod'
 
 export type CalendarView = 'day' | 'week' | 'month' | 'agenda'
@@ -178,6 +179,8 @@ export interface CalendarTabsProps {
   tab: CalendarTab
   counts: { all: number; meetings: number; events: number }
   view: CalendarView
+  /** Transient status text (truncation, refreshing) shown between the two controls. */
+  status?: ReactNode
   onTabChange(tab: CalendarTab): void
   onViewChange(view: CalendarView): void
 }
