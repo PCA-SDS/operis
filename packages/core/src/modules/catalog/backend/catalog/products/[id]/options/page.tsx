@@ -340,7 +340,7 @@ function OptionDialog({
             <div className="space-y-1.5 col-span-2 sm:col-span-1">
               <Label htmlFor="opt-price">
                 <Banknote className="inline h-3 w-3 text-muted-foreground mr-1" />
-                {t('catalog.options.price', 'Price (+)')}
+                {t('catalog.options.price', 'Price')}
               </Label>
               <Input
                 id="opt-price"
