@@ -19,12 +19,14 @@ describe('TPS Migration Mapping Helpers', () => {
 
   describe('parseTpsPrice', () => {
     it('should parse numeric price', () => {
-      expect(parseTpsPrice(100)).toEqual({ unitPriceGross: '100', metadata: null })
+      expect(parseTpsPrice(100)).toEqual({ unitPriceGross: '100', priceMin: null, priceMax: null, metadata: null })
     })
 
     it('should parse range price', () => {
       expect(parseTpsPrice({ kind: 'range', min: 50, max: 100 })).toEqual({
-        unitPriceGross: '50',
+        unitPriceGross: null,
+        priceMin: '50',
+        priceMax: '100',
         metadata: { kind: 'range', min: 50, max: 100 }
       })
     })
@@ -32,16 +34,20 @@ describe('TPS Migration Mapping Helpers', () => {
     it('should parse gender price', () => {
       expect(parseTpsPrice({ kind: 'gender', women: 80 })).toEqual({
         unitPriceGross: '80',
+        priceMin: null,
+        priceMax: null,
         metadata: { kind: 'gender', women: 80 }
       })
       expect(parseTpsPrice({ kind: 'gender', women: 80, men: 100 })).toEqual({
         unitPriceGross: '80',
+        priceMin: null,
+        priceMax: null,
         metadata: { kind: 'gender', women: 80, men: 100 }
       })
     })
 
     it('should handle undefined/null', () => {
-      expect(parseTpsPrice(undefined)).toEqual({ unitPriceGross: null, metadata: null })
+      expect(parseTpsPrice(undefined)).toEqual({ unitPriceGross: null, priceMin: null, priceMax: null, metadata: null })
     })
   })
 

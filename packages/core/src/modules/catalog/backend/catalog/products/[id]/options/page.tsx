@@ -267,10 +267,12 @@ function OptionDialog({
   const [form, setForm] = useState<OptionFormValues>(
     initialValues ?? { name: '', code: '', description: '', price_flat: '', price_min: '', price_max: '', duration_value: '', duration_unit: 'minute', is_addon: false }
   )
+  const [priceType, setPriceType] = useState<'fixed' | 'range'>('fixed')
 
   useEffect(() => {
     if (open) {
       setForm(initialValues ?? { name: '', code: '', description: '', price_flat: '', price_min: '', price_max: '', duration_value: '', duration_unit: 'minute', is_addon: false })
+      setPriceType((initialValues?.price_min || initialValues?.price_max) ? 'range' : 'fixed')
     }
   }, [open, initialValues])
 
@@ -283,9 +285,9 @@ function OptionDialog({
       name: form.name,
       code: form.code || null,
       description: form.description || null,
-      price_flat: form.price_flat ? form.price_flat : null,
-      price_min: form.price_min ? form.price_min : null,
-      price_max: form.price_max ? form.price_max : null,
+      price_flat: (priceType === 'fixed' && form.price_flat) ? form.price_flat : null,
+      price_min: (priceType === 'range' && form.price_min) ? form.price_min : null,
+      price_max: (priceType === 'range' && form.price_max) ? form.price_max : null,
       duration_value: form.duration_value ? parseInt(form.duration_value) : null,
       duration_unit: form.duration_value ? form.duration_unit : null,
       is_addon: form.is_addon,
@@ -340,36 +342,56 @@ function OptionDialog({
             </div>
 
             <div className="space-y-1.5 col-span-2">
-              <Label>
-                <Banknote className="inline h-3 w-3 text-muted-foreground mr-1" />
-                {t('catalog.options.price', 'Price')}
-              </Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="flex items-center justify-between">
+                <Label>
+                  <Banknote className="inline h-3 w-3 text-muted-foreground mr-1" />
+                  {t('catalog.options.price', 'Price')}
+                </Label>
+                <div className="flex bg-muted rounded-md p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setPriceType('fixed')}
+                    className={`text-[10px] px-2 py-0.5 rounded-sm transition-colors ${priceType === 'fixed' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:bg-muted-foreground/10'}`}
+                  >
+                    {t('catalog.options.priceFixed', 'Fixed')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPriceType('range')}
+                    className={`text-[10px] px-2 py-0.5 rounded-sm transition-colors ${priceType === 'range' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:bg-muted-foreground/10'}`}
+                  >
+                    {t('catalog.options.priceRange', 'Range')}
+                  </button>
+                </div>
+              </div>
+              
+              {priceType === 'fixed' ? (
                 <Input
                   id="opt-price-flat"
                   type="number"
                   value={form.price_flat}
                   onChange={(e) => setForm((f) => ({ ...f, price_flat: e.target.value }))}
-                  placeholder="Fixed"
-                  title="Fixed Price"
+                  placeholder="e.g. 50000"
                 />
-                <Input
-                  id="opt-price-min"
-                  type="number"
-                  value={form.price_min}
-                  onChange={(e) => setForm((f) => ({ ...f, price_min: e.target.value }))}
-                  placeholder="Min"
-                  title="Min Range"
-                />
-                <Input
-                  id="opt-price-max"
-                  type="number"
-                  value={form.price_max}
-                  onChange={(e) => setForm((f) => ({ ...f, price_max: e.target.value }))}
-                  placeholder="Max"
-                  title="Max Range"
-                />
-              </div>
+              ) : (
+                <div className="flex gap-2 items-center">
+                  <Input
+                    id="opt-price-min"
+                    type="number"
+                    value={form.price_min}
+                    onChange={(e) => setForm((f) => ({ ...f, price_min: e.target.value }))}
+                    placeholder="Min"
+                  />
+                  <span className="text-muted-foreground text-sm">-</span>
+                  <Input
+                    id="opt-price-max"
+                    type="number"
+                    value={form.price_max}
+                    onChange={(e) => setForm((f) => ({ ...f, price_max: e.target.value }))}
+                    placeholder="Max"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5 col-span-2">

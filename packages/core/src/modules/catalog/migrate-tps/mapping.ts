@@ -42,7 +42,7 @@ export function parseTpsPrice(price: Price | undefined): { unitPriceGross: strin
   }
   if (typeof price === 'object') {
     if (price.kind === 'range') {
-      return { unitPriceGross: price.min.toString(), priceMin: price.min.toString(), priceMax: price.max.toString(), metadata: price as unknown as Record<string, unknown> }
+      return { unitPriceGross: null, priceMin: price.min.toString(), priceMax: price.max.toString(), metadata: price as unknown as Record<string, unknown> }
     }
     if (price.kind === 'gender') {
       return { unitPriceGross: price.women.toString(), priceMin: null, priceMax: null, metadata: price as unknown as Record<string, unknown> }
