@@ -22,6 +22,7 @@ import {
   sumTpsPrices,
   parseTpsPrice,
   extractTpsDuration,
+  parseTpsDurationForEntity,
   hasNestedTpsOptionTree,
   collectTpsSchemaGroups,
   enumerateTpsOptionPaths,
@@ -99,6 +100,8 @@ function createVariantForOption(em: EntityManager, product: CatalogProduct, defa
     variantMetadata.extra_durations = extraDurations
   }
 
+  const parsedDurations = parseTpsDurationForEntity(extraDurations[0]) // Simplification: just use the first duration found for the variant
+
   const variant = em.create(CatalogProductVariant, {
     id: randomUUID(),
     tenantId,
@@ -109,11 +112,15 @@ function createVariantForOption(em: EntityManager, product: CatalogProduct, defa
     optionValues: parsedOptionValues,
     isActive: true,
     isDefault,
+    durationUnit: parsedDurations.durationUnit,
+    durationValue: parsedDurations.durationValue,
+    durationMin: parsedDurations.durationMin,
+    durationMax: parsedDurations.durationMax,
     metadata: Object.keys(variantMetadata).length > 0 ? variantMetadata : null,
   })
   em.persist(variant)
 
-  if (parsedPrice.unitPriceGross) {
+  if (parsedPrice.unitPriceGross || parsedPrice.priceMin || parsedPrice.priceMax) {
     const priceEntity = em.create(CatalogProductPrice, {
       id: randomUUID(),
       tenantId,
@@ -124,7 +131,9 @@ function createVariantForOption(em: EntityManager, product: CatalogProduct, defa
       currencyCode: 'VND',
       kind: 'regular',
       minQuantity: 1,
-      unitPriceGross: parsedPrice.unitPriceGross,
+      unitPriceGross: parsedPrice.unitPriceGross || parsedPrice.priceMin, // Use priceMin as base display price if no flat price
+      priceMin: parsedPrice.priceMin,
+      priceMax: parsedPrice.priceMax,
       metadata: parsedPrice.metadata,
     })
     em.persist(priceEntity)
@@ -203,27 +212,16 @@ export const migrateTpsProductsCommand: ModuleCli = {
           // (Retail configurable products like size/color variants are not part of the TPS service menu.)
           const isConfigurable = (item.optionGroups?.length ?? 0) > 0
 
-          let mappedType: CatalogProductType = 'simple'
-          if (category.type === 'service') mappedType = 'virtual'
-          else if (category.type === 'package') mappedType = 'bundle'
-          else if (isConfigurable) mappedType = 'virtual' // All option-tree items are services
-
-          const isServiceOrBundle = mappedType === 'virtual' || mappedType === 'bundle'
-          const finalProductType: CatalogProductType = isServiceOrBundle ? mappedType : 'simple'
+          // User requested all TPS products to be migrated as 'service' (no simple, no bundle)
+          const finalProductType: CatalogProductType = 'service'
 
           const productMetadata: Record<string, any> = {
             tps_id: item.id,
             tps_type: category.type || 'unknown',
           }
           const itemDuration = extractTpsDuration(item)
-          if (itemDuration) {
-            productMetadata.duration = itemDuration
-          }
           
           const parsedProductPrice = parseTpsPrice(item.price)
-          if (parsedProductPrice.metadata) {
-            productMetadata.price_rules = parsedProductPrice.metadata
-          }
 
           const product = em.create(CatalogProduct, {
             id: randomUUID(),
@@ -253,71 +251,12 @@ export const migrateTpsProductsCommand: ModuleCli = {
             em.persist(assignment)
           }
 
-          if (isConfigurable && !isServiceOrBundle && item.optionGroups) {
-            // Retail configurable product (uses Variants)
-            const optionSchema = em.create(CatalogOptionSchemaTemplate, {
-              id: randomUUID(),
-              tenantId,
-              organizationId,
-              name: `${category.label} - ${item.name} Options`,
-              code: slugifyTpsText(`${category.label} ${item.name} Options`),
-              isActive: true,
-              schema: {
-                options: (() => {
-                  const schemaMap = new Map<string, Set<string>>()
-                  collectTpsSchemaGroups(item.optionGroups || [], schemaMap)
-                  const flatOptions: any[] = []
-                  for (const [label, optionSet] of schemaMap.entries()) {
-                    flatOptions.push({
-                      code: slugifyTpsText(label),
-                      label: label,
-                      inputType: 'select' as const,
-                      choices: Array.from(optionSet).map((optName) => ({
-                        label: optName,
-                        code: slugifyTpsText(optName),
-                      })),
-                    })
-                  }
-                  return flatOptions
-                })(),
-              },
-            })
-            em.persist(optionSchema)
-            product.optionSchemaTemplate = optionSchema
-
-            const paths = enumerateTpsOptionPaths(item.optionGroups || [], { optionValues: {}, totalPrice: item.price, names: [], durations: [] })
-            let isFirst = true
-
-            for (const path of paths) {
-              const combinedName = path.names.join(' - ')
-              createVariantForOption(
-                em,
-                product,
-                defaultPriceKind!,
-                tenantId,
-                organizationId,
-                `${category.label} ${item.name}`,
-                path.optionValues,
-                path.totalPrice,
-                combinedName,
-                isFirst,
-                path.durations
-              )
-              variantCount++
-              isFirst = false
-            }
-          } else if (isServiceOrBundle) {
-            // Service or Package (uses Option Tree + 1 Default Variant)
-            createVariantForOption(em, product, defaultPriceKind!, tenantId, organizationId, `${category.label} ${item.name}`, {}, item.price, 'Default', true, [])
-            variantCount++
-            
-            if (isConfigurable && item.optionGroups) {
-              traverseOptionTree(em, item.optionGroups, product, tenantId, organizationId)
-            }
-          } else {
-            // Simple product (uses 1 Default Variant)
-            createVariantForOption(em, product, defaultPriceKind!, tenantId, organizationId, `${category.label} ${item.name}`, {}, item.price, 'Default', true, [])
-            variantCount++
+          // Service (uses Option Tree + 1 Default Variant)
+          createVariantForOption(em, product, defaultPriceKind!, tenantId, organizationId, `${category.label} ${item.name}`, {}, item.price, 'Default', true, itemDuration ? [itemDuration] : [])
+          variantCount++
+          
+          if (isConfigurable && item.optionGroups) {
+            traverseOptionTree(em, item.optionGroups, product, tenantId, organizationId)
           }
         }
       }

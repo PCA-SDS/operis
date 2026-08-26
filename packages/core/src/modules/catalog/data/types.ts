@@ -1,7 +1,7 @@
 export const CATALOG_PRODUCT_TYPES = [
   'simple',
   'configurable',
-  'virtual',
+  'service',
   'downloadable',
   'bundle',
   'grouped',
@@ -9,7 +9,7 @@ export const CATALOG_PRODUCT_TYPES = [
 
 export type CatalogProductType = (typeof CATALOG_PRODUCT_TYPES)[number]
 
-export const CATALOG_CONFIGURABLE_PRODUCT_TYPES = ['configurable', 'virtual', 'downloadable'] as const
+export const CATALOG_CONFIGURABLE_PRODUCT_TYPES = ['configurable', 'service', 'downloadable'] as const
 
 export const CATALOG_SUBPRODUCT_PRODUCT_TYPES = ['bundle', 'grouped'] as const
 

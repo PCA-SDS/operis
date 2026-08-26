@@ -39,6 +39,7 @@ import {
   VariantBasicsSection,
   VariantOptionValuesSection,
   VariantDimensionsSection,
+  VariantDurationSection,
   VariantMetadataSection,
   VariantPricesSection,
   VariantMediaSection,
@@ -463,6 +464,15 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
     }
 
     list.push({
+      id: 'duration',
+      column: 2,
+      title: t('catalog.variants.form.duration', 'Duration'),
+      component: ({ values, setValue }) => (
+        <VariantDurationSection values={values as VariantFormValues} setValue={setValue} showHeading={false} />
+      ),
+    })
+
+    list.push({
       id: 'dimensions',
       column: 2,
       title: t('catalog.variants.form.dimensions', 'Dimensions & weight'),
@@ -642,6 +652,10 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
               customFieldsetCode: values.customFieldsetCode?.trim().length ? values.customFieldsetCode : undefined,
               taxRateId: resolvedTaxRateId,
               taxRate: resolvedTaxRateValue,
+              durationValue: typeof values.durationValue === 'string' && values.durationValue.trim().length ? parseInt(values.durationValue, 10) : undefined,
+              durationUnit: values.durationUnit ?? undefined,
+              durationMin: typeof values.durationMin === 'string' && values.durationMin.trim().length ? parseInt(values.durationMin, 10) : undefined,
+              durationMax: typeof values.durationMax === 'string' && values.durationMax.trim().length ? parseInt(values.durationMax, 10) : undefined,
             }
             const customFields = collectCustomFieldValues(values)
             if (Object.keys(customFields).length) payload.customFields = customFields
@@ -834,6 +848,10 @@ async function syncVariantPricesUpdate({
       variantId,
       priceKindId: kind.id,
       currencyCode: kind.currencyCode ?? undefined,
+      priceType: draft?.priceType ?? null,
+      priceMin: typeof draft?.priceMin === 'string' && draft.priceMin.trim().length ? draft.priceMin : null,
+      priceMax: typeof draft?.priceMax === 'string' && draft.priceMax.trim().length ? draft.priceMax : null,
+      priceRangeEnabled: draft?.priceRangeEnabled ?? false,
     }
     if (resolvedTaxRateId) payload.taxRateId = resolvedTaxRateId
     else if (typeof resolvedTaxRateValue === 'number' && Number.isFinite(resolvedTaxRateValue)) payload.taxRate = resolvedTaxRateValue

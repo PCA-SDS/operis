@@ -615,6 +615,18 @@ export class CatalogProductVariant {
     unit?: string | null
   } | null
 
+  @Property({ name: 'duration_value', type: 'integer', nullable: true })
+  durationValue?: number | null
+
+  @Property({ name: 'duration_unit', type: 'text', nullable: true })
+  durationUnit?: string | null
+
+  @Property({ name: 'duration_min', type: 'integer', nullable: true })
+  durationMin?: number | null
+
+  @Property({ name: 'duration_max', type: 'integer', nullable: true })
+  durationMax?: number | null
+
   @Property({ name: 'metadata', type: 'jsonb', nullable: true })
   metadata?: Record<string, unknown> | null
 
@@ -829,6 +841,12 @@ export class CatalogProductPrice {
 
   @Property({ name: 'unit_price_gross', type: 'numeric', precision: 16, scale: 4, nullable: true })
   unitPriceGross?: string | null
+
+  @Property({ name: 'price_min', type: 'numeric', precision: 16, scale: 4, nullable: true })
+  priceMin?: string | null
+
+  @Property({ name: 'price_max', type: 'numeric', precision: 16, scale: 4, nullable: true })
+  priceMax?: string | null
 
   @Property({ name: 'tax_rate', type: 'numeric', precision: 7, scale: 4, nullable: true })
   taxRate?: string | null

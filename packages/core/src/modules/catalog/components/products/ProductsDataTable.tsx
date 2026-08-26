@@ -327,7 +327,7 @@ export default function ProductsDataTable({
   const productTypeOptions = React.useMemo<FilterOption[]>(() => [
     { value: 'simple', label: t('catalog.products.types.simple', 'Simple') },
     { value: 'configurable', label: t('catalog.products.types.configurable', 'Configurable') },
-    { value: 'virtual', label: t('catalog.products.types.virtual', 'Virtual') },
+    { value: 'service', label: t('catalog.products.types.service', 'Service') },
     { value: 'downloadable', label: t('catalog.products.types.downloadable', 'Downloadable') },
     {
       value: 'bundle',

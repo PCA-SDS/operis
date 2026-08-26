@@ -2385,12 +2385,12 @@ function ProductVariantsSection({
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 id="variants" className="text-sm font-semibold">
-            {values.productType === "virtual" || values.productType === "bundle"
+            {values.productType === "service" || values.productType === "bundle"
               ? t("catalog.products.edit.optionsAndVariants", "Options & Variants")
               : t("catalog.products.edit.variants", "Variants")}
           </h3>
           <div className="flex flex-wrap items-center gap-2">
-            {(values.productType === "virtual" || values.productType === "bundle") ? (
+            {(values.productType === "service" || values.productType === "bundle") ? (
               <Button asChild size="sm" variant="outline">
                 <Link
                   href={`/backend/catalog/products/${productId}/options`}
@@ -2420,7 +2420,7 @@ function ProductVariantsSection({
                     )}
               </Button>
             ) : null}
-            {allowVariantActions && values.productType !== "virtual" && values.productType !== "bundle" ? (
+            {allowVariantActions && values.productType !== "service" && values.productType !== "bundle" ? (
               <Button asChild size="sm">
                 <Link
                   href={`/backend/catalog/products/${productId}/variants/create`}

@@ -67,6 +67,28 @@ export function extractTpsDuration(item: Pick<ServiceItem, 'duration' | 'name' |
   return undefined
 }
 
+export function parseTpsDurationForEntity(durationString: string | undefined): {
+  durationMin?: number;
+  durationMax?: number;
+  durationValue?: number;
+  durationUnit?: string;
+} {
+  if (!durationString) return {}
+  const match = durationString.match(/(\d+)(?:\s*[-–]\s*(\d+))?/)
+  if (!match) return {}
+
+  const min = parseInt(match[1], 10)
+  const max = match[2] ? parseInt(match[2], 10) : undefined
+
+  return {
+    durationUnit: 'minute',
+    durationMin: max ? min : undefined,
+    durationMax: max ? max : undefined,
+    durationValue: max ? undefined : min
+  }
+}
+
+
 export function hasNestedTpsOptionTree(groups: OptionGroup[]): boolean {
   return groups.some(g => g.options?.some(o => o.nextGroups && o.nextGroups.length > 0))
 }

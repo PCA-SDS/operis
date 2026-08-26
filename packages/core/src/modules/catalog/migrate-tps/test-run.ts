@@ -22,7 +22,7 @@ async function run() {
   logger.info(`Found Tenant: ${tenantId}, Org: ${orgId}`)
   
   // Run migration
-  await migrateTpsProductsCommand.run([tenantId, orgId])
+  await migrateTpsProductsCommand.run([tenantId, orgId, '--replace'])
   
   process.exit(0)
 }

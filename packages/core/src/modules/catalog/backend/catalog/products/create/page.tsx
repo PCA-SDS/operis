@@ -810,7 +810,7 @@ export default function CreateCatalogProductPage() {
                 }
               }
 
-              if (productPayload.productType === "virtual") {
+              if (productPayload.productType === "service") {
                 flash(
                   t("catalog.products.create.virtualSuccess", "Service created successfully! Now set up your Option Tree."),
                   "success",
@@ -826,7 +826,7 @@ export default function CreateCatalogProductPage() {
                   `/backend/inbox-ops/proposals/${encodeURIComponent(inboxDraft.proposalId)}`,
                 );
               } else {
-                if (productPayload.productType === "virtual") {
+                if (productPayload.productType === "service") {
                   router.push(`/backend/catalog/products/${productId}/options`);
                 } else {
                   router.push(`/backend/catalog/products/${productId}`);
@@ -1034,7 +1034,7 @@ function ProductBuilder({
 }: ProductBuilderProps) {
   const t = useT();
   const steps = React.useMemo(() => {
-    if (values.productType === "virtual") {
+    if (values.productType === "service") {
       return PRODUCT_FORM_STEPS.filter(step => step !== "variants") as readonly ProductFormStep[];
     }
     return PRODUCT_FORM_STEPS;
