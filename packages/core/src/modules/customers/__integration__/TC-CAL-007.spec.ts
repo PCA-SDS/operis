@@ -105,10 +105,10 @@ test.describe('TC-CAL-007: Calendar settings / customization modal', () => {
 
       // -- Conflict scope: nested under Conflict warnings, defaults to "My meetings" --
       const conflictWarningsSwitch = dialog.getByRole('switch', { name: 'Conflict warnings' });
-      const scopeGroup = dialog.getByRole('group', { name: 'Conflict scope' });
+      const scopeGroup = dialog.getByRole('radiogroup', { name: 'Conflict scope' });
       await expect(scopeGroup).toBeVisible();
-      await expect(scopeGroup.getByRole('button', { name: 'My meetings', exact: true })).toHaveAttribute('aria-pressed', 'true');
-      await expect(scopeGroup.getByRole('button', { name: 'All meetings', exact: true })).toHaveAttribute('aria-pressed', 'false');
+      await expect(scopeGroup.getByRole('radio', { name: 'My meetings', exact: true })).toBeChecked();
+      await expect(scopeGroup.getByRole('radio', { name: 'All meetings', exact: true })).not.toBeChecked();
       // Turning Conflict warnings off hides the scope selector; turning it back on restores it.
       await conflictWarningsSwitch.click();
       await expect(scopeGroup).toBeHidden();
@@ -147,9 +147,9 @@ test.describe('TC-CAL-007: Calendar settings / customization modal', () => {
       await weekendSwitch2.click();
       await expect(weekendSwitch2).toBeChecked();
       // Also switch conflict scope to "All meetings" so its persistence is covered too.
-      const scopeGroup2 = dialog2.getByRole('group', { name: 'Conflict scope' });
-      await scopeGroup2.getByRole('button', { name: 'All meetings', exact: true }).click();
-      await expect(scopeGroup2.getByRole('button', { name: 'All meetings', exact: true })).toHaveAttribute('aria-pressed', 'true');
+      const scopeGroup2 = dialog2.getByRole('radiogroup', { name: 'Conflict scope' });
+      await scopeGroup2.getByRole('radio', { name: 'All meetings', exact: true }).click();
+      await expect(scopeGroup2.getByRole('radio', { name: 'All meetings', exact: true })).toBeChecked();
       await dialog2.getByRole('button', { name: 'Save Changes', exact: true }).click();
       await expect(dialog2).toBeHidden();
 
@@ -167,8 +167,8 @@ test.describe('TC-CAL-007: Calendar settings / customization modal', () => {
       const dialog3 = page.getByRole('dialog');
       await expect(dialog3).toBeVisible();
       await expect(
-        dialog3.getByRole('group', { name: 'Conflict scope' }).getByRole('button', { name: 'All meetings', exact: true }),
-      ).toHaveAttribute('aria-pressed', 'true');
+        dialog3.getByRole('radiogroup', { name: 'Conflict scope' }).getByRole('radio', { name: 'All meetings', exact: true }),
+      ).toBeChecked();
       await dialog3.getByRole('button', { name: 'Cancel', exact: true }).click();
       await expect(dialog3).toBeHidden();
     } finally {

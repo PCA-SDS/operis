@@ -8,6 +8,7 @@ export const metadata: ModuleInfo = {
   author: 'Patryk Lewczuk',
   license: 'MIT',
   defaultEntitlement: 'enabled',
+  category: 'Automation',
 }
 
 // Export rule engine types and functions for programmatic usage

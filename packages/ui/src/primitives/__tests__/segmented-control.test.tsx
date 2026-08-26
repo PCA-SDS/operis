@@ -7,11 +7,13 @@ import { SegmentedControl, SegmentedControlItem } from '../segmented-control'
 function Controlled({
   initial = 'all',
   size,
+  fullWidth,
   disabled,
   onChange,
 }: {
   initial?: string
   size?: 'sm' | 'default'
+  fullWidth?: boolean
   disabled?: boolean
   onChange?: (next: string) => void
 }) {
@@ -24,6 +26,7 @@ function Controlled({
         onChange?.(next)
       }}
       size={size}
+      fullWidth={fullWidth}
       disabled={disabled}
       aria-label="View"
     >
@@ -70,24 +73,34 @@ describe('SegmentedControl', () => {
     expect(getByRole('radio', { name: 'All' }).getAttribute('aria-checked')).toBe('false')
   })
 
-  it('applies size="default" classes by default (h-9 track, h-7 items, text-sm)', () => {
+  it('applies size="default" classes by default (h-9 track, text-sm items)', () => {
     const { container } = render(<Controlled />)
     const root = container.querySelector('[data-slot="segmented-control"]') as HTMLElement
     expect(root.className).toContain('h-9')
     expect(root.className).toContain('rounded-lg')
     const item = container.querySelector('[data-slot="segmented-control-item"]') as HTMLElement
-    expect(item.className).toContain('h-7')
     expect(item.className).toContain('text-sm')
   })
 
-  it('applies size="sm" classes (h-8 track, h-6 items, text-xs)', () => {
+  it('applies size="sm" classes (h-8 track, text-xs items)', () => {
     const { container } = render(<Controlled size="sm" />)
     const root = container.querySelector('[data-slot="segmented-control"]') as HTMLElement
     expect(root.className).toContain('h-8')
     expect(root.className).not.toContain('h-9')
     const item = container.querySelector('[data-slot="segmented-control-item"]') as HTMLElement
-    expect(item.className).toContain('h-6')
     expect(item.className).toContain('text-xs')
+  })
+
+  it('lets items stretch to the track instead of carrying their own height', () => {
+    // The pill is inset by the track's p-0.5 on every side only while the item
+    // fills the track's content box. A fixed item height reintroduces a
+    // different vertical gap than the horizontal one.
+    const { container } = render(<Controlled />)
+    const root = container.querySelector('[data-slot="segmented-control"]') as HTMLElement
+    expect(root.className).toContain('items-stretch')
+    expect(root.className).toContain('p-0.5')
+    const item = container.querySelector('[data-slot="segmented-control-item"]') as HTMLElement
+    expect(item.className).not.toMatch(/(^|\s)h-\d/)
   })
 
   it('disables all items when disabled prop is set on the root', () => {
@@ -149,11 +162,30 @@ describe('SegmentedControl', () => {
     // that the fill is a single element able to slide between segments.
     const { container, getByRole } = render(<Controlled initial="all" />)
     const indicator = container.querySelector('[data-slot="segmented-control-indicator"]') as HTMLElement
-    expect(indicator.className).toContain('bg-surface-muted')
+    expect(indicator.className).toContain('bg-sidebar')
     expect(indicator.className).toContain('absolute')
     const checked = getByRole('radio', { name: 'All' })
     expect(checked.className).toContain('data-[state=checked]:font-semibold')
-    expect(checked.className).not.toContain('data-[state=checked]:bg-surface-muted')
+    expect(checked.className).not.toContain('data-[state=checked]:bg-sidebar')
+  })
+
+  it('inks the checked label against the sidebar fill', () => {
+    // The pill is a saturated sidebar-navy fill, so the selected label has to
+    // switch to the sidebar's own foreground or it is unreadable on top of it.
+    const { getByRole } = render(<Controlled />)
+    const item = getByRole('radio', { name: 'All' })
+    expect(item.className).toContain('data-[state=checked]:text-sidebar-foreground')
+    expect(item.className).toContain('data-[state=unchecked]:text-muted-foreground')
+  })
+
+  it('crossfades label colour over the same window the pill travels in', () => {
+    // A snap to the selected ink would leave light text on the light rail for
+    // as long as the pill is still in transit.
+    const { container } = render(<Controlled />)
+    const item = container.querySelector('[data-slot="segmented-control-item"]') as HTMLElement
+    expect(item.className).toContain('transition-colors')
+    expect(item.className).toContain('duration-200')
+    expect(item.className).toContain('motion-reduce:transition-none')
   })
 
   it('keeps the indicator radius inline so framer-motion can counter-scale it', () => {
@@ -213,5 +245,54 @@ describe('SegmentedControl', () => {
     )
     const indicators = container.querySelectorAll('[data-slot="segmented-control-indicator"]')
     expect(indicators.length).toBe(2)
+  })
+
+  it('hugs its content by default and shares the track equally when fullWidth', () => {
+    const compact = render(<Controlled />)
+    const compactRoot = compact.container.querySelector('[data-slot="segmented-control"]') as HTMLElement
+    expect(compactRoot.className).toContain('inline-flex')
+    expect(compactRoot.className).toContain('w-fit')
+    const compactItem = compact.container.querySelector('[data-slot="segmented-control-item"]') as HTMLElement
+    expect(compactItem.className).not.toContain('flex-1')
+    compact.unmount()
+
+    const wide = render(<Controlled fullWidth />)
+    const wideRoot = wide.container.querySelector('[data-slot="segmented-control"]') as HTMLElement
+    expect(wideRoot.className).toContain('w-full')
+    expect(wideRoot.className).not.toContain('w-fit')
+    wide.container.querySelectorAll('[data-slot="segmented-control-item"]').forEach((item) => {
+      // basis-0 alongside flex-1 is what makes the shares equal rather than
+      // weighted by label length.
+      expect((item as HTMLElement).className).toContain('flex-1')
+      expect((item as HTMLElement).className).toContain('basis-0')
+    })
+  })
+
+  it('renders a leading icon without letting it into the accessible name', () => {
+    const { container, getByRole } = render(
+      <SegmentedControl value="a" onValueChange={() => {}} aria-label="x">
+        <SegmentedControlItem value="a" icon={<svg data-testid="glyph" />}>
+          Meetings
+        </SegmentedControlItem>
+        <SegmentedControlItem value="b">Events</SegmentedControlItem>
+      </SegmentedControl>,
+    )
+    const icons = container.querySelectorAll('[data-slot="segmented-control-item-icon"]')
+    expect(icons.length).toBe(1)
+    expect(icons[0].getAttribute('aria-hidden')).toBe('true')
+    expect(getByRole('radio', { name: 'Meetings' })).toBeInTheDocument()
+  })
+
+  it('keeps the icon outside the label width-reservation grid', () => {
+    // The ghost copy exists to freeze the semibold label width; an icon does
+    // not change width with font weight, so duplicating it is pure cost.
+    const { container } = render(
+      <SegmentedControl value="a" onValueChange={() => {}} aria-label="x">
+        <SegmentedControlItem value="a" icon={<svg data-testid="glyph" />}>
+          Meetings
+        </SegmentedControlItem>
+      </SegmentedControl>,
+    )
+    expect(container.querySelectorAll('[data-testid="glyph"]').length).toBe(1)
   })
 })

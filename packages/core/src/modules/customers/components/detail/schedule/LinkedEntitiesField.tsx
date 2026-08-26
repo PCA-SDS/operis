@@ -1,7 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { Building2, Briefcase, FileText, Search, X } from 'lucide-react'
+import { Building2, Briefcase, FileText, X } from 'lucide-react'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { hasMoreFromPage } from '@open-mercato/shared/lib/pagination/load-more'
@@ -154,17 +155,14 @@ function EntityLinkSearchPopover({
             </Button>
           ))}
         </div>
-        <div className="flex items-center gap-2 rounded-md border bg-surface px-2 py-1.5 mb-2">
-          <Search className="size-3.5 text-muted-foreground shrink-0" />
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t('customers.schedule.searchEntity', 'Search...')}
-            className="flex-1 bg-transparent text-sm focus:outline-none"
-            autoFocus
-          />
-        </div>
+        <SearchInput
+          size="sm"
+          className="mb-2"
+          value={query}
+          onChange={setQuery}
+          placeholder={t('customers.schedule.searchEntity', 'Search...')}
+          autoFocus
+        />
         {selectableResults.length ? (
           <div className="mb-2">
             <Button

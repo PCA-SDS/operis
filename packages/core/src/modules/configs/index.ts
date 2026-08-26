@@ -7,5 +7,6 @@ export const metadata: ModuleInfo = {
   description: 'Shared configuration storage and helpers for module settings.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  category: 'Administrative',
 }
 

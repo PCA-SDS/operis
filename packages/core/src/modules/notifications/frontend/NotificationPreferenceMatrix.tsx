@@ -6,6 +6,7 @@ import { Switch } from '@open-mercato/ui/primitives/switch'
 import { SimpleTooltip } from '@open-mercato/ui/primitives/tooltip'
 import { FilterBar, type FilterDef, type FilterValues } from '@open-mercato/ui/backend/FilterBar'
 import { FilteredEmptyResults } from '@open-mercato/ui/backend/filters/FilteredEmptyResults'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 export type NotificationTypeItem = {
   id: string
@@ -218,27 +219,27 @@ export function NotificationPreferenceMatrix({
         />
       ) : (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border bg-muted/50 text-left">
-            <th className="px-4 py-3 font-medium">{t('notifications.preferences.columns.type', 'Notification type')}</th>
+      <Table density="compact">
+        <TableHeader>
+          <TableRow className="border-border text-left">
+            <TableHead>{t('notifications.preferences.columns.type', 'Notification type')}</TableHead>
             {channels.map((channel) => (
-              <th key={channel.key} className="px-4 py-3 font-medium">
+              <TableHead key={channel.key}>
                 <div>{t(channel.labelKey, channel.labelFallback)}</div>
                 <div className="text-xs font-normal text-muted-foreground">{t(channel.hintKey, channel.hintFallback)}</div>
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {visibleTypes.map((type) => (
-            <tr key={type.id} className="border-b border-border last:border-0">
-              <td className="px-4 py-3">
+            <TableRow key={type.id} className="border-border">
+              <TableCell>
                 <div className="font-medium">{t(type.labelKey, type.id)}</div>
                 {type.descriptionKey ? (
                   <div className="text-xs text-muted-foreground">{t(type.descriptionKey, '')}</div>
                 ) : null}
-              </td>
+              </TableCell>
               {channels.map((channel) => {
                 // Operator hard-off wins over the nonOptOut forced-on lock — mirrors the gate,
                 // where the tenant-wide channel block runs before the nonOptOut bypass.
@@ -263,7 +264,7 @@ export function NotificationPreferenceMatrix({
                   />
                 )
                 return (
-                  <td key={channel.key} className="px-4 py-3">
+                  <TableCell key={channel.key}>
                     {locked || channelDisabled ? (
                       <SimpleTooltip content={lockHint}>
                         <span className="inline-flex">{switchEl}</span>
@@ -271,13 +272,13 @@ export function NotificationPreferenceMatrix({
                     ) : (
                       switchEl
                     )}
-                  </td>
+                  </TableCell>
                 )
               })}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
       )}
     </div>

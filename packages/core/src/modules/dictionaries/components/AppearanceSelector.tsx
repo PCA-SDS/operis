@@ -5,6 +5,7 @@ import { Ellipsis } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { ColorPicker } from '@open-mercato/ui/primitives/color-picker'
 import { Input } from '@open-mercato/ui/primitives/input'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { ICON_LIBRARY, ICON_SUGGESTIONS, type IconOption, renderDictionaryColor, renderDictionaryIcon } from './dictionaryAppearance'
 
 export type AppearanceSelectorLabels = {
@@ -174,14 +175,12 @@ export function AppearanceSelector({
           {pickerOpen ? (
             <div className="absolute left-0 right-0 top-full z-dropdown mt-2 rounded-md border border-border bg-popover p-3 shadow-lg">
               <div className="space-y-3">
-                <Input
+                <SearchInput
                   ref={searchInputRef}
-                  type="search"
                   value={iconSearch}
-                  onChange={(event) => setIconSearch(event.target.value)}
+                  onChange={setIconSearch}
                   placeholder={labels.iconSearchPlaceholder}
                   aria-label={labels.iconSearchPlaceholder}
-                  autoComplete="off"
                 />
                 <div className="max-h-64 overflow-y-auto pr-1">
                   {filteredIcons.length ? (

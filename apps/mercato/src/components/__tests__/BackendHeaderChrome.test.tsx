@@ -53,8 +53,6 @@ describe('BackendHeaderChrome', () => {
       <BackendHeaderChrome
         email="demo@example.com"
         userId="user-1"
-        embeddingConfigured={false}
-        missingConfigMessage=""
         tenantId={null}
         organizationId={null}
       />,

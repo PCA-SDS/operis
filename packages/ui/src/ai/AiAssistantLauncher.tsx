@@ -32,7 +32,6 @@ import {
   Lightbulb,
   Loader2,
   PanelRightOpen,
-  Search,
 } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -53,6 +52,7 @@ import { ChatPaneTabs } from './ChatPaneTabs'
 import { ConversationShareButton } from './ConversationShareButton'
 import { AiIcon } from './AiIcon'
 import type { AiChatContextItem, AiChatSuggestion } from './AiChat'
+import { SearchInput } from '../primitives/search-input'
 
 // Lazy-load the chat surface so AppShell tests (and any other importers that
 // don't actually open the launcher) avoid pulling the AI SDK runtime — which
@@ -548,24 +548,16 @@ export function AiAssistantLauncher({
             </DialogDescription>
           </DialogHeader>
           <div className="border-y border-border bg-muted/30 px-3 py-2">
-            <div className="relative">
-              <Search
-                className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden
-              />
-              <input
-                autoFocus
-                type="text"
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value)
-                  setHighlight(0)
-                }}
-                placeholder={placeholder}
-                className="w-full rounded-md border border-input bg-input-bg px-8 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
-                data-ai-launcher-search-input=""
-              />
-            </div>
+            <SearchInput
+              autoFocus
+              value={query}
+              onChange={(next) => {
+                setQuery(next)
+                setHighlight(0)
+              }}
+              placeholder={placeholder}
+              data-ai-launcher-search-input=""
+            />
           </div>
           <div
             className="max-h-80 overflow-y-auto py-1"

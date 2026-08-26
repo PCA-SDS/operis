@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { SearchX } from 'lucide-react'
 import { Input } from '@open-mercato/ui/primitives/input'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import {
   Select,
@@ -13,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@open-mercato/ui/primitives/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 const METHOD_STYLES: Record<string, string> = {
   GET: 'bg-status-success-bg text-status-success-text border border-status-success-border',
@@ -523,10 +525,9 @@ export default function ApiDocsExplorer(props: ApiDocsExplorerProps) {
               </div>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex flex-1 items-center gap-3">
-                  <Input
-                    type="search"
+                  <SearchInput
                     value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
+                    onChange={setSearchTerm}
                     placeholder="Search endpoints by path or summary"
                     className="flex-1"
                   />
@@ -638,34 +639,34 @@ export default function ApiDocsExplorer(props: ApiDocsExplorerProps) {
                                 Parameters
                               </h4>
                               <div className="overflow-hidden rounded-lg border">
-                                <table className="min-w-full divide-y divide-border text-left text-xs">
-                                  <thead className="bg-muted/50 text-overline uppercase tracking-wide text-muted-foreground">
-                                    <tr>
-                                      <th className="px-3 py-2 font-medium">Name</th>
-                                      <th className="px-3 py-2 font-medium">In</th>
-                                      <th className="px-3 py-2 font-medium">Required</th>
-                                      <th className="px-3 py-2 font-medium">Schema</th>
-                                      <th className="px-3 py-2 font-medium">Description</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-border text-xs">
+                                <Table density="compact" className="min-w-full text-left">
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead>Name</TableHead>
+                                      <TableHead>In</TableHead>
+                                      <TableHead>Required</TableHead>
+                                      <TableHead>Schema</TableHead>
+                                      <TableHead>Description</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody className="text-xs">
                                     {operation.operation.parameters.map((parameter: any) => (
-                                      <tr key={`${parameter.in}-${parameter.name}`}>
-                                        <td className="px-3 py-2 font-medium text-foreground">{parameter.name}</td>
-                                        <td className="px-3 py-2 text-muted-foreground">{parameter.in}</td>
-                                        <td className="px-3 py-2 text-muted-foreground">
+                                      <TableRow key={`${parameter.in}-${parameter.name}`}>
+                                        <TableCell className="font-medium text-foreground">{parameter.name}</TableCell>
+                                        <TableCell className="text-muted-foreground">{parameter.in}</TableCell>
+                                        <TableCell className="text-muted-foreground">
                                           {parameter.required ? 'Yes' : 'No'}
-                                        </td>
-                                        <td className="px-3 py-2 text-muted-foreground">
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground">
                                           {parameter.schema?.type ?? 'any'}
-                                        </td>
-                                        <td className="px-3 py-2 text-muted-foreground">
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground">
                                           {parameter.description ?? '—'}
-                                        </td>
-                                      </tr>
+                                        </TableCell>
+                                      </TableRow>
                                     ))}
-                                  </tbody>
-                                </table>
+                                  </TableBody>
+                                </Table>
                               </div>
                             </section>
                           ) : null}

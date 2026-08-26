@@ -19,8 +19,15 @@ type TenantModuleRow = {
   title: string
   description: string | null
   isEnabled: boolean
+  category: string
+  sortOrder: number
+  alwaysOn: boolean
   missingDependencies: string[]
   dependents: string[]
+  startsAt: string | null
+  endsAt: string | null
+  aiAssistantAvailable: boolean
+  aiAssistantEnabled: boolean
 }
 
 type TenantSummary = {
@@ -73,7 +80,7 @@ export default function TenantModulesPage({ params }: { params?: { id?: string }
         const response = await apiCall('/api/directory/tenant-modules', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tenantId, moduleId: row.moduleId, isEnabled: next }),
+          body: JSON.stringify({ tenantId, moduleId: row.moduleId, isEnabled: next, target: 'module' }),
         })
         if (!response.ok) {
           const body = await readJsonSafe<{ error?: string }>(response as unknown as Response, {})
@@ -85,6 +92,29 @@ export default function TenantModulesPage({ params }: { params?: { id?: string }
     // dependency badges on every dependent row, which a local edit cannot know.
     }).then(() => load()).catch((err) => {
       flash(err instanceof Error ? err.message : t('directory.errors.tenant_modules_save_failed', 'Failed to update module entitlement'), 'error')
+      throw err
+    })
+  }, [tenantId, runMutation, t, load])
+
+  const toggleAiAssistant = React.useCallback(async (row: ModuleAccessRow, next: boolean) => {
+    if (!tenantId) return
+    await runMutation({
+      context: { tenantId },
+      mutationPayload: { moduleId: row.moduleId, aiAssistantEnabled: next },
+      operation: async () => {
+        const response = await apiCall('/api/directory/tenant-modules', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tenantId, moduleId: row.moduleId, isEnabled: next, target: 'aiAssistant' }),
+        })
+        if (!response.ok) {
+          const body = await readJsonSafe<{ error?: string }>(response as unknown as Response, {})
+          throw new Error(body?.error || t('directory.errors.tenant_module_ai_save_failed', 'Failed to update the AI assistant'))
+        }
+        return response
+      },
+    }).then(() => load()).catch((err) => {
+      flash(err instanceof Error ? err.message : t('directory.errors.tenant_module_ai_save_failed', 'Failed to update the AI assistant'), 'error')
       throw err
     })
   }, [tenantId, runMutation, t, load])
@@ -125,6 +155,14 @@ export default function TenantModulesPage({ params }: { params?: { id?: string }
     toggleAriaLabel: (row, next) => (next
       ? t('directory.tenantModules.confirm.enableTitle', 'Enable {module}?', { module: row.title })
       : t('directory.tenantModules.confirm.disableTitle', 'Disable {module}?', { module: row.title })),
+    since: (date) => t('directory.tenantModules.since', 'Since {date}', { date }),
+    until: (date) => t('directory.tenantModules.until', 'until {date}', { date }),
+    aiAssistant: t('directory.tenantModules.ai.label', 'AI Assistant'),
+    aiOn: t('directory.tenantModules.ai.on', 'On'),
+    aiOff: t('directory.tenantModules.ai.off', 'Off'),
+    aiToggleAriaLabel: (row, next) => (next
+      ? t('directory.tenantModules.ai.enableAria', 'Enable the {module} AI assistant', { module: row.title })
+      : t('directory.tenantModules.ai.disableAria', 'Disable the {module} AI assistant', { module: row.title })),
   }), [t])
 
   if (error) {
@@ -148,6 +186,7 @@ export default function TenantModulesPage({ params }: { params?: { id?: string }
         <ModuleAccessSection
           rows={rows}
           labels={labels}
+          onToggleAiAssistant={toggleAiAssistant}
           onToggle={toggle}
           headerAside={(
             <Badge variant="secondary">

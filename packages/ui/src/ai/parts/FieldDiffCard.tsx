@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Alert, AlertDescription } from '../../primitives/alert'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../primitives/table'
 import type {
   AiPendingActionCardFieldDiff,
   AiPendingActionCardRecordDiff,
@@ -37,23 +38,17 @@ function DiffRow({ entry }: { entry: AiPendingActionCardFieldDiff }) {
   const after = formatValue(entry.afterDisplay ?? entry.after)
   const field = entry.fieldLabel ?? entry.field
   return (
-    <tr className="border-b border-border last:border-b-0" data-ai-field-diff-row>
-      <td className="py-1.5 pr-4 text-xs font-mono text-muted-foreground align-top">
+    <TableRow data-ai-field-diff-row>
+      <TableCell className="pl-0 font-mono text-xs align-top text-muted-foreground">
         {field}
-      </td>
-      <td
-        className="py-1.5 pr-4 text-sm align-top text-status-warning-text"
-        data-ai-field-diff-before
-      >
+      </TableCell>
+      <TableCell className="align-top text-status-warning-text" data-ai-field-diff-before>
         <span className="line-through break-all">{before || '—'}</span>
-      </td>
-      <td
-        className="py-1.5 text-sm align-top text-status-success-text"
-        data-ai-field-diff-after
-      >
+      </TableCell>
+      <TableCell className="pr-0 align-top text-status-success-text" data-ai-field-diff-after>
         <span className="font-medium break-all">{after || '—'}</span>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -64,26 +59,20 @@ function DiffTable({ rows, fieldHeader, beforeHeader, afterHeader }: {
   afterHeader: string
 }) {
   return (
-    <table className="w-full" data-ai-field-diff-table>
-      <thead>
-        <tr className="border-b border-border">
-          <th className="py-1 pr-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {fieldHeader}
-          </th>
-          <th className="py-1 pr-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {beforeHeader}
-          </th>
-          <th className="py-1 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {afterHeader}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table density="compact" data-ai-field-diff-table>
+      <TableHeader className="bg-transparent">
+        <TableRow>
+          <TableHead className="pl-0">{fieldHeader}</TableHead>
+          <TableHead>{beforeHeader}</TableHead>
+          <TableHead className="pr-0">{afterHeader}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows.map((entry, idx) => (
           <DiffRow key={`${entry.field}-${idx}`} entry={entry} />
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   )
 }
 

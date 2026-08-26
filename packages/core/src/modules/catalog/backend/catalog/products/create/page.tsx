@@ -98,6 +98,7 @@ import {
   type ProductUnitConversionInput,
 } from "@open-mercato/core/modules/catalog/components/products/productFormUtils";
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 const logger = createLogger('catalog')
 
@@ -1616,29 +1617,29 @@ function ProductBuilder({
               onValueChange={(next) => markDefaultVariant(next)}
             >
             <div className="w-full overflow-x-auto">
-              <table className="w-full min-w-[900px] table-fixed border-collapse text-sm">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="px-3 py-2 text-left">
+              <Table density="compact" className="min-w-[900px] table-fixed border-collapse">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>
                       {t(
                         "catalog.products.create.variantsBuilder.defaultOption",
                         "Default option",
                       )}
-                    </th>
-                    <th className="px-3 py-2 text-left">
+                    </TableHead>
+                    <TableHead>
                       {t("catalog.products.form.variants", "Variant title")}
-                    </th>
-                    <th className="px-3 py-2 text-left">
+                    </TableHead>
+                    <TableHead>
                       {t("catalog.products.create.variantsBuilder.sku", "SKU")}
-                    </th>
-                    <th className="px-3 py-2 text-left">
+                    </TableHead>
+                    <TableHead>
                       {t(
                         "catalog.products.create.variantsBuilder.vatColumn",
                         "Tax class",
                       )}
-                    </th>
+                    </TableHead>
                     {priceKinds.map((kind) => (
-                      <th key={kind.id} className="px-3 py-2 text-left">
+                      <TableHead key={kind.id}>
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-1">
                             <span>
@@ -1672,29 +1673,29 @@ function ProductBuilder({
                               )}
                           </span>
                         </div>
-                      </th>
+                      </TableHead>
                     ))}
-                    <th className="px-3 py-2 text-center">
+                    <TableHead className="text-center">
                       {t(
                         "catalog.products.create.variantsBuilder.manageInventory",
                         "Managed inventory",
                       )}
-                    </th>
-                    <th className="px-3 py-2 text-center">
+                    </TableHead>
+                    <TableHead className="text-center">
                       {t(
                         "catalog.products.create.variantsBuilder.allowBackorder",
                         "Allow backorder",
                       )}
-                    </th>
-                    <th className="px-3 py-2 text-center">
+                    </TableHead>
+                    <TableHead className="text-center">
                       {t(
                         "catalog.products.create.variantsBuilder.inventoryKit",
                         "Has inventory kit",
                       )}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {(Array.isArray(values.variants) && values.variants.length
                     ? values.variants
                     : [
@@ -1703,8 +1704,8 @@ function ProductBuilder({
                         }),
                       ]
                   ).map((variant) => (
-                    <tr key={variant.id} className="border-t">
-                      <td className="px-3 py-2">
+                    <TableRow key={variant.id}>
+                      <TableCell>
                         <label className="inline-flex items-center gap-1 text-xs">
                           <Radio value={variant.id} />
                           {variant.isDefault
@@ -1722,8 +1723,8 @@ function ProductBuilder({
                             {Object.values(variant.optionValues).join(" / ")}
                           </p>
                         ) : null}
-                      </td>
-                      <td className="px-3 py-2">
+                      </TableCell>
+                      <TableCell>
                         <Input
                           value={variant.title}
                           onChange={(event) =>
@@ -1738,8 +1739,8 @@ function ProductBuilder({
                             "Variant title",
                           )}
                         />
-                      </td>
-                      <td className="px-3 py-2">
+                      </TableCell>
+                      <TableCell>
                         <Input
                           value={variant.sku}
                           onChange={(event) =>
@@ -1754,8 +1755,8 @@ function ProductBuilder({
                             "e.g., SKU-001",
                           )}
                         />
-                      </td>
-                      <td className="px-3 py-2">
+                      </TableCell>
+                      <TableCell>
                         <Select
                           value={variant.taxRateId || undefined}
                           onValueChange={(value) =>
@@ -1786,9 +1787,9 @@ function ProductBuilder({
                             ))}
                           </SelectContent>
                         </Select>
-                      </td>
+                      </TableCell>
                       {priceKinds.map((kind) => (
-                        <td key={kind.id} className="px-3 py-2">
+                        <TableCell key={kind.id}>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-muted-foreground">
                               {kind.currencyCode ?? "—"}
@@ -1807,9 +1808,9 @@ function ProductBuilder({
                               min={0}
                             />
                           </div>
-                        </td>
+                        </TableCell>
                       ))}
-                      <td className="px-3 py-2 text-center">
+                      <TableCell className="text-center">
                         <input
                           type="checkbox"
                           className="h-4 w-4 rounded border disabled:cursor-not-allowed disabled:opacity-50"
@@ -1824,8 +1825,8 @@ function ProductBuilder({
                           disabled
                           title={inventoryDisabledHint}
                         />
-                      </td>
-                      <td className="px-3 py-2 text-center">
+                      </TableCell>
+                      <TableCell className="text-center">
                         <input
                           type="checkbox"
                           className="h-4 w-4 rounded border disabled:cursor-not-allowed disabled:opacity-50"
@@ -1840,8 +1841,8 @@ function ProductBuilder({
                           disabled
                           title={inventoryDisabledHint}
                         />
-                      </td>
-                      <td className="px-3 py-2 text-center">
+                      </TableCell>
+                      <TableCell className="text-center">
                         <input
                           type="checkbox"
                           className="h-4 w-4 rounded border disabled:cursor-not-allowed disabled:opacity-50"
@@ -1856,11 +1857,11 @@ function ProductBuilder({
                           disabled
                           title={inventoryDisabledHint}
                         />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
             </RadioGroup>
             {!priceKinds.length ? (

@@ -7,6 +7,7 @@ export const metadata: ModuleInfo = {
   description: 'Configurable admin dashboard with module-provided widgets.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  category: 'Administrative',
 }
 
 export { features } from './acl'

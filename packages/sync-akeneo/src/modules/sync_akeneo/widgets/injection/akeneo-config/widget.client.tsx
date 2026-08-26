@@ -26,6 +26,7 @@ import { AlertCircle, CheckCircle2, PencilLine, Plus, RefreshCw, Save, Sparkles,
 import { buildAkeneoFieldsetCode, buildDefaultAkeneoMapping, buildProductFieldMappings, dedupeStrings, normalizeAkeneoMapping, type AkeneoReconciliationSettings } from '../../../lib/shared'
 import { inferAkeneoProductMapping } from '../../../lib/inference'
 import type { AkeneoDiscoveryResponse } from '../../../data/validators'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 type MappingRecordResponse = {
   items?: Array<{
@@ -1800,35 +1801,35 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                 </div>
                 {customFieldRows.length > 0 ? (
                   <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full min-w-[760px] text-sm">
-                      <thead className="bg-muted/50 text-left">
-                        <tr>
-                          <th className="px-3 py-2 font-medium">{t('sync_akeneo.mapping.from', 'From')}</th>
-                          <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.target', 'Target')}</th>
-                          <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.key', 'Field key')}</th>
-                          <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.kind', 'Kind')}</th>
-                          <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.status', 'Status')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <Table density="compact" className="min-w-[760px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t('sync_akeneo.mapping.from', 'From')}</TableHead>
+                          <TableHead>{t('sync_akeneo.customFields.columns.target', 'Target')}</TableHead>
+                          <TableHead>{t('sync_akeneo.customFields.columns.key', 'Field key')}</TableHead>
+                          <TableHead>{t('sync_akeneo.customFields.columns.kind', 'Kind')}</TableHead>
+                          <TableHead>{t('sync_akeneo.customFields.columns.status', 'Status')}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {customFieldRows.map((row, index) => {
                           const exists = row.target === 'product'
                             ? productFieldKeys.has(row.fieldKey.trim())
                             : variantFieldKeys.has(row.fieldKey.trim())
                           return (
-                            <tr key={`${row.attributeCode}:${row.fieldKey}:${index}`} className={`border-t ${row.skip ? 'opacity-70' : ''}`}>
-                              <td className="px-3 py-2 font-medium">{row.attributeCode}</td>
-                              <td className="px-3 py-2">{row.target}</td>
-                              <td className="px-3 py-2">{row.fieldKey}</td>
-                              <td className="px-3 py-2 text-muted-foreground">{row.kind || t('sync_akeneo.customFields.kinds.auto', 'Auto')}</td>
-                              <td className="px-3 py-2">
+                            <TableRow key={`${row.attributeCode}:${row.fieldKey}:${index}`} className={`border-t ${row.skip ? 'opacity-70' : ''}`}>
+                              <TableCell className="font-medium">{row.attributeCode}</TableCell>
+                              <TableCell>{row.target}</TableCell>
+                              <TableCell>{row.fieldKey}</TableCell>
+                              <TableCell className="text-muted-foreground">{row.kind || t('sync_akeneo.customFields.kinds.auto', 'Auto')}</TableCell>
+                              <TableCell>
                                 {row.skip ? renderSkippedCustomFieldBadge() : renderCustomFieldStatusBadge(exists)}
-                              </td>
-                            </tr>
+                              </TableCell>
+                            </TableRow>
                           )
                         })}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   </div>
                 ) : (
                   <Alert status="information">
@@ -1875,20 +1876,20 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                   {t('sync_akeneo.mapping.prices.help', 'One mapping per line: price_attribute,price_kind_code,akeneo_channel,local_channel_code. Each distinct local channel creates or updates an offer, and each price collection entry becomes a Catalog Product Price in the matching currency.')}
                 </p>
                 <div className="overflow-x-auto rounded-lg border">
-                  <table className="w-full min-w-[900px] text-sm">
-                    <thead className="bg-muted/50 text-left">
-                      <tr>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.mapping.from', 'From')}</th>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.mapping.priceKind', 'Price kind')}</th>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.mapping.akeneoChannel', 'Akeneo channel')}</th>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.mapping.localChannel', 'Open Mercato channel')}</th>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.actions', 'Actions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table density="compact" className="min-w-[900px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('sync_akeneo.mapping.from', 'From')}</TableHead>
+                        <TableHead>{t('sync_akeneo.mapping.priceKind', 'Price kind')}</TableHead>
+                        <TableHead>{t('sync_akeneo.mapping.akeneoChannel', 'Akeneo channel')}</TableHead>
+                        <TableHead>{t('sync_akeneo.mapping.localChannel', 'Open Mercato channel')}</TableHead>
+                        <TableHead>{t('sync_akeneo.customFields.columns.actions', 'Actions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {priceMappingRows.length > 0 ? priceMappingRows.map((row, index) => (
-                        <tr key={`price-mapping-${index}`} className="border-t">
-                          <td className="px-3 py-2">
+                        <TableRow key={`price-mapping-${index}`}>
+                          <TableCell>
                             <Input
                               list="akeneo-attributes"
                               value={row.attributeCode}
@@ -1899,8 +1900,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                               }}
                               disabled={isLoading || isSaving}
                             />
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             <select
                               className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                               value={row.priceKindCode}
@@ -1916,8 +1917,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                                 <option key={priceKindCode} value={priceKindCode}>{priceKindCode}</option>
                               ))}
                             </select>
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             <select
                               className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                               value={row.akeneoChannel}
@@ -1933,8 +1934,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                                 <option key={channelCode} value={channelCode}>{channelCode}</option>
                               ))}
                             </select>
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             <select
                               className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                               value={row.localChannelCode}
@@ -1950,8 +1951,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                                 <option key={channelCode} value={channelCode}>{channelCode}</option>
                               ))}
                             </select>
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             <Button
                               type="button"
                               variant="outline"
@@ -1962,17 +1963,17 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                               <Trash2 className="mr-2 h-4 w-4" />
                               {t('sync_akeneo.customFields.actions.remove', 'Remove')}
                             </Button>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       )) : (
-                        <tr>
-                          <td colSpan={5} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-muted-foreground">
                             {t('sync_akeneo.mapping.emptyPrices', 'No price mappings configured yet.')}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       )}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
               <div className="space-y-2">
@@ -1995,19 +1996,19 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                   {t('sync_akeneo.mapping.media.help', 'One mapping per line: attribute_code,target(product|variant),kind(image|file). Image mappings are re-hosted into Open Mercato attachments and can become default media; file mappings are imported as attachments.')}
                 </p>
                 <div className="overflow-x-auto rounded-lg border">
-                  <table className="w-full min-w-[760px] text-sm">
-                    <thead className="bg-muted/50 text-left">
-                      <tr>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.mapping.from', 'From')}</th>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.target', 'Target')}</th>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.kind', 'Kind')}</th>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.actions', 'Actions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table density="compact" className="min-w-[760px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('sync_akeneo.mapping.from', 'From')}</TableHead>
+                        <TableHead>{t('sync_akeneo.customFields.columns.target', 'Target')}</TableHead>
+                        <TableHead>{t('sync_akeneo.customFields.columns.kind', 'Kind')}</TableHead>
+                        <TableHead>{t('sync_akeneo.customFields.columns.actions', 'Actions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {mediaMappingRows.length > 0 ? mediaMappingRows.map((row, index) => (
-                        <tr key={`media-mapping-${index}`} className="border-t">
-                          <td className="px-3 py-2">
+                        <TableRow key={`media-mapping-${index}`}>
+                          <TableCell>
                             <Input
                               list="akeneo-attributes"
                               value={row.attributeCode}
@@ -2018,8 +2019,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                               }}
                               disabled={isLoading || isSaving}
                             />
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             <select
                               className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                               value={row.target}
@@ -2033,8 +2034,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                               <option value="product">{t('sync_akeneo.customFields.targets.product', 'Product')}</option>
                               <option value="variant">{t('sync_akeneo.customFields.targets.variant', 'Variant')}</option>
                             </select>
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             <select
                               className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                               value={row.kind}
@@ -2048,8 +2049,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                               <option value="image">{t('sync_akeneo.mapping.mediaKinds.image', 'Image')}</option>
                               <option value="file">{t('sync_akeneo.mapping.mediaKinds.file', 'File')}</option>
                             </select>
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             <Button
                               type="button"
                               variant="outline"
@@ -2060,17 +2061,17 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                               <Trash2 className="mr-2 h-4 w-4" />
                               {t('sync_akeneo.customFields.actions.remove', 'Remove')}
                             </Button>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       )) : (
-                        <tr>
-                          <td colSpan={4} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center text-muted-foreground">
                             {t('sync_akeneo.mapping.emptyMedia', 'No media mappings configured yet.')}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       )}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
               <div className="space-y-2">
@@ -2100,22 +2101,22 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                   {t('sync_akeneo.mapping.fieldsets.help', 'Discovered Akeneo families become Open Mercato fieldsets automatically. Adjust the fieldset code, label, or description here, and add manual family-variant rows when a specific Akeneo family variant should use a different variant fieldset.')}
                 </p>
                 <div className="overflow-x-auto rounded-lg border">
-                  <table className="w-full min-w-[1100px] text-sm">
-                    <thead className="bg-muted/50 text-left">
-                      <tr>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.mapping.sourceType', 'Source type')}</th>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.mapping.sourceCode', 'Akeneo code')}</th>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.target', 'Target')}</th>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.mapping.fieldsetCode', 'Fieldset code')}</th>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.mapping.fieldsetLabel', 'Fieldset label')}</th>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.mapping.fieldsetDescription', 'Description')}</th>
-                        <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.actions', 'Actions')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table density="compact" className="min-w-[1100px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('sync_akeneo.mapping.sourceType', 'Source type')}</TableHead>
+                        <TableHead>{t('sync_akeneo.mapping.sourceCode', 'Akeneo code')}</TableHead>
+                        <TableHead>{t('sync_akeneo.customFields.columns.target', 'Target')}</TableHead>
+                        <TableHead>{t('sync_akeneo.mapping.fieldsetCode', 'Fieldset code')}</TableHead>
+                        <TableHead>{t('sync_akeneo.mapping.fieldsetLabel', 'Fieldset label')}</TableHead>
+                        <TableHead>{t('sync_akeneo.mapping.fieldsetDescription', 'Description')}</TableHead>
+                        <TableHead>{t('sync_akeneo.customFields.columns.actions', 'Actions')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {fieldsetMappingRows.length > 0 ? fieldsetMappingRows.map((row, index) => (
-                        <tr key={`fieldset-mapping-${index}`} className="border-t">
-                          <td className="px-3 py-2">
+                        <TableRow key={`fieldset-mapping-${index}`}>
+                          <TableCell>
                             <select
                               className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                               value={row.sourceType}
@@ -2132,8 +2133,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                               <option value="family">{t('sync_akeneo.mapping.sourceType.family', 'Family')}</option>
                               <option value="familyVariant">{t('sync_akeneo.mapping.sourceType.familyVariant', 'Family variant')}</option>
                             </select>
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             <Input
                               value={row.sourceCode}
                               onChange={(event) => {
@@ -2149,8 +2150,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                               disabled={isLoading || isSaving}
                               list={row.sourceType === 'family' ? 'akeneo-families' : undefined}
                             />
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             <select
                               className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                               value={row.target}
@@ -2169,8 +2170,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                               <option value="product">{t('sync_akeneo.customFields.targets.product', 'Product')}</option>
                               <option value="variant">{t('sync_akeneo.customFields.targets.variant', 'Variant')}</option>
                             </select>
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             <Input
                               value={row.fieldsetCode}
                               onChange={(event) => {
@@ -2180,8 +2181,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                               }}
                               disabled={isLoading || isSaving}
                             />
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             <Input
                               value={row.fieldsetLabel}
                               onChange={(event) => {
@@ -2191,8 +2192,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                               }}
                               disabled={isLoading || isSaving}
                             />
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             <Input
                               value={row.description}
                               onChange={(event) => {
@@ -2202,8 +2203,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                               }}
                               disabled={isLoading || isSaving}
                             />
-                          </td>
-                          <td className="px-3 py-2">
+                          </TableCell>
+                          <TableCell>
                             <Button
                               type="button"
                               variant="outline"
@@ -2214,17 +2215,17 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                               <Trash2 className="mr-2 h-4 w-4" />
                               {t('sync_akeneo.customFields.actions.remove', 'Remove')}
                             </Button>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       )) : (
-                        <tr>
-                          <td colSpan={7} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-muted-foreground">
                             {t('sync_akeneo.mapping.emptyFieldsets', 'No family fieldset mappings discovered yet. Save credentials and use Refresh discovery to generate them.')}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       )}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
             </div>
@@ -2443,26 +2444,26 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
             </div>
 
             <div className="overflow-x-auto rounded-lg border">
-              <table className="w-full min-w-[780px] text-sm">
-                <thead className="bg-muted/50 text-left">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.attribute', 'Akeneo attribute')}</th>
-                    <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.skip', 'Skip import')}</th>
-                    <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.target', 'Target')}</th>
-                    <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.key', 'Field key')}</th>
-                    <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.kind', 'Kind')}</th>
-                    <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.status', 'Status')}</th>
-                    <th className="px-3 py-2 font-medium">{t('sync_akeneo.customFields.columns.actions', 'Actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table density="compact" className="min-w-[780px]">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('sync_akeneo.customFields.columns.attribute', 'Akeneo attribute')}</TableHead>
+                    <TableHead>{t('sync_akeneo.customFields.columns.skip', 'Skip import')}</TableHead>
+                    <TableHead>{t('sync_akeneo.customFields.columns.target', 'Target')}</TableHead>
+                    <TableHead>{t('sync_akeneo.customFields.columns.key', 'Field key')}</TableHead>
+                    <TableHead>{t('sync_akeneo.customFields.columns.kind', 'Kind')}</TableHead>
+                    <TableHead>{t('sync_akeneo.customFields.columns.status', 'Status')}</TableHead>
+                    <TableHead>{t('sync_akeneo.customFields.columns.actions', 'Actions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {customFieldEditorRows.length > 0 ? customFieldEditorRows.map((row, index) => {
                     const exists = row.target === 'product'
                       ? productFieldKeys.has(row.fieldKey.trim())
                       : variantFieldKeys.has(row.fieldKey.trim())
                     return (
-                      <tr key={`${row.attributeCode}:${row.fieldKey}:${index}`} className={`border-t ${row.skip ? 'opacity-70' : ''}`}>
-                        <td className="px-3 py-2">
+                      <TableRow key={`${row.attributeCode}:${row.fieldKey}:${index}`} className={`border-t ${row.skip ? 'opacity-70' : ''}`}>
+                        <TableCell>
                           <Input
                             list="akeneo-attributes"
                             value={row.attributeCode}
@@ -2473,8 +2474,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                             }}
                             disabled={isLoading || isSaving || isCreatingCustomFields}
                           />
-                        </td>
-                        <td className="px-3 py-2">
+                        </TableCell>
+                        <TableCell>
                           <label className="flex items-center justify-center">
                             <input
                               type="checkbox"
@@ -2491,8 +2492,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                               disabled={isLoading || isSaving || isCreatingCustomFields}
                             />
                           </label>
-                        </td>
-                        <td className="px-3 py-2">
+                        </TableCell>
+                        <TableCell>
                           <select
                             className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2"
                             value={row.target}
@@ -2506,8 +2507,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                             <option value="product">{t('sync_akeneo.customFields.targets.product', 'Product')}</option>
                             <option value="variant">{t('sync_akeneo.customFields.targets.variant', 'Variant')}</option>
                           </select>
-                        </td>
-                        <td className="px-3 py-2">
+                        </TableCell>
+                        <TableCell>
                           <Input
                             value={row.fieldKey}
                             onChange={(event) => {
@@ -2517,8 +2518,8 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                             }}
                             disabled={isLoading || isSaving || isCreatingCustomFields}
                           />
-                        </td>
-                        <td className="px-3 py-2">
+                        </TableCell>
+                        <TableCell>
                           <select
                             className="flex h-10 w-full rounded-md border border-input bg-input-bg px-3 py-2"
                             value={row.kind}
@@ -2542,11 +2543,11 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                             <option value="boolean">boolean</option>
                             <option value="select">select</option>
                           </select>
-                        </td>
-                        <td className="px-3 py-2">
+                        </TableCell>
+                        <TableCell>
                           {row.skip ? renderSkippedCustomFieldBadge() : renderCustomFieldStatusBadge(exists)}
-                        </td>
-                        <td className="px-3 py-2">
+                        </TableCell>
+                        <TableCell>
                           <Button
                             type="button"
                             variant="ghost"
@@ -2559,18 +2560,18 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                             <Trash2 className="mr-2 h-4 w-4" />
                             {t('sync_akeneo.customFields.actions.remove', 'Remove')}
                           </Button>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     )
                   }) : (
-                    <tr>
-                      <td colSpan={7} className="px-3 py-6 text-center text-sm text-muted-foreground">
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground">
                         {t('sync_akeneo.customFields.empty', 'No Akeneo custom fields are mapped yet. Use the suggestions below or add a row manually.')}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
 
             <div className="flex flex-wrap gap-2">

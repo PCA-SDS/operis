@@ -7,6 +7,7 @@ export const metadata: ModuleInfo = {
   description: 'Optional sync bridge between canonical customer interactions and the example todo module.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  category: 'Administrative',
 }
 
 export default metadata

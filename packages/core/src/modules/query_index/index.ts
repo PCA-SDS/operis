@@ -7,5 +7,6 @@ export const metadata: ModuleInfo = {
   description: 'Hybrid query layer with full-text and vector search capabilities.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  category: 'Administrative',
 }
 

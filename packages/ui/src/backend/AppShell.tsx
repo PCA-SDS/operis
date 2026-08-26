@@ -134,16 +134,12 @@ const SIDEBAR_GROUP_LABEL =
  * the sidebar starting at the same x. */
 const SIDEBAR_ICON_BOX = 'flex size-5 shrink-0 items-center justify-center [&_svg]:size-4'
 
-/* The nav search sits ON the rail, so the input primitive's light-ground chrome
- * has to be restated in the sidebar family — otherwise it reads as a piece of
- * the page that fell into the sidebar. The resting border goes transparent
- * rather than away: it keeps the 1px box so focus can paint an edge without the
- * field shifting, and a visible hairline plus a fill would be two edges on a
- * control that sits among rows carrying neither. */
-const SIDEBAR_SEARCH_WRAPPER =
-  'h-10 border-transparent bg-sidebar-accent/50 hover:bg-sidebar-accent focus-within:bg-sidebar-accent focus-within:border-sidebar-ring [&_svg]:text-sidebar-muted-foreground'
-const SIDEBAR_SEARCH_INPUT =
-  'text-sidebar-foreground placeholder:text-sidebar-muted-foreground'
+/* The nav search sits ON the rail, so it takes the search primitive's `sidebar`
+ * tone — the light-ground chrome would read as a piece of the page that fell
+ * into the sidebar. `size="lg"` is the rail's `h-10 / px-3` grid: the glyph then
+ * lands on the same icon column as every row below it. */
+const SIDEBAR_SEARCH_SIZE = 'lg' as const
+const SIDEBAR_SEARCH_TONE = 'sidebar' as const
 
 /* `min-h-0` on both: a column flex child will not shrink below its content
  * height without it, and the wrapper (which is not itself a scroll box, so it
@@ -219,6 +215,8 @@ export type AppShellProps = {
   }[]
   children: React.ReactNode
   rightHeaderSlot?: React.ReactNode
+  /** Centred column of the topbar — the global search lives here. */
+  centerHeaderSlot?: React.ReactNode
   currentTitle?: string
   breadcrumb?: Array<{ label: string; href?: string }>
   // Optional: full admin nav API to refresh sidebar client-side
@@ -692,7 +690,7 @@ export function AppShell(props: AppShellProps) {
   )
 }
 
-function AppShellBody({ productName, logo, email, canManageUpgradeActions = false, groups, rightHeaderSlot, children, currentTitle, breadcrumb, version, settingsSectionTitle, settingsPathPrefixes = [], settingsSections, profileSections, profileSectionTitle, profilePathPrefixes = [], mobileSidebarSlot, hideFooter = false, progressCompletedAutoHideMs }: AppShellProps) {
+function AppShellBody({ productName, logo, email, canManageUpgradeActions = false, groups, rightHeaderSlot, centerHeaderSlot, children, currentTitle, breadcrumb, version, settingsSectionTitle, settingsPathPrefixes = [], settingsSections, profileSections, profileSectionTitle, profilePathPrefixes = [], mobileSidebarSlot, hideFooter = false, progressCompletedAutoHideMs }: AppShellProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const t = useT()
@@ -1068,8 +1066,9 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           placeholder={t('appShell.searchNavPlaceholder', 'Search...')}
           aria-label={t('appShell.searchNavAria', 'Search navigation')}
           clearLabel={t('appShell.searchNavClear', 'Clear search')}
-          className={`shrink-0 ${SIDEBAR_SEARCH_WRAPPER}`}
-          inputClassName={SIDEBAR_SEARCH_INPUT}
+          size={SIDEBAR_SEARCH_SIZE}
+          tone={SIDEBAR_SEARCH_TONE}
+          className="shrink-0"
         />
         <div className={SIDEBAR_SCROLL_FRAME}>
         <div data-sidebar-scroll="true" className={`${SIDEBAR_SCROLL_AREA} ${!hideHeader && sidebarScrollState !== 'none' ? SIDEBAR_SCROLL_AREA_RESERVED : ''}`}>
@@ -1235,8 +1234,9 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           placeholder={t('appShell.searchNavPlaceholder', 'Search...')}
           aria-label={t('appShell.searchNavAria', 'Search navigation')}
           clearLabel={t('appShell.searchNavClear', 'Clear search')}
-          className={`shrink-0 ${SIDEBAR_SEARCH_WRAPPER}`}
-          inputClassName={SIDEBAR_SEARCH_INPUT}
+          size={SIDEBAR_SEARCH_SIZE}
+          tone={SIDEBAR_SEARCH_TONE}
+          className="shrink-0"
         />
         <div className={SIDEBAR_SCROLL_FRAME}>
         <div data-sidebar-scroll="true" className={`${SIDEBAR_SCROLL_AREA} ${shouldRenderSidebarInjectionSpots && sidebarScrollState !== 'none' ? SIDEBAR_SCROLL_AREA_RESERVED : ''}`}>
@@ -1464,13 +1464,13 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
       </aside>
 
       <div className="flex min-h-svh flex-col min-w-0">
-        <header className="sticky top-0 z-sticky h-16 shrink-0 border-b border-border bg-surface-muted px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-2 sm:gap-3">
+        <header className="sticky top-0 z-sticky h-16 shrink-0 border-b border-border bg-surface-muted px-3 sm:px-4 lg:px-6 flex items-center gap-2 sm:gap-3">
           <div
             data-testid="backend-chrome-ready"
             data-ready={isChromeReady ? 'true' : 'false'}
             className="hidden"
           />
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex flex-1 items-center gap-2 min-w-0">
             {/* Mobile menu button */}
             <IconButton variant="ghost" size="sm" className="lg:hidden" aria-label={t('appShell.openMenu')} onClick={() => setMobileOpen(true)}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
@@ -1546,7 +1546,13 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
               )
             })()}
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 text-sm shrink-0">
+          {centerHeaderSlot ? (
+            <div className="flex shrink-0 items-center justify-center">{centerHeaderSlot}</div>
+          ) : null}
+          {/* `min-w-fit` keeps the action cluster from shrinking under its own
+              icons: it may take more than its half and push the centre column
+              off-centre, but it never overlaps it. */}
+          <div className="flex flex-1 min-w-fit items-center justify-end gap-1.5 sm:gap-2 md:gap-3 text-sm">
             <StatusBadgeInjectionSpot
               spotId={GLOBAL_HEADER_STATUS_INDICATORS_INJECTION_SPOT_ID}
               context={injectionContext}
@@ -1565,7 +1571,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           </div>
         </header>
         <ProgressTopBar t={t} className="sticky top-0 z-sticky" completedAutoHideMs={progressCompletedAutoHideMs} />
-        <main className="flex-1 px-4 pb-8 pt-6 sm:px-6 lg:px-8 lg:pt-8 mx-auto w-full max-w-screen-2xl">
+        <main className="flex-1 px-4 pb-8 pt-4 sm:px-6 lg:px-8 lg:pt-5 mx-auto w-full max-w-screen-2xl">
           <InjectionSpot spotId={BACKEND_LAYOUT_TOP_INJECTION_SPOT_ID} context={injectionContext} />
           <FlashMessages />
           <PartialIndexBanner />
@@ -1577,7 +1583,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
             spotId={LEGACY_GLOBAL_MUTATION_INJECTION_SPOT_ID}
             context={injectionContext}
           />
-          <div id="om-top-banners" className="mb-3 space-y-2" />
+          <div id="om-top-banners" className="mb-3 space-y-2 empty:hidden" />
           <OrganizationScopeBoundary active={isOnSettingsPath}>
             <BackendRecordInjectionContextProvider setCurrentRecordInjectionContext={setCurrentRecordInjectionContext}>
               {children}

@@ -6,6 +6,7 @@ import { FormHeader } from '@open-mercato/ui/backend/forms'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { buildPortalRootUrl, buildPortalUrlPattern } from '../../../lib/portalUrl'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 const DEMO_CREDENTIALS = [
   { email: 'alice.johnson@example.com', password: 'Password123!', role: 'Portal Admin' },
@@ -72,30 +73,30 @@ export function CustomerAccountsSettingsPageClient({ portalOrigin }: CustomerAcc
             {t('customer_accounts.settings.demo_credentials.title', 'Demo Credentials')}
           </h3>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="pb-2 pr-4 font-medium text-muted-foreground">
+            <Table density="compact">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
                     {t('customer_accounts.settings.demo_credentials.email', 'Email')}
-                  </th>
-                  <th className="pb-2 pr-4 font-medium text-muted-foreground">
+                  </TableHead>
+                  <TableHead>
                     {t('customer_accounts.settings.demo_credentials.password', 'Password')}
-                  </th>
-                  <th className="pb-2 font-medium text-muted-foreground">
+                  </TableHead>
+                  <TableHead>
                     {t('customer_accounts.settings.demo_credentials.role', 'Role')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {DEMO_CREDENTIALS.map((cred) => (
-                  <tr key={cred.email} className="border-b last:border-0">
-                    <td className="py-2 pr-4 font-mono text-xs">{cred.email}</td>
-                    <td className="py-2 pr-4 font-mono text-xs">{cred.password}</td>
-                    <td className="py-2 text-xs">{cred.role}</td>
-                  </tr>
+                  <TableRow key={cred.email}>
+                    <TableCell className="pr-4 font-mono text-xs">{cred.email}</TableCell>
+                    <TableCell className="pr-4 font-mono text-xs">{cred.password}</TableCell>
+                    <TableCell className="text-xs">{cred.role}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
           <p className="text-xs text-muted-foreground">
             {t(

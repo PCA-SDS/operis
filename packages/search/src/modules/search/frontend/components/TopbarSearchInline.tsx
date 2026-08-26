@@ -6,7 +6,6 @@ import NextLink from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   Search,
-  Loader2,
   Zap,
   User,
   Users,
@@ -43,7 +42,6 @@ import {
   Folder,
   Database,
   Activity,
-  X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -58,6 +56,8 @@ import { isAllOrganizationsSelection } from '@open-mercato/core/modules/director
 import { parseSelectedOrganizationCookie } from '@open-mercato/core/modules/directory/utils/scopeCookies'
 import { ForbiddenError } from '@open-mercato/ui/backend/utils/api'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { Kbd } from '@open-mercato/ui/primitives/kbd'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { resolveSearchMinTokenLength } from '@open-mercato/shared/lib/search/config'
 import { fetchGlobalSearchResults } from '../utils'
 
@@ -148,7 +148,7 @@ export function TopbarSearchInline({
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [open, setOpen] = React.useState(false)
-  const [expanded, setExpanded] = React.useState(false)
+  const [mobileOpen, setMobileOpen] = React.useState(false)
   const [selectedIndex, setSelectedIndex] = React.useState(0)
   const [showScopeHint, setShowScopeHint] = React.useState<boolean>(() => hasActiveOrganizationSelection())
   const [anchor, setAnchor] = React.useState<{ top: number; left: number; width: number } | null>(null)
@@ -158,18 +158,31 @@ export function TopbarSearchInline({
   const listRef = React.useRef<HTMLDivElement | null>(null)
   const abortRef = React.useRef<AbortController | null>(null)
 
-  const expandAndFocus = React.useCallback(() => {
-    setExpanded(true)
-    // Wait one tick so the input is mounted/transitioned before focusing
+  /* ⌘K only moves focus. It deliberately does NOT set `mobileOpen`: that flag
+     arms the dismiss-on-outside-click path, and firing it on a desktop where
+     the field is already on screen would throw away whatever the user had
+     typed the moment they clicked elsewhere. Below `sm` the field is
+     `display: none`, so `focus()` is a no-op there — which is the right
+     outcome, since a touch device has no ⌘K to press. */
+  const focusSearch = React.useCallback(() => {
+    inputRef.current?.focus()
+    inputRef.current?.select()
+  }, [])
+
+  /* The mobile trigger is the only thing that opens the overlay, and it is
+     `sm:hidden`, so `mobileOpen` can never be true on a desktop layout. The
+     input cannot be focused until the overlay render has landed. */
+  const openMobileSearch = React.useCallback(() => {
+    setMobileOpen(true)
     requestAnimationFrame(() => {
       inputRef.current?.focus()
       inputRef.current?.select()
     })
   }, [])
 
-  const collapseAndReset = React.useCallback(() => {
+  const dismiss = React.useCallback(() => {
     setOpen(false)
-    setExpanded(false)
+    setMobileOpen(false)
     setQuery('')
     inputRef.current?.blur()
   }, [])
@@ -181,31 +194,35 @@ export function TopbarSearchInline({
     })
   }, [])
 
-  // Cmd/Ctrl+K expands + focuses the input
+  // Cmd/Ctrl+K focuses the search from anywhere in the backend.
   React.useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault()
-        expandAndFocus()
+        focusSearch()
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [expandAndFocus])
+  }, [focusSearch])
 
-  // Click outside closes the popover AND collapses input (unless user has typed something)
+  /* Clicking away closes the results panel. It no longer tears the field down —
+     the field is permanent chrome now, so clearing what the user typed just
+     because they clicked elsewhere would be destructive. The mobile overlay is
+     the one thing that still has to fold away, since it covers the header. */
   React.useEffect(() => {
-    if (!expanded) return
+    if (!open && !mobileOpen) return
     const handler = (event: MouseEvent) => {
       const target = event.target as Node | null
       if (!target) return
       if (containerRef.current?.contains(target)) return
       if (popoverRef.current?.contains(target)) return
-      collapseAndReset()
+      setOpen(false)
+      if (mobileOpen) dismiss()
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [expanded, collapseAndReset])
+  }, [open, mobileOpen, dismiss])
 
   // Fetch results on query change (debounced)
   React.useEffect(() => {
@@ -272,9 +289,9 @@ export function TopbarSearchInline({
       const href = pickPrimaryLink(result)
       if (!href) return
       router.push(href)
-      collapseAndReset()
+      dismiss()
     },
-    [router, collapseAndReset],
+    [router, dismiss],
   )
 
   const handleKeyDown = React.useCallback(
@@ -300,7 +317,7 @@ export function TopbarSearchInline({
         } else if (query) {
           setQuery('')
         } else {
-          collapseAndReset()
+          dismiss()
         }
         return
       }
@@ -311,7 +328,7 @@ export function TopbarSearchInline({
         return
       }
     },
-    [open, query, results, selectedIndex, openResult, collapseAndReset],
+    [open, query, results, selectedIndex, openResult, dismiss],
   )
 
   const showVectorWarning = !embeddingConfigured && !error
@@ -319,7 +336,6 @@ export function TopbarSearchInline({
   const tooShort = trimmed.length > 0 && trimmed.length < MIN_QUERY_LENGTH
   const showPopover =
     open && (loading || results.length > 0 || error !== null || tooShort || showVectorWarning)
-  const showClear = query.length > 0
 
   // The results panel is portaled to <body> so it escapes the sticky header's
   // stacking context (z-sticky) — rendered inline it stays trapped at the
@@ -344,84 +360,70 @@ export function TopbarSearchInline({
     }
   }, [showPopover])
 
-  if (!expanded) {
-    return (
-      <span
-        ref={(el) => {
-          containerRef.current = el
-        }}
-        className="inline-flex"
-      >
-        <IconButton
-          type="button"
-          variant="ghost"
-          size="lg"
-          onClick={expandAndFocus}
-          aria-label={t('search.dialog.actions.openGlobalSearch', 'Open global search')}
-          title={t('search.dialog.actions.openGlobalSearch', 'Open global search')}
-        >
-          <Search className="size-4" aria-hidden="true" />
-        </IconButton>
-      </span>
-    )
-  }
-
   return (
     <div
       ref={(el) => {
         containerRef.current = el
       }}
-      data-search-expanded="true"
-      className="relative min-w-0 sm:w-[260px] md:w-[320px] max-sm:absolute max-sm:inset-x-3 max-sm:top-1/2 max-sm:-translate-y-1/2 max-sm:z-popover"
+      data-topbar-search=""
+      data-mobile-open={mobileOpen ? 'true' : 'false'}
+      /* The field is permanent chrome from `sm` up and the header centres this
+         box. Below `sm` there is no room for it beside the breadcrumb and the
+         action icons, so it stays a trigger that opens a full-width overlay
+         across the header — hence the absolute positioning, which applies only
+         while that overlay is up. */
+      className={cn(
+        'relative min-w-0 sm:w-64 md:w-80',
+        mobileOpen
+          ? 'max-sm:absolute max-sm:inset-x-3 max-sm:top-1/2 max-sm:-translate-y-1/2 max-sm:z-popover'
+          : '',
+      )}
     >
-      <div
-        className={cn(
-          'flex h-9 items-center gap-2 rounded-md border border-input bg-input-bg px-3 text-sm shadow-xs transition-colors hover:bg-muted/40',
-          open ? 'border-foreground bg-input-bg shadow-focus' : '',
-        )}
-        onClick={() => inputRef.current?.focus()}
-      >
-        <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <input
+      {!mobileOpen ? (
+        <IconButton
+          type="button"
+          variant="ghost"
+          size="lg"
+          className="sm:hidden"
+          onClick={openMobileSearch}
+          aria-label={t('search.dialog.actions.openGlobalSearch', 'Open global search')}
+          title={t('search.dialog.actions.openGlobalSearch', 'Open global search')}
+        >
+          <Search className="size-4" aria-hidden="true" />
+        </IconButton>
+      ) : null}
+
+      <div className={mobileOpen ? 'block' : 'hidden sm:block'}>
+        <SearchInput
           ref={inputRef}
-          type="text"
+          tone="raised"
           value={query}
-          onChange={(event) => {
-            setQuery(event.target.value)
+          onChange={(next) => {
+            setQuery(next)
             if (!open) setOpen(true)
           }}
+          onClear={() => {
+            setQuery('')
+            inputRef.current?.focus()
+          }}
+          loading={loading}
+          // No ⌘K on touch widths: a key hint for keys the device does not have.
+          shortcut={<Kbd className="hidden md:inline-flex">⌘K</Kbd>}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={t('search.dialog.actions.search', 'Search')}
-          aria-label={t('search.dialog.actions.openGlobalSearch', 'Search')}
+          /* Resolves to "Open global search", which must stay distinct from the
+             list filter's "Search": this field is permanent chrome, so both are
+             in the DOM on every page, and two searchboxes sharing one accessible
+             name is ambiguous for screen readers (and makes an unscoped
+             `getByRole('searchbox', { name: 'Search' })` match two elements). */
+          aria-label={t('search.dialog.actions.openGlobalSearch', 'Open global search')}
+          clearLabel={t('search.dialog.actions.clear', 'Clear search')}
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls="topbar-search-results"
-          className="flex-1 min-w-0 bg-transparent placeholder:text-muted-foreground/70 focus:outline-none"
-          // Inline search; no need for native browser autocomplete or autocapitalize
-          autoComplete="off"
           spellCheck={false}
         />
-        {loading ? (
-          <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" aria-hidden="true" />
-        ) : showClear ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              setQuery('')
-              inputRef.current?.focus()
-            }}
-            className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label={t('search.dialog.actions.clear', 'Clear search')}
-          >
-            <X className="size-3.5" aria-hidden="true" />
-          </button>
-        ) : (
-          <kbd className="hidden md:inline-flex shrink-0 items-center rounded border bg-muted/50 px-1.5 text-overline font-medium uppercase tracking-wider text-muted-foreground">
-            ⌘K
-          </kbd>
-        )}
       </div>
 
       {showPopover && anchor ? createPortal(
@@ -440,7 +442,7 @@ export function TopbarSearchInline({
               <p>{missingConfigMessage}</p>
               <NextLink
                 href="/backend/config/search"
-                onClick={() => collapseAndReset()}
+                onClick={() => dismiss()}
                 className="mt-1 inline-flex items-center font-medium underline underline-offset-2 hover:no-underline"
               >
                 {t('search.dialog.warnings.configureLink', 'Configure search settings')}

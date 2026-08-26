@@ -13,15 +13,28 @@ import { cn } from '@open-mercato/shared/lib/utils'
  * track with N items where exactly one is selected at a time. Selecting
  * a new item fires `onValueChange`.
  *
- * Use for **mutually-exclusive view state** — list page filters like
- * "All / Active / Archived", chart period selectors, layout toggles
- * (List / Grid). For *related actions* (each does something different),
- * reach for `ButtonGroup` instead.
+ * This is the ONE toggle primitive for mutually-exclusive state, and it covers
+ * every shape that state comes in:
+ * - **Compact filter** (default) — the track hugs its labels: list filters like
+ *   "All / Active / Archived", chart period selectors, layout toggles.
+ * - **Full-width form control** (`fullWidth`) — the track spans its container and
+ *   every segment gets an equal share of it, for a field-like row of choices.
+ * - **With or without icons** (`icon` on an item) — the icon is decorative and is
+ *   excluded from the item's accessible name.
+ *
+ * For *related actions* (each does something different), reach for `ButtonGroup`;
+ * for options that swap a content panel, reach for `Tabs`.
  *
  * Built on Radix `RadioGroup` so we inherit the radio-group ARIA contract
  * (`role="radiogroup"`, `role="radio"` on items, arrow-key navigation,
  * roving tabindex) for free. No new dependency — Radix RadioGroup is
  * already installed via the `Radio` primitive.
+ *
+ * **Geometry.** The track owns the height and a uniform `p-0.5` inset; items
+ * stretch to the track's content box rather than carrying their own height. That
+ * is what makes the selected pill sit exactly 2px from the rail on all four
+ * sides — a fixed item height would leave a different gap vertically than
+ * horizontally, which is visible as soon as the pill is a filled colour.
  *
  * **Motion.** The selected fill is a single shared element that slides
  * between segments rather than a class that blinks on and off, so the
@@ -31,7 +44,9 @@ import { cn } from '@open-mercato/shared/lib/utils'
  * positions and animates between them. Because it is a real layout
  * animation it stays correct when segment widths differ, when labels are
  * translated, and when the container resizes — no measurement code, no
- * `ResizeObserver`, nothing to keep in sync.
+ * `ResizeObserver`, nothing to keep in sync. Label colour crossfades over the
+ * same window so ink and pill arrive together instead of the text snapping to
+ * its selected colour while the pill is still in transit.
  *
  * ```tsx
  * const [view, setView] = React.useState('all')
@@ -49,6 +64,7 @@ import { cn } from '@open-mercato/shared/lib/utils'
 
 type SegmentedControlContextValue = {
   size: 'sm' | 'default'
+  fullWidth: boolean
   disabled?: boolean
   /** Scopes the sliding pill to this control — see `indicatorId` below. */
   indicatorId: string
@@ -56,6 +72,7 @@ type SegmentedControlContextValue = {
 
 const SegmentedControlContext = React.createContext<SegmentedControlContextValue>({
   size: 'default',
+  fullWidth: false,
   disabled: false,
   indicatorId: 'segmented-control',
 })
@@ -76,17 +93,22 @@ const trackVariants = cva(
   // raised white pill) made the control read as a group of buttons rather than
   // as one control with a chosen segment.
   //
-  // Height math (box-border on every element):
-  //   default → track h-9 (36px) − 2px border − 4px padding (p-0.5 ×2) = 30px → item h-7 (28px) + 2px slack
-  //   sm      → track h-8 (32px) − 2px border − 4px padding (p-0.5 ×2) = 26px → item h-6 (24px) + 2px slack
-  // The 2px slack is deliberate: it keeps the filled item clear of the track
-  // border on both edges instead of clipping against it.
-  'inline-flex w-fit items-center gap-0 rounded-lg border border-border bg-surface p-0.5 transition-colors',
+  // `items-stretch` is load-bearing: items derive their height from the track's
+  // content box, so the pill's inset is the track's `p-0.5` on every side.
+  //   default → h-9 (36px) − 2px border − 4px padding = 30px item, 2px all round
+  //   sm      → h-8 (32px) − 2px border − 4px padding = 26px item, 2px all round
+  'items-stretch gap-0 rounded-lg border border-border bg-surface p-0.5 transition-colors',
   {
     variants: {
       size: {
         sm: 'h-8',
         default: 'h-9',
+      },
+      // Display lives in the variant rather than the base so the two cases never
+      // depend on which `display` utility Tailwind happens to emit last.
+      fullWidth: {
+        true: 'flex w-full',
+        false: 'inline-flex w-fit',
       },
       disabled: {
         true: 'cursor-not-allowed opacity-60',
@@ -95,33 +117,46 @@ const trackVariants = cva(
     },
     defaultVariants: {
       size: 'default',
+      fullWidth: false,
       disabled: false,
     },
   },
 )
 
 const itemVariants = cva(
-  // The track is a bordered `surface` rail; the SELECTED item is the quiet fill
-  // plus a hairline lift — both painted by the sliding pill, not by a class on
-  // the item, so only the text treatment lives here. Unselected text is muted
-  // and hover only nudges colour, so the rail stays flat and the single filled
-  // item is the whole signal.
+  // The track is a bordered `surface` rail; the SELECTED item is the sidebar
+  // navy plus a hairline lift — both painted by the sliding pill, not by a class
+  // on the item, so only the text treatment lives here. Selected ink is the
+  // sidebar's own foreground, which is what keeps the label legible once the
+  // pill is a saturated fill. Unselected text is muted and hover only nudges
+  // colour, so the rail stays flat and the single filled item is the whole signal.
   //
   // `relative` is load-bearing: the pill is positioned against the item.
+  // The 200ms colour window matches the pill's travel so ink and fill land
+  // together; `motion-reduce` drops it via CSS (not `useReducedMotion`) because
+  // this class is emitted during SSR.
   'relative inline-flex items-center justify-center rounded-md font-medium ' +
-    'transition-colors outline-none focus-visible:shadow-focus ' +
+    'transition-colors duration-200 motion-reduce:transition-none ' +
+    'outline-none focus-visible:shadow-focus ' +
     'disabled:cursor-not-allowed disabled:opacity-50 ' +
-    'data-[state=checked]:text-foreground data-[state=checked]:font-semibold ' +
+    'data-[state=checked]:text-sidebar-foreground data-[state=checked]:font-semibold ' +
     'data-[state=unchecked]:bg-transparent data-[state=unchecked]:text-muted-foreground data-[state=unchecked]:hover:text-foreground',
   {
     variants: {
       size: {
-        sm: 'h-6 px-2.5 text-xs',
-        default: 'h-7 px-3 text-sm',
+        sm: 'gap-1.5 px-2.5 text-xs',
+        default: 'gap-2 px-3 text-sm',
+      },
+      fullWidth: {
+        // `basis-0` (not just `flex-1`) makes every segment an equal share of the
+        // track instead of a share weighted by label length.
+        true: 'min-w-0 flex-1 basis-0',
+        false: '',
       },
     },
     defaultVariants: {
       size: 'default',
+      fullWidth: false,
     },
   },
 )
@@ -138,7 +173,7 @@ export type SegmentedControlProps = Omit<
 export const SegmentedControl = React.forwardRef<
   React.ElementRef<typeof RadioGroupPrimitive.Root>,
   SegmentedControlProps
->(({ className, size, disabled, children, ...props }, ref) => {
+>(({ className, size, fullWidth, disabled, children, ...props }, ref) => {
   // The sliding pill is a shared layout element keyed by `layoutId`. That key
   // is global to framer-motion, so two segmented controls on one page sharing
   // a key would animate their pills into each other across the screen. A
@@ -147,10 +182,11 @@ export const SegmentedControl = React.forwardRef<
   const ctx = React.useMemo<SegmentedControlContextValue>(
     () => ({
       size: size ?? 'default',
+      fullWidth: fullWidth ?? false,
       disabled: disabled ?? false,
       indicatorId: `segmented-control-indicator-${instanceId}`,
     }),
-    [size, disabled, instanceId],
+    [size, fullWidth, disabled, instanceId],
   )
   return (
     <SegmentedControlContext.Provider value={ctx}>
@@ -159,7 +195,7 @@ export const SegmentedControl = React.forwardRef<
         orientation="horizontal"
         disabled={disabled ?? undefined}
         data-slot="segmented-control"
-        className={cn(trackVariants({ size, disabled }), className)}
+        className={cn(trackVariants({ size, fullWidth, disabled }), className)}
         {...props}
       >
         {children}
@@ -171,13 +207,22 @@ SegmentedControl.displayName = 'SegmentedControl'
 
 export type SegmentedControlItemProps = React.ComponentPropsWithoutRef<
   typeof RadioGroupPrimitive.Item
->
+> & {
+  /** Optional leading icon — typically a lucide-react icon at `size-4`.
+   *  Rendered `aria-hidden`, so the item's accessible name stays its label. */
+  icon?: React.ReactNode
+}
 
 export const SegmentedControlItem = React.forwardRef<
   React.ElementRef<typeof RadioGroupPrimitive.Item>,
   SegmentedControlItemProps
->(({ className, children, ...props }, ref) => {
-  const { size, disabled: groupDisabled, indicatorId } = React.useContext(SegmentedControlContext)
+>(({ className, children, icon, ...props }, ref) => {
+  const {
+    size,
+    fullWidth,
+    disabled: groupDisabled,
+    indicatorId,
+  } = React.useContext(SegmentedControlContext)
   const reduceMotion = useReducedMotion()
 
   return (
@@ -185,7 +230,7 @@ export const SegmentedControlItem = React.forwardRef<
       ref={ref}
       data-slot="segmented-control-item"
       className={cn(
-        itemVariants({ size }),
+        itemVariants({ size, fullWidth }),
         // Disabling the root dims the track AND disables every item, so both
         // dimmers apply and multiply out to ~0.3 opacity — far fainter than
         // either intends, and below what a disabled control should still be
@@ -220,9 +265,22 @@ export const SegmentedControlItem = React.forwardRef<
           // Keep this in step with `--radius-md` (6px), which is what
           // `rounded-md` resolves to.
           style={{ borderRadius: 6 }}
-          className="absolute inset-0 z-0 bg-surface-muted shadow-sm"
+          className="absolute inset-0 z-0 bg-sidebar shadow-sm"
         />
       </RadioGroupPrimitive.Indicator>
+
+      {/* The icon sits OUTSIDE the label's width-reservation grid below: it does
+          not change size with font weight, so duplicating it would only cost a
+          second render. `z-10` for the same reason the label needs it. */}
+      {icon ? (
+        <span
+          aria-hidden="true"
+          data-slot="segmented-control-item-icon"
+          className="relative z-10 inline-flex shrink-0 items-center justify-center"
+        >
+          {icon}
+        </span>
+      ) : null}
 
       {/* `z-10` here is load-bearing, not decoration. Mid-slide the pill lives
           in the DESTINATION item's subtree while transformed back over the
@@ -242,14 +300,14 @@ export const SegmentedControlItem = React.forwardRef<
           column, the real label sits centred in the same grid cell, and the
           geometry never changes. Labels must therefore stay render-safe to
           duplicate — plain text or an icon, nothing stateful. */}
-      <span className="relative z-10 grid justify-items-center">
+      <span className="relative z-10 grid min-w-0 justify-items-center">
         <span
           aria-hidden="true"
-          className="invisible col-start-1 row-start-1 whitespace-nowrap font-semibold"
+          className="invisible col-start-1 row-start-1 truncate font-semibold"
         >
           {children}
         </span>
-        <span className="col-start-1 row-start-1 whitespace-nowrap">{children}</span>
+        <span className="col-start-1 row-start-1 truncate">{children}</span>
       </span>
     </RadioGroupPrimitive.Item>
   )

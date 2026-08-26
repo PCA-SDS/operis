@@ -149,7 +149,7 @@ the rows silently end up a few pixels narrower than the search field above them.
 | Element | Box |
 |---|---|
 | Brand row | `h-16` — the topbar's height, so the two share a centre line and the aside takes no top padding |
-| Search field | `h-10`, `px-3` (size `default`; `lg` would move the glyph off the icon column) |
+| Search field | `SearchInput` `size="lg" tone="sidebar"` — `lg` **is** this row box (`h-10 px-3 gap-3`, `size-5` glyph slot), so the magnifier lands on the icon column. Never re-paint it with `className` |
 | Group heading | `h-8`, `px-3` |
 | Nav row | `h-10`, `px-3`, `gap-3` |
 | Subpage row | `h-9`, `pl-6 pr-3`, `gap-3` — one 12px step in, so a child icon lands where a parent label starts |

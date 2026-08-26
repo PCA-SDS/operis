@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import dynamic from 'next/dynamic'
-import { addDays } from 'date-fns/addDays'
 import { isSameDay } from 'date-fns/isSameDay'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { apiCall, apiCallOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
@@ -13,12 +12,15 @@ import {
 } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { countByCategory } from '../../lib/calendar/categories'
 import { findConflicts } from '../../lib/calendar/conflicts'
-import { getVisibleRange } from '../../lib/calendar/range'
+import { getVisibleRange, shiftAnchor } from '../../lib/calendar/range'
+import { resolveJoinUrl } from '../../lib/calendar/mapItem'
+import { formatTimeZoneLabel } from '../../lib/calendar/time'
 import { AgendaList } from './AgendaList'
+import { CalendarSkeleton } from './CalendarSkeleton'
 import { CalendarFooter } from './CalendarFooter'
 import { CalendarHeader } from './CalendarHeader'
 import { CalendarTabs } from './CalendarTabs'
@@ -34,6 +36,7 @@ import type {
   CalendarFiltersValue,
   CalendarItem,
   CalendarRangePreset,
+  CalendarReschedule,
   CalendarTab,
   CalendarView,
   UpcomingCard,
@@ -84,25 +87,6 @@ function useCanManageInteractions(): boolean {
   return canManage
 }
 
-function buildTimezoneLabel(): string {
-  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-  const offsetMinutes = -new Date().getTimezoneOffset()
-  const sign = offsetMinutes >= 0 ? '+' : '-'
-  const absolute = Math.abs(offsetMinutes)
-  const hours = Math.floor(absolute / 60)
-  const minutes = absolute % 60
-  const offset = minutes > 0 ? `${sign}${hours}:${String(minutes).padStart(2, '0')}` : `${sign}${hours}`
-  return `${timeZone} (GMT${offset})`
-}
-
-function resolveJoinUrl(location: string | null): string | null {
-  const trimmed = location?.trim() ?? ''
-  if (!trimmed) return null
-  if (/^https?:\/\//i.test(trimmed)) return trimmed
-  if (/^www\./i.test(trimmed)) return `https://${trimmed}`
-  return null
-}
-
 function asEditableItem(item: CalendarItem): CalendarItem {
   return item.isRecurringOccurrence ? { ...item, id: item.raw.id } : item
 }
@@ -143,7 +127,20 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
     () => getVisibleRange(view, anchor, agendaHorizonDays),
     [view, anchor, agendaHorizonDays],
   )
-  const { items, isLoading, error, truncated, typeLabels, typeColors, typeIcons, refetch } = useCalendarItems(range)
+  const {
+    items,
+    isLoading,
+    isRefreshing,
+    error,
+    truncated,
+    typeLabels,
+    typeColors,
+    typeIcons,
+    refetch,
+    applyOverride,
+    clearOverride,
+    commitOverride,
+  } = useCalendarItems(range)
 
   React.useEffect(() => {
     if (!isLoading) setHasLoadedOnce(true)
@@ -253,7 +250,7 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
       .sort((first, second) => first.label.localeCompare(second.label))
   }, [visibleItems])
 
-  const timezoneLabel = React.useMemo(() => buildTimezoneLabel(), [])
+  const timezoneLabel = React.useMemo(() => formatTimeZoneLabel(), [])
 
   const canManage = useCanManageInteractions()
 
@@ -324,10 +321,15 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
     setPreset(null)
   }, [])
 
-  const handleTimeGridNavigate = React.useCallback((deltaDays: number) => {
-    setAnchor((current) => addDays(current, deltaDays))
+  const handlePrevious = React.useCallback(() => {
+    setAnchor((current) => shiftAnchor(view, current, -1))
     setPreset(null)
-  }, [])
+  }, [view])
+
+  const handleNext = React.useCallback(() => {
+    setAnchor((current) => shiftAnchor(view, current, 1))
+    setPreset(null)
+  }, [view])
 
   const handleDayOpen = React.useCallback((date: Date) => {
     setView('day')
@@ -392,6 +394,118 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
       }
     },
     [refetch, retryLastMutation, runMutation, t],
+  )
+
+  const { runMutation: runReschedule, retryLastMutation: retryReschedule } = useGuardedMutation<{
+    formId: string
+    resourceKind: string
+    resourceId: string
+    retryLastMutation: () => Promise<boolean>
+  }>({
+    contextId: 'customers-calendar-reschedule',
+    blockedMessage: t('ui.forms.flash.saveBlocked', 'Save blocked by validation'),
+  })
+
+  /**
+   * Drag/resize persistence. The move is shown immediately, the write happens
+   * in the background, and a failure restores the previous position rather than
+   * leaving a card where the server never put it.
+   */
+  const handleReschedule = React.useCallback(
+    async ({ item, start, end, allDay }: CalendarReschedule) => {
+      if (!canManage) return
+      if (item.isRecurringOccurrence) {
+        // The occurrence's id points at the series master, so persisting a drag
+        // here would move every occurrence. Editing a single one needs the
+        // this/following/series scope prompt that is not built yet.
+        flash(
+          t(
+            'customers.calendar.errors.recurringDragUnsupported',
+            'Open the event to change a repeating series.',
+          ),
+          'error',
+        )
+        return
+      }
+      if (!(start instanceof Date) || Number.isNaN(start.getTime())) return
+      if (!(end instanceof Date) || Number.isNaN(end.getTime())) return
+      if (end.getTime() <= start.getTime()) {
+        flash(t('customers.calendar.errors.invalidRange', 'End time must be after the start time'), 'error')
+        return
+      }
+
+      const interactionId = item.raw.id
+      const previous = {
+        scheduledAt: item.raw.scheduledAt ?? null,
+        durationMinutes: item.raw.durationMinutes ?? null,
+        allDay: item.raw.allDay ?? null,
+        updatedAt: item.updatedAt,
+      }
+      const durationMinutes = allDay ? null : Math.round((end.getTime() - start.getTime()) / 60_000)
+      const nextPayload = {
+        scheduledAt: start.toISOString(),
+        durationMinutes,
+        allDay,
+      }
+
+      applyOverride(interactionId, { ...nextPayload, updatedAt: item.updatedAt })
+
+      try {
+        const response = await runReschedule({
+          operation: () =>
+            withScopedApiRequestHeaders(buildOptimisticLockHeader(item.updatedAt), () =>
+              apiCallOrThrow<{ item?: { updatedAt?: string | null } }>('/api/customers/interactions', {
+                method: 'PUT',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ id: interactionId, ...nextPayload }),
+              }),
+            ),
+          mutationPayload: {
+            operation: 'rescheduleCalendarEvent',
+            interactionId,
+            interactionType: item.interactionType,
+          },
+          context: {
+            formId: 'customers-calendar-reschedule',
+            resourceKind: 'customers.interaction',
+            resourceId: interactionId,
+            retryLastMutation: retryReschedule,
+          },
+        })
+        const confirmedUpdatedAt =
+          response && typeof response === 'object' && 'item' in response
+            ? ((response as { item?: { updatedAt?: string | null } }).item?.updatedAt ?? null)
+            : null
+        // Fold the confirmed values in instead of refetching the window, so the
+        // card never flashes back to its old position.
+        commitOverride(interactionId, {
+          ...nextPayload,
+          updatedAt: confirmedUpdatedAt ?? new Date().toISOString(),
+        })
+      } catch (err) {
+        applyOverride(interactionId, previous)
+        clearOverride(interactionId)
+        if (extractOptimisticLockConflict(err)) {
+          // The persistent conflict bar already explains this; resync the window
+          // so the user sees whatever the other editor saved.
+          refetch()
+          return
+        }
+        flash(t('customers.calendar.errors.rescheduleFailed', 'Could not move this event. It has been restored.'), 'error')
+      }
+    },
+    [applyOverride, canManage, clearOverride, commitOverride, refetch, retryReschedule, runReschedule, t],
+  )
+
+  const handleCreateAt = React.useCallback(
+    (date: Date) => {
+      if (!canManage) return
+      const start = new Date(date)
+      start.setHours(9, 0, 0, 0)
+      const end = new Date(start.getTime() + 30 * 60_000)
+      handleCreateRange(start, end)
+    },
+    [canManage, handleCreateRange],
   )
 
   const focusSearch = React.useCallback(() => {
@@ -468,6 +582,25 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
 
   const showInitialLoading = (isLoading && !hasLoadedOnce) || !preferencesHydrated
 
+  const showRefreshing = isRefreshing && hasLoadedOnce
+  const calendarStatus = truncated || showRefreshing ? (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {truncated ? (
+        <p className="text-xs text-muted-foreground" role="status">
+          {t('customers.calendar.notice.truncated', 'Showing first {count} items for this range.', {
+            count: MAX_WINDOW_ITEMS,
+          })}
+        </p>
+      ) : null}
+      {showRefreshing ? (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
+          <span aria-hidden className="size-1.5 rounded-full bg-primary motion-safe:animate-pulse" />
+          {t('customers.calendar.notice.refreshing', 'Refreshing…')}
+        </p>
+      ) : null}
+    </div>
+  ) : null
+
   let viewArea: React.ReactNode
   if (error) {
     viewArea = (
@@ -481,10 +614,19 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
       />
     )
   } else if (showInitialLoading) {
-    viewArea = <LoadingMessage label={t('customers.calendar.loading', 'Loading calendar…')} />
+    viewArea = <CalendarSkeleton view={view} columns={view === 'day' ? 1 : 7} />
   } else if (view === 'month') {
     viewArea = (
-      <MonthGrid anchor={anchor} items={viewItems} onItemClick={openEditEditor} onDayOpen={handleDayOpen} />
+      <MonthGrid
+        anchor={anchor}
+        items={viewItems}
+        canManage={canManage}
+        aiSummaries={preferences.aiSummaries}
+        onItemClick={openEditEditor}
+        onJoin={handleJoin}
+        onDayOpen={handleDayOpen}
+        onCreateAt={canManage ? handleCreateAt : undefined}
+      />
     )
   } else if (view === 'agenda') {
     viewArea = (
@@ -510,16 +652,22 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
         highlightItemId={highlightItemId}
         onItemClick={openEditEditor}
         onJoin={handleJoin}
-        onNavigate={handleTimeGridNavigate}
-        onCreate={canManage ? openCreateEditor : undefined}
         onCreateRange={canManage ? handleCreateRange : undefined}
+        onReschedule={canManage ? handleReschedule : undefined}
       />
     )
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
-      <CalendarHeader view={view} anchor={anchor} onNewEvent={canManage ? openCreateEditor : undefined} />
+      <CalendarHeader
+        view={view}
+        anchor={anchor}
+        range={range}
+        onPrevious={handlePrevious}
+        onNext={handleNext}
+        onNewEvent={canManage ? openCreateEditor : undefined}
+      />
       <CalendarToolbar
         view={view}
         anchor={anchor}
@@ -545,21 +693,15 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
         onEdit={openEditEditor}
         onCancel={handleCancelItem}
       />
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
         <CalendarTabs
           tab={tab}
           counts={tabCounts}
           view={view}
+          status={calendarStatus}
           onTabChange={setTab}
           onViewChange={handleViewChange}
         />
-        {truncated ? (
-          <p className="text-xs text-muted-foreground" role="status">
-            {t('customers.calendar.notice.truncated', 'Showing first {count} items for this range.', {
-              count: MAX_WINDOW_ITEMS,
-            })}
-          </p>
-        ) : null}
         <div className="flex min-h-[560px] flex-1 flex-col [&>*]:flex-1">{viewArea}</div>
       </div>
       <div className="hidden md:block">

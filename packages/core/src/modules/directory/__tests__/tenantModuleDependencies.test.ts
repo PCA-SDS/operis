@@ -82,6 +82,11 @@ describe('module dependency catalog', () => {
       requires: [],
       // The fixture declares no `defaultEntitlement`, and absence means off.
       defaultEntitlement: 'disabled',
+      // Nor a category, so it lands in the trailing group with a neutral rank
+      // and no AI assistant to entitle.
+      category: 'Other',
+      sortOrder: 0,
+      aiAssistantAvailable: false,
     })
   })
 

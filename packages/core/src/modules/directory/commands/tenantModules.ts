@@ -120,4 +120,88 @@ const setTenantModuleCommand: CommandHandler<SetTenantModuleInput, SetTenantModu
 
 registerCommand(setTenantModuleCommand)
 
-export { setTenantModuleCommand }
+const setTenantModuleAiSchema = z.object({
+  tenantId: z.string().uuid(),
+  moduleId: z.string().min(1),
+  isEnabled: z.boolean(),
+})
+
+export type SetTenantModuleAiInput = z.infer<typeof setTenantModuleAiSchema>
+
+export type SetTenantModuleAiResult = {
+  tenantId: string
+  moduleId: string
+  isEnabled: boolean
+  previousIsEnabled: boolean
+}
+
+/**
+ * The per-(tenant, module) AI assistant sub-toggle.
+ *
+ * A separate command from `directory.tenant_modules.set` rather than a field on
+ * it: the two are different decisions with different blast radii — withholding
+ * a module removes a product surface, withholding its assistant removes an
+ * affordance inside a surface the tenant keeps — and the audit log should be
+ * able to tell them apart.
+ */
+const setTenantModuleAiCommand: CommandHandler<SetTenantModuleAiInput, SetTenantModuleAiResult> = {
+  id: 'directory.tenant_modules.set_ai',
+
+  async execute(rawInput, ctx) {
+    const input = setTenantModuleAiSchema.parse(rawInput)
+    const { translate } = await resolveTranslations()
+
+    await requireSuperAdmin(ctx)
+
+    const service = await resolveService(ctx)
+    const stored = await service.listTenantModules(input.tenantId)
+    const row = stored.find((entry) => entry.moduleId === input.moduleId)
+
+    if (!row || !row.aiAssistantAvailable) {
+      throw badRequest(translate(
+        'directory.tenantModules.errors.noAiAssistant',
+        'This module does not provide an AI assistant.',
+      ))
+    }
+    if (!row.isEnabled) {
+      throw badRequest(translate(
+        'directory.tenantModules.errors.aiRequiresModule',
+        'Enable {module} for this tenant before switching its AI assistant on.',
+        { module: row.title },
+      ))
+    }
+
+    const previousIsEnabled = row.aiAssistantEnabled
+    await service.setModuleAiEnabled(input.tenantId, input.moduleId, input.isEnabled)
+
+    return {
+      tenantId: input.tenantId,
+      moduleId: input.moduleId,
+      isEnabled: input.isEnabled,
+      previousIsEnabled,
+    }
+  },
+
+  buildLog({ result, ctx }) {
+    return {
+      tenantId: result.tenantId,
+      organizationId: ctx.auth?.orgId ?? null,
+      actorUserId: ctx.auth?.sub ?? null,
+      actionLabel: result.isEnabled
+        ? 'Enabled module AI assistant for tenant'
+        : 'Disabled module AI assistant for tenant',
+      resourceKind: 'directory.tenant_module_ai',
+      resourceId: `${result.tenantId}:${result.moduleId}`,
+      parentResourceKind: 'directory.tenant',
+      parentResourceId: result.tenantId,
+      changes: {
+        aiAssistantEnabled: { from: result.previousIsEnabled, to: result.isEnabled },
+      },
+      context: { moduleId: result.moduleId },
+    }
+  },
+}
+
+registerCommand(setTenantModuleAiCommand)
+
+export { setTenantModuleCommand, setTenantModuleAiCommand }

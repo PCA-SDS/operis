@@ -38,14 +38,17 @@ describe('mapInteractionToCalendarItem', () => {
     expect(item!.end.getTime() - item!.start.getTime()).toBe(90 * 60 * 1000)
   })
 
-  it('expands all-day items to the full local day', () => {
+  it('spans an all-day item across whole local days, ending at exclusive midnight', () => {
     const payload = makePayload({ id: 'all-day', allDay: true })
     const item = mapInteractionToCalendarItem(payload, noColors)
     expect(item!.allDay).toBe(true)
     expect(item!.start.getHours()).toBe(0)
     expect(item!.start.getMinutes()).toBe(0)
-    expect(item!.end.getHours()).toBe(23)
-    expect(item!.end.getMinutes()).toBe(59)
+    // The end is the midnight that closes the day, not 23:59:59.999 — an
+    // exclusive bound is what lets a multi-day entry pack as one bar.
+    expect(item!.end.getHours()).toBe(0)
+    expect(item!.end.getMinutes()).toBe(0)
+    expect(item!.end.getTime() - item!.start.getTime()).toBe(24 * 60 * 60 * 1000)
   })
 
   it('detects platforms and marks URLs as url locations', () => {

@@ -1,10 +1,10 @@
 'use client'
 
 import * as React from 'react'
-import { Clock3, Search } from 'lucide-react'
+import { Clock3 } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Input } from '@open-mercato/ui/primitives/input'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import {
   Select,
   SelectContent,
@@ -362,15 +362,12 @@ export function ActivityHistorySection({
 
       <div className="space-y-4 px-5 py-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="relative w-full max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
+          <div className="w-full max-w-md">
+            <SearchInput
               value={searchInput}
-              onChange={(event) => {
-                setSearchInput(event.target.value)
-              }}
+              onChange={setSearchInput}
+              loading={searchInput.trim() !== search}
               placeholder={t('customers.activityLog.searchPlaceholder', 'Search by title, note, or author')}
-              className="h-9 pl-9"
             />
           </div>
 

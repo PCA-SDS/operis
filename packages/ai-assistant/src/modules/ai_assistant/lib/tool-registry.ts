@@ -46,6 +46,18 @@ class ToolRegistryImpl implements McpToolRegistry {
     return Array.from(this.tools.keys())
   }
 
+  /**
+   * The module a tool was registered from, or `undefined` for built-ins that
+   * belong to no module. Backs the per-tenant AI entitlement filter, which has
+   * to answer "whose module is this tool" for every tool it considers.
+   */
+  getModuleIdForTool(name: string): string | undefined {
+    for (const [moduleId, toolNames] of this.moduleMap) {
+      if (toolNames.includes(name)) return moduleId
+    }
+    return undefined
+  }
+
   listToolsByModule(moduleId: string): string[] {
     return this.moduleMap.get(moduleId) ?? []
   }
