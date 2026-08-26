@@ -52,6 +52,31 @@ export class TenantModule {
   @Property({ name: 'is_enabled', type: 'boolean', default: true })
   isEnabled: boolean = true
 
+  /**
+   * When the tenant most recently gained this module, and when it lost it.
+   *
+   * Revocation keeps the row and stamps `ends_at` rather than deleting, so the
+   * grant history survives — "when did Acme get WMS, and until when" is a
+   * billing question, and a boolean cannot answer it. Re-enabling clears
+   * `ends_at` and re-stamps `starts_at`.
+   */
+  @Property({ name: 'starts_at', type: Date, nullable: true })
+  startsAt?: Date | null
+
+  @Property({ name: 'ends_at', type: Date, nullable: true })
+  endsAt?: Date | null
+
+  /**
+   * Whether the module's in-app AI assistant is switched on for this tenant.
+   *
+   * A sub-toggle of the grant, meaningful only for modules that ship AI tools
+   * (`ModuleInfo.aiAssistant`). Forced false when the grant is revoked, so a
+   * re-enabled module never silently resurrects AI access the operator turned
+   * off.
+   */
+  @Property({ name: 'ai_assistant_enabled', type: 'boolean', default: false })
+  aiAssistantEnabled: boolean = false
+
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
 

@@ -7,5 +7,6 @@ export const metadata: ModuleInfo = {
   description: 'File attachments and media management.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  category: 'Administrative',
 }
 

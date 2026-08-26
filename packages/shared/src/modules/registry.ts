@@ -221,9 +221,43 @@ export type ModuleInfo = {
    * them.
    */
   defaultEntitlement?: 'enabled' | 'disabled'
+  /**
+   * Grouping for the entitlement screens, which list 40+ modules and are
+   * unreadable as one flat run. Purely presentational — nothing resolves
+   * access from it. Unset sorts into the trailing "Other" group.
+   */
+  category?: ModuleCategory
+  /** Rank within `category`; lower first, ties broken by title. Defaults to 0. */
+  sortOrder?: number
+  /**
+   * Whether this module ships an in-app AI assistant — that is, contributes
+   * `ai-tools.ts` or `ai-agents.ts`. Gates the per-tenant AI sub-toggle, so a
+   * module that declares it must actually register tools; the
+   * `module-ai-assistant-declaration` guard keeps the two in step.
+   */
+  aiAssistant?: boolean
   // Whether this module can be ejected into the app's src/modules/ for customization
   ejectable?: boolean
 }
+
+/**
+ * The entitlement screens' grouping vocabulary.
+ *
+ * A closed union rather than a free string: these are section headings an
+ * operator scans, and a typo would silently split a group in two.
+ */
+export const MODULE_CATEGORIES = [
+  'Administrative',
+  'Sales',
+  'Operations',
+  'Financial',
+  'Communication',
+  'Automation',
+  'Compliance',
+  'Customer Portal',
+] as const
+
+export type ModuleCategory = typeof MODULE_CATEGORIES[number]
 
 export type ModuleDashboardWidgetEntry = {
   moduleId: string

@@ -6,4 +6,6 @@ export const metadata: ModuleInfo = {
   version: '0.1.0',
   description: 'Unified search module with pluggable strategies (Meilisearch, Vector, Tokens).',
   author: 'FreightTech Team',
+  category: 'Administrative',
+  aiAssistant: true,
 }

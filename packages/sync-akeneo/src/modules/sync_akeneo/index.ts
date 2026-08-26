@@ -3,4 +3,5 @@ export const metadata = {
   title: 'Akeneo Product Sync',
   description: 'Import Akeneo PIM categories, product attributes, and products into the Open Mercato catalog.',
   requires: ['integrations', 'data_sync', 'catalog', 'sales'],
+  category: 'Automation' as const,
 }

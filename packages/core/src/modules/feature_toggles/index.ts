@@ -7,6 +7,7 @@ export const metadata: ModuleInfo = {
   description: 'Global feature flags with tenant-level overrides.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  category: 'Administrative',
 }
 
 export { features } from './acl'

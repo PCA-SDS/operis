@@ -7,4 +7,5 @@ export const metadata: ModuleInfo = {
   description: 'System-wide entity translation storage and locale overlay for CRUD responses.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  category: 'Administrative',
 }

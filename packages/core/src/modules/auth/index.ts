@@ -7,6 +7,7 @@ export const metadata: ModuleInfo = {
   description: 'User accounts, sessions, roles and password resets.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  category: 'Administrative',
 }
 
 // Re-export features from module root acl.ts so generator can pick them up regardless of consumer imports

@@ -4,4 +4,5 @@ export const metadata = {
   description: 'Streaming data sync hub for import/export integrations.',
   requires: ['integrations'],
   defaultEntitlement: 'enabled' as const,
+  category: 'Automation' as const,
 }

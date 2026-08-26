@@ -8,6 +8,8 @@ export const metadata: ModuleInfo = {
   author: 'Open Mercato',
   license: 'MIT',
   ejectable: true,
+  category: 'Operations',
+  aiAssistant: true,
 }
 
 export { features } from './acl'
