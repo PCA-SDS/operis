@@ -583,3 +583,44 @@ export type CatalogProductOptionGroupCreateInput = z.infer<typeof catalogProduct
 export type CatalogProductOptionGroupUpdateInput = z.infer<typeof catalogProductOptionGroupUpdateSchema>
 export type CatalogProductOptionCreateInput = z.infer<typeof catalogProductOptionCreateSchema>
 export type CatalogProductOptionUpdateInput = z.infer<typeof catalogProductOptionUpdateSchema>
+
+export const catalogProductOptionTreeSyncSchema = scoped.extend({
+  productId: uuid(),
+  groups: z.array(
+    z.object({
+      id: uuid(),
+      parentOptionId: uuid().nullable().optional(),
+      name: z.string().trim().min(1).max(255),
+      description: z.string().trim().nullable().optional(),
+      requirement: z.enum(['required', 'optional']).optional(),
+      selectMode: z.enum(['single', 'multiple']).optional(),
+      sortOrder: z.coerce.number().int().optional(),
+      isActive: z.boolean().optional(),
+      metadata: metadataSchema,
+    })
+  ),
+  options: z.array(
+    z.object({
+      id: uuid(),
+      groupId: uuid(),
+      code: slugSchema.nullable().optional(),
+      name: z.string().trim().min(1).max(255),
+      description: z.string().trim().nullable().optional(),
+      note: z.string().trim().max(100).nullable().optional(),
+      unit: z.string().trim().max(50).nullable().optional(),
+      priceFlat: z.string().nullable().optional(),
+      priceMin: z.string().nullable().optional(),
+      priceMax: z.string().nullable().optional(),
+      durationValue: z.coerce.number().int().min(0).nullable().optional(),
+      durationUnit: z.string().trim().max(50).nullable().optional(),
+      durationMin: z.coerce.number().int().min(0).nullable().optional(),
+      durationMax: z.coerce.number().int().min(0).nullable().optional(),
+      isAddon: z.boolean().optional(),
+      sortOrder: z.coerce.number().int().optional(),
+      isActive: z.boolean().optional(),
+      metadata: metadataSchema,
+    })
+  )
+})
+
+export type CatalogProductOptionTreeSyncInput = z.infer<typeof catalogProductOptionTreeSyncSchema>

@@ -16,77 +16,19 @@ import {
 } from '../data/entities'
 import { randomUUID } from 'crypto'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { parseTpsMigrateFlags } from './lib'
+import {
+  slugifyTpsText,
+  sumTpsPrices,
+  parseTpsPrice,
+  extractTpsDuration,
+  hasNestedTpsOptionTree,
+  collectTpsSchemaGroups,
+  enumerateTpsOptionPaths,
+  type OptionPath,
+} from './mapping'
 
 const logger = createLogger('catalog')
-
-// Simple slugify helper
-function slugifyText(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)+/g, '')
-}
-
-// Helper to sum two prices
-function sumPrices(p1: Price | undefined, p2: Price | undefined): Price | undefined {
-  if (!p1) return p2
-  if (!p2) return p1
-
-  const p1Min = typeof p1 === 'number' ? p1 : p1.kind === 'range' ? p1.min : p1.women
-  const p1Max = typeof p1 === 'number' ? p1 : p1.kind === 'range' ? p1.max : (p1 as any).men || p1.women
-  const p1IsRange = typeof p1 === 'object' && p1.kind === 'range'
-
-  const p2Min = typeof p2 === 'number' ? p2 : p2.kind === 'range' ? p2.min : p2.women
-  const p2Max = typeof p2 === 'number' ? p2 : p2.kind === 'range' ? p2.max : (p2 as any).men || p2.women
-  const p2IsRange = typeof p2 === 'object' && p2.kind === 'range'
-
-  if (p1IsRange || p2IsRange) {
-    return { kind: 'range', min: p1Min + p2Min, max: p1Max + p2Max }
-  }
-  return p1Min + p2Min
-}
-
-// Helper to parse price into a safe DB value and metadata
-function parsePrice(price: Price | undefined): { unitPriceGross: string | null; metadata: Record<string, any> | null } {
-  if (price === undefined || price === null) {
-    return { unitPriceGross: null, metadata: null }
-  }
-  if (typeof price === 'number') {
-    return { unitPriceGross: price.toString(), metadata: null }
-  }
-  if (typeof price === 'object') {
-    if (price.kind === 'range') {
-      return { unitPriceGross: price.min.toString(), metadata: price }
-    }
-    if (price.kind === 'gender') {
-      return { unitPriceGross: price.women.toString(), metadata: price }
-    }
-  }
-  return { unitPriceGross: null, metadata: null }
-}
-
-function extractDuration(item: any): string | undefined {
-  if (item.duration) return item.duration
-  
-  const regex = /(\d+(?:\s*[-–]\s*\d+)?)\s*(?:mins|min|m)\b/i
-  
-  if (item.name) {
-    const match = item.name.match(regex)
-    if (match) return `${match[1].replace('–', '-')} mins`
-  }
-  if (item.description) {
-    const match = item.description.match(regex)
-    if (match) return `${match[1].replace('–', '-')} mins`
-  }
-  return undefined
-}
-
-type OptionPath = {
-  optionValues: Record<string, string>
-  totalPrice: Price | undefined
-  names: string[]
-  durations: string[]
-}
 
 function traverseOptionTree(
   em: EntityManager,
@@ -114,8 +56,8 @@ function traverseOptionTree(
 
     let sortOrderOption = 0
     for (const opt of group.options) {
-      const parsedPrice = parsePrice(opt.price)
-      const duration = extractDuration(opt)
+      const parsedPrice = parseTpsPrice(opt.price)
+      const duration = extractTpsDuration(opt)
       
       const optionEntity = em.create(CatalogProductOption, {
         id: randomUUID(),
@@ -139,63 +81,13 @@ function traverseOptionTree(
   }
 }
 
-function collectAllGroups(groups: any[], schemaGroups: Map<string, Set<string>>) {
-  for (const group of groups) {
-    if (!schemaGroups.has(group.label)) {
-      schemaGroups.set(group.label, new Set())
-    }
-    const optionSet = schemaGroups.get(group.label)!
-    for (const opt of group.options) {
-      optionSet.add(opt.name)
-      if (opt.nextGroups && opt.nextGroups.length > 0) {
-        collectAllGroups(opt.nextGroups, schemaGroups)
-      }
-    }
-  }
-}
-
-function enumeratePaths(groups: any[], currentPath: OptionPath): OptionPath[] {
-  if (!groups || groups.length === 0) {
-    return [currentPath]
-  }
-
-  let paths: OptionPath[] = [currentPath]
-
-  for (const group of groups) {
-    const nextPaths: OptionPath[] = []
-    for (const path of paths) {
-      for (const opt of group.options) {
-        const newDurations = [...path.durations]
-        const optDuration = extractDuration(opt)
-        if (optDuration) newDurations.push(optDuration)
-
-        const newPath: OptionPath = {
-          optionValues: { ...path.optionValues, [group.label]: opt.name },
-          totalPrice: sumPrices(path.totalPrice, opt.price),
-          names: [...path.names, opt.name],
-          durations: newDurations,
-        }
-
-        if (opt.nextGroups && opt.nextGroups.length > 0) {
-          nextPaths.push(...enumeratePaths(opt.nextGroups, newPath))
-        } else {
-          nextPaths.push(newPath)
-        }
-      }
-    }
-    paths = nextPaths
-  }
-
-  return paths
-}
-
 function createVariantForOption(em: EntityManager, product: CatalogProduct, defaultPriceKind: CatalogPriceKind, tenantId: string, organizationId: string, itemName: string, optionValuesMap: Record<string, string>, totalPrice: Price | undefined, variantSuffix: string, isDefault: boolean, extraDurations: string[]) {
   const parsedOptionValues: Record<string, string> = {}
   for (const [key, val] of Object.entries(optionValuesMap)) {
-    parsedOptionValues[slugifyText(key)] = slugifyText(val)
+    parsedOptionValues[slugifyTpsText(key)] = slugifyTpsText(val)
   }
 
-  const parsedPrice = parsePrice(totalPrice)
+  const parsedPrice = parseTpsPrice(totalPrice)
 
   const variantMetadata: Record<string, any> = {}
   if (parsedPrice.metadata) {
@@ -211,7 +103,7 @@ function createVariantForOption(em: EntityManager, product: CatalogProduct, defa
     organizationId,
     product: product,
     name: variantSuffix,
-    sku: slugifyText(`${itemName}-${variantSuffix}`),
+    sku: slugifyTpsText(`${itemName}-${variantSuffix}`),
     optionValues: parsedOptionValues,
     isActive: true,
     isDefault,
@@ -240,31 +132,43 @@ function createVariantForOption(em: EntityManager, product: CatalogProduct, defa
 export const migrateTpsProductsCommand: ModuleCli = {
   command: 'migrate-tps-products',
   async run(rest) {
-    const [tenantId, organizationId] = rest
+    const { tenantId, organizationId, replace } = parseTpsMigrateFlags(rest)
     if (!tenantId || !organizationId) {
       logger.error('Missing tenantId or organizationId')
-      logger.error('Usage: yarn mercato catalog migrate-tps-products <tenantId> <organizationId>')
+      logger.error('Usage: yarn mercato catalog migrate-tps-products <tenantId> <organizationId> [--replace]')
       return
     }
 
-    const { resolve } = await (await import('@open-mercato/shared/lib/di/container')).createRequestContainer()
-    const em = resolve<EntityManager>('em').fork()
+    const container = await (await import('@open-mercato/shared/lib/di/container')).createRequestContainer()
+    try {
+      const baseEm = container.resolve<EntityManager>('em').fork()
 
-    logger.info(`Starting TPS Product migration for Tenant: ${tenantId}, Org: ${organizationId}`)
+      logger.info(`Starting TPS Product migration for Tenant: ${tenantId}, Org: ${organizationId}`)
 
-    logger.info('Cleaning up existing products for this tenant...')
+      const existingCount = await baseEm.count(CatalogProduct, { tenantId, organizationId })
+      if (existingCount > 0) {
+        if (!replace) {
+          logger.error(`Found ${existingCount} existing products for organization ${organizationId}.`)
+          logger.error('Aborting. Use --replace to overwrite existing data.')
+          return
+        }
+        logger.info(`Found ${existingCount} existing products. --replace flag is set, proceeding with cleanup...`)
+      }
 
-    await em.nativeDelete(CatalogProductPrice, { tenantId })
-    await em.nativeDelete(CatalogProductCategoryAssignment, { tenantId })
-    await em.nativeDelete(CatalogProductVariant, { tenantId })
-    await em.nativeDelete(CatalogProductOption, { tenantId })
-    await em.nativeDelete(CatalogProductOptionGroup, { tenantId })
-    await em.nativeDelete(CatalogOptionSchemaTemplate, { tenantId })
-    await em.nativeDelete(CatalogProduct, { tenantId })
-    
-    logger.info('Cleanup complete.')
+      await baseEm.transactional(async (em) => {
+        if (existingCount > 0) {
+          logger.info('Cleaning up existing products for this organization...')
+          await em.nativeDelete(CatalogProductPrice, { tenantId, organizationId })
+          await em.nativeDelete(CatalogProductCategoryAssignment, { tenantId, organizationId })
+          await em.nativeDelete(CatalogProductVariant, { tenantId, organizationId })
+          await em.nativeDelete(CatalogProductOption, { tenantId, organizationId })
+          await em.nativeDelete(CatalogProductOptionGroup, { tenantId, organizationId })
+          await em.nativeDelete(CatalogOptionSchemaTemplate, { tenantId, organizationId })
+          await em.nativeDelete(CatalogProduct, { tenantId, organizationId })
+          logger.info('Cleanup complete.')
+        }
 
-    let defaultPriceKind = await em.findOne(CatalogPriceKind, { tenantId, code: 'default' })
+    let defaultPriceKind = await em.findOne(CatalogPriceKind, { tenantId, organizationId, code: 'default' })
     if (!defaultPriceKind) {
       defaultPriceKind = em.create(CatalogPriceKind, {
         id: randomUUID(),
@@ -297,28 +201,26 @@ export const migrateTpsProductsCommand: ModuleCli = {
 
           // Detect if this item uses a nested decision-tree (nextGroups present at any level)
           // If so, treat it as a service using the Option Tree, not Variants
-          function hasNestedTree(groups: any[]): boolean {
-            return groups.some(g => g.options?.some((o: any) => o.nextGroups?.length > 0))
-          }
-          const isNestedTree = isConfigurable && hasNestedTree(item.optionGroups ?? [])
+          const isNestedTree = isConfigurable && hasNestedTpsOptionTree(item.optionGroups ?? [])
 
           let mappedType: CatalogProductType = 'simple'
           if (category.type === 'service') mappedType = 'virtual'
           else if (category.type === 'package') mappedType = 'bundle'
           else if (isNestedTree) mappedType = 'virtual' // Treat nested-tree items as services
 
-          const finalProductType = isConfigurable ? 'configurable' : mappedType
+          const isServiceOrBundle = mappedType === 'virtual' || mappedType === 'bundle'
+          const finalProductType = (isConfigurable && !isServiceOrBundle) ? 'configurable' : mappedType
 
           const productMetadata: Record<string, any> = {
             tps_id: item.id,
             tps_type: category.type || 'unknown',
           }
-          const itemDuration = extractDuration(item)
+          const itemDuration = extractTpsDuration(item)
           if (itemDuration) {
             productMetadata.duration = itemDuration
           }
           
-          const parsedProductPrice = parsePrice(item.price)
+          const parsedProductPrice = parseTpsPrice(item.price)
           if (parsedProductPrice.metadata) {
             productMetadata.price_rules = parsedProductPrice.metadata
           }
@@ -329,10 +231,10 @@ export const migrateTpsProductsCommand: ModuleCli = {
             organizationId,
             title: item.name,
             description: item.description || '',
-            sku: slugifyText(`${category.label} ${item.name}`),
-            handle: slugifyText(`${category.label} ${item.name}`),
+            sku: slugifyTpsText(`${category.label} ${item.name}`),
+            handle: slugifyTpsText(`${category.label} ${item.name}`),
             productType: finalProductType,
-            isConfigurable: isConfigurable,
+            isConfigurable: finalProductType === 'configurable',
             isActive: true,
             metadata: productMetadata,
           })
@@ -351,8 +253,6 @@ export const migrateTpsProductsCommand: ModuleCli = {
             em.persist(assignment)
           }
 
-          const isServiceOrBundle = mappedType === 'virtual' || mappedType === 'bundle'
-
           if (isConfigurable && !isServiceOrBundle && item.optionGroups) {
             // Retail configurable product (uses Variants)
             const optionSchema = em.create(CatalogOptionSchemaTemplate, {
@@ -360,21 +260,21 @@ export const migrateTpsProductsCommand: ModuleCli = {
               tenantId,
               organizationId,
               name: `${category.label} - ${item.name} Options`,
-              code: slugifyText(`${category.label} ${item.name} Options`),
+              code: slugifyTpsText(`${category.label} ${item.name} Options`),
               isActive: true,
               schema: {
                 options: (() => {
                   const schemaMap = new Map<string, Set<string>>()
-                  collectAllGroups(item.optionGroups || [], schemaMap)
+                  collectTpsSchemaGroups(item.optionGroups || [], schemaMap)
                   const flatOptions: any[] = []
                   for (const [label, optionSet] of schemaMap.entries()) {
                     flatOptions.push({
-                      code: slugifyText(label),
+                      code: slugifyTpsText(label),
                       label: label,
                       inputType: 'select' as const,
                       choices: Array.from(optionSet).map((optName) => ({
                         label: optName,
-                        code: slugifyText(optName),
+                        code: slugifyTpsText(optName),
                       })),
                     })
                   }
@@ -385,7 +285,7 @@ export const migrateTpsProductsCommand: ModuleCli = {
             em.persist(optionSchema)
             product.optionSchemaTemplate = optionSchema
 
-            const paths = enumeratePaths(item.optionGroups || [], { optionValues: {}, totalPrice: item.price, names: [], durations: [] })
+            const paths = enumerateTpsOptionPaths(item.optionGroups || [], { optionValues: {}, totalPrice: item.price, names: [], durations: [] })
             let isFirst = true
 
             for (const path of paths) {
@@ -427,5 +327,14 @@ export const migrateTpsProductsCommand: ModuleCli = {
     await em.flush()
 
     logger.info(`Migration successful! Created ${productCount} Products and ${variantCount} Variants.`)
+      })
+    } catch (err) {
+      logger.error('An error occurred during Product migration', { err })
+    } finally {
+      const disposable = container as unknown as { dispose?: () => Promise<void> }
+      if (typeof disposable.dispose === 'function') {
+        await disposable.dispose()
+      }
+    }
   }
 }

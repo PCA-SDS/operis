@@ -3,6 +3,10 @@ import { Migration } from '@mikro-orm/migrations';
 export class Migration20260826015211_catalog extends Migration {
 
   override up(): void | Promise<void> {
+    this.addSql(`drop table if exists "catalog_product_variant_option_values" cascade;`);
+    this.addSql(`drop table if exists "catalog_product_option_values" cascade;`);
+    this.addSql(`drop table if exists "catalog_product_options" cascade;`);
+
     this.addSql(`create table "catalog_product_option_groups" ("id" uuid not null default gen_random_uuid(), "tenant_id" uuid not null, "organization_id" uuid not null, "product_id" uuid not null, "parent_option_id" uuid null, "name" text not null, "description" text null, "requirement" text not null default 'required', "select_mode" text not null default 'single', "sort_order" int not null default 0, "is_active" boolean not null default true, "metadata" jsonb null, "created_at" timestamptz not null, "updated_at" timestamptz not null, "deleted_at" timestamptz null, primary key ("id"));`);
     this.addSql(`create index "catalog_product_option_groups_product_idx" on "catalog_product_option_groups" ("product_id", "tenant_id", "sort_order");`);
 
@@ -19,6 +23,10 @@ export class Migration20260826015211_catalog extends Migration {
   override down(): void | Promise<void> {
     this.addSql(`alter table "catalog_product_options" drop constraint if exists "catalog_product_options_group_id_foreign";`);
     this.addSql(`alter table "catalog_product_option_groups" drop constraint if exists "catalog_product_option_groups_parent_option_id_foreign";`);
+    this.addSql(`alter table "catalog_product_option_groups" drop constraint if exists "catalog_product_option_groups_product_id_foreign";`);
+
+    this.addSql(`drop table if exists "catalog_product_options" cascade;`);
+    this.addSql(`drop table if exists "catalog_product_option_groups" cascade;`);
   }
 
 }

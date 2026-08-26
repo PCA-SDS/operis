@@ -30,9 +30,12 @@ import {
   DollarSign,
   FolderTree,
   Layers,
+  Save,
 } from 'lucide-react'
 import type { CatalogOptionTreeData } from '@open-mercato/core/modules/catalog/data/types'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 
 const logger = createLogger('catalog')
 
@@ -66,7 +69,7 @@ function GroupDialog({
   initialValues,
   productId,
   parentOptionId,
-  onSuccess,
+  onSave,
   editId,
 }: {
   open: boolean
@@ -74,11 +77,10 @@ function GroupDialog({
   initialValues?: GroupFormValues
   productId: string
   parentOptionId?: string | null
-  onSuccess: () => void
+  onSave: (group: GroupItem) => void
   editId?: string | null
 }) {
   const t = useT()
-  const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<GroupFormValues>(
     initialValues ?? { name: '', description: '', requirement: 'required', select_mode: 'single' }
   )
@@ -89,39 +91,22 @@ function GroupDialog({
     }
   }, [open, initialValues])
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(() => {
     if (!form.name.trim()) return
-    setSaving(true)
-    try {
-      if (editId) {
-        await apiCall(`/api/catalog/option-groups?id=${editId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editId, name: form.name, description: form.description || null, requirement: form.requirement, selectMode: form.select_mode }),
-        })
-      } else {
-        await apiCall('/api/catalog/option-groups', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            productId,
-            parentOptionId: parentOptionId ?? null,
-            name: form.name,
-            description: form.description || null,
-            requirement: form.requirement,
-            selectMode: form.select_mode,
-            sortOrder: 0,
-          }),
-        })
-      }
-      onSuccess()
-      onOpenChange(false)
-    } catch (err) {
-      logger.error('group.save.failed', { err })
-    } finally {
-      setSaving(false)
-    }
-  }, [form, editId, productId, parentOptionId, onSuccess, onOpenChange])
+    onSave({
+      id: editId || crypto.randomUUID(),
+      product_id: productId,
+      parent_option_id: parentOptionId ?? null,
+      name: form.name,
+      description: form.description || null,
+      requirement: form.requirement,
+      select_mode: form.select_mode,
+      sort_order: 0,
+      is_active: true,
+      metadata: null,
+    } as GroupItem)
+    onOpenChange(false)
+  }, [form, editId, productId, parentOptionId, onSave, onOpenChange])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -206,11 +191,11 @@ function GroupDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('common.cancel', 'Cancel')}
           </Button>
-          <Button type="button" onClick={handleSave} disabled={saving || !form.name.trim()}>
-            {saving ? t('common.saving', 'Saving…') : t('common.save', 'Save')}
+          <Button type="button" onClick={handleSave} disabled={!form.name.trim()}>
+            {t('common.save', 'Save')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -225,18 +210,17 @@ function OptionDialog({
   onOpenChange,
   initialValues,
   groupId,
-  onSuccess,
+  onSave,
   editId,
 }: {
   open: boolean
   onOpenChange: (v: boolean) => void
   initialValues?: OptionFormValues
   groupId: string
-  onSuccess: () => void
+  onSave: (opt: OptionItem) => void
   editId?: string | null
 }) {
   const t = useT()
-  const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<OptionFormValues>(
     initialValues ?? { name: '', code: '', description: '', price_flat: '', duration_value: '', duration_unit: 'minute', is_addon: false }
   )
@@ -247,41 +231,31 @@ function OptionDialog({
     }
   }, [open, initialValues])
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(() => {
     if (!form.name.trim()) return
-    setSaving(true)
-    try {
-      const payload: Record<string, unknown> = {
-        name: form.name,
-        code: form.code || null,
-        description: form.description || null,
-        priceFlat: form.price_flat ? form.price_flat : null,
-        durationValue: form.duration_value ? parseInt(form.duration_value) : null,
-        durationUnit: form.duration_value ? form.duration_unit : null,
-        isAddon: form.is_addon,
-        sortOrder: 0,
-      }
-      if (editId) {
-        await apiCall(`/api/catalog/product-options?id=${editId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editId, ...payload }),
-        })
-      } else {
-        await apiCall('/api/catalog/product-options', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ groupId, ...payload }),
-        })
-      }
-      onSuccess()
-      onOpenChange(false)
-    } catch (err) {
-      logger.error('option.save.failed', { err })
-    } finally {
-      setSaving(false)
-    }
-  }, [form, editId, groupId, onSuccess, onOpenChange])
+    
+    onSave({
+      id: editId || crypto.randomUUID(),
+      group_id: groupId,
+      name: form.name,
+      code: form.code || null,
+      description: form.description || null,
+      price_flat: form.price_flat ? form.price_flat : null,
+      duration_value: form.duration_value ? parseInt(form.duration_value) : null,
+      duration_unit: form.duration_value ? form.duration_unit : null,
+      is_addon: form.is_addon,
+      sort_order: 0,
+      is_active: true,
+      metadata: null,
+      note: null,
+      unit: null,
+      price_min: null,
+      price_max: null,
+      duration_min: null,
+      duration_max: null,
+    } as OptionItem)
+    onOpenChange(false)
+  }, [form, editId, groupId, onSave, onOpenChange])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -384,11 +358,11 @@ function OptionDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('common.cancel', 'Cancel')}
           </Button>
-          <Button type="button" onClick={handleSave} disabled={saving || !form.name.trim()}>
-            {saving ? t('common.saving', 'Saving…') : t('common.save', 'Save')}
+          <Button type="button" onClick={handleSave} disabled={!form.name.trim()}>
+            {t('common.save', 'Save')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -406,8 +380,11 @@ function OptionRow({
   onEdit,
   onDelete,
   onAddSubGroup,
+  onSaveGroup,
+  onSaveOption,
+  onDeleteGroup,
+  onDeleteOption,
   productId,
-  onReload,
 }: {
   opt: OptionItem
   allGroups: GroupItem[]
@@ -416,8 +393,11 @@ function OptionRow({
   onEdit: (opt: OptionItem) => void
   onDelete: (id: string) => void
   onAddSubGroup: (parentOptionId: string) => void
+  onSaveGroup: (g: GroupItem) => void
+  onSaveOption: (o: OptionItem) => void
+  onDeleteGroup: (id: string) => void
+  onDeleteOption: (id: string) => void
   productId: string
-  onReload: () => void
 }) {
   const t = useT()
   const subGroups = allGroups.filter((g: any) => g.parent_option_id === opt.id)
@@ -499,7 +479,10 @@ function OptionRow({
               allOptions={allOptions}
               depth={depth + 1}
               productId={productId}
-              onReload={onReload}
+              onSaveGroup={onSaveGroup}
+              onSaveOption={onSaveOption}
+              onDeleteGroup={onDeleteGroup}
+              onDeleteOption={onDeleteOption}
             />
           ))}
         </div>
@@ -516,14 +499,20 @@ function GroupCard({
   allOptions,
   depth,
   productId,
-  onReload,
+  onSaveGroup,
+  onSaveOption,
+  onDeleteGroup,
+  onDeleteOption,
 }: {
   group: GroupItem
   allGroups: GroupItem[]
   allOptions: OptionItem[]
   depth: number
   productId: string
-  onReload: () => void
+  onSaveGroup: (g: GroupItem) => void
+  onSaveOption: (o: OptionItem) => void
+  onDeleteGroup: (id: string) => void
+  onDeleteOption: (id: string) => void
 }) {
   const t = useT()
   const [expanded, setExpanded] = useState(true)
@@ -543,8 +532,7 @@ function GroupCard({
       variant: 'destructive',
     })
     if (!ok) return
-    await apiCall(`/api/catalog/option-groups?id=${group.id}`, { method: 'DELETE' })
-    onReload()
+    onDeleteGroup(group.id)
   }
 
   const handleDeleteOption = async (optId: string) => {
@@ -555,8 +543,7 @@ function GroupCard({
       variant: 'destructive',
     })
     if (!ok) return
-    await apiCall(`/api/catalog/product-options?id=${optId}`, { method: 'DELETE' })
-    onReload()
+    onDeleteOption(optId)
   }
 
   const requirementColor = group.requirement === 'required' ? 'destructive' : 'secondary'
@@ -650,7 +637,10 @@ function GroupCard({
                   onDelete={handleDeleteOption}
                   onAddSubGroup={(parentOptId) => setAddSubGroupForOption(parentOptId)}
                   productId={productId}
-                  onReload={onReload}
+                  onSaveGroup={onSaveGroup}
+                  onSaveOption={onSaveOption}
+                  onDeleteGroup={onDeleteGroup}
+                  onDeleteOption={onDeleteOption}
                 />
               ))}
             </div>
@@ -672,14 +662,14 @@ function GroupCard({
           requirement: group.requirement as 'required' | 'optional',
           select_mode: group.select_mode as 'single' | 'multiple',
         }}
-        onSuccess={onReload}
+        onSave={onSaveGroup}
       />
 
       <OptionDialog
         open={addOptionOpen}
         onOpenChange={setAddOptionOpen}
         groupId={group.id}
-        onSuccess={onReload}
+        onSave={onSaveOption}
       />
 
       {editingOption && (
@@ -697,7 +687,7 @@ function GroupCard({
             duration_unit: (editingOption as any).duration_unit ?? 'minute',
             is_addon: (editingOption as any).is_addon ?? false,
           }}
-          onSuccess={onReload}
+          onSave={onSaveOption}
         />
       )}
 
@@ -707,7 +697,7 @@ function GroupCard({
           onOpenChange={(v) => { if (!v) setAddSubGroupForOption(null) }}
           productId={productId}
           parentOptionId={addSubGroupForOption}
-          onSuccess={onReload}
+          onSave={onSaveGroup}
         />
       )}
     </div>
@@ -724,7 +714,12 @@ export default function ProductOptionsPage({
   const productId = params?.id ? String(params.id) : ''
   const t = useT()
   const [loading, setLoading] = useState(true)
-  const [data, setData] = useState<CatalogOptionTreeData | null>(null)
+  const [saving, setSaving] = useState(false)
+  
+  // Local state for atomic sync
+  const [localGroups, setLocalGroups] = useState<GroupItem[]>([])
+  const [localOptions, setLocalOptions] = useState<OptionItem[]>([])
+  const [isDirty, setIsDirty] = useState(false)
   const [addGroupOpen, setAddGroupOpen] = useState(false)
 
   const loadData = useCallback(async () => {
@@ -734,10 +729,11 @@ export default function ProductOptionsPage({
       const result = await readApiResultOrThrow<CatalogOptionTreeData>(
         `/api/catalog/products/${productId}/option-tree`
       )
-      setData(result)
+      setLocalGroups(result.groups || [])
+      setLocalOptions(result.options || [])
+      setIsDirty(false)
     } catch (err) {
       logger.error('options.load.failed', { err })
-      setData(null)
     } finally {
       setLoading(false)
     }
@@ -745,7 +741,145 @@ export default function ProductOptionsPage({
 
   useEffect(() => { void loadData() }, [loadData])
 
-  const rootGroups = (data?.groups ?? []).filter((g: any) => !g.parent_option_id)
+  // Handlers for updating local state tree
+  const handleSaveGroup = (group: GroupItem) => {
+    setLocalGroups(prev => {
+      const idx = prev.findIndex(g => g.id === group.id)
+      if (idx >= 0) {
+        const next = [...prev]
+        next[idx] = group
+        return next
+      }
+      return [...prev, group]
+    })
+    setIsDirty(true)
+  }
+
+  const handleDeleteGroup = (id: string) => {
+    // Delete group and all nested groups/options recursively
+    const idsToDelete = new Set<string>([id])
+    
+    // Find all subgroups recursively
+    let added = true
+    while (added) {
+      added = false
+      for (const g of localGroups) {
+        if (g.parent_option_id && !idsToDelete.has(g.id)) {
+          // If the group's parent option belongs to a group we are deleting
+          const parentOption = localOptions.find(o => o.id === g.parent_option_id)
+          if (parentOption && idsToDelete.has(parentOption.group_id)) {
+            idsToDelete.add(g.id)
+            added = true
+          }
+        }
+      }
+    }
+
+    setLocalGroups(prev => prev.filter(g => !idsToDelete.has(g.id)))
+    setLocalOptions(prev => prev.filter(o => !idsToDelete.has(o.group_id)))
+    setIsDirty(true)
+  }
+
+  const handleSaveOption = (option: OptionItem) => {
+    setLocalOptions(prev => {
+      const idx = prev.findIndex(o => o.id === option.id)
+      if (idx >= 0) {
+        const next = [...prev]
+        next[idx] = option
+        return next
+      }
+      return [...prev, option]
+    })
+    setIsDirty(true)
+  }
+
+  const handleDeleteOption = (id: string) => {
+    setLocalOptions(prev => prev.filter(o => o.id !== id))
+    // Also delete any sub-groups attached to this option
+    const idsToDelete = new Set<string>()
+    let added = true
+    while (added) {
+      added = false
+      for (const g of localGroups) {
+        if (g.parent_option_id === id || (g.parent_option_id && !idsToDelete.has(g.id))) {
+           const parentOption = localOptions.find(o => o.id === g.parent_option_id)
+           if (parentOption && (parentOption.id === id || idsToDelete.has(parentOption.group_id))) {
+             idsToDelete.add(g.id)
+             added = true
+           }
+        }
+      }
+    }
+    if (idsToDelete.size > 0) {
+      setLocalGroups(prev => prev.filter(g => !idsToDelete.has(g.id)))
+      setLocalOptions(prev => prev.filter(o => o.id !== id && !idsToDelete.has(o.group_id)))
+    }
+    setIsDirty(true)
+  }
+
+  const { runMutation } = useGuardedMutation({ contextId: 'option-tree' })
+
+  // Handle Atomic Sync
+  const handleSyncTree = async () => {
+    if (!productId || !isDirty) return
+    setSaving(true)
+    try {
+      const payload = {
+        groups: localGroups.map(g => ({
+          id: g.id,
+          name: g.name,
+          description: g.description,
+          requirement: g.requirement,
+          selectMode: g.select_mode,
+          sortOrder: g.sort_order,
+          isActive: g.is_active,
+          parentOptionId: g.parent_option_id,
+          metadata: g.metadata,
+        })),
+        options: localOptions.map(o => ({
+          id: o.id,
+          groupId: o.group_id,
+          name: o.name,
+          code: o.code,
+          description: o.description,
+          priceFlat: o.price_flat,
+          priceMin: o.price_min,
+          priceMax: o.price_max,
+          durationValue: o.duration_value,
+          durationUnit: o.duration_unit,
+          durationMin: o.duration_min,
+          durationMax: o.duration_max,
+          isAddon: o.is_addon,
+          sortOrder: o.sort_order,
+          isActive: o.is_active,
+          metadata: o.metadata,
+          note: o.note,
+          unit: o.unit,
+        }))
+      }
+
+      await runMutation({
+        context: { productId },
+        operation: async () => {
+          await apiCall(`/api/catalog/products/${productId}/option-tree`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          })
+          flash(t('catalog.options.syncSuccess', 'Option tree updated successfully'), 'success')
+          setIsDirty(false)
+          loadData()
+        }
+      })
+    } catch (err) {
+      logger.error('options.sync.failed', { err })
+      flash(t('catalog.options.syncFailed', 'Failed to save option tree'), 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const rootGroups = localGroups.filter(g => !g.parent_option_id)
 
   return (
     <Page title={t('catalog.options.title', 'Option Tree')}>
@@ -757,14 +891,25 @@ export default function ProductOptionsPage({
             <div>
               <p className="text-sm text-muted-foreground">
                 {rootGroups.length > 0
-                  ? `${rootGroups.length} ${t('catalog.options.rootGroups', 'root groups')} · ${data?.options?.length ?? 0} ${t('catalog.options.totalOptions', 'total options')}`
+                  ? `${rootGroups.length} ${t('catalog.options.rootGroups', 'root groups')} · ${localOptions.length} ${t('catalog.options.totalOptions', 'total options')}`
                   : t('catalog.options.emptyHint', 'Add groups to build the option tree for this product.')}
               </p>
+              {isDirty && (
+                <p className="text-sm text-yellow-600 dark:text-yellow-500 font-medium mt-1">
+                  {t('catalog.options.unsavedChanges', 'You have unsaved changes.')}
+                </p>
+              )}
             </div>
-            <Button onClick={() => setAddGroupOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              {t('catalog.options.addGroup', 'Add Group')}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setAddGroupOpen(true)} variant="outline" className="gap-2">
+                <Plus className="h-4 w-4" />
+                {t('catalog.options.addGroup', 'Add Group')}
+              </Button>
+              <Button onClick={handleSyncTree} disabled={!isDirty || saving} className="gap-2">
+                {saving ? <Spinner className="w-4 h-4 mr-1" /> : <Save className="h-4 w-4" />}
+                {t('common.saveChanges', 'Save Changes')}
+              </Button>
+            </div>
           </div>
 
           {/* Content */}
@@ -790,11 +935,14 @@ export default function ProductOptionsPage({
                 <GroupCard
                   key={group.id}
                   group={group}
-                  allGroups={data?.groups ?? []}
-                  allOptions={data?.options ?? []}
+                  allGroups={localGroups}
+                  allOptions={localOptions}
                   depth={0}
                   productId={productId}
-                  onReload={loadData}
+                  onSaveGroup={handleSaveGroup}
+                  onSaveOption={handleSaveOption}
+                  onDeleteGroup={handleDeleteGroup}
+                  onDeleteOption={handleDeleteOption}
                 />
               ))}
             </div>
@@ -806,7 +954,7 @@ export default function ProductOptionsPage({
           open={addGroupOpen}
           onOpenChange={setAddGroupOpen}
           productId={productId}
-          onSuccess={loadData}
+          onSave={handleSaveGroup}
         />
       </PageBody>
     </Page>
