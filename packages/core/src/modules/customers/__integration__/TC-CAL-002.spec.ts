@@ -5,9 +5,11 @@ import { login } from '@open-mercato/core/helpers/integration/auth';
 import { createPersonFixture, deleteEntityIfExists } from '@open-mercato/core/helpers/integration/crmFixtures';
 import {
   createInteractionFixture,
+  formatToolbarRangeLabel,
   gridBlockName,
   INTERACTIONS_PATH,
   localTimeAt,
+  mondayWeekRange,
   seedShowWeekendsPreference,
   waitForCalendarLoaded,
 } from './helpers/calendarFixtures';
@@ -63,10 +65,13 @@ test.describe('TC-CAL-002: Calendar page load & week grid hydration', () => {
       await page.goto('/backend/calendar');
       await waitForCalendarLoaded(page);
 
-      // -- Header: formatted date title + New event CTA ----------------------
-      const now = new Date();
-      const headerTitle = new Intl.DateTimeFormat('en', { month: 'short', day: '2-digit', year: 'numeric' }).format(now);
-      await expect(page.getByRole('heading', { name: headerTitle })).toBeVisible();
+      // -- Header: contextual range title + New event CTA --------------------
+      // Week view heads with the visible range, collapsing a shared month/year
+      // ("Aug 10 – 16, 2026"), rather than the anchor date alone.
+      const visibleWeek = mondayWeekRange(new Date());
+      await expect(
+        page.getByRole('heading', { name: formatToolbarRangeLabel(visibleWeek.from, visibleWeek.to) }),
+      ).toBeVisible();
       await expect(page.getByRole('button', { name: 'New event', exact: true })).toBeVisible();
 
       // -- Toolbar: Today button, range preset select, search input ----------
@@ -86,8 +91,15 @@ test.describe('TC-CAL-002: Calendar page load & week grid hydration', () => {
       await expect(viewSwitcher.getByRole('radio', { name: 'Agenda', exact: true })).toBeVisible();
 
       // -- Week grid: today's column header and the fixture meeting block ----
-      const todayColumnLabel = `${String(now.getDate()).padStart(2, '0')} ${new Intl.DateTimeFormat('en', { weekday: 'short' }).format(now).toUpperCase()}`;
-      await expect(page.getByText(todayColumnLabel, { exact: true })).toBeVisible();
+      // Day headers stack the weekday above the numeral; the column exposes the
+      // whole date as its accessible name.
+      const todayColumnLabel = new Intl.DateTimeFormat('en', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(new Date());
+      await expect(page.getByRole('columnheader', { name: todayColumnLabel })).toBeVisible();
       const meetingBlock = page.getByRole('button', { name: gridBlockName(meetingTitle) });
       await expect(meetingBlock).toBeVisible();
 

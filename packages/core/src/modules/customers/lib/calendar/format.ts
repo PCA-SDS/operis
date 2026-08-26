@@ -33,3 +33,34 @@ export function formatTimeRangeLabel(locale: string, start: Date, end: Date): st
     return normalizeIntlSpacing(`${formatter.format(start)} – ${formatter.format(end)}`)
   }
 }
+
+const DAY_HEADING_OPTIONS: Intl.DateTimeFormatOptions = {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+}
+
+const MONTH_HEADING_OPTIONS: Intl.DateTimeFormatOptions = { month: 'long', year: 'numeric' }
+
+/**
+ * The contextual heading a calendar shows for the range it is displaying.
+ *
+ * Week ranges go through `formatRange`, which collapses a shared month and year
+ * ("24 – 30 August 2026") and expands them only when the week straddles a
+ * boundary ("31 August – 6 September 2026").
+ */
+export function formatHeaderLabel(
+  locale: string,
+  view: 'day' | 'week' | 'month' | 'agenda',
+  anchor: Date,
+  range: { from: Date; to: Date },
+): string {
+  if (view === 'day') {
+    return normalizeIntlSpacing(new Intl.DateTimeFormat(locale, DAY_HEADING_OPTIONS).format(anchor))
+  }
+  if (view === 'month') {
+    return normalizeIntlSpacing(new Intl.DateTimeFormat(locale, MONTH_HEADING_OPTIONS).format(anchor))
+  }
+  return formatDateRangeLabel(locale, range.from, range.to)
+}

@@ -100,20 +100,35 @@ type ActivityTypeDictionaryEntry = {
   icon?: unknown
 }
 
+/** A local, not-yet-persisted change to one interaction. */
+export type CalendarItemOverride = Pick<
+  CalendarInteractionPayload,
+  'scheduledAt' | 'durationMinutes' | 'allDay' | 'updatedAt'
+>
+
 export type UseCalendarItemsResult = {
   items: CalendarItem[]
   isLoading: boolean
+  isRefreshing: boolean
   error: string | null
   truncated: boolean
   typeLabels: Record<string, string>
   typeColors: Record<string, string | null>
   typeIcons: Record<string, string | null>
   refetch: () => void
+  /** Show a change immediately, before the server has confirmed it. */
+  applyOverride(id: string, override: Partial<CalendarItemOverride>): void
+  /** Drop a local change — used when persistence fails. */
+  clearOverride(id: string): void
+  /** Fold a server-confirmed record back into the window without refetching. */
+  commitOverride(id: string, override: Partial<CalendarItemOverride>): void
 }
 
 export function useCalendarItems(range: CalendarRange): UseCalendarItemsResult {
   const [payloads, setPayloads] = React.useState<CalendarInteractionPayload[]>([])
+  const [overrides, setOverrides] = React.useState<Record<string, Partial<CalendarItemOverride>>>({})
   const [isLoading, setIsLoading] = React.useState(true)
+  const [isRefreshing, setIsRefreshing] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [truncated, setTruncated] = React.useState(false)
   const [typeLabels, setTypeLabels] = React.useState<Record<string, string>>({})
@@ -163,7 +178,10 @@ export function useCalendarItems(range: CalendarRange): UseCalendarItemsResult {
     const controller = new AbortController()
     let cancelled = false
     async function loadInteractions() {
-      setIsLoading(true)
+      setIsLoading((wasLoading) => {
+        if (!wasLoading) setIsRefreshing(true)
+        return true
+      })
       setError(null)
       try {
         const fetchWindow = getFetchWindow({ from: new Date(fromTime), to: new Date(toTime) })
@@ -177,7 +195,10 @@ export function useCalendarItems(range: CalendarRange): UseCalendarItemsResult {
         setTruncated(false)
         setError(err instanceof Error ? err.message : '[internal] calendar interactions fetch failed')
       } finally {
-        if (!cancelled) setIsLoading(false)
+        if (!cancelled) {
+          setIsLoading(false)
+          setIsRefreshing(false)
+        }
       }
     }
     void loadInteractions()
@@ -187,20 +208,68 @@ export function useCalendarItems(range: CalendarRange): UseCalendarItemsResult {
     }
   }, [fromTime, toTime, reloadToken])
 
+  // Overrides are applied to the payloads before mapping, so an optimistic
+  // move flows through exactly the same geometry as a persisted one.
+  const effectivePayloads = React.useMemo(() => {
+    if (Object.keys(overrides).length === 0) return payloads
+    return payloads.map((payload) => {
+      const override = overrides[payload.id]
+      return override ? { ...payload, ...override } : payload
+    })
+  }, [payloads, overrides])
+
   const items = React.useMemo(() => {
     const expansionWindow = getFetchWindow({ from: new Date(fromTime), to: new Date(toTime) })
     const mapped: CalendarItem[] = []
-    for (const payload of payloads) {
+    for (const payload of effectivePayloads) {
       const item = mapInteractionToCalendarItem(payload, typeColors)
       if (!item) continue
       mapped.push(...expandOccurrences(item, expansionWindow))
     }
     return mapped
-  }, [payloads, typeColors, fromTime, toTime])
+  }, [effectivePayloads, typeColors, fromTime, toTime])
 
   const refetch = React.useCallback(() => {
     setReloadToken((token) => token + 1)
   }, [])
 
-  return { items, isLoading, error, truncated, typeLabels, typeColors, typeIcons, refetch }
+  const applyOverride = React.useCallback((id: string, override: Partial<CalendarItemOverride>) => {
+    setOverrides((current) => ({ ...current, [id]: { ...current[id], ...override } }))
+  }, [])
+
+  const clearOverride = React.useCallback((id: string) => {
+    setOverrides((current) => {
+      if (!(id in current)) return current
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
+  }, [])
+
+  const commitOverride = React.useCallback((id: string, override: Partial<CalendarItemOverride>) => {
+    setPayloads((current) =>
+      current.map((payload) => (payload.id === id ? { ...payload, ...override } : payload)),
+    )
+    setOverrides((current) => {
+      if (!(id in current)) return current
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
+  }, [])
+
+  return {
+    items,
+    isLoading,
+    isRefreshing,
+    error,
+    truncated,
+    typeLabels,
+    typeColors,
+    typeIcons,
+    refetch,
+    applyOverride,
+    clearOverride,
+    commitOverride,
+  }
 }
