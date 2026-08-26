@@ -1,5 +1,5 @@
 import { Collection } from '@mikro-orm/core'
-import { Entity, Index, ManyToOne, OneToMany, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Check, Entity, Index, ManyToOne, OneToMany, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
 
 export const INVOICE_DIRECTIONS = ['AR', 'AP'] as const
 export type InvoiceDirection = (typeof INVOICE_DIRECTIONS)[number]
@@ -37,6 +37,10 @@ export type InvoiceCurrencyCode = (typeof INVOICE_CURRENCY_CODES)[number]
 @Index({ name: 'invoice_companies_scope_idx', properties: ['organizationId', 'tenantId'] })
 @Index({ name: 'invoice_companies_name_idx', properties: ['organizationId', 'tenantId', 'name'] })
 @Unique({ name: 'invoice_companies_tax_code_scope_unique', properties: ['organizationId', 'tenantId', 'taxCode'] })
+@Check({
+  name: 'invoice_companies_default_due_days_check',
+  expression: `"default_due_days" is null or ("default_due_days" >= 0 and "default_due_days" <= 3650)`,
+})
 export class InvoiceCompany {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -147,6 +151,24 @@ export class InvoiceAutoPaidTaxCode {
 @Index({ name: 'invoice_invoices_next_due_date_idx', properties: ['organizationId', 'tenantId', 'nextDueDate'] })
 @Unique({ name: 'invoice_invoices_source_scope_unique', properties: ['organizationId', 'tenantId', 'sourceInvoiceId'] })
 @Unique({ name: 'invoice_invoices_email_tracking_hash_unique', properties: ['emailTrackingTokenHash'] })
+@Check({ name: 'invoice_invoices_origin_check', expression: `"origin" in ('GOVERNMENT_PORTAL', 'MANUAL')` })
+@Check({ name: 'invoice_invoices_direction_check', expression: `"direction" in ('AR', 'AP')` })
+@Check({
+  name: 'invoice_invoices_invoice_status_check',
+  expression: `"invoice_status" in ('ACTIVE', 'CANCELLED', 'REPLACEMENT', 'ADJUSTMENT', 'REPLACED', 'ADJUSTED')`,
+})
+@Check({
+  name: 'invoice_invoices_settlement_status_check',
+  expression: `"settlement_status" in ('UNSETTLED', 'PARTIALLY_PAID', 'SETTLED')`,
+})
+@Check({
+  name: 'invoice_invoices_currency_code_check',
+  expression: `"currency_code" in ('USD', 'EUR', 'GBP', 'SGD', 'AUD', 'JPY', 'CNY', 'KRW', 'THB', 'VND')`,
+})
+@Check({
+  name: 'invoice_invoices_email_tracking_hash_check',
+  expression: `"email_tracking_token_hash" is null or "email_tracking_token_hash" ~ '^[0-9a-f]{64}$'`,
+})
 export class Invoice {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -340,6 +362,11 @@ export class InvoiceLineItem {
 @Index({ name: 'invoice_installments_invoice_idx', properties: ['invoice'] })
 @Index({ name: 'invoice_installments_due_date_idx', properties: ['organizationId', 'tenantId', 'dueDate'] })
 @Unique({ name: 'invoice_installments_invoice_sequence_unique', properties: ['invoice', 'sequence'] })
+@Check({ name: 'invoice_installments_status_check', expression: `"status" in ('PENDING', 'PAID')` })
+@Check({
+  name: 'invoice_installments_interest_rate_check',
+  expression: `"interest_rate" >= 0 and "interest_rate" <= 100`,
+})
 export class InvoiceInstallment {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -395,6 +422,11 @@ export class InvoiceInstallment {
 @Index({ name: 'invoice_payment_confirmations_invoice_idx', properties: ['invoice'] })
 @Index({ name: 'invoice_payment_confirmations_installment_idx', properties: ['installment'] })
 @Unique({ name: 'invoice_payment_confirmations_token_hash_unique', properties: ['tokenHash'] })
+@Check({
+  name: 'invoice_payment_confirmations_status_check',
+  expression: `"status" in ('PENDING', 'CONFIRMED', 'REJECTED')`,
+})
+@Check({ name: 'invoice_payment_confirmations_token_hash_check', expression: `"token_hash" ~ '^[0-9a-f]{64}$'` })
 export class InvoicePaymentConfirmation {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -441,6 +473,15 @@ export class InvoicePaymentConfirmation {
 @Index({ name: 'invoice_sync_jobs_state_idx', properties: ['organizationId', 'tenantId', 'state'] })
 @Index({ name: 'invoice_sync_jobs_started_at_idx', properties: ['organizationId', 'tenantId', 'startedAt'] })
 @Unique({ name: 'invoice_sync_jobs_idempotency_scope_unique', properties: ['organizationId', 'tenantId', 'idempotencyKey'] })
+@Check({
+  name: 'invoice_sync_jobs_state_check',
+  expression: `"state" in ('QUEUED', 'AUTHENTICATING', 'FETCHING', 'PERSISTING', 'DONE', 'FAILED')`,
+})
+@Check({
+  name: 'invoice_sync_jobs_failure_category_check',
+  expression: `"failure_category" is null or "failure_category" in ('AUTH_FAILED', 'ACCOUNT_LOCKED', 'PORTAL_UNREACHABLE', 'INTERNAL_ERROR')`,
+})
+@Check({ name: 'invoice_sync_jobs_progress_check', expression: `"progress" >= 0 and "progress" <= 100` })
 export class InvoiceSyncJob {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string

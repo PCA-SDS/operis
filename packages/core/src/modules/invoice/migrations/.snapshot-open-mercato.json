@@ -407,7 +407,13 @@
           "unique": true
         }
       ],
-      "checks": [],
+      "checks": [
+        {
+          "name": "invoice_companies_default_due_days_check",
+          "expression": "\"default_due_days\" is null or (\"default_due_days\" >= 0 and \"default_due_days\" <= 3650)",
+          "definition": "check (\"default_due_days\" is null or (\"default_due_days\" >= 0 and \"default_due_days\" <= 3650))"
+        }
+      ],
       "triggers": [],
       "foreignKeys": {},
       "comment": null
@@ -1143,7 +1149,18 @@
           "unique": false
         }
       ],
-      "checks": [],
+      "checks": [
+        {
+          "name": "invoice_installments_interest_rate_check",
+          "expression": "\"interest_rate\" >= 0 and \"interest_rate\" <= 100",
+          "definition": "check (\"interest_rate\" >= 0 and \"interest_rate\" <= 100)"
+        },
+        {
+          "name": "invoice_installments_status_check",
+          "expression": "\"status\" in ('PENDING', 'PAID')",
+          "definition": "check (\"status\" in ('PENDING', 'PAID'))"
+        }
+      ],
       "triggers": [],
       "foreignKeys": {
         "invoice_installments_invoice_id_foreign": {
@@ -2321,7 +2338,38 @@
           "unique": true
         }
       ],
-      "checks": [],
+      "checks": [
+        {
+          "name": "invoice_invoices_currency_code_check",
+          "expression": "\"currency_code\" in ('USD', 'EUR', 'GBP', 'SGD', 'AUD', 'JPY', 'CNY', 'KRW', 'THB', 'VND')",
+          "definition": "check (\"currency_code\" in ('USD', 'EUR', 'GBP', 'SGD', 'AUD', 'JPY', 'CNY', 'KRW', 'THB', 'VND'))"
+        },
+        {
+          "name": "invoice_invoices_direction_check",
+          "expression": "\"direction\" in ('AR', 'AP')",
+          "definition": "check (\"direction\" in ('AR', 'AP'))"
+        },
+        {
+          "name": "invoice_invoices_email_tracking_hash_check",
+          "expression": "\"email_tracking_token_hash\" is null or \"email_tracking_token_hash\" ~ '^[0-9a-f]{64}$'",
+          "definition": "check (\"email_tracking_token_hash\" is null or \"email_tracking_token_hash\" ~ '^[0-9a-f]{64}$')"
+        },
+        {
+          "name": "invoice_invoices_invoice_status_check",
+          "expression": "\"invoice_status\" in ('ACTIVE', 'CANCELLED', 'REPLACEMENT', 'ADJUSTMENT', 'REPLACED', 'ADJUSTED')",
+          "definition": "check (\"invoice_status\" in ('ACTIVE', 'CANCELLED', 'REPLACEMENT', 'ADJUSTMENT', 'REPLACED', 'ADJUSTED'))"
+        },
+        {
+          "name": "invoice_invoices_origin_check",
+          "expression": "\"origin\" in ('GOVERNMENT_PORTAL', 'MANUAL')",
+          "definition": "check (\"origin\" in ('GOVERNMENT_PORTAL', 'MANUAL'))"
+        },
+        {
+          "name": "invoice_invoices_settlement_status_check",
+          "expression": "\"settlement_status\" in ('UNSETTLED', 'PARTIALLY_PAID', 'SETTLED')",
+          "definition": "check (\"settlement_status\" in ('UNSETTLED', 'PARTIALLY_PAID', 'SETTLED'))"
+        }
+      ],
       "triggers": [],
       "foreignKeys": {
         "invoice_invoices_company_id_foreign": {
@@ -2618,7 +2666,18 @@
           "unique": true
         }
       ],
-      "checks": [],
+      "checks": [
+        {
+          "name": "invoice_payment_confirmations_status_check",
+          "expression": "\"status\" in ('PENDING', 'CONFIRMED', 'REJECTED')",
+          "definition": "check (\"status\" in ('PENDING', 'CONFIRMED', 'REJECTED'))"
+        },
+        {
+          "name": "invoice_payment_confirmations_token_hash_check",
+          "expression": "\"token_hash\" ~ '^[0-9a-f]{64}$'",
+          "definition": "check (\"token_hash\" ~ '^[0-9a-f]{64}$')"
+        }
+      ],
       "triggers": [],
       "foreignKeys": {
         "invoice_payment_confirmations_installment_id_foreign": {
@@ -3001,7 +3060,23 @@
           "unique": false
         }
       ],
-      "checks": [],
+      "checks": [
+        {
+          "name": "invoice_sync_jobs_failure_category_check",
+          "expression": "\"failure_category\" is null or \"failure_category\" in ('AUTH_FAILED', 'ACCOUNT_LOCKED', 'PORTAL_UNREACHABLE', 'INTERNAL_ERROR')",
+          "definition": "check (\"failure_category\" is null or \"failure_category\" in ('AUTH_FAILED', 'ACCOUNT_LOCKED', 'PORTAL_UNREACHABLE', 'INTERNAL_ERROR'))"
+        },
+        {
+          "name": "invoice_sync_jobs_progress_check",
+          "expression": "\"progress\" >= 0 and \"progress\" <= 100",
+          "definition": "check (\"progress\" >= 0 and \"progress\" <= 100)"
+        },
+        {
+          "name": "invoice_sync_jobs_state_check",
+          "expression": "\"state\" in ('QUEUED', 'AUTHENTICATING', 'FETCHING', 'PERSISTING', 'DONE', 'FAILED')",
+          "definition": "check (\"state\" in ('QUEUED', 'AUTHENTICATING', 'FETCHING', 'PERSISTING', 'DONE', 'FAILED'))"
+        }
+      ],
       "triggers": [],
       "foreignKeys": {},
       "comment": null
