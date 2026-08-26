@@ -20,7 +20,7 @@ function detailWhere<TEntity extends InvoiceEntity>(
   where: FilterQuery<TEntity>,
 ): FilterQuery<TEntity> {
   if (!SOFT_DELETE_ENTITY_NAMES.has(entity.name)) return where
-  return { ...where, deletedAt: null } as FilterQuery<TEntity>
+  return { ...(where as Record<string, unknown>), deletedAt: null } as FilterQuery<TEntity>
 }
 
 export class InvoiceScopedPersistenceService {
@@ -58,7 +58,10 @@ export class InvoiceScopedPersistenceService {
     scope: InvoiceScope,
     payload: EntityData<TEntity>,
   ): TEntity {
-    const record = this.em.create(entity, assignInvoiceScope(payload as Record<string, unknown>, scope) as EntityData<TEntity>)
+    const record = this.em.create(
+      entity,
+      assignInvoiceScope(payload as Record<string, unknown>, scope) as unknown as EntityData<TEntity>,
+    )
     assertInvoiceSameScope(record, scope)
     return record
   }
