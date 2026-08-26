@@ -4,7 +4,7 @@ import { DataTable } from '../DataTable'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { I18nProvider } from '@open-mercato/shared/lib/i18n/context'
-import { render } from '@testing-library/react'
+import { act, render } from '@testing-library/react'
 import { RowActions } from '../RowActions'
 
 jest.mock('next/navigation', () => ({
@@ -72,6 +72,59 @@ describe('DataTable sticky columns are viewport-gated', () => {
         expect(tokens).not.toContain('bg-background')
         expect(tokens).not.toContain('after:absolute')
       }
+    } finally {
+      queryClient.clear()
+    }
+  })
+
+  // The pinned-column shadow is a scroll affordance, not decoration: at
+  // scrollLeft 0 nothing is hidden under the pinned edge, so a shadow there
+  // reads as an unexplained rule between two ordinary column headers (#header
+  // polish). It must stay transparent until the table is actually scrolled.
+  it('keeps the pinned-edge shadows transparent until there is something to cover', () => {
+    const { container, queryClient } = renderStickyTable()
+    try {
+      const firstHeader = container.querySelector('thead th')
+      const actionsHeader = (() => {
+        const cells = container.querySelectorAll('thead th')
+        return cells[cells.length - 1]
+      })()
+      expect(tokensOf(firstHeader)).toContain('md:after:opacity-0')
+      expect(tokensOf(firstHeader)).not.toContain('md:after:opacity-100')
+      expect(tokensOf(actionsHeader)).toContain('md:before:opacity-0')
+      expect(tokensOf(actionsHeader)).not.toContain('md:before:opacity-100')
+    } finally {
+      queryClient.clear()
+    }
+  })
+
+  it('fades the left edge in once the table is scrolled away from the start', () => {
+    const { container, queryClient } = renderStickyTable()
+    try {
+      const scrollport = container.querySelector('.overflow-auto') as HTMLElement
+      expect(scrollport).not.toBeNull()
+      // jsdom reports every layout box as 0, so stand in for a scrolled viewport.
+      Object.defineProperty(scrollport, 'scrollWidth', { value: 1200, configurable: true })
+      Object.defineProperty(scrollport, 'clientWidth', { value: 600, configurable: true })
+      scrollport.scrollLeft = 200
+
+      act(() => {
+        scrollport.dispatchEvent(new Event('scroll'))
+      })
+
+      const firstHeader = container.querySelector('thead th')
+      expect(tokensOf(firstHeader)).toContain('md:after:opacity-100')
+      // Still more to scroll, so the right edge stays lit too.
+      const cells = container.querySelectorAll('thead th')
+      expect(tokensOf(cells[cells.length - 1])).toContain('md:before:opacity-100')
+
+      // Scrolled fully to the end: nothing left hidden on the right.
+      scrollport.scrollLeft = 600
+      act(() => {
+        scrollport.dispatchEvent(new Event('scroll'))
+      })
+      const after = container.querySelectorAll('thead th')
+      expect(tokensOf(after[after.length - 1])).toContain('md:before:opacity-0')
     } finally {
       queryClient.clear()
     }

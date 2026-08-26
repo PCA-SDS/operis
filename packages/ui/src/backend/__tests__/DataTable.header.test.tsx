@@ -92,15 +92,111 @@ describe('DataTable column headers', () => {
     expect(pinnedHead.className).toContain('top-0')
   })
 
-  it('keeps the resize grip out of the resting header so it reads as a label row', () => {
+  it('paints nothing at the column edge — the resize zone is cursor-only', () => {
     // Resize handles only exist where widths can persist — a perspective table.
     const { container } = renderTable({ perspective: { tableId: 'test.headers' } })
-    const grip = container.querySelector('[role="separator"] span') as HTMLElement
-    expect(grip).not.toBeNull()
-    expect(grip.className).toContain('opacity-0')
-    expect(grip.className).toContain('group-hover:opacity-100')
-    // The resting grip is what read as a ruled column separator; it must not be
-    // painted until the header cell is hovered.
-    expect(grip.className).not.toContain('h-3.5')
+    const handle = container.querySelector('[data-resize-handle]') as HTMLElement
+    expect(handle).not.toBeNull()
+    // The hit zone and the cursor are the whole affordance.
+    expect(handle.className).toContain('cursor-col-resize')
+    expect(handle.className).toContain('w-3')
+    // Any bar here reads as a ruled column separator, and is the only thing in
+    // the header row darker than the strip it sits on.
+    expect(handle.children.length).toBe(0)
+    for (const paint of ['bg-border', 'bg-primary', 'border-r', 'opacity-100']) {
+      expect(handle.className).not.toContain(paint)
+    }
+  })
+})
+
+describe('DataTable column resize feedback', () => {
+  const startDrag = (container: HTMLElement) => {
+    const handle = container.querySelector('[role="separator"]') as HTMLElement
+    expect(handle).not.toBeNull()
+    // jsdom drops `button` from fireEvent.pointerDown's init, and the handler
+    // ignores anything but the primary button — dispatch a real MouseEvent so the
+    // drag actually starts.
+    fireEvent(handle, new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: 100 }))
+    return handle
+  }
+
+  it('paints a full-table guide and a live width readout while dragging', () => {
+    const { container } = renderTable({ perspective: { tableId: 'test.resize' } })
+    expect(container.querySelector('[data-column-resize-guide]')).toBeNull()
+
+    startDrag(container)
+    expect(container.querySelector('[data-column-resize-guide]')).not.toBeNull()
+    expect(container.querySelector('[role="status"]')?.textContent).toMatch(/px/)
+  })
+
+  it('tags the column being resized, header and cells together', () => {
+    const { container } = renderTable({ perspective: { tableId: 'test.resize' } })
+    startDrag(container)
+
+    const markedHead = container.querySelector('thead [data-resizing="true"]')
+    const markedCells = container.querySelectorAll('tbody [data-resizing="true"]')
+    expect(markedHead).not.toBeNull()
+    // One tagged cell per row, all in the same column.
+    expect(markedCells.length).toBe(data.length)
+  })
+
+  it('clears every drag affordance when the pointer is released', () => {
+    const { container } = renderTable({ perspective: { tableId: 'test.resize' } })
+    startDrag(container)
+    expect(container.querySelector('[data-column-resize-guide]')).not.toBeNull()
+
+    fireEvent(document, new MouseEvent('pointerup', { bubbles: true, button: 0 }))
+    expect(container.querySelector('[data-column-resize-guide]')).toBeNull()
+    expect(container.querySelector('[data-resizing="true"]')).toBeNull()
+  })
+})
+
+/**
+ * Column REORDER (dragging a header sideways) is a different interaction from
+ * resize, and used to have almost no feedback: the source header dimmed to 50%
+ * while its own body cells stayed solid and the neighbours slid, so nothing on
+ * screen read as "you are carrying this column".
+ */
+describe('DataTable column reorder feedback', () => {
+  const columnChooser = { enabled: true } as never
+
+  it('renders no drag chrome until a reorder actually starts', () => {
+    const { container } = renderTable({ columnChooser })
+    expect(container.querySelector('[data-dragging="true"]')).toBeNull()
+    expect(container.querySelector('[data-reordering="true"]')).toBeNull()
+  })
+
+  it('makes every header reorderable when the column chooser is on', () => {
+    const { container } = renderTable({ columnChooser })
+    const heads = Array.from(container.querySelectorAll('[data-slot="table-head"]')) as HTMLElement[]
+    const grabbable = heads.filter((el) => el.style.cursor === 'grab')
+    expect(grabbable.length).toBeGreaterThan(0)
+  })
+
+  it('leaves headers unreorderable when the column chooser is off', () => {
+    const { container } = renderTable()
+    const heads = Array.from(container.querySelectorAll('[data-slot="table-head"]')) as HTMLElement[]
+    expect(heads.every((el) => el.style.cursor !== 'grab')).toBe(true)
+  })
+
+  it('advertises the gesture with the cell itself, painting nothing into the row', () => {
+    const { container } = renderTable({ columnChooser })
+    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
+    // The tint plus the `grab` cursor IS the affordance. No grip, no edge bar —
+    // anything drawn inside the header row competes with the labels, which are
+    // the only marks a column header should carry.
+    expect(head.className).toContain('hover:bg-surface-strong')
+    expect(head.style.cursor).toBe('grab')
+    // The only glyph in the cell is the sort indicator, inside the sort control.
+    const strayGlyphs = Array.from(head.querySelectorAll('svg')).filter(
+      (svg) => !svg.closest('[data-slot="table-sort-label"]'),
+    )
+    expect(strayGlyphs).toHaveLength(0)
+  })
+
+  it('offers no grip where the column cannot be reordered', () => {
+    const { container } = renderTable()
+    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
+    expect(head.className).not.toContain('hover:bg-surface-strong')
   })
 })

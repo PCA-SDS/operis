@@ -121,7 +121,14 @@ export async function compileAndImportGenerated(tsPath: string): Promise<Record<
   if (useJestCjsArtifact) {
     return requireFromHere(jsPath) as Record<string, unknown>
   }
-  return (await import(pathToFileURL(jsPath).href)) as Record<string, unknown>
+  // The specifier is a runtime file:// URL for a `.mjs` artifact compiled above,
+  // so the ignore comments are load-bearing: without them Turbopack/webpack try to
+  // resolve it and warn `Module not found: Can't resolve <dynamic>` on every compile.
+  return (await import(
+    /* webpackIgnore: true */
+    /* turbopackIgnore: true */
+    pathToFileURL(jsPath).href
+  )) as Record<string, unknown>
 }
 
 function isJestRuntime(): boolean {

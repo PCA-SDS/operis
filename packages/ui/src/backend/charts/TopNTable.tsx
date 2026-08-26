@@ -101,8 +101,7 @@ export function TopNTable<T extends Record<string, unknown>>({
               {columns.map((column) => (
                 <TableHead
                   key={String(column.key)}
-                  align={column.align === 'right' ? 'right' : 'left'}
-                  className={column.align === 'center' ? 'text-center' : undefined}
+                  align={column.align ?? 'left'}
                   style={column.width ? { width: column.width } : undefined}
                 >
                   {column.header}
@@ -117,11 +116,7 @@ export function TopNTable<T extends Record<string, unknown>>({
                   const rawValue = getNestedValue(row as Record<string, unknown>, String(column.key))
                   const formatted = column.formatter ? column.formatter(rawValue, row) : defaultFormatter(rawValue)
                   return (
-                    <TableCell
-                      key={String(column.key)}
-                      align={column.align === 'right' ? 'right' : 'left'}
-                      className={column.align === 'center' ? 'text-center' : undefined}
-                    >
+                    <TableCell key={String(column.key)} align={column.align ?? 'left'}>
                       {formatted}
                     </TableCell>
                   )

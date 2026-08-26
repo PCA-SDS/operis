@@ -2488,7 +2488,7 @@ function ProductVariantsSection({
                     <TableCell className="text-muted-foreground">
                       {variant.isDefault ? t("common.yes", "Yes") : "—"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell align="right">
                       <div className="flex justify-end gap-2 whitespace-nowrap">
                         <Button asChild size="sm" variant="outline">
                           <Link

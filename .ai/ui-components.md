@@ -5856,7 +5856,8 @@ Semantic HTML table primitives with DS spacing/typography. Pure presentational �
 |---|---|---|---|
 | `density` | `Table` | `default` \| `compact` | Cell box only. `default` (`px-3 py-4 sm:px-5`) is the page-owning list view; `compact` (`px-3 py-2`) is a table nested in a card, panel or dialog. Header typography is identical in both. |
 | `variant` | `Table` | `default` \| `striped` | Even-row tint. |
-| `align` | `TableHead`, `TableCell` | `left` (default) \| `right` | Column alignment. |
+| `align` | `TableHead`, `TableCell` | `left` (default) \| `center` \| `right` | Column alignment. `right` for figures, `center` for a column whose whole content is one control or glyph. |
+| `padding` | `TableHead`, `TableCell` | `default` \| `control` | `control` shrinks the cell to its content with an equal, tighter gutter either side — for a column holding one control (select-all checkbox, row-actions kebab). Vertical rhythm is unchanged, so the cell stays exactly as tall as the text columns beside it. Do NOT use it in a `table-fixed` table: `w-px` is literal there. |
 | `direction` | `TableSortLabel` | `'asc'` \| `'desc'` \| `false` | Active sort direction; `false` = sortable but inactive. |
 | `onToggle` | `TableSortLabel` | `() => void` | Fired on click. |
 
@@ -5883,6 +5884,14 @@ Everything else is native HTML attributes; style via `className`.
   </TableBody>
 </Table>
 ```
+
+### Alignment contract
+The header must line up with the column of values under it, and every cell must sit on the same rhythm:
+
+- Head and cell share one horizontal inset (`px-3 sm:px-5`), so a label starts exactly where its own values start. Never override the inset on one and not the other.
+- Vertical padding is symmetric (`py-3` head / `py-4` cell) and both state `align-middle` explicitly — cells that centre in one table and top-align in the next are the quiet source of ragged rows. Pass `align-top` at the call site when a cell genuinely needs it.
+- A column holding one control takes `padding="control"` rather than a `w-8`/`w-0` width hint. A width narrower than the cell's own padding does nothing: the padding wins and the control is left adrift in a gutter twice its size.
+- Decoration parked in the reading gutter (a drag grip, a status dot) must be centred in it, so the gap before it equals the gap after it.
 
 ### Rules
 - **`align` is a property of the COLUMN.** Set the same value on the `TableHead` and on every `TableCell` beneath it. Figures (amounts, quantities, counts) go `right`; everything else stays `left`. A right-aligned header over left-aligned digits is the most common way a table reads as unfinished.

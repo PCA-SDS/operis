@@ -44,9 +44,16 @@ export type TableVariant = 'default' | 'striped'
 
 /**
  * Column alignment. `right` is for figures — amounts, quantities, counts — so
- * their digits line up on the decimal; everything else is `left`.
+ * their digits line up on the decimal; `center` is for a column whose whole
+ * content is one control or glyph; everything else is `left`.
  */
-export type TableCellAlign = 'left' | 'right'
+export type TableCellAlign = 'left' | 'right' | 'center'
+
+const ALIGN_CLASS: Record<TableCellAlign, string> = {
+  left: 'text-left',
+  right: 'text-right',
+  center: 'text-center',
+}
 
 /**
  * Row height. `default` is the page-owning list view; `compact` is a table
@@ -56,14 +63,33 @@ export type TableCellAlign = 'left' | 'right'
  */
 export type TableDensity = 'default' | 'compact'
 
-const HEAD_PADDING: Record<TableDensity, string> = {
-  default: 'px-3 py-3 sm:px-5',
-  compact: 'px-3 py-2',
+/**
+ * `control` is for a column holding a single control — a select-all checkbox, a
+ * row-actions kebab. Those want the cell to shrink to the control with an EQUAL
+ * gutter either side; the reading padding of a text column leaves the control
+ * adrift in a gutter twice its own width.
+ */
+export type TableCellPadding = 'default' | 'control'
+
+/* Horizontal and vertical are separate axes: `control` overrides the reading
+   inset without touching the row rhythm, so a checkbox column stays exactly as
+   tall as the text columns beside it. */
+const PADDING_X: Record<TableDensity, string> = {
+  default: 'px-3 sm:px-5',
+  compact: 'px-3',
+}
+const CONTROL_PADDING_X = 'w-px px-3'
+const HEAD_PADDING_Y: Record<TableDensity, string> = {
+  default: 'py-3',
+  compact: 'py-2',
+}
+const CELL_PADDING_Y: Record<TableDensity, string> = {
+  default: 'py-4',
+  compact: 'py-2',
 }
 
-const CELL_PADDING: Record<TableDensity, string> = {
-  default: 'px-3 py-4 sm:px-5',
-  compact: 'px-3 py-2',
+function resolvePaddingX(density: TableDensity, padding: TableCellPadding): string {
+  return padding === 'control' ? CONTROL_PADDING_X : PADDING_X[density]
 }
 
 export type TableProps = React.HTMLAttributes<HTMLTableElement> & {
@@ -158,10 +184,12 @@ export function TableRow({ className, ...props }: TableRowProps) {
 export function TableHead({
   className,
   align = 'left',
+  padding = 'default',
   ref,
   ...props
 }: Omit<React.ThHTMLAttributes<HTMLTableCellElement>, 'align'> & {
   align?: TableCellAlign
+  padding?: TableCellPadding
   ref?: React.Ref<HTMLTableCellElement>
 }) {
   const { density } = React.useContext(TableContext)
@@ -173,8 +201,9 @@ export function TableHead({
       scope="col"
       className={cn(
         'border-b border-table-border align-middle text-xs font-bold uppercase tracking-wide whitespace-nowrap text-muted-foreground',
-        HEAD_PADDING[density],
-        align === 'right' ? 'text-right' : 'text-left',
+        HEAD_PADDING_Y[density],
+        resolvePaddingX(density, padding),
+        ALIGN_CLASS[align],
         className,
       )}
       {...props}
@@ -255,17 +284,25 @@ export function TableSortLabel({
 export function TableCell({
   className,
   align = 'left',
+  padding = 'default',
   ...props
-}: Omit<React.TdHTMLAttributes<HTMLTableCellElement>, 'align'> & { align?: TableCellAlign }) {
+}: Omit<React.TdHTMLAttributes<HTMLTableCellElement>, 'align'> & {
+  align?: TableCellAlign
+  padding?: TableCellPadding
+}) {
   const { density } = React.useContext(TableContext)
   return (
     <td
       data-slot="table-cell"
       data-align={align}
       className={cn(
-        'text-sm font-medium text-foreground',
-        CELL_PADDING[density],
-        align === 'right' ? 'text-right' : 'text-left',
+        // Stated rather than inherited: a cell that vertically centres in one
+        // table and top-aligns in the next is the quiet source of rows that look
+        // ragged. Call sites that want `align-top` pass it and win via twMerge.
+        'align-middle text-sm font-medium text-foreground',
+        CELL_PADDING_Y[density],
+        resolvePaddingX(density, padding),
+        ALIGN_CLASS[align],
         className,
       )}
       {...props}

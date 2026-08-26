@@ -260,6 +260,107 @@ describe('Table primitive (Phase B.6 polish)', () => {
     expect(head.className).toContain('uppercase')
   })
 
+  it('gives a control column an equal gutter either side instead of reading padding', () => {
+    const { container } = render(
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead padding="control">Pick</TableHead>
+            <TableHead>Name</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell padding="control">x</TableCell>
+            <TableCell>Jan</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    )
+    const [control, text] = Array.from(
+      container.querySelectorAll('[data-slot="table-head"]'),
+    ) as HTMLElement[]
+    // Symmetric and tight, shrinking to the control it holds…
+    expect(control.className).toContain('px-3')
+    expect(control.className).toContain('w-px')
+    expect(control.className).not.toContain('sm:px-5')
+    // …while the reading column keeps the wider responsive inset.
+    expect(text.className).toContain('sm:px-5')
+    // Row rhythm is untouched, so both cells are exactly as tall as each other.
+    expect(control.className).toContain('py-3')
+    expect(text.className).toContain('py-3')
+
+    const [controlCell, textCell] = Array.from(
+      container.querySelectorAll('[data-slot="table-cell"]'),
+    ) as HTMLElement[]
+    expect(controlCell.className).toContain('w-px')
+    expect(controlCell.className).toContain('py-4')
+    expect(textCell.className).toContain('py-4')
+  })
+
+  it('supports the three column alignments through one prop', () => {
+    const { container } = render(
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>L</TableHead>
+            <TableHead align="center">C</TableHead>
+            <TableHead align="right">R</TableHead>
+          </TableRow>
+        </TableHeader>
+      </Table>,
+    )
+    const heads = Array.from(container.querySelectorAll('[data-slot="table-head"]')) as HTMLElement[]
+    expect(heads.map((el) => el.getAttribute('data-align'))).toEqual(['left', 'center', 'right'])
+    expect(heads[0].className).toContain('text-left')
+    expect(heads[1].className).toContain('text-center')
+    expect(heads[2].className).toContain('text-right')
+  })
+
+  it('states vertical centring on both head and cell rather than inheriting it', () => {
+    const { container } = render(
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell>Jan</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    )
+    expect((container.querySelector('[data-slot="table-head"]') as HTMLElement).className).toContain('align-middle')
+    expect((container.querySelector('[data-slot="table-cell"]') as HTMLElement).className).toContain('align-middle')
+  })
+
+  it('keeps the header inset identical to the cell inset beneath it', () => {
+    const { container } = render(
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell>Jan</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    )
+    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
+    const cell = container.querySelector('[data-slot="table-cell"]') as HTMLElement
+    // A label that does not start where its own column of values starts is the
+    // most visible way a table reads as misaligned.
+    for (const inset of ['px-3', 'sm:px-5']) {
+      expect(head.className).toContain(inset)
+      expect(cell.className).toContain(inset)
+    }
+  })
+
   describe('TableSortLabel', () => {
     it('maps every direction to the right aria-sort value', () => {
       expect(tableAriaSort('asc')).toBe('ascending')
