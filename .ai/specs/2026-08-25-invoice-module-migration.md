@@ -267,3 +267,7 @@ This is a pre-implementation spec. Compliance requirements for implementation:
 - 2026-08-25: Created migration spec and Phase 2implementation-ready design pack references.
 - 2026-08-25: Added Phase 3 readiness summary and resolved source-code
   confirmation points.
+- 2026-08-26: Added the Invoice data safety foundation. Future private Invoice
+  reads and writes must derive tenant and organization ownership through
+  `requireInvoiceScope(...)` and pass persistence through the scoped helper
+  boundary instead of trusting request payload ownership fields.

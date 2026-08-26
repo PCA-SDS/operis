@@ -75,6 +75,15 @@ const moduleEntities: Record<string, string[]> = {
   ],
   messages: ['Message'],
   notifications: ['NotificationTypeOverride', 'NotificationPreference'],
+  invoice: [
+    'InvoiceCompany',
+    'InvoiceCompanyEmail',
+    'InvoiceAutoPaidTaxCode',
+    'Invoice',
+    'InvoiceInstallment',
+    'InvoicePaymentConfirmation',
+    'InvoiceCompanyRegistry',
+  ],
 }
 
 function readEntitySource(moduleId: string): string {
