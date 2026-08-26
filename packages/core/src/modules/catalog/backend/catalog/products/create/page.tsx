@@ -809,16 +809,27 @@ export default function CreateCatalogProductPage() {
                 }
               }
 
-              flash(
-                t("catalog.products.create.success", "Product created."),
-                "success",
-              );
+              if (productPayload.productType === "virtual") {
+                flash(
+                  t("catalog.products.create.virtualSuccess", "Service created successfully! Now set up your Option Tree."),
+                  "success",
+                );
+              } else {
+                flash(
+                  t("catalog.products.create.success", "Product created."),
+                  "success",
+                );
+              }
               if (inboxDraft) {
                 router.push(
                   `/backend/inbox-ops/proposals/${encodeURIComponent(inboxDraft.proposalId)}`,
                 );
               } else {
-                router.push(`/backend/catalog/products/${productId}`);
+                if (productPayload.productType === "virtual") {
+                  router.push(`/backend/catalog/products/${productId}/options`);
+                } else {
+                  router.push(`/backend/catalog/products/${productId}`);
+                }
               }
             } catch (err) {
               await cleanupFailedProduct(
@@ -1021,8 +1032,18 @@ function ProductBuilder({
   requiredFieldIds,
 }: ProductBuilderProps) {
   const t = useT();
-  const steps = PRODUCT_FORM_STEPS;
+  const steps = React.useMemo(() => {
+    if (values.productType === "virtual") {
+      return PRODUCT_FORM_STEPS.filter(step => step !== "variants") as readonly ProductFormStep[];
+    }
+    return PRODUCT_FORM_STEPS;
+  }, [values.productType]);
   const [currentStep, setCurrentStep] = React.useState(0);
+  React.useEffect(() => {
+    if (currentStep >= steps.length) {
+      setCurrentStep(Math.max(0, steps.length - 1));
+    }
+  }, [steps.length, currentStep]);
   const defaultTaxRate = React.useMemo(
     () =>
       values.taxRateId
