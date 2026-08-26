@@ -10,6 +10,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { hasFeature } from '@open-mercato/shared/security/features'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 const MANAGE_FEATURE = 'configs.cache.manage'
 
@@ -305,56 +306,46 @@ export function CachePanel() {
       <div className="space-y-4 rounded-xl border border-border bg-surface shadow-sm p-4">
         {stats && stats.segments.length ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-sm">
-              <thead>
-                <tr className="text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="px-3 py-2 text-left">
-                    {t('configs.cache.table.segment', 'Segment')}
-                  </th>
-                  <th className="px-3 py-2 text-left">
-                    {t('configs.cache.table.path', 'Path')}
-                  </th>
-                  <th className="px-3 py-2 text-left">
-                    {t('configs.cache.table.method', 'Method')}
-                  </th>
-                  <th className="px-3 py-2 text-left">
-                    {t('configs.cache.table.count', 'Cached keys')}
-                  </th>
+            <Table density="compact" className="min-w-[560px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('configs.cache.table.segment', 'Segment')}</TableHead>
+                  <TableHead>{t('configs.cache.table.path', 'Path')}</TableHead>
+                  <TableHead>{t('configs.cache.table.method', 'Method')}</TableHead>
+                  <TableHead align="right">{t('configs.cache.table.count', 'Cached keys')}</TableHead>
                   {canShowActions ? (
-                    <th className="px-3 py-2 text-right">
-                      {t('configs.cache.table.actions', 'Actions')}
-                    </th>
+                    <TableHead align="right">{t('configs.cache.table.actions', 'Actions')}</TableHead>
                   ) : null}
-                </tr>
-              </thead>
-              <tbody>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {stats.segments.map((segment) => {
                   const isPurging = !!segmentPurges[segment.segment]
                   return (
-                    <tr key={segment.segment} className="border-t">
-                      <td className="px-3 py-2 align-top font-medium">
+                    <TableRow key={segment.segment}>
+                      <TableCell className="align-top">
                         <div className="flex flex-col">
                           <span>{segment.segment}</span>
                           {segment.resource ? (
                             <span className="text-xs text-muted-foreground">{segment.resource}</span>
                           ) : null}
                         </div>
-                      </td>
-                      <td className="px-3 py-2 align-top">
+                      </TableCell>
+                      <TableCell className="align-top">
                         <code className="text-xs text-muted-foreground">
                           {segment.path ?? t('configs.cache.table.pathUnknown', 'n/a')}
                         </code>
-                      </td>
-                      <td className="px-3 py-2 align-top">
+                      </TableCell>
+                      <TableCell className="align-top">
                         <span className="text-xs uppercase text-muted-foreground">
                           {segment.method ?? 'GET'}
                         </span>
-                      </td>
-                      <td className="px-3 py-2 align-top">
+                      </TableCell>
+                      <TableCell align="right" className="align-top tabular-nums">
                         {t('configs.cache.table.countValue', '{{count}} keys', { count: segment.keyCount })}
-                      </td>
+                      </TableCell>
                       {canShowActions ? (
-                        <td className="px-3 py-2 align-top text-right">
+                        <TableCell align="right" className="align-top">
                           <Button
                             variant="outline"
                             size="sm"
@@ -366,13 +357,13 @@ export function CachePanel() {
                               ? t('configs.cache.purgeSegmentLoading', 'Purging…')
                               : t('configs.cache.purgeSegment', 'Purge segment')}
                           </Button>
-                        </td>
+                        </TableCell>
                       ) : null}
-                    </tr>
+                    </TableRow>
                   )
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">

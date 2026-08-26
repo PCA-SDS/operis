@@ -4,8 +4,8 @@ import { useRouter } from 'next/navigation'
 import { flexRender, type RowData, type SortingState, type ColumnVisibilityState as VisibilityState, type RowSelectionState } from '@tanstack/react-table'
 import { useLegacyTable, getCoreRowModel, getSortedRowModel, type LegacyColumnDef as ColumnDef, type LegacyColumn as TableColumn } from '@tanstack/react-table/legacy'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { RefreshCw, Loader2, SlidersHorizontal, MoreHorizontal, Circle, Filter, Columns3, ChevronUp, ChevronDown, ChevronsUpDown, Check, Inbox, Save } from 'lucide-react'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../primitives/table'
+import { RefreshCw, Loader2, SlidersHorizontal, MoreHorizontal, Circle, Filter, Columns3, ChevronDown, Check, Inbox, Save } from 'lucide-react'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortLabel, tableAriaSort, type TableCellAlign } from '../primitives/table'
 import { Button } from '../primitives/button'
 import { Checkbox } from '../primitives/checkbox'
 import {
@@ -369,6 +369,14 @@ export type DataTableProps<T extends RowData> = {
   virtualized?: boolean
   virtualizedMaxHeight?: number | string
   virtualizedOverscan?: number
+  /**
+   * Pin the column headers while the rows scroll under them. Only meaningful
+   * when the TABLE owns a vertical scrollport — pinned without one the header
+   * would stick to the viewport and slide under the app topbar. Defaults to
+   * `virtualized`, the only mode that caps the table's height today; pass it
+   * explicitly when the host constrains that height itself.
+   */
+  stickyHeader?: boolean
   /**
    * Advanced filter configuration. Accepts either the v2 tree shape (preferred)
    * or the legacy flat `AdvancedFilterState` shape as a backward-compatibility
@@ -743,6 +751,17 @@ type ColumnTruncateConfig = {
 type ColumnTruncateMeta = {
   truncate?: boolean
   maxWidth?: string
+  align?: TableCellAlign
+}
+
+/**
+ * Column alignment declared once in `meta.align` and applied to the header AND
+ * every body cell of that column. Figures right, everything else left — a header
+ * that does not sit over its own column of digits is the classic tell that a
+ * table was assembled rather than designed.
+ */
+function resolveColumnAlign(columnMeta: ColumnTruncateMeta | undefined): TableCellAlign {
+  return columnMeta?.align === 'right' ? 'right' : 'left'
 }
 
 function getColumnTruncateConfig(columnId: string, accessorKey?: string, columnMeta?: ColumnTruncateMeta): ColumnTruncateConfig {
@@ -1101,22 +1120,24 @@ function ColumnResizeHandle({
       onDoubleClick={(event) => { event.preventDefault(); event.stopPropagation(); onReset(columnId) }}
       className="group/resize absolute right-0 top-0 z-10 flex h-full w-3 translate-x-1/2 cursor-col-resize touch-none select-none items-center justify-center"
     >
-      {/* Always-visible short grip marks the column edge as resizable; it grows
-          to full height and brightens on header/handle hover and while dragging. */}
+      {/* The grip is hidden at rest and revealed on header-cell hover. A grip drawn
+          on every column edge at all times reads as a ruled column separator — the
+          spreadsheet look — and competes with the labels it sits between. It
+          brightens under the pointer and stays lit for the whole drag. */}
       <span
         aria-hidden
         className={cn(
-          'w-0.5 rounded-full transition-all',
+          'h-full w-0.5 rounded-full transition-all',
           active
-            ? 'h-full bg-primary'
-            : 'h-3.5 bg-border group-hover:h-full group-hover:bg-border group-hover/resize:h-full group-hover/resize:bg-primary',
+            ? 'bg-primary opacity-100'
+            : 'bg-border opacity-0 group-hover:opacity-100 group-hover/resize:bg-primary',
         )}
       />
     </div>
   )
 }
 
-function SortableHeaderCell({ id, children, className, width }: { id: string; children: React.ReactNode; className?: string; width?: number }) {
+function SortableHeaderCell({ id, children, className, width, ariaSort, align }: { id: string; children: React.ReactNode; className?: string; width?: number; ariaSort?: React.AriaAttributes['aria-sort']; align?: TableCellAlign }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const isSticky = typeof className === 'string' && className.includes('sticky')
   const style: React.CSSProperties = {
@@ -1128,7 +1149,7 @@ function SortableHeaderCell({ id, children, className, width }: { id: string; ch
     ...(typeof width === 'number' ? { width, minWidth: width, maxWidth: width } : {}),
   }
   return (
-    <TableHead ref={setNodeRef} style={style} className={className} {...attributes} {...listeners}>
+    <TableHead ref={setNodeRef} style={style} aria-sort={ariaSort} align={align} className={className} {...attributes} {...listeners}>
       {children}
     </TableHead>
   )
@@ -1283,6 +1304,7 @@ export function DataTable<T extends RowData>({
   actionsColumnAlign = 'right',
   virtualized = false,
   virtualizedMaxHeight,
+  stickyHeader,
   virtualizedOverscan = 10,
   advancedFilter: advancedFilterInput,
   columnChooser,
@@ -3285,6 +3307,10 @@ export function DataTable<T extends RowData>({
     'flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4'
   const toolbarWrapperClassName = embedded ? 'mt-2' : 'border-b border-table-border px-4 py-3 sm:px-5'
   const tableScrollWrapperClassName = embedded ? '' : 'overflow-auto'
+  /* The header only pins when the TABLE owns a vertical scrollport of its own.
+     Pinned unconditionally it would stick to the viewport — sliding under the
+     app topbar — for the many small tables that simply scroll with the page. */
+  const stickyHeaderClass = (stickyHeader ?? virtualized) ? 'sticky top-0 z-20' : ''
 
   const virtualScrollRef = React.useRef<HTMLDivElement>(null)
   // Measure the horizontal scroll viewport so the empty state can center within
@@ -3446,12 +3472,12 @@ export function DataTable<T extends RowData>({
         onDragEnd={handleHeaderDragEnd}
       >
       <div ref={setTableScrollWrapperRef} className={tableScrollWrapperClassName} style={virtualMaxHeightStyle}>
-        <Table className="min-w-[640px] md:min-w-0">
+        <Table density={embedded ? 'compact' : 'default'} className="min-w-[640px] md:min-w-0">
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id}>
                 {hasInjectedBulkActions ? (
-                  <TableHead className="w-8">
+                  <TableHead className={cn('w-8', stickyHeaderClass)}>
                     <Checkbox
                       checked={table.getIsAllPageRowsSelected()}
                       onCheckedChange={(checked) => {
@@ -3465,30 +3491,30 @@ export function DataTable<T extends RowData>({
                   const columnMeta = (header.column.columnDef as any)?.meta
                   const priority = resolvePriority(header.column)
                   const isFirstDataColumn = headerIndex === 0
-                  const stickyClass = stickyFirstColumn && isFirstDataColumn ? ` md:sticky md:left-0 md:z-10 md:bg-table-header ${STICKY_LEFT_SHADOW_CLASS}` : ''
+                  const columnAlign = resolveColumnAlign(columnMeta)
+                  // A pinned column's header has to out-stack BOTH the header cells that scroll
+                  // past it horizontally and the body cells that scroll under it vertically, so it
+                  // sits above the header strip's own `z-20`.
+                  const stickyClass = stickyFirstColumn && isFirstDataColumn ? ` md:sticky md:left-0 md:z-30 md:bg-table-header ${STICKY_LEFT_SHADOW_CLASS}` : ''
                   const isColumnSortable = sortable && !!header.column.getCanSort?.()
+                  const sortState = isColumnSortable ? (header.column.getIsSorted?.() ?? false) : false
+                  // `aria-sort` is what tells a screen reader which column the rows are ordered by;
+                  // the chevron alone conveys it to sighted users only.
+                  const ariaSort = isColumnSortable ? tableAriaSort(sortState) : undefined
                   const headerContent = header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())
                   // Columns that can't be sorted (e.g. a manual "select" checkbox column) may render
-                  // interactive controls (Checkbox, etc.) in their header. Wrapping those in a <Button>
-                  // would nest a native <button> inside another, which is invalid HTML and triggers a
-                  // hydration error — so only sortable columns get the clickable Button affordance.
+                  // interactive controls (Checkbox, etc.) in their header. Nesting those inside the
+                  // sort trigger would put a native <button> inside another — invalid HTML and a
+                  // hydration error — so only sortable columns get the clickable affordance.
                   const headerCellContent = header.isPlaceholder ? null : isColumnSortable ? (
-                    <Button
-                      variant="ghost"
-                      type="button"
-                      className="h-auto p-0 has-[>svg]:px-0 text-xs font-bold uppercase tracking-wide text-muted-foreground hover:bg-transparent hover:text-foreground cursor-pointer select-none"
-                      onClick={() => header.column.toggleSorting?.(header.column.getIsSorted() === 'asc')}
+                    <TableSortLabel
+                      direction={sortState}
+                      onToggle={() => header.column.toggleSorting?.(sortState === 'asc')}
                     >
                       {headerContent}
-                      {(() => {
-                        const sortState = header.column.getIsSorted()
-                        if (sortState === 'asc') return <ChevronUp className="ml-1 size-3.5 shrink-0 text-accent-strong" aria-hidden="true" />
-                        if (sortState === 'desc') return <ChevronDown className="ml-1 size-3.5 shrink-0 text-accent-strong" aria-hidden="true" />
-                        return <ChevronsUpDown className="ml-1 size-3.5 shrink-0 text-disabled-foreground" aria-hidden="true" />
-                      })()}
-                    </Button>
+                    </TableSortLabel>
                   ) : (
-                    <div className="h-auto p-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">{headerContent}</div>
+                    <span className="block min-w-0 truncate">{headerContent}</span>
                   )
                   const columnId = header.column.id
                   const sizedWidth = enableColumnResize && columnId ? columnSizing[columnId] : undefined
@@ -3502,14 +3528,16 @@ export function DataTable<T extends RowData>({
                     />
                   ) : null
                   return enableHeaderDnd ? (
-                    <SortableHeaderCell key={header.id} id={header.id} width={sizedWidth} className={cn('group', responsiveClass(priority, columnMeta?.hidden) + stickyClass)}>
+                    <SortableHeaderCell key={header.id} id={header.id} width={sizedWidth} ariaSort={ariaSort} align={columnAlign} className={cn('group', stickyHeaderClass, responsiveClass(priority, columnMeta?.hidden) + stickyClass)}>
                       {headerCellContent}
                       {resizeHandle}
                     </SortableHeaderCell>
                   ) : (
                     <TableHead
                       key={header.id}
-                      className={cn('group relative', responsiveClass(priority, columnMeta?.hidden) + stickyClass)}
+                      aria-sort={ariaSort}
+                      align={columnAlign}
+                      className={cn('group relative', stickyHeaderClass, responsiveClass(priority, columnMeta?.hidden) + stickyClass)}
                       style={typeof sizedWidth === 'number' ? { width: sizedWidth, minWidth: sizedWidth, maxWidth: sizedWidth } : undefined}
                     >
                       {headerCellContent}
@@ -3519,9 +3547,12 @@ export function DataTable<T extends RowData>({
                 })}
                 {rowActions || injectedRowActions.length > 0 ? (
                   <TableHead
+                    align={actionsColumnAlign === 'center' ? 'left' : 'right'}
                     className={cn(
-                      actionsColumnAlign === 'center' ? 'w-0 text-center' : 'w-0 text-right',
-                      stickyActionsColumn && `md:sticky md:right-0 md:z-20 md:bg-table-header ${STICKY_RIGHT_SHADOW_CLASS}`,
+                      'w-0',
+                      stickyHeaderClass,
+                      actionsColumnAlign === 'center' && 'text-center',
+                      stickyActionsColumn && `md:sticky md:right-0 md:z-40 md:bg-table-header ${STICKY_RIGHT_SHADOW_CLASS}`,
                     )}
                   >
                     {t('ui.dataTable.actionsColumn', 'Actions')}
@@ -3652,6 +3683,7 @@ export function DataTable<T extends RowData>({
                       return (
                         <TableCell
                           key={cell.id}
+                          align={resolveColumnAlign(columnMeta)}
                           className={responsiveClass(priority, columnMeta?.hidden) + (isStickyCell ? ` md:sticky md:left-0 md:z-10 md:bg-surface ${STICKY_LEFT_SHADOW_CLASS}` : '')}
                           style={typeof sizedWidth === 'number' ? { width: sizedWidth, minWidth: sizedWidth, maxWidth: sizedWidth } : undefined}
                         >
@@ -3661,8 +3693,10 @@ export function DataTable<T extends RowData>({
                     })}
                     {rowActions || injectedRowActions.length > 0 ? (
                       <TableCell
+                        align={actionsColumnAlign === 'center' ? 'left' : 'right'}
                         className={cn(
-                          actionsColumnAlign === 'center' ? 'text-center whitespace-nowrap' : 'text-right whitespace-nowrap',
+                          'whitespace-nowrap',
+                          actionsColumnAlign === 'center' && 'text-center',
                           stickyActionsColumn && `md:sticky md:right-0 md:z-10 md:bg-surface ${STICKY_RIGHT_SHADOW_CLASS}`,
                         )}
                         data-actions-cell

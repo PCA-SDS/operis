@@ -23,6 +23,7 @@ import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/u
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { getEntityFields } from '#generated/entity-fields-registry'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 const logger = createLogger('entities').child({ component: 'EncryptionManager' })
 
@@ -336,27 +337,21 @@ export function EncryptionManager() {
     }
     return (
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-sm">
-          <thead>
-            <tr className="text-xs uppercase tracking-wide text-muted-foreground">
-              <th className="px-3 py-2 text-left">
-                {t('entities.encryption.fields.field', 'Field name')}
-              </th>
-              <th className="px-3 py-2 text-left">
-                {t('entities.encryption.fields.hash', 'Hash field (optional)')}
-              </th>
-              <th className="px-3 py-2 text-right">
-                {t('entities.encryption.fields.actions', 'Actions')}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table density="compact" className="min-w-[720px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('entities.encryption.fields.field', 'Field name')}</TableHead>
+              <TableHead>{t('entities.encryption.fields.hash', 'Hash field (optional)')}</TableHead>
+              <TableHead align="right">{t('entities.encryption.fields.actions', 'Actions')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {fields.map((row) => {
               const fieldOpts = withFallbackOption(row.field)
               const hashOpts = withFallbackOption(row.hashField)
               return (
-                <tr key={row.id} className="border-t">
-                  <td className="px-3 py-2 align-top">
+                <TableRow key={row.id}>
+                  <TableCell className="align-top">
                     <Select
                       value={row.field || undefined}
                       onValueChange={(value) => updateField(row.id, { field: value ?? '' })}
@@ -372,8 +367,8 @@ export function EncryptionManager() {
                         ))}
                       </SelectContent>
                     </Select>
-                  </td>
-                  <td className="px-3 py-2 align-top">
+                  </TableCell>
+                  <TableCell className="align-top">
                     <Select
                       value={row.hashField || undefined}
                       onValueChange={(value) => updateField(row.id, { hashField: value || null })}
@@ -392,8 +387,8 @@ export function EncryptionManager() {
                     <p className="mt-1 text-overline text-muted-foreground">
                       {t('entities.encryption.fields.hashHint', 'Use when lookups must stay deterministic (e.g., login by email).')}
                     </p>
-                  </td>
-                  <td className="px-3 py-2 align-top text-right">
+                  </TableCell>
+                  <TableCell align="right" className="align-top">
                     <Button
                       type="button"
                       variant="ghost"
@@ -404,12 +399,12 @@ export function EncryptionManager() {
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     )
   }

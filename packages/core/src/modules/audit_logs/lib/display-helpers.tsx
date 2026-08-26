@@ -8,6 +8,7 @@ import {
 } from '@open-mercato/ui/primitives/accordion'
 import type { ChangeRow } from './changeRows'
 import { isRecord } from './changeRows'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 export { extractChangeRows, isRecord } from './changeRows'
 export type { ChangeRow } from './changeRows'
 
@@ -83,36 +84,36 @@ export function ChangedFieldsTable({ changeRows, noneLabel, t, beforeLabel, afte
       </h3>
       {changeRows.length ? (
         <div className="mt-2 overflow-x-auto rounded-lg border">
-          <table className="min-w-full divide-y text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                <th scope="col" className="px-4 py-2 text-left font-medium text-muted-foreground">
+          <Table density="compact" className="min-w-full">
+            <TableHeader>
+              <TableRow>
+                <TableHead>
                   {t('audit_logs.actions.details.field')}
-                </th>
-                <th scope="col" className="px-4 py-2 text-left font-medium text-muted-foreground">
+                </TableHead>
+                <TableHead>
                   {beforeLabel ?? t('audit_logs.actions.details.before')}
-                </th>
-                <th scope="col" className="px-4 py-2 text-left font-medium text-muted-foreground">
+                </TableHead>
+                <TableHead>
                   {afterLabel ?? t('audit_logs.actions.details.after')}
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {changeRows.map((row) => (
-                <tr key={row.field} className="align-top">
-                  <td className="px-4 py-2 align-top font-medium">
+                <TableRow key={row.field} className="align-top">
+                  <TableCell className="align-top font-medium">
                     {humanizeField(normalizeChangeField(row.field))}
-                  </td>
-                  <td className="px-4 py-2">
+                  </TableCell>
+                  <TableCell>
                     {renderValue(row.from, noneLabel)}
-                  </td>
-                  <td className="px-4 py-2">
+                  </TableCell>
+                  <TableCell>
                     {renderValue(row.to, noneLabel)}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       ) : (
         <p className="mt-2 text-sm text-muted-foreground">

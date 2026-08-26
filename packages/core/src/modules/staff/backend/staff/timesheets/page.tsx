@@ -26,6 +26,7 @@ import {
   type DurationParseError,
 } from '../../../lib/timesheetsDuration'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 const logger = createLogger('staff')
 
@@ -856,7 +857,7 @@ export default function MyTimesheetsPage() {
           <ListView entries={listViewEntries} onEntryUpdated={loadData} />
         ) : (
           <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm table-fixed">
+            <Table density="compact" className="table-fixed">
               <colgroup>
                 <col className={viewMode === 'weekly' ? 'w-[35%]' : 'w-[140px] min-w-[140px]'} />
                 {visibleDays.map((date) => (
@@ -864,33 +865,33 @@ export default function MyTimesheetsPage() {
                 ))}
                 <col className={viewMode === 'weekly' ? 'w-[72px]' : 'w-[56px] min-w-[56px]'} />
               </colgroup>
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="sticky left-0 z-10 bg-muted px-3 py-2 text-left font-medium">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="sticky left-0 z-10 bg-muted">
                     {t('staff.timesheets.my.project', 'Project')}
-                  </th>
+                  </TableHead>
                   {visibleDays.map((date) => {
                     const dayName = getLocalizedDayName(date)
                     const weekend = isWeekendDay(date)
                     return (
-                      <th
+                      <TableHead
                         key={formatDateKey(date)}
                         className={`py-2 text-center font-medium px-1 ${weekend ? 'bg-muted/80 text-muted-foreground' : ''}`}
                       >
                         <div className="text-overline uppercase text-muted-foreground">{dayName}</div>
                         <div className="text-xs">{date.getDate()}</div>
-                      </th>
+                      </TableHead>
                     )
                   })}
-                  <th className="px-3 py-2 text-right font-medium">
+                  <TableHead align="right">
                     {t('staff.timesheets.my.total', 'Total')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {projects.map((project) => (
-                  <tr key={project.id} className="group border-b hover:bg-muted/30">
-                    <td className="sticky left-0 z-10 bg-background px-3 py-1.5 font-medium text-foreground">
+                  <TableRow key={project.id} className="group hover:bg-muted/30">
+                    <TableCell className="sticky left-0 z-10 bg-surface font-medium text-foreground">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 truncate" title={project.name}>
@@ -911,7 +912,7 @@ export default function MyTimesheetsPage() {
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                    </td>
+                    </TableCell>
                     {visibleDays.map((date) => {
                       const dateKey = formatDateKey(date)
                       const weekend = isWeekendDay(date)
@@ -920,7 +921,7 @@ export default function MyTimesheetsPage() {
                       const cellError = cellErrors[project.id]?.[dateKey]
                       const cellErrorMessage = cellError ? describeDurationError(cellError) : undefined
                       return (
-                        <td key={dateKey} className={`px-0.5 py-0.5 ${weekend ? 'bg-muted/40' : ''}`}>
+                        <TableCell key={dateKey} className={`px-0.5 py-0.5 ${weekend ? 'bg-muted/40' : ''}`}>
                           {weekend ? (
                             <div className="rounded px-1 py-1 text-center text-xs text-muted-foreground/50">-</div>
                           ) : (
@@ -946,16 +947,16 @@ export default function MyTimesheetsPage() {
                               title={cellErrorMessage ?? durationFormatHint}
                             />
                           )}
-                        </td>
+                        </TableCell>
                       )
                     })}
-                    <td className="px-3 py-1.5 text-right font-semibold text-xs tabular-nums">
+                    <TableCell align="right" className="font-semibold text-xs tabular-nums">
                       {formatMinutesAsDecimal(getRowTotal(project.id)) || '0'}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-                <tr className="border-b">
-                  <td colSpan={visibleDays.length + 2} className="sticky left-0 bg-background px-1 py-0.5">
+                <TableRow>
+                  <TableCell colSpan={visibleDays.length + 2} className="sticky left-0 bg-background">
                     <AddRowDropdown
                       assignedProjects={allAssignedProjects}
                       visibleProjectIds={visibleProjectIds}
@@ -963,27 +964,27 @@ export default function MyTimesheetsPage() {
                       onAddProject={handleAddProject}
                       onCreateProject={() => setCreateDialogOpen(true)}
                     />
-                  </td>
-                </tr>
-              </tbody>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
               <tfoot>
-                <tr className="border-t bg-muted/50 font-semibold">
-                  <td className="sticky left-0 z-10 bg-muted px-3 py-2">
+                <TableRow className="font-semibold">
+                  <TableCell className="sticky left-0 z-10 bg-muted">
                     {t('staff.timesheets.my.daily_total', 'Daily Total')}
-                  </td>
+                  </TableCell>
                   {visibleDays.map((date) => {
                     const weekend = isWeekendDay(date)
                     const dayMinutes = getDayTotal(date)
                     return (
-                      <td key={formatDateKey(date)} className={`py-2 text-center text-xs tabular-nums ${weekend ? 'text-muted-foreground/50' : ''}`}>
+                      <TableCell key={formatDateKey(date)} className={`py-2 text-center text-xs tabular-nums ${weekend ? 'text-muted-foreground/50' : ''}`}>
                         {weekend ? '-' : (formatMinutesAsDecimal(dayMinutes) || '-')}
-                      </td>
+                      </TableCell>
                     )
                   })}
-                  <td className="px-3 py-2 text-right tabular-nums font-semibold">{formatMinutesAsDecimal(grandTotal) || '0'}</td>
-                </tr>
+                  <TableCell align="right" className="tabular-nums font-semibold">{formatMinutesAsDecimal(grandTotal) || '0'}</TableCell>
+                </TableRow>
               </tfoot>
-            </table>
+            </Table>
             <p className="px-3 py-2 text-xs text-muted-foreground">{durationFormatHint}</p>
           </div>
         )}

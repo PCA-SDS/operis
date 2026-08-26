@@ -36,6 +36,7 @@ import { useInjectionDataWidgets } from "@open-mercato/ui/backend/injection/useI
 import type { InjectionColumnDefinition } from "@open-mercato/shared/modules/widgets/injection";
 import { OrderItemsInjectionContext } from "../../widgets/injection/order-items-context";
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 const logger = createLogger('sales')
 
@@ -653,43 +654,40 @@ export function SalesDocumentItemsSection({
         />
       ) : (
         <div className="overflow-hidden rounded border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted">
-              <tr className="text-left">
-                <th className="px-3 py-2 font-medium">
+          <Table density="compact">
+            <TableHeader>
+              <TableRow>
+                <TableHead>
                   {t("sales.documents.items.table.product", "Product")}
-                </th>
-                <th className="px-3 py-2 font-medium">
+                </TableHead>
+                <TableHead>
                   {t("sales.documents.items.table.status", "Status")}
-                </th>
-                <th className="px-3 py-2 font-medium">
+                </TableHead>
+                <TableHead align="right">
                   {t("sales.documents.items.table.quantity", "Qty")}
-                </th>
-                <th className="px-3 py-2 font-medium">
+                </TableHead>
+                <TableHead align="right">
                   {t("sales.documents.items.table.unit", "Unit price")}
-                </th>
+                </TableHead>
                 {showDiscountColumn ? (
-                  <th className="px-3 py-2 font-medium whitespace-nowrap">
+                  <TableHead align="right">
                     {t("sales.documents.items.table.discount", "Discount")}
-                  </th>
+                  </TableHead>
                 ) : null}
-                <th className="px-3 py-2 font-medium">
+                <TableHead align="right">
                   {t("sales.documents.items.table.total", "Total")}
-                </th>
+                </TableHead>
                 {injectedColumns.map((col) => (
-                  <th
-                    key={col.id}
-                    className="px-3 py-2 font-medium whitespace-nowrap"
-                  >
+                  <TableHead key={col.id}>
                     {col.headerKey ? t(col.headerKey, col.header) : col.header}
-                  </th>
+                  </TableHead>
                 ))}
-                <th className="px-3 py-2 font-medium sr-only">
+                <TableHead align="right" className="sr-only">
                   {t("sales.documents.items.table.actions", "Actions")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((item) => {
                 const meta =
                   (item.metadata as
@@ -729,12 +727,9 @@ export function SalesDocumentItemsSection({
                 const discount = resolveLineDiscountDisplay(item);
 
                 return (
-                  <tr
-                    key={item.id}
-                    className="border-t hover:bg-muted/50 cursor-pointer transition-colors"
-                    onClick={() => handleEdit(item)}
+                  <TableRow key={item.id} className="hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => handleEdit(item)}
                   >
-                    <td className="px-3 py-3">
+                    <TableCell>
                       <div className="flex items-center gap-3">
                         {renderImage(item)}
                         <div className="min-w-0">
@@ -763,13 +758,13 @@ export function SalesDocumentItemsSection({
                           ) : null}
                         </div>
                       </div>
-                    </td>
-                    <td className="px-3 py-3">
+                    </TableCell>
+                    <TableCell>
                       <div className="flex items-center">
                         {renderStatus(item)}
                       </div>
-                    </td>
-                    <td className="px-3 py-3">
+                    </TableCell>
+                    <TableCell align="right" className="tabular-nums">
                       <div className="flex flex-col gap-0.5">
                         <span className="font-medium">{quantityLabel}</span>
                         {showNormalized ? (
@@ -790,8 +785,8 @@ export function SalesDocumentItemsSection({
                           </span>
                         ) : null}
                       </div>
-                    </td>
-                    <td className="px-3 py-3">
+                    </TableCell>
+                    <TableCell align="right">
                       <div className="flex flex-col gap-0.5">
                         <span className="font-mono text-sm">
                           {formatMoney(
@@ -827,9 +822,9 @@ export function SalesDocumentItemsSection({
                           </span>
                         ) : null}
                       </div>
-                    </td>
+                    </TableCell>
                     {showDiscountColumn ? (
-                      <td className="px-3 py-3">
+                      <TableCell align="right">
                         {discount ? (
                           <div className="flex flex-col gap-0.5">
                             {discount.amount !== null ? (
@@ -865,9 +860,9 @@ export function SalesDocumentItemsSection({
                             ) : null}
                           </div>
                         ) : null}
-                      </td>
+                      </TableCell>
                     ) : null}
-                    <td className="px-3 py-3 font-semibold">
+                    <TableCell align="right" className="font-semibold">
                       <div className="flex flex-col gap-0.5">
                         <span>
                           {formatMoney(
@@ -886,7 +881,7 @@ export function SalesDocumentItemsSection({
                           {t("sales.documents.items.table.net", "net")}
                         </span>
                       </div>
-                    </td>
+                    </TableCell>
                     {injectedColumns.map((col) => {
                       const colValue = resolveInjectedColumnValue(
                         item as unknown as Record<string, unknown>,
@@ -894,16 +889,13 @@ export function SalesDocumentItemsSection({
                       );
                       const Cell = col.cell;
                       return (
-                        <td
-                          key={col.id}
-                          className="px-3 py-3"
-                          onClick={(e) => e.stopPropagation()}
+                        <TableCell key={col.id} onClick={(e) => e.stopPropagation()}
                         >
                           {Cell ? <Cell getValue={() => colValue} /> : null}
-                        </td>
+                        </TableCell>
                       );
                     })}
-                    <td className="px-3 py-3">
+                    <TableCell align="right">
                       <div className="flex items-center gap-2 justify-end">
                         <Button
                           size="icon"
@@ -937,12 +929,12 @@ export function SalesDocumentItemsSection({
                           </Button>
                         </span>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 

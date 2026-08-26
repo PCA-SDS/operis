@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
 import { apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 type DailyRow = {
   id: string
@@ -263,38 +264,38 @@ export function AiUsageStatsPageClient() {
             {t('ai_assistant.usage.dailyBreakdown', 'Daily breakdown')}
           </h3>
           <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/40">
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+            <Table density="compact" className="min-w-full">
+              <TableHeader>
+                <TableRow className="border-border bg-muted/40">
+                  <TableHead>
                     {t('ai_assistant.usage.col.day', 'Day')}
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                  </TableHead>
+                  <TableHead>
                     {t('ai_assistant.usage.col.agent', 'Agent')}
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                  </TableHead>
+                  <TableHead align="right">
                     {t('ai_assistant.usage.col.inputTokens', 'Input')}
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                  </TableHead>
+                  <TableHead align="right">
                     {t('ai_assistant.usage.col.outputTokens', 'Output')}
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                  </TableHead>
+                  <TableHead align="right">
                     {t('ai_assistant.usage.col.sessions', 'Sessions')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {dailyRows.map((row) => (
-                  <tr key={row.id} className="border-b border-border last:border-b-0">
-                    <td className="px-3 py-2 tabular-nums">{row.day}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{row.agentId}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{formatNumber(parseInt(row.inputTokens, 10))}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{formatNumber(parseInt(row.outputTokens, 10))}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{row.sessionCount}</td>
-                  </tr>
+                  <TableRow key={row.id} className="border-border">
+                    <TableCell className="tabular-nums">{row.day}</TableCell>
+                    <TableCell className="font-mono text-xs">{row.agentId}</TableCell>
+                    <TableCell align="right" className="tabular-nums">{formatNumber(parseInt(row.inputTokens, 10))}</TableCell>
+                    <TableCell align="right" className="tabular-nums">{formatNumber(parseInt(row.outputTokens, 10))}</TableCell>
+                    <TableCell align="right" className="tabular-nums">{row.sessionCount}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}
@@ -323,50 +324,47 @@ export function AiUsageStatsPageClient() {
         {sessionsQuery.isSuccess && (sessionsQuery.data?.sessions ?? []).length > 0 && (
           <>
             <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/40">
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+              <Table density="compact" className="min-w-full">
+                <TableHeader>
+                  <TableRow className="border-border bg-muted/40">
+                    <TableHead>
                       {t('ai_assistant.usage.col.session', 'Session')}
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                    </TableHead>
+                    <TableHead>
                       {t('ai_assistant.usage.col.agent', 'Agent')}
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                    </TableHead>
+                    <TableHead>
                       {t('ai_assistant.usage.col.startedAt', 'Started')}
-                    </th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                    </TableHead>
+                    <TableHead align="right">
                       {t('ai_assistant.usage.col.inputTokens', 'Input')}
-                    </th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                    </TableHead>
+                    <TableHead align="right">
                       {t('ai_assistant.usage.col.outputTokens', 'Output')}
-                    </th>
-                    <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                    </TableHead>
+                    <TableHead align="right">
                       {t('ai_assistant.usage.col.steps', 'Steps')}
-                    </th>
-                    <th className="w-8" />
-                  </tr>
-                </thead>
-                <tbody>
+                    </TableHead>
+                    <TableHead className="w-8" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {(sessionsQuery.data?.sessions ?? []).map((session) => (
-                    <tr
-                      key={session.sessionId}
-                      className="border-b border-border last:border-b-0 cursor-pointer hover:bg-muted/30 transition-colors"
-                      onClick={() => setSelectedSessionId(session.sessionId)}
+                    <TableRow key={session.sessionId} className="border-border cursor-pointer hover:bg-muted/30 transition-colors" onClick={() => setSelectedSessionId(session.sessionId)}
                     >
-                      <td className="px-3 py-2 font-mono text-xs">{shortId(session.sessionId)}…</td>
-                      <td className="px-3 py-2 font-mono text-xs">{session.agentId}</td>
-                      <td className="px-3 py-2 text-muted-foreground text-xs">{formatDate(session.startedAt)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{formatNumber(session.inputTokens)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{formatNumber(session.outputTokens)}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{session.stepCount}</td>
-                      <td className="px-3 py-2 text-muted-foreground">
+                      <TableCell className="font-mono text-xs">{shortId(session.sessionId)}…</TableCell>
+                      <TableCell className="font-mono text-xs">{session.agentId}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{formatDate(session.startedAt)}</TableCell>
+                      <TableCell align="right" className="tabular-nums">{formatNumber(session.inputTokens)}</TableCell>
+                      <TableCell align="right" className="tabular-nums">{formatNumber(session.outputTokens)}</TableCell>
+                      <TableCell align="right" className="tabular-nums">{session.stepCount}</TableCell>
+                      <TableCell className="text-muted-foreground">
                         <ChevronRight size={14} />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -427,38 +425,38 @@ export function AiUsageStatsPageClient() {
             )}
             {sessionDetailQuery.isSuccess && (
               <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/40">
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                <Table density="compact" className="min-w-full">
+                  <TableHeader>
+                    <TableRow className="border-border bg-muted/40">
+                      <TableHead>
                         {t('ai_assistant.usage.col.step', 'Step')}
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                      </TableHead>
+                      <TableHead>
                         {t('ai_assistant.usage.col.model', 'Model')}
-                      </th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                      </TableHead>
+                      <TableHead align="right">
                         {t('ai_assistant.usage.col.inputTokens', 'Input')}
-                      </th>
-                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                      </TableHead>
+                      <TableHead align="right">
                         {t('ai_assistant.usage.col.outputTokens', 'Output')}
-                      </th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">
+                      </TableHead>
+                      <TableHead>
                         {t('ai_assistant.usage.col.finishReason', 'Finish')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {(sessionDetailQuery.data?.events ?? []).map((event) => (
-                      <tr key={event.id} className="border-b border-border last:border-b-0">
-                        <td className="px-3 py-2 tabular-nums">{event.stepIndex}</td>
-                        <td className="px-3 py-2 font-mono text-xs">{event.modelId}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{formatNumber(event.inputTokens)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums">{formatNumber(event.outputTokens)}</td>
-                        <td className="px-3 py-2 text-muted-foreground text-xs">{event.finishReason ?? '—'}</td>
-                      </tr>
+                      <TableRow key={event.id} className="border-border">
+                        <TableCell className="tabular-nums">{event.stepIndex}</TableCell>
+                        <TableCell className="font-mono text-xs">{event.modelId}</TableCell>
+                        <TableCell align="right" className="tabular-nums">{formatNumber(event.inputTokens)}</TableCell>
+                        <TableCell align="right" className="tabular-nums">{formatNumber(event.outputTokens)}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs">{event.finishReason ?? '—'}</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </div>
