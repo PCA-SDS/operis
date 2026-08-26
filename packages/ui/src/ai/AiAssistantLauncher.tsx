@@ -35,6 +35,7 @@ import {
 } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { menuRowVariants } from '../primitives/menu'
 import { apiCall } from '../backend/utils/apiCall'
 import {
   Dialog,
@@ -560,7 +561,7 @@ export function AiAssistantLauncher({
             />
           </div>
           <div
-            className="max-h-80 overflow-y-auto py-1"
+            className="max-h-80 overflow-y-auto p-1"
             data-ai-launcher-list=""
             role="listbox"
             aria-label={dialogTitle}
@@ -586,8 +587,10 @@ export function AiAssistantLauncher({
                     data-ai-launcher-agent-id={agent.id}
                     data-active={isActive ? 'true' : 'false'}
                     className={cn(
-                      'flex w-full items-start gap-3 px-3 py-2 text-left text-sm transition-colors',
-                      isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/60',
+                      menuRowVariants({ active: isActive }),
+                      // Two-line rows: the icon aligns to the first line, not the block.
+                      'items-start gap-3',
+                      !isActive && 'hover:bg-surface-muted',
                     )}
                   >
                     <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-violet/10">

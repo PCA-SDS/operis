@@ -45,6 +45,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { MENU_ROW_HOVER, menuRowVariants } from '@open-mercato/ui/primitives/menu'
 import type { SearchResult, SearchResultLink } from '@open-mercato/shared/modules/search'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { resolveEntityTypeLabel } from '../lib/entityTypeLabel'
@@ -484,8 +485,10 @@ export function TopbarSearchInline({
                     role="option"
                     aria-selected={isActive}
                     className={cn(
-                      'flex w-full items-start gap-3 rounded-sm px-2 py-2 text-left transition-colors',
-                      isActive ? 'bg-muted' : 'hover:bg-muted/60',
+                      menuRowVariants({ size: 'compact', active: isActive }),
+                      // Result rows are two lines with a leading icon.
+                      'items-start gap-3 py-2',
+                      !isActive && MENU_ROW_HOVER,
                       !hasLink && 'opacity-60',
                     )}
                   >

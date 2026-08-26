@@ -8,6 +8,7 @@ import { Popover, PopoverAnchor, PopoverContent } from '@open-mercato/ui/primiti
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { menuRowVariants } from '@open-mercato/ui/primitives/menu'
 import {
   QUICK_ADD_TEXT_MAX_LENGTH,
   TASK_TITLE_MAX_LENGTH,
@@ -538,8 +539,8 @@ export function QuickAddComposer({
                 role="option"
                 aria-selected={index === activeIndex}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-foreground transition-colors',
-                  index === activeIndex && 'bg-surface-muted',
+                  menuRowVariants({ active: index === activeIndex }),
+                  'font-medium',
                 )}
               >
                 {item.kind === 'user' && (

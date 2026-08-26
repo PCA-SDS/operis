@@ -5,6 +5,7 @@ import * as SelectPrimitive from '@radix-ui/react-select'
 import { Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { MENU_ROW_SPACING } from './menu'
 
 /* The trigger is a field, so it carries the same chrome as `Input` — matching
    border, hover/focus fill, and the value/placeholder weight split. */
@@ -170,6 +171,7 @@ const SelectItem = React.forwardRef<
     ref={ref}
     className={cn(
       'relative flex w-full cursor-pointer select-none items-center gap-2 rounded-md px-3 py-2 text-sm outline-none transition-colors',
+      MENU_ROW_SPACING,
       'focus:bg-surface-muted focus:text-foreground',
       'data-[state=checked]:bg-primary-soft data-[state=checked]:font-medium data-[state=checked]:text-foreground',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',

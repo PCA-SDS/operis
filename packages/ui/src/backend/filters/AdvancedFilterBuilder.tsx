@@ -32,6 +32,8 @@ import {
 } from '../../primitives/select'
 import { Popover, PopoverContent, PopoverTrigger } from '../../primitives/popover'
 import { Checkbox } from '../../primitives/checkbox'
+import { MENU_ROW_HOVER, menuRowVariants } from '../../primitives/menu'
+import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type {
   FilterFieldDef,
@@ -806,7 +808,7 @@ function MultiValuePicker({
                 role="option"
                 aria-selected={isOn}
                 onClick={() => toggle(opt.value)}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                className={cn(menuRowVariants({ size: 'compact' }), MENU_ROW_HOVER, 'focus-visible:bg-surface-muted focus-visible:outline-none')}
               >
                 <Checkbox checked={isOn} aria-hidden="true" tabIndex={-1} className="pointer-events-none" />
                 {opt.tone ? (

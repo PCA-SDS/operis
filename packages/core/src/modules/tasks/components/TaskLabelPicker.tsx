@@ -9,6 +9,7 @@ import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { MENU_ROW_HOVER, menuRowStateClass, MENU_ROW_SPACING } from '@open-mercato/ui/primitives/menu'
 import type { LabelDto } from '../data/types'
 import { CHIP_ADD_CLASS } from './badges'
 import { useLabelMutations, useLabels } from './hooks'
@@ -120,7 +121,7 @@ export function TaskLabelPicker({
           />
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           {filtered.map((label) => (
             <LabelRow
               key={label.id}
@@ -183,8 +184,10 @@ function LabelRow({
   return (
     <div
       className={cn(
-        'group flex items-center gap-2 rounded-md pr-1 text-sm transition-colors hover:bg-surface-muted',
-        checked && 'bg-surface-muted',
+        MENU_ROW_SPACING,
+        'group flex items-center gap-2 rounded-md pr-1 text-sm transition-colors',
+        menuRowStateClass({ selected: checked }),
+        !checked && MENU_ROW_HOVER,
       )}
     >
       <button

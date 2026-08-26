@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { menuRowStateClass } from '@open-mercato/ui/primitives/menu'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { LoadingMessage, ErrorMessage, RecordNotFoundState } from '@open-mercato/ui/backend/detail'
@@ -119,7 +120,7 @@ function CategoryEditDropdown({
       </div>
       {isOpen && (
         <div className="absolute top-full left-0 mt-1 z-dropdown w-48 rounded-md border bg-popover shadow-md">
-          <div className="p-1">
+          <div className="flex flex-col gap-1 p-1">
             {ALL_CATEGORIES.map((cat) => {
               const config = CATEGORY_CONFIG[cat]
               const { Icon } = config
@@ -129,7 +130,7 @@ function CategoryEditDropdown({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className={`flex items-center gap-2 w-full justify-start rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground ${currentCategory === cat ? 'bg-accent' : ''}`}
+                  className={`flex items-center gap-2 w-full justify-start rounded-md px-2 py-1.5 text-sm ${menuRowStateClass({ selected: currentCategory === cat })}`}
                   onClick={() => { onSelect(cat); setIsOpen(false) }}
                 >
                   <Icon className="h-3.5 w-3.5" />

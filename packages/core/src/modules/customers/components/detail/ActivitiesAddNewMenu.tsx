@@ -46,7 +46,7 @@ export function ActivitiesAddNewMenu({ onSelect, disabled }: ActivitiesAddNewMen
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[180px] p-1">
-        <ul className="flex flex-col">
+        <ul className="flex flex-col gap-1">
           {MENU_ITEMS.map(({ kind, icon: Icon, key, fallback }) => (
             <li key={kind}>
               <Button
