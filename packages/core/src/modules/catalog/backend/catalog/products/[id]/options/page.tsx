@@ -18,6 +18,14 @@ import {
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
+import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@open-mercato/ui/primitives/select'
 import {
   ChevronRight,
   ChevronDown,
@@ -142,12 +150,15 @@ function GroupDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Layers className="h-4 w-4 text-primary" />
-            {t('catalog.options.addGroup', 'Add Option Group')}
-          </DialogTitle>
-        </DialogHeader>
+        <form onSubmit={(e) => { e.preventDefault(); handleSave() }}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-primary" />
+              {parentOptionId
+                ? t('catalog.options.addSubGroup', 'Add Sub-Group')
+                : t('catalog.options.addGroup', 'Add Option Group')}
+            </DialogTitle>
+          </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
@@ -219,14 +230,15 @@ function GroupDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('common.cancel', 'Cancel')}
           </Button>
-          <Button type="button" onClick={handleSave} disabled={!form.name.trim()}>
+          <Button type="submit" disabled={!form.name.trim()}>
             {t('common.save', 'Save')}
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )
@@ -289,18 +301,19 @@ function OptionDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Tag className="h-4 w-4 text-primary" />
-            {editId
-              ? t('catalog.options.editOption', 'Edit Option')
-              : t('catalog.options.addOption', 'Add Option')}
-          </DialogTitle>
-        </DialogHeader>
+        <form onSubmit={(e) => { e.preventDefault(); handleSave() }}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Tag className="h-4 w-4 text-primary" />
+              {editId
+                ? t('catalog.options.editOption', 'Edit Option')
+                : t('catalog.options.addOption', 'Add Option')}
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5 col-span-2">
+          <div className="space-y-4 py-2 mt-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5 col-span-2 sm:col-span-1">
               <Label htmlFor="opt-name">{t('catalog.options.optionName', 'Name')} *</Label>
               <Input
                 id="opt-name"
@@ -311,7 +324,7 @@ function OptionDialog({
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 col-span-2 sm:col-span-1">
               <Label htmlFor="opt-code">{t('catalog.options.code', 'Code')}</Label>
               <Input
                 id="opt-code"
@@ -319,11 +332,15 @@ function OptionDialog({
                 onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
                 placeholder="gel-polish"
               />
+              <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+                {t('catalog.options.codeHint', 'Optional identifier for integrations')}
+              </p>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 col-span-2 sm:col-span-1">
               <Label htmlFor="opt-price">
-                <DollarSign className="inline h-3 w-3" /> {t('catalog.options.price', 'Price (+)')}
+                <DollarSign className="inline h-3 w-3 text-muted-foreground mr-1" />
+                {t('catalog.options.price', 'Price (+)')}
               </Label>
               <Input
                 id="opt-price"
@@ -334,30 +351,35 @@ function OptionDialog({
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="opt-dur">
-                <Clock className="inline h-3 w-3" /> {t('catalog.options.duration', 'Duration')}
+            <div className="space-y-1.5 col-span-2 sm:col-span-1">
+              <Label>
+                <Clock className="inline h-3 w-3 text-muted-foreground mr-1" />
+                {t('catalog.options.duration', 'Duration')}
               </Label>
-              <Input
-                id="opt-dur"
-                type="number"
-                value={form.duration_value}
-                onChange={(e) => setForm((f) => ({ ...f, duration_value: e.target.value }))}
-                placeholder="30"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="opt-dur-unit">{t('catalog.options.unit', 'Unit')}</Label>
-              <select
-                id="opt-dur-unit"
-                value={form.duration_unit}
-                onChange={(e) => setForm((f) => ({ ...f, duration_unit: e.target.value }))}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="minute">minutes</option>
-                <option value="hour">hours</option>
-              </select>
+              <div className="flex gap-2">
+                <Input
+                  id="opt-dur"
+                  type="number"
+                  value={form.duration_value}
+                  onChange={(e) => setForm((f) => ({ ...f, duration_value: e.target.value }))}
+                  placeholder="30"
+                  className="w-16"
+                />
+                <div className="flex-1">
+                  <Select
+                    value={form.duration_unit}
+                    onValueChange={(val) => setForm((f) => ({ ...f, duration_unit: val }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="minute">minutes</SelectItem>
+                      <SelectItem value="hour">hours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -372,28 +394,27 @@ function OptionDialog({
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
+          <div className="flex items-center gap-2 pt-2">
+            <Checkbox
               id="opt-addon"
-              type="checkbox"
               checked={form.is_addon}
-              onChange={(e) => setForm((f) => ({ ...f, is_addon: e.target.checked }))}
-              className="h-4 w-4 rounded border-input"
+              onCheckedChange={(checked) => setForm((f) => ({ ...f, is_addon: !!checked }))}
             />
-            <Label htmlFor="opt-addon" className="cursor-pointer font-normal">
+            <Label htmlFor="opt-addon" className="cursor-pointer font-normal text-sm">
               {t('catalog.options.isAddon', 'This is an add-on (optional extra)')}
             </Label>
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('common.cancel', 'Cancel')}
           </Button>
-          <Button type="button" onClick={handleSave} disabled={!form.name.trim()}>
+          <Button type="submit" disabled={!form.name.trim()}>
             {t('common.save', 'Save')}
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )
