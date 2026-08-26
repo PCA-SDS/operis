@@ -5,7 +5,7 @@ import { flexRender, type RowData, type SortingState, type ColumnVisibilityState
 import { useLegacyTable, getCoreRowModel, getSortedRowModel, type LegacyColumnDef as ColumnDef, type LegacyColumn as TableColumn } from '@tanstack/react-table/legacy'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, Loader2, SlidersHorizontal, MoreHorizontal, Circle, Filter, Columns3, ChevronDown, Check, GripVertical, Inbox, Save } from 'lucide-react'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableSortLabel, tableAriaSort, type TableCellAlign } from '../primitives/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableRowMarker, TableSortLabel, TABLE_ICON_COLUMN_WIDTH, tableAriaSort, type TableCellAlign } from '../primitives/table'
 import { Button } from '../primitives/button'
 import { Checkbox } from '../primitives/checkbox'
 import {
@@ -364,8 +364,6 @@ export type DataTableProps<T extends RowData> = {
    * if not provided.
    */
   extensionTableId?: string
-  stickyFirstColumn?: boolean
-  stickyActionsColumn?: boolean
   /** Horizontal alignment of the row-actions (kebab) column header + cell. Defaults to 'right'. */
   actionsColumnAlign?: 'right' | 'center'
   virtualized?: boolean
@@ -472,21 +470,6 @@ const EMPTY_FILTER_DEFS: FilterDef[] = []
 const EMPTY_FILTER_VALUES: FilterValues = Object.freeze({}) as FilterValues
 /** Stand-in for the live view settings on tables that never opt into the view API. */
 const EMPTY_VIEW_SETTINGS: PerspectiveSettings = Object.freeze({}) as PerspectiveSettings
-
-// Directional shadow utilities for sticky table cells. `border-collapse: collapse`
-// blocks `box-shadow` on `<td>`/`<th>`, so we paint the shadow as a pseudo-element
-// gradient on the outside edge — the side opposite to the sticky anchor:
-//   sticky right-0  → shadow falls to the LEFT  (use `before:` + `-left-2` + `to-l`)
-//   sticky left-0   → shadow falls to the RIGHT (use `after:`  + `-right-2` + `to-r`)
-// `foreground/8` matches the `--shadow-md` token opacity (8%) and is theme-aware.
-// Column pinning (and these shadows) is md-and-up only: below `md` the pinned
-// first column + actions column can be wider than the whole viewport, which
-// leaves the scrollable middle columns no visible window at all — narrow
-// screens fall back to plain horizontal scroll so every column stays reachable.
-const STICKY_RIGHT_SHADOW_CLASS =
-  'md:before:absolute md:before:inset-y-0 md:before:-left-2 md:before:w-2 md:before:bg-gradient-to-l md:before:from-foreground/8 md:before:to-transparent md:before:pointer-events-none md:before:transition-opacity md:before:duration-200'
-const STICKY_LEFT_SHADOW_CLASS =
-  'md:after:absolute md:after:inset-y-0 md:after:-right-2 md:after:w-2 md:after:bg-gradient-to-r md:after:from-foreground/8 md:after:to-transparent md:after:pointer-events-none md:after:transition-opacity md:after:duration-200'
 
 type BulkActionExecuteResult = {
   ok: boolean
@@ -754,6 +737,13 @@ type ColumnTruncateMeta = {
   truncate?: boolean
   maxWidth?: string
   align?: TableCellAlign
+  /**
+   * The column's grid track — `'minmax(0, 2fr)'`, `'6.5rem'`,
+   * `TABLE_ICON_COLUMN_WIDTH`. Columns share the row width in these
+   * proportions, which is how a name column reads twice as wide as a count
+   * column. Omitted columns take an equal share.
+   */
+  width?: string
 }
 
 /**
@@ -1253,7 +1243,7 @@ function ViewSwitcherDropdown({
             <ChevronDown className="size-3.5 shrink-0 ml-1.5" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-[220px] p-1">
+        <PopoverContent align="start" className="flex w-[220px] flex-col gap-1 p-1">
           <Button
             type="button"
             variant="ghost"
@@ -1350,8 +1340,6 @@ export function DataTable<T extends RowData>({
   injectionContext,
   replacementHandle,
   extensionTableId: extensionTableIdProp,
-  stickyFirstColumn = false,
-  stickyActionsColumn = false,
   actionsColumnAlign = 'right',
   virtualized = false,
   virtualizedMaxHeight,
@@ -2779,7 +2767,7 @@ export function DataTable<T extends RowData>({
       : [10, 25, 50, 100]
 
     return (
-      <div className="flex flex-col gap-3 border-t border-table-border bg-surface-muted/70 px-4 py-2.5 text-xs sm:flex-row sm:items-center sm:px-5">
+      <div className="flex shrink-0 flex-col gap-3 text-xs sm:flex-row sm:items-center sm:justify-between">
         {cacheBadge ? (
           <div className="flex items-center justify-center sm:justify-start gap-2 text-sm text-muted-foreground">
             {cacheBadge}
@@ -3387,6 +3375,30 @@ export function DataTable<T extends RowData>({
      Pinned unconditionally it would stick to the viewport — sliding under the
      app topbar — for the many small tables that simply scroll with the page. */
   const stickyHeaderClass = (stickyHeader ?? virtualized) ? 'sticky top-0 z-20' : ''
+  /* One track list, declared once and repeated on every row — the property the
+     row animates when a column is resized or hidden. A user-dragged width is a
+     fixed track; everything else shares the leftover space, floored so a wide
+     table scrolls rather than crushing its headers. */
+  const SELECT_COLUMN_WIDTH = '3.5rem'
+  const hasActionsColumn = Boolean(rowActions) || injectedRowActions.length > 0
+  const visibleLeafColumns = table.getVisibleLeafColumns()
+  const gridColumnTracks = React.useMemo(() => {
+    const tracks: string[] = []
+    if (hasInjectedBulkActions) tracks.push(SELECT_COLUMN_WIDTH)
+    for (const column of visibleLeafColumns) {
+      const sized = enableColumnResize ? columnSizing[column.id] : undefined
+      if (typeof sized === 'number') {
+        // A width the user dragged is fixed; it outranks the declared track.
+        tracks.push(`${sized}px`)
+        continue
+      }
+      const declared = (column.columnDef as { meta?: ColumnTruncateMeta })?.meta?.width
+      tracks.push(typeof declared === 'string' && declared.trim() ? declared : 'minmax(0,1fr)')
+    }
+    if (hasActionsColumn) tracks.push(TABLE_ICON_COLUMN_WIDTH)
+    return tracks
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasInjectedBulkActions, hasActionsColumn, enableColumnResize, columnSizing, visibleLeafColumns.map((c) => c.id).join('|')])
 
   const virtualScrollRef = React.useRef<HTMLDivElement>(null)
   // Measure the horizontal scroll viewport so the empty state can center within
@@ -3407,41 +3419,12 @@ export function DataTable<T extends RowData>({
   }, [tableScrollEl])
   const allRows = table.getRowModel().rows
 
-  /* A pinned column's shadow is a SCROLL AFFORDANCE: it says "there is content
-     hidden under this edge". At rest nothing is hidden, so drawing it anyway
-     leaves a rule between two ordinary column headers with nothing to explain
-     it. Track the scrollport and let each edge fade in only once it has
-     something to cover. */
-  const [pinnedEdges, setPinnedEdges] = React.useState({ left: false, right: false })
-  React.useEffect(() => {
-    if (!tableScrollEl) return
-    const update = () => {
-      const maxScroll = tableScrollEl.scrollWidth - tableScrollEl.clientWidth
-      // 1px tolerance: fractional layout widths never settle on an exact 0.
-      const next = {
-        left: tableScrollEl.scrollLeft > 1,
-        right: maxScroll > 1 && tableScrollEl.scrollLeft < maxScroll - 1,
-      }
-      setPinnedEdges((prev) => (prev.left === next.left && prev.right === next.right ? prev : next))
-    }
-    update()
-    tableScrollEl.addEventListener('scroll', update, { passive: true })
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update)
-    observer?.observe(tableScrollEl)
-    return () => {
-      tableScrollEl.removeEventListener('scroll', update)
-      observer?.disconnect()
-    }
-    // Row/column count changes the scrollWidth, so the edges must be re-measured.
-  }, [tableScrollEl, allRows.length, mergedColumns.length])
   /* Resizing a column used to be a 2px line moving under the cursor and nothing
      else — no way to see WHICH column you had grabbed or where its new edge would
      land against the rows below. The drag now paints a full-height guide down the
      whole table, tags the column being resized, and reads out the live width. */
   const [columnResizeDrag, setColumnResizeDrag] = React.useState<ColumnResizeDrag | null>(null)
   const resizingColumnId = columnResizeDrag?.columnId ?? null
-  const stickyLeftShadowClass = `${STICKY_LEFT_SHADOW_CLASS} ${pinnedEdges.left ? 'md:after:opacity-100' : 'md:after:opacity-0'}`
-  const stickyRightShadowClass = `${STICKY_RIGHT_SHADOW_CLASS} ${pinnedEdges.right ? 'md:before:opacity-100' : 'md:before:opacity-0'}`
 
   // `isLoading` is true on EVERY fetch at most call sites, not just the first —
   // so treating it as "erase the table" collapsed the body from full height to
@@ -3617,7 +3600,11 @@ export function DataTable<T extends RowData>({
             </span>
           </>
         ) : null}
-        <Table density={embedded ? 'compact' : 'default'} className="min-w-[640px] md:min-w-0">
+        <Table
+          columns={gridColumnTracks}
+          density={embedded ? 'compact' : 'default'}
+          className="min-w-[640px] md:min-w-0"
+        >
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id}>
@@ -3638,9 +3625,6 @@ export function DataTable<T extends RowData>({
                   const isFirstDataColumn = headerIndex === 0
                   const columnAlign = resolveColumnAlign(columnMeta)
                   // A pinned column's header has to out-stack BOTH the header cells that scroll
-                  // past it horizontally and the body cells that scroll under it vertically, so it
-                  // sits above the header strip's own `z-20`.
-                  const stickyClass = stickyFirstColumn && isFirstDataColumn ? ` md:sticky md:left-0 md:z-30 md:bg-table-header ${stickyLeftShadowClass}` : ''
                   const isColumnSortable = sortable && !!header.column.getCanSort?.()
                   const sortState = isColumnSortable ? (header.column.getIsSorted?.() ?? false) : false
                   // `aria-sort` is what tells a screen reader which column the rows are ordered by;
@@ -3674,7 +3658,7 @@ export function DataTable<T extends RowData>({
                     />
                   ) : null
                   return enableHeaderDnd ? (
-                    <SortableHeaderCell key={header.id} id={header.id} width={sizedWidth} ariaSort={ariaSort} align={columnAlign} className={cn('group', stickyHeaderClass, responsiveClass(priority, columnMeta?.hidden) + stickyClass)}>
+                    <SortableHeaderCell key={header.id} id={header.id} width={sizedWidth} ariaSort={ariaSort} align={columnAlign} className={cn('group', stickyHeaderClass, responsiveClass(priority, columnMeta?.hidden))}>
                       {headerCellContent}
                       {resizeHandle}
                     </SortableHeaderCell>
@@ -3688,7 +3672,7 @@ export function DataTable<T extends RowData>({
                         'group relative transition-colors',
                         columnId && resizingColumnId === columnId && 'bg-surface-strong text-foreground',
                         stickyHeaderClass,
-                        responsiveClass(priority, columnMeta?.hidden) + stickyClass,
+                        responsiveClass(priority, columnMeta?.hidden),
                       )}
                       style={typeof sizedWidth === 'number' ? { width: sizedWidth, minWidth: sizedWidth, maxWidth: sizedWidth } : undefined}
                     >
@@ -3701,10 +3685,7 @@ export function DataTable<T extends RowData>({
                   <TableHead
                     align={actionsColumnAlign}
                     padding="control"
-                    className={cn(
-                      stickyHeaderClass,
-                      stickyActionsColumn && `md:sticky md:right-0 md:z-40 md:bg-table-header ${stickyRightShadowClass}`,
-                    )}
+                    className={stickyHeaderClass}
                   >
                     {t('ui.dataTable.actionsColumn', 'Actions')}
                   </TableHead>
@@ -3736,7 +3717,7 @@ export function DataTable<T extends RowData>({
               {virtualized && rowVirtualizer ? (
                 <>
                   {rowVirtualizer.getVirtualItems()[0]?.start > 0 ? (
-                    <tr style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }} />
+                    <div aria-hidden style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }} />
                   ) : null}
                 </>
               ) : null}
@@ -3752,7 +3733,7 @@ export function DataTable<T extends RowData>({
                   <TableRow 
                     key={row.id} 
                     data-state={row.getIsSelected() && 'selected'}
-                    className={isClickable ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}
+                    className={isClickable ? 'cursor-pointer' : ''}
                     onClick={isClickable ? (e) => {
                       // Don't trigger row click if clicking on actions cell
                       if ((e.target as HTMLElement).closest('[data-actions-cell]')) {
@@ -3783,7 +3764,6 @@ export function DataTable<T extends RowData>({
                     {row.getVisibleCells().map((cell, cellIndex) => {
                       const columnMeta = (cell.column.columnDef as any)?.meta
                       const priority = resolvePriority(cell.column)
-                      const isStickyCell = stickyFirstColumn && cellIndex === 0
                       const hasCustomCell = Boolean(cell.column.columnDef.cell)
                       const columnId = String((cell.column as any).id || '')
                       const accessorKey = String((cell.column.columnDef as any)?.accessorKey || '')
@@ -3837,9 +3817,10 @@ export function DataTable<T extends RowData>({
                           align={resolveColumnAlign(columnMeta)}
                           data-resizing={columnId && resizingColumnId === columnId ? 'true' : undefined}
                           data-reordering={columnId && reorderingColumnId === columnId ? 'true' : undefined}
+                          data-first-cell={cellIndex === 0 ? 'true' : undefined}
                           className={cn(
                             'transition-opacity',
-                            responsiveClass(priority, columnMeta?.hidden) + (isStickyCell ? ` md:sticky md:left-0 md:z-10 md:bg-surface ${stickyLeftShadowClass}` : ''),
+                            responsiveClass(priority, columnMeta?.hidden),
                             columnId && resizingColumnId === columnId && 'bg-surface-muted',
                             // The whole column is what moves, so the whole column fades — a header
                             // that lifts off a body that stays solid reads as only the label moving.
@@ -3847,6 +3828,7 @@ export function DataTable<T extends RowData>({
                           )}
                           style={typeof sizedWidth === 'number' ? { width: sizedWidth, minWidth: sizedWidth, maxWidth: sizedWidth } : undefined}
                         >
+                          {cellIndex === 0 ? <TableRowMarker active={row.getIsSelected()} /> : null}
                           {wrappedContent}
                         </TableCell>
                       )
@@ -3855,10 +3837,7 @@ export function DataTable<T extends RowData>({
                       <TableCell
                         align={actionsColumnAlign}
                         padding="control"
-                        className={cn(
-                          'whitespace-nowrap',
-                          stickyActionsColumn && `md:sticky md:right-0 md:z-10 md:bg-surface ${stickyRightShadowClass}`,
-                        )}
+                        className="whitespace-nowrap"
                         data-actions-cell
                       >
                         {rowActionsElement}
@@ -3871,7 +3850,7 @@ export function DataTable<T extends RowData>({
                 const virtualItems = rowVirtualizer.getVirtualItems()
                 const lastItem = virtualItems[virtualItems.length - 1]
                 const bottomPadding = lastItem ? rowVirtualizer.getTotalSize() - lastItem.end : 0
-                return bottomPadding > 0 ? <tr style={{ height: `${bottomPadding}px` }} /> : null
+                return bottomPadding > 0 ? <div aria-hidden style={{ height: `${bottomPadding}px` }} /> : null
               })() : null}
               </>
             ) : (
@@ -3926,8 +3905,11 @@ export function DataTable<T extends RowData>({
           <InjectionSpot spotId={footerInjectionSpotId} context={resolvedInjectionContext} />
         </div>
       ) : null}
-      {paginationNode}
       </div>
+      {/* The count and pager sit BELOW the card, not in a strip inside it: they
+          describe the table rather than belonging to it, and the container's own
+          gap sets them off. */}
+      {paginationNode}
       {ConfirmDialogElement}
       {canUsePerspectives ? (
         <PerspectiveSidebar

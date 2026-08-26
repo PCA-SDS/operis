@@ -12,6 +12,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableRowMarker,
   TableSortLabel,
   tableAriaSort,
 } from '../table'
@@ -88,11 +89,11 @@ describe('Table primitive (Phase B.6 polish)', () => {
         </TableBody>
       </Table>,
     )
-    const row = container.querySelector('tbody [data-slot="table-row"]') as HTMLElement
+    const row = container.querySelector('[data-slot="table-body"] [data-slot="table-row"]') as HTMLElement
     expect(row.className).toContain('hover:bg-table-row-hover')
     expect(row.className).toContain('border-b')
     expect(row.className).toContain('last:border-b-0')
-    expect(row.className).toContain('transition-colors')
+    expect(row.className).toContain('transition-[grid-template-columns,background-color,color]')
   })
 
   it('Striped variant adds an even-row tint via context', () => {
@@ -111,7 +112,7 @@ describe('Table primitive (Phase B.6 polish)', () => {
     const root = container.querySelector('[data-slot="table"]') as HTMLElement
     expect(root.getAttribute('data-variant')).toBe('striped')
     const rows = Array.from(
-      container.querySelectorAll('tbody [data-slot="table-row"]'),
+      container.querySelectorAll('[data-slot="table-body"] [data-slot="table-row"]'),
     ) as HTMLElement[]
     expect(rows.length).toBe(2)
     for (const row of rows) {
@@ -131,7 +132,7 @@ describe('Table primitive (Phase B.6 polish)', () => {
     )
     const root = container.querySelector('[data-slot="table"]') as HTMLElement
     expect(root.getAttribute('data-variant')).toBe('default')
-    const row = container.querySelector('tbody [data-slot="table-row"]') as HTMLElement
+    const row = container.querySelector('[data-slot="table-body"] [data-slot="table-row"]') as HTMLElement
     expect(row.className).not.toContain('even:bg-surface-muted/40')
   })
 
@@ -175,9 +176,9 @@ describe('Table primitive (Phase B.6 polish)', () => {
     expect(cell.className).toContain('font-medium')
   })
 
-  it('the header rule sits on the cell, not the row, so it survives a sticky header', () => {
+  it('separates the header from the rows by tone, not by a rule', () => {
     const { container } = render(
-      <Table>
+      <Table columnCount={1}>
         <TableHeader>
           <TableRow>
             <TableHead>Header</TableHead>
@@ -185,11 +186,12 @@ describe('Table primitive (Phase B.6 polish)', () => {
         </TableHeader>
       </Table>,
     )
-    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
-    expect(head.className).toContain('border-b')
-    expect(head.className).toContain('border-table-border')
     const strip = container.querySelector('[data-slot="table-header"]') as HTMLElement
-    expect(strip.className).not.toContain('[&_tr]:border-b')
+    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
+    // The step from the strip's fill to the row ground IS the edge; a border on
+    // top of it reads as a second, competing line.
+    expect(strip.className).toContain('bg-table-header')
+    expect(head.className).not.toContain('border-b')
   })
 
   it('TableHead is announced as a column header', () => {
@@ -203,7 +205,10 @@ describe('Table primitive (Phase B.6 polish)', () => {
       </Table>,
     )
     const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
-    expect(head.getAttribute('scope')).toBe('col')
+    // `scope="col"` is a <th> attribute; on a grid table the ROLE carries it.
+    expect(head.getAttribute('role')).toBe('columnheader')
+    expect(head.closest('[role="row"]')).not.toBeNull()
+    expect(head.closest('[role="table"]')).not.toBeNull()
   })
 
   it('align moves the header and its column of cells together', () => {
@@ -280,9 +285,10 @@ describe('Table primitive (Phase B.6 polish)', () => {
     const [control, text] = Array.from(
       container.querySelectorAll('[data-slot="table-head"]'),
     ) as HTMLElement[]
-    // Symmetric and tight, shrinking to the control it holds…
+    // Symmetric and tight. Width is the TRACK's job in a grid, so the cell only
+    // owns the gutter — no `w-px` shrink hack.
     expect(control.className).toContain('px-3')
-    expect(control.className).toContain('w-px')
+    expect(control.className).not.toContain('w-px')
     expect(control.className).not.toContain('sm:px-5')
     // …while the reading column keeps the wider responsive inset.
     expect(text.className).toContain('sm:px-5')
@@ -293,7 +299,6 @@ describe('Table primitive (Phase B.6 polish)', () => {
     const [controlCell, textCell] = Array.from(
       container.querySelectorAll('[data-slot="table-cell"]'),
     ) as HTMLElement[]
-    expect(controlCell.className).toContain('w-px')
     expect(controlCell.className).toContain('py-4')
     expect(textCell.className).toContain('py-4')
   })
@@ -332,8 +337,9 @@ describe('Table primitive (Phase B.6 polish)', () => {
         </TableBody>
       </Table>,
     )
-    expect((container.querySelector('[data-slot="table-head"]') as HTMLElement).className).toContain('align-middle')
-    expect((container.querySelector('[data-slot="table-cell"]') as HTMLElement).className).toContain('align-middle')
+    // Grid cells centre with flex alignment, not `vertical-align`.
+    expect((container.querySelector('[data-slot="table-head"]') as HTMLElement).className).toContain('items-center')
+    expect((container.querySelector('[data-slot="table-cell"]') as HTMLElement).className).toContain('items-center')
   })
 
   it('keeps the header inset identical to the cell inset beneath it', () => {
@@ -359,6 +365,66 @@ describe('Table primitive (Phase B.6 polish)', () => {
       expect(head.className).toContain(inset)
       expect(cell.className).toContain(inset)
     }
+  })
+
+  it('keeps every row one line tall by default, and lets prose opt out', () => {
+    const { container } = render(
+      <Table>
+        <TableBody>
+          <TableRow>
+            <TableCell>short</TableCell>
+            <TableCell className="whitespace-normal">a long piece of prose</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    )
+    const cells = Array.from(container.querySelectorAll('[data-slot="table-cell"]')) as HTMLElement[]
+    // Uniform single-line rows are the table's structural signature.
+    expect(cells[0].className).toContain('whitespace-nowrap')
+    // twMerge lets a prose cell win, so nothing is silently clipped.
+    expect(cells[1].className).toContain('whitespace-normal')
+    expect(cells[1].className).not.toContain('whitespace-nowrap')
+  })
+
+  it('carries selection in the ink as well as the wash', () => {
+    const { container } = render(
+      <Table>
+        <TableBody>
+          <TableRow data-state="selected">
+            <TableCell>picked</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    )
+    const row = container.querySelector('[data-slot="table-body"] [data-slot="table-row"]') as HTMLElement
+    // A tint alone flattens away on a low-contrast display or for a viewer with
+    // a colour-vision deficiency; the ink change survives both.
+    expect(row.className).toContain('[&:not([data-slot=table-header]_*)][data-state=selected]:bg-table-selected')
+    expect(row.className).toContain('[&:not([data-slot=table-header]_*)][data-state=selected]:text-accent-strong')
+  })
+
+  describe('TableRowMarker', () => {
+    it('takes no width until the row is selected, so nothing shifts', () => {
+      const { container, rerender } = render(<TableRowMarker />)
+      const idle = container.querySelector('[data-slot="table-row-marker"]') as HTMLElement
+      expect(idle.className).toContain('w-0')
+      expect(idle.className).toContain('opacity-0')
+      expect(idle.getAttribute('data-active')).toBeNull()
+
+      rerender(<TableRowMarker active />)
+      const active = container.querySelector('[data-slot="table-row-marker"]') as HTMLElement
+      expect(active.getAttribute('data-active')).toBe('true')
+      expect(active.className).toContain('w-0.5')
+      expect(active.className).toContain('opacity-100')
+      expect(active.className).toContain('bg-primary')
+    })
+
+    it('is decorative and respects reduced motion', () => {
+      const { container } = render(<TableRowMarker active />)
+      const marker = container.querySelector('[data-slot="table-row-marker"]') as HTMLElement
+      expect(marker.getAttribute('aria-hidden')).toBe('true')
+      expect(marker.className).toContain('motion-reduce:transition-none')
+    })
   })
 
   describe('TableSortLabel', () => {

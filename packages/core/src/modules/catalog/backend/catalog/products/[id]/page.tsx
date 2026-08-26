@@ -2423,7 +2423,7 @@ function ProductVariantsSection({
         </div>
         {variants.length ? (
           <div className="overflow-x-auto rounded-md border">
-            <Table density="compact" className="min-w-[720px] table-fixed">
+            <Table columnCount={5} density="compact" className="min-w-[720px] table-fixed">
               <TableHeader>
                 <TableRow>
                   <TableHead>

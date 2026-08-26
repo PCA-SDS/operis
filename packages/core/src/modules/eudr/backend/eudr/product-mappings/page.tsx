@@ -330,7 +330,6 @@ export default function EudrProductMappingsPage() {
           }}
           isLoading={loading}
           perspective={{ tableId: 'eudr.product_mappings.list' }}
-          stickyActionsColumn
         />
       </PageBody>
       <MappingSuggestionsDialog

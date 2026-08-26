@@ -95,7 +95,7 @@ export function TopNTable<T extends Record<string, unknown>>({
     <div className={`rounded-xl border border-border bg-surface shadow-sm p-4 ${className}`}>
       {title && <h3 className="mb-4 text-base font-medium text-card-foreground">{title}</h3>}
       <div className="overflow-x-auto">
-        <Table density="compact">
+        <Table density="compact" columns={columns.map((column) => column.width ?? 'minmax(0,1fr)')}>
           <TableHeader>
             <TableRow>
               {columns.map((column) => (

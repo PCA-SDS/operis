@@ -369,7 +369,6 @@ export default function EudrStatementsPage() {
           }}
           isLoading={loading}
           perspective={{ tableId: 'eudr.statements.list' }}
-          stickyActionsColumn
         />
       </PageBody>
       {ConfirmDialogElement}

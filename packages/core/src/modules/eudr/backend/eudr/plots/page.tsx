@@ -428,7 +428,6 @@ export default function EudrPlotsPage() {
           }}
           isLoading={loading}
           perspective={{ tableId: 'eudr.plots.list' }}
-          stickyActionsColumn
         />
       </PageBody>
       <PlotImportDialog

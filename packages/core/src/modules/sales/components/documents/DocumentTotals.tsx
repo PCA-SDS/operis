@@ -67,7 +67,7 @@ export function DocumentTotals({ title, currency, items, className }: DocumentTo
         {/* Same primitives, same `compact` density and same right-aligned figures as
             the line-items table this block sits under, so the two read as one
             statement rather than as two separately-built tables. */}
-        <Table density="compact">
+        <Table columnCount={2} density="compact">
           <TableBody>
             {visibleItems
               .filter((item) => !item.emphasize)

@@ -478,7 +478,7 @@ export function IntegrationScheduleTab(props: IntegrationScheduleTabProps) {
         </Alert>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
-          <Table density="compact" className="min-w-[1080px]">
+          <Table columnCount={9} density="compact" className="min-w-[1080px]">
             <TableHeader>
               <TableRow>
                 <TableHead>{t('data_sync.dashboard.columns.entityType', 'Entity Type')}</TableHead>

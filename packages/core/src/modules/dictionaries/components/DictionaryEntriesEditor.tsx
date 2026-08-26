@@ -415,7 +415,7 @@ export function DictionaryEntriesEditor({ dictionaryId, dictionaryName, readOnly
       </div>
 
       <div className="overflow-hidden rounded-md border">
-        <Table density="compact">
+        <Table columnCount={4} density="compact">
           <TableHeader>
             <TableRow>
               <TableHead className="w-48">{t('dictionaries.config.entries.columns.value', 'Value')}</TableHead>

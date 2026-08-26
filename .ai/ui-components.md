@@ -5848,6 +5848,7 @@ Semantic HTML table primitives with DS spacing/typography. Pure presentational �
 - `TableCell` (`<td>`) — body cell
 - `TableCaption` — `<caption>` for screen readers
 - `TableSortLabel` — the sort trigger for a sortable column
+- `TableRowMarker` — leading accent bar on a selected row (first child of the row's first cell)
 - `tableAriaSort(direction)` — maps a direction to the `aria-sort` value
 
 ### Props
@@ -5885,6 +5886,24 @@ Everything else is native HTML attributes; style via `className`.
 </Table>
 ```
 
+### The one table look
+
+Every table in the product renders these primitives, so they all share one look. The properties that define it:
+
+| | |
+|---|---|
+| Card | `rounded-xl bg-surface shadow-md`, `overflow-hidden` |
+| Header strip | `bg-table-header`, rule on the cell so it survives pinning |
+| Header label | `text-xs font-bold uppercase tracking-wide text-muted-foreground`, clipped, never wrapped |
+| Sort | `TableSortLabel` — label goes full ink when active; active arrow takes `accent-strong`, idle pair sits at `disabled-foreground` and lifts on hover |
+| Row | one line tall (`whitespace-nowrap`), `py-4`, hairline rule between rows |
+| Row hover | `bg-table-row-hover` — one token, whether or not the row is clickable |
+| Row selected | `bg-table-selected` wash **and** `text-accent-strong` ink **and** a `TableRowMarker` at the row's start |
+| Inset | `px-3 sm:px-5`, identical on head and cell; `padding="control"` for a single-control column |
+| Figures | `align="right"` on head and cell together |
+
+Deviating from any row of that table makes one list look unlike the rest of the product. Extend the component rather than restyling a table at its call site.
+
 ### Alignment contract
 The header must line up with the column of values under it, and every cell must sit on the same rhythm:
 
@@ -5896,6 +5915,7 @@ The header must line up with the column of values under it, and every cell must 
 ### Rules
 - **`align` is a property of the COLUMN.** Set the same value on the `TableHead` and on every `TableCell` beneath it. Figures (amounts, quantities, counts) go `right`; everything else stays `left`. A right-aligned header over left-aligned digits is the most common way a table reads as unfinished.
 - **NEVER put `display:flex` on a `TableCell`/`TableHead`** — it drops the cell out of the table's column model, so it stops tracking the width of the header above it. Put the flex on an inner `<div>`.
+- **A row is one line tall.** `TableCell` sets `whitespace-nowrap`; uniform row height is what makes a list scannable. A cell holding genuine prose opts out with `whitespace-normal` (twMerge lets it win) — do not remove the default.
 - **Sortable columns render `TableSortLabel`**, never a hand-rolled button — that is what keeps the affordance, the emphasis and the keyboard behaviour identical across `DataTable` and hand-built tables.
 - The header's bottom rule lives on `TableHead`, not on the header `TableRow`, so it survives a sticky header under `border-collapse: collapse`. Do not move it back.
 - Pin a header (`sticky top-0`) ONLY when the table owns a vertical scrollport. Without one it sticks to the viewport and slides under the app topbar.

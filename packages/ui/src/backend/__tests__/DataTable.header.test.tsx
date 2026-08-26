@@ -74,7 +74,7 @@ describe('DataTable column headers', () => {
     expect(headOf(container, 'Amount').getAttribute('data-align')).toBe('right')
     expect(headOf(container, 'Name').getAttribute('data-align')).toBe('left')
 
-    const bodyRow = container.querySelector('tbody [data-slot="table-row"]') as HTMLElement
+    const bodyRow = container.querySelector('[data-slot="table-body"] [data-slot="table-row"]') as HTMLElement
     const cells = Array.from(bodyRow.querySelectorAll('[data-slot="table-cell"]')) as HTMLElement[]
     // Column order is Name, Amount — the cells must match their headers.
     expect(cells[0].getAttribute('data-align')).toBe('left')
@@ -109,6 +109,19 @@ describe('DataTable column headers', () => {
   })
 })
 
+describe('DataTable row selection', () => {
+  it('leads every row with the selection marker, inert until the row is picked', () => {
+    const { container } = renderTable()
+    const markers = container.querySelectorAll('[data-slot="table-body"] [data-slot="table-row-marker"]')
+    // One per row, in the first cell — where the eye enters the row.
+    expect(markers.length).toBe(data.length)
+    for (const marker of Array.from(markers)) {
+      expect(marker.getAttribute('data-active')).toBeNull()
+      expect(marker.parentElement?.getAttribute('data-first-cell')).toBe('true')
+    }
+  })
+})
+
 describe('DataTable column resize feedback', () => {
   const startDrag = (container: HTMLElement) => {
     const handle = container.querySelector('[role="separator"]') as HTMLElement
@@ -133,8 +146,8 @@ describe('DataTable column resize feedback', () => {
     const { container } = renderTable({ perspective: { tableId: 'test.resize' } })
     startDrag(container)
 
-    const markedHead = container.querySelector('thead [data-resizing="true"]')
-    const markedCells = container.querySelectorAll('tbody [data-resizing="true"]')
+    const markedHead = container.querySelector('[data-slot="table-header"] [data-resizing="true"]')
+    const markedCells = container.querySelectorAll('[data-slot="table-body"] [data-resizing="true"]')
     expect(markedHead).not.toBeNull()
     // One tagged cell per row, all in the same column.
     expect(markedCells.length).toBe(data.length)
@@ -198,5 +211,34 @@ describe('DataTable column reorder feedback', () => {
     const { container } = renderTable()
     const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
     expect(head.className).not.toContain('hover:bg-surface-strong')
+  })
+})
+
+/**
+ * The grid's one invariant: the row's track list must have exactly as many
+ * entries as the row has cells. One short and the last column — the actions
+ * column — spills into an implicit row and vanishes; one long and every column
+ * after the gap sits under the wrong header.
+ */
+describe('DataTable grid track invariant', () => {
+  const trackCount = (container: HTMLElement) => {
+    const row = container.querySelector('[data-slot="table-header"] [role="row"]') as HTMLElement
+    return row.style.gridTemplateColumns.split(/\s+(?![^(]*\))/).filter(Boolean).length
+  }
+  const cellCount = (container: HTMLElement, selector: string) =>
+    container.querySelectorAll(selector).length
+
+  it('matches tracks to header and body cells with row actions', () => {
+    const { container } = renderTable({ rowActions: () => <button type="button">go</button> })
+    const tracks = trackCount(container)
+    expect(cellCount(container, '[data-slot="table-header"] [role="columnheader"]')).toBe(tracks)
+    const firstRow = container.querySelector('[data-slot="table-body"] [role="row"]') as HTMLElement
+    expect(firstRow.querySelectorAll('[role="cell"]').length).toBe(tracks)
+  })
+
+  it('matches tracks to cells with no actions column', () => {
+    const { container } = renderTable()
+    const tracks = trackCount(container)
+    expect(cellCount(container, '[data-slot="table-header"] [role="columnheader"]')).toBe(tracks)
   })
 })

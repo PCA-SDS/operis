@@ -73,7 +73,7 @@ export function CustomerAccountsSettingsPageClient({ portalOrigin }: CustomerAcc
             {t('customer_accounts.settings.demo_credentials.title', 'Demo Credentials')}
           </h3>
           <div className="overflow-x-auto">
-            <Table density="compact">
+            <Table columnCount={3} density="compact">
               <TableHeader>
                 <TableRow>
                   <TableHead>

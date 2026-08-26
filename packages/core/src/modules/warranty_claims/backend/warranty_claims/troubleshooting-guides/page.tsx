@@ -404,8 +404,6 @@ export default function WarrantyTroubleshootingGuidesPage() {
         >
           <DataTable<TroubleshootingGuideRecord>
           embedded
-          stickyFirstColumn
-          stickyActionsColumn
           refreshButton={{
             label: t('warranty_claims.troubleshootingGuides.list.actions.refresh', 'Refresh'),
             onRefresh: reload,
