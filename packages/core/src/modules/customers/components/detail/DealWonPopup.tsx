@@ -1,11 +1,16 @@
 "use client"
 
 import * as React from 'react'
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { ChartColumnIncreasing, Clock3, Medal, Trophy } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Dialog, DialogContent, DialogTitle } from '@open-mercato/ui/primitives/dialog'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogTitle,
+} from '@open-mercato/ui/primitives/dialog'
 
 type DealStatsPayload = {
   dealValue: number | null
@@ -85,23 +90,18 @@ export function DealWonPopup({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }}>
-      <DialogContent className="max-h-[90vh] overflow-hidden p-0 sm:max-w-[420px]">
-        <VisuallyHidden>
-          <DialogTitle>{t('customers.deals.detail.won.title', 'Closed successfully')}</DialogTitle>
-        </VisuallyHidden>
-        <div className="max-h-[90vh] overflow-y-auto rounded-2xl bg-card">
-          <div className="px-6 pb-5 pt-6">
-            {/* TODO(ds-review): decorative gradient — consider defining a named gradient token if reused */}
-            <div className="flex h-[200px] items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(141,150,244,0.5),rgba(198,203,254,0.95))] text-foreground">
-              <Trophy className="size-24" strokeWidth={1.5} />
-            </div>
+      <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-[420px]">
+        <DialogBody className="min-h-0 flex-1 space-y-5 overflow-y-auto pt-6 text-center">
+          {/* TODO(ds-review): decorative gradient — consider defining a named gradient token if reused */}
+          <div className="flex h-[200px] items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(141,150,244,0.5),rgba(198,203,254,0.95))] text-foreground">
+            <Trophy className="size-24" strokeWidth={1.5} />
           </div>
 
-          <div className="space-y-5 px-7 pb-7 text-center">
+          <div className="space-y-5">
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold leading-tight text-foreground">
+              <DialogTitle className="text-2xl font-bold leading-tight">
                 {t('customers.deals.detail.won.title', 'Closed successfully')}
-              </h2>
+              </DialogTitle>
               <p className="text-sm font-medium text-muted-foreground">
                 {t('customers.deals.detail.won.subtitle', 'You are a sales machine!')}
               </p>
@@ -146,18 +146,18 @@ export function DealWonPopup({
               </div>
             </div>
 
-            <div className="space-y-2">
-              {onViewDashboard ? (
-                <Button type="button" className="w-full" onClick={onViewDashboard}>
-                  {t('customers.deals.detail.won.primaryAction', 'View sales report')}
-                </Button>
-              ) : null}
-              <Button type="button" variant={onViewDashboard ? 'outline' : 'default'} className="w-full" onClick={onBackToPipeline ?? onClose}>
-                {t('customers.deals.detail.won.secondaryAction', 'Back to pipeline')}
-              </Button>
-            </div>
           </div>
-        </div>
+        </DialogBody>
+        <DialogFooter className="flex-col gap-2">
+          {onViewDashboard ? (
+            <Button type="button" className="w-full" onClick={onViewDashboard}>
+              {t('customers.deals.detail.won.primaryAction', 'View sales report')}
+            </Button>
+          ) : null}
+          <Button type="button" variant={onViewDashboard ? 'outline' : 'default'} className="w-full" onClick={onBackToPipeline ?? onClose}>
+            {t('customers.deals.detail.won.secondaryAction', 'Back to pipeline')}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

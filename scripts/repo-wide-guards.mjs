@@ -93,6 +93,10 @@ export const REPO_WIDE_GUARDS = [
         scans: 'every packages/*/src/modules tree — optimistic-lock command coverage',
       },
       {
+        path: 'src/__tests__/sidebar-nav-group-identity.test.ts',
+        scans: 'every module backend/ tree across packages/ and apps/ — two nav groups rendering one label (the duplicate TASKS section)',
+      },
+      {
         path: 'src/modules/__tests__/crud-indexer-config.test.ts',
         scans: 'packages/ and apps/ — CRUD indexer configuration',
       },

@@ -13,6 +13,7 @@ import { raiseCrudError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { Button } from '@open-mercato/ui/primitives/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -418,25 +419,23 @@ export function ReceiveInventoryDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : closeDialog())}>
       <DialogContent
-        className="max-w-lg gap-0 overflow-hidden p-0"
+        className="max-w-lg overflow-hidden"
         onKeyDown={handleDialogKeyDown}
       >
-        <div className="border-b px-6 py-4 pr-12">
-          <DialogHeader className="space-y-1 text-left">
-            <DialogTitle>
-              {t('wms.backend.inventory.receive.dialog.title', 'Receive inventory')}
-            </DialogTitle>
-            <DialogDescription>
-              {t(
-                'wms.backend.inventory.receive.dialog.description',
-                'Record inbound stock as a receipt movement',
-              )}
-            </DialogDescription>
-          </DialogHeader>
-        </div>
+        <DialogHeader className="space-y-1 text-left">
+          <DialogTitle>
+            {t('wms.backend.inventory.receive.dialog.title', 'Receive inventory')}
+          </DialogTitle>
+          <DialogDescription>
+            {t(
+              'wms.backend.inventory.receive.dialog.description',
+              'Record inbound stock as a receipt movement',
+            )}
+          </DialogDescription>
+        </DialogHeader>
 
         <form ref={formRef} onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="flex flex-col gap-5 overflow-y-auto px-6 py-6">
+          <DialogBody className="flex flex-col gap-5 overflow-y-auto">
             <FormField
               label={t('wms.backend.inventory.receive.form.variant', 'Variant')}
               required
@@ -667,9 +666,9 @@ export function ReceiveInventoryDialog({
                 disabled={submitting}
               />
             </FormField>
-          </div>
+          </DialogBody>
 
-          <DialogFooter bordered={false} className="flex-row items-center justify-between border-t px-6 py-4">
+          <DialogFooter className="flex-row items-center justify-between">
             <p className="hidden text-xs text-muted-foreground sm:inline-flex sm:items-center sm:gap-1.5">
               <KbdShortcut keys={['⌘', 'Enter']} />
               <span>/</span>

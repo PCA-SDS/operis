@@ -2436,6 +2436,7 @@
   "customers.personTags.category.statuses": "상태",
   "customers.personTags.category.tags": "태그",
   "customers.personTags.category.temperature": "온도",
+  "customers.personTags.close": "닫기",
   "customers.personTags.createLabelError": "라벨 생성에 실패했습니다",
   "customers.personTags.description.customCategory": "사용자 지정 CRM 카테고리: {{name}}.",
   "customers.personTags.description.industries": "이 회사를 분류하는 데 사용되는 업종입니다.",

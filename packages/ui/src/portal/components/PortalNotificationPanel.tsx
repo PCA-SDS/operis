@@ -1,7 +1,7 @@
 "use client"
 import * as React from 'react'
 import { Button } from '../../primitives/button'
-import { IconButton } from '../../primitives/icon-button'
+import { CloseButton } from '../../primitives/close-button'
 import type { NotificationDto } from '@open-mercato/shared/modules/notifications/types'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 
@@ -84,7 +84,7 @@ export function PortalNotificationPanel({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-modal bg-black/20 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-modal bg-foreground/40" onClick={onClose} />
 
       {/* Panel */}
       <div
@@ -114,9 +114,7 @@ export function PortalNotificationPanel({
                 {t('portal.notifications.markAllRead', 'Mark all read')}
               </Button>
             ) : null}
-            <IconButton variant="ghost" size="sm" type="button" onClick={onClose} aria-label="Close">
-              <XIcon className="size-4" />
-            </IconButton>
+            <CloseButton onClick={onClose} aria-label="Close" />
           </div>
         </div>
 

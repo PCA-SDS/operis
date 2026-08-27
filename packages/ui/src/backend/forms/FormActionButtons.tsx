@@ -27,6 +27,8 @@ export type FormActionButtonsProps = {
     formId?: string
     /** Whether the form is currently submitting */
     pending?: boolean
+    /** Blocks submit without the saving affordance — e.g. prerequisites still loading. */
+    disabled?: boolean
     /** Label while idle */
     label?: string
     /** Label while saving */
@@ -86,7 +88,7 @@ export function FormActionButtons({
         <Button
           type="submit"
           form={submit.formId}
-          disabled={submit.pending}
+          disabled={submit.pending || submit.disabled}
         >
           {submit.pending ? <Loader2 className="size-4 mr-2 animate-spin" /> : <SubmitIcon className="size-4 mr-2" />}
           {submit.pending ? resolvedPendingLabel : resolvedSubmitLabel}

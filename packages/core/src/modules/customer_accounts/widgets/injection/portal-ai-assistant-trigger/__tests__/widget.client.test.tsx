@@ -18,11 +18,21 @@ jest.mock('@open-mercato/ui/ai/AiChat', () => ({
   AiChat: () => <div data-testid="mock-portal-ai-chat" />,
 }))
 
+const useAiConfiguredMock = jest.fn()
+jest.mock('@open-mercato/ui/ai/useAiConfigured', () => ({
+  useAiConfigured: () => useAiConfiguredMock(),
+}))
+
 jest.mock('@open-mercato/shared/security/features', () => ({
   hasFeature: (features: string[], required: string) => features.includes(required),
 }))
 
 describe('customer_accounts PortalAiAssistantTriggerWidget', () => {
+  beforeEach(() => {
+    useAiConfiguredMock.mockReset()
+    useAiConfiguredMock.mockReturnValue({ configured: true, loaded: true, isUnconfigured: false })
+  })
+
   it('renders the portal trigger button from concrete effective features', () => {
     render(<PortalAiAssistantTriggerWidget
       context={{
@@ -41,5 +51,25 @@ describe('customer_accounts PortalAiAssistantTriggerWidget', () => {
       />,
     )
     expect(container.textContent?.trim()).toBe('')
+  })
+
+  it('hides the trigger when no AI provider key is configured', () => {
+    useAiConfiguredMock.mockReturnValue({ configured: false, loaded: true, isUnconfigured: true })
+    const { container } = render(
+      <PortalAiAssistantTriggerWidget
+        context={{ isPortalAdmin: true, resolvedFeatures: ['portal.account.manage'] }}
+      />,
+    )
+    expect(container.textContent?.trim()).toBe('')
+  })
+
+  it('keeps the trigger when the provider probe is inconclusive', () => {
+    useAiConfiguredMock.mockReturnValue({ configured: null, loaded: true, isUnconfigured: false })
+    render(
+      <PortalAiAssistantTriggerWidget
+        context={{ isPortalAdmin: true, resolvedFeatures: ['portal.account.manage'] }}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /open portal ai assistant/i })).toBeTruthy()
   })
 })

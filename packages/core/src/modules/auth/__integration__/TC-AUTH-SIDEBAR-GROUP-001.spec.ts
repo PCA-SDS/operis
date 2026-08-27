@@ -16,6 +16,9 @@ import { expect, test, type Page } from '@playwright/test';
  *   (`isNewVariant`) and `Save` afterwards, so both names are accepted
  * - `AppShell` drops a group once every one of its items is hidden, so the group's nav entries must
  *   disappear from the sidebar
+ * - `data-testid="sidebar"` is the main nav only; a `pageContext: 'settings'` route (which the
+ *   customization page is) renders `appshell-section-sidebar` in its place, so every rendered-href
+ *   assertion here has to run on `BACKEND_PATH`
  *
  * The sidebar renders group *entries*, not group headings, so this asserts on the set of nav links
  * shrinking rather than on a group label being absent — the latter would pass vacuously.
@@ -65,6 +68,13 @@ type NavPayload = {
   }>;
 };
 
+/**
+ * Payload-level view of a group: what `/api/auth/admin/nav` declares as visible. This is a
+ * SUPERSET of what the main nav renders — `AppShell`'s `isMainItem` additionally drops any href
+ * under a settings path prefix (a runtime-configurable list this spec deliberately does not
+ * duplicate). Assert payload expectations against this, rendered expectations against the
+ * intersection with `sidebarHrefs`.
+ */
 async function visibleGroupHrefs(page: Page, groupName: string): Promise<string[]> {
   const responsePromise = page.waitForResponse(
     (response) => new URL(response.url()).pathname === NAV_PATH && response.ok(),
@@ -123,14 +133,15 @@ test.describe('sidebar group visibility toggle', () => {
     expect(groupName.length, 'the switch should name the group it controls').toBeGreaterThan(0);
     await expect(groupSwitch, 'the group should start visible').toHaveAttribute('aria-checked', 'true');
     const declaredGroupHrefs = await visibleGroupHrefs(page, groupName);
-    const renderedBaselineHrefs = await sidebarHrefs(page);
-    const groupHrefs = declaredGroupHrefs.filter((href) => renderedBaselineHrefs.includes(href));
-    expect(groupHrefs.length, `"${groupName}" should render at least one main-nav entry`).toBeGreaterThan(0);
 
     const namedSwitch = () => page.getByRole('switch', { name: `Show ${groupName}` }).first();
 
+    // The baseline render has to be read on a main-context route: the customization page is
+    // `pageContext: 'settings'`, so its rail is the section nav, not the main nav.
     await page.goto(BACKEND_PATH);
-    await expectGroupLinks(page, groupHrefs, true);
+    const renderedBaselineHrefs = await sidebarHrefs(page);
+    const groupHrefs = declaredGroupHrefs.filter((href) => renderedBaselineHrefs.includes(href));
+    expect(groupHrefs.length, `"${groupName}" should render at least one main-nav entry`).toBeGreaterThan(0);
     await page.goto(CUSTOMIZATION_PATH);
 
     try {
@@ -177,7 +188,7 @@ test.describe('sidebar group visibility toggle', () => {
         message: `restoring "${groupName}" should restore every nav entry`,
         timeout: 30_000,
       })
-      .toEqual(groupHrefs);
+      .toEqual(declaredGroupHrefs);
     await page.goto(BACKEND_PATH);
     await expectGroupLinks(page, groupHrefs, true);
   });

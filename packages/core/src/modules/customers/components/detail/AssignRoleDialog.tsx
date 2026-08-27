@@ -347,10 +347,11 @@ export function AssignRoleDialog({
       }}
     >
       <DialogContent
+        disableBodyWrap
         className="min-h-0 max-h-[min(90vh,760px)] overflow-hidden p-0 sm:max-w-[580px]"
         onKeyDown={handleKeyDown}
       >
-        <DialogHeader className="border-b border-border/70 px-6 py-5">
+        <DialogHeader>
           <DialogTitle className="text-2xl font-semibold leading-none">
             {t('customers.roles.dialog.title', 'Assign role')}
           </DialogTitle>
@@ -641,8 +642,6 @@ export function AssignRoleDialog({
         </div>
 
         <DialogFooter
-          bordered={false}
-          className="shrink-0 border-t border-border/70 px-6 py-4"
           leading={
             <p className="text-xs text-muted-foreground sm:max-w-2xs">
               {t(

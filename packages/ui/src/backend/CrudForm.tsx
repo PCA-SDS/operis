@@ -30,6 +30,11 @@ import {
 } from '../primitives/select'
 import { flash } from './FlashMessages'
 import { FormHeader } from './forms/FormHeader'
+import {
+  FORM_SECTION_ATTR,
+  FORM_SECTION_PANEL,
+} from './forms/formChrome'
+import { FormFieldLabel, FormSection } from './forms/FormSection'
 import { FormFooter } from './forms/FormFooter'
 import { Button } from '../primitives/button'
 import { IconButton } from '../primitives/icon-button'
@@ -111,6 +116,22 @@ import { ComponentReplacementHandles } from '@open-mercato/shared/modules/widget
 import { crudFormExtensionSpotId, extensionSpotChildId } from '@open-mercato/shared/modules/widgets/extension-points'
 import { RichEditor, type RichEditorLabels } from '../primitives/rich-editor'
 import MarkdownField from './inputs/MarkdownField'
+
+/**
+ * Wraps an ungrouped form body in a section panel. A grouped form gets its
+ * panels from the sections themselves; an ungrouped one has none, and its
+ * controls are borderless — they need a fill to sit on. Disabled when embedded
+ * (dialogs supply their own surface).
+ */
+function SectionPanel({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
+  if (!enabled) return <>{children}</>
+  return (
+    <div className={FORM_SECTION_PANEL} {...FORM_SECTION_ATTR}>
+      {children}
+    </div>
+  )
+}
+
 
 // Stable empty options array to avoid creating a new [] every render
 const logger = createLogger('ui').child({ component: 'CrudForm' })
@@ -351,6 +372,14 @@ export type CrudFormProps<TValues extends Record<string, unknown>> = {
   twoColumn?: boolean
   title?: string
   backHref?: string
+  /** Label for the back link. Defaults to the generic `ui.navigation.back`. */
+  backLabel?: string
+  /**
+   * Blocks submit while a prerequisite the form owns is still resolving (async
+   * field definitions, a dependent lookup). Distinct from `pending`, which is
+   * the saving state and shows a spinner.
+   */
+  submitDisabled?: boolean
   // Optional extra action buttons rendered next to Delete/Cancel/Save
   // Useful for custom links like "Show Records" etc.
   extraActions?: React.ReactNode
@@ -728,6 +757,8 @@ export function CrudForm<TValues extends Record<string, unknown>>({
   twoColumn = false,
   title,
   backHref,
+  backLabel: backLabelProp,
+  submitDisabled = false,
   entityId,
   entityIds,
   groups,
@@ -762,7 +793,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
   const cancelLabel = t('ui.forms.actions.cancel')
   const deleteLabel = t('ui.forms.actions.delete')
   const savingLabel = t('ui.forms.status.saving')
-  const backLabel = t('ui.navigation.back')
+  const backLabel = backLabelProp ?? t('ui.navigation.back')
   const customFieldsLabel = t('entities.customFields.title')
   const fieldsetSelectorLabel = t('entities.customFields.fieldsetSelectorLabel', 'Fieldset')
   const emptyFieldsetMessage = t('entities.customFields.emptyFieldset', 'No fields defined for this fieldset.')
@@ -3297,7 +3328,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
   const renderCustomFieldsContent = React.useCallback((): React.ReactNode[] => {
     if (!customFieldLayout.length) {
       return [
-        <div key="custom-fields-empty" className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+        <div key="custom-fields-empty" className={FORM_SECTION_PANEL}>
           {customFieldsEmptyState}
         </div>,
       ]
@@ -3326,7 +3357,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
 
       if (showSelector) {
         nodes.push(
-          <div key={`custom-fields-selector-${entityLayout.entityId}`} className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+          <div key={`custom-fields-selector-${entityLayout.entityId}`} className={FORM_SECTION_PANEL}>
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <label className="text-xs uppercase tracking-wide text-muted-foreground">
                 {fieldsetSelectorLabel}
@@ -3373,33 +3404,24 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           const sectionKey = `${entityLayout.entityId}:${section.fieldsetCode ?? 'default'}`
           const manageDisabled = !manageHref
           nodes.push(
-            <div key={sectionKey} className="rounded-xl border border-border bg-surface p-5 shadow-sm space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-2">
-                  {FieldsetIcon ? (
-                    <FieldsetIcon className="size-5 text-muted-foreground" />
-                  ) : null}
-                  <div>
-                    <div className="text-sm font-semibold text-foreground">{section.title}</div>
-                    {section.description ? (
-                      <div className="text-xs text-muted-foreground">
-                        {section.description}
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
+            <FormSection
+              key={sectionKey}
+              title={section.title}
+              description={section.description}
+              icon={FieldsetIcon ?? undefined}
+              actions={
                 <Button
                   type="button"
                   variant="muted"
                   size="sm"
-                  className="text-xs"
                   onClick={() => handleOpenFieldsetEditor(entityLayout.entityId, section.fieldsetCode, 'fieldset')}
                   disabled={manageDisabled}
                 >
                   <Settings className="size-4" />
                   {manageFieldsetLabel}
                 </Button>
-              </div>
+              }
+            >
               {section.groups.map((group) => {
                 const groupKey = `${section.fieldsetCode ?? 'default'}:${group.code ?? 'default'}`
                 const visibleFields = placedCustomFieldIds.size > 0
@@ -3425,12 +3447,12 @@ export function CrudForm<TValues extends Record<string, unknown>>({
               {!section.groups.length ? (
                 <div className="text-xs text-muted-foreground">{emptyFieldsetMessage}</div>
               ) : null}
-            </div>,
+            </FormSection>,
           )
         })
       } else {
         nodes.push(
-          <div key={`custom-fields-empty-${entityLayout.entityId}`} className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+          <div key={`custom-fields-empty-${entityLayout.entityId}`} className={FORM_SECTION_PANEL}>
             {customFieldsEmptyState}
           </div>,
         )
@@ -3546,7 +3568,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
         if (isCustomFieldsGroup) {
           if (isLoadingCustomFields) {
             const loadingContent = (
-              <div key={`${g.id}-loading`} className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+              <div key={`${g.id}-loading`} className={FORM_SECTION_PANEL}>
                 <DataLoader
                   isLoading
                   loadingMessage={resolvedCustomFieldsLoadingMessage}
@@ -3676,12 +3698,9 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           )
         } else {
           nodes.push(
-            <div key={g.id} className="rounded-xl border border-border bg-surface px-5 py-4 shadow-sm space-y-3">
-              {g.title ? (
-                <div className="text-sm font-semibold text-foreground">{t(g.title, g.title)}</div>
-              ) : null}
+            <FormSection key={g.id} title={g.title ? t(g.title, g.title) : undefined}>
               {groupContent}
-            </div>,
+            </FormSection>,
           )
         }
       }
@@ -3730,7 +3749,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           className={embedded ? 'min-h-[1px]' : 'min-h-[400px]'}
         >
           {wrapFormBody(
-            <form id={formId} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className={`space-y-4 ${dialogFormPadding}`}>
+            <form id={formId} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className={`${embedded ? 'space-y-4' : 'space-y-5'} ${dialogFormPadding}`}>
             {resolvedInjectionSpotId ? (
               <InjectionSpot
                 spotId={resolvedInjectionSpotId}
@@ -3769,7 +3788,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
                   deleteLabel,
                   cancelHref: !embedded ? cancelHref : undefined,
                   cancelLabel,
-                  submit: { pending: pending, label: resolvedSubmitLabel, pendingLabel: savingLabel, icon: submitIcon }
+                  submit: { pending: pending, disabled: submitDisabled, label: resolvedSubmitLabel, pendingLabel: savingLabel, icon: submitIcon }
                 }}
               />
             )}
@@ -3817,7 +3836,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
             id={formId}
             onSubmit={handleSubmit}
             onKeyDown={handleFormKeyDown}
-            className={`${embedded ? 'space-y-4' : 'rounded-xl border border-border bg-surface p-5 shadow-sm space-y-4'} ${dialogFormPadding}`}
+            className={`${embedded ? 'space-y-4' : 'space-y-5'} ${dialogFormPadding}`}
           >
             {resolvedInjectionSpotId ? (
               <InjectionSpot
@@ -3829,6 +3848,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
                 widgetsOverride={stackedInjectionWidgets}
               />
             ) : null}
+            <SectionPanel enabled={!embedded}>
             <div className={grid}>
               {allFields.map((f) => {
                 if (hiddenBaseFieldIds.has(f.id) || hiddenInjectedFieldIds.has(f.id)) return null
@@ -3855,6 +3875,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
                 )
               })}
             </div>
+            </SectionPanel>
             {formError && !Object.keys(errors).length ? <div className="text-sm text-status-error-text">{formError}</div> : null}
             {hideFooterActions || formReadOnly ? null : (
               <FormFooter
@@ -3867,7 +3888,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
                   deleteLabel,
                   cancelHref: !embedded ? cancelHref : undefined,
                   cancelLabel,
-                  submit: { pending: pending, label: resolvedSubmitLabel, pendingLabel: savingLabel, icon: submitIcon },
+                  submit: { pending: pending, disabled: submitDisabled, label: resolvedSubmitLabel, pendingLabel: savingLabel, icon: submitIcon },
                 }}
               />
             )}
@@ -4440,7 +4461,7 @@ const FieldControl = React.memo(function FieldControlImpl({
   }, [field, hasLoader, loadFieldOptions])
 
   const placeholder = builtin?.placeholder
-  const rootClassName = wrapperClassName ? `space-y-1.5 ${wrapperClassName}` : 'space-y-1.5'
+  const rootClassName = wrapperClassName ?? undefined
   const validateOnWrapperBlur = supportsWrapperBlurValidation(field)
   const singleSelectValue = Array.isArray(value)
     ? String(value[0] ?? '')
@@ -4531,12 +4552,9 @@ const FieldControl = React.memo(function FieldControlImpl({
         : undefined}
     >
       {field.type !== 'checkbox' && field.label.trim().length > 0 ? (
-        <label id={labelDomId} className="block text-sm font-medium text-foreground">
+        <FormFieldLabel id={labelDomId} required={field.required || markRequired}>
           {field.label}
-          {field.required || markRequired ? (
-            <span className="text-destructive" aria-hidden="true"> *</span>
-          ) : null}
-        </label>
+        </FormFieldLabel>
       ) : null}
       {field.type === 'text' && (
         <TextInput
@@ -4816,13 +4834,13 @@ const FieldControl = React.memo(function FieldControlImpl({
         </>
       )}
       {field.description ? (
-        <div id={descriptionDomId} className="flex items-start gap-2 text-xs text-muted-foreground">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-disabled-foreground" />
+        <div id={descriptionDomId} className="mt-1.5 flex items-start gap-2 text-xs text-muted-foreground">
+          <Info className="mt-0.5 size-3.5 shrink-0 text-disabled-foreground" />
           <div>{field.description}</div>
         </div>
       ) : null}
       {error && !(field.type === 'custom' && field.rendersOwnError) ? (
-        <div id={errorDomId} role="alert" className="text-xs font-medium text-destructive">{error}</div>
+        <div id={errorDomId} role="alert" className="mt-1.5 text-xs font-medium text-destructive">{error}</div>
       ) : null}
     </div>
   )

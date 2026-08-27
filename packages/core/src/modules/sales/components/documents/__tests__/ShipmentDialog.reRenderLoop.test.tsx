@@ -68,6 +68,9 @@ jest.mock('lucide-react', () => ({
 }))
 
 jest.mock('@open-mercato/ui/primitives/dialog', () => ({
+  DialogBody: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-slot="dialog-body" className={className}>{children}</div>
+  ),
   Dialog: ({ children }: any) => <div>{children}</div>,
   DialogContent: ({ children }: any) => <div>{children}</div>,
   DialogHeader: ({ children }: any) => <div>{children}</div>,

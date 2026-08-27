@@ -24,10 +24,8 @@
 import * as React from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
-  AlertTriangle,
   BadgeQuestionMark,
   Database,
-  ExternalLink,
   FileQuestion,
   Lightbulb,
   Loader2,
@@ -52,6 +50,7 @@ import { useAiChatSessions } from './AiChatSessions'
 import { ChatPaneTabs } from './ChatPaneTabs'
 import { ConversationShareButton } from './ConversationShareButton'
 import { AiIcon } from './AiIcon'
+import { AiProviderSetupPanel } from './AiProviderSetupPanel'
 import type { AiChatContextItem, AiChatSuggestion } from './AiChat'
 import { SearchInput } from '../primitives/search-input'
 
@@ -133,8 +132,6 @@ interface HealthResponse {
 
 const DEFAULT_AGENTS_ENDPOINT = '/api/ai_assistant/ai/agents'
 const DEFAULT_HEALTH_ENDPOINT = '/api/ai_assistant/health'
-const AI_ASSISTANT_DOCS_URL = 'https://docs.openmercato.com/framework/ai-assistant/overview'
-const AI_ASSISTANT_SETTINGS_DOCS_URL = 'https://docs.openmercato.com/framework/ai-assistant/settings'
 export const AI_ASSISTANT_LAUNCHER_OPEN_EVENT = 'om:open-ai-assistant-launcher'
 
 function isMutationCapable(policy: string | null | undefined): boolean {
@@ -535,11 +532,12 @@ export function AiAssistantLauncher({
       </IconButton>
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent
+        disableBodyWrap
           className="sm:max-w-lg p-0 gap-0 overflow-hidden"
           data-ai-launcher-picker=""
           onKeyDown={handlePickerKeyDown}
         >
-          <DialogHeader className="px-4 pt-4 pb-2">
+          <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <AiIcon className="size-4" />
               {dialogTitle}
@@ -548,95 +546,103 @@ export function AiAssistantLauncher({
               {dialogDescription}
             </DialogDescription>
           </DialogHeader>
-          <div className="border-y border-border bg-muted/30 px-3 py-2">
-            <SearchInput
-              autoFocus
-              value={query}
-              onChange={(next) => {
-                setQuery(next)
-                setHighlight(0)
-              }}
-              placeholder={placeholder}
-              data-ai-launcher-search-input=""
-            />
-          </div>
-          <div
-            className="max-h-80 overflow-y-auto p-1"
-            data-ai-launcher-list=""
-            role="listbox"
-            aria-label={dialogTitle}
-          >
-            {aiConfigured === false ? (
-              <AiProviderSetupPanel t={t} />
-            ) : filteredAgents.length === 0 ? (
-              <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-                {agents.length === 0 ? noneText : emptyText}
-              </div>
-            ) : (
-              filteredAgents.map((agent, index) => {
-                const isActive = index === highlight
-                const writes = isMutationCapable(agent.mutationPolicy)
-                return (
-                  <button
-                    key={agent.id}
-                    type="button"
-                    role="option"
-                    aria-selected={isActive}
-                    onMouseEnter={() => setHighlight(index)}
-                    onClick={() => handleSelectAgent(agent)}
-                    data-ai-launcher-agent-id={agent.id}
-                    data-active={isActive ? 'true' : 'false'}
-                    className={cn(
-                      menuRowVariants({ active: isActive }),
-                      // Two-line rows: the icon aligns to the first line, not the block.
-                      'items-start gap-3',
-                      !isActive && 'hover:bg-surface-muted',
-                    )}
-                  >
-                    <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-violet/10">
-                      <AiIcon className="size-3.5" />
-                    </span>
-                    <span className="flex-1 min-w-0 space-y-0.5">
-                      <span className="flex items-center gap-2">
-                        <span className="truncate font-medium leading-tight">
-                          {agent.label}
-                        </span>
-                        <span
-                          className="inline-flex items-center rounded-full border border-border bg-secondary px-1.5 py-0 text-overline font-medium uppercase tracking-wide text-secondary-foreground"
-                          data-ai-beta-chip=""
-                        >
-                          {t('ai_assistant.chat.betaChip', 'beta')}
-                        </span>
-                        {writes ? (
+          {aiConfigured === false ? null : (
+            <div className="border-y border-border bg-muted/30 px-3 py-2">
+              <SearchInput
+                autoFocus
+                value={query}
+                onChange={(next) => {
+                  setQuery(next)
+                  setHighlight(0)
+                }}
+                placeholder={placeholder}
+                data-ai-launcher-search-input=""
+              />
+            </div>
+          )}
+          {aiConfigured === false ? (
+            <AiProviderSetupPanel />
+          ) : (
+            <div
+              className="max-h-80 overflow-y-auto p-1"
+              data-ai-launcher-list=""
+              role="listbox"
+              aria-label={dialogTitle}
+            >
+              {filteredAgents.length === 0 ? (
+                <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+                  {agents.length === 0 ? noneText : emptyText}
+                </div>
+              ) : (
+                filteredAgents.map((agent, index) => {
+                  const isActive = index === highlight
+                  const writes = isMutationCapable(agent.mutationPolicy)
+                  return (
+                    <button
+                      key={agent.id}
+                      type="button"
+                      role="option"
+                      aria-selected={isActive}
+                      onMouseEnter={() => setHighlight(index)}
+                      onClick={() => handleSelectAgent(agent)}
+                      data-ai-launcher-agent-id={agent.id}
+                      data-active={isActive ? 'true' : 'false'}
+                      className={cn(
+                        menuRowVariants({ active: isActive }),
+                        // Two-line rows: the icon aligns to the first line, not the block.
+                        'items-start gap-3',
+                        !isActive && 'hover:bg-surface-muted',
+                      )}
+                    >
+                      <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-violet/10">
+                        <AiIcon className="size-3.5" />
+                      </span>
+                      <span className="flex-1 min-w-0 space-y-0.5">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate font-medium leading-tight">
+                            {agent.label}
+                          </span>
                           <span
-                            className="inline-flex items-center rounded-full border border-border bg-secondary px-1.5 py-0 text-overline font-medium text-secondary-foreground"
-                            data-ai-launcher-writes=""
+                            className="inline-flex items-center rounded-full border border-border bg-secondary px-1.5 py-0 text-overline font-medium uppercase tracking-wide text-secondary-foreground"
+                            data-ai-beta-chip=""
                           >
-                            {writesBadge}
+                            {t('ai_assistant.chat.betaChip', 'beta')}
+                          </span>
+                          {writes ? (
+                            <span
+                              className="inline-flex items-center rounded-full border border-border bg-secondary px-1.5 py-0 text-overline font-medium text-secondary-foreground"
+                              data-ai-launcher-writes=""
+                            >
+                              {writesBadge}
+                            </span>
+                          ) : null}
+                        </span>
+                        {agent.description ? (
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {agent.description}
                           </span>
                         ) : null}
-                      </span>
-                      {agent.description ? (
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {agent.description}
+                        <span className="block truncate font-mono text-overline text-muted-foreground/80">
+                          {agent.id}
                         </span>
-                      ) : null}
-                      <span className="block truncate font-mono text-overline text-muted-foreground/80">
-                        {agent.id}
                       </span>
-                    </span>
-                  </button>
-                )
-              })
-            )}
-          </div>
-          <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2 text-overline text-muted-foreground">
+                    </button>
+                  )
+                })
+              )}
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2 px-3 py-2 text-overline text-muted-foreground">
             <span className="flex items-center gap-2">
-              <KbdShortcut keys={['↑', '↓']} />{' '}
-              {t('ai_assistant.launcher.hint.navigate', 'Navigate')}
-              <span className="mx-1 text-border">·</span>
-              <Kbd>Enter</Kbd> {t('ai_assistant.launcher.hint.launch', 'Launch')}
-              <span className="mx-1 text-border">·</span>
+              {aiConfigured === false ? null : (
+                <>
+                  <KbdShortcut keys={['↑', '↓']} />{' '}
+                  {t('ai_assistant.launcher.hint.navigate', 'Navigate')}
+                  <span className="mx-1 text-border">·</span>
+                  <Kbd>Enter</Kbd> {t('ai_assistant.launcher.hint.launch', 'Launch')}
+                  <span className="mx-1 text-border">·</span>
+                </>
+              )}
               <Kbd>Esc</Kbd> {t('ai_assistant.launcher.hint.close', 'Close')}
             </span>
             <span className="hidden sm:inline-flex items-center gap-1">
@@ -662,6 +668,7 @@ export function AiAssistantLauncher({
         }
       }}>
         <DialogContent
+        disableBodyWrap
           className={cn(
             // Mobile: full-screen sheet (matches per-page assistant
             // triggers). Desktop (≥sm): right-anchored side sheet so the
@@ -828,58 +835,3 @@ function LauncherChatBody({
 }
 
 export default AiAssistantLauncher
-
-interface AiProviderSetupPanelProps {
-  t: ReturnType<typeof useT>
-}
-
-function AiProviderSetupPanel({ t }: AiProviderSetupPanelProps) {
-  return (
-    <div className="px-4 py-5" data-ai-launcher-provider-setup="">
-      <div className="rounded-lg border border-status-warning-border bg-status-warning-bg p-4 text-status-warning-text">
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-background/70 text-status-warning-icon">
-            <AlertTriangle className="size-4" aria-hidden />
-          </span>
-          <div className="min-w-0 space-y-3">
-            <div>
-              <h3 className="text-sm font-semibold">
-                {t('ai_assistant.launcher.setup.title', 'Configure an AI provider to use assistants')}
-              </h3>
-              <p className="mt-1 text-xs leading-5 text-status-warning-text/90">
-                {t(
-                  'ai_assistant.launcher.setup.body',
-                  'AI assistants are installed, but no provider key is configured. Set OPENCODE_PROVIDER and one matching API key in your .env file, then restart the app.',
-                )}
-              </p>
-            </div>
-            <div className="rounded-md border border-status-warning-border/70 bg-background/80 p-3 font-mono text-overline leading-5 text-foreground">
-              <div>OPENCODE_PROVIDER=anthropic</div>
-              <div>ANTHROPIC_API_KEY=...</div>
-              <div className="mt-2 text-muted-foreground"># or</div>
-              <div>OPENCODE_PROVIDER=openai</div>
-              <div>OPENAI_API_KEY=...</div>
-              <div className="mt-2 text-muted-foreground"># or</div>
-              <div>OPENCODE_PROVIDER=google</div>
-              <div>GOOGLE_GENERATIVE_AI_API_KEY=...</div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button asChild size="sm" variant="outline">
-                <a href={AI_ASSISTANT_DOCS_URL} target="_blank" rel="noreferrer">
-                  {t('ai_assistant.launcher.setup.docs', 'AI assistant docs')}
-                  <ExternalLink className="ml-1 size-3" aria-hidden />
-                </a>
-              </Button>
-              <Button asChild size="sm" variant="ghost">
-                <a href={AI_ASSISTANT_SETTINGS_DOCS_URL} target="_blank" rel="noreferrer">
-                  {t('ai_assistant.launcher.setup.settingsDocs', 'Provider settings')}
-                  <ExternalLink className="ml-1 size-3" aria-hidden />
-                </a>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}

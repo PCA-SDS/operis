@@ -5,8 +5,8 @@ export const metadata = {
   pageTitleKey: 'tasks.nav.projects',
   pageGroup: 'Tasks',
   pageGroupKey: 'tasks.nav.group',
-  pageOrder: 20,
-  pagePriority: 10,
+  pageOrder: 15,
+  pagePriority: 15,
   icon: 'folder-kanban',
   breadcrumb: [{ label: 'Projects', labelKey: 'tasks.nav.projects' }],
 }

@@ -661,6 +661,31 @@ TODO: Fix that latter to have reference by the package names
   --status-pink-solid-foreground: #ffffff;
 }
 
+/* Borderless controls inside a form section (PCA form chrome).
+ *
+ * `CrudForm` marks each section panel with `data-crud-section`. The panel is a
+ * filled `surface-muted` block, and the controls on it drop their border and
+ * take the opposite fill, so a field reads as a white tile rather than an
+ * outlined box. Borderless only works BECAUSE of that panel — the same control
+ * on the page ground would vanish, which is why this is scoped to the section
+ * instead of changing the Input primitive.
+ *
+ * Declared once here rather than per control because a section can hold any
+ * control family, and those must never disagree. `:where()` keeps specificity
+ * at zero, so the invalid rule below still wins and any control needing a
+ * deliberate exception can override with a plain utility class. */
+[data-crud-section='true']
+  :where(
+    input:not([type='checkbox']):not([type='radio']),
+    textarea,
+    select,
+    [data-slot='input-wrapper'],
+    [data-slot='select-trigger']
+  ) {
+  border-color: transparent;
+  background-color: var(--surface);
+}
+
 /* Invalid form fields.
  *
  * `CrudForm` marks a field region with `data-crud-field-invalid` when it has a

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Users, Phone, Check, Mail, Calendar, X, StickyNote } from 'lucide-react'
+import { Users, Phone, Check, Mail, Calendar, StickyNote } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { validatePhoneNumber } from '@open-mercato/shared/lib/phone'
@@ -12,7 +12,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives/alert'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { Dialog, DialogContent, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { useDialogKeyHandler } from '@open-mercato/ui/hooks/useDialogKeyHandler'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
@@ -476,6 +476,7 @@ export function ScheduleActivityDialog({
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) void guardedClose() }}>
       <DialogContent
+        disableBodyWrap
         className="flex max-h-[90vh] flex-col overflow-hidden border-border p-0 shadow-xl sm:max-w-[760px] sm:rounded-xl [&>[data-dialog-close]]:hidden"
         onKeyDown={handleKeyDown}
         aria-describedby={undefined}
@@ -486,7 +487,7 @@ export function ScheduleActivityDialog({
         </VisuallyHidden>
 
         {/* Header */}
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-6 py-5">
+        <div className="flex shrink-0 items-start justify-between gap-3 px-5 py-4 sm:px-6">
           <div className="flex flex-col gap-1">
             <h2 className="text-lg font-semibold leading-tight tracking-tight text-foreground">
               {isEditing ? t('customers.schedule.editTitle', 'Edit activity') : t(chrome.titleKey, chrome.titleFallback)}
@@ -501,9 +502,10 @@ export function ScheduleActivityDialog({
               </p>
             ) : null}
           </div>
-          <IconButton type="button" variant="ghost" size="sm" onClick={() => { void guardedClose() }} className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-surface" aria-label={t('customers.schedule.cancel', 'Cancel')}>
-            <X className="size-4 text-muted-foreground" />
-          </IconButton>
+          <CloseButton
+            onClick={() => { void guardedClose() }}
+            aria-label={t('customers.schedule.cancel', 'Cancel')}
+          />
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -753,7 +755,7 @@ export function ScheduleActivityDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex shrink-0 items-center justify-end gap-2.5 border-t border-border bg-muted/50 px-6 py-4">
+        <div className="flex shrink-0 items-center justify-end gap-2.5 px-5 pt-1.5 pb-4 sm:px-6">
           <Button type="button" variant="outline" onClick={() => { void guardedClose() }} className="rounded-md border border-input bg-input-bg px-5 py-3 text-sm font-semibold text-foreground">
             {t('customers.schedule.cancel', 'Cancel')}
           </Button>
