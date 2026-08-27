@@ -1912,6 +1912,7 @@ function ProductBuilder({
                 "catalog.products.create.variantsBuilder.toggle",
                 "Yes, this is a product with variants",
               )}
+
             </label>
           </div>
 

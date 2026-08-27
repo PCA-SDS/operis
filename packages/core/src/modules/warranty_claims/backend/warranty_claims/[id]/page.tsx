@@ -2067,7 +2067,6 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
                     embedded
                     columns={lineColumns}
                     data={lines}
-                    stickyActionsColumn
                     emptyState={(
                       <EmptyState
                         title={t('warranty_claims.detail.lines.empty.title')}

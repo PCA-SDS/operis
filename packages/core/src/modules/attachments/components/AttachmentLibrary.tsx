@@ -1057,7 +1057,6 @@ export function AttachmentLibrary() {
   return (
     <>
       <DataTable<AttachmentRow>
-        stickyActionsColumn
         title={t('attachments.library.title', 'Attachments')}
         refreshButton={{
           label: t('attachments.library.actions.refresh', 'Refresh'),

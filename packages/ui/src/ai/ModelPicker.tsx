@@ -4,6 +4,7 @@ import * as React from 'react'
 import { ChevronDown, Cpu } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { menuRowVariants } from '../primitives/menu'
 import { Button } from '../primitives/button'
 
 export interface ModelPickerProviderModel {
@@ -161,7 +162,7 @@ export function ModelPicker({
           role="listbox"
           aria-label={t('ai_assistant.modelPicker.listAriaLabel', 'Available models')}
           className={cn(
-            'absolute bottom-full left-0 z-50 mb-1 max-h-72 min-w-56 overflow-y-auto',
+            'absolute bottom-full left-0 z-50 mb-1 max-h-72 min-w-56 overflow-y-auto p-1',
             'rounded-md border border-border bg-popover shadow-md',
           )}
           data-ai-model-picker-dropdown
@@ -171,9 +172,9 @@ export function ModelPicker({
             aria-selected={value === null}
             tabIndex={0}
             className={cn(
-              'cursor-pointer px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground',
-              'flex items-center gap-2',
-              value === null && 'bg-accent/50',
+              menuRowVariants({ size: 'compact', selected: value === null }),
+              'text-xs',
+              value !== null && 'hover:bg-surface-muted',
             )}
             onClick={handleClearDefault}
             onKeyDown={(event) => {
@@ -210,9 +211,9 @@ export function ModelPicker({
                     aria-selected={isSelected}
                     tabIndex={0}
                     className={cn(
-                      'cursor-pointer px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground',
-                      'flex items-center gap-2 pl-5',
-                      isSelected && 'bg-accent/50',
+                      menuRowVariants({ size: 'compact', selected: isSelected }),
+                      'pl-5 text-xs',
+                      !isSelected && 'hover:bg-surface-muted',
                     )}
                     onClick={() => handleSelect(provider.id, model.id)}
                     onKeyDown={(event) => {

@@ -473,11 +473,14 @@ async function compileAndImport(
 
   await compileAppSourceFile(tsPath, { appRoot, outFile: jsPath })
 
-  // Import the compiled JavaScript
+  // Import the compiled JavaScript. The specifier is a runtime file:// URL for
+  // an artifact that does not exist at build time, so the ignore comments are
+  // load-bearing: without them Turbopack/webpack try to resolve it and warn
+  // `Module not found: Can't resolve <dynamic>` on every compile.
   try {
     const outputHash = contentHash(fs.readFileSync(jsPath))
     const fileUrl = `${pathToFileURL(jsPath).href}?cache=${outputHash}`
-    return await import(fileUrl)
+    return await import(/* webpackIgnore: true */ /* turbopackIgnore: true */ fileUrl)
   } catch (error) {
     if (!allowRecovery) {
       throw error

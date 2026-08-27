@@ -15,6 +15,7 @@ import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customF
 import { mapCrudServerErrorToFormErrors } from '@open-mercato/ui/backend/utils/serverErrors'
 import { E } from '#generated/entities.ids.generated'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { formatDate } from '@open-mercato/ui/utils/format'
 import { RecordNotFoundState, ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { DetailFieldsSection, type DetailFieldConfig } from '@open-mercato/ui/backend/detail'
@@ -83,6 +84,15 @@ type CompanyOverview = {
     industry?: string | null
     sizeBucket?: string | null
     annualRevenue?: string | null
+    taxCode?: string | null
+    registrationCountry?: string | null
+    address?: string | null
+    incorporationDate?: string | null
+    clientTier?: string | null
+    onboardedAt?: string | null
+    registeredAt?: string | null
+    endDate?: string | null
+    reactivatedAt?: string | null
   } | null
   customFields: Record<string, unknown>
   tags: TagSummary[]
@@ -392,7 +402,21 @@ export default function CustomerCompanyDetailPage({ params }: { params?: { id?: 
 
   const updateProfileField = React.useCallback(
     async (
-      field: 'brandName' | 'legalName' | 'websiteUrl' | 'industry' | 'domain' | 'sizeBucket',
+      field:
+        | 'brandName'
+        | 'legalName'
+        | 'websiteUrl'
+        | 'industry'
+        | 'domain'
+        | 'sizeBucket'
+        | 'taxCode'
+        | 'registrationCountry'
+        | 'address'
+        | 'incorporationDate'
+        | 'clientTier'
+        | 'onboardedAt'
+        | 'registeredAt'
+        | 'endDate',
       next: string | null,
     ) => {
       const send = typeof next === 'string' ? next : ''
@@ -768,6 +792,93 @@ export default function CustomerCompanyDetailPage({ params }: { params?: { id?: 
       inputType: 'url',
       validator: validators.website,
       onSave: (value) => updateProfileField('websiteUrl', value),
+    },
+    {
+      key: 'taxCode',
+      kind: 'text',
+      label: t('customers.companies.detail.fields.taxCode', 'Tax code'),
+      value: profile?.taxCode ?? null,
+      emptyLabel: t('customers.companies.detail.noValue', 'Not provided'),
+      onSave: (value) => updateProfileField('taxCode', value),
+    },
+    {
+      key: 'registrationCountry',
+      kind: 'text',
+      label: t('customers.companies.detail.fields.registrationCountry', 'Registration country'),
+      value: profile?.registrationCountry ?? null,
+      emptyLabel: t('customers.companies.detail.noValue', 'Not provided'),
+      onSave: (value) => updateProfileField('registrationCountry', value),
+    },
+    {
+      key: 'incorporationDate',
+      kind: 'text',
+      label: t('customers.companies.detail.fields.incorporationDate', 'Incorporation date'),
+      value: profile?.incorporationDate ?? null,
+      emptyLabel: t('customers.companies.detail.noValue', 'Not provided'),
+      inputType: 'date',
+      renderDisplay: ({ value, emptyLabel }) =>
+        formatDate(value) ?? <span className="text-muted-foreground">{emptyLabel}</span>,
+      onSave: (value) => updateProfileField('incorporationDate', value),
+    },
+    {
+      key: 'clientTier',
+      kind: 'custom',
+      label: t('customers.companies.detail.fields.clientTier', 'Client tier'),
+      emptyLabel: t('customers.companies.detail.noValue', 'Not provided'),
+      render: () => (
+        <InlineDictionaryEditor
+          label={t('customers.companies.detail.fields.clientTier', 'Client tier')}
+          value={profile?.clientTier ?? null}
+          emptyLabel={t('customers.companies.detail.noValue', 'Not provided')}
+          kind="client-tiers"
+          onSave={(next) => updateProfileField('clientTier', next)}
+          selectClassName="h-9 w-full rounded border px-3 text-sm"
+          variant="muted"
+          activateOnClick
+        />
+      ),
+    },
+    {
+      key: 'onboardedAt',
+      kind: 'text',
+      label: t('customers.companies.detail.fields.onboardedAt', 'Onboarded'),
+      value: profile?.onboardedAt ?? null,
+      emptyLabel: t('customers.companies.detail.noValue', 'Not provided'),
+      inputType: 'date',
+      renderDisplay: ({ value, emptyLabel }) =>
+        formatDate(value) ?? <span className="text-muted-foreground">{emptyLabel}</span>,
+      onSave: (value) => updateProfileField('onboardedAt', value),
+    },
+    {
+      key: 'registeredAt',
+      kind: 'text',
+      label: t('customers.companies.detail.fields.registeredAt', 'Registered'),
+      value: profile?.registeredAt ?? null,
+      emptyLabel: t('customers.companies.detail.noValue', 'Not provided'),
+      inputType: 'date',
+      renderDisplay: ({ value, emptyLabel }) =>
+        formatDate(value) ?? <span className="text-muted-foreground">{emptyLabel}</span>,
+      onSave: (value) => updateProfileField('registeredAt', value),
+    },
+    {
+      key: 'endDate',
+      kind: 'text',
+      label: t('customers.companies.detail.fields.endDate', 'End date'),
+      value: profile?.endDate ?? null,
+      emptyLabel: t('customers.companies.detail.noValue', 'Not provided'),
+      inputType: 'date',
+      renderDisplay: ({ value, emptyLabel }) =>
+        formatDate(value) ?? <span className="text-muted-foreground">{emptyLabel}</span>,
+      onSave: (value) => updateProfileField('endDate', value),
+    },
+    {
+      key: 'address',
+      kind: 'multiline',
+      label: t('customers.companies.detail.fields.registeredAddress', 'Registered address'),
+      value: profile?.address ?? null,
+      emptyLabel: t('customers.companies.detail.noValue', 'Not provided'),
+      gridClassName: 'sm:col-span-2 xl:col-span-3',
+      onSave: (value) => updateProfileField('address', value),
     },
   ]
 

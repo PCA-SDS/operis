@@ -1801,7 +1801,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                 </div>
                 {customFieldRows.length > 0 ? (
                   <div className="overflow-x-auto rounded-lg border">
-                    <Table density="compact" className="min-w-[760px]">
+                    <Table columnCount={5} density="compact" className="min-w-[760px]">
                       <TableHeader>
                         <TableRow>
                           <TableHead>{t('sync_akeneo.mapping.from', 'From')}</TableHead>
@@ -1876,7 +1876,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                   {t('sync_akeneo.mapping.prices.help', 'One mapping per line: price_attribute,price_kind_code,akeneo_channel,local_channel_code. Each distinct local channel creates or updates an offer, and each price collection entry becomes a Catalog Product Price in the matching currency.')}
                 </p>
                 <div className="overflow-x-auto rounded-lg border">
-                  <Table density="compact" className="min-w-[900px]">
+                  <Table columnCount={5} density="compact" className="min-w-[900px]">
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t('sync_akeneo.mapping.from', 'From')}</TableHead>
@@ -1996,7 +1996,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                   {t('sync_akeneo.mapping.media.help', 'One mapping per line: attribute_code,target(product|variant),kind(image|file). Image mappings are re-hosted into Open Mercato attachments and can become default media; file mappings are imported as attachments.')}
                 </p>
                 <div className="overflow-x-auto rounded-lg border">
-                  <Table density="compact" className="min-w-[760px]">
+                  <Table columnCount={4} density="compact" className="min-w-[760px]">
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t('sync_akeneo.mapping.from', 'From')}</TableHead>
@@ -2101,7 +2101,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                   {t('sync_akeneo.mapping.fieldsets.help', 'Discovered Akeneo families become Open Mercato fieldsets automatically. Adjust the fieldset code, label, or description here, and add manual family-variant rows when a specific Akeneo family variant should use a different variant fieldset.')}
                 </p>
                 <div className="overflow-x-auto rounded-lg border">
-                  <Table density="compact" className="min-w-[1100px]">
+                  <Table columnCount={7} density="compact" className="min-w-[1100px]">
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t('sync_akeneo.mapping.sourceType', 'Source type')}</TableHead>
@@ -2444,7 +2444,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
             </div>
 
             <div className="overflow-x-auto rounded-lg border">
-              <Table density="compact" className="min-w-[780px]">
+              <Table columnCount={7} density="compact" className="min-w-[780px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t('sync_akeneo.customFields.columns.attribute', 'Akeneo attribute')}</TableHead>

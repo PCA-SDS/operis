@@ -263,7 +263,7 @@ export function CustomerFieldsEditor({ value, onChange, errors }: Props) {
                       </div>
                       {optionsError ? <p className="text-xs text-destructive">{optionsError}</p> : null}
                       <div className="overflow-hidden rounded-lg border border-border/70 bg-surface">
-                        <Table density="compact" className="table-fixed">
+                        <Table columnCount={3} density="compact" className="table-fixed">
                           <TableHeader>
                             <TableRow className="text-left font-semibold">
                               <TableHead className="w-[40%]">{t('checkout.customerFieldsEditor.options.value')}</TableHead>

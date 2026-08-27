@@ -724,7 +724,6 @@ export default function ProductsDataTable({
         exporter={exportConfig}
         isLoading={isLoading}
         perspective={{ tableId: extensionPoints.hosts.productsTable.tableId }}
-        stickyActionsColumn
         rowActions={(row) => (
           <RowActions
             items={[

@@ -344,7 +344,7 @@ function PerAgentOverrideList({
         )}
       </p>
       <div className="overflow-x-auto">
-        <Table density="compact">
+        <Table columnCount={5} density="compact">
           <TableHeader>
             <TableRow className="border-border text-left">
               <TableHead>

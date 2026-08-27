@@ -5848,6 +5848,7 @@ Semantic HTML table primitives with DS spacing/typography. Pure presentational �
 - `TableCell` (`<td>`) — body cell
 - `TableCaption` — `<caption>` for screen readers
 - `TableSortLabel` — the sort trigger for a sortable column
+- `TableRowMarker` — leading accent bar on a selected row (first child of the row's first cell)
 - `tableAriaSort(direction)` — maps a direction to the `aria-sort` value
 
 ### Props
@@ -5856,7 +5857,8 @@ Semantic HTML table primitives with DS spacing/typography. Pure presentational �
 |---|---|---|---|
 | `density` | `Table` | `default` \| `compact` | Cell box only. `default` (`px-3 py-4 sm:px-5`) is the page-owning list view; `compact` (`px-3 py-2`) is a table nested in a card, panel or dialog. Header typography is identical in both. |
 | `variant` | `Table` | `default` \| `striped` | Even-row tint. |
-| `align` | `TableHead`, `TableCell` | `left` (default) \| `right` | Column alignment. |
+| `align` | `TableHead`, `TableCell` | `left` (default) \| `center` \| `right` | Column alignment. `right` for figures, `center` for a column whose whole content is one control or glyph. |
+| `padding` | `TableHead`, `TableCell` | `default` \| `control` | `control` shrinks the cell to its content with an equal, tighter gutter either side — for a column holding one control (select-all checkbox, row-actions kebab). Vertical rhythm is unchanged, so the cell stays exactly as tall as the text columns beside it. Do NOT use it in a `table-fixed` table: `w-px` is literal there. |
 | `direction` | `TableSortLabel` | `'asc'` \| `'desc'` \| `false` | Active sort direction; `false` = sortable but inactive. |
 | `onToggle` | `TableSortLabel` | `() => void` | Fired on click. |
 
@@ -5884,9 +5886,36 @@ Everything else is native HTML attributes; style via `className`.
 </Table>
 ```
 
+### The one table look
+
+Every table in the product renders these primitives, so they all share one look. The properties that define it:
+
+| | |
+|---|---|
+| Card | `rounded-xl bg-surface shadow-md`, `overflow-hidden` |
+| Header strip | `bg-table-header`, rule on the cell so it survives pinning |
+| Header label | `text-xs font-bold uppercase tracking-wide text-muted-foreground`, clipped, never wrapped |
+| Sort | `TableSortLabel` — label goes full ink when active; active arrow takes `accent-strong`, idle pair sits at `disabled-foreground` and lifts on hover |
+| Row | one line tall (`whitespace-nowrap`), `py-4`, hairline rule between rows |
+| Row hover | `bg-table-row-hover` — one token, whether or not the row is clickable |
+| Row selected | `bg-table-selected` wash **and** `text-accent-strong` ink **and** a `TableRowMarker` at the row's start |
+| Inset | `px-3 sm:px-5`, identical on head and cell; `padding="control"` for a single-control column |
+| Figures | `align="right"` on head and cell together |
+
+Deviating from any row of that table makes one list look unlike the rest of the product. Extend the component rather than restyling a table at its call site.
+
+### Alignment contract
+The header must line up with the column of values under it, and every cell must sit on the same rhythm:
+
+- Head and cell share one horizontal inset (`px-3 sm:px-5`), so a label starts exactly where its own values start. Never override the inset on one and not the other.
+- Vertical padding is symmetric (`py-3` head / `py-4` cell) and both state `align-middle` explicitly — cells that centre in one table and top-align in the next are the quiet source of ragged rows. Pass `align-top` at the call site when a cell genuinely needs it.
+- A column holding one control takes `padding="control"` rather than a `w-8`/`w-0` width hint. A width narrower than the cell's own padding does nothing: the padding wins and the control is left adrift in a gutter twice its size.
+- Decoration parked in the reading gutter (a drag grip, a status dot) must be centred in it, so the gap before it equals the gap after it.
+
 ### Rules
 - **`align` is a property of the COLUMN.** Set the same value on the `TableHead` and on every `TableCell` beneath it. Figures (amounts, quantities, counts) go `right`; everything else stays `left`. A right-aligned header over left-aligned digits is the most common way a table reads as unfinished.
 - **NEVER put `display:flex` on a `TableCell`/`TableHead`** — it drops the cell out of the table's column model, so it stops tracking the width of the header above it. Put the flex on an inner `<div>`.
+- **A row is one line tall.** `TableCell` sets `whitespace-nowrap`; uniform row height is what makes a list scannable. A cell holding genuine prose opts out with `whitespace-normal` (twMerge lets it win) — do not remove the default.
 - **Sortable columns render `TableSortLabel`**, never a hand-rolled button — that is what keeps the affordance, the emphasis and the keyboard behaviour identical across `DataTable` and hand-built tables.
 - The header's bottom rule lives on `TableHead`, not on the header `TableRow`, so it survives a sticky header under `border-collapse: collapse`. Do not move it back.
 - Pin a header (`sticky top-0`) ONLY when the table owns a vertical scrollport. Without one it sticks to the viewport and slides under the app topbar.

@@ -857,7 +857,10 @@ export default function MyTimesheetsPage() {
           <ListView entries={listViewEntries} onEntryUpdated={loadData} />
         ) : (
           <div className="overflow-x-auto rounded-lg border">
-            <Table density="compact" className="table-fixed">
+            <Table
+              density="compact"
+              columns={['minmax(0,1.6fr)', ...visibleDays.map(() => 'minmax(0,1fr)'), '6rem']}
+            >
               <colgroup>
                 <col className={viewMode === 'weekly' ? 'w-[35%]' : 'w-[140px] min-w-[140px]'} />
                 {visibleDays.map((date) => (

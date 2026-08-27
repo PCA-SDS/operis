@@ -4,6 +4,7 @@ import * as React from 'react'
 import type { Locale } from 'date-fns/locale'
 import { CalendarIcon } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { MENU_ROW_HOVER, menuRowStateClass } from './menu'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
 import { Calendar } from './calendar'
@@ -214,7 +215,7 @@ export function DateRangePicker({
           {showPresets ? (
             <div
               data-slot="date-range-presets"
-              className="flex w-[200px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r p-2"
+              className="flex w-[200px] shrink-0 flex-col gap-1 overflow-y-auto border-r p-2"
             >
               {resolvedPresets.map((preset) => {
                 const isActive = activePresetId === preset.id
@@ -225,9 +226,9 @@ export function DateRangePicker({
                     onClick={() => handlePresetClick(preset)}
                     className={cn(
                       'inline-flex h-8 items-center rounded-md px-3 text-left text-sm transition-colors shrink-0',
-                      'hover:bg-accent hover:text-accent-foreground',
+                      !isActive && MENU_ROW_HOVER,
                       'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                      isActive && 'bg-muted font-medium text-foreground',
+                      menuRowStateClass({ selected: isActive }),
                     )}
                   >
                     {t(preset.labelKey, preset.id.replace(/_/g, ' '))}

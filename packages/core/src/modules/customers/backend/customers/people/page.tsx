@@ -894,8 +894,6 @@ export default function CustomersPeoplePage() {
     <Page>
       <PageBody>
         <DataTable<PersonRow>
-          stickyFirstColumn
-          stickyActionsColumn
           title={t('customers.people.list.title')}
           refreshButton={{
             label: t('customers.people.list.actions.refresh'),

@@ -78,7 +78,7 @@ export default async function BackendLayout({
   }))
 
   const demoModeEnabled = parseBooleanWithDefault(process.env.DEMO_MODE, true)
-  const hideBackendFooter = parseBooleanWithDefault(process.env.OM_HIDE_BACKEND_FOOTER, false)
+  const hideBackendFooter = parseBooleanWithDefault(process.env.OM_HIDE_BACKEND_FOOTER, true)
   const deployEnv = process.env.DEPLOY_ENV
   const grantedFeatures = Array.isArray(auth?.features)
     ? auth.features.filter((feature): feature is string => typeof feature === 'string')

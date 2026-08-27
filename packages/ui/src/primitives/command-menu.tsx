@@ -6,6 +6,7 @@ import { Command as CommandPrimitive } from 'cmdk'
 import { ChevronRight, Search, X } from 'lucide-react'
 
 import { cn } from '@open-mercato/shared/lib/utils'
+import { MENU_ROW_SPACING } from './menu'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Kbd } from './kbd'
 import {
@@ -390,6 +391,7 @@ const CommandMenuItem = React.forwardRef<
       data-slot="command-menu-item"
       className={cn(
         'group relative flex w-full cursor-pointer select-none items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground outline-none',
+        MENU_ROW_SPACING,
         'data-[selected=true]:bg-muted/40',
         'data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50',
         className,

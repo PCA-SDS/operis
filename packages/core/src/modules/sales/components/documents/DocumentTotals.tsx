@@ -4,6 +4,7 @@ import * as React from 'react'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { PriceWithCurrency } from '../PriceWithCurrency'
+import { Table, TableBody, TableCell, TableFooter, TableRow } from '@open-mercato/ui/primitives/table'
 
 export type DocumentTotalItem = {
   key: string
@@ -63,40 +64,43 @@ export function DocumentTotals({ title, currency, items, className }: DocumentTo
             </span>
           ) : null}
         </div>
-        <table className="w-full text-sm">
-          <tbody className="divide-y divide-border/80">
+        {/* Same primitives, same `compact` density and same right-aligned figures as
+            the line-items table this block sits under, so the two read as one
+            statement rather than as two separately-built tables. */}
+        <Table columnCount={2} density="compact">
+          <TableBody>
             {visibleItems
               .filter((item) => !item.emphasize)
               .map((item) => (
-                <tr key={item.key} className="bg-background/80 transition-colors hover:bg-muted/30">
-                  <td className="px-4 py-3 font-medium text-foreground/90">{item.label}</td>
-                  <td className="px-4 py-3 text-right">
+                <TableRow key={item.key}>
+                  <TableCell className="text-foreground/90">{item.label}</TableCell>
+                  <TableCell align="right">
                     <PriceWithCurrency amount={item.amount} currency={currency} className="font-mono text-base" />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-          </tbody>
+          </TableBody>
           {visibleItems.some((item) => item.emphasize) ? (
-            <tfoot className="border-t-2 border-primary/40 bg-primary/5">
+            <TableFooter className="border-t-2 border-primary/40 bg-primary/5">
               {visibleItems
                 .filter((item) => item.emphasize)
                 .map((item) => (
-                  <tr key={item.key}>
-                    <td className="px-4 py-3 font-semibold uppercase tracking-wide text-foreground">
+                  <TableRow key={item.key}>
+                    <TableCell className="font-semibold uppercase tracking-wide text-foreground">
                       {item.label}
-                    </td>
-                    <td className="px-4 py-3 text-right">
+                    </TableCell>
+                    <TableCell align="right">
                       <PriceWithCurrency
                         amount={item.amount}
                         currency={currency}
                         className="font-mono text-lg font-semibold text-foreground"
                       />
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-            </tfoot>
+            </TableFooter>
           ) : null}
-        </table>
+        </Table>
         {hiddenCount > 0 ? (
           <div className="flex items-center justify-between border-t bg-muted/30 px-4 py-3">
             <span className="text-xs text-muted-foreground">

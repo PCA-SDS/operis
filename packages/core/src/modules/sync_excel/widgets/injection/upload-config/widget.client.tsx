@@ -916,7 +916,7 @@ export default function SyncExcelUploadConfigWidget({
 
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
               <div className="overflow-hidden rounded-lg border">
-                <Table density="compact">
+                <Table columnCount={3} density="compact">
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t('sync_excel.widget.mapping.sourceColumn', 'Source column')}</TableHead>

@@ -94,7 +94,7 @@ async function renderEditor(lineCount: number) {
 }
 
 function renderedProductNames(container: HTMLElement): string[] {
-  return Array.from(container.querySelectorAll('tbody tr'))
+  return Array.from(container.querySelectorAll('[data-slot="table-body"] [role="row"]'))
     .map((row) => within(row as HTMLElement).queryByText(/^Widget \d+$/)?.textContent ?? '')
     .filter((name) => name.length > 0)
 }
@@ -186,7 +186,7 @@ describe('LineItemsEditor', () => {
     goToPage(2)
     expect(renderedProductNames(container)).toEqual(['Widget 21'])
 
-    const actionsTrigger = within(container.querySelector('tbody tr') as HTMLElement)
+    const actionsTrigger = within(container.querySelector('[data-slot="table-body"] [role="row"]') as HTMLElement)
       .getByRole('button')
     fireEvent.click(actionsTrigger)
     fireEvent.click(await screen.findByText('Remove line'))

@@ -25,6 +25,7 @@ export const CUSTOMER_DICTIONARY_KINDS = [
   'renewal-quarters',
   'person-company-roles',
   'interaction-statuses',
+  'client-tiers',
 ] as const
 
 export type CustomerDictionaryKind = typeof CUSTOMER_DICTIONARY_KINDS[number]

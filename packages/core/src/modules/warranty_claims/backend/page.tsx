@@ -1118,8 +1118,6 @@ export default function WarrantyClaimsPage() {
         >
           <DataTable<ClaimRow>
             embedded
-            stickyFirstColumn
-            stickyActionsColumn
             refreshButton={{
               label: t('warranty_claims.list.actions.refresh'),
               onRefresh: reload,
