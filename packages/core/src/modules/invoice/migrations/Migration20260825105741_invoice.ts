@@ -68,4 +68,16 @@ export class Migration20260825105741_invoice extends Migration {
     this.addSql(`alter table "invoice_payment_confirmations" add constraint "invoice_payment_confirmations_installment_id_foreign" foreign key ("installment_id") references "invoice_installments" ("id") on delete cascade;`);
   }
 
+  override down(): void | Promise<void> {
+    this.addSql(`drop table if exists "invoice_payment_confirmations";`);
+    this.addSql(`drop table if exists "invoice_invoice_line_items";`);
+    this.addSql(`drop table if exists "invoice_installments";`);
+    this.addSql(`drop table if exists "invoice_invoices";`);
+    this.addSql(`drop table if exists "invoice_company_emails";`);
+    this.addSql(`drop table if exists "invoice_company_registry";`);
+    this.addSql(`drop table if exists "invoice_sync_jobs";`);
+    this.addSql(`drop table if exists "invoice_auto_paid_tax_codes";`);
+    this.addSql(`drop table if exists "invoice_companies";`);
+  }
+
 }
