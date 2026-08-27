@@ -7,7 +7,12 @@ export const setup: ModuleSetupConfig = {
   defaultRoleFeatures: {
     superadmin: ['appointments.*'],
     admin: ['appointments.*'],
-    employee: ['appointments.view', 'appointments.create', 'appointments.manage'],
+    employee: [
+      'appointments.view',
+      'appointments.create',
+      'appointments.manage',
+      'appointments.settings.manage',
+    ],
   },
   async seedDefaults({ em, tenantId }: { em: EntityManager; tenantId: string }) {
     await ensureSystemAppointmentStatuses(em, tenantId)
@@ -22,9 +27,12 @@ export async function ensureSystemAppointmentStatuses(
     const existing = await em.findOne(AppointmentStatus, {
       tenantId,
       code: seed.code,
-      deletedAt: null,
     })
-    if (existing) continue
+    if (existing) {
+      existing.deletedAt = null
+      existing.isSystem = true
+      continue
+    }
     em.persist(
       em.create(AppointmentStatus, {
         tenantId,

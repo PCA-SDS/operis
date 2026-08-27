@@ -5,18 +5,12 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { createLogger } from '@open-mercato/shared/lib/logger'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import { enforceCommandOptimisticLockWithGuards } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
-import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
-import { resolveOrganizationScopeFilter } from '@open-mercato/core/modules/directory/utils/organizationScopeFilter'
 import { Appointment, AppointmentLine, AppointmentStatus } from '../../data/entities'
 import { appointmentStatusUpdateSchema } from '../../data/validators'
 import { emitAppointmentEvent } from '../../events'
-
-const logger = createLogger('appointments').child({ component: 'appointments-detail' })
-
-export const APPOINTMENT_RESOURCE_KIND = 'appointments.appointment'
+import { CustomerEntity } from '@open-mercato/core/modules/customers/data/entities'
+import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -39,40 +33,70 @@ function mapLine(line: AppointmentLine) {
   }
 }
 
-function mapAppointment(row: Appointment, lines: AppointmentLine[]) {
+function mapAppointment(
+  row: Appointment,
+  lines: AppointmentLine[],
+  customerSource: string | null = null,
+  organizationName: string | null = null,
+) {
   return {
     id: row.id,
     tenantId: row.tenantId,
     organizationId: row.organizationId,
+    organizationName,
     customerEntityId: row.customerEntityId,
     customerName: row.customerName,
     customerSalutation: row.customerSalutation ?? null,
     customerPhone: row.customerPhone ?? null,
     customerEmail: row.customerEmail ?? null,
+    customerPhoneCountryCode: row.customerPhoneCountryCode ?? null,
+    customerOrigin: row.customerOrigin ?? null,
+    bookingType: row.bookingType ?? null,
+    customerSource,
     statusCode: row.statusCode,
     requestedStartAt: row.requestedStartAt.toISOString(),
     requestedEndAt: row.requestedEndAt?.toISOString() ?? null,
     notes: row.notes ?? null,
+    externalNotes: row.externalNotes ?? null,
     lines: lines.map(mapLine),
     updatedAt: row.updatedAt.toISOString(),
   }
 }
 
-// Tenant alone is not the boundary here: organization is an authorization
-// decision carried by the principal's allow-list (docs/architecture/multi-tenancy.md
-// §2, §3.4). `orgWhere` is empty for a genuinely unrestricted principal and an
-// `organizationId $in` predicate otherwise, so a caller scoped to one branch gets
-// the existing 404 for another branch's appointment on both read and write.
+async function resolveOrganizationName(
+  em: EntityManager,
+  organizationId: string,
+): Promise<string | null> {
+  const organization = await em.findOne(Organization, {
+    id: organizationId,
+    deletedAt: null,
+  })
+  if (!organization) return null
+  const name = typeof organization.name === 'string' ? organization.name.trim() : ''
+  return name || organizationId
+}
+
+async function loadCustomerSource(
+  em: EntityManager,
+  tenantId: string,
+  customerEntityId: string,
+): Promise<string | null> {
+  const entity = await em.findOne(CustomerEntity, {
+    id: customerEntityId,
+    tenantId,
+    deletedAt: null,
+  })
+  return entity?.source ?? null
+}
+
 async function loadScopedAppointment(
   em: EntityManager,
   tenantId: string,
   id: string,
-  orgWhere: Record<string, unknown>,
 ): Promise<Appointment | null> {
   return em.findOne(Appointment, {
     id,
     tenantId,
-    ...orgWhere,
     deletedAt: null,
   })
 }
@@ -93,9 +117,7 @@ export async function GET(req: Request, ctx: RouteContext) {
     }
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
-    const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
-    const orgFilter = resolveOrganizationScopeFilter(scope, auth)
-    const appointment = await loadScopedAppointment(em, auth.tenantId, id, orgFilter.where)
+    const appointment = await loadScopedAppointment(em, auth.tenantId, id)
     if (!appointment) {
       return NextResponse.json(
         { error: translate('appointments.detail.notFound', 'Appointment not found.'), code: 'NOT_FOUND' },
@@ -107,9 +129,12 @@ export async function GET(req: Request, ctx: RouteContext) {
       { appointment: appointment.id, deletedAt: null },
       { orderBy: { sortOrder: 'asc' } },
     )
-    return NextResponse.json(mapAppointment(appointment, lines))
-  } catch (error) {
-    logger.error('Failed to load appointment', { err: error })
+    const customerSource = await loadCustomerSource(em, auth.tenantId, appointment.customerEntityId)
+    const organizationName = await resolveOrganizationName(em, appointment.organizationId)
+    return NextResponse.json(
+      mapAppointment(appointment, lines, customerSource, organizationName),
+    )
+  } catch {
     return NextResponse.json(
       { error: translate('appointments.detail.notFound', 'Appointment not found.'), code: 'NOT_FOUND' },
       { status: 404 },
@@ -134,26 +159,13 @@ export async function PATCH(req: Request, ctx: RouteContext) {
     const body = appointmentStatusUpdateSchema.parse(await req.json())
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
-    const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
-    const orgFilter = resolveOrganizationScopeFilter(scope, auth)
-    const appointment = await loadScopedAppointment(em, auth.tenantId, id, orgFilter.where)
+    const appointment = await loadScopedAppointment(em, auth.tenantId, id)
     if (!appointment) {
       return NextResponse.json(
         { error: translate('appointments.detail.notFound', 'Appointment not found.'), code: 'NOT_FOUND' },
         { status: 404 },
       )
     }
-    // Two staff members moving the same appointment would otherwise silently
-    // overwrite each other. `assertOptimisticLock` no-ops when the caller sends
-    // no version header, so this stays backward compatible for API clients that
-    // have not adopted it yet.
-    await enforceCommandOptimisticLockWithGuards(container, {
-      resourceKind: APPOINTMENT_RESOURCE_KIND,
-      resourceId: appointment.id,
-      current: appointment.updatedAt ?? null,
-      request: req,
-    })
-
     const status = await em.findOne(AppointmentStatus, {
       tenantId: auth.tenantId,
       code: body.statusCode,
@@ -186,7 +198,11 @@ export async function PATCH(req: Request, ctx: RouteContext) {
       { appointment: appointment.id, deletedAt: null },
       { orderBy: { sortOrder: 'asc' } },
     )
-    return NextResponse.json(mapAppointment(appointment, lines))
+    const customerSource = await loadCustomerSource(em, auth.tenantId, appointment.customerEntityId)
+    const organizationName = await resolveOrganizationName(em, appointment.organizationId)
+    return NextResponse.json(
+      mapAppointment(appointment, lines, customerSource, organizationName),
+    )
   } catch (error) {
     if (isCrudHttpError(error)) {
       return NextResponse.json(error.body, { status: error.status })
@@ -200,7 +216,6 @@ export async function PATCH(req: Request, ctx: RouteContext) {
         { status: 400 },
       )
     }
-    logger.error('Failed to update appointment', { err: error })
     return NextResponse.json(
       {
         error: translate('appointments.status.failed', 'Unable to update appointment status.'),
