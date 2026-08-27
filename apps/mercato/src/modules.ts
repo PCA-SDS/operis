@@ -64,7 +64,7 @@ export const moduleOverrideExamples: ModuleOverrides = {
   nav: {
     // Prepends sidebar nav group ids ahead of the built-in ordering; unnamed groups keep their
     // current position. Applied beneath role and per-user sidebar preferences.
-    groupOrder: ['example.nav.group'],
+    groupOrder: ['example.nav.group', 'appointments.nav.group'],
   },
 }
 

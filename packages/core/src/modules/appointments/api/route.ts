@@ -6,6 +6,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { Appointment } from '../data/entities'
 import { appointmentStaffCreateSchema } from '../data/validators'
 import { createAppointmentFromPublicIntake } from '../lib/intake'
@@ -16,21 +17,47 @@ export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['appointments.create'] },
 }
 
-function mapAppointment(row: Appointment) {
+function mapAppointment(row: Appointment, organizationName: string | null = null) {
   return {
     id: row.id,
     tenantId: row.tenantId,
     organizationId: row.organizationId,
+    organizationName,
     customerEntityId: row.customerEntityId,
     customerName: row.customerName,
+    customerSalutation: row.customerSalutation ?? null,
     customerPhone: row.customerPhone ?? null,
     customerEmail: row.customerEmail ?? null,
+    customerPhoneCountryCode: row.customerPhoneCountryCode ?? null,
+    customerOrigin: row.customerOrigin ?? null,
+    bookingType: row.bookingType ?? null,
     statusCode: row.statusCode,
     requestedStartAt: row.requestedStartAt.toISOString(),
     requestedEndAt: row.requestedEndAt?.toISOString() ?? null,
     notes: row.notes ?? null,
+    externalNotes: row.externalNotes ?? null,
+    createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }
+}
+
+async function resolveOrganizationNames(
+  em: EntityManager,
+  organizationIds: string[],
+): Promise<Map<string, string>> {
+  const uniqueIds = Array.from(new Set(organizationIds.filter(Boolean)))
+  if (uniqueIds.length === 0) return new Map()
+  const organizations = await em.find(Organization, {
+    id: { $in: uniqueIds },
+    deletedAt: null,
+  })
+  return new Map(
+    organizations.map((org) => {
+      const id = String(org.id)
+      const name = typeof org.name === 'string' && org.name.trim() ? org.name.trim() : id
+      return [id, name]
+    }),
+  )
 }
 
 export async function GET(req: Request) {
@@ -57,7 +84,15 @@ export async function GET(req: Request) {
       orderBy: { requestedStartAt: 'desc' },
       limit: 100,
     })
-    return NextResponse.json({ items: rows.map(mapAppointment) })
+    const orgNames = await resolveOrganizationNames(
+      em,
+      rows.map((row) => row.organizationId),
+    )
+    return NextResponse.json({
+      items: rows.map((row) =>
+        mapAppointment(row, orgNames.get(row.organizationId) ?? null),
+      ),
+    })
   } catch {
     return NextResponse.json(
       {
@@ -73,7 +108,12 @@ export async function POST(req: Request) {
   const { translate } = await resolveTranslations()
   try {
     const auth = await getAuthFromRequest(req)
-    if (!auth?.tenantId || !auth.orgId) {
+    if (!auth?.tenantId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const body = appointmentStaffCreateSchema.parse(await req.json())
+    const organizationId = body.organizationId ?? auth.orgId ?? null
+    if (!organizationId) {
       return NextResponse.json(
         {
           error: translate(
@@ -85,19 +125,19 @@ export async function POST(req: Request) {
         { status: 400 },
       )
     }
-    const body = appointmentStaffCreateSchema.parse(await req.json())
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
+    const { organizationId: _ignoredOrganizationId, ...intakeBody } = body
     const result = await createAppointmentFromPublicIntake(em, {
-      ...body,
+      ...intakeBody,
       tenantId: auth.tenantId,
-      organizationId: auth.orgId,
+      organizationId,
     })
     try {
       await emitAppointmentEvent('appointments.appointment.created', {
         id: result.id,
         tenantId: auth.tenantId,
-        organizationId: auth.orgId,
+        organizationId,
       })
     } catch {
       /* best-effort */

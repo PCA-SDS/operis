@@ -4,11 +4,20 @@ import * as React from 'react'
 import Link from 'next/link'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@open-mercato/ui/primitives/select'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { LoadingMessage, ErrorMessage, RecordNotFoundState } from '@open-mercato/ui/backend/detail'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
+import { AppointmentStatusBadge } from '../../../components/AppointmentStatusBadge'
+import { formatCustomerPhone } from '../../../lib/phoneSnapshot'
 
 type Line = {
   id: string
@@ -20,14 +29,21 @@ type Line = {
 
 type Detail = {
   id: string
+  organizationId: string
+  organizationName: string | null
   customerName: string
   customerSalutation: string | null
   customerPhone: string | null
   customerEmail: string | null
+  customerPhoneCountryCode: string | null
+  customerOrigin: string | null
+  bookingType: string | null
+  customerSource: string | null
   statusCode: string
   requestedStartAt: string
   requestedEndAt: string | null
   notes: string | null
+  externalNotes: string | null
   lines: Line[]
 }
 
@@ -166,13 +182,20 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
   }
 
   const empty = t('appointments.list.noValue')
+  const selectedStatusLabel =
+    statuses.find((status) => status.code === statusCode)?.label ?? statusCode
+  const savedStatusLabel =
+    statuses.find((status) => status.code === detail.statusCode)?.label ?? detail.statusCode
 
   return (
     <Page>
       <PageBody className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">{t('appointments.detail.title')}</h1>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-semibold text-foreground">{t('appointments.detail.title')}</h1>
+              <AppointmentStatusBadge statusCode={detail.statusCode} label={savedStatusLabel} />
+            </div>
             <p className="text-sm text-muted-foreground">{detail.customerName}</p>
           </div>
           <Button variant="outline" asChild>
@@ -190,8 +213,15 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
               label={t('appointments.detail.field.salutation')}
               value={detail.customerSalutation || empty}
             />
-            <Field label={t('appointments.detail.field.phone')} value={detail.customerPhone || empty} />
+            <Field
+              label={t('appointments.detail.field.phone')}
+              value={
+                formatCustomerPhone(detail.customerPhoneCountryCode, detail.customerPhone) || empty
+              }
+            />
             <Field label={t('appointments.detail.field.email')} value={detail.customerEmail || empty} />
+            <Field label={t('appointments.detail.field.origin')} value={detail.customerOrigin || empty} />
+            <Field label={t('appointments.detail.field.referral')} value={detail.customerSource || empty} />
           </div>
         </section>
 
@@ -201,6 +231,14 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field
+              label={t('appointments.detail.field.location', 'Location')}
+              value={detail.organizationName || empty}
+            />
+            <Field
+              label={t('appointments.detail.field.bookingType')}
+              value={detail.bookingType || empty}
+            />
+            <Field
               label={t('appointments.detail.field.requestedStart')}
               value={formatDateTime(detail.requestedStartAt, empty)}
             />
@@ -209,22 +247,37 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
               value={formatDateTime(detail.requestedEndAt, empty)}
             />
             <Field label={t('appointments.detail.field.notes')} value={detail.notes || empty} />
+            <Field
+              label={t('appointments.detail.field.externalNotes')}
+              value={detail.externalNotes || empty}
+            />
             <div className="space-y-2 sm:col-span-2">
               <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {t('appointments.detail.field.status')}
               </label>
               <div className="flex flex-wrap items-center gap-2">
-                <select
-                  className="h-9 rounded-md border border-border bg-input-bg px-2 text-sm"
-                  value={statusCode}
-                  onChange={(event) => setStatusCode(event.target.value)}
+                <Select
+                  value={statusCode || undefined}
+                  onValueChange={setStatusCode}
                 >
-                  {statuses.map((status) => (
-                    <option key={status.code} value={status.code}>
-                      {status.label}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-[220px]" size="default">
+                    <SelectValue placeholder={t('appointments.detail.field.status')}>
+                      {statusCode ? (
+                        <AppointmentStatusBadge
+                          statusCode={statusCode}
+                          label={selectedStatusLabel}
+                        />
+                      ) : null}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statuses.map((status) => (
+                      <SelectItem key={status.code} value={status.code}>
+                        <AppointmentStatusBadge statusCode={status.code} label={status.label} />
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button
                   type="button"
                   onClick={() => {

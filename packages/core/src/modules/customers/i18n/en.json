@@ -2373,6 +2373,8 @@
   "customers.people.form.sections.contactInformation": "Contact information",
   "customers.people.form.source": "Source",
   "customers.people.form.source.placeholder": "Select a source",
+  "customers.people.form.origin": "Origin",
+  "customers.people.form.origin.placeholder": "Select an origin",
   "customers.people.form.status": "Status",
   "customers.people.form.status.placeholder": "Select a status",
   "customers.people.form.submit": "Create Person",

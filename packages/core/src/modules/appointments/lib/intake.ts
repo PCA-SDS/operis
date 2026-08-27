@@ -6,6 +6,7 @@ import { Appointment, AppointmentLine, AppointmentStatus } from '../data/entitie
 import { DEFAULT_PUBLIC_APPOINTMENT_STATUS_CODE } from '../data/constants'
 import { ensureSystemAppointmentStatuses } from '../setup'
 import type { AppointmentPublicCreateInput } from '../data/validators'
+import { toAppointmentPhoneSnapshot } from './phoneSnapshot'
 
 export type CreatedAppointmentResult = {
   id: string
@@ -39,6 +40,7 @@ export async function createAppointmentFromPublicIntake(
     email: input.customer.email,
     salutation: input.customer.salutation,
     source: input.customer.source,
+    origin: input.customer.origin,
     phoneCountryCode: input.customer.phoneCountryCode,
     phoneCountry: input.customer.phoneCountry,
   })
@@ -79,6 +81,10 @@ export async function createAppointmentFromPublicIntake(
   )
   const requestedEndAt = totalDuration > 0 ? addMinutes(requestedStartAt, totalDuration) : null
   const customerName = `${input.customer.firstName.trim()} ${input.customer.lastName.trim()}`.trim()
+  const phoneSnapshot = toAppointmentPhoneSnapshot(
+    input.customer.phone,
+    input.customer.phoneCountryCode,
+  )
 
   const appointment = em.create(Appointment, {
     tenantId: input.tenantId,
@@ -87,14 +93,18 @@ export async function createAppointmentFromPublicIntake(
     customerName,
     customerSalutation: input.customer.salutation ?? null,
     customerEmail: input.customer.email ?? null,
-    customerPhone: input.customer.phone,
-    customerPhoneCountryCode: input.customer.phoneCountryCode ?? null,
+    customerPhone: phoneSnapshot?.customerPhone ?? input.customer.phone,
+    customerPhoneCountryCode:
+      phoneSnapshot?.customerPhoneCountryCode || input.customer.phoneCountryCode || null,
     customerPhoneCountry: input.customer.phoneCountry ?? null,
+    customerOrigin: input.customer.origin,
+    bookingType: input.bookingType,
     status,
     statusCode: status.code,
     requestedStartAt,
     requestedEndAt,
     notes: input.notes ?? null,
+    externalNotes: input.externalNotes ?? null,
   })
   em.persist(appointment)
 

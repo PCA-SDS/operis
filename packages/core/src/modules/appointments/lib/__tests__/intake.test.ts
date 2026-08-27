@@ -77,11 +77,16 @@ describe('createAppointmentFromPublicIntake', () => {
       tenantId,
       organizationId,
       requestedStartAt: '2026-09-01T10:00:00.000Z',
+      bookingType: 'walk_in',
+      externalNotes: 'Guest prefers quiet room',
       customer: {
         firstName: 'Ada',
         lastName: 'Lovelace',
         phone: '+15551212',
         email: 'ada@example.com',
+        source: 'linkedin',
+        origin: 'local',
+        phoneCountryCode: '+1',
       },
       lines: [{ productId }],
     })
@@ -91,6 +96,20 @@ describe('createAppointmentFromPublicIntake', () => {
     expect(result.customerCreated).toBe(true)
     expect(result.lineCount).toBe(1)
     expect(result.requestedEndAt).toBe('2026-09-01T11:00:00.000Z')
+    expect(mockFindOrCreatePersonForIntake).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ source: 'linkedin', origin: 'local', phoneCountryCode: '+1' }),
+    )
+    expect(em.create).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        customerOrigin: 'local',
+        bookingType: 'walk_in',
+        externalNotes: 'Guest prefers quiet room',
+        customerPhone: '5551212',
+        customerPhoneCountryCode: '+1',
+      }),
+    )
     expect(em.persist).toHaveBeenCalled()
     expect(em.flush).toHaveBeenCalled()
   })
@@ -104,10 +123,13 @@ describe('createAppointmentFromPublicIntake', () => {
         tenantId,
         organizationId,
         requestedStartAt: '2026-09-01T10:00:00.000Z',
+        bookingType: 'call_in',
         customer: {
           firstName: 'Ada',
           lastName: 'Lovelace',
           phone: '+15551212',
+          source: 'facebook',
+          origin: 'tourist',
         },
         lines: [{ productId }],
       }),

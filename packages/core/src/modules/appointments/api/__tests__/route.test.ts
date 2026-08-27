@@ -33,6 +33,19 @@ jest.mock('@open-mercato/shared/lib/auth/server', () => ({
   getAuthFromRequest: (...args: unknown[]) => mockGetAuthFromRequest(...args),
 }))
 
+const validCreateBody = {
+  requestedStartAt: '2026-09-01T10:00:00.000Z',
+  bookingType: 'walk_in',
+  customer: {
+    firstName: 'Ada',
+    lastName: 'Lovelace',
+    phone: '+15551212',
+    source: 'linkedin',
+    origin: 'local' as const,
+  },
+  lines: [{ productId: '11111111-1111-4111-8111-111111111111' }],
+}
+
 describe('appointments staff create route', () => {
   beforeEach(() => {
     jest.resetModules()
@@ -67,15 +80,7 @@ describe('appointments staff create route', () => {
       new Request('http://localhost/api/appointments', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          requestedStartAt: '2026-09-01T10:00:00.000Z',
-          customer: {
-            firstName: 'Ada',
-            lastName: 'Lovelace',
-            phone: '+15551212',
-          },
-          lines: [{ productId: '11111111-1111-4111-8111-111111111111' }],
-        }),
+        body: JSON.stringify(validCreateBody),
       }),
     )
 
@@ -85,6 +90,8 @@ describe('appointments staff create route', () => {
       expect.objectContaining({
         tenantId: '22222222-2222-4222-8222-222222222222',
         organizationId: '33333333-3333-4333-8333-333333333333',
+        bookingType: 'walk_in',
+        customer: expect.objectContaining({ origin: 'local', source: 'linkedin' }),
       }),
     )
   })
@@ -100,15 +107,7 @@ describe('appointments staff create route', () => {
       new Request('http://localhost/api/appointments', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          requestedStartAt: '2026-09-01T10:00:00.000Z',
-          customer: {
-            firstName: 'Ada',
-            lastName: 'Lovelace',
-            phone: '+15551212',
-          },
-          lines: [{ productId: '11111111-1111-4111-8111-111111111111' }],
-        }),
+        body: JSON.stringify(validCreateBody),
       }),
     )
 
@@ -130,15 +129,7 @@ describe('appointments staff create route', () => {
       new Request('http://localhost/api/appointments', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          requestedStartAt: '2026-09-01T10:00:00.000Z',
-          customer: {
-            firstName: 'Ada',
-            lastName: 'Lovelace',
-            phone: '+15551212',
-          },
-          lines: [{ productId: '11111111-1111-4111-8111-111111111111' }],
-        }),
+        body: JSON.stringify(validCreateBody),
       }),
     )
 

@@ -107,6 +107,7 @@ const baseEntitySchema = {
   status: z.string().trim().max(100).optional(),
   lifecycleStage: z.string().trim().max(100).optional(),
   source: z.string().trim().max(150).optional(),
+  origin: clearableStringSchema(50),
   temperature: z.string().trim().max(100).optional(),
   renewalQuarter: z.string().trim().max(100).optional(),
   isActive: z.boolean().optional(),
@@ -819,6 +820,7 @@ export const personFindOrCreateSchema = scopedSchema.extend({
   email: clearableEmailSchema,
   salutation: clearableStringSchema(150),
   source: clearableStringSchema(150),
+  origin: clearableStringSchema(50),
   phoneCountryCode: clearableStringSchema(8),
   phoneCountry: clearableStringSchema(120),
 })

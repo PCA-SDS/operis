@@ -9,6 +9,8 @@ import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { Appointment, AppointmentLine, AppointmentStatus } from '../../data/entities'
 import { appointmentStatusUpdateSchema } from '../../data/validators'
 import { emitAppointmentEvent } from '../../events'
+import { CustomerEntity } from '@open-mercato/core/modules/customers/data/entities'
+import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -31,23 +33,60 @@ function mapLine(line: AppointmentLine) {
   }
 }
 
-function mapAppointment(row: Appointment, lines: AppointmentLine[]) {
+function mapAppointment(
+  row: Appointment,
+  lines: AppointmentLine[],
+  customerSource: string | null = null,
+  organizationName: string | null = null,
+) {
   return {
     id: row.id,
     tenantId: row.tenantId,
     organizationId: row.organizationId,
+    organizationName,
     customerEntityId: row.customerEntityId,
     customerName: row.customerName,
     customerSalutation: row.customerSalutation ?? null,
     customerPhone: row.customerPhone ?? null,
     customerEmail: row.customerEmail ?? null,
+    customerPhoneCountryCode: row.customerPhoneCountryCode ?? null,
+    customerOrigin: row.customerOrigin ?? null,
+    bookingType: row.bookingType ?? null,
+    customerSource,
     statusCode: row.statusCode,
     requestedStartAt: row.requestedStartAt.toISOString(),
     requestedEndAt: row.requestedEndAt?.toISOString() ?? null,
     notes: row.notes ?? null,
+    externalNotes: row.externalNotes ?? null,
     lines: lines.map(mapLine),
     updatedAt: row.updatedAt.toISOString(),
   }
+}
+
+async function resolveOrganizationName(
+  em: EntityManager,
+  organizationId: string,
+): Promise<string | null> {
+  const organization = await em.findOne(Organization, {
+    id: organizationId,
+    deletedAt: null,
+  })
+  if (!organization) return null
+  const name = typeof organization.name === 'string' ? organization.name.trim() : ''
+  return name || organizationId
+}
+
+async function loadCustomerSource(
+  em: EntityManager,
+  tenantId: string,
+  customerEntityId: string,
+): Promise<string | null> {
+  const entity = await em.findOne(CustomerEntity, {
+    id: customerEntityId,
+    tenantId,
+    deletedAt: null,
+  })
+  return entity?.source ?? null
 }
 
 async function loadScopedAppointment(
@@ -90,7 +129,11 @@ export async function GET(req: Request, ctx: RouteContext) {
       { appointment: appointment.id, deletedAt: null },
       { orderBy: { sortOrder: 'asc' } },
     )
-    return NextResponse.json(mapAppointment(appointment, lines))
+    const customerSource = await loadCustomerSource(em, auth.tenantId, appointment.customerEntityId)
+    const organizationName = await resolveOrganizationName(em, appointment.organizationId)
+    return NextResponse.json(
+      mapAppointment(appointment, lines, customerSource, organizationName),
+    )
   } catch {
     return NextResponse.json(
       { error: translate('appointments.detail.notFound', 'Appointment not found.'), code: 'NOT_FOUND' },
@@ -155,7 +198,11 @@ export async function PATCH(req: Request, ctx: RouteContext) {
       { appointment: appointment.id, deletedAt: null },
       { orderBy: { sortOrder: 'asc' } },
     )
-    return NextResponse.json(mapAppointment(appointment, lines))
+    const customerSource = await loadCustomerSource(em, auth.tenantId, appointment.customerEntityId)
+    const organizationName = await resolveOrganizationName(em, appointment.organizationId)
+    return NextResponse.json(
+      mapAppointment(appointment, lines, customerSource, organizationName),
+    )
   } catch (error) {
     if (isCrudHttpError(error)) {
       return NextResponse.json(error.body, { status: error.status })

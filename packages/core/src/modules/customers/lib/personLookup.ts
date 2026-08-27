@@ -14,6 +14,7 @@ export type PersonCheckCustomer = {
   phoneCountryCode: string | null
   phoneCountry: string | null
   source: string | null
+  origin: string | null
   organizationId: string
 }
 
@@ -52,6 +53,7 @@ function mapPersonToCheckCustomer(
     phoneCountryCode: entity.phoneCountryCode ?? null,
     phoneCountry: entity.phoneCountry ?? null,
     source: entity.source ?? null,
+    origin: entity.origin ?? null,
     organizationId: entity.organizationId,
   }
 }
@@ -189,6 +191,7 @@ export type FindOrCreatePersonInput = PersonLookupScope & {
   email?: string | null
   salutation?: string | null
   source?: string | null
+  origin?: string | null
   phoneCountryCode?: string | null
   phoneCountry?: string | null
 }
@@ -259,6 +262,7 @@ export async function findOrCreatePersonForIntake(
     phoneCountryCode: phoneIdentity.phoneCountryCode,
     phoneCountry: phoneIdentity.phoneCountry,
     source: input.source?.trim() || null,
+    origin: input.origin?.trim() || null,
     lifecycleStage,
     status,
     isActive: true,

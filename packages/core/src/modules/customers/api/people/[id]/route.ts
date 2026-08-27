@@ -911,6 +911,7 @@ export async function GET(_req: Request, ctx: { params?: { id?: string } }) {
         status: person.status,
         lifecycleStage: person.lifecycleStage,
         source: person.source,
+        origin: person.origin,
         temperature: person.temperature,
         renewalQuarter: person.renewalQuarter,
         nextInteractionAt: person.nextInteractionAt ? person.nextInteractionAt.toISOString() : null,

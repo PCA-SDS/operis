@@ -24,6 +24,7 @@ const successSchema = z.object({
       phoneCountryCode: z.string().nullable(),
       phoneCountry: z.string().nullable(),
       source: z.string().nullable(),
+      origin: z.string().nullable(),
       organizationId: z.string().uuid(),
     })
     .nullable(),

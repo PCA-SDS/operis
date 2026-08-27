@@ -33,6 +33,7 @@ import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customF
 import { PhoneNumberField } from '@open-mercato/ui/backend/inputs/PhoneNumberField'
 import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
 import { resolvePhoneIdentity } from '../lib/phoneIdentity'
+import { CUSTOMER_ORIGIN_OPTIONS } from '../data/constants'
 import type {
   CrudCustomFieldRenderProps,
   CrudField,
@@ -87,6 +88,7 @@ export type PersonFormValues = {
   status?: string
   lifecycleStage?: string
   source?: string
+  origin?: string
   description?: string
   addresses?: CustomerAddressValue[]
 } & Record<string, unknown>
@@ -1015,6 +1017,16 @@ export const createPersonFormFields = (t: Translator, options?: { defaultCountry
       ),
     },
     ...dictionaryFields,
+    {
+      id: 'origin',
+      label: t('customers.people.form.origin', 'Origin'),
+      type: 'select',
+      layout: 'half',
+      options: CUSTOMER_ORIGIN_OPTIONS.map((option) => ({
+        value: option.value,
+        label: option.label,
+      })),
+    },
     { id: 'description', label: t('customers.people.form.description'), type: 'textarea' },
     {
       id: 'addresses',
@@ -1174,6 +1186,7 @@ export function buildPersonPayload(
   assign('status', typeof values.status === 'string' ? values.status : undefined)
   assign('lifecycleStage', typeof values.lifecycleStage === 'string' ? values.lifecycleStage : undefined)
   assign('source', typeof values.source === 'string' ? values.source : undefined)
+  assign('origin', typeof values.origin === 'string' ? values.origin : undefined)
   assign(
     'companyEntityId',
     typeof values.companyEntityId === 'string'

@@ -77,6 +77,10 @@ export class CustomerEntity {
   @Property({ name: 'source', type: 'text', nullable: true })
   source?: string | null
 
+  /** TPS booking origin: local | tourist | expatriate */
+  @Property({ name: 'origin', type: 'text', nullable: true })
+  origin?: string | null
+
   @Property({ name: 'temperature', type: 'text', nullable: true })
   temperature?: string | null
 
