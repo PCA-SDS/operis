@@ -83,6 +83,11 @@ export function DictionarySortSettings() {
       description: t('customers.config.dictionaries.sections.jobTitles.description', 'Configure job titles with their appearance.'),
     },
     {
+      kind: 'salutations',
+      title: t('customers.config.dictionaries.sections.salutations.title', 'Salutations'),
+      description: t('customers.config.dictionaries.sections.salutations.description', 'Configure salutations available for people records.'),
+    },
+    {
       kind: 'industries',
       title: t('customers.config.dictionaries.sections.industries.title', 'Industries'),
       description: t('customers.config.dictionaries.sections.industries.description', 'Manage the industries used by companies.'),

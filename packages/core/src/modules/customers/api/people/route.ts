@@ -98,6 +98,8 @@ const crud = makeCrudRoute({
       'owner_user_id',
       'primary_email',
       'primary_phone',
+      'phone_country_code',
+      'phone_country',
       'status',
       'lifecycle_stage',
       'source',

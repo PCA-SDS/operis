@@ -27,6 +27,11 @@ export type CustomerAddressFormat = 'line_first' | 'street_first'
   expression:
     `create index "idx_ce_tenant_person_id" on "customer_entities" ("tenant_id", "id") where deleted_at is null and kind = 'person'`,
 })
+@Index({
+  name: 'customer_entities_tenant_phone_uq',
+  expression:
+    `create unique index "customer_entities_tenant_phone_uq" on "customer_entities" ("tenant_id", "phone_country_code", "primary_phone") where "deleted_at" is null and "kind" = 'person' and "primary_phone" is not null and "phone_country_code" is not null`,
+})
 export class CustomerEntity {
   [OptionalProps]?: 'isActive' | 'createdAt' | 'updatedAt' | 'deletedAt'
 
@@ -56,6 +61,12 @@ export class CustomerEntity {
 
   @Property({ name: 'primary_phone', type: 'text', nullable: true })
   primaryPhone?: string | null
+
+  @Property({ name: 'phone_country_code', type: 'text', nullable: true })
+  phoneCountryCode?: string | null
+
+  @Property({ name: 'phone_country', type: 'text', nullable: true })
+  phoneCountry?: string | null
 
   @Property({ name: 'status', type: 'text', nullable: true })
   status?: string | null
@@ -157,6 +168,9 @@ export class CustomerPersonProfile {
 
   @Property({ name: 'tenant_id', type: 'uuid' })
   tenantId!: string
+
+  @Property({ type: 'text', nullable: true })
+  salutation?: string | null
 
   @Property({ name: 'first_name', type: 'text', nullable: true })
   firstName?: string | null
