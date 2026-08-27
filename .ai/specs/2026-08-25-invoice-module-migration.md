@@ -162,6 +162,18 @@ Target tables:
 All persisted records are tenant and organization scoped. User-editable records
 include `updated_at` for optimistic locking.
 
+Invoice scoped persistence hides soft-deleted `Invoice` and `InvoiceCompany`
+rows by default across `findById`, `findOne`, and `findMany`. Deleted-row reads
+must opt in with `includeDeleted: true`; this is reserved for explicit
+admin-restore screens and audit/reconciliation jobs that need historical rows.
+Normal UI, API, import, and command flows should not pass `includeDeleted`.
+
+The soft-delete read boundary is registered by entity constructor, not runtime
+class-name strings, so bundling/minification or class renames cannot silently
+drop the `deletedAt: null` filter. New invoice entities with a `deletedAt`
+column must be explicitly added to the scoped persistence soft-delete map unless
+the module later adopts a shared MikroORM metadata-based helper.
+
 The old-to-new field mapping and ownership rules are in
 `docs/invoice/OLD-TO-NEW-DATA-MAPPING.md`.
 
@@ -271,3 +283,8 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   reads and writes must derive tenant and organization ownership through
   `requireInvoiceScope(...)` and pass persistence through the scoped helper
   boundary instead of trusting request payload ownership fields.
+- 2026-08-27: Clarified the Invoice scoped persistence read boundary:
+  soft-deleted `Invoice` and `InvoiceCompany` rows are hidden by default, and
+  deleted-row reads must opt in with `includeDeleted: true`. The boundary uses
+  constructor-based soft-delete registration instead of runtime class-name
+  strings.

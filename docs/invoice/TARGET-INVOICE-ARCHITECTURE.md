@@ -319,6 +319,11 @@ Every table stores:
 
 All queries must filter by both `tenant_id` and `organization_id`.
 
+Scoped reads hide soft-deleted `Invoice` and `InvoiceCompany` rows by default.
+Admin restore, audit, or other deleted-row use cases must opt in explicitly
+with `includeDeleted: true`. Entities without soft delete, such as
+`InvoiceCompanyEmail`, keep their normal scoped read behavior.
+
 Public token routes do not trust tenant in URL or body. They resolve the token
 hash to a scoped record and only return safe public preview data.
 

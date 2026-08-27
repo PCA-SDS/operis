@@ -27,9 +27,52 @@ describe('InvoiceScopedPersistenceService', () => {
 
     expect(em.findOne).toHaveBeenCalledWith(InvoiceCompany, {
       taxCode: '0100109106',
+      deletedAt: null,
       tenantId: 'tenant-trusted',
       organizationId: 'org-trusted',
     }, undefined)
+  })
+
+  it('findOne filters soft-deletable reads by deletedAt null', async () => {
+    const { em, service } = createService()
+
+    await service.findOne(Invoice, scope, { sourceInvoiceId: 'source-1' })
+
+    expect(em.findOne).toHaveBeenCalledWith(Invoice, {
+      sourceInvoiceId: 'source-1',
+      deletedAt: null,
+      tenantId: 'tenant-trusted',
+      organizationId: 'org-trusted',
+    }, undefined)
+  })
+
+  it('findOne can include soft-deleted records when explicitly requested', async () => {
+    const { em, service } = createService()
+
+    await service.findOne(Invoice, scope, { sourceInvoiceId: 'source-1' }, { includeDeleted: true })
+
+    expect(em.findOne).toHaveBeenCalledWith(Invoice, {
+      sourceInvoiceId: 'source-1',
+      tenantId: 'tenant-trusted',
+      organizationId: 'org-trusted',
+    }, {})
+  })
+
+  it('findOne does not pass includeDeleted to MikroORM options', async () => {
+    const { em, service } = createService()
+
+    await service.findOne(
+      InvoiceCompany,
+      scope,
+      { taxCode: '0100109106' },
+      { includeDeleted: true, populate: ['emails'] },
+    )
+
+    expect(em.findOne).toHaveBeenCalledWith(InvoiceCompany, {
+      taxCode: '0100109106',
+      tenantId: 'tenant-trusted',
+      organizationId: 'org-trusted',
+    }, { populate: ['emails'] })
   })
 
   it('findById filters soft-deletable detail reads by deletedAt null', async () => {
@@ -64,6 +107,49 @@ describe('InvoiceScopedPersistenceService', () => {
 
     expect(em.find).toHaveBeenCalledWith(InvoiceCompany, {
       name: 'ACME',
+      deletedAt: null,
+      tenantId: 'tenant-trusted',
+      organizationId: 'org-trusted',
+    }, undefined)
+  })
+
+  it('findMany filters soft-deletable collection reads by deletedAt null', async () => {
+    const { em, service } = createService()
+
+    await service.findMany(Invoice, scope, { direction: 'AP' })
+
+    expect(em.find).toHaveBeenCalledWith(Invoice, {
+      direction: 'AP',
+      deletedAt: null,
+      tenantId: 'tenant-trusted',
+      organizationId: 'org-trusted',
+    }, undefined)
+  })
+
+  it('findMany can include soft-deleted records when explicitly requested', async () => {
+    const { em, service } = createService()
+
+    await service.findMany(
+      InvoiceCompany,
+      scope,
+      { name: 'ACME' },
+      { includeDeleted: true, orderBy: { name: 'asc' } },
+    )
+
+    expect(em.find).toHaveBeenCalledWith(InvoiceCompany, {
+      name: 'ACME',
+      tenantId: 'tenant-trusted',
+      organizationId: 'org-trusted',
+    }, { orderBy: { name: 'asc' } })
+  })
+
+  it('findMany does not add deletedAt for entities without soft delete', async () => {
+    const { em, service } = createService()
+
+    await service.findMany(InvoiceCompanyEmail, scope, { email: 'billing@example.com' })
+
+    expect(em.find).toHaveBeenCalledWith(InvoiceCompanyEmail, {
+      email: 'billing@example.com',
       tenantId: 'tenant-trusted',
       organizationId: 'org-trusted',
     }, undefined)

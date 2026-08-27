@@ -1,4 +1,11 @@
-import type { EntityClass, EntityData, EntityManager, FilterQuery, FindOptions } from '@mikro-orm/postgresql'
+import type {
+  EntityClass,
+  EntityData,
+  EntityManager,
+  FilterQuery,
+  FindOneOptions,
+  FindOptions,
+} from '@mikro-orm/postgresql'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 
 import { Invoice, InvoiceCompany } from '../data/entities'
@@ -12,15 +19,44 @@ import {
 
 type InvoiceEntity = InvoiceScopedRecord & { id: string; deletedAt?: Date | null }
 type InvoiceEntityClass<TEntity extends InvoiceEntity> = EntityClass<TEntity>
+type InvoiceScopedFindOptions<TEntity extends InvoiceEntity> = FindOptions<TEntity> & { includeDeleted?: boolean }
+type InvoiceScopedFindOneOptions<TEntity extends InvoiceEntity> = FindOneOptions<TEntity> & { includeDeleted?: boolean }
 
-const SOFT_DELETE_ENTITY_NAMES = new Set<string>([Invoice.name, InvoiceCompany.name])
+const SOFT_DELETE_FIELDS = new Map<EntityClass<InvoiceEntity>, keyof InvoiceEntity>([
+  [Invoice as EntityClass<InvoiceEntity>, 'deletedAt'],
+  [InvoiceCompany as EntityClass<InvoiceEntity>, 'deletedAt'],
+])
 
-function detailWhere<TEntity extends InvoiceEntity>(
+function softDeleteFieldFor<TEntity extends InvoiceEntity>(
+  entity: InvoiceEntityClass<TEntity>,
+): keyof InvoiceEntity | null {
+  return SOFT_DELETE_FIELDS.get(entity as EntityClass<InvoiceEntity>) ?? null
+}
+
+function readWhere<TEntity extends InvoiceEntity>(
   entity: InvoiceEntityClass<TEntity>,
   where: FilterQuery<TEntity>,
+  includeDeleted?: boolean,
 ): FilterQuery<TEntity> {
-  if (!SOFT_DELETE_ENTITY_NAMES.has(entity.name)) return where
-  return { ...(where as Record<string, unknown>), deletedAt: null } as FilterQuery<TEntity>
+  const softDeleteField = softDeleteFieldFor(entity)
+  if (includeDeleted || !softDeleteField) return where
+  return { ...(where as Record<string, unknown>), [softDeleteField]: null } as FilterQuery<TEntity>
+}
+
+function findOptions<TEntity extends InvoiceEntity>(
+  options?: InvoiceScopedFindOptions<TEntity>,
+): FindOptions<TEntity> | undefined {
+  if (!options) return undefined
+  const { includeDeleted: _includeDeleted, ...ormOptions } = options
+  return ormOptions as FindOptions<TEntity>
+}
+
+function findOneOptions<TEntity extends InvoiceEntity>(
+  options?: InvoiceScopedFindOneOptions<TEntity>,
+): FindOneOptions<TEntity> | undefined {
+  if (!options) return undefined
+  const { includeDeleted: _includeDeleted, ...ormOptions } = options
+  return ormOptions as FindOneOptions<TEntity>
 }
 
 export class InvoiceScopedPersistenceService {
@@ -30,27 +66,37 @@ export class InvoiceScopedPersistenceService {
     entity: InvoiceEntityClass<TEntity>,
     scope: InvoiceScope,
     where: FilterQuery<TEntity>,
-    options?: FindOptions<TEntity>,
+    options?: InvoiceScopedFindOneOptions<TEntity>,
   ): Promise<TEntity | null> {
-    return this.em.findOne(entity, invoiceScopeWhere(scope, where as Record<string, unknown>) as FilterQuery<TEntity>, options)
+    const scopedWhere = invoiceScopeWhere(
+      scope,
+      readWhere(entity, where, options?.includeDeleted) as Record<string, unknown>,
+    ) as FilterQuery<TEntity>
+
+    return this.em.findOne(entity, scopedWhere, findOneOptions(options))
   }
 
   findById<TEntity extends InvoiceEntity>(
     entity: InvoiceEntityClass<TEntity>,
     scope: InvoiceScope,
     id: string,
-    options?: FindOptions<TEntity>,
+    options?: InvoiceScopedFindOneOptions<TEntity>,
   ): Promise<TEntity | null> {
-    return this.findOne(entity, scope, detailWhere(entity, { id } as FilterQuery<TEntity>), options)
+    return this.findOne(entity, scope, { id } as FilterQuery<TEntity>, options)
   }
 
   findMany<TEntity extends InvoiceEntity>(
     entity: InvoiceEntityClass<TEntity>,
     scope: InvoiceScope,
     where: FilterQuery<TEntity> = {} as FilterQuery<TEntity>,
-    options?: FindOptions<TEntity>,
+    options?: InvoiceScopedFindOptions<TEntity>,
   ): Promise<TEntity[]> {
-    return this.em.find(entity, invoiceScopeWhere(scope, where as Record<string, unknown>) as FilterQuery<TEntity>, options)
+    const scopedWhere = invoiceScopeWhere(
+      scope,
+      readWhere(entity, where, options?.includeDeleted) as Record<string, unknown>,
+    ) as FilterQuery<TEntity>
+
+    return this.em.find(entity, scopedWhere, findOptions(options))
   }
 
   createScoped<TEntity extends InvoiceEntity>(
@@ -70,7 +116,7 @@ export class InvoiceScopedPersistenceService {
     entity: InvoiceEntityClass<TEntity>,
     scope: InvoiceScope,
     id: string,
-    options?: FindOptions<TEntity>,
+    options?: InvoiceScopedFindOneOptions<TEntity>,
   ): Promise<TEntity> {
     const record = await this.findById(entity, scope, id, options)
     if (!record) throw new CrudHttpError(404, { error: 'Invoice record not found.' })
