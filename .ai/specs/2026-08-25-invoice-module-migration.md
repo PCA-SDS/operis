@@ -162,6 +162,21 @@ Target tables:
 All persisted records are tenant and organization scoped. User-editable records
 include `updated_at` for optimistic locking.
 
+Invoice scope is intentionally stricter than the shared scoped payload helper.
+Private Invoice handlers must derive `InvoiceScope` from trusted runtime/auth
+context with `requireInvoiceScope(...)`, then pass reads and writes through the
+scoped persistence boundary. Do not replace this with `withScopedPayload`
+without first changing the shared helper's ownership semantics: the shared
+helper accepts payload-supplied `tenantId` / `organizationId` before falling
+back to runtime context, while Invoice ownership must be payload-blind.
+
+The Invoice module treats `selectedOrganizationId` as trusted platform context.
+It assumes the platform request scope resolver has already validated the
+selected organization against the caller's accessible organizations before an
+Invoice handler receives it. If that contract is wrong, track and fix it at the
+platform scope resolver boundary rather than hiding the authorization gap inside
+Invoice.
+
 Invoice scoped persistence hides soft-deleted `Invoice` and `InvoiceCompany`
 rows by default across `findById`, `findOne`, and `findMany`. Deleted-row reads
 must opt in with `includeDeleted: true`; this is reserved for explicit
@@ -288,3 +303,5 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   deleted-row reads must opt in with `includeDeleted: true`. The boundary uses
   constructor-based soft-delete registration instead of runtime class-name
   strings.
+- 2026-08-27: Documented the payload-blind Invoice scope boundary and the
+  upstream-validation assumption for `selectedOrganizationId`.

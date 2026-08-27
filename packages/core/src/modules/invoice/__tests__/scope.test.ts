@@ -35,6 +35,14 @@ describe('invoice scope helpers', () => {
     expect(() => requireInvoiceScope({ auth: { tenantId: 'tenant-1' } })).toThrow(CrudHttpError)
   })
 
+  it('routes missing scope messages through the provided translator', () => {
+    const translate = jest.fn((key: string) => `translated:${key}`)
+
+    expect(() => requireInvoiceScope({ auth: { orgId: 'org-1' } }, translate)).toThrow(CrudHttpError)
+
+    expect(translate).toHaveBeenCalledWith('invoice.errors.tenant_required', 'Tenant context is required.')
+  })
+
   it('merges trusted scope last for reads and writes', () => {
     const scope = { tenantId: 'tenant-trusted', organizationId: 'org-trusted' }
 
@@ -59,7 +67,7 @@ describe('invoice scope helpers', () => {
     })
   })
 
-  it('rejects loaded entities outside the trusted scope', () => {
+  it('rejects loaded persisted entities outside the trusted scope', () => {
     const scope = { tenantId: 'tenant-1', organizationId: 'org-1' }
 
     expect(() => assertInvoiceSameScope({ tenantId: 'tenant-1', organizationId: 'org-2' }, scope)).toThrow(CrudHttpError)

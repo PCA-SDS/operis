@@ -6,12 +6,11 @@ import type {
   FindOneOptions,
   FindOptions,
 } from '@mikro-orm/postgresql'
-import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { notFound } from '@open-mercato/shared/lib/crud/errors'
 
 import { Invoice, InvoiceCompany } from '../data/entities'
 import {
   assignInvoiceScope,
-  assertInvoiceSameScope,
   invoiceScopeWhere,
   type InvoiceScope,
   type InvoiceScopedRecord,
@@ -104,12 +103,10 @@ export class InvoiceScopedPersistenceService {
     scope: InvoiceScope,
     payload: EntityData<TEntity>,
   ): TEntity {
-    const record = this.em.create(
+    return this.em.create(
       entity,
       assignInvoiceScope(payload as Record<string, unknown>, scope) as unknown as EntityData<TEntity>,
     )
-    assertInvoiceSameScope(record, scope)
-    return record
   }
 
   async requireById<TEntity extends InvoiceEntity>(
@@ -119,7 +116,7 @@ export class InvoiceScopedPersistenceService {
     options?: InvoiceScopedFindOneOptions<TEntity>,
   ): Promise<TEntity> {
     const record = await this.findById(entity, scope, id, options)
-    if (!record) throw new CrudHttpError(404, { error: 'Invoice record not found.' })
+    if (!record) throw notFound('[internal] Invoice scoped record not found')
     return record
   }
 }
