@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { resolveRequestContext } from '@open-mercato/shared/lib/api/context'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { CatalogProduct, CatalogProductOptionGroup, CatalogProductOption, CatalogProductPrice } from '../../../../data/entities'
+import { CatalogProduct, CatalogProductOptionGroup, CatalogProductOption, CatalogProductPrice, CatalogProductConstraint } from '../../../../data/entities'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import type { CatalogProductOptionTreeSyncInput } from '../../../../data/validators'
@@ -48,10 +48,21 @@ const optionSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 })
 
+const constraintSchema = z.object({
+  id: z.string().uuid(),
+  constraint_type: z.enum(['conflicts_with_item', 'requires_item', 'mutually_exclusive_item', 'includes_item']),
+  source_product_id: z.string().uuid().nullable(),
+  source_option_id: z.string().uuid().nullable(),
+  target_product_id: z.string().uuid().nullable(),
+  target_option_id: z.string().uuid().nullable(),
+  locked: z.boolean(),
+})
+
 const responseSchema = z.object({
   updated_at: z.string().nullable(),
   groups: z.array(optionGroupSchema),
   options: z.array(optionSchema),
+  constraints: z.array(constraintSchema).optional(),
 })
 
 function latestIso(values: Array<Date | null | undefined>): string | null {
@@ -120,6 +131,44 @@ const syncOptionBodySchema = z
     }
   })
 
+const syncConstraintBodySchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    constraint_type: z.enum(['conflicts_with_item', 'requires_item', 'mutually_exclusive_item', 'includes_item']),
+    constraintType: z.enum(['conflicts_with_item', 'requires_item', 'mutually_exclusive_item', 'includes_item']).optional(),
+    source_product_id: z.string().uuid().nullable().optional(),
+    sourceProductId: z.string().uuid().nullable().optional(),
+    source_option_id: z.string().uuid().nullable().optional(),
+    sourceOptionId: z.string().uuid().nullable().optional(),
+    target_product_id: z.string().uuid().nullable().optional(),
+    targetProductId: z.string().uuid().nullable().optional(),
+    target_option_id: z.string().uuid().nullable().optional(),
+    targetOptionId: z.string().uuid().nullable().optional(),
+    locked: z.boolean().optional(),
+  })
+  .superRefine((value, ctx) => {
+    const hasSourceProduct = value.source_product_id != null || value.sourceProductId != null
+    const hasSourceOption = value.source_option_id != null || value.sourceOptionId != null
+    const hasTargetProduct = value.target_product_id != null || value.targetProductId != null
+    const hasTargetOption = value.target_option_id != null || value.targetOptionId != null
+
+    if ((hasSourceProduct ? 1 : 0) + (hasSourceOption ? 1 : 0) !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['source'],
+        message: 'Exactly one of source_product_id or source_option_id is required',
+      })
+    }
+
+    if ((hasTargetProduct ? 1 : 0) + (hasTargetOption ? 1 : 0) !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['target'],
+        message: 'Exactly one of target_product_id or target_option_id is required',
+      })
+    }
+  })
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -179,11 +228,19 @@ export async function GET(
     }
   }
 
+  // Fetch constraints for this product
+  const constraints = await em.find(CatalogProductConstraint, {
+    sourceProduct: productId,
+    tenantId,
+    organizationId,
+  })
+
   // Serialize entities
   const aggregateUpdatedAt = latestIso([
     product?.updatedAt ?? null,
     ...groups.map((group) => group.updatedAt ?? null),
     ...options.map((option) => option.updatedAt ?? null),
+    ...constraints.map((c) => c.updatedAt ?? null),
   ])
 
   const serializedGroups = groups.map((g) => ({
@@ -220,17 +277,29 @@ export async function GET(
     metadata: o.metadata,
   }))
 
+  const serializedConstraints = constraints.map((c) => ({
+    id: c.id,
+    constraint_type: c.constraintType,
+    source_product_id: c.sourceProduct?.id ?? null,
+    source_option_id: c.sourceOption?.id ?? null,
+    target_product_id: c.targetProduct?.id ?? null,
+    target_option_id: c.targetOption?.id ?? null,
+    locked: c.locked,
+  }))
+
   return NextResponse.json({
     updated_at: aggregateUpdatedAt,
     currency_code: currencyCode,
     groups: serializedGroups,
     options: serializedOptions,
+    constraints: serializedConstraints,
   })
 }
 
 const syncBodySchema = z.object({
   groups: z.array(syncGroupBodySchema),
   options: z.array(syncOptionBodySchema),
+  constraints: z.array(syncConstraintBodySchema).optional(),
 })
 
 export async function PUT(
@@ -301,6 +370,15 @@ export async function PUT(
         metadata: o.metadata ?? null,
       }
     }),
+    constraints: parsedBody.data.constraints?.map((c) => ({
+      id: c.id ?? undefined,
+      constraintType: c.constraint_type ?? c.constraintType ?? 'conflicts_with_item',
+      sourceProductId: c.source_product_id ?? c.sourceProductId ?? null,
+      sourceOptionId: c.source_option_id ?? c.sourceOptionId ?? null,
+      targetProductId: c.target_product_id ?? c.targetProductId ?? null,
+      targetOptionId: c.target_option_id ?? c.targetOptionId ?? null,
+      locked: c.locked ?? false,
+    })) ?? [],
   }
 
   const commandBus = ctx.container.resolve('commandBus') as CommandBus

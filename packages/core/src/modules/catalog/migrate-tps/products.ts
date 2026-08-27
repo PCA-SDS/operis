@@ -12,6 +12,7 @@ import {
   CatalogPriceKind,
   CatalogProductOptionGroup,
   CatalogProductOption,
+  CatalogProductConstraint,
 } from '../data/entities'
 import { randomUUID } from 'crypto'
 import { createLogger } from '@open-mercato/shared/lib/logger'
@@ -31,7 +32,8 @@ function traverseOptionTree(
   product: CatalogProduct,
   tenantId: string,
   organizationId: string,
-  parentOption: CatalogProductOption | null = null
+  parentOption: CatalogProductOption | null = null,
+  tpsOptionMap: Map<string, string> = new Map()
 ) {
   let sortOrderGroup = 0
   for (const group of groups) {
@@ -72,12 +74,16 @@ function traverseOptionTree(
         unit: opt.unit,
         sortOrder: sortOrderOption++,
         isActive: true,
-        metadata: parsedPrice.metadata,
+        metadata: {
+          ...(parsedPrice.metadata || {}),
+          tps_id: opt.id,
+        },
       })
       em.persist(optionEntity)
+      tpsOptionMap.set(opt.id, optionEntity.id)
 
       if (opt.nextGroups && opt.nextGroups.length > 0) {
-        traverseOptionTree(em, opt.nextGroups, product, tenantId, organizationId, optionEntity)
+        traverseOptionTree(em, opt.nextGroups, product, tenantId, organizationId, optionEntity, tpsOptionMap)
       }
     }
   }
@@ -171,6 +177,7 @@ export const migrateTpsProductsCommand: ModuleCli = {
           await em.nativeDelete(CatalogProductPrice, { tenantId, organizationId })
           await em.nativeDelete(CatalogProductCategoryAssignment, { tenantId, organizationId })
           await em.nativeDelete(CatalogProductVariant, { tenantId, organizationId })
+          await em.nativeDelete(CatalogProductConstraint, { tenantId, organizationId })
           await em.nativeDelete(CatalogProductOption, { tenantId, organizationId })
           await em.nativeDelete(CatalogProductOptionGroup, { tenantId, organizationId })
           await em.nativeDelete(CatalogProduct, { tenantId, organizationId })
@@ -202,6 +209,10 @@ export const migrateTpsProductsCommand: ModuleCli = {
 
     let productCount = 0
     let variantCount = 0
+    let constraintCount = 0
+
+    const tpsProductMap = new Map<string, string>()
+    const tpsOptionMap = new Map<string, string>()
 
     for (const rootCat of Object.values(SERVICE_MENU)) {
       for (const category of rootCat.categories) {
@@ -239,6 +250,9 @@ export const migrateTpsProductsCommand: ModuleCli = {
             metadata: productMetadata,
           })
           em.persist(product)
+          if (item.id) {
+            tpsProductMap.set(item.id, product.id)
+          }
           productCount++
 
           if (category.label && categoryMap.has(category.label)) {
@@ -258,7 +272,99 @@ export const migrateTpsProductsCommand: ModuleCli = {
           variantCount++
           
           if (hasOptionTree && item.optionGroups) {
-            traverseOptionTree(em, item.optionGroups, product, tenantId, organizationId)
+            traverseOptionTree(em, item.optionGroups, product, tenantId, organizationId, null, tpsOptionMap)
+          }
+        }
+      }
+    }
+
+    // Pass 2: Constraints
+    for (const rootCat of Object.values(SERVICE_MENU)) {
+      for (const category of rootCat.categories) {
+        for (const item of category.items) {
+          const sourceProductId = item.id ? tpsProductMap.get(item.id) : undefined
+          
+          if (sourceProductId && item.mutuallyExclusiveItems) {
+            for (const targetTpsId of item.mutuallyExclusiveItems) {
+              const targetProductId = tpsProductMap.get(targetTpsId)
+              if (targetProductId) {
+                em.persist(em.create(CatalogProductConstraint, {
+                  id: randomUUID(),
+                  tenantId,
+                  organizationId,
+                  constraintType: 'mutually_exclusive_item',
+                  sourceProduct: em.getReference(CatalogProduct, sourceProductId),
+                  targetProduct: em.getReference(CatalogProduct, targetProductId),
+                  locked: false,
+                }))
+                constraintCount++
+              }
+            }
+          }
+
+          if (sourceProductId && item.include) {
+            const targetProductId = tpsProductMap.get(item.include.itemId)
+            if (targetProductId) {
+              em.persist(em.create(CatalogProductConstraint, {
+                id: randomUUID(),
+                tenantId,
+                organizationId,
+                constraintType: 'includes_item',
+                sourceProduct: em.getReference(CatalogProduct, sourceProductId),
+                targetProduct: em.getReference(CatalogProduct, targetProductId),
+                locked: item.include.locked ?? false,
+              }))
+              constraintCount++
+            }
+          }
+
+          if (item.optionGroups) {
+            const queue = [...item.optionGroups]
+            while (queue.length > 0) {
+              const group = queue.shift()!
+              for (const opt of group.options) {
+                const sourceOptionId = tpsOptionMap.get(opt.id)
+                if (sourceOptionId && opt.conflictsWithItems) {
+                  for (const targetTpsId of opt.conflictsWithItems) {
+                    const targetProductId = tpsProductMap.get(targetTpsId)
+                    if (targetProductId) {
+                      em.persist(em.create(CatalogProductConstraint, {
+                        id: randomUUID(),
+                        tenantId,
+                        organizationId,
+                        constraintType: 'conflicts_with_item',
+                        sourceOption: em.getReference(CatalogProductOption, sourceOptionId),
+                        targetProduct: em.getReference(CatalogProduct, targetProductId),
+                        locked: false,
+                      }))
+                      constraintCount++
+                    }
+                  }
+                }
+                
+                if (sourceOptionId && opt.mutuallyExclusive) {
+                  for (const targetTpsId of opt.mutuallyExclusive) {
+                    const targetOptionId = tpsOptionMap.get(targetTpsId)
+                    if (targetOptionId) {
+                      em.persist(em.create(CatalogProductConstraint, {
+                        id: randomUUID(),
+                        tenantId,
+                        organizationId,
+                        constraintType: 'mutually_exclusive_item',
+                        sourceOption: em.getReference(CatalogProductOption, sourceOptionId),
+                        targetOption: em.getReference(CatalogProductOption, targetOptionId),
+                        locked: false,
+                      }))
+                      constraintCount++
+                    }
+                  }
+                }
+
+                if (opt.nextGroups) {
+                  queue.push(...opt.nextGroups)
+                }
+              }
+            }
           }
         }
       }
@@ -267,7 +373,7 @@ export const migrateTpsProductsCommand: ModuleCli = {
     logger.info('Flushing records to database...')
     await em.flush()
 
-    logger.info(`Migration successful! Created ${productCount} Products and ${variantCount} Variants.`)
+    logger.info(`Migration successful! Created ${productCount} Products, ${variantCount} Variants, and ${constraintCount} Constraints.`)
       })
     } catch (err) {
       logger.error('An error occurred during Product migration', { err })

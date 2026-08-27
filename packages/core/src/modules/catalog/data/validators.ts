@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  CATALOG_CONSTRAINT_TYPES,
   CATALOG_EXCISE_CATEGORIES,
   CATALOG_GTIN_TYPES,
   CATALOG_GTU_CODES,
@@ -584,6 +585,51 @@ export type CatalogProductOptionGroupUpdateInput = z.infer<typeof catalogProduct
 export type CatalogProductOptionCreateInput = z.infer<typeof catalogProductOptionCreateSchema>
 export type CatalogProductOptionUpdateInput = z.infer<typeof catalogProductOptionUpdateSchema>
 
+// Constraint validators (declared before catalogProductOptionTreeSyncSchema because it references constraintInputSchema)
+export const constraintInputSchema = z
+  .object({
+    id: uuid().optional(),
+    constraintType: z.enum(CATALOG_CONSTRAINT_TYPES),
+    sourceProductId: uuid().nullable().optional(),
+    sourceOptionId: uuid().nullable().optional(),
+    targetProductId: uuid().nullable().optional(),
+    targetOptionId: uuid().nullable().optional(),
+    locked: z.boolean().optional(),
+  })
+  .superRefine((value, ctx) => {
+    const hasSourceProduct = value.sourceProductId != null
+    const hasSourceOption = value.sourceOptionId != null
+    const hasTargetProduct = value.targetProductId != null
+    const hasTargetOption = value.targetOptionId != null
+
+    // Exactly one source
+    if ((hasSourceProduct ? 1 : 0) + (hasSourceOption ? 1 : 0) !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['source'],
+        message: 'catalog.constraints.validation.exactlyOneSource',
+      })
+    }
+
+    // Exactly one target
+    if ((hasTargetProduct ? 1 : 0) + (hasTargetOption ? 1 : 0) !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['target'],
+        message: 'catalog.constraints.validation.exactlyOneTarget',
+      })
+    }
+  })
+
+export type ConstraintInput = z.infer<typeof constraintInputSchema>
+
+export const productConstraintsSyncSchema = scoped.extend({
+  productId: uuid(),
+  constraints: z.array(constraintInputSchema),
+})
+
+export type ProductConstraintsSyncInput = z.infer<typeof productConstraintsSyncSchema>
+
 export const catalogProductOptionTreeSyncSchema = scoped.extend({
   productId: uuid(),
   groups: z.array(
@@ -620,7 +666,8 @@ export const catalogProductOptionTreeSyncSchema = scoped.extend({
       isActive: z.boolean().optional(),
       metadata: metadataSchema,
     })
-  )
+  ),
+  constraints: z.array(constraintInputSchema).optional().default([]),
 })
 
 export type CatalogProductOptionTreeSyncInput = z.infer<typeof catalogProductOptionTreeSyncSchema>

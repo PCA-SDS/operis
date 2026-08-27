@@ -23,6 +23,11 @@ import {
 } from './shared'
 import { makeCreateRedo } from '@open-mercato/shared/lib/commands/redo'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import {
+  applyConstraintsSnapshot,
+  loadConstraintsSnapshot,
+} from './productConstraints'
+import type { SerializedConstraint } from './productConstraints'
 
 type SerializedGroup = {
   id: string
@@ -60,6 +65,7 @@ type SerializedOption = {
 type OptionTreeSnapshot = {
   groups: SerializedGroup[]
   options: SerializedOption[]
+  constraints?: SerializedConstraint[]
 }
 
 type OptionTreeUndoPayload = {
@@ -134,6 +140,15 @@ function normalizeSyncInput(parsed: CatalogProductOptionTreeSyncInput): OptionTr
       sortOrder: option.sortOrder ?? 0,
       isActive: option.isActive ?? true,
       metadata: option.metadata ? cloneJson(option.metadata) : null,
+    })),
+    constraints: parsed.constraints?.map((c) => ({
+      id: c.id ?? crypto.randomUUID(),
+      constraintType: c.constraintType,
+      sourceProductId: c.sourceProductId ?? null,
+      sourceOptionId: c.sourceOptionId ?? null,
+      targetProductId: c.targetProductId ?? null,
+      targetOptionId: c.targetOptionId ?? null,
+      locked: c.locked ?? false,
     })),
   }
 }
@@ -308,6 +323,13 @@ async function loadOptionTreeSnapshot(
     organizationId,
   })
 
+  const { loadConstraintsSnapshot } = await import('./productConstraints')
+  const constraints = await loadConstraintsSnapshot(em, {
+    productId,
+    tenantId,
+    organizationId,
+  })
+
   return {
     groups: groups.map((g) => ({
       id: g.id,
@@ -340,6 +362,7 @@ async function loadOptionTreeSnapshot(
       isActive: o.isActive,
       metadata: o.metadata ? cloneJson(o.metadata) : null,
     })),
+    constraints,
   }
 }
 
@@ -413,6 +436,11 @@ const syncOptionTreeCommand: CommandHandler<
       })
 
       await applyOptionTreeSnapshot(tem, scope, snapshot)
+
+      // Sync constraints if provided
+      if (snapshot.constraints && snapshot.constraints.length > 0) {
+        await applyConstraintsSnapshot(tem, scope, snapshot.constraints)
+      }
 
       const productRef = await tem.findOne(CatalogProduct, {
         id: parsed.productId,

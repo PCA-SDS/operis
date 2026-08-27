@@ -90,6 +90,15 @@ export const CATALOG_PRICE_DISPLAY_MODES = ['including-tax', 'excluding-tax'] as
 
 export type CatalogPriceDisplayMode = (typeof CATALOG_PRICE_DISPLAY_MODES)[number]
 
+export const CATALOG_CONSTRAINT_TYPES = [
+  'conflicts_with_item',
+  'requires_item',
+  'mutually_exclusive_item',
+  'includes_item',
+] as const
+
+export type CatalogConstraintType = (typeof CATALOG_CONSTRAINT_TYPES)[number]
+
 export type CatalogOptionRequirement = 'required' | 'optional'
 
 export type CatalogOptionSelectMode = 'single' | 'multiple'
@@ -132,4 +141,21 @@ export type CatalogOptionTreeData = {
   updated_at: string | null
   groups: CatalogOptionGroupItem[]
   options: CatalogOptionItem[]
+}
+
+export type CatalogConstraintItem = {
+  id: string
+  constraint_type: 'conflicts_with_item' | 'requires_item' | 'mutually_exclusive_item' | 'includes_item'
+  source_product_id: string | null
+  source_option_id: string | null
+  target_product_id: string | null
+  target_option_id: string | null
+  locked: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type CatalogConstraintsData = {
+  updated_at: string | null
+  constraints: CatalogConstraintItem[]
 }

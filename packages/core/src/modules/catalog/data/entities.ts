@@ -1,6 +1,7 @@
 import { Collection, OptionalProps } from '@mikro-orm/core'
 import { Entity, Index, ManyToOne, OneToMany, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
 import type {
+  CatalogConstraintType,
   CatalogExciseCategory,
   CatalogGtinType,
   CatalogHazmatPackingGroup,
@@ -285,6 +286,12 @@ export class CatalogProduct {
 
   @OneToMany(() => CatalogProductOptionGroup, (group) => group.product)
   optionGroups = new Collection<CatalogProductOptionGroup>(this)
+
+  @OneToMany(() => CatalogProductConstraint, (constraint) => constraint.sourceProduct)
+  sourceConstraints = new Collection<CatalogProductConstraint>(this)
+
+  @OneToMany(() => CatalogProductConstraint, (constraint) => constraint.targetProduct)
+  targetConstraints = new Collection<CatalogProductConstraint>(this)
 }
 
 @Entity({ tableName: 'catalog_product_unit_conversions' })
@@ -1022,4 +1029,60 @@ export class CatalogProductOption {
   // Sub-groups appearing after this option is selected
   @OneToMany(() => CatalogProductOptionGroup, (g) => g.parentOption)
   nextGroups = new Collection<CatalogProductOptionGroup>(this)
+
+  @OneToMany(() => CatalogProductConstraint, (constraint) => constraint.sourceOption)
+  sourceConstraints = new Collection<CatalogProductConstraint>(this)
+
+  @OneToMany(() => CatalogProductConstraint, (constraint) => constraint.targetOption)
+  targetConstraints = new Collection<CatalogProductConstraint>(this)
+}
+
+@Entity({ tableName: 'catalog_product_constraints' })
+@Index({
+  name: 'catalog_product_constraints_scope_idx',
+  properties: ['tenantId', 'organizationId'],
+})
+@Index({
+  name: 'catalog_product_constraints_source_idx',
+  properties: ['sourceProduct', 'sourceOption'],
+})
+@Index({
+  name: 'catalog_product_constraints_target_idx',
+  properties: ['targetProduct', 'targetOption'],
+})
+export class CatalogProductConstraint {
+  [OptionalProps]?: 'createdAt' | 'updatedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'constraint_type', type: 'text' })
+  constraintType!: CatalogConstraintType
+
+  @ManyToOne(() => CatalogProduct, { fieldName: 'source_product_id', nullable: true })
+  sourceProduct?: CatalogProduct | null
+
+  @ManyToOne(() => CatalogProductOption, { fieldName: 'source_option_id', nullable: true })
+  sourceOption?: CatalogProductOption | null
+
+  @ManyToOne(() => CatalogProduct, { fieldName: 'target_product_id', nullable: true })
+  targetProduct?: CatalogProduct | null
+
+  @ManyToOne(() => CatalogProductOption, { fieldName: 'target_option_id', nullable: true })
+  targetOption?: CatalogProductOption | null
+
+  @Property({ type: 'boolean', default: false })
+  locked: boolean = false
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
 }
