@@ -95,6 +95,8 @@ export type ProductWeight = {
 
 export type VariantPriceValue = {
   amount: string;
+  priceMin?: string;
+  priceMax?: string;
 };
 
 export type ProductUnitRoundingMode = "half_up" | "down" | "up";
@@ -121,6 +123,10 @@ export type VariantDraft = {
   hasInventoryKit: boolean;
   optionValues: Record<string, string>;
   prices: Record<string, VariantPriceValue>;
+  durationValue?: string;
+  durationUnit?: string;
+  durationMin?: string;
+  durationMax?: string;
 };
 
 export type ProductFormValues = {
@@ -138,6 +144,8 @@ export type ProductFormValues = {
   defaultMediaUrl: string;
   hasVariants: boolean;
   options: ProductOptionInput[];
+  optionTreeGroups?: import("@open-mercato/core/modules/catalog/data/types").CatalogOptionTreeData["groups"];
+  optionTreeOptions?: import("@open-mercato/core/modules/catalog/data/types").CatalogOptionTreeData["options"];
   variants: VariantDraft[];
   metadata?: Record<string, unknown> | null;
   dimensions?: ProductDimensions;
@@ -276,6 +284,8 @@ export const productFormSchema = z
     categoryIds: z.array(z.string().uuid()).optional(),
     channelIds: z.array(z.string().uuid()).optional(),
     tags: z.array(z.string().trim().min(1).max(100)).optional(),
+    optionTreeGroups: z.any().optional(),
+    optionTreeOptions: z.any().optional(),
     optionSchemaId: z.string().uuid().nullable().optional(),
     countryOfOriginCode: z
       .string()
@@ -353,6 +363,7 @@ export const PRODUCT_FORM_STEPS = [
   "organize",
   "uom",
   "compliance",
+  "options",
   "variants",
 ] as const;
 
@@ -371,6 +382,8 @@ export const BASE_INITIAL_VALUES: ProductFormValues = {
   taxRateId: null,
   hasVariants: false,
   options: [],
+  optionTreeGroups: [],
+  optionTreeOptions: [],
   variants: [],
   metadata: {},
   dimensions: null,
@@ -589,6 +602,10 @@ export const createVariantDraft = (
   hasInventoryKit: false,
   optionValues: {},
   prices: {},
+  durationValue: "",
+  durationUnit: "minute",
+  durationMin: "",
+  durationMax: "",
   ...overrides,
 });
 

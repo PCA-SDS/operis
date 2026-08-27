@@ -567,6 +567,7 @@
   "catalog.products.types.configurable": "Configurable",
   "catalog.products.types.downloadable": "Downloadable",
   "catalog.products.types.grouped": "Grouped",
+  "catalog.products.types.service": "Service",
   "catalog.products.types.simple": "Simple",
   "catalog.products.types.virtual": "Virtual",
   "catalog.products.unitPrice.baseQuantity": "Base quantity for reference",

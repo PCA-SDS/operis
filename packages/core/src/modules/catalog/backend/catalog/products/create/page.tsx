@@ -48,6 +48,8 @@ import {
   type ProductMediaItem,
 } from "@open-mercato/core/modules/catalog/components/products/ProductMediaManager";
 import { ProductCategorizeSection } from "@open-mercato/core/modules/catalog/components/products/ProductCategorizeSection";
+import { OptionDraftBuilder } from "@open-mercato/core/modules/catalog/components/products/OptionDraftBuilder";
+import { OptionTreeEditor } from "@open-mercato/core/modules/catalog/components/products/OptionTreeEditor";
 import {
   PRODUCT_FORM_STEPS,
   type PriceKindSummary,
@@ -109,7 +111,9 @@ type VariantPriceRequest = {
   variantDraftId: string;
   priceKindId: string;
   currencyCode: string;
-  amount: number;
+  amount?: number;
+  priceMin?: number;
+  priceMax?: number;
   displayMode: PriceKindSummary["displayMode"];
   taxRateId: string | null;
   taxRateValue: number | null;
@@ -184,9 +188,11 @@ const STEP_FIELD_MATCHERS: Record<
     matchField("seoDescription"),
     matchField("canonicalUrl"),
   ],
+  options: [
+    matchPrefix("options"),
+  ],
   variants: [
     matchField("hasVariants"),
-    matchPrefix("options"),
     matchPrefix("variants"),
   ],
 };
@@ -629,21 +635,36 @@ export default function CreateCatalogProductPage() {
               const { resolvedVariantTaxRateId, resolvedVariantTaxRate } =
                 resolveVariantTax(variant);
               for (const priceKind of priceKinds) {
-                const value = variant.prices?.[priceKind.id]?.amount?.trim();
-                if (!value) continue;
-                const numeric = Number(value);
-                if (
-                  Number.isNaN(numeric) ||
-                  !Number.isFinite(numeric) ||
-                  numeric < 0
-                ) {
-                  throw createCrudFormError(
-                    t(
-                      "catalog.products.create.errors.priceNonNegative",
-                      "Prices must be zero or greater.",
-                    ),
-                  );
+                const amountStr = variant.prices?.[priceKind.id]?.amount?.trim();
+                const minStr = variant.prices?.[priceKind.id]?.priceMin?.trim();
+                const maxStr = variant.prices?.[priceKind.id]?.priceMax?.trim();
+                
+                if (!amountStr && !minStr && !maxStr) continue;
+                
+                let amountNum: number | undefined;
+                if (amountStr) {
+                  amountNum = Number(amountStr);
+                  if (Number.isNaN(amountNum) || !Number.isFinite(amountNum) || amountNum < 0) {
+                    throw createCrudFormError(t("catalog.products.create.errors.priceNonNegative", "Prices must be zero or greater."));
+                  }
                 }
+                
+                let minNum: number | undefined;
+                if (minStr) {
+                  minNum = Number(minStr);
+                  if (Number.isNaN(minNum) || !Number.isFinite(minNum) || minNum < 0) {
+                    throw createCrudFormError(t("catalog.products.create.errors.priceNonNegative", "Prices must be zero or greater."));
+                  }
+                }
+                
+                let maxNum: number | undefined;
+                if (maxStr) {
+                  maxNum = Number(maxStr);
+                  if (Number.isNaN(maxNum) || !Number.isFinite(maxNum) || maxNum < 0) {
+                    throw createCrudFormError(t("catalog.products.create.errors.priceNonNegative", "Prices must be zero or greater."));
+                  }
+                }
+                
                 const currencyCode =
                   typeof priceKind.currencyCode === "string" &&
                   priceKind.currencyCode.trim().length
@@ -662,7 +683,9 @@ export default function CreateCatalogProductPage() {
                   variantDraftId: variant.id,
                   priceKindId: priceKind.id,
                   currencyCode,
-                  amount: numeric,
+                  amount: amountNum,
+                  priceMin: minNum,
+                  priceMax: maxNum,
                   displayMode: priceKind.displayMode,
                   taxRateId: resolvedVariantTaxRateId ?? null,
                   taxRateValue: resolvedVariantTaxRate ?? null,
@@ -689,6 +712,47 @@ export default function CreateCatalogProductPage() {
                 );
               }
               cleanupState.productId = productId;
+
+              if (formValues.optionTreeGroups && formValues.optionTreeGroups.length > 0) {
+                const optionTreePayload = {
+                  groups: formValues.optionTreeGroups.map((g: any) => ({
+                    id: g.id,
+                    name: g.name,
+                    description: g.description,
+                    requirement: g.requirement,
+                    selectMode: g.select_mode,
+                    sortOrder: g.sort_order,
+                    isActive: g.is_active,
+                    parentOptionId: g.parent_option_id,
+                    metadata: g.metadata,
+                  })),
+                  options: (formValues.optionTreeOptions || []).map((o: any) => ({
+                    id: o.id,
+                    groupId: o.group_id,
+                    name: o.name,
+                    code: o.code,
+                    description: o.description,
+                    priceFlat: o.price_flat,
+                    priceMin: o.price_min,
+                    priceMax: o.price_max,
+                    durationValue: o.duration_value,
+                    durationUnit: o.duration_unit,
+                    durationMin: o.duration_min,
+                    durationMax: o.duration_max,
+                    isAddon: o.is_addon,
+                    sortOrder: o.sort_order,
+                    isActive: o.is_active,
+                    metadata: o.metadata,
+                    note: o.note,
+                    unit: o.unit,
+                  }))
+                };
+                await apiCall(`/api/catalog/products/${productId}/option-tree`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(optionTreePayload),
+                });
+              }
 
               for (const conversion of conversionInputs) {
                 await createCrud("catalog/product-unit-conversions", {
@@ -718,6 +782,10 @@ export default function CreateCatalogProductPage() {
                     : undefined,
                   taxRateId: resolvedVariantTaxRateId ?? null,
                   taxRate: resolvedVariantTaxRate ?? null,
+                  durationValue: variant.durationValue ? parseInt(variant.durationValue, 10) : undefined,
+                  durationUnit: variant.durationUnit || undefined,
+                  durationMin: variant.durationMin ? parseInt(variant.durationMin, 10) : undefined,
+                  durationMax: variant.durationMax ? parseInt(variant.durationMax, 10) : undefined,
                 };
                 const { result: variantResult } = await createCrud<{
                   id?: string;
@@ -745,6 +813,15 @@ export default function CreateCatalogProductPage() {
                   currencyCode: draft.currencyCode,
                   priceKindId: draft.priceKindId,
                 };
+                if (draft.displayMode === "including-tax") {
+                  if (draft.amount !== undefined) pricePayload.unitPriceGross = draft.amount;
+                  if (draft.priceMin !== undefined) pricePayload.priceMin = draft.priceMin;
+                  if (draft.priceMax !== undefined) pricePayload.priceMax = draft.priceMax;
+                } else {
+                  if (draft.amount !== undefined) pricePayload.unitPriceNet = draft.amount;
+                  if (draft.priceMin !== undefined) pricePayload.priceMin = draft.priceMin;
+                  if (draft.priceMax !== undefined) pricePayload.priceMax = draft.priceMax;
+                }
                 if (draft.taxRateId) {
                   pricePayload.taxRateId = draft.taxRateId;
                 } else if (
@@ -810,27 +887,16 @@ export default function CreateCatalogProductPage() {
                 }
               }
 
-              if (productPayload.productType === "service") {
-                flash(
-                  t("catalog.products.create.virtualSuccess", "Service created successfully! Now set up your Option Tree."),
-                  "success",
-                );
-              } else {
-                flash(
-                  t("catalog.products.create.success", "Product created."),
-                  "success",
-                );
-              }
+              flash(
+                t("catalog.products.create.success", "Product created."),
+                "success",
+              );
               if (inboxDraft) {
                 router.push(
                   `/backend/inbox-ops/proposals/${encodeURIComponent(inboxDraft.proposalId)}`,
                 );
               } else {
-                if (productPayload.productType === "service") {
-                  router.push(`/backend/catalog/products/${productId}/options`);
-                } else {
-                  router.push(`/backend/catalog/products/${productId}`);
-                }
+                router.push(`/backend/catalog/products/${productId}`);
               }
             } catch (err) {
               await cleanupFailedProduct(
@@ -1024,6 +1090,367 @@ function ProductDimensionsFields({
   );
 }
 
+function DefaultVariantBuilder({
+  values,
+  setVariantField,
+  setVariantPrice,
+  priceKinds,
+  taxRates,
+  defaultTaxRateLabel,
+  inventoryDisabledHint,
+  t,
+}: {
+  values: any;
+  setVariantField: (id: string, field: any, value: any) => void;
+  setVariantPrice: (id: string, priceKindId: string, field: "amount" | "priceMin" | "priceMax", value: string) => void;
+  priceKinds: any[];
+  taxRates: any[];
+  defaultTaxRateLabel: string | null;
+  inventoryDisabledHint?: string;
+  t: any;
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="rounded-lg border p-6 bg-muted/20">
+        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          {t("catalog.products.create.variantsBuilder.defaultVariantLabel", "Default Variant")}
+        </h3>
+        
+        <div className="grid gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>{t("catalog.products.form.variants", "Variant title")}</Label>
+              <Input
+                value={(values.variants?.[0] || {}).title || ""}
+                onChange={(event) =>
+                  setVariantField(
+                    (values.variants?.[0] || {}).id || "",
+                    "title",
+                    event.target.value,
+                  )
+                }
+                placeholder={t(
+                  "catalog.products.create.variantsBuilder.titlePlaceholder",
+                  "Variant title",
+                )}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t("catalog.products.create.variantsBuilder.sku", "SKU")}</Label>
+              <Input
+                value={(values.variants?.[0] || {}).sku || ""}
+                onChange={(event) =>
+                  setVariantField(
+                    (values.variants?.[0] || {}).id || "",
+                    "sku",
+                    event.target.value,
+                  )
+                }
+                placeholder={t("catalog.products.create.variantsBuilder.skuPlaceholder", "SKU")}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t("catalog.products.create.variantsBuilder.vatColumn", "Tax class")}</Label>
+              <Select
+                value={(values.variants?.[0] || {}).taxRateId || undefined}
+                onValueChange={(value) =>
+                  setVariantField((values.variants?.[0] || {}).id || "", "taxRateId", value || null)
+                }
+                disabled={!taxRates.length}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      defaultTaxRateLabel
+                        ? t(
+                            "catalog.products.create.variantsBuilder.vatOptionDefault",
+                            "Use product tax class ({{label}})",
+                          ).replace("{{label}}", defaultTaxRateLabel)
+                        : t(
+                            "catalog.products.create.variantsBuilder.vatOptionNone",
+                            "No tax class",
+                          )
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {taxRates.map((rate) => (
+                    <SelectItem key={rate.id} value={rate.id}>
+                      {formatTaxRateLabel(rate)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h4 className="text-xs font-semibold uppercase text-muted-foreground">
+              {t("catalog.variants.form.pricesLabel", "Prices")}
+            </h4>
+            <div className="flex flex-wrap gap-6">
+              {priceKinds.map((kind) => {
+                const variantId = (values.variants?.[0] || {}).id || "";
+                const val = (values.variants?.[0] || {}).prices?.[kind.id]?.amount ?? "";
+                const minVal = (values.variants?.[0] || {}).prices?.[kind.id]?.priceMin ?? "";
+                const maxVal = (values.variants?.[0] || {}).prices?.[kind.id]?.priceMax ?? "";
+                return (
+                  <div key={kind.id} className="flex-1 basis-[280px] min-w-[280px] space-y-3 rounded-lg border bg-background p-4 shadow-sm">
+                    <Label className="flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <span>
+                        {t(
+                          "catalog.products.create.variantsBuilder.priceColumn",
+                          "Price {{title}}",
+                        ).replace("{{title}}", kind.title)}
+                      </span>
+                    </Label>
+                    
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] text-muted-foreground">
+                        {t("catalog.products.create.variantsBuilder.fixedPrice", "Fixed Price")}
+                      </Label>
+                      <div className="relative">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                          <span className="text-sm font-medium text-muted-foreground">
+                            {kind.currencyCode?.toUpperCase()}
+                          </span>
+                        </div>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="any"
+                          className="pl-14 font-mono text-sm w-full"
+                          value={val}
+                          onChange={(event) =>
+                            setVariantPrice(variantId, kind.id, "amount", event.target.value)
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {values.productType === "service" ? (
+                      <div className="space-y-1.5 pt-2 border-t">
+                        <Label className="text-[11px] text-muted-foreground">
+                          {t("catalog.products.create.variantsBuilder.priceRange", "Price Range")}
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1 min-w-0">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
+                              <span className="text-[10px] font-medium text-muted-foreground">
+                                {kind.currencyCode?.toUpperCase()}
+                              </span>
+                            </div>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="any"
+                              placeholder="Min"
+                              className="pl-9 w-full font-mono text-xs"
+                              value={minVal}
+                              onChange={(event) =>
+                                setVariantPrice(variantId, kind.id, "priceMin", event.target.value)
+                              }
+                            />
+                          </div>
+                          <span className="text-muted-foreground">-</span>
+                          <div className="relative flex-1 min-w-0">
+                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
+                              <span className="text-[10px] font-medium text-muted-foreground">
+                                {kind.currencyCode?.toUpperCase()}
+                              </span>
+                            </div>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="any"
+                              placeholder="Max"
+                              className="pl-9 w-full font-mono text-xs"
+                              value={maxVal}
+                              onChange={(event) =>
+                                setVariantPrice(variantId, kind.id, "priceMax", event.target.value)
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {values.productType === "service" ? (
+            <div className="space-y-4">
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground">
+                {t("catalog.variants.form.durationLabel", "Duration")}
+              </h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">
+                    {t("catalog.variants.form.durationFixed", "Fixed Duration")}
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      className="flex-1"
+                      placeholder="e.g. 60"
+                      value={(values.variants?.[0] || {}).durationValue || ""}
+                      onChange={(e) =>
+                        setVariantField(
+                          (values.variants?.[0] || {}).id || "",
+                          "durationValue",
+                          e.target.value
+                        )
+                      }
+                    />
+                    <Select
+                      value={(values.variants?.[0] || {}).durationUnit || "minute"}
+                      onValueChange={(val) =>
+                        setVariantField(
+                          (values.variants?.[0] || {}).id || "",
+                          "durationUnit",
+                          val
+                        )
+                      }
+                    >
+                      <SelectTrigger className="w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="minute">
+                          {t("catalog.variants.form.durationUnit.minute", "Minutes")}
+                        </SelectItem>
+                        <SelectItem value="hour">
+                          {t("catalog.variants.form.durationUnit.hour", "Hours")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">
+                    {t("catalog.variants.form.durationRange", "Duration Range")}
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 min-w-0">
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="Min"
+                        className="w-full"
+                        value={(values.variants?.[0] || {}).durationMin || ""}
+                        onChange={(e) =>
+                          setVariantField(
+                            (values.variants?.[0] || {}).id || "",
+                            "durationMin",
+                            e.target.value
+                          )
+                        }
+                      />
+                    </div>
+                    <span className="text-muted-foreground">-</span>
+                    <div className="flex-1 min-w-0">
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="Max"
+                        className="w-full"
+                        value={(values.variants?.[0] || {}).durationMax || ""}
+                        onChange={(e) =>
+                          setVariantField(
+                            (values.variants?.[0] || {}).id || "",
+                            "durationMax",
+                            e.target.value
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("catalog.variants.form.durationHint", "Fill out min and max if the duration varies.")}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <h4 className="text-xs font-semibold uppercase text-muted-foreground">
+                {t("catalog.variants.form.inventory", "Inventory")}
+              </h4>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border disabled:cursor-not-allowed disabled:opacity-50"
+                    checked={(values.variants?.[0] || {}).manageInventory ?? false}
+                    onChange={(event) =>
+                      setVariantField(
+                        (values.variants?.[0] || {}).id || "",
+                        "manageInventory",
+                        event.target.checked,
+                      )
+                    }
+                    disabled={!!inventoryDisabledHint}
+                    title={inventoryDisabledHint}
+                  />
+                  {t(
+                    "catalog.products.create.variantsBuilder.manageInventory",
+                    "Managed inventory",
+                  )}
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border disabled:cursor-not-allowed disabled:opacity-50"
+                    checked={(values.variants?.[0] || {}).allowBackorder ?? false}
+                    onChange={(event) =>
+                      setVariantField(
+                        (values.variants?.[0] || {}).id || "",
+                        "allowBackorder",
+                        event.target.checked,
+                      )
+                    }
+                    disabled={!!inventoryDisabledHint}
+                    title={inventoryDisabledHint}
+                  />
+                  {t(
+                    "catalog.products.create.variantsBuilder.allowBackorder",
+                    "Allow backorder",
+                  )}
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border disabled:cursor-not-allowed disabled:opacity-50"
+                    checked={(values.variants?.[0] || {}).hasInventoryKit ?? false}
+                    onChange={(event) =>
+                      setVariantField(
+                        (values.variants?.[0] || {}).id || "",
+                        "hasInventoryKit",
+                        event.target.checked,
+                      )
+                    }
+                    disabled={!!inventoryDisabledHint}
+                    title={inventoryDisabledHint}
+                  />
+                  {t(
+                    "catalog.products.create.variantsBuilder.inventoryKit",
+                    "Has inventory kit",
+                  )}
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProductBuilder({
   values,
   setValue,
@@ -1034,8 +1461,13 @@ function ProductBuilder({
 }: ProductBuilderProps) {
   const t = useT();
   const steps = React.useMemo(() => {
-    if (values.productType === "service") {
-      return PRODUCT_FORM_STEPS.filter(step => step !== "variants") as readonly ProductFormStep[];
+    if (
+      values.productType === "simple" ||
+      values.productType === "downloadable"
+    ) {
+      return PRODUCT_FORM_STEPS.filter(
+        (s) => s !== "options" && s !== "variants"
+      );
     }
     return PRODUCT_FORM_STEPS;
   }, [values.productType]);
@@ -1249,17 +1681,21 @@ function ProductBuilder({
   );
 
   const setVariantPrice = React.useCallback(
-    (variantId: string, priceKindId: string, amount: string) => {
-      if (amount.trim().startsWith("-")) return;
+    (variantId: string, priceKindId: string, field: "amount" | "priceMin" | "priceMax", value: string) => {
+      if (value.trim().startsWith("-")) return;
       const next = (Array.isArray(values.variants) ? values.variants : []).map(
         (variant) => {
           if (variant.id !== variantId) return variant;
           const nextPrices = { ...(variant.prices ?? {}) };
-          if (amount === "") {
+          const current = nextPrices[priceKindId] ?? { amount: "" };
+          
+          const nextCurrent = { ...current, [field]: value };
+          if (!nextCurrent.amount && !nextCurrent.priceMin && !nextCurrent.priceMax) {
             delete nextPrices[priceKindId];
           } else {
-            nextPrices[priceKindId] = { amount };
+            nextPrices[priceKindId] = nextCurrent;
           }
+          
           return {
             ...variant,
             prices: nextPrices,
@@ -1271,76 +1707,9 @@ function ProductBuilder({
     [values.variants, setValue],
   );
 
-  const markDefaultVariant = React.useCallback(
-    (variantId: string) => {
-      const next = (Array.isArray(values.variants) ? values.variants : []).map(
-        (variant) => ({
-          ...variant,
-          isDefault: variant.id === variantId,
-        }),
-      );
-      setValue("variants", next);
-    },
-    [values.variants, setValue],
-  );
 
-  const handleOptionTitleChange = React.useCallback(
-    (optionId: string, title: string) => {
-      const next = (Array.isArray(values.options) ? values.options : []).map(
-        (option) => {
-          if (option.id !== optionId) return option;
-          return { ...option, title };
-        },
-      );
-      setValue("options", next);
-    },
-    [values.options, setValue],
-  );
 
-  const setOptionValues = React.useCallback(
-    (optionId: string, labels: string[]) => {
-      const normalized = labels
-        .map((label) => label.trim())
-        .filter((label) => label.length);
-      const unique = Array.from(new Set(normalized));
-      const next = (Array.isArray(values.options) ? values.options : []).map(
-        (option) => {
-          if (option.id !== optionId) return option;
-          const existingByLabel = new Map(
-            option.values.map((value) => [value.label, value]),
-          );
-          const nextValues = unique.map(
-            (label) =>
-              existingByLabel.get(label) ?? { id: createLocalId(), label },
-          );
-          return {
-            ...option,
-            values: nextValues,
-          };
-        },
-      );
-      setValue("options", next);
-    },
-    [values.options, setValue],
-  );
 
-  const addOption = React.useCallback(() => {
-    const next = [
-      ...(Array.isArray(values.options) ? values.options : []),
-      { id: createLocalId(), title: "", values: [] },
-    ];
-    setValue("options", next);
-  }, [values.options, setValue]);
-
-  const removeOption = React.useCallback(
-    (optionId: string) => {
-      const next = (Array.isArray(values.options) ? values.options : []).filter(
-        (option) => option.id !== optionId,
-      );
-      setValue("options", next);
-    },
-    [values.options, setValue],
-  );
 
   return (
     <div className="space-y-6">
@@ -1367,6 +1736,10 @@ function ProductBuilder({
               t("catalog.products.uom.title", "Units of measure")}
             {step === "compliance" &&
               t("catalog.products.compliance.title", "Compliance & commerce")}
+            {step === "options" &&
+              (values.productType === "service"
+                ? t("catalog.options.title", "Option Tree")
+                : t("catalog.products.form.options", "Options"))}
             {step === "variants" &&
               t("catalog.products.create.steps.variants", "Variants")}
             {(stepErrors[step]?.length ?? 0) > 0 ? (
@@ -1498,382 +1871,60 @@ function ProductBuilder({
         />
       ) : null}
 
+      {currentStepKey === "options" ? (
+        values.productType === "service" ? (
+          <OptionTreeEditor
+            groups={values.optionTreeGroups || []}
+            options={values.optionTreeOptions || []}
+            onChangeGroups={(groups) => setValue("optionTreeGroups", groups)}
+            onChangeOptions={(opts) => setValue("optionTreeOptions", opts)}
+          />
+        ) : (
+          <OptionDraftBuilder
+            options={Array.isArray(values.options) ? values.options : []}
+            onChange={(opts) => setValue("options", opts)}
+            t={t}
+          />
+        )
+      ) : null}
+
       {currentStepKey === "variants" ? (
         <div className="space-y-6">
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border"
-              checked={values.hasVariants}
-              onChange={(event) => {
-                const checked = event.target.checked;
-                setValue("hasVariants", checked);
-                if (
-                  checked &&
-                  !isConfigurableProductType(
-                    values.productType || "simple",
-                  )
-                ) {
-                  setValue("productType", "configurable");
-                } else if (
-                  !checked &&
-                  isConfigurableProductType(
-                    values.productType || "simple",
-                  )
-                ) {
-                  setValue("productType", "simple");
-                }
-              }}
-            />
-            {t(
-              "catalog.products.create.variantsBuilder.toggle",
-              "Yes, this is a product with variants",
-            )}
-          </label>
-
-          {values.hasVariants ? (
-            <div className="space-y-4 rounded-lg border p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">
-                  {t(
-                    "catalog.products.create.optionsBuilder.title",
-                    "Product options",
-                  )}
-                </h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addOption}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  {t(
-                    "catalog.products.create.optionsBuilder.add",
-                    "Add option",
-                  )}
-                </Button>
-              </div>
-              {(Array.isArray(values.options) ? values.options : []).map(
-                (option) => (
-                  <div key={option.id} className="rounded-md bg-muted/50 p-4">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        value={option.title}
-                        onChange={(event) =>
-                          handleOptionTitleChange(option.id, event.target.value)
-                        }
-                        placeholder={t(
-                          "catalog.products.create.optionsBuilder.placeholder",
-                          "e.g., Color",
-                        )}
-                        className="flex-1"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        type="button"
-                        onClick={() => removeOption(option.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="mt-3 space-y-2">
-                      <Label className="text-xs uppercase text-muted-foreground">
-                        {t(
-                          "catalog.products.create.optionsBuilder.values",
-                          "Values",
-                        )}
-                      </Label>
-                      <TagsInput
-                        value={option.values.map((value) => value.label)}
-                        onChange={(labels) =>
-                          setOptionValues(option.id, labels)
-                        }
-                        placeholder={t(
-                          "catalog.products.create.optionsBuilder.valuePlaceholder",
-                          "Type a value and press Enter",
-                        )}
-                      />
-                    </div>
-                  </div>
-                ),
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border"
+                checked={values.hasVariants}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setValue("hasVariants", checked);
+                  if (values.productType !== "service") {
+                    if (checked && !isConfigurableProductType(values.productType || "simple")) {
+                      setValue("productType", "configurable");
+                    } else if (!checked && isConfigurableProductType(values.productType || "simple")) {
+                      setValue("productType", "simple");
+                    }
+                  }
+                }}
+              />
+              {t(
+                "catalog.products.create.variantsBuilder.toggle",
+                "Yes, this is a product with variants",
               )}
-              {!values.options?.length ? (
-                <p className="text-sm text-muted-foreground">
-                  {t(
-                    "catalog.products.create.optionsBuilder.empty",
-                    "No options yet. Add your first option to generate variants.",
-                  )}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div className="rounded-lg border">
-            <RadioGroup
-              className="contents"
-              name="defaultVariant"
-              value={(Array.isArray(values.variants) ? values.variants : []).find((v) => v.isDefault)?.id ?? ''}
-              onValueChange={(next) => markDefaultVariant(next)}
-            >
-            <div className="w-full overflow-x-auto">
-              <Table density="compact" className="min-w-[900px] table-fixed border-collapse">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>
-                      {t(
-                        "catalog.products.create.variantsBuilder.defaultOption",
-                        "Default option",
-                      )}
-                    </TableHead>
-                    <TableHead>
-                      {t("catalog.products.form.variants", "Variant title")}
-                    </TableHead>
-                    <TableHead>
-                      {t("catalog.products.create.variantsBuilder.sku", "SKU")}
-                    </TableHead>
-                    <TableHead>
-                      {t(
-                        "catalog.products.create.variantsBuilder.vatColumn",
-                        "Tax class",
-                      )}
-                    </TableHead>
-                    {priceKinds.map((kind) => (
-                      <TableHead key={kind.id}>
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1">
-                            <span>
-                              {t(
-                                "catalog.products.create.variantsBuilder.priceColumn",
-                                "Price {{title}}",
-                              ).replace("{{title}}", kind.title)}
-                            </span>
-                            <small
-                              title={
-                                kind.displayMode === "including-tax"
-                                  ? t(
-                                      "catalog.priceKinds.form.displayMode.include",
-                                      "Including tax",
-                                    )
-                                  : t(
-                                      "catalog.priceKinds.form.displayMode.exclude",
-                                      "Excluding tax",
-                                    )
-                              }
-                              className="text-xs text-muted-foreground"
-                            >
-                              {kind.displayMode === "including-tax" ? "Ⓣ" : "Ⓝ"}
-                            </small>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {kind.currencyCode?.toUpperCase() ??
-                              t(
-                                "catalog.products.create.variantsBuilder.currencyMissing",
-                                "Currency missing",
-                              )}
-                          </span>
-                        </div>
-                      </TableHead>
-                    ))}
-                    <TableHead className="text-center">
-                      {t(
-                        "catalog.products.create.variantsBuilder.manageInventory",
-                        "Managed inventory",
-                      )}
-                    </TableHead>
-                    <TableHead className="text-center">
-                      {t(
-                        "catalog.products.create.variantsBuilder.allowBackorder",
-                        "Allow backorder",
-                      )}
-                    </TableHead>
-                    <TableHead className="text-center">
-                      {t(
-                        "catalog.products.create.variantsBuilder.inventoryKit",
-                        "Has inventory kit",
-                      )}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(Array.isArray(values.variants) && values.variants.length
-                    ? values.variants
-                    : [
-                        createVariantDraft(values.taxRateId ?? null, {
-                          isDefault: true,
-                        }),
-                      ]
-                  ).map((variant) => (
-                    <TableRow key={variant.id}>
-                      <TableCell>
-                        <label className="inline-flex items-center gap-1 text-xs">
-                          <Radio value={variant.id} />
-                          {variant.isDefault
-                            ? t(
-                                "catalog.products.create.variantsBuilder.defaultLabel",
-                                "Default option value",
-                              )
-                            : t(
-                                "catalog.products.create.variantsBuilder.makeDefault",
-                                "Set as default",
-                              )}
-                        </label>
-                        {values.hasVariants && variant.optionValues ? (
-                          <p className="text-xs text-muted-foreground">
-                            {Object.values(variant.optionValues).join(" / ")}
-                          </p>
-                        ) : null}
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={variant.title}
-                          onChange={(event) =>
-                            setVariantField(
-                              variant.id,
-                              "title",
-                              event.target.value,
-                            )
-                          }
-                          placeholder={t(
-                            "catalog.products.create.variantsBuilder.titlePlaceholder",
-                            "Variant title",
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={variant.sku}
-                          onChange={(event) =>
-                            setVariantField(
-                              variant.id,
-                              "sku",
-                              event.target.value,
-                            )
-                          }
-                          placeholder={t(
-                            "catalog.products.create.variantsBuilder.skuPlaceholder",
-                            "e.g., SKU-001",
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={variant.taxRateId || undefined}
-                          onValueChange={(value) =>
-                            setVariantField(variant.id, "taxRateId", value || null)
-                          }
-                          disabled={!taxRates.length}
-                        >
-                          <SelectTrigger>
-                            <SelectValue
-                              placeholder={
-                                defaultTaxRateLabel
-                                  ? t(
-                                      "catalog.products.create.variantsBuilder.vatOptionDefault",
-                                      "Use product tax class ({{label}})",
-                                    ).replace("{{label}}", defaultTaxRateLabel)
-                                  : t(
-                                      "catalog.products.create.variantsBuilder.vatOptionNone",
-                                      "No tax class",
-                                    )
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {taxRates.map((rate) => (
-                              <SelectItem key={rate.id} value={rate.id}>
-                                {formatTaxRateLabel(rate)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      {priceKinds.map((kind) => (
-                        <TableCell key={kind.id}>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">
-                              {kind.currencyCode ?? "—"}
-                            </span>
-                            <Input
-                              type="number"
-                              value={variant.prices?.[kind.id]?.amount ?? ""}
-                              onChange={(event) =>
-                                setVariantPrice(
-                                  variant.id,
-                                  kind.id,
-                                  event.target.value,
-                                )
-                              }
-                              placeholder="0.00"
-                              min={0}
-                            />
-                          </div>
-                        </TableCell>
-                      ))}
-                      <TableCell className="text-center">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border disabled:cursor-not-allowed disabled:opacity-50"
-                          checked={variant.manageInventory}
-                          onChange={(event) =>
-                            setVariantField(
-                              variant.id,
-                              "manageInventory",
-                              event.target.checked,
-                            )
-                          }
-                          disabled
-                          title={inventoryDisabledHint}
-                        />
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border disabled:cursor-not-allowed disabled:opacity-50"
-                          checked={variant.allowBackorder}
-                          onChange={(event) =>
-                            setVariantField(
-                              variant.id,
-                              "allowBackorder",
-                              event.target.checked,
-                            )
-                          }
-                          disabled
-                          title={inventoryDisabledHint}
-                        />
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border disabled:cursor-not-allowed disabled:opacity-50"
-                          checked={variant.hasInventoryKit}
-                          onChange={(event) =>
-                            setVariantField(
-                              variant.id,
-                              "hasInventoryKit",
-                              event.target.checked,
-                            )
-                          }
-                          disabled
-                          title={inventoryDisabledHint}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            </RadioGroup>
-            {!priceKinds.length ? (
-              <div className="flex items-center gap-2 border-t px-4 py-3 text-sm text-muted-foreground">
-                <AlertCircle className="h-4 w-4" />
-                {t(
-                  "catalog.products.create.variantsBuilder.noPriceKinds",
-                  "Configure price kinds in Catalog settings to add price columns.",
-                )}
-              </div>
-            ) : null}
+            </label>
           </div>
+
+          <DefaultVariantBuilder 
+            values={values} 
+            setVariantField={setVariantField} 
+            setVariantPrice={setVariantPrice} 
+            priceKinds={priceKinds} 
+            taxRates={taxRates}
+            defaultTaxRateLabel={defaultTaxRateLabel}
+            inventoryDisabledHint={inventoryDisabledHint}
+            t={t} 
+          />
         </div>
       ) : null}
 
