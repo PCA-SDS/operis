@@ -17,7 +17,7 @@ export const migrateTpsCategoriesCommand: ModuleCli = {
     if (!tenantId || !organizationId) {
       logger.error('Missing tenantId or organizationId')
       logger.error('Usage: yarn mercato catalog migrate-tps-categories <tenantId> <organizationId> [--replace]')
-      return
+      throw new Error('Missing tenantId or organizationId')
     }
 
     const container = await createRequestContainer()
@@ -31,7 +31,7 @@ export const migrateTpsCategoriesCommand: ModuleCli = {
         if (!replace) {
           logger.error(`Found ${existingCount} existing categories for organization ${organizationId}.`)
           logger.error('Aborting. Use --replace to overwrite existing data.')
-          return
+          throw new Error(`Existing categories already found for organization ${organizationId}`)
         }
         logger.info(`Found ${existingCount} existing categories. --replace flag is set, proceeding with cleanup...`)
       }
@@ -131,6 +131,7 @@ export const migrateTpsCategoriesCommand: ModuleCli = {
       })
     } catch (err) {
       logger.error('An error occurred during Category migration', { err })
+      throw err instanceof Error ? err : new Error('Category migration failed')
     } finally {
       const disposable = container as unknown as { dispose?: () => Promise<void> }
       if (typeof disposable.dispose === 'function') {

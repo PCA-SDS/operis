@@ -24,6 +24,24 @@ most of the patterns listed below in a user's codebase.
 
 ## 0.6.7 → 0.7.0 (2026-08-26)
 
+### Catalog option tree replaces the legacy product-option table
+
+The catalog option-tree rollout reuses the physical table name
+`catalog_product_options` for the new nested option-node model. The migration
+therefore drops the legacy `catalog_product_options` table before creating the
+new schema (`catalog_product_option_groups` plus the replacement
+`catalog_product_options` table keyed by `group_id` instead of `product_id`).
+This is a database-schema compatibility break under
+[`BACKWARD_COMPATIBILITY.md`](BACKWARD_COMPATIBILITY.md): rows stored in the old
+shape are not auto-mapped into the new tree model.
+
+**Action for operators:** treat the upgrade as a one-way schema transition for
+catalog product options. Export or migrate any production data still stored in
+the legacy `catalog_product_options` table before applying the migration. The
+paired legacy tables `catalog_product_option_values` and
+`catalog_product_variant_option_values` are no longer dropped by this release;
+they remain intact for follow-up migration work.
+
 ### Passkey MFA verification requires a real WebAuthn assertion (#3852)
 
 `PasskeyProvider.verify()` used to accept a second payload shape — `{ credentialId, challenge }` — beside the genuine `{ response }` assertion, and approved it by string comparison. Both compared values are public: `prepareChallenge()` returns the credential id and the challenge to the caller, and `GET /api/security/mfa/methods` discloses `providerMetadata.credentialId`. A third shape needed even less: with no prepared challenge at all, only the disclosed credential id was compared. Anyone who could reach the verify step for a session therefore passed the passkey second factor with no authenticator private key and no signature, in both login-time MFA and passkey-as-sudo step-up.

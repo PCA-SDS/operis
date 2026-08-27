@@ -129,6 +129,7 @@ export type CatalogOptionItem = {
 }
 
 export type CatalogOptionTreeData = {
+  updated_at: string | null
   groups: CatalogOptionGroupItem[]
   options: CatalogOptionItem[]
 }

@@ -1,13 +1,12 @@
 import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import { SERVICE_MENU } from './data/serviceMenu'
-import type { Price, Option } from './data/types'
+import type { OptionGroup, Price } from './data/types'
 import type { CatalogProductType } from '../data/types'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import {
   CatalogProduct,
   CatalogProductCategory,
   CatalogProductCategoryAssignment,
-  CatalogOptionSchemaTemplate,
   CatalogProductVariant,
   CatalogProductPrice,
   CatalogPriceKind,
@@ -19,21 +18,16 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 import { parseTpsMigrateFlags } from './lib'
 import {
   slugifyTpsText,
-  sumTpsPrices,
   parseTpsPrice,
   extractTpsDuration,
   parseTpsDurationForEntity,
-  hasNestedTpsOptionTree,
-  collectTpsSchemaGroups,
-  enumerateTpsOptionPaths,
-  type OptionPath,
 } from './mapping'
 
 const logger = createLogger('catalog')
 
 function traverseOptionTree(
   em: EntityManager,
-  groups: any[],
+  groups: OptionGroup[],
   product: CatalogProduct,
   tenantId: string,
   organizationId: string,
@@ -48,8 +42,8 @@ function traverseOptionTree(
       product: product,
       parentOption: parentOption,
       name: group.label,
-      requirement: group.selection === 'single' ? 'required' : 'optional', // Guess based on common patterns
-      selectMode: group.selection === 'multiple' ? 'multiple' : 'single',
+      requirement: group.requirement,
+      selectMode: group.mode,
       sortOrder: sortOrderGroup++,
       isActive: true,
     })
@@ -59,6 +53,7 @@ function traverseOptionTree(
     for (const opt of group.options) {
       const parsedPrice = parseTpsPrice(opt.price)
       const duration = extractTpsDuration(opt)
+      const parsedDuration = parseTpsDurationForEntity(duration)
       
       const optionEntity = em.create(CatalogProductOption, {
         id: randomUUID(),
@@ -69,8 +64,12 @@ function traverseOptionTree(
         priceFlat: parsedPrice.unitPriceGross || undefined,
         priceMin: parsedPrice.priceMin || undefined,
         priceMax: parsedPrice.priceMax || undefined,
-        durationUnit: duration ? 'minute' : undefined, // Simplify duration parsing
-        durationValue: duration ? parseInt(duration) : undefined,
+        durationUnit: parsedDuration.durationUnit,
+        durationValue: parsedDuration.durationValue,
+        durationMin: parsedDuration.durationMin,
+        durationMax: parsedDuration.durationMax,
+        note: opt.note,
+        unit: opt.unit,
         sortOrder: sortOrderOption++,
         isActive: true,
         metadata: parsedPrice.metadata,
@@ -92,7 +91,7 @@ function createVariantForOption(em: EntityManager, product: CatalogProduct, defa
 
   const parsedPrice = parseTpsPrice(totalPrice)
 
-  const variantMetadata: Record<string, any> = {}
+  const variantMetadata: Record<string, unknown> = {}
   if (parsedPrice.metadata) {
     variantMetadata.originalPriceRange = parsedPrice.metadata
   }
@@ -147,7 +146,7 @@ export const migrateTpsProductsCommand: ModuleCli = {
     if (!tenantId || !organizationId) {
       logger.error('Missing tenantId or organizationId')
       logger.error('Usage: yarn mercato catalog migrate-tps-products <tenantId> <organizationId> [--replace]')
-      return
+      throw new Error('Missing tenantId or organizationId')
     }
 
     const container = await (await import('@open-mercato/shared/lib/di/container')).createRequestContainer()
@@ -161,7 +160,7 @@ export const migrateTpsProductsCommand: ModuleCli = {
         if (!replace) {
           logger.error(`Found ${existingCount} existing products for organization ${organizationId}.`)
           logger.error('Aborting. Use --replace to overwrite existing data.')
-          return
+          throw new Error(`Existing products already found for organization ${organizationId}`)
         }
         logger.info(`Found ${existingCount} existing products. --replace flag is set, proceeding with cleanup...`)
       }
@@ -174,7 +173,6 @@ export const migrateTpsProductsCommand: ModuleCli = {
           await em.nativeDelete(CatalogProductVariant, { tenantId, organizationId })
           await em.nativeDelete(CatalogProductOption, { tenantId, organizationId })
           await em.nativeDelete(CatalogProductOptionGroup, { tenantId, organizationId })
-          await em.nativeDelete(CatalogOptionSchemaTemplate, { tenantId, organizationId })
           await em.nativeDelete(CatalogProduct, { tenantId, organizationId })
           logger.info('Cleanup complete.')
         }
@@ -196,7 +194,7 @@ export const migrateTpsProductsCommand: ModuleCli = {
       await em.flush()
     }
 
-    const categories = await em.find(CatalogProductCategory, { tenantId, organizationId })
+    const categories = await em.find(CatalogProductCategory, { tenantId, organizationId, depth: 1 })
     const categoryMap = new Map<string, CatalogProductCategory>()
     categories.forEach((c) => {
       categoryMap.set(c.name, c)
@@ -210,12 +208,16 @@ export const migrateTpsProductsCommand: ModuleCli = {
         for (const item of category.items) {
           // Any item with optionGroups is a service using the Option Tree — never a retail configurable.
           // (Retail configurable products like size/color variants are not part of the TPS service menu.)
-          const isConfigurable = (item.optionGroups?.length ?? 0) > 0
+          const hasOptionTree = (item.optionGroups?.length ?? 0) > 0
 
-          // User requested all TPS products to be migrated as 'service' (no simple, no bundle)
+          // NOTE: The flattening path (configurable → virtual/bundle → variant explosion)
+          // is intentionally not used. All TPS products migrate as 'service' type with
+          // Option Tree for modifiers and exactly one Default variant. Variants represent
+          // the base service, not combinatorial SKU explosion — per the option-tree design
+          // where modifiers are modeled as option groups/options, not retail variants.
           const finalProductType: CatalogProductType = 'service'
 
-          const productMetadata: Record<string, any> = {
+          const productMetadata: Record<string, unknown> = {
             tps_id: item.id,
             tps_type: category.type || 'unknown',
           }
@@ -229,7 +231,7 @@ export const migrateTpsProductsCommand: ModuleCli = {
             organizationId,
             title: item.name,
             description: item.description || '',
-            sku: slugifyTpsText(`${category.label} ${item.name}`),
+            sku: item.id || slugifyTpsText(`${category.label} ${item.name}`),
             handle: slugifyTpsText(`${category.label} ${item.name}`),
             productType: finalProductType,
             isConfigurable: false, // Option Tree items are never retail-configurable
@@ -255,7 +257,7 @@ export const migrateTpsProductsCommand: ModuleCli = {
           createVariantForOption(em, product, defaultPriceKind!, tenantId, organizationId, `${category.label} ${item.name}`, {}, item.price, 'Default', true, itemDuration ? [itemDuration] : [])
           variantCount++
           
-          if (isConfigurable && item.optionGroups) {
+          if (hasOptionTree && item.optionGroups) {
             traverseOptionTree(em, item.optionGroups, product, tenantId, organizationId)
           }
         }
@@ -269,6 +271,7 @@ export const migrateTpsProductsCommand: ModuleCli = {
       })
     } catch (err) {
       logger.error('An error occurred during Product migration', { err })
+      throw err instanceof Error ? err : new Error('Product migration failed')
     } finally {
       const disposable = container as unknown as { dispose?: () => Promise<void> }
       if (typeof disposable.dispose === 'function') {

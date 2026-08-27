@@ -1,4 +1,5 @@
 import { CatalogProduct, CatalogProductOptionGroup, CatalogProductOption } from '../../data/entities'
+import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 
 const registerCommand = jest.fn()
 jest.mock('@open-mercato/shared/lib/commands', () => ({
@@ -30,7 +31,12 @@ function buildMockEm() {
   const persists: any[] = []
   let flushCount = 0
 
-  const mockProduct = { id: PRODUCT, tenantId: TENANT, organizationId: ORG }
+  const mockProduct = {
+    id: PRODUCT,
+    tenantId: TENANT,
+    organizationId: ORG,
+    updatedAt: new Date('2026-08-26T08:00:00.000Z'),
+  }
 
   const em = {
     findOne: jest.fn().mockResolvedValue(mockProduct),
@@ -55,7 +61,7 @@ function buildMockEm() {
     }),
     fork: jest.fn().mockReturnThis(),
   }
-  return { em, removes, persists, getFlushCount: () => flushCount }
+  return { em, removes, persists, getFlushCount: () => flushCount, mockProduct }
 }
 
 describe('catalog.product_options.sync_tree', () => {
@@ -70,7 +76,6 @@ describe('catalog.product_options.sync_tree', () => {
 
     // simulate a foreign group existing in DB for another product
     em.find.mockImplementation(async (entityCls, where) => {
-      console.log('em.find called with', entityCls.name, where)
       if (entityCls.name === 'CatalogProductOptionGroup' && (where as any).id) {
         return [{ id: '11111111-1111-1111-8111-111111111111', product: { id: 'OTHER' }, tenantId: TENANT, organizationId: ORG }]
       }
@@ -94,7 +99,7 @@ describe('catalog.product_options.sync_tree', () => {
 
   it('syncs correctly, deleting removed items and upserting others', async () => {
     const cmd = loadCommand()
-    const { em, removes, persists, getFlushCount } = buildMockEm()
+    const { em, removes, persists, getFlushCount, mockProduct } = buildMockEm()
 
     const existingGroup = { id: '22222222-1111-1111-8111-111111111111', product: PRODUCT, tenantId: TENANT, organizationId: ORG, name: 'Old' }
     const existingOption = { id: '33333333-1111-1111-8111-111111111111', group: existingGroup, tenantId: TENANT, organizationId: ORG, name: 'Old Opt' }
@@ -103,7 +108,6 @@ describe('catalog.product_options.sync_tree', () => {
 
     // Mock existing entities for the snapshot / diff logic
     em.find.mockImplementation(async (entityCls, where) => {
-      console.log('em.find called with', entityCls.name, where)
       if (entityCls.name === 'CatalogProductOptionGroup' && !(where as any).id) {
         // returning existing groups
         return [existingGroup, groupToRemove]
@@ -148,7 +152,45 @@ describe('catalog.product_options.sync_tree', () => {
     // Should update existing items inline
     expect(existingGroup.name).toBe('Updated Name')
     expect(existingOption.name).toBe('Updated Opt')
+    expect(mockProduct.updatedAt).toBeInstanceOf(Date)
+    expect(mockProduct.updatedAt.toISOString()).not.toBe('2026-08-26T08:00:00.000Z')
 
-    expect(getFlushCount()).toBeGreaterThanOrEqual(3) // Flushes for deletes, groups, options
+    expect(getFlushCount()).toBeGreaterThanOrEqual(4) // deletes, groups, options, aggregate version bump
+  })
+
+  it('rejects a stale aggregate version before mutating the tree', async () => {
+    const cmd = loadCommand()
+    const { em, removes, persists, getFlushCount } = buildMockEm()
+
+    const ctx = {
+      container: { resolve: (token: string) => (token === 'em' ? em : null) },
+      auth: { tenantId: TENANT, orgId: ORG },
+      request: new Request('https://example.test/api/catalog/products/tree', {
+        method: 'PUT',
+        headers: {
+          'x-om-ext-optimistic-lock-expected-updated-at': '2026-08-26T07:59:59.000Z',
+        },
+      }),
+    }
+    const input = {
+      productId: PRODUCT,
+      tenantId: TENANT,
+      organizationId: ORG,
+      groups: [],
+      options: [],
+    }
+
+    let caught: unknown
+    try {
+      await cmd.execute(input, ctx)
+    } catch (error) {
+      caught = error
+    }
+
+    expect(caught).toMatchObject({ status: 409 })
+    expect((caught as CrudHttpError).body).toMatchObject({ code: 'optimistic_lock_conflict' })
+    expect(removes).toHaveLength(0)
+    expect(persists).toHaveLength(0)
+    expect(getFlushCount()).toBe(0)
   })
 })

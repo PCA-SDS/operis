@@ -3,6 +3,10 @@ import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import {
+  enforceCommandOptimisticLockWithGuards,
+  enforceRecordGoneIsConflict,
+} from '@open-mercato/shared/lib/crud/optimistic-lock-command'
+import {
   catalogProductOptionTreeSyncSchema,
   type CatalogProductOptionTreeSyncInput,
 } from '../data/validators'
@@ -25,8 +29,8 @@ type SerializedGroup = {
   parentOptionId: string | null
   name: string
   description: string | null
-  requirement: string
-  selectMode: string
+  requirement: 'required' | 'optional'
+  selectMode: 'single' | 'multiple'
   sortOrder: number
   isActive: boolean
   metadata: Record<string, unknown> | null
@@ -63,26 +67,246 @@ type OptionTreeUndoPayload = {
   after?: OptionTreeSnapshot | null
 }
 
+type OptionTreeScope = {
+  productId: string
+  tenantId: string
+  organizationId: string
+}
+
+type CurrentOptionTreeRecords = {
+  groups: CatalogProductOptionGroup[]
+  options: CatalogProductOption[]
+}
+
+function toIso(value: Date | string | null | undefined): string | null {
+  if (!value) return null
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime()) ? value.toISOString() : null
+  }
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function getLatestUpdatedAt(
+  productUpdatedAt: Date | string | null | undefined,
+  groups: Array<{ updatedAt?: Date | string | null }>,
+  options: Array<{ updatedAt?: Date | string | null }>,
+): string | null {
+  const candidates = [
+    toIso(productUpdatedAt),
+    ...groups.map((group) => toIso(group.updatedAt)),
+    ...options.map((option) => toIso(option.updatedAt)),
+  ].filter((value): value is string => value !== null)
+
+  if (candidates.length === 0) return null
+  return candidates.reduce((latest, current) => (current > latest ? current : latest))
+}
+
+function normalizeSyncInput(parsed: CatalogProductOptionTreeSyncInput): OptionTreeSnapshot {
+  return {
+    groups: parsed.groups.map((group) => ({
+      id: group.id,
+      parentOptionId: group.parentOptionId ?? null,
+      name: group.name,
+      description: group.description ?? null,
+      requirement: group.requirement ?? 'required',
+      selectMode: group.selectMode ?? 'single',
+      sortOrder: group.sortOrder ?? 0,
+      isActive: group.isActive ?? true,
+      metadata: group.metadata ? cloneJson(group.metadata) : null,
+    })),
+    options: parsed.options.map((option) => ({
+      id: option.id,
+      groupId: option.groupId,
+      code: option.code ?? null,
+      name: option.name,
+      description: option.description ?? null,
+      note: option.note ?? null,
+      unit: option.unit ?? null,
+      priceFlat: option.priceFlat ?? null,
+      priceMin: option.priceMin ?? null,
+      priceMax: option.priceMax ?? null,
+      durationValue: option.durationValue ?? null,
+      durationUnit: option.durationUnit ?? null,
+      durationMin: option.durationMin ?? null,
+      durationMax: option.durationMax ?? null,
+      isAddon: option.isAddon ?? false,
+      sortOrder: option.sortOrder ?? 0,
+      isActive: option.isActive ?? true,
+      metadata: option.metadata ? cloneJson(option.metadata) : null,
+    })),
+  }
+}
+
+async function loadCurrentOptionTreeRecords(
+  em: EntityManager,
+  scope: OptionTreeScope,
+): Promise<CurrentOptionTreeRecords> {
+  const groups = await em.find(
+    CatalogProductOptionGroup,
+    {
+      product: scope.productId,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+      deletedAt: null,
+    },
+    { orderBy: { sortOrder: 'asc', createdAt: 'asc' } },
+  )
+  const groupIds = groups.map((group) => group.id)
+  const options =
+    groupIds.length > 0
+      ? await em.find(
+          CatalogProductOption,
+          {
+            group: { $in: groupIds },
+            tenantId: scope.tenantId,
+            organizationId: scope.organizationId,
+            deletedAt: null,
+          },
+          { orderBy: { sortOrder: 'asc', createdAt: 'asc' } },
+        )
+      : []
+
+  return { groups, options }
+}
+
+async function applyOptionTreeSnapshot(
+  em: EntityManager,
+  scope: OptionTreeScope,
+  snapshot: OptionTreeSnapshot,
+): Promise<void> {
+  const currentTree = await loadCurrentOptionTreeRecords(em, scope)
+  const incomingGroupIds = new Set(snapshot.groups.map((group) => group.id))
+  const incomingOptionIds = new Set(snapshot.options.map((option) => option.id))
+
+  for (const option of currentTree.options) {
+    if (!incomingOptionIds.has(option.id)) {
+      em.remove(option)
+    }
+  }
+
+  for (const group of currentTree.groups) {
+    if (!incomingGroupIds.has(group.id)) {
+      em.remove(group)
+    }
+  }
+
+  await em.flush()
+
+  const groupEntities = new Map<string, CatalogProductOptionGroup>()
+  for (const group of currentTree.groups) {
+    if (incomingGroupIds.has(group.id)) {
+      groupEntities.set(group.id, group)
+    }
+  }
+
+  for (const group of snapshot.groups) {
+    let entity = groupEntities.get(group.id)
+    if (!entity) {
+      entity = em.create(CatalogProductOptionGroup, {
+        id: group.id,
+        product: scope.productId,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+        name: group.name,
+        sortOrder: group.sortOrder,
+        isActive: group.isActive,
+      })
+      em.persist(entity)
+      groupEntities.set(group.id, entity)
+    }
+
+    entity.name = group.name
+    entity.description = group.description ?? null
+    entity.requirement = group.requirement
+    entity.selectMode = group.selectMode
+    entity.sortOrder = group.sortOrder
+    entity.isActive = group.isActive
+    entity.metadata = group.metadata ? cloneJson(group.metadata) : null
+  }
+
+  await em.flush()
+
+  const optionEntities = new Map<string, CatalogProductOption>()
+  for (const option of currentTree.options) {
+    if (incomingOptionIds.has(option.id)) {
+      optionEntities.set(option.id, option)
+    }
+  }
+
+  for (const option of snapshot.options) {
+    let entity = optionEntities.get(option.id)
+    const groupRef = groupEntities.get(option.groupId)
+    if (!groupRef) {
+      throw new CrudHttpError(400, { error: `Invalid groupId ${option.groupId} for option ${option.id}` })
+    }
+
+    if (!entity) {
+      entity = em.create(CatalogProductOption, {
+        id: option.id,
+        group: groupRef,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+        name: option.name,
+        sortOrder: option.sortOrder,
+        isActive: option.isActive,
+      })
+      em.persist(entity)
+      optionEntities.set(option.id, entity)
+    }
+
+    entity.group = groupRef
+    entity.code = option.code ?? null
+    entity.name = option.name
+    entity.description = option.description ?? null
+    entity.note = option.note ?? null
+    entity.unit = option.unit ?? null
+    entity.priceFlat = option.priceFlat ?? null
+    entity.priceMin = option.priceMin ?? null
+    entity.priceMax = option.priceMax ?? null
+    entity.durationValue = option.durationValue ?? null
+    entity.durationUnit = option.durationUnit ?? null
+    entity.durationMin = option.durationMin ?? null
+    entity.durationMax = option.durationMax ?? null
+    entity.isAddon = option.isAddon
+    entity.sortOrder = option.sortOrder
+    entity.isActive = option.isActive
+    entity.metadata = option.metadata ? cloneJson(option.metadata) : null
+  }
+
+  await em.flush()
+
+  for (const group of snapshot.groups) {
+    const entity = groupEntities.get(group.id)
+    if (!entity) continue
+
+    if (group.parentOptionId) {
+      const parentOption = optionEntities.get(group.parentOptionId)
+      if (!parentOption) {
+        throw new CrudHttpError(400, {
+          error: `Invalid parentOptionId ${group.parentOptionId} for group ${group.id}`,
+        })
+      }
+      entity.parentOption = parentOption
+    } else {
+      entity.parentOption = null
+    }
+  }
+
+  await em.flush()
+}
+
 async function loadOptionTreeSnapshot(
   em: EntityManager,
   productId: string,
   tenantId: string,
   organizationId: string
 ): Promise<OptionTreeSnapshot> {
-  const groups = await em.find(
-    CatalogProductOptionGroup,
-    { product: productId, tenantId, organizationId, deletedAt: null },
-    { orderBy: { sortOrder: 'asc' } }
-  )
-  const groupIds = groups.map((g) => g.id)
-  let options: CatalogProductOption[] = []
-  if (groupIds.length > 0) {
-    options = await em.find(
-      CatalogProductOption,
-      { group: { $in: groupIds }, tenantId, organizationId, deletedAt: null },
-      { orderBy: { sortOrder: 'asc' } }
-    )
-  }
+  const { groups, options } = await loadCurrentOptionTreeRecords(em, {
+    productId,
+    tenantId,
+    organizationId,
+  })
 
   return {
     groups: groups.map((g) => ({
@@ -90,7 +314,7 @@ async function loadOptionTreeSnapshot(
       parentOptionId: g.parentOption?.id ?? null,
       name: g.name,
       description: g.description ?? null,
-      requirement: g.requirement ?? 'optional',
+      requirement: g.requirement,
       selectMode: g.selectMode ?? 'single',
       sortOrder: g.sortOrder,
       isActive: g.isActive,
@@ -135,6 +359,12 @@ const syncOptionTreeCommand: CommandHandler<
     ensureTenantScope(ctx, parsed.tenantId)
     ensureOrganizationScope(ctx, parsed.organizationId)
     const em = (ctx.container.resolve('em') as EntityManager).fork()
+    const scope = {
+      productId: parsed.productId,
+      tenantId: parsed.tenantId,
+      organizationId: parsed.organizationId,
+    } satisfies OptionTreeScope
+    const snapshot = normalizeSyncInput(parsed)
 
     const product = await em.findOne(CatalogProduct, {
       id: parsed.productId,
@@ -143,11 +373,16 @@ const syncOptionTreeCommand: CommandHandler<
       deletedAt: null,
     })
     if (!product) {
+      enforceRecordGoneIsConflict({
+        resourceKind: 'catalog.product',
+        resourceId: parsed.productId,
+        request: ctx.request ?? null,
+      })
       throw new CrudHttpError(404, { error: 'Product not found' })
     }
 
     // Validate foreign IDs
-    const incomingGroupIds = parsed.groups.map(g => g.id)
+    const incomingGroupIds = snapshot.groups.map((group) => group.id)
     if (incomingGroupIds.length > 0) {
       const existingGroups = await em.find(CatalogProductOptionGroup, { id: { $in: incomingGroupIds } })
       for (const eg of existingGroups) {
@@ -157,7 +392,7 @@ const syncOptionTreeCommand: CommandHandler<
       }
     }
 
-    const incomingOptionIds = parsed.options.map(o => o.id)
+    const incomingOptionIds = snapshot.options.map((option) => option.id)
     if (incomingOptionIds.length > 0) {
       const existingOptions = await em.find(CatalogProductOption, { id: { $in: incomingOptionIds } })
       for (const eo of existingOptions) {
@@ -169,133 +404,26 @@ const syncOptionTreeCommand: CommandHandler<
 
     // Apply sync
     await em.transactional(async (tem) => {
-      // 1. Delete removed options
-      const currentOptions = await tem.find(CatalogProductOption, {
-        group: { product: parsed.productId },
+      const currentTree = await loadCurrentOptionTreeRecords(tem, scope)
+      await enforceCommandOptimisticLockWithGuards(ctx.container, {
+        resourceKind: 'catalog.product',
+        resourceId: product.id,
+        current: getLatestUpdatedAt(product.updatedAt, currentTree.groups, currentTree.options),
+        request: ctx.request ?? null,
+      })
+
+      await applyOptionTreeSnapshot(tem, scope, snapshot)
+
+      const productRef = await tem.findOne(CatalogProduct, {
+        id: parsed.productId,
         tenantId: parsed.tenantId,
         organizationId: parsed.organizationId,
         deletedAt: null,
       })
-      for (const co of currentOptions) {
-        if (!incomingOptionIds.includes(co.id)) {
-          tem.remove(co)
-        }
+      if (productRef) {
+        productRef.updatedAt = new Date()
+        await tem.flush()
       }
-
-      // 2. Delete removed groups
-      const currentGroups = await tem.find(CatalogProductOptionGroup, {
-        product: parsed.productId,
-        tenantId: parsed.tenantId,
-        organizationId: parsed.organizationId,
-        deletedAt: null,
-      })
-      for (const cg of currentGroups) {
-        if (!incomingGroupIds.includes(cg.id)) {
-          tem.remove(cg)
-        }
-      }
-
-      // Flush deletes to avoid constraint errors when recreating or moving
-      await tem.flush()
-
-      // 3. Upsert groups
-      const groupEntities = new Map<string, CatalogProductOptionGroup>()
-      for (const cg of currentGroups) {
-        if (incomingGroupIds.includes(cg.id)) groupEntities.set(cg.id, cg)
-      }
-
-      for (const g of parsed.groups) {
-        let entity = groupEntities.get(g.id)
-        if (!entity) {
-          entity = tem.create(CatalogProductOptionGroup, {
-            id: g.id,
-            product: parsed.productId,
-            tenantId: parsed.tenantId,
-            organizationId: parsed.organizationId,
-            name: g.name,
-            sortOrder: g.sortOrder ?? 0,
-            isActive: g.isActive ?? true,
-          })
-          tem.persist(entity)
-          groupEntities.set(g.id, entity)
-        }
-        
-        entity.name = g.name
-        entity.description = g.description ?? null
-        entity.requirement = g.requirement ?? 'optional'
-        entity.selectMode = g.selectMode ?? 'single'
-        entity.sortOrder = g.sortOrder ?? 0
-        entity.isActive = g.isActive ?? true
-        entity.metadata = g.metadata ? cloneJson(g.metadata) : null
-        // Delay parentOption setting until options are upserted
-      }
-
-      // Flush groups so options can reference them
-      await tem.flush()
-
-      // 4. Upsert options
-      const optionEntities = new Map<string, CatalogProductOption>()
-      for (const co of currentOptions) {
-        if (incomingOptionIds.includes(co.id)) optionEntities.set(co.id, co)
-      }
-
-      for (const o of parsed.options) {
-        let entity = optionEntities.get(o.id)
-        const groupRef = groupEntities.get(o.groupId)
-        if (!groupRef) {
-          throw new CrudHttpError(400, { error: `Invalid groupId ${o.groupId} for option ${o.id}` })
-        }
-        if (!entity) {
-          entity = tem.create(CatalogProductOption, {
-            id: o.id,
-            group: groupRef,
-            tenantId: parsed.tenantId,
-            organizationId: parsed.organizationId,
-            name: o.name,
-            sortOrder: o.sortOrder ?? 0,
-            isActive: o.isActive ?? true,
-          })
-          tem.persist(entity)
-          optionEntities.set(o.id, entity)
-        }
-
-        entity.group = groupRef
-        entity.code = o.code ?? null
-        entity.name = o.name
-        entity.description = o.description ?? null
-        entity.note = o.note ?? null
-        entity.unit = o.unit ?? null
-        entity.priceFlat = o.priceFlat ?? null
-        entity.priceMin = o.priceMin ?? null
-        entity.priceMax = o.priceMax ?? null
-        entity.durationValue = o.durationValue ?? null
-        entity.durationUnit = o.durationUnit ?? null
-        entity.durationMin = o.durationMin ?? null
-        entity.durationMax = o.durationMax ?? null
-        entity.isAddon = o.isAddon ?? false
-        entity.sortOrder = o.sortOrder ?? 0
-        entity.isActive = o.isActive ?? true
-        entity.metadata = o.metadata ? cloneJson(o.metadata) : null
-      }
-
-      // Flush options
-      await tem.flush()
-
-      // 5. Update parentOptionId for nested groups
-      for (const g of parsed.groups) {
-        const entity = groupEntities.get(g.id)!
-        if (g.parentOptionId) {
-          const parentOpt = optionEntities.get(g.parentOptionId)
-          if (!parentOpt) {
-            throw new CrudHttpError(400, { error: `Invalid parentOptionId ${g.parentOptionId} for group ${g.id}` })
-          }
-          entity.parentOption = parentOpt
-        } else {
-          entity.parentOption = null as any // Bypass strict null check for relationships temporarily if needed, or null works
-        }
-      }
-
-      await tem.flush()
     })
   },
   captureAfter: async (input, result, ctx) => {
@@ -323,15 +451,26 @@ const syncOptionTreeCommand: CommandHandler<
   undo: async ({ logEntry, ctx }) => {
     const data = extractUndoPayload<OptionTreeUndoPayload>(logEntry)
     if (!data?.before) return
-
-    const parsed = data.before
+    const productId = typeof logEntry.resourceId === 'string' ? logEntry.resourceId : null
+    const tenantId = typeof logEntry.tenantId === 'string' ? logEntry.tenantId : null
+    const organizationId = typeof logEntry.organizationId === 'string' ? logEntry.organizationId : null
+    if (!productId || !tenantId || !organizationId) return
     const em = (ctx.container.resolve('em') as EntityManager).fork()
+    const scope = { productId, tenantId, organizationId } satisfies OptionTreeScope
 
-    // Restore the 'before' snapshot identically to the sync command
-    // Omitted full logic here for brevity, typically would reuse the upsert logic with the snapshot payload.
-    // For now, we will reuse the command via self-invocation if possible, or leave it unimplemented fully.
-    // Full undo/redo implementation is complex for nested trees without a shared helper.
-    // As per the spec, "Add a command for syncing... be atomic." Undo is a bonus, so we'll stub it nicely.
+    await em.transactional(async (tem) => {
+      await applyOptionTreeSnapshot(tem, scope, data.before as OptionTreeSnapshot)
+      const product = await tem.findOne(CatalogProduct, {
+        id: productId,
+        tenantId,
+        organizationId,
+        deletedAt: null,
+      })
+      if (product) {
+        product.updatedAt = new Date()
+        await tem.flush()
+      }
+    })
   },
 }
 

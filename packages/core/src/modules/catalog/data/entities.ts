@@ -886,7 +886,7 @@ export class CatalogProductPrice {
 }
 
 @Entity({ tableName: 'catalog_product_option_groups' })
-@Index({ name: 'catalog_product_option_groups_product_idx', properties: ['product', 'tenantId', 'sortOrder'] })
+@Index({ name: 'catalog_product_option_groups_product_idx', properties: ['organizationId', 'tenantId', 'product', 'sortOrder'] })
 export class CatalogProductOptionGroup {
   [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'sortOrder' | 'isActive' | 'requirement' | 'selectMode'
 
@@ -902,7 +902,7 @@ export class CatalogProductOptionGroup {
   @ManyToOne(() => CatalogProduct, { fieldName: 'product_id', deleteRule: 'cascade' })
   product!: CatalogProduct
 
-  // Null = root group; non-null = sub-group sau khi chọn option cha
+  // Null = root group; non-null = sub-group triggered by parent option
   @ManyToOne(() => CatalogProductOption, {
     fieldName: 'parent_option_id',
     nullable: true,
@@ -963,7 +963,7 @@ export class CatalogProductOption {
   group!: CatalogProductOptionGroup
 
   @Property({ type: 'text', nullable: true })
-  code?: string | null  // stable slug dùng cho i18n key / API ref
+  code?: string | null  // stable slug for i18n key / API ref
 
   @Property({ type: 'text' })
   name!: string
@@ -972,7 +972,7 @@ export class CatalogProductOption {
   description?: string | null
 
   @Property({ type: 'text', nullable: true })
-  note?: string | null  // badge/annotation ngắn
+  note?: string | null  // short badge/annotation
 
   @Property({ type: 'text', nullable: true })
   unit?: string | null
@@ -1019,7 +1019,7 @@ export class CatalogProductOption {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 
-  // Sub-groups xuất hiện sau khi option này được chọn
+  // Sub-groups appearing after this option is selected
   @OneToMany(() => CatalogProductOptionGroup, (g) => g.parentOption)
   nextGroups = new Collection<CatalogProductOptionGroup>(this)
 }

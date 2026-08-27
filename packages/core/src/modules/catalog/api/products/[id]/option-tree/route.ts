@@ -4,13 +4,14 @@ import { z } from 'zod'
 import { resolveRequestContext } from '@open-mercato/shared/lib/api/context'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { CatalogProductOptionGroup, CatalogProductOption } from '../../../../data/entities'
+import { CatalogProduct, CatalogProductOptionGroup, CatalogProductOption, CatalogProductPrice } from '../../../../data/entities'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
+import type { CatalogProductOptionTreeSyncInput } from '../../../../data/validators'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['catalog.products.view'] },
-  PUT: { requireAuth: true, requireFeatures: ['catalog.products.update'] },
+  PUT: { requireAuth: true, requireFeatures: ['catalog.products.manage'] },
 }
 
 const optionGroupSchema = z.object({
@@ -48,9 +49,76 @@ const optionSchema = z.object({
 })
 
 const responseSchema = z.object({
+  updated_at: z.string().nullable(),
   groups: z.array(optionGroupSchema),
   options: z.array(optionSchema),
 })
+
+function latestIso(values: Array<Date | null | undefined>): string | null {
+  const candidates = values
+    .filter((value): value is Date => value instanceof Date && Number.isFinite(value.getTime()))
+    .map((value) => value.toISOString())
+  if (candidates.length === 0) return null
+  return candidates.reduce((latest, current) => (current > latest ? current : latest))
+}
+
+const syncGroupBodySchema = z.object({
+  id: z.string().uuid(),
+  parent_option_id: z.string().uuid().nullable().optional(),
+  parentOptionId: z.string().uuid().nullable().optional(),
+  name: z.string().trim().min(1).max(255),
+  description: z.string().trim().nullable().optional(),
+  requirement: z.enum(['required', 'optional']).optional(),
+  select_mode: z.enum(['single', 'multiple']).optional(),
+  selectMode: z.enum(['single', 'multiple']).optional(),
+  sort_order: z.coerce.number().int().optional(),
+  sortOrder: z.coerce.number().int().optional(),
+  is_active: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+})
+
+const syncOptionBodySchema = z
+  .object({
+    id: z.string().uuid(),
+    group_id: z.string().uuid().optional(),
+    groupId: z.string().uuid().optional(),
+    code: z.string().trim().toLowerCase().max(150).nullable().optional(),
+    name: z.string().trim().min(1).max(255),
+    description: z.string().trim().nullable().optional(),
+    note: z.string().trim().max(100).nullable().optional(),
+    unit: z.string().trim().max(50).nullable().optional(),
+    price_flat: z.string().nullable().optional(),
+    priceFlat: z.string().nullable().optional(),
+    price_min: z.string().nullable().optional(),
+    priceMin: z.string().nullable().optional(),
+    price_max: z.string().nullable().optional(),
+    priceMax: z.string().nullable().optional(),
+    duration_value: z.coerce.number().int().min(0).nullable().optional(),
+    durationValue: z.coerce.number().int().min(0).nullable().optional(),
+    duration_unit: z.string().trim().max(20).nullable().optional(),
+    durationUnit: z.string().trim().max(20).nullable().optional(),
+    duration_min: z.coerce.number().int().min(0).nullable().optional(),
+    durationMin: z.coerce.number().int().min(0).nullable().optional(),
+    duration_max: z.coerce.number().int().min(0).nullable().optional(),
+    durationMax: z.coerce.number().int().min(0).nullable().optional(),
+    is_addon: z.boolean().optional(),
+    isAddon: z.boolean().optional(),
+    sort_order: z.coerce.number().int().optional(),
+    sortOrder: z.coerce.number().int().optional(),
+    is_active: z.boolean().optional(),
+    isActive: z.boolean().optional(),
+    metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.group_id && !value.groupId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['groupId'],
+        message: 'groupId is required',
+      })
+    }
+  })
 
 export async function GET(
   request: NextRequest,
@@ -72,11 +140,17 @@ export async function GET(
   const em = ctx.container.resolve<EntityManager>('em').fork()
   const tenantId = ctx.auth.tenantId
   const organizationId = ctx.auth.orgId
+  const product = await em.findOne(CatalogProduct, {
+    id: productId,
+    tenantId,
+    organizationId,
+    deletedAt: null,
+  })
 
   // Fetch all groups for this product
   const groups = await em.find(
     CatalogProductOptionGroup,
-    { product: productId, tenantId, organizationId },
+    { product: productId, tenantId, organizationId, deletedAt: null },
     { orderBy: { sortOrder: 'asc', createdAt: 'asc' } }
   )
 
@@ -87,12 +161,31 @@ export async function GET(
     // Fetch all options for these groups
     options = await em.find(
       CatalogProductOption,
-      { group: { $in: groupIds }, tenantId, organizationId },
+      { group: { $in: groupIds }, tenantId, organizationId, deletedAt: null },
       { orderBy: { sortOrder: 'asc', createdAt: 'asc' } }
     )
   }
 
+  // Fetch currency from product prices (fallback to VND)
+  let currencyCode = 'VND'
+  if (productId) {
+    const price = await em.findOne(CatalogProductPrice, {
+      product: productId,
+      tenantId,
+      organizationId,
+    })
+    if (price?.currencyCode) {
+      currencyCode = price.currencyCode
+    }
+  }
+
   // Serialize entities
+  const aggregateUpdatedAt = latestIso([
+    product?.updatedAt ?? null,
+    ...groups.map((group) => group.updatedAt ?? null),
+    ...options.map((option) => option.updatedAt ?? null),
+  ])
+
   const serializedGroups = groups.map((g) => ({
     id: g.id,
     product_id: g.product.id,
@@ -128,14 +221,16 @@ export async function GET(
   }))
 
   return NextResponse.json({
+    updated_at: aggregateUpdatedAt,
+    currency_code: currencyCode,
     groups: serializedGroups,
     options: serializedOptions,
   })
 }
 
 const syncBodySchema = z.object({
-  groups: z.array(z.any()),
-  options: z.array(z.any()),
+  groups: z.array(syncGroupBodySchema),
+  options: z.array(syncOptionBodySchema),
 })
 
 export async function PUT(
@@ -149,43 +244,63 @@ export async function PUT(
   if (!ctx.auth?.tenantId) throw new CrudHttpError(401, { error: 'Unauthorized' })
   if (!ctx.auth.orgId) throw new CrudHttpError(400, { error: 'Organization context is required' })
 
-  const body = await request.json()
+  let rawBody: unknown
+  try {
+    rawBody = await request.json()
+  } catch {
+    throw new CrudHttpError(400, { error: 'Invalid JSON body' })
+  }
 
-  const payload = {
+  const parsedBody = syncBodySchema.safeParse(rawBody)
+  if (!parsedBody.success) {
+    throw new CrudHttpError(400, {
+      error: 'Invalid request body',
+      details: parsedBody.error.flatten(),
+    })
+  }
+
+  const payload: CatalogProductOptionTreeSyncInput = {
     productId,
     tenantId: ctx.auth.tenantId,
     organizationId: ctx.auth.orgId,
-    groups: (body.groups || []).map((g: any) => ({
+    groups: parsedBody.data.groups.map((g) => ({
       id: g.id,
       parentOptionId: g.parent_option_id ?? g.parentOptionId ?? null,
       name: g.name,
       description: g.description ?? null,
-      requirement: g.requirement ?? 'optional',
+      requirement: g.requirement ?? 'required',
       selectMode: g.select_mode ?? g.selectMode ?? 'single',
       sortOrder: g.sort_order ?? g.sortOrder ?? 0,
       isActive: g.is_active ?? g.isActive ?? true,
       metadata: g.metadata ?? null,
     })),
-    options: (body.options || []).map((o: any) => ({
-      id: o.id,
-      groupId: o.group_id ?? o.groupId,
-      code: o.code ?? null,
-      name: o.name,
-      description: o.description ?? null,
-      note: o.note ?? null,
-      unit: o.unit ?? null,
-      priceFlat: o.price_flat ?? o.priceFlat ?? null,
-      priceMin: o.price_min ?? o.priceMin ?? null,
-      priceMax: o.price_max ?? o.priceMax ?? null,
-      durationValue: o.duration_value ?? o.durationValue ?? null,
-      durationUnit: o.duration_unit ?? o.durationUnit ?? null,
-      durationMin: o.duration_min ?? o.durationMin ?? null,
-      durationMax: o.duration_max ?? o.durationMax ?? null,
-      isAddon: o.is_addon ?? o.isAddon ?? false,
-      sortOrder: o.sort_order ?? o.sortOrder ?? 0,
-      isActive: o.is_active ?? o.isActive ?? true,
-      metadata: o.metadata ?? null,
-    })),
+    options: parsedBody.data.options.map((o) => {
+      const groupId = o.group_id ?? o.groupId
+      if (!groupId) {
+        throw new CrudHttpError(400, { error: 'Invalid request body' })
+      }
+
+      return {
+        id: o.id,
+        groupId,
+        code: o.code ?? null,
+        name: o.name,
+        description: o.description ?? null,
+        note: o.note ?? null,
+        unit: o.unit ?? null,
+        priceFlat: o.price_flat ?? o.priceFlat ?? null,
+        priceMin: o.price_min ?? o.priceMin ?? null,
+        priceMax: o.price_max ?? o.priceMax ?? null,
+        durationValue: o.duration_value ?? o.durationValue ?? null,
+        durationUnit: o.duration_unit ?? o.durationUnit ?? null,
+        durationMin: o.duration_min ?? o.durationMin ?? null,
+        durationMax: o.duration_max ?? o.durationMax ?? null,
+        isAddon: o.is_addon ?? o.isAddon ?? false,
+        sortOrder: o.sort_order ?? o.sortOrder ?? 0,
+        isActive: o.is_active ?? o.isActive ?? true,
+        metadata: o.metadata ?? null,
+      }
+    }),
   }
 
   const commandBus = ctx.container.resolve('commandBus') as CommandBus

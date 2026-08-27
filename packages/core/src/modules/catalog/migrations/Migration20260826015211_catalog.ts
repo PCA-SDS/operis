@@ -3,8 +3,6 @@ import { Migration } from '@mikro-orm/migrations';
 export class Migration20260826015211_catalog extends Migration {
 
   override up(): void | Promise<void> {
-    this.addSql(`drop table if exists "catalog_product_variant_option_values" cascade;`);
-    this.addSql(`drop table if exists "catalog_product_option_values" cascade;`);
     this.addSql(`drop table if exists "catalog_product_options" cascade;`);
 
     this.addSql(`create table "catalog_product_option_groups" ("id" uuid not null default gen_random_uuid(), "tenant_id" uuid not null, "organization_id" uuid not null, "product_id" uuid not null, "parent_option_id" uuid null, "name" text not null, "description" text null, "requirement" text not null default 'required', "select_mode" text not null default 'single', "sort_order" int not null default 0, "is_active" boolean not null default true, "metadata" jsonb null, "created_at" timestamptz not null, "updated_at" timestamptz not null, "deleted_at" timestamptz null, primary key ("id"));`);
@@ -27,6 +25,10 @@ export class Migration20260826015211_catalog extends Migration {
 
     this.addSql(`drop table if exists "catalog_product_options" cascade;`);
     this.addSql(`drop table if exists "catalog_product_option_groups" cascade;`);
+
+    this.addSql(`create table "catalog_product_options" ("id" uuid not null default gen_random_uuid(), "product_id" uuid not null, "organization_id" uuid not null, "tenant_id" uuid not null, "code" text not null, "label" text not null, "description" text null, "position" int not null default 0, "is_required" boolean not null default false, "is_multiple" boolean not null default false, "input_type" text not null default 'select', "input_config" jsonb null, "metadata" jsonb null, "created_at" timestamptz not null, "updated_at" timestamptz not null, constraint "catalog_product_options_pkey" primary key ("id"));`);
+    this.addSql(`create index "catalog_product_options_scope_idx" on "catalog_product_options" ("product_id", "organization_id", "tenant_id");`);
+    this.addSql(`alter table "catalog_product_options" add constraint "catalog_product_options_product_id_foreign" foreign key ("product_id") references "catalog_products" ("id") on update cascade;`);
   }
 
 }

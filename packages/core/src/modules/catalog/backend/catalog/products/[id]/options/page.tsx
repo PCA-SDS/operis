@@ -2,10 +2,20 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
-import { apiCall, apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import {
+  apiCallOrThrow,
+  readApiResultOrThrow,
+  withScopedApiRequestHeaders,
+} from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { DndContext, closestCenter, type DragEndEvent, PointerSensor, KeyboardSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog/useConfirmDialog'
 import {
@@ -19,6 +29,7 @@ import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
+import { formatCurrency } from '@open-mercato/ui/utils/format'
 import {
   Select,
   SelectContent,
@@ -51,6 +62,8 @@ const logger = createLogger('catalog')
 
 type GroupItem = CatalogOptionTreeData['groups'][number]
 type OptionItem = CatalogOptionTreeData['options'][number]
+type OptionDurationUnit = 'minute' | 'hour'
+type OptionPriceType = 'fixed' | 'range'
 
 type GroupFormValues = {
   name: string
@@ -67,8 +80,92 @@ type OptionFormValues = {
   price_min: string
   price_max: string
   duration_value: string
-  duration_unit: string
+  duration_unit: OptionDurationUnit
   is_addon: boolean
+}
+
+const EMPTY_OPTION_FORM: OptionFormValues = {
+  name: '',
+  code: '',
+  description: '',
+  price_flat: '',
+  price_min: '',
+  price_max: '',
+  duration_value: '',
+  duration_unit: 'minute',
+  is_addon: false,
+}
+
+function normalizeDurationUnit(value: string | null | undefined): OptionDurationUnit {
+  return value === 'hour' ? 'hour' : 'minute'
+}
+
+function formatOptionPriceLabel(option: OptionItem, t: ReturnType<typeof useT>, currencyCode?: string): string | null {
+  const flat = formatCurrency(option.price_flat, currencyCode)
+  const min = formatCurrency(option.price_min, currencyCode)
+  const max = formatCurrency(option.price_max, currencyCode)
+
+  if (min && max) return `${min} - ${max}`
+  if (flat !== null) return flat
+  if (min) return `${t('catalog.options.priceFrom', 'From')} ${min}`
+  if (max) return `${t('catalog.options.priceUpTo', 'Up to')} ${max}`
+  return null
+}
+
+function formatOptionDurationLabel(option: OptionItem, t: ReturnType<typeof useT>): string | null {
+  if (option.duration_value === null || option.duration_value === undefined) return null
+  const unitLabel = normalizeDurationUnit(option.duration_unit) === 'hour'
+    ? t('catalog.options.durationUnitHourShort', 'hr')
+    : t('catalog.options.durationUnitMinuteShort', 'min')
+  return `${option.duration_value} ${unitLabel}`
+}
+
+function toOptionFormValues(option: OptionItem): OptionFormValues {
+  return {
+    name: option.name ?? '',
+    code: option.code ?? '',
+    description: option.description ?? '',
+    price_flat: option.price_flat ?? '',
+    price_min: option.price_min ?? '',
+    price_max: option.price_max ?? '',
+    duration_value: option.duration_value === null || option.duration_value === undefined
+      ? ''
+      : String(option.duration_value),
+    duration_unit: normalizeDurationUnit(option.duration_unit),
+    is_addon: option.is_addon ?? false,
+  }
+}
+
+function collectCascadeDeletion(
+  initialGroupIds: Iterable<string>,
+  initialOptionIds: Iterable<string>,
+  groups: GroupItem[],
+  options: OptionItem[],
+): { groupIds: Set<string>; optionIds: Set<string> } {
+  const groupIds = new Set(initialGroupIds)
+  const optionIds = new Set(initialOptionIds)
+
+  let added = true
+  while (added) {
+    added = false
+
+    for (const option of options) {
+      if (groupIds.has(option.group_id) && !optionIds.has(option.id)) {
+        optionIds.add(option.id)
+        added = true
+      }
+    }
+
+    for (const group of groups) {
+      if (!group.parent_option_id || groupIds.has(group.id)) continue
+      if (optionIds.has(group.parent_option_id)) {
+        groupIds.add(group.id)
+        added = true
+      }
+    }
+  }
+
+  return { groupIds, optionIds }
 }
 
 // ─── Group Dialog ──────────────────────────────────────────────────────────────
@@ -265,13 +362,13 @@ function OptionDialog({
 }) {
   const t = useT()
   const [form, setForm] = useState<OptionFormValues>(
-    initialValues ?? { name: '', code: '', description: '', price_flat: '', price_min: '', price_max: '', duration_value: '', duration_unit: 'minute', is_addon: false }
+    initialValues ?? EMPTY_OPTION_FORM
   )
-  const [priceType, setPriceType] = useState<'fixed' | 'range'>('fixed')
+  const [priceType, setPriceType] = useState<OptionPriceType>('fixed')
 
   useEffect(() => {
     if (open) {
-      setForm(initialValues ?? { name: '', code: '', description: '', price_flat: '', price_min: '', price_max: '', duration_value: '', duration_unit: 'minute', is_addon: false })
+      setForm(initialValues ?? EMPTY_OPTION_FORM)
       setPriceType((initialValues?.price_min || initialValues?.price_max) ? 'range' : 'fixed')
     }
   }, [open, initialValues])
@@ -288,7 +385,7 @@ function OptionDialog({
       price_flat: (priceType === 'fixed' && form.price_flat) ? form.price_flat : null,
       price_min: (priceType === 'range' && form.price_min) ? form.price_min : null,
       price_max: (priceType === 'range' && form.price_max) ? form.price_max : null,
-      duration_value: form.duration_value ? parseInt(form.duration_value) : null,
+      duration_value: form.duration_value ? parseInt(form.duration_value, 10) : null,
       duration_unit: form.duration_value ? form.duration_unit : null,
       is_addon: form.is_addon,
       sort_order: 0,
@@ -323,7 +420,7 @@ function OptionDialog({
                 id="opt-name"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. Gel Polish"
+                placeholder={t('catalog.options.optionNamePlaceholder', 'e.g. Gel Polish')}
                 autoFocus
               />
             </div>
@@ -334,9 +431,9 @@ function OptionDialog({
                 id="opt-code"
                 value={form.code}
                 onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))}
-                placeholder="gel-polish"
+                placeholder={t('catalog.options.codePlaceholder', 'gel-polish')}
               />
-              <p className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+              <p className="mt-0.5 text-xs leading-tight text-muted-foreground">
                 {t('catalog.options.codeHint', 'Optional identifier for integrations')}
               </p>
             </div>
@@ -351,14 +448,14 @@ function OptionDialog({
                   <button
                     type="button"
                     onClick={() => setPriceType('fixed')}
-                    className={`text-[10px] px-2 py-0.5 rounded-sm transition-colors ${priceType === 'fixed' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:bg-muted-foreground/10'}`}
+                    className={`rounded-sm px-2 py-0.5 text-xs transition-colors ${priceType === 'fixed' ? 'bg-surface shadow-sm text-foreground' : 'text-muted-foreground hover:bg-muted'}`}
                   >
                     {t('catalog.options.priceFixed', 'Fixed')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setPriceType('range')}
-                    className={`text-[10px] px-2 py-0.5 rounded-sm transition-colors ${priceType === 'range' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:bg-muted-foreground/10'}`}
+                    className={`rounded-sm px-2 py-0.5 text-xs transition-colors ${priceType === 'range' ? 'bg-surface shadow-sm text-foreground' : 'text-muted-foreground hover:bg-muted'}`}
                   >
                     {t('catalog.options.priceRange', 'Range')}
                   </button>
@@ -371,7 +468,7 @@ function OptionDialog({
                   type="number"
                   value={form.price_flat}
                   onChange={(e) => setForm((f) => ({ ...f, price_flat: e.target.value }))}
-                  placeholder="e.g. 50000"
+                  placeholder={t('catalog.options.pricePlaceholder', 'e.g. 50000')}
                 />
               ) : (
                 <div className="flex gap-2 items-center">
@@ -380,7 +477,7 @@ function OptionDialog({
                     type="number"
                     value={form.price_min}
                     onChange={(e) => setForm((f) => ({ ...f, price_min: e.target.value }))}
-                    placeholder="Min"
+                    placeholder={t('catalog.options.priceMinPlaceholder', 'Min')}
                   />
                   <span className="text-muted-foreground text-sm">-</span>
                   <Input
@@ -388,7 +485,7 @@ function OptionDialog({
                     type="number"
                     value={form.price_max}
                     onChange={(e) => setForm((f) => ({ ...f, price_max: e.target.value }))}
-                    placeholder="Max"
+                    placeholder={t('catalog.options.priceMaxPlaceholder', 'Max')}
                   />
                 </div>
               )}
@@ -405,20 +502,20 @@ function OptionDialog({
                   type="number"
                   value={form.duration_value}
                   onChange={(e) => setForm((f) => ({ ...f, duration_value: e.target.value }))}
-                  placeholder="30"
+                  placeholder={t('catalog.options.durationPlaceholder', '30')}
                   className="w-16"
                 />
                 <div className="flex-1">
                   <Select
                     value={form.duration_unit}
-                    onValueChange={(val) => setForm((f) => ({ ...f, duration_unit: val }))}
+                    onValueChange={(value) => setForm((f) => ({ ...f, duration_unit: normalizeDurationUnit(value) }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="minute">minutes</SelectItem>
-                      <SelectItem value="hour">hours</SelectItem>
+                      <SelectItem value="minute">{t('catalog.options.durationUnitMinute', 'Minutes')}</SelectItem>
+                      <SelectItem value="hour">{t('catalog.options.durationUnitHour', 'Hours')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -478,6 +575,7 @@ function OptionRow({
   onDeleteGroup,
   onDeleteOption,
   productId,
+  currencyCode,
 }: {
   opt: OptionItem
   allGroups: GroupItem[]
@@ -491,13 +589,25 @@ function OptionRow({
   onDeleteGroup: (id: string) => void
   onDeleteOption: (id: string) => void
   productId: string
+  currencyCode: string
 }) {
   const t = useT()
-  const subGroups = allGroups.filter((g: any) => g.parent_option_id === opt.id)
+  const subGroups = allGroups.filter((group) => group.parent_option_id === opt.id)
   const [expanded, setExpanded] = useState(true)
   const [isEditingName, setIsEditingName] = useState(false)
   const [editNameValue, setEditNameValue] = useState(opt.name)
   const hasSubGroups = subGroups.length > 0
+  const priceLabel = formatOptionPriceLabel(opt, t, currencyCode)
+  const durationLabel = formatOptionDurationLabel(opt, t)
+
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: opt.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1 : 0,
+    position: 'relative' as const,
+  }
 
   const handleRenameConfirm = () => {
     if (editNameValue.trim() && editNameValue !== opt.name) {
@@ -518,9 +628,11 @@ function OptionRow({
   }
 
   return (
-    <div className="group/opt">
+    <div ref={setNodeRef} style={style} className="group/opt">
       <div className="flex items-center gap-2 py-2 px-3 rounded-md hover:bg-muted/40 transition-colors">
-        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
+        <button type="button" className="cursor-grab hover:bg-muted rounded p-0.5" {...attributes} {...listeners}>
+          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
+        </button>
 
         {hasSubGroups ? (
           <button
@@ -559,23 +671,18 @@ function OptionRow({
             {opt.code}
           </Badge>
         )}
-        {(opt.price_min && opt.price_max && Number(opt.price_max) > 0) ? (
+        {priceLabel ? (
           <Badge variant="secondary" className="text-xs gap-1">
             <Banknote className="h-2.5 w-2.5" />
-            {Number(opt.price_min).toLocaleString('vi-VN')}đ – {Number(opt.price_max).toLocaleString('vi-VN')}đ
-          </Badge>
-        ) : (opt.price_flat && Number(opt.price_flat) > 0) ? (
-          <Badge variant="secondary" className="text-xs gap-1">
-            <Banknote className="h-2.5 w-2.5" />
-            {Number(opt.price_flat).toLocaleString('vi-VN')}đ
+            {priceLabel}
           </Badge>
         ) : null}
-        {opt.duration_value && (
+        {durationLabel ? (
           <Badge variant="secondary" className="text-xs gap-1">
             <Clock className="h-2.5 w-2.5" />
-            {opt.duration_value}{opt.duration_unit === 'minute' ? 'p' : 'h'}
+            {durationLabel}
           </Badge>
-        )}
+        ) : null}
 
         <div className="flex gap-1 opacity-0 group-hover/opt:opacity-100 transition-opacity">
           <button
@@ -617,6 +724,7 @@ function OptionRow({
               onSaveOption={onSaveOption}
               onDeleteGroup={onDeleteGroup}
               onDeleteOption={onDeleteOption}
+              currencyCode={currencyCode}
             />
           ))}
         </div>
@@ -637,6 +745,7 @@ function GroupCard({
   onSaveOption,
   onDeleteGroup,
   onDeleteOption,
+  currencyCode,
 }: {
   group: GroupItem
   allGroups: GroupItem[]
@@ -647,6 +756,7 @@ function GroupCard({
   onSaveOption: (o: OptionItem) => void
   onDeleteGroup: (id: string) => void
   onDeleteOption: (id: string) => void
+  currencyCode: string
 }) {
   const t = useT()
   const [expanded, setExpanded] = useState(true)
@@ -657,7 +767,28 @@ function GroupCard({
   const [editNameValue, setEditNameValue] = useState(group.name)
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
 
-  const groupOptions = allOptions.filter((o: any) => o.group_id === group.id)
+  const groupOptions = allOptions.filter((option) => option.group_id === group.id).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor)
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (over && active.id !== over.id) {
+      const oldIndex = groupOptions.findIndex((o) => o.id === active.id)
+      const newIndex = groupOptions.findIndex((o) => o.id === over.id)
+      if (oldIndex >= 0 && newIndex >= 0) {
+        const reordered = arrayMove(groupOptions, oldIndex, newIndex)
+        reordered.forEach((opt, index) => {
+          if (opt.sort_order !== index) {
+            onSaveOption({ ...opt, sort_order: index })
+          }
+        })
+      }
+    }
+  }
 
   const handleRenameConfirm = () => {
     if (editNameValue.trim() && editNameValue !== group.name) {
@@ -788,23 +919,28 @@ function GroupCard({
             </div>
           ) : (
             <div className="space-y-0.5">
-              {groupOptions.map((opt: OptionItem) => (
-                <OptionRow
-                  key={opt.id}
-                  opt={opt}
-                  allGroups={allGroups}
-                  allOptions={allOptions}
-                  depth={depth}
-                  onEdit={(o) => setEditingOption(o)}
-                  onDelete={handleDeleteOption}
-                  onAddSubGroup={(parentOptId) => setAddSubGroupForOption(parentOptId)}
-                  productId={productId}
-                  onSaveGroup={onSaveGroup}
-                  onSaveOption={onSaveOption}
-                  onDeleteGroup={onDeleteGroup}
-                  onDeleteOption={onDeleteOption}
-                />
-              ))}
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={groupOptions.map(o => o.id)} strategy={verticalListSortingStrategy}>
+                  {groupOptions.map((opt: OptionItem) => (
+                    <OptionRow
+                      key={opt.id}
+                      opt={opt}
+                      allGroups={allGroups}
+                      allOptions={allOptions}
+                      depth={depth}
+                      onEdit={(o) => setEditingOption(o)}
+                      onDelete={handleDeleteOption}
+                      onAddSubGroup={(parentOptId) => setAddSubGroupForOption(parentOptId)}
+                      productId={productId}
+                      onSaveGroup={onSaveGroup}
+                      onSaveOption={onSaveOption}
+                      onDeleteGroup={onDeleteGroup}
+                      onDeleteOption={onDeleteOption}
+                      currencyCode={currencyCode}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
             </div>
           )}
         </div>
@@ -826,17 +962,7 @@ function GroupCard({
           onOpenChange={(v) => { if (!v) setEditingOption(null) }}
           editId={editingOption.id}
           groupId={group.id}
-          initialValues={{
-            name: editingOption.name ?? '',
-            code: (editingOption as any).code ?? '',
-            description: (editingOption as any).description ?? '',
-            price_flat: (editingOption as any).price_flat ?? '',
-            price_min: (editingOption as any).price_min ?? '',
-            price_max: (editingOption as any).price_max ?? '',
-            duration_value: String((editingOption as any).duration_value ?? ''),
-            duration_unit: (editingOption as any).duration_unit ?? 'minute',
-            is_addon: (editingOption as any).is_addon ?? false,
-          }}
+          initialValues={toOptionFormValues(editingOption)}
           onSave={onSaveOption}
         />
       )}
@@ -865,29 +991,48 @@ export default function ProductOptionsPage({
   const t = useT()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loadSucceeded, setLoadSucceeded] = useState(false)
+  const [treeUpdatedAt, setTreeUpdatedAt] = useState<string | null>(null)
   
   // Local state for atomic sync
   const [localGroups, setLocalGroups] = useState<GroupItem[]>([])
   const [localOptions, setLocalOptions] = useState<OptionItem[]>([])
   const [isDirty, setIsDirty] = useState(false)
   const [addGroupOpen, setAddGroupOpen] = useState(false)
+  const [currencyCode, setCurrencyCode] = useState<string>('VND')
 
   const loadData = useCallback(async () => {
-    if (!productId) { setLoading(false); return }
+    if (!productId) {
+      setTreeUpdatedAt(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
+    setLoadError(null)
     try {
-      const result = await readApiResultOrThrow<CatalogOptionTreeData>(
+      const result = await readApiResultOrThrow<CatalogOptionTreeData & { currency_code?: string }>(
         `/api/catalog/products/${productId}/option-tree`
       )
       setLocalGroups(result.groups || [])
       setLocalOptions(result.options || [])
+      setTreeUpdatedAt(result.updated_at ?? null)
+      if (result.currency_code) {
+        setCurrencyCode(result.currency_code)
+      }
       setIsDirty(false)
+      setLoadSucceeded(true)
     } catch (err) {
       logger.error('options.load.failed', { err })
+      setTreeUpdatedAt(null)
+      setLoadSucceeded(false)
+      setLoadError(
+        t('catalog.options.loadFailed', 'Failed to load option tree.'),
+      )
     } finally {
       setLoading(false)
     }
-  }, [productId])
+  }, [productId, t])
 
   useEffect(() => { void loadData() }, [loadData])
 
@@ -900,33 +1045,17 @@ export default function ProductOptionsPage({
         next[idx] = group
         return next
       }
-      return [...prev, group]
+      const siblings = prev.filter(g => g.parent_option_id === group.parent_option_id)
+      const maxSort = siblings.reduce((max, g) => Math.max(max, g.sort_order), -1)
+      return [...prev, { ...group, sort_order: maxSort + 1 }]
     })
     setIsDirty(true)
   }
 
   const handleDeleteGroup = (id: string) => {
-    // Delete group and all nested groups/options recursively
-    const idsToDelete = new Set<string>([id])
-    
-    // Find all subgroups recursively
-    let added = true
-    while (added) {
-      added = false
-      for (const g of localGroups) {
-        if (g.parent_option_id && !idsToDelete.has(g.id)) {
-          // If the group's parent option belongs to a group we are deleting
-          const parentOption = localOptions.find(o => o.id === g.parent_option_id)
-          if (parentOption && idsToDelete.has(parentOption.group_id)) {
-            idsToDelete.add(g.id)
-            added = true
-          }
-        }
-      }
-    }
-
-    setLocalGroups(prev => prev.filter(g => !idsToDelete.has(g.id)))
-    setLocalOptions(prev => prev.filter(o => !idsToDelete.has(o.group_id)))
+    const { groupIds, optionIds } = collectCascadeDeletion([id], [], localGroups, localOptions)
+    setLocalGroups((prev) => prev.filter((group) => !groupIds.has(group.id)))
+    setLocalOptions((prev) => prev.filter((option) => !optionIds.has(option.id)))
     setIsDirty(true)
   }
 
@@ -938,32 +1067,17 @@ export default function ProductOptionsPage({
         next[idx] = option
         return next
       }
-      return [...prev, option]
+      const siblings = prev.filter(o => o.group_id === option.group_id)
+      const maxSort = siblings.reduce((max, o) => Math.max(max, o.sort_order), -1)
+      return [...prev, { ...option, sort_order: maxSort + 1 }]
     })
     setIsDirty(true)
   }
 
   const handleDeleteOption = (id: string) => {
-    setLocalOptions(prev => prev.filter(o => o.id !== id))
-    // Also delete any sub-groups attached to this option
-    const idsToDelete = new Set<string>()
-    let added = true
-    while (added) {
-      added = false
-      for (const g of localGroups) {
-        if (g.parent_option_id === id || (g.parent_option_id && !idsToDelete.has(g.id))) {
-           const parentOption = localOptions.find(o => o.id === g.parent_option_id)
-           if (parentOption && (parentOption.id === id || idsToDelete.has(parentOption.group_id))) {
-             idsToDelete.add(g.id)
-             added = true
-           }
-        }
-      }
-    }
-    if (idsToDelete.size > 0) {
-      setLocalGroups(prev => prev.filter(g => !idsToDelete.has(g.id)))
-      setLocalOptions(prev => prev.filter(o => o.id !== id && !idsToDelete.has(o.group_id)))
-    }
+    const { groupIds, optionIds } = collectCascadeDeletion([], [id], localGroups, localOptions)
+    setLocalGroups((prev) => prev.filter((group) => !groupIds.has(group.id)))
+    setLocalOptions((prev) => prev.filter((option) => !optionIds.has(option.id)))
     setIsDirty(true)
   }
 
@@ -1011,19 +1125,21 @@ export default function ProductOptionsPage({
       await runMutation({
         context: { productId },
         operation: async () => {
-          // optimistic-lock-exempt: bulk replace of option tree, no per-record version
-          await apiCallOrThrow(`/api/catalog/products/${productId}/option-tree`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          })
+          await withScopedApiRequestHeaders(buildOptimisticLockHeader(treeUpdatedAt), () =>
+            apiCallOrThrow(`/api/catalog/products/${productId}/option-tree`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            }),
+          )
           flash(t('catalog.options.syncSuccess', 'Option tree updated successfully'), 'success')
           setIsDirty(false)
-          loadData()
+          await loadData()
         }
       })
     } catch (err) {
       logger.error('options.sync.failed', { err })
+      if (surfaceRecordConflict(err, t, { onRefresh: () => { void loadData() } })) return
       flash(t('catalog.options.syncFailed', 'Failed to save option tree'), 'error')
     } finally {
       setSaving(false)
@@ -1046,7 +1162,7 @@ export default function ProductOptionsPage({
                   : t('catalog.options.emptyHint', 'Add groups to build the option tree for this product.')}
               </p>
               {isDirty && (
-                <p className="text-sm text-yellow-600 dark:text-yellow-500 font-medium mt-1">
+                <p className="mt-1 text-sm font-medium text-status-warning-text">
                   {t('catalog.options.unsavedChanges', 'You have unsaved changes.')}
                 </p>
               )}
@@ -1056,7 +1172,7 @@ export default function ProductOptionsPage({
                 <Plus className="h-4 w-4" />
                 {t('catalog.options.addGroup', 'Add Group')}
               </Button>
-              <Button onClick={handleSyncTree} disabled={!isDirty || saving} className="gap-2">
+              <Button onClick={handleSyncTree} disabled={!isDirty || saving || !loadSucceeded} className="gap-2">
                 {saving ? <Spinner className="w-4 h-4 mr-1" /> : <Save className="h-4 w-4" />}
                 {t('common.saveChanges', 'Save Changes')}
               </Button>
@@ -1066,6 +1182,14 @@ export default function ProductOptionsPage({
           {/* Content */}
           {loading ? (
             <OptionTreeSkeleton />
+          ) : loadError ? (
+            <ErrorMessage
+              label={loadError}
+              description={t(
+                'catalog.options.loadFailedDescription',
+                'The current option tree could not be loaded, so saving is disabled until the load succeeds.',
+              )}
+            />
           ) : rootGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-4 py-16 border-2 border-dashed rounded-xl bg-card text-muted-foreground shadow-sm">
               <div className="p-4 rounded-full bg-primary/10">
@@ -1094,6 +1218,7 @@ export default function ProductOptionsPage({
                   onSaveOption={handleSaveOption}
                   onDeleteGroup={handleDeleteGroup}
                   onDeleteOption={handleDeleteOption}
+                  currencyCode={currencyCode}
                 />
               ))}
             </div>

@@ -107,7 +107,7 @@ const crud = makeCrudRoute({
       parentOption: input.parentOptionId ?? null,
       name: input.name,
       description: input.description ?? null,
-      requirement: input.requirement ?? 'optional',
+      requirement: input.requirement ?? 'required',
       selectMode: input.selectMode ?? 'single',
       sortOrder: input.sortOrder ?? 0,
       isActive: input.isActive ?? true,
