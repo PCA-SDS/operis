@@ -471,7 +471,7 @@ export class InvoicePaymentConfirmation {
 @Entity({ tableName: 'invoice_sync_jobs' })
 @Index({ name: 'invoice_sync_jobs_scope_idx', properties: ['organizationId', 'tenantId'] })
 @Index({ name: 'invoice_sync_jobs_state_idx', properties: ['organizationId', 'tenantId', 'state'] })
-@Index({ name: 'invoice_sync_jobs_started_at_idx', properties: ['organizationId', 'tenantId', 'startedAt'] })
+@Index({ name: 'invoice_sync_jobs_created_at_idx', properties: ['organizationId', 'tenantId', 'createdAt'] })
 @Unique({ name: 'invoice_sync_jobs_idempotency_scope_unique', properties: ['organizationId', 'tenantId', 'idempotencyKey'] })
 @Check({
   name: 'invoice_sync_jobs_state_check',
@@ -525,8 +525,11 @@ export class InvoiceSyncJob {
   @Property({ name: 'failure_message', type: 'text', nullable: true })
   failureMessage?: string | null
 
-  @Property({ name: 'started_at', type: Date, onCreate: () => new Date() })
-  startedAt: Date = new Date()
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'started_at', type: Date, nullable: true })
+  startedAt?: Date | null
 
   @Property({ name: 'updated_at', type: Date, onUpdate: () => new Date() })
   updatedAt: Date = new Date()

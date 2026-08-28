@@ -252,6 +252,9 @@ Rules:
 | `state` | `state` | preserve | `OPERATIONAL` | pending/auth/fetching/done/failed style states. |
 | progress counts | count columns | preserve | `OPERATIONAL` | Also mirrored to `ProgressJob`. |
 | failure fields | error columns | preserve | `OPERATIONAL` | Use safe codes. |
+| creation timestamp | `created_at` | standardize | `OPERATIONAL` | Set when the job row is created. |
+| `startedAt` | `started_at` | preserve as nullable | `OPERATIONAL` | Set when the worker picks the job. |
+| `finishedAt` | `finished_at` | preserve | `OPERATIONAL` | Set when the worker finishes or fails. |
 
 Not stored:
 

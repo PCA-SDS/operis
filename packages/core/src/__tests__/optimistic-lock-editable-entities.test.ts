@@ -86,6 +86,13 @@ const moduleEntities: Record<string, string[]> = {
   ],
 }
 
+const optimisticLockExemptions: Record<string, string> = {
+  'invoice:InvoiceLineItem':
+    'No row-level lock for now; edited as part of the Invoice aggregate, protected by parent Invoice.updated_at.',
+  'invoice:InvoiceSyncJob':
+    'No optimistic lock; system-owned job state, not user-editable data.',
+}
+
 function readEntitySource(moduleId: string): string {
   return readFileSync(
     join(__dirname, '..', 'modules', moduleId, 'data', 'entities.ts'),
@@ -114,6 +121,20 @@ describe('optimistic locking — every user-editable entity exposes updated_at',
       })
     }
   }
+})
+
+describe('optimistic locking — explicit exemptions stay documented', () => {
+  it('exemptions point to real entity classes and are not row-level audited', () => {
+    const invoiceSource = readEntitySource('invoice')
+    const audited = new Set(moduleEntities.invoice.map((className) => `invoice:${className}`))
+
+    for (const key of Object.keys(optimisticLockExemptions)) {
+      const [, className] = key.split(':')
+      expect(className).toBeTruthy()
+      expect(classBlock(invoiceSource, className as string)).not.toBeNull()
+      expect(audited.has(key)).toBe(false)
+    }
+  })
 })
 
 /**

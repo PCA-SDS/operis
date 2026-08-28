@@ -93,6 +93,14 @@ Data requirements:
 - Preserve enum values and limits from `Persisted Enums And Value Contracts`.
 - Add optimistic locking to every user-editable entity.
 
+Optimistic locking decisions:
+
+- `InvoiceLineItem`: no separate row-level optimistic lock for now. It is edited
+  as part of the `Invoice` aggregate, so the parent `Invoice.updated_at` should
+  protect the whole edit flow.
+- `InvoiceSyncJob`: no optimistic lock because it is system-owned job state, not
+  user-editable data.
+
 Implementation type:
 
 - Rewrite old Prisma schema into MikroORM v7 entities.

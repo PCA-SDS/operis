@@ -242,6 +242,12 @@ and enqueues a worker payload containing:
 - `userId`
 - trusted date window and scope tax codes
 
+Sync job timestamps:
+
+- `created_at`: set when the sync request creates the job row.
+- `started_at`: nullable; set when the worker picks the job.
+- `finished_at`: nullable; set when the worker finishes or fails the job.
+
 The worker must be idempotent. Queue retries or duplicate delivery must not
 duplicate invoices or corrupt settlement data.
 
@@ -316,6 +322,14 @@ Every table stores:
 - standard timestamps
 - `deleted_at` where records are user-editable or soft-deletable
 - `updated_at` for user-editable records
+
+Optimistic locking decisions:
+
+- `InvoiceLineItem`: no separate row-level optimistic lock for now. It is edited
+  as part of the `Invoice` aggregate, so the parent `Invoice.updated_at` should
+  protect the whole edit flow.
+- `InvoiceSyncJob`: no optimistic lock because it is system-owned job state, not
+  user-editable data.
 
 All queries must filter by both `tenant_id` and `organization_id`.
 
