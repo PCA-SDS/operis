@@ -18,6 +18,7 @@ import {
   invoiceCurrencyCodeSchema,
   invoiceDirectionSchema,
   invoiceDueDaysSchema,
+  hashInvoicePublicToken,
   invoiceNonRecoverableNoteSchema,
   invoicePageSizeSchema,
   invoicePaymentConfirmationStatusSchema,
@@ -28,6 +29,7 @@ import {
   invoiceStatusSchema,
   invoiceSyncJobFailureCategorySchema,
   invoiceSyncJobStateSchema,
+  invoiceTokenHashSchema,
 } from '../validators'
 
 describe('invoice validators', () => {
@@ -75,5 +77,16 @@ describe('invoice validators', () => {
     expect(invoicePublicTokenSchema.safeParse('a'.repeat(63)).success).toBe(false)
     expect(invoiceNonRecoverableNoteSchema.parse('x'.repeat(1000))).toBe('x'.repeat(1000))
     expect(invoiceNonRecoverableNoteSchema.safeParse('x'.repeat(1001)).success).toBe(false)
+  })
+
+  it('keeps public tokens and token hashes as separate semantic types', () => {
+    const rawToken = invoicePublicTokenSchema.parse('a'.repeat(64))
+    const tokenHash = hashInvoicePublicToken(rawToken)
+
+    expect(tokenHash).toMatch(/^[0-9a-f]{64}$/)
+    expect(tokenHash).not.toBe(rawToken)
+    expect(invoiceTokenHashSchema.parse(tokenHash)).toBe(tokenHash)
+    expect(invoiceTokenHashSchema.safeParse('A'.repeat(64)).success).toBe(false)
+    expect(invoiceTokenHashSchema.safeParse('a'.repeat(63)).success).toBe(false)
   })
 })

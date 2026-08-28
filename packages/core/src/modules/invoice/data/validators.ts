@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { z } from 'zod'
 
 import {
@@ -133,9 +134,19 @@ export const invoiceProgressSchema = z.coerce.number().int().min(0).max(100)
 export const invoiceNonRecoverableNoteSchema = z.string().trim().max(INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH)
 export const invoiceNullableNoteSchema = nullableTrimmedString(INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH)
 
-export const invoicePublicTokenSchema = z
-  .string()
-  .regex(new RegExp(`^[0-9a-f]{${INVOICE_PUBLIC_TOKEN_HEX_LENGTH}}$`))
-export const invoiceTokenHashSchema = invoicePublicTokenSchema
+const invoiceHex64Schema = () =>
+  z
+    .string()
+    .regex(new RegExp(`^[0-9a-f]{${INVOICE_PUBLIC_TOKEN_HEX_LENGTH}}$`))
+
+export const invoicePublicTokenSchema = invoiceHex64Schema().brand<'InvoicePublicToken'>()
+export const invoiceTokenHashSchema = invoiceHex64Schema().brand<'InvoiceTokenHash'>()
+export type InvoicePublicToken = z.infer<typeof invoicePublicTokenSchema>
+export type InvoiceTokenHash = z.infer<typeof invoiceTokenHashSchema>
+
+export function hashInvoicePublicToken(token: InvoicePublicToken): InvoiceTokenHash {
+  return invoiceTokenHashSchema.parse(createHash('sha256').update(token).digest('hex'))
+}
+
 export const invoiceScopeTaxCodesSchema = z.array(invoiceTaxCodeSchema).max(100)
 export const invoiceJsonRecordSchema = z.record(z.string(), z.unknown())
