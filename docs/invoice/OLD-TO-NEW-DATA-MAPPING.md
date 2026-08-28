@@ -222,7 +222,7 @@ Rules:
 | `installmentId` | `installment_id` | preserve relation | `OPERATIONAL` | Optional. |
 | `recipientEmail` | `recipient_email` | preserve | `OPERATIONAL` | Also recorded in company email memory best-effort. |
 | raw token | not stored | remove | `OPERATIONAL` | Store only hash. |
-| `tokenHash` | `token_hash` | preserve | `OPERATIONAL` | Public route lookup. |
+| `tokenHash` | `token_hash` | preserve | `OPERATIONAL` | Public route lookup. Raw public token and token hash use separate branded types. |
 | `status` | `status` | preserve | `OPERATIONAL` | Persist only pending, confirmed, rejected. Expired is derived. |
 | `expiresAt` | `expires_at` | preserve | `OPERATIONAL` | |
 | `confirmedAt` | `confirmed_at` | preserve | `OPERATIONAL` | |
@@ -231,6 +231,9 @@ Rules:
 Rules:
 
 - Request is AP only.
+- Raw public tokens are link/request-boundary values only.
+- DB lookup and persistence use SHA-256 token hashes from the invoice hashing
+  helper.
 - New request supersedes older pending request for same invoice/installment.
 - Mail failure rolls back the created confirmation.
 - Public confirm is idempotent after confirmed.
@@ -311,12 +314,15 @@ Rules:
 | country | `country_code` | preserve | `SOURCE_OWNED` | |
 | identifier | `identifier` | preserve | `SOURCE_OWNED` | Tax code or jurisdiction id. |
 | provider | `provider` | preserve | `SOURCE_OWNED` | |
-| payload | `payload` | preserve JSONB | `SOURCE_OWNED` | Provider response cache. |
+| payload | `payload` | preserve JSONB | `SOURCE_OWNED` | Provider response cache. Raw provider writes are deferred to M4 pending encryption decision. |
 | fetchedAt | `fetched_at` | preserve | `OPERATIONAL` | Cache freshness. |
 
 Rule:
 
 - Company lookup does not create `invoice_companies` by itself.
+- M0 creates the schema only. M4 must add encryption for `payload` or document a
+  provider response contract that proves encryption is not required before raw
+  provider responses are stored.
 - Cache TTL is 30 days.
 - Lookup supports Vietnam MST and Singapore UEN. Other countries use manual
   entry only.

@@ -166,7 +166,10 @@ must preserve that boundary.
 
 Decision:
 
-Store only token hashes for payment confirmations.
+Store only token hashes for payment confirmations. Raw public tokens and token
+hashes use distinct branded schemas/types. Public routes accept raw token types;
+DB lookup and persistence accept only token-hash types produced by the invoice
+hashing helper.
 
 Reason:
 
@@ -201,6 +204,10 @@ explicit design change.
 Decision:
 
 Keep `invoice_company_registry` separate from `invoice_companies`.
+M0 creates the table but defers raw provider payload writes to M4. Before M4
+writes provider responses, the implementation must add payload encryption or
+document a stricter provider response shape that proves encryption is not
+needed.
 
 Reason:
 
@@ -246,6 +253,8 @@ Decision:
 
 AI helper is optional and read-only by default. Mutation tools require
 `prepareMutation(...)` and user approval.
+The `invoice.ai.view` ACL feature is reserved for M10 and has no active M0
+agent or tool surface.
 
 Reason:
 
@@ -331,3 +340,42 @@ Reason:
 
 Public token endpoints are unauthenticated and should be cheap to abuse-resist
 without changing the business flow.
+
+## DEC-029 Search Contract
+
+Decision:
+
+Implement invoice `search.ts` in M0 for invoice companies and invoices. Search
+requires `invoice.view`, uses allowlisted text fields, keeps tax-code fields
+hash-only, and excludes token/hash fields and provider payloads from index text.
+
+Reason:
+
+The M0 schema includes searchable invoice fields and the search package requires
+modules with searchable entities to declare a search contract.
+
+## DEC-030 Soft-Deleted Company History
+
+Decision:
+
+Invoices may reference soft-deleted `InvoiceCompany` rows for accounting
+history. FK `restrict` protects hard delete only. Normal scoped reads hide
+soft-deleted companies, while audit/detail flows that need historical company
+display must opt in explicitly.
+
+Reason:
+
+Accounting records should keep their historical partner reference even if the
+partner is later archived.
+
+## DEC-031 DS Governance Pre-Registration
+
+Decision:
+
+Keep invoice backend/component globs in the DS governance config before the UI
+files exist.
+
+Reason:
+
+Future M9 invoice UI work should be checked by the same design-system rules as
+other backend module surfaces from the first UI file.

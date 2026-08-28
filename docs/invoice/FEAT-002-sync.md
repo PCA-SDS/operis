@@ -1,15 +1,15 @@
 # FEAT-002 - Tax Portal Sync
 
 ## Description
-Đồng bộ hóa đơn điện tử từ Vietnam GDT portal. Stream `sold` tạo AR, stream `purchased` tạo AP. Token/captcha/password không lưu vào DB.
+Sync electronic invoices from the Vietnam GDT portal. The `sold` stream creates AR invoices, and the `purchased` stream creates AP invoices. Tokens, captcha data, and passwords are not stored in the DB.
 
 ## Purpose
-Import hóa đơn cũ và mới từ cổng thuế, dedupe bằng natural key, cập nhật partner master, giữ nguyên các field thanh toán do tenant sở hữu.
+Import old and new invoices from the tax portal, dedupe by natural key, update the partner master, and preserve tenant-owned payment fields.
 
 ## User/business value
-- Giảm nhập tay hóa đơn nội địa.
-- Lấy cả issued invoices và received invoices.
-- Có progress, counts, failure reason để user biết sync đang làm gì.
+- Reduce manual entry for domestic invoices.
+- Fetch both issued invoices and received invoices.
+- Show progress, counts, and failure reasons so users know what sync is doing.
 
 ## Entry points
 - API:
@@ -153,7 +153,7 @@ Import hóa đơn cũ và mới từ cổng thuế, dedupe bằng natural key, c
 ## Legacy/dead logic check
 - `SyncJobState.AUTHENTICATING` is marked transient/forward-compatible; current auth mostly happens before enqueue, but worker still sets it.
 - GDT naming and comments mix TCT/GDT terms; treat as historical naming, not business difference.
-- No automatic worker retry; this is intentional in current code, but repo mới should decide if queue retry policy changes.
+- No automatic worker retry; this is intentional in current code, but the new repo should decide if queue retry policy changes.
 
 ## Evidence
 - `apps/backend/src/modules/invoice/features/sync/sync-validation.spec.ts`

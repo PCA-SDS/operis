@@ -114,6 +114,9 @@ Source questions resolved before Phase 3:
 - Email tracking uses target SHA-256 token hashes even though old code stored
   raw tracking tokens.
 - Payment confirmation tokens are 64 hex chars and stored as SHA-256 hashes.
+- Public token schemas are separated by branded types: raw public tokens are
+  accepted only at public route boundaries, while DB lookup and persistence use
+  token-hash types produced by the invoice token hashing helper.
 - Sync defaults are locked: 1825-day max window, 300-second cooldown,
   900-second failed-auth backoff, 3 auth attempts, 1800-second active lock,
   180-second captcha TTL, and 82800-second GDT token TTL cap.
@@ -141,6 +144,15 @@ GDT sync must use:
 
 AI helper, if implemented, is read-only by default. Mutation tools must use
 pending approval through `prepareMutation(...)`.
+The `invoice.ai.view` ACL feature is reserved for M10 and is inert in M0 because
+no invoice AI agents or AI tools are active.
+
+Invoice search is part of the M0 module contract. Search configuration must
+declare `aclFeatures: ['invoice.view']`, use field allowlists, keep tax-code
+fields hash-only, and exclude token/hash fields from index text.
+
+The DS governance globs for future invoice backend and component paths are
+pre-registered in M0. They are intentional even before backend UI files exist.
 
 Full architecture detail is in
 `docs/invoice/TARGET-INVOICE-ARCHITECTURE.md`.
@@ -182,6 +194,9 @@ rows by default across `findById`, `findOne`, and `findMany`. Deleted-row reads
 must opt in with `includeDeleted: true`; this is reserved for explicit
 admin-restore screens and audit/reconciliation jobs that need historical rows.
 Normal UI, API, import, and command flows should not pass `includeDeleted`.
+Invoices may still reference soft-deleted `InvoiceCompany` rows for accounting
+history. The `restrict` FK protects hard delete only; UI and API surfaces must
+handle historical company references explicitly when they need to display them.
 
 The soft-delete read boundary is registered by entity constructor, not runtime
 class-name strings, so bundling/minification or class renames cannot silently
@@ -199,6 +214,9 @@ Important invariants:
 - Manual invoice totals are server-computed.
 - Generic invoice update cannot write derived settlement rollups.
 - Raw GDT secrets and raw payment-confirmation tokens are not stored.
+- `invoice_company_registry.payload` is created in M0 but provider payload use
+  is deferred to M4. Payload encryption must be decided and implemented before
+  M4 writes raw provider responses.
 
 ## API Contracts
 
@@ -237,6 +255,7 @@ Detailed route ownership is in
 | Mixing old Invoice with `sales_invoices` changes business semantics. | High | Data model, UI, payments | Keep separate `invoice` module and record DEC-002. | Later integration may still need explicit bridge design. |
 | GDT re-sync overwrites tenant payment metadata. | High | Sync, settlement | Use ownership rules from data mapping and regression tests. | Requires careful persistence tests. |
 | Public token leak through logs. | High | Payment confirmations, tracking | Store hashes, structured safe logs only. | Pixel token hashing needs source confirmation. |
+| Company registry payload may contain PII once provider lookup is implemented. | High | Company lookup cache | M0 does not call providers; M4 must add encryption or record a stricter payload contract before writing provider responses. | Schema exists before encrypted writes are implemented. |
 | Worker retry duplicates imported invoices. | High | Sync | Natural source key and idempotent worker. | Provider edge cases still need mock tests. |
 | Exchange-rate cache semantics change in multi-replica deploy. | Medium | Summary, forecast | Preserve process-local cache first. | Different replicas can have different stale snapshots. |
 | Feature parity missed in UI. | Medium | Backend pages | Use `PARITY-MATRIX.md` cross-capability scenarios. | Browser tests may need staged implementation. |
@@ -305,3 +324,7 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   strings.
 - 2026-08-27: Documented the payload-blind Invoice scope boundary and the
   upstream-validation assumption for `selectedOrganizationId`.
+- 2026-08-28: Added M0 review clarifications for branded public-token/hash
+  boundaries, invoice search configuration, deferred company-registry payload
+  encryption, reserved AI ACL behavior, soft-deleted company history, and DS
+  governance pre-registration.

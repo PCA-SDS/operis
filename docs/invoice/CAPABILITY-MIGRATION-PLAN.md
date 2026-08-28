@@ -11,6 +11,8 @@ Locked decisions:
 - Existing `sales` invoice flow stays separate
 - GDT sync uses queue worker plus `ProgressJob`
 - Tenant and organization scoping is required everywhere
+- Raw public tokens are never persisted; DB lookup/persistence uses token hashes.
+- `invoice.ai.view` is reserved for the optional M10 helper and is inactive in M0.
 
 ## Implementation Milestones
 
@@ -49,6 +51,7 @@ M0 first PR should create only:
 - DI service placeholders if needed
 - MikroORM entities and validators
 - route/OpenAPI helper shape
+- search contract for invoice companies and invoices
 - migration files and snapshots
 - focused smoke tests
 
@@ -92,6 +95,11 @@ Data requirements:
 - User-editable entities include `updated_at`.
 - Preserve enum values and limits from `Persisted Enums And Value Contracts`.
 - Add optimistic locking to every user-editable entity.
+- Add search configuration with `invoice.view` ACL gating, allowlisted text
+  fields, tax-code hash-only fields, and token/hash exclusions.
+- Keep `invoice_company_registry.payload` unencrypted in M0 only because M0 does
+  not call lookup providers or write raw provider responses. M4 must revisit
+  payload encryption before provider writes.
 
 Optimistic locking decisions:
 
@@ -119,6 +127,8 @@ Definition of done:
 - `yarn generate` discovers module files.
 - `yarn db:generate` emits only intended invoice schema.
 - No `sales` module behavior changes.
+- DS governance pre-registers future invoice backend/component globs; mention
+  this explicitly in the PR body.
 
 ## M1 CAP-003 Partner Payment Terms
 
@@ -242,6 +252,9 @@ Data read/write:
 
 - Reads/writes `invoice_company_registry`.
 - Does not create `invoice_companies`.
+- Before writing provider payloads, either add payload encryption for
+  `invoice_company_registry.payload` or document a stricter provider response
+  shape that proves encryption is not required.
 
 Implementation type:
 
@@ -494,6 +507,8 @@ Implementation type:
 - New Operis feature.
 - Read-only default.
 - Mutation tools only through approval.
+- Uses reserved ACL feature `invoice.ai.view`, which has no active M0 runtime
+  surface.
 
 Expected tests:
 

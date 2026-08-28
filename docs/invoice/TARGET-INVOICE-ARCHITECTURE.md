@@ -71,7 +71,7 @@ packages/core/src/modules/invoice/
   di.ts
   events.ts
   search.ts
-  encryption.ts
+  encryption.ts        # added when M4 provider payload encryption is finalized
   ai-agents.ts
   ai-tools.ts
   api/
@@ -337,6 +337,10 @@ Scoped reads hide soft-deleted `Invoice` and `InvoiceCompany` rows by default.
 Admin restore, audit, or other deleted-row use cases must opt in explicitly
 with `includeDeleted: true`. Entities without soft delete, such as
 `InvoiceCompanyEmail`, keep their normal scoped read behavior.
+Invoices may reference soft-deleted `InvoiceCompany` rows for accounting
+history. FK `restrict` only prevents hard delete, so detail and audit surfaces
+must use explicit historical-company handling when they need to display a
+deleted company.
 
 Public token routes do not trust tenant in URL or body. They resolve the token
 hash to a scoped record and only return safe public preview data.
@@ -347,11 +351,21 @@ must re-load `invoice_sync_jobs` by id plus scope before mutating records.
 Token storage:
 
 - Payment confirmation tokens are 32 random bytes, hex encoded to 64 chars.
-- Store SHA-256 hex hashes only.
+- Public route params parse as branded raw public tokens. DB lookup and
+  persistence use branded token-hash values from the invoice hashing helper.
+- Store SHA-256 hex hashes only; never persist raw public tokens.
 - Email tracking tokens should also be 64 hex chars and stored as SHA-256 hex
   hashes in `email_tracking_token_hash`.
 - Pixel lookup hashes the raw path token, updates `opened_at` only when it is
   null, and always returns the transparent GIF.
+
+Search:
+
+- `search.ts` is active in M0 for `invoice_companies` and `invoice_invoices`.
+- Search entries require `aclFeatures: ['invoice.view']`.
+- Tax-code snapshots are hash-only fields.
+- Token/hash fields and provider payload blobs are excluded from search text.
+- `invoice_company_registry.payload` is not indexed.
 
 ## Cross-Module Dependencies
 
@@ -396,6 +410,8 @@ must use guarded mutations.
 
 AI is not required for parity. If added, it must be a helper, not a hidden write
 path.
+The `invoice.ai.view` feature is reserved for M10. It is inert in M0 because no
+invoice AI agents or AI tools are active.
 
 Target:
 
@@ -431,6 +447,8 @@ Required log areas:
 - mail send failures and non-blocking recipient memory failures
 - exchange-rate provider outage and stale-cache usage
 - company lookup provider outage and stale-cache usage
+- company lookup payload encryption decision before provider responses are
+  written to `invoice_company_registry.payload`
 - public confirmation and tracking outcomes, without raw token
 
 Sync progress must be visible through `ProgressJob` status and counts.
