@@ -609,9 +609,9 @@ jobs:
         # On pushes to protected branches: full typecheck, no filter.
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            yarn turbo run typecheck --filter=[origin/${{ github.base_ref }}]...
+            yarn turbo run typecheck --concurrency=1 --filter=[origin/${{ github.base_ref }}]...
           else
-            yarn typecheck
+            yarn turbo run typecheck --concurrency=1
           fi
         env:
           TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
