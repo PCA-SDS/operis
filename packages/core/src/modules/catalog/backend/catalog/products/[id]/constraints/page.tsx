@@ -28,50 +28,6 @@ const logger = createLogger('catalog')
 type OptionSummary = { id: string; name: string; groupName: string }
 
 // ── Shared tab bar ──────────────────────────────────────────────────
-function ProductSubPageTabs({ productId }: { productId: string }) {
-  const pathname = usePathname()
-  const t = useT()
-
-  const tabs = [
-    {
-      href: `/backend/catalog/products/${productId}/options`,
-      label: t('catalog.options.tab', 'Options'),
-      icon: Settings2,
-      match: '/options',
-    },
-    {
-      href: `/backend/catalog/products/${productId}/constraints`,
-      label: t('catalog.constraints.tab', 'Constraints'),
-      icon: GitBranch,
-      match: '/constraints',
-    },
-  ]
-
-  return (
-    <div className="flex gap-1 border-b border-border mb-6 -mt-2">
-      {tabs.map((tab) => {
-        const active = pathname?.endsWith(tab.match) ?? false
-        const Icon = tab.icon
-        return (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
-              active
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
-            )}
-          >
-            <Icon className="w-3.5 h-3.5" />
-            {tab.label}
-          </Link>
-        )
-      })}
-    </div>
-  )
-}
-
 // ── Main page ───────────────────────────────────────────────────────
 export default function ProductConstraintsPage({ params }: { params?: { id?: string } }) {
   const productId = params?.id ? String(params.id) : ''
@@ -162,7 +118,6 @@ export default function ProductConstraintsPage({ params }: { params?: { id?: str
     <Page title={t('catalog.constraints.title', 'Constraints')}>
       <PageBody>
         <div className="flex flex-col gap-4">
-          <ProductSubPageTabs productId={productId} />
 
           {loading ? (
             <div className="flex items-center justify-center py-16">

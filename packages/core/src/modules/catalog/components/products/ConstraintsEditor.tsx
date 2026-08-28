@@ -154,7 +154,7 @@ function ConstraintRow({ draft, options, productId, onChange, onDelete, isNew }:
         isNew ? 'border-primary/30 bg-primary/5' : 'border-border',
         draft.locked && 'opacity-80'
       )}
-      style={{ gridTemplateColumns: '1fr auto 1fr auto auto auto' }}
+      style={{ gridTemplateColumns: 'minmax(0, 1fr) auto minmax(0, 1fr) auto auto auto' }}
     >
       {/* Source */}
       <div className="flex gap-1.5 items-center min-w-0">
@@ -307,7 +307,7 @@ export function ConstraintsEditor({
   return (
     <div className="flex flex-col gap-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between shrink-0">
         <div>
           <h3 className="text-sm font-semibold text-foreground">
             {t('catalog.constraints.heading', 'Product Constraints')}
@@ -319,56 +319,61 @@ export function ConstraintsEditor({
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {headerActions}
         </div>
       </div>
 
-      {/* Column headers */}
-      {drafts.length > 0 && (
-        <div
-          className="grid gap-2 px-3 text-xs font-medium text-muted-foreground"
-          style={{ gridTemplateColumns: '1fr auto 1fr auto auto' }}
-        >
-          <span>{t('catalog.constraints.col.source', 'Source')}</span>
-          <span className="w-[180px]">{t('catalog.constraints.col.type', 'Relationship')}</span>
-          <span>{t('catalog.constraints.col.target', 'Target')}</span>
-          <span className="w-8 text-center">{t('catalog.constraints.col.lock', 'Lock')}</span>
-          <span className="w-8" />
-        </div>
-      )}
+      {/* Scrollable grid area */}
+      <div className="overflow-x-auto min-w-0 rounded-md border">
+        <div className="min-w-[800px]">
+          {/* Column headers */}
+          {drafts.length > 0 && (
+            <div
+              className="grid gap-2 px-3 py-2 text-xs font-medium text-muted-foreground bg-muted/30 border-b"
+              style={{ gridTemplateColumns: '1fr auto 1fr auto auto auto' }}
+            >
+              <span>{t('catalog.constraints.col.source', 'Source')}</span>
+              <span className="w-[180px]">{t('catalog.constraints.col.type', 'Relationship')}</span>
+              <span>{t('catalog.constraints.col.target', 'Target')}</span>
+              <span className="w-8 text-center">{t('catalog.constraints.col.lock', 'Lock')}</span>
+              <span className="w-8" />
+            </div>
+          )}
 
-      {/* Rows */}
-      <div className="flex flex-col gap-2">
-        {drafts.map((draft) => (
-          <ConstraintRow
-            key={draft.id}
-            draft={draft}
-            options={options}
-            productId={productId}
-            onChange={(updated) => updateDraft(draft.id, updated)}
-            onDelete={() => deleteDraft(draft.id)}
-            isNew={newIds.has(draft.id)}
-          />
-        ))}
+          {/* Rows */}
+          <div className="flex flex-col gap-2 p-2">
+            {drafts.map((draft) => (
+              <ConstraintRow
+                key={draft.id}
+                draft={draft}
+                options={options}
+                productId={productId}
+                onChange={(updated) => updateDraft(draft.id, updated)}
+                onDelete={() => deleteDraft(draft.id)}
+                isNew={newIds.has(draft.id)}
+              />
+            ))}
 
-        {drafts.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-10 text-center border border-dashed rounded-lg text-muted-foreground gap-2">
-            <p className="text-sm font-medium">
-              {t('catalog.constraints.empty', 'No constraints defined')}
-            </p>
-            <p className="text-xs">
-              {t(
-                'catalog.constraints.emptyHint',
-                'Add a constraint to define how this product or its options relate to other items.'
-              )}
-            </p>
+            {drafts.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground gap-2">
+                <p className="text-sm font-medium">
+                  {t('catalog.constraints.empty', 'No constraints defined')}
+                </p>
+                <p className="text-xs">
+                  {t(
+                    'catalog.constraints.emptyHint',
+                    'Add a constraint to define how this product or its options relate to other items.'
+                  )}
+                </p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Add button */}
-      <div>
+      <div className="shrink-0">
         <Button
           type="button"
           variant="outline"
