@@ -130,7 +130,7 @@ jobs:
           yarn build:packages
 
       - name: Typecheck
-        run: yarn typecheck
+        run: yarn turbo run typecheck --concurrency=1
 
       - name: Unit tests
         # test:serial, not test. The default runner (turbo concurrency 2, 1 GB
