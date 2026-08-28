@@ -92,8 +92,12 @@ async function loadCurrentConstraintRecords(
   em: EntityManager,
   scope: ConstraintsScope,
 ): Promise<CurrentConstraintRecords> {
+  // Constraints belong to the product they reference as source, or its options
   return em.find(CatalogProductConstraint, {
-    sourceProduct: scope.productId,
+    $or: [
+      { sourceProduct: scope.productId },
+      { sourceOption: { group: { product: scope.productId } } },
+    ],
     tenantId: scope.tenantId,
     organizationId: scope.organizationId,
   })
@@ -118,24 +122,21 @@ async function loadConstraintsSnapshot(
 async function applyConstraintsSnapshot(
   em: EntityManager,
   scope: ConstraintsScope,
+  currentConstraints: CurrentConstraintRecords,
   snapshot: SerializedConstraint[],
 ): Promise<void> {
-  const currentConstraints = await loadCurrentConstraintRecords(em, scope)
+  // Build entity map from already-loaded current constraints (avoids re-query in same transaction)
+  const constraintEntities = new Map<string, CatalogProductConstraint>()
+  for (const c of currentConstraints) {
+    constraintEntities.set(c.id, c)
+  }
+
   const incomingIds = new Set(snapshot.map((c) => c.id))
 
   // Remove constraints not in incoming
   for (const constraint of currentConstraints) {
     if (!incomingIds.has(constraint.id)) {
       em.remove(constraint)
-    }
-  }
-
-  await em.flush()
-
-  const constraintEntities = new Map<string, CatalogProductConstraint>()
-  for (const constraint of currentConstraints) {
-    if (incomingIds.has(constraint.id)) {
-      constraintEntities.set(constraint.id, constraint)
     }
   }
 
@@ -270,7 +271,7 @@ const syncConstraintsCommand: CommandHandler<
         request: ctx.request ?? null,
       })
 
-      await applyConstraintsSnapshot(tem, scope, snapshot.constraints)
+      await applyConstraintsSnapshot(tem, scope, currentConstraints, snapshot.constraints)
 
       // Update product timestamp
       const productRef = await tem.findOne(CatalogProduct, {
@@ -322,7 +323,8 @@ const syncConstraintsCommand: CommandHandler<
     const scope = { productId, tenantId, organizationId } satisfies ConstraintsScope
 
     await em.transactional(async (tem) => {
-      await applyConstraintsSnapshot(tem, scope, data.before as SerializedConstraint[])
+      const currentConstraints = await loadCurrentConstraintRecords(tem, scope)
+      await applyConstraintsSnapshot(tem, scope, currentConstraints, data.before as SerializedConstraint[])
       const product = await tem.findOne(CatalogProduct, {
         id: productId,
         tenantId,
@@ -340,5 +342,5 @@ const syncConstraintsCommand: CommandHandler<
 registerCommand(syncConstraintsCommand)
 
 // Also export for use in option tree sync
-export { applyConstraintsSnapshot, loadConstraintsSnapshot }
+export { applyConstraintsSnapshot, loadConstraintsSnapshot, loadCurrentConstraintRecords }
 export type { ConstraintsScope, SerializedConstraint, ConstraintsSnapshot }

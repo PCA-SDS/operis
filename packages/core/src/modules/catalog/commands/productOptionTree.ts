@@ -26,6 +26,7 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import {
   applyConstraintsSnapshot,
   loadConstraintsSnapshot,
+  loadCurrentConstraintRecords,
 } from './productConstraints'
 import type { SerializedConstraint } from './productConstraints'
 
@@ -439,7 +440,8 @@ const syncOptionTreeCommand: CommandHandler<
 
       // Sync constraints if provided
       if (snapshot.constraints && snapshot.constraints.length > 0) {
-        await applyConstraintsSnapshot(tem, scope, snapshot.constraints)
+        const currentConstraints = await loadCurrentConstraintRecords(tem, scope)
+        await applyConstraintsSnapshot(tem, scope, currentConstraints, snapshot.constraints)
       }
 
       const productRef = await tem.findOne(CatalogProduct, {

@@ -138,8 +138,15 @@ export async function GET(
 
   const constraints = await em.find(
     CatalogProductConstraint,
-    { sourceProduct: productId, tenantId, organizationId },
-    { populate: ['sourceProduct', 'sourceOption', 'targetProduct', 'targetOption'] }
+    { 
+      $or: [
+        { sourceProduct: productId },
+        { sourceOption: { group: { product: productId } } }
+      ],
+      tenantId, 
+      organizationId 
+    },
+    { populate: ['sourceProduct', 'sourceOption', 'targetProduct', 'targetOption.group.product'] }
   )
 
   const updatedAt = latestIso([product.updatedAt, ...constraints.map((c) => c.updatedAt)])
@@ -149,14 +156,16 @@ export async function GET(
     constraint_type: c.constraintType,
     source_product_id: c.sourceProduct?.id ?? null,
     source_option_id: c.sourceOption?.id ?? null,
-    target_product_id: c.targetProduct?.id ?? null,
+    target_product_id: c.targetProduct?.id ?? c.targetOption?.group?.product?.id ?? null,
     target_option_id: c.targetOption?.id ?? null,
+    target_product_name: c.targetProduct?.title ?? c.targetOption?.group?.product?.title ?? null,
+    target_option_name: c.targetOption?.name ?? null,
     locked: c.locked,
     created_at: c.createdAt.toISOString(),
     updated_at: c.updatedAt.toISOString(),
   }))
 
-  return NextResponse.json({ updated_at: updatedAt, constraints: serialized })
+  return NextResponse.json({ updated_at: updatedAt, constraints: serialized, product_name: product.title ?? null })
 }
 
 export async function PUT(
@@ -192,7 +201,7 @@ export async function PUT(
     constraints: parsedBody.data.constraints.map((c) => ({
       id: c.id,
       constraintType: (c.constraint_type ?? c.constraintType)!,
-      sourceProductId: c.source_product_id ?? c.sourceProductId ?? null,
+      sourceProductId: c.source_product_id !== undefined ? c.source_product_id : (c.sourceProductId !== undefined ? c.sourceProductId : (c.source_option_id ?? c.sourceOptionId ? null : productId)),
       sourceOptionId: c.source_option_id ?? c.sourceOptionId ?? null,
       targetProductId: c.target_product_id ?? c.targetProductId ?? null,
       targetOptionId: c.target_option_id ?? c.targetOptionId ?? null,
