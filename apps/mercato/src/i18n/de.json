@@ -1113,6 +1113,8 @@
   "ui.perspectives.title": "Perspektiven",
   "ui.perspectives.untitled": "Unbenannte Perspektive",
   "ui.perspectives.updated": "Aktualisiert {date}",
+  "ui.phone.countryCode": "Ländervorwahl",
+  "ui.phone.searchCountry": "Land suchen…",
   "ui.rating.item.ariaLabel": "{position} von {max}",
   "ui.rating.summary.ariaLabel": "{value} von {max}",
   "ui.recordNotFound.backToList": "Zurück zur Liste",

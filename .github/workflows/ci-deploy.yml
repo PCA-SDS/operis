@@ -108,8 +108,17 @@ jobs:
           # instant it matches, git diff takes SIGPIPE and returns 141, and the
           # pipeline reports failure ON A MATCH — silently skipping the image
           # build for exactly the changes that most need it.
+          #
+          # Every entry below is something the Dockerfile COPYs or `yarn build`
+          # reads. The previous list omitted tsconfig*.json (Dockerfile:16),
+          # scripts/ (Dockerfile:43-44,52 — `yarn build` runs
+          # scripts/build-package.mjs), newrelic.js (Dockerfile:56), the jest
+          # configs and eslint.config.mjs (Dockerfile:57-58). A PR touching only
+          # those skipped the image build entirely and the first build of that
+          # tree happened on main — the exact green-PR/red-main asymmetry this
+          # gate exists to prevent.
           CHANGED="$(git diff --name-only "$BASE" "$HEAD")"
-          if grep -qE '^(Dockerfile|\.dockerignore|deploy/|docker/|package\.json|yarn\.lock|\.yarnrc\.yml|turbo\.json|apps/mercato/(package\.json|next\.config\.ts)|packages/[^/]+/package\.json)' <<<"$CHANGED"; then
+          if grep -qE '^(Dockerfile|\.dockerignore|deploy/|docker/|scripts/|package\.json|yarn\.lock|\.yarnrc\.yml|turbo\.json|tsconfig(\.base)?\.json|newrelic\.js|jest\.config\.cjs|jest(\.dom)?\.setup\.ts|eslint\.config\.mjs|apps/mercato/(package\.json|next\.config\.ts)|packages/[^/]+/package\.json)' <<<"$CHANGED"; then
             echo "image=true" >> "$GITHUB_OUTPUT"
             echo "image-relevant paths changed - image build required"
           else
@@ -150,7 +159,18 @@ jobs:
       - name: Cache Yarn packages
         uses: actions/cache@v6
         with:
-          path: .yarn/cache
+          # ~/.yarn/berry/cache, NOT .yarn/cache. Yarn 4 defaults
+          # `enableGlobalCache: true` and .yarnrc.yml does not override it, so
+          # the package zips live in the global folder and `.yarn/cache` never
+          # exists in this repo at all. This step therefore cached an absent
+          # directory and restored nothing: every run whose node_modules cache
+          # missed re-downloaded the full dependency set from npm.
+          #
+          # The restore-keys line only becomes meaningful with the path fixed.
+          # Both this key and the node_modules key hash yarn.lock, so a lockfile
+          # change misses BOTH; the prefix fallback is what lets the unchanged
+          # majority of packages come from cache instead of the network.
+          path: ~/.yarn/berry/cache
           key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
           restore-keys: yarn-${{ runner.os }}-
 
@@ -293,6 +313,66 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # 2026-08-29: main went red with "No space left on device" while the PR
+      # that introduced the change was green — the PR skips this job unless an
+      # image-relevant path changed, so the first build of that tree happened
+      # here. Nothing about the image was wrong; a standard runner has ~14 GB
+      # free and this build needs more than that once the layer cache misses:
+      # yarn install (~440 MiB of packages), a full Next build, the BuildKit
+      # layer store, and then `--cache-to mode=max` writing every builder layer
+      # out again.
+      #
+      # The runner ships toolchains this image never uses. Reclaiming them is
+      # the cheapest honest fix — it gives the build the headroom it actually
+      # needs instead of trimming what the image contains. `|| true` on each
+      # path so a future runner image that drops one of these does not fail the
+      # build. The df lines stay so the next disk failure is one glance to
+      # diagnose rather than an unhandled IOException.
+      - name: Reclaim runner disk
+        run: |
+          set -uo pipefail
+          echo "::group::disk before"
+          df -h /
+          echo "::endgroup::"
+          sudo rm -rf /usr/local/lib/android || true      # ~9 GB
+          sudo rm -rf /usr/share/dotnet || true           # ~1.6 GB
+          sudo rm -rf /opt/ghc || true                    # ~1 GB
+          sudo rm -rf /usr/local/share/boost || true
+          sudo rm -rf /usr/share/swift || true
+          sudo rm -rf "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}" || true
+          docker image prune -af || true
+          echo "::group::disk after"
+          df -h /
+          echo "::endgroup::"
+
+          # Measured 2026-08-30 on this tree: `docker buildx du` reports 10.03 GB
+          # of BuildKit store for a single `--target runner` build, before the
+          # checkout (~0.5 GB), the `--cache-from` import and the `mode=max`
+          # export staging are counted. A stock runner offers ~14 GB free, which
+          # is why this build began dying once the registry buildcache filled.
+          #
+          # Assert the headroom rather than discover its absence as a dead
+          # runner. When the runner is killed by ENOSPC the worker cannot even
+          # flush its own diagnostic log, so the job reports failure with NO log
+          # and NO failed step — the 2026-08-29 outage was invisible for exactly
+          # this reason. 20 GB is twice the measured requirement: comfortably
+          # above real usage, low enough to fire before the build dies.
+          # Falls back to an empty string if a future runner ships a df without
+          # --output. A guard must never itself become the thing that breaks the
+          # build, so an unreadable measurement warns and continues rather than
+          # failing a build that would otherwise have succeeded.
+          AVAIL_GB="$(df -B1G --output=avail / 2>/dev/null | tail -1 | tr -dc '0-9')"
+          if [ -z "$AVAIL_GB" ]; then
+            echo "::warning::could not read available disk; skipping the headroom check"
+            AVAIL_GB=999
+          fi
+          echo "available after reclaim: ${AVAIL_GB}GB"
+          if [ "$AVAIL_GB" -lt 20 ]; then
+            echo "::error::only ${AVAIL_GB}GB free after reclaiming runner disk; this build needs ~11GB plus cache export headroom."
+            echo "::error::The runner image likely changed what it ships. Check the 'disk before'/'disk after' groups above and extend the reclaim list."
+            exit 1
+          fi
+
       - name: Compute image coordinates
         id: meta
         env:
@@ -357,9 +437,15 @@ jobs:
             # copied at Dockerfile:15, before `yarn install`, so touching any
             # of them invalidates everything after it and forces a full
             # rebuild regardless of cache mode.
+            #
+            # ignore-error=true: the cache export runs AFTER the image push, so
+            # without it a registry hiccup or a full disk during the export
+            # fails the step for an image that already shipped correctly —
+            # turning a good release into a red main and a skipped deploy. The
+            # cache is an optimisation; losing it must never lose the build.
             ARGS+=(
               --tag "$IMAGE:latest"
-              --cache-to "type=registry,ref=$IMAGE:buildcache,mode=max"
+              --cache-to "type=registry,ref=$IMAGE:buildcache,mode=max,ignore-error=true"
               --push
             )
           else

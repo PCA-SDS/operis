@@ -1113,6 +1113,8 @@
   "ui.perspectives.title": "보기",
   "ui.perspectives.untitled": "제목 없는 보기",
   "ui.perspectives.updated": "{date}에 업데이트됨",
+  "ui.phone.countryCode": "국가 번호",
+  "ui.phone.searchCountry": "국가 검색…",
   "ui.rating.item.ariaLabel": "{max} 중 {position}",
   "ui.rating.summary.ariaLabel": "{max} 중 {value}",
   "ui.recordNotFound.backToList": "목록으로 돌아가기",

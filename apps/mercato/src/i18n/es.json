@@ -1113,6 +1113,8 @@
   "ui.perspectives.title": "Perspectivas",
   "ui.perspectives.untitled": "Perspectiva sin título",
   "ui.perspectives.updated": "Actualizado {date}",
+  "ui.phone.countryCode": "Código de país",
+  "ui.phone.searchCountry": "Buscar país…",
   "ui.rating.item.ariaLabel": "{position} de {max}",
   "ui.rating.summary.ariaLabel": "{value} de {max}",
   "ui.recordNotFound.backToList": "Volver a la lista",
