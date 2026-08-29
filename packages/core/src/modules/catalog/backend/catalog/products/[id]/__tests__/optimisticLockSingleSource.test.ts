@@ -10,6 +10,10 @@ const optionTreePageSource = readFileSync(
   join(__dirname, '..', 'options', 'page.tsx'),
   'utf8',
 )
+const optionTreeEditorSource = readFileSync(
+  join(__dirname, '..', '..', '..', '..', '..', 'components', 'products', 'OptionTreeEditor.tsx'),
+  'utf8',
+)
 
 describe('catalog edit pages — optimistic-lock single header source', () => {
   it('product UPDATE is single-sourced (bare updateCrud; CrudForm auto-derives from initialValues.updatedAt)', () => {
@@ -57,12 +61,14 @@ describe('catalog edit pages — optimistic-lock single header source', () => {
   })
 
   it('option-tree page uses shared formatting helpers and DS-safe warning tokens', () => {
-    expect(optionTreePageSource).toContain('formatCurrency')
+    // formatCurrency lives in OptionTreeEditor component
+    expect(optionTreeEditorSource).toContain('formatCurrency')
+    expect(optionTreeEditorSource).not.toContain("toLocaleString('vi-VN')")
+    expect(optionTreeEditorSource).not.toContain('text-yellow-600')
+    expect(optionTreeEditorSource).not.toContain('dark:text-yellow-500')
+    expect(optionTreeEditorSource).not.toContain('text-[10px]')
+    expect(optionTreeEditorSource).not.toContain('bg-background shadow-sm text-foreground')
+    // warning token lives in the page shell
     expect(optionTreePageSource).toContain('text-status-warning-text')
-    expect(optionTreePageSource).not.toContain("toLocaleString('vi-VN')")
-    expect(optionTreePageSource).not.toContain('text-yellow-600')
-    expect(optionTreePageSource).not.toContain('dark:text-yellow-500')
-    expect(optionTreePageSource).not.toContain('text-[10px]')
-    expect(optionTreePageSource).not.toContain('bg-background shadow-sm text-foreground')
   })
 })

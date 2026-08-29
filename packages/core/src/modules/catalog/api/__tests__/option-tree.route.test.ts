@@ -114,7 +114,7 @@ describe('PUT /products/[id]/option-tree', () => {
       })
     )
 
-    await expect(response.json()).resolves.toEqual({ updated_at: null, groups: [], options: [] })
+    await expect(response.json()).resolves.toMatchObject({ updated_at: null, groups: [], options: [], constraints: [] })
   })
 
   it('rejects without productId', async () => {
