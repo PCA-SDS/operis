@@ -137,6 +137,9 @@ jest.mock('@open-mercato/ui/primitives/switch', () => ({
 }))
 
 jest.mock('@open-mercato/ui/primitives/dialog', () => ({
+  DialogBody: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-slot="dialog-body" className={className}>{children}</div>
+  ),
   Dialog: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   DialogContent: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   DialogDescription: ({ children }: { children?: React.ReactNode }) => <p>{children}</p>,
