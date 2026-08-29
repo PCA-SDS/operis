@@ -20,6 +20,8 @@ import type { AiChatContextItem, AiChatSuggestion } from './AiChat'
 import { ChatPaneTabs } from './ChatPaneTabs'
 import { useAiChatSessions } from './AiChatSessions'
 import { ConversationShareButton } from './ConversationShareButton'
+import { AiProviderSetupPanel } from './AiProviderSetupPanel'
+import { useAiConfigured } from './useAiConfigured'
 import { IconButton } from '../primitives/icon-button'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -465,6 +467,7 @@ function AiDockPanel({
 function DockedChatBody({ assistant }: { assistant: AiDockedAssistant }) {
   const sessions = useAiChatSessions()
   const session = sessions.getActiveSession(assistant.agent)
+  const { isUnconfigured } = useAiConfigured()
 
   // Lazily ensure an open session exists. Running `ensureSession` inside an
   // effect (not inline during render) keeps the provider's setState calls
@@ -473,8 +476,9 @@ function DockedChatBody({ assistant }: { assistant: AiDockedAssistant }) {
   // tick when the new session is committed and `getActiveSession` returns
   // it.
   React.useEffect(() => {
+    if (isUnconfigured) return
     if (!session) sessions.ensureSession(assistant.agent)
-  }, [assistant.agent, session, sessions])
+  }, [assistant.agent, isUnconfigured, session, sessions])
 
   const activeSessionId = session?.id ?? null
   const handleConversationNotFound = React.useCallback(() => {
@@ -485,6 +489,10 @@ function DockedChatBody({ assistant }: { assistant: AiDockedAssistant }) {
     // for the new scope rather than a perpetual blank chat.
     if (activeSessionId) sessions.closeSession(activeSessionId)
   }, [activeSessionId, sessions])
+
+  if (isUnconfigured) {
+    return <AiProviderSetupPanel variant="fill" />
+  }
 
   return (
     <>
