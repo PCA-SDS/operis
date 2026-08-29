@@ -3,22 +3,23 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { whenTemplatePresent } from './helpers/create-app-template.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
 // The production-documented stacks. Their `.dev.yml` sibling is deliberately excluded: it is the
 // local development stack, where a throwaway secret and development mode are the point.
 const PRODUCTION_COMPOSE_FILES = [
-  'docker-compose.fullapp.yml',
-  'packages/create-app/template/docker-compose.fullapp.yml',
+  { path: 'docker-compose.fullapp.yml', options: {} },
+  { path: 'packages/create-app/template/docker-compose.fullapp.yml', options: whenTemplatePresent() },
 ]
 
 function read(relPath) {
   return fs.readFileSync(path.resolve(ROOT, relPath), 'utf8')
 }
 
-for (const relPath of PRODUCTION_COMPOSE_FILES) {
-  test(`${relPath} never supplies a default JWT_SECRET`, () => {
+for (const { path: relPath, options } of PRODUCTION_COMPOSE_FILES) {
+  test(`${relPath} never supplies a default JWT_SECRET`, options, () => {
     const content = read(relPath)
     const assignments = content.match(/^\s*JWT_SECRET:.*$/gm) ?? []
     assert.ok(assignments.length > 0, `No JWT_SECRET assignment found in ${relPath}`)
@@ -37,7 +38,7 @@ for (const relPath of PRODUCTION_COMPOSE_FILES) {
     }
   })
 
-  test(`${relPath} does not force development mode`, () => {
+  test(`${relPath} does not force development mode`, options, () => {
     const content = read(relPath)
     const assignments = content.match(/^\s*NODE_ENV:.*$/gm) ?? []
     assert.ok(assignments.length > 0, `No NODE_ENV assignment found in ${relPath}`)
@@ -50,7 +51,7 @@ for (const relPath of PRODUCTION_COMPOSE_FILES) {
     }
   })
 
-  test(`${relPath} passes the bounded legacy-token controls into every JWT consumer`, () => {
+  test(`${relPath} passes the bounded legacy-token controls into every JWT consumer`, options, () => {
     const content = read(relPath)
     const jwtAssignments = content.match(/^\s*JWT_SECRET:.*$/gm) ?? []
     const graceAssignments = content.match(/^\s*JWT_LEGACY_GRACE_MINUTES:.*$/gm) ?? []

@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { templateMirrors } from './helpers/create-app-template.mjs'
 
 import {
   GREENFIELD_PURGE_TARGETS,
@@ -135,16 +136,17 @@ test('runGreenfieldDev and runClassicGreenfieldDev: source invokes purgeAppBuild
 
 test('greenfield dev scripts never purge app build caches after launching runtime warmup', async () => {
   const here = path.dirname(new URL(import.meta.url).pathname)
-  const rootDevMjs = fs.readFileSync(path.resolve(here, '..', 'dev.mjs'), 'utf8')
-  const templateDevMjs = fs.readFileSync(
-    path.resolve(here, '..', '..', 'packages', 'create-app', 'template', 'scripts', 'dev.mjs'),
-    'utf8',
-  )
+  const repoRoot = path.resolve(here, '..', '..')
+  const sources = [
+    ['root dev.mjs', path.resolve(here, '..', 'dev.mjs')],
+    ...templateMirrors('packages/create-app/template/scripts/dev.mjs').map((rel) => [
+      'template dev.mjs',
+      path.resolve(repoRoot, rel),
+    ]),
+  ]
 
-  for (const [label, source] of [
-    ['root dev.mjs', rootDevMjs],
-    ['template dev.mjs', templateDevMjs],
-  ]) {
+  for (const [label, sourcePath] of sources) {
+    const source = fs.readFileSync(sourcePath, 'utf8')
     const purgeCalls = Array.from(source.matchAll(/purgeAppBuildCaches\(\)/g)).map((match) => match.index ?? -1)
     assert.equal(purgeCalls.length, 2, `${label} should purge only for modern and classic greenfield startup`)
 
@@ -168,7 +170,9 @@ test('runtime warmup scripts do not remove Next or Turbopack caches between warm
   const here = path.dirname(new URL(import.meta.url).pathname)
   const runtimeSources = [
     path.resolve(here, '..', '..', 'apps', 'mercato', 'scripts', 'dev.mjs'),
-    path.resolve(here, '..', '..', 'packages', 'create-app', 'template', 'scripts', 'dev-runtime.mjs'),
+    ...templateMirrors('packages/create-app/template/scripts/dev-runtime.mjs').map((rel) =>
+      path.resolve(here, '..', '..', rel),
+    ),
   ]
 
   for (const runtimePath of runtimeSources) {
@@ -183,11 +187,15 @@ test('dev wrappers own shutdown notice and suppress duplicate runtime notices', 
   const here = path.dirname(new URL(import.meta.url).pathname)
   const wrapperSources = [
     path.resolve(here, '..', 'dev.mjs'),
-    path.resolve(here, '..', '..', 'packages', 'create-app', 'template', 'scripts', 'dev.mjs'),
+    ...templateMirrors('packages/create-app/template/scripts/dev.mjs').map((rel) =>
+      path.resolve(here, '..', '..', rel),
+    ),
   ]
   const runtimeSources = [
     path.resolve(here, '..', '..', 'apps', 'mercato', 'scripts', 'dev.mjs'),
-    path.resolve(here, '..', '..', 'packages', 'create-app', 'template', 'scripts', 'dev-runtime.mjs'),
+    ...templateMirrors('packages/create-app/template/scripts/dev-runtime.mjs').map((rel) =>
+      path.resolve(here, '..', '..', rel),
+    ),
   ]
 
   for (const wrapperPath of wrapperSources) {

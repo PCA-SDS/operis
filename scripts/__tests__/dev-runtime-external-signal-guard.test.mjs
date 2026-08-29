@@ -3,12 +3,13 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { whenTemplatePresent } from './helpers/create-app-template.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
 const RUNTIME_FILES = [
-  'apps/mercato/scripts/dev.mjs',
-  'packages/create-app/template/scripts/dev-runtime.mjs',
+  { path: 'apps/mercato/scripts/dev.mjs', options: {} },
+  { path: 'packages/create-app/template/scripts/dev-runtime.mjs', options: whenTemplatePresent() },
 ]
 
 const BARE_DEREF = /externalSignal\.[A-Za-z_$]/g
@@ -18,8 +19,8 @@ function readRuntimeFile(relPath) {
   return fs.readFileSync(path.resolve(ROOT, relPath), 'utf8')
 }
 
-for (const relPath of RUNTIME_FILES) {
-  test(`${relPath} never dereferences the nullable externalSignal without optional chaining`, () => {
+for (const { path: relPath, options } of RUNTIME_FILES) {
+  test(`${relPath} never dereferences the nullable externalSignal without optional chaining`, options, () => {
     const content = readRuntimeFile(relPath)
     const bareReads = content.match(BARE_DEREF) ?? []
     assert.deepEqual(
@@ -30,7 +31,7 @@ for (const relPath of RUNTIME_FILES) {
     )
   })
 
-  test(`${relPath} keeps the abort-reason fallback null-safe`, () => {
+  test(`${relPath} keeps the abort-reason fallback null-safe`, options, () => {
     const content = readRuntimeFile(relPath)
     const guarded = content.match(GUARDED_REASON) ?? []
     assert.equal(
@@ -41,8 +42,8 @@ for (const relPath of RUNTIME_FILES) {
   })
 }
 
-test('app dev runtime and create-app template mirror share identical externalSignal abort handling', () => {
-  const [appContent, templateContent] = RUNTIME_FILES.map(readRuntimeFile)
+test('app dev runtime and create-app template mirror share identical externalSignal abort handling', whenTemplatePresent(), () => {
+  const [appContent, templateContent] = RUNTIME_FILES.map((entry) => readRuntimeFile(entry.path))
   const extractBlock = (content) => {
     const start = content.indexOf('async function fetchWithTimeout(')
     assert.notEqual(start, -1, 'fetchWithTimeout not found')
