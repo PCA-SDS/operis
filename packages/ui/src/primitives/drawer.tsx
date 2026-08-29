@@ -2,10 +2,10 @@
 
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { X } from 'lucide-react'
 import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@open-mercato/shared/lib/utils'
+import { CloseButton } from './close-button'
 
 /**
  * Side-sheet primitive — slides in from `right` (default), `left`,
@@ -72,7 +72,7 @@ const DrawerOverlay = React.forwardRef<
     ref={ref}
     data-slot="drawer-overlay"
     className={cn(
-      'fixed inset-0 z-overlay bg-foreground/40 backdrop-blur-sm',
+      'fixed inset-0 z-overlay bg-foreground/40',
       'data-[state=open]:animate-in data-[state=closed]:animate-out',
       'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
       className,
@@ -148,16 +148,12 @@ const DrawerContent = React.forwardRef<
       >
         {children}
         {!hideCloseButton ? (
-          <DrawerClose
-            data-slot="drawer-close-button"
-            aria-label={closeAriaLabel}
-            className={cn(
-              'absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors',
-              'hover:bg-muted/40 hover:text-foreground',
-              'focus-visible:shadow-focus',
-            )}
-          >
-            <X aria-hidden="true" className="size-4" />
+          <DrawerClose asChild>
+            <CloseButton
+              data-slot="drawer-close-button"
+              aria-label={closeAriaLabel}
+              className="absolute right-6 top-5 z-10"
+            />
           </DrawerClose>
         ) : null}
       </DialogPrimitive.Content>
@@ -304,7 +300,7 @@ const DrawerTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     data-slot="drawer-title"
-    className={cn('text-lg font-semibold leading-tight text-foreground', className)}
+    className={cn('text-xl font-semibold tracking-tight text-foreground', className)}
     {...props}
   />
 ))

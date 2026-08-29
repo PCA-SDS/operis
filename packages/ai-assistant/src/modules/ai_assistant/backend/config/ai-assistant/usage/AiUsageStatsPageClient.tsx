@@ -264,7 +264,7 @@ export function AiUsageStatsPageClient() {
             {t('ai_assistant.usage.dailyBreakdown', 'Daily breakdown')}
           </h3>
           <div className="overflow-x-auto rounded-lg border border-border">
-            <Table density="compact" className="min-w-full">
+            <Table columnCount={5} density="compact" className="min-w-full">
               <TableHeader>
                 <TableRow className="border-border bg-muted/40">
                   <TableHead>
@@ -324,7 +324,7 @@ export function AiUsageStatsPageClient() {
         {sessionsQuery.isSuccess && (sessionsQuery.data?.sessions ?? []).length > 0 && (
           <>
             <div className="overflow-x-auto rounded-lg border border-border">
-              <Table density="compact" className="min-w-full">
+              <Table columnCount={7} density="compact" className="min-w-full">
                 <TableHeader>
                   <TableRow className="border-border bg-muted/40">
                     <TableHead>
@@ -425,7 +425,7 @@ export function AiUsageStatsPageClient() {
             )}
             {sessionDetailQuery.isSuccess && (
               <div className="overflow-x-auto rounded-lg border border-border">
-                <Table density="compact" className="min-w-full">
+                <Table columnCount={5} density="compact" className="min-w-full">
                   <TableHeader>
                     <TableRow className="border-border bg-muted/40">
                       <TableHead>

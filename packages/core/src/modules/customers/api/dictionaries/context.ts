@@ -26,6 +26,7 @@ export const BUILTIN_DICTIONARY_ROUTE_KINDS = [
   'renewal-quarters',
   'person-company-roles',
   'interaction-statuses',
+  'client-tiers',
 ] as const
 
 type BuiltinDictionaryRouteKind = (typeof BUILTIN_DICTIONARY_ROUTE_KINDS)[number]
@@ -57,6 +58,7 @@ const KIND_MAP: Record<BuiltinDictionaryRouteKind, DictionaryEntityKind> = {
   'renewal-quarters': 'renewal_quarter',
   'person-company-roles': 'person_company_role',
   'interaction-statuses': 'interaction_status',
+  'client-tiers': 'client_tier',
 }
 
 export const paramsSchema = z.object({

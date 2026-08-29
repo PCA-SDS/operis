@@ -396,7 +396,6 @@ export RECORD_ID="<record uuid>"`}</code></pre>
         </ContextHelp>
         <RelationDisplaysProvider displaysByField={relationDisplaysByField}>
           <DataTable
-            stickyActionsColumn
             title={`Records: ${entityId}`}
             entityId={entityId}
             actions={actions}

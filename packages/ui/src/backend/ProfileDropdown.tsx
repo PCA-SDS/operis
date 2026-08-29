@@ -299,7 +299,7 @@ export function ProfileDropdown({
               />
             </button>
             {languageOpen && (
-              <div className="ml-7 mr-1 flex flex-col gap-0.5 border-l pl-2 py-1">
+              <div className="ml-7 mr-1 flex flex-col gap-1 border-l pl-2 py-1">
                 {locales.map((locale) => (
                   <button
                     key={locale}
@@ -401,7 +401,7 @@ export function ProfileDropdown({
             </div>
           )}
 
-          <div className="flex flex-col p-1.5">
+          <div className="flex flex-col gap-1 p-1.5">
             {mergedMenuItems.map((item) => (
               <React.Fragment key={item.id}>
                 {item.separator ? <div className="my-1 h-px bg-border" aria-hidden="true" /> : null}

@@ -435,7 +435,7 @@ export function NotificationSettingsPageClient() {
             </p>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-border">
-              <Table density="compact">
+              <Table density="compact" columnCount={2 + channels.length}>
                 <TableHeader>
                   <TableRow className="border-border text-left">
                     <TableHead>

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { login } from '@open-mercato/core/modules/core/__integration__/helpers/auth';
 import { apiRequest, getAuthToken } from '@open-mercato/core/modules/core/__integration__/helpers/api';
 import { deleteEntityIfExists, readJsonSafe } from '@open-mercato/core/modules/core/__integration__/helpers/crmFixtures';
+import { tableBody } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom';
 
 /**
  * TC-CRM-031: DataTable Advanced Filter Builder
@@ -56,7 +57,7 @@ test.describe('TC-CRM-031: DataTable Advanced Filter Builder', () => {
       await expect
         .poll(
           async () => {
-            const text = await page.locator('tbody').textContent();
+            const text = await tableBody(page).textContent();
             return text?.includes(`TC031${ts}`) ?? false;
           },
           { timeout: 15000 },

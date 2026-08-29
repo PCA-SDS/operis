@@ -184,7 +184,7 @@ export function ResourcesField({
                   />
                 </div>
               ) : null}
-              <div className="max-h-56 overflow-y-auto p-1">
+              <div className="max-h-56 space-y-1 overflow-y-auto p-1">
                 <TypeRow label={t('customers.calendar.editor.resourceTypes.all', 'All types')} active={typeFilter === null} onSelect={() => selectType(null)} />
                 {filteredTypes.map((type) => (
                   <TypeRow key={type.id} label={type.name} count={type.count} active={typeFilter === type.id} onSelect={() => selectType(type.id)} />
@@ -198,7 +198,7 @@ export function ResourcesField({
             </div>
           ) : (
             <>
-              <div role="listbox" aria-label={ariaLabel} className="max-h-56 overflow-y-auto p-1">
+              <div role="listbox" aria-label={ariaLabel} className="max-h-56 space-y-1 overflow-y-auto p-1">
                 {loading ? (
                   <p className="px-2 py-3 text-center text-xs text-muted-foreground">
                     {t('customers.calendar.editor.searching', 'Searching…')}

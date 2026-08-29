@@ -388,7 +388,7 @@ const tableEntry: GalleryEntry = {
       id: 'default',
       title: 'default',
       render: () => (
-        <Table>
+        <Table columnCount={4}>
           <TableHeader>
             <TableRow>
               <TableHead>Order</TableHead>
@@ -428,7 +428,7 @@ const tableEntry: GalleryEntry = {
       code: `import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@open-mercato/ui/primitives/table'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 
-<Table>
+<Table columnCount={4}>
   <TableHeader>
     <TableRow>
       <TableHead>Order</TableHead>
@@ -451,7 +451,7 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
       id: 'striped',
       title: 'striped',
       render: () => (
-        <Table variant="striped">
+        <Table variant="striped" columnCount={3}>
           <TableHeader>
             <TableRow>
               <TableHead>SKU</TableHead>
@@ -485,7 +485,7 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
       ),
       code: `import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@open-mercato/ui/primitives/table'
 
-<Table variant="striped">
+<Table variant="striped" columnCount={3}>
   <TableHeader>
     <TableRow>
       <TableHead>SKU</TableHead>
@@ -500,7 +500,7 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
       id: 'with-footer',
       title: 'With footer',
       render: () => (
-        <Table>
+        <Table columnCount={2}>
           <TableHeader>
             <TableRow>
               <TableHead>Line</TableHead>
@@ -527,7 +527,7 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
       ),
       code: `import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from '@open-mercato/ui/primitives/table'
 
-<Table>
+<Table columnCount={2}>
   <TableHeader>{/* header row */}</TableHeader>
   <TableBody>{/* body rows */}</TableBody>
   <TableFooter>

@@ -783,7 +783,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
               </p>
             ) : (
               <div className="overflow-x-auto rounded-lg border">
-                <Table density="compact" className="min-w-full">
+                <Table columnCount={4} density="compact" className="min-w-full">
                   <TableHeader>
                     <TableRow>
                       <TableHead>

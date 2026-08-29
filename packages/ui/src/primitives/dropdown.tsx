@@ -7,6 +7,7 @@ import { Check, ChevronDown, Filter, Plus, X } from 'lucide-react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { menuRowStateClass } from './menu'
 import { Spinner } from './spinner'
 import { SearchInput } from './search-input'
 
@@ -1271,9 +1272,10 @@ function MenuRow({
 }: MenuRowProps) {
   const rowClass = cn(
     'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors outline-none',
-    destructive ? 'text-destructive' : accent ? 'text-accent-strong' : 'text-foreground',
-    active && !disabled && (destructive ? 'bg-status-error-bg' : 'bg-surface-muted'),
-    selected && 'bg-surface-muted',
+    destructive ? 'text-destructive' : 'text-foreground',
+    menuRowStateClass({ active: active && !disabled, selected, destructive }),
+    // After the state fill: a selected row keeps the accent label colour.
+    accent && !destructive && 'text-accent-strong',
     disabled && 'cursor-not-allowed text-disabled-foreground',
   )
 

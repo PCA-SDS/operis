@@ -533,7 +533,6 @@ export function PortalUsersPageClient({ portalOrigin }: PortalUsersPageClientPro
         </div>
       </div>
       <DataTable<UserRow>
-        stickyActionsColumn
         title={t('customer_accounts.admin.title', 'Users')}
         actions={(
           <Button onClick={() => setCreateDialogOpen(true)}>

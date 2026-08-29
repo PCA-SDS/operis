@@ -654,7 +654,10 @@ export function SalesDocumentItemsSection({
         />
       ) : (
         <div className="overflow-hidden rounded border">
-          <Table density="compact">
+          <Table
+            density="compact"
+            columnCount={6 + (showDiscountColumn ? 1 : 0) + injectedColumns.length}
+          >
             <TableHeader>
               <TableRow>
                 <TableHead>
@@ -750,7 +753,7 @@ export function SalesDocumentItemsSection({
                           ) : null}
                           {item.description ? (
                             <div
-                              className="text-xs text-muted-foreground line-clamp-2"
+                              className="whitespace-normal text-xs text-muted-foreground line-clamp-2"
                               title={item.description}
                             >
                               {item.description}

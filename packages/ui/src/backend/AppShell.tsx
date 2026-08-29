@@ -35,7 +35,30 @@ import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
 import { slugifySidebarId } from '@open-mercato/shared/modules/navigation/sidebarPreferences'
 import { readVersionedPreference, writeVersionedPreference } from '@open-mercato/shared/lib/browser/versionedPreference'
 import { cloneSidebarGroups } from './sidebar/customization-helpers'
+import {
+  DRAWER_CHROME_INSET,
+  DRAWER_SLOT_INSET,
+  SIDEBAR_BRAND_LABEL,
+  SIDEBAR_CHILD_BOX,
+  SIDEBAR_GROUP_DIVIDER,
+  SIDEBAR_GROUP_LABEL,
+  SIDEBAR_GUTTER,
+  SIDEBAR_ICON_BOX,
+  SIDEBAR_ITEM_BASE,
+  SIDEBAR_ITEM_BOX,
+  SIDEBAR_ITEM_LABEL,
+  SIDEBAR_SEARCH_SIZE,
+  SIDEBAR_SEARCH_TONE,
+  ShellBrandLogo,
+  SidebarDefaultIcon as DefaultIcon,
+  shouldBypassLogoOptimization,
+  sidebarItemStateClass,
+  usesBuiltInWordmark,
+} from './sidebar/chrome'
 import type { SectionNavGroup } from './section-page/types'
+import type { ShellLogo } from './sidebar/chrome'
+/** Re-exported: the logo shape is part of `AppShellProps`, so callers type it from here. */
+export type { ShellLogo }
 import { InjectionSpot } from './injection/InjectionSpot'
 import {
   BackendRecordInjectionContextProvider,
@@ -74,79 +97,18 @@ import {
 // neighbouring `om:progress:expanded` flag is a trivial
 // scalar booleans and deliberately stay raw (see their write sites). See
 // `@open-mercato/shared/lib/browser/versionedPreference`.
-/* Sidebar item chrome, declared once.
- *
- * Three call sites render a navigation row — section navs, main groups and
- * their children — and they must stay identical or the sidebar reads as
- * several lists stacked together. Keeping the classes here makes the row a
- * single decision.
- *
- * The rail is painted in the CTA navy (`bg-sidebar`), so every class here comes
- * from the `sidebar-*` family rather than from the content-side neutrals: a
- * `surface-muted` hover or a `muted-foreground` icon is tuned for a light
- * ground and disappears on navy. Active is a pale `sidebar-primary` pill with
- * the rail's own colour as its ink — the row reads as cut out of the rail —
- * and there is no separate marker bar, because the pill already carries the
- * state and a bar on top of a fill is two signals for one fact. Idle rows use
- * FULL ink with a quiet icon: a sidebar is a reading surface, and dimming every
- * label to make one stand out costs more than it buys. */
-const SIDEBAR_ITEM_BASE =
-  'relative flex items-center rounded-lg text-sm font-medium transition-colors outline-none focus-visible:shadow-focus'
-
-function sidebarItemStateClass(active: boolean): string {
-  return active
-    ? 'bg-sidebar-primary text-sidebar-primary-foreground [&_svg]:text-sidebar-primary-foreground'
-    : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&_svg]:text-sidebar-muted-foreground hover:[&_svg]:text-sidebar-accent-foreground'
-}
-
-/* ── The rail's one horizontal grid ──────────────────────────────────────────
- *
- * The aside owns a 12px gutter (`px-3`). Every box below spans that full inner
- * width, and every box that carries an icon pads another 12px, so the logo, the
- * search glyph, the group overlines and every row icon all start at the same
- * x — 24px from the rail's edge. Nothing here may add a stray negative margin
- * or an extra right pad: that is exactly how the nav rows ended up 4px narrower
- * than the search field above them. */
-const SIDEBAR_GUTTER = 'px-3'
-
-/** Row box for a top-level item: fixed height so rows scan as a rhythm. */
-const SIDEBAR_ITEM_BOX = 'w-full h-10 px-3 gap-3'
-/** Children sit one step shorter and one 12px step in. With the guide line gone
- *  the indent is the only depth cue, so it is a real step rather than a nudge —
- *  a child icon lands where a parent label starts. */
-const SIDEBAR_CHILD_BOX = 'w-full h-9 pl-6 pr-3 gap-3'
-/** Labels must be allowed to shrink: a flex item defaults to `min-width: auto`,
- *  which pins it to its content width and lets `truncate` overflow the row
- *  instead of clipping. Long titles ("Customer Related Tasks") make this real. */
-const SIDEBAR_ITEM_LABEL = 'min-w-0 flex-1 truncate text-left'
-/* Group heading — a quiet overline, not a button that competes with the rows.
- *
- * `text-xs` rather than the 11px `text-overline`: this string is rendered
- * through `Button`, whose base carries `text-sm`, and `tailwind-merge` reads
- * the custom `text-overline` utility as a text COLOUR — so it never displaced
- * the button's size and the overline silently rendered at 14px. A real size on
- * the Tailwind scale is what makes the merge resolve. */
-const SIDEBAR_GROUP_LABEL =
-  'w-full h-8 px-3 gap-2 justify-between flex text-xs font-bold uppercase tracking-wide text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-
-/* Icons come from lucide, from injected modules and from serialized markup, each
- * at its own intrinsic size. Pinning them to one box is what keeps every label in
- * the sidebar starting at the same x. */
-const SIDEBAR_ICON_BOX = 'flex size-5 shrink-0 items-center justify-center [&_svg]:size-4'
-
-/* The nav search sits ON the rail, so it takes the search primitive's `sidebar`
- * tone — the light-ground chrome would read as a piece of the page that fell
- * into the sidebar. `size="lg"` is the rail's `h-10 / px-3` grid: the glyph then
- * lands on the same icon column as every row below it. */
-const SIDEBAR_SEARCH_SIZE = 'lg' as const
-const SIDEBAR_SEARCH_TONE = 'sidebar' as const
 
 /* `min-h-0` on both: a column flex child will not shrink below its content
  * height without it, and the wrapper (which is not itself a scroll box, so it
  * gets no automatic-minimum-size exemption) would otherwise push the sticky
  * footer past the fold once the nav is long enough to scroll. */
 const SIDEBAR_SCROLL_FRAME = 'relative flex min-h-0 flex-1 flex-col'
-const SIDEBAR_SCROLL_AREA = 'flex min-h-0 flex-1 flex-col overflow-y-auto scrollbar-hide'
+/* `overflow-x-hidden` is load-bearing, not decoration: with only `overflow-y`
+ * set, the x axis computes from `visible` to `auto`, so any row that overhung
+ * the rail — a long unbreakable title, an injected widget — turned the nav into
+ * a horizontally scrollable box. Pinning x to `hidden` leaves `truncate` as the
+ * single overflow behaviour for a row. */
+const SIDEBAR_SCROLL_AREA = 'flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto scrollbar-hide'
 /* The scroll affordance is an overlay, so the list has to reserve its band —
  * otherwise the last row can never be scrolled clear of it and sits under the
  * chevron forever. Applied only while the affordance is on screen, and it
@@ -154,12 +116,6 @@ const SIDEBAR_SCROLL_AREA = 'flex min-h-0 flex-1 flex-col overflow-y-auto scroll
  * adding it keeps it scrolling. */
 const SIDEBAR_AFFORDANCE_HEIGHT = 'h-10'
 const SIDEBAR_SCROLL_AREA_RESERVED = 'pb-10'
-
-/* Group separator — inset to the row edges, not bled to the rail's. It divides
- * two items in one list, so it belongs to the list's width; the sticky footer's
- * rule is the one that bleeds, because it divides the column itself. 12px above
- * pairs with the 12px the nav's own gap puts below it. */
-const SIDEBAR_GROUP_DIVIDER = 'mt-3 border-t border-sidebar-border'
 
 const SIDEBAR_OPEN_GROUPS_KEY = 'om:sidebarOpenGroups'
 const SIDEBAR_OPEN_GROUPS_VERSION = 1
@@ -171,12 +127,6 @@ function isBooleanRecord(value: unknown): value is Record<string, boolean> {
     !Array.isArray(value) &&
     Object.values(value as Record<string, unknown>).every((entry) => typeof entry === 'boolean')
   )
-}
-
-export type ShellLogo = {
-  src: string
-  alt?: string
-  preserveAspectRatio?: boolean
 }
 
 export type AppShellProps = {
@@ -232,7 +182,8 @@ export type AppShellProps = {
   /**
    * Hide the backend footer status bar (app version + terms/privacy links).
    * Intended for app developers and whitelabel/embedded deployments that want to
-   * suppress the footer entirely. Defaults to `false` (footer shown).
+   * suppress the footer entirely. Defaults to `false` (footer shown); the app
+   * layout passes `true` by default via `OM_HIDE_BACKEND_FOOTER`.
    */
   hideFooter?: boolean
   /**
@@ -272,81 +223,6 @@ function resolveInjectedMenuLabel(
   return item.label ?? item.id
 }
 
-function shouldBypassLogoOptimization(src?: string | null): boolean {
-  const value = src ?? ''
-  return /^https?:\/\//.test(value) || /^\/api\/attachments\/(?:image|file)\//.test(value)
-}
-
-/**
- * The built-in wordmark spells "Operis" itself, so the header text beside it
- * would say the name twice. A whitelabel name gets the mark plus its own text.
- */
-function usesBuiltInWordmark(logo: ShellLogo | undefined, brandName: string): boolean {
-  return !logo?.src && brandName.trim().toLowerCase() === 'operis'
-}
-
-function ShellBrandLogo({
-  logo,
-  brandName,
-  unoptimized,
-  mobile = false,
-}: {
-  logo?: ShellLogo
-  brandName: string
-  unoptimized?: boolean
-  mobile?: boolean
-}) {
-  const src = logo?.src
-  const alt = logo?.alt ?? brandName
-  const isCustomLogo = Boolean(src)
-  const preserveAspectRatio = Boolean(logo?.preserveAspectRatio)
-
-  if (!isCustomLogo) {
-    // Inline rather than <Image src="/operis.svg">: an external SVG renders in
-    // its own document, where `currentColor` cannot reach the sidebar's ink —
-    // and the rail is navy, so the mark has to take the rail's ink to be seen.
-    const showWordmark = usesBuiltInWordmark(logo, brandName)
-    return (
-      <OperisLogo
-        variant={showWordmark ? 'wordmark' : 'mark'}
-        title={showWordmark ? brandName : null}
-        className={`w-auto shrink-0 text-sidebar-foreground ${
-          showWordmark ? (mobile ? 'h-5' : 'h-6') : mobile ? 'h-6' : 'h-7'
-        }`}
-      />
-    )
-  }
-
-  if (!preserveAspectRatio) {
-    return (
-      <Image
-        src={src as string}
-        alt={alt}
-        width={mobile ? 28 : 40}
-        height={mobile ? 28 : 40}
-        className={`${mobile ? 'rounded' : 'rounded-full'} shrink-0 object-cover`}
-        unoptimized={unoptimized ? true : undefined}
-      />
-    )
-  }
-
-  const width = mobile ? 96 : 120
-  const height = mobile ? 28 : 40
-  const className = mobile
-    ? 'h-7 max-w-24 w-auto shrink-0 object-contain'
-    : 'h-10 max-w-[120px] w-auto shrink-0 object-contain'
-
-  return (
-    <Image
-      src={src as string}
-      alt={alt}
-      width={width}
-      height={height}
-      className={className}
-      unoptimized={unoptimized ? true : undefined}
-    />
-  )
-}
 
 function mergeSidebarItemsWithInjected(
   items: SidebarItem[],
@@ -572,13 +448,6 @@ export function ApplyBreadcrumb({ breadcrumb, title, titleKey }: { breadcrumb?: 
   return null
 }
 
-const DefaultIcon = (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M8 6h13M8 12h13M8 18h13"/>
-    <path d="M3 6h.01M3 12h.01M3 18h.01"/>
-  </svg>
-)
-
 // DataTable icon used for dynamic custom entity records links
 const DataTableIcon = (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -746,11 +615,19 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
     if (!label) return false
     return label.toLowerCase().includes(navQueryNorm)
   }, [navQueryActive, navQueryNorm])
-  /* The rail is a fixed, always-open 240px column. There is no collapse: a
-     nav that can hide itself has to keep an icon-only mirror of every row, and
-     the two drift. The only responsive step left is the `lg:` breakpoint, below
-     which the whole column becomes the mobile drawer. */
-  const SIDEBAR_WIDTH = '240px'
+  /* The rail is a fixed, always-open column. There is no collapse: a nav that
+     can hide itself has to keep an icon-only mirror of every row, and the two
+     drift. The only responsive step left is the `lg:` breakpoint, below which
+     the whole column becomes the mobile drawer.
+
+     304px, not the old 240px: at 240 the label box was only 160px wide, so real
+     nav titles ("User Notification Preferences", "Create Workflow Definition")
+     were ellipsed and the nav could not be read without hovering. 304 leaves
+     212px even at child depth (24 gutter + 24 indent + 12 pad + 20 icon +
+     12 gap), which clears the longest title any module ships. It is published
+     as `--sidebar-width` so the grid column below cannot drift from the
+     aside's own width — they were two literals before. */
+  const SIDEBAR_WIDTH = '304px'
 
   // Track scroll position of the desktop sidebar's inner scroll container so we can
   // flip the affordance chevron between down/up (and hide it entirely when content
@@ -967,7 +844,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           unoptimized={resolvedLogoBypassesOptimization}
         />
         {!brandNameIsInLogo && (
-          <span className={`${SIDEBAR_ITEM_LABEL} text-sm font-medium text-sidebar-foreground`}>{resolvedBrandName}</span>
+          <span className={SIDEBAR_BRAND_LABEL}>{resolvedBrandName}</span>
         )}
       </Link>
     )
@@ -1450,12 +1327,12 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
     {/* `--topbar-height` is what Sheet anchors drawers to. The topbar is `h-16`
         plus its 1px rule; the previous 61px slid every drawer up under it. */}
     <div
-      className="relative min-h-svh lg:grid lg:grid-cols-[240px_1fr]"
-      style={{ '--topbar-height': '65px' } as React.CSSProperties}
+      className="relative min-h-svh lg:grid lg:grid-cols-[var(--sidebar-width)_1fr]"
+      style={{ '--topbar-height': '65px', '--sidebar-width': SIDEBAR_WIDTH } as React.CSSProperties}
     >
-      {/* Desktop sidebar — one fixed 240px rail. Settings and Profile swap their
-          own nav into it (see `renderSidebar`) rather than opening a second
-          column beside it. */}
+      {/* Desktop sidebar — one fixed rail, `SIDEBAR_WIDTH` wide. Settings and
+          Profile swap their own nav into it (see `renderSidebar`) rather than
+          opening a second column beside it. */}
       {/* Scroll affordance (#1803) lives inside `renderSidebar`, anchored to the
           nav's own scroll frame — from out here it painted over the sticky
           footer, whose top edge is not the aside's bottom edge. */}
@@ -1614,23 +1491,28 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-modal">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileOpen(false)} aria-hidden="true" />
-          <aside className="absolute left-0 top-0 flex h-full w-[280px] max-w-[85vw] flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-lg overflow-hidden">
-            <div className="shrink-0 flex items-center justify-between gap-2 border-b border-sidebar-border px-4 py-3">
-              <Link href="/backend" className="flex items-center gap-2 min-w-0 text-sm font-semibold" onClick={() => setMobileOpen(false)} aria-label={t('appShell.goToDashboard')}>
+          <aside className="absolute left-0 top-0 flex h-full w-[var(--sidebar-width)] max-w-[85vw] flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-lg overflow-hidden">
+            <div className={`shrink-0 flex h-16 items-center justify-between gap-3 border-b border-sidebar-border ${DRAWER_CHROME_INSET}`}>
+              <Link
+                href="/backend"
+                className="flex min-w-0 items-center gap-3 rounded-lg outline-none focus-visible:shadow-focus"
+                onClick={() => setMobileOpen(false)}
+                aria-label={t('appShell.goToDashboard')}
+              >
                 <ShellBrandLogo logo={resolvedLogo} brandName={resolvedBrandName} mobile unoptimized={resolvedLogoBypassesOptimization} />
-                {!brandNameIsInLogo && <span className="truncate">{resolvedBrandName}</span>}
+                {!brandNameIsInLogo && <span className={SIDEBAR_BRAND_LABEL}>{resolvedBrandName}</span>}
               </Link>
               <IconButton variant="ghost" size="sm" className="text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" onClick={() => setMobileOpen(false)} aria-label={t('appShell.closeMenu')}>
                 <X className="size-4" />
               </IconButton>
             </div>
             {mobileSidebarSlot && (
-              <div className="shrink-0 border-b border-sidebar-border px-3 py-2">
+              <div className={`shrink-0 border-b border-sidebar-border ${DRAWER_SLOT_INSET} py-2`}>
                 {mobileSidebarSlot}
               </div>
             )}
             {sidebarMode !== 'main' ? (
-              <div className="shrink-0 flex items-center gap-5 border-b border-sidebar-border px-4 pt-3 pb-0" role="tablist">
+              <div className={`shrink-0 flex items-center gap-5 border-b border-sidebar-border ${DRAWER_CHROME_INSET} pt-3 pb-0`} role="tablist">
                 {([
                   { id: 'main' as const, label: t('backend.nav.main', 'Main') },
                   {

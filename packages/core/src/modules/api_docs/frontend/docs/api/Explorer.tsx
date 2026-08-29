@@ -639,7 +639,7 @@ export default function ApiDocsExplorer(props: ApiDocsExplorerProps) {
                                 Parameters
                               </h4>
                               <div className="overflow-hidden rounded-lg border">
-                                <Table density="compact" className="min-w-full text-left">
+                                <Table columnCount={5} density="compact" className="min-w-full text-left">
                                   <TableHeader>
                                     <TableRow>
                                       <TableHead>Name</TableHead>

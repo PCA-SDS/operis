@@ -41,7 +41,7 @@ function renderTable(props: Record<string, unknown>) {
 }
 
 function tbody() {
-  return document.querySelector('tbody') as HTMLElement
+  return document.querySelector('[data-slot="table-body"]') as HTMLElement
 }
 
 describe('DataTable — refetch keeps rows instead of erasing them', () => {
@@ -96,7 +96,7 @@ describe('DataTable — bulk actions cannot be double-fired', () => {
   }
 
   function selectFirstRow() {
-    const boxes = document.querySelectorAll('tbody input[type="checkbox"], tbody [role="checkbox"]')
+    const boxes = document.querySelectorAll('[data-slot="table-body"] input[type="checkbox"], [data-slot="table-body"] [role="checkbox"]')
     if (!boxes.length) throw new Error('[internal] no row checkbox rendered')
     fireEvent.click(boxes[0] as HTMLElement)
   }

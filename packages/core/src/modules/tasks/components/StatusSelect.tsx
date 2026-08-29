@@ -5,6 +5,7 @@ import { Check, ChevronDown } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { MENU_ROW_HOVER, menuRowVariants } from '@open-mercato/ui/primitives/menu'
 import { TASK_STATUSES, type TaskStatus } from '../data/types'
 import { StatusIcon } from './StatusIcon'
 import { TASK_STATUS_META } from './format'
@@ -76,7 +77,7 @@ export function StatusSelect({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-52 p-2"
+        className="flex w-52 flex-col p-2"
         role="listbox"
         aria-label={t('tasks.status.select', 'Task status')}
         onClick={(event) => event.stopPropagation()}
@@ -95,8 +96,9 @@ export function StatusSelect({
                 setOpen(false)
               }}
               className={cn(
-                'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-surface-muted',
-                active && 'bg-surface-muted',
+                menuRowVariants({ selected: active }),
+                'font-medium',
+                !active && MENU_ROW_HOVER,
               )}
             >
               <span

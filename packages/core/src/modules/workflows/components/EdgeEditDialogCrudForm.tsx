@@ -201,10 +201,11 @@ export const EdgeEditDialogCrudForm = memo(function EdgeEditDialogCrudForm({ edg
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
+        disableBodyWrap
         className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col !p-0 [&_.grid]:!grid-cols-1"
         onKeyDown={handleKeyDown}
       >
-        <DialogHeader className="flex-shrink-0 p-6 pb-4 border-b border-border/70">
+        <DialogHeader className="flex-shrink-0">
           <div className="flex items-center gap-2 mb-2">
             <DialogTitle>Edit Transition</DialogTitle>
             <Badge variant={triggerVariant} className="text-xs">

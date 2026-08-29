@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Page, type Request } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 import { apiRequest, getAuthToken } from '@open-mercato/core/helpers/integration/api'
 import { login } from '@open-mercato/core/helpers/integration/auth'
@@ -7,6 +7,7 @@ import {
   deleteCatalogProductIfExists,
 } from '@open-mercato/core/helpers/integration/catalogFixtures'
 import { readJsonSafe } from '@open-mercato/core/helpers/integration/generalFixtures'
+import { tableRowByText } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom';
 
 export const integrationMeta = {
   dependsOnModules: ['eudr', 'catalog'],
@@ -76,6 +77,14 @@ async function expectNoErrorState(page: Page): Promise<void> {
  */
 test.describe('TC-EUDR-010: Searchable product picker', () => {
   test('searches products by name fragment, saves the mapping, and never surfaces raw UUIDs', async ({ page, request }) => {
+    // This test declares its own waits — 30s for the search request, 15s for the
+    // fill-until-it-sticks retry, 15s each for the picker option, the commodity
+    // trigger and the saved row, 30s for the create response. Their serial worst
+    // case is far above the suite's 20s per-test budget, so the harness killed
+    // the test while its own guard was still waiting and it read as flaky. Raise
+    // the budget to cover what the test asks for; the waits themselves are the
+    // real tolerances and are unchanged.
+    test.setTimeout(150_000)
     const token = await getAuthToken(request, 'admin')
     const stamp = `${Date.now()}-${randomUUID().slice(0, 8)}`
     const productTitle = `TC-EUDR-010 Product ${stamp}`
@@ -95,26 +104,35 @@ test.describe('TC-EUDR-010: Searchable product picker', () => {
       const productField = page.locator('[data-crud-field-id="productId"]').first()
       await expect(productField).toBeVisible()
 
-      const searchRequestPromise = page.waitForRequest((candidate) => {
+      const isSearchRequest = (candidate: Request) => {
         const url = new URL(candidate.url())
         return url.pathname.endsWith(CATALOG_PRODUCTS_PATH)
           && (url.searchParams.get('search') ?? '').includes(stamp)
-      }, { timeout: 30_000 })
+      }
       // The picker only queries once the search term reaches its minimum length,
-      // so there is no initial empty-query fetch to synchronise hydration on.
-      // Retry the fill until the value sticks — hydration can swap the input
-      // out from under a first-paint fill.
+      // so there is no initial empty-query fetch to synchronise hydration on —
+      // the retry has to be driven by the request itself.
+      //
+      // Asserting on the input's VALUE is not enough, and that is what made this
+      // test flaky: a `fill()` that lands before hydration leaves the right text
+      // in the box, and the re-fill the old loop performed then wrote the same
+      // value again, which is not a change and therefore fires no search. The
+      // value assertion passed while the request never happened, and the test
+      // died 30s later waiting for it. Clearing first guarantees a real
+      // transition on every attempt, and waiting for the request inside the loop
+      // makes the retry succeed on the thing the test is actually after.
       const productInput = productField.locator('input').first()
       await expect(productInput).toBeEditable()
       await expect(async () => {
+        const pending = page.waitForRequest(isSearchRequest, { timeout: 5_000 })
+        await productInput.fill('')
         await productInput.fill(stamp)
-        await expect(productInput).toHaveValue(stamp)
-      }).toPass({ timeout: 15_000 })
-      const searchRequest = await searchRequestPromise
-      expect(
-        new URL(searchRequest.url()).searchParams.get('search'),
-        'typing in the product picker should trigger a server-side search request',
-      ).toContain(stamp)
+        const request = await pending
+        expect(
+          new URL(request.url()).searchParams.get('search'),
+          'typing in the product picker should trigger a server-side search request',
+        ).toContain(stamp)
+      }).toPass({ timeout: 60_000 })
 
       const option = productField.getByRole('option').filter({ hasText: productTitle }).first()
       await expect(option, 'picker option should show the product name').toBeVisible({ timeout: 15_000 })
@@ -149,7 +167,7 @@ test.describe('TC-EUDR-010: Searchable product picker', () => {
       // The list search covers notes, so the unique stamp deterministically
       // narrows the table to the created row regardless of page/sort state.
       await page.getByPlaceholder('Search product mappings').first().fill(stamp)
-      const row = page.locator('tbody tr').filter({ hasText: productTitle }).first()
+      const row = tableRowByText(page, productTitle)
       await expect(row, 'list should render the created mapping by product name').toBeVisible({ timeout: 15_000 })
       const rowText = await row.innerText()
       expect(rowText).toContain(productTitle)

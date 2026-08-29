@@ -419,7 +419,7 @@ function PriceListEditor({
       <div className="overflow-hidden rounded-xl border border-border/70 bg-surface">
         {items.length > 0 ? (
           <div className="overflow-x-auto">
-            <Table density="compact" className="min-w-[760px] table-fixed">
+            <Table columnCount={5} density="compact" className="min-w-[760px] table-fixed">
               <TableHeader>
                 <TableRow className="text-left font-semibold">
                   <TableHead className="w-[22%]">{t('checkout.linkTemplateForm.priceList.columns.itemCode')}</TableHead>

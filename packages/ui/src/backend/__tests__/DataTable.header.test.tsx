@@ -74,33 +74,204 @@ describe('DataTable column headers', () => {
     expect(headOf(container, 'Amount').getAttribute('data-align')).toBe('right')
     expect(headOf(container, 'Name').getAttribute('data-align')).toBe('left')
 
-    const bodyRow = container.querySelector('tbody [data-slot="table-row"]') as HTMLElement
+    const bodyRow = container.querySelector('[data-slot="table-body"] [data-slot="table-row"]') as HTMLElement
     const cells = Array.from(bodyRow.querySelectorAll('[data-slot="table-cell"]')) as HTMLElement[]
     // Column order is Name, Amount — the cells must match their headers.
     expect(cells[0].getAttribute('data-align')).toBe('left')
     expect(cells[1].getAttribute('data-align')).toBe('right')
   })
 
-  it('leaves the header unpinned unless the table owns a vertical scrollport', () => {
-    const { container } = renderTable()
-    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
-    expect(head.className).not.toContain('sticky top-0')
+  /**
+   * A table's footer spot exists for every table that has an id, but almost no
+   * table registers a widget for it. Wrapping the empty spot in its bordered
+   * strip left companies, deals and friends with a blank band and a rule across
+   * the foot of the card — reported twice. The strip may only exist when a
+   * widget does.
+   */
+  it('renders no footer strip when nothing is injected into the footer spot', () => {
+    // `extensionTableId` is what yields a footer spot id — without it the strip
+    // is unreachable and this test would pass vacuously.
+    const { container } = renderTable({ extensionTableId: 'test.headers' })
 
-    const pinned = renderTable({ stickyHeader: true })
-    const pinnedHead = pinned.container.querySelector('[data-slot="table-head"]') as HTMLElement
-    expect(pinnedHead.className).toContain('sticky')
-    expect(pinnedHead.className).toContain('top-0')
+    // The strip is the only element carrying the card's bottom-band padding.
+    // (Matching on `border-t` alone is a trap: `border-table-border` contains it
+    // as a substring, so every row matches.)
+    expect(container.querySelectorAll('div.border-t.px-4.py-3')).toHaveLength(0)
   })
 
-  it('keeps the resize grip out of the resting header so it reads as a label row', () => {
+  it('pins the header row group exactly when the table owns a vertical scrollport', () => {
+    /* The pin must sit on the row GROUP: a sticky cell cannot escape its row, so
+       pinning cells lets the header scroll away with the row containing them. */
+    const { container } = renderTable()
+    const group = container.querySelector('[data-slot="table-header"]') as HTMLElement
+    expect(group.className).toContain('sticky')
+    expect(group.className).toContain('top-0')
+    // The fill is what stops the body showing through the pinned header.
+    expect(group.className).toContain('bg-table-header')
+    // Cells stay unpinned — the group carries it.
+    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
+    expect(head.className).not.toContain('sticky')
+
+    // Opting out of the cap hands scrolling back to the page — pinning there
+    // would stick the header to the viewport and slide it under the app topbar.
+    const unbounded = renderTable({ maxBodyHeight: false })
+    const unboundedGroup = unbounded.container.querySelector('[data-slot="table-header"]') as HTMLElement
+    expect(unboundedGroup.className).not.toContain('sticky')
+
+    // The explicit prop still wins either way.
+    const pinned = renderTable({ maxBodyHeight: false, stickyHeader: true })
+    const pinnedGroup = pinned.container.querySelector('[data-slot="table-header"]') as HTMLElement
+    expect(pinnedGroup.className).toContain('sticky')
+    expect(pinnedGroup.className).toContain('top-0')
+  })
+
+  it('paints nothing at the column edge — the resize zone is cursor-only', () => {
     // Resize handles only exist where widths can persist — a perspective table.
     const { container } = renderTable({ perspective: { tableId: 'test.headers' } })
-    const grip = container.querySelector('[role="separator"] span') as HTMLElement
-    expect(grip).not.toBeNull()
-    expect(grip.className).toContain('opacity-0')
-    expect(grip.className).toContain('group-hover:opacity-100')
-    // The resting grip is what read as a ruled column separator; it must not be
-    // painted until the header cell is hovered.
-    expect(grip.className).not.toContain('h-3.5')
+    const handle = container.querySelector('[data-resize-handle]') as HTMLElement
+    expect(handle).not.toBeNull()
+    // The hit zone and the cursor are the whole affordance.
+    expect(handle.className).toContain('cursor-col-resize')
+    expect(handle.className).toContain('w-3')
+    // Any bar here reads as a ruled column separator, and is the only thing in
+    // the header row darker than the strip it sits on.
+    expect(handle.children.length).toBe(0)
+    for (const paint of ['bg-border', 'bg-primary', 'border-r', 'opacity-100']) {
+      expect(handle.className).not.toContain(paint)
+    }
+  })
+})
+
+describe('DataTable row selection', () => {
+  it('leads every row with the selection marker, inert until the row is picked', () => {
+    const { container } = renderTable()
+    const markers = container.querySelectorAll('[data-slot="table-body"] [data-slot="table-row-marker"]')
+    // One per row, in the first cell — where the eye enters the row.
+    expect(markers.length).toBe(data.length)
+    for (const marker of Array.from(markers)) {
+      expect(marker.getAttribute('data-active')).toBeNull()
+      expect(marker.parentElement?.getAttribute('data-first-cell')).toBe('true')
+    }
+  })
+})
+
+describe('DataTable column resize feedback', () => {
+  const startDrag = (container: HTMLElement) => {
+    const handle = container.querySelector('[role="separator"]') as HTMLElement
+    expect(handle).not.toBeNull()
+    // jsdom drops `button` from fireEvent.pointerDown's init, and the handler
+    // ignores anything but the primary button — dispatch a real MouseEvent so the
+    // drag actually starts.
+    fireEvent(handle, new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, clientX: 100 }))
+    return handle
+  }
+
+  it('paints a full-table guide and a live width readout while dragging', () => {
+    const { container } = renderTable({ perspective: { tableId: 'test.resize' } })
+    expect(container.querySelector('[data-column-resize-guide]')).toBeNull()
+
+    startDrag(container)
+    expect(container.querySelector('[data-column-resize-guide]')).not.toBeNull()
+    expect(container.querySelector('[role="status"]')?.textContent).toMatch(/px/)
+  })
+
+  it('tags the column being resized, header and cells together', () => {
+    const { container } = renderTable({ perspective: { tableId: 'test.resize' } })
+    startDrag(container)
+
+    const markedHead = container.querySelector('[data-slot="table-header"] [data-resizing="true"]')
+    const markedCells = container.querySelectorAll('[data-slot="table-body"] [data-resizing="true"]')
+    expect(markedHead).not.toBeNull()
+    // One tagged cell per row, all in the same column.
+    expect(markedCells.length).toBe(data.length)
+  })
+
+  it('clears every drag affordance when the pointer is released', () => {
+    const { container } = renderTable({ perspective: { tableId: 'test.resize' } })
+    startDrag(container)
+    expect(container.querySelector('[data-column-resize-guide]')).not.toBeNull()
+
+    fireEvent(document, new MouseEvent('pointerup', { bubbles: true, button: 0 }))
+    expect(container.querySelector('[data-column-resize-guide]')).toBeNull()
+    expect(container.querySelector('[data-resizing="true"]')).toBeNull()
+  })
+})
+
+/**
+ * Column REORDER (dragging a header sideways) is a different interaction from
+ * resize, and used to have almost no feedback: the source header dimmed to 50%
+ * while its own body cells stayed solid and the neighbours slid, so nothing on
+ * screen read as "you are carrying this column".
+ */
+describe('DataTable column reorder feedback', () => {
+  const columnChooser = { enabled: true } as never
+
+  it('renders no drag chrome until a reorder actually starts', () => {
+    const { container } = renderTable({ columnChooser })
+    expect(container.querySelector('[data-dragging="true"]')).toBeNull()
+    expect(container.querySelector('[data-reordering="true"]')).toBeNull()
+  })
+
+  it('makes every header reorderable when the column chooser is on', () => {
+    const { container } = renderTable({ columnChooser })
+    const heads = Array.from(container.querySelectorAll('[data-slot="table-head"]')) as HTMLElement[]
+    const grabbable = heads.filter((el) => el.style.cursor === 'grab')
+    expect(grabbable.length).toBeGreaterThan(0)
+  })
+
+  it('leaves headers unreorderable when the column chooser is off', () => {
+    const { container } = renderTable()
+    const heads = Array.from(container.querySelectorAll('[data-slot="table-head"]')) as HTMLElement[]
+    expect(heads.every((el) => el.style.cursor !== 'grab')).toBe(true)
+  })
+
+  it('advertises the gesture with the cell itself, painting nothing into the row', () => {
+    const { container } = renderTable({ columnChooser })
+    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
+    // The tint plus the `grab` cursor IS the affordance. No grip, no edge bar —
+    // anything drawn inside the header row competes with the labels, which are
+    // the only marks a column header should carry.
+    expect(head.className).toContain('hover:bg-surface-strong')
+    expect(head.style.cursor).toBe('grab')
+    // The only glyph in the cell is the sort indicator, inside the sort control.
+    const strayGlyphs = Array.from(head.querySelectorAll('svg')).filter(
+      (svg) => !svg.closest('[data-slot="table-sort-label"]'),
+    )
+    expect(strayGlyphs).toHaveLength(0)
+  })
+
+  it('offers no grip where the column cannot be reordered', () => {
+    const { container } = renderTable()
+    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
+    expect(head.className).not.toContain('hover:bg-surface-strong')
+  })
+})
+
+/**
+ * The grid's one invariant: the row's track list must have exactly as many
+ * entries as the row has cells. One short and the last column — the actions
+ * column — spills into an implicit row and vanishes; one long and every column
+ * after the gap sits under the wrong header.
+ */
+describe('DataTable grid track invariant', () => {
+  const trackCount = (container: HTMLElement) => {
+    const row = container.querySelector('[data-slot="table-header"] [role="row"]') as HTMLElement
+    return row.style.gridTemplateColumns.split(/\s+(?![^(]*\))/).filter(Boolean).length
+  }
+  const cellCount = (container: HTMLElement, selector: string) =>
+    container.querySelectorAll(selector).length
+
+  it('matches tracks to header and body cells with row actions', () => {
+    const { container } = renderTable({ rowActions: () => <button type="button">go</button> })
+    const tracks = trackCount(container)
+    expect(cellCount(container, '[data-slot="table-header"] [role="columnheader"]')).toBe(tracks)
+    const firstRow = container.querySelector('[data-slot="table-body"] [role="row"]') as HTMLElement
+    expect(firstRow.querySelectorAll('[role="cell"]').length).toBe(tracks)
+  })
+
+  it('matches tracks to cells with no actions column', () => {
+    const { container } = renderTable()
+    const tracks = trackCount(container)
+    expect(cellCount(container, '[data-slot="table-header"] [role="columnheader"]')).toBe(tracks)
   })
 })

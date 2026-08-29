@@ -4,6 +4,8 @@ import * as React from 'react'
 import { Activity, Calendar, Hash, Tag, ArrowRight, ALargeSmall, UserRound, Mail, Phone, Filter, type LucideIcon } from 'lucide-react'
 import { Popover, PopoverContent, PopoverAnchor } from '../../primitives/popover'
 import { SearchInput } from '../../primitives/search-input'
+import { MENU_ROW_HOVER, menuRowVariants } from '../../primitives/menu'
+import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { FilterFieldDef, FilterFieldType } from '@open-mercato/shared/lib/query/advanced-filter'
 
@@ -99,7 +101,7 @@ export function FilterFieldPicker({ fields, open, onOpenChange, onSelect, trigge
               aria-label={t('ui.advancedFilter.fieldPicker.search', 'Search field…')}
             />
           </div>
-          <div className="max-h-[400px] overflow-y-auto py-1" role="listbox">
+          <div className="max-h-[400px] overflow-y-auto p-1" role="listbox">
             {grouped.map(({ group, items }) => (
               <div key={group}>
                 <div className="px-3 pt-2 pb-1 text-overline font-semibold uppercase tracking-widest text-muted-foreground">{group}</div>
@@ -118,7 +120,7 @@ export function FilterFieldPicker({ fields, open, onOpenChange, onSelect, trigge
                       aria-selected={active}
                       onClick={() => { onSelect(f); onOpenChange(false) }}
                       onMouseEnter={() => setActiveIdx(flatIdx)}
-                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent ${active ? 'bg-secondary' : ''}`}
+                      className={cn(menuRowVariants({ size: 'compact', active }), MENU_ROW_HOVER)}
                     >
                       <Icon className="size-4 text-muted-foreground" />
                       <span>{f.label}</span>

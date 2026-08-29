@@ -8,6 +8,7 @@ import {
   deleteEntityIfExists,
   readJsonSafe,
 } from '@open-mercato/core/modules/core/__integration__/helpers/crmFixtures';
+import { tableSelectAllCheckbox } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom';
 
 /**
  * TC-CRM-065: People bulk delete with partial dependency failure
@@ -66,7 +67,7 @@ test.describe('TC-CRM-065: People bulk delete partial failure', () => {
       const blockedRow = page.getByRole('link', { name: `${prefix} Blocked`, exact: true });
       await expect(blockedRow).toBeVisible();
 
-      const selectAllCheckbox = page.locator('thead').getByRole('checkbox');
+      const selectAllCheckbox = tableSelectAllCheckbox(page);
       await expect(selectAllCheckbox).toBeVisible();
       await selectAllCheckbox.check();
 

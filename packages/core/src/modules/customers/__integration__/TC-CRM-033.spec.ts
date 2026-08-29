@@ -5,6 +5,7 @@ import {
   createPersonFixture,
   deleteEntityIfExists,
 } from '@open-mercato/core/modules/core/__integration__/helpers/crmFixtures';
+import { tableRows } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom';
 
 /**
  * TC-CRM-033: DataTable Page Size Selector
@@ -48,7 +49,7 @@ test.describe('TC-CRM-033: DataTable Page Size Selector', () => {
       await page.getByRole('option', { name: '10 per page', exact: true }).click();
       await page.getByText('Loading table', { exact: false }).waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
 
-      const rowCount = await page.locator('tbody tr').count();
+      const rowCount = await tableRows(page).count();
       expect(rowCount).toBeLessThanOrEqual(10);
     } finally {
       await deleteEntityIfExists(request, token, '/api/customers/people', personId);

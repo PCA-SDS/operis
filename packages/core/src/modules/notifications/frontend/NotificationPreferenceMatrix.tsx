@@ -219,7 +219,7 @@ export function NotificationPreferenceMatrix({
         />
       ) : (
     <div className="overflow-x-auto rounded-lg border border-border">
-      <Table density="compact">
+      <Table density="compact" columnCount={1 + channels.length}>
         <TableHeader>
           <TableRow className="border-border text-left">
             <TableHead>{t('notifications.preferences.columns.type', 'Notification type')}</TableHead>

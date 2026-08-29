@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { login, DEFAULT_CREDENTIALS } from '@open-mercato/core/modules/core/__integration__/helpers/auth';
 import { apiRequest, getAuthToken } from '@open-mercato/core/modules/core/__integration__/helpers/api';
 import { deleteEntityIfExists, readJsonSafe } from '@open-mercato/core/modules/core/__integration__/helpers/crmFixtures';
+import { TABLE_HEADER_SELECTOR, TABLE_HEAD_SELECTOR, tableRows } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom';
 
 /**
  * TC-CRM-087: unsaved DataTable column widths must not carry over to a different
@@ -32,20 +33,26 @@ test.describe('TC-CRM-087: unsaved column widths cleared on login', () => {
     const perspectiveStoragePrefix = 'om_table_perspective_snapshot:';
 
     const handleColumnWidth = (handle: import('@playwright/test').Locator) =>
-      handle.evaluate((el) => Math.round((el.closest('th') as HTMLElement).getBoundingClientRect().width));
+      handle.evaluate(
+        (el, headSelector) => Math.round((el.closest(headSelector) as HTMLElement).getBoundingClientRect().width),
+        TABLE_HEAD_SELECTOR,
+      );
     const handleColumnInlineWidth = (handle: import('@playwright/test').Locator) =>
-      handle.evaluate((el) => (el.closest('th') as HTMLElement).style.width);
+      handle.evaluate(
+        (el, headSelector) => (el.closest(headSelector) as HTMLElement).style.width,
+        TABLE_HEAD_SELECTOR,
+      );
     const perspectiveStorageKeys = () =>
       page.evaluate((storagePrefix) => Object.keys(localStorage).filter((key) => key.startsWith(storagePrefix)), perspectiveStoragePrefix);
 
     const waitForTableReady = async () => {
       await page.getByText('Loading table', { exact: false })
         .waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
-      await page.locator('tbody tr').first().waitFor({ state: 'visible', timeout: 10_000 });
+      await tableRows(page).first().waitFor({ state: 'visible', timeout: 10_000 });
     };
 
     // Second data-column resize handle — avoids the (potentially sticky) first column.
-    const handleAt = () => page.locator('thead [role="separator"][aria-orientation="vertical"]').nth(1);
+    const handleAt = () => page.locator(`${TABLE_HEADER_SELECTOR} [role="separator"][aria-orientation="vertical"]`).nth(1);
 
     const waitForSettledColumnWidth = async () => {
       let previous = -1;

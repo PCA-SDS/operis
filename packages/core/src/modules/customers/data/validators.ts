@@ -64,6 +64,13 @@ const clearableRevenueSchema = z.preprocess(
   z.coerce.number().min(0).nullable().optional(),
 )
 
+// Date-only columns (incorporation date, the client lifecycle dates) accept an
+// ISO `YYYY-MM-DD` string and clear on blank, mirroring clearableStringSchema. See #3050.
+const clearableDateSchema = z.preprocess(
+  emptyStringToNull,
+  z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'customers.errors.invalid_date').nullable().optional(),
+)
+
 const interactionPhoneNumberSchema = z.string().trim().max(50).optional().nullable()
 
 const scopedSchema = z.object({
@@ -128,6 +135,16 @@ const companyDetailsSchema = {
   industry: z.string().trim().max(150).optional(),
   sizeBucket: clearableStringSchema(100),
   annualRevenue: clearableRevenueSchema,
+  // Account-governance fields aligned with PCA ERP's crm.company_clients. Lengths
+  // mirror that schema's varchar limits, which the text columns here do not enforce.
+  taxCode: clearableStringSchema(20),
+  registrationCountry: clearableStringSchema(120),
+  address: clearableStringSchema(500),
+  incorporationDate: clearableDateSchema,
+  clientTier: clearableStringSchema(150),
+  onboardedAt: clearableDateSchema,
+  registeredAt: clearableDateSchema,
+  endDate: clearableDateSchema,
 }
 
 export const personCreateSchema = scopedSchema.extend({
@@ -321,6 +338,7 @@ const KNOWN_DICTIONARY_KINDS = [
   'temperature',
   'renewal_quarter',
   'person_company_role',
+  'client_tier',
 ] as const
 const CUSTOM_DICTIONARY_KIND_PATTERN = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/
 const dictionaryKindEnum = z.string().trim().refine(

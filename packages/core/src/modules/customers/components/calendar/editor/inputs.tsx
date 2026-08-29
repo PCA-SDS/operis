@@ -13,7 +13,7 @@ export const CONTROL_BORDER = 'border border-input'
 export const CONTROL_TEXT = 'text-sm text-foreground placeholder:text-muted-foreground'
 export const LABEL_CLASS = 'text-xs font-medium text-muted-foreground'
 export const DROPDOWN_PANEL_CLASS =
-  'absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md'
+  'absolute z-50 mt-1 max-h-56 w-full space-y-1 overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md'
 
 /**
  * Closes an editor dropdown on pointer-down outside the component or Escape.

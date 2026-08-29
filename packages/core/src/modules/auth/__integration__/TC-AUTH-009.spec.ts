@@ -9,7 +9,7 @@ test.describe('TC-AUTH-009: User Creation Validation Errors', () => {
   test('should show validation errors for invalid create payload', async ({ page }) => {
     await login(page, 'admin');
     await page.goto('/backend/users/create');
-    await expect(page.getByText('Create User')).toBeVisible();
+    await expect(page.getByRole('main').getByText('Create User')).toBeVisible();
 
     const emailInput = page.locator('[data-crud-field-id="email"] input').first();
     const nameInput = page.locator('[data-crud-field-id="name"] input').first();
@@ -20,7 +20,8 @@ test.describe('TC-AUTH-009: User Creation Validation Errors', () => {
     await emailInput.fill(`qa-auth-009-${Date.now()}@acme.com`);
     await nameInput.fill('QA Auth User');
     await passwordInput.fill('Valid1!Pass');
-    const rolesInput = page.getByRole('textbox', { name: /add tag and press enter/i });
+    // TagsInput exposes only a placeholder — no accessible name to match by role.
+    const rolesInput = page.getByPlaceholder(/add tag and press enter/i).first();
     await rolesInput.fill('employee');
     await rolesInput.press('Enter');
 

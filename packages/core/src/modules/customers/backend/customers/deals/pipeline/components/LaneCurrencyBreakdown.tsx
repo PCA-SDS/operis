@@ -7,9 +7,8 @@ import {
   PopoverTrigger,
 } from '@open-mercato/ui/primitives/popover'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { X } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { translateWithFallback } from '@open-mercato/shared/lib/i18n/translate'
 import { CurrencyBreakdownTable, type CurrencyBreakdownRow } from './CurrencyBreakdownTable'
 
@@ -114,15 +113,7 @@ export function LaneCurrencyBreakdown({
         <div className="flex flex-col overflow-hidden rounded-2xl bg-card">
           <div className="flex items-center justify-between border-b border-border bg-card px-5 py-4">
             <span className="text-base font-bold leading-normal text-foreground">{titleLabel}</span>
-            <IconButton
-              variant="ghost"
-              size="xs"
-              onClick={() => setOpen(false)}
-              aria-label={closeLabel}
-              className="flex size-7 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <X className="size-3.5" aria-hidden="true" />
-            </IconButton>
+            <CloseButton onClick={() => setOpen(false)} aria-label={closeLabel} />
           </div>
 
           <div className="flex flex-col gap-1.5 bg-card px-6 pt-3.5 pb-2">
