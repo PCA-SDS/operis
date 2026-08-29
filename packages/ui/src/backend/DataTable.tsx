@@ -28,7 +28,7 @@ import { useCustomFieldFilterDefs } from './utils/customFieldFilters'
 import { fetchCustomFieldDefinitionsPayload, type CustomFieldsetDto } from './utils/customFieldDefs'
 import { RowActions, type RowActionItem } from './RowActions'
 import { subscribeOrganizationScopeChanged, type OrganizationScopeChangedDetail } from '@open-mercato/shared/lib/frontend/organizationEvents'
-import { InjectionSpot } from './injection/InjectionSpot'
+import { InjectionSpot, useInjectionWidgets } from './injection/InjectionSpot'
 import { useAppEvent } from './injection/useAppEvent'
 import { useInjectionDataWidgets } from './injection/useInjectionDataWidgets'
 import { resolveInjectedIcon } from './injection/resolveInjectedIcon'
@@ -367,6 +367,13 @@ export type DataTableProps<T extends RowData> = {
   /** Horizontal alignment of the row-actions (kebab) column header + cell. Defaults to 'right'. */
   actionsColumnAlign?: 'right' | 'center'
   virtualized?: boolean
+  /**
+   * Caps the table's own scrollport so a long page does not turn into an
+   * endless document scroll. Number = px. Defaults to `calc(100vh - 320px)`,
+   * which leaves room for the topbar, page header, toolbar and pager.
+   * Pass `false` to let the table grow with the page.
+   */
+  maxBodyHeight?: number | string | false
   virtualizedMaxHeight?: number | string
   virtualizedOverscan?: number
   /**
@@ -1342,6 +1349,7 @@ export function DataTable<T extends RowData>({
   extensionTableId: extensionTableIdProp,
   actionsColumnAlign = 'right',
   virtualized = false,
+  maxBodyHeight,
   virtualizedMaxHeight,
   stickyHeader,
   virtualizedOverscan = 10,
@@ -1614,6 +1622,11 @@ export function DataTable<T extends RowData>({
     () => (resolvedInjectionSpotId ? extensionSpotChildId(resolvedInjectionSpotId, 'footer') : null),
     [resolvedInjectionSpotId]
   )
+  /* An unregistered footer spot must render NOTHING. Wrapping an empty spot in
+     the bordered strip below left every table with a blank ~48px band and a rule
+     across its foot. */
+  // Count only — the `InjectionSpot` below owns context and the onLoad trigger.
+  const { widgets: footerWidgets } = useInjectionWidgets(footerInjectionSpotId ?? null)
   const { widgets: columnWidgets } = useInjectionDataWidgets(
     extensionTableId ? dataTableExtensionSpotId(extensionTableId, 'columns') : '__disabled__:columns',
   )
@@ -3371,10 +3384,30 @@ export function DataTable<T extends RowData>({
     'flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4'
   const toolbarWrapperClassName = embedded ? 'mt-2' : 'border-b border-table-border px-4 py-3 sm:px-5'
   const tableScrollWrapperClassName = embedded ? '' : 'overflow-auto'
-  /* The header only pins when the TABLE owns a vertical scrollport of its own.
-     Pinned unconditionally it would stick to the viewport — sliding under the
-     app topbar — for the many small tables that simply scroll with the page. */
-  const stickyHeaderClass = (stickyHeader ?? virtualized) ? 'sticky top-0 z-20' : ''
+  /* The table owns its vertical scroll. Without a cap, a 500-row page grows the
+     document instead, so the header scrolls away and the pager sits an entire
+     screen-height below the fold. Embedded tables opt out: they sit inside a
+     host (card, dialog, detail tab) that already bounds them.
+
+     The header pins to that scrollport, and only that one — pinned on a table
+     that scrolls with the PAGE it would stick to the viewport and slide under
+     the app topbar, which is why the two are decided together. */
+  const resolvedMaxBodyHeight: string | undefined = React.useMemo(() => {
+    if (virtualized) {
+      return typeof virtualizedMaxHeight === 'number'
+        ? `${virtualizedMaxHeight}px`
+        : virtualizedMaxHeight ?? 'calc(100vh - 300px)'
+    }
+    if (embedded || maxBodyHeight === false) return undefined
+    if (typeof maxBodyHeight === 'number') return `${maxBodyHeight}px`
+    return maxBodyHeight ?? 'calc(100vh - 320px)'
+  }, [embedded, maxBodyHeight, virtualized, virtualizedMaxHeight])
+
+  /* The pin goes on the header ROW GROUP, not on its cells. A sticky cell cannot
+     escape its row, so pinning cells let the whole header scroll away with the
+     row that contains them — and the cells are transparent besides, so the body
+     showed through. `TableHeader` owns both the fill and the correct stacking. */
+  const isHeaderPinned = stickyHeader ?? Boolean(resolvedMaxBodyHeight)
   /* One track list, declared once and repeated on every row — the property the
      row animates when a column is resized or hidden. A user-dragged width is a
      fixed track; everything else shares the leftover space, floored so a wide
@@ -3446,13 +3479,9 @@ export function DataTable<T extends RowData>({
     overscan: virtualizedOverscan,
   })
   const rowVirtualizer = virtualized ? rowVirtualizerInstance : null
-  const virtualMaxHeightStyle: React.CSSProperties | undefined = virtualized
-    ? {
-        maxHeight: typeof virtualizedMaxHeight === 'number'
-          ? `${virtualizedMaxHeight}px`
-          : virtualizedMaxHeight ?? 'calc(100vh - 300px)',
-        overflow: 'auto',
-      }
+
+  const scrollportStyle: React.CSSProperties | undefined = resolvedMaxBodyHeight
+    ? { maxHeight: resolvedMaxBodyHeight, overflow: 'auto' }
     : undefined
 
   const titleContent = hasTitle ? (
@@ -3573,7 +3602,7 @@ export function DataTable<T extends RowData>({
         ref={setTableScrollWrapperRef}
         data-table-scrollport
         className={cn('relative', tableScrollWrapperClassName)}
-        style={virtualMaxHeightStyle}
+        style={scrollportStyle}
       >
         {/* Drag guide. Absolutely positioned INSIDE the scrollport, so it is laid
             out in content coordinates and tracks the column edge even if the table
@@ -3605,11 +3634,11 @@ export function DataTable<T extends RowData>({
           density={embedded ? 'compact' : 'default'}
           className="min-w-[640px] md:min-w-0"
         >
-          <TableHeader>
+          <TableHeader sticky={isHeaderPinned}>
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id}>
                 {hasInjectedBulkActions ? (
-                  <TableHead padding="control" className={stickyHeaderClass}>
+                  <TableHead padding="control">
                     <Checkbox
                       checked={table.getIsAllPageRowsSelected()}
                       onCheckedChange={(checked) => {
@@ -3658,7 +3687,7 @@ export function DataTable<T extends RowData>({
                     />
                   ) : null
                   return enableHeaderDnd ? (
-                    <SortableHeaderCell key={header.id} id={header.id} width={sizedWidth} ariaSort={ariaSort} align={columnAlign} className={cn('group', stickyHeaderClass, responsiveClass(priority, columnMeta?.hidden))}>
+                    <SortableHeaderCell key={header.id} id={header.id} width={sizedWidth} ariaSort={ariaSort} align={columnAlign} className={cn('group', responsiveClass(priority, columnMeta?.hidden))}>
                       {headerCellContent}
                       {resizeHandle}
                     </SortableHeaderCell>
@@ -3671,7 +3700,6 @@ export function DataTable<T extends RowData>({
                       className={cn(
                         'group relative transition-colors',
                         columnId && resizingColumnId === columnId && 'bg-surface-strong text-foreground',
-                        stickyHeaderClass,
                         responsiveClass(priority, columnMeta?.hidden),
                       )}
                       style={typeof sizedWidth === 'number' ? { width: sizedWidth, minWidth: sizedWidth, maxWidth: sizedWidth } : undefined}
@@ -3685,7 +3713,6 @@ export function DataTable<T extends RowData>({
                   <TableHead
                     align={actionsColumnAlign}
                     padding="control"
-                    className={stickyHeaderClass}
                   >
                     {t('ui.dataTable.actionsColumn', 'Actions')}
                   </TableHead>
@@ -3900,7 +3927,7 @@ export function DataTable<T extends RowData>({
         </Table>
       </div>
       </HeaderDndWrapper>
-      {footerInjectionSpotId ? (
+      {footerInjectionSpotId && footerWidgets.length > 0 ? (
         <div className={embedded ? 'mt-3' : 'border-t border-table-border px-4 py-3 sm:px-5'}>
           <InjectionSpot spotId={footerInjectionSpotId} context={resolvedInjectionContext} />
         </div>

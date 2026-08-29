@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { login } from '@open-mercato/core/modules/core/__integration__/helpers/auth';
 import { apiRequest, getAuthToken } from '@open-mercato/core/modules/core/__integration__/helpers/api';
 import { deleteEntityIfExists, readJsonSafe } from '@open-mercato/core/modules/core/__integration__/helpers/crmFixtures';
+import { tableHeaderButton, tableRows } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom';
 
 /**
  * TC-CRM-029: DataTable Column Sorting
@@ -39,23 +40,23 @@ test.describe('TC-CRM-029: DataTable Column Sorting', () => {
       await page.getByText('Loading table', { exact: false }).waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
 
       await expect
-        .poll(async () => page.locator('tbody tr').count(), { timeout: 15000 })
+        .poll(async () => tableRows(page).count(), { timeout: 15000 })
         .toBeGreaterThanOrEqual(2);
 
-      const nameHeader = page.locator('thead button', { hasText: 'Name' }).first();
+      const nameHeader = tableHeaderButton(page, 'Name');
       await expect(nameHeader).toBeVisible();
 
       await nameHeader.click();
       await page.waitForTimeout(800);
       await page.getByText('Loading table', { exact: false }).waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
 
-      const firstRowTextAsc = await page.locator('tbody tr').first().textContent();
+      const firstRowTextAsc = await tableRows(page).first().textContent();
 
       await nameHeader.click();
       await page.waitForTimeout(800);
       await page.getByText('Loading table', { exact: false }).waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
 
-      const firstRowTextDesc = await page.locator('tbody tr').first().textContent();
+      const firstRowTextDesc = await tableRows(page).first().textContent();
       expect(firstRowTextDesc).not.toBe(firstRowTextAsc);
     } finally {
       for (const id of personIds) {
