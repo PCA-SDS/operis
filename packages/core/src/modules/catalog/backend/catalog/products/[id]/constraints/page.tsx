@@ -108,6 +108,7 @@ export default function ProductConstraintsPage({ params }: { params?: { id?: str
   const [isDirty, setIsDirty] = useState(false)
 
   const [constraints, setConstraints] = useState<CatalogConstraintsData['constraints']>([])
+  const [incomingConstraints, setIncomingConstraints] = useState<CatalogConstraintsData['constraints']>([])
   const [pendingPayload, setPendingPayload] = useState<ReturnType<typeof draftToPayload>[]>([])
   const [optionSummaries, setOptionSummaries] = useState<LocalOptionSummary[]>([])
   const [productSeedOptions, setProductSeedOptions] = useState<CascadingItemDef[]>([])
@@ -119,9 +120,10 @@ export default function ProductConstraintsPage({ params }: { params?: { id?: str
     setLoadError(null)
     try {
       const result = await readApiResultOrThrow<CatalogConstraintsData>(
-        `/api/catalog/products/${productId}/constraints`
+        `/api/catalog/products/${productId}/constraints?incoming=true`
       )
       setConstraints(result.constraints || [])
+      setIncomingConstraints(result.incoming_constraints || [])
       setUpdatedAt(result.updated_at ?? null)
       setProductName(result.product_name ?? 'This product')
       setIsDirty(false)
@@ -237,6 +239,7 @@ export default function ProductConstraintsPage({ params }: { params?: { id?: str
           ) : (
             <ConstraintsEditor
               constraints={constraints}
+              incomingConstraints={incomingConstraints}
               productId={productId}
               productName={productName}
               options={optionSummaries}

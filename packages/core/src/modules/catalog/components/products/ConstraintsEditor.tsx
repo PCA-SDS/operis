@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useState, useCallback, useMemo } from 'react'
-import { Plus, Trash2, Lock, Unlock, ArrowRight, Package, ChevronRight, Inbox } from 'lucide-react'
+import { Plus, Trash2, Lock, Unlock, ArrowRight, Package, ChevronRight, Inbox, Info } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { KbdShortcut } from '@open-mercato/ui/primitives/kbd'
@@ -213,6 +213,41 @@ type ConstraintRowProps = {
   productName: string
   onChange: (updated: ConstraintDraft) => void
   onDelete: () => void
+}
+
+// ─────────────────────────────────────────────────────────────────
+// IncomingConstraintBadge — read-only badge for incoming constraints
+// ─────────────────────────────────────────────────────────────────
+
+function IncomingConstraintBadge({ constraint, sourceLabel }: { constraint: CatalogConstraintItem; sourceLabel: string }) {
+  const t = useT()
+  const color = CONSTRAINT_TYPE_COLORS[constraint.constraint_type]
+  const label = CONSTRAINT_TYPE_LABELS[constraint.constraint_type]
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-status-warning-bg/50 bg-status-warning-bg/10">
+      <Tag variant={color.variant} dot={color.dot} className="text-xs font-medium shrink-0">
+        {label}
+      </Tag>
+      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <span className="text-xs font-medium text-foreground/80">{sourceLabel}</span>
+        <ArrowRight className="w-3 h-3 shrink-0" />
+        <span>{t('catalog.constraints.thisProduct', 'this product')}</span>
+      </div>
+      {constraint.locked && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            </TooltipTrigger>
+            <TooltipContent>
+              {t('catalog.constraints.locked', 'Locked by migration')}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+    </div>
+  )
 }
 
 function ConstraintRow({ draft, localOptions, productSeedOptions, productId, productName, onChange, onDelete }: ConstraintRowProps) {
@@ -641,6 +676,7 @@ function AddConstraintDrawer({
 // ─────────────────────────────────────────────────────────────────
 export type ConstraintsEditorProps = {
   constraints: CatalogConstraintItem[]
+  incomingConstraints?: CatalogConstraintItem[]
   productId: string
   productName?: string
   options?: LocalOptionSummary[]
@@ -652,6 +688,7 @@ export type ConstraintsEditorProps = {
 
 export function ConstraintsEditor({
   constraints,
+  incomingConstraints = [],
   productId,
   productName = 'This product',
   options = [],
@@ -767,7 +804,7 @@ export function ConstraintsEditor({
         </div>
       </div>
 
-      {/* List */}
+      {/* Outgoing Constraints (editable) */}
       {drafts.length > 0 ? (
         <div className="flex flex-col gap-2">
           {drafts.map((draft) => (
@@ -791,6 +828,34 @@ export function ConstraintsEditor({
           onCreate={() => setShowAddDrawer(true)}
           createLabel={t('catalog.constraints.addConstraint', 'Add Constraint')}
         />
+      )}
+
+      {/* Incoming Constraints (read-only) */}
+      {incomingConstraints && incomingConstraints.length > 0 && (
+        <div className="flex flex-col gap-3 pt-4 border-t mt-4">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-status-warning-bg" />
+              <span className="text-sm font-medium text-foreground">
+                {t('catalog.constraints.incoming', 'Required by')}
+              </span>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              ({incomingConstraints.length})
+            </span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {incomingConstraints.map((c) => {
+              const sourceLabel = c.source_product_name || c.source_option_name || 'Unknown'
+              const sourceBadge = c.source_option_name
+                ? `${c.source_product_name || ''} › ${c.source_option_name}`.trim()
+                : sourceLabel
+              return (
+                <IncomingConstraintBadge key={c.id} constraint={c} sourceLabel={sourceBadge} />
+              )
+            })}
+          </div>
+        </div>
       )}
 
       <AddConstraintDrawer

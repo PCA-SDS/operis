@@ -150,6 +150,8 @@ export type CatalogConstraintItem = {
   source_option_id: string | null
   target_product_id: string | null
   target_option_id: string | null
+  source_product_name?: string | null
+  source_option_name?: string | null
   target_product_name?: string | null
   target_option_name?: string | null
   locked: boolean
@@ -160,5 +162,6 @@ export type CatalogConstraintItem = {
 export type CatalogConstraintsData = {
   updated_at: string | null
   constraints: CatalogConstraintItem[]
+  incoming_constraints?: CatalogConstraintItem[]
   product_name: string | null
 }

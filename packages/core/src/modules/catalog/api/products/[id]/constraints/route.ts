@@ -22,6 +22,10 @@ const constraintResponseSchema = z.object({
   source_option_id: z.string().uuid().nullable(),
   target_product_id: z.string().uuid().nullable(),
   target_option_id: z.string().uuid().nullable(),
+  source_product_name: z.string().nullable().optional(),
+  source_option_name: z.string().nullable().optional(),
+  target_product_name: z.string().nullable().optional(),
+  target_option_name: z.string().nullable().optional(),
   locked: z.boolean(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -29,7 +33,9 @@ const constraintResponseSchema = z.object({
 
 const responseSchema = z.object({
   updated_at: z.string().nullable(),
+  product_name: z.string().nullable(),
   constraints: z.array(constraintResponseSchema),
+  incoming_constraints: z.array(constraintResponseSchema).optional(),
 })
 
 const syncConstraintBodySchema = z
@@ -145,36 +151,72 @@ export async function GET(
 
   if (!product) throw new CrudHttpError(404, { error: 'Product not found' })
 
-  const constraints = await em.find(
+  const url = new URL(request.url)
+  const includeIncoming = url.searchParams.get('incoming') === 'true'
+
+  // Outgoing constraints: this product (or its options) is the source
+  const outgoing = await em.find(
     CatalogProductConstraint,
-    { 
+    {
       $or: [
         { sourceProduct: productId },
         { sourceOption: { group: { product: productId } } }
       ],
-      tenantId, 
-      organizationId 
+      tenantId,
+      organizationId
     },
     { populate: ['sourceProduct', 'sourceOption', 'targetProduct', 'targetOption.group.product'] }
   )
 
-  const updatedAt = latestIso([product.updatedAt, ...constraints.map((c) => c.updatedAt)])
+  const serialized = outgoing.map((c) => serializeConstraint(c))
 
-  const serialized = constraints.map((c) => ({
+  let incomingConstraints: ReturnType<typeof serializeConstraint>[] = []
+  if (includeIncoming) {
+    // Incoming: this product (or its options) is the target
+    const incoming = await em.find(
+      CatalogProductConstraint,
+      {
+        $or: [
+          { targetProduct: productId },
+          { targetOption: { group: { product: productId } } }
+        ],
+        tenantId,
+        organizationId
+      },
+      { populate: ['sourceProduct', 'sourceOption', 'targetProduct', 'targetOption.group.product'] }
+    )
+    incomingConstraints = incoming.map((c) => serializeConstraint(c))
+  }
+
+  const updatedAt = latestIso([
+    product.updatedAt,
+    ...outgoing.map((c) => c.updatedAt),
+  ])
+
+  return NextResponse.json({
+    updated_at: updatedAt,
+    product_name: product.title ?? null,
+    constraints: serialized,
+    ...(includeIncoming && { incoming_constraints: incomingConstraints }),
+  })
+}
+
+function serializeConstraint(c: InstanceType<typeof CatalogProductConstraint>) {
+  return {
     id: c.id,
     constraint_type: c.constraintType,
     source_product_id: c.sourceProduct?.id ?? null,
     source_option_id: c.sourceOption?.id ?? null,
     target_product_id: c.targetProduct?.id ?? c.targetOption?.group?.product?.id ?? null,
     target_option_id: c.targetOption?.id ?? null,
+    source_product_name: c.sourceProduct?.title ?? null,
+    source_option_name: c.sourceOption?.name ?? null,
     target_product_name: c.targetProduct?.title ?? c.targetOption?.group?.product?.title ?? null,
     target_option_name: c.targetOption?.name ?? null,
     locked: c.locked,
     created_at: c.createdAt.toISOString(),
     updated_at: c.updatedAt.toISOString(),
-  }))
-
-  return NextResponse.json({ updated_at: updatedAt, constraints: serialized, product_name: product.title ?? null })
+  }
 }
 
 export async function PUT(
