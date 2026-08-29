@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { ChevronRight, ChevronDown, Search, X, Check } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
-import { Spinner } from '@open-mercato/ui/primitives/spinner'
+import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 
 // ─────────────────────────────────────────────────────────────────
 // Types
@@ -36,6 +36,8 @@ export type CascadingComboboxProps = {
   className?: string
   /** IDs to exclude from selection (e.g., already selected source option) */
   excludeIds?: string[]
+  /** Show loading skeleton in dropdown */
+  loading?: boolean
 }
 
 type FlatItem = (CascadingItemDef & { depth: number; isExcluded?: boolean })
@@ -73,6 +75,7 @@ export function CascadingCombobox({
   clearable,
   className,
   excludeIds = [],
+  loading = false,
 }: CascadingComboboxProps) {
   const [open, setOpen] = React.useState(false)
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
@@ -255,11 +258,21 @@ export function CascadingCombobox({
 
           {/* List */}
           <div className="max-h-64 overflow-y-auto py-1">
-            {filteredList.length === 0 && (
+            {loading ? (
+              <div className="px-3 py-3 space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Skeleton className="h-4 w-4 shrink-0" />
+                    <Skeleton className="h-4 flex-1" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredList.length === 0 ? (
               <div className="px-3 py-6 text-center text-xs text-muted-foreground">
                 No items found
               </div>
-            )}
+            ) : (
+              <>
 
             {filteredList.map((item) => {
               const hasChildren = Boolean(item.children?.length)
@@ -334,6 +347,8 @@ export function CascadingCombobox({
                 </div>
               )
             })}
+              </>
+            )}
           </div>
         </div>
       )}

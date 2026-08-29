@@ -48,6 +48,15 @@ const syncConstraintBodySchema = z
     locked: z.boolean().optional(),
   })
   .superRefine((value, ctx) => {
+    const constraintType = value.constraint_type ?? value.constraintType
+    if (!constraintType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['constraint_type'],
+        message: 'constraint_type is required',
+      })
+    }
+
     const hasSourceProduct = value.source_product_id != null || value.sourceProductId != null
     const hasSourceOption = value.source_option_id != null || value.sourceOptionId != null
     const hasTargetProduct = value.target_product_id != null || value.targetProductId != null
@@ -201,7 +210,7 @@ export async function PUT(
     constraints: parsedBody.data.constraints.map((c) => ({
       id: c.id,
       constraintType: (c.constraint_type ?? c.constraintType)!,
-      sourceProductId: c.source_product_id !== undefined ? c.source_product_id : (c.sourceProductId !== undefined ? c.sourceProductId : (c.source_option_id ?? c.sourceOptionId ? null : productId)),
+      sourceProductId: c.source_product_id != null ? c.source_product_id : (c.sourceProductId != null ? c.sourceProductId : (c.source_option_id ?? c.sourceOptionId ? null : productId)),
       sourceOptionId: c.source_option_id ?? c.sourceOptionId ?? null,
       targetProductId: c.target_product_id ?? c.targetProductId ?? null,
       targetOptionId: c.target_option_id ?? c.targetOptionId ?? null,

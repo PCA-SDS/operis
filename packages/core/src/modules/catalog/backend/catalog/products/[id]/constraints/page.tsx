@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { Save } from 'lucide-react'
 import {
@@ -200,8 +201,30 @@ export default function ProductConstraintsPage({ params }: { params?: { id?: str
       <PageBody>
         <div className="flex flex-col gap-4">
           {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Spinner className="w-6 h-6 text-muted-foreground" />
+            <div className="flex flex-col gap-4">
+              {/* Header skeleton */}
+              <div className="flex items-start justify-between shrink-0">
+                <div className="flex flex-col gap-1.5">
+                  <Skeleton className="h-5 w-28" />
+                  <Skeleton className="h-4 w-72" />
+                </div>
+                <Skeleton className="h-9 w-36 rounded-md" />
+              </div>
+              {/* Constraint rows skeleton */}
+              <div className="flex flex-col gap-2">
+                {[1, 2].map((i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-2 p-3 rounded-lg border bg-card">
+                    <Skeleton className="h-5 w-24 rounded-full" />
+                    <Skeleton className="h-5 w-40 rounded-md" />
+                    <Skeleton className="h-4 w-4 shrink-0" />
+                    <Skeleton className="h-5 w-40 rounded-md" />
+                    <div className="ml-auto flex items-center gap-2 shrink-0">
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                      <Skeleton className="h-8 w-8 rounded-md" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : loadError ? (
             <ErrorMessage
