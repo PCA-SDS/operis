@@ -6,6 +6,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -164,8 +165,8 @@ export function ProjectFormDialog({
 
   return (
     <Dialog open onOpenChange={(open) => (open || busy ? undefined : onClose())}>
-      <DialogContent className="flex max-h-[calc(100dvh-4rem)] max-w-3xl flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="px-5 pb-2 pt-5 sm:px-6">
+      <DialogContent className="max-h-[calc(100dvh-4rem)] max-w-3xl overflow-hidden">
+        <DialogHeader>
           <DialogTitle>
             {isEdit
               ? t('tasks.projectForm.editTitle', 'Edit Project')
@@ -174,12 +175,12 @@ export function ProjectFormDialog({
         </DialogHeader>
 
         {loadingEdit ? (
-          <div className="space-y-3 p-6">
+          <DialogBody className="space-y-3">
             <SkeletonBlock className="h-8 w-40" />
             <SkeletonBlock className="h-24" />
-          </div>
+          </DialogBody>
         ) : (
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pb-5 pt-3 sm:px-6">
+          <DialogBody className="min-h-0 flex-1 space-y-4 overflow-y-auto">
             {banner && <ErrorBanner>{banner}</ErrorBanner>}
 
             <div className="grid items-start gap-x-8 gap-y-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -212,6 +213,7 @@ export function ProjectFormDialog({
                       value={form.key}
                       onChange={(value) => set('key', value.toUpperCase().slice(0, PROJECT_KEY_MAX_LENGTH))}
                       placeholder={t('tasks.projectForm.keyPlaceholder', 'ENG')}
+                      ariaLabel={t('tasks.projectForm.key', 'Key')}
                       invalid={!!errors.key}
                       disabled={busy}
                     />
@@ -221,6 +223,7 @@ export function ProjectFormDialog({
                       value={form.name}
                       onChange={(value) => set('name', value)}
                       placeholder={t('tasks.projectForm.namePlaceholder', 'Engineering')}
+                      ariaLabel={t('tasks.projectForm.name', 'Name')}
                       maxLength={PROJECT_NAME_MAX_LENGTH}
                       invalid={!!errors.name}
                       disabled={busy}
@@ -342,10 +345,10 @@ export function ProjectFormDialog({
                 )}
               </section>
             </div>
-          </div>
+          </DialogBody>
         )}
 
-        <DialogFooter className="px-5 pb-4 pt-1.5 sm:px-6">
+        <DialogFooter>
           <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={busy}>
             {t('tasks.common.cancel', 'Cancel')}
           </Button>

@@ -34,11 +34,12 @@ test.describe('TC-TASKS-030: end-to-end walkthrough', () => {
       await expect(page.getByRole('heading', { name: /projects/i })).toBeVisible()
 
       await page.getByRole('button', { name: /new project/i }).first().click()
-      await expect(page.getByRole('dialog')).toBeVisible()
+      const dialog = page.getByRole('dialog')
+      await expect(dialog).toBeVisible()
 
-      await page.getByLabel(/^key$/i).fill(key)
-      await page.getByLabel(/^name$/i).fill(name)
-      await page.getByRole('button', { name: /create project/i }).click()
+      await dialog.getByLabel(/^key$/i).fill(key)
+      await dialog.getByLabel(/^name$/i).fill(name)
+      await dialog.getByRole('button', { name: /create project/i }).click()
 
       await page.waitForURL(/\/backend\/tasks\/projects\/[0-9a-f-]{36}/)
       await expect(page.getByRole('heading', { name })).toBeVisible()
@@ -70,11 +71,14 @@ test.describe('TC-TASKS-030: end-to-end walkthrough', () => {
       await composer.fill(`${title} today`)
       await composer.press('Enter')
 
-      // The composer routes to a view that shows the new task.
-      await expect(page.getByText(title)).toBeVisible({ timeout: 15000 })
+      // The composer routes to a view that shows the new task. Match the row
+      // button, not any text: the composer's own textarea still holds the
+      // typed title as its value.
+      const row = page.getByRole('button', { name: title, exact: true })
+      await expect(row).toBeVisible({ timeout: 15000 })
 
       await page.reload()
-      await expect(page.getByText(title)).toBeVisible({ timeout: 15000 })
+      await expect(row).toBeVisible({ timeout: 15000 })
 
       // Confirm it is a real row, not just rendered optimistically.
       const list = await apiRequest(request, 'GET', '/api/tasks/my-tasks?view=all&pageSize=100&tz=UTC', {
@@ -179,16 +183,23 @@ test.describe('TC-TASKS-030: end-to-end walkthrough', () => {
   test('reaches every personal view from the module sidebar', async ({ page }) => {
     await page.goto('/backend/tasks/today')
 
-    for (const [label, path] of [
-      ['All Tasks', '/backend/tasks/all'],
-      ['Upcoming', '/backend/tasks/upcoming'],
-      ['Assigned to Me', '/backend/tasks/assigned'],
-      ['Completed', '/backend/tasks/completed'],
-      ['Team', '/backend/tasks/team'],
+    // The global backend sidebar links to these routes too; this test is about
+    // the module's own nav, so scope every click to it.
+    const moduleNav = page.getByRole('complementary', { name: 'Tasks navigation' })
+
+    // The heading is not always the nav label ("Assigned to Me" vs "Assigned to
+    // me"), and it has to be asserted by text: a client-side transition mounts
+    // the outgoing and incoming page's h1 at the same time.
+    for (const [label, path, heading] of [
+      ['All Tasks', '/backend/tasks/all', 'All Tasks'],
+      ['Upcoming', '/backend/tasks/upcoming', 'Upcoming'],
+      ['Assigned to Me', '/backend/tasks/assigned', 'Assigned to me'],
+      ['Completed', '/backend/tasks/completed', 'Completed'],
+      ['Team', '/backend/tasks/team', 'Team'],
     ] as const) {
-      await page.getByRole('link', { name: label, exact: true }).click()
+      await moduleNav.getByRole('link', { name: label, exact: true }).click()
       await page.waitForURL(new RegExp(path.replace(/\//g, '\\/')))
-      await expect(page.locator('h1')).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: heading, exact: true })).toBeVisible()
     }
   })
 })
