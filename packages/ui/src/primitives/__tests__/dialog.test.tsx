@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogBody,
   DialogClose,
 } from '../dialog'
 import { I18nProvider } from '@open-mercato/shared/lib/i18n/context'
@@ -123,7 +124,7 @@ describe('Dialog (Phase B.7)', () => {
     expect(badge).not.toBeNull()
     expect(badge.querySelector('[data-testid="lead-icon"]')).not.toBeNull()
     expect(badge.className).toContain('rounded-full')
-    expect(badge.className).toContain('size-10')
+    expect(badge.className).toContain('size-7')
     expect(badge.className).toContain('border')
     // Title + description live inside the text wrapper alongside the badge.
     const text = document.querySelector('[data-slot="dialog-header-text"]') as HTMLElement
@@ -146,15 +147,18 @@ describe('Dialog (Phase B.7)', () => {
     expect(footer.className).toContain('sm:justify-end')
   })
 
-  it('footer ships border-t separator by default per Figma `Modal Footer [1.1]`', () => {
+  it('footer is borderless by default and takes its rhythm from the padding trio', () => {
     renderDialog(<ExampleDialog />)
     const footer = document.querySelector('[data-slot="dialog-footer"]') as HTMLElement
-    expect(footer.getAttribute('data-bordered')).toBe('true')
-    expect(footer.className).toContain('border-t')
-    expect(footer.className).toContain('pt-4')
+    expect(footer.getAttribute('data-bordered')).toBeNull()
+    expect(footer.className).not.toContain('border-t')
+    expect(footer.className).toContain('px-5')
+    expect(footer.className).toContain('pt-1.5')
+    expect(footer.className).toContain('pb-4')
+    expect(footer.className).toContain('sm:px-6')
   })
 
-  it('footer bordered=false drops the separator', () => {
+  it('footer bordered=true opts a long scrolling body back into a separator', () => {
     renderDialog(
       <Dialog defaultOpen>
         <DialogTrigger>Open</DialogTrigger>
@@ -162,15 +166,15 @@ describe('Dialog (Phase B.7)', () => {
           <DialogHeader>
             <DialogTitle>x</DialogTitle>
           </DialogHeader>
-          <DialogFooter bordered={false}>
+          <DialogFooter bordered>
             <DialogClose>Cancel</DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>,
     )
     const footer = document.querySelector('[data-slot="dialog-footer"]') as HTMLElement
-    expect(footer.getAttribute('data-bordered')).toBeNull()
-    expect(footer.className).not.toContain('border-t')
+    expect(footer.getAttribute('data-bordered')).toBe('true')
+    expect(footer.className).toContain('border-t')
   })
 
   it('footer layout="equal" stretches children flex-1', () => {
@@ -179,8 +183,8 @@ describe('Dialog (Phase B.7)', () => {
     expect(footer.getAttribute('data-layout')).toBe('equal')
     expect(footer.className).toContain('[&>*]:flex-1')
     expect(footer.className).not.toContain('flex-col-reverse')
-    // border-t default still applies on equal layout.
-    expect(footer.className).toContain('border-t')
+    // Borderless chrome applies to the equal layout too.
+    expect(footer.className).not.toContain('border-t')
   })
 
   it('footer leading slot renders left content + right-aligned trailing buttons per Figma `Modal Footer [1.1]` variants 2-6', () => {
@@ -206,7 +210,7 @@ describe('Dialog (Phase B.7)', () => {
     expect(trailing).not.toBeNull()
     // Footer wraps as flex with leading mr-auto pushing trailing to the right.
     const footer = document.querySelector('[data-slot="dialog-footer"]') as HTMLElement
-    expect(footer.className).toContain('border-t')
+    expect(footer.className).not.toContain('border-t')
     expect(footer.className).not.toContain('justify-end')
   })
 
@@ -286,5 +290,172 @@ describe('Dialog (Phase B.7)', () => {
     const content = document.querySelector('[data-slot="dialog-content"]') as HTMLElement
     expect(content.className).toContain('custom-class')
     expect(content.className).toContain('sm:max-w-2xl')
+  })
+})
+
+describe('Dialog — canonical borderless chrome', () => {
+  it('overlay uses the foreground scrim with no backdrop blur', () => {
+    renderDialog(<ExampleDialog />)
+    const overlay = document.querySelector('[data-slot="dialog-overlay"]') as HTMLElement
+    expect(overlay.className).toContain('bg-foreground/40')
+    expect(overlay.className).not.toContain('backdrop-blur')
+    expect(overlay.className).not.toContain('bg-black/40')
+  })
+
+  it('panel is borderless with shadow-xl and owns no padding of its own', () => {
+    renderDialog(<ExampleDialog />)
+    const content = document.querySelector('[data-slot="dialog-content"]') as HTMLElement
+    expect(content.className).toContain('bg-surface')
+    expect(content.className).toContain('shadow-xl')
+    expect(content.className).toContain('rounded-t-2xl')
+    expect(content.className).toContain('sm:rounded-2xl')
+    expect(content.className).not.toContain('shadow-2xl')
+    expect(content.className).not.toMatch(/(^|\s)p-6(\s|$)/)
+    expect(content.className).not.toMatch(/(^|\s)gap-4(\s|$)/)
+  })
+
+  it('header carries the padding pair, stays left-aligned, and ships no divider', () => {
+    renderDialog(<ExampleDialog />)
+    const header = document.querySelector('[data-slot="dialog-header"]') as HTMLElement
+    expect(header.className).toContain('px-5')
+    expect(header.className).toContain('py-4')
+    expect(header.className).toContain('sm:px-6')
+    expect(header.className).toContain('text-left')
+    expect(header.className).not.toContain('text-center')
+    expect(header.className).not.toContain('border-b')
+  })
+
+  it('title is text-xl at every breakpoint', () => {
+    renderDialog(<ExampleDialog />)
+    const title = document.querySelector('[data-slot="dialog-title"]') as HTMLElement
+    expect(title.className).toContain('text-xl')
+    expect(title.className).toContain('font-semibold')
+    expect(title.className).not.toContain('text-base')
+  })
+
+  it('close button is the shared CloseButton affordance, not a bare icon', () => {
+    renderDialog(<ExampleDialog />)
+    const close = document.querySelector('[data-slot="dialog-close-button"]') as HTMLElement
+    expect(close).not.toBeNull()
+    expect(close.className).toContain('text-disabled-foreground')
+    expect(close.className).toContain('hover:scale-125')
+    expect(close.className).toContain('h-7')
+    expect(close.className).toContain('w-7')
+  })
+
+  it('header reserves the close-button gutter only when one renders', () => {
+    const { unmount } = renderDialog(<ExampleDialog />)
+    expect(
+      (document.querySelector('[data-slot="dialog-header"]') as HTMLElement).className,
+    ).toContain('pr-11')
+    unmount()
+
+    renderDialog(<ExampleDialog dismissible={false} />)
+    expect(
+      (document.querySelector('[data-slot="dialog-header"]') as HTMLElement).className,
+    ).not.toContain('pr-11')
+  })
+})
+
+function DialogWithLooseBody() {
+  return (
+    <Dialog defaultOpen>
+      <DialogTrigger>Open</DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Rename view</DialogTitle>
+        </DialogHeader>
+        <p>Press Escape or click outside to dismiss.</p>
+        <DialogFooter>
+          <DialogClose>Cancel</DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+describe('Dialog — DialogBody auto-wrap', () => {
+  it('groups loose children into a DialogBody carrying the body padding', () => {
+    renderDialog(<DialogWithLooseBody />)
+    const body = document.querySelector('[data-slot="dialog-body"]') as HTMLElement
+    expect(body).not.toBeNull()
+    expect(body.className).toContain('px-5')
+    expect(body.className).toContain('pt-3')
+    expect(body.className).toContain('pb-5')
+    expect(body.className).toContain('sm:px-6')
+    expect(body.textContent).toContain('Press Escape')
+  })
+
+  it('leaves header and footer outside the generated body', () => {
+    renderDialog(<DialogWithLooseBody />)
+    const body = document.querySelector('[data-slot="dialog-body"]') as HTMLElement
+    expect(body.querySelector('[data-slot="dialog-header"]')).toBeNull()
+    expect(body.querySelector('[data-slot="dialog-footer"]')).toBeNull()
+  })
+
+  it('emits no body slot when a dialog is header + footer only', () => {
+    renderDialog(<ExampleDialog />)
+    expect(document.querySelector('[data-slot="dialog-body"]')).toBeNull()
+  })
+
+  it('does not double-wrap an explicit DialogBody', () => {
+    renderDialog(
+      <Dialog defaultOpen>
+        <DialogTrigger>Open</DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>x</DialogTitle>
+          </DialogHeader>
+          <DialogBody className="custom-body">content</DialogBody>
+        </DialogContent>
+      </Dialog>,
+    )
+    const bodies = document.querySelectorAll('[data-slot="dialog-body"]')
+    expect(bodies).toHaveLength(1)
+    expect((bodies[0] as HTMLElement).className).toContain('custom-body')
+  })
+
+  it('descends into a form wrapper so a nested footer keeps footer padding', () => {
+    renderDialog(
+      <Dialog defaultOpen>
+        <DialogTrigger>Open</DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>x</DialogTitle>
+          </DialogHeader>
+          <form>
+            <p>field</p>
+            <DialogFooter>
+              <button>Save</button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>,
+    )
+    const form = document.querySelector('form') as HTMLElement
+    const body = form.querySelector('[data-slot="dialog-body"]') as HTMLElement
+    expect(body).not.toBeNull()
+    expect(body.textContent).toContain('field')
+    // The footer is a sibling of the generated body, not swallowed by it.
+    const footer = form.querySelector('[data-slot="dialog-footer"]') as HTMLElement
+    expect(footer).not.toBeNull()
+    expect(body.contains(footer)).toBe(false)
+    expect(footer.className).toContain('pt-1.5')
+  })
+
+  it('disableBodyWrap renders children verbatim for full-bleed panels', () => {
+    renderDialog(
+      <Dialog defaultOpen>
+        <DialogTrigger>Open</DialogTrigger>
+        <DialogContent disableBodyWrap>
+          <DialogHeader>
+            <DialogTitle>x</DialogTitle>
+          </DialogHeader>
+          <div data-testid="bleed">edge to edge</div>
+        </DialogContent>
+      </Dialog>,
+    )
+    expect(document.querySelector('[data-slot="dialog-body"]')).toBeNull()
+    expect(screen.getByTestId('bleed')).toBeInTheDocument()
   })
 })

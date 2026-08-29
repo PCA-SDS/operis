@@ -12,6 +12,7 @@ import { galleryFamilies } from '../registry'
 
 // Files that are not standalone visual components and will never get an entry.
 const NON_COMPONENT: Record<string, string> = {
+  'close-button.tsx': 'Dismiss affordance rendered as Dialog/Drawer header chrome, not a standalone entry.',
   'date-format.ts': 'Date formatting helpers, no visual component.',
   'date-picker-helpers.ts': 'Shared date-picker parsing/formatting helpers, no visual component.',
   'label.tsx': 'Form label sub-primitive shown through FormField/inputs, not a standalone entry.',

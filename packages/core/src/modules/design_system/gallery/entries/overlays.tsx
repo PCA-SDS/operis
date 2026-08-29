@@ -11,6 +11,7 @@ import {
 import { Button } from '@open-mercato/ui/primitives/button'
 import {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,
@@ -89,9 +90,9 @@ const dialogEntry: GalleryEntry = {
                 The new name is visible to everyone in this workspace.
               </DialogDescription>
             </DialogHeader>
-            <p className="text-sm text-muted-foreground">
+            <DialogBody className="text-sm text-muted-foreground">
               Press Escape or click outside to dismiss.
-            </p>
+            </DialogBody>
             <DialogFooter>
               <DialogClose asChild>
                 <Button variant="outline">Cancel</Button>
@@ -109,6 +110,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogBody,
   DialogFooter,
   DialogClose,
 } from '@open-mercato/ui/primitives/dialog'
@@ -124,6 +126,9 @@ import {
         The new name is visible to everyone in this workspace.
       </DialogDescription>
     </DialogHeader>
+    <DialogBody className="text-sm text-muted-foreground">
+      Press Escape or click outside to dismiss.
+    </DialogBody>
     <DialogFooter>
       <DialogClose asChild>
         <Button variant="outline">Cancel</Button>
@@ -142,7 +147,7 @@ import {
             <Button variant="destructive-outline">Delete record</Button>
           </DialogTrigger>
           <DialogContent size="sm">
-            <DialogHeader leading={<TriangleAlert className="size-4" />} leadingTone="error">
+            <DialogHeader leading={<TriangleAlert />} leadingTone="error">
               <DialogTitle>Delete this record?</DialogTitle>
               <DialogDescription>
                 This removes the record from every linked view.
@@ -175,7 +180,7 @@ import {
     <Button variant="destructive-outline">Delete record</Button>
   </DialogTrigger>
   <DialogContent size="sm">
-    <DialogHeader leading={<TriangleAlert className="size-4" />} leadingTone="error">
+    <DialogHeader leading={<TriangleAlert />} leadingTone="error">
       <DialogTitle>Delete this record?</DialogTitle>
       <DialogDescription>
         This removes the record from every linked view.
