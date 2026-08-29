@@ -56,6 +56,7 @@ import type { CrudIndexerConfig, CrudEventsConfig } from '@open-mercato/shared/l
 import { E } from '#generated/entities.ids.generated'
 import { findWithDecryption, findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { deriveDisplayName, isDerivedDisplayName } from '../lib/displayName'
+import { computeEmailLookupHash, resolvePhoneIdentity } from '../lib/contactIdentity'
 import {
   loadPersonCompanyLinks,
   summarizePersonCompanies,
@@ -143,7 +144,11 @@ type PersonSnapshot = {
     description: string | null
     ownerUserId: string | null
     primaryEmail: string | null
+    primaryEmailHash: string | null
     primaryPhone: string | null
+    primaryPhoneHash: string | null
+  phoneCountryCode: string | null
+    phoneCountry: string | null
     status: string | null
     lifecycleStage: string | null
     source: string | null
@@ -158,6 +163,7 @@ type PersonSnapshot = {
     id: string
     firstName: string | null
     lastName: string | null
+    salutation: string | null
     preferredName: string | null
     jobTitle: string | null
     department: string | null
@@ -281,7 +287,11 @@ function serializePersonSnapshot(
       description: entity.description ?? null,
       ownerUserId: entity.ownerUserId ?? null,
       primaryEmail: entity.primaryEmail ?? null,
+      primaryEmailHash: entity.primaryEmailHash ?? null,
       primaryPhone: entity.primaryPhone ?? null,
+      primaryPhoneHash: entity.primaryPhoneHash ?? null,
+      phoneCountryCode: entity.phoneCountryCode ?? null,
+      phoneCountry: entity.phoneCountry ?? null,
       status: entity.status ?? null,
       lifecycleStage: entity.lifecycleStage ?? null,
       source: entity.source ?? null,
@@ -296,6 +306,7 @@ function serializePersonSnapshot(
       id: profile.id,
       firstName: profile.firstName ?? null,
       lastName: profile.lastName ?? null,
+      salutation: profile.salutation ?? null,
       preferredName: profile.preferredName ?? null,
       jobTitle: profile.jobTitle ?? null,
       department: profile.department ?? null,
@@ -536,7 +547,11 @@ type PersonGraphValues = {
   description: string | null
   ownerUserId: string | null
   primaryEmail: string | null
+  primaryEmailHash: string | null
   primaryPhone: string | null
+  primaryPhoneHash: string | null
+  phoneCountryCode: string | null
+  phoneCountry: string | null
   status: string | null
   lifecycleStage: string | null
   source: string | null
@@ -548,6 +563,7 @@ type PersonGraphValues = {
   isActive: boolean
   firstName: string | null
   lastName: string | null
+  salutation: string | null
   preferredName: string | null
   jobTitle: string | null
   department: string | null
@@ -575,7 +591,11 @@ function buildPersonGraph(
     description: values.description,
     ownerUserId: values.ownerUserId,
     primaryEmail: values.primaryEmail,
+    primaryEmailHash: values.primaryEmailHash,
     primaryPhone: values.primaryPhone,
+    primaryPhoneHash: values.primaryPhoneHash,
+    phoneCountryCode: values.phoneCountryCode,
+    phoneCountry: values.phoneCountry,
     status: values.status,
     lifecycleStage: values.lifecycleStage,
     source: values.source,
@@ -593,6 +613,7 @@ function buildPersonGraph(
     entity,
     firstName: values.firstName,
     lastName: values.lastName,
+    salutation: values.salutation,
     preferredName: values.preferredName,
     jobTitle: values.jobTitle,
     department: values.department,
@@ -619,7 +640,17 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
     const lastName = parsed.lastName?.trim() ?? ''
     const description = normalizeOptionalString(parsed.description)
     const primaryEmail = normalizeEmail(parsed.primaryEmail)
-    const primaryPhone = normalizeOptionalString(parsed.primaryPhone)
+    const primaryEmailHash = computeEmailLookupHash(primaryEmail)
+    const phoneIdentity = resolvePhoneIdentity({
+      primaryPhone: parsed.primaryPhone,
+      phoneCountryCode: parsed.phoneCountryCode,
+      phoneCountry: parsed.phoneCountry,
+    })
+    const primaryPhone = phoneIdentity.primaryPhone
+    const primaryPhoneHash = phoneIdentity.primaryPhoneHash
+    const phoneCountryCode = phoneIdentity.phoneCountryCode
+    const phoneCountry = phoneIdentity.phoneCountry
+    const salutation = normalizeOptionalString(parsed.salutation)
     const status = normalizeOptionalString(parsed.status)
     const lifecycleStage = normalizeOptionalString(parsed.lifecycleStage)
     const source = normalizeOptionalString(parsed.source)
@@ -656,7 +687,11 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
           description,
           ownerUserId: parsed.ownerUserId ?? null,
           primaryEmail,
+          primaryEmailHash,
           primaryPhone,
+          primaryPhoneHash,
+          phoneCountryCode,
+          phoneCountry,
           status,
           lifecycleStage,
           source,
@@ -668,6 +703,7 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
           isActive: parsed.isActive ?? true,
           firstName,
           lastName,
+          salutation,
           preferredName,
           jobTitle,
           department,
@@ -694,6 +730,14 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
             organizationId: parsed.organizationId,
             kind: 'job_title',
             value: jobTitle,
+          })
+        }
+        if (salutation) {
+          await ensureDictionaryEntry(em, {
+            tenantId: parsed.tenantId,
+            organizationId: parsed.organizationId,
+            kind: 'salutation',
+            value: salutation,
           })
         }
         if (source) {
@@ -817,7 +861,11 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
             description: after.entity.description,
             ownerUserId: after.entity.ownerUserId,
             primaryEmail: after.entity.primaryEmail,
+            primaryEmailHash: after.entity.primaryEmailHash,
             primaryPhone: after.entity.primaryPhone,
+            primaryPhoneHash: after.entity.primaryPhoneHash,
+            phoneCountryCode: after.entity.phoneCountryCode,
+            phoneCountry: after.entity.phoneCountry,
             status: after.entity.status,
             lifecycleStage: after.entity.lifecycleStage,
             source: after.entity.source,
@@ -829,6 +877,7 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
             isActive: after.entity.isActive,
             firstName: after.profile.firstName,
             lastName: after.profile.lastName,
+            salutation: after.profile.salutation,
             preferredName: after.profile.preferredName,
             jobTitle: after.profile.jobTitle,
             department: after.profile.department,
@@ -863,7 +912,11 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
           survivingEntity.description = after.entity.description
           survivingEntity.ownerUserId = after.entity.ownerUserId
           survivingEntity.primaryEmail = after.entity.primaryEmail
+          survivingEntity.primaryEmailHash = after.entity.primaryEmailHash
           survivingEntity.primaryPhone = after.entity.primaryPhone
+          survivingEntity.primaryPhoneHash = after.entity.primaryPhoneHash
+          survivingEntity.phoneCountryCode = after.entity.phoneCountryCode
+          survivingEntity.phoneCountry = after.entity.phoneCountry
           survivingEntity.status = after.entity.status
           survivingEntity.lifecycleStage = after.entity.lifecycleStage
           survivingEntity.source = after.entity.source
@@ -875,6 +928,7 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
           survivingEntity.isActive = after.entity.isActive
           profile.firstName = after.profile.firstName
           profile.lastName = after.profile.lastName
+          profile.salutation = after.profile.salutation
           profile.preferredName = after.profile.preferredName
           profile.jobTitle = after.profile.jobTitle
           profile.department = after.profile.department
@@ -954,7 +1008,25 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
         if (parsed.description !== undefined) record.description = normalizeOptionalString(parsed.description)
         if (parsed.ownerUserId !== undefined) record.ownerUserId = parsed.ownerUserId ?? null
         if (parsed.primaryEmail !== undefined) record.primaryEmail = normalizeEmail(parsed.primaryEmail)
-        if (parsed.primaryPhone !== undefined) record.primaryPhone = normalizeOptionalString(parsed.primaryPhone)
+        if (parsed.primaryEmail !== undefined) {
+          record.primaryEmail = normalizeEmail(parsed.primaryEmail)
+          record.primaryEmailHash = computeEmailLookupHash(record.primaryEmail)
+        }
+        if (
+          parsed.primaryPhone !== undefined
+          || parsed.phoneCountryCode !== undefined
+          || parsed.phoneCountry !== undefined
+        ) {
+          const phoneIdentity = resolvePhoneIdentity({
+            primaryPhone: parsed.primaryPhone !== undefined ? parsed.primaryPhone : record.primaryPhone,
+            phoneCountryCode: parsed.phoneCountryCode !== undefined ? parsed.phoneCountryCode : record.phoneCountryCode,
+            phoneCountry: parsed.phoneCountry !== undefined ? parsed.phoneCountry : record.phoneCountry,
+          })
+          record.primaryPhone = phoneIdentity.primaryPhone
+          record.primaryPhoneHash = phoneIdentity.primaryPhoneHash
+          record.phoneCountryCode = phoneIdentity.phoneCountryCode
+          record.phoneCountry = phoneIdentity.phoneCountry
+        }
         if (parsed.status !== undefined) {
           record.status = normalizeOptionalString(parsed.status)
         }
@@ -979,6 +1051,7 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
 
         if (parsed.firstName !== undefined) profile.firstName = normalizeOptionalString(parsed.firstName)
         if (parsed.lastName !== undefined) profile.lastName = normalizeOptionalString(parsed.lastName)
+        if (parsed.salutation !== undefined) profile.salutation = normalizeOptionalString(parsed.salutation)
         if (parsed.preferredName !== undefined) profile.preferredName = normalizeOptionalString(parsed.preferredName)
         if (parsed.jobTitle !== undefined) {
           profile.jobTitle = normalizeOptionalString(parsed.jobTitle)
@@ -990,7 +1063,7 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
         if (parsed.twitterUrl !== undefined) profile.twitterUrl = normalizeOptionalString(parsed.twitterUrl)
 
         const profileFieldsUpdated = [
-          parsed.firstName, parsed.lastName, parsed.preferredName, parsed.jobTitle,
+          parsed.firstName, parsed.lastName, parsed.salutation, parsed.preferredName, parsed.jobTitle,
           parsed.department, parsed.seniority, parsed.timezone, parsed.linkedInUrl,
           parsed.twitterUrl, parsed.companyEntityId,
         ].some((v) => v !== undefined)
@@ -1033,6 +1106,17 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
               organizationId: record.organizationId,
               kind: 'job_title',
               value: normalizedJobTitle,
+            })
+          }
+        }
+        if (parsed.salutation !== undefined) {
+          const normalizedSalutation = normalizeOptionalString(parsed.salutation)
+          if (normalizedSalutation) {
+            await ensureDictionaryEntry(em, {
+              tenantId: record.tenantId,
+              organizationId: record.organizationId,
+              kind: 'salutation',
+              value: normalizedSalutation,
             })
           }
         }
@@ -1113,7 +1197,11 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
             description: before.entity.description,
             ownerUserId: before.entity.ownerUserId,
             primaryEmail: before.entity.primaryEmail,
+            primaryEmailHash: before.entity.primaryEmailHash,
             primaryPhone: before.entity.primaryPhone,
+            primaryPhoneHash: before.entity.primaryPhoneHash,
+          phoneCountryCode: before.entity.phoneCountryCode,
+            phoneCountry: before.entity.phoneCountry,
             status: before.entity.status,
             lifecycleStage: before.entity.lifecycleStage,
             source: before.entity.source,
@@ -1132,6 +1220,7 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
             entity: newEntity,
             firstName: before.profile.firstName,
             lastName: before.profile.lastName,
+            salutation: before.profile.salutation,
             preferredName: before.profile.preferredName,
             jobTitle: before.profile.jobTitle,
             department: before.profile.department,
@@ -1152,7 +1241,11 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
           entity.description = before.entity.description
           entity.ownerUserId = before.entity.ownerUserId
           entity.primaryEmail = before.entity.primaryEmail
+          entity.primaryEmailHash = before.entity.primaryEmailHash
           entity.primaryPhone = before.entity.primaryPhone
+          entity.primaryPhoneHash = before.entity.primaryPhoneHash
+      entity.phoneCountryCode = before.entity.phoneCountryCode
+          entity.phoneCountry = before.entity.phoneCountry
           entity.status = before.entity.status
           entity.lifecycleStage = before.entity.lifecycleStage
           entity.source = before.entity.source
@@ -1174,6 +1267,7 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
           if (profile) {
             profile.firstName = before.profile.firstName
             profile.lastName = before.profile.lastName
+            profile.salutation = before.profile.salutation
             profile.preferredName = before.profile.preferredName
             profile.jobTitle = before.profile.jobTitle
             profile.department = before.profile.department
@@ -1395,7 +1489,11 @@ const deletePersonCommand: CommandHandler<{ body?: Record<string, unknown>; quer
           description: before.entity.description,
           ownerUserId: before.entity.ownerUserId,
           primaryEmail: before.entity.primaryEmail,
+          primaryEmailHash: before.entity.primaryEmailHash,
           primaryPhone: before.entity.primaryPhone,
+          primaryPhoneHash: before.entity.primaryPhoneHash,
+          phoneCountryCode: before.entity.phoneCountryCode,
+          phoneCountry: before.entity.phoneCountry,
           status: before.entity.status,
           lifecycleStage: before.entity.lifecycleStage,
           source: before.entity.source,
@@ -1413,7 +1511,11 @@ const deletePersonCommand: CommandHandler<{ body?: Record<string, unknown>; quer
       entity.description = before.entity.description
       entity.ownerUserId = before.entity.ownerUserId
       entity.primaryEmail = before.entity.primaryEmail
+      entity.primaryEmailHash = before.entity.primaryEmailHash
       entity.primaryPhone = before.entity.primaryPhone
+      entity.primaryPhoneHash = before.entity.primaryPhoneHash
+      entity.phoneCountryCode = before.entity.phoneCountryCode
+      entity.phoneCountry = before.entity.phoneCountry
       entity.status = before.entity.status
       entity.lifecycleStage = before.entity.lifecycleStage
       entity.source = before.entity.source

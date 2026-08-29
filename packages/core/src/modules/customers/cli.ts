@@ -143,6 +143,15 @@ const JOB_TITLE_DEFAULTS: DictionaryDefault[] = [
   { value: 'Director of Retail Partnerships', label: 'Director of Retail Partnerships', color: '#f59e0b', icon: 'lucide:shopping-bag' },
 ]
 
+const SALUTATION_DEFAULTS: DictionaryDefault[] = [
+  { value: 'Mr', label: 'Mr', color: '#64748b', icon: 'lucide:user' },
+  { value: 'Mrs', label: 'Mrs', color: '#64748b', icon: 'lucide:user' },
+  { value: 'Ms', label: 'Ms', color: '#64748b', icon: 'lucide:user' },
+  { value: 'Mdm', label: 'Mdm', color: '#64748b', icon: 'lucide:user' },
+  { value: 'Dr', label: 'Dr', color: '#0ea5e9', icon: 'lucide:stethoscope' },
+  { value: 'Prof', label: 'Prof', color: '#8b5cf6', icon: 'lucide:graduation-cap' },
+]
+
 const INDUSTRY_DEFAULTS: DictionaryDefault[] = [
   { value: 'Renewable Energy', label: 'Renewable Energy' },
   { value: 'Software', label: 'Software' },
@@ -1197,6 +1206,17 @@ async function seedCustomerDictionaries(em: EntityManager, { tenantId, organizat
       tenantId,
       organizationId,
       kind: 'job_title',
+      value: entry.value,
+      label: entry.label,
+      color: entry.color,
+      icon: entry.icon,
+    })
+  }
+  for (const entry of SALUTATION_DEFAULTS) {
+    await ensureDictionaryEntry(em, {
+      tenantId,
+      organizationId,
+      kind: 'salutation',
       value: entry.value,
       label: entry.label,
       color: entry.color,

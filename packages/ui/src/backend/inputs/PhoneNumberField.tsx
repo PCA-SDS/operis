@@ -388,6 +388,13 @@ export type PhoneNumberFieldProps = {
   value?: string | null
   onValueChange: (next: string | undefined) => void
   onDigitsChange?: (digits: string | null) => void
+  /**
+   * Reports the country behind the composed value, whether the user picked it
+   * or it was parsed from `value`. Surfaces that persist the dial code or ISO
+   * code alongside the number need this — the composed string alone cannot
+   * disambiguate countries that share a dial code (`+1`).
+   */
+  onCountryChange?: (country: PhoneCountry) => void
   externalError?: string | null
   disabled?: boolean
   autoFocus?: boolean
@@ -414,6 +421,7 @@ export function PhoneNumberField({
   value,
   onValueChange,
   onDigitsChange,
+  onCountryChange,
   externalError,
   disabled = false,
   autoFocus,
@@ -468,6 +476,14 @@ export function PhoneNumberField({
   const [validationHint, setValidationHint] = React.useState<string | null>(null)
   const [focused, setFocused] = React.useState(false)
   const userEditingRef = React.useRef(false)
+
+  // Held in a ref so an inline callback cannot retrigger the report effect,
+  // which would loop when the parent stores the reported country in state.
+  const countryChangeRef = React.useRef(onCountryChange)
+  countryChangeRef.current = onCountryChange
+  React.useEffect(() => {
+    countryChangeRef.current?.(country)
+  }, [country])
 
   const externalFieldError = externalError && externalError.trim().length > 0 ? externalError : null
   const errorMessage = externalFieldError ?? validationHint
