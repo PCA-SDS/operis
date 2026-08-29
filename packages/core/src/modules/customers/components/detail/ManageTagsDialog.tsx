@@ -15,7 +15,6 @@ import {
   Radio,
   RefreshCw,
   Save,
-  Search,
   Tag,
   Thermometer,
   Trash2,
@@ -46,6 +45,7 @@ import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { ColorPicker } from '@open-mercato/ui/primitives/color-picker'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { ScrollArea } from '@open-mercato/ui/primitives/scroll-area'
 import {
   Dialog,
@@ -54,6 +54,7 @@ import {
 } from '@open-mercato/ui/primitives/dialog'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 
 const logger = createLogger('customers')
 
@@ -955,6 +956,7 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
       }}
     >
       <DialogContent
+        disableBodyWrap
         className="flex max-h-[90vh] flex-col overflow-hidden border-border p-0 shadow-[0px_20px_48px_0px_rgba(0,0,0,0.18)] sm:max-w-[820px] sm:rounded-lg [&>[data-dialog-close]]:hidden"
         aria-describedby={undefined}
       >
@@ -963,7 +965,7 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
         </VisuallyHidden>
 
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between pb-2.5 pl-6 pr-5 pt-4">
+        <div className="flex shrink-0 items-center justify-between px-5 py-4 sm:px-6">
           <div className="flex flex-col gap-1">
             <h2 className="text-base font-bold leading-tight text-foreground">
               {t('customers.tags.manage.title', 'Manage tags')}
@@ -990,20 +992,13 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
               <Plus className="size-3.5" />
               {t('customers.tags.manage.addCategory', 'New category')}
             </Button>
-            <IconButton
-              type="button"
-              variant="outline"
-              size="sm"
-              className="size-7 shrink-0 rounded-md border-border"
+            <CloseButton
               onClick={onClose}
               aria-label={t('customers.tags.manage.closeDialog', 'Close')}
-            >
-              <X className="size-3.5" />
-            </IconButton>
+            />
           </div>
         </div>
-        <div className="h-px shrink-0 bg-border" />
-
+        
         {loading ? (
           <div className="px-7 py-12 text-center text-sm text-muted-foreground">
             {t('customers.tags.manage.loading', 'Loading...')}
@@ -1159,14 +1154,12 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                         </span>
                       </div>
                     </div>
-                    <div className="relative w-[220px] shrink-0">
-                      <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
-                      <input
-                        type="text"
+                    <div className="w-[220px] shrink-0">
+                      <SearchInput
+                        size="sm"
                         value={searchValue}
-                        onChange={(e) => setSearchValue(e.target.value)}
+                        onChange={setSearchValue}
                         placeholder={t('customers.tags.manage.search', 'Search values...')}
-                        className="w-full rounded-md border border-input bg-input-bg py-2 pl-9 pr-3 text-xs text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-foreground"
                       />
                     </div>
                   </div>

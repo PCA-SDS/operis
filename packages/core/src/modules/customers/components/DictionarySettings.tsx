@@ -106,6 +106,11 @@ export default function DictionarySettings() {
       description: t('customers.config.dictionaries.sections.industries.description', 'Manage the industries used by companies.'),
     },
     {
+      kind: 'client-tiers',
+      title: t('customers.config.dictionaries.sections.clientTiers.title', 'Client tiers'),
+      description: t('customers.config.dictionaries.sections.clientTiers.description', 'Manage the tiers companies can be assigned to.'),
+    },
+    {
       kind: 'lifecycle-stages',
       title: t('customers.config.dictionaries.sections.lifecycle.title', 'Lifecycle stages'),
       description: t('customers.config.dictionaries.sections.lifecycle.description', 'Configure lifecycle stages to track customer progress.'),

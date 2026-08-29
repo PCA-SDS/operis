@@ -13,6 +13,7 @@ import { Label } from '@open-mercato/ui/primitives/label'
 import { Switch } from '@open-mercato/ui/primitives/switch'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@open-mercato/ui/primitives/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 type NotificationTypeCatalogueItem = {
   id: string
@@ -434,39 +435,39 @@ export function NotificationSettingsPageClient() {
             </p>
           ) : (
             <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50 text-left">
-                    <th className="px-4 py-3 font-medium">
+              <Table density="compact" columnCount={2 + channels.length}>
+                <TableHeader>
+                  <TableRow className="border-border text-left">
+                    <TableHead>
                       {t('notifications.settings.types.typeColumn', 'Notification type')}
-                    </th>
+                    </TableHead>
                     {channels.map((channel) => (
-                      <th key={channel.id} className="px-4 py-3 font-medium">
+                      <TableHead key={channel.id}>
                         {t(channel.labelKey, channel.id)}
-                      </th>
+                      </TableHead>
                     ))}
-                    <th className="px-4 py-3 font-medium">
+                    <TableHead>
                       <div>{t('notifications.settings.types.requiredColumn', 'Required')}</div>
                       <div className="text-xs font-normal text-muted-foreground">
                         {t('notifications.settings.types.requiredHint', 'Users cannot opt out when on.')}
                       </div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {types.map((type) => (
-                    <tr key={type.id} className="border-b border-border last:border-0">
-                      <td className="px-4 py-3">
+                    <TableRow key={type.id} className="border-border">
+                      <TableCell>
                         <div className="font-medium">{t(type.labelKey, type.id)}</div>
                         {type.descriptionKey ? (
                           <div className="text-xs text-muted-foreground">{t(type.descriptionKey, '')}</div>
                         ) : null}
-                      </td>
+                      </TableCell>
                       {channels.map((channel) => {
                         const cellKey = `${type.id}::${channel.id}`
                         const channelEnabled = type.channels === null || type.channels.includes(channel.id)
                         return (
-                          <td key={channel.id} className="px-4 py-3">
+                          <TableCell key={channel.id}>
                             {/* The saving spinner is absolutely positioned so it never joins the cell's
                                 layout flow — an in-flow sibling would widen the column mid-toggle and
                                 make the whole table jump for the duration of the save. */}
@@ -483,10 +484,10 @@ export function NotificationSettingsPageClient() {
                                 <Spinner size="sm" className="absolute left-full ml-2" />
                               ) : null}
                             </span>
-                          </td>
+                          </TableCell>
                         )
                       })}
-                      <td className="px-4 py-3">
+                      <TableCell>
                         <span className="relative inline-flex">
                           <Switch
                             checked={type.nonOptOut === true}
@@ -498,11 +499,11 @@ export function NotificationSettingsPageClient() {
                             <Spinner size="sm" className="absolute left-full ml-2" />
                           ) : null}
                         </span>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>

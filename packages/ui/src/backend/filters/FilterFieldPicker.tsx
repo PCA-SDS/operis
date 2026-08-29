@@ -1,8 +1,11 @@
 // packages/ui/src/backend/filters/FilterFieldPicker.tsx
 'use client'
 import * as React from 'react'
-import { Search, Activity, Calendar, Hash, Tag, ArrowRight, ALargeSmall, UserRound, Mail, Phone, Filter, type LucideIcon } from 'lucide-react'
+import { Activity, Calendar, Hash, Tag, ArrowRight, ALargeSmall, UserRound, Mail, Phone, Filter, type LucideIcon } from 'lucide-react'
 import { Popover, PopoverContent, PopoverAnchor } from '../../primitives/popover'
+import { SearchInput } from '../../primitives/search-input'
+import { MENU_ROW_HOVER, menuRowVariants } from '../../primitives/menu'
+import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { FilterFieldDef, FilterFieldType } from '@open-mercato/shared/lib/query/advanced-filter'
 
@@ -88,19 +91,17 @@ export function FilterFieldPicker({ fields, open, onOpenChange, onSelect, trigge
       <PopoverAnchor virtualRef={triggerRef as React.RefObject<{ getBoundingClientRect(): DOMRect }>} />
       <PopoverContent className="w-80 p-0" align="start" data-advanced-filter-portal="">
         <div className="flex flex-col">
-          <div className="relative p-2 border-b border-border">
-            <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
+          <div className="border-b border-border px-3">
+            <SearchInput
               ref={searchRef}
-              type="text"
+              tone="plain"
               value={query}
-              onChange={(e) => { setQuery(e.target.value); setActiveIdx(0) }}
+              onChange={(next) => { setQuery(next); setActiveIdx(0) }}
               placeholder={t('ui.advancedFilter.fieldPicker.search', 'Search field…')}
-              className="h-8 w-full rounded-md border border-input bg-input-bg pl-8 pr-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
               aria-label={t('ui.advancedFilter.fieldPicker.search', 'Search field…')}
             />
           </div>
-          <div className="max-h-[400px] overflow-y-auto py-1" role="listbox">
+          <div className="max-h-[400px] overflow-y-auto p-1" role="listbox">
             {grouped.map(({ group, items }) => (
               <div key={group}>
                 <div className="px-3 pt-2 pb-1 text-overline font-semibold uppercase tracking-widest text-muted-foreground">{group}</div>
@@ -119,7 +120,7 @@ export function FilterFieldPicker({ fields, open, onOpenChange, onSelect, trigge
                       aria-selected={active}
                       onClick={() => { onSelect(f); onOpenChange(false) }}
                       onMouseEnter={() => setActiveIdx(flatIdx)}
-                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent ${active ? 'bg-secondary' : ''}`}
+                      className={cn(menuRowVariants({ size: 'compact', active }), MENU_ROW_HOVER)}
                     >
                       <Icon className="size-4 text-muted-foreground" />
                       <span>{f.label}</span>

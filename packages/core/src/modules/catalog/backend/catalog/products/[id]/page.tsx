@@ -140,6 +140,7 @@ import {
 } from "@open-mercato/ui/primitives/dialog";
 import { SendObjectMessageDialog } from "@open-mercato/ui/backend/messages/SendObjectMessageDialog.tsx";
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 const logger = createLogger('catalog')
 
@@ -2422,31 +2423,31 @@ function ProductVariantsSection({
         </div>
         {variants.length ? (
           <div className="overflow-x-auto rounded-md border">
-            <table className="w-full min-w-[720px] table-fixed text-sm">
-              <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-normal">
+            <Table columnCount={5} density="compact" className="min-w-[720px] table-fixed">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
                     {t("catalog.products.form.variants", "Variant")}
-                  </th>
-                  <th className="w-40 px-3 py-2 font-normal">SKU</th>
-                  <th className="w-48 px-3 py-2 font-normal">
+                  </TableHead>
+                  <TableHead className="w-40">SKU</TableHead>
+                  <TableHead className="w-48">
                     {t(
                       "catalog.products.edit.variantList.pricesHeading",
                       "Prices",
                     )}
-                  </th>
-                  <th className="w-24 px-3 py-2 font-normal">
+                  </TableHead>
+                  <TableHead className="w-24">
                     {t("catalog.products.edit.variants.default", "Default")}
-                  </th>
-                  <th className="w-40 px-3 py-2 font-normal text-right">
+                  </TableHead>
+                  <TableHead align="right" className="w-40">
                     {t("catalog.products.edit.variantList.actions", "Actions")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {variants.map((variant) => (
-                  <tr key={variant.id} className="border-t hover:bg-muted/50">
-                    <td className="px-3 py-2">
+                  <TableRow key={variant.id} className="hover:bg-muted/50">
+                    <TableCell>
                       <Link
                         href={`/backend/catalog/products/${productId}/variants/${variant.id}`}
                         className="block truncate text-sm font-medium hover:underline"
@@ -2454,13 +2455,13 @@ function ProductVariantsSection({
                       >
                         {variant.name || variant.id}
                       </Link>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
                       <span className="block truncate" title={variant.sku || "—"}>
                         {variant.sku || "—"}
                       </span>
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell>
                       {variant.prices.length ? (
                         <ul className="space-y-1">
                           {variant.prices.map((price) => (
@@ -2483,11 +2484,11 @@ function ProductVariantsSection({
                           )}
                         </span>
                       )}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
                       {variant.isDefault ? t("common.yes", "Yes") : "—"}
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell align="right">
                       <div className="flex justify-end gap-2 whitespace-nowrap">
                         <Button asChild size="sm" variant="outline">
                           <Link
@@ -2519,11 +2520,11 @@ function ProductVariantsSection({
                           </Button>
                         ) : null}
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">

@@ -1030,7 +1030,6 @@ export default function SyncRunsDashboardPage() {
         </Card>
 
         <DataTable
-          stickyActionsColumn
           title={t('data_sync.dashboard.title')}
           columns={columns}
           data={rows}

@@ -14,6 +14,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { InjectionSpot } from '../injection/InjectionSpot'
 import { WidgetDataBatchProvider } from './widgetData'
+import { formatGreeting, pickGreetingForNow, resolveGreetedName, type Greeting } from './greetings'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 const logger = createLogger('ui').child({ component: 'DashboardScreen' })
@@ -110,6 +111,7 @@ export function DashboardScreen() {
   const [context, setContext] = React.useState<LayoutContext | null>(null)
   const [editing, setEditing] = React.useState(false)
   const [settingsId, setSettingsId] = React.useState<string | null>(null)
+  const [greeting] = React.useState<Greeting>(pickGreetingForNow)
   const pendingOpsRef = React.useRef(0)
   const saveQueueRef = React.useRef(Promise.resolve())
   const layoutRevisionRef = React.useRef(0)
@@ -400,11 +402,15 @@ export function DashboardScreen() {
     )
   }
 
+  const greetedName = resolveGreetedName(context?.userName, context?.userEmail)
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t('dashboard.title')}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {greetedName ? formatGreeting(greeting, greetedName, t) : t('dashboard.title')}
+          </h1>
           <p className="text-sm text-muted-foreground">{t('dashboard.subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">

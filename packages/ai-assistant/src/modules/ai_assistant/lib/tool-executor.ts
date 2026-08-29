@@ -1,6 +1,7 @@
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import type { McpToolContext, ToolExecutionResult } from './types'
 import { getToolRegistry } from './tool-registry'
+import { isToolAiAllowed } from './ai-entitlement'
 import { hasRequiredFeatures } from './auth'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 
@@ -36,6 +37,21 @@ export async function executeTool(
       success: false,
       error: `Tool "${toolName}" not found`,
       errorCode: 'NOT_FOUND',
+    }
+  }
+
+  // The tenant's per-module AI switch, checked before the ACL: a tool whose
+  // module has its assistant turned off must not run even for a caller whose
+  // features would otherwise allow it. Listing sites apply the same predicate,
+  // so a tool can never appear in a list it cannot be executed from.
+  if (!isToolAiAllowed(toolName, context.aiDisabledModuleIds)) {
+    return {
+      success: false,
+      error: 'The AI assistant for this module is turned off for this tenant',
+      // Same code the feature-gate denial below uses: to a caller both are
+      // "you may not run this", and widening the public errorCode union would
+      // change a contract every consumer switches on.
+      errorCode: 'UNAUTHORIZED',
     }
   }
 

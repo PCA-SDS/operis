@@ -1,14 +1,14 @@
 "use client"
 
 import * as React from 'react'
-import { Check, Search } from 'lucide-react'
+import { Check } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@open-mercato/ui/primitives/popover'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Spinner } from '@open-mercato/ui/primitives/spinner'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { translateWithFallback } from '@open-mercato/shared/lib/i18n/translate'
 import { ChipButton } from './ChipButton'
@@ -186,21 +186,19 @@ export function EntityFilterPopover({
           footerLeft={footerLeft}
           bodyClassName="flex flex-col bg-card"
         >
-          <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
-            <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <input
-              type="text"
+          <div className="border-b border-border px-4">
+            <SearchInput
+              tone="plain"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={setQuery}
+              loading={isLoading}
               placeholder={translateWithFallback(
                 t,
                 'customers.deals.kanban.filter.searchPlaceholder',
                 'Search…',
               )}
-              className="h-7 w-full bg-transparent text-sm leading-normal text-foreground outline-none placeholder:text-muted-foreground"
               autoFocus
             />
-            {isLoading ? <Spinner className="size-3" /> : null}
           </div>
 
           <div className="max-h-64 overflow-y-auto">

@@ -38,6 +38,7 @@ import {
   ShieldCheck,
   Trash2,
 } from 'lucide-react'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 type SyncOption = {
   integrationId: string
@@ -477,21 +478,21 @@ export function IntegrationScheduleTab(props: IntegrationScheduleTabProps) {
         </Alert>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full min-w-[1080px] text-sm">
-            <thead className="bg-muted/50 text-left">
-              <tr>
-                <th className="px-3 py-2 font-medium">{t('data_sync.dashboard.columns.entityType', 'Entity Type')}</th>
-                <th className="px-3 py-2 font-medium">{t('data_sync.dashboard.columns.direction', 'Direction')}</th>
-                <th className="px-3 py-2 font-medium">{t('data_sync.dashboard.schedule.type', 'Schedule type')}</th>
-                <th className="px-3 py-2 font-medium">{t('data_sync.integrationTab.columns.value', 'Value')}</th>
-                <th className="px-3 py-2 font-medium">{t('data_sync.dashboard.schedule.timezone', 'Timezone')}</th>
-                <th className="px-3 py-2 font-medium">{t('data_sync.dashboard.start.fullSync', 'Run as full sync')}</th>
-                <th className="px-3 py-2 font-medium">{t('data_sync.dashboard.schedule.enabled', 'Schedule enabled')}</th>
-                <th className="px-3 py-2 font-medium">{t('data_sync.integrationTab.columns.lastRun', 'Last run')}</th>
-                <th className="px-3 py-2 font-medium">{t('data_sync.integrationTab.columns.actions', 'Actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table columnCount={9} density="compact" className="min-w-[1080px]">
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('data_sync.dashboard.columns.entityType', 'Entity Type')}</TableHead>
+                <TableHead>{t('data_sync.dashboard.columns.direction', 'Direction')}</TableHead>
+                <TableHead>{t('data_sync.dashboard.schedule.type', 'Schedule type')}</TableHead>
+                <TableHead>{t('data_sync.integrationTab.columns.value', 'Value')}</TableHead>
+                <TableHead>{t('data_sync.dashboard.schedule.timezone', 'Timezone')}</TableHead>
+                <TableHead>{t('data_sync.dashboard.start.fullSync', 'Run as full sync')}</TableHead>
+                <TableHead>{t('data_sync.dashboard.schedule.enabled', 'Schedule enabled')}</TableHead>
+                <TableHead>{t('data_sync.integrationTab.columns.lastRun', 'Last run')}</TableHead>
+                <TableHead>{t('data_sync.integrationTab.columns.actions', 'Actions')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((row) => {
                 const scheduleState = schedules[row.key] ?? buildDefaultScheduleState(row.entityType)
                 const isRunning = runningKey === row.key
@@ -499,10 +500,10 @@ export function IntegrationScheduleTab(props: IntegrationScheduleTabProps) {
                 const isDeleting = deletingKey === row.key
                 const controlsDisabled = isRunning || isSaving || isDeleting
                 return (
-                  <tr key={row.key} className="border-t align-top">
-                    <td className="px-3 py-3 font-medium">{formatEntityTypeLabel(row.entityType)}</td>
-                    <td className="px-3 py-3">{t(`data_sync.dashboard.direction.${row.direction}`, row.direction === 'import' ? 'Import' : 'Export')}</td>
-                    <td className="px-3 py-3">
+                  <TableRow key={row.key} className="align-top">
+                    <TableCell className="font-medium">{formatEntityTypeLabel(row.entityType)}</TableCell>
+                    <TableCell>{t(`data_sync.dashboard.direction.${row.direction}`, row.direction === 'import' ? 'Import' : 'Export')}</TableCell>
+                    <TableCell>
                       <Select
                         value={scheduleState.scheduleType}
                         onValueChange={(value) => updateScheduleEditor(row.key, {
@@ -518,23 +519,23 @@ export function IntegrationScheduleTab(props: IntegrationScheduleTabProps) {
                           <SelectItem value="cron">{t('data_sync.dashboard.schedule.cron', 'Cron')}</SelectItem>
                         </SelectContent>
                       </Select>
-                    </td>
-                    <td className="px-3 py-3">
+                    </TableCell>
+                    <TableCell>
                       <Input
                         value={scheduleState.scheduleValue}
                         onChange={(event) => updateScheduleEditor(row.key, { scheduleValue: event.target.value }, row.entityType)}
                         disabled={controlsDisabled}
                         placeholder={scheduleState.scheduleType === 'cron' ? '0 * * * *' : '1h'}
                       />
-                    </td>
-                    <td className="px-3 py-3">
+                    </TableCell>
+                    <TableCell>
                       <Input
                         value={scheduleState.timezone}
                         onChange={(event) => updateScheduleEditor(row.key, { timezone: event.target.value }, row.entityType)}
                         disabled={controlsDisabled}
                       />
-                    </td>
-                    <td className="px-3 py-3">
+                    </TableCell>
+                    <TableCell>
                       <label className="flex min-h-10 items-center gap-2 text-sm">
                         <Switch
                           checked={scheduleState.fullSync}
@@ -544,8 +545,8 @@ export function IntegrationScheduleTab(props: IntegrationScheduleTabProps) {
                         />
                         <span>{t('data_sync.integrationTab.fullSyncShort', 'Full')}</span>
                       </label>
-                    </td>
-                    <td className="px-3 py-3">
+                    </TableCell>
+                    <TableCell>
                       <label className="flex min-h-10 items-center gap-2 text-sm">
                         <Switch
                           checked={scheduleState.isEnabled}
@@ -555,15 +556,15 @@ export function IntegrationScheduleTab(props: IntegrationScheduleTabProps) {
                         />
                         <span>{scheduleState.isEnabled ? t('data_sync.dashboard.schedule.status.shortEnabled', 'Scheduled') : t('data_sync.dashboard.schedule.status.shortDisabled', 'Paused')}</span>
                       </label>
-                    </td>
-                    <td className="px-3 py-3 text-muted-foreground">
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
                       {scheduleState.lastRunAt
                         ? new Date(scheduleState.lastRunAt).toLocaleString()
                         : scheduleState.id
                           ? t('data_sync.dashboard.schedule.neverRun', 'Saved, but no scheduled execution has completed yet.')
                           : t('data_sync.dashboard.schedule.none', 'No recurring schedule saved for this target yet.')}
-                    </td>
-                    <td className="px-3 py-3">
+                    </TableCell>
+                    <TableCell>
                       <div className="flex flex-wrap gap-2">
                         <Button
                           type="button"
@@ -601,12 +602,12 @@ export function IntegrationScheduleTab(props: IntegrationScheduleTabProps) {
                             : t('data_sync.dashboard.schedule.delete', 'Remove schedule')}
                         </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 

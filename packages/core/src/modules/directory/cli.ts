@@ -128,9 +128,19 @@ const listTenantModules: ModuleCli = {
       console.log('No entitleable modules are registered in this build.')
       return
     }
+    // Core rows are marked distinctly rather than printed as a plain tick: the
+    // listing now includes platform modules for parity with the Modules screen,
+    // and an operator reading `✅ auth` would take it for a decision they could
+    // reverse — `set-tenant-module --module auth` refuses.
     for (const state of states) {
+      if (state.alwaysOn) {
+        console.log(`🔒 ${state.moduleId} (core — always available)`)
+        continue
+      }
       console.log(`${state.isEnabled ? '✅' : '⛔'} ${state.moduleId}`)
     }
+    const governed = states.filter((state) => !state.alwaysOn)
+    console.log(`\n${governed.filter((state) => state.isEnabled).length}/${governed.length} entitleable modules enabled`)
   },
 }
 

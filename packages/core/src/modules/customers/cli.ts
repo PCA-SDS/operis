@@ -75,10 +75,15 @@ export const PIPELINE_STAGE_DEFAULTS: DictionaryDefault[] = [
 ]
 
 export const ENTITY_STATUS_DEFAULTS: DictionaryDefault[] = [
+  { value: 'prospect', label: 'Prospect', color: '#f59e0b', icon: 'lucide:user-search' },
   { value: 'active', label: 'Active', color: '#22c55e', icon: 'lucide:user-check' },
   { value: 'inactive', label: 'Inactive', color: '#94a3b8', icon: 'lucide:pause-circle' },
-  { value: 'pending', label: 'Pending', color: '#f59e0b', icon: 'lucide:clock' },
-  { value: 'archived', label: 'Archived', color: '#64748b', icon: 'lucide:archive' },
+  { value: 'blacklisted', label: 'Blacklisted', color: '#ef4444', icon: 'lucide:user-x' },
+]
+
+export const CLIENT_TIER_DEFAULTS: DictionaryDefault[] = [
+  { value: 'standard', label: 'Standard', color: '#94a3b8', icon: 'lucide:circle' },
+  { value: 'vip', label: 'VIP', color: '#f59e0b', icon: 'lucide:star' },
 ]
 
 export const ENTITY_LIFECYCLE_STAGE_DEFAULTS: DictionaryDefault[] = [
@@ -1179,6 +1184,17 @@ async function seedCustomerDictionaries(em: EntityManager, { tenantId, organizat
       tenantId,
       organizationId,
       kind: 'interaction_status',
+      value: entry.value,
+      label: entry.label,
+      color: entry.color,
+      icon: entry.icon,
+    })
+  }
+  for (const entry of CLIENT_TIER_DEFAULTS) {
+    await ensureDictionaryEntry(em, {
+      tenantId,
+      organizationId,
+      kind: 'client_tier',
       value: entry.value,
       label: entry.label,
       color: entry.color,

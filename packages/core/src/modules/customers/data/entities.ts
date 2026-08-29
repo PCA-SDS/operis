@@ -265,6 +265,11 @@ export class CustomerPersonCompanyLink {
   expression:
     `create index "idx_customer_companies_entity_id" on "customer_companies" ("entity_id")`,
 })
+@Index({
+  name: 'customer_companies_tenant_tax_code_uq',
+  expression:
+    `create unique index "customer_companies_tenant_tax_code_uq" on "customer_companies" ("tenant_id", "tax_code") where "tax_code" is not null`,
+})
 export class CustomerCompanyProfile {
   [OptionalProps]?: 'createdAt' | 'updatedAt'
 
@@ -297,6 +302,33 @@ export class CustomerCompanyProfile {
 
   @Property({ name: 'annual_revenue', type: 'numeric', precision: 16, scale: 2, nullable: true })
   annualRevenue?: string | null
+
+  @Property({ name: 'tax_code', type: 'text', nullable: true })
+  taxCode?: string | null
+
+  @Property({ name: 'registration_country', type: 'text', nullable: true })
+  registrationCountry?: string | null
+
+  @Property({ name: 'address', type: 'text', nullable: true })
+  address?: string | null
+
+  @Property({ name: 'incorporation_date', type: 'date', nullable: true })
+  incorporationDate?: Date | null
+
+  @Property({ name: 'client_tier', type: 'text', nullable: true })
+  clientTier?: string | null
+
+  @Property({ name: 'onboarded_at', type: 'date', nullable: true })
+  onboardedAt?: Date | null
+
+  @Property({ name: 'registered_at', type: 'date', nullable: true })
+  registeredAt?: Date | null
+
+  @Property({ name: 'end_date', type: 'date', nullable: true })
+  endDate?: Date | null
+
+  @Property({ name: 'reactivated_at', type: Date, nullable: true })
+  reactivatedAt?: Date | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

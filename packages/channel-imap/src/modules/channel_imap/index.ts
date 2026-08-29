@@ -4,4 +4,5 @@ export const metadata = {
   description:
     'Connect personal mailboxes via IMAP for inbound polling and SMTP for outbound delivery. Pairs with the Communications Hub (SPEC-045d).',
   defaultEntitlement: 'enabled' as const,
+  category: 'Communication' as const,
 }

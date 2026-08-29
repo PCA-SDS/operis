@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { EmailInput } from '@open-mercato/ui/primitives/email-input'
 import {
   Select,
@@ -251,11 +252,11 @@ export const ConfigureStep = (props: ConfigureStepProps) => {
             )}
 
             <div className="flex gap-2">
-              <Input
+              <SearchInput
                 size="sm"
                 className="flex-1"
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
+                onChange={setSearchInput}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault()

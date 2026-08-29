@@ -1,13 +1,14 @@
 "use client"
 
 import * as React from 'react'
-import { Clock, Search } from 'lucide-react'
+import { Clock } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import type { SectionAction, TabEmptyStateConfig } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Kbd } from '@open-mercato/ui/primitives/kbd'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { ActivityTimelineFilters } from './ActivityTimelineFilters'
 import { ActivityTimeline } from './ActivityTimeline'
 import type { ActivitySummary, InteractionSummary } from './types'
@@ -362,21 +363,14 @@ export function ActivitiesSection({
         </h3>
       </div>
 
-      <label className="relative flex items-center">
-        <Search className="pointer-events-none absolute left-2.5 size-5 text-muted-foreground" aria-hidden />
-        <input
-          ref={searchInputRef}
-          type="search"
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder={t('customers.timeline.history.searchPlaceholder', 'Search...')}
-          aria-label={t('customers.timeline.history.searchAriaLabel', 'Search interaction history')}
-          className="h-9 w-full rounded-lg border border-border bg-card pl-9 pr-14 text-sm text-foreground shadow-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
-        />
-        <Kbd className="pointer-events-none absolute right-2 hidden text-overline uppercase tracking-[0.48px] sm:inline-flex">
-          ⌘1
-        </Kbd>
-      </label>
+      <SearchInput
+        ref={searchInputRef}
+        value={searchTerm}
+        onChange={setSearchTerm}
+        placeholder={t('customers.timeline.history.searchPlaceholder', 'Search...')}
+        aria-label={t('customers.timeline.history.searchAriaLabel', 'Search interaction history')}
+        shortcut={<Kbd className="hidden sm:inline-flex">⌘1</Kbd>}
+      />
 
       <ActivityTimelineFilters
         entityId={entityId}

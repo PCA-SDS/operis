@@ -9,6 +9,7 @@ import { Label } from '@open-mercato/ui/primitives/label'
 import { Alert, AlertDescription } from '@open-mercato/ui/primitives/alert'
 import type { CustomerFieldDefinitionInput } from '../data/validators'
 import { getLocalizedDefaultCheckoutCustomerFields } from '../lib/defaults'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 type Props = {
   value: CustomerFieldDefinitionInput[]
@@ -262,22 +263,22 @@ export function CustomerFieldsEditor({ value, onChange, errors }: Props) {
                       </div>
                       {optionsError ? <p className="text-xs text-destructive">{optionsError}</p> : null}
                       <div className="overflow-hidden rounded-lg border border-border/70 bg-surface">
-                        <table className="w-full table-fixed">
-                          <thead className="border-b bg-muted/30">
-                            <tr className="text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                              <th className="px-3 py-2 w-[40%]">{t('checkout.customerFieldsEditor.options.value')}</th>
-                              <th className="px-3 py-2">{t('checkout.customerFieldsEditor.options.label')}</th>
-                              <th className="px-3 py-2 w-[96px] text-right">{t('checkout.customerFieldsEditor.columns.actions')}</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-border/70">
+                        <Table columnCount={3} density="compact" className="table-fixed">
+                          <TableHeader>
+                            <TableRow className="text-left font-semibold">
+                              <TableHead className="w-[40%]">{t('checkout.customerFieldsEditor.options.value')}</TableHead>
+                              <TableHead>{t('checkout.customerFieldsEditor.options.label')}</TableHead>
+                              <TableHead align="right" className="w-[96px]">{t('checkout.customerFieldsEditor.columns.actions')}</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
                             {(field.options ?? []).map((option, optionIndex) => {
                               const optionValueError = readOptionError(index, optionIndex, 'value')
                               const optionLabelError = readOptionError(index, optionIndex, 'label')
 
                               return (
-                                <tr key={optionIndex}>
-                                  <td className="px-3 py-2">
+                                <TableRow key={optionIndex}>
+                                  <TableCell>
                                     <Input
                                       value={option.value}
                                       onChange={(event) => updateOption(index, optionIndex, { value: event.target.value })}
@@ -288,8 +289,8 @@ export function CustomerFieldsEditor({ value, onChange, errors }: Props) {
                                     {optionValueError ? (
                                       <p className="mt-1 text-xs text-destructive">{optionValueError}</p>
                                     ) : null}
-                                  </td>
-                                  <td className="px-3 py-2">
+                                  </TableCell>
+                                  <TableCell>
                                     <Input
                                       value={option.label}
                                       onChange={(event) => updateOption(index, optionIndex, { label: event.target.value })}
@@ -300,8 +301,8 @@ export function CustomerFieldsEditor({ value, onChange, errors }: Props) {
                                     {optionLabelError ? (
                                       <p className="mt-1 text-xs text-destructive">{optionLabelError}</p>
                                     ) : null}
-                                  </td>
-                                  <td className="px-3 py-2 text-right">
+                                  </TableCell>
+                                  <TableCell align="right">
                                     <Button
                                       type="button"
                                       variant="outline"
@@ -310,12 +311,12 @@ export function CustomerFieldsEditor({ value, onChange, errors }: Props) {
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
-                                  </td>
-                                </tr>
+                                  </TableCell>
+                                </TableRow>
                               )
                             })}
-                          </tbody>
-                        </table>
+                          </TableBody>
+                        </Table>
                       </div>
                       <Button type="button" variant="outline" size="sm" onClick={() => addOption(index)}>
                         <Plus className="mr-2 h-4 w-4" />

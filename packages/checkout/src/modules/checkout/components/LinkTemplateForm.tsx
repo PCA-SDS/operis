@@ -46,6 +46,7 @@ import { CheckoutCurrencySelect } from './CheckoutCurrencySelect'
 import { CustomerFieldsEditor } from './CustomerFieldsEditor'
 import { GatewaySettingsFields } from './GatewaySettingsFields'
 import { LogoUploadField } from './LogoUploadField'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 type Props = {
   mode: 'link' | 'template'
@@ -418,20 +419,20 @@ function PriceListEditor({
       <div className="overflow-hidden rounded-xl border border-border/70 bg-surface">
         {items.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] table-fixed">
-              <thead className="border-b bg-muted/30">
-                <tr className="text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <th className="px-3 py-2 w-[22%]">{t('checkout.linkTemplateForm.priceList.columns.itemCode')}</th>
-                  <th className="px-3 py-2">{t('checkout.linkTemplateForm.priceList.columns.description')}</th>
-                  <th className="px-3 py-2 w-[16%]">{t('checkout.linkTemplateForm.priceList.columns.amount')}</th>
-                  <th className="px-3 py-2 w-[24%]">{t('checkout.linkTemplateForm.priceList.columns.currency')}</th>
-                  <th className="px-3 py-2 w-[110px] text-right">{t('checkout.linkTemplateForm.priceList.columns.actions')}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/70">
+            <Table columnCount={5} density="compact" className="min-w-[760px] table-fixed">
+              <TableHeader>
+                <TableRow className="text-left font-semibold">
+                  <TableHead className="w-[22%]">{t('checkout.linkTemplateForm.priceList.columns.itemCode')}</TableHead>
+                  <TableHead>{t('checkout.linkTemplateForm.priceList.columns.description')}</TableHead>
+                  <TableHead className="w-[16%]">{t('checkout.linkTemplateForm.priceList.columns.amount')}</TableHead>
+                  <TableHead className="w-[24%]">{t('checkout.linkTemplateForm.priceList.columns.currency')}</TableHead>
+                  <TableHead align="right" className="w-[110px]">{t('checkout.linkTemplateForm.priceList.columns.actions')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {items.map((item, index) => (
-                  <tr key={`${item.id}:${index}`} className="align-top">
-                    <td className="px-3 py-2">
+                  <TableRow key={`${item.id}:${index}`} className="align-top">
+                    <TableCell>
                       <Input
                         value={item.id}
                         onChange={(event) => updateItem(index, { id: event.target.value })}
@@ -439,8 +440,8 @@ function PriceListEditor({
                         aria-label={t('checkout.linkTemplateForm.priceList.aria.itemCode', { index: index + 1 })}
                         className="h-8"
                       />
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell>
                       <Input
                         value={item.description}
                         onChange={(event) => updateItem(index, { description: event.target.value })}
@@ -448,8 +449,8 @@ function PriceListEditor({
                         aria-label={t('checkout.linkTemplateForm.priceList.aria.description', { index: index + 1 })}
                         className="h-8"
                       />
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell>
                       <Input
                         type="number"
                         min="0"
@@ -460,15 +461,15 @@ function PriceListEditor({
                         aria-label={t('checkout.linkTemplateForm.priceList.aria.amount', { index: index + 1 })}
                         className="h-8"
                       />
-                    </td>
-                    <td className="px-3 py-2">
+                    </TableCell>
+                    <TableCell>
                       <CheckoutCurrencySelect
                         value={item.currencyCode}
                         onChange={(next) => updateItem(index, { currencyCode: next })}
                         placeholder={t('checkout.currencySelect.placeholder')}
                       />
-                    </td>
-                    <td className="px-3 py-2 text-right">
+                    </TableCell>
+                    <TableCell align="right">
                       <Button
                         type="button"
                         variant="outline"
@@ -478,11 +479,11 @@ function PriceListEditor({
                         <Trash2 className="mr-2 h-4 w-4" />
                         {t('checkout.common.actions.remove')}
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         ) : (
           <div className="px-4 py-8">

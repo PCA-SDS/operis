@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { CreditCard, LayoutGrid, Settings, ShoppingCart, Truck } from 'lucide-react'
+import { Clock, CreditCard, LayoutGrid, List, Settings, ShoppingCart, Truck } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import {
   Breadcrumb,
@@ -427,6 +427,49 @@ const segmentedControlEntry: GalleryEntry = {
   <SegmentedControlItem value="30d">30d</SegmentedControlItem>
   <SegmentedControlItem value="90d">90d</SegmentedControlItem>
   <SegmentedControlItem value="1y">1y</SegmentedControlItem>
+</SegmentedControl>`,
+    },
+    {
+      id: 'with-icons',
+      title: 'With icons',
+      render: () => (
+        <SegmentedControl defaultValue="all" aria-label="Calendar category">
+          <SegmentedControlItem value="all" icon={<LayoutGrid className="size-4" />}>
+            All Scheduled
+          </SegmentedControlItem>
+          <SegmentedControlItem value="meetings" icon={<List className="size-4" />}>
+            Meetings
+          </SegmentedControlItem>
+          <SegmentedControlItem value="events" icon={<Clock className="size-4" />}>
+            Events
+          </SegmentedControlItem>
+        </SegmentedControl>
+      ),
+      code: `import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
+
+<SegmentedControl defaultValue="all" aria-label="Calendar category">
+  <SegmentedControlItem value="all" icon={<LayoutGrid className="size-4" />}>All Scheduled</SegmentedControlItem>
+  <SegmentedControlItem value="meetings" icon={<List className="size-4" />}>Meetings</SegmentedControlItem>
+  <SegmentedControlItem value="events" icon={<Clock className="size-4" />}>Events</SegmentedControlItem>
+</SegmentedControl>`,
+    },
+    {
+      id: 'full-width',
+      title: 'Full width',
+      render: () => (
+        <SegmentedControl fullWidth defaultValue="never" aria-label="Ends">
+          <SegmentedControlItem value="never">Never</SegmentedControlItem>
+          <SegmentedControlItem value="date">On date</SegmentedControlItem>
+          <SegmentedControlItem value="count">After</SegmentedControlItem>
+        </SegmentedControl>
+      ),
+      code: `import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
+
+// fullWidth spans the container and gives every segment an equal share of it.
+<SegmentedControl fullWidth defaultValue="never" aria-label="Ends">
+  <SegmentedControlItem value="never">Never</SegmentedControlItem>
+  <SegmentedControlItem value="date">On date</SegmentedControlItem>
+  <SegmentedControlItem value="count">After</SegmentedControlItem>
 </SegmentedControl>`,
     },
     {

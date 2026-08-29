@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import type { ActionDetail, DiscrepancyDetail } from './types'
 import { hasContactNameIssue } from '../../lib/contactValidation'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 export { hasContactNameIssue }
 
@@ -137,24 +138,24 @@ function OrderPreview({ payload }: { payload: Record<string, unknown> }) {
       )}
       {lineItems.length > 0 && (
         <div className="border rounded overflow-hidden">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-muted/50">
-                <th className="text-left px-2 py-1 font-medium">{t('inbox_ops.preview.product', 'Product')}</th>
-                <th className="text-right px-2 py-1 font-medium">{t('inbox_ops.preview.qty', 'Qty')}</th>
-                <th className="text-right px-2 py-1 font-medium">{t('inbox_ops.preview.price', 'Price')}</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table columnCount={3} density="compact">
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('inbox_ops.preview.product', 'Product')}</TableHead>
+                <TableHead align="right">{t('inbox_ops.preview.qty', 'Qty')}</TableHead>
+                <TableHead align="right">{t('inbox_ops.preview.price', 'Price')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {lineItems.map((item, index) => (
-                <tr key={index} className="border-t">
-                  <td className="px-2 py-1">{(item.productName as string) || '—'}</td>
-                  <td className="px-2 py-1 text-right">{String(item.quantity ?? '')}</td>
-                  <td className="px-2 py-1 text-right">{item.unitPrice ? `${item.unitPrice} ${currencyCode}` : '—'}</td>
-                </tr>
+                <TableRow key={index}>
+                  <TableCell>{(item.productName as string) || '—'}</TableCell>
+                  <TableCell align="right">{String(item.quantity ?? '')}</TableCell>
+                  <TableCell align="right">{item.unitPrice ? `${item.unitPrice} ${currencyCode}` : '—'}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
       {(deliveryDate || notes) && (

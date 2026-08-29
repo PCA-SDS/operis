@@ -173,7 +173,7 @@ test.describe('TC-CAL-008: Calendar week-view states', () => {
 
     const dragLayer = page.locator('.cursor-cell').first();
     const scroller = dragLayer.locator(
-      'xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " overflow-auto ")][1]',
+      'xpath=ancestor::div[contains(concat(" ", normalize-space(@class), " "), " overflow-y-auto ")][1]',
     );
     await expect(dragLayer, 'week grid should expose a drag layer').toBeVisible();
 

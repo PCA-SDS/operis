@@ -385,23 +385,22 @@ describe('DataTable extensions', () => {
     }
   })
 
-  it('applies sticky positioning to the actions column when enabled', () => {
+  it('scrolls the actions column with the rest of the table, never pinning it', () => {
     const rendered = renderTable({
       columns: [{ accessorKey: 'name', header: 'Name' }],
       data: [{ id: 'r1', name: 'Alice' }],
       rowActions: () => <button type="button">Open</button>,
-      stickyActionsColumn: true,
     })
 
     try {
+      // The reference table has no pinned columns: the whole grid scrolls as one
+      // plane. A pinned column stays put while its neighbours move, which reads
+      // as the column having fallen out of the table.
       const actionsHeader = screen.getByRole('columnheader', { name: 'Actions' })
-      expect(actionsHeader.className).toContain('sticky')
-      expect(actionsHeader.className).toContain('right-0')
-
+      expect(actionsHeader.className).not.toContain('sticky')
       const actionsCell = rendered.container.querySelector('[data-actions-cell]')
       expect(actionsCell).not.toBeNull()
-      expect(actionsCell?.className).toContain('sticky')
-      expect(actionsCell?.className).toContain('right-0')
+      expect(actionsCell?.className).not.toContain('sticky')
     } finally {
       rendered.cleanupQueryClient()
     }

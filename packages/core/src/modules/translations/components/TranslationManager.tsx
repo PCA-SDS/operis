@@ -23,6 +23,7 @@ import { formatEntityLabel, buildEntityListUrl, getRecordLabel, resolveBaseValue
 import { resolveFieldList } from '../lib/resolve-field-list'
 import type { ResolvedField } from '../lib/resolve-field-list'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 const logger = createLogger('translations').child({ component: 'TranslationManager' })
 
@@ -406,42 +407,42 @@ export function TranslationManager({
 
     return (
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[480px] text-sm">
-          <thead>
-            <tr className="text-xs uppercase tracking-wide text-muted-foreground">
-              <th className="px-3 py-2 text-left w-[140px]">
+        <Table columnCount={3} density="compact" className="min-w-[480px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[140px]">
                 {t('translations.manager.fields.field', 'Field')}
-              </th>
+              </TableHead>
               {!compact && (
-                <th className="px-3 py-2 text-left">
+                <TableHead>
                   {t('translations.manager.fields.baseValue', 'Base value')}
-                </th>
+                </TableHead>
               )}
-              <th className="px-3 py-2 text-left">
+              <TableHead>
                 {t('translations.manager.fields.translation', 'Translation')} ({activeLocale.toUpperCase()})
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {fieldList.map((field) => {
               const baseVal = getBaseValue(field.key)
               const translatedVal = localeTranslations[field.key] ?? ''
 
               return (
-                <tr key={field.key} className="border-t">
-                  <td className="px-3 py-2 align-top text-xs font-medium text-muted-foreground">
+                <TableRow key={field.key}>
+                  <TableCell className="align-top text-xs font-medium text-muted-foreground">
                     {field.label}
-                  </td>
+                  </TableCell>
                   {!compact && (
-                    <td className="px-3 py-2 align-top text-xs text-muted-foreground max-w-[200px]">
+                    <TableCell className="align-top text-xs text-muted-foreground max-w-[200px]">
                       {baseVal ? (
                         <span className="line-clamp-3">{baseVal}</span>
                       ) : (
                         <span className="text-muted-foreground/50">-</span>
                       )}
-                    </td>
+                    </TableCell>
                   )}
-                  <td className="px-3 py-2 align-top">
+                  <TableCell className="align-top">
                     {field.multiline ? (
                       <textarea
                         className="flex w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -457,12 +458,12 @@ export function TranslationManager({
                         placeholder={baseVal || field.label}
                       />
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )
             })}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     )
   }

@@ -23,7 +23,11 @@ coverage
 **/.turbo
 
 # Generated files (will be regenerated)
-apps/mercato/.mercato/generated
+# The whole `.mercato` tree is regenerable local state — `next` alone is
+# multiple GB of dev build cache. The image builds its own and COPYs it out of
+# the builder stage (Dockerfile:234,242), so none of the host's copy is needed;
+# sending it just inflates the build context.
+apps/mercato/.mercato
 packages/core/generated
 
 # Local development files

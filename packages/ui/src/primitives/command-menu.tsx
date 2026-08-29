@@ -6,8 +6,15 @@ import { Command as CommandPrimitive } from 'cmdk'
 import { ChevronRight, Search, X } from 'lucide-react'
 
 import { cn } from '@open-mercato/shared/lib/utils'
+import { MENU_ROW_SPACING } from './menu'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Kbd } from './kbd'
+import {
+  searchInputAdornmentVariants,
+  searchInputClearVariants,
+  searchInputElementVariants,
+  searchInputWrapperVariants,
+} from './search-input'
 
 /**
  * Command palette primitive — Cmd+K spotlight-style launcher backed by
@@ -204,23 +211,32 @@ const CommandMenuInput = React.forwardRef<
     return (
       <div
         data-slot="command-menu-input-wrapper"
+        /* The palette header IS the search field, so it borrows the search
+           primitive's `plain` tone rather than restating its own chrome — one
+           CVA, one contract. Only the header box differs: taller than any
+           standalone size, and a hairline on the bottom edge alone. The colour
+           goes on `border-b-*` (not `border-b border-input`, which would paint
+           the base ring's other three sides too). */
         className={cn(
-          'flex h-12 items-center gap-2 border-b border-input px-4',
+          searchInputWrapperVariants({ size: 'lg', tone: 'plain' }),
+          'h-12 px-4 border-b-input',
           wrapperClassName,
         )}
       >
-        <Search
+        <span
           aria-hidden="true"
-          className="size-4 shrink-0 text-muted-foreground"
+          className={searchInputAdornmentVariants({ size: 'lg', tone: 'plain' })}
           data-slot="command-menu-input-icon"
-        />
+        >
+          <Search />
+        </span>
         <CommandPrimitive.Input
           ref={ref}
           data-slot="command-menu-input"
           value={currentValue}
           onValueChange={handleChange}
           className={cn(
-            'flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none',
+            searchInputElementVariants({ size: 'lg', tone: 'plain' }),
             className,
           )}
           {...props}
@@ -231,13 +247,9 @@ const CommandMenuInput = React.forwardRef<
             data-slot="command-menu-input-clear"
             aria-label={clearAriaLabel}
             onClick={() => handleChange('')}
-            className={cn(
-              'inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors',
-              'hover:bg-muted/40 hover:text-foreground',
-              'focus-visible:shadow-focus',
-            )}
+            className={searchInputClearVariants({ size: 'lg', tone: 'plain' })}
           >
-            <X aria-hidden="true" className="size-3.5" />
+            <X aria-hidden="true" className="size-4" />
           </button>
         ) : showShortcut ? (
           <Kbd
@@ -379,6 +391,7 @@ const CommandMenuItem = React.forwardRef<
       data-slot="command-menu-item"
       className={cn(
         'group relative flex w-full cursor-pointer select-none items-center gap-3 rounded-md px-3 py-2 text-sm text-foreground outline-none',
+        MENU_ROW_SPACING,
         'data-[selected=true]:bg-muted/40',
         'data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50',
         className,

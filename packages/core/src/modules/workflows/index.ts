@@ -15,4 +15,5 @@ export const metadata: ModuleInfo = {
   author: 'Open Mercato',
   ejectable: true,
   defaultEntitlement: 'enabled',
+  category: 'Automation',
 }

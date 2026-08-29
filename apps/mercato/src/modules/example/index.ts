@@ -7,4 +7,6 @@ export const metadata: ModuleInfo = {
   description: 'Demonstrates pages, APIs, entities and DI.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  category: 'Administrative',
+  aiAssistant: true,
 }

@@ -466,9 +466,15 @@ Forwards all `Input` props except `type` (locked to `email`) and `leftIcon` (man
 import { SearchInput, type SearchInputProps } from '@open-mercato/ui/primitives/search-input'
 ```
 
-Search input matching Figma `Text Input [1.1]` (node `266:5251`) **Search** variant — leading `Search` icon, the text input, and an optional trailing `X` button that clears the value. Built on the shared `inputWrapperVariants` / `inputElementVariants` CVA so the visual contract matches the foundation `Input` primitive.
+**The one search field in the product.** Every search affordance renders this component — DataTable
+filter, sidebar nav filter, command palette header, lookup picker, popover header, portal wizards.
+The shape, the clear button, the keyboard hint and the a11y contract are identical everywhere; only
+`size` and `tone` change.
 
-Use for any search affordance: DataTable global filter, command-palette inputs, lookup picker chrome, list-view live filter.
+A search box is deliberately **not** a form field. `Input` is a bordered box on `input-bg`, because a
+form asks you to fill it in and the border is the invitation. `SearchInput` is borderless and carries
+a fill one step darker than whatever it sits on — the shape alone reads as "type here", and nothing
+competes with the rows of results beneath it.
 
 ### Quick usage
 
@@ -478,17 +484,71 @@ const [query, setQuery] = React.useState('')
 <SearchInput
   value={query}
   onChange={setQuery}
-  size="default"
   placeholder={t('customers.list.search', 'Search people by name or email')}
 />
 ```
 
+### Sizing — `size` is the box, width comes from the caller
+
+`size` sets height, radius, padding, glyph slot and text size. It **never** sets a width: the wrapper
+is `w-full`, so the caller sizes the container. That is what lets the same component be a 320px
+toolbar filter and a full-bleed popover header.
+
+| `size` | Box | Use |
+|---|---|---|
+| `sm` | `h-8 rounded-md px-2.5 gap-1.5`, `text-xs` | Dense popovers, column chooser, inline pickers |
+| `default` | `h-9 rounded-lg px-3 gap-2`, `text-sm` | Toolbars, FilterBar, dialogs — the everyday field |
+| `lg` | `h-10 rounded-xl px-3 gap-3`, `size-5` glyph slot | The backend rail's row box, hero/global search |
+
+```tsx
+// Width is the container's job, never the variant's.
+<div className="w-full sm:w-72 lg:w-80"><SearchInput … /></div>
+```
+
+`size="lg"` is deliberately the sidebar rail's row box (`h-10 / px-3 / gap-3` with a `size-5` icon
+slot). That is what puts the magnifier on the same icon column as every nav row beneath it. See
+`.ai/ds-rules.md` § **The rail's one grid**.
+
+### Grounds — `tone`
+
+All four tones are borderless and share the box; only the fill and the ink move.
+
+| `tone` | Ground | Use |
+|---|---|---|
+| `default` | `bg-surface-muted` → hover `bg-surface-strong` → focus `shadow-focus` | On a card or the page. The everyday choice. |
+| `raised` | `bg-surface shadow-md` → hover `bg-modal-muted` → focus `ring-2 ring-focus-ring/30` | Hero / topbar search sitting on the **page ground**, where `surface-muted` would be invisible. |
+| `sidebar` | `bg-sidebar-accent/50` → hover/focus `bg-sidebar-accent`, sidebar ink, `focus-within:border-sidebar-ring` | Inside the navy rail. Content neutrals are unreadable there. |
+| `plain` | transparent, `rounded-none px-0`, no hover, **no focus halo** | When the field **is** the popover's header row — the popover owns the border and the padding. |
+
+> **Why `raised` uses a ring and the others a shadow:** every Tailwind `shadow-*` writes the same
+> `--tw-shadow` slot, so `focus-within:shadow-focus` on top of `shadow-md` *replaces* the elevation —
+> the field visibly flattens on click. `--tw-ring-shadow` is a separate slot in the same `box-shadow`
+> list, so a ring composes with the drop shadow. Never pair `shadow-focus` with a resting `shadow-*`.
+>
+> **Why `plain` has no focus halo:** it is a popover header row that is always auto-focused and holds
+> the only field, so the caret is the indicator — the command-palette convention. A ring would draw a
+> box around a row that deliberately has no box. This is intentional; do not "fix" it.
+
+```tsx
+// Popover header: the container owns the chrome, the field owns the row.
+<div className="border-b border-border px-3">
+  <SearchInput tone="plain" value={query} onChange={setQuery} />
+</div>
+```
+
 ### Behaviors
 
-- **Leading**: non-interactive `Search` icon (`size-4`, `text-muted-foreground`).
-- **Trailing**: `X` button — renders only when `value.length > 0 && !disabled && clearable`. Real `<button>` (focusable, screen-reader-labelled via `clearLabel`).
-- **`onClear`**: if not provided, the clear button calls `onChange('')`. Pass an explicit handler to also reset adjacent state (cancel in-flight request, reset paging).
-- **Native search clear button**: suppressed via `appearance: none` on `::-webkit-search-cancel-button` / `::-webkit-search-decoration` so the only clear affordance is our DS button.
+- **Leading**: non-interactive magnifier in a size-scaled slot, `aria-hidden`, ink per tone.
+- **Trailing (one slot, three states)**: `loading` spinner → clear `×` when there is a value →
+  `shortcut` hint when empty. They never stack, so the field never reflows mid-typing.
+- **Clear button**: a real `<button>` (keyboard-focusable, labelled via `clearLabel`), not a
+  decorative span. `onClear` defaults to `onChange('')`.
+- **Native clear**: suppressed via `appearance: none` on `::-webkit-search-cancel-button` /
+  `::-webkit-search-decoration`, so the DS button is the only clear affordance.
+- **`type="search"` is fixed**, so the element always exposes `role="searchbox"` — integration tests
+  bind to `getByRole('searchbox')`.
+- **Resting border is transparent, not absent**: the 1px box is kept so a tone that paints a focus
+  edge does not shift its own contents.
 
 ### Props
 
@@ -496,20 +556,40 @@ const [query, setQuery] = React.useState('')
 |---|---|---|---|
 | `value` | `string` | — | Controlled. |
 | `onChange` | `(next: string) => void` | — | Called on every keystroke with the new string. |
-| `onClear` | `() => void` | `() => onChange('')` | Custom clear handler. |
+| `size` | `'sm' \| 'default' \| 'lg'` | `'default'` | The box. Never a width. |
+| `tone` | `'default' \| 'raised' \| 'sidebar' \| 'plain'` | `'default'` | The ground. |
+| `onClear` | `() => void` | `() => onChange('')` | Also reset adjacent state (cancel in-flight request, reset paging). |
 | `clearable` | `boolean` | `true` | Show the trailing × when value is non-empty. |
 | `clearLabel` | `string` | `t('ui.inputs.searchInput.clear', 'Clear search')` | Auto-translated aria-label for the clear button. |
+| `loading` | `boolean` | `false` | Trailing spinner while the typed value has not been applied. Field stays editable. |
+| `shortcut` | `React.ReactNode` | — | Keyboard hint shown **while empty**. A bare string is wrapped in `Kbd`. |
+| `trailing` | `React.ReactNode` | — | Extra adornment after the clear/shortcut slot (scope hints, counters). |
 | `placeholder` | `string` | `t('ui.inputs.searchInput.placeholder', 'Search…')` | Auto-translated. |
-| `size` | `'sm' \| 'default' \| 'lg'` | `'default'` | Forwarded to `inputWrapperVariants`. |
 | `className` / `inputClassName` | `string` | — | Wrapper / inner-`<input>` overrides. |
 
-Forwards all other `<input>` props (e.g. `name`, `id`, `aria-label`, `disabled`, `autoFocus`).
+Forwards all other `<input>` props — `name`, `id`, `aria-label`, `disabled`, `autoFocus`,
+`onKeyDown`, and the `role="combobox"` / `aria-expanded` / `aria-controls` / `aria-activedescendant`
+set that picker hosts need.
+
+### Shared variants (for non-`<input>` hosts)
+
+`searchInputWrapperVariants`, `searchInputElementVariants`, `searchInputAdornmentVariants` and
+`searchInputClearVariants` are exported from the same module. Use them **only** when the element
+cannot be a plain `<input>` — `CommandMenuInput` must render `cmdk`'s `CommandPrimitive.Input`, so it
+composes these CVAs instead of a private copy. This is the same pattern `Input` and `SearchInput`
+already share.
 
 ### MUST rules
 
-- Always use `SearchInput` for search affordances — do NOT roll your own `<Input leftIcon={<Search />}>` plus a hand-rolled clear button. The DS variant handles a11y for both leading icon (decorative `aria-hidden`) and trailing clear (real button) consistently.
+- **NEVER hand-roll a search box.** No absolutely-positioned `<Search>` icon next to a raw `<input>`,
+  no `<Input leftIcon={<Search />}>` plus a bespoke clear button, no `<Input type="search">`. Those
+  were the ten divergent variants this primitive replaced.
+- **NEVER re-paint it from the outside** with `className` fills, borders or focus rings. If a surface
+  needs a ground the tones do not cover, add a tone to the CVA — do not override at the call site.
+- Width belongs to the caller's container; `size` belongs to the primitive.
 - Forward i18n-resolved `placeholder` for surface-specific copy; the default is generic.
-- For DataTable global filter, pass `searchValue` / `onSearchChange` from `DataTable` directly into `SearchInput`'s `value` / `onChange`.
+- For the DataTable global filter, pass `searchValue` / `onSearchChange` from `DataTable` straight
+  into `value` / `onChange` — `FilterBar` already does this and owns the debounce plus `loading`.
 
 ---
 
@@ -3437,10 +3517,12 @@ import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primiti
 
 ### When to use
 
-- **SegmentedControl**: list filters ("All / Active / Archived"), chart period selectors (1D / 1W / 1M), layout toggles (List / Grid). The thing being switched changes the *view*, not the action.
+This is the **one toggle primitive for mutually-exclusive state** — reach for it in every scenario where exactly one of N options is selected and the choice changes what is shown, not what is done. Do not hand-roll a row of `aria-pressed` buttons; `fullWidth` and `icon` cover the shapes that used to justify one.
+
+- **SegmentedControl**: list filters ("All / Active / Archived"), chart period selectors (1D / 1W / 1M), layout toggles (List / Grid), and full-width form-style choosers (an event-type switcher, a scope selector). The thing being switched changes the *view*, not the action.
 - **ButtonGroup** (separate primitive): related actions where each child does something different (Save / Save & New / overflow). NOT for selection.
 - **Tabs** (separate primitive): when each option swaps a content panel, not just a state filter. Tabs carry their own ARIA `tabpanel` contract.
-- **RadioGroup + Radio** (separate primitive): when the choice is part of a form (one of several options for a field), not chrome state.
+- **RadioGroup + Radio** (separate primitive): when the choice is a stacked list of form options with descriptions, not a compact inline control.
 
 ### API
 
@@ -3449,6 +3531,7 @@ import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primiti
   value={view}                                  // current selected value
   onValueChange={(next) => setView(next)}       // fires on selection change
   size="sm" | "default"                         // optional, default "default"
+  fullWidth={false}                             // optional; span the container, equal-width segments
   disabled={false}                              // optional
   aria-label="View filter"                      // recommended
 >
@@ -3458,14 +3541,26 @@ import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primiti
 </SegmentedControl>
 ```
 
+`SegmentedControlItem` also takes an optional `icon` (a leading `size-4` glyph). It renders `aria-hidden`, so the item's accessible name stays its label:
+
+```tsx
+<SegmentedControlItem value="meetings" icon={<List className="size-4" />}>Meetings</SegmentedControlItem>
+```
+
 Built on Radix `RadioGroup` — inherits arrow-key navigation, roving tabindex, `role="radiogroup"` + `role="radio"` + `aria-checked` for free.
 
 ### Sizes
 
 | Size | Track height | Item height | Item text | Use case |
 |---|---|---|---|---|
-| `default` (default) | `h-8` (32px) | `h-7` (28px) | `text-sm` | Standard toolbar density |
-| `sm` | `h-7` (28px) | `h-6` (24px) | `text-xs` | Tight rows, chart period selectors |
+| `default` (default) | `h-9` (36px) | stretches to the track (30px) | `text-sm` | Standard toolbar density, matches Button/Input |
+| `sm` | `h-8` (32px) | stretches to the track (26px) | `text-xs` | Tight rows, chart period selectors |
+
+Items deliberately carry **no height of their own** — the track is `items-stretch` with a uniform `p-0.5`, so the selected pill is inset by exactly 2px on all four sides. Giving an item a fixed height reintroduces a vertical gap different from the horizontal one, which is plainly visible now that the pill is a filled colour.
+
+### Selected state
+
+The selected segment is painted by the sliding pill, in `bg-sidebar` with `text-sidebar-foreground` ink — the same navy as the app sidebar, so "selected" reads identically everywhere in the product. Label colour transitions over `duration-200`, matching the pill's travel, so ink and fill arrive together instead of the text snapping to its selected colour mid-slide.
 
 ### Usage
 
@@ -3496,6 +3591,9 @@ const [period, setPeriod] = React.useState('1M')
 3. **Every item MUST have a unique `value`.** Duplicate values break Radix's keyboard navigation and selection state.
 4. **NEVER nest `Button` / `IconButton` inside `SegmentedControlItem`.** Radix RadioGroup.Item already provides a `<button>` — nesting another interactive element breaks ARIA.
 5. **`disabled` on the root cascades to every item** via Radix; do not pass `disabled` per-item unless intentionally locking a subset.
+6. **NEVER build a parallel segmented toggle** out of `Button` + `aria-pressed`. Use this primitive with `fullWidth` / `icon`; a local copy loses the radio ARIA contract, the sliding pill, and the shared selected colour.
+7. **Pass icons via `icon`, not inside `children`.** Children are duplicated into an invisible ghost copy to reserve the semibold label width; an icon in there renders twice for nothing and lands inside the truncation box.
+8. **Keep `children` render-safe to duplicate** — plain text or simple inline markup, nothing stateful, for the same ghost-copy reason.
 
 ### Anti-patterns
 
@@ -5746,34 +5844,86 @@ Semantic HTML table primitives with DS spacing/typography. Pure presentational �
 - `Table` — root `<table>` wrapped in `<div class="overflow-x-auto">`
 - `TableHeader` (`<thead>`), `TableBody` (`<tbody>`), `TableFooter` (`<tfoot>`)
 - `TableRow` (`<tr>`) — hover bg, focus-within styles
-- `TableHead` (`<th>`) — uppercase mono header cell
+- `TableHead` (`<th>`) — uppercase micro-label header cell, `scope="col"`
 - `TableCell` (`<td>`) — body cell
 - `TableCaption` — `<caption>` for screen readers
+- `TableSortLabel` — the sort trigger for a sortable column
+- `TableRowMarker` — leading accent bar on a selected row (first child of the row's first cell)
+- `tableAriaSort(direction)` — maps a direction to the `aria-sort` value
 
 ### Props
-All accept native HTML attributes. Style only via `className`.
+
+| Prop | On | Values | What it does |
+|---|---|---|---|
+| `density` | `Table` | `default` \| `compact` | Cell box only. `default` (`px-3 py-4 sm:px-5`) is the page-owning list view; `compact` (`px-3 py-2`) is a table nested in a card, panel or dialog. Header typography is identical in both. |
+| `variant` | `Table` | `default` \| `striped` | Even-row tint. |
+| `align` | `TableHead`, `TableCell` | `left` (default) \| `center` \| `right` | Column alignment. `right` for figures, `center` for a column whose whole content is one control or glyph. |
+| `padding` | `TableHead`, `TableCell` | `default` \| `control` | `control` shrinks the cell to its content with an equal, tighter gutter either side — for a column holding one control (select-all checkbox, row-actions kebab). Vertical rhythm is unchanged, so the cell stays exactly as tall as the text columns beside it. Do NOT use it in a `table-fixed` table: `w-px` is literal there. |
+| `direction` | `TableSortLabel` | `'asc'` \| `'desc'` \| `false` | Active sort direction; `false` = sortable but inactive. |
+| `onToggle` | `TableSortLabel` | `() => void` | Fired on click. |
+
+Everything else is native HTML attributes; style via `className`.
 
 ### Usage
 ```tsx
-<Table>
+<Table density="compact">
   <TableHeader>
     <TableRow>
-      <TableHead>Name</TableHead>
+      <TableHead aria-sort={tableAriaSort(dir)}>
+        <TableSortLabel direction={dir} onToggle={toggleSort}>Name</TableSortLabel>
+      </TableHead>
       <TableHead>Status</TableHead>
+      <TableHead align="right">Amount</TableHead>
     </TableRow>
   </TableHeader>
   <TableBody>
     <TableRow>
       <TableCell>Acme</TableCell>
       <TableCell><Badge variant="success" dot>Active</Badge></TableCell>
+      <TableCell align="right">$1,250.00</TableCell>
     </TableRow>
   </TableBody>
 </Table>
 ```
 
+### The one table look
+
+Every table in the product renders these primitives, so they all share one look. The properties that define it:
+
+| | |
+|---|---|
+| Card | `rounded-xl bg-surface shadow-md`, `overflow-hidden` |
+| Header strip | `bg-table-header`, rule on the cell so it survives pinning |
+| Header label | `text-xs font-bold uppercase tracking-wide text-muted-foreground`, clipped, never wrapped |
+| Sort | `TableSortLabel` — label goes full ink when active; active arrow takes `accent-strong`, idle pair sits at `disabled-foreground` and lifts on hover |
+| Row | one line tall (`whitespace-nowrap`), `py-4`, hairline rule between rows |
+| Row hover | `bg-table-row-hover` — one token, whether or not the row is clickable |
+| Row selected | `bg-table-selected` wash **and** `text-accent-strong` ink **and** a `TableRowMarker` at the row's start |
+| Inset | `px-3 sm:px-5`, identical on head and cell; `padding="control"` for a single-control column |
+| Figures | `align="right"` on head and cell together |
+
+Deviating from any row of that table makes one list look unlike the rest of the product. Extend the component rather than restyling a table at its call site.
+
+### Alignment contract
+The header must line up with the column of values under it, and every cell must sit on the same rhythm:
+
+- Head and cell share one horizontal inset (`px-3 sm:px-5`), so a label starts exactly where its own values start. Never override the inset on one and not the other.
+- Vertical padding is symmetric (`py-3` head / `py-4` cell) and both state `align-middle` explicitly — cells that centre in one table and top-align in the next are the quiet source of ragged rows. Pass `align-top` at the call site when a cell genuinely needs it.
+- A column holding one control takes `padding="control"` rather than a `w-8`/`w-0` width hint. A width narrower than the cell's own padding does nothing: the padding wins and the control is left adrift in a gutter twice its size.
+- Decoration parked in the reading gutter (a drag grip, a status dot) must be centred in it, so the gap before it equals the gap after it.
+
+### Rules
+- **`align` is a property of the COLUMN.** Set the same value on the `TableHead` and on every `TableCell` beneath it. Figures (amounts, quantities, counts) go `right`; everything else stays `left`. A right-aligned header over left-aligned digits is the most common way a table reads as unfinished.
+- **NEVER put `display:flex` on a `TableCell`/`TableHead`** — it drops the cell out of the table's column model, so it stops tracking the width of the header above it. Put the flex on an inner `<div>`.
+- **A row is one line tall.** `TableCell` sets `whitespace-nowrap`; uniform row height is what makes a list scannable. A cell holding genuine prose opts out with `whitespace-normal` (twMerge lets it win) — do not remove the default.
+- **Sortable columns render `TableSortLabel`**, never a hand-rolled button — that is what keeps the affordance, the emphasis and the keyboard behaviour identical across `DataTable` and hand-built tables.
+- The header's bottom rule lives on `TableHead`, not on the header `TableRow`, so it survives a sticky header under `border-collapse: collapse`. Do not move it back.
+- Pin a header (`sticky top-0`) ONLY when the table owns a vertical scrollport. Without one it sticks to the viewport and slides under the app topbar.
+
 ### Accessibility
 - Use `TableCaption` to describe the table for screen readers
-- For sortable columns, render the sort affordance inside `TableHead` with `aria-sort`
+- `TableHead` emits `scope="col"` automatically
+- Sortable columns MUST carry `aria-sort` on the `<th>` — use `tableAriaSort(direction)`. A sortable-but-inactive column reports `none`; omitting the attribute announces a plain header.
 
 ---
 

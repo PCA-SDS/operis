@@ -21,6 +21,7 @@ import { definitionToGraph } from '../../../lib/graph-utils'
 import type { Node } from '@xyflow/react'
 import { RecordNotFoundState, ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 const logger = createLogger('workflows')
 
@@ -782,30 +783,30 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
               </p>
             ) : (
               <div className="overflow-x-auto rounded-lg border">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <Table columnCount={4} density="compact" className="min-w-full">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>
                         {t('workflows.events.occurredAt')}
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      </TableHead>
+                      <TableHead>
                         {t('workflows.events.eventType')}
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      </TableHead>
+                      <TableHead>
                         {t('workflows.events.eventData')}
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      </TableHead>
+                      <TableHead>
                         {t('workflows.events.userId')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-surface divide-y divide-border">
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="bg-surface">
                     {events.map((event) => (
-                      <tr key={event.id} className="hover:bg-muted/50">
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-foreground">
+                      <TableRow key={event.id} className="hover:bg-muted/50">
+                        <TableCell className="whitespace-nowrap text-foreground">
                           {new Date(event.occurredAt).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
                           <span
                             className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getEventTypeBadgeClass(
                               event.eventType
@@ -813,8 +814,8 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
                           >
                             {t(`workflows.events.types.${event.eventType}`) || event.eventType}
                           </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm">
+                        </TableCell>
+                        <TableCell>
                           <details className="cursor-pointer">
                             <summary className="text-primary hover:underline">
                               {t('common.details')}
@@ -827,14 +828,14 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
                               />
                             </div>
                           </details>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-muted-foreground">
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">
                           {event.userId || '-'}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </div>

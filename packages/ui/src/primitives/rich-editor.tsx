@@ -935,7 +935,7 @@ export function RichEditorColorPalette({ value, onChange, labels, palette, class
   const keys = palette && palette.length > 0 ? palette : COLOR_KEYS
   return (
     <div
-      className={cn('flex flex-col gap-0.5', className)}
+      className={cn('flex flex-col gap-1', className)}
       data-slot="rich-editor-color-palette"
       role="listbox"
       aria-label="Color palette"
@@ -1325,7 +1325,7 @@ function usePresetToolbarItems({
     )
 
     const headingMenu = (
-      <div className="flex flex-col gap-0.5" role="menu">
+      <div className="flex flex-col gap-1" role="menu">
         <button
           type="button"
           role="menuitem"

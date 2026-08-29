@@ -150,7 +150,7 @@ describe('SyncExcelUploadConfigWidget', () => {
     expect(screen.getByText('Import run status')).toBeTruthy()
     expect(screen.queryByText('Restoring the last CSV session...')).toBeNull()
 
-    const statusRow = screen.getAllByText('Status').find((element) => element.tagName === 'TD')?.closest('tr')
+    const statusRow = screen.getAllByText('Status').find((element) => element.getAttribute('role') === 'cell')?.closest('[role="row"]')
     expect(statusRow).toBeTruthy()
     expect(within(statusRow as HTMLElement).getByRole('combobox')).toHaveValue('person.status')
 

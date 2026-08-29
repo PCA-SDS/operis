@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
+import { whenTemplatePresent } from './helpers/create-app-template.mjs'
 
 const here = import.meta.dirname
 const root = path.resolve(here, '..', '..')
@@ -10,7 +11,7 @@ function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8')
 }
 
-test('dev splash html stays synced with create-app template copy', () => {
+test('dev splash html stays synced with create-app template copy', whenTemplatePresent(), () => {
   assert.equal(
     read('scripts/dev-splash.html'),
     read('packages/create-app/template/scripts/dev-splash.html'),

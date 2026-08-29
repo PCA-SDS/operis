@@ -170,7 +170,7 @@ export function DealCardMenu({ items, ariaLabel }: DealCardMenuProps): React.Rea
               ref={menuRef}
               role="menu"
               onKeyDown={handleMenuKeyDown}
-              className="fixed z-dropdown w-52 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-surface p-1.5 shadow-md"
+              className="fixed z-dropdown flex w-52 max-w-[calc(100vw-1rem)] flex-col gap-1 rounded-md border border-border bg-surface p-1.5 shadow-md"
               style={{
                 top:
                   direction === 'down'
@@ -194,7 +194,7 @@ export function DealCardMenu({ items, ariaLabel }: DealCardMenuProps): React.Rea
                       setOpen(false)
                       item.onSelect?.()
                     }}
-                    className={`flex w-full items-center justify-start rounded-sm px-3 py-2 text-left text-sm leading-5 transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none ${
+                    className={`flex w-full items-center justify-start rounded-md px-3 py-2 text-left text-sm leading-5 transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none ${
                       item.destructive ? 'text-status-error-text hover:bg-status-error-bg/30' : 'text-foreground'
                     }`}
                   >

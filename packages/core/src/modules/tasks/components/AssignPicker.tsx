@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primit
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { MENU_ROW_HOVER, menuRowVariants } from '@open-mercato/ui/primitives/menu'
 import type { TaskAssignmentTargetInput } from './assignmentTypes'
 import { AvatarStack, CHIP_ADD_CLASS, Chip } from './badges'
 import { UserAvatar } from './ui-bits'
@@ -189,7 +190,7 @@ function PickerSection({
       <p className="px-3 pb-1 pt-2 text-overline font-semibold uppercase tracking-widest text-disabled-foreground">
         {title}
       </p>
-      <div className="flex flex-col gap-1">{children}</div>
+      <div className="flex flex-col">{children}</div>
     </div>
   )
 }
@@ -210,8 +211,9 @@ function PickerRow({
       role="option"
       aria-selected={checked}
       className={cn(
-        'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-foreground transition-colors hover:bg-surface-muted',
-        checked && 'bg-surface-muted',
+        menuRowVariants({ selected: checked }),
+        'font-medium',
+        !checked && MENU_ROW_HOVER,
       )}
     >
       {children}

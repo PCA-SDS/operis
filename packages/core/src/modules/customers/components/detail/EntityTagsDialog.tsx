@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Check, Plus, Search, SearchX, SlidersHorizontal, Tag, X } from 'lucide-react'
+import { Check, Plus, SearchX, SlidersHorizontal, Tag, X } from 'lucide-react'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -10,8 +10,9 @@ import { apiCall, apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { entityColorStyle } from '@open-mercato/ui/primitives/tag'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import {
   Dialog,
   DialogContent,
@@ -1118,6 +1119,7 @@ export function EntityTagsDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
       <DialogContent
+        disableBodyWrap
         className="flex max-h-[85vh] flex-col overflow-hidden border-border bg-surface p-0 shadow-[0px_16px_40px_0px_rgba(0,0,0,0.14)] sm:max-w-[760px] sm:rounded-xl [&>[data-dialog-close]]:hidden"
         aria-describedby={undefined}
       >
@@ -1125,7 +1127,7 @@ export function EntityTagsDialog({
           <DialogTitle>{t('customers.personTags.title', 'Edit tags')}</DialogTitle>
         </VisuallyHidden>
 
-        <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-5 py-4">
+        <div className="flex shrink-0 items-center justify-between px-5 py-4 sm:px-6">
           <div className="flex items-center gap-2">
             <Tag className="size-4 text-foreground" />
             <span className="text-sm font-bold text-foreground">
@@ -1143,15 +1145,10 @@ export function EntityTagsDialog({
               <SlidersHorizontal className="size-3.5" />
               {t('customers.personTags.settingsButton', 'Tag settings')}
             </Button>
-            <IconButton
-              type="button"
-              variant="outline"
-              size="xs"
-              className="size-7 rounded-sm border-border bg-surface"
+            <CloseButton
               onClick={onClose}
-            >
-              <X className="size-3.5" />
-            </IconButton>
+              aria-label={t('customers.personTags.close', 'Close')}
+            />
           </div>
         </div>
 
@@ -1211,20 +1208,15 @@ export function EntityTagsDialog({
                     </div>
 
                     <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-                      <div className="flex items-center gap-2 rounded-lg border border-input bg-input-bg px-3 py-2">
-                        <Search className="size-3.5 shrink-0 text-muted-foreground" />
-                        <input
-                          type="text"
-                          value={searchValue}
-                          onChange={(event) => setSearchValue(event.target.value)}
-                          placeholder={t(
-                            'customers.personTags.searchPlaceholder',
-                            'Search {{category}}...',
-                            { category: activeCategory.label.toLowerCase() },
-                          )}
-                          className="flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-                        />
-                      </div>
+                      <SearchInput
+                        value={searchValue}
+                        onChange={setSearchValue}
+                        placeholder={t(
+                          'customers.personTags.searchPlaceholder',
+                          'Search {{category}}...',
+                          { category: activeCategory.label.toLowerCase() },
+                        )}
+                      />
 
                       {filteredEntries.length > 0 ? (
                         <div className="space-y-3">
@@ -1366,7 +1358,7 @@ export function EntityTagsDialog({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-between border-t border-border bg-muted/20 px-5 py-3.5">
+        <div className="flex shrink-0 items-center justify-between px-5 pt-1.5 pb-4 sm:px-6">
           <span className="text-xs text-muted-foreground">
             {t('customers.personTags.activeCount', '{{count}} selected', { count: activeCount })}
           </span>

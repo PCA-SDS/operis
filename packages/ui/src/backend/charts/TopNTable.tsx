@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 export type TopNTableColumn<T = Record<string, unknown>> = {
   key: keyof T | string
@@ -90,49 +91,40 @@ export function TopNTable<T extends Record<string, unknown>>({
 
   const displayData = maxRows && maxRows > 0 ? data.slice(0, maxRows) : data
 
-  const getAlignClass = (align?: 'left' | 'center' | 'right') => {
-    if (align === 'right') return 'text-right'
-    if (align === 'center') return 'text-center'
-    return 'text-left'
-  }
-
   return (
     <div className={`rounded-xl border border-border bg-surface shadow-sm p-4 ${className}`}>
       {title && <h3 className="mb-4 text-base font-medium text-card-foreground">{title}</h3>}
       <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border">
+        <Table density="compact" columns={columns.map((column) => column.width ?? 'minmax(0,1fr)')}>
+          <TableHeader>
+            <TableRow>
               {columns.map((column) => (
-                <th
+                <TableHead
                   key={String(column.key)}
-                  className={`pb-2 text-sm font-medium text-muted-foreground ${getAlignClass(column.align)}`}
+                  align={column.align ?? 'left'}
                   style={column.width ? { width: column.width } : undefined}
                 >
                   {column.header}
-                </th>
+                </TableHead>
               ))}
-            </tr>
-          </thead>
-          <tbody>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {displayData.map((row, rowIndex) => (
-              <tr key={rowIndex} className="border-b border-border last:border-0">
+              <TableRow key={rowIndex}>
                 {columns.map((column) => {
                   const rawValue = getNestedValue(row as Record<string, unknown>, String(column.key))
                   const formatted = column.formatter ? column.formatter(rawValue, row) : defaultFormatter(rawValue)
                   return (
-                    <td
-                      key={String(column.key)}
-                      className={`py-2 text-sm text-card-foreground ${getAlignClass(column.align)}`}
-                    >
+                    <TableCell key={String(column.key)} align={column.align ?? 'left'}>
                       {formatted}
-                    </td>
+                    </TableCell>
                   )
                 })}
-              </tr>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   )

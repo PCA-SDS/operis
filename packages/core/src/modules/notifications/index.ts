@@ -7,6 +7,7 @@ export const metadata: ModuleInfo = {
   description: 'In-app notifications with module-extensible types and actions.',
   author: 'Open Mercato Team',
   license: 'MIT',
+  category: 'Administrative',
 }
 
 export { features } from './acl'

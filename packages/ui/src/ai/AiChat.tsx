@@ -788,8 +788,8 @@ function MessageFileAttachment({ file }: { file: AiChatMessageFile }) {
       </div>
 
       <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
-        <DialogContent className="gap-3 p-4 sm:max-w-[min(96vw,960px)]">
-          <DialogHeader className="min-w-0 pr-16">
+        <DialogContent className="sm:max-w-[min(96vw,960px)]">
+          <DialogHeader className="min-w-0">
             <DialogTitle className="truncate text-sm">{file.name}</DialogTitle>
             <DialogDescription className="sr-only">
               {t('ai_assistant.chat.imagePreviewDialogDescription', 'Image preview')}

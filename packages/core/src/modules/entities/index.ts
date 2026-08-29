@@ -9,5 +9,6 @@ export const metadata: ModuleInfo = {
   license: 'MIT',
   // Ensure query/index layer is present for hybrid querying of custom entities
   requires: ['query_index'],
+  category: 'Administrative',
 }
 

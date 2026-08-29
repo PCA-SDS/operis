@@ -52,6 +52,7 @@ import type { CrudIndexerConfig, CrudEventsConfig } from '@open-mercato/shared/l
 import { E } from '#generated/entities.ids.generated'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { CUSTOMER_ENTITY_ID, resolveCompanyCustomFieldRouting } from '../lib/customFieldRouting'
+import { toDateOnlyString, toDateOnlyValue, todayDateOnly } from '../lib/dateOnly'
 import { CustomFieldValue } from '@open-mercato/core/modules/entities/data/entities'
 import { withAtomicFlush } from '@open-mercato/shared/lib/commands/flush'
 import { resolveRedoSnapshot } from '@open-mercato/shared/lib/commands/redo'
@@ -220,6 +221,15 @@ type CompanySnapshot = {
     industry: string | null
     sizeBucket: string | null
     annualRevenue: string | null
+    taxCode: string | null
+    registrationCountry: string | null
+    address: string | null
+    incorporationDate: string | null
+    clientTier: string | null
+    onboardedAt: string | null
+    registeredAt: string | null
+    endDate: string | null
+    reactivatedAt: Date | null
   }
   tagIds: string[]
   custom?: Record<string, unknown>
@@ -318,6 +328,15 @@ async function loadCompanySnapshot(em: EntityManager, id: string): Promise<Compa
       industry: profile.industry ?? null,
       sizeBucket: profile.sizeBucket ?? null,
       annualRevenue: profile.annualRevenue ?? null,
+      taxCode: profile.taxCode ?? null,
+      registrationCountry: profile.registrationCountry ?? null,
+      address: profile.address ?? null,
+      incorporationDate: toDateOnlyString(profile.incorporationDate),
+      clientTier: profile.clientTier ?? null,
+      onboardedAt: toDateOnlyString(profile.onboardedAt),
+      registeredAt: toDateOnlyString(profile.registeredAt),
+      endDate: toDateOnlyString(profile.endDate),
+      reactivatedAt: profile.reactivatedAt ?? null,
     },
     tagIds,
     custom,
@@ -473,6 +492,45 @@ function normalizeHexColor(value: string | null | undefined): string | null {
   return /^#([0-9a-f]{6})$/.test(trimmed) ? trimmed : null
 }
 
+// Client-lifecycle statuses aligned with PCA ERP's crm.company_clients. A status
+// outside this set (a tenant-defined dictionary value) leaves the dates untouched.
+const COMPANY_LIFECYCLE_STATUSES = new Set(['prospect', 'active', 'inactive', 'blacklisted'])
+
+// Stamps the lifecycle dates a status transition implies. A date the caller supplied
+// explicitly always wins, so an import or a correction can backfill real history.
+function applyCompanyLifecycleDates(
+  profile: CustomerCompanyProfile,
+  previousStatus: string | null,
+  nextStatus: string | null,
+  explicitKeys: ReadonlySet<string>,
+): void {
+  if (!nextStatus || !COMPANY_LIFECYCLE_STATUSES.has(nextStatus)) return
+  if (previousStatus === nextStatus) return
+
+  const today = todayDateOnly()
+  const setIfAbsent = (key: 'onboardedAt' | 'registeredAt', value: Date) => {
+    if (explicitKeys.has(key)) return
+    if (profile[key] == null) profile[key] = value
+  }
+
+  if (nextStatus === 'prospect') {
+    setIfAbsent('onboardedAt', today)
+    return
+  }
+
+  if (nextStatus === 'active') {
+    setIfAbsent('onboardedAt', today)
+    setIfAbsent('registeredAt', today)
+    if (!explicitKeys.has('endDate')) profile.endDate = null
+    if (previousStatus === 'inactive' || previousStatus === 'blacklisted') {
+      profile.reactivatedAt = new Date()
+    }
+    return
+  }
+
+  if (!explicitKeys.has('endDate')) profile.endDate = today
+}
+
 const createCompanyCommand: CommandHandler<CompanyCreateInput, { entityId: string; companyId: string }> = {
   id: 'customers.companies.create',
   async execute(rawInput, ctx) {
@@ -522,7 +580,24 @@ const createCompanyCommand: CommandHandler<CompanyCreateInput, { entityId: strin
         parsed.annualRevenue !== undefined && parsed.annualRevenue !== null
           ? String(parsed.annualRevenue)
           : null,
+      taxCode: parsed.taxCode ?? null,
+      registrationCountry: parsed.registrationCountry ?? null,
+      address: parsed.address ?? null,
+      incorporationDate: toDateOnlyValue(parsed.incorporationDate),
+      clientTier: parsed.clientTier ?? null,
+      onboardedAt: toDateOnlyValue(parsed.onboardedAt),
+      registeredAt: toDateOnlyValue(parsed.registeredAt),
+      endDate: toDateOnlyValue(parsed.endDate),
     })
+
+    applyCompanyLifecycleDates(
+      profile,
+      null,
+      entity.status ?? null,
+      new Set(
+        (['onboardedAt', 'registeredAt', 'endDate'] as const).filter((key) => parsed[key] !== undefined),
+      ),
+    )
 
     await withAtomicFlush(em, [
       () => {
@@ -681,6 +756,15 @@ const createCompanyCommand: CommandHandler<CompanyCreateInput, { entityId: strin
         industry: after.profile.industry,
         sizeBucket: after.profile.sizeBucket,
         annualRevenue: after.profile.annualRevenue,
+        taxCode: after.profile.taxCode,
+        registrationCountry: after.profile.registrationCountry,
+        address: after.profile.address,
+        incorporationDate: toDateOnlyValue(after.profile.incorporationDate),
+        clientTier: after.profile.clientTier,
+        onboardedAt: toDateOnlyValue(after.profile.onboardedAt),
+        registeredAt: toDateOnlyValue(after.profile.registeredAt),
+        endDate: toDateOnlyValue(after.profile.endDate),
+        reactivatedAt: after.profile.reactivatedAt,
       })
       em.persist(profile)
     } else {
@@ -691,6 +775,15 @@ const createCompanyCommand: CommandHandler<CompanyCreateInput, { entityId: strin
       profile.industry = after.profile.industry
       profile.sizeBucket = after.profile.sizeBucket
       profile.annualRevenue = after.profile.annualRevenue
+      profile.taxCode = after.profile.taxCode
+      profile.registrationCountry = after.profile.registrationCountry
+      profile.address = after.profile.address
+      profile.incorporationDate = toDateOnlyValue(after.profile.incorporationDate)
+      profile.clientTier = after.profile.clientTier
+      profile.onboardedAt = toDateOnlyValue(after.profile.onboardedAt)
+      profile.registeredAt = toDateOnlyValue(after.profile.registeredAt)
+      profile.endDate = toDateOnlyValue(after.profile.endDate)
+      profile.reactivatedAt = after.profile.reactivatedAt
     }
     const restoredProfile = profile
 
@@ -740,6 +833,8 @@ const updateCompanyCommand: CommandHandler<CompanyUpdateInput, { entityId: strin
     const profile = await em.findOne(CustomerCompanyProfile, { entity: record })
     if (!profile) throw notFound('Company profile not found')
 
+    const previousStatus = record.status ?? null
+
     await withAtomicFlush(em, [
       () => {
         if (parsed.displayName !== undefined) record.displayName = parsed.displayName
@@ -776,6 +871,25 @@ const updateCompanyCommand: CommandHandler<CompanyUpdateInput, { entityId: strin
         if (parsed.sizeBucket !== undefined) profile.sizeBucket = parsed.sizeBucket ?? null
         if (parsed.annualRevenue !== undefined) {
           profile.annualRevenue = parsed.annualRevenue !== null && parsed.annualRevenue !== undefined ? String(parsed.annualRevenue) : null
+        }
+        if (parsed.taxCode !== undefined) profile.taxCode = parsed.taxCode ?? null
+        if (parsed.registrationCountry !== undefined) profile.registrationCountry = parsed.registrationCountry ?? null
+        if (parsed.address !== undefined) profile.address = parsed.address ?? null
+        if (parsed.incorporationDate !== undefined) profile.incorporationDate = toDateOnlyValue(parsed.incorporationDate)
+        if (parsed.clientTier !== undefined) profile.clientTier = parsed.clientTier ?? null
+        if (parsed.onboardedAt !== undefined) profile.onboardedAt = toDateOnlyValue(parsed.onboardedAt)
+        if (parsed.registeredAt !== undefined) profile.registeredAt = toDateOnlyValue(parsed.registeredAt)
+        if (parsed.endDate !== undefined) profile.endDate = toDateOnlyValue(parsed.endDate)
+
+        if (parsed.status !== undefined) {
+          applyCompanyLifecycleDates(
+            profile,
+            previousStatus,
+            parsed.status ?? null,
+            new Set(
+              (['onboardedAt', 'registeredAt', 'endDate'] as const).filter((key) => parsed[key] !== undefined),
+            ),
+          )
         }
       },
       () => syncEntityTags(em, record, parsed.tags),
@@ -894,6 +1008,15 @@ const updateCompanyCommand: CommandHandler<CompanyUpdateInput, { entityId: strin
         industry: before.profile.industry,
         sizeBucket: before.profile.sizeBucket,
         annualRevenue: before.profile.annualRevenue,
+        taxCode: before.profile.taxCode,
+        registrationCountry: before.profile.registrationCountry,
+        address: before.profile.address,
+        incorporationDate: toDateOnlyValue(before.profile.incorporationDate),
+        clientTier: before.profile.clientTier,
+        onboardedAt: toDateOnlyValue(before.profile.onboardedAt),
+        registeredAt: toDateOnlyValue(before.profile.registeredAt),
+        endDate: toDateOnlyValue(before.profile.endDate),
+        reactivatedAt: before.profile.reactivatedAt,
       })
       em.persist(profile)
     } else {
@@ -904,6 +1027,15 @@ const updateCompanyCommand: CommandHandler<CompanyUpdateInput, { entityId: strin
       profile.industry = before.profile.industry
       profile.sizeBucket = before.profile.sizeBucket
       profile.annualRevenue = before.profile.annualRevenue
+      profile.taxCode = before.profile.taxCode
+      profile.registrationCountry = before.profile.registrationCountry
+      profile.address = before.profile.address
+      profile.incorporationDate = toDateOnlyValue(before.profile.incorporationDate)
+      profile.clientTier = before.profile.clientTier
+      profile.onboardedAt = toDateOnlyValue(before.profile.onboardedAt)
+      profile.registeredAt = toDateOnlyValue(before.profile.registeredAt)
+      profile.endDate = toDateOnlyValue(before.profile.endDate)
+      profile.reactivatedAt = before.profile.reactivatedAt
     }
 
     await em.flush()
@@ -1225,6 +1357,15 @@ const deleteCompanyCommand: CommandHandler<{ body?: Record<string, unknown>; que
           industry: before.profile.industry,
           sizeBucket: before.profile.sizeBucket,
           annualRevenue: before.profile.annualRevenue,
+          taxCode: before.profile.taxCode,
+          registrationCountry: before.profile.registrationCountry,
+          address: before.profile.address,
+          incorporationDate: toDateOnlyValue(before.profile.incorporationDate),
+          clientTier: before.profile.clientTier,
+          onboardedAt: toDateOnlyValue(before.profile.onboardedAt),
+          registeredAt: toDateOnlyValue(before.profile.registeredAt),
+          endDate: toDateOnlyValue(before.profile.endDate),
+          reactivatedAt: before.profile.reactivatedAt,
         })
         em.persist(profile)
       } else {
@@ -1235,6 +1376,15 @@ const deleteCompanyCommand: CommandHandler<{ body?: Record<string, unknown>; que
         profile.industry = before.profile.industry
         profile.sizeBucket = before.profile.sizeBucket
         profile.annualRevenue = before.profile.annualRevenue
+        profile.taxCode = before.profile.taxCode
+        profile.registrationCountry = before.profile.registrationCountry
+        profile.address = before.profile.address
+        profile.incorporationDate = toDateOnlyValue(before.profile.incorporationDate)
+        profile.clientTier = before.profile.clientTier
+        profile.onboardedAt = toDateOnlyValue(before.profile.onboardedAt)
+        profile.registeredAt = toDateOnlyValue(before.profile.registeredAt)
+        profile.endDate = toDateOnlyValue(before.profile.endDate)
+        profile.reactivatedAt = before.profile.reactivatedAt
       }
 
       const beforeDeals = before.deals ?? []

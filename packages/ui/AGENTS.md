@@ -62,7 +62,7 @@ When you need… use this. Details (variants, sizes, props, MUST rules) live in 
 | Checkbox with label + description | `CheckboxField` | `@open-mercato/ui/primitives/checkbox-field` |
 | Text input (generic, text/number/url/etc.) | `Input` | `@open-mercato/ui/primitives/input` |
 | Email input (Figma Email variant — mail icon prefix) | `EmailInput` | `@open-mercato/ui/primitives/email-input` |
-| Search input (Figma Search variant — leading magnifier + trailing × clear) | `SearchInput` | `@open-mercato/ui/primitives/search-input` |
+| Any search field — never hand-roll | `SearchInput` (`size`=box, `tone`=ground) | `@open-mercato/ui/primitives/search-input` |
 | Password input (Figma Password variant — trailing eye/eye-off reveal toggle) | `PasswordInput` | `@open-mercato/ui/primitives/password-input` |
 | Phone input (Figma Phone variant — country picker + national number) | `PhoneNumberField` | `@open-mercato/ui/backend/inputs/PhoneNumberField` |
 | Website / URL input (Figma Website variant — `https://` prefix box) | `WebsiteInput` | `@open-mercato/ui/primitives/website-input` |

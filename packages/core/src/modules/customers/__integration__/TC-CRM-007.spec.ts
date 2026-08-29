@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { createCompanyFixture, createPipelineFixture, createPipelineStageFixture, deleteEntityIfExists, deleteEntityByBody } from '@open-mercato/core/modules/core/__integration__/helpers/crmFixtures';
 import { getAuthToken } from '@open-mercato/core/modules/core/__integration__/helpers/api';
 import { login } from '@open-mercato/core/modules/core/__integration__/helpers/auth';
+import { tableRowByText } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom';
 
 function findStringByKeys(value: unknown, keys: readonly string[]): string | null {
   if (!value || typeof value !== 'object') return null;
@@ -126,7 +127,7 @@ test.describe('TC-CRM-007: Create Deal', () => {
       // the row click's router.push and silently overwrite the /deals/{id}
       // navigation with /deals?search=... (CI shard 7 flake — TC-CRM-007).
       await page.waitForURL(/\/backend\/customers\/deals\?.*search=/i, { timeout: 15_000 });
-      const dealRow = page.locator('tr').filter({ hasText: dealTitle }).first();
+      const dealRow = tableRowByText(page, dealTitle);
       await expect(dealRow).toBeVisible();
       // Click the title text inside the row rather than the row itself.
       // Clicking the TR center can land inside the trailing actions cell

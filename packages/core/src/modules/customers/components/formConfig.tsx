@@ -105,6 +105,14 @@ export type CompanyFormValues = {
   industry?: string
   sizeBucket?: string
   annualRevenue?: string
+  taxCode?: string
+  registrationCountry?: string
+  address?: string
+  incorporationDate?: string
+  clientTier?: string
+  onboardedAt?: string
+  registeredAt?: string
+  endDate?: string
   description?: string
   addresses?: CustomerAddressValue[]
 } & Record<string, unknown>
@@ -324,8 +332,8 @@ const createPrimaryEmailField = (t: Translator): CrudField => ({
 })
 
 type DictionaryFieldDefinition = {
-  id: 'status' | 'lifecycleStage' | 'source'
-  kind: 'statuses' | 'lifecycle-stages' | 'sources'
+  id: 'status' | 'lifecycleStage' | 'source' | 'clientTier'
+  kind: 'statuses' | 'lifecycle-stages' | 'sources' | 'client-tiers'
   labelKey: string
   placeholderKey: string
   addLabelKey: string
@@ -416,6 +424,16 @@ const companyDictionaryFieldDefinitions: DictionaryFieldDefinition[] = [
     promptKey: 'customers.companies.form.dictionary.promptSource',
     dialogTitleKey: 'customers.companies.form.dictionary.dialogTitleSource',
     layout: 'third',
+  },
+  {
+    id: 'clientTier',
+    kind: 'client-tiers',
+    labelKey: 'customers.companies.form.clientTier',
+    placeholderKey: 'customers.companies.form.clientTier.placeholder',
+    addLabelKey: 'customers.companies.form.dictionary.addClientTier',
+    promptKey: 'customers.companies.form.dictionary.promptClientTier',
+    dialogTitleKey: 'customers.companies.form.dictionary.dialogTitleClientTier',
+    layout: 'half',
   },
 ]
 
@@ -1269,6 +1287,62 @@ export const createCompanyFormSchema = () =>
         .or(z.literal(''))
         .transform((val) => (val === '' ? undefined : val))
         .optional(),
+      taxCode: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
+      registrationCountry: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
+      address: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
+      incorporationDate: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
+      clientTier: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
+      onboardedAt: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
+      registeredAt: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
+      endDate: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
     })
     .passthrough()
 
@@ -1372,6 +1446,47 @@ export const createCompanyFormFields = (t: Translator, options?: { defaultCountr
       placeholder: t('customers.companies.detail.highlights.annualRevenuePlaceholder', 'Enter amount'),
     },
     {
+      id: 'taxCode',
+      label: t('customers.companies.detail.fields.taxCode', 'Tax code'),
+      type: 'text',
+      layout: 'half',
+    },
+    {
+      id: 'registrationCountry',
+      label: t('customers.companies.detail.fields.registrationCountry', 'Registration country'),
+      type: 'text',
+      layout: 'half',
+    },
+    {
+      id: 'address',
+      label: t('customers.companies.detail.fields.registeredAddress', 'Registered address'),
+      type: 'textarea',
+    },
+    {
+      id: 'incorporationDate',
+      label: t('customers.companies.detail.fields.incorporationDate', 'Incorporation date'),
+      type: 'date',
+      layout: 'half',
+    },
+    {
+      id: 'onboardedAt',
+      label: t('customers.companies.detail.fields.onboardedAt', 'Onboarded'),
+      type: 'date',
+      layout: 'third',
+    },
+    {
+      id: 'registeredAt',
+      label: t('customers.companies.detail.fields.registeredAt', 'Registered'),
+      type: 'date',
+      layout: 'third',
+    },
+    {
+      id: 'endDate',
+      label: t('customers.companies.detail.fields.endDate', 'End date'),
+      type: 'date',
+      layout: 'third',
+    },
+    {
       id: 'description',
       label: t('customers.companies.detail.fields.description', 'Description'),
       type: 'textarea',
@@ -1470,6 +1585,22 @@ export const createCompanyFormGroups = (t: Translator): CrudFormGroup[] => [
     fields: ['legalName', 'brandName', 'domain', 'websiteUrl', 'industry', 'sizeBucket', 'annualRevenue'],
   },
   {
+    id: 'governance',
+    title: t('customers.companies.form.groups.governance', 'Identification'),
+    column: 1,
+    fields: ['taxCode', 'registrationCountry', 'incorporationDate', 'clientTier', 'address'],
+  },
+  {
+    id: 'lifecycle',
+    title: t('customers.companies.form.groups.lifecycle', 'Lifecycle'),
+    description: t(
+      'customers.companies.form.groups.lifecycleHint',
+      'Filled in automatically when the status changes. Set a date here only to record history.',
+    ),
+    column: 2,
+    fields: ['onboardedAt', 'registeredAt', 'endDate'],
+  },
+  {
     id: 'addresses',
     title: t('customers.companies.form.groups.addresses'),
     column: 1,
@@ -1519,6 +1650,14 @@ export function buildCompanyPayload(
   assign('websiteUrl', typeof values.websiteUrl === 'string' ? values.websiteUrl : undefined)
   assign('industry', typeof values.industry === 'string' ? values.industry : undefined)
   assign('sizeBucket', typeof values.sizeBucket === 'string' ? values.sizeBucket : undefined)
+  assign('taxCode', typeof values.taxCode === 'string' ? values.taxCode : undefined)
+  assign('registrationCountry', typeof values.registrationCountry === 'string' ? values.registrationCountry : undefined)
+  assign('address', typeof values.address === 'string' ? values.address : undefined)
+  assign('incorporationDate', typeof values.incorporationDate === 'string' ? values.incorporationDate : undefined)
+  assign('clientTier', typeof values.clientTier === 'string' ? values.clientTier : undefined)
+  assign('onboardedAt', typeof values.onboardedAt === 'string' ? values.onboardedAt : undefined)
+  assign('registeredAt', typeof values.registeredAt === 'string' ? values.registeredAt : undefined)
+  assign('endDate', typeof values.endDate === 'string' ? values.endDate : undefined)
   assign('description', typeof values.description === 'string' ? values.description : undefined)
 
   const rawRevenue = typeof values.annualRevenue === 'string' ? values.annualRevenue.trim() : ''
@@ -1665,6 +1804,14 @@ export const createCompanyEditSchema = () =>
     brandName: clearableTextField(),
     sizeBucket: clearableTextField(),
     annualRevenue: clearableTextField(),
+    taxCode: clearableTextField(),
+    registrationCountry: clearableTextField(),
+    address: clearableTextField(),
+    incorporationDate: clearableTextField(),
+    clientTier: clearableTextField(),
+    onboardedAt: clearableTextField(),
+    registeredAt: clearableTextField(),
+    endDate: clearableTextField(),
     description: clearableTextField(),
   })
 
@@ -1783,6 +1930,22 @@ export const createCompanyEditGroups = (t: Translator): CrudFormGroup[] => [
     title: t('customers.companies.form.groups.profile'),
     column: 1,
     fields: ['legalName', 'brandName', 'domain', 'websiteUrl', 'industry', 'sizeBucket', 'annualRevenue'],
+  },
+  {
+    id: 'governance',
+    title: t('customers.companies.form.groups.governance', 'Identification'),
+    column: 1,
+    fields: ['taxCode', 'registrationCountry', 'incorporationDate', 'clientTier', 'address'],
+  },
+  {
+    id: 'lifecycle',
+    title: t('customers.companies.form.groups.lifecycle', 'Lifecycle'),
+    description: t(
+      'customers.companies.form.groups.lifecycleHint',
+      'Filled in automatically when the status changes. Set a date here only to record history.',
+    ),
+    column: 2,
+    fields: ['onboardedAt', 'registeredAt', 'endDate'],
   },
   {
     id: 'notes',

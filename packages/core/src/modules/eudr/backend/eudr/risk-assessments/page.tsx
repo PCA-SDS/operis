@@ -374,7 +374,6 @@ export default function EudrRiskAssessmentsPage() {
           }}
           isLoading={loading}
           perspective={{ tableId: 'eudr.risk_assessments.list' }}
-          stickyActionsColumn
         />
       </PageBody>
       {ConfirmDialogElement}

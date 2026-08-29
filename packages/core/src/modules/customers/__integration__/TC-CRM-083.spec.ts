@@ -10,6 +10,7 @@ import {
 import { getAuthToken } from '@open-mercato/core/modules/core/__integration__/helpers/api';
 import { getTokenScope } from '@open-mercato/core/modules/core/__integration__/helpers/generalFixtures';
 import { login } from '@open-mercato/core/modules/core/__integration__/helpers/auth';
+import { tableRowByText } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom';
 
 /**
  * TC-CRM-083: Deals list redesign UI (`/backend/customers/deals`).
@@ -91,7 +92,7 @@ test.describe('TC-CRM-083: Deals list redesign UI', () => {
 
     // --- Table cells: focus assertions on the deterministic seeded row ---
     await searchBox.fill(dealTitle);
-    const dealRow = page.locator('tr').filter({ hasText: dealTitle }).first();
+    const dealRow = tableRowByText(page, dealTitle);
     await expect(dealRow, 'seeded deal row should appear after searching by title').toBeVisible({ timeout: 30_000 });
 
     // STATUS badge → dictionary label "Open" (seeded status='open').
