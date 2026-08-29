@@ -2436,6 +2436,7 @@
   "customers.personTags.category.statuses": "Status",
   "customers.personTags.category.tags": "Tags",
   "customers.personTags.category.temperature": "Temperature",
+  "customers.personTags.close": "Close",
   "customers.personTags.createLabelError": "Failed to create label",
   "customers.personTags.description.customCategory": "Custom CRM category: {{name}}.",
   "customers.personTags.description.industries": "The industry used to classify this company.",

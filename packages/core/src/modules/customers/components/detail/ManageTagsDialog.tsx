@@ -45,6 +45,7 @@ import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { ColorPicker } from '@open-mercato/ui/primitives/color-picker'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { ScrollArea } from '@open-mercato/ui/primitives/scroll-area'
 import {
   Dialog,
@@ -955,6 +956,7 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
       }}
     >
       <DialogContent
+        disableBodyWrap
         className="flex max-h-[90vh] flex-col overflow-hidden border-border p-0 shadow-[0px_20px_48px_0px_rgba(0,0,0,0.18)] sm:max-w-[820px] sm:rounded-lg [&>[data-dialog-close]]:hidden"
         aria-describedby={undefined}
       >
@@ -963,7 +965,7 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
         </VisuallyHidden>
 
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between pb-2.5 pl-6 pr-5 pt-4">
+        <div className="flex shrink-0 items-center justify-between px-5 py-4 sm:px-6">
           <div className="flex flex-col gap-1">
             <h2 className="text-base font-bold leading-tight text-foreground">
               {t('customers.tags.manage.title', 'Manage tags')}
@@ -990,20 +992,13 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
               <Plus className="size-3.5" />
               {t('customers.tags.manage.addCategory', 'New category')}
             </Button>
-            <IconButton
-              type="button"
-              variant="outline"
-              size="sm"
-              className="size-7 shrink-0 rounded-md border-border"
+            <CloseButton
               onClick={onClose}
               aria-label={t('customers.tags.manage.closeDialog', 'Close')}
-            >
-              <X className="size-3.5" />
-            </IconButton>
+            />
           </div>
         </div>
-        <div className="h-px shrink-0 bg-border" />
-
+        
         {loading ? (
           <div className="px-7 py-12 text-center text-sm text-muted-foreground">
             {t('customers.tags.manage.loading', 'Loading...')}

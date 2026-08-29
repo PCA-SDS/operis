@@ -2436,6 +2436,7 @@
   "customers.personTags.category.statuses": "Status",
   "customers.personTags.category.tags": "Tagi",
   "customers.personTags.category.temperature": "Temperatura",
+  "customers.personTags.close": "Zamknij",
   "customers.personTags.createLabelError": "Nie udało się utworzyć etykiety",
   "customers.personTags.description.customCategory": "Niestandardowa kategoria CRM: {{name}}.",
   "customers.personTags.description.industries": "Branża używana do klasyfikacji tej firmy.",

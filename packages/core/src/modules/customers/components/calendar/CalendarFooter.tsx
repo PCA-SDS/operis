@@ -24,7 +24,7 @@ export const CALENDAR_SHORTCUTS: ReadonlyArray<{
 export function CalendarFooter({ timezoneLabel, onOpenShortcuts }: CalendarFooterProps) {
   const t = useT()
   return (
-    <footer className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t bg-muted/40 px-4 py-2">
+    <footer className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border px-4 py-2">
       {CALENDAR_SHORTCUTS.map((shortcut) => {
         const legend = (
           <>
