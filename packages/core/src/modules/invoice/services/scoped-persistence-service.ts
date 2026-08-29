@@ -21,10 +21,20 @@ type InvoiceEntityClass<TEntity extends InvoiceEntity> = EntityClass<TEntity>
 type InvoiceScopedFindOptions<TEntity extends InvoiceEntity> = FindOptions<TEntity> & { includeDeleted?: boolean }
 type InvoiceScopedFindOneOptions<TEntity extends InvoiceEntity> = FindOneOptions<TEntity> & { includeDeleted?: boolean }
 
-const SOFT_DELETE_FIELDS = new Map<EntityClass<InvoiceEntity>, keyof InvoiceEntity>([
-  [Invoice as EntityClass<InvoiceEntity>, 'deletedAt'],
-  [InvoiceCompany as EntityClass<InvoiceEntity>, 'deletedAt'],
-])
+/**
+ * Every invoice entity that declares a `deleted_at` column. Reads for these are
+ * filtered to live rows unless the caller opts in with `includeDeleted`, so a
+ * new soft-deletable entity missing from this list would silently return
+ * deleted rows — the module's unit tests pin the list against `data/entities.ts`.
+ */
+export const INVOICE_SOFT_DELETABLE_ENTITIES: readonly EntityClass<InvoiceEntity>[] = [
+  Invoice as EntityClass<InvoiceEntity>,
+  InvoiceCompany as EntityClass<InvoiceEntity>,
+]
+
+const SOFT_DELETE_FIELDS = new Map<EntityClass<InvoiceEntity>, keyof InvoiceEntity>(
+  INVOICE_SOFT_DELETABLE_ENTITIES.map((entity) => [entity, 'deletedAt'] as const),
+)
 
 function softDeleteFieldFor<TEntity extends InvoiceEntity>(
   entity: InvoiceEntityClass<TEntity>,

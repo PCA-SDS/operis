@@ -395,16 +395,13 @@
           "unique": false
         },
         {
-          "columnNames": [
-            "organization_id",
-            "tenant_id",
-            "tax_code"
-          ],
-          "composite": true,
-          "constraint": true,
-          "keyName": "invoice_companies_tax_code_scope_unique",
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "keyName": "invoice_companies_tax_code_scope_unique_idx",
           "primary": false,
-          "unique": true
+          "unique": false,
+          "expression": "create unique index \"invoice_companies_tax_code_scope_unique_idx\" on \"invoice_companies\" (\"organization_id\", \"tenant_id\", \"tax_code\") where deleted_at is null"
         }
       ],
       "checks": [
@@ -1715,7 +1712,7 @@
           "autoincrement": false,
           "primary": false,
           "nullable": true,
-          "unique": true,
+          "unique": false,
           "length": null,
           "precision": null,
           "scale": null,
@@ -2270,14 +2267,13 @@
           "unique": false
         },
         {
-          "columnNames": [
-            "email_tracking_token_hash"
-          ],
+          "columnNames": [],
           "composite": false,
-          "constraint": true,
-          "keyName": "invoice_invoices_email_tracking_hash_unique",
+          "constraint": false,
+          "keyName": "invoice_invoices_email_tracking_hash_unique_idx",
           "primary": false,
-          "unique": true
+          "unique": false,
+          "expression": "create unique index \"invoice_invoices_email_tracking_hash_unique_idx\" on \"invoice_invoices\" (\"email_tracking_token_hash\") where email_tracking_token_hash is not null and deleted_at is null"
         },
         {
           "columnNames": [
@@ -2326,16 +2322,13 @@
           "unique": false
         },
         {
-          "columnNames": [
-            "organization_id",
-            "tenant_id",
-            "source_invoice_id"
-          ],
-          "composite": true,
-          "constraint": true,
-          "keyName": "invoice_invoices_source_scope_unique",
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "keyName": "invoice_invoices_source_scope_unique_idx",
           "primary": false,
-          "unique": true
+          "unique": false,
+          "expression": "create unique index \"invoice_invoices_source_scope_unique_idx\" on \"invoice_invoices\" (\"organization_id\", \"tenant_id\", \"source_invoice_id\") where deleted_at is null"
         }
       ],
       "checks": [

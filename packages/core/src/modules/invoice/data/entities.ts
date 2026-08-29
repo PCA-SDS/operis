@@ -33,13 +33,38 @@ export type InvoiceSyncJobFailureCategory = (typeof INVOICE_SYNC_JOB_FAILURE_CAT
 export const INVOICE_CURRENCY_CODES = ['USD', 'EUR', 'GBP', 'SGD', 'AUD', 'JPY', 'CNY', 'KRW', 'THB', 'VND'] as const
 export type InvoiceCurrencyCode = (typeof INVOICE_CURRENCY_CODES)[number]
 
+export const INVOICE_MAX_DUE_DAYS = 3650
+export const INVOICE_PUBLIC_TOKEN_HEX_LENGTH = 64
+export const INVOICE_INSTALLMENT_INTEREST_RATE_MIN = 0
+export const INVOICE_INSTALLMENT_INTEREST_RATE_MAX = 100
+
+function enumCheck(column: string, values: readonly string[]): string {
+  return `"${column}" in (${values.map((value) => `'${value}'`).join(', ')})`
+}
+
+function nullableEnumCheck(column: string, values: readonly string[]): string {
+  return `"${column}" is null or ${enumCheck(column, values)}`
+}
+
+function hexTokenCheck(column: string): string {
+  return `"${column}" ~ '^[0-9a-f]{${INVOICE_PUBLIC_TOKEN_HEX_LENGTH}}$'`
+}
+
+function rangeCheck(column: string, min: number, max: number): string {
+  return `"${column}" >= ${min} and "${column}" <= ${max}`
+}
+
 @Entity({ tableName: 'invoice_companies' })
 @Index({ name: 'invoice_companies_scope_idx', properties: ['organizationId', 'tenantId'] })
 @Index({ name: 'invoice_companies_name_idx', properties: ['organizationId', 'tenantId', 'name'] })
-@Unique({ name: 'invoice_companies_tax_code_scope_unique', properties: ['organizationId', 'tenantId', 'taxCode'] })
+@Index({
+  name: 'invoice_companies_tax_code_scope_unique_idx',
+  expression:
+    'create unique index "invoice_companies_tax_code_scope_unique_idx" on "invoice_companies" ("organization_id", "tenant_id", "tax_code") where deleted_at is null',
+})
 @Check({
   name: 'invoice_companies_default_due_days_check',
-  expression: `"default_due_days" is null or ("default_due_days" >= 0 and "default_due_days" <= 3650)`,
+  expression: `"default_due_days" is null or (${rangeCheck('default_due_days', 0, INVOICE_MAX_DUE_DAYS)})`,
 })
 export class InvoiceCompany {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
@@ -149,25 +174,33 @@ export class InvoiceAutoPaidTaxCode {
 })
 @Index({ name: 'invoice_invoices_due_date_idx', properties: ['organizationId', 'tenantId', 'dueDate'] })
 @Index({ name: 'invoice_invoices_next_due_date_idx', properties: ['organizationId', 'tenantId', 'nextDueDate'] })
-@Unique({ name: 'invoice_invoices_source_scope_unique', properties: ['organizationId', 'tenantId', 'sourceInvoiceId'] })
-@Unique({ name: 'invoice_invoices_email_tracking_hash_unique', properties: ['emailTrackingTokenHash'] })
-@Check({ name: 'invoice_invoices_origin_check', expression: `"origin" in ('GOVERNMENT_PORTAL', 'MANUAL')` })
-@Check({ name: 'invoice_invoices_direction_check', expression: `"direction" in ('AR', 'AP')` })
+@Index({
+  name: 'invoice_invoices_source_scope_unique_idx',
+  expression:
+    'create unique index "invoice_invoices_source_scope_unique_idx" on "invoice_invoices" ("organization_id", "tenant_id", "source_invoice_id") where deleted_at is null',
+})
+@Index({
+  name: 'invoice_invoices_email_tracking_hash_unique_idx',
+  expression:
+    'create unique index "invoice_invoices_email_tracking_hash_unique_idx" on "invoice_invoices" ("email_tracking_token_hash") where email_tracking_token_hash is not null and deleted_at is null',
+})
+@Check({ name: 'invoice_invoices_origin_check', expression: enumCheck('origin', INVOICE_ORIGINS) })
+@Check({ name: 'invoice_invoices_direction_check', expression: enumCheck('direction', INVOICE_DIRECTIONS) })
 @Check({
   name: 'invoice_invoices_invoice_status_check',
-  expression: `"invoice_status" in ('ACTIVE', 'CANCELLED', 'REPLACEMENT', 'ADJUSTMENT', 'REPLACED', 'ADJUSTED')`,
+  expression: enumCheck('invoice_status', INVOICE_STATUSES),
 })
 @Check({
   name: 'invoice_invoices_settlement_status_check',
-  expression: `"settlement_status" in ('UNSETTLED', 'PARTIALLY_PAID', 'SETTLED')`,
+  expression: enumCheck('settlement_status', INVOICE_SETTLEMENT_STATUSES),
 })
 @Check({
   name: 'invoice_invoices_currency_code_check',
-  expression: `"currency_code" in ('USD', 'EUR', 'GBP', 'SGD', 'AUD', 'JPY', 'CNY', 'KRW', 'THB', 'VND')`,
+  expression: enumCheck('currency_code', INVOICE_CURRENCY_CODES),
 })
 @Check({
   name: 'invoice_invoices_email_tracking_hash_check',
-  expression: `"email_tracking_token_hash" is null or "email_tracking_token_hash" ~ '^[0-9a-f]{64}$'`,
+  expression: `"email_tracking_token_hash" is null or ${hexTokenCheck('email_tracking_token_hash')}`,
 })
 export class Invoice {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
@@ -362,10 +395,10 @@ export class InvoiceLineItem {
 @Index({ name: 'invoice_installments_invoice_idx', properties: ['invoice'] })
 @Index({ name: 'invoice_installments_due_date_idx', properties: ['organizationId', 'tenantId', 'dueDate'] })
 @Unique({ name: 'invoice_installments_invoice_sequence_unique', properties: ['invoice', 'sequence'] })
-@Check({ name: 'invoice_installments_status_check', expression: `"status" in ('PENDING', 'PAID')` })
+@Check({ name: 'invoice_installments_status_check', expression: enumCheck('status', INVOICE_INSTALLMENT_STATUSES) })
 @Check({
   name: 'invoice_installments_interest_rate_check',
-  expression: `"interest_rate" >= 0 and "interest_rate" <= 100`,
+  expression: rangeCheck('interest_rate', INVOICE_INSTALLMENT_INTEREST_RATE_MIN, INVOICE_INSTALLMENT_INTEREST_RATE_MAX),
 })
 export class InvoiceInstallment {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
@@ -424,9 +457,9 @@ export class InvoiceInstallment {
 @Unique({ name: 'invoice_payment_confirmations_token_hash_unique', properties: ['tokenHash'] })
 @Check({
   name: 'invoice_payment_confirmations_status_check',
-  expression: `"status" in ('PENDING', 'CONFIRMED', 'REJECTED')`,
+  expression: enumCheck('status', INVOICE_PAYMENT_CONFIRMATION_STATUSES),
 })
-@Check({ name: 'invoice_payment_confirmations_token_hash_check', expression: `"token_hash" ~ '^[0-9a-f]{64}$'` })
+@Check({ name: 'invoice_payment_confirmations_token_hash_check', expression: hexTokenCheck('token_hash') })
 export class InvoicePaymentConfirmation {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -475,13 +508,13 @@ export class InvoicePaymentConfirmation {
 @Unique({ name: 'invoice_sync_jobs_idempotency_scope_unique', properties: ['organizationId', 'tenantId', 'idempotencyKey'] })
 @Check({
   name: 'invoice_sync_jobs_state_check',
-  expression: `"state" in ('QUEUED', 'AUTHENTICATING', 'FETCHING', 'PERSISTING', 'DONE', 'FAILED')`,
+  expression: enumCheck('state', INVOICE_SYNC_JOB_STATES),
 })
 @Check({
   name: 'invoice_sync_jobs_failure_category_check',
-  expression: `"failure_category" is null or "failure_category" in ('AUTH_FAILED', 'ACCOUNT_LOCKED', 'PORTAL_UNREACHABLE', 'INTERNAL_ERROR')`,
+  expression: nullableEnumCheck('failure_category', INVOICE_SYNC_JOB_FAILURE_CATEGORIES),
 })
-@Check({ name: 'invoice_sync_jobs_progress_check', expression: `"progress" >= 0 and "progress" <= 100` })
+@Check({ name: 'invoice_sync_jobs_progress_check', expression: rangeCheck('progress', 0, 100) })
 export class InvoiceSyncJob {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string

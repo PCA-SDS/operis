@@ -1,7 +1,12 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import type { EntityManager } from '@mikro-orm/postgresql'
 
 import { Invoice, InvoiceCompany, InvoiceCompanyEmail } from '../data/entities'
-import { InvoiceScopedPersistenceService } from '../services/scoped-persistence-service'
+import {
+  INVOICE_SOFT_DELETABLE_ENTITIES,
+  InvoiceScopedPersistenceService,
+} from '../services/scoped-persistence-service'
 
 const scope = { tenantId: 'tenant-trusted', organizationId: 'org-trusted' }
 
@@ -179,5 +184,20 @@ describe('InvoiceScopedPersistenceService', () => {
     jest.mocked(em.findOne).mockResolvedValue(null)
 
     await expect(service.requireById(InvoiceCompany, scope, 'company-1')).rejects.toMatchObject({ status: 404 })
+  })
+})
+
+describe('invoice soft-delete registry', () => {
+  it('covers every entity class that declares deleted_at', () => {
+    const source = readFileSync(join(__dirname, '..', 'data', 'entities.ts'), 'utf8')
+    const declaringSoftDelete = source
+      .split(/^export class /m)
+      .slice(1)
+      .filter((block) => block.includes("name: 'deleted_at'"))
+      .map((block) => block.split(/[\s{]/)[0])
+      .sort()
+
+    expect(declaringSoftDelete.length).toBeGreaterThan(0)
+    expect(INVOICE_SOFT_DELETABLE_ENTITIES.map((entity) => entity.name).sort()).toEqual(declaringSoftDelete)
   })
 })

@@ -163,9 +163,19 @@ describe('invoice module foundation', () => {
     }
   })
 
+  it('scopes uniqueness on soft-deletable tables to live rows only', () => {
+    expect(MIGRATION_SOURCE).toContain(
+      'create unique index "invoice_companies_tax_code_scope_unique_idx" on "invoice_companies" ("organization_id", "tenant_id", "tax_code") where deleted_at is null',
+    )
+    expect(MIGRATION_SOURCE).toContain(
+      'create unique index "invoice_invoices_source_scope_unique_idx" on "invoice_invoices" ("organization_id", "tenant_id", "source_invoice_id") where deleted_at is null',
+    )
+    expect(MIGRATION_SOURCE).toContain(
+      'create unique index "invoice_invoices_email_tracking_hash_unique_idx" on "invoice_invoices" ("email_tracking_token_hash") where email_tracking_token_hash is not null and deleted_at is null',
+    )
+  })
+
   it('pins key invoice migration constraints and FK behavior', () => {
-    expect(MIGRATION_SOURCE).toContain('invoice_companies_tax_code_scope_unique')
-    expect(MIGRATION_SOURCE).toContain('invoice_invoices_source_scope_unique')
     expect(MIGRATION_SOURCE).toContain('invoice_payment_confirmations_token_hash_unique')
     expect(MIGRATION_SOURCE).toContain('references "invoice_companies" ("id") on delete restrict')
   })

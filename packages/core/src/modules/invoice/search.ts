@@ -5,6 +5,7 @@ import type {
   SearchResultPresenter,
 } from '@open-mercato/shared/modules/search'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { E } from '#generated/entities.ids.generated'
 
 function pickString(...candidates: unknown[]): string | null {
   for (const candidate of candidates) {
@@ -77,7 +78,7 @@ function invoicePresenter(t: Translate, record: Record<string, unknown>): Search
 export const searchConfig: SearchModuleConfig = {
   entities: [
     {
-      entityId: 'invoice:invoice_company',
+      entityId: E.invoice.invoice_company,
       aclFeatures: ['invoice.view'],
       enabled: true,
       priority: 7,
@@ -101,7 +102,7 @@ export const searchConfig: SearchModuleConfig = {
       },
     },
     {
-      entityId: 'invoice:invoice',
+      entityId: E.invoice.invoice,
       aclFeatures: ['invoice.view'],
       enabled: true,
       priority: 8,
