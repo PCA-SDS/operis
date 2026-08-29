@@ -130,7 +130,9 @@ jobs:
           yarn build:packages
 
       - name: Typecheck
-        run: yarn turbo run typecheck --concurrency=1
+        # typecheck:serial, not typecheck. Parallel `tsc` workers exhaust the
+        # runner's memory on this codebase and die without a useful diagnostic.
+        run: yarn typecheck:serial
 
       - name: Unit tests
         # test:serial, not test. The default runner (turbo concurrency 2, 1 GB
