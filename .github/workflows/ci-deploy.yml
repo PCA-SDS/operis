@@ -342,15 +342,24 @@ jobs:
           )
 
           if [ "$PUSH" = "true" ]; then
-            # mode=min, not mode=max. max exports every intermediate layer of
-            # every stage, and this monorepo's fattest layers are node_modules
-            # trees that are re-derivable from yarn.lock — so max spent most of
-            # its 81s cache export pushing gigabytes that only ever get reused
-            # when the lockfile is unchanged, which is exactly when the layer
-            # is a local hit anyway. min exports the final stage's layers.
+            # mode=max, and it has to be. mode=min exports only the layers
+            # of the FINAL image — but this builds `--target runner`, a stage
+            # that COPYs artifacts out of `builder` rather than containing its
+            # layers. Under min, the expensive work (yarn install, then yarn
+            # build) never reaches the registry cache at all, and the workflow
+            # creates a fresh buildx builder each run so there is no local
+            # cache to fall back on: every build would redo ~10 minutes of
+            # install and compile even when nothing relevant changed.
+            #
+            # max costs ~81s of cache export per build and buys back the
+            # install layer on every push that does not touch package.json,
+            # yarn.lock or turbo.json — which is most pushes. Those three are
+            # copied at Dockerfile:15, before `yarn install`, so touching any
+            # of them invalidates everything after it and forces a full
+            # rebuild regardless of cache mode.
             ARGS+=(
               --tag "$IMAGE:latest"
-              --cache-to "type=registry,ref=$IMAGE:buildcache,mode=min"
+              --cache-to "type=registry,ref=$IMAGE:buildcache,mode=max"
               --push
             )
           else
