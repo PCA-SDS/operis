@@ -103,7 +103,7 @@ const baseEntitySchema = {
   primaryEmail: clearableEmailSchema,
   primaryPhone: phoneSchema,
   phoneCountryCode: clearableStringSchema(8),
-  phoneCountry: clearableStringSchema(120),
+  phoneCountry: clearableStringSchema(2),
   status: z.string().trim().max(100).optional(),
   lifecycleStage: z.string().trim().max(100).optional(),
   source: z.string().trim().max(150).optional(),
@@ -808,20 +808,6 @@ export const personCheckSchema = z.object({
   tenantId: uuid(),
   phone: z.string().trim().max(50).optional(),
   email: clearableEmailSchema,
-  phoneCountryCode: clearableStringSchema(8),
-  phoneCountry: clearableStringSchema(120),
-})
-
-export const personFindOrCreateSchema = scopedSchema.extend({
-  firstName: personFirstNameSchema,
-  lastName: personLastNameSchema,
-  phone: phoneSchema,
-  email: clearableEmailSchema,
-  salutation: clearableStringSchema(150),
-  source: clearableStringSchema(150),
-  phoneCountryCode: clearableStringSchema(8),
-  phoneCountry: clearableStringSchema(120),
 })
 
 export type PersonCheckInput = z.infer<typeof personCheckSchema>
-export type PersonFindOrCreateInput = z.infer<typeof personFindOrCreateSchema>

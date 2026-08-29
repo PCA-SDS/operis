@@ -27,10 +27,13 @@ export type CustomerAddressFormat = 'line_first' | 'street_first'
   expression:
     `create index "idx_ce_tenant_person_id" on "customer_entities" ("tenant_id", "id") where deleted_at is null and kind = 'person'`,
 })
+// Keyed on the deterministic hash, not on `primary_phone`: that column is
+// encrypted with a per-value IV, so a unique index over it would compare
+// ciphertexts that differ for identical numbers and enforce nothing.
 @Index({
-  name: 'customer_entities_tenant_phone_uq',
+  name: 'customer_entities_tenant_phone_hash_uq',
   expression:
-    `create unique index "customer_entities_tenant_phone_uq" on "customer_entities" ("tenant_id", "phone_country_code", "primary_phone") where "deleted_at" is null and "kind" = 'person' and "primary_phone" is not null and "phone_country_code" is not null`,
+    `create unique index "customer_entities_tenant_phone_hash_uq" on "customer_entities" ("tenant_id", "primary_phone_hash") where "deleted_at" is null and "kind" = 'person' and "primary_phone_hash" is not null`,
 })
 export class CustomerEntity {
   [OptionalProps]?: 'isActive' | 'createdAt' | 'updatedAt' | 'deletedAt'
@@ -62,9 +65,18 @@ export class CustomerEntity {
   @Property({ name: 'primary_phone', type: 'text', nullable: true })
   primaryPhone?: string | null
 
+  /** Peppered digests for equality lookups; see `lib/contactIdentity.ts`. */
+  @Property({ name: 'primary_email_hash', type: 'text', nullable: true })
+  primaryEmailHash?: string | null
+
+  @Property({ name: 'primary_phone_hash', type: 'text', nullable: true })
+  primaryPhoneHash?: string | null
+
+  /** International dial code, digits only (e.g. `65`). */
   @Property({ name: 'phone_country_code', type: 'text', nullable: true })
   phoneCountryCode?: string | null
 
+  /** ISO 3166-1 alpha-2 of the selected dial code (e.g. `SG`). */
   @Property({ name: 'phone_country', type: 'text', nullable: true })
   phoneCountry?: string | null
 
@@ -169,7 +181,7 @@ export class CustomerPersonProfile {
   @Property({ name: 'tenant_id', type: 'uuid' })
   tenantId!: string
 
-  @Property({ type: 'text', nullable: true })
+  @Property({ name: 'salutation', type: 'text', nullable: true })
   salutation?: string | null
 
   @Property({ name: 'first_name', type: 'text', nullable: true })

@@ -182,3 +182,34 @@ describe('PhoneNumberField country search', () => {
     expect(screen.queryAllByRole('option')).toHaveLength(0)
   })
 })
+
+describe('PhoneNumberField country reporting', () => {
+  it('reports the default country on mount', () => {
+    const onCountryChange = jest.fn()
+    render(<PhoneFieldHarness defaultCountryIso2="SG" onCountryChange={onCountryChange} />)
+
+    expect(onCountryChange).toHaveBeenCalledTimes(1)
+    expect(onCountryChange).toHaveBeenCalledWith(expect.objectContaining({ iso2: 'SG' }))
+  })
+
+  it('reports the country parsed from an externally supplied value', () => {
+    const onCountryChange = jest.fn()
+    const poland = PHONE_COUNTRIES.find((country) => country.iso2 === 'PL')
+    render(
+      <PhoneNumberField value="+48 123 456 789" onValueChange={() => {}} onCountryChange={onCountryChange} />
+    )
+
+    expect(onCountryChange).toHaveBeenLastCalledWith(expect.objectContaining({ iso2: 'PL', dialCode: poland?.dialCode }))
+  })
+
+  it('does not re-report while the number changes but the country does not', () => {
+    const onCountryChange = jest.fn()
+    render(<PhoneFieldHarness defaultCountryIso2="US" onCountryChange={onCountryChange} />)
+    onCountryChange.mockClear()
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '2125551234' } })
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '2125559999' } })
+
+    expect(onCountryChange).not.toHaveBeenCalled()
+  })
+})
