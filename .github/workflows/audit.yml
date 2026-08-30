@@ -49,6 +49,9 @@ jobs:
   audit:
     name: Audit ${{ matrix.branch }}
     runs-on: ubuntu-latest
+    # A hard cap so a wedged install or registry stall cannot sit on a runner for
+    # the six-hour default. Carried over from ci.yml, which #237 removed.
+    timeout-minutes: 15
     permissions:
       contents: read
       issues: write
