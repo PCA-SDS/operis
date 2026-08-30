@@ -142,6 +142,20 @@ function typeAndBlur(input: HTMLInputElement, value: string): void {
 }
 
 describe('MyTimesheetsPage — duration entry (#4846)', () => {
+  // The page renders the week containing `new Date()`, so the day numbers in the
+  // header move with the wall clock. Several assertions here match on bare text
+  // ('2'), which collides with a day number whenever the visible week spans a
+  // month boundary — the suite passed on 2026-08-30 (week 24–30) and failed on
+  // 2026-08-31 (week 31–6, which renders a literal "2"). Pin the clock to a week
+  // whose day numbers are all two digits so the grid is deterministic.
+  beforeAll(() => {
+    jest.useFakeTimers({ now: new Date('2026-01-14T12:00:00Z'), advanceTimers: true })
+  })
+
+  afterAll(() => {
+    jest.useRealTimers()
+  })
+
   beforeEach(() => {
     jest.clearAllMocks()
     stubApiRoutes()
