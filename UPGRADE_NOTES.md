@@ -24,6 +24,45 @@ most of the patterns listed below in a user's codebase.
 
 ## 0.6.7 → 0.7.0 (2026-08-26)
 
+### TPS catalog importer moved to its own package
+
+The one-shot TPS catalog importer moved out of `@open-mercato/core` into a new
+workspace package, `@open-mercato/migrate-tps`, so the core package no longer
+carries a single customer's service menu (3,115 lines of it). The module is
+CLI-only — no routes, no entities, no migrations.
+
+**Action for operators:** the commands moved namespace and dropped their
+redundant prefix.
+
+| Before | After |
+| --- | --- |
+| `yarn mercato catalog migrate-tps-categories <tenantId> <organizationId>` | `yarn mercato migrate_tps categories <tenantId> <organizationId>` |
+| `yarn mercato catalog migrate-tps-products <tenantId> <organizationId>` | `yarn mercato migrate_tps products <tenantId> <organizationId>` |
+
+Flags are unchanged, including `--replace`. Apps enable it through the usual
+`enabledModules` entry (`{ id: 'migrate_tps', from: '@open-mercato/migrate-tps' }`);
+removing that line removes the commands.
+
+### WMS sales-order warehouse assignment gains its missing foreign key
+
+`SalesOrderWarehouseAssignment.warehouse` has always been a required
+`@ManyToOne`, but no migration ever created the foreign key — the table shipped
+with only a primary key, so `warehouse_id` could reference a warehouse that does
+not exist. The module snapshot recorded a constraint that was never created,
+which is why `yarn db:generate` kept emitting drift for `wms`.
+
+The constraint is added `NOT VALID`, so the migration cannot fail on a
+deployment that already carries orphaned assignments: Postgres enforces it on
+every new row and update without scanning the existing table.
+
+**Action for operators:** reconcile any assignment rows pointing at a missing
+warehouse, then promote the constraint:
+
+```sql
+ALTER TABLE "wms_sales_order_warehouse_assignments"
+  VALIDATE CONSTRAINT "wms_sales_order_warehouse_assignments_warehouse_id_foreign";
+```
+
 ### Catalog option tree replaces the legacy product-option table
 
 The catalog option-tree rollout reuses the physical table name
