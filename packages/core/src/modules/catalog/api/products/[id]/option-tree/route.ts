@@ -7,6 +7,11 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { CatalogProduct, CatalogProductOptionGroup, CatalogProductOption, CatalogProductPrice, CatalogProductConstraint } from '../../../../data/entities'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
+import {
+  resolveUserFeatures,
+  runCatalogMutationGuardAfterSuccess,
+  runCatalogMutationGuards,
+} from '../../../guards'
 import type { CatalogProductOptionTreeSyncInput } from '../../../../data/validators'
 
 export const metadata = {
@@ -195,6 +200,9 @@ export async function GET(
     organizationId,
     deletedAt: null,
   })
+  if (!product) {
+    throw new CrudHttpError(404, { error: 'Product not found' })
+  }
 
   // Fetch all groups for this product
   const groups = await em.find(
@@ -215,18 +223,12 @@ export async function GET(
     )
   }
 
-  // Fetch currency from product prices (fallback to VND)
-  let currencyCode = 'VND'
-  if (productId) {
-    const price = await em.findOne(CatalogProductPrice, {
-      product: productId,
-      tenantId,
-      organizationId,
-    })
-    if (price?.currencyCode) {
-      currencyCode = price.currencyCode
-    }
-  }
+  const price = await em.findOne(
+    CatalogProductPrice,
+    { product: productId, tenantId, organizationId },
+    { orderBy: { createdAt: 'asc' } },
+  )
+  const currencyCode = price?.currencyCode ?? product.primaryCurrencyCode ?? 'USD'
 
   // Fetch constraints for this product
   const constraints = await em.find(CatalogProductConstraint, {
@@ -237,7 +239,7 @@ export async function GET(
 
   // Serialize entities
   const aggregateUpdatedAt = latestIso([
-    product?.updatedAt ?? null,
+    product.updatedAt ?? null,
     ...groups.map((group) => group.updatedAt ?? null),
     ...options.map((option) => option.updatedAt ?? null),
     ...constraints.map((c) => c.updatedAt ?? null),
@@ -381,6 +383,25 @@ export async function PUT(
     })) ?? [],
   }
 
+  const guardInput = {
+    tenantId: ctx.auth.tenantId,
+    organizationId: ctx.selectedOrganizationId ?? ctx.auth.orgId ?? null,
+    userId: ctx.auth?.sub ?? '',
+    resourceKind: 'catalog.product',
+    resourceId: productId,
+    operation: 'update' as const,
+    requestMethod: request.method,
+    requestHeaders: request.headers,
+  }
+  const guardResult = await runCatalogMutationGuards(
+    ctx.container,
+    guardInput,
+    resolveUserFeatures(ctx.auth),
+  )
+  if (!guardResult.ok) {
+    throw new CrudHttpError(guardResult.errorStatus ?? 422, guardResult.errorBody ?? { error: 'Operation blocked by guard' })
+  }
+
   const commandBus = ctx.container.resolve('commandBus') as CommandBus
   await commandBus.execute('catalog.product_options.sync_tree', {
     input: payload,
@@ -396,6 +417,8 @@ export async function PUT(
       actorUserId: ctx.auth?.userId ?? null,
     },
   })
+
+  await runCatalogMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, guardInput)
 
   // Call GET logic manually to bypass generic fetch
   return GET(request, { params })

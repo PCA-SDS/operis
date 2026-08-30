@@ -42,7 +42,7 @@ export default function ProductOptionsPage({ params }: { params?: { id?: string 
   const [localGroups, setLocalGroups] = useState<GroupItem[]>([])
   const [localOptions, setLocalOptions] = useState<OptionItem[]>([])
   const [isDirty, setIsDirty] = useState(false)
-  const [currencyCode, setCurrencyCode] = useState<string>('VND')
+  const [currencyCode, setCurrencyCode] = useState<string>('USD')
 
   const loadData = useCallback(async () => {
     if (!productId) return
@@ -170,7 +170,7 @@ export default function ProductOptionsPage({ params }: { params?: { id?: string 
                   )}
                   <Button onClick={handleSyncTree} disabled={!isDirty || saving || !loadSucceeded} className="gap-2">
                     {saving ? <Spinner className="w-4 h-4 mr-1" /> : <Save className="h-4 w-4" />}
-                    {t('common.saveChanges', 'Save Changes')}
+                    {t('catalog.actions.saveChanges', 'Save Changes')}
                   </Button>
                 </>
               }

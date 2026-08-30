@@ -590,7 +590,7 @@ function OptionDialog({
                   </div>
                 )}
                 
-                <div className="w-[120px] shrink-0">
+                <div className="w-32 shrink-0">
                   <Select
                     value={form.duration_unit}
                     onValueChange={(value) => setForm((f) => ({ ...f, duration_unit: normalizeDurationUnit(value) }))}
@@ -1073,7 +1073,7 @@ export function OptionTreeEditor({
   options: localOptions,
   onChangeGroups: setLocalGroups,
   onChangeOptions: setLocalOptions,
-  currencyCode = 'VND',
+  currencyCode = 'USD',
   productId = '',
   headerActions,
 }: OptionTreeEditorProps) {

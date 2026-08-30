@@ -21,7 +21,20 @@ describe('PUT /products/[id]/option-tree', () => {
     commandBus = { execute: jest.fn().mockResolvedValue(undefined) }
     em = {
       fork: jest.fn(),
-      findOne: jest.fn().mockResolvedValue(null),
+      // The route reads the product to scope the tree and to resolve the display
+      // currency, and 404s without it — so the default stub has to return one.
+      findOne: jest.fn().mockImplementation(async (entity) =>
+        entity === CatalogProduct
+          ? {
+              id: PRODUCT_ID,
+              tenantId: TENANT_ID,
+              organizationId: ORG_ID,
+              deletedAt: null,
+              primaryCurrencyCode: null,
+              updatedAt: new Date('2026-08-26T08:00:00.000Z'),
+            }
+          : null,
+      ),
       find: jest.fn().mockImplementation(async (entity) => {
         if (entity === CatalogProductOptionGroup) return []
         if (entity === CatalogProductOption) return []
@@ -114,7 +127,13 @@ describe('PUT /products/[id]/option-tree', () => {
       })
     )
 
-    await expect(response.json()).resolves.toMatchObject({ updated_at: null, groups: [], options: [], constraints: [] })
+    await expect(response.json()).resolves.toMatchObject({
+      // Aggregate lock token: with no groups or options yet it is the product's own updatedAt.
+      updated_at: '2026-08-26T08:00:00.000Z',
+      groups: [],
+      options: [],
+      constraints: [],
+    })
   })
 
   it('rejects without productId', async () => {

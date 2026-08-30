@@ -7,6 +7,11 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { CatalogProduct, CatalogProductConstraint } from '../../../../data/entities'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
+import {
+  resolveUserFeatures,
+  runCatalogMutationGuardAfterSuccess,
+  runCatalogMutationGuards,
+} from '../../../guards'
 import type { ProductConstraintsSyncInput } from '../../../../data/validators'
 import { CATALOG_CONSTRAINT_TYPES } from '../../../../data/types'
 
@@ -261,6 +266,25 @@ export async function PUT(
   }
 
   const commandBus = ctx.container.resolve('commandBus') as CommandBus
+  const guardInput = {
+    tenantId: ctx.auth.tenantId,
+    organizationId: ctx.selectedOrganizationId ?? ctx.auth.orgId ?? null,
+    userId: ctx.auth?.sub ?? '',
+    resourceKind: 'catalog.product',
+    resourceId: productId,
+    operation: 'update' as const,
+    requestMethod: request.method,
+    requestHeaders: request.headers,
+  }
+  const guardResult = await runCatalogMutationGuards(
+    ctx.container,
+    guardInput,
+    resolveUserFeatures(ctx.auth),
+  )
+  if (!guardResult.ok) {
+    throw new CrudHttpError(guardResult.errorStatus ?? 422, guardResult.errorBody ?? { error: 'Operation blocked by guard' })
+  }
+
   await commandBus.execute('catalog.product_constraints.sync', {
     input: commandInput,
     ctx: {
@@ -275,6 +299,8 @@ export async function PUT(
       actorUserId: ctx.auth?.userId ?? null,
     },
   })
+
+  await runCatalogMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, guardInput)
 
   // Re-fetch and return updated state
   return GET(request, { params })

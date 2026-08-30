@@ -893,7 +893,7 @@ export class CatalogProductPrice {
 }
 
 @Entity({ tableName: 'catalog_product_option_groups' })
-@Index({ name: 'catalog_product_option_groups_product_idx', properties: ['organizationId', 'tenantId', 'product', 'sortOrder'] })
+@Index({ name: 'catalog_product_option_groups_product_idx', properties: ['product', 'tenantId', 'organizationId', 'sortOrder'] })
 export class CatalogProductOptionGroup {
   [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'sortOrder' | 'isActive' | 'requirement' | 'selectMode'
 
@@ -1051,7 +1051,7 @@ export class CatalogProductOption {
   properties: ['targetProduct', 'targetOption'],
 })
 export class CatalogProductConstraint {
-  [OptionalProps]?: 'createdAt' | 'updatedAt'
+  [OptionalProps]?: 'createdAt' | 'updatedAt' | 'locked'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -1065,16 +1065,16 @@ export class CatalogProductConstraint {
   @Property({ name: 'constraint_type', type: 'text' })
   constraintType!: CatalogConstraintType
 
-  @ManyToOne(() => CatalogProduct, { fieldName: 'source_product_id', nullable: true })
+  @ManyToOne(() => CatalogProduct, { fieldName: 'source_product_id', nullable: true, deleteRule: 'cascade' })
   sourceProduct?: CatalogProduct | null
 
-  @ManyToOne(() => CatalogProductOption, { fieldName: 'source_option_id', nullable: true })
+  @ManyToOne(() => CatalogProductOption, { fieldName: 'source_option_id', nullable: true, deleteRule: 'cascade' })
   sourceOption?: CatalogProductOption | null
 
-  @ManyToOne(() => CatalogProduct, { fieldName: 'target_product_id', nullable: true })
+  @ManyToOne(() => CatalogProduct, { fieldName: 'target_product_id', nullable: true, deleteRule: 'cascade' })
   targetProduct?: CatalogProduct | null
 
-  @ManyToOne(() => CatalogProductOption, { fieldName: 'target_option_id', nullable: true })
+  @ManyToOne(() => CatalogProductOption, { fieldName: 'target_option_id', nullable: true, deleteRule: 'cascade' })
   targetOption?: CatalogProductOption | null
 
   @Property({ type: 'boolean', default: false })

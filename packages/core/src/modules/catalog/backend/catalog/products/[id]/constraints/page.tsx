@@ -261,7 +261,7 @@ export default function ProductConstraintsPage({ params }: { params?: { id?: str
                     className="gap-2"
                   >
                     {saving ? <Spinner className="w-4 h-4 mr-1" /> : <Save className="h-4 w-4" />}
-                    {t('common.saveChanges', 'Save Changes')}
+                    {t('catalog.actions.saveChanges', 'Save Changes')}
                   </Button>
                 </>
               }

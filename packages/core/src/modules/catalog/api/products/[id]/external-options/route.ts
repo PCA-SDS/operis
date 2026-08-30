@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { resolveRequestContext } from '@open-mercato/shared/lib/api/context'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import type { EntityManager } from '@mikro-orm/postgresql'
+import { z } from 'zod'
+import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { CatalogProduct, CatalogProductOptionGroup, CatalogProductOption } from '../../../../data/entities'
 
 export const metadata = {
@@ -69,4 +71,41 @@ export async function GET(
       name: o.name,
     })),
   })
+}
+
+const externalOptionsResponseSchema = z.object({
+  groups: z.array(
+    z.object({
+      id: z.string().uuid(),
+      parent_option_id: z.string().uuid().nullable(),
+      name: z.string(),
+    }),
+  ),
+  options: z.array(
+    z.object({
+      id: z.string().uuid(),
+      group_id: z.string().uuid().nullable(),
+      name: z.string(),
+    }),
+  ),
+})
+
+export const openApi: OpenApiRouteDoc = {
+  tag: 'Catalog',
+  summary: 'External product option tree',
+  methods: {
+    GET: {
+      summary: 'Read another product\'s option tree for constraint targeting',
+      description:
+        'Returns the option groups and options of `externalProductId` within the caller\'s tenant and organization, so the constraints editor can point at an option owned by a different product.',
+      responses: [
+        { status: 200, description: 'External product option tree', schema: externalOptionsResponseSchema },
+      ],
+      errors: [
+        { status: 400, description: 'Missing product, organization context or externalProductId' },
+        { status: 401, description: 'Authentication required' },
+        { status: 404, description: 'External product not found' },
+      ],
+    },
+  },
 }

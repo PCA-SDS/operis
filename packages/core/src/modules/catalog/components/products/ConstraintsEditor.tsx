@@ -172,7 +172,7 @@ function OptionBadge({ id, options }: OptionBadgeProps) {
   const opt = options.find((o) => o.id === id)
   if (!opt) {
     return (
-      <Tag variant="brand" shape="square" className="max-w-[200px]">
+      <Tag variant="brand" shape="square" className="max-w-48">
         <span className="truncate text-xs">{id || '—'}</span>
       </Tag>
     )
@@ -184,11 +184,11 @@ function OptionBadge({ id, options }: OptionBadgeProps) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Tag variant="brand" shape="square" className="max-w-[280px] h-auto py-1.5 flex flex-col items-start gap-1 cursor-default">
-            <span className="flex flex-wrap items-center text-[10px] opacity-75 leading-none mt-0.5">
+          <Tag variant="brand" shape="square" className="max-w-72 h-auto py-1.5 flex flex-col items-start gap-1 cursor-default">
+            <span className="flex flex-wrap items-center text-xs opacity-75 leading-none mt-0.5">
               {pathSegments.map((seg, i) => (
                 <React.Fragment key={i}>
-                  <span className="truncate max-w-[120px]">{seg}</span>
+                  <span className="truncate max-w-32">{seg}</span>
                   {i < pathSegments.length - 1 && <ChevronRight className="w-2.5 h-2.5 mx-0.5 shrink-0" />}
                 </React.Fragment>
               ))}
@@ -238,7 +238,7 @@ function IncomingConstraintBadge({ constraint, sourceLabel }: { constraint: Cata
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <Lock className="w-3.5 h-3.5 text-status-warning-icon shrink-0" />
             </TooltipTrigger>
             <TooltipContent>
               {t('catalog.constraints.locked', 'Locked by migration')}
@@ -282,7 +282,7 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
       {draft.sourceKind === 'option' ? (
         <OptionBadge id={draft.sourceId} options={localOptions} />
       ) : (
-        <Tag variant="neutral" shape="square" className="max-w-[160px]">
+        <Tag variant="neutral" shape="square" className="max-w-40">
           <span className="flex items-center gap-1.5 truncate text-xs">
             <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
             <span className="truncate">{productName}</span>
@@ -297,10 +297,10 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Tag variant="neutral" shape="square" className="max-w-[280px] h-auto py-1.5 flex flex-col items-start gap-1 cursor-default">
-                  <span className="flex flex-wrap items-center text-[10px] opacity-75 leading-none mt-0.5">
+                <Tag variant="neutral" shape="square" className="max-w-72 h-auto py-1.5 flex flex-col items-start gap-1 cursor-default">
+                  <span className="flex flex-wrap items-center text-xs opacity-75 leading-none mt-0.5">
                     <Package className="w-2.5 h-2.5 mr-1 shrink-0" />
-                    <span className="truncate max-w-[120px]">{draft.targetProductName || draft.targetProductId || 'External Product'}</span>
+                    <span className="truncate max-w-32">{draft.targetProductName || draft.targetProductId || 'External Product'}</span>
                   </span>
                   {draft.targetOptionName ? (
                     <span className="truncate font-medium text-sm leading-tight">
@@ -328,7 +328,7 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
           <OptionBadge id={draft.targetId} options={localOptions} />
         )
       ) : (
-        <Tag variant="neutral" shape="square" className="max-w-[160px]">
+        <Tag variant="neutral" shape="square" className="max-w-40">
           <span className="flex items-center gap-1.5 truncate text-xs">
             <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
             <span className="truncate">
@@ -360,7 +360,7 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
         aria-label={draft.locked ? t('catalog.constraints.unlock', 'Unlock') : t('catalog.constraints.lock', 'Lock')}
         className={cn(
           'shrink-0',
-          draft.locked && 'text-amber-600 hover:text-amber-700',
+          draft.locked && 'text-status-warning-icon hover:text-status-warning-text',
         )}
       >
         {draft.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
@@ -542,7 +542,7 @@ function AddConstraintDrawer({
               <label className="text-sm font-medium text-foreground">
                 {t('catalog.constraints.source.label', 'Source')}
               </label>
-              <p className="text-[11px] text-muted-foreground/70 mt-0.5">
+              <p className="text-xs text-muted-foreground/70 mt-0.5">
                 {t('catalog.constraints.source.hint', 'What is constrained?')}
               </p>
             </div>
@@ -582,7 +582,7 @@ function AddConstraintDrawer({
               <label className="text-sm font-medium text-foreground">
                 {t('catalog.constraints.target.label', 'Target')}
               </label>
-              <p className="text-[11px] text-muted-foreground/70 mt-0.5">
+              <p className="text-xs text-muted-foreground/70 mt-0.5">
                 {t('catalog.constraints.target.hint', 'What is the source constrained with?')}
               </p>
             </div>

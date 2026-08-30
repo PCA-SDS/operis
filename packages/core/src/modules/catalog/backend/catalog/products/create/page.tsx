@@ -1195,7 +1195,7 @@ function DefaultVariantBuilder({
                 const minVal = (values.variants?.[0] || {}).prices?.[kind.id]?.priceMin ?? "";
                 const maxVal = (values.variants?.[0] || {}).prices?.[kind.id]?.priceMax ?? "";
                 return (
-                  <div key={kind.id} className="flex-1 basis-[280px] min-w-[280px] space-y-3 rounded-lg border bg-background p-4 shadow-sm">
+                  <div key={kind.id} className="flex-1 basis-72 min-w-72 space-y-3 rounded-lg border bg-surface p-4 shadow-sm">
                     <Label className="flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       <span>
                         {t(
@@ -1206,7 +1206,7 @@ function DefaultVariantBuilder({
                     </Label>
                     
                     <div className="space-y-1.5">
-                      <Label className="text-[11px] text-muted-foreground">
+                      <Label className="text-xs text-muted-foreground">
                         {t("catalog.products.create.variantsBuilder.fixedPrice", "Fixed Price")}
                       </Label>
                       <div className="relative">
@@ -1230,13 +1230,13 @@ function DefaultVariantBuilder({
 
                     {values.productType === "service" ? (
                       <div className="space-y-1.5 pt-2 border-t">
-                        <Label className="text-[11px] text-muted-foreground">
+                        <Label className="text-xs text-muted-foreground">
                           {t("catalog.products.create.variantsBuilder.priceRange", "Price Range")}
                         </Label>
                         <div className="flex items-center gap-2">
                           <div className="relative flex-1 min-w-0">
                             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
-                              <span className="text-[10px] font-medium text-muted-foreground">
+                              <span className="text-xs font-medium text-muted-foreground">
                                 {kind.currencyCode?.toUpperCase()}
                               </span>
                             </div>
@@ -1255,7 +1255,7 @@ function DefaultVariantBuilder({
                           <span className="text-muted-foreground">-</span>
                           <div className="relative flex-1 min-w-0">
                             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
-                              <span className="text-[10px] font-medium text-muted-foreground">
+                              <span className="text-xs font-medium text-muted-foreground">
                                 {kind.currencyCode?.toUpperCase()}
                               </span>
                             </div>
