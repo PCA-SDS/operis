@@ -28,8 +28,17 @@ CatalogBranchOverride     →  CatalogOffer + Price.channelId
 ## 2. Detailed Phases
 
 ### Phase 1: Migrate Categories
+**Approach**: Build a one-off CLI command (`packages/cli/src/commands/catalog-migrate-pca.ts`) that connects directly to the legacy ERP database via `LEGACY_DB_URL`.
+
+**Schema Changes**: 
+- Add a `metadata` (JSONB) column to `CatalogProductCategory` in Open Mercato to hold legacy business logic fields without polluting the core schema.
+
+**Mapping Logic**:
 - Map `CatalogCategory` to `CatalogProductCategory`.
 - Preserve the legacy UUID in `metadata.legacy_id`.
+- Preserve booking-specific UI flags (`requirement`, `selectMode`, `sortOrder`, `isActive`, `note`, `translations`) inside the `metadata` JSON object.
+- **Drop** the legacy `bundle` field from categories as it violates product-level design.
+- Traverse the tree correctly (parents first) so OM can automatically calculate `treePath` and `depth`.
 
 ### Phase 2: Migrate Items → Products
 - Map `CatalogItem` to `CatalogProduct`.

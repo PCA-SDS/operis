@@ -1682,10 +1682,12 @@ function ProductDetailsSection({
           </Button>
         </div>
         {values.useMarkdown ? (
-          <MarkdownField
-            value={values.description}
-            onChange={(val) => setValue("description", val ?? "")}
-          />
+          <div className="relative w-full overflow-hidden">
+            <MarkdownField
+              value={values.description}
+              onChange={(val) => setValue("description", val ?? "")}
+            />
+          </div>
         ) : (
           <Textarea
             className="min-h-[180px]"
@@ -1870,6 +1872,8 @@ function ProductMetadataSection({ values, setValue }: ProductFormGroupProps) {
 }
 
 function ProductOptionsSection({ values, setValue }: ProductFormGroupProps) {
+  if (values.productType === "service") return null;
+
   const t = useT();
   const [schemaDialogOpen, setSchemaDialogOpen] = React.useState(false);
   const [schemaTemplates, setSchemaTemplates] = React.useState<
@@ -2385,9 +2389,29 @@ function ProductVariantsSection({
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 id="variants" className="text-sm font-semibold">
-            {t("catalog.products.edit.variants", "Variants")}
+            {values.productType === "service" || values.productType === "bundle"
+              ? t("catalog.products.edit.optionsAndVariants", "Options & Variants")
+              : t("catalog.products.edit.variants", "Variants")}
           </h3>
           <div className="flex flex-wrap items-center gap-2">
+            {(values.productType === "service" || values.productType === "bundle") ? (
+              <>
+                <Button asChild size="sm" variant="outline">
+                  <Link
+                    href={`/backend/catalog/products/${productId}/options`}
+                  >
+                    {t("catalog.products.edit.options.manage", "Manage Options")}
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link
+                    href={`/backend/catalog/products/${productId}/constraints`}
+                  >
+                    {t("catalog.products.edit.constraints.manage", "Manage Constraints")}
+                  </Link>
+                </Button>
+              </>
+            ) : null}
             {showGenerateButton ? (
               <Button
                 type="button"
@@ -2409,7 +2433,7 @@ function ProductVariantsSection({
                     )}
               </Button>
             ) : null}
-            {allowVariantActions ? (
+            {allowVariantActions && values.productType !== "service" && values.productType !== "bundle" ? (
               <Button asChild size="sm">
                 <Link
                   href={`/backend/catalog/products/${productId}/variants/create`}
@@ -2423,7 +2447,17 @@ function ProductVariantsSection({
         </div>
         {variants.length ? (
           <div className="overflow-x-auto rounded-md border">
-            <Table columnCount={5} density="compact" className="min-w-[720px] table-fixed">
+            <Table
+              columns={[
+                'minmax(0, 1fr)',
+                '10rem',
+                '12rem',
+                '6rem',
+                '10rem',
+              ]}
+              density="compact"
+              className="min-w-[720px]"
+            >
               <TableHeader>
                 <TableRow>
                   <TableHead>

@@ -49,6 +49,12 @@ type VariantDimensionsSectionProps = {
   showHeading?: boolean
 }
 
+type VariantDurationSectionProps = {
+  values: VariantFormValues
+  setValue: (id: string, value: unknown) => void
+  showHeading?: boolean
+}
+
 type VariantMetadataSectionProps = {
   values: VariantFormValues
   setValue: (id: string, value: unknown) => void
@@ -83,6 +89,7 @@ export function VariantBuilder({
     <div className="space-y-6">
       <VariantBasicsSection values={values} setValue={setValue} errors={errors} />
       <VariantOptionValuesSection values={values} setValue={setValue} optionDefinitions={optionDefinitions} />
+      <VariantDurationSection values={values} setValue={setValue} />
       <VariantDimensionsSection values={values} setValue={setValue} />
       <VariantMetadataSection values={values} setValue={setValue} />
       <VariantPricesSection values={values} setValue={setValue} priceKinds={priceKinds} taxRates={taxRates} />
@@ -228,6 +235,56 @@ export function VariantOptionValuesSection({
             </Select>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+export function VariantDurationSection({ values, setValue, showHeading = true }: VariantDurationSectionProps) {
+  const t = useT()
+
+  return (
+    <div className="space-y-4">
+      {showHeading ? <h3 className="text-sm font-semibold">{t('catalog.variants.form.duration', 'Duration')}</h3> : null}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>{t('catalog.variants.form.durationValue', 'Duration Value')}</Label>
+          <Input
+            type="number"
+            value={values.durationValue ?? ''}
+            onChange={(e) => setValue('durationValue', e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>{t('catalog.variants.form.durationUnit', 'Duration Unit')}</Label>
+          <Select value={values.durationUnit ?? 'min'} onValueChange={(value) => setValue('durationUnit', value)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Unit" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="min">{t('catalog.duration.min', 'Minutes')}</SelectItem>
+              <SelectItem value="hour">{t('catalog.duration.hour', 'Hours')}</SelectItem>
+              <SelectItem value="day">{t('catalog.duration.day', 'Days')}</SelectItem>
+              <SelectItem value="month">{t('catalog.duration.month', 'Months')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>{t('catalog.variants.form.durationMin', 'Minimum Duration')}</Label>
+          <Input
+            type="number"
+            value={values.durationMin ?? ''}
+            onChange={(e) => setValue('durationMin', e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>{t('catalog.variants.form.durationMax', 'Maximum Duration')}</Label>
+          <Input
+            type="number"
+            value={values.durationMax ?? ''}
+            onChange={(e) => setValue('durationMax', e.target.value)}
+          />
+        </div>
       </div>
     </div>
   )
@@ -437,13 +494,62 @@ export function VariantPricesSection({
                     </p>
                   </div>
                 </div>
-                <Input
-                  className="mt-3"
-                  value={draft?.amount ?? ''}
-                  onInput={(event) => updatePrice(kind.id, { amount: event.currentTarget.value })}
-                  onChange={(event) => updatePrice(kind.id, { amount: event.target.value })}
-                  placeholder="0.00"
-                />
+                <div className="mt-4 space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">{t('catalog.variants.form.priceType', 'Price Type')}</Label>
+                      <Select
+                        value={draft?.priceType ?? 'exact'}
+                        onValueChange={(val) => updatePrice(kind.id, { priceType: val as any })}
+                      >
+                        <SelectTrigger><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="exact">{t('catalog.variants.form.priceExact', 'Exact')}</SelectItem>
+                          <SelectItem value="starting_at">{t('catalog.variants.form.priceStartingAt', 'Starting At')}</SelectItem>
+                          <SelectItem value="range">{t('catalog.variants.form.priceRangeType', 'Range')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">{t('catalog.variants.form.priceAmount', 'Default Amount')}</Label>
+                      <Input
+                        value={draft?.amount ?? ''}
+                        onInput={(event) => updatePrice(kind.id, { amount: event.currentTarget.value })}
+                        onChange={(event) => updatePrice(kind.id, { amount: event.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  
+                  {draft?.priceType === 'range' && (
+                    <div className="grid gap-4 md:grid-cols-2 border-t pt-4 border-border/50">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">{t('catalog.variants.form.priceMin', 'Min Amount')}</Label>
+                        <Input
+                          value={draft?.priceMin ?? ''}
+                          onChange={(event) => updatePrice(kind.id, { priceMin: event.target.value })}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">{t('catalog.variants.form.priceMax', 'Max Amount')}</Label>
+                        <Input
+                          value={draft?.priceMax ?? ''}
+                          onChange={(event) => updatePrice(kind.id, { priceMax: event.target.value })}
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  <label className="flex items-center gap-2 mt-2">
+                    <Switch
+                      checked={draft?.priceRangeEnabled ?? false}
+                      onCheckedChange={(val) => updatePrice(kind.id, { priceRangeEnabled: val })}
+                    />
+                    <span className="text-sm font-medium">{t('catalog.variants.form.priceRangeEnabled', 'Enable custom price selection')}</span>
+                  </label>
+                </div>
               </div>
             )
           })

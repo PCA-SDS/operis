@@ -33,6 +33,11 @@ const events = [
   { id: 'catalog.price.updated', label: 'Price Updated', entity: 'price', category: 'crud' },
   { id: 'catalog.price.deleted', label: 'Price Deleted', entity: 'price', category: 'crud' },
 
+  // Product Constraints
+  { id: 'catalog.product_constraint.created', label: 'Product Constraint Created', entity: 'product_constraint', category: 'crud' },
+  { id: 'catalog.product_constraint.updated', label: 'Product Constraint Updated', entity: 'product_constraint', category: 'crud' },
+  { id: 'catalog.product_constraint.deleted', label: 'Product Constraint Deleted', entity: 'product_constraint', category: 'crud' },
+
   // Lifecycle events - Pricing resolution
   { id: 'catalog.pricing.resolve.before', label: 'Before Pricing Resolve', category: 'lifecycle', excludeFromTriggers: true },
   { id: 'catalog.pricing.resolve.after', label: 'After Pricing Resolve', category: 'lifecycle', excludeFromTriggers: true },

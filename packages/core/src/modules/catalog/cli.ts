@@ -8,6 +8,8 @@ import {
   seedCatalogUnits,
   type CatalogSeedScope,
 } from './lib/seeds'
+import { migrateTpsCategoriesCommand } from './migrate-tps/categories'
+import { migrateTpsProductsCommand } from './migrate-tps/products'
 
 function parseArgs(rest: string[]) {
   const args: Record<string, string> = {}
@@ -147,4 +149,4 @@ const installExamplesBundle: ModuleCli = {
   },
 }
 
-export default [seedUnitsCommand, seedPriceKindsCommand, seedExamplesCommand, installExamplesBundle]
+export default [seedUnitsCommand, seedPriceKindsCommand, seedExamplesCommand, installExamplesBundle, migrateTpsCategoriesCommand, migrateTpsProductsCommand]

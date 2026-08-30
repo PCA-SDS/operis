@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  CATALOG_CONSTRAINT_TYPES,
   CATALOG_EXCISE_CATEGORIES,
   CATALOG_GTIN_TYPES,
   CATALOG_GTU_CODES,
@@ -30,7 +31,7 @@ const currencyCodeSchema = z
   .trim()
   .regex(/^[A-Z]{3}$/, 'currency code must be a three-letter ISO code')
 
-const metadataSchema = z.record(z.string(), z.unknown()).optional()
+const metadataSchema = z.record(z.string(), z.unknown()).nullable().optional()
 
 const slugSchema = z
   .string()
@@ -538,6 +539,138 @@ export type OfferUpdateInput = z.infer<typeof offerUpdateSchema>
 export type ProductUnitConversionCreateInput = z.infer<typeof productUnitConversionCreateSchema>
 export type ProductUnitConversionUpdateInput = z.infer<typeof productUnitConversionUpdateSchema>
 export type ProductUnitConversionDeleteInput = z.infer<typeof productUnitConversionDeleteSchema>
+
+export const catalogProductOptionGroupCreateSchema = scoped.extend({
+  productId: uuid(),
+  parentOptionId: uuid().nullable().optional(),
+  name: z.string().trim().min(1).max(255),
+  description: z.string().trim().nullable().optional(),
+  requirement: z.enum(['required', 'optional']).optional(),
+  selectMode: z.enum(['single', 'multiple']).optional(),
+  sortOrder: z.coerce.number().int().optional(),
+  isActive: z.boolean().optional(),
+  metadata: metadataSchema,
+})
+
+export const catalogProductOptionGroupUpdateSchema = z
+  .object({ id: uuid() })
+  .merge(catalogProductOptionGroupCreateSchema.omit({ productId: true }).partial())
+
+export const catalogProductOptionCreateSchema = scoped.extend({
+  groupId: uuid(),
+  code: slugSchema.nullable().optional(),
+  name: z.string().trim().min(1).max(255),
+  description: z.string().trim().nullable().optional(),
+  note: z.string().trim().max(100).nullable().optional(),
+  unit: z.string().trim().max(50).nullable().optional(),
+  priceFlat: z.string().nullable().optional(), // numeric string
+  priceMin: z.string().nullable().optional(), // numeric string
+  priceMax: z.string().nullable().optional(), // numeric string
+  durationValue: z.coerce.number().int().min(0).nullable().optional(),
+  durationUnit: z.string().trim().max(50).nullable().optional(),
+  durationMin: z.coerce.number().int().min(0).nullable().optional(),
+  durationMax: z.coerce.number().int().min(0).nullable().optional(),
+  isAddon: z.boolean().optional(),
+  sortOrder: z.coerce.number().int().optional(),
+  isActive: z.boolean().optional(),
+  metadata: metadataSchema,
+})
+
+export const catalogProductOptionUpdateSchema = z
+  .object({ id: uuid() })
+  .merge(catalogProductOptionCreateSchema.omit({ groupId: true }).partial())
+
+export type CatalogProductOptionGroupCreateInput = z.infer<typeof catalogProductOptionGroupCreateSchema>
+export type CatalogProductOptionGroupUpdateInput = z.infer<typeof catalogProductOptionGroupUpdateSchema>
+export type CatalogProductOptionCreateInput = z.infer<typeof catalogProductOptionCreateSchema>
+export type CatalogProductOptionUpdateInput = z.infer<typeof catalogProductOptionUpdateSchema>
+
+// Constraint validators (declared before catalogProductOptionTreeSyncSchema because it references constraintInputSchema)
+export const constraintInputSchema = z
+  .object({
+    id: uuid().optional(),
+    constraintType: z.enum(CATALOG_CONSTRAINT_TYPES),
+    sourceProductId: uuid().nullable().optional(),
+    sourceOptionId: uuid().nullable().optional(),
+    targetProductId: uuid().nullable().optional(),
+    targetOptionId: uuid().nullable().optional(),
+    locked: z.boolean().optional(),
+  })
+  .superRefine((value, ctx) => {
+    const hasSourceProduct = value.sourceProductId != null
+    const hasSourceOption = value.sourceOptionId != null
+    const hasTargetProduct = value.targetProductId != null
+    const hasTargetOption = value.targetOptionId != null
+
+    // Exactly one source
+    if ((hasSourceProduct ? 1 : 0) + (hasSourceOption ? 1 : 0) !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['source'],
+        message: 'catalog.constraints.validation.exactlyOneSource',
+      })
+    }
+
+    // Exactly one target
+    if ((hasTargetProduct ? 1 : 0) + (hasTargetOption ? 1 : 0) !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['target'],
+        message: 'catalog.constraints.validation.exactlyOneTarget',
+      })
+    }
+  })
+
+export type ConstraintInput = z.infer<typeof constraintInputSchema>
+
+export const productConstraintsSyncSchema = scoped.extend({
+  productId: uuid(),
+  constraints: z.array(constraintInputSchema),
+})
+
+export type ProductConstraintsSyncInput = z.infer<typeof productConstraintsSyncSchema>
+
+export const catalogProductOptionTreeSyncSchema = scoped.extend({
+  productId: uuid(),
+  groups: z.array(
+    z.object({
+      id: uuid(),
+      parentOptionId: uuid().nullable().optional(),
+      name: z.string().trim().min(1).max(255),
+      description: z.string().trim().nullable().optional(),
+      requirement: z.enum(['required', 'optional']).optional(),
+      selectMode: z.enum(['single', 'multiple']).optional(),
+      sortOrder: z.coerce.number().int().optional(),
+      isActive: z.boolean().optional(),
+      metadata: metadataSchema,
+    })
+  ),
+  options: z.array(
+    z.object({
+      id: uuid(),
+      groupId: uuid(),
+      code: slugSchema.nullable().optional(),
+      name: z.string().trim().min(1).max(255),
+      description: z.string().trim().nullable().optional(),
+      note: z.string().trim().max(100).nullable().optional(),
+      unit: z.string().trim().max(50).nullable().optional(),
+      priceFlat: z.string().nullable().optional(),
+      priceMin: z.string().nullable().optional(),
+      priceMax: z.string().nullable().optional(),
+      durationValue: z.coerce.number().int().min(0).nullable().optional(),
+      durationUnit: z.string().trim().max(50).nullable().optional(),
+      durationMin: z.coerce.number().int().min(0).nullable().optional(),
+      durationMax: z.coerce.number().int().min(0).nullable().optional(),
+      isAddon: z.boolean().optional(),
+      sortOrder: z.coerce.number().int().optional(),
+      isActive: z.boolean().optional(),
+      metadata: metadataSchema,
+    })
+  ),
+  constraints: z.array(constraintInputSchema).optional().default([]),
+})
+
+export type CatalogProductOptionTreeSyncInput = z.infer<typeof catalogProductOptionTreeSyncSchema>
 
 /** Public booking: list bookable services for an organization (branch). */
 export const bookableServicesQuerySchema = scoped.extend({

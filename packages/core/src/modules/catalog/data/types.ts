@@ -1,7 +1,7 @@
 export const CATALOG_PRODUCT_TYPES = [
   'simple',
   'configurable',
-  'virtual',
+  'service',
   'downloadable',
   'bundle',
   'grouped',
@@ -9,7 +9,7 @@ export const CATALOG_PRODUCT_TYPES = [
 
 export type CatalogProductType = (typeof CATALOG_PRODUCT_TYPES)[number]
 
-export const CATALOG_CONFIGURABLE_PRODUCT_TYPES = ['configurable', 'virtual', 'downloadable'] as const
+export const CATALOG_CONFIGURABLE_PRODUCT_TYPES = ['configurable', 'service', 'downloadable'] as const
 
 export const CATALOG_SUBPRODUCT_PRODUCT_TYPES = ['bundle', 'grouped'] as const
 
@@ -89,3 +89,79 @@ export type CatalogPricingScope = {
 export const CATALOG_PRICE_DISPLAY_MODES = ['including-tax', 'excluding-tax'] as const
 
 export type CatalogPriceDisplayMode = (typeof CATALOG_PRICE_DISPLAY_MODES)[number]
+
+export const CATALOG_CONSTRAINT_TYPES = [
+  'conflicts_with_item',
+  'requires_item',
+  'mutually_exclusive_item',
+  'includes_item',
+] as const
+
+export type CatalogConstraintType = (typeof CATALOG_CONSTRAINT_TYPES)[number]
+
+export type CatalogOptionRequirement = 'required' | 'optional'
+
+export type CatalogOptionSelectMode = 'single' | 'multiple'
+
+export type CatalogOptionGroupItem = {
+  id: string
+  product_id: string
+  parent_option_id: string | null
+  name: string
+  description: string | null
+  requirement: string
+  select_mode: string
+  sort_order: number
+  is_active: boolean
+  metadata: Record<string, unknown> | null
+}
+
+export type CatalogOptionItem = {
+  id: string
+  group_id: string
+  code: string | null
+  name: string
+  description: string | null
+  note: string | null
+  unit: string | null
+  price_flat: string | null
+  price_min: string | null
+  price_max: string | null
+  duration_value: number | null
+  duration_unit: string | null
+  duration_min: number | null
+  duration_max: number | null
+  is_addon: boolean
+  sort_order: number
+  is_active: boolean
+  metadata: Record<string, unknown> | null
+}
+
+export type CatalogOptionTreeData = {
+  updated_at: string | null
+  groups: CatalogOptionGroupItem[]
+  options: CatalogOptionItem[]
+}
+
+export type CatalogConstraintItem = {
+  id: string
+  constraint_type: 'conflicts_with_item' | 'requires_item' | 'mutually_exclusive_item' | 'includes_item'
+  source_product_id: string | null
+  source_option_id: string | null
+  target_product_id: string | null
+  target_option_id: string | null
+  source_product_name?: string | null
+  source_option_name?: string | null
+  target_product_name?: string | null
+  target_option_name?: string | null
+  locked: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type CatalogConstraintsData = {
+  updated_at: string | null
+  constraints: CatalogConstraintItem[]
+  incoming_constraints?: CatalogConstraintItem[]
+  product_name: string | null
+}
