@@ -538,3 +538,10 @@ export type OfferUpdateInput = z.infer<typeof offerUpdateSchema>
 export type ProductUnitConversionCreateInput = z.infer<typeof productUnitConversionCreateSchema>
 export type ProductUnitConversionUpdateInput = z.infer<typeof productUnitConversionUpdateSchema>
 export type ProductUnitConversionDeleteInput = z.infer<typeof productUnitConversionDeleteSchema>
+
+/** Public booking: list bookable services for an organization (branch). */
+export const bookableServicesQuerySchema = scoped.extend({
+  channelId: uuid().optional(),
+})
+
+export type BookableServicesQueryInput = z.infer<typeof bookableServicesQuerySchema>

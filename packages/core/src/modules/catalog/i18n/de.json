@@ -25,6 +25,8 @@
   "catalog.audit.variants.create": "Variante erstellen",
   "catalog.audit.variants.delete": "Variante löschen",
   "catalog.audit.variants.update": "Variante aktualisieren",
+  "catalog.bookableServices.failed": "Buchbare Leistungen konnten nicht geladen werden.",
+  "catalog.bookableServices.invalidInput": "tenantId und organizationId sind erforderlich.",
   "catalog.bulkDelete.confirm": "Löschen",
   "catalog.bulkDelete.error": "Produkte konnten nicht gelöscht werden.",
   "catalog.bulkDelete.filtered.confirmText": "{count} Produkte löschen, die den aktuellen Filtern entsprechen? Dies kann nicht rückgängig gemacht werden.",

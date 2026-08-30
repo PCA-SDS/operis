@@ -25,6 +25,8 @@
   "catalog.audit.variants.create": "Utwórz wariant",
   "catalog.audit.variants.delete": "Usuń wariant",
   "catalog.audit.variants.update": "Zaktualizuj wariant",
+  "catalog.bookableServices.failed": "Nie można wyświetlić usług do rezerwacji.",
+  "catalog.bookableServices.invalidInput": "tenantId i organizationId są wymagane.",
   "catalog.bulkDelete.confirm": "Usuń",
   "catalog.bulkDelete.error": "Nie udało się usunąć produktów.",
   "catalog.bulkDelete.filtered.confirmText": "Usunąć {count} produktów pasujących do bieżących filtrów? Tej operacji nie można cofnąć.",

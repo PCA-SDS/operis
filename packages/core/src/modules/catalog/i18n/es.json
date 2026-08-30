@@ -25,6 +25,8 @@
   "catalog.audit.variants.create": "Crear variante",
   "catalog.audit.variants.delete": "Eliminar variante",
   "catalog.audit.variants.update": "Actualizar variante",
+  "catalog.bookableServices.failed": "No se pudieron listar los servicios reservables.",
+  "catalog.bookableServices.invalidInput": "tenantId y organizationId son obligatorios.",
   "catalog.bulkDelete.confirm": "Eliminar",
   "catalog.bulkDelete.error": "No se pudieron eliminar los productos.",
   "catalog.bulkDelete.filtered.confirmText": "¿Eliminar {count} productos que coinciden con los filtros actuales? Esta acción no se puede deshacer.",
