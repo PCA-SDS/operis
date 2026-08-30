@@ -7,7 +7,7 @@ import {
   enumerateTpsOptionPaths,
   type OptionPath,
 } from '../mapping'
-import type { OptionGroup } from '../data/types'
+import type { OptionGroup } from '@open-mercato/core/modules/catalog/data/types'
 
 describe('TPS Migration Mapping Helpers', () => {
   describe('slugifyTpsText', () => {

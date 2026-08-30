@@ -1,22 +1,22 @@
 import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import { SERVICE_MENU } from './data/serviceMenu'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { CatalogProductCategory } from '../data/entities'
-import { rebuildCategoryHierarchyForOrganization } from '../lib/categoryHierarchy'
+import { CatalogProductCategory } from '@open-mercato/core/modules/catalog/data/entities'
+import { rebuildCategoryHierarchyForOrganization } from '@open-mercato/core/modules/catalog/lib/categoryHierarchy'
 import { randomUUID } from 'crypto'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { parseTpsMigrateFlags } from './lib'
 
-const logger = createLogger('catalog')
+const logger = createLogger('migrate_tps')
 
 export const migrateTpsCategoriesCommand: ModuleCli = {
-  command: 'migrate-tps-categories',
+  command: 'categories',
   async run(rest) {
     const { tenantId, organizationId, replace } = parseTpsMigrateFlags(rest)
     if (!tenantId || !organizationId) {
       logger.error('Missing tenantId or organizationId')
-      logger.error('Usage: yarn mercato catalog migrate-tps-categories <tenantId> <organizationId> [--replace]')
+      logger.error('Usage: yarn mercato migrate_tps categories <tenantId> <organizationId> [--replace]')
       throw new Error('Missing tenantId or organizationId')
     }
 

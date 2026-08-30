@@ -1,7 +1,7 @@
 import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import { SERVICE_MENU } from './data/serviceMenu'
 import type { OptionGroup, Price } from './data/types'
-import type { CatalogProductType } from '../data/types'
+import type { CatalogProductType } from '@open-mercato/core/modules/catalog/data/types'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import {
   CatalogProduct,
@@ -13,7 +13,7 @@ import {
   CatalogProductOptionGroup,
   CatalogProductOption,
   CatalogProductConstraint,
-} from '../data/entities'
+} from '@open-mercato/core/modules/catalog/data/entities'
 import { randomUUID } from 'crypto'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { parseTpsMigrateFlags } from './lib'
@@ -24,7 +24,7 @@ import {
   parseTpsDurationForEntity,
 } from './mapping'
 
-const logger = createLogger('catalog')
+const logger = createLogger('migrate_tps')
 
 function traverseOptionTree(
   em: EntityManager,
@@ -146,12 +146,12 @@ function createVariantForOption(em: EntityManager, product: CatalogProduct, defa
 }
 
 export const migrateTpsProductsCommand: ModuleCli = {
-  command: 'migrate-tps-products',
+  command: 'products',
   async run(rest) {
     const { tenantId, organizationId, replace } = parseTpsMigrateFlags(rest)
     if (!tenantId || !organizationId) {
       logger.error('Missing tenantId or organizationId')
-      logger.error('Usage: yarn mercato catalog migrate-tps-products <tenantId> <organizationId> [--replace]')
+      logger.error('Usage: yarn mercato migrate_tps products <tenantId> <organizationId> [--replace]')
       throw new Error('Missing tenantId or organizationId')
     }
 

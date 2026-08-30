@@ -157,6 +157,9 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'channel_expo', from: '@open-mercato/channel-expo' },
   { id: 'channel_fcm', from: '@open-mercato/channel-fcm' },
   { id: 'sync_akeneo', from: '@open-mercato/sync-akeneo' },
+  // One-shot TPS catalog importer. CLI only — no routes, no entities. Client
+  // menu data lives in the package so core carries no single customer's catalogue.
+  { id: 'migrate_tps', from: '@open-mercato/migrate-tps' },
   { id: 'shipping_carriers', from: '@open-mercato/core' },
   { id: 'eudr', from: '@open-mercato/core' },
   { id: 'webhooks', from: '@open-mercato/webhooks' },
