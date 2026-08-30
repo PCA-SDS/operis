@@ -30,7 +30,7 @@ import {
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { apiCall, apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
-import { PhoneNumberField } from '@open-mercato/ui/backend/inputs/PhoneNumberField'
+import { PhoneNumberField, type PhoneCountry } from '@open-mercato/ui/backend/inputs/PhoneNumberField'
 import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
 import type {
   CrudCustomFieldRenderProps,
@@ -104,6 +104,14 @@ export type CompanyFormValues = {
   industry?: string
   sizeBucket?: string
   annualRevenue?: string
+  taxCode?: string
+  registrationCountry?: string
+  address?: string
+  incorporationDate?: string
+  clientTier?: string
+  onboardedAt?: string
+  registeredAt?: string
+  endDate?: string
   description?: string
   addresses?: CustomerAddressValue[]
 } & Record<string, unknown>
@@ -323,8 +331,8 @@ const createPrimaryEmailField = (t: Translator): CrudField => ({
 })
 
 type DictionaryFieldDefinition = {
-  id: 'status' | 'lifecycleStage' | 'source'
-  kind: 'statuses' | 'lifecycle-stages' | 'sources'
+  id: 'status' | 'lifecycleStage' | 'source' | 'clientTier'
+  kind: 'statuses' | 'lifecycle-stages' | 'sources' | 'client-tiers'
   labelKey: string
   placeholderKey: string
   addLabelKey: string
@@ -416,6 +424,16 @@ const companyDictionaryFieldDefinitions: DictionaryFieldDefinition[] = [
     dialogTitleKey: 'customers.companies.form.dictionary.dialogTitleSource',
     layout: 'third',
   },
+  {
+    id: 'clientTier',
+    kind: 'client-tiers',
+    labelKey: 'customers.companies.form.clientTier',
+    placeholderKey: 'customers.companies.form.clientTier.placeholder',
+    addLabelKey: 'customers.companies.form.dictionary.addClientTier',
+    promptKey: 'customers.companies.form.dictionary.promptClientTier',
+    dialogTitleKey: 'customers.companies.form.dictionary.dialogTitleClientTier',
+    layout: 'half',
+  },
 ]
 
 const createPrimaryPhoneField = (t: Translator, defaultCountryIso2?: string): CrudField => ({
@@ -423,8 +441,18 @@ const createPrimaryPhoneField = (t: Translator, defaultCountryIso2?: string): Cr
   label: t('customers.people.form.primaryPhone'),
   type: 'custom',
   rendersOwnError: true,
-  component: function PrimaryPhoneField({ value, setValue, error, autoFocus, disabled, recordId }: CrudCustomFieldRenderProps) {
+  component: function PrimaryPhoneField({ value, setValue, setFormValue, error, autoFocus, disabled, recordId }: CrudCustomFieldRenderProps) {
     const currentRecordId = React.useMemo(() => (typeof recordId === 'string' ? recordId : null), [recordId])
+
+    // The composed phone string cannot identify countries sharing a dial code,
+    // so the picker's own selection is what gets persisted.
+    const handleCountryChange = React.useCallback(
+      (country: PhoneCountry) => {
+        setFormValue?.('phoneCountryCode', country.dialCode)
+        setFormValue?.('phoneCountry', country.iso2)
+      },
+      [setFormValue]
+    )
 
     const duplicateLookup = React.useCallback(
       async (digits: string) => {
@@ -448,6 +476,7 @@ const createPrimaryPhoneField = (t: Translator, defaultCountryIso2?: string): Cr
         invalidLabel={t('customers.people.form.primaryPhone.invalid', 'Enter a valid phone number with country code (e.g. +1 212 555 1234)')}
         minDigits={7}
         onDuplicateLookup={!disabled && !error ? duplicateLookup : undefined}
+        onCountryChange={handleCountryChange}
         defaultCountryIso2={defaultCountryIso2}
       />
     )
@@ -898,6 +927,40 @@ export const createPersonFormFields = (t: Translator, options?: { defaultCountry
     { id: 'firstName', label: t('customers.people.form.firstName'), type: 'text', required: true, layout: 'half' },
     { id: 'lastName', label: t('customers.people.form.lastName'), type: 'text', required: true, layout: 'half' },
     {
+      id: 'salutation',
+      label: t('customers.people.form.salutation', 'Salutation'),
+      type: 'custom',
+      layout: 'half',
+      component: ({ value, setValue }: CrudCustomFieldRenderProps) => (
+        <DictionarySelectField
+          kind="salutations"
+          value={typeof value === 'string' ? value : undefined}
+          onChange={(next) => setValue(next)}
+          labels={{
+            placeholder: t('customers.people.form.salutation.placeholder', 'Select a salutation'),
+            addLabel: t('customers.people.form.dictionary.addSalutation', 'Add salutation'),
+            addPrompt: t('customers.people.form.dictionary.promptSalutation', 'Enter a new salutation'),
+            dialogTitle: t('customers.people.form.dictionary.dialogTitleSalutation', 'Add salutation'),
+            valueLabel: t('customers.people.form.dictionary.valueLabel', 'Value'),
+            valuePlaceholder: t('customers.people.form.dictionary.valuePlaceholder', 'Value'),
+            labelLabel: t('customers.config.dictionaries.dialog.labelLabel', 'Label'),
+            labelPlaceholder: t('customers.people.form.dictionary.labelPlaceholder', 'Display name shown in UI'),
+            emptyError: t('customers.people.form.dictionary.errorRequired'),
+            cancelLabel: t('customers.people.form.dictionary.cancel'),
+            saveLabel: t('customers.people.form.dictionary.save'),
+            successCreateLabel: undefined,
+            errorLoad: t('customers.people.form.dictionary.errorLoad'),
+            errorSave: t('customers.people.form.dictionary.error'),
+            loadingLabel: t('customers.people.form.dictionary.loading'),
+            manageTitle: t('customers.people.form.dictionary.manage'),
+          }}
+          allowInlineCreate
+          allowAppearance
+          showManage
+        />
+      ),
+    },
+    {
       id: 'jobTitle',
       label: t('customers.people.form.jobTitle', 'Job title'),
       type: 'custom',
@@ -1052,6 +1115,7 @@ export const createPersonFormGroups = (t: Translator): CrudFormGroup[] => [
     fields: [
       'firstName',
       'lastName',
+      'salutation',
       '__contactInformationSection',
       'primaryEmail',
       'primaryPhone',
@@ -1109,6 +1173,9 @@ export function buildPersonPayload(
   assign('jobTitle', typeof values.jobTitle === 'string' ? values.jobTitle : undefined)
   assign('primaryEmail', typeof values.primaryEmail === 'string' ? values.primaryEmail : undefined)
   assign('primaryPhone', typeof values.primaryPhone === 'string' ? values.primaryPhone : undefined)
+  assign('phoneCountryCode', typeof values.phoneCountryCode === 'string' ? values.phoneCountryCode : undefined)
+  assign('phoneCountry', typeof values.phoneCountry === 'string' ? values.phoneCountry : undefined)
+  assign('salutation', typeof values.salutation === 'string' ? values.salutation : undefined)
   assign('status', typeof values.status === 'string' ? values.status : undefined)
   assign('lifecycleStage', typeof values.lifecycleStage === 'string' ? values.lifecycleStage : undefined)
   assign('source', typeof values.source === 'string' ? values.source : undefined)
@@ -1225,6 +1292,62 @@ export const createCompanyFormSchema = () =>
         .or(z.literal(''))
         .transform((val) => (val === '' ? undefined : val))
         .optional(),
+      taxCode: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
+      registrationCountry: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
+      address: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
+      incorporationDate: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
+      clientTier: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
+      onboardedAt: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
+      registeredAt: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
+      endDate: z
+        .string()
+        .trim()
+        .optional()
+        .or(z.literal(''))
+        .transform((val) => (val === '' ? undefined : val))
+        .optional(),
     })
     .passthrough()
 
@@ -1328,6 +1451,47 @@ export const createCompanyFormFields = (t: Translator, options?: { defaultCountr
       placeholder: t('customers.companies.detail.highlights.annualRevenuePlaceholder', 'Enter amount'),
     },
     {
+      id: 'taxCode',
+      label: t('customers.companies.detail.fields.taxCode', 'Tax code'),
+      type: 'text',
+      layout: 'half',
+    },
+    {
+      id: 'registrationCountry',
+      label: t('customers.companies.detail.fields.registrationCountry', 'Registration country'),
+      type: 'text',
+      layout: 'half',
+    },
+    {
+      id: 'address',
+      label: t('customers.companies.detail.fields.registeredAddress', 'Registered address'),
+      type: 'textarea',
+    },
+    {
+      id: 'incorporationDate',
+      label: t('customers.companies.detail.fields.incorporationDate', 'Incorporation date'),
+      type: 'date',
+      layout: 'half',
+    },
+    {
+      id: 'onboardedAt',
+      label: t('customers.companies.detail.fields.onboardedAt', 'Onboarded'),
+      type: 'date',
+      layout: 'third',
+    },
+    {
+      id: 'registeredAt',
+      label: t('customers.companies.detail.fields.registeredAt', 'Registered'),
+      type: 'date',
+      layout: 'third',
+    },
+    {
+      id: 'endDate',
+      label: t('customers.companies.detail.fields.endDate', 'End date'),
+      type: 'date',
+      layout: 'third',
+    },
+    {
       id: 'description',
       label: t('customers.companies.detail.fields.description', 'Description'),
       type: 'textarea',
@@ -1426,6 +1590,22 @@ export const createCompanyFormGroups = (t: Translator): CrudFormGroup[] => [
     fields: ['legalName', 'brandName', 'domain', 'websiteUrl', 'industry', 'sizeBucket', 'annualRevenue'],
   },
   {
+    id: 'governance',
+    title: t('customers.companies.form.groups.governance', 'Identification'),
+    column: 1,
+    fields: ['taxCode', 'registrationCountry', 'incorporationDate', 'clientTier', 'address'],
+  },
+  {
+    id: 'lifecycle',
+    title: t('customers.companies.form.groups.lifecycle', 'Lifecycle'),
+    description: t(
+      'customers.companies.form.groups.lifecycleHint',
+      'Filled in automatically when the status changes. Set a date here only to record history.',
+    ),
+    column: 2,
+    fields: ['onboardedAt', 'registeredAt', 'endDate'],
+  },
+  {
     id: 'addresses',
     title: t('customers.companies.form.groups.addresses'),
     column: 1,
@@ -1475,6 +1655,14 @@ export function buildCompanyPayload(
   assign('websiteUrl', typeof values.websiteUrl === 'string' ? values.websiteUrl : undefined)
   assign('industry', typeof values.industry === 'string' ? values.industry : undefined)
   assign('sizeBucket', typeof values.sizeBucket === 'string' ? values.sizeBucket : undefined)
+  assign('taxCode', typeof values.taxCode === 'string' ? values.taxCode : undefined)
+  assign('registrationCountry', typeof values.registrationCountry === 'string' ? values.registrationCountry : undefined)
+  assign('address', typeof values.address === 'string' ? values.address : undefined)
+  assign('incorporationDate', typeof values.incorporationDate === 'string' ? values.incorporationDate : undefined)
+  assign('clientTier', typeof values.clientTier === 'string' ? values.clientTier : undefined)
+  assign('onboardedAt', typeof values.onboardedAt === 'string' ? values.onboardedAt : undefined)
+  assign('registeredAt', typeof values.registeredAt === 'string' ? values.registeredAt : undefined)
+  assign('endDate', typeof values.endDate === 'string' ? values.endDate : undefined)
   assign('description', typeof values.description === 'string' ? values.description : undefined)
 
   const rawRevenue = typeof values.annualRevenue === 'string' ? values.annualRevenue.trim() : ''
@@ -1621,6 +1809,14 @@ export const createCompanyEditSchema = () =>
     brandName: clearableTextField(),
     sizeBucket: clearableTextField(),
     annualRevenue: clearableTextField(),
+    taxCode: clearableTextField(),
+    registrationCountry: clearableTextField(),
+    address: clearableTextField(),
+    incorporationDate: clearableTextField(),
+    clientTier: clearableTextField(),
+    onboardedAt: clearableTextField(),
+    registeredAt: clearableTextField(),
+    endDate: clearableTextField(),
     description: clearableTextField(),
   })
 
@@ -1741,6 +1937,22 @@ export const createCompanyEditGroups = (t: Translator): CrudFormGroup[] => [
     fields: ['legalName', 'brandName', 'domain', 'websiteUrl', 'industry', 'sizeBucket', 'annualRevenue'],
   },
   {
+    id: 'governance',
+    title: t('customers.companies.form.groups.governance', 'Identification'),
+    column: 1,
+    fields: ['taxCode', 'registrationCountry', 'incorporationDate', 'clientTier', 'address'],
+  },
+  {
+    id: 'lifecycle',
+    title: t('customers.companies.form.groups.lifecycle', 'Lifecycle'),
+    description: t(
+      'customers.companies.form.groups.lifecycleHint',
+      'Filled in automatically when the status changes. Set a date here only to record history.',
+    ),
+    column: 2,
+    fields: ['onboardedAt', 'registeredAt', 'endDate'],
+  },
+  {
     id: 'notes',
     title: t('customers.companies.form.groups.notes'),
     column: 2,
@@ -1806,6 +2018,7 @@ export const createPersonEditGroups = (t: Translator): CrudFormGroup[] => [
     fields: [
       'firstName',
       'lastName',
+      'salutation',
       '__contactInformationSection',
       'primaryEmail',
       'primaryPhone',
@@ -1876,7 +2089,7 @@ export const createPersonPersonalDataGroups = (
       id: 'personalData',
       title: t('customers.people.form.groups.personalData', 'Personal data'),
       column: 1,
-      fields: ['firstName', 'lastName', 'jobTitle', 'primaryEmail', 'primaryPhone'],
+      fields: ['firstName', 'lastName', 'salutation', 'jobTitle', 'primaryEmail', 'primaryPhone'],
     },
     {
       id: 'companyRole',
@@ -2076,6 +2289,8 @@ export type PersonOverview = {
     ownerUserId?: string | null
     primaryEmail?: string | null
     primaryPhone?: string | null
+    phoneCountryCode?: string | null
+    phoneCountry?: string | null
     status?: string | null
     lifecycleStage?: string | null
     source?: string | null
@@ -2092,6 +2307,7 @@ export type PersonOverview = {
   }
   profile: {
     id: string
+    salutation?: string | null
     firstName?: string | null
     lastName?: string | null
     preferredName?: string | null
@@ -2175,8 +2391,11 @@ export function mapPersonOverviewToFormValues(overview: PersonOverview): Partial
     displayName: coerceDisplayName(overview.person.displayName),
     firstName: overview.profile?.firstName ?? '',
     lastName: overview.profile?.lastName ?? '',
+    salutation: overview.profile?.salutation ?? '',
     primaryEmail: overview.person.primaryEmail ?? '',
     primaryPhone: phoneValue,
+    phoneCountryCode: overview.person.phoneCountryCode ?? '',
+    phoneCountry: overview.person.phoneCountry ?? '',
     companyEntityId: overview.profile?.companyEntityId ?? '',
     jobTitle: overview.profile?.jobTitle ?? '',
     status: overview.person.status ?? '',

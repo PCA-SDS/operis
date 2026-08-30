@@ -64,6 +64,13 @@ const clearableRevenueSchema = z.preprocess(
   z.coerce.number().min(0).nullable().optional(),
 )
 
+// Date-only columns (incorporation date, the client lifecycle dates) accept an
+// ISO `YYYY-MM-DD` string and clear on blank, mirroring clearableStringSchema. See #3050.
+const clearableDateSchema = z.preprocess(
+  emptyStringToNull,
+  z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, 'customers.errors.invalid_date').nullable().optional(),
+)
+
 const interactionPhoneNumberSchema = z.string().trim().max(50).optional().nullable()
 
 const scopedSchema = z.object({
@@ -95,6 +102,8 @@ const baseEntitySchema = {
   ownerUserId: uuid().optional(),
   primaryEmail: clearableEmailSchema,
   primaryPhone: phoneSchema,
+  phoneCountryCode: clearableStringSchema(8),
+  phoneCountry: clearableStringSchema(2),
   status: z.string().trim().max(100).optional(),
   lifecycleStage: z.string().trim().max(100).optional(),
   source: z.string().trim().max(150).optional(),
@@ -106,6 +115,7 @@ const baseEntitySchema = {
 }
 
 const personDetailsSchema = {
+  salutation: clearableStringSchema(150),
   preferredName: z.string().trim().max(120).optional(),
   jobTitle: z.string().trim().max(150).optional(),
   department: z.string().trim().max(150).optional(),
@@ -128,6 +138,16 @@ const companyDetailsSchema = {
   industry: z.string().trim().max(150).optional(),
   sizeBucket: clearableStringSchema(100),
   annualRevenue: clearableRevenueSchema,
+  // Account-governance fields aligned with PCA ERP's crm.company_clients. Lengths
+  // mirror that schema's varchar limits, which the text columns here do not enforce.
+  taxCode: clearableStringSchema(20),
+  registrationCountry: clearableStringSchema(120),
+  address: clearableStringSchema(500),
+  incorporationDate: clearableDateSchema,
+  clientTier: clearableStringSchema(150),
+  onboardedAt: clearableDateSchema,
+  registeredAt: clearableDateSchema,
+  endDate: clearableDateSchema,
 }
 
 export const personCreateSchema = scopedSchema.extend({
@@ -317,10 +337,12 @@ const KNOWN_DICTIONARY_KINDS = [
   'deal_status',
   'pipeline_stage',
   'job_title',
+  'salutation',
   'industry',
   'temperature',
   'renewal_quarter',
   'person_company_role',
+  'client_tier',
 ] as const
 const CUSTOM_DICTIONARY_KIND_PATTERN = /^[a-z0-9]+(?:[-_][a-z0-9]+)*$/
 const dictionaryKindEnum = z.string().trim().refine(
@@ -781,3 +803,11 @@ export const personCompanyLinkDeleteSchema = scopedSchema.extend({
 export type PersonCompanyLinkCreateInput = z.infer<typeof personCompanyLinkCreateSchema>
 export type PersonCompanyLinkUpdateInput = z.infer<typeof personCompanyLinkUpdateSchema>
 export type PersonCompanyLinkDeleteInput = z.infer<typeof personCompanyLinkDeleteSchema>
+
+export const personCheckSchema = z.object({
+  tenantId: uuid(),
+  phone: z.string().trim().max(50).optional(),
+  email: clearableEmailSchema,
+})
+
+export type PersonCheckInput = z.infer<typeof personCheckSchema>

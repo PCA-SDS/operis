@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from 'react'
-import { Check, ChevronLeft, ChevronRight, Clock, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { CloseButton } from './close-button'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from './button'
 import { Popover, PopoverContent, PopoverTrigger } from './popover'
@@ -725,16 +726,12 @@ function TimePickerCard({
             {headerDisplay.suffix ? <span className="ml-1 text-muted-foreground/60">{headerDisplay.suffix}</span> : null}
           </p>
           {onClose ? (
-            <button
-              type="button"
+            <CloseButton
               onClick={onClose}
               disabled={disabled}
-              className="inline-flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 disabled:pointer-events-none disabled:opacity-60"
               aria-label={closeAriaLabel}
               data-slot="time-picker-close"
-            >
-              <X className="size-4" aria-hidden="true" />
-            </button>
+            />
           ) : null}
         </div>
       ) : null}

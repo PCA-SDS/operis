@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Check, ChevronDown, ChevronsDown, ChevronsUp, Equal } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { menuRowStateClass } from '@open-mercato/ui/primitives/menu'
 import { Button } from '@open-mercato/ui/primitives/button'
 import type { EditorPriority } from '../../../lib/calendar/editorPayload'
 import { CONTROL_BORDER, DROPDOWN_PANEL_CLASS, useDropdownDismiss } from './inputs'
@@ -75,7 +76,7 @@ export function PriorityField({
                   onChange(priority)
                   setOpen(false)
                 }}
-                className={cn('h-auto w-full justify-start gap-2 px-2 py-1.5 text-left text-sm font-normal', active && 'bg-muted')}
+                className={cn('h-auto w-full justify-start gap-2 px-2 py-1.5 text-left text-sm font-normal', menuRowStateClass({ selected: active }))}
               >
                 <Icon aria-hidden className={cn('size-4 shrink-0', meta.color)} />
                 <span className="min-w-0 flex-1 truncate text-foreground">{labels[priority]}</span>

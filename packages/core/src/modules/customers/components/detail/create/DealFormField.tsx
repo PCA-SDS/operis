@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Label } from '@open-mercato/ui/primitives/label'
+import { FormFieldLabel } from '@open-mercato/ui/backend/forms/FormSection'
 
 export type DealFormFieldProps = {
   label: string
@@ -24,14 +24,13 @@ export function DealFormField({ label, fieldId, required, hint, error, children 
     ? React.cloneElement(children as React.ReactElement<{ id?: string }>, { id: controlId })
     : children
   return (
-    <div className="space-y-2" data-crud-field-id={fieldId}>
-      <Label htmlFor={controlId}>
+    <div data-crud-field-id={fieldId}>
+      <FormFieldLabel htmlFor={controlId} required={required}>
         {label}
-        {required ? <span className="text-destructive"> *</span> : null}
-      </Label>
+      </FormFieldLabel>
       {control}
-      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
-      {error ? <p className="text-xs text-status-error-text">{error}</p> : null}
+      {hint ? <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p> : null}
+      {error ? <p className="mt-1.5 text-xs font-medium text-status-error-text">{error}</p> : null}
     </div>
   )
 }

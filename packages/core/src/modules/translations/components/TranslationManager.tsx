@@ -407,7 +407,7 @@ export function TranslationManager({
 
     return (
       <div className="overflow-x-auto">
-        <Table density="compact" className="min-w-[480px]">
+        <Table columnCount={3} density="compact" className="min-w-[480px]">
           <TableHeader>
             <TableRow>
               <TableHead className="w-[140px]">

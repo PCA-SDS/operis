@@ -342,14 +342,19 @@ export function GlobalSearchDialog({
         <Search className="h-4 w-4 text-foreground" />
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-xl p-0" aria-describedby="global-search-description">
+        <DialogContent
+          className="max-w-xl"
+          dismissible={false}
+          disableBodyWrap
+          aria-describedby="global-search-description"
+        >
           <DialogTitle className="sr-only">
             {t('search.dialog.title', 'Global Search')}
           </DialogTitle>
           <span id="global-search-description" className="sr-only">
             {t('search.dialog.instructions')}
           </span>
-          <div className="flex flex-col gap-3 border-b px-4 pb-3 pt-12">
+          <div className="flex flex-col gap-3 border-b px-4 pb-3 pt-4">
             <SearchInput
               ref={inputRef}
               size="lg"

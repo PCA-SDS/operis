@@ -33,6 +33,7 @@ import {
   CustomerTag,
 } from './data/entities'
 import { ensureDictionaryEntry } from './commands/shared'
+import { backfillContactHashes } from './lib/backfillContactHashes'
 import { recomputeNextInteraction } from './lib/interactionProjection'
 import {
   CUSTOMER_INTERACTION_ACTIVITY_ADAPTER_SOURCE,
@@ -75,10 +76,15 @@ export const PIPELINE_STAGE_DEFAULTS: DictionaryDefault[] = [
 ]
 
 export const ENTITY_STATUS_DEFAULTS: DictionaryDefault[] = [
+  { value: 'prospect', label: 'Prospect', color: '#f59e0b', icon: 'lucide:user-search' },
   { value: 'active', label: 'Active', color: '#22c55e', icon: 'lucide:user-check' },
   { value: 'inactive', label: 'Inactive', color: '#94a3b8', icon: 'lucide:pause-circle' },
-  { value: 'pending', label: 'Pending', color: '#f59e0b', icon: 'lucide:clock' },
-  { value: 'archived', label: 'Archived', color: '#64748b', icon: 'lucide:archive' },
+  { value: 'blacklisted', label: 'Blacklisted', color: '#ef4444', icon: 'lucide:user-x' },
+]
+
+export const CLIENT_TIER_DEFAULTS: DictionaryDefault[] = [
+  { value: 'standard', label: 'Standard', color: '#94a3b8', icon: 'lucide:circle' },
+  { value: 'vip', label: 'VIP', color: '#f59e0b', icon: 'lucide:star' },
 ]
 
 export const ENTITY_LIFECYCLE_STAGE_DEFAULTS: DictionaryDefault[] = [
@@ -136,6 +142,15 @@ const JOB_TITLE_DEFAULTS: DictionaryDefault[] = [
   { value: 'Senior Project Manager', label: 'Senior Project Manager', color: '#0ea5e9', icon: 'lucide:clipboard-list' },
   { value: 'Chief Revenue Officer', label: 'Chief Revenue Officer', color: '#8b5cf6', icon: 'lucide:bar-chart-3' },
   { value: 'Director of Retail Partnerships', label: 'Director of Retail Partnerships', color: '#f59e0b', icon: 'lucide:shopping-bag' },
+]
+
+const SALUTATION_DEFAULTS: DictionaryDefault[] = [
+  { value: 'Mr', label: 'Mr', color: '#64748b', icon: 'lucide:user' },
+  { value: 'Mrs', label: 'Mrs', color: '#64748b', icon: 'lucide:user' },
+  { value: 'Ms', label: 'Ms', color: '#64748b', icon: 'lucide:user' },
+  { value: 'Mdm', label: 'Mdm', color: '#64748b', icon: 'lucide:user' },
+  { value: 'Dr', label: 'Dr', color: '#0ea5e9', icon: 'lucide:stethoscope' },
+  { value: 'Prof', label: 'Prof', color: '#8b5cf6', icon: 'lucide:graduation-cap' },
 ]
 
 const INDUSTRY_DEFAULTS: DictionaryDefault[] = [
@@ -1176,11 +1191,33 @@ async function seedCustomerDictionaries(em: EntityManager, { tenantId, organizat
       icon: entry.icon,
     })
   }
+  for (const entry of CLIENT_TIER_DEFAULTS) {
+    await ensureDictionaryEntry(em, {
+      tenantId,
+      organizationId,
+      kind: 'client_tier',
+      value: entry.value,
+      label: entry.label,
+      color: entry.color,
+      icon: entry.icon,
+    })
+  }
   for (const entry of JOB_TITLE_DEFAULTS) {
     await ensureDictionaryEntry(em, {
       tenantId,
       organizationId,
       kind: 'job_title',
+      value: entry.value,
+      label: entry.label,
+      color: entry.color,
+      icon: entry.icon,
+    })
+  }
+  for (const entry of SALUTATION_DEFAULTS) {
+    await ensureDictionaryEntry(em, {
+      tenantId,
+      organizationId,
+      kind: 'salutation',
       value: entry.value,
       label: entry.label,
       color: entry.color,
@@ -3254,7 +3291,35 @@ const interactionsBackfill: ModuleCli = {
   },
 }
 
-const customersCliCommands = [seedDictionaries, seedExamples, seedStressTest, interactionsBackfill]
+const peopleBackfillContactHashes: ModuleCli = {
+  command: 'people:backfill-contact-hashes',
+  async run(rest) {
+    const args = parseArgs(rest)
+    const tenantId = String(args.tenantId ?? args.tenant ?? '')
+    if (!tenantId) {
+      console.error('Usage: mercato customers people:backfill-contact-hashes --tenant <tenantId>')
+      return
+    }
+
+    const container = await createRequestContainer()
+    const em = container.resolve('em') as EntityManager
+
+    console.log(`[backfill] Computing contact lookup hashes for tenant=${tenantId}`)
+    const result = await backfillContactHashes(em, { tenantId })
+
+    console.log('[backfill] Complete.')
+    console.log(`  People scanned: ${result.scanned}`)
+    console.log(`  People updated: ${result.updated}`)
+    if (result.phoneConflicts.length) {
+      console.warn(`  Phone numbers shared by more than one person: ${result.phoneConflicts.length}`)
+      for (const group of result.phoneConflicts) {
+        console.warn(`    left unhashed (resolve manually): ${group.join(', ')}`)
+      }
+    }
+  },
+}
+
+const customersCliCommands = [seedDictionaries, seedExamples, seedStressTest, interactionsBackfill, peopleBackfillContactHashes]
 
 export default customersCliCommands
 export async function ensureCustomerCustomFieldDefinitions(

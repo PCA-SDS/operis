@@ -481,8 +481,6 @@ export default function WarrantyClaimRegistrationsPage() {
         >
           <DataTable<RegistrationRecord>
           embedded
-          stickyFirstColumn
-          stickyActionsColumn
           refreshButton={{
             label: t('warranty_claims.registrations.list.actions.refresh', 'Refresh'),
             onRefresh: reload,

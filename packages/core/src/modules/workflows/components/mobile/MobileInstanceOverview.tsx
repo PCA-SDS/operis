@@ -249,8 +249,8 @@ export function MobileInstanceOverview({
       </div>
 
       <Dialog open={showFullGraph} onOpenChange={setShowFullGraph}>
-        <DialogContent className="h-[90svh] max-w-[95vw] p-0">
-          <DialogHeader className="px-4 pt-4">
+        <DialogContent className="h-[90svh] max-w-[95vw]" disableBodyWrap>
+          <DialogHeader>
             <DialogTitle>{t('workflows.instances.sections.visualFlow')}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 p-2">

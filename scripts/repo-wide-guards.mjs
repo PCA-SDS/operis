@@ -93,6 +93,10 @@ export const REPO_WIDE_GUARDS = [
         scans: 'every packages/*/src/modules tree — optimistic-lock command coverage',
       },
       {
+        path: 'src/__tests__/sidebar-nav-group-identity.test.ts',
+        scans: 'every module backend/ tree across packages/ and apps/ — two nav groups rendering one label (the duplicate TASKS section)',
+      },
+      {
         path: 'src/modules/__tests__/crud-indexer-config.test.ts',
         scans: 'packages/ and apps/ — CRUD indexer configuration',
       },
@@ -225,6 +229,10 @@ export const REPO_WIDE_GUARDS = [
         path: 'src/backend/icons/__tests__/lucideRegistryGenerator.test.ts',
         scans: 'git-tracked files repo-wide — importers of the deep lucideRegistry.generated path',
       },
+      {
+        path: 'src/backend/dashboard/__tests__/greetings.test.ts',
+        scans: 'apps/mercato/src/i18n/*.json — a translation for every dashboard greeting key in every app locale. The greetings live in packages/ui but their copy lives in the app dictionaries, so a PR that only edits a locale file selects no package that owns this test.',
+      },
     ],
   },
   {
@@ -261,50 +269,6 @@ export const REPO_WIDE_GUARDS = [
  * Each entry needs a reason, so the next person can tell "already covered" from "forgotten".
  */
 export const CROSS_PACKAGE_EXCEPTIONS = [
-  {
-    path: 'packages/create-app/src/lib/apply-starter-preset.test.ts',
-    reason: 'Already unfiltered — the "Check create-app template parity" CI step runs the whole create-mercato-app suite (#3779).',
-  },
-  {
-    path: 'packages/create-app/src/lib/root-layout-theme-script.test.ts',
-    reason: 'Already unfiltered — covered by the same create-app parity step (#3779).',
-  },
-  {
-    path: 'packages/create-app/src/lib/template-dependency-drift.test.ts',
-    reason: 'Already unfiltered — the "Check create-app template parity" CI step runs the whole create-mercato-app suite (#3779).',
-  },
-  {
-    path: 'packages/create-app/src/lib/standalone-cache-strategy-guard.test.ts',
-    reason: 'Already unfiltered — covered by the same create-app parity step (#3779).',
-  },
-  {
-    path: 'packages/create-app/src/lib/template-example-module-parity.test.ts',
-    reason: 'Already unfiltered — the "Check create-app template parity" CI step runs the whole create-mercato-app suite (#3779).',
-  },
-  {
-    path: 'packages/create-app/src/lib/template-i18n-parity.test.ts',
-    reason: 'Already unfiltered — the "Check create-app template parity" CI step runs the whole create-mercato-app suite (#3779).',
-  },
-  {
-    path: 'packages/create-app/src/lib/module-activation-fixtures.test.ts',
-    reason: 'Already unfiltered — the "Check create-app template parity" CI step runs the whole create-mercato-app suite (#3779).',
-  },
-  {
-    path: 'packages/create-app/src/lib/standalone-portal-email-env-guard.test.ts',
-    reason: 'Already unfiltered — covered by the same create-app parity step (#3779).',
-  },
-  {
-    path: 'packages/create-app/src/lib/agent-harness-evaluator.test.ts',
-    reason: 'Already unfiltered — the same create-app parity step (#3779); its process.cwd() anchors sit inside fixture sources written into a sandbox, not repository reads.',
-  },
-  {
-    path: 'packages/create-app/src/lib/agent-harness-release.test.ts',
-    reason: 'Already unfiltered — the same create-app parity step (#3779); its process.cwd() anchor sits inside a fixture script string, not a repository read.',
-  },
-  {
-    path: 'packages/create-app/src/lib/module-activation-fixtures.test.ts',
-    reason: 'Already unfiltered — the same create-app parity step (#3779) runs the whole create-mercato-app suite. It also drives the real scaffolder and generator suite against a generated app, so it costs minutes rather than the seconds this runner budgets for the common PR path.',
-  },
   {
     path: 'packages/ui/src/backend/__tests__/FieldDefinitionsEditor.test.tsx',
     reason: 'Package-local despite the repo-root anchor — it only reads packages/ui sources, so the turbo filter selects it correctly.',

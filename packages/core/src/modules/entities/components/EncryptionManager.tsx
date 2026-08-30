@@ -337,7 +337,7 @@ export function EncryptionManager() {
     }
     return (
       <div className="overflow-x-auto">
-        <Table density="compact" className="min-w-[720px]">
+        <Table columnCount={3} density="compact" className="min-w-[720px]">
           <TableHeader>
             <TableRow>
               <TableHead>{t('entities.encryption.fields.field', 'Field name')}</TableHead>

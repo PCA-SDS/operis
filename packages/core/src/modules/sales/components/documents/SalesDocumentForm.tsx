@@ -299,10 +299,10 @@ function CustomerQuickCreate({ t, onCreated }: CustomerQuickCreateProps) {
   )
 
   const renderMenu = () => (
-    <div className="absolute right-0 z-dropdown mt-2 w-48 rounded border bg-popover p-1 shadow-lg">
+    <div className="absolute right-0 z-dropdown mt-2 flex w-48 flex-col gap-1 rounded-md border bg-popover p-1 shadow-lg">
       <button
         type="button"
-        className="flex w-full items-center gap-2 rounded px-2 py-2 text-sm hover:bg-muted"
+        className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted"
         onClick={() => {
           setDialog('person')
           setMenuOpen(false)
@@ -314,7 +314,7 @@ function CustomerQuickCreate({ t, onCreated }: CustomerQuickCreateProps) {
       </button>
       <button
         type="button"
-        className="flex w-full items-center gap-2 rounded px-2 py-2 text-sm hover:bg-muted"
+        className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted"
         onClick={() => {
           setDialog('company')
           setMenuOpen(false)

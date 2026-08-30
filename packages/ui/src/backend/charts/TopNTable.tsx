@@ -95,14 +95,13 @@ export function TopNTable<T extends Record<string, unknown>>({
     <div className={`rounded-xl border border-border bg-surface shadow-sm p-4 ${className}`}>
       {title && <h3 className="mb-4 text-base font-medium text-card-foreground">{title}</h3>}
       <div className="overflow-x-auto">
-        <Table density="compact">
+        <Table density="compact" columns={columns.map((column) => column.width ?? 'minmax(0,1fr)')}>
           <TableHeader>
             <TableRow>
               {columns.map((column) => (
                 <TableHead
                   key={String(column.key)}
-                  align={column.align === 'right' ? 'right' : 'left'}
-                  className={column.align === 'center' ? 'text-center' : undefined}
+                  align={column.align ?? 'left'}
                   style={column.width ? { width: column.width } : undefined}
                 >
                   {column.header}
@@ -117,11 +116,7 @@ export function TopNTable<T extends Record<string, unknown>>({
                   const rawValue = getNestedValue(row as Record<string, unknown>, String(column.key))
                   const formatted = column.formatter ? column.formatter(rawValue, row) : defaultFormatter(rawValue)
                   return (
-                    <TableCell
-                      key={String(column.key)}
-                      align={column.align === 'right' ? 'right' : 'left'}
-                      className={column.align === 'center' ? 'text-center' : undefined}
-                    >
+                    <TableCell key={String(column.key)} align={column.align ?? 'left'}>
                       {formatted}
                     </TableCell>
                   )

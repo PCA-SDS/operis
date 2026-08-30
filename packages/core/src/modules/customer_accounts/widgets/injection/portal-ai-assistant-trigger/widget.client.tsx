@@ -23,6 +23,7 @@
 import * as React from 'react'
 import { Sparkles } from 'lucide-react'
 import { AiChat } from '@open-mercato/ui/ai/AiChat'
+import { useAiConfigured } from '@open-mercato/ui/ai/useAiConfigured'
 import { Button } from '@open-mercato/ui/primitives/button'
 import {
   Dialog,
@@ -65,6 +66,11 @@ function readUserId(user: PortalInjectionContext['user']): string | null {
 export default function PortalAiAssistantTriggerWidget({ context }: PortalAiAssistantTriggerProps) {
   const t = useT()
   const [open, setOpen] = React.useState(false)
+  // Customers are not operators: they cannot set a provider key, and the
+  // backend setup notice names environment variables. So this trigger hides
+  // outright rather than explaining itself. An inconclusive probe keeps the
+  // trigger visible — only an explicit "no provider key" answer hides it.
+  const { isUnconfigured } = useAiConfigured()
 
   const resolvedFeatures = Array.isArray(context?.resolvedFeatures)
     ? (context?.resolvedFeatures as string[])
@@ -79,6 +85,7 @@ export default function PortalAiAssistantTriggerWidget({ context }: PortalAiAssi
   }), [context?.user])
 
   if (!featureAllowed) return null
+  if (isUnconfigured) return null
 
   return (
     <div className="mt-6" data-ai-portal-inject-wrapper="">
@@ -98,6 +105,7 @@ export default function PortalAiAssistantTriggerWidget({ context }: PortalAiAssi
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
+        disableBodyWrap
           className={cn(
             'sm:max-w-xl sm:top-0 sm:bottom-0 sm:right-0 sm:left-auto sm:translate-x-0 sm:translate-y-0',
             'sm:h-screen sm:max-h-screen sm:rounded-none sm:rounded-l-2xl',

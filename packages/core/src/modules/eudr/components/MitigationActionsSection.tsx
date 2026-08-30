@@ -348,7 +348,6 @@ export function MitigationActionsSection({
         )}
         perspective={{ tableId: 'eudr.risk_assessments.detail.mitigation_actions' }}
         disableRowClick
-        stickyActionsColumn
       />
 
       <Dialog open={dialogMode !== null} onOpenChange={(open) => {

@@ -138,7 +138,7 @@ function OrderPreview({ payload }: { payload: Record<string, unknown> }) {
       )}
       {lineItems.length > 0 && (
         <div className="border rounded overflow-hidden">
-          <Table density="compact">
+          <Table columnCount={3} density="compact">
             <TableHeader>
               <TableRow>
                 <TableHead>{t('inbox_ops.preview.product', 'Product')}</TableHead>

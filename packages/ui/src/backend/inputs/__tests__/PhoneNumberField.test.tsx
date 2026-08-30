@@ -147,3 +147,69 @@ describe('PhoneNumberField initial country detection', () => {
     expect(screen.getByText(expected)).toBeInTheDocument()
   })
 })
+
+describe('PhoneNumberField country search', () => {
+  /**
+   * 243 countries is far past what anyone will scroll, which is why the picker
+   * is a searchable Dropdown rather than a plain Select. Pin all three ways in,
+   * because each comes from a different field: the name is the option label,
+   * the dial code and ISO code ride along as `keywords`.
+   */
+  function openCountryMenu() {
+    render(<PhoneFieldHarness />)
+    fireEvent.click(screen.getByRole('button', { name: /country/i }))
+    return screen.getByPlaceholderText('Search country…')
+  }
+
+  it.each([
+    ['name', 'United King', 'United Kingdom'],
+    ['dial code with plus', '+48', 'Poland'],
+    ['dial code without plus', '48', 'Poland'],
+    ['ISO code', 'jp', 'Japan'],
+  ])('finds a country by %s', (_label, query, expected) => {
+    const search = openCountryMenu()
+    fireEvent.change(search, { target: { value: query } })
+
+    const names = screen.getAllByRole('option').map((el) => el.textContent ?? '')
+    expect(names.some((name) => name.includes(expected))).toBe(true)
+    expect(names.length).toBeLessThan(PHONE_COUNTRIES.length)
+  })
+
+  it('reports no matches rather than showing the whole list', () => {
+    const search = openCountryMenu()
+    fireEvent.change(search, { target: { value: 'zzzzzz' } })
+
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
+  })
+})
+
+describe('PhoneNumberField country reporting', () => {
+  it('reports the default country on mount', () => {
+    const onCountryChange = jest.fn()
+    render(<PhoneFieldHarness defaultCountryIso2="SG" onCountryChange={onCountryChange} />)
+
+    expect(onCountryChange).toHaveBeenCalledTimes(1)
+    expect(onCountryChange).toHaveBeenCalledWith(expect.objectContaining({ iso2: 'SG' }))
+  })
+
+  it('reports the country parsed from an externally supplied value', () => {
+    const onCountryChange = jest.fn()
+    const poland = PHONE_COUNTRIES.find((country) => country.iso2 === 'PL')
+    render(
+      <PhoneNumberField value="+48 123 456 789" onValueChange={() => {}} onCountryChange={onCountryChange} />
+    )
+
+    expect(onCountryChange).toHaveBeenLastCalledWith(expect.objectContaining({ iso2: 'PL', dialCode: poland?.dialCode }))
+  })
+
+  it('does not re-report while the number changes but the country does not', () => {
+    const onCountryChange = jest.fn()
+    render(<PhoneFieldHarness defaultCountryIso2="US" onCountryChange={onCountryChange} />)
+    onCountryChange.mockClear()
+
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '2125551234' } })
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '2125559999' } })
+
+    expect(onCountryChange).not.toHaveBeenCalled()
+  })
+})

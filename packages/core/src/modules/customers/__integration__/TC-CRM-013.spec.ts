@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { createCompanyFixture, createDealFixture, createPipelineFixture, createPipelineStageFixture, deleteEntityIfExists, deleteEntityByBody } from '@open-mercato/core/modules/core/__integration__/helpers/crmFixtures';
 import { getAuthToken } from '@open-mercato/core/modules/core/__integration__/helpers/api';
 import { login } from '@open-mercato/core/modules/core/__integration__/helpers/auth';
+import { tableRowByText } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom';
 
 /**
  * TC-CRM-013: Pipeline View Navigation
@@ -82,7 +83,7 @@ test.describe('TC-CRM-013: Pipeline View Navigation', () => {
       await page.goto('/backend/customers/deals');
       await expect(page.getByRole('heading', { name: 'Deals' })).toBeVisible();
       await page.getByPlaceholder(/Search by title/i).fill(dealTitle);
-      const dealRow = page.locator('tr').filter({ hasText: dealTitle }).first();
+      const dealRow = tableRowByText(page, dealTitle);
       await expect(dealRow).toBeVisible();
       await expect(dealRow).toContainText('Opportunity');
       await expect.poll(async () => (await dealRow.textContent()) ?? '').toContain(pipelineName);

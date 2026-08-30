@@ -12,6 +12,7 @@ import { raiseCrudError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { Button } from '@open-mercato/ui/primitives/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -285,25 +286,23 @@ export function ReleaseReservationDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : closeDialog())}>
       <DialogContent
-        className="max-w-lg gap-0 overflow-hidden p-0"
+        className="max-w-lg overflow-hidden"
         onKeyDown={handleDialogKeyDown}
       >
-        <div className="border-b px-6 py-4 pr-12">
-          <DialogHeader className="space-y-1 text-left">
-            <DialogTitle>
-              {t('wms.backend.inventory.release.dialog.title', 'Release reservation')}
-            </DialogTitle>
-            <DialogDescription>
-              {t(
-                'wms.backend.inventory.release.dialog.description',
-                'Return reserved quantity to available stock for this bucket.',
-              )}
-            </DialogDescription>
-          </DialogHeader>
-        </div>
+        <DialogHeader className="space-y-1 text-left">
+          <DialogTitle>
+            {t('wms.backend.inventory.release.dialog.title', 'Release reservation')}
+          </DialogTitle>
+          <DialogDescription>
+            {t(
+              'wms.backend.inventory.release.dialog.description',
+              'Return reserved quantity to available stock for this bucket.',
+            )}
+          </DialogDescription>
+        </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="flex flex-col gap-5 overflow-y-auto px-6 py-6">
+          <DialogBody className="flex flex-col gap-5 overflow-y-auto">
             <div className="rounded-lg border bg-muted/40 px-4 py-3.5">
               <div className="flex items-start gap-3">
                 <ShieldOff className="mt-0.5 size-4 text-muted-foreground" aria-hidden="true" />
@@ -394,9 +393,9 @@ export function ReleaseReservationDialog({
                 disabled={submitting}
               />
             </FormField>
-          </div>
+          </DialogBody>
 
-          <DialogFooter bordered={false} className="border-t px-6 py-4 sm:justify-between">
+          <DialogFooter className="sm:justify-between">
             <p className="hidden text-xs text-muted-foreground sm:inline-flex sm:items-center sm:gap-1.5">
               <KbdShortcut keys={['⌘', 'Enter']} />
               <span>/</span>

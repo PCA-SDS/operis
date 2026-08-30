@@ -1,24 +1,17 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 import { resolveAllowedDevOrigins } from './src/lib/dev-origins'
+import {
+  buildBaseSecurityHeaders,
+  buildContentSecurityPolicy,
+} from './src/lib/security-headers'
 import { telemetryServerExternalPackages } from '@open-mercato/telemetry/nextjs-config'
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
 const allowedDevOrigins = isDevelopment ? resolveAllowedDevOrigins() : []
 
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "font-src 'self' data: https:",
-  "form-action 'self'",
-  "frame-ancestors 'self'",
-  "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
-  "img-src 'self' data: blob: https:",
-  "object-src 'none'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
-  "style-src 'self' 'unsafe-inline'",
-  "connect-src 'self' https: ws: wss:",
-].join('; ')
+const contentSecurityPolicy = buildContentSecurityPolicy(isDevelopment)
+const baseSecurityHeaders = buildBaseSecurityHeaders(isDevelopment)
 
 const nextConfig: NextConfig & { agentRules?: boolean } = {
   distDir: '.mercato/next',
@@ -129,9 +122,7 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
         source: '/:path*',
         headers: [
           { key: 'Content-Security-Policy', value: contentSecurityPolicy },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          ...baseSecurityHeaders,
         ],
       },
       {
@@ -141,9 +132,7 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
         source: '/api/attachments/file/:path*',
         headers: [
           { key: 'Content-Security-Policy', value: "default-src 'none'; sandbox" },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          ...baseSecurityHeaders,
         ],
       },
       {

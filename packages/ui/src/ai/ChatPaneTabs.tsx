@@ -280,14 +280,14 @@ function HistoryDropdown({ open, onOpenChange, closed, onPick }: HistoryDropdown
               {t('ai_assistant.chat.tabs.noPreviousSessions', 'No previous sessions yet.')}
             </div>
           ) : (
-            <div className="flex flex-col gap-0.5">
+            <div className="flex flex-col gap-1">
               {closed.map((session) => (
                 <button
                   key={session.id}
                   type="button"
                   role="menuitem"
                   onClick={() => onPick(session.id)}
-                  className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:outline-none"
+                  className="flex w-full items-center justify-between gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground focus-visible:outline-none"
                   data-ai-chat-history-item={session.id}
                 >
                   <span className="min-w-0 flex-1 truncate">

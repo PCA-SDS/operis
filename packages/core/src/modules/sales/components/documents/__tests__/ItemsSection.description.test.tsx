@@ -129,7 +129,7 @@ describe('SalesDocumentItemsSection line description', () => {
     const { container } = renderSection()
 
     await waitFor(() => expect(screen.getByText('Widget')).toBeInTheDocument())
-    expect(container.querySelector('tbody .min-w-0')?.childElementCount).toBe(1)
+    expect(container.querySelector('[data-slot="table-body"] [data-slot="table-cell"] .min-w-0')?.childElementCount).toBe(1)
   })
 
   it('ignores a whitespace-only description', async () => {
@@ -141,6 +141,6 @@ describe('SalesDocumentItemsSection line description', () => {
     const { container } = renderSection()
 
     await waitFor(() => expect(screen.getByText('Widget')).toBeInTheDocument())
-    expect(container.querySelector('tbody .min-w-0')?.childElementCount).toBe(1)
+    expect(container.querySelector('[data-slot="table-body"] [data-slot="table-cell"] .min-w-0')?.childElementCount).toBe(1)
   })
 })

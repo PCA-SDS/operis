@@ -21,11 +21,13 @@ export const BUILTIN_DICTIONARY_ROUTE_KINDS = [
   'deal-statuses',
   'pipeline-stages',
   'job-titles',
+  'salutations',
   'industries',
   'temperature',
   'renewal-quarters',
   'person-company-roles',
   'interaction-statuses',
+  'client-tiers',
 ] as const
 
 type BuiltinDictionaryRouteKind = (typeof BUILTIN_DICTIONARY_ROUTE_KINDS)[number]
@@ -52,11 +54,13 @@ const KIND_MAP: Record<BuiltinDictionaryRouteKind, DictionaryEntityKind> = {
   'deal-statuses': 'deal_status',
   'pipeline-stages': 'pipeline_stage',
   'job-titles': 'job_title',
+  salutations: 'salutation',
   industries: 'industry',
   temperature: 'temperature',
   'renewal-quarters': 'renewal_quarter',
   'person-company-roles': 'person_company_role',
   'interaction-statuses': 'interaction_status',
+  'client-tiers': 'client_tier',
 }
 
 export const paramsSchema = z.object({

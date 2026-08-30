@@ -328,6 +328,7 @@ export function TaskPanel({
     <>
       <Dialog open onOpenChange={(open) => (open || busyCreate ? undefined : onClose())}>
         <DialogContent
+          disableBodyWrap
           dismissible={false}
           className={cn(
             'flex flex-col gap-0 overflow-hidden p-0',

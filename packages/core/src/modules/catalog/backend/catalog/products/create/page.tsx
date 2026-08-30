@@ -1596,7 +1596,7 @@ function ProductBuilder({
               onValueChange={(next) => markDefaultVariant(next)}
             >
             <div className="w-full overflow-x-auto">
-              <Table density="compact" className="min-w-[900px] table-fixed border-collapse">
+              <Table density="compact" columnCount={7 + priceKinds.length} className="min-w-[900px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>

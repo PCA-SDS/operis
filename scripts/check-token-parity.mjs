@@ -31,6 +31,10 @@ const TEMPLATE_CSS = path.join(ROOT, 'packages/create-app/template/src/app/globa
  * a comment there (or the reverse) should be treated as a review question. */
 const THEME_INVARIANT = new Set([
   'font-geist-sans', 'font-geist-mono',
+  /* Aliases of the two faces above, bound for third-party stylesheets that read
+     `--font-body` / `--font-mono`. A typeface is the same in both themes, so
+     they are invariant for exactly the reason their targets are. */
+  'font-body', 'font-mono',
   'brand-sky', 'brand-lilac',
   'brand-apple', 'brand-github', 'brand-x', 'brand-google-stroke',
   'brand-facebook', 'brand-dropbox', 'brand-linkedin',

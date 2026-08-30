@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { checkLessonsCatalog } from '../../packages/create-app/agentic/shared/scripts/check-lessons.mjs'
+import { checkLessonsCatalog } from '../../packages/cli/agentic/shared/scripts/check-lessons.mjs'
 
 const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url))
 

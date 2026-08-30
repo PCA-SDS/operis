@@ -329,7 +329,7 @@ function FilterDropdown({ filter, onChange }: { filter: FilterKind; onChange: (k
         <div
           role="listbox"
           aria-label={t('sales.documents.history.filter.label', 'Filters')}
-          className="absolute left-0 top-full mt-1 z-dropdown w-48 rounded-md border bg-surface p-1 shadow-md"
+          className="absolute left-0 top-full mt-1 z-dropdown flex w-48 flex-col gap-1 rounded-md border bg-surface p-1 shadow-md"
         >
           {options.map(opt => (
             <button
@@ -338,7 +338,7 @@ function FilterDropdown({ filter, onChange }: { filter: FilterKind; onChange: (k
               role="option"
               aria-selected={filter === opt.value}
               onClick={() => { onChange(opt.value); setOpen(false) }}
-              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent"
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
             >
               <Check className={cn('h-3.5 w-3.5 shrink-0', filter === opt.value ? 'opacity-100' : 'opacity-0')} aria-hidden />
               {opt.label}

@@ -433,8 +433,6 @@ export default function WarrantyVendorPoliciesPage() {
         >
           <DataTable<VendorPolicyRecord>
           embedded
-          stickyFirstColumn
-          stickyActionsColumn
           refreshButton={{
             label: t('warranty_claims.vendorPolicies.list.actions.refresh', 'Refresh'),
             onRefresh: reload,

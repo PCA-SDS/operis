@@ -7,6 +7,18 @@ export {
   type AiAssistantLauncherProps,
 } from './AiAssistantLauncher'
 export {
+  AiProviderSetupPanel,
+  AI_ASSISTANT_DOCS_URL,
+  AI_ASSISTANT_SETTINGS_DOCS_URL,
+  type AiProviderSetupPanelProps,
+} from './AiProviderSetupPanel'
+export {
+  useAiConfigured,
+  resetAiConfiguredCacheForTests,
+  AI_AGENTS_ENDPOINT,
+  type UseAiConfiguredResult,
+} from './useAiConfigured'
+export {
   AiDockProvider,
   useAiDock,
   type AiDockedAssistant,

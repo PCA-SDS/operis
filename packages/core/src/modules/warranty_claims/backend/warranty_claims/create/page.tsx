@@ -867,7 +867,6 @@ export function LineItemsEditor({
         embedded
         columns={columns}
         data={pageRows}
-        stickyActionsColumn
         searchValue={lineSearch}
         onSearchChange={handleSearchChange}
         searchPlaceholder={t('warranty_claims.form.lines.search', 'Search product, SKU or serial number')}

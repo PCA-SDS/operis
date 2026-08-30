@@ -2423,7 +2423,7 @@ function ProductVariantsSection({
         </div>
         {variants.length ? (
           <div className="overflow-x-auto rounded-md border">
-            <Table density="compact" className="min-w-[720px] table-fixed">
+            <Table columnCount={5} density="compact" className="min-w-[720px] table-fixed">
               <TableHeader>
                 <TableRow>
                   <TableHead>
@@ -2488,7 +2488,7 @@ function ProductVariantsSection({
                     <TableCell className="text-muted-foreground">
                       {variant.isDefault ? t("common.yes", "Yes") : "—"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell align="right">
                       <div className="flex justify-end gap-2 whitespace-nowrap">
                         <Button asChild size="sm" variant="outline">
                           <Link

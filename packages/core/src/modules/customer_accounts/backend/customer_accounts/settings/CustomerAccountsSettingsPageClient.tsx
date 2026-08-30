@@ -73,7 +73,7 @@ export function CustomerAccountsSettingsPageClient({ portalOrigin }: CustomerAcc
             {t('customer_accounts.settings.demo_credentials.title', 'Demo Credentials')}
           </h3>
           <div className="overflow-x-auto">
-            <Table density="compact">
+            <Table columnCount={3} density="compact">
               <TableHeader>
                 <TableRow>
                   <TableHead>
@@ -90,8 +90,8 @@ export function CustomerAccountsSettingsPageClient({ portalOrigin }: CustomerAcc
               <TableBody>
                 {DEMO_CREDENTIALS.map((cred) => (
                   <TableRow key={cred.email}>
-                    <TableCell className="pr-4 font-mono text-xs">{cred.email}</TableCell>
-                    <TableCell className="pr-4 font-mono text-xs">{cred.password}</TableCell>
+                    <TableCell className="font-mono text-xs">{cred.email}</TableCell>
+                    <TableCell className="font-mono text-xs">{cred.password}</TableCell>
                     <TableCell className="text-xs">{cred.role}</TableCell>
                   </TableRow>
                 ))}

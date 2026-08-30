@@ -22,7 +22,7 @@ name: Scheduled Dependency Audit
 #
 # Deliberately kept out of ci.yml: that workflow uses
 # `concurrency: ci-${{ github.ref }}` with `cancel-in-progress: true`, so a
-# scheduled run on refs/heads/develop would share the group with push runs and
+# scheduled run on refs/heads/main would share the group with push runs and
 # cancel real CI (or be cancelled by it).
 
 permissions:
@@ -48,17 +48,20 @@ concurrency:
 jobs:
   audit:
     name: Audit ${{ matrix.branch }}
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: write
     strategy:
-      # Both protected branches are reported independently — main going red
-      # must not hide the state of develop.
+      # Upstream audited `develop` and `main` independently so one going red could
+      # not hide the other. This fork is main-only (no develop branch exists), so
+      # the matrix carries a single entry. It stays a matrix rather than being
+      # flattened: every downstream step, the job name and the tracking-issue
+      # marker are all keyed on `matrix.branch`, and adding a branch back should
+      # be a one-line change.
       fail-fast: false
       matrix:
         branch:
-          - develop
           - main
     steps:
       - name: Checkout ${{ matrix.branch }}
@@ -81,7 +84,7 @@ jobs:
         #
         # This workflow is triggered by `schedule`/`workflow_dispatch`, so it always
         # runs in the *default branch's* privileged context and writes to the default
-        # branch's cache scope — but the matrix above checks out `develop` and `main`.
+        # branch's cache scope — but the matrix above checks out a named ref.
         # A save step would therefore let content from a non-default ref land under a
         # `yarn-<os>-<lockfile hash>` key that any other workflow, on any branch,
         # happily restores.
@@ -147,7 +150,7 @@ jobs:
               report = `${report.slice(0, maxReportLength)}\n… truncated, see the workflow run for the full report …`
             }
 
-            const workflowUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/blob/develop/.github/workflows/audit.yml`
+            const workflowUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/blob/main/.github/workflows/audit.yml`
             const reportBlock = ['<!-- report:start -->', '```text', report, '```', '<!-- report:end -->'].join('\n')
             const body = [
               marker,

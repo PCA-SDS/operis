@@ -19,6 +19,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { E } from '#generated/entities.ids.generated'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { formatDate } from '@open-mercato/ui/utils/format'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import type { FilterOption } from '@open-mercato/ui/backend/FilterOverlay'
 import type { FilterFieldDef, FilterOption as AdvancedFilterOption } from '@open-mercato/shared/lib/query/advanced-filter'
@@ -89,6 +90,10 @@ function makeCompaniesPresets(): FilterPreset[] {
 }
 
 
+// Retired from the companies grid alongside the Next interaction column. The
+// definitions stay in customFieldDefaults.ts so existing tenant data is untouched.
+const RETIRED_COMPANY_CUSTOM_FIELD_COLUMNS = new Set(['customer_marketing_case', 'renewal_quarter'])
+
 type CompanyRow = {
   id: string
   name: string
@@ -102,6 +107,15 @@ type CompanyRow = {
   industry?: string | null
   sizeBucket?: string | null
   annualRevenue?: string | null
+  taxCode?: string | null
+  registrationCountry?: string | null
+  address?: string | null
+  incorporationDate?: string | null
+  clientTier?: string | null
+  onboardedAt?: string | null
+  registeredAt?: string | null
+  endDate?: string | null
+  reactivatedAt?: string | null
   status?: string | null
   lifecycleStage?: string | null
   nextInteractionAt?: string | null
@@ -123,12 +137,6 @@ type CompaniesResponse = {
 type DictionaryKindKey = CustomerDictionaryKind
 type DictionaryMap = CustomerDictionaryMap
 
-function formatDate(value: string | null | undefined, fallback: string): string {
-  if (!value) return fallback
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return fallback
-  return date.toLocaleDateString()
-}
 
 function mapApiItem(item: Record<string, unknown>): CompanyRow | null {
   const id = typeof item.id === 'string' ? item.id : null
@@ -149,6 +157,15 @@ function mapApiItem(item: Record<string, unknown>): CompanyRow | null {
       : typeof item.annual_revenue === 'number'
         ? String(item.annual_revenue)
         : null
+  const taxCode = typeof item.tax_code === 'string' ? item.tax_code : null
+  const registrationCountry = typeof item.registration_country === 'string' ? item.registration_country : null
+  const address = typeof item.address === 'string' ? item.address : null
+  const incorporationDate = typeof item.incorporation_date === 'string' ? item.incorporation_date : null
+  const clientTier = typeof item.client_tier === 'string' ? item.client_tier : null
+  const onboardedAt = typeof item.onboarded_at === 'string' ? item.onboarded_at : null
+  const registeredAt = typeof item.registered_at === 'string' ? item.registered_at : null
+  const endDate = typeof item.end_date === 'string' ? item.end_date : null
+  const reactivatedAt = typeof item.reactivated_at === 'string' ? item.reactivated_at : null
   const status = typeof item.status === 'string' ? item.status : null
   const lifecycleStage = typeof item.lifecycle_stage === 'string' ? item.lifecycle_stage : null
   const nextInteractionAt = typeof item.next_interaction_at === 'string' ? item.next_interaction_at : null
@@ -177,6 +194,15 @@ function mapApiItem(item: Record<string, unknown>): CompanyRow | null {
     industry,
     sizeBucket,
     annualRevenue,
+    taxCode,
+    registrationCountry,
+    address,
+    incorporationDate,
+    clientTier,
+    onboardedAt,
+    registeredAt,
+    endDate,
+    reactivatedAt,
     status,
     lifecycleStage,
     nextInteractionAt,
@@ -300,6 +326,7 @@ export default function CustomersCompaniesPage() {
       statuses: toOptions(dictionaryMaps.statuses),
       sources: toOptions(dictionaryMaps.sources),
       lifecycleStages: toOptions(dictionaryMaps['lifecycle-stages']),
+      clientTiers: toOptions(dictionaryMaps['client-tiers']),
     }
   }, [dictionaryMaps])
 
@@ -312,6 +339,7 @@ export default function CustomersCompaniesPage() {
         fetchDictionaryEntries('statuses'),
         fetchDictionaryEntries('sources'),
         fetchDictionaryEntries('lifecycle-stages'),
+        fetchDictionaryEntries('client-tiers'),
       ])
     }
     loadAll().catch(() => {})
@@ -670,39 +698,6 @@ export default function CustomersCompaniesPage() {
         cell: ({ row }) => renderDictionaryCell('lifecycle-stages', row.original.lifecycleStage),
       },
       {
-        accessorKey: 'nextInteractionAt',
-        header: t('customers.companies.list.columns.nextInteraction'),
-        meta: {
-          columnChooserGroup: 'Dates',
-          filterKey: 'next_interaction_at',
-          filterGroup: 'Activity',
-          filterIconName: 'calendar',
-        },
-        cell: ({ row }) =>
-          row.original.nextInteractionAt
-            ? (
-              <div className="flex items-start gap-2 text-sm">
-                {row.original.nextInteractionIcon ? (
-                  <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded border border-border bg-card">
-                    {renderDictionaryIcon(row.original.nextInteractionIcon, 'h-4 w-4')}
-                  </span>
-                ) : null}
-                <div className="flex flex-col">
-                  <span>{formatDate(row.original.nextInteractionAt, t('customers.companies.list.noValue'))}</span>
-                  {row.original.nextInteractionName ? (
-                    <span className="text-xs text-muted-foreground">{row.original.nextInteractionName}</span>
-                  ) : null}
-                </div>
-                {row.original.nextInteractionColor ? (
-                  <span className="mt-1">
-                    {renderDictionaryColor(row.original.nextInteractionColor, 'h-3 w-3 rounded-full border border-border')}
-                  </span>
-                ) : null}
-              </div>
-            )
-            : noValue,
-      },
-      {
         accessorKey: 'source',
         header: t('customers.companies.list.columns.source'),
         meta: {
@@ -807,6 +802,100 @@ export default function CustomersCompaniesPage() {
         cell: ({ row }) => row.original.annualRevenue || noValue,
       },
       {
+        accessorKey: 'clientTier',
+        header: t('customers.companies.list.columns.clientTier', 'Tier'),
+        meta: {
+          filterType: 'select' as const,
+          filterOptions: dictionaryOptions.clientTiers,
+          columnChooserGroup: 'Identification',
+          filterKey: 'company_profile.client_tier',
+          filterGroup: 'Identification',
+        },
+        cell: ({ row }) => renderDictionaryCell('client-tiers', row.original.clientTier),
+      },
+      {
+        accessorKey: 'registrationCountry',
+        header: t('customers.companies.list.columns.registrationCountry', 'Registration country'),
+        meta: {
+          columnChooserGroup: 'Identification',
+          hidden: true,
+          filterKey: 'company_profile.registration_country',
+          filterGroup: 'Identification',
+        },
+        cell: ({ row }) => row.original.registrationCountry || noValue,
+      },
+      {
+        accessorKey: 'address',
+        header: t('customers.companies.list.columns.registeredAddress', 'Registered address'),
+        meta: {
+          columnChooserGroup: 'Identification',
+          hidden: true,
+          filterKey: 'company_profile.address',
+          filterGroup: 'Identification',
+          maxWidth: '260px',
+        },
+        cell: ({ row }) => row.original.address || noValue,
+      },
+      {
+        accessorKey: 'incorporationDate',
+        header: t('customers.companies.list.columns.incorporationDate', 'Incorporated'),
+        meta: {
+          columnChooserGroup: 'Identification',
+          hidden: true,
+          filterKey: 'company_profile.incorporation_date',
+          filterType: 'date' as const,
+          filterGroup: 'Identification',
+        },
+        cell: ({ row }) => formatDate(row.original.incorporationDate) ?? noValue,
+      },
+      {
+        accessorKey: 'onboardedAt',
+        header: t('customers.companies.list.columns.onboardedAt', 'Onboarded'),
+        meta: {
+          columnChooserGroup: 'Lifecycle',
+          filterKey: 'company_profile.onboarded_at',
+          filterType: 'date' as const,
+          filterGroup: 'Lifecycle',
+        },
+        cell: ({ row }) => formatDate(row.original.onboardedAt) ?? noValue,
+      },
+      {
+        accessorKey: 'registeredAt',
+        header: t('customers.companies.list.columns.registeredAt', 'Registered'),
+        meta: {
+          columnChooserGroup: 'Lifecycle',
+          hidden: true,
+          filterKey: 'company_profile.registered_at',
+          filterType: 'date' as const,
+          filterGroup: 'Lifecycle',
+        },
+        cell: ({ row }) => formatDate(row.original.registeredAt) ?? noValue,
+      },
+      {
+        accessorKey: 'endDate',
+        header: t('customers.companies.list.columns.endDate', 'End date'),
+        meta: {
+          columnChooserGroup: 'Lifecycle',
+          hidden: true,
+          filterKey: 'company_profile.end_date',
+          filterType: 'date' as const,
+          filterGroup: 'Lifecycle',
+        },
+        cell: ({ row }) => formatDate(row.original.endDate) ?? noValue,
+      },
+      {
+        accessorKey: 'reactivatedAt',
+        header: t('customers.companies.list.columns.reactivatedAt', 'Reactivated'),
+        meta: {
+          columnChooserGroup: 'Lifecycle',
+          hidden: true,
+          filterKey: 'company_profile.reactivated_at',
+          filterType: 'date' as const,
+          filterGroup: 'Lifecycle',
+        },
+        cell: ({ row }) => formatDate(row.original.reactivatedAt) ?? noValue,
+      },
+      {
         accessorKey: 'description',
         header: t('customers.companies.detail.fields.description', 'Description'),
         meta: {
@@ -821,6 +910,7 @@ export default function CustomersCompaniesPage() {
 
     const customColumns = customFieldDefs
       .filter((def) => supportsCustomFieldColumn(def))
+      .filter((def) => !RETIRED_COMPANY_CUSTOM_FIELD_COLUMNS.has(def.key))
       .map<ColumnDef<CompanyRow>>((def) => ({
         accessorKey: `cf_${def.key}`,
         header: def.label || def.key,
@@ -867,8 +957,6 @@ export default function CustomersCompaniesPage() {
     <Page>
       <PageBody>
         <DataTable<CompanyRow>
-          stickyFirstColumn
-          stickyActionsColumn
           title={t('customers.companies.list.title')}
           refreshButton={{
             label: t('customers.companies.list.actions.refresh'),

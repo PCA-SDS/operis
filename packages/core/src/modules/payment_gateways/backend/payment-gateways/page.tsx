@@ -463,7 +463,6 @@ export default function PaymentTransactionsPage() {
       />
       <PageBody className="space-y-6">
         <DataTable
-          stickyActionsColumn
           title={t('payment_gateways.transactions.tableTitle', 'Transactions')}
           columns={columns}
           data={rows}
@@ -589,7 +588,7 @@ export default function PaymentTransactionsPage() {
                         </div>
                         {detail.transaction.webhookLog && detail.transaction.webhookLog.length > 0 ? (
                           <div className="overflow-hidden rounded-lg border">
-                            <Table density="compact">
+                            <Table columnCount={4} density="compact">
                               <TableHeader>
                                 <TableRow>
                                   <TableHead>{t('payment_gateways.transactions.columns.eventType', 'Event')}</TableHead>

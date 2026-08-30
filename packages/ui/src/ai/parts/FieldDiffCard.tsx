@@ -43,10 +43,10 @@ function DiffRow({ entry }: { entry: AiPendingActionCardFieldDiff }) {
         {field}
       </TableCell>
       <TableCell className="align-top text-status-warning-text" data-ai-field-diff-before>
-        <span className="line-through break-all">{before || '—'}</span>
+        <span className="whitespace-normal line-through break-all">{before || '—'}</span>
       </TableCell>
       <TableCell className="pr-0 align-top text-status-success-text" data-ai-field-diff-after>
-        <span className="font-medium break-all">{after || '—'}</span>
+        <span className="whitespace-normal font-medium break-all">{after || '—'}</span>
       </TableCell>
     </TableRow>
   )
@@ -59,7 +59,7 @@ function DiffTable({ rows, fieldHeader, beforeHeader, afterHeader }: {
   afterHeader: string
 }) {
   return (
-    <Table density="compact" data-ai-field-diff-table>
+    <Table columnCount={3} density="compact" data-ai-field-diff-table>
       <TableHeader className="bg-transparent">
         <TableRow>
           <TableHead className="pl-0">{fieldHeader}</TableHead>

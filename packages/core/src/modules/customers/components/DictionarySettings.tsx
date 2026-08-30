@@ -91,6 +91,11 @@ export default function DictionarySettings() {
       description: t('customers.config.dictionaries.sections.jobTitles.description', 'Configure job titles with their appearance.'),
     },
     {
+      kind: 'salutations',
+      title: t('customers.config.dictionaries.sections.salutations.title', 'Salutations'),
+      description: t('customers.config.dictionaries.sections.salutations.description', 'Configure salutations available for people records.'),
+    },
+    {
       kind: 'sources',
       title: t('customers.config.dictionaries.sections.sources.title', 'Sources'),
       description: t('customers.config.dictionaries.sections.sources.description', 'Capture how customers were acquired.'),
@@ -99,6 +104,11 @@ export default function DictionarySettings() {
       kind: 'industries',
       title: t('customers.config.dictionaries.sections.industries.title', 'Industries'),
       description: t('customers.config.dictionaries.sections.industries.description', 'Manage the industries used by companies.'),
+    },
+    {
+      kind: 'client-tiers',
+      title: t('customers.config.dictionaries.sections.clientTiers.title', 'Client tiers'),
+      description: t('customers.config.dictionaries.sections.clientTiers.description', 'Manage the tiers companies can be assigned to.'),
     },
     {
       kind: 'lifecycle-stages',

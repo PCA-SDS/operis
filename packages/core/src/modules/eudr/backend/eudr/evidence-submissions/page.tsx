@@ -370,7 +370,6 @@ export default function EudrEvidenceSubmissionsPage() {
           }}
           isLoading={loading}
           perspective={{ tableId: 'eudr.evidence_submissions.list' }}
-          stickyActionsColumn
         />
       </PageBody>
       {ConfirmDialogElement}
