@@ -1,0 +1,6 @@
+{
+  "invoice.errors.organization_required": "조직 컨텍스트가 필요합니다.",
+  "invoice.errors.tenant_required": "테넌트 컨텍스트가 필요합니다.",
+  "invoice.search.badge.company": "청구서 회사",
+  "invoice.search.badge.invoice": "청구서"
+}

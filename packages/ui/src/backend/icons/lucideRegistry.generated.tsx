@@ -189,6 +189,7 @@ export const LUCIDE_ICON_REGISTRY: Record<string, LucideIcon> = {
   'briefcase': Briefcase,
   'briefcase-business': BriefcaseBusiness,
   'building': Building,
+  'building-2': Building2,
   'building2': Building2,
   'calendar': Calendar,
   'calendar-check': CalendarCheck,
