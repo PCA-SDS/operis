@@ -131,11 +131,12 @@ export function ConfirmDealLostDialog({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }}>
       <DialogContent
+        disableBodyWrap
         className="flex max-h-[min(90vh,720px)] flex-col overflow-hidden p-0 sm:max-w-[560px]"
         onKeyDown={handleKeyDown}
       >
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-card">
-          <DialogHeader className="border-b border-border/70 px-7 py-5">
+          <DialogHeader>
             <div className="flex items-start gap-4">
               <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive">
                 <AlertTriangle className="size-5" />
@@ -250,7 +251,7 @@ export function ConfirmDealLostDialog({
             </div>
           </div>
 
-          <DialogFooter className="border-t border-border/70 px-7 py-4 sm:justify-end">
+          <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               {t('customers.deals.detail.lost.cancel', 'Cancel')}
             </Button>

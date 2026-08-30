@@ -1,12 +1,12 @@
 "use client"
 
 import * as React from 'react'
-import { Info, X } from 'lucide-react'
+import { Info } from 'lucide-react'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Dialog, DialogContent, DialogTitle } from '@open-mercato/ui/primitives/dialog'
-import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { Switch } from '@open-mercato/ui/primitives/switch'
 import { TagInput } from '@open-mercato/ui/primitives/tag-input'
 import { SimpleTooltip } from '@open-mercato/ui/primitives/tooltip'
@@ -89,6 +89,7 @@ export function CalendarSettingsModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        disableBodyWrap
         onKeyDown={handleKeyDown}
         aria-describedby={undefined}
         dismissible={false}
@@ -97,22 +98,17 @@ export function CalendarSettingsModal({
         <VisuallyHidden>
           <DialogTitle>{title}</DialogTitle>
         </VisuallyHidden>
-        <div className="flex shrink-0 items-start gap-3.5 border-b border-border py-4 pl-5 pr-4">
+        <div className="flex shrink-0 items-start gap-3.5 px-5 py-4 sm:px-6">
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <p className="text-sm font-medium leading-5 text-foreground">{title}</p>
             <p className="text-xs leading-4 text-muted-foreground">
               {t('customers.calendar.settings.subtitle', 'Customise your calendar module.')}
             </p>
           </div>
-          <IconButton
-            variant="ghost"
-            size="sm"
+          <CloseButton
             onClick={() => onOpenChange(false)}
             aria-label={t('customers.calendar.settings.close', 'Close')}
-            className="shrink-0 text-muted-foreground"
-          >
-            <X aria-hidden className="size-5" />
-          </IconButton>
+          />
         </div>
 
         <div className="flex flex-col gap-4 p-5">
@@ -181,7 +177,7 @@ export function CalendarSettingsModal({
           ))}
         </div>
 
-        <div className="flex shrink-0 items-center gap-3 border-t border-border px-5 py-4">
+        <div className="flex shrink-0 items-center gap-3 px-5 pt-1.5 pb-4 sm:px-6">
           <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
             {t('customers.calendar.settings.cancel', 'Cancel')}
           </Button>

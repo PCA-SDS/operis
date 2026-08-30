@@ -131,6 +131,15 @@ const RECORD_LOCKS_DECISIONS: Record<string, RecordLockDecision> = {
   // --- notifications ---
   'notifications:NotificationTypeOverride': { status: 'exempt', resourceKind: '', reason: 'OSS-floor-only — a tenant-scoped operator override edited only via the custom `PATCH /api/notifications/types` handler (no makeCrudRoute decorator surface), which enforces the synchronous OSS `enforceCommandOptimisticLock` updated_at floor and 409s a stale write on the shared conflict banner. Enterprise record_locks migration deferred.' },
   'notifications:NotificationPreference': { status: 'exempt', resourceKind: '', reason: 'OSS-floor-only — per-(user, type, channel) preference rows a user edits only for themselves (not a shared collaborative-edit surface); written via the idempotent `setPreferences` upsert, which is last-writer-wins by design. Carries updated_at for the OSS floor; tenant/org record_locks enrichment is not engaged.' },
+
+  // --- invoice ---
+  'invoice:InvoiceCompany': { status: 'exempt', resourceKind: 'invoice.company', reason: 'foundation-only — no CRUD or command write surface exists yet; the table carries updated_at and future private writes must use the invoice scope helper plus an OSS/record_locks guard.' },
+  'invoice:InvoiceCompanyEmail': { status: 'exempt', resourceKind: 'invoice.company_email', reason: 'foundation-only — no CRUD or command write surface exists yet; the table carries updated_at and future private writes must use the invoice scope helper plus an OSS/record_locks guard.' },
+  'invoice:InvoiceAutoPaidTaxCode': { status: 'exempt', resourceKind: 'invoice.auto_paid_tax_code', reason: 'foundation-only — no CRUD or command write surface exists yet; the table carries updated_at and future private writes must use the invoice scope helper plus an OSS/record_locks guard.' },
+  'invoice:Invoice': { status: 'exempt', resourceKind: 'invoice.invoice', reason: 'foundation-only — no CRUD or command write surface exists yet; the table carries updated_at and future private writes must use the invoice scope helper plus an OSS/record_locks guard.' },
+  'invoice:InvoiceInstallment': { status: 'exempt', resourceKind: 'invoice.installment', reason: 'foundation-only — no CRUD or command write surface exists yet; the table carries updated_at and future private writes must use the invoice scope helper plus an OSS/record_locks guard.' },
+  'invoice:InvoicePaymentConfirmation': { status: 'exempt', resourceKind: 'invoice.payment_confirmation', reason: 'foundation-only — no CRUD or command write surface exists yet; the table carries updated_at and future private writes must use the invoice scope helper plus an OSS/record_locks guard.' },
+  'invoice:InvoiceCompanyRegistry': { status: 'exempt', resourceKind: 'invoice.company_registry', reason: 'foundation-only — no CRUD or command write surface exists yet; the table carries updated_at and future private writes must use the invoice scope helper plus an OSS/record_locks guard.' },
 }
 
 /**

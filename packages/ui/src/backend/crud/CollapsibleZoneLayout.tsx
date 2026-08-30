@@ -8,7 +8,23 @@ import { IconButton } from '../../primitives/icon-button'
 import { useZoneCollapse } from './useZoneCollapse'
 import type { LucideIcon } from 'lucide-react'
 
-const SIDE_BY_SIDE_MIN_WIDTH = 1280
+/**
+ * Minimum measured width of THIS layout (not the viewport) before zone 1 and
+ * zone 2 sit side by side.
+ *
+ * The budget on a 1600px desktop — the narrowest width the side-by-side detail
+ * layout is meant to serve — is the viewport minus the sidebar rail and the
+ * `lg:px-8` gutters `<main>` adds:
+ *
+ *   1600 − 304 (AppShell SIDEBAR_WIDTH) − 64 (main's 2×2rem padding) = 1232
+ *
+ * so the threshold has to stay under that. It was 1280, which cleared the old
+ * 240px rail by 16px and silently dropped the whole page to the collapsed rail
+ * the moment the rail grew — zone 1 (and every control in it) disappeared at
+ * 1600px. 1200 keeps ~32px of headroom; raising the rail again means lowering
+ * this in the same change.
+ */
+const SIDE_BY_SIDE_MIN_WIDTH = 1200
 
 export interface ZoneSectionDescriptor {
   id: string

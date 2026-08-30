@@ -14,6 +14,7 @@ import { raiseCrudError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { Button } from '@open-mercato/ui/primitives/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -1137,18 +1138,16 @@ export function CycleCountWizardDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : closeDialog())}>
       <DialogContent
-        className="max-w-lg gap-0 overflow-hidden p-0"
+        className="max-w-lg overflow-hidden"
         onKeyDown={handleDialogKeyDown}
       >
-        <div className="border-b px-6 py-4 pr-12">
-          <DialogHeader className="space-y-1 text-left">
-            <DialogTitle>
-              {t('wms.backend.inventory.cycleCount.dialog.title', 'Cycle count')}
-            </DialogTitle>
-            <DialogDescription>{stepSubtitle}</DialogDescription>
-            <CycleCountStepIndicator step={step} />
-          </DialogHeader>
-        </div>
+        <DialogHeader className="space-y-1 text-left">
+          <DialogTitle>
+            {t('wms.backend.inventory.cycleCount.dialog.title', 'Cycle count')}
+          </DialogTitle>
+          <DialogDescription>{stepSubtitle}</DialogDescription>
+          <CycleCountStepIndicator step={step} />
+        </DialogHeader>
 
         <form
           ref={formRef}
@@ -1158,7 +1157,7 @@ export function CycleCountWizardDialog({
           }}
           className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex max-h-[min(70vh,640px)] flex-col gap-5 overflow-y-auto px-6 py-6">
+          <DialogBody className="flex max-h-[min(70vh,640px)] flex-col gap-5 overflow-y-auto">
             {step === 1 ? (
               <>
                 <FormField
@@ -1902,9 +1901,9 @@ export function CycleCountWizardDialog({
                 </SummaryPanel>
               </>
             ) : null}
-          </div>
+          </DialogBody>
 
-          <DialogFooter bordered={false} className="border-t px-6 py-4 sm:justify-between">
+          <DialogFooter className="sm:justify-between">
             <p className="hidden text-xs text-muted-foreground md:inline-flex md:items-center md:gap-1.5">
               <KbdShortcut keys={['⌘', 'Enter']} />
               <span>/</span>

@@ -1,8 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Calendar, X } from 'lucide-react'
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
+import { Calendar } from 'lucide-react'
 import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
 import { apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { extractOptimisticLockConflict } from '@open-mercato/ui/backend/utils/optimisticLock'
@@ -13,8 +12,14 @@ import { CrudForm, type CrudFormGroup, type CrudFormGroupComponentProps } from '
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
 import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives/alert'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Dialog, DialogContent, DialogTitle } from '@open-mercato/ui/primitives/dialog'
-import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@open-mercato/ui/primitives/dialog'
 import {
   SegmentedControl,
   SegmentedControlItem,
@@ -512,27 +517,14 @@ export function CalendarEventEditor({
           }
         }}
         aria-describedby={undefined}
-        dismissible={false}
-        className="flex h-dvh max-h-dvh w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-surface p-0 shadow-xl sm:h-auto sm:max-h-[calc(100dvh-4rem)] sm:w-full sm:max-w-lg sm:rounded-2xl sm:border-0 lg:max-w-3xl"
+        closeAriaLabel={t('customers.calendar.editor.close', 'Close')}
+        className="flex h-dvh max-h-dvh w-screen max-w-none flex-col overflow-hidden rounded-none bg-surface shadow-xl sm:h-auto sm:max-h-[calc(100dvh-4rem)] sm:w-full sm:max-w-lg sm:rounded-2xl lg:max-w-3xl"
       >
-        <VisuallyHidden>
+        <DialogHeader leading={<Calendar aria-hidden strokeWidth={1.75} />}>
           <DialogTitle>{dialogTitle}</DialogTitle>
-        </VisuallyHidden>
-        <div className="flex shrink-0 items-center gap-3 border-b border-border bg-surface py-4 pl-5 pr-4">
-          <Calendar aria-hidden className="size-6 shrink-0 text-foreground" strokeWidth={1.75} />
-          <p className="min-w-0 flex-1 text-sm font-medium leading-5 text-foreground">{dialogTitle}</p>
-          <IconButton
-            variant="ghost"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-            aria-label={t('customers.calendar.editor.close', 'Close')}
-            className="shrink-0 text-muted-foreground"
-          >
-            <X aria-hidden className="size-5" />
-          </IconButton>
-        </div>
-        <div
-          className="flex-1 overflow-y-auto"
+        </DialogHeader>
+        <DialogBody
+          className="min-h-0 flex-1 overflow-y-auto"
           onScroll={() => {
             // Tell the DS date/time fields to close their (controlled) popover
             // so a portalled popover doesn't float over the form or drift away
@@ -541,22 +533,20 @@ export function CalendarEventEditor({
             document.dispatchEvent(new CustomEvent(EDITOR_SCROLL_EVENT))
           }}
         >
-          <div className="px-4 py-4 sm:px-6 sm:py-5">
-            <CrudForm<Record<string, unknown>>
-              key={formKey}
-              formId={FORM_ID}
-              embedded
-              hideFooterActions
-              customFieldsManageMode="page"
-              fields={[]}
-              groups={groups}
-              initialValues={initialValues}
-              entityIds={INTERACTION_ENTITY_IDS}
-              onSubmit={handleSubmit}
-            />
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-border bg-surface px-5 py-4">
+          <CrudForm<Record<string, unknown>>
+            key={formKey}
+            formId={FORM_ID}
+            embedded
+            hideFooterActions
+            customFieldsManageMode="page"
+            fields={[]}
+            groups={groups}
+            initialValues={initialValues}
+            entityIds={INTERACTION_ENTITY_IDS}
+            onSubmit={handleSubmit}
+          />
+        </DialogBody>
+        <DialogFooter>
           <Button
             type="button"
             variant="outline"
@@ -571,7 +561,7 @@ export function CalendarEventEditor({
           >
             {saving ? t('customers.calendar.editor.saving', 'Saving…') : t('customers.calendar.editor.save', 'Save event')}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

@@ -66,10 +66,76 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------
+  # Decides whether this run needs a container image. Implemented as a job
+  # rather than `on.<event>.paths` because that key filters the WHOLE workflow:
+  # a docs-only PR must still run lint/typecheck/tests, it just does not need a
+  # 10-minute image build. Plain `git diff` on purpose — the header's rule that
+  # this workflow stays free of third-party actions applies here too.
+  scope:
+    name: Decide what to run
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      image: ${{ steps.decide.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The merge-base is needed to diff a PR against its target.
+          fetch-depth: 0
+
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Anything that is not a PR (push to main, manual dispatch) always
+          # builds: that is the artifact that gets deployed.
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "image=true" >> "$GITHUB_OUTPUT"
+            echo "not a pull request - image build required"
+            exit 0
+          fi
+
+          # Paths that can break `docker build` without breaking lint/tests.
+          # Miss one here and main goes red after a green PR, so this list errs
+          # toward over-building.
+          # Collected first, then matched with a herestring rather than a pipe.
+          # `git diff ... | grep -q` is unsafe under `pipefail`: grep exits the
+          # instant it matches, git diff takes SIGPIPE and returns 141, and the
+          # pipeline reports failure ON A MATCH — silently skipping the image
+          # build for exactly the changes that most need it.
+          #
+          # Every entry below is something the Dockerfile COPYs or `yarn build`
+          # reads. The previous list omitted tsconfig*.json (Dockerfile:16),
+          # scripts/ (Dockerfile:43-44,52 — `yarn build` runs
+          # scripts/build-package.mjs), newrelic.js (Dockerfile:56), the jest
+          # configs and eslint.config.mjs (Dockerfile:57-58). A PR touching only
+          # those skipped the image build entirely and the first build of that
+          # tree happened on main — the exact green-PR/red-main asymmetry this
+          # gate exists to prevent.
+          CHANGED="$(git diff --name-only "$BASE" "$HEAD")"
+          if grep -qE '^(Dockerfile|\.dockerignore|deploy/|docker/|scripts/|package\.json|yarn\.lock|\.yarnrc\.yml|turbo\.json|tsconfig(\.base)?\.json|newrelic\.js|jest\.config\.cjs|jest(\.dom)?\.setup\.ts|eslint\.config\.mjs|apps/mercato/(package\.json|next\.config\.ts)|packages/[^/]+/package\.json)' <<<"$CHANGED"; then
+            echo "image=true" >> "$GITHUB_OUTPUT"
+            echo "image-relevant paths changed - image build required"
+          else
+            echo "image=false" >> "$GITHUB_OUTPUT"
+            echo "no image-relevant paths changed - skipping image build"
+          fi
+
+  # ---------------------------------------------------------------------------
   quality:
     name: Lint, typecheck, unit tests
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Job-level cap is now a backstop, not the primary guard: every step below
+    # carries its own timeout so a hung step fails THAT step with its log
+    # attached. The 2026-08-29 incident hung in Typecheck for 45 minutes and
+    # then killed the runner ("The hosted runner lost communication with the
+    # server"), which discards the log and leaves nothing to diagnose.
+    timeout-minutes: 45
     permissions:
       contents: read
     if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_quality) }}
@@ -83,10 +149,28 @@ jobs:
 
       - run: corepack enable
 
+      - name: Record runner resources
+        # Printed unconditionally and cheaply. A runner death is almost always
+        # memory or disk, and neither is knowable after the fact without this.
+        run: |
+          echo "cpus=$(nproc)  mem=$(free -m | awk '/^Mem:/{print $2}')MB"
+          df -h / | tail -1
+
       - name: Cache Yarn packages
         uses: actions/cache@v6
         with:
-          path: .yarn/cache
+          # ~/.yarn/berry/cache, NOT .yarn/cache. Yarn 4 defaults
+          # `enableGlobalCache: true` and .yarnrc.yml does not override it, so
+          # the package zips live in the global folder and `.yarn/cache` never
+          # exists in this repo at all. This step therefore cached an absent
+          # directory and restored nothing: every run whose node_modules cache
+          # missed re-downloaded the full dependency set from npm.
+          #
+          # The restore-keys line only becomes meaningful with the path fixed.
+          # Both this key and the node_modules key hash yarn.lock, so a lockfile
+          # change misses BOTH; the prefix fallback is what lets the unchanged
+          # majority of packages come from cache instead of the network.
+          path: ~/.yarn/berry/cache
           key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
           restore-keys: yarn-${{ runner.os }}-
 
@@ -97,24 +181,47 @@ jobs:
             node_modules
             packages/*/node_modules
             apps/*/node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          # Node version is part of the key: node_modules holds compiled native
+          # addons (better-sqlite3, sharp, esbuild), and reusing them across a
+          # Node upgrade produces NODE_MODULE_VERSION load failures.
+          key: node-modules-${{ runner.os }}-node${{ env.NODE_VERSION }}-${{ hashFiles('yarn.lock') }}
 
       - name: Cache Turbo outputs
         uses: actions/cache@v6
         with:
           path: .turbo
-          key: turbo-${{ runner.os }}-${{ github.sha }}
+          # The ref_name segment has to be in the SAVE key for the matching
+          # restore-key to work. It previously appeared only in restore-keys,
+          # while saves went to `turbo-<os>-<sha>` — so `turbo-<os>-<ref>-`
+          # could never prefix-match anything and that line was dead. Only the
+          # loose `turbo-<os>-` fallback ever hit.
+          key: turbo-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
           restore-keys: |
             turbo-${{ runner.os }}-${{ github.ref_name }}-
+            turbo-${{ runner.os }}-main-
             turbo-${{ runner.os }}-
 
+      - name: Cache Jest transform cache
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/jest-cache
+          # ts-jest transpiles every test file and every module it pulls in.
+          # Cold, that dominates the test step; warm, it is close to free.
+          key: jest-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            jest-${{ runner.os }}-${{ github.ref_name }}-
+            jest-${{ runner.os }}-main-
+            jest-${{ runner.os }}-
+
       - name: Install dependencies
+        timeout-minutes: 15
         run: yarn install --immutable
 
       - name: Lint
         # lint:check-graph first: turbo silently reports success when the task
         # graph resolves to zero packages, so a misconfigured filter would make
         # "lint passed" mean "lint never ran".
+        timeout-minutes: 15
         run: |
           yarn lint:check-graph
           yarn lint
@@ -124,33 +231,79 @@ jobs:
         # entrypoint both use. The second build is not redundant: `generate`
         # writes packages/core/generated/, and core has to be rebuilt before
         # anything can typecheck against it.
+        timeout-minutes: 25
         run: |
           yarn build:packages
           yarn generate
           yarn build:packages
 
       - name: Typecheck
-        run: yarn turbo run typecheck --concurrency=1
+        # typecheck:serial, not typecheck. The root `typecheck` inherits turbo's
+        # global concurrency of 32, and TypeScript 7 is the native compiler —
+        # each process saturates every core, so 20+ at once thrashes the runner.
+        # Serial is not the slow path: the whole repo typechecks in ~13s.
+        timeout-minutes: 15
+        run: yarn typecheck:serial
 
       - name: Unit tests
-        # test:serial, not test. The default runner (turbo concurrency 2, 1 GB
-        # heap) segfaults a worker on this codebase; that surfaces as
-        # "failed suite, 0 failed tests" and hides genuine failures behind what
-        # looks like a flake. Serial with a 6 GB heap is slower and truthful.
-        run: yarn test:serial
+        # Plain `yarn test` now. It runs one PACKAGE at a time (turbo
+        # --concurrency=1) while jest uses every core WITHIN that package, so
+        # peak process count is bounded at 1 + maxWorkers by construction
+        # instead of by a heap flag. The old `test:serial` set
+        # NODE_OPTIONS=--max-old-space-size=6144, which Node applies PER
+        # PROCESS — jest's main plus its workers — so it asked for up to 18 GB
+        # on a 16 GB runner.
+        #
+        # test:ci wraps `yarn test` with a single retry that fires ONLY when a
+        # jest worker died on a fatal signal and no test reported a failure.
+        # A real regression fails on assertions and is never retried. The retry
+        # is cheap because `test` is a cached turbo task: packages that already
+        # passed replay, and only the crashed one runs again.
+        timeout-minutes: 30
+        env:
+          JEST_CACHE_DIR: ${{ runner.temp }}/jest-cache
+        run: yarn test:ci
+
+      - name: Diagnose a failed run
+        if: failure()
+        run: |
+          echo "::group::disk"
+          df -h
+          echo "::endgroup::"
+          echo "::group::memory"
+          free -m
+          echo "::endgroup::"
+          echo "::group::kernel OOM kills"
+          # The signature of a worker killed by the OOM killer rather than by a
+          # failing assertion. Empty output here means memory was NOT the cause.
+          sudo dmesg 2>/dev/null | grep -iE 'out of memory|oom-kill|killed process' | tail -20 || echo "none"
+          echo "::endgroup::"
 
   # ---------------------------------------------------------------------------
   build:
     name: Build and push image
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
     permissions:
       contents: read
+      # A PR build never pushes, so it never needs write. Narrowed at runtime
+      # is not possible, so this stays `write` and the push itself is gated on
+      # the event below.
       packages: write
-    # Deliberately no `needs: quality` — see the header. Skipped for PRs, and
-    # skipped when redeploying an existing tag.
+    needs: [scope, quality]
+    # `needs: quality` is new. The header used to argue for running this
+    # concurrently so deploy waits on max(quality, build) instead of the sum —
+    # correct arithmetic, wrong inputs now. Quality was ~20 minutes when that
+    # was written; with a cached test task it is ~5, so gating costs a few
+    # minutes of deploy latency and buys back every doomed build. The
+    # 2026-08-29 push burned an hour of runner time on an image that could
+    # never ship, because quality had already failed 40 minutes earlier.
+    #
+    # `always()` so an explicitly skipped quality (skip_quality) still builds.
     if: >-
-      github.event_name != 'pull_request'
+      always()
+      && needs.scope.outputs.image == 'true'
+      && (needs.quality.result == 'success' || needs.quality.result == 'skipped')
       && (github.event_name != 'workflow_dispatch' || inputs.image_tag == '')
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
@@ -160,15 +313,86 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # 2026-08-29: main went red with "No space left on device" while the PR
+      # that introduced the change was green — the PR skips this job unless an
+      # image-relevant path changed, so the first build of that tree happened
+      # here. Nothing about the image was wrong; a standard runner has ~14 GB
+      # free and this build needs more than that once the layer cache misses:
+      # yarn install (~440 MiB of packages), a full Next build, the BuildKit
+      # layer store, and then `--cache-to mode=max` writing every builder layer
+      # out again.
+      #
+      # The runner ships toolchains this image never uses. Reclaiming them is
+      # the cheapest honest fix — it gives the build the headroom it actually
+      # needs instead of trimming what the image contains. `|| true` on each
+      # path so a future runner image that drops one of these does not fail the
+      # build. The df lines stay so the next disk failure is one glance to
+      # diagnose rather than an unhandled IOException.
+      - name: Reclaim runner disk
+        run: |
+          set -uo pipefail
+          echo "::group::disk before"
+          df -h /
+          echo "::endgroup::"
+          sudo rm -rf /usr/local/lib/android || true      # ~9 GB
+          sudo rm -rf /usr/share/dotnet || true           # ~1.6 GB
+          sudo rm -rf /opt/ghc || true                    # ~1 GB
+          sudo rm -rf /usr/local/share/boost || true
+          sudo rm -rf /usr/share/swift || true
+          sudo rm -rf "${AGENT_TOOLSDIRECTORY:-/opt/hostedtoolcache}" || true
+          docker image prune -af || true
+          echo "::group::disk after"
+          df -h /
+          echo "::endgroup::"
+
+          # Measured 2026-08-30 on this tree: `docker buildx du` reports 10.03 GB
+          # of BuildKit store for a single `--target runner` build, before the
+          # checkout (~0.5 GB), the `--cache-from` import and the `mode=max`
+          # export staging are counted. A stock runner offers ~14 GB free, which
+          # is why this build began dying once the registry buildcache filled.
+          #
+          # Assert the headroom rather than discover its absence as a dead
+          # runner. When the runner is killed by ENOSPC the worker cannot even
+          # flush its own diagnostic log, so the job reports failure with NO log
+          # and NO failed step — the 2026-08-29 outage was invisible for exactly
+          # this reason. 20 GB is twice the measured requirement: comfortably
+          # above real usage, low enough to fire before the build dies.
+          # Falls back to an empty string if a future runner ships a df without
+          # --output. A guard must never itself become the thing that breaks the
+          # build, so an unreadable measurement warns and continues rather than
+          # failing a build that would otherwise have succeeded.
+          AVAIL_GB="$(df -B1G --output=avail / 2>/dev/null | tail -1 | tr -dc '0-9')"
+          if [ -z "$AVAIL_GB" ]; then
+            echo "::warning::could not read available disk; skipping the headroom check"
+            AVAIL_GB=999
+          fi
+          echo "available after reclaim: ${AVAIL_GB}GB"
+          if [ "$AVAIL_GB" -lt 20 ]; then
+            echo "::error::only ${AVAIL_GB}GB free after reclaiming runner disk; this build needs ~11GB plus cache export headroom."
+            echo "::error::The runner image likely changed what it ships. Check the 'disk before'/'disk after' groups above and extend the reclaim list."
+            exit 1
+          fi
+
       - name: Compute image coordinates
         id: meta
+        env:
+          EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
           IMAGE="${REGISTRY}/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
           TAG="sha-${GITHUB_SHA::7}"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG"     >> "$GITHUB_OUTPUT"
-          echo "Building $IMAGE:$TAG"
+          # A PR proves the image still builds; it must not publish a tag or
+          # overwrite the shared buildcache, or a broken branch would poison
+          # main's cache and `:latest` would point at unreviewed code.
+          if [ "$EVENT" = "pull_request" ]; then
+            echo "push=false" >> "$GITHUB_OUTPUT"
+            echo "Verifying $IMAGE:$TAG builds (no push)"
+          else
+            echo "push=true" >> "$GITHUB_OUTPUT"
+            echo "Building and pushing $IMAGE:$TAG"
+          fi
 
       - name: Log in to GHCR
         run: echo '${{ secrets.GITHUB_TOKEN }}' | docker login "$REGISTRY" -u '${{ github.actor }}' --password-stdin
@@ -180,30 +404,68 @@ jobs:
 
       - name: Build and push
         id: build
+        timeout-minutes: 50
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          PUSH: ${{ steps.meta.outputs.push }}
         run: |
           set -euo pipefail
-          IMAGE='${{ steps.meta.outputs.image }}'
-          TAG='${{ steps.meta.outputs.tag }}'
 
-          docker buildx build \
-            --file Dockerfile \
-            --target runner \
-            --platform linux/amd64 \
-            --tag "$IMAGE:$TAG" \
-            --tag "$IMAGE:latest" \
-            --cache-from "type=registry,ref=$IMAGE:buildcache" \
-            --cache-to   "type=registry,ref=$IMAGE:buildcache,mode=max" \
-            --metadata-file /tmp/build-meta.json \
-            --push \
-            .
+          ARGS=(
+            --file Dockerfile
+            --target runner
+            --platform linux/amd64
+            --tag "$IMAGE:$TAG"
+            --cache-from "type=registry,ref=$IMAGE:buildcache"
+            --metadata-file /tmp/build-meta.json
+          )
 
-          DIGEST="$(jq -r '."containerimage.digest"' /tmp/build-meta.json)"
+          if [ "$PUSH" = "true" ]; then
+            # mode=max, and it has to be. mode=min exports only the layers
+            # of the FINAL image — but this builds `--target runner`, a stage
+            # that COPYs artifacts out of `builder` rather than containing its
+            # layers. Under min, the expensive work (yarn install, then yarn
+            # build) never reaches the registry cache at all, and the workflow
+            # creates a fresh buildx builder each run so there is no local
+            # cache to fall back on: every build would redo ~10 minutes of
+            # install and compile even when nothing relevant changed.
+            #
+            # max costs ~81s of cache export per build and buys back the
+            # install layer on every push that does not touch package.json,
+            # yarn.lock or turbo.json — which is most pushes. Those three are
+            # copied at Dockerfile:15, before `yarn install`, so touching any
+            # of them invalidates everything after it and forces a full
+            # rebuild regardless of cache mode.
+            #
+            # ignore-error=true: the cache export runs AFTER the image push, so
+            # without it a registry hiccup or a full disk during the export
+            # fails the step for an image that already shipped correctly —
+            # turning a good release into a red main and a skipped deploy. The
+            # cache is an optimisation; losing it must never lose the build.
+            ARGS+=(
+              --tag "$IMAGE:latest"
+              --cache-to "type=registry,ref=$IMAGE:buildcache,mode=max,ignore-error=true"
+              --push
+            )
+          else
+            # PR: prove it builds, publish nothing, write no cache.
+            ARGS+=(--output type=cacheonly)
+          fi
+
+          docker buildx build "${ARGS[@]}" .
+
+          if [ "$PUSH" = "true" ]; then
+            DIGEST="$(jq -r '."containerimage.digest"' /tmp/build-meta.json)"
+          else
+            DIGEST=""
+          fi
           echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
 
       - name: Summary
         run: |
           {
-            echo "### Image built"
+            echo "### Image ${{ steps.meta.outputs.push == 'true' && 'built and pushed' || 'build verified (not pushed)' }}"
             echo ""
             echo "| | |"
             echo "|---|---|"
@@ -222,7 +484,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    needs: [quality, build]
+    needs: [scope, quality, build]
     # `always()` so this is evaluated even when a dependency was skipped —
     # without it, one skipped `needs` would skip this job outright. Each result
     # is then checked explicitly: success or skipped is fine, failure is not.
@@ -231,6 +493,7 @@ jobs:
     if: >-
       always()
       && github.event_name != 'pull_request'
+      && needs.scope.result == 'success'
       && (needs.quality.result == 'success' || needs.quality.result == 'skipped')
       && (needs.build.result == 'success'   || needs.build.result == 'skipped')
     environment:

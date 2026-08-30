@@ -14,6 +14,9 @@ jest.mock('next/link', () => ({
 }))
 
 jest.mock('@open-mercato/ui/primitives/dialog', () => ({
+  DialogBody: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-slot="dialog-body" className={className}>{children}</div>
+  ),
   Dialog: ({ open, children }: { open: boolean; children: React.ReactNode }) => (open ? <div>{children}</div> : null),
   DialogContent: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div data-testid="dialog-content" {...props}>{children}</div>,
   DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,

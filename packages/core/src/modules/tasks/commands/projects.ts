@@ -20,7 +20,7 @@ import {
 } from '../data/validators'
 import { assertScopedUserIds } from '../lib/assignment'
 import { loadTasksMessages } from '../lib/messages'
-import { byId, normalizeText } from '../lib/values'
+import { byId, isoDate, normalizeText } from '../lib/values'
 import {
   ensureOrganizationScope,
   ensureTenantScope,
@@ -63,7 +63,7 @@ async function loadProjectSnapshot(em: EntityManager, id: string): Promise<Proje
     description: project.description ?? null,
     icon: project.icon,
     ownerUserId: project.ownerUserId ?? null,
-    startDate: project.startDate ? project.startDate.toISOString().slice(0, 10) : null,
+    startDate: isoDate(project.startDate),
     archivedAt: project.archivedAt ? project.archivedAt.toISOString() : null,
     isInbox: project.isInbox,
     memberIds: members.map((member) => member.userId).sort(byId),

@@ -10,10 +10,9 @@ import { ProjectFormDialog } from './ProjectFormDialog'
 import { QuickAddDialog } from './QuickAddDialog'
 import { TasksSidebar } from './TasksSidebar'
 import { useTasksLiveRefresh } from './hooks'
+import { CALENDAR_PARAM, PROJECT_FORM_PARAM, QUICK_ADD_PARAM } from './shellParams'
 
-export const QUICK_ADD_PARAM = 'quickAdd'
-export const PROJECT_FORM_PARAM = 'projectForm'
-export const CALENDAR_PARAM = 'calendar'
+export { CALENDAR_PARAM, PROJECT_FORM_PARAM, QUICK_ADD_PARAM } from './shellParams'
 
 /**
  * Read/write helpers for the shell's URL state. Quick Add, the project form and

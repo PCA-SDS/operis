@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { login } from '@open-mercato/core/modules/core/__integration__/helpers/auth';
 import { apiRequest, getAuthToken } from '@open-mercato/core/modules/core/__integration__/helpers/api';
 import { deleteEntityIfExists, readJsonSafe } from '@open-mercato/core/modules/core/__integration__/helpers/crmFixtures';
+import { tableSelectAllCheckbox } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom';
 
 /**
  * TC-CRM-030: DataTable Bulk Delete
@@ -39,7 +40,7 @@ test.describe('TC-CRM-030: DataTable Bulk Delete', () => {
       await page.waitForTimeout(1200);
       await page.getByText('Loading table', { exact: false }).waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
 
-      const selectAllCheckbox = page.locator('thead').getByRole('checkbox');
+      const selectAllCheckbox = tableSelectAllCheckbox(page);
       await expect(selectAllCheckbox).toBeVisible();
       await selectAllCheckbox.check();
 

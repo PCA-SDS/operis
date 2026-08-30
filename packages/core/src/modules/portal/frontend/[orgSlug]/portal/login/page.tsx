@@ -14,6 +14,7 @@ import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { usePortalContext } from '@open-mercato/ui/portal/PortalContext'
 import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
+import { FORM_FIELD_LABEL } from '@open-mercato/ui/backend/forms/formChrome'
 
 type Props = { params: { orgSlug: string } }
 
@@ -106,13 +107,13 @@ export default function PortalLoginPage({ params }: Props) {
           </Alert>
         ) : null}
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="login-email" className="text-overline font-semibold uppercase tracking-wider text-muted-foreground/70">{t('portal.login.email', 'Email')}</Label>
+        <div>
+          <Label htmlFor="login-email" className={FORM_FIELD_LABEL}>{t('portal.login.email', 'Email')}</Label>
           <EmailInput id="login-email" required placeholder={t('portal.login.email.placeholder', 'you@example.com')} value={email} onChange={(e) => setEmail(e.target.value)} disabled={submitting} className="rounded-lg" />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="login-password" className="text-overline font-semibold uppercase tracking-wider text-muted-foreground/70">{t('portal.login.password', 'Password')}</Label>
+        <div>
+          <Label htmlFor="login-password" className={FORM_FIELD_LABEL}>{t('portal.login.password', 'Password')}</Label>
           <PasswordInput id="login-password" autoComplete="current-password" required placeholder={t('portal.login.password.placeholder', '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022')} value={password} onChange={(e) => setPassword(e.target.value)} disabled={submitting} className="rounded-lg" />
         </div>
 
