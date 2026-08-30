@@ -14,7 +14,7 @@ import {
 } from '../repo-wide-guards.mjs'
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..')
-const workflowPath = path.join(repoRoot, '.github', 'workflows', 'ci.yml')
+const workflowPath = path.join(repoRoot, '.github', 'workflows', 'ci-deploy.yml')
 const STEP_NAME = 'Run repo-wide audit guards (always, unfiltered)'
 
 function readWorkflowStep(name) {

@@ -226,6 +226,25 @@ jobs:
           yarn lint:check-graph
           yarn lint
 
+      - name: Run repo-wide audit guards (always, unfiltered)
+        # Unconditional on purpose: turbo's filter selects PACKAGES, not paths,
+        # so a filtered run silently skips guards that audit files outside the
+        # changed package. scripts/repo-wide-guards.mjs is the single
+        # enumeration; run `yarn test:repo-wide-guards --list` to see what it
+        # currently covers rather than copying the list into this comment.
+        timeout-minutes: 10
+        run: yarn test:repo-wide-guards
+
+      - name: Run repository script tests
+        # Guards over the workflows, Dockerfile and release tooling themselves.
+        # These live outside every package, so no turbo task covers them.
+        timeout-minutes: 10
+        run: yarn test:scripts
+
+      - name: Scan for time bombs
+        timeout-minutes: 10
+        run: yarn check:time-bombs:fail
+
       - name: Build packages and generate module registries
         # build -> generate -> build is the sequence the Dockerfile and the dev
         # entrypoint both use. The second build is not redundant: `generate`
