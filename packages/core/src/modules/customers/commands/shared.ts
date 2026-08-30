@@ -151,6 +151,7 @@ const DICTIONARY_KINDS = new Set([
   'deal_status',
   'pipeline_stage',
   'job_title',
+  'salutation',
   'industry',
   'temperature',
   'renewal_quarter',

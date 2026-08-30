@@ -906,6 +906,8 @@ export async function GET(_req: Request, ctx: { params?: { id?: string } }) {
         ownerUserId: person.ownerUserId,
         primaryEmail: person.primaryEmail,
         primaryPhone: person.primaryPhone,
+        phoneCountryCode: person.phoneCountryCode,
+        phoneCountry: person.phoneCountry,
         status: person.status,
         lifecycleStage: person.lifecycleStage,
         source: person.source,
@@ -925,6 +927,7 @@ export async function GET(_req: Request, ctx: { params?: { id?: string } }) {
       profile: profile
         ? {
             id: profile.id,
+            salutation: profile.salutation,
             firstName: profile.firstName,
             lastName: profile.lastName,
             preferredName: profile.preferredName,
