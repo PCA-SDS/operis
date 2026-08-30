@@ -1,23 +1,28 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
+import { E } from '#generated/entities.ids.generated'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { loadCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
-import { CustomFieldValue } from '@open-mercato/core/modules/entities/data/entities'
 import { SalesChannel } from '@open-mercato/core/modules/sales/data/entities'
 import {
   CatalogProduct,
   CatalogProductPrice,
 } from '../data/entities'
-import { selectBestPrice, type PriceRow, type PricingContext } from './pricing'
+import type { CatalogPricingService } from '../services/catalogPricingService'
+import type { PriceRow, PricingContext } from './pricing'
 
 /** Products with this fieldset are treated as bookable spa/service offerings. */
 export const BOOKABLE_SERVICE_FIELDSET = 'service_schedule'
 export const BOOKABLE_DURATION_FIELD_KEY = 'service_duration_minutes'
-export const CATALOG_PRODUCT_ENTITY_ID = 'catalog:catalog_product'
 
 export type BookableServiceScope = {
   tenantId: string
   organizationId: string
+}
+
+export type BookableServiceDeps = {
+  pricingService: CatalogPricingService
 }
 
 export type BookableService = {
@@ -34,7 +39,7 @@ export type BookableService = {
   tenantId: string
 }
 
-export async function assertBookableServiceScope(
+async function assertBookableServiceScope(
   em: EntityManager,
   scope: BookableServiceScope,
 ): Promise<void> {
@@ -71,46 +76,10 @@ async function resolveOrganizationChannelId(
   return channel?.id ?? null
 }
 
-function toPriceRows(prices: CatalogProductPrice[]): PriceRow[] {
-  return prices as PriceRow[]
-}
-
-function pickDisplayPrice(
-  prices: CatalogProductPrice[],
-  pricingContext: PricingContext,
-): CatalogProductPrice | null {
-  if (!prices.length) return null
-  const best = selectBestPrice(toPriceRows(prices), pricingContext)
-  if (best) return best
-  // Booking list may run without a channel; fall back to the oldest unscoped / any price.
-  const unscoped = prices.find((row) => !row.channelId && !row.offer)
-  return unscoped ?? prices[0] ?? null
-}
-
-async function loadDurationMinutesByProductId(
-  em: EntityManager,
-  scope: BookableServiceScope,
-  productIds: string[],
-): Promise<Map<string, number | null>> {
-  const result = new Map<string, number | null>()
-  for (const id of productIds) result.set(id, null)
-  if (!productIds.length) return result
-
-  const values = await em.find(CustomFieldValue, {
-    entityId: CATALOG_PRODUCT_ENTITY_ID,
-    recordId: { $in: productIds },
-    fieldKey: BOOKABLE_DURATION_FIELD_KEY,
-    tenantId: scope.tenantId,
-    deletedAt: null,
-  })
-
-  for (const row of values) {
-    if (row.organizationId && row.organizationId !== scope.organizationId) continue
-    if (typeof row.valueInt === 'number' && Number.isFinite(row.valueInt)) {
-      result.set(row.recordId, row.valueInt)
-    }
-  }
-  return result
+function toDurationMinutes(raw: unknown): number | null {
+  const value = Array.isArray(raw) ? raw[0] : raw
+  const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
 }
 
 /**
@@ -121,6 +90,7 @@ async function loadDurationMinutesByProductId(
 export async function listBookableServicesForOrganization(
   em: EntityManager,
   scope: BookableServiceScope,
+  deps: BookableServiceDeps,
 ): Promise<BookableService[]> {
   await assertBookableServiceScope(em, scope)
 
@@ -141,7 +111,7 @@ export async function listBookableServicesForOrganization(
   if (!products.length) return []
 
   const productIds = products.map((product) => product.id)
-  const [prices, durationByProductId, channelId] = await Promise.all([
+  const [prices, customFieldsByProductId, channelId] = await Promise.all([
     findWithDecryption(
       em,
       CatalogProductPrice,
@@ -153,11 +123,18 @@ export async function listBookableServicesForOrganization(
       { orderBy: { createdAt: 'asc' }, populate: ['offer', 'priceKind', 'variant'] as const },
       { tenantId: scope.tenantId, organizationId: scope.organizationId },
     ),
-    loadDurationMinutesByProductId(em, scope, productIds),
+    loadCustomFieldValues({
+      em,
+      entityId: E.catalog.catalog_product,
+      recordIds: productIds,
+      tenantIdByRecord: Object.fromEntries(productIds.map((id) => [id, scope.tenantId])),
+      organizationIdByRecord: Object.fromEntries(productIds.map((id) => [id, scope.organizationId])),
+      tenantFallbacks: [scope.tenantId],
+    }),
     resolveOrganizationChannelId(em, scope),
   ])
 
-  const pricesByProductId = new Map<string, CatalogProductPrice[]>()
+  const pricesByProductId = new Map<string, PriceRow[]>()
   for (const price of prices) {
     const productRef = price.product
     const productId =
@@ -174,8 +151,20 @@ export async function listBookableServicesForOrganization(
     date: new Date(),
   }
 
+  // Quote-only products carry no public price, matching the catalog products API.
+  const pricedProducts = products.filter((product) => !product.isQuoteOnly)
+  const displayPrices = await deps.pricingService.resolvePriceMany(
+    pricedProducts.map((product) => ({
+      rows: pricesByProductId.get(product.id) ?? [],
+      context: pricingContext,
+    })),
+  )
+  const displayPriceByProductId = new Map(
+    pricedProducts.map((product, index) => [product.id, displayPrices[index] ?? null]),
+  )
+
   return products.map((product) => {
-    const displayPrice = pickDisplayPrice(pricesByProductId.get(product.id) ?? [], pricingContext)
+    const displayPrice = displayPriceByProductId.get(product.id) ?? null
     return {
       id: product.id,
       title: product.title,
@@ -185,7 +174,9 @@ export async function listBookableServicesForOrganization(
       currencyCode: displayPrice?.currencyCode ?? product.primaryCurrencyCode ?? null,
       unitPriceNet: displayPrice?.unitPriceNet ?? null,
       unitPriceGross: displayPrice?.unitPriceGross ?? null,
-      durationMinutes: durationByProductId.get(product.id) ?? null,
+      durationMinutes: toDurationMinutes(
+        customFieldsByProductId[product.id]?.[`cf_${BOOKABLE_DURATION_FIELD_KEY}`],
+      ),
       organizationId: product.organizationId,
       tenantId: product.tenantId,
     }

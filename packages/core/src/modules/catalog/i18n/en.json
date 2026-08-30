@@ -25,6 +25,8 @@
   "catalog.audit.variants.create": "Create variant",
   "catalog.audit.variants.delete": "Delete variant",
   "catalog.audit.variants.update": "Update variant",
+  "catalog.bookableServices.failed": "Unable to list bookable services.",
+  "catalog.bookableServices.invalidInput": "tenantId and organizationId are required.",
   "catalog.bulkDelete.confirm": "Delete",
   "catalog.bulkDelete.error": "Failed to delete products.",
   "catalog.bulkDelete.filtered.confirmText": "Delete {count} products matching the current filters? This cannot be undone.",

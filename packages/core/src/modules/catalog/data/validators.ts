@@ -540,8 +540,6 @@ export type ProductUnitConversionUpdateInput = z.infer<typeof productUnitConvers
 export type ProductUnitConversionDeleteInput = z.infer<typeof productUnitConversionDeleteSchema>
 
 /** Public booking: list bookable services for an organization (branch). */
-export const bookableServicesQuerySchema = scoped.extend({
-  // reserved for future filters; scoped already requires tenantId + organizationId
-})
+export const bookableServicesQuerySchema = scoped
 
 export type BookableServicesQueryInput = z.infer<typeof bookableServicesQuerySchema>
