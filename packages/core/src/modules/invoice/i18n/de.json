@@ -1,0 +1,6 @@
+{
+  "invoice.errors.organization_required": "Organisationskontext ist erforderlich.",
+  "invoice.errors.tenant_required": "Mandantenkontext ist erforderlich.",
+  "invoice.search.badge.company": "Rechnungsunternehmen",
+  "invoice.search.badge.invoice": "Rechnung"
+}
