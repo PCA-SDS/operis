@@ -27,6 +27,12 @@ export const metadata = {
 // Anonymous callers reach this list, and each request fans out to product,
 // price and custom-field reads. Throttle per client IP like the other public
 // booking-intake endpoints.
+//
+// 60/min rather than the 10/min the mutating intake endpoints use: a booking
+// page loads this menu on every mount, and with RATE_LIMIT_TRUST_PROXY_DEPTH
+// unset the whole internet shares the `global` fallback bucket, so the cap has
+// to clear real traffic by a wide margin. Tune per deployment with
+// RATE_LIMIT_CATALOG_BOOKABLE_SERVICES_POINTS / _DURATION / _BLOCK_DURATION.
 const bookableServicesRateLimitConfig = readEndpointRateLimitConfig('CATALOG_BOOKABLE_SERVICES', {
   points: 60,
   duration: 60,
@@ -53,9 +59,12 @@ const successSchema = z.object({
 })
 
 function parseQuery(url: URL) {
+  // `|| undefined`, not `??`: an empty `channelId=` means "not supplied", the
+  // same reading the other query-parsing routes use.
   return bookableServicesQuerySchema.parse({
-    tenantId: url.searchParams.get('tenantId') ?? undefined,
-    organizationId: url.searchParams.get('organizationId') ?? undefined,
+    tenantId: url.searchParams.get('tenantId') || undefined,
+    organizationId: url.searchParams.get('organizationId') || undefined,
+    channelId: url.searchParams.get('channelId') || undefined,
   })
 }
 
@@ -82,7 +91,7 @@ export async function GET(req: Request) {
     const pricingService = container.resolve<CatalogPricingService>('catalogPricingService')
     const items = await listBookableServicesForOrganization(
       em,
-      { tenantId: query.tenantId, organizationId: query.organizationId },
+      { tenantId: query.tenantId, organizationId: query.organizationId, channelId: query.channelId },
       { pricingService },
     )
     return NextResponse.json({ items })
@@ -123,12 +132,12 @@ export const openApi: OpenApiRouteDoc = {
     GET: {
       summary: 'List active services for a tenant organization (branch)',
       description:
-        'Public booking helper. Requires explicit tenantId + organizationId. Returns active catalog products with custom fieldset `service_schedule` for that organization only (decision A: load catalog by branch). Prices resolve through `catalogPricingService`, so a service with no price applicable to an anonymous caller reports null amounts; quote-only products never report a price. Staff enable services via Catalog UI in the branch org; demo data comes from catalog seedExamples. Rate limited per client IP.',
+        'Public booking helper. Requires explicit tenantId + organizationId. Returns active catalog products with custom fieldset `service_schedule` for that organization only (decision A: load catalog by branch). Prices resolve through `catalogPricingService`, so a service with no price applicable to an anonymous caller reports null amounts; quote-only products never report a price. Channel-scoped prices apply when `channelId` is given, or when the organization has exactly one active sales channel; an organization with several gets unscoped prices unless it names one. Staff enable services via Catalog UI in the branch org; demo data comes from catalog seedExamples. Rate limited per client IP.',
       query: bookableServicesQuerySchema,
       responses: [
         { status: 200, description: 'Bookable services', schema: successSchema },
         { status: 400, description: 'Invalid input' },
-        { status: 404, description: 'Tenant or organization not found' },
+        { status: 404, description: 'Tenant, organization or sales channel not found' },
         { status: 429, description: 'Too many requests', schema: rateLimitErrorSchema },
       ],
     },

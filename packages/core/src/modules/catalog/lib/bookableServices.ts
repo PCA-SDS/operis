@@ -19,6 +19,8 @@ export const BOOKABLE_DURATION_FIELD_KEY = 'service_duration_minutes'
 export type BookableServiceScope = {
   tenantId: string
   organizationId: string
+  /** Optional pricing channel, matching the `channelId` the products API accepts. */
+  channelId?: string | null
 }
 
 export type BookableServiceDeps = {
@@ -59,21 +61,36 @@ async function assertBookableServiceScope(
   }
 }
 
-async function resolveOrganizationChannelId(
+/**
+ * Picks the channel whose prices apply to this listing.
+ *
+ * A caller that knows its channel says so. Otherwise the organization's single
+ * active channel is used — the one-channel-per-branch shape `seedExamples`
+ * creates, where channel-scoped prices are unambiguous. An organization selling
+ * through several channels gets no channel rather than an arbitrary one: only
+ * unscoped prices then apply, and the caller can name a channel to see the rest.
+ */
+async function resolvePricingChannelId(
   em: EntityManager,
   scope: BookableServiceScope,
 ): Promise<string | null> {
-  const channel = await em.findOne(
-    SalesChannel,
-    {
-      organizationId: scope.organizationId,
-      tenantId: scope.tenantId,
-      isActive: true,
-      deletedAt: null,
-    },
-    { orderBy: { createdAt: 'asc' } },
-  )
-  return channel?.id ?? null
+  const where = {
+    organizationId: scope.organizationId,
+    tenantId: scope.tenantId,
+    isActive: true,
+    deletedAt: null,
+  }
+
+  if (scope.channelId) {
+    const requested = await em.findOne(SalesChannel, { ...where, id: scope.channelId })
+    if (!requested) {
+      throw new CrudHttpError(404, { error: 'Sales channel not found.', code: 'CHANNEL_NOT_FOUND' })
+    }
+    return requested.id
+  }
+
+  const channels = await em.find(SalesChannel, where, { limit: 2, orderBy: { createdAt: 'asc' } })
+  return channels.length === 1 ? channels[0].id : null
 }
 
 function toDurationMinutes(raw: unknown): number | null {
@@ -94,24 +111,29 @@ export async function listBookableServicesForOrganization(
 ): Promise<BookableService[]> {
   await assertBookableServiceScope(em, scope)
 
-  const products = await findWithDecryption(
-    em,
-    CatalogProduct,
-    {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      isActive: true,
-      deletedAt: null,
-      customFieldsetCode: BOOKABLE_SERVICE_FIELDSET,
-    },
-    { orderBy: { title: 'asc' } },
-    { tenantId: scope.tenantId, organizationId: scope.organizationId },
-  )
+  // The channel resolves regardless of how many services exist, so a caller
+  // naming an unknown channel is told rather than handed an empty menu.
+  const [products, channelId] = await Promise.all([
+    findWithDecryption(
+      em,
+      CatalogProduct,
+      {
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+        isActive: true,
+        deletedAt: null,
+        customFieldsetCode: BOOKABLE_SERVICE_FIELDSET,
+      },
+      { orderBy: { title: 'asc' } },
+      { tenantId: scope.tenantId, organizationId: scope.organizationId },
+    ),
+    resolvePricingChannelId(em, scope),
+  ])
 
   if (!products.length) return []
 
   const productIds = products.map((product) => product.id)
-  const [prices, customFieldsByProductId, channelId] = await Promise.all([
+  const [prices, customFieldsByProductId] = await Promise.all([
     findWithDecryption(
       em,
       CatalogProductPrice,
@@ -131,7 +153,6 @@ export async function listBookableServicesForOrganization(
       organizationIdByRecord: Object.fromEntries(productIds.map((id) => [id, scope.organizationId])),
       tenantFallbacks: [scope.tenantId],
     }),
-    resolveOrganizationChannelId(em, scope),
   ])
 
   const pricesByProductId = new Map<string, PriceRow[]>()

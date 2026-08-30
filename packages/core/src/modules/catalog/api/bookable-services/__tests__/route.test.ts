@@ -36,6 +36,7 @@ jest.mock('@open-mercato/shared/lib/ratelimit/helpers', () => {
 
 const TENANT = '22222222-2222-4222-8222-222222222222'
 const ORG = '33333333-3333-4333-8333-333333333333'
+const CHANNEL = '44444444-4444-4444-8444-444444444444'
 
 const pricingService = { resolvePrice: jest.fn(), resolvePriceMany: jest.fn() }
 
@@ -84,9 +85,43 @@ describe('catalog bookable-services route', () => {
     expect(payload.items[0].title).toBe('Signature Haircut')
     expect(mockListBookableServicesForOrganization).toHaveBeenCalledWith(
       expect.anything(),
-      { tenantId: TENANT, organizationId: ORG },
+      { tenantId: TENANT, organizationId: ORG, channelId: undefined },
       { pricingService },
     )
+  })
+
+  it('forwards an explicit pricing channel', async () => {
+    mockListBookableServicesForOrganization.mockResolvedValue([])
+
+    const { GET } = await import('../route')
+    await GET(get(`?tenantId=${TENANT}&organizationId=${ORG}&channelId=${CHANNEL}`))
+
+    expect(mockListBookableServicesForOrganization).toHaveBeenCalledWith(
+      expect.anything(),
+      { tenantId: TENANT, organizationId: ORG, channelId: CHANNEL },
+      { pricingService },
+    )
+  })
+
+  it('treats an empty channel id as absent', async () => {
+    mockListBookableServicesForOrganization.mockResolvedValue([])
+
+    const { GET } = await import('../route')
+    const response = await GET(get(`?tenantId=${TENANT}&organizationId=${ORG}&channelId=`))
+
+    expect(response.status).toBe(200)
+    expect(mockListBookableServicesForOrganization).toHaveBeenCalledWith(
+      expect.anything(),
+      { tenantId: TENANT, organizationId: ORG, channelId: undefined },
+      { pricingService },
+    )
+  })
+
+  it('rejects a malformed channel id', async () => {
+    const { GET } = await import('../route')
+    const response = await GET(get(`?tenantId=${TENANT}&organizationId=${ORG}&channelId=nope`))
+    expect(response.status).toBe(400)
+    expect(mockListBookableServicesForOrganization).not.toHaveBeenCalled()
   })
 
   it('maps missing tenant/org to HTTP 404', async () => {

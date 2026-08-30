@@ -21,7 +21,7 @@ const OTHER_ORG = '44444444-4444-4444-8444-444444444444'
 type Fixture = {
   tenant?: boolean
   organization?: boolean
-  channelId?: string | null
+  channelIds?: string[]
   products?: Array<Partial<CatalogProduct> & { id: string; title: string }>
   prices?: Array<Partial<CatalogProductPrice> & { id: string; product: { id: string } }>
   durations?: Record<string, number>
@@ -50,7 +50,8 @@ function createEm(fixture: Fixture) {
     }
     if (entity === SalesChannel) {
       if (!matchesScope({ tenantId: TENANT, organizationId: ORG }, where)) return null
-      return fixture.channelId ? { id: fixture.channelId } : null
+      const found = (fixture.channelIds ?? []).find((id) => id === where.id)
+      return found ? { id: found } : null
     }
     return null
   })
@@ -85,6 +86,10 @@ function createEm(fixture: Fixture) {
           tenantId: TENANT,
           valueInt: minutes,
         }))
+    }
+    if (entity === SalesChannel) {
+      if (!matchesScope({ tenantId: TENANT, organizationId: ORG }, where)) return []
+      return (fixture.channelIds ?? []).map((id) => ({ id }))
     }
     if (entity === CustomFieldDef) return []
     return []
@@ -171,7 +176,7 @@ describe('listBookableServicesForOrganization', () => {
 
   it('returns duration and the price the pricing service resolved', async () => {
     const { em } = createEm({
-      channelId: 'channel-1',
+      channelIds: ['channel-1'],
       products: [service('p1', 'Signature Haircut', { handle: 'signature-haircut' })],
       prices: [price('price-1', 'p1')],
       durations: { p1: 60 },
@@ -235,6 +240,59 @@ describe('listBookableServicesForOrganization', () => {
     )
     expect(items[0]).toMatchObject({ unitPriceNet: null, unitPriceGross: null })
     expect(resolvePriceMany).toHaveBeenCalledWith([])
+  })
+
+  it('prices against the only active channel the organization has', async () => {
+    const { em } = createEm({ channelIds: ['channel-1'], products: [service('p1', 'Signature Haircut')] })
+    const { service: pricingService, resolvePriceMany } = createPricingService()
+    await listBookableServicesForOrganization(em, { tenantId: TENANT, organizationId: ORG }, { pricingService })
+    expect(resolvePriceMany).toHaveBeenCalledWith([
+      { rows: [], context: expect.objectContaining({ channelId: 'channel-1' }) },
+    ])
+  })
+
+  it('picks no channel when the organization sells through several', async () => {
+    // An arbitrary pick would silently price the menu against one of them; only
+    // unscoped prices apply until the caller names the channel it wants.
+    const { em } = createEm({
+      channelIds: ['channel-1', 'channel-2'],
+      products: [service('p1', 'Signature Haircut')],
+    })
+    const { service: pricingService, resolvePriceMany } = createPricingService()
+    await listBookableServicesForOrganization(em, { tenantId: TENANT, organizationId: ORG }, { pricingService })
+    expect(resolvePriceMany).toHaveBeenCalledWith([
+      { rows: [], context: expect.objectContaining({ channelId: null }) },
+    ])
+  })
+
+  it('honours an explicitly requested channel', async () => {
+    const { em } = createEm({
+      channelIds: ['channel-1', 'channel-2'],
+      products: [service('p1', 'Signature Haircut')],
+    })
+    const { service: pricingService, resolvePriceMany } = createPricingService()
+    await listBookableServicesForOrganization(
+      em,
+      { tenantId: TENANT, organizationId: ORG, channelId: 'channel-2' },
+      { pricingService },
+    )
+    expect(resolvePriceMany).toHaveBeenCalledWith([
+      { rows: [], context: expect.objectContaining({ channelId: 'channel-2' }) },
+    ])
+  })
+
+  it('rejects a channel that does not belong to the organization', async () => {
+    const { em } = createEm({ channelIds: ['channel-1'], products: [service('p1', 'Signature Haircut')] })
+    const { service: pricingService } = createPricingService()
+    const error = await captureError(
+      listBookableServicesForOrganization(
+        em,
+        { tenantId: TENANT, organizationId: ORG, channelId: 'someone-elses-channel' },
+        { pricingService },
+      ),
+    )
+    expect(error.status).toBe(404)
+    expect(error.body).toMatchObject({ code: 'CHANNEL_NOT_FOUND' })
   })
 
   it('leaves duration null when the service carries no duration custom field', async () => {

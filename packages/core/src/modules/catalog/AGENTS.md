@@ -66,9 +66,10 @@ When multiple price rows match the same context, `selectBestPrice` resolves ties
 
 ## Bookable services (appointment intake)
 
-- Public list: `GET /api/catalog/bookable-services?tenantId=&organizationId=` (`requireAuth: false`, rate limited per client IP)
+- Public list: `GET /api/catalog/bookable-services?tenantId=&organizationId=[&channelId=]` (`requireAuth: false`, rate limited per client IP)
 - Returns active products in that org with `customFieldsetCode = service_schedule` (org-scoped menu; TPS decision A)
 - Duration from CF `service_duration_minutes`; prices via `catalogPricingService` — a service with no applicable price (or `isQuoteOnly`) reports null amounts rather than a price that does not apply
+- Pricing channel: `channelId` when given, else the org's single active channel; an org with several gets unscoped prices instead of an arbitrary pick
 - Staff enablement: create/edit product in Catalog UI under the branch org, set fieldset `service_schedule`, set duration CF + price
 - Demo seed: `seedExamples` creates Signature Haircut / Restorative Massage per org
 
