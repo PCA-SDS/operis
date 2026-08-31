@@ -36,6 +36,7 @@ export default function StaffLeaveRequestDetailPage({ params }: { params?: { id?
     }
     const requestId = id
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setError(null)
@@ -44,7 +45,7 @@ export default function StaffLeaveRequestDetailPage({ params }: { params?: { id?
         const params = new URLSearchParams({ page: '1', pageSize: '1', ids: requestId })
         const payload = await readApiResultOrThrow<LeaveRequestsResponse>(
           `/api/staff/leave-requests?${params.toString()}`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('staff.leaveRequests.errors.load', 'Failed to load leave request.') },
         )
         const entry = Array.isArray(payload.items) ? payload.items[0] : null
@@ -76,7 +77,7 @@ export default function StaffLeaveRequestDetailPage({ params }: { params?: { id?
       }
     }
     void load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [id, t])
 
   const status = record?.status ?? 'pending'

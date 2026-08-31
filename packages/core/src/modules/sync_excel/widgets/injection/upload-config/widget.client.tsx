@@ -533,6 +533,7 @@ export default function SyncExcelUploadConfigWidget({
     lastRestoreRequestKeyRef.current = restoreRequestKey
 
     let cancelled = false
+    const controller = new AbortController()
     restoringSnapshotRef.current = persistedSnapshot
     const persistedPreview = restoringSnapshotRef.current?.preview?.uploadId === resolvedUploadId
       ? restoringSnapshotRef.current.preview
@@ -550,7 +551,7 @@ export default function SyncExcelUploadConfigWidget({
     const restoreSession = async () => {
       const call = await apiCall<UploadResponse>(
         `/api/sync_excel/preview?uploadId=${encodeURIComponent(resolvedUploadId)}&entityType=${encodeURIComponent(ENTITY_TYPE)}`,
-        undefined,
+        { signal: controller.signal },
         { fallback: null },
       )
 
@@ -584,6 +585,7 @@ export default function SyncExcelUploadConfigWidget({
 
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [clearPersistedSession, context.integrationId, mappingRows.length, preview?.uploadId, replaceQueryParams, runId, runIdFromUrl, syncPreviewState, uploadIdFromUrl])
 

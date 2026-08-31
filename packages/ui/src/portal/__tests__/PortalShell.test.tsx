@@ -87,7 +87,7 @@ describe('PortalShell', () => {
     )
 
     await waitFor(() => {
-      expect(apiCallMock).toHaveBeenCalledWith('/api/customer_accounts/portal/nav')
+      expect(apiCallMock).toHaveBeenCalledWith('/api/customer_accounts/portal/nav', expect.objectContaining({ signal: expect.anything() }))
     })
 
     expect(screen.getByTestId('portal-nav-loading')).toBeInTheDocument()
@@ -142,7 +142,7 @@ describe('PortalShell', () => {
     )
 
     await waitFor(() => {
-      expect(apiCallMock).toHaveBeenCalledWith('/api/customer_accounts/portal/nav')
+      expect(apiCallMock).toHaveBeenCalledWith('/api/customer_accounts/portal/nav', expect.objectContaining({ signal: expect.anything() }))
     })
 
     await waitFor(() => {

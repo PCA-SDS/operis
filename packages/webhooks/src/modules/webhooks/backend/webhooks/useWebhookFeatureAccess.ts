@@ -14,10 +14,12 @@ export function useWebhookFeatureAccess() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
 
     async function load() {
       try {
         const call = await apiCall<FeatureCheckResponse>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
@@ -39,6 +41,7 @@ export function useWebhookFeatureAccess() {
 
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [])
 

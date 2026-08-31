@@ -144,13 +144,14 @@ export default function WarrantyVendorPoliciesPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadPolicies() {
       setLoading(true)
       try {
         const fallback: VendorPoliciesResponse = { items: [], total: 0, totalPages: 1 }
         const call = await apiCall<VendorPoliciesResponse>(
           `/api/warranty_claims/vendor-policies?${listQueryString}`,
-          undefined,
+          { signal: controller.signal },
           { fallback },
         )
         if (!call.ok) {
@@ -177,6 +178,7 @@ export default function WarrantyVendorPoliciesPage() {
     void loadPolicies()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [listQueryString, reloadToken, scopeVersion, t])
 

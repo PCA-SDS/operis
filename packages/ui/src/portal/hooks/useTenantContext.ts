@@ -46,6 +46,7 @@ export function useTenantContext(orgSlug: string): OrgContext {
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
 
     async function lookup() {
       if (!orgSlug) {
@@ -54,7 +55,7 @@ export function useTenantContext(orgSlug: string): OrgContext {
       }
 
       try {
-        const { ok, result: data } = await apiCall<{ ok: boolean; organization: { id: string; name: string }; error?: string }>(`/api/directory/organizations/lookup?slug=${encodeURIComponent(orgSlug)}`)
+        const { ok, result: data } = await apiCall<{ ok: boolean; organization: { id: string; name: string }; error?: string }>(`/api/directory/organizations/lookup?slug=${encodeURIComponent(orgSlug)}`, { signal: controller.signal })
         if (cancelled) return
 
         if (!ok || !data?.ok || !data.organization) {
@@ -81,7 +82,7 @@ export function useTenantContext(orgSlug: string): OrgContext {
     }
 
     lookup()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [orgSlug])
 
   return state

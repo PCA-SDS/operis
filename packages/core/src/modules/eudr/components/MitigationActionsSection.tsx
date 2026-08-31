@@ -132,13 +132,14 @@ export function MitigationActionsSection({
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadRows() {
       setLoading(true)
       setError(null)
       try {
         const call = await apiCall<MitigationActionsResponse>(
           `/api/eudr/mitigation-actions?riskAssessmentId=${encodeURIComponent(riskAssessmentId)}&pageSize=100&sortField=dueDate&sortDir=asc`,
-          undefined,
+          { signal: controller.signal },
           { fallback: { items: [] } },
         )
         if (!call.ok) {
@@ -155,6 +156,7 @@ export function MitigationActionsSection({
     loadRows()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [reloadToken, riskAssessmentId, translate])
 

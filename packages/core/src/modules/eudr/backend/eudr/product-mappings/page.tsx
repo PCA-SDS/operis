@@ -109,13 +109,14 @@ export default function EudrProductMappingsPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadRows() {
       setLoading(true)
       try {
         const fallback: ProductMappingsResponse = { items: [], total: 0, totalPages: 1 }
         const call = await apiCall<ProductMappingsResponse>(
           `/api/eudr/product-mappings?${queryParams}`,
-          undefined,
+          { signal: controller.signal },
           { fallback },
         )
         if (!call.ok) {
@@ -136,6 +137,7 @@ export default function EudrProductMappingsPage() {
     loadRows()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [queryParams, reloadToken, scopeVersion, translate])
 

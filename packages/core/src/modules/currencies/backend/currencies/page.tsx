@@ -68,6 +68,7 @@ export default function CurrenciesPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       try {
@@ -82,7 +83,7 @@ export default function CurrenciesPage() {
         const fallback: ResponsePayload = { items: [], total: 0, page, totalPages: 1 }
         const call = await apiCall<ResponsePayload>(
           `/api/currencies/currencies?${params.toString()}`,
-          undefined,
+          { signal: controller.signal },
           { fallback }
         )
 
@@ -108,6 +109,7 @@ export default function CurrenciesPage() {
     load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [page, search, filters, reloadToken, scopeVersion, t])
 

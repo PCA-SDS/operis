@@ -725,6 +725,7 @@ export function EntityTagsDialog({
     }
 
     let cancelled = false
+    const controller = new AbortController()
     const params = new URLSearchParams({
       page: String(activeCategoryPage),
       pageSize: String(REMOTE_CATEGORY_PAGE_SIZE),
@@ -755,6 +756,7 @@ export function EntityTagsDialog({
 
     setActiveCategoryLoading(true)
     void apiCall<{ items?: Array<DictEntry | LabelItem>; totalPages?: number }>(endpoint, {
+      signal: controller.signal,
       cache: 'no-store',
       headers: { 'x-om-unauthorized-redirect': '0' },
     })
@@ -783,6 +785,7 @@ export function EntityTagsDialog({
 
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [
     activeCategoryKindValue,

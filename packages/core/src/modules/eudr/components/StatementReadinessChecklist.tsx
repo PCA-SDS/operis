@@ -33,10 +33,11 @@ export function StatementReadinessChecklist({
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     async function loadReadiness() {
       const call = await apiCall<ReadinessResponse>(
         `/api/eudr/statements/${encodeURIComponent(statementId)}/readiness`,
-        undefined,
+        { signal: controller.signal },
         { fallback: null },
       )
       if (cancelled || !call.ok || !call.result) return
@@ -48,6 +49,7 @@ export function StatementReadinessChecklist({
     void loadReadiness()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [statementId, status, updatedAt])
 

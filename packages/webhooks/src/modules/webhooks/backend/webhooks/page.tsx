@@ -61,6 +61,7 @@ export default function WebhooksListPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       try {
@@ -74,7 +75,7 @@ export default function WebhooksListPage() {
         const fallback: ResponsePayload = { items: [], total: 0, page, totalPages: 1 }
         const call = await apiCall<ResponsePayload>(
           `/api/webhooks?${params.toString()}`,
-          undefined,
+          { signal: controller.signal },
           { fallback },
         )
         if (!call.ok) {
@@ -99,7 +100,7 @@ export default function WebhooksListPage() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [filterValues.status, page, search, reloadToken, scopeVersion, t])
 
   const handleDelete = React.useCallback(async (row: Row) => {

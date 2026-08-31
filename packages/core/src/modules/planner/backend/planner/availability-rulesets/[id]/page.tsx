@@ -50,6 +50,7 @@ export default function PlannerAvailabilityRuleSetDetailPage({ params }: { param
     if (!rulesetId) return
     const rulesetIdValue = rulesetId
     let cancelled = false
+    const controller = new AbortController()
     async function loadRuleSet() {
       if (!cancelled) {
         setError(null)
@@ -59,7 +60,7 @@ export default function PlannerAvailabilityRuleSetDetailPage({ params }: { param
         const params = new URLSearchParams({ page: '1', pageSize: '1', ids: rulesetIdValue })
         const payload = await readApiResultOrThrow<RuleSetResponse>(
           `/api/planner/availability-rule-sets?${params.toString()}`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: translate('planner.availabilityRuleSets.form.errors.load', 'Failed to load schedule.') },
         )
         const record = Array.isArray(payload.items) ? payload.items[0] : null
@@ -94,7 +95,7 @@ export default function PlannerAvailabilityRuleSetDetailPage({ params }: { param
       }
     }
     loadRuleSet()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [rulesetId, translate])
 
   const handleSubmit = React.useCallback(async (values: AvailabilityRuleSetFormValues) => {

@@ -46,6 +46,7 @@ export default function CustomerPriorityDetailWidget({ context, data, disabled }
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
 
     async function load() {
       if (!customerId) {
@@ -62,7 +63,7 @@ export default function CustomerPriorityDetailWidget({ context, data, disabled }
       try {
         const payload = await readApiResultOrThrow<PriorityResponse>(
           `/api/example/customer-priorities?customerId=${encodeURIComponent(customerId)}&page=1&pageSize=1`,
-        )
+        { signal: controller.signal })
         if (cancelled) return
         const entries = Array.isArray(payload.items) ? payload.items : (Array.isArray(payload.data) ? payload.data : [])
         const first = entries[0]
@@ -78,7 +79,7 @@ export default function CustomerPriorityDetailWidget({ context, data, disabled }
     }
 
     void load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [customerId, t])
 
   const handleChange = React.useCallback(async (event: React.ChangeEvent<HTMLSelectElement>) => {

@@ -1085,9 +1085,10 @@ export function SalesDocumentForm({ onCreated, isSubmitting = false, initialKind
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function fetchAddressFormat() {
       try {
-        const call = await apiCall<{ addressFormat?: string }>('/api/customers/settings/address-format')
+        const call = await apiCall<{ addressFormat?: string }>('/api/customers/settings/address-format', { signal: controller.signal })
         const format = typeof call.result?.addressFormat === 'string' ? call.result.addressFormat : null
         if (!cancelled && (format === 'street_first' || format === 'line_first')) {
           setAddressFormat(format)
@@ -1100,6 +1101,7 @@ export function SalesDocumentForm({ onCreated, isSubmitting = false, initialKind
     fetchAddressFormat().catch(() => {})
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [])
 

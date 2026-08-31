@@ -100,12 +100,14 @@ function DictionaryFieldDefEditor({ def, onChange }: { def: { configJson?: Dicti
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setLoading(true)
       setError(null)
       try {
         const call = await apiCall<{ items?: unknown[]; error?: string }>(
           '/api/dictionaries?includeInactive=true',
+          { signal: controller.signal },
         )
         if (!call.ok) {
           const message =
@@ -137,6 +139,7 @@ function DictionaryFieldDefEditor({ def, onChange }: { def: { configJson?: Dicti
     load().catch(() => {})
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [errorLoadLabel])
 

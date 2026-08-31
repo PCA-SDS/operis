@@ -213,6 +213,7 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
   React.useEffect(() => {
     if (!variantId || isCreateSentinel || priceKinds.length === 0) return
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setLoading(true)
       setError(null)
@@ -220,7 +221,7 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
       try {
         const variantRes = await apiCall<VariantResponse>(
           `/api/catalog/variants?id=${encodeURIComponent(variantId!)}&page=1&pageSize=1`,
-        )
+        { signal: controller.signal })
         if (!variantRes.ok) {
           if (variantRes.status === 404) {
             if (!cancelled) setIsNotFound(true)
@@ -247,7 +248,7 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
           resolvedProductId
             ? apiCall<ProductResponse>(
                 `/api/catalog/products?id=${encodeURIComponent(resolvedProductId)}&page=1&pageSize=1`,
-              )
+              { signal: controller.signal })
             : Promise.resolve(null),
         ])
         const priceIdMap: Record<string, string> = {}
@@ -399,7 +400,7 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [variantId, t, currentProductId, priceKinds])
 
   const groups = React.useMemo<CrudFormGroup[]>(() => {

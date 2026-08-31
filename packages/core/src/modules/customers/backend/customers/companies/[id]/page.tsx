@@ -300,6 +300,7 @@ export default function CustomerCompanyDetailPage({ params }: { params?: { id?: 
     }
     const companyId = id
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setError(null)
@@ -309,7 +310,7 @@ export default function CustomerCompanyDetailPage({ params }: { params?: { id?: 
         search.append('include', 'people')
         const payload = await readApiResultOrThrow<CompanyOverview>(
           `/api/customers/companies/${encodeURIComponent(companyId)}?${search.toString()}`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('customers.companies.detail.error.load', 'Failed to load company.') },
         )
         if (cancelled) return
@@ -330,6 +331,7 @@ export default function CustomerCompanyDetailPage({ params }: { params?: { id?: 
     load().catch(() => {})
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [id, t])
 

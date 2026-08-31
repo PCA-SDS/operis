@@ -498,13 +498,14 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
     if (loadedResourceIdRef.current === resourceId) return
     setIsNotFound(false)
     let cancelled = false
+    const controller = new AbortController()
     async function loadResource() {
       try {
         const params = new URLSearchParams()
         params.set('page', '1')
         params.set('pageSize', '1')
         if (resourceId) params.set('ids', resourceId)
-        const record = await readApiResultOrThrow<ResourceResponse>(`/api/resources/resources?${params.toString()}`)
+        const record = await readApiResultOrThrow<ResourceResponse>(`/api/resources/resources?${params.toString()}`, { signal: controller.signal })
         const resourceRaw = Array.isArray(record?.items) ? record.items[0] : null
         const resource = resourceRaw ? normalizeResourceRecord(resourceRaw) : null
         if (!resource) {
@@ -560,12 +561,16 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
           })
         }
       } catch (error) {
+        // Guarded like every other load effect: the cleanup aborts the request, and an
+        // abort rejects here. Without the guard, navigating away mid-load would flash a
+        // "Failed to load resource" toast on the page the user just moved to.
+        if (cancelled) return
         const message = error instanceof Error ? error.message : t('resources.resources.form.errors.load', 'Failed to load resource.')
         flash(message, 'error')
       }
     }
     loadResource()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [resourceId, resourceTypesLoaded, resolveFieldsetCode, t])
 
   const handleDelete = React.useCallback(async () => {

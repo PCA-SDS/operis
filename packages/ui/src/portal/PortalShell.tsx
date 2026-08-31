@@ -212,11 +212,13 @@ export function PortalShell({
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     setIsNavLoading(true)
     const load = async () => {
       try {
         const { ok, result } = await apiCall<{ ok: boolean; groups?: PortalNavGroup[] }>(
           '/api/customer_accounts/portal/nav',
+          { signal: controller.signal },
         )
         if (cancelled || !ok || !result?.ok) return
         setAutoNavGroups(Array.isArray(result.groups) ? result.groups : [])
@@ -229,6 +231,7 @@ export function PortalShell({
     void load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [authenticated])
 

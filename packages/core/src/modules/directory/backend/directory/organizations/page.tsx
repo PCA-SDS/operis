@@ -74,9 +74,11 @@ export default function DirectoryOrganizationsPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       try {
         const call = await apiCall<{ granted?: string[]; ok?: boolean }>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ features: ['directory.organizations.manage'] }),
@@ -90,7 +92,7 @@ export default function DirectoryOrganizationsPage() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [])
 
   const queryParams = React.useMemo(() => {

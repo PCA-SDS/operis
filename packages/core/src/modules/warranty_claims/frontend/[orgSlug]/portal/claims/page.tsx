@@ -81,6 +81,7 @@ export default function WarrantyClaimsPortalListPage({ params }: Props) {
   React.useEffect(() => {
     if (!user) return
     let cancelled = false
+    const controller = new AbortController()
     setIsLoading(true)
     setError(null)
     const queryParams = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
@@ -89,6 +90,7 @@ export default function WarrantyClaimsPortalListPage({ params }: Props) {
     else if (stateGroup !== 'all') queryParams.set('stateGroup', stateGroup)
     apiCall<PortalClaimsResponse>(
       `/api/warranty_claims/portal/claims?${queryParams.toString()}`,
+      { signal: controller.signal },
     )
       .then((res) => {
         if (cancelled) return
@@ -116,6 +118,7 @@ export default function WarrantyClaimsPortalListPage({ params }: Props) {
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [page, pageSize, search, stateGroup, statusFilter, t, user])
 

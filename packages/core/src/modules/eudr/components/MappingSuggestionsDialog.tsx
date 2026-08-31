@@ -135,6 +135,7 @@ export function MappingSuggestionsDialog({
     setSelectedIds(new Set<string>())
 
     let cancelled = false
+    const controller = new AbortController()
     async function loadSuggestions() {
       setLoading(true)
       setError(null)
@@ -142,7 +143,7 @@ export function MappingSuggestionsDialog({
         const fallback: SuggestionsResponse = { items: [] }
         const call = await apiCall<SuggestionsResponse>(
           '/api/eudr/product-mappings/suggestions',
-          undefined,
+          { signal: controller.signal },
           { fallback },
         )
         if (!call.ok) {
@@ -163,6 +164,7 @@ export function MappingSuggestionsDialog({
     void loadSuggestions()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [open, t])
 

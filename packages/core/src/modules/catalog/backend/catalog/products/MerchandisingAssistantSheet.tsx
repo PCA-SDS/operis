@@ -264,7 +264,9 @@ function useMerchandisingAgents(): MerchandisingAgentsState {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     apiCall<AgentsResponse>('/api/ai_assistant/ai/agents', {
+      signal: controller.signal,
       credentials: 'same-origin',
       headers: { 'x-om-forbidden-redirect': '0', 'x-om-unauthorized-redirect': '0' },
     })
@@ -290,6 +292,7 @@ function useMerchandisingAgents(): MerchandisingAgentsState {
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [])
 

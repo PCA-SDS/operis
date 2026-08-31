@@ -57,13 +57,14 @@ export default function PushDeliveryDetailPage({ params }: { params?: { id?: str
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setError(null)
       setNotFound(false)
       const call = await apiCall<{ item?: DeliveryDetail; error?: string }>(
         `/api/push_notifications/deliveries/${encodeURIComponent(id)}`,
-        undefined,
+        { signal: controller.signal },
         { fallback: null },
       ).catch(() => null)
       if (cancelled) return
@@ -78,7 +79,7 @@ export default function PushDeliveryDetailPage({ params }: { params?: { id?: str
       setIsLoading(false)
     }
     if (id) load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [id, t])
 
   return (

@@ -134,9 +134,11 @@ export default function ResourcesResourcesPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadPermissions() {
       try {
         const call = await apiCall<{ granted?: string[]; ok?: boolean }>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ features: ['resources.manage_resources'] }),
@@ -150,15 +152,16 @@ export default function ResourcesResourcesPage() {
       }
     }
     loadPermissions()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [])
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadResourceTypes() {
       try {
         const params = new URLSearchParams({ page: '1', pageSize: '100' })
-        const call = await apiCall<ResourceTypesResponse>(`/api/resources/resource-types?${params.toString()}`)
+        const call = await apiCall<ResourceTypesResponse>(`/api/resources/resource-types?${params.toString()}`, { signal: controller.signal })
         const items = Array.isArray(call.result?.items) ? call.result.items : []
         const map = new Map<string, ResourceTypeRow>()
         for (const item of items) {
@@ -188,7 +191,7 @@ export default function ResourcesResourcesPage() {
       }
     }
     loadResourceTypes()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
 
   const loadTagOptions = React.useCallback(
@@ -332,6 +335,7 @@ export default function ResourcesResourcesPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       try {
@@ -348,7 +352,7 @@ export default function ResourcesResourcesPage() {
           : []
         if (tagIds.length > 0) params.set('tagIds', tagIds.join(','))
         const fallback: ResourcesResponse = { items: [], total: 0, page, totalPages: 1 }
-        const call = await apiCall<ResourcesResponse>(`/api/resources/resources?${params.toString()}`, undefined, { fallback })
+        const call = await apiCall<ResourcesResponse>(`/api/resources/resources?${params.toString()}`, { signal: controller.signal }, { fallback })
         if (!call.ok) {
           flash(t('resources.resources.list.error.load', 'Failed to load resources.'), 'error')
           return
@@ -371,7 +375,7 @@ export default function ResourcesResourcesPage() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [filterValues, page, search, scopeVersion, selectedResourceTypeId, t])
 
   const handleDelete = React.useCallback(async (row: ResourceTableRow) => {

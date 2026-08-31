@@ -46,8 +46,10 @@ export function ComponentOverrideProvider({
     }
     if (requiredFeatures.size === 0) return
     let cancelled = false
+    const controller = new AbortController()
     const fetchFeatures = async () => {
       const call = await apiCall<FeatureCheckResponse>('/api/auth/feature-check', {
+        signal: controller.signal,
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ features: Array.from(requiredFeatures) }),
@@ -60,6 +62,7 @@ export function ComponentOverrideProvider({
     void fetchFeatures()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [overrides])
 

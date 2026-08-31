@@ -117,6 +117,7 @@ export function CustomerClaimsTabWidget({
   React.useEffect(() => {
     if (!customerId) return
     let cancelled = false
+    const controller = new AbortController()
     setLoading(true)
     setError(null)
     const query = new URLSearchParams({
@@ -126,7 +127,7 @@ export function CustomerClaimsTabWidget({
       sortField: 'updatedAt',
       sortDir: 'desc',
     })
-    apiCall<ClaimsResponse>(`/api/warranty_claims?${query.toString()}`)
+    apiCall<ClaimsResponse>(`/api/warranty_claims?${query.toString()}`, { signal: controller.signal })
       .then((response) => {
         if (cancelled) return
         if (response.ok && response.result) {
@@ -150,6 +151,7 @@ export function CustomerClaimsTabWidget({
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [customerId, t])
 

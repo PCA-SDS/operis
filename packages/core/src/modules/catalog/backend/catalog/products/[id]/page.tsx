@@ -600,6 +600,7 @@ export default function EditCatalogProductPage({
       return;
     }
     let cancelled = false;
+    const controller = new AbortController();
     async function loadProduct() {
       setLoading(true);
       setError(null);
@@ -607,6 +608,7 @@ export default function EditCatalogProductPage({
       try {
         const productRes = await apiCall<ProductResponse>(
           `/api/catalog/products?id=${encodeURIComponent(productId!)}&page=1&pageSize=1&withDeleted=false`,
+          { signal: controller.signal },
         );
         if (!productRes.ok) {
           throw new Error(
@@ -799,16 +801,18 @@ export default function EditCatalogProductPage({
     loadProduct();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [fetchAttachments, loadVariants, productId, t]);
 
   React.useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     async function loadPriceKinds() {
       try {
         const payload = await readApiResultOrThrow<{
           items?: PriceKindApiPayload[];
-        }>("/api/catalog/price-kinds?pageSize=100", undefined, {
+        }>("/api/catalog/price-kinds?pageSize=100", { signal: controller.signal }, {
           fallback: { items: [] },
         });
         const items = Array.isArray(payload.items) ? payload.items : [];
@@ -828,6 +832,7 @@ export default function EditCatalogProductPage({
     loadPriceKinds().catch(() => {});
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, []);
 
@@ -2227,6 +2232,7 @@ function ProductVariantsSection({
   }, [priceKinds]);
   React.useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     async function checkVariantFeature() {
       try {
         const payload = await readApiResultOrThrow<{
@@ -2235,6 +2241,7 @@ function ProductVariantsSection({
         }>(
           "/api/auth/feature-check",
           {
+            signal: controller.signal,
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ features: ["catalog.variants.manage"] }),
@@ -2261,6 +2268,7 @@ function ProductVariantsSection({
     checkVariantFeature().catch(() => {});
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, []);
   const allowVariantActions = canManageVariants && !checkingVariantFeature;

@@ -128,6 +128,7 @@ export default function PushDeliveriesListPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       try {
@@ -144,7 +145,7 @@ export default function PushDeliveriesListPage() {
         if (from) params.set('from', from)
         if (to) params.set('to', to)
         const fallback: ResponsePayload = { items: [], total: 0, page, totalPages: 1 }
-        const call = await apiCall<ResponsePayload>(`/api/push_notifications/deliveries?${params.toString()}`, undefined, { fallback })
+        const call = await apiCall<ResponsePayload>(`/api/push_notifications/deliveries?${params.toString()}`, { signal: controller.signal }, { fallback })
         if (!call.ok) {
           const errorPayload = call.result as { error?: string } | undefined
           const message = typeof errorPayload?.error === 'string' ? errorPayload.error : t('push_notifications.deliveries.error.loadFailed')
@@ -167,7 +168,7 @@ export default function PushDeliveriesListPage() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [page, scopeVersion, filterValues, t])
 
   const columns = React.useMemo<ColumnDef<Row>[]>(() => [

@@ -41,11 +41,12 @@ export function ActionBuilder({
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
 
     async function loadOpenMercatoOptions() {
       setOpenMercatoOptions((current) => ({ ...current, loading: true, error: null }))
       try {
-        const response = await apiCall<OpenMercatoCallOptionsResponse>('/api/business_rules/openmercato-call-options')
+        const response = await apiCall<OpenMercatoCallOptionsResponse>('/api/business_rules/openmercato-call-options', { signal: controller.signal })
         if (!response.ok || !response.result) {
           const error = response.result && 'error' in response.result
             ? String((response.result as any).error)
@@ -75,6 +76,7 @@ export function ActionBuilder({
     void loadOpenMercatoOptions()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [t])
 

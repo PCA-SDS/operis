@@ -157,6 +157,7 @@ export default function CustomerRoleDetailPage({ params }: { params?: { id?: str
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setError(null)
@@ -164,7 +165,7 @@ export default function CustomerRoleDetailPage({ params }: { params?: { id?: str
       try {
         const payload = await readApiResultOrThrow<RoleDetail>(
           `/api/customer_accounts/admin/roles/${encodeURIComponent(id!)}`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('customer_accounts.admin.roleDetail.error.load', 'Failed to load role') },
         )
         if (cancelled) return
@@ -182,7 +183,7 @@ export default function CustomerRoleDetailPage({ params }: { params?: { id?: str
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [id, t])
 
   const fields = React.useMemo<CrudField[]>(() => {

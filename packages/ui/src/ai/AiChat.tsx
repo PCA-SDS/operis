@@ -133,11 +133,12 @@ function useAgentModels(agent: string): {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     const modelsUrl = `/api/ai_assistant/ai/agents/${encodeURIComponent(agent)}/models`
     setStatus('loading')
     setDefaultLabel(null)
     setDegraded(false)
-    apiCall<ModelsApiResponse>(modelsUrl)
+    apiCall<ModelsApiResponse>(modelsUrl, { signal: controller.signal })
       .then((result) => {
         if (cancelled) return
         if (!result.ok || !result.result) {
@@ -172,6 +173,7 @@ function useAgentModels(agent: string): {
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [agent])
 

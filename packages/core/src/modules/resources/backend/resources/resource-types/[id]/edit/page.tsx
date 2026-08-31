@@ -33,6 +33,7 @@ export default function ResourcesResourceTypeEditPage({ params }: { params?: { i
   React.useEffect(() => {
     if (!resourceTypeId) return
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setLoading(true)
       setError(null)
@@ -40,7 +41,7 @@ export default function ResourcesResourceTypeEditPage({ params }: { params?: { i
       try {
         const payload = await readApiResultOrThrow<ResourceTypesResponse>(
           `/api/resources/resource-types?ids=${encodeURIComponent(resourceTypeId)}&page=1&pageSize=1&withResourceCounts=true`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('resources.resourceTypes.errors.load', 'Failed to load resource types.') },
         )
         const item = Array.isArray(payload.items) ? payload.items[0] : null
@@ -87,7 +88,7 @@ export default function ResourcesResourceTypeEditPage({ params }: { params?: { i
       }
     }
     void load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [resourceTypeId, t])
 
   const handleSubmit = React.useCallback(async (values: ResourceTypeFormValues) => {

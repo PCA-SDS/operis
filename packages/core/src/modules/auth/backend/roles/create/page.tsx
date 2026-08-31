@@ -21,18 +21,19 @@ export default function CreateRolePage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadActor() {
       try {
         const { ok, result } = await apiCall<{ isSuperAdmin?: boolean }>(
           '/api/auth/roles?page=1&pageSize=1',
-        )
+        { signal: controller.signal })
         if (!cancelled && ok) setActorIsSuperAdmin(Boolean(result?.isSuperAdmin))
       } catch {
         if (!cancelled) setActorIsSuperAdmin(false)
       }
     }
     loadActor()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [])
 
   const fields = React.useMemo<CrudField[]>(() => {

@@ -35,9 +35,10 @@ export function useDealPipelines(): UseDealPipelinesResult {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     ;(async () => {
       try {
-        const call = await apiCall<{ items: PipelineOption[] }>('/api/customers/pipelines')
+        const call = await apiCall<{ items: PipelineOption[] }>('/api/customers/pipelines', { signal: controller.signal })
         if (cancelled || !mountedRef.current) return
         if (call.ok && call.result?.items) {
           setPipelines(call.result.items)
@@ -50,6 +51,7 @@ export function useDealPipelines(): UseDealPipelinesResult {
     })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [])
 

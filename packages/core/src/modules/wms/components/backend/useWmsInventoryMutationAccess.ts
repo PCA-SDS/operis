@@ -24,10 +24,12 @@ export function useWmsInventoryMutationAccess() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     setLoading(true)
     async function load() {
       try {
         const call = await apiCall<FeatureCheckResponse>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
@@ -61,6 +63,7 @@ export function useWmsInventoryMutationAccess() {
     void load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [organizationId, tenantId])
 

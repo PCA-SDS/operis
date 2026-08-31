@@ -69,6 +69,7 @@ export default function ExchangeRatesPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       try {
@@ -86,7 +87,7 @@ export default function ExchangeRatesPage() {
         const fallback: ResponsePayload = { items: [], total: 0, page, totalPages: 1 }
         const call = await apiCall<ResponsePayload>(
           `/api/currencies/exchange-rates?${params.toString()}`,
-          undefined,
+          { signal: controller.signal },
           { fallback }
         )
 
@@ -112,6 +113,7 @@ export default function ExchangeRatesPage() {
     load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [page, search, filters, reloadToken, scopeVersion, t])
 

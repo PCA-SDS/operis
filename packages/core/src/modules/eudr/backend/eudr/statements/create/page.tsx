@@ -214,6 +214,7 @@ export default function CreateEudrStatementPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
 
     const flashUnavailable = () => {
       if (!cancelled) flash(translate('eudr.statements.prefillUnavailable'), 'info')
@@ -232,7 +233,7 @@ export default function CreateEudrStatementPage() {
         try {
           const call = await apiCall<StatementListResponse>(
             `/api/eudr/statements?id=${encodeURIComponent(seedingId)}`,
-            SEEDING_REQUEST_INIT,
+            { ...SEEDING_REQUEST_INIT, signal: controller.signal },
             { fallback: { items: [] } },
           )
           if (cancelled) return
@@ -268,7 +269,7 @@ export default function CreateEudrStatementPage() {
       try {
         const call = await apiCall<OrderListResponse>(
           `/api/sales/orders?id=${encodeURIComponent(seedingId)}`,
-          SEEDING_REQUEST_INIT,
+          { ...SEEDING_REQUEST_INIT, signal: controller.signal },
           { fallback: { items: [] } },
         )
         if (cancelled) return
@@ -302,6 +303,7 @@ export default function CreateEudrStatementPage() {
     })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [ignoredOrder, seedingId, seedingMode, translate])
 

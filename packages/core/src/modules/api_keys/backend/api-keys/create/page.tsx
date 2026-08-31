@@ -33,10 +33,12 @@ export default function CreateApiKeyPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadInitialScope() {
       try {
         const { ok, result } = await apiCall<{ tenantId?: string; isSuperAdmin?: boolean }>(
           '/api/directory/organization-switcher',
+          { signal: controller.signal },
         )
         if (!ok || cancelled) {
           if (!ok && !cancelled) setActorIsSuperAdmin(false)
@@ -53,7 +55,7 @@ export default function CreateApiKeyPage() {
       }
     }
     loadInitialScope()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [])
 
   React.useEffect(() => {

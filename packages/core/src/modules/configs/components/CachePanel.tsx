@@ -85,11 +85,13 @@ export function CachePanel() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function checkManageFeature() {
       try {
         const payload = await readApiResultOrThrow<{ ok?: boolean; granted?: unknown }>(
           '/api/auth/feature-check',
           {
+            signal: controller.signal,
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ features: [MANAGE_FEATURE] }),
@@ -114,6 +116,7 @@ export function CachePanel() {
     checkManageFeature().catch(() => {})
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [t])
 

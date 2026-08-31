@@ -28,11 +28,12 @@ export default function StaffProfileCreatePage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setError(null)
       try {
-        const response = await apiCall<SelfMemberResponse>('/api/staff/team-members/self')
+        const response = await apiCall<SelfMemberResponse>('/api/staff/team-members/self', { signal: controller.signal })
         const memberId = response.result?.member?.id ?? null
         if (memberId && !cancelled) {
           router.replace('/backend/staff/my-availability')
@@ -48,7 +49,7 @@ export default function StaffProfileCreatePage() {
       }
     }
     void load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [router, t])
 
   const fields = React.useMemo<CrudField[]>(() => ([

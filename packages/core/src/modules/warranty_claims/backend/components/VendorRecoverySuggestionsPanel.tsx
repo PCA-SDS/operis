@@ -88,11 +88,12 @@ export function VendorRecoverySuggestionsPanel({
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     setLoading(true)
     setError(null)
     readApiResultOrThrow<SuggestionsResponse>(
       `/api/warranty_claims/vendor-recovery-suggestions?claimId=${encodeURIComponent(claim.id)}`,
-      undefined,
+      { signal: controller.signal },
       {
         fallback: { ok: true, result: { claimId: claim.id, suggestions: [] } },
         errorMessage: t('warranty_claims.vendorRecoverySuggestions.error.load', 'Failed to load supplier recovery suggestions.'),
@@ -115,6 +116,7 @@ export function VendorRecoverySuggestionsPanel({
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [claim.id, eligible, t])
 

@@ -124,6 +124,7 @@ function RecordsPageInner({ params }: { params: { entityId?: string } }) {
   // server-side (before pagination) so totals and exports stay consistent (#3229).
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     const run = async () => {
       setLoading(true)
       try {
@@ -154,7 +155,7 @@ function RecordsPageInner({ params }: { params: { entityId?: string } }) {
         }
         const j = await readApiResultOrThrow<RecordsResponse>(
           `/api/entities/records?${params.toString()}`,
-          undefined,
+          { signal: controller.signal },
           {
             errorMessage: 'Failed to load records',
             fallback: {
@@ -182,7 +183,7 @@ function RecordsPageInner({ params }: { params: { entityId?: string } }) {
       }
     }
     if (entityId) run()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [entityId, page, pageSize, sorting, filterValues, scopeVersion, search, searchableFields])
 
   // Build columns from custom field definitions only (no data round-trip)

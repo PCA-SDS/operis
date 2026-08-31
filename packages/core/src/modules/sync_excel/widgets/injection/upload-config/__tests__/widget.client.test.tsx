@@ -158,7 +158,7 @@ describe('SyncExcelUploadConfigWidget', () => {
     expect(matchStrategySelect).toHaveValue('email')
     expect(mockApiCall).toHaveBeenCalledWith(
       '/api/sync_excel/preview?uploadId=upload-restore-1&entityType=customers.person',
-      undefined,
+      expect.objectContaining({ signal: expect.anything() }),
       { fallback: null },
     )
     expect(mockApiCall).toHaveBeenCalledWith('/api/data_sync/runs/run-restore-1', undefined, { fallback: null })

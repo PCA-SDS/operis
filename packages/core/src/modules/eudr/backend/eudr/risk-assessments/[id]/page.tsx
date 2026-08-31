@@ -132,6 +132,7 @@ export default function EditEudrRiskAssessmentPage({ params }: { params?: { id?:
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadRecord() {
       if (!riskAssessmentId) {
         setNotFound(true)
@@ -144,7 +145,7 @@ export default function EditEudrRiskAssessmentPage({ params }: { params?: { id?:
       try {
         const call = await apiCall<RiskAssessmentDetailResponse>(
           `/api/eudr/risk-assessments?id=${encodeURIComponent(riskAssessmentId)}`,
-          undefined,
+          { signal: controller.signal },
           { fallback: { items: [] } },
         )
         if (!call.ok) {
@@ -168,6 +169,7 @@ export default function EditEudrRiskAssessmentPage({ params }: { params?: { id?:
     loadRecord()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [riskAssessmentId, translate])
 
