@@ -5913,13 +5913,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ioredis/commands@npm:1.10.0":
-  version: 1.10.0
-  resolution: "@ioredis/commands@npm:1.10.0"
-  checksum: 10/2b0322f99d24f11d99ae279b59d977bb129f95f973ed3a31cbee68376e8fad41f974d23d7f9a06151b3d9c140038ef312e0b45d4577048ab0797aa9a6839213d
-  languageName: node
-  linkType: hard
-
 "@ioredis/commands@npm:2.0.0":
   version: 2.0.0
   resolution: "@ioredis/commands@npm:2.0.0"
@@ -8115,7 +8108,7 @@ __metadata:
     bcryptjs: "npm:^3.0.3"
     better-sqlite3: "npm:^13.0.3"
     bullmq: "npm:^6.0.9"
-    bullmq-otel: "npm:^1.3.1"
+    bullmq-otel: "npm:^2.0.1"
     class-variance-authority: "npm:^0.7.1"
     clsx: "npm:^2.1.1"
     cross-env: "npm:^10.1.0"
@@ -16053,33 +16046,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bullmq-otel@npm:^1.3.1":
-  version: 1.3.1
-  resolution: "bullmq-otel@npm:1.3.1"
+"bullmq-otel@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "bullmq-otel@npm:2.0.1"
   dependencies:
-    "@opentelemetry/api": "npm:^1.9.0"
-    bullmq: "npm:^5.76.2"
+    "@opentelemetry/api": "npm:^1.9.1"
     tslib: "npm:^2.8.0"
-  checksum: 10/376cc29cf244ea37f76e4a34265a1e363c44deb8715a45066c981199f68b10e701620792c02decea6fff4382da07e26382406c9f5e93c82fda43dfbc25130b7e
-  languageName: node
-  linkType: hard
-
-"bullmq@npm:^5.76.2":
-  version: 5.80.12
-  resolution: "bullmq@npm:5.80.12"
-  dependencies:
-    cron-parser: "npm:4.9.0"
-    ioredis: "npm:5.11.1"
-    msgpackr: "npm:2.0.4"
-    node-abort-controller: "npm:3.1.1"
-    semver: "npm:7.8.5"
-    tslib: "npm:2.8.1"
   peerDependencies:
-    redis: ">=5.0.0"
-  peerDependenciesMeta:
-    redis:
-      optional: true
-  checksum: 10/7810765f2a2ec76b9edaf55a9c2f7f32b63afa2eefa37aca7f914bcb52b42f64b6293e46fc70fefd45fa2b010885d103ac68bdda4394602018ca0e1a35fe2932
+    bullmq: ">=6.0.0"
+  checksum: 10/7ba3b01ee9aa74f0c1dbed88cca5f348676cbfe94c7c5d90827ff2ac1e2b26439d608590585d48d6342cca0224ef9c8f83a3f5eff9382bc469fb040acb2b6261
   languageName: node
   linkType: hard
 
@@ -17163,15 +17138,6 @@ __metadata:
   version: 1.0.6
   resolution: "crelt@npm:1.0.6"
   checksum: 10/5ed326ca6bd243b1dba6b943f665b21c2c04be03271824bc48f20dba324b0f8233e221f8c67312526d24af2b1243c023dc05a41bd8bd05d1a479fd2c72fb39c3
-  languageName: node
-  linkType: hard
-
-"cron-parser@npm:4.9.0":
-  version: 4.9.0
-  resolution: "cron-parser@npm:4.9.0"
-  dependencies:
-    luxon: "npm:^3.2.1"
-  checksum: 10/ffca5e532a5ee0923412ee6e4c7f9bbceacc6ddf8810c16d3e9fb4fe5ec7e2de1b6896d7956f304bb6bc96b0ce37ad7e3935304179d52951c18d84107184faa7
   languageName: node
   linkType: hard
 
@@ -22183,21 +22149,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ioredis@npm:5.11.1":
-  version: 5.11.1
-  resolution: "ioredis@npm:5.11.1"
-  dependencies:
-    "@ioredis/commands": "npm:1.10.0"
-    cluster-key-slot: "npm:1.1.1"
-    debug: "npm:4.4.3"
-    denque: "npm:2.1.0"
-    redis-errors: "npm:1.2.0"
-    redis-parser: "npm:3.0.0"
-    standard-as-callback: "npm:2.1.0"
-  checksum: 10/f27653075b0599a9e8886b28a59bb2e232ca7d91b4a81de699e932cb55dcdcec791fe571fb7d4ebc81fc26f44667a76cf165162ecea57285548190ea0d58f734
-  languageName: node
-  linkType: hard
-
 "ioredis@npm:^6.0.0":
   version: 6.0.0
   resolution: "ioredis@npm:6.0.0"
@@ -24577,7 +24528,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"luxon@npm:^3.2.1, luxon@npm:^3.7.2":
+"luxon@npm:^3.7.2":
   version: 3.7.2
   resolution: "luxon@npm:3.7.2"
   checksum: 10/b24cd205ed306ce7415991687897dcc4027921ae413c9116590bc33a95f93b86ce52cf74ba72b4f5c5ab1c10090517f54ac8edfb127c049e0bf55b90dc2260be
@@ -26005,18 +25956,6 @@ __metadata:
   bin:
     download-msgpackr-prebuilds: bin/download-prebuilds.js
   checksum: 10/05a66482eca3c7932afef4300abc0cccfbb002185506d85d77fd2cff63870d58ef6903fef879ea09ff76ed0c18c9282a0dceb0d621a58e3c02adc9e0bfb8eb33
-  languageName: node
-  linkType: hard
-
-"msgpackr@npm:2.0.4":
-  version: 2.0.4
-  resolution: "msgpackr@npm:2.0.4"
-  dependencies:
-    msgpackr-extract: "npm:^3.0.4"
-  dependenciesMeta:
-    msgpackr-extract:
-      optional: true
-  checksum: 10/fb5eb85dee3b8b2ed83b81f5360f58cc3f3c290e79586d01c12cf54710b837ccc5d11abce4b5324b861e152fee9131a843cb4511ef03fcc037061c43f72b7195
   languageName: node
   linkType: hard
 
@@ -29553,19 +29492,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"redis-errors@npm:1.2.0, redis-errors@npm:^1.0.0":
+"redis-errors@npm:1.2.0":
   version: 1.2.0
   resolution: "redis-errors@npm:1.2.0"
   checksum: 10/001c11f63ddd52d7c80eb4f4ede3a9433d29a458a7eea06b9154cb37c9802a218d93b7988247aa8c958d4b5d274b18354e8853c148f1096fda87c6e675cfd3ee
-  languageName: node
-  linkType: hard
-
-"redis-parser@npm:3.0.0":
-  version: 3.0.0
-  resolution: "redis-parser@npm:3.0.0"
-  dependencies:
-    redis-errors: "npm:^1.0.0"
-  checksum: 10/b10846844b4267f19ce1a6529465819c3d78c3e89db7eb0c3bb4eb19f83784797ec411274d15a77dbe08038b48f95f76014b83ca366dc955a016a3a0a0234650
   languageName: node
   linkType: hard
 
