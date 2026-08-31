@@ -1,4 +1,4 @@
-import { Check, Entity, Enum, Index, ManyToOne, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Check, Entity, Enum, Index, ManyToOne, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 
 export type DomainProvider = 'traefik'
 export type DomainStatus = 'pending' | 'verified' | 'active' | 'dns_failed' | 'tls_failed'

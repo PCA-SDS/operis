@@ -1,5 +1,5 @@
 import { OptionalProps } from '@mikro-orm/core'
-import { Entity, Index, PrimaryKey, Property } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, PrimaryKey, Property } from '@open-mercato/shared/lib/db/decorators'
 
 export type PushDeliveryStatus = 'pending' | 'sending' | 'sent' | 'failed' | 'skipped' | 'expired'
 

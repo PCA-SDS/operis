@@ -298,8 +298,9 @@ function parseOpenApiFromSource(filePath: string): Record<string, any> | null {
  * Generate a complete OpenAPI document by bundling route files with esbuild
  * and executing the bundle to call buildOpenApiDocument from @open-mercato/shared.
  *
- * esbuild compiles TypeScript with legacy decorator support (reads experimentalDecorators
- * from tsconfig.json), avoiding the TC39 decorator mismatch that breaks tsx-based imports.
+ * esbuild compiles TypeScript reading the decorator mode from tsconfig.json (TC39 /
+ * Stage-3 since the entity decorator migration), avoiding the decorator-mode mismatch that
+ * breaks tsx-based imports.
  * External packages (zod, mikro-orm, etc.) are resolved from node_modules at runtime.
  */
 async function generateOpenApiViaBundle(

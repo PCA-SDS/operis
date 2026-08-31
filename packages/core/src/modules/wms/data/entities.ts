@@ -6,7 +6,7 @@ import {
   OneToMany,
   PrimaryKey,
   Property,
-} from '@mikro-orm/decorators/legacy'
+} from '@open-mercato/shared/lib/db/decorators'
 import type { JsonValue } from '@open-mercato/shared/lib/json'
 
 export type WarehouseLocationType = 'zone' | 'aisle' | 'rack' | 'bin' | 'slot' | 'dock' | 'staging'

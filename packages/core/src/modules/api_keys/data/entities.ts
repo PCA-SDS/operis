@@ -1,4 +1,4 @@
-import { Entity, Index, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 
 @Entity({ tableName: 'api_keys' })
 // The unique keyPrefix bounds the bcrypt candidate loop in findApiKeyBySecret to at

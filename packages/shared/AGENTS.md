@@ -45,6 +45,7 @@ yarn workspace @open-mercato/shared build
 | `custom-fields/` | When handling custom field payloads | `@open-mercato/shared/lib/custom-fields` |
 | `data/` | When you need `DataEngine` or `QueryEngine` types | `@open-mercato/shared/lib/data/engine` |
 | `db/` | When resolving the ORM/connection-pool config (`resolvePoolConfig`, pool/timeout env knobs) | `@open-mercato/shared/lib/db/mikro` |
+| `db/decorators` | When declaring a MikroORM entity — the ONLY sanctioned decorator import. TC39 (Stage-3) flavour, which is what allows the production minifiers to stay on; wraps `Index`/`Unique`/`Property`/`PrimaryKey`/`Enum` to fix two upstream defects (child `@Index` leaking onto the parent entity, and an explicit column `name:` being dropped) | `@open-mercato/shared/lib/db/decorators` |
 | `delivery/` | When scheduling delivery/retry attempts — exponential backoff with jitter for delivery pipelines (currently the push delivery worker) | `@open-mercato/shared/lib/delivery/retry` (`calculateBackoffDelayMs`) |
 | `di/` | When setting up dependency injection (Awilix). The app-level hook (`src/di.ts` → `register`) is wired explicitly in BOTH bootstrap paths — `src/bootstrap.ts` for the Next.js runtime, `bootstrapFromAppRoot()` for worker/scheduler/CLI processes. Never rely on the legacy `import('@/di')` fallback: the alias does not exist outside the app bundler | `@open-mercato/shared/lib/di` |
 | `encryption/` | When querying encrypted entities (MUST use instead of raw `em.find`) | `@open-mercato/shared/lib/encryption/find` |
@@ -55,6 +56,7 @@ yarn workspace @open-mercato/shared build
 | `number.ts` | When parsing numeric strings from env/query params with a fallback and optional min/integer constraint | `@open-mercato/shared/lib/number` |
 | `openapi/` | When generating CRUD OpenAPI specs | `@open-mercato/shared/lib/openapi/crud` |
 | `profiler/` | When profiling with `OM_PROFILE` env flag | `@open-mercato/shared/lib/profiler` |
+| `query/schema-presence` | When asking whether a table has a column — MUST use instead of a hand-rolled `information_schema.columns` probe. One query per table, cached per Kysely connection with a TTL (`OM_QUERY_SCHEMA_PRESENCE_CACHE_MS`, default 30s, `0` disables). Caches absent columns too, which the per-column probes it replaced did not | `@open-mercato/shared/lib/query/schema-presence` — `tableHasColumn(db, table, column)` |
 | `search/` | When resolving record ids from the `search_tokens` index — MUST use instead of hand-rolling the Kysely lookup, and MUST be unioned into (or replace) any `$ilike` filter on a column an encryption map covers | `@open-mercato/shared/lib/search/tokenLookup` |
 | `string.ts` | When parsing comma-separated lists from CLI args/query params, or coercing a string to `undefined` when blank | `@open-mercato/shared/lib/string` |
 | `testing/` | When bootstrapping tests — register only what the test needs | `@open-mercato/shared/lib/testing/bootstrap` |

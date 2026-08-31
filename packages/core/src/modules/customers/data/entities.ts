@@ -1,5 +1,5 @@
 import { Collection, OptionalProps } from '@mikro-orm/core'
-import { Entity, Index, ManyToOne, OneToMany, OneToOne, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, ManyToOne, OneToMany, OneToOne, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 import type { DictionaryEntrySortMode } from '@open-mercato/core/modules/dictionaries/lib/entrySort'
 
 export type CustomerEntityKind = 'person' | 'company'
