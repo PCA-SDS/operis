@@ -30,24 +30,35 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
     //   - date-fns: already uses deep imports everywhere; listing it here
     //     is defense-in-depth and harmless.
     optimizePackageImports: ['lucide-react', 'recharts', 'date-fns'],
-    // Minification is ON. It was disabled for years because MikroORM's LEGACY decorators
-    // keyed entity metadata off `target.constructor.name`: the minifier mangled distinct
-    // entity classes down to the same short identifier, their metadata buckets collided, and
-    // `next build` died with `MetadataError: Multiple property decorators used on
-    // 'I.comments'` while collecting page data. Turbopack applies `turbopackMinify` to the
-    // server graph too, so turning off only `serverMinification` was not enough and the
-    // client shipped ~62 MB of unminified JS.
+    // BOTH minifiers MUST stay off, production included.
     //
-    // Entities now use the TC39 (Stage-3) decorators via
-    // `@open-mercato/shared/lib/db/decorators`. Those receive the class name as a
-    // compile-time string literal and attach metadata per class through the decorator
-    // context, so identifier mangling cannot merge two entities' metadata. Verified by
-    // building the collision case (`comments` as @OneToMany on one entity and a scalar
-    // @Property on another) with esbuild --minify and reading back MikroORM's metadata, and
-    // by `yarn db:generate` reporting zero schema drift after the migration.
+    // Two independent reasons, and only ONE of them has been removed:
     //
-    // If a future change reintroduces `@mikro-orm/decorators/legacy` anywhere in the entity
-    // graph, this must go back to `false` — see tsconfig.base.json.
+    // 1. MikroORM legacy decorators keyed entity metadata off `target.constructor.name`,
+    //    which mangling collapses. FIXED — entities now use the TC39 decorators via
+    //    `@open-mercato/shared/lib/db/decorators`, which receive the class name as a
+    //    compile-time string literal. Verified with an esbuild --minify probe and by
+    //    `yarn db:generate` reporting zero schema drift.
+    //
+    // 2. Awilix runs in `InjectionMode.CLASSIC` (packages/shared/src/lib/di/container.ts),
+    //    which resolves every dependency BY CONSTRUCTOR PARAMETER NAME. Mangling renames
+    //    those parameters to `e`, `t`, `n`, so every `asClass` registration fails at runtime:
+    //
+    //        ⨯ Could not resolve 'e'.  Resolution path: authService -> e
+    //
+    //    Login returns 500 and the app never becomes ready. STILL OPEN. This is why the
+    //    flags are back off after the decorator migration briefly enabled them.
+    //
+    // Note how this escaped: unit tests run unminified source, and the deploy smoke test
+    // probes only `/api/configs/health`, which resolves nothing from the container — so CI
+    // and the deploy both reported green while authentication was broken.
+    //
+    // Lifting this now requires moving the container off CLASSIC to explicit `asFunction`
+    // registrations with destructured cradle access (parameter names stop being load-bearing),
+    // or a server-only `keepNames`, which Next does not expose separately. Do not flip these
+    // without doing that first AND booting the app to a successful `POST /api/auth/login`.
+    serverMinification: false,
+    turbopackMinify: false,
     ...(isDevelopment
       ? {
           preloadEntriesOnStart: false,
