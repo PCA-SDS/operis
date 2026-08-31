@@ -8160,7 +8160,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@open-mercato/cache@workspace:packages/cache"
   dependencies:
-    "@types/better-sqlite3": "npm:^7.6.13"
+    "@types/better-sqlite3": "npm:^9.6.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^26.1.2"
     jest: "npm:^30.4.2"
@@ -12920,12 +12920,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/better-sqlite3@npm:^7.6.11, @types/better-sqlite3@npm:^7.6.13":
-  version: 7.6.13
-  resolution: "@types/better-sqlite3@npm:7.6.13"
+"@types/better-sqlite3@npm:^9.6.0":
+  version: 9.6.0
+  resolution: "@types/better-sqlite3@npm:9.6.0"
   dependencies:
     "@types/node": "npm:*"
-  checksum: 10/c74dafa3c550ac866737870016d7b1a735c7d450c16d40962eeb54510fa150e91752bfdf678f55e91894d8853771b95f909b0062122116cddac4d80491b74411
+  checksum: 10/3dcbf6126b6b6c5ccc73d03d88590f67a2bf0cb40dcfee392ae6f08554b57e8112c739edefef4349f13a2a9d23d31374ba9c18e0572dcb0332a9ccd87ebc71c6
   languageName: node
   linkType: hard
 
@@ -26746,7 +26746,7 @@ __metadata:
     "@stryker-mutator/jest-runner": "npm:^9.6.1"
     "@tanstack/react-query": "npm:^5.101.4"
     "@tanstack/react-table": "npm:^9.0.0"
-    "@types/better-sqlite3": "npm:^7.6.11"
+    "@types/better-sqlite3": "npm:^9.6.0"
     "@types/html-to-text": "npm:^9.0.4"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^26.1.2"
