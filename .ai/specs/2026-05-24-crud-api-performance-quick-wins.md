@@ -1,6 +1,6 @@
 # SPEC — CRUD API performance quick wins (target < 100 ms p50)
 
-**Status:** draft / proposal
+**Status:** implemented (all five phases; verified against the code 2026-08-31)
 **Owner:** core / shared
 **Date:** 2026-05-24
 **Tracking issue:** [open-mercato/open-mercato#2044](https://github.com/open-mercato/open-mercato/issues/2044)
@@ -287,3 +287,26 @@ criteria for measuring before/after. Integration coverage proposed in `.ai/qa/te
 ## Changelog
 
 - **2026-05-24** — initial draft (research + spec; no code change yet).
+- **2026-08-31** — status corrected to **implemented**. All five phases were already in the
+  tree when this fork was created (they arrived with the `3e7483f3` foundation import), so
+  the draft status and the "no code change yet" note above had been stale since day one.
+  Verified in code:
+  - Phase 1 — `AccessLogService.logMany` + `flushAccessLog()` + `OM_CRUD_ACCESS_LOG_BLOCKING`
+    (`packages/core/src/modules/audit_logs/services/accessLogService.ts`), dispatched via the
+    `batch`/`fanout` selector in `logCrudAccess` (`packages/shared/src/lib/crud/factory.ts`).
+  - Phase 2 — `OM_CF_DEF_CACHE_TTL_MS` request-scoped + shared cache in
+    `packages/shared/src/lib/crud/custom-fields.ts`.
+  - Phase 3 — `RbacService` cache with tag invalidation
+    (`packages/core/src/modules/auth/services/rbacService.ts`).
+  - Phase 4 — `OM_ORG_SCOPE_CACHE_TTL_MS` cache in
+    `packages/core/src/modules/directory/utils/organizationScope.ts`.
+  - Phase 5 — `getCachedEncryptionEnabled` process-lifetime memo in
+    `packages/shared/src/lib/di/container.ts`. The `registerTenantEncryptionSubscriber` call
+    itself stays per-request by necessity: it binds to the freshly forked EM's event manager,
+    so it cannot be hoisted to a one-shot process gate.
+
+  One hot spot the spec's stage table did **not** cover was still open and has now been fixed
+  separately: the query engines' `columnExists` probe issued one uncached
+  `information_schema.columns` query per (table, column) question — measured at 13 catalog
+  round trips and ~9.3 ms per list request. See
+  [`2026-08-31-query-engine-column-presence-cache.md`](2026-08-31-query-engine-column-presence-cache.md).

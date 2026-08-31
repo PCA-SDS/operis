@@ -16,6 +16,7 @@ import {
 import type { BulkImportSuppression } from '../commands/types'
 import { CrudHttpError } from '../crud/errors'
 import { resolveRegisteredEntityTableName } from '../query/engine'
+import { tableExists } from '../query/schema-presence'
 import { getEntityIds } from '../encryption/entityIds'
 import { normalizeCustomFieldValues } from '../custom-fields/normalize'
 import { parseBooleanToken } from '../boolean'
@@ -258,13 +259,10 @@ export class DefaultDataEngine implements DataEngine {
   }
 
   private async ensureStorageTableExists(): Promise<void> {
-    const db = this.getKysely()
-    const exists = await db
-      .selectFrom('information_schema.tables' as any)
-      .select(sql`1`.as('present'))
-      .where('table_name' as any, '=', 'custom_entities_storage')
-      .executeTakeFirst()
-    if (!exists) {
+    // Shares the query engines' cached schema introspection rather than issuing its own
+    // catalog probe on every custom-entity write. The guard only has to catch an un-migrated
+    // database, which does not change under a running process.
+    if (!(await tableExists(this.getKysely(), 'custom_entities_storage'))) {
       throw new Error('custom_entities_storage table is missing. Run migrations (yarn db:migrate).')
     }
   }
