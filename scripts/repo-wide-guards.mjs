@@ -110,7 +110,7 @@ export const REPO_WIDE_GUARDS = [
       },
       {
         path: 'src/modules/design_system/gallery/__tests__/inventory-parity.test.ts',
-        scans: 'packages/create-app/scripts/design-system-sources.mjs and its derived inventory asset — the only guard that compares the runtime gallery registry against the statically derived inventory, so a reader change that silently under-reports a family is caught here and nowhere else. It lives in core while the reader lives in create-app, and core is a dependency of create-app rather than a dependent, so the turbo filter never selects it for a reader-only PR (#4991).',
+        scans: 'packages/cli/agentic/shared/ai/harness/design-system-inventory.json — the only guard that compares the runtime gallery registry against the derived inventory, so a change that silently under-reports a family is caught here and nowhere else. The inventory is hand-maintained in this fork: create-app was removed and no generator replaced it (#4991).',
       },
     ],
   },
@@ -137,11 +137,11 @@ export const REPO_WIDE_GUARDS = [
       },
       {
         path: 'src/lib/generators/__tests__/module-facts.local-reference.test.ts',
-        scans: 'live packages/core/src/modules sources — module-facts local-reference resolution',
+        scans: 'live packages/core/src/modules and apps/mercato/src/modules/example sources — local-reference resolution, fact discovery, projection and source fingerprints (#4991)',
       },
       {
         path: 'src/lib/generators/__tests__/example-public-route-safety.test.ts',
-        scans: 'apps/mercato and packages/create-app/template — example route safety (#3864)',
+        scans: 'apps/mercato/src/modules/example — example route safety (#3864)',
       },
       {
         path: 'src/lib/generators/__tests__/disabled-example-module.test.ts',
@@ -154,10 +154,6 @@ export const REPO_WIDE_GUARDS = [
       {
         path: 'src/lib/generators/__tests__/module-facts.example-fact-coverage.test.ts',
         scans: 'live apps/mercato/src/modules/example sources — the enum-derived factCoverage ledger, which fails both ways (a fact value with no row, and a row for a value the enum dropped), so a module change that adds an unledgered fact must fail its own PR (#4991)',
-      },
-      {
-        path: 'src/lib/generators/__tests__/module-facts.local-reference.test.ts',
-        scans: 'live apps/mercato/src/modules/example sources — local-reference fact discovery, projection and source fingerprints (#4991)',
       },
     ],
   },
@@ -220,7 +216,7 @@ export const REPO_WIDE_GUARDS = [
     tests: [
       {
         path: 'src/__tests__/default-unloaded.test.ts',
-        scans: 'apps/mercato, packages/create-app/template, packages/cli and packages/queue runtime hosts — telemetry stays unloaded unless a backend is configured (#4475)',
+        scans: 'apps/mercato, packages/cli and packages/queue runtime hosts — telemetry stays unloaded unless a backend is configured (#4475)',
       },
     ],
   },
@@ -231,7 +227,7 @@ export const REPO_WIDE_GUARDS = [
     tests: [
       {
         path: 'src/primitives/__tests__/zindex-overlay.test.tsx',
-        scans: 'apps/mercato and packages/create-app/template globals.css — z-index scale',
+        scans: 'apps/mercato/src/app/globals.css — z-index scale',
       },
       {
         path: 'src/backend/icons/__tests__/lucideRegistryGenerator.test.ts',
@@ -250,19 +246,15 @@ export const REPO_WIDE_GUARDS = [
     tests: [
       {
         path: 'src/__tests__/module-override-acl-features.test.ts',
-        scans: 'apps/mercato/src/modules plus every packages/ acl.ts — module override keys anchored to declared ACL features (#4462)',
+        scans: 'apps/mercato/src/modules plus every packages/ acl.ts — module/ACL override keys anchored to declared ACL features (#4462, #4944)',
       },
       {
         path: 'src/components/__tests__/starter-chrome-ds.test.ts',
-        scans: 'apps/mercato and packages/create-app/template components — DS status tokens in starter chrome',
+        scans: 'apps/mercato/src/components — DS status tokens in starter chrome',
       },
       {
         path: 'src/components/__tests__/StartPageContent.test.tsx',
-        scans: 'apps/mercato and packages/create-app/template StartPageContent — hydration-safety guard',
-      },
-      {
-        path: 'src/__tests__/module-override-acl-features.test.ts',
-        scans: 'apps/mercato/src/modules and every packages/ acl.ts — ACL override keys anchored to a declared feature (#4944)',
+        scans: 'apps/mercato/src/components/StartPageContent.tsx — hydration-safety guard',
       },
       {
         path: 'src/__tests__/api-bootstrap-ui-boundary.test.ts',
