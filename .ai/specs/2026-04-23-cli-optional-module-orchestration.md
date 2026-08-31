@@ -300,10 +300,10 @@ This is intentional and consistent with `server dev`, but supervisors or CI pipe
 
 ### Note on `server dev` env handling for workers/scheduler
 
-`server dev` no longer wraps the spawned `next dev`, queue-worker, and scheduler subprocesses with `buildServerProcessEnvironment(process.env)`. This is intentional:
+`server dev` builds `runtimeEnv = buildServerProcessEnvironment(process.env)` for the queue-worker and scheduler subprocesses, then hands the `next dev` child `buildNextDevProcessEnvironment(runtimeEnv)` — the same environment with `NODE_ENV` put back to `development`:
 
-- `next dev` requires the natural Node `NODE_ENV=development` environment, so the production-style normalization that `server start` applies caused Next.js to emit `NODE_ENV` warnings.
-- Queue worker and scheduler subprocesses spawned from `server dev` should observe the same dev-time environment as the rest of the dev runtime so that DI containers, encryption keys, and config resolvers behave consistently across all dev children.
+- `next dev` requires the natural Node `NODE_ENV=development` environment. Turbopack serves a development build regardless, so the production-style normalization that `server start` applies only made everything reading `NODE_ENV` disagree with what was running: Next.js emitted `NODE_ENV` warnings, and `apps/mercato/next.config.ts` answered dev requests with the production security headers (no `'unsafe-eval'` in `script-src`, which React's dev runtime needs; HSTS over plain HTTP; an empty `allowedDevOrigins`).
+- Queue worker and scheduler subprocesses keep the normalized runtime env. Section 5 above permits either choice for them, and no reported defect turns on it; moving them would change DI, encryption-key, and config resolution for background dev processes with nothing asking for it.
 
 `server start` continues to use `runtimeEnv = buildServerProcessEnvironment(process.env)` for all three subprocess kinds because production deployments expect normalized environment variables (uppercased booleans, defaulted ports, etc.). The two server modes intentionally diverge here.
 
@@ -324,3 +324,4 @@ This is intentional and consistent with `server dev`, but supervisors or CI pipe
 |------|--------|
 | 2026-04-23 | Created companion spec for CLI optional-module orchestration across `init`, `server dev`, `server start`, and standalone runtime supervision. |
 | 2026-05-05 | Documented `server start` non-zero-exit behavior change in BC section, justified `dev.mjs` `resolveProjectBinary(...)` scope, and explained the intentional dev/prod env divergence for `next dev`, queue-worker, and scheduler subprocesses. Worker exit labels now include the discovered queue names so `Queue worker (queue-a, queue-b)` makes post-mortems unambiguous. |
+| 2026-09-01 | `server dev` had regressed to spawning `next dev` with the production-normalized env, so the app served its production CSP in development and React's dev runtime could not call `eval()`. The Next child now gets `NODE_ENV=development` via `buildNextDevProcessEnvironment`; workers and the scheduler are unchanged. Regression test: `packages/cli/src/__tests__/mercato.test.ts`. |
