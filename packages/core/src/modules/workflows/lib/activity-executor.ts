@@ -22,6 +22,7 @@ import {
   type HostLookup,
 } from '@open-mercato/shared/lib/url-safety'
 import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
+import { parseNumberWithDefault } from '@open-mercato/shared/lib/number'
 import { callWebhookConfigSchema } from '../data/validators'
 import { WorkflowActivityJob, WORKFLOW_ACTIVITIES_QUEUE_NAME } from './activity-queue-types'
 import { logWorkflowEvent } from './event-logger'
@@ -33,6 +34,8 @@ export { isPrivateUrl } from '@open-mercato/shared/lib/network'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 const logger = createLogger('workflows')
+
+const DEFAULT_WORKFLOW_WORKER_CONCURRENCY = 5
 
 function isAllowPrivateWorkflowWebhookUrlsEnabled(): boolean {
   if (parseBooleanWithDefault(process.env.OM_WORKFLOWS_ALLOW_PRIVATE_URLS, false)) {
@@ -200,7 +203,13 @@ function getActivityQueue(): Queue<WorkflowActivityJob> {
   if (!activityQueue) {
     activityQueue = createModuleQueue<WorkflowActivityJob>(
       WORKFLOW_ACTIVITIES_QUEUE_NAME,
-      { concurrency: parseInt(process.env.WORKFLOW_WORKER_CONCURRENCY || '5') },
+      {
+        concurrency: parseNumberWithDefault(
+          process.env.WORKFLOW_WORKER_CONCURRENCY,
+          DEFAULT_WORKFLOW_WORKER_CONCURRENCY,
+          { min: 1, integer: true },
+        ),
+      },
     )
   }
 

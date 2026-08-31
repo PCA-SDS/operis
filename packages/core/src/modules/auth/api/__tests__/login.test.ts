@@ -352,3 +352,53 @@ describe('account enumeration hardening (issue #2242)', () => {
     expect(authServiceMock.verifyPassword).toHaveBeenCalledWith(null, 'secret')
   })
 })
+
+describe('POST /api/auth/login remember-me expiry parsing', () => {
+  const originalRememberMeDays = process.env.REMEMBER_ME_DAYS
+
+  beforeEach(() => {
+    registerApiInterceptors([])
+    jest.clearAllMocks()
+  })
+
+  afterEach(() => {
+    if (originalRememberMeDays === undefined) delete process.env.REMEMBER_ME_DAYS
+    else process.env.REMEMBER_ME_DAYS = originalRememberMeDays
+  })
+
+  async function loginRemembered(): Promise<Date> {
+    const req = new Request('http://localhost/api/auth/login', {
+      method: 'POST',
+      body: makeFormData({ email: 'user@example.com', password: 'secret', remember: '1' }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    return authServiceMock.createSession.mock.calls[0][1] as Date
+  }
+
+  // An unparseable value used to produce `new Date(NaN)`. Session validation
+  // compares `expiresAt.getTime() < Date.now()`, and NaN makes that false, so
+  // the remembered session never expired. `'30d'` is included because the old
+  // `Number('30d')` returned NaN; the parser now prefix-parses it to 30 days.
+  it.each(['abc', '30d', ' ', '0', '-5'])(
+    'yields a valid, future expiry when REMEMBER_ME_DAYS is %p',
+    async (raw) => {
+      process.env.REMEMBER_ME_DAYS = raw
+
+      const expiresAt = await loginRemembered()
+
+      expect(Number.isNaN(expiresAt.getTime())).toBe(false)
+      expect(expiresAt.getTime()).toBeGreaterThan(Date.now())
+    },
+  )
+
+  it('honours a valid REMEMBER_ME_DAYS override', async () => {
+    process.env.REMEMBER_ME_DAYS = '1'
+
+    const expiresAt = await loginRemembered()
+
+    const oneDayMs = 24 * 60 * 60 * 1000
+    expect(expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(oneDayMs)
+    expect(expiresAt.getTime() - Date.now()).toBeGreaterThan(oneDayMs - 60_000)
+  })
+})

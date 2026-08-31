@@ -2,6 +2,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { EntityClass } from '@mikro-orm/core'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import type { InboxDiscrepancyType } from '../data/entities'
+import { resolvePriceMismatchThreshold } from './config'
 
 export interface PriceDiscrepancy {
   type: InboxDiscrepancyType
@@ -66,7 +67,6 @@ interface PriceValidatorDeps {
   catalogPricingService: CatalogPricingServiceLike
 }
 
-const DEFAULT_MISMATCH_THRESHOLD = 0.05 // 5%
 
 function readUuid(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
@@ -85,7 +85,7 @@ export async function validatePrices(
 ): Promise<PriceDiscrepancy[]> {
   if (!deps?.catalogProductPriceClass || !deps?.catalogPricingService) return []
 
-  const threshold = parseFloat(process.env.INBOX_OPS_PRICE_MISMATCH_THRESHOLD || String(DEFAULT_MISMATCH_THRESHOLD))
+  const threshold = resolvePriceMismatchThreshold()
   const discrepancies: PriceDiscrepancy[] = []
   const now = new Date()
 

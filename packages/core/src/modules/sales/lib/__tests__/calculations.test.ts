@@ -576,3 +576,49 @@ describe('calculateDocumentTotals', () => {
     }
   })
 })
+
+describe('calculateDocumentTotals gross-to-net derivation', () => {
+  // taxRate is validated to 0..100 at the API edge, but a rate written straight
+  // to the DB is not clamped. -100 made `1 + taxRate` zero, so deriving net from
+  // a gross unit price divided by zero and produced Infinity totals.
+  it('does not divide by zero when a persisted taxRate is -100', async () => {
+    const result = await calculateDocumentTotals({
+      documentKind: 'order',
+      lines: [
+        {
+          kind: 'product',
+          quantity: 1,
+          currencyCode: 'USD',
+          unitPriceGross: 120,
+          taxRate: -100,
+        } as SalesLineSnapshot,
+      ],
+      adjustments: [],
+      context: { ...baseContext, metadata: {} },
+    })
+
+    expect(Number.isFinite(result.totals.grandTotalGrossAmount)).toBe(true)
+    expect(Number.isFinite(result.totals.grandTotalNetAmount)).toBe(true)
+    expect(result.lines[0].netAmount).toBe(120)
+  })
+
+  it('still derives net from gross for a normal positive rate', async () => {
+    const result = await calculateDocumentTotals({
+      documentKind: 'order',
+      lines: [
+        {
+          kind: 'product',
+          quantity: 1,
+          currencyCode: 'USD',
+          unitPriceGross: 120,
+          taxRate: 20,
+        } as SalesLineSnapshot,
+      ],
+      adjustments: [],
+      context: { ...baseContext, metadata: {} },
+    })
+
+    expect(result.lines[0].netAmount).toBe(100)
+    expect(result.lines[0].grossAmount).toBe(120)
+  })
+})

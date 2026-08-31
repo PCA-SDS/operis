@@ -8,6 +8,7 @@
  */
 
 import ivm from 'isolated-vm'
+import { parseNumberWithDefault } from '@open-mercato/shared/lib/number'
 
 export interface SandboxOptions {
   /** Execution timeout in milliseconds (default: 30_000) */
@@ -26,7 +27,12 @@ export interface SandboxResult {
   apiCallCount?: number
 }
 
-const MEMORY_LIMIT_MB = parseInt(process.env.SANDBOX_MEMORY_MB ?? '32', 10)
+const DEFAULT_MEMORY_LIMIT_MB = 32
+// NaN would reach `new ivm.Isolate({ memoryLimit })`, so parse defensively.
+const MEMORY_LIMIT_MB = parseNumberWithDefault(process.env.SANDBOX_MEMORY_MB, DEFAULT_MEMORY_LIMIT_MB, {
+  min: 8,
+  integer: true,
+})
 const MAX_LOG_ENTRIES = 100
 const MAX_LOG_ENTRY_LENGTH = 1000
 
