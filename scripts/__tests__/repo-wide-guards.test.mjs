@@ -53,6 +53,22 @@ test('every enumerated repo-wide guard file exists', () => {
   }
 })
 
+test('no guard is enumerated twice', () => {
+  // A duplicate costs a second run of the same file in the same jest invocation, and splits
+  // one guard's rationale across two `scans` strings that then drift apart — which is how two
+  // of these ended up describing different halves of the same test.
+  const seen = new Map()
+  for (const group of REPO_WIDE_GUARDS) {
+    for (const guard of group.tests) {
+      const key = `${group.workspaceDir}/${guard.path}`
+      seen.set(key, (seen.get(key) ?? 0) + 1)
+    }
+  }
+  const duplicated = [...seen].filter(([, count]) => count > 1).map(([key, count]) => `${key} (x${count})`)
+
+  assert.deepEqual(duplicated, [], `These guards are listed more than once — merge each pair into one entry:\n${duplicated.join('\n')}`)
+})
+
 test('every guard workspace has the jest config the runner invokes', () => {
   for (const group of REPO_WIDE_GUARDS) {
     const configPath = path.join(repoRoot, group.workspaceDir, group.jestConfig)
