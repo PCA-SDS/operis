@@ -11,7 +11,7 @@ import { join, relative, resolve, sep } from 'node:path'
  *    `target.constructor.name`, which a minifier mangles — two entity classes collapsing to
  *    the same short identifier merge their metadata buckets. That is why both Next minifiers
  *    were disabled for years, shipping ~62 MB of unminified client JS.
- * 2. It patches two defects in `@mikro-orm/decorators@7`. A subclass's `@Index`/`@Unique`
+ * 2. It patches two defects in `@mikro-orm/decorators` 7.1.9. A subclass's `@Index`/`@Unique`
  *    pushes into the PARENT entity's inherited metadata array, so the parent collects the
  *    child's indexes and the child gets none. And an explicit column `name:` is dropped
  *    (`renameKey` mutates the caller's options AFTER the property was built), so the column

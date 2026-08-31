@@ -52,8 +52,17 @@ type MetadataContext = { metadata: DecoratorMetadata }
  * behaviour, verified against both flavours: each class collects only the indexes it declares
  * itself, and the parent keeps only its own.
  *
- * Remove this wrapper (and re-export `Index`/`Unique` from upstream above) once
- * `@mikro-orm/decorators` guards `indexes`/`uniques` the way it guards `properties`.
+ * DO NOT remove this wrapper just because upstream stopped mutating the parent. 7.1.14 adds an
+ * `ensureOwnMetadataArray` helper that does `meta[key] = [...(meta[key] ?? [])]` — an own array,
+ * but seeded with a COPY of the parent's. Measured on 7.1.14 against the same fixture:
+ *
+ *     legacy      BaseRow [tenantId]   ChildRow [slug]              <- what this repo's schema is
+ *     7.1.14      BaseRow [tenantId]   ChildRow [tenantId, slug]    <- child inherits the parent's
+ *
+ * Ten entities extend a shared base here (`WmsScopedEntity`, `CheckoutLinkTemplate`), so
+ * dropping this wrapper on 7.1.14 would add the base's indexes to all ten child tables — a
+ * silent schema change, not a no-op. Only remove it after confirming `yarn db:generate` still
+ * reports zero drift without it.
  */
 function withOwnCollection<Args extends unknown[], Result>(
   key: 'indexes' | 'uniques',
@@ -102,8 +111,10 @@ export const Unique = withOwnCollection('uniques', UpstreamUnique as never) as t
  * is the intended semantics rather than a behavioural change: verified by `yarn db:generate`
  * reporting no schema drift against the pre-migration snapshots.
  *
- * Remove this wrapper once `@mikro-orm/decorators` applies its own rename to the property it
- * builds instead of to the caller's options object.
+ * Still unfixed as of 7.1.14: `Property.js` there calls the same
+ * `Utils.renameKey(options, 'name', 'fieldName')` after `prop` is built. This wrapper stays
+ * until upstream applies its rename to the property it builds rather than to the caller's
+ * options object.
  */
 function withExplicitFieldName<Options extends { name?: string }, Result>(
   decorate: (options?: Options) => (value: unknown, context: { name: string | symbol }) => Result,

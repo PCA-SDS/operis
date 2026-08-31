@@ -54,7 +54,8 @@ the monorepo — a much wider blast radius than this migration needs. Only
 
 ## Two upstream defects this had to work around
 
-`@mikro-orm/decorators@7.1.8`'s ES decorators have two real bugs that the legacy ones do not.
+`@mikro-orm/decorators` 7.1.9's ES decorators (the installed version; `package.json` declares
+`^7.1.8`) have two real bugs that the legacy ones do not.
 Both are worked around in `packages/shared/src/lib/db/decorators.ts`, which every
 `data/entities.ts` now imports from — one place to decide the decorator flavour, and one place a
 future entity file cannot bypass.
@@ -105,9 +106,28 @@ references -> email_references     (inbox_ops)
 The wrapper passes the column as `fieldName` up front, which is what upstream's `renameKey` was
 trying to achieve — so this restores the intended semantics rather than changing them.
 
-Both wrappers carry an explicit removal condition: delete them and re-export upstream directly
-once `@mikro-orm/decorators` guards `indexes`/`uniques` like it guards `properties`, and applies
-its rename to the property it builds.
+### Neither is safely removable on 7.1.14
+
+Dependabot [#258](https://github.com/PCA-SDS/operis/pull/258) proposes 7.1.9 → 7.1.14. Checked
+against that release:
+
+- **Defect 2 is still present.** `Property.js` still calls
+  `Utils.renameKey(options, 'name', 'fieldName')` after `prop` is built. The wrapper stays.
+- **Defect 1 is "fixed", but not to the legacy semantics.** 7.1.14 adds
+  `ensureOwnMetadataArray`, which gives the child an own array seeded with a **copy** of the
+  parent's. Measured on the same fixture:
+
+  ```
+  legacy   BaseRow [tenantId]   ChildRow [slug]
+  7.1.14   BaseRow [tenantId]   ChildRow [tenantId, slug]
+  shim     BaseRow [tenantId]   ChildRow [slug]
+  ```
+
+  Ten entities extend a shared base here, so dropping the `Index`/`Unique` wrapper on 7.1.14
+  would add the base's indexes to all ten child tables — a schema change, not a no-op.
+
+Both wrappers therefore stay across that upgrade. Remove either only after `yarn db:generate`
+confirms zero drift without it.
 
 ## Changes
 
