@@ -279,15 +279,25 @@ log "=============================================================="
 printf 'APP_IMAGE=%s\nAPP_IMAGE_TAG=%s\n' "$APP_IMAGE" "$TAG" > "$IMAGE_ENV_FILE"
 
 log "pulling image…"
-docker pull "$APP_IMAGE:$TAG" >>"$LOG_FILE" 2>&1 \
-  || fail "cannot pull $APP_IMAGE:$TAG
+# docker's own stderr is the only thing that distinguishes "unauthorized" from
+# "manifest unknown" from a timeout mid-layer, and it lands in $LOG_FILE on the
+# server — where a CI reader cannot see it. Capture it and echo it with the
+# hints, or a failed deploy shows three guesses and no evidence.
+PULL_OUTPUT="$(docker pull "$APP_IMAGE:$TAG" 2>&1)" && PULL_OK=1 || PULL_OK=0
+printf '%s\n' "$PULL_OUTPUT" >>"$LOG_FILE"
+if [ "$PULL_OK" -ne 1 ]; then
+  printf '%s\n' "--- docker pull output ---" "$(printf '%s\n' "$PULL_OUTPUT" | tail -20)" "--------------------------" >&2
+  fail "cannot pull $APP_IMAGE:$TAG
        1. The server is not authenticated to the registry. CI logs it in for the
           life of the run; a manual deploy needs:
             docker login ghcr.io -u <github-user>
        2. The tag does not exist in that repository. Compare it with the
           'Building ghcr.io/…' line in the build job.
        3. The package is not readable by this account — check that the GHCR
-          package is linked to the repository and its visibility matches."
+          package is linked to the repository and its visibility matches.
+       4. The pull started but did not finish — a timeout or a full disk mid-layer.
+          The docker output above says which."
+fi
 
 # ------------------------------------------------------------------------------
 # Verify we got the artifact CI built.
