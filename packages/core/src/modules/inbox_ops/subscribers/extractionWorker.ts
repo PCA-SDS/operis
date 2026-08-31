@@ -20,6 +20,7 @@ import { emitInboxOpsEvent } from '../events'
 import { createMessageRecordForEmail } from '../lib/messagesIntegration'
 import { resolveCache, invalidateCountsCache } from '../lib/cache'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { resolveMaxTextSize } from '../lib/config'
 
 const logger = createLogger('inbox_ops').child({ component: 'extraction-worker' })
 
@@ -165,7 +166,7 @@ export default async function handle(payload: EmailReceivedPayload, ctx: Resolve
     )
 
     // Step 3: Call LLM for extraction
-    const maxTextSize = parseInt(process.env.INBOX_OPS_MAX_TEXT_SIZE || '204800', 10)
+    const maxTextSize = resolveMaxTextSize()
     const truncatedText = fullText.slice(0, maxTextSize)
 
     const systemPrompt = await buildExtractionSystemPrompt(contactMatches, catalogProducts, undefined, workingLanguage)

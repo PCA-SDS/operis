@@ -5,7 +5,7 @@ import {
   CUSTOMER_JWT_AUDIENCE,
 } from '@open-mercato/core/modules/customer_accounts/services/customerSessionService'
 import { verifyAudienceJwt } from '@open-mercato/shared/lib/auth/jwt'
-import { CustomerUserSession } from '@open-mercato/core/modules/customer_accounts/data/entities'
+import { CustomerUser, CustomerUserSession } from '@open-mercato/core/modules/customer_accounts/data/entities'
 
 beforeAll(() => {
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret-for-unit-tests'
@@ -122,5 +122,68 @@ describe('CustomerSessionService session lookup and revocation', () => {
       },
       deletedAt: null,
     })
+  })
+})
+
+describe('CustomerSessionService.createSession session TTL parsing', () => {
+  const originalTtl = process.env.CUSTOMER_SESSION_TTL_DAYS
+
+  afterEach(() => {
+    if (originalTtl === undefined) delete process.env.CUSTOMER_SESSION_TTL_DAYS
+    else process.env.CUSTOMER_SESSION_TTL_DAYS = originalTtl
+  })
+
+  const user = {
+    id: 'user-ttl',
+    tenantId: 'tenant-1',
+    organizationId: 'org-1',
+    email: 'ttl@example.test',
+    displayName: 'TTL',
+    customerEntityId: null,
+    personEntityId: null,
+  } as unknown as CustomerUser
+
+  function buildEm(): { em: EntityManager; created: Record<string, unknown>[] } {
+    const created: Record<string, unknown>[] = []
+    const em = {
+      find: jest.fn(async () => []),
+      create: jest.fn((_entity: unknown, data: Record<string, unknown>) => {
+        created.push(data)
+        return { ...data, id: 'session-ttl' }
+      }),
+      persist: jest.fn(() => ({ flush: jest.fn(async () => undefined) })),
+      nativeUpdate: jest.fn(async () => 1),
+    } as unknown as EntityManager
+    return { em, created }
+  }
+
+  // An unparseable TTL used to yield `new Date(NaN)`. Because the expiry checks
+  // compare `expiresAt.getTime() < Date.now()` and NaN makes that false, such a
+  // session never expired. `'30d'` is included because the old `Number('30d')`
+  // returned NaN; the parser now prefix-parses it to 30 days.
+  it.each(['abc', '30d', ' ', '0', '-5'])(
+    'yields a valid, future expiry when CUSTOMER_SESSION_TTL_DAYS is %p',
+    async (raw) => {
+      process.env.CUSTOMER_SESSION_TTL_DAYS = raw
+      const { em, created } = buildEm()
+
+      await new CustomerSessionService(em).createSession(user, [])
+
+      const expiresAt = created[0].expiresAt as Date
+      expect(Number.isNaN(expiresAt.getTime())).toBe(false)
+      expect(expiresAt.getTime()).toBeGreaterThan(Date.now())
+    },
+  )
+
+  it('honours a valid CUSTOMER_SESSION_TTL_DAYS override', async () => {
+    process.env.CUSTOMER_SESSION_TTL_DAYS = '1'
+    const { em, created } = buildEm()
+
+    await new CustomerSessionService(em).createSession(user, [])
+
+    const expiresAt = created[0].expiresAt as Date
+    const oneDayMs = 24 * 60 * 60 * 1000
+    expect(expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(oneDayMs)
+    expect(expiresAt.getTime() - Date.now()).toBeGreaterThan(oneDayMs - 60_000)
   })
 })

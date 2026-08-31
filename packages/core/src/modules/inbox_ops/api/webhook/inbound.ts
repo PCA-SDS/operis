@@ -18,6 +18,7 @@ import {
   resolveWebhookBodyLimitBytes,
   WebhookBodyTooLargeError,
 } from '@open-mercato/shared/lib/webhooks'
+import { resolveMaxTextSize } from '../../lib/config'
 
 const logger = createLogger('inbox_ops').child({ component: 'webhook' })
 
@@ -361,7 +362,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true })
   }
 
-  const maxTextSize = parseInt(process.env.INBOX_OPS_MAX_TEXT_SIZE || '204800', 10)
+  const maxTextSize = resolveMaxTextSize()
   const cleanedText = parsed.cleanedText.slice(0, maxTextSize)
 
   const email = em.create(InboxEmail, {

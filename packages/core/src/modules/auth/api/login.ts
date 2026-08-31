@@ -15,6 +15,7 @@ import { checkAuthRateLimit, resetAuthRateLimit } from '@open-mercato/core/modul
 import { runCustomRouteAfterInterceptors } from '@open-mercato/shared/lib/crud/custom-route-interceptor'
 import { sanitizeRedirectPath } from '@open-mercato/core/modules/auth/lib/safeRedirect'
 import { getAppBaseUrl } from '@open-mercato/shared/lib/url'
+import { parseNumberWithDefault } from '@open-mercato/shared/lib/number'
 
 const loginRateLimitConfig = readEndpointRateLimitConfig('LOGIN', {
   points: 5, duration: 60, blockDuration: 60, keyPrefix: 'login',
@@ -22,6 +23,8 @@ const loginRateLimitConfig = readEndpointRateLimitConfig('LOGIN', {
 const loginIpRateLimitConfig = readEndpointRateLimitConfig('LOGIN_IP', {
   points: 20, duration: 60, blockDuration: 60, keyPrefix: 'login-ip',
 })
+
+const DEFAULT_REMEMBER_ME_DAYS = 30
 
 export const metadata = { requireAuth: false }
 
@@ -155,7 +158,13 @@ export async function POST(req: Request) {
   } catch {
     // optional warmup
   }
-  const rememberMeDays = Number(process.env.REMEMBER_ME_DAYS || '30')
+  // A non-numeric value here would make the session expiry an Invalid Date, and
+  // session validation compares `getTime() < Date.now()` — NaN makes that
+  // comparison false, so a remembered session would never expire.
+  const rememberMeDays = parseNumberWithDefault(process.env.REMEMBER_ME_DAYS, DEFAULT_REMEMBER_ME_DAYS, {
+    min: 1,
+    integer: true,
+  })
   const accessTokenMaxAgeSeconds = 60 * 60 * 8
   const sessionExpiresAt = remember
     ? new Date(Date.now() + rememberMeDays * 24 * 60 * 60 * 1000)
