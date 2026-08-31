@@ -693,6 +693,38 @@ jobs:
           cat /tmp/health.json 2>/dev/null || true
           exit 1
 
+      - name: Smoke test the DI container through a real route
+        env:
+          DOMAIN: ${{ vars.APP_DOMAIN }}
+        # /api/configs/health resolves nothing from the Awilix container, so it returns 200
+        # from an app whose every `asClass` registration is broken. That is not hypothetical:
+        # enabling minification mangled the constructor parameter names CLASSIC injection
+        # resolves by, login 500'd, and this deploy still reported healthy.
+        #
+        # Deliberately WRONG credentials. A 401 proves the container resolved authService and
+        # the handler ran; a 5xx proves it could not. No secret is needed to tell those apart,
+        # which is what makes this safe to run against production on every deploy.
+        run: |
+          set -euo pipefail
+          if [ -z "$DOMAIN" ]; then
+            echo "::error::repository variable APP_DOMAIN is not set, so the deploy cannot be verified."
+            exit 1
+          fi
+          code="$(curl -sS -o /tmp/auth.json -w '%{http_code}' --max-time 20 \
+            -X POST "https://$DOMAIN/api/auth/login" \
+            -H 'content-type: application/json' \
+            --data '{"email":"smoke-test@invalid.local","password":"not-a-real-password"}' || echo 000)"
+          case "$code" in
+            5*|000)
+              echo "::error::POST /api/auth/login returned $code — the app is serving but its DI container or auth path is broken."
+              cat /tmp/auth.json 2>/dev/null || true
+              exit 1
+              ;;
+            *)
+              echo "auth path OK: rejected bad credentials with HTTP $code"
+              ;;
+          esac
+
       - name: Deployment summary
         if: always()
         env:
