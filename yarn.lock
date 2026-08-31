@@ -12494,18 +12494,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@stryker-mutator/api@npm:9.6.1":
-  version: 9.6.1
-  resolution: "@stryker-mutator/api@npm:9.6.1"
-  dependencies:
-    mutation-testing-metrics: "npm:3.7.3"
-    mutation-testing-report-schema: "npm:3.7.3"
-    tslib: "npm:~2.8.0"
-    typed-inject: "npm:~5.0.0"
-  checksum: 10/cd4e8a78f51160921d3fe72358e674c33ca136f7017f54b0e777ee4b9fca2823f8eebaa52a129f14861ed5710e3cd10c31b696f37f4260e0c0ce54b651dc4409
-  languageName: node
-  linkType: hard
-
 "@stryker-mutator/core@npm:^10.0.0":
   version: 10.0.0
   resolution: "@stryker-mutator/core@npm:10.0.0"
@@ -12564,17 +12552,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@stryker-mutator/jest-runner@npm:^9.6.1":
-  version: 9.6.1
-  resolution: "@stryker-mutator/jest-runner@npm:9.6.1"
+"@stryker-mutator/jest-runner@npm:^10.0.0":
+  version: 10.0.0
+  resolution: "@stryker-mutator/jest-runner@npm:10.0.0"
   dependencies:
-    "@stryker-mutator/api": "npm:9.6.1"
-    "@stryker-mutator/util": "npm:9.6.1"
-    semver: "npm:~7.7.0"
+    "@stryker-mutator/api": "npm:10.0.0"
+    "@stryker-mutator/util": "npm:10.0.0"
+    semver: "npm:~7.8.0"
     tslib: "npm:~2.8.0"
   peerDependencies:
-    "@stryker-mutator/core": 9.6.1
-  checksum: 10/b7713769a49797db68553df685b894eeb3d56d3d2def2a10e33ca463dcafaeaa8cf0ce40cae4eca55bf1d7446f6e95b1575787f8d31cbbda4f68c158f162ea71
+    "@stryker-mutator/core": 10.0.0
+  checksum: 10/7d1b2e6239a7ad60b23a56442190bac31ff4c9102dc8e749304f039ca843ba37535fe1a0b326cb3c4ef910574fef79c3151b90eae796f4f266722332ec117f62
   languageName: node
   linkType: hard
 
@@ -12582,13 +12570,6 @@ __metadata:
   version: 10.0.0
   resolution: "@stryker-mutator/util@npm:10.0.0"
   checksum: 10/16a4f3cfad489e04df8262e52c533ceae950f2893e4c985cd17c02242749452c53de3379785f329bd01cf80050efa73e0abc9b53c4572203ee67432c42fa30a8
-  languageName: node
-  linkType: hard
-
-"@stryker-mutator/util@npm:9.6.1":
-  version: 9.6.1
-  resolution: "@stryker-mutator/util@npm:9.6.1"
-  checksum: 10/8f3f26167c3ecfc509a91f61e1e9cb1e42e9f60f64b0b536b31d229376742177aace5e4ac0aac4c3a15e0db0c431d4a497c5803be45cd8c00fbb50c3e8051803
   languageName: node
   linkType: hard
 
@@ -26476,28 +26457,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"mutation-testing-metrics@npm:3.7.3":
-  version: 3.7.3
-  resolution: "mutation-testing-metrics@npm:3.7.3"
-  dependencies:
-    mutation-testing-report-schema: "npm:3.7.3"
-  checksum: 10/8c127a3f2df69b119226182b567ae0fe1da550f200d534ce94df631f2c7d95aa078875f5b80a79ed3341fd2ad2a059882c3bea7059357874de12694d7ef52c53
-  languageName: node
-  linkType: hard
-
 "mutation-testing-metrics@npm:3.8.4":
   version: 3.8.4
   resolution: "mutation-testing-metrics@npm:3.8.4"
   dependencies:
     mutation-testing-report-schema: "npm:3.8.4"
   checksum: 10/3c56fc1377bb2b6661095ec35b6209c19d106d9f9975d8772d4c0ad3fb18599aba1b034a105171f39782ec3154b85cc4612871fa71f4c5526cc778e056842e76
-  languageName: node
-  linkType: hard
-
-"mutation-testing-report-schema@npm:3.7.3":
-  version: 3.7.3
-  resolution: "mutation-testing-report-schema@npm:3.7.3"
-  checksum: 10/c46010cc25ae3647f5afad8d3436096f5ff1cf11b654f1abd8012aa2bf9fee5fdf62f8f2d0529a17f21aa7f49432e4d69aa75ff89b9a18615989856de1379767
   languageName: node
   linkType: hard
 
@@ -27182,7 +27147,7 @@ __metadata:
     "@radix-ui/react-slot": "npm:^1.3.3"
     "@react-email/components": "npm:^1.0.12"
     "@stryker-mutator/core": "npm:^10.0.0"
-    "@stryker-mutator/jest-runner": "npm:^9.6.1"
+    "@stryker-mutator/jest-runner": "npm:^10.0.0"
     "@tanstack/react-query": "npm:^5.101.4"
     "@tanstack/react-table": "npm:^9.0.0"
     "@types/better-sqlite3": "npm:^9.6.0"
@@ -30976,7 +30941,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"semver@npm:^7.3.5, semver@npm:^7.3.7, semver@npm:^7.5.2, semver@npm:^7.5.3, semver@npm:^7.5.4, semver@npm:^7.7.1, semver@npm:^7.7.2, semver@npm:^7.7.3, semver@npm:~7.7.0":
+"semver@npm:^7.3.5, semver@npm:^7.3.7, semver@npm:^7.5.2, semver@npm:^7.5.3, semver@npm:^7.5.4, semver@npm:^7.7.1, semver@npm:^7.7.2, semver@npm:^7.7.3":
   version: 7.7.4
   resolution: "semver@npm:7.7.4"
   bin:
