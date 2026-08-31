@@ -364,7 +364,8 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
   React.useEffect(() => {
     if (!user) return
     let cancelled = false
-    apiCall<PortalOptionsResponse>('/api/warranty_claims/portal/options')
+    const controller = new AbortController()
+    apiCall<PortalOptionsResponse>('/api/warranty_claims/portal/options', { signal: controller.signal })
       .then((result) => {
         if (cancelled) return
         const options = result.result?.ok ? result.result.result : null
@@ -378,6 +379,7 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [user])
 
@@ -387,13 +389,14 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     const timer = window.setTimeout(() => {
       const params = new URLSearchParams({ claimType: 'warranty' })
       const trimmedReason = reasonCode.trim()
       if (trimmedReason) params.set('reasonCode', trimmedReason)
       void apiCall<PortalTroubleshootingResponse>(
         `/api/warranty_claims/portal/troubleshooting?${params.toString()}`,
-        undefined,
+        { signal: controller.signal },
         { fallback: { guide: null } },
       )
         .then((result) => {
@@ -406,6 +409,7 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
     }, 300)
     return () => {
       cancelled = true
+      controller.abort()
       window.clearTimeout(timer)
     }
   }, [reasonCode, user])
@@ -421,9 +425,10 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
   React.useEffect(() => {
     if (!user || currentStep !== 'order' || ordersUnavailable) return
     let cancelled = false
+    const controller = new AbortController()
     setOrdersLoading(true)
     const search = encodeURIComponent(debouncedOrderSearch)
-    apiCall<PortalOrdersResponse>(`/api/warranty_claims/portal/orders?search=${search}&page=1`)
+    apiCall<PortalOrdersResponse>(`/api/warranty_claims/portal/orders?search=${search}&page=1`, { signal: controller.signal })
       .then((result) => {
         if (cancelled) return
         const payload = result.ok ? result.result : null
@@ -447,6 +452,7 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [currentStep, debouncedOrderSearch, ordersUnavailable, user])
 
@@ -460,11 +466,12 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     setOrderLinesLoading(true)
     setOrderLinesUnavailable(false)
     apiCall<PortalOrderLinesResponse>(
       `/api/warranty_claims/portal/orders/lines?orderId=${encodeURIComponent(selectedOrderId)}`,
-    )
+    { signal: controller.signal })
       .then((result) => {
         if (cancelled) return
         const payload = result.ok ? result.result : null
@@ -494,6 +501,7 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [currentStep, selectedOrderId, user])
 

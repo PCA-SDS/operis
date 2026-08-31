@@ -64,10 +64,11 @@ export function useResourcesResourceFormConfig(options: {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadResourceTypes() {
       try {
         const params = new URLSearchParams({ page: '1', pageSize: String(DEFAULT_PAGE_SIZE) })
-        const call = await apiCall<ResourceTypesResponse>(`/api/resources/resource-types?${params.toString()}`)
+        const call = await apiCall<ResourceTypesResponse>(`/api/resources/resource-types?${params.toString()}`, { signal: controller.signal })
         if (!cancelled) {
           const items = Array.isArray(call.result?.items) ? call.result.items : []
           setResourceTypes(items)
@@ -79,7 +80,7 @@ export function useResourcesResourceFormConfig(options: {
       }
     }
     loadResourceTypes()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
 
   React.useEffect(() => {
@@ -90,11 +91,12 @@ export function useResourcesResourceFormConfig(options: {
     if (resourceTypes.some((type) => type.id === selectedId)) return
     const selectedResourceTypeLookupId = selectedId
     let cancelled = false
+    const controller = new AbortController()
     async function loadSelectedResourceType() {
       try {
         const call = await apiCall<ResourceTypesResponse>(
           `/api/resources/resource-types?ids=${encodeURIComponent(selectedResourceTypeLookupId)}&pageSize=1`,
-        )
+        { signal: controller.signal })
         const entry = Array.isArray(call.result?.items) ? call.result.items[0] : null
         const entryId = typeof entry?.id === 'string' ? entry.id : null
         const entryName = typeof entry?.name === 'string' ? entry.name : null
@@ -110,14 +112,15 @@ export function useResourcesResourceFormConfig(options: {
       }
     }
     loadSelectedResourceType()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [resourceTypes, selectedResourceTypeId])
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadCapacityUnitDictionary() {
       try {
-        const call = await apiCall<{ items?: Array<{ id?: string; key?: string; isInherited?: boolean }> }>('/api/dictionaries')
+        const call = await apiCall<{ items?: Array<{ id?: string; key?: string; isInherited?: boolean }> }>('/api/dictionaries', { signal: controller.signal })
         const items = Array.isArray(call.result?.items) ? call.result.items : []
         const matches = items.filter((item) => item?.key === RESOURCES_CAPACITY_UNIT_DICTIONARY_KEY)
         const preferred = matches.find((item) => item?.isInherited === false) ?? matches[0] ?? null
@@ -127,7 +130,7 @@ export function useResourcesResourceFormConfig(options: {
       }
     }
     loadCapacityUnitDictionary()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
 
   const resourceFieldsetByTypeId = React.useMemo(() => {

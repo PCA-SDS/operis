@@ -43,6 +43,7 @@ export default function RolesListPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       try {
@@ -58,7 +59,7 @@ export default function RolesListPage() {
           isSuperAdmin?: boolean
         }>(
           `/api/auth/roles?${params.toString()}`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('auth.roles.list.error.load', 'Failed to load roles'), fallback },
         )
         if (!cancelled) {
@@ -72,7 +73,7 @@ export default function RolesListPage() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [page, search, reloadToken, scopeVersion, t])
 
   const formatRoleName = React.useCallback(

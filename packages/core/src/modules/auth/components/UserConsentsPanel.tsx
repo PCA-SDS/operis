@@ -37,12 +37,14 @@ export function UserConsentsPanel({ userId }: UserConsentsPanelProps) {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setLoading(true)
       setError(null)
       try {
         const { ok, result } = await apiCall<ConsentsResponse>(
           `/api/auth/users/consents?userId=${encodeURIComponent(userId)}`,
+          { signal: controller.signal },
         )
         if (!cancelled) {
           if (!ok) {
@@ -57,7 +59,7 @@ export function UserConsentsPanel({ userId }: UserConsentsPanelProps) {
       if (!cancelled) setLoading(false)
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [userId])
 
   if (loading) {

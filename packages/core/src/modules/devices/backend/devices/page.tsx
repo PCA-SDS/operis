@@ -115,6 +115,7 @@ export default function DevicesAdminListPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       try {
@@ -126,7 +127,7 @@ export default function DevicesAdminListPage() {
         if (platform) params.set('platform', platform)
         if (userId) params.set('userId', userId)
         const fallback: ResponsePayload = { items: [], total: 0, page, totalPages: 1 }
-        const call = await apiCall<ResponsePayload>(`/api/devices/admin/devices?${params.toString()}`, undefined, { fallback })
+        const call = await apiCall<ResponsePayload>(`/api/devices/admin/devices?${params.toString()}`, { signal: controller.signal }, { fallback })
         if (!call.ok) {
           const errorPayload = call.result as { error?: string } | undefined
           const message = typeof errorPayload?.error === 'string' ? errorPayload.error : t('devices.list.error.loadFailed')
@@ -149,7 +150,7 @@ export default function DevicesAdminListPage() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [page, reloadToken, scopeVersion, filterValues, t])
 
   const handleDeactivate = React.useCallback(async (row: Row) => {

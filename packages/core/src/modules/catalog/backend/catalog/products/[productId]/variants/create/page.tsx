@@ -135,6 +135,7 @@ export default function CreateVariantPage({ params }: { params?: { productId?: s
   React.useEffect(() => {
     if (!productId) return
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setLoading(true)
       setError(null)
@@ -142,7 +143,7 @@ export default function CreateVariantPage({ params }: { params?: { productId?: s
       try {
         const res = await apiCall<ProductResponse>(
           `/api/catalog/products?id=${encodeURIComponent(productId!)}&page=1&pageSize=1`,
-        )
+        { signal: controller.signal })
         if (!res.ok) throw new Error(t('catalog.variants.form.errors.load', 'Failed to load product context.'))
         const record = Array.isArray(res.result?.items) ? res.result?.items?.[0] : undefined
         if (!record) {
@@ -205,7 +206,7 @@ export default function CreateVariantPage({ params }: { params?: { productId?: s
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [productId, t])
 
   const groups = React.useMemo<CrudFormGroup[]>(() => {

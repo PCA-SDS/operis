@@ -1,5 +1,5 @@
 import { Collection } from '@mikro-orm/core'
-import { Check, Entity, Index, ManyToOne, OneToMany, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Check, Entity, Index, ManyToOne, OneToMany, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 
 export const INVOICE_DIRECTIONS = ['AR', 'AP'] as const
 export type InvoiceDirection = (typeof INVOICE_DIRECTIONS)[number]

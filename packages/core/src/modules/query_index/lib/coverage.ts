@@ -1,6 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { type Kysely, type Transaction, sql } from 'kysely'
 import { resolveEntityTableName } from '@open-mercato/shared/lib/query/engine'
+import { tableHasColumn, primeTableColumns } from '@open-mercato/shared/lib/query/schema-presence'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 const logger = createLogger('query_index').child({ component: 'coverage' })
@@ -54,13 +55,6 @@ export type CoverageDeltaInput = {
   vectorDelta?: number
 }
 
-const COLUMN_CACHE = new Map<string, boolean>()
-// In-flight de-dup: without this, N concurrent `tableHasColumn` callers for the same
-// (table, column) — e.g. every entity type's `refreshCoverageSnapshot` asking about
-// `vector_search.entity_id` — would each see a cold cache and fire their own identical
-// `information_schema.columns` query, since the cache is only populated after a query
-// resolves. Tracking the in-flight promise lets late arrivals await the first one instead.
-const COLUMN_CACHE_PENDING = new Map<string, Promise<boolean>>()
 const GLOBAL_ORGANIZATION_PLACEHOLDER = '00000000-0000-0000-0000-000000000000'
 export const COVERAGE_ORG_PLACEHOLDER = GLOBAL_ORGANIZATION_PLACEHOLDER
 
@@ -307,88 +301,29 @@ async function deleteCoverageScope(db: Kysely<any>, scope: CoverageScope): Promi
   await applyOrganizationCondition(query as any, 'organization_id', organizationId ?? null).execute()
 }
 
-async function tableHasColumn(db: Kysely<any>, table: string, column: string): Promise<boolean> {
-  const key = `${table}.${column}`
-  if (COLUMN_CACHE.has(key)) return COLUMN_CACHE.get(key)!
-  const pending = COLUMN_CACHE_PENDING.get(key)
-  if (pending) return pending
-  const promise = (async () => {
-    const exists = await db
-      .selectFrom('information_schema.columns' as any)
-      .select(sql<number>`1`.as('present'))
-      .where(sql<boolean>`table_schema = current_schema()`)
-      .where('table_name' as any, '=', table)
-      .where('column_name' as any, '=', column)
-      .executeTakeFirst()
-    const present = !!exists
-    COLUMN_CACHE.set(key, present)
-    return present
-  })()
-  COLUMN_CACHE_PENDING.set(key, promise)
-  try {
-    return await promise
-  } finally {
-    COLUMN_CACHE_PENDING.delete(key)
-  }
-}
-
 export type ColumnCheck = { table: string; column: string }
 
-// Batches the `information_schema.columns` introspection used by `refreshCoverageSnapshot`
-// into a single query for a whole set of (table, column) pairs, and pre-populates
-// `COLUMN_CACHE_PENDING` for every pair before that query even runs. Callers of
-// `coverage_warmup.ts` use this so its many concurrently-dispatched `coverage.refresh`
-// subscribers hit an already-primed (or in-flight) cache instead of each doing their own
-// per-table introspection round trip.
+/**
+ * Warms the shared schema-presence cache for a set of (table, column) checks in one query.
+ *
+ * Kept as a thin adapter over `primeTableColumns` so `coverage_warmup.ts` and its tests keep
+ * their `ColumnCheck[]` vocabulary. The underlying cache is per table rather than per
+ * (table, column), so the `column` half of each check now only tells us which tables to warm —
+ * one primed table then answers every column question about it, including the ones the query
+ * engines ask moments later on the same connection.
+ */
 export async function primeColumnCache(db: Kysely<any>, checks: ColumnCheck[]): Promise<void> {
-  const missing: Array<{ table: string; column: string; key: string }> = []
-  const seen = new Set<string>()
+  const tables: string[] = []
   for (const check of checks) {
     const table = String(check?.table || '')
     const column = String(check?.column || '')
+    // A check missing either half was never a valid probe; skip it as the pair-keyed
+    // implementation did rather than warming a table on the strength of half a check.
     if (!table || !column) continue
-    const key = `${table}.${column}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    if (COLUMN_CACHE.has(key) || COLUMN_CACHE_PENDING.has(key)) continue
-    missing.push({ table, column, key })
+    tables.push(table)
   }
-  if (!missing.length) return
-
-  const tables = Array.from(new Set(missing.map((entry) => entry.table)))
-  const columns = Array.from(new Set(missing.map((entry) => entry.column)))
-
-  const batchPromise = (async (): Promise<Set<string>> => {
-    const rows = await db
-      .selectFrom('information_schema.columns' as any)
-      .select(['table_name' as any, 'column_name' as any])
-      .where(sql<boolean>`table_schema = current_schema()`)
-      .where('table_name' as any, 'in', tables)
-      .where('column_name' as any, 'in', columns)
-      .execute() as Array<{ table_name: string; column_name: string }>
-    return new Set(rows.map((row) => `${row.table_name}.${row.column_name}`))
-  })()
-
-  for (const entry of missing) {
-    const entryPromise = batchPromise.then((present) => {
-      const value = present.has(entry.key)
-      COLUMN_CACHE.set(entry.key, value)
-      return value
-    })
-    // Mark the stored promise as handled: when the batch query fails and no
-    // `tableHasColumn` caller has adopted this entry yet (the common case — the warmup
-    // awaits priming before dispatching any refresh), an orphaned rejection would
-    // otherwise crash a plain-Node event worker via unhandledRejection. Awaiting
-    // callers still observe the rejection through the stored reference.
-    entryPromise.catch(() => undefined)
-    COLUMN_CACHE_PENDING.set(entry.key, entryPromise)
-  }
-
-  try {
-    await batchPromise
-  } finally {
-    for (const entry of missing) COLUMN_CACHE_PENDING.delete(entry.key)
-  }
+  if (!tables.length) return
+  await primeTableColumns(db, tables)
 }
 
 export async function refreshCoverageSnapshot(

@@ -59,15 +59,16 @@ export function NotificationUserPreferencesAdminPageClient() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     ;(async () => {
       setTypesLoading(true)
       try {
         const [body, channelsBody] = await Promise.all([
-          readApiResultOrThrow<TypesResponse>('/api/notifications/types', undefined, {
+          readApiResultOrThrow<TypesResponse>('/api/notifications/types', { signal: controller.signal }, {
             errorMessage: t('notifications.preferences.loadError', 'Failed to load notification preferences'),
             allowNullResult: true,
           }),
-          readApiResultOrThrow<ChannelsResponse>('/api/notifications/channels', undefined, {
+          readApiResultOrThrow<ChannelsResponse>('/api/notifications/channels', { signal: controller.signal }, {
             errorMessage: t('notifications.preferences.loadError', 'Failed to load notification preferences'),
             allowNullResult: true,
           }),
@@ -82,7 +83,7 @@ export function NotificationUserPreferencesAdminPageClient() {
         if (!cancelled) setTypesLoading(false)
       }
     })()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [t])
 
   // Async user lookup for LookupSelect. Devices admins may lack auth.users.list; degrade to no

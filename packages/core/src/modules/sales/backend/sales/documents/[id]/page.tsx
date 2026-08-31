@@ -2614,12 +2614,13 @@ export default function SalesDocumentDetailPage({
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     async function loadGuards() {
       try {
         const call = await apiCall<{
           orderCustomerEditableStatuses?: unknown
           orderAddressEditableStatuses?: unknown
-        }>('/api/sales/settings/order-editing')
+        }>('/api/sales/settings/order-editing', { signal: controller.signal })
         if (!call.ok || cancelled) return
         setEditingGuards({
           customer: normalizeGuardList(call.result?.orderCustomerEditableStatuses ?? null),
@@ -2632,6 +2633,7 @@ export default function SalesDocumentDetailPage({
     void loadGuards()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [kind, normalizeGuardList, scopeVersion])
 

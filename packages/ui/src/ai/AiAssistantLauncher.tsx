@@ -235,9 +235,10 @@ export function AiAssistantLauncher({
     if (deepLinkHandledRef.current === deepLinkConversationId) return
     deepLinkHandledRef.current = deepLinkConversationId
     let cancelled = false
+    const controller = new AbortController()
     apiCall<{ conversation: { agentId: string } }>(
       `/api/ai_assistant/ai/conversations/${deepLinkConversationId}`,
-      { headers: { 'x-om-forbidden-redirect': '0', 'x-om-unauthorized-redirect': '0' } },
+      { signal: controller.signal, headers: { 'x-om-forbidden-redirect': '0', 'x-om-unauthorized-redirect': '0' } },
     )
       .then((res) => {
         if (cancelled || !res.ok || !res.result) return
@@ -253,6 +254,7 @@ export function AiAssistantLauncher({
       .catch(() => undefined)
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [deepLinkConversationId, agentsLoaded, agents, router, pathname])
 
@@ -268,7 +270,9 @@ export function AiAssistantLauncher({
   React.useEffect(() => {
     if (skipHealthCheck) return
     let cancelled = false
+    const controller = new AbortController()
     apiCall<HealthResponse>(healthEndpoint, {
+      signal: controller.signal,
       credentials: 'same-origin',
       headers: { 'x-om-forbidden-redirect': '0', 'x-om-unauthorized-redirect': '0' },
     })
@@ -295,6 +299,7 @@ export function AiAssistantLauncher({
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [healthEndpoint, skipHealthCheck])
 
@@ -307,7 +312,9 @@ export function AiAssistantLauncher({
   React.useEffect(() => {
     if (agentsLoaded) return
     let cancelled = false
+    const controller = new AbortController()
     apiCall<AgentsResponse>(agentsEndpoint, {
+      signal: controller.signal,
       credentials: 'same-origin',
       headers: { 'x-om-forbidden-redirect': '0', 'x-om-unauthorized-redirect': '0' },
     })
@@ -339,6 +346,7 @@ export function AiAssistantLauncher({
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [agentsEndpoint, agentsLoaded])
 

@@ -236,11 +236,13 @@ export function CustomerAddressTiles({
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadFormat() {
       setFormatLoading(true)
       try {
         const call = await apiCall<{ addressFormat?: string; error?: string }>(
           '/api/customers/settings/address-format',
+          { signal: controller.signal },
         )
         const payload = (call.result ?? {}) as Record<string, unknown>
         if (!call.ok) {
@@ -273,6 +275,7 @@ export function CustomerAddressTiles({
     loadFormat().catch(() => {})
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [scopeVersion, t])
 

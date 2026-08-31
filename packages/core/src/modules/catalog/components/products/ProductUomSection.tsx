@@ -146,13 +146,14 @@ export function ProductUomSection({
 
   React.useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     async function loadUnits() {
       setLoadingUnits(true);
       setErrorLoadingUnits(false);
       try {
         const response = await apiCall<UnitDictionaryResponse>(
           "/api/catalog/dictionaries/unit",
-          undefined,
+          { signal: controller.signal },
           { fallback: { entries: [] } },
         );
         if (cancelled) return;
@@ -168,7 +169,8 @@ export function ProductUomSection({
     }
     void loadUnits();
     return () => {
-      cancelled = true;
+      cancelled = true
+      controller.abort();;
     };
   }, []);
 

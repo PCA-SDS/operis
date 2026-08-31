@@ -12,8 +12,12 @@
       "yarn build:packages",
       "yarn i18n:check-sync",
       "yarn i18n:check-usage",
+      "yarn lint",
+      "yarn test:repo-wide-guards",
+      "yarn test:scripts",
+      "yarn check:time-bombs:fail",
       "yarn typecheck",
-      "yarn test",
+      "yarn test:ci",
       "yarn build:app"
     ]
   },

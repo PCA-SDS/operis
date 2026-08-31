@@ -92,9 +92,10 @@ export default function CustomerDomainSettingsPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadOrgs() {
       try {
-        const call = await apiCall<OrgSwitcherResponse>('/api/directory/organization-switcher')
+        const call = await apiCall<OrgSwitcherResponse>('/api/directory/organization-switcher', { signal: controller.signal })
         if (cancelled) return
         if (!call.ok || !call.result) {
           setOrgOptions([])
@@ -117,6 +118,7 @@ export default function CustomerDomainSettingsPage() {
     loadOrgs()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [])
 
@@ -129,11 +131,13 @@ export default function CustomerDomainSettingsPage() {
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setLoadState(STATE_LOADING)
       try {
         const call = await apiCall<DomainListResponse>(
           `/api/customer_accounts/admin/domain-mappings?organizationId=${encodeURIComponent(selectedOrgId!)}`,
+          { signal: controller.signal },
         )
         if (cancelled) return
         if (!call.ok || !call.result?.ok) {
@@ -150,6 +154,7 @@ export default function CustomerDomainSettingsPage() {
     load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [orgsLoaded, selectedOrgId, reloadToken])
 

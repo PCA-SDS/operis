@@ -168,6 +168,7 @@ export default function EditEudrEvidenceSubmissionPage({ params }: { params?: { 
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadRecord() {
       if (!submissionId) {
         setNotFound(true)
@@ -180,7 +181,7 @@ export default function EditEudrEvidenceSubmissionPage({ params }: { params?: { 
       try {
         const call = await apiCall<EvidenceSubmissionDetailResponse>(
           `/api/eudr/evidence-submissions?id=${encodeURIComponent(submissionId)}`,
-          undefined,
+          { signal: controller.signal },
           { fallback: { items: [] } },
         )
         if (!call.ok) {
@@ -205,6 +206,7 @@ export default function EditEudrEvidenceSubmissionPage({ params }: { params?: { 
     loadRecord()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [submissionId, translate])
 

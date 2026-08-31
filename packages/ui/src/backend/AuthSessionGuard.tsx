@@ -54,6 +54,7 @@ export function AuthSessionGuard({ serverUserId }: AuthSessionGuardProps) {
     if (typeof window === 'undefined') return
     purgePerspectiveStateOnIdentityChange(serverUserId)
     let cancelled = false
+    const controller = new AbortController()
     let reloadScheduled = false
 
     const triggerReload = () => {
@@ -66,6 +67,7 @@ export function AuthSessionGuard({ serverUserId }: AuthSessionGuardProps) {
       if (cancelled || reloadScheduled) return
       try {
         const res = await apiCall<FeatureCheckResponse>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ features: [] }),
@@ -111,6 +113,7 @@ export function AuthSessionGuard({ serverUserId }: AuthSessionGuardProps) {
 
     return () => {
       cancelled = true
+      controller.abort()
       window.removeEventListener('focus', onVisibilityOrFocus)
       document.removeEventListener('visibilitychange', onVisibilityOrFocus)
       window.removeEventListener('storage', onStorage)

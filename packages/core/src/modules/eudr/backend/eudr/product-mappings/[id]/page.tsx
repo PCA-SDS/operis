@@ -75,6 +75,7 @@ export default function EditEudrProductMappingPage({ params }: { params?: { id?:
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadRecord() {
       if (!mappingId) {
         setNotFound(true)
@@ -87,7 +88,7 @@ export default function EditEudrProductMappingPage({ params }: { params?: { id?:
       try {
         const call = await apiCall<ProductMappingDetailResponse>(
           `/api/eudr/product-mappings?id=${encodeURIComponent(mappingId)}`,
-          undefined,
+          { signal: controller.signal },
           { fallback: { items: [] } },
         )
         if (!call.ok) {
@@ -111,6 +112,7 @@ export default function EditEudrProductMappingPage({ params }: { params?: { id?:
     loadRecord()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [mappingId, translate])
 

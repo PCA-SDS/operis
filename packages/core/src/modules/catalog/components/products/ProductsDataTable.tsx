@@ -574,6 +574,7 @@ export default function ProductsDataTable({
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setCacheStatus(null)
@@ -581,7 +582,7 @@ export default function ProductsDataTable({
         const fallback: ProductsResponse = { items: [], total: 0, totalPages: 1 }
         const call = await apiCall<ProductsResponse>(
           `/api/catalog/products?${queryParams}`,
-          undefined,
+          { signal: controller.signal },
           { fallback },
         )
         if (!call.ok) {
@@ -614,6 +615,7 @@ export default function ProductsDataTable({
     load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [queryParams, reloadToken, scopeVersion, t])
 

@@ -136,13 +136,14 @@ export default function WarrantyTroubleshootingGuidesPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadGuides() {
       setLoading(true)
       try {
         const fallback: TroubleshootingGuidesResponse = { items: [], total: 0, totalPages: 1 }
         const call = await apiCall<TroubleshootingGuidesResponse>(
           `/api/warranty_claims/troubleshooting-guides?${listQueryString}`,
-          undefined,
+          { signal: controller.signal },
           { fallback },
         )
         if (!call.ok) {
@@ -169,6 +170,7 @@ export default function WarrantyTroubleshootingGuidesPage() {
     void loadGuides()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [listQueryString, reloadToken, scopeVersion, t])
 

@@ -34,12 +34,14 @@ export default function StaffMyAvailabilityPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setError(null)
       try {
-        const memberCall = await apiCall<SelfMemberResponse>('/api/staff/team-members/self')
+        const memberCall = await apiCall<SelfMemberResponse>('/api/staff/team-members/self', { signal: controller.signal })
         const featureCall = await apiCall<FeatureCheckResponse>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
@@ -69,7 +71,7 @@ export default function StaffMyAvailabilityPage() {
       }
     }
     void load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [t])
 
   if (isLoading) {

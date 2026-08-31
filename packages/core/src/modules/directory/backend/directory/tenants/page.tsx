@@ -73,9 +73,11 @@ export default function DirectoryTenantsPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadFeature() {
       try {
         const call = await apiCall<{ ok?: boolean; granted?: string[] }>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ features: ['directory.tenants.manage'] }),
@@ -89,7 +91,7 @@ export default function DirectoryTenantsPage() {
       }
     }
     loadFeature()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [])
 
   const queryParams = React.useMemo(() => {

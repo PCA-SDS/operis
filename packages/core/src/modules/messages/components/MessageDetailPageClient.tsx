@@ -167,8 +167,10 @@ export function MessageDetailPageClient({ id }: { id: string }) {
   const [userFeatures, setUserFeatures] = React.useState<string[]>([])
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     void (async () => {
       const res = await apiCall<{ ok: boolean; granted?: string[] }>('/api/auth/feature-check', {
+        signal: controller.signal,
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ features: ['communication_channels.assign'] }),
@@ -179,6 +181,7 @@ export function MessageDetailPageClient({ id }: { id: string }) {
     })()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [])
   const [activeInlineComposer, setActiveInlineComposer] = React.useState<{

@@ -30,6 +30,7 @@ export default function EditWarrantyVendorPolicyPage({ params }: { params?: { id
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadPolicy() {
       setLoading(true)
       setError(null)
@@ -37,7 +38,7 @@ export default function EditWarrantyVendorPolicyPage({ params }: { params?: { id
       try {
         const payload = await readApiResultOrThrow<{ items?: unknown[] }>(
           `/api/warranty_claims/vendor-policies?ids=${encodeURIComponent(id)}&page=1&pageSize=1`,
-          undefined,
+          { signal: controller.signal },
           {
             fallback: { items: [] },
             errorMessage: t('warranty_claims.vendorPolicies.edit.error.load', 'Failed to load vendor policy.'),
@@ -68,6 +69,7 @@ export default function EditWarrantyVendorPolicyPage({ params }: { params?: { id
     if (id) void loadPolicy()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [id, t])
 

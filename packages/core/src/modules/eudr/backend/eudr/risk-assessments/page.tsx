@@ -140,13 +140,14 @@ export default function EudrRiskAssessmentsPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadRows() {
       setLoading(true)
       try {
         const fallback: RiskAssessmentsResponse = { items: [], total: 0, totalPages: 1 }
         const call = await apiCall<RiskAssessmentsResponse>(
           `/api/eudr/risk-assessments?${queryParams}`,
-          undefined,
+          { signal: controller.signal },
           { fallback },
         )
         if (!call.ok) {
@@ -167,6 +168,7 @@ export default function EudrRiskAssessmentsPage() {
     loadRows()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [queryParams, reloadToken, scopeVersion, translate])
 

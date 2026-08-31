@@ -1,26 +1,29 @@
 import { primeColumnCache } from '../lib/coverage'
 
+// The cache is keyed per TABLE, not per (table, column): one introspection returns every
+// column a table has, and that entry then answers every column question about it. So the stub
+// filters on `table_name` only and replies with each requested table's full column list.
 function makeInfoSchemaDb(existingColumns: Set<string>) {
-  const queries: Array<{ tables: string[]; columns: string[] }> = []
+  const queries: Array<{ tables: string[] }> = []
 
   function build() {
-    const filter: { tables: string[]; columns: string[] } = { tables: [], columns: [] }
+    const filter: { tables: string[] } = { tables: [] }
     const chain: Record<string, unknown> = {
       select: () => chain,
-      where: (col: unknown, op: unknown, val: unknown) => {
+      where: (col: unknown, _op: unknown, val: unknown) => {
         if (col === 'table_name') filter.tables = Array.isArray(val) ? (val as string[]) : [String(val)]
-        if (col === 'column_name') filter.columns = Array.isArray(val) ? (val as string[]) : [String(val)]
         return chain
       },
       execute: async () => {
-        queries.push({ tables: [...filter.tables], columns: [...filter.columns] })
-        const rows: Array<{ table_name: string; column_name: string }> = []
-        for (const t of filter.tables) {
-          for (const c of filter.columns) {
-            if (existingColumns.has(`${t}.${c}`)) rows.push({ table_name: t, column_name: c })
-          }
-        }
-        return rows
+        queries.push({ tables: [...filter.tables] })
+        const wanted = new Set(filter.tables)
+        return Array.from(existingColumns)
+          .map((key) => {
+            const separator = key.lastIndexOf('.')
+            return { table_name: key.slice(0, separator), column_name: key.slice(separator + 1) }
+          })
+          .filter((row) => wanted.has(row.table_name))
+          .map((row) => ({ ...row, data_type: 'text' }))
       },
     }
     return chain
@@ -66,7 +69,7 @@ describe('query_index lib/coverage column cache', () => {
 
     await primeColumnCache(db as any, [{ table: tableA, column: 'tenant_id' }])
     expect(queries).toHaveLength(1)
-    expect(queries[0].columns).toEqual(['tenant_id'])
+    expect(queries[0].tables).toEqual([tableA])
 
     await primeColumnCache(db as any, [
       { table: tableA, column: 'tenant_id' },

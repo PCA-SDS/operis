@@ -52,9 +52,10 @@ export default function EditRolePage({ params }: { params?: { id?: string } }) {
     if (!id) return
     const roleId = id
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       try {
-        const { ok, result } = await apiCall<RoleListResponse>(`/api/auth/roles?id=${encodeURIComponent(roleId)}`)
+        const { ok, result } = await apiCall<RoleListResponse>(`/api/auth/roles?id=${encodeURIComponent(roleId)}`, { signal: controller.signal })
         if (!ok) throw new Error(t('auth.roles.form.errors.load', 'Failed to load role'))
         const foundList = Array.isArray(result?.items) ? result?.items : []
         const found = (foundList?.[0] ?? null) as RoleRecord | null
@@ -73,7 +74,7 @@ export default function EditRolePage({ params }: { params?: { id?: string } }) {
       if (!cancelled) setLoading(false)
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [id, t])
 
   const preloadedTenants = React.useMemo(() => {

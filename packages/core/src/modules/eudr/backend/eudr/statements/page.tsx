@@ -116,13 +116,14 @@ export default function EudrStatementsPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadRows() {
       setLoading(true)
       try {
         const fallback: StatementsResponse = { items: [], total: 0, totalPages: 1 }
         const call = await apiCall<StatementsResponse>(
           `/api/eudr/statements?${queryParams}`,
-          undefined,
+          { signal: controller.signal },
           { fallback },
         )
         if (!call.ok) {
@@ -143,6 +144,7 @@ export default function EudrStatementsPage() {
     loadRows()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [queryParams, reloadToken, scopeVersion, translate])
 

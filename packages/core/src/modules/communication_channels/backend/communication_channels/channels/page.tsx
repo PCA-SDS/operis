@@ -47,12 +47,13 @@ export default function ChannelsListPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setErrorMessage(null)
       const response = await apiCall<ChannelListResponse>(
         `/api/communication_channels/channels?page=${page}&pageSize=${pageSize}`,
-      ).catch((err: unknown) => {
+      { signal: controller.signal }).catch((err: unknown) => {
         return {
           ok: false,
           result: { error: err instanceof Error ? err.message : 'Failed to load channels' },
@@ -78,6 +79,7 @@ export default function ChannelsListPage() {
     void load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [page, reloadToken, t])
 

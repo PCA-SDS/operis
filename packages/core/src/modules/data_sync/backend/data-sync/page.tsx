@@ -176,6 +176,7 @@ export default function SyncRunsDashboardPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       const params = new URLSearchParams()
@@ -187,7 +188,7 @@ export default function SyncRunsDashboardPage() {
       const fallback: ResponsePayload = { items: [], total: 0, page, totalPages: 1 }
       const call = await apiCall<ResponsePayload>(
         `/api/data_sync/runs?${params.toString()}`,
-        undefined,
+        { signal: controller.signal },
         { fallback },
       )
       if (!call.ok) {
@@ -204,15 +205,16 @@ export default function SyncRunsDashboardPage() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [page, filterValues, search, reloadToken, scopeVersion, t])
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadOptions() {
       setIsLoadingOptions(true)
       const fallback: SyncOptionsResponse = { items: [] }
-      const call = await apiCall<SyncOptionsResponse>('/api/data_sync/options', undefined, { fallback })
+      const call = await apiCall<SyncOptionsResponse>('/api/data_sync/options', { signal: controller.signal }, { fallback })
       if (!cancelled) {
         if (!call.ok) {
           flash(t('data_sync.dashboard.loadError'), 'error')
@@ -232,7 +234,7 @@ export default function SyncRunsDashboardPage() {
     }
 
     void loadOptions()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [scopeVersion, t])
 
   const selectedIntegration = React.useMemo(
@@ -287,6 +289,7 @@ export default function SyncRunsDashboardPage() {
 
     const currentIntegration = selectedIntegration
     let cancelled = false
+    const controller = new AbortController()
     async function loadSchedule() {
       setIsLoadingSchedule(true)
       const integrationId = currentIntegration.integrationId
@@ -298,7 +301,7 @@ export default function SyncRunsDashboardPage() {
         pageSize: '1',
       })
       const fallback: SyncSchedulesResponse = { items: [] }
-      const call = await apiCall<SyncSchedulesResponse>(`/api/data_sync/schedules?${params.toString()}`, undefined, { fallback })
+      const call = await apiCall<SyncSchedulesResponse>(`/api/data_sync/schedules?${params.toString()}`, { signal: controller.signal }, { fallback })
 
       if (cancelled) return
 
@@ -329,7 +332,7 @@ export default function SyncRunsDashboardPage() {
     }
 
     void loadSchedule()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [selectedDirection, selectedEntityType, selectedIntegration, scopeVersion])
 
   const updateScheduleEditor = React.useCallback((changes: Partial<SyncScheduleEditorState>) => {

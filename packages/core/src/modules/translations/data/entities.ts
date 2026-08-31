@@ -1,4 +1,4 @@
-import { Entity, Index, PrimaryKey, Property } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, PrimaryKey, Property } from '@open-mercato/shared/lib/db/decorators'
 
 @Entity({ tableName: 'entity_translations' })
 @Index({ name: 'entity_translations_type_tenant_idx', properties: ['entityType', 'tenantId'] })

@@ -24,8 +24,17 @@ function makeEm(options: {
   const respond = (compiled: CompiledQuery): unknown[] => {
     const text = compiled.sql
     if (text.includes('information_schema')) {
-      const column = String(compiled.parameters[compiled.parameters.length - 1] ?? '')
-      return options.columns.includes(column) ? [{ present: 1 }] : []
+      // Column presence is introspected a table at a time (see
+      // `@open-mercato/shared/lib/query/schema-presence`), so the parameters carry the table
+      // name and the answer is one row per column that table has — not a single present/absent
+      // flag for one column.
+      const requested = compiled.parameters.map((parameter) => String(parameter ?? ''))
+      if (!requested.includes(options.table)) return []
+      return options.columns.map((column) => ({
+        table_name: options.table,
+        column_name: column,
+        data_type: 'text',
+      }))
     }
     if (text.includes('from "entity_indexes"')) return [{ count: options.indexCount }]
     if (text.includes(`from "${options.table}"`)) return [{ count: options.baseCount }]

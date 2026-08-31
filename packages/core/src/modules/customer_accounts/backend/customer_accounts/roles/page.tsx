@@ -74,13 +74,14 @@ export default function CustomerRolesPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       try {
         const fallback: RolesResponse = { items: [], total: 0, totalPages: 1 }
         const payload = await readApiResultOrThrow<RolesResponse>(
           `/api/customer_accounts/admin/roles?${queryParams}`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('customer_accounts.admin.roles.error.load', 'Failed to load roles'), fallback },
         )
         if (cancelled) return
@@ -98,7 +99,7 @@ export default function CustomerRolesPage() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [queryParams, reloadToken, t])
 
   const handleDelete = React.useCallback(async (role: RoleRow) => {

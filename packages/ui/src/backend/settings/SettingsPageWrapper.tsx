@@ -26,6 +26,7 @@ export function SettingsPageWrapper({
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadFeatures() {
       if (requiredFeatures.length === 0) {
         setUserFeatures(new Set())
@@ -34,6 +35,7 @@ export function SettingsPageWrapper({
       }
       try {
         const call = await apiCall<FeatureCheckResponse>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ features: requiredFeatures }),
@@ -53,6 +55,7 @@ export function SettingsPageWrapper({
     loadFeatures()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [requiredFeatures])
 

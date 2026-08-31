@@ -202,6 +202,7 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
     if (!memberId) return
     const memberIdValue = memberId
     let cancelled = false
+    const controller = new AbortController()
     async function loadMember() {
       if (!cancelled) {
         setError(null)
@@ -211,7 +212,7 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
         const params = new URLSearchParams({ page: '1', pageSize: '1', ids: memberIdValue })
         const payload = await readApiResultOrThrow<TeamMemberResponse>(
           `/api/staff/team-members?${params.toString()}`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('staff.teamMembers.form.errors.load', 'Failed to load team member.') },
         )
         const record = Array.isArray(payload.items) ? payload.items[0] : null
@@ -260,7 +261,7 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
       }
     }
     void loadMember()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [memberId, t])
 
   React.useEffect(() => {

@@ -63,16 +63,17 @@ export default function EditOrganizationPage({ params }: { params?: { id?: strin
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadActor() {
       try {
-        const { ok, result } = await apiCall<{ isSuperAdmin?: boolean }>('/api/auth/roles?page=1&pageSize=1')
+        const { ok, result } = await apiCall<{ isSuperAdmin?: boolean }>('/api/auth/roles?page=1&pageSize=1', { signal: controller.signal })
         if (!cancelled && ok) setActorIsSuperAdmin(Boolean(result?.isSuperAdmin))
       } catch {
         if (!cancelled) setActorIsSuperAdmin(false)
       }
     }
     loadActor()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [])
 
   const markSelectable = React.useCallback((nodes: OrganizationTreeNode[], excluded: Set<string>): OrganizationTreeNode[] => (
@@ -111,6 +112,7 @@ export default function EditOrganizationPage({ params }: { params?: { id?: strin
     if (!orgId) return
     const currentOrgId = orgId
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setLoading(true)
       setError(null)
@@ -118,7 +120,7 @@ export default function EditOrganizationPage({ params }: { params?: { id?: strin
       try {
         const { ok, status, result } = await apiCall<OrganizationResponse>(
           `/api/directory/organizations?view=manage&ids=${currentOrgId}&status=all&includeInactive=true&page=1&pageSize=1`,
-        )
+        { signal: controller.signal })
         if (!ok) {
           if (status === 404) {
             if (!cancelled) setIsNotFound(true)
@@ -173,7 +175,7 @@ export default function EditOrganizationPage({ params }: { params?: { id?: strin
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [loadParentTree, orgId, t])
 
   React.useEffect(() => {

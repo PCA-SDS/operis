@@ -90,9 +90,11 @@ export default function TimesheetProjectDetailPage({ params }: { params?: { id?:
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     void (async () => {
       try {
         const res = await apiCall<{ ok: boolean; granted: string[] }>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ features: ['staff.timesheets.projects.manage'] }),
@@ -104,7 +106,7 @@ export default function TimesheetProjectDetailPage({ params }: { params?: { id?:
         // default: no manage access
       }
     })()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [])
 
   const [addDialogOpen, setAddDialogOpen] = React.useState(false)
@@ -120,6 +122,7 @@ export default function TimesheetProjectDetailPage({ params }: { params?: { id?:
   React.useEffect(() => {
     if (!projectId) return
     let cancelled = false
+    const controller = new AbortController()
     async function loadProject() {
       setLoading(true)
       setError(null)
@@ -128,7 +131,7 @@ export default function TimesheetProjectDetailPage({ params }: { params?: { id?:
         const queryParams = new URLSearchParams({ page: '1', pageSize: '1', ids: projectId! })
         const payload = await readApiResultOrThrow<ProjectResponse>(
           `/api/staff/timesheets/time-projects?${queryParams.toString()}`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('staff.timesheets.projects.errors.load', 'Failed to load project.') },
         )
         const record = Array.isArray(payload.items) ? payload.items[0] : null
@@ -146,7 +149,7 @@ export default function TimesheetProjectDetailPage({ params }: { params?: { id?:
       }
     }
     loadProject()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [projectId, t, scopeVersion])
 
   // --- Load employees with name resolution ---

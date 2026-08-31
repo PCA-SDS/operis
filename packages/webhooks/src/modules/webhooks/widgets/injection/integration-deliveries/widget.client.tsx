@@ -76,6 +76,7 @@ export default function IntegrationDeliveriesWidget(_props: InjectionWidgetCompo
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
 
     async function loadDeliveries() {
       setIsLoading(true)
@@ -89,7 +90,7 @@ export default function IntegrationDeliveriesWidget(_props: InjectionWidgetCompo
 
         const call = await apiCall<DeliveryResponse>(
           `/api/webhooks/deliveries?${params.toString()}`,
-          undefined,
+          { signal: controller.signal },
           {
             fallback: {
               items: [],
@@ -119,6 +120,7 @@ export default function IntegrationDeliveriesWidget(_props: InjectionWidgetCompo
 
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [page, refreshToken, status, t])
 

@@ -24,10 +24,11 @@ export default function StaffTeamRoleCreatePage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadTeams() {
       try {
         const params = new URLSearchParams({ page: '1', pageSize: '100' })
-        const call = await apiCall<TeamsResponse>(`/api/staff/teams?${params.toString()}`)
+        const call = await apiCall<TeamsResponse>(`/api/staff/teams?${params.toString()}`, { signal: controller.signal })
         const items = Array.isArray(call.result?.items) ? call.result.items : []
         const options = items
           .map((team) => {
@@ -43,7 +44,7 @@ export default function StaffTeamRoleCreatePage() {
       }
     }
     loadTeams()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
 
   const handleSubmit = React.useCallback(async (values: TeamRoleFormValues) => {

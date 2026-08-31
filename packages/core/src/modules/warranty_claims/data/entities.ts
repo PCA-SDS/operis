@@ -7,7 +7,7 @@ import {
   PrimaryKey,
   Property,
   Unique,
-} from '@mikro-orm/decorators/legacy'
+} from '@open-mercato/shared/lib/db/decorators'
 import type {
   WarrantyClaimChannel,
   WarrantyClaimDisposition,
