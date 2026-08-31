@@ -69,6 +69,10 @@ export const REPO_WIDE_GUARDS = [
         scans: 'every packages/*/src root — duplicated alert icons',
       },
       {
+        path: 'src/__tests__/list-load-request-cancellation.test.ts',
+        scans: 'every tracked .ts/.tsx across packages/ and apps/ — load effects that guard with a cancelled flag but never abort the request',
+      },
+      {
         path: 'src/__tests__/auth-onboarding-feedback-ds-tokens.test.ts',
         scans: 'packages/core and packages/onboarding frontends — hardcoded status colors (#3165)',
       },
@@ -169,6 +173,10 @@ export const REPO_WIDE_GUARDS = [
       {
         path: 'src/modules/__tests__/cli-registry-boundary.test.ts',
         scans: 'packages/ and apps/ — runtime files reading the CLI-only module registry',
+      },
+      {
+        path: 'src/lib/db/__tests__/entity-decorator-boundary.test.ts',
+        scans: 'packages/ and apps/ — entity decorators imported from @mikro-orm/decorators instead of the shim that pins the TC39 flavour and patches its @Index inheritance and column-name defects',
       },
     ],
   },
