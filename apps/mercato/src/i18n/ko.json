@@ -48,6 +48,7 @@
   "appShell.closeMenu": "메뉴 닫기",
   "appShell.customizeSidebar": "사이드바 사용자 지정",
   "appShell.goToDashboard": "대시보드로 이동",
+  "appShell.loadingNavigation": "탐색 메뉴 불러오는 중",
   "appShell.mainNavAria": "기본 탐색",
   "appShell.moreActions": "추가 작업",
   "appShell.openMenu": "메뉴 열기",
