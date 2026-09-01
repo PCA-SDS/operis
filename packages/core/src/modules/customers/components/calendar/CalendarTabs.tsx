@@ -31,6 +31,9 @@ function ScopeLabel({ label, count }: { label: string; count: number }) {
  * segmented control exists for — and not `Tabs`, which would additionally
  * promise a `tabpanel` per option. The Day/Week/Month/Agenda switcher lives in
  * the navigation bar, next to the date it is switching the shape of.
+ *
+ * Left at its `default` size so it stands 36px like everything else on the two
+ * chrome rows — see the chrome-height note on `CalendarHeader`.
  */
 export function CalendarTabs({ tab, counts, onTabChange }: CalendarTabsProps) {
   const t = useT()
@@ -42,7 +45,6 @@ export function CalendarTabs({ tab, counts, onTabChange }: CalendarTabsProps) {
     <div className="-my-1 min-w-0 max-w-full overflow-x-auto py-1 scrollbar-hide">
       <SegmentedControl
         value={tab}
-        size="sm"
         onValueChange={(value) => onTabChange(value as CalendarTab)}
         aria-label={t('customers.calendar.tabs.label', 'Calendar category')}
       >
