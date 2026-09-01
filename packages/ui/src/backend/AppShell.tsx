@@ -1389,7 +1389,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           />
           <div className="flex flex-1 items-center gap-2 min-w-0">
             {/* Mobile menu button */}
-            <IconButton variant="ghost" size="sm" className="lg:hidden" aria-label={t('appShell.openMenu')} onClick={() => setMobileOpen(true)}>
+            <IconButton variant="ghost" size="lg" className="lg:hidden" aria-label={t('appShell.openMenu')} onClick={() => setMobileOpen(true)}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
             </IconButton>
             {/* Header breadcrumb: always starts with Dashboard */}

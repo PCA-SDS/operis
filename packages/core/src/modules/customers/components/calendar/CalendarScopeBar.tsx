@@ -25,6 +25,9 @@ const RANGE_PRESETS: CalendarRangePreset[] = ['thisWeek', 'next7', 'thisMonth', 
  *
  * These are the product's own controls rather than a calendar's, so they sit
  * below the navigation bar in one compact band instead of competing with it.
+ *
+ * Every control here stands 36px, same as the navigation bar — see the
+ * chrome-height note on `CalendarHeader`.
  */
 export function CalendarScopeBar({
   tab,
@@ -60,7 +63,6 @@ export function CalendarScopeBar({
         <div className="flex min-w-0 shrink-0 items-center">
           <Select value={preset ?? ''} onValueChange={(value) => onPresetChange(value as CalendarRangePreset)}>
             <SelectTrigger
-              size="sm"
               className="hidden w-auto min-w-32 rounded-r-none sm:flex"
               aria-label={t('customers.calendar.toolbar.presetLabel', 'Date range preset')}
             >
@@ -79,7 +81,6 @@ export function CalendarScopeBar({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
                 className="min-w-0 text-muted-foreground sm:-ml-px sm:rounded-l-none"
               >
                 <CalendarRange aria-hidden="true" />
