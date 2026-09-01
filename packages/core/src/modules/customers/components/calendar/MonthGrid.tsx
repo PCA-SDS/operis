@@ -12,19 +12,28 @@ import { BAR_ROW_GAP_PX, BAR_ROW_HEIGHT_PX, CalendarBar } from './CalendarBar'
 import { addCalendarDays, isSameLocalDay, localDayKey } from '../../lib/calendar/time'
 import { eventDisplayTitle } from '../../lib/calendar/labels'
 import { formatTimeLabel, formatTimeRangeLabel } from '../../lib/calendar/format'
+import { toneDotStyle } from '../../lib/calendar/tone'
 import { EventPeekPopover } from './EventPeekPopover'
 import { resolveJoinUrl } from '../../lib/calendar/mapItem'
 import { useNowTick } from './useNowTick'
 import type { CalendarItem, MonthGridProps } from './types'
 
 const DAYS_PER_WEEK = 7
-/** Rows of content a cell shows before collapsing the rest into an overflow. */
-const MAX_ROWS_PER_CELL = 4
-/** Cell padding (`p-1`) plus the date numeral row (`size-6`) and its gap — the
- *  vertical space a spanning bar must clear inside a day cell. */
-const CELL_PADDING_PX = 4
-const DATE_ROW_HEIGHT_PX = 24
-const BAR_OVERLAY_TOP_PX = CELL_PADDING_PX + DATE_ROW_HEIGHT_PX + BAR_ROW_GAP_PX
+/**
+ * Rows of content a cell shows before the rest collapse into an overflow, used
+ * until the grid has been measured. Once a row reports a real height, capacity
+ * comes from that instead — a taller viewport should show more of a busy day,
+ * not the same four entries with the rest hidden.
+ */
+const FALLBACK_ROWS_PER_CELL = 4
+const MIN_ROWS_PER_CELL = 1
+/** Cell padding plus the date numeral row — the space a bar must clear. */
+const CELL_PADDING_PX = 2
+const DATE_ROW_HEIGHT_PX = 22
+/** Room the "+N more" control needs under the last visible entry. */
+const OVERFLOW_ROW_HEIGHT_PX = 16
+const ROW_UNIT_PX = BAR_ROW_HEIGHT_PX + BAR_ROW_GAP_PX
+const BAR_OVERLAY_TOP_PX = CELL_PADDING_PX + DATE_ROW_HEIGHT_PX
 
 function buildWeeks(anchor: Date): Date[][] {
   const range = getVisibleRange('month', anchor, 0)
@@ -41,9 +50,17 @@ function buildWeeks(anchor: Date): Date[][] {
   return weeks
 }
 
-function isWeekend(date: Date): boolean {
-  const weekday = date.getDay()
-  return weekday === 0 || weekday === 6
+/**
+ * How many entry rows fit in a week row of `height` pixels.
+ *
+ * Returns the fallback until a measurement arrives, so the first paint (and
+ * every environment without layout, tests included) behaves exactly as the
+ * fixed-capacity grid did.
+ */
+export function rowsPerCellFor(height: number | null): number {
+  if (height === null || !Number.isFinite(height) || height <= 0) return FALLBACK_ROWS_PER_CELL
+  const usable = height - CELL_PADDING_PX * 2 - DATE_ROW_HEIGHT_PX - OVERFLOW_ROW_HEIGHT_PX
+  return Math.max(MIN_ROWS_PER_CELL, Math.floor(usable / ROW_UNIT_PX))
 }
 
 type EntryButtonProps = {
@@ -74,7 +91,7 @@ const EntryButton = React.forwardRef<HTMLButtonElement, EntryButtonProps>(functi
       }}
       onPointerDown={(event) => event.stopPropagation()}
       className={cn(
-        'h-auto min-w-0 justify-start gap-1 px-1 py-0 text-start text-xs font-medium transition-colors',
+        'h-auto min-w-0 justify-start gap-1.5 px-1.5 py-0 text-start text-xs font-medium leading-none transition-colors',
         item.status === 'canceled' && 'opacity-60 line-through',
         className,
       )}
@@ -88,38 +105,45 @@ const EntryButton = React.forwardRef<HTMLButtonElement, EntryButtonProps>(functi
 
 EntryButton.displayName = 'EntryButton'
 
-/** A single-cell entry: dot, time, title — the compact form. */
-const MonthPill = React.forwardRef<HTMLButtonElement, { item: CalendarItem }>(function MonthPill(
-  { item, ...triggerProps },
-  ref,
-) {
-  const t = useT()
-  const locale = useLocale()
-  const title = eventDisplayTitle(item.title, t('customers.calendar.grid.untitled', 'Untitled'))
-  // The card shows the start time only, the way a month cell has room for; the
-  // accessible name still carries the full range, shared with the week view.
-  const startLabel = formatTimeLabel(locale, item.start)
-  const rangeLabel = formatTimeRangeLabel(locale, item.start, item.end)
+type EntryDotProps = { item: CalendarItem; nowMs: number }
+
+function EntryDot({ item, nowMs }: EntryDotProps) {
   return (
-    <EntryButton
-      ref={ref}
-      item={item}
-      label={`${title} · ${rangeLabel}`}
-      className="w-full rounded-sm hover:bg-muted"
-      style={{ height: BAR_ROW_HEIGHT_PX }}
-      {...triggerProps}
-    >
-      <span aria-hidden className="flex size-2 shrink-0 items-center justify-center">
-        <span
-          className={cn('size-1.5 rounded-full', !item.color && 'bg-muted-foreground')}
-          style={item.color ? { backgroundColor: item.color } : undefined}
-        />
-      </span>
-      <span className="shrink-0 text-overline tabular-nums text-muted-foreground">{startLabel}</span>
-      <span className="min-w-0 truncate text-foreground">{title}</span>
-    </EntryButton>
+    <span aria-hidden className="flex size-2 shrink-0 items-center justify-center">
+      <span
+        className={cn('size-2 rounded-full', !item.color && 'bg-primary')}
+        style={toneDotStyle(item, nowMs)}
+      />
+    </span>
   )
-})
+}
+
+/** A single-cell entry: dot, time, title — the compact form. */
+const MonthPill = React.forwardRef<HTMLButtonElement, { item: CalendarItem; nowMs: number }>(
+  function MonthPill({ item, nowMs, ...triggerProps }, ref) {
+    const t = useT()
+    const locale = useLocale()
+    const title = eventDisplayTitle(item.title, t('customers.calendar.grid.untitled', 'Untitled'))
+    // The card shows the start time only, the way a month cell has room for; the
+    // accessible name still carries the full range, shared with the week view.
+    const startLabel = formatTimeLabel(locale, item.start)
+    const rangeLabel = formatTimeRangeLabel(locale, item.start, item.end)
+    return (
+      <EntryButton
+        ref={ref}
+        item={item}
+        label={`${title} · ${rangeLabel}`}
+        className="w-full rounded hover:bg-muted"
+        style={{ height: BAR_ROW_HEIGHT_PX }}
+        {...triggerProps}
+      >
+        <EntryDot item={item} nowMs={nowMs} />
+        <span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{startLabel}</span>
+        <span className="min-w-0 truncate text-foreground">{title}</span>
+      </EntryButton>
+    )
+  },
+)
 
 MonthPill.displayName = 'MonthPill'
 
@@ -138,6 +162,23 @@ export function MonthGrid({
   const nowMs = useNowTick()
   const [openOverflowKey, setOpenOverflowKey] = React.useState<string | null>(null)
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
+  const [rowHeight, setRowHeight] = React.useState<number | null>(null)
+  const rowProbeRef = React.useRef<HTMLDivElement | null>(null)
+
+  // Capacity follows the row's real height, so a tall viewport shows more of a
+  // busy day instead of hiding it behind the same fixed overflow count.
+  React.useEffect(() => {
+    const node = rowProbeRef.current
+    if (!node || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver((entries) => {
+      const measured = entries[0]?.contentRect.height ?? 0
+      setRowHeight((current) => (current !== null && Math.abs(current - measured) < 1 ? current : measured))
+    })
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
+
+  const maxRowsPerCell = React.useMemo(() => rowsPerCellFor(rowHeight), [rowHeight])
 
   /**
    * Clicking an entry opens the same peek popover the week view uses, so the
@@ -170,29 +211,20 @@ export function MonthGrid({
       weeks.map((week) => {
         const bars = packMonthRowBars(items, week)
         const barRows = bars.reduce((max, bar) => Math.max(max, bar.lane + 1), 0)
-        const visibleBarRows = Math.min(barRows, MAX_ROWS_PER_CELL)
-        const cells = week.map((day) => {
+        const visibleBarRows = Math.min(barRows, maxRowsPerCell)
+        const cells = week.map((day, dayIndex) => {
           const pills = singleDayItemsFor(items, day)
-          const barsHere = bars.filter(
-            (bar) =>
-              bar.lane < visibleBarRows &&
-              week.indexOf(day) >= bar.startIndex &&
-              week.indexOf(day) <= bar.endIndex,
-          ).length
           const hiddenBars = bars.filter(
-            (bar) =>
-              bar.lane >= visibleBarRows &&
-              week.indexOf(day) >= bar.startIndex &&
-              week.indexOf(day) <= bar.endIndex,
+            (bar) => bar.lane >= visibleBarRows && dayIndex >= bar.startIndex && dayIndex <= bar.endIndex,
           ).length
-          const pillCapacity = Math.max(0, MAX_ROWS_PER_CELL - visibleBarRows)
+          const pillCapacity = Math.max(0, maxRowsPerCell - visibleBarRows)
           const visiblePills = pills.slice(0, pillCapacity)
           const hiddenCount = hiddenBars + (pills.length - visiblePills.length)
-          return { day, visiblePills, hiddenCount, barsHere }
+          return { day, visiblePills, hiddenCount }
         })
         return { week, bars, visibleBarRows, cells }
       }),
-    [weeks, items],
+    [weeks, items, maxRowsPerCell],
   )
 
   const weekdayLabels = React.useMemo(() => {
@@ -208,22 +240,25 @@ export function MonthGrid({
     () => new Intl.DateTimeFormat(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
     [locale],
   )
+  // The first day of a month carries its month name, so a row that crosses a
+  // boundary says which month it has crossed into without leaving the grid.
+  const monthShort = React.useMemo(() => new Intl.DateTimeFormat(locale, { month: 'short' }), [locale])
 
   return (
     <div
-      className="relative flex h-full w-full flex-col overflow-hidden rounded-lg border border-border bg-surface"
+      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg border border-border bg-surface"
       role="grid"
       aria-label={new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(anchor)}
       aria-rowcount={weeks.length}
       aria-colcount={DAYS_PER_WEEK}
     >
-      <div className="flex h-8 w-full shrink-0 border-b border-border" role="row">
+      <div className="flex h-7 w-full shrink-0 border-b border-border" role="row">
         {weekdayLabels.map((label, index) => (
           <div
             key={label.long}
             role="columnheader"
             aria-colindex={index + 1}
-            className="flex min-w-0 flex-1 items-center justify-center border-e border-border last:border-e-0 sm:justify-start sm:ps-2"
+            className="flex min-w-0 flex-1 items-center justify-center"
           >
             <span className="truncate text-overline font-medium uppercase tracking-widest text-muted-foreground">
               <span className="sm:hidden">{label.short.charAt(0)}</span>
@@ -237,14 +272,16 @@ export function MonthGrid({
       {rows.map(({ week, bars, visibleBarRows, cells }, rowIndex) => (
         <div
           key={localDayKey(week[0])}
+          ref={rowIndex === 0 ? rowProbeRef : undefined}
           role="row"
           aria-rowindex={rowIndex + 1}
-          className="relative flex min-h-24 w-full flex-1 border-b border-border last:border-b-0"
+          className="relative flex min-h-20 w-full flex-1 border-b border-border last:border-b-0"
         >
           {cells.map(({ day, visiblePills, hiddenCount }, columnIndex) => {
             const inMonth = isSameMonth(day, anchor)
             const today = isSameLocalDay(day, new Date(nowMs))
             const overflowKey = localDayKey(day)
+            const firstOfMonth = day.getDate() === 1
             return (
               <div
                 key={overflowKey}
@@ -255,12 +292,14 @@ export function MonthGrid({
                   if (canManage && onCreateAt) onCreateAt(day)
                 }}
                 className={cn(
-                  'relative flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden border-e border-border p-1 text-left last:border-e-0',
-                  isWeekend(day) ? 'bg-surface-muted/40' : 'bg-surface',
+                  'relative flex min-w-0 flex-1 flex-col gap-px overflow-hidden border-e border-border p-0.5 text-left last:border-e-0',
+                  // Out-of-month cells recede rather than disappear — the grid
+                  // stays one continuous surface, as a month view should.
+                  inMonth ? 'bg-surface' : 'bg-surface-muted/50',
                   canManage && onCreateAt && 'cursor-pointer hover:bg-muted/30',
                 )}
               >
-                <div className="flex shrink-0 items-center justify-between">
+                <div className="flex shrink-0 items-center justify-center" style={{ height: DATE_ROW_HEIGHT_PX }}>
                   <Button
                     type="button"
                     variant="ghost"
@@ -272,14 +311,15 @@ export function MonthGrid({
                       onDayOpen(day)
                     }}
                     className={cn(
-                      'flex size-6 items-center justify-center rounded-full p-0 text-xs font-medium',
+                      'flex h-5 min-w-5 items-center justify-center gap-1 rounded-full px-1.5 text-xs font-medium tabular-nums',
                       today
-                        ? 'bg-primary text-primary-foreground hover:bg-primary'
+                        ? 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground'
                         : inMonth
-                          ? 'text-foreground'
-                          : 'text-muted-foreground',
+                          ? 'text-foreground hover:bg-muted'
+                          : 'text-muted-foreground hover:bg-muted',
                     )}
                   >
+                    {firstOfMonth ? <span className="font-normal">{monthShort.format(day)}</span> : null}
                     {day.getDate()}
                   </Button>
                 </div>
@@ -289,12 +329,14 @@ export function MonthGrid({
                 <div
                   aria-hidden
                   className="shrink-0"
-                  style={{ height: visibleBarRows * (BAR_ROW_HEIGHT_PX + BAR_ROW_GAP_PX) }}
+                  style={{ height: visibleBarRows * ROW_UNIT_PX }}
                 />
 
-                <div className="flex min-h-0 flex-col gap-0.5">
+                <div className="flex min-h-0 flex-col gap-px">
                   {visiblePills.map((item) => (
-                    <React.Fragment key={item.id}>{withPeek(item, <MonthPill item={item} />)}</React.Fragment>
+                    <React.Fragment key={item.id}>
+                      {withPeek(item, <MonthPill item={item} nowMs={nowMs} />)}
+                    </React.Fragment>
                   ))}
                 </div>
 
@@ -308,7 +350,7 @@ export function MonthGrid({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="h-auto shrink-0 self-start p-0 text-overline font-medium text-muted-foreground hover:bg-transparent hover:underline"
+                        className="h-auto shrink-0 justify-start self-stretch px-1.5 py-0 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
                         onClick={(event) => event.stopPropagation()}
                         onPointerDown={(event) => event.stopPropagation()}
                       >
@@ -335,15 +377,10 @@ export function MonthGrid({
                                 setOpenOverflowKey(null)
                                 onItemClick(item)
                               }}
-                              className="w-full rounded-sm py-1 hover:bg-muted"
+                              className="w-full rounded py-1.5 hover:bg-muted"
                             >
-                              <span aria-hidden className="flex size-2 shrink-0 items-center justify-center">
-                                <span
-                                  className={cn('size-1.5 rounded-full', !item.color && 'bg-muted-foreground')}
-                                  style={item.color ? { backgroundColor: item.color } : undefined}
-                                />
-                              </span>
-                              <span className="shrink-0 text-overline tabular-nums text-muted-foreground">
+                              <EntryDot item={item} nowMs={nowMs} />
+                              <span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">
                                 {timeLabel}
                               </span>
                               <span className="min-w-0 truncate text-foreground">{title}</span>
