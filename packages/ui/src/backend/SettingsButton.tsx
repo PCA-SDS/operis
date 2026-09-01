@@ -15,7 +15,7 @@ export function SettingsButton({ href = '/backend/settings' }: SettingsButtonPro
     <IconButton
       asChild
       variant="ghost"
-      size="sm" 
+      size="lg"
       title={t('backend.nav.settings', 'Settings')}
     >
       <Link href={href}>

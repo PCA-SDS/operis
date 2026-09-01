@@ -72,7 +72,7 @@ function MobileMoreMenu({ items }: { items: MobileMoreItem[] }) {
         <IconButton
           type="button"
           variant="ghost"
-          size="sm"
+          size="lg"
           aria-label={t('appShell.moreActions', 'More actions')}
           title={t('appShell.moreActions', 'More actions')}
         >
