@@ -61,8 +61,12 @@ export const SIDEBAR_ITEM_LABEL = 'min-w-0 flex-1 truncate text-left'
  * the custom `text-overline` utility as a text COLOUR — so it never displaced
  * the button's size and the overline silently rendered at 14px. A real size on
  * the Tailwind scale is what makes the merge resolve. */
+/** Geometry of the heading row, split out from its skin so the loading
+ *  placeholder can sit on exactly the same box — same height, same x — instead
+ *  of restating the numbers and drifting from them. */
+export const SIDEBAR_GROUP_LABEL_BOX = 'w-full h-8 px-3 gap-2'
 export const SIDEBAR_GROUP_LABEL =
-  'w-full h-8 px-3 gap-2 justify-between flex text-xs font-bold uppercase tracking-wide text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+  `${SIDEBAR_GROUP_LABEL_BOX} justify-between flex text-xs font-bold uppercase tracking-wide text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`
 
 /* Icons come from lucide, from injected modules and from serialized markup, each
  * at its own intrinsic size. Pinning them to one box is what keeps every label in

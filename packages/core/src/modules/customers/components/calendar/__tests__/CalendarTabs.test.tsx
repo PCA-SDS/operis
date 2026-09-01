@@ -5,23 +5,16 @@ import * as React from 'react'
 import { cleanup, fireEvent } from '@testing-library/react'
 import { renderWithProviders } from '@open-mercato/shared/lib/testing/renderWithProviders'
 import { CalendarTabs } from '../CalendarTabs'
-import type { CalendarTab, CalendarView } from '../types'
+import type { CalendarTab } from '../types'
 
 const COUNTS = { all: 5, meetings: 3, events: 2 }
 
-function renderTabs(overrides?: {
-  tab?: CalendarTab
-  view?: CalendarView
-  onTabChange?: (tab: CalendarTab) => void
-  onViewChange?: (view: CalendarView) => void
-}) {
+function renderTabs(overrides?: { tab?: CalendarTab; onTabChange?: (tab: CalendarTab) => void }) {
   return renderWithProviders(
     <CalendarTabs
       tab={overrides?.tab ?? 'all'}
       counts={COUNTS}
-      view={overrides?.view ?? 'week'}
       onTabChange={overrides?.onTabChange ?? jest.fn()}
-      onViewChange={overrides?.onViewChange ?? jest.fn()}
     />,
   )
 }
@@ -40,12 +33,11 @@ describe('CalendarTabs', () => {
     expect(queryAllByRole('tablist')).toHaveLength(0)
   })
 
-  it('keeps the view switcher a separate segmented control', () => {
-    const { getByRole, getAllByRole } = renderTabs()
+  it('carries only the category control — the view switcher lives in the navigation bar', () => {
+    const { getAllByRole, queryByRole } = renderTabs()
 
-    expect(getAllByRole('radiogroup')).toHaveLength(2)
-    const viewSwitcher = getByRole('radiogroup', { name: 'Calendar view' })
-    expect(viewSwitcher.getAttribute('data-slot')).toBe('segmented-control')
+    expect(getAllByRole('radiogroup')).toHaveLength(1)
+    expect(queryByRole('radiogroup', { name: 'Calendar view' })).toBeNull()
   })
 
   it('names each category segment by its label and count, ignoring the icon', () => {
@@ -76,25 +68,9 @@ describe('CalendarTabs', () => {
     expect(onTabChange).toHaveBeenCalledWith('events')
   })
 
-  it('reports the selected view through onViewChange', () => {
-    const onViewChange = jest.fn()
-    const { getByRole } = renderTabs({ onViewChange })
-
-    fireEvent.click(getByRole('radio', { name: 'Month' }))
-
-    expect(onViewChange).toHaveBeenCalledTimes(1)
-    expect(onViewChange).toHaveBeenCalledWith('month')
-  })
-
-  it('translates both controls from the active locale', () => {
+  it('translates the control from the active locale', () => {
     const { getByRole } = renderWithProviders(
-      <CalendarTabs
-        tab="all"
-        counts={COUNTS}
-        view="week"
-        onTabChange={jest.fn()}
-        onViewChange={jest.fn()}
-      />,
+      <CalendarTabs tab="all" counts={COUNTS} onTabChange={jest.fn()} />,
       { locale: 'pl', dict: { 'customers.calendar.tabs.label': 'Kategoria kalendarza' } },
     )
 

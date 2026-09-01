@@ -45,7 +45,7 @@ import {
 import type { ConflictScope } from '../../lib/calendar/preferences'
 import { renderDictionaryIcon } from '@open-mercato/core/modules/dictionaries/components/dictionaryAppearance'
 import { normalizeCustomFieldSubmitValue } from '../detail/customFieldUtils'
-import type { CalendarItem } from './types'
+import type { CalendarInteractionItem } from './types'
 import { EDITOR_SCROLL_EVENT, Field } from './editor/inputs'
 import { PriorityField } from './editor/PriorityField'
 import { RelatedToField } from './editor/RelatedToField'
@@ -59,7 +59,7 @@ import { useConflictProbe, useEditorLabelResolution } from './editor/hooks'
 export interface CalendarEventEditorProps {
   open: boolean
   mode: 'create' | 'edit'
-  item?: CalendarItem | null
+  item?: CalendarInteractionItem | null
   defaultDate?: Date
   defaultRange?: { start: Date; end: Date } | null
   typeLabels: Record<string, string>
@@ -87,7 +87,7 @@ function formStateOfValues(values: Record<string, unknown>): EditorFormState {
   return values as unknown as EditorFormState
 }
 
-function customFieldInitialValues(item: CalendarItem): Record<string, unknown> {
+function customFieldInitialValues(item: CalendarInteractionItem): Record<string, unknown> {
   const customValues = (item.raw as Record<string, unknown>).customValues
   if (!customValues || typeof customValues !== 'object' || Array.isArray(customValues)) return {}
   return Object.fromEntries(
@@ -99,7 +99,7 @@ type EditorBodyProps = {
   ctx: CrudFormGroupComponentProps
   open: boolean
   isEdit: boolean
-  item?: CalendarItem | null
+  item?: CalendarInteractionItem | null
   typeLabels: Record<string, string>
   typeIcons: Record<string, string | null>
   conflictScope: ConflictScope

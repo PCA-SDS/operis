@@ -7,6 +7,7 @@ import { renderWithProviders } from '@open-mercato/shared/lib/testing/renderWith
 import { TimeGrid } from '../TimeGrid'
 import type { CalendarItem } from '../types'
 import { buildCalendarItem } from './fixtures'
+import { makeCalendarTaskItem } from '../../../lib/calendar/__tests__/fixtures'
 
 const ANCHOR = new Date(2026, 7, 12, 10, 0, 0)
 
@@ -256,5 +257,63 @@ describe('TimeGrid — permissions', () => {
     const change = onReschedule.mock.calls[0][0]
     expect(change.start).toEqual(item.start)
     expect(change.end.getTime() - change.start.getTime()).toBe(75 * 60 * 1000)
+  })
+})
+
+describe('TimeGrid — Task Manager tasks', () => {
+  const taskAt = (start: Date, end: Date, overrides: Parameters<typeof makeCalendarTaskItem>[1] = {}) =>
+    makeCalendarTaskItem({ id: 'task-1', title: 'Prepare proposal', start, end }, overrides)
+
+  it('places a timed task by its due time, like any other entry', () => {
+    const start = new Date(2026, 7, 12, 9, 0)
+    const { container } = renderGrid([taskAt(start, new Date(2026, 7, 12, 10, 0))])
+    const block = labelledButtons(container, 'Prepare proposal')[0]
+    expect(block).toBeDefined()
+    expect(Number.parseFloat(block.style.top)).toBeCloseTo(9 * 48 + 1, 0)
+  })
+
+  it('offers no resize handle on a task — its record stores no duration', () => {
+    const start = new Date(2026, 7, 12, 9, 0)
+    const { container } = renderGrid([taskAt(start, new Date(2026, 7, 12, 10, 0))], {
+      canManage: true,
+      onReschedule: jest.fn(),
+    })
+    expect(container.querySelector('[title="Change end time"]')).toBeNull()
+  })
+
+  it('still offers a resize handle on an event, so the block is task-specific', () => {
+    const { container } = renderGrid(
+      [buildCalendarItem({ start: new Date(2026, 7, 12, 9, 0), end: new Date(2026, 7, 12, 10, 0) })],
+      { canManage: true, onReschedule: jest.fn() },
+    )
+    expect(container.querySelector('[title="Change end time"]')).not.toBeNull()
+  })
+
+  it('refuses a keyboard resize on a task but still moves it', () => {
+    const onReschedule = jest.fn()
+    const start = new Date(2026, 7, 12, 9, 0)
+    const { container } = renderGrid([taskAt(start, new Date(2026, 7, 12, 10, 0))], {
+      canManage: true,
+      onReschedule,
+    })
+    const block = labelledButtons(container, 'Prepare proposal')[0]
+
+    fireEvent.keyDown(block, { key: 'ArrowDown', shiftKey: true })
+    expect(onReschedule).not.toHaveBeenCalled()
+
+    fireEvent.keyDown(block, { key: 'ArrowDown' })
+    expect(onReschedule).toHaveBeenCalledTimes(1)
+  })
+
+  it('puts a due-date-only task in the all-day lane, not at midnight', () => {
+    const start = new Date(2026, 7, 12)
+    const item = makeCalendarTaskItem(
+      { id: 'task-2', title: 'Ship release', start, end: new Date(2026, 7, 13), allDay: true },
+      { calendarTime: null },
+    )
+    const { container } = renderGrid([item])
+    const rendered = labelledButtons(container, 'Ship release')
+    expect(rendered).toHaveLength(1)
+    expect(rendered[0].getAttribute('aria-label')).toContain('All day')
   })
 })

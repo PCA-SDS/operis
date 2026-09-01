@@ -11,6 +11,7 @@ import {
   extractOptimisticLockConflict,
 } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -18,12 +19,16 @@ import { countByCategory } from '../../lib/calendar/categories'
 import { findConflicts } from '../../lib/calendar/conflicts'
 import { getVisibleRange, shiftAnchor } from '../../lib/calendar/range'
 import { resolveJoinUrl } from '../../lib/calendar/mapItem'
-import { formatTimeZoneLabel } from '../../lib/calendar/time'
+import {
+  calendarTimeZone,
+  formatCalendarDate,
+  formatWallClockTime,
+  taskScheduleChangeFor,
+} from '../../lib/calendar/taskItem'
 import { AgendaList } from './AgendaList'
 import { CalendarSkeleton } from './CalendarSkeleton'
-import { CalendarFooter } from './CalendarFooter'
 import { CalendarHeader } from './CalendarHeader'
-import { CalendarTabs } from './CalendarTabs'
+import { CalendarScopeBar } from './CalendarScopeBar'
 import { CalendarToolbar } from './CalendarToolbar'
 import { MonthGrid } from './MonthGrid'
 import { ShortcutsDialog } from './ShortcutsDialog'
@@ -32,15 +37,22 @@ import { UpcomingCards } from './UpcomingCards'
 import { CalendarSettingsModal } from './CalendarSettingsModal'
 import { useCalendarPreferences } from './useCalendarPreferences'
 import { MAX_WINDOW_ITEMS, useCalendarItems } from './useCalendarItems'
+import { useAvailableHeight } from './useAvailableHeight'
+import { useCalendarTasks } from './useCalendarTasks'
+import { isTaskItem } from './types'
 import type {
   CalendarFiltersValue,
+  CalendarInteractionItem,
   CalendarItem,
   CalendarRangePreset,
   CalendarReschedule,
   CalendarTab,
+  CalendarTaskItem,
   CalendarView,
   UpcomingCard,
 } from './types'
+
+
 
 const CalendarEventEditor = dynamic(
   () => import('./CalendarEventEditor').then((mod) => mod.CalendarEventEditor),
@@ -52,14 +64,27 @@ const PHONE_BREAKPOINT_PX = 640
 const HIGHLIGHT_CLEAR_MS = 3000
 const DEFAULT_AGENDA_HORIZON_DAYS = 7
 const UPCOMING_CARDS_COUNT = 4
+/** Never shrink the grid below a readable working stretch. */
+const MIN_GRID_HEIGHT_PX = 320
 const EMPTY_FILTERS: CalendarFiltersValue = { types: [], status: null, ownerUserId: null }
 
-type EditorState = { open: boolean; mode: 'create' | 'edit'; item: CalendarItem | null }
+type EditorState = { open: boolean; mode: 'create' | 'edit'; item: CalendarInteractionItem | null }
 
 const MANAGE_FEATURE = 'customers.interactions.manage'
+/** Editing a task is the tasks module's permission, never the CRM's. */
+const TASK_EDIT_FEATURE = 'tasks.edit'
 
-function useCanManageInteractions(): boolean {
-  const [canManage, setCanManage] = React.useState(false)
+/**
+ * Which of the calendar's two domains the caller may write to.
+ *
+ * The grid holds records from two modules with two different features, so it
+ * asks about both and gates each affordance on its own answer. This only hides
+ * controls — every write is still authorised server-side by the route that
+ * performs it, so a drag the UI failed to hide is refused by the API rather
+ * than silently applied.
+ */
+function useCalendarWriteAccess(): { canManage: boolean; canEditTasks: boolean } {
+  const [access, setAccess] = React.useState({ canManage: false, canEditTasks: false })
   React.useEffect(() => {
     const controller = new AbortController()
     let cancelled = false
@@ -67,27 +92,29 @@ function useCanManageInteractions(): boolean {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
-      body: JSON.stringify({ features: [MANAGE_FEATURE] }),
+      body: JSON.stringify({ features: [MANAGE_FEATURE, TASK_EDIT_FEATURE] }),
     })
       .then((call) => {
         if (cancelled || !call.ok) return
         const granted = Array.isArray(call.result?.granted)
           ? call.result.granted.map((feature) => String(feature))
           : []
-        setCanManage(granted.some((grantedFeature) => matchFeature(MANAGE_FEATURE, grantedFeature)))
+        const holds = (feature: string) =>
+          granted.some((grantedFeature) => matchFeature(feature, grantedFeature))
+        setAccess({ canManage: holds(MANAGE_FEATURE), canEditTasks: holds(TASK_EDIT_FEATURE) })
       })
       .catch(() => {
-        if (!cancelled && !controller.signal.aborted) setCanManage(false)
+        if (!cancelled && !controller.signal.aborted) setAccess({ canManage: false, canEditTasks: false })
       })
     return () => {
       cancelled = true
       controller.abort()
     }
   }, [])
-  return canManage
+  return access
 }
 
-function asEditableItem(item: CalendarItem): CalendarItem {
+function asEditableItem(item: CalendarInteractionItem): CalendarInteractionItem {
   return item.isRecurringOccurrence ? { ...item, id: item.raw.id } : item
 }
 
@@ -96,9 +123,16 @@ export type CalendarScreenProps = {
   resourcesEnabled?: boolean
   /** True when the optional staff module is loaded (server-resolved). */
   staffEnabled?: boolean
+  /** True when the tasks module is loaded (server-resolved). Off means the
+   *  calendar shows CRM interactions only and never calls the task API. */
+  tasksEnabled?: boolean
 }
 
-export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }: CalendarScreenProps = {}) {
+export function CalendarScreen({
+  resourcesEnabled = false,
+  staffEnabled = true,
+  tasksEnabled = false,
+}: CalendarScreenProps = {}) {
   const t = useT()
   const [view, setView] = React.useState<CalendarView>('week')
   const [anchor, setAnchor] = React.useState<Date>(() => new Date())
@@ -117,6 +151,14 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
   const [editor, setEditor] = React.useState<EditorState>({ open: false, mode: 'create', item: null })
   const [editorMounted, setEditorMounted] = React.useState(false)
   const [createRange, setCreateRange] = React.useState<{ start: Date; end: Date } | null>(null)
+  const gridRef = React.useRef<HTMLDivElement | null>(null)
+  const gridHeight = useAvailableHeight(gridRef, MIN_GRID_HEIGHT_PX)
+  const [openTask, setOpenTask] = React.useState<{
+    id: string | null
+    projectId: string | null
+    dueDate?: string | null
+    dueTime?: string | null
+  } | null>(null)
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false)
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const [highlightItemId, setHighlightItemId] = React.useState<string | null>(null)
@@ -157,9 +199,26 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
     return () => window.clearTimeout(timer)
   }, [highlightItemId])
 
+  const {
+    items: taskItems,
+    isLoading: tasksLoading,
+    truncated: tasksTruncated,
+    refetch: refetchTasks,
+    applyOverride: applyTaskOverride,
+    clearOverride: clearTaskOverride,
+  } = useCalendarTasks(range, tasksEnabled)
+
+  // One list from two owners. Neither side is copied into the other: each entry
+  // still knows which domain it came from, which is what routes every later
+  // edit back to the right service.
+  const allItems = React.useMemo<CalendarItem[]>(
+    () => (taskItems.length > 0 ? [...items, ...taskItems] : items),
+    [items, taskItems],
+  )
+
   const visibleItems = React.useMemo(
-    () => items.filter((item) => item.end > range.from && item.start < range.to),
-    [items, range],
+    () => allItems.filter((item) => item.end > range.from && item.start < range.to),
+    [allItems, range],
   )
 
   const searchedItems = React.useMemo(() => {
@@ -168,8 +227,12 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
     return visibleItems.filter((item) => {
       if (item.title.toLowerCase().includes(query)) return true
       if (item.location && item.location.toLowerCase().includes(query)) return true
-      const rawBody = (item.raw as { body?: unknown }).body
-      if (typeof rawBody === 'string' && rawBody.toLowerCase().includes(query)) return true
+      if (isTaskItem(item)) {
+        if ((item.task.projectName ?? '').toLowerCase().includes(query)) return true
+      } else {
+        const rawBody = (item.raw as { body?: unknown }).body
+        if (typeof rawBody === 'string' && rawBody.toLowerCase().includes(query)) return true
+      }
       return item.participants.some((participant) =>
         (participant.name ?? '').toLowerCase().includes(query),
       )
@@ -250,9 +313,53 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
       .sort((first, second) => first.label.localeCompare(second.label))
   }, [visibleItems])
 
-  const timezoneLabel = React.useMemo(() => formatTimeZoneLabel(), [])
+  const { canManage, canEditTasks } = useCalendarWriteAccess()
+  /** Either domain writable — enough to arm the grid's drag affordances. */
+  const canDrag = canManage || canEditTasks
 
-  const canManage = useCanManageInteractions()
+  // Task writes run through the same guarded-mutation machinery as CRM writes,
+  // so a blocked save, a retry and a 409 all behave identically across the two
+  // domains the grid holds.
+  const { runMutation: runTaskMutation, retryLastMutation: retryTaskMutation } = useGuardedMutation<{
+    formId: string
+    resourceKind: string
+    resourceId: string
+    retryLastMutation: () => Promise<boolean>
+  }>({
+    contextId: 'customers-calendar-task',
+    blockedMessage: t('ui.forms.flash.saveBlocked', 'Save blocked by validation'),
+  })
+
+  /**
+   * Write to one task through the Task Manager's own endpoint.
+   *
+   * The route re-validates the body, enforces `tasks.edit` and the tenant scope,
+   * runs the task command and emits the `clientBroadcast` task event that makes
+   * every other open surface — the board, the lists, this grid — refresh. The
+   * optimistic-lock header is the same one the rest of the product sends, so a
+   * concurrent edit is refused here exactly as it is there.
+   */
+  const writeTask = React.useCallback(
+    async (taskId: string, body: Record<string, unknown>, updatedAt: string | null, path = '') =>
+      runTaskMutation({
+        operation: () =>
+          withScopedApiRequestHeaders(buildOptimisticLockHeader(updatedAt), () =>
+            apiCallOrThrow(`/api/tasks/tasks/${encodeURIComponent(taskId)}${path}`, {
+              method: 'PATCH',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify(body),
+            }),
+          ),
+        mutationPayload: { operation: 'calendarTaskWrite', taskId, ...body },
+        context: {
+          formId: 'customers-calendar-task',
+          resourceKind: 'tasks.task',
+          resourceId: taskId,
+          retryLastMutation: retryTaskMutation,
+        },
+      }),
+    [retryTaskMutation, runTaskMutation],
+  )
 
   const openCreateEditor = React.useCallback(() => {
     if (!canManage) return
@@ -261,14 +368,47 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
     setEditor({ open: true, mode: 'create', item: null })
   }, [canManage])
 
+  /**
+   * Open an entry in its own module's editor.
+   *
+   * A task opens the Task Manager's `TaskPanel` — the same panel the board and
+   * the lists use, with the same fields, validation, status control, assignment
+   * and permissions. Building a calendar-flavoured task form would have been a
+   * second place for task rules to live and drift.
+   */
   const openEditEditor = React.useCallback(
     (item: CalendarItem) => {
+      if (isTaskItem(item)) {
+        setOpenTask({ id: item.task.id, projectId: item.task.projectId })
+        return
+      }
       if (!canManage) return
       setCreateRange(null)
       setEditorMounted(true)
       setEditor({ open: true, mode: 'edit', item: asEditableItem(item) })
     },
     [canManage],
+  )
+
+  /**
+   * Create a task from the calendar.
+   *
+   * Same spot, same panel, same create command as editing one — the calendar
+   * only supplies the slot the user picked. Leaving the project unset lets the
+   * Task Manager put it where it puts any unfiled work.
+   */
+  const openCreateTask = React.useCallback(
+    (seed?: { start: Date; allDay: boolean }) => {
+      if (!tasksEnabled || !canEditTasks) return
+      const start = seed?.start ?? anchor
+      setOpenTask({
+        id: null,
+        projectId: null,
+        dueDate: formatCalendarDate(start),
+        dueTime: seed && !seed.allDay ? formatWallClockTime(start) : null,
+      })
+    },
+    [anchor, canEditTasks, tasksEnabled],
   )
 
   const handleCreateRange = React.useCallback(
@@ -361,6 +501,33 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
 
   const handleCancelItem = React.useCallback(
     async (item: CalendarItem) => {
+      // A task is completed through the Task Manager's own command, so the
+      // board, the lists and the calendar all reach the same state.
+      if (isTaskItem(item)) {
+        if (!canEditTasks) return
+        try {
+          // The Task Manager's own complete endpoint, so a recurring task
+          // advances to its next due date rather than being marked done — the
+          // behaviour the domain defines, not one the calendar invents.
+          //
+          // `tz` is not optional in practice: the server falls back to UTC, and
+          // completion resolves `completedAt` and a recurring task's next due
+          // date against it, so omitting it records the wrong day for anyone
+          // completing a task near midnight outside UTC.
+          await writeTask(
+            item.task.id,
+            { tz: calendarTimeZone() },
+            item.task.updatedAt ?? null,
+            '/complete',
+          )
+          flash(t('customers.calendar.cards.taskCompleted', 'Task completed'), 'success')
+          refetchTasks()
+        } catch (err) {
+          if (extractOptimisticLockConflict(err)) return
+          flash(t('customers.calendar.cards.taskCompleteError', 'Failed to complete task'), 'error')
+        }
+        return
+      }
       const interactionId = item.raw.id
       try {
         await runMutation({
@@ -393,7 +560,7 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
         flash(t('customers.calendar.cards.cancelError', 'Failed to cancel event'), 'error')
       }
     },
-    [refetch, retryLastMutation, runMutation, t],
+    [canEditTasks, refetch, refetchTasks, retryLastMutation, runMutation, t, writeTask],
   )
 
   const { runMutation: runReschedule, retryLastMutation: retryReschedule } = useGuardedMutation<{
@@ -407,12 +574,55 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
   })
 
   /**
+   * Persist a task drag through the Task Manager.
+   *
+   * The patch carries only what a task can express — a due date and an optional
+   * wall-clock time — and goes through the module's own update mutation, so the
+   * permission check, the validator and the optimistic-lock header are the ones
+   * the board and the lists already use. That mutation invalidates every task
+   * surface on success, which is what keeps the board and the calendar showing
+   * the same thing; on failure nothing was written and React Query restores the
+   * previous value, so the card returns to where the server still has it.
+   */
+  const rescheduleTask = React.useCallback(
+    async (item: CalendarTaskItem, start: Date, allDay: boolean) => {
+      const change = taskScheduleChangeFor(start, allDay)
+      if (change.dueDate === (item.task.dueDate ?? null) && change.dueTime === (item.task.dueTime ?? null)) return
+      // Show the drop at once; the write follows. A rejection puts the card back
+      // where the server still has it rather than leaving it where it never went.
+      applyTaskOverride(item.task.id, { calendarDate: change.dueDate, calendarTime: change.dueTime })
+      try {
+        await writeTask(item.task.id, change, item.task.updatedAt ?? null)
+        refetchTasks()
+      } catch (err) {
+        clearTaskOverride(item.task.id)
+        if (extractOptimisticLockConflict(err)) {
+          // The persistent conflict bar already explains this; resync so the
+          // user sees whatever the other editor saved.
+          refetchTasks()
+          return
+        }
+        flash(
+          t('customers.calendar.errors.taskRescheduleFailed', 'Could not move this task. It has been restored.'),
+          'error',
+        )
+      }
+    },
+    [applyTaskOverride, clearTaskOverride, refetchTasks, t, writeTask],
+  )
+
+  /**
    * Drag/resize persistence. The move is shown immediately, the write happens
    * in the background, and a failure restores the previous position rather than
    * leaving a card where the server never put it.
    */
   const handleReschedule = React.useCallback(
     async ({ item, start, end, allDay }: CalendarReschedule) => {
+      if (isTaskItem(item)) {
+        if (!canEditTasks) return
+        await rescheduleTask(item, start, allDay)
+        return
+      }
       if (!canManage) return
       if (item.isRecurringOccurrence) {
         // The occurrence's id points at the series master, so persisting a drag
@@ -494,7 +704,18 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
         flash(t('customers.calendar.errors.rescheduleFailed', 'Could not move this event. It has been restored.'), 'error')
       }
     },
-    [applyOverride, canManage, clearOverride, commitOverride, refetch, retryReschedule, runReschedule, t],
+    [
+      applyOverride,
+      canEditTasks,
+      canManage,
+      clearOverride,
+      commitOverride,
+      refetch,
+      rescheduleTask,
+      retryReschedule,
+      runReschedule,
+      t,
+    ],
   )
 
   const handleCreateAt = React.useCallback(
@@ -580,12 +801,13 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [editorOpen, focusSearch, openCreateEditor])
 
-  const showInitialLoading = (isLoading && !hasLoadedOnce) || !preferencesHydrated
+  const showInitialLoading = ((isLoading || tasksLoading) && !hasLoadedOnce) || !preferencesHydrated
 
   const showRefreshing = isRefreshing && hasLoadedOnce
-  const calendarStatus = truncated || showRefreshing ? (
+  const anyTruncated = truncated || tasksTruncated
+  const calendarStatus = anyTruncated || showRefreshing ? (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      {truncated ? (
+      {anyTruncated ? (
         <p className="text-xs text-muted-foreground" role="status">
           {t('customers.calendar.notice.truncated', 'Showing first {count} items for this range.', {
             count: MAX_WINDOW_ITEMS,
@@ -620,7 +842,7 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
       <MonthGrid
         anchor={anchor}
         items={viewItems}
-        canManage={canManage}
+        canManage={canDrag}
         aiSummaries={preferences.aiSummaries}
         onItemClick={openEditEditor}
         onJoin={handleJoin}
@@ -648,65 +870,94 @@ export function CalendarScreen({ resourcesEnabled = false, staffEnabled = true }
         showWeekends={preferences.showWeekends}
         showConflicts={preferences.conflictWarnings}
         aiSummaries={preferences.aiSummaries}
-        canManage={canManage}
+        canManage={canDrag}
         highlightItemId={highlightItemId}
         onItemClick={openEditEditor}
         onJoin={handleJoin}
         onCreateRange={canManage ? handleCreateRange : undefined}
-        onReschedule={canManage ? handleReschedule : undefined}
+        onReschedule={canDrag ? handleReschedule : undefined}
       />
     )
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
       <CalendarHeader
         view={view}
         anchor={anchor}
         range={range}
         onPrevious={handlePrevious}
         onNext={handleNext}
-        onNewEvent={canManage ? openCreateEditor : undefined}
-      />
-      <CalendarToolbar
-        view={view}
-        anchor={anchor}
-        range={range}
-        preset={preset}
-        search={searchText}
-        filters={filters}
-        typeOptions={typeOptions}
-        ownerOptions={ownerOptions}
         onToday={handleToday}
+        onViewChange={handleViewChange}
+        onNewEvent={canManage ? openCreateEditor : undefined}
+        onNewTask={tasksEnabled && canEditTasks ? () => openCreateTask() : undefined}
+        onOpenShortcuts={() => setShortcutsOpen(true)}
+      />
+      <CalendarScopeBar
+        tab={tab}
+        counts={tabCounts}
+        range={range}
+        anchor={anchor}
+        preset={preset}
+        status={calendarStatus}
+        trailing={
+          <CalendarToolbar
+            anchor={anchor}
+            search={searchText}
+            filters={filters}
+            typeOptions={typeOptions}
+            ownerOptions={ownerOptions}
+            onAnchorChange={handleAnchorChange}
+            onSearchChange={setSearchText}
+            onFiltersChange={setFilters}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
+        }
+        onTabChange={setTab}
         onPresetChange={handlePresetChange}
         onAnchorChange={handleAnchorChange}
-        onSearchChange={setSearchText}
-        onFiltersChange={setFilters}
-        onOpenSettings={() => setSettingsOpen(true)}
       />
-      <UpcomingCards
-        cards={upcomingCards}
-        canManage={canManage}
-        onJoin={handleJoin}
-        onSeeConflict={handleSeeConflict}
-        onOpen={openEditEditor}
-        onEdit={openEditEditor}
-        onCancel={handleCancelItem}
-      />
-      <div className="flex min-h-0 flex-1 flex-col gap-4">
-        <CalendarTabs
-          tab={tab}
-          counts={tabCounts}
-          view={view}
-          status={calendarStatus}
-          onTabChange={setTab}
-          onViewChange={handleViewChange}
+      {/* The next-up strip belongs with the agenda, which is the view that
+          exists to answer "what is coming". Day, week and month answer it with
+          the grid itself, and give the grid the height instead. */}
+      {view === 'agenda' ? (
+        <UpcomingCards
+          cards={upcomingCards}
+          canManage={canManage}
+          onJoin={handleJoin}
+          onSeeConflict={handleSeeConflict}
+          onOpen={openEditEditor}
+          onEdit={openEditEditor}
+          onCancel={handleCancelItem}
         />
-        <div className="flex min-h-[560px] flex-1 flex-col [&>*]:flex-1">{viewArea}</div>
+      ) : null}
+      {/* The grid takes whatever the window has left. Measured rather than
+          inherited: the backend shell's `<main>` never passes a definite height
+          down, so a `h-full` grid would grow to all 24 hours and push the page
+          into a scroll instead of scrolling itself. */}
+      <div
+        ref={gridRef}
+        className="flex min-h-80 flex-1 flex-col overflow-hidden"
+        style={gridHeight === null ? undefined : { height: gridHeight, maxHeight: gridHeight }}
+      >
+        {viewArea}
       </div>
-      <div className="hidden md:block">
-        <CalendarFooter timezoneLabel={timezoneLabel} onOpenShortcuts={() => setShortcutsOpen(true)} />
-      </div>
+      {/* The task editor is contributed by the tasks module through this spot,
+          not imported: the calendar never owns a second task form, and when the
+          module is disabled the spot is simply empty. */}
+      {openTask ? (
+        <InjectionSpot
+          spotId="calendar:task-editor"
+          context={{
+            ...openTask,
+            onClose: () => {
+              setOpenTask(null)
+              refetchTasks()
+            },
+          }}
+        />
+      ) : null}
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <CalendarSettingsModal
         open={settingsOpen}

@@ -48,6 +48,7 @@
   "appShell.closeMenu": "Menü schließen",
   "appShell.customizeSidebar": "Seitenleiste anpassen",
   "appShell.goToDashboard": "Zum Dashboard",
+  "appShell.loadingNavigation": "Navigation wird geladen",
   "appShell.mainNavAria": "Hauptnavigation",
   "appShell.moreActions": "Weitere Aktionen",
   "appShell.openMenu": "Menü öffnen",

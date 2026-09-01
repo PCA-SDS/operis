@@ -10,7 +10,29 @@ import {
 } from '@open-mercato/ui/primitives/dialog'
 import { Kbd } from '@open-mercato/ui/primitives/kbd'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { CALENDAR_SHORTCUTS } from './CalendarFooter'
+
+/**
+ * Every global calendar shortcut, in the order the dialog lists them.
+ *
+ * The keys themselves are bound in `CalendarScreen`; this is the legend, and
+ * the dialog is now the only place it appears — a permanent footer rail of
+ * eight key chips cost the grid a band of height to teach something a user
+ * learns once.
+ */
+export const CALENDAR_SHORTCUTS: ReadonlyArray<{
+  key: string
+  labelKey: string
+  fallback: string
+}> = [
+  { key: 'T', labelKey: 'customers.calendar.shortcuts.today', fallback: 'Today' },
+  { key: 'D', labelKey: 'customers.calendar.shortcuts.dayView', fallback: 'Day view' },
+  { key: 'W', labelKey: 'customers.calendar.shortcuts.week', fallback: 'Week' },
+  { key: 'M', labelKey: 'customers.calendar.shortcuts.month', fallback: 'Month' },
+  { key: 'A', labelKey: 'customers.calendar.shortcuts.agenda', fallback: 'Agenda' },
+  { key: 'N', labelKey: 'customers.calendar.shortcuts.newEvent', fallback: 'New event' },
+  { key: '/', labelKey: 'customers.calendar.shortcuts.search', fallback: 'Search' },
+  { key: '?', labelKey: 'customers.calendar.shortcuts.help', fallback: 'Shortcuts' },
+]
 
 export type ShortcutsDialogProps = {
   open: boolean

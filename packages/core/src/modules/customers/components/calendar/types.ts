@@ -52,8 +52,59 @@ export type CalendarInteractionPayload = z.infer<typeof calendarInteractionPaylo
 
 export type CalendarParticipant = { userId: string; name?: string; email?: string }
 
-export interface CalendarItem {
+const calendarTaskAssigneeSchema = z.object({ id: z.string(), name: z.string() }).passthrough()
+
+/**
+ * The calendar's consumer contract over the Task Manager's calendar window.
+ *
+ * Declared here rather than imported from the tasks module on purpose: a static
+ * import would make disabling tasks break this module, which is the one thing
+ * module gating must not allow (`tasks/__tests__/moduleGating.test.ts` enforces
+ * it). The tasks module stays the source of truth — this only names the fields
+ * the grid reads off the wire, exactly as `calendarInteractionPayloadSchema`
+ * does for the interactions API, and `passthrough` keeps everything else intact
+ * so a record can be handed back to the task API unchanged.
+ */
+export const calendarTaskPayloadSchema = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    status: z.string(),
+    priority: z.string().optional(),
+    projectId: z.string(),
+    projectName: z.string().optional(),
+    projectKey: z.string().optional(),
+    number: z.number().optional(),
+    dueDate: z.string().nullable().optional(),
+    dueTime: z.string().nullable().optional(),
+    /** The day the window placed this task on, `YYYY-MM-DD`. */
+    calendarDate: z.string(),
+    /** Wall-clock `HH:MM` it sits at, or null for the all-day lane. */
+    calendarTime: z.string().nullable(),
+    assignees: z.array(calendarTaskAssigneeSchema).optional(),
+    completedAt: z.string().nullable().optional(),
+    updatedAt: z.string().nullable().optional(),
+    recurrence: z.object({ freq: z.string() }).passthrough().nullable().optional(),
+  })
+  .passthrough()
+
+export type CalendarTaskPayload = z.infer<typeof calendarTaskPayloadSchema>
+
+/**
+ * Which domain an entry belongs to.
+ *
+ * The calendar is a view over two real, separately-owned models, not one
+ * flattened store: a CRM interaction is an *interval* (an instant plus a
+ * duration, optionally all-day, optionally recurring by RRULE), and a task is a
+ * *deadline* (a due date plus an optional wall-clock time, no duration). Each
+ * keeps its own source of truth and its own write path; this tag is what routes
+ * an edit back to the right one.
+ */
+export type CalendarSource = 'interaction' | 'task'
+
+interface CalendarItemBase {
   id: string
+  source: CalendarSource
   title: string
   interactionType: string
   category: CalendarCategory
@@ -71,7 +122,31 @@ export interface CalendarItem {
   color: string | null
   isRecurringOccurrence: boolean
   updatedAt: string | null
+}
+
+/** A CRM interaction — meeting, call, event. Owned by `customers`. */
+export interface CalendarInteractionItem extends CalendarItemBase {
+  source: 'interaction'
   raw: CalendarInteractionPayload
+}
+
+/**
+ * A Task Manager task.
+ *
+ * `id` is the task's own id and `task` is the record the Task Manager serves,
+ * carried verbatim — this entry *is* that task rendered on a grid, not a copy
+ * of it, so there is one identity and one row behind every surface that shows
+ * it.
+ */
+export interface CalendarTaskItem extends CalendarItemBase {
+  source: 'task'
+  task: CalendarTaskPayload
+}
+
+export type CalendarItem = CalendarInteractionItem | CalendarTaskItem
+
+export function isTaskItem(item: CalendarItem): item is CalendarTaskItem {
+  return item.source === 'task'
 }
 
 export interface CalendarFiltersValue {
@@ -155,37 +230,44 @@ export interface CalendarHeaderProps {
   range: CalendarRange
   onPrevious?: () => void
   onNext?: () => void
+  onToday?: () => void
+  onViewChange?(view: CalendarView): void
   onNewEvent?: () => void
+  /** Present only when the tasks module is active and the caller may edit tasks. */
+  onNewTask?: () => void
+  onOpenShortcuts?: () => void
 }
 
 export interface CalendarToolbarProps {
-  view: CalendarView
   anchor: Date
-  range: CalendarRange
-  preset: CalendarRangePreset | null
   search: string
   filters: CalendarFiltersValue
   typeOptions: Array<{ value: string; label: string }>
   ownerOptions: Array<{ value: string; label: string }>
-  onToday(): void
-  onPresetChange(preset: CalendarRangePreset): void
   onAnchorChange(date: Date): void
   onSearchChange(value: string): void
   onFiltersChange(value: CalendarFiltersValue): void
   onOpenSettings(): void
 }
 
+/** The scope row: category filter, range preset and the jump-to-date control. */
+export interface CalendarScopeBarProps {
+  tab: CalendarTab
+  counts: { all: number; meetings: number; events: number }
+  range: CalendarRange
+  anchor: Date
+  preset: CalendarRangePreset | null
+  /** Transient status text (truncation, refreshing) shown between the controls. */
+  status?: ReactNode
+  /** Search, filters and settings — the controls that narrow what is shown. */
+  trailing?: ReactNode
+  onTabChange(tab: CalendarTab): void
+  onPresetChange(preset: CalendarRangePreset): void
+  onAnchorChange(date: Date): void
+}
+
 export interface CalendarTabsProps {
   tab: CalendarTab
   counts: { all: number; meetings: number; events: number }
-  view: CalendarView
-  /** Transient status text (truncation, refreshing) shown between the two controls. */
-  status?: ReactNode
   onTabChange(tab: CalendarTab): void
-  onViewChange(view: CalendarView): void
-}
-
-export interface CalendarFooterProps {
-  timezoneLabel: string
-  onOpenShortcuts?: () => void
 }

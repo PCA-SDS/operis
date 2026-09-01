@@ -13,7 +13,6 @@ import {
   buildMovedRange,
   buildResizedRange,
   DRAG_SNAP_MINUTES,
-  isWeekendDay,
   MIN_EVENT_DURATION_MINUTES,
   minutesOfDay,
   toAllDayRange,
@@ -24,6 +23,7 @@ import {
   HOURS_PER_DAY,
   MINUTES_PER_DAY,
   addCalendarDays,
+  formatTimeZoneLabel,
   isSameLocalDay,
   snapMinutes,
 } from '../../lib/calendar/time'
@@ -31,28 +31,25 @@ import { EventBlock, formatTimeRange } from './EventBlock'
 import { BAR_ROW_GAP_PX, BAR_ROW_HEIGHT_PX, CalendarBar } from './CalendarBar'
 import { EventPeekPopover } from './EventPeekPopover'
 import { useNowTick } from './useNowTick'
+import { isTaskItem } from './types'
 import type { CalendarItem, CalendarReschedule, TimeGridProps } from './types'
 
-/** ~48px per hour keeps a full working day on screen, as a mature calendar does. */
-const HOUR_HEIGHT_PX = 48
 /**
- * Hours visible before the timed region scrolls.
- *
- * `flex-1` alone cannot bound this: the calendar's ancestors have no definite
- * height, so the region would grow to all 24 hours and push the page into a
- * scroll instead of scrolling itself. Capping it keeps a full working day on
- * screen and keeps the grid's own scrollport meaningful.
+ * One hour of grid. A mature calendar sizes an hour so a 30-minute meeting is
+ * still a readable card and a working day fits without scrolling — 48px does
+ * both, and every other measure here is derived from it rather than guessed.
  */
-const VISIBLE_HOURS = 13
-const MIN_BLOCK_HEIGHT_PX = 16
+const HOUR_HEIGHT_PX = 48
+/** Shortest card that can still show a title. */
+const MIN_BLOCK_HEIGHT_PX = 18
 const BLOCK_VERTICAL_GAP_PX = 1
+/** Gutter between two concurrent cards, so a shared slot still reads as two. */
 const COLUMN_GAP_PX = 2
 const DEFAULT_VISIBLE_ALL_DAY_ROWS = 2
 const DRAG_THRESHOLD_PX = 4
 const DEFAULT_WORKING_HOURS = { startHour: 8, endHour: 18 }
-
-const NON_WORKING_HATCH_BACKGROUND =
-  'repeating-linear-gradient(45deg, transparent 0px, transparent 8px, var(--border) 8px, var(--border) 9px)'
+/** Width of the hour gutter, shared by the header corner and the grid. */
+const GUTTER_CLASS = 'w-14 shrink-0 md:w-16'
 
 type Gesture =
   | { kind: 'create'; dayIndex: number; anchorMinutes: number; pointerMinutes: number; moved: boolean }
@@ -90,6 +87,21 @@ function segmentKey(segment: PositionedSegment): string {
   return `${segment.item.id}:${segment.startMinutes}`
 }
 
+/**
+ * Geometry for one packed segment.
+ *
+ * Concurrent events split their slot evenly and each widens into any free
+ * column to its right — the layout a mature calendar uses, and the reason a
+ * cluster of six does not shrink every card to a sixth of the column.
+ */
+function segmentGeometry(segment: PositionedSegment): { insetInlineStart: string; width: string } {
+  const startPercent = (segment.column / segment.columns) * 100
+  const widthPercent = (segment.span / segment.columns) * 100
+  return {
+    insetInlineStart: `calc(${startPercent}% + ${segment.column * COLUMN_GAP_PX}px)`,
+    width: `calc(${widthPercent}% - ${COLUMN_GAP_PX}px)`,
+  }
+}
 
 export function TimeGrid({
   days,
@@ -149,9 +161,7 @@ export function TimeGrid({
   const formatters = React.useMemo(
     () => ({
       dayNumber: new Intl.DateTimeFormat(locale, { day: 'numeric' }),
-      dayNumberPadded: new Intl.DateTimeFormat(locale, { day: '2-digit' }),
       weekdayShort: new Intl.DateTimeFormat(locale, { weekday: 'short' }),
-      weekdayLong: new Intl.DateTimeFormat(locale, { weekday: 'long' }),
       fullDate: new Intl.DateTimeFormat(locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }),
     }),
     [locale],
@@ -162,7 +172,12 @@ export function TimeGrid({
     return Array.from({ length: HOURS_PER_DAY }, (_, hour) => formatter.format(new Date(2026, 0, 1, hour)))
   }, [locale])
 
-  const nonWorkingLabel = t('customers.calendar.grid.nonWorking', 'Non-working day')
+  const timeZoneAbbreviation = React.useMemo(() => {
+    const label = formatTimeZoneLabel()
+    const match = /\(([^)]+)\)/.exec(label)
+    return match ? match[1] : label
+  }, [])
+
   const canCreate = canManage && Boolean(onCreateRange)
 
   // Scroll to the current time when today is on screen, otherwise to the start
@@ -393,7 +408,8 @@ export function TimeGrid({
         onReschedule({ item, start, end, allDay: item.allDay })
         return
       }
-      if (item.allDay) return
+      // A task has no duration to extend — its record stores a due moment only.
+      if (item.allDay || isTaskItem(item)) return
       const end = new Date(item.end.getTime() + minutes * 60_000)
       if (end.getTime() - item.start.getTime() < MIN_EVENT_DURATION_MINUTES * 60_000) return
       onReschedule({ item, start: item.start, end, allDay: false })
@@ -409,6 +425,10 @@ export function TimeGrid({
   const showNowIndicator = dayStarts.some((day) => isSameLocalDay(day, new Date(nowMs)))
   const nowMinutes = minutesOfDay(new Date(nowMs))
   const nowIndex = dayStarts.findIndex((day) => isSameLocalDay(day, new Date(nowMs)))
+  const nowLabel = React.useMemo(
+    () => new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' }).format(new Date(nowMs)),
+    [locale, nowMs],
+  )
 
   return (
     <div
@@ -420,9 +440,25 @@ export function TimeGrid({
     >
       {/* Header and all-day lane sit outside the scroll container, so they stay
           pinned while the timed region scrolls. */}
-      <div className="shrink-0 border-b border-border bg-surface">
+      <div className="shrink-0 bg-surface">
         <div className="flex" role="row">
-          <div className="w-14 shrink-0 border-e border-border md:w-20" />
+          {/* The gutter corner carries the timezone, the way a calendar labels
+              the axis it is measuring against. */}
+          <div
+            className={cn(
+              GUTTER_CLASS,
+              'flex items-end justify-end border-e border-border pb-1 pe-1.5 md:pe-2',
+            )}
+          >
+            <span className="text-overline font-medium leading-none text-muted-foreground">
+              <span aria-hidden>{timeZoneAbbreviation}</span>
+              <span className="sr-only">
+                {t('customers.calendar.footer.timezone', 'Timezone: {timezone}', {
+                  timezone: formatTimeZoneLabel(),
+                })}
+              </span>
+            </span>
+          </div>
           {dayStarts.map((dayStart, index) => {
             const today = isSameLocalDay(dayStart, new Date(nowMs))
             return (
@@ -433,32 +469,28 @@ export function TimeGrid({
                 // The split weekday/numeral is a visual arrangement; screen
                 // readers get the whole date as one phrase.
                 aria-label={formatters.fullDate.format(dayStart)}
-                className={cn(
-                  'flex min-w-0 flex-1 flex-col items-center gap-0.5 border-e border-border px-1 py-2 last:border-e-0',
-                  today && 'bg-accent/40',
-                )}
+                className="flex min-w-0 flex-1 flex-col items-center gap-0.5 px-1 pb-1.5 pt-2"
               >
-                {days === 1 ? (
-                  // A single wide column reads better on one line than stacked.
-                  <span aria-hidden className="text-sm font-medium tracking-wide text-foreground">
-                    {`${formatters.weekdayLong.format(dayStart).toLocaleUpperCase(locale)} · ${formatters.dayNumberPadded.format(dayStart)}`}
-                  </span>
-                ) : (
-                  <>
-                    <span aria-hidden className="text-overline tracking-wide text-muted-foreground">
-                      {formatters.weekdayShort.format(dayStart).toLocaleUpperCase(locale)}
-                    </span>
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'flex size-7 items-center justify-center rounded-full text-sm font-medium',
-                        today ? 'bg-primary text-primary-foreground' : 'text-foreground',
-                      )}
-                    >
-                      {formatters.dayNumber.format(dayStart)}
-                    </span>
-                  </>
-                )}
+                <span
+                  aria-hidden
+                  className={cn(
+                    'text-xs font-medium uppercase leading-none tracking-wide',
+                    today ? 'text-primary' : 'text-muted-foreground',
+                  )}
+                >
+                  {formatters.weekdayShort.format(dayStart).toLocaleUpperCase(locale)}
+                </span>
+                {/* A large, light numeral is the calendar's date anchor; today
+                    inverts into a filled disc rather than merely changing hue. */}
+                <span
+                  aria-hidden
+                  className={cn(
+                    'flex size-9 items-center justify-center rounded-full text-2xl font-normal leading-none tabular-nums transition-colors',
+                    today ? 'bg-primary font-medium text-primary-foreground' : 'text-foreground',
+                  )}
+                >
+                  {formatters.dayNumber.format(dayStart)}
+                </span>
               </div>
             )
           })}
@@ -466,9 +498,9 @@ export function TimeGrid({
 
         {/* The all-day lane always renders, so it stays a drop target even when
             empty. */}
-        <div className="flex border-t border-border">
-          <div className="flex w-14 shrink-0 items-start justify-end border-e border-border px-1 py-1 md:w-20 md:px-2">
-            <span className="text-overline uppercase tracking-wide text-muted-foreground">
+        <div className="flex border-y border-border">
+          <div className={cn(GUTTER_CLASS, 'flex items-start justify-end border-e border-border px-1 py-1 md:px-2')}>
+            <span className="text-overline leading-tight text-muted-foreground">
               {t('customers.calendar.grid.allDay', 'All day')}
             </span>
           </div>
@@ -476,11 +508,11 @@ export function TimeGrid({
             ref={allDayLaneRef}
             className={cn(
               'relative min-w-0 flex-1 transition-colors',
-              allDayDropActive && 'bg-accent-strong/15 ring-1 ring-inset ring-foreground',
+              allDayDropActive && 'bg-accent-strong/15 ring-1 ring-inset ring-primary',
             )}
             style={{
-              minHeight: BAR_ROW_HEIGHT_PX + BAR_ROW_GAP_PX,
-              height: Math.max(1, visibleAllDayRows) * (BAR_ROW_HEIGHT_PX + BAR_ROW_GAP_PX),
+              minHeight: BAR_ROW_HEIGHT_PX + BAR_ROW_GAP_PX * 2,
+              height: Math.max(1, visibleAllDayRows) * (BAR_ROW_HEIGHT_PX + BAR_ROW_GAP_PX) + BAR_ROW_GAP_PX,
             }}
           >
             <div aria-hidden className="absolute inset-0 flex">
@@ -520,42 +552,55 @@ export function TimeGrid({
           </div>
         </div>
         {hiddenAllDayCount > 0 || allDayExpanded ? (
-          <div className="flex justify-end border-t border-border px-2 py-0.5">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-auto p-0 text-overline font-medium text-muted-foreground hover:bg-transparent hover:underline"
-              aria-expanded={allDayExpanded}
-              onClick={() => setAllDayExpanded((open) => !open)}
-            >
-              {allDayExpanded
-                ? t('customers.calendar.grid.showLess', 'Show less')
-                : t('customers.calendar.grid.more', '+{count} more', { count: hiddenAllDayCount })}
-            </Button>
+          <div className="flex border-b border-border">
+            <div className={cn(GUTTER_CLASS, 'border-e border-border')} />
+            <div className="flex min-w-0 flex-1 justify-start px-1.5 py-0.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-auto p-0 text-xs font-medium text-muted-foreground hover:bg-transparent hover:text-foreground hover:underline"
+                aria-expanded={allDayExpanded}
+                onClick={() => setAllDayExpanded((open) => !open)}
+              >
+                {allDayExpanded
+                  ? t('customers.calendar.grid.showLess', 'Show less')
+                  : t('customers.calendar.grid.more', '+{count} more', { count: hiddenAllDayCount })}
+              </Button>
+            </div>
           </div>
         ) : null}
       </div>
 
-      {/* Timed region — the only part that scrolls. */}
-      <div
-        ref={scrollRef}
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
-        style={{ maxHeight: `min(${VISIBLE_HOURS * HOUR_HEIGHT_PX}px, 65vh)` }}
-      >
+      {/* Timed region — the only part that scrolls. It takes whatever height the
+          page has left, so the calendar fills the viewport instead of the page
+          scrolling behind a fixed-height grid. */}
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <div ref={gridRef} className="flex" style={{ height: HOURS_PER_DAY * HOUR_HEIGHT_PX }}>
-          <div className="relative w-14 shrink-0 border-e border-border md:w-20">
+          <div className={cn(GUTTER_CLASS, 'relative border-e border-border')}>
             {hourLabels.map((label, hour) =>
               hour === 0 ? null : (
                 <span
                   key={hour}
-                  className="absolute end-0 w-full -translate-y-1/2 pe-1 text-end text-overline text-muted-foreground md:pe-2 md:text-xs"
+                  // Sitting just above its own line is what lets the eye read a
+                  // label as belonging to the hour that starts there.
+                  className="absolute end-0 w-full -translate-y-1/2 pe-1.5 text-end text-overline leading-none text-muted-foreground md:pe-2"
                   style={{ top: hour * HOUR_HEIGHT_PX }}
                 >
                   {label}
                 </span>
               ),
             )}
+            {/* The current time replaces the nearest hour label on the axis. */}
+            {showNowIndicator ? (
+              <span
+                aria-hidden
+                className="absolute end-0 z-20 w-full -translate-y-1/2 bg-surface pe-1.5 text-end text-overline font-semibold leading-none text-status-error-text md:pe-2"
+                style={{ top: minutesToPx(nowMinutes) }}
+              >
+                {nowLabel}
+              </span>
+            ) : null}
           </div>
 
           <div
@@ -564,7 +609,6 @@ export function TimeGrid({
             onPointerDown={canCreate ? beginCreate : undefined}
           >
             {dayStarts.map((dayStart, dayIndex) => {
-              const nonWorking = isWeekendDay(dayStart)
               const segments = timedByDay[dayIndex] ?? []
               const today = isSameLocalDay(dayStart, new Date(nowMs))
               const conflictCount = showConflicts
@@ -578,39 +622,26 @@ export function TimeGrid({
                   aria-label={formatters.fullDate.format(dayStart)}
                   className={cn(
                     'relative min-w-0 flex-1 border-e border-border last:border-e-0',
-                    today && 'bg-accent/20',
+                    today && 'bg-accent/25',
                   )}
-                  title={nonWorking ? nonWorkingLabel : undefined}
                 >
+                  {/* Hour rules only — a calendar reads cleaner without the
+                      half-hour line, and the 48px hour already halves visibly. */}
                   <div aria-hidden className="pointer-events-none absolute inset-0">
                     {Array.from({ length: HOURS_PER_DAY }, (_, hour) => (
-                      <div
-                        key={hour}
-                        className="relative border-b border-border/70"
-                        style={{ height: HOUR_HEIGHT_PX }}
-                      >
-                        <span className="absolute inset-x-0 top-1/2 h-px bg-border/30" />
-                      </div>
+                      <div key={hour} className="border-b border-border/60" style={{ height: HOUR_HEIGHT_PX }} />
                     ))}
                   </div>
-                  {nonWorking ? (
-                    <div
-                      aria-hidden
-                      className="pointer-events-none absolute inset-0 opacity-40"
-                      style={{ backgroundImage: NON_WORKING_HATCH_BACKGROUND }}
-                    />
-                  ) : null}
 
                   {canCreate ? <div aria-hidden className="absolute inset-0 cursor-cell" /> : null}
 
                   {conflictCount > 0 ? <ConflictBadge count={conflictCount} /> : null}
 
-                  <div className="pointer-events-none absolute inset-y-0 inset-x-0.5">
+                  <div className="pointer-events-none absolute inset-y-0 inset-x-0 pe-1.5">
                     {segments.map((segment) => {
                       const rawTop = minutesToPx(segment.startMinutes)
                       const rawHeight = minutesToPx(segment.endMinutes - segment.startMinutes)
-                      const widthPercent = (segment.span / segment.columns) * 100
-                      const startPercent = (segment.column / segment.columns) * 100
+                      const { insetInlineStart, width } = segmentGeometry(segment)
                       const isDragging = draggingItemId === segment.item.id
                       return (
                         <EventPeekPopover
@@ -628,11 +659,12 @@ export function TimeGrid({
                             item={segment.item}
                             top={rawTop + BLOCK_VERTICAL_GAP_PX}
                             height={Math.max(MIN_BLOCK_HEIGHT_PX, rawHeight - BLOCK_VERTICAL_GAP_PX * 2)}
-                            insetInlineStart={`calc(${startPercent}% + ${segment.column * COLUMN_GAP_PX}px)`}
-                            width={`calc(${widthPercent}% - ${COLUMN_GAP_PX}px)`}
+                            insetInlineStart={insetInlineStart}
+                            width={width}
+                            stackIndex={segment.column}
                             continuesBefore={segment.continuesBefore}
                             continuesAfter={segment.continuesAfter}
-                            resizable={canManage && Boolean(onReschedule)}
+                            resizable={canManage && Boolean(onReschedule) && !isTaskItem(segment.item)}
                             draggable={canManage && Boolean(onReschedule)}
                             dragging={isDragging}
                             conflicted={showConflicts && conflictIds.has(segment.item.id)}
@@ -651,7 +683,7 @@ export function TimeGrid({
                   {previewRange && previewRange.dayIndex === dayIndex ? (
                     <div
                       aria-hidden
-                      className="pointer-events-none absolute inset-x-1 z-30 flex flex-col gap-0.5 overflow-hidden rounded-md border-2 border-dashed border-foreground bg-accent-strong/10 px-1.5 pt-0.5"
+                      className="pointer-events-none absolute inset-x-1 z-30 flex flex-col gap-0.5 overflow-hidden rounded border-2 border-primary bg-primary/15 px-1.5 pt-0.5"
                       style={{
                         top: minutesToPx(minutesOfDay(previewRange.start)),
                         height: Math.max(
@@ -660,7 +692,7 @@ export function TimeGrid({
                         ),
                       }}
                     >
-                      <span className="truncate text-overline font-semibold text-foreground">
+                      <span className="truncate text-xs font-semibold leading-tight text-foreground">
                         {formatTimeRange(locale, previewRange.start, previewRange.end)}
                       </span>
                     </div>
@@ -679,17 +711,15 @@ export function TimeGrid({
                   width: `${(1 / dayStarts.length) * 100}%`,
                 }}
               >
-                <span className="-ms-1 size-2 shrink-0 rounded-full bg-status-error-icon" />
-                <span className="h-px flex-1 bg-status-error-icon" />
+                <span className="-ms-1 size-2.5 shrink-0 rounded-full bg-status-error-icon" />
+                <span className="h-0.5 flex-1 bg-status-error-icon" />
               </div>
             ) : null}
           </div>
         </div>
       </div>
       <span className="sr-only" role="status">
-        {t('customers.calendar.grid.nowAnnouncement', 'Current time {time}', {
-          time: new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' }).format(new Date(nowMs)),
-        })}
+        {t('customers.calendar.grid.nowAnnouncement', 'Current time {time}', { time: nowLabel })}
       </span>
     </div>
   )

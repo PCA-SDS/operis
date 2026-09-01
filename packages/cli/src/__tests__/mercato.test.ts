@@ -872,6 +872,61 @@ describe('server dev managed process exits', () => {
     consoleLogSpy.mockRestore()
   })
 
+  // `next dev` must run as development even though the workers and scheduler
+  // beside it keep the production-style runtime env. apps/mercato/next.config.ts
+  // keys its security headers off NODE_ENV, so a production value there serves
+  // the dev app a `script-src` with no `'unsafe-eval'` — which React's dev
+  // runtime needs — plus HSTS over plain HTTP.
+  // Spec: .ai/specs/2026-04-23-cli-optional-module-orchestration.md section 5.
+  it('runs the Next.js dev server as development while workers keep the production env', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
+    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation()
+
+    jest.doMock('node:fs', () => {
+      const actual = jest.requireActual('node:fs')
+      return {
+        ...actual,
+        existsSync: jest.fn((candidate: string) =>
+          pathIncludes(candidate, 'next/dist/bin/next') || pathIncludes(candidate, '@open-mercato/cli/bin/mercato'),
+        ),
+        unlinkSync: jest.fn(),
+      }
+    })
+    jest.doMock('../lib/generators', () => ({
+      generateModulePackageSources: jest.fn().mockResolvedValue(undefined),
+    }))
+    jest.doMock('../lib/resolver', () => ({
+      resolveEnvironment: () => ({
+        appDir: '/tmp/test-app',
+        rootDir: '/tmp/test-root',
+      }),
+      createResolver: () => ({}),
+    }))
+    // The queue worker exiting is what ends the run, so both children are
+    // guaranteed to have been spawned by the time the assertions read them.
+    const childProcess = buildMockChildProcessModule((args) =>
+      args.slice(1).join(' ') === 'queue worker --all' ? { code: 0 } : undefined,
+    )
+    jest.doMock('child_process', () => childProcess)
+
+    const mercato = await import('../mercato')
+    mercato.registerCliModules([eventsWorkerFixture as Module])
+
+    await mercato.run(['node', 'mercato', 'server', 'dev'])
+
+    const calls = (childProcess.spawn as jest.Mock).mock.calls
+    const nextCall = calls.find(
+      ([, args]) => pathIncludes(args[0] ?? '', 'next/dist/bin/next') && args.includes('dev'),
+    )
+    const workerCall = calls.find(([, args]) => args.slice(1).join(' ') === 'queue worker --all')
+
+    expect(nextCall?.[2]?.env?.NODE_ENV).toBe('development')
+    expect(workerCall?.[2]?.env?.NODE_ENV).toBe('production')
+
+    consoleErrorSpy.mockRestore()
+    consoleLogSpy.mockRestore()
+  })
+
   it('retries the Next.js dev server once when it exits before reporting ready', async () => {
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
     const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation()
