@@ -688,6 +688,30 @@ TODO: Fix that latter to have reference by the package names
   background-color: var(--surface);
 }
 
+/* Borderless controls inside a dialog form (PCA modal chrome).
+ *
+ * The INVERSE of the section rule above, and deliberately so. A form section is
+ * a muted panel, so its controls take the surface fill. A dialog panel is
+ * already `surface`, so its controls take the muted fill — otherwise a white
+ * control on a white panel would have no edge at all once the border is gone.
+ *
+ * Measured from the PCA reference's `LOGIN_INPUT_CLASS`, which every PCA dialog
+ * field uses: a filled box with a transparent border and no focus ring. Scoped
+ * to the attribute for the same reason as above — the same control on the page
+ * ground would vanish, so this must never reach the Input primitive itself. */
+[data-dialog-form='true']
+  :where(
+    input:not([type='checkbox']):not([type='radio']),
+    textarea,
+    select,
+    [data-slot='input-wrapper'],
+    [data-slot='select-trigger'],
+    [data-slot='date-picker-trigger']
+  ) {
+  border-color: transparent;
+  background-color: var(--surface-muted);
+}
+
 /* Invalid form fields.
  *
  * `CrudForm` marks a field region with `data-crud-field-invalid` when it has a

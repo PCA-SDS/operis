@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from 'react'
-import { Calendar } from 'lucide-react'
 import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
 import { apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { extractOptimisticLockConflict } from '@open-mercato/ui/backend/utils/optimisticLock'
@@ -224,7 +223,6 @@ function EditorBody({
           placeholder={t('customers.calendar.editor.titlePlaceholder', 'Add a title…')}
           aria-label={titleLabel}
           autoFocus
-          size="lg"
         />
       </Field>
       <div className="flex w-full flex-col gap-4">
@@ -518,13 +516,30 @@ export function CalendarEventEditor({
         }}
         aria-describedby={undefined}
         closeAriaLabel={t('customers.calendar.editor.close', 'Close')}
-        className="flex h-dvh max-h-dvh w-screen max-w-none flex-col overflow-hidden rounded-none bg-surface shadow-xl sm:h-auto sm:max-h-[calc(100dvh-4rem)] sm:w-full sm:max-w-lg sm:rounded-2xl lg:max-w-3xl"
+        // `size` rather than a width class: the reference modal takes its width
+        // from a prop with a `max-w-3xl` default, and the DS exposes the same
+        // idea as a variant. `xl` is `max-w-4xl` — one step past the reference,
+        // which this form earns because it lays out in two columns.
+        //
+        // Everything else the old override spelled out (the mobile sheet, the
+        // 2xl radius, the surface fill, the shadow) is already the DS default;
+        // the override was forcing a full-screen phone layout the reference
+        // does not use — it slides a bottom sheet up instead.
+        size="xl"
+        className="flex max-h-[92dvh] flex-col overflow-hidden sm:max-h-[calc(100dvh-4rem)]"
       >
-        <DialogHeader leading={<Calendar aria-hidden strokeWidth={1.75} />}>
+        {/* No leading icon: the reference header is the title and the close
+            button on one band, separated from the body by a rule. */}
+        <DialogHeader className="border-b border-border">
           <DialogTitle>{dialogTitle}</DialogTitle>
         </DialogHeader>
         <DialogBody
-          className="min-h-0 flex-1 overflow-y-auto"
+          // Scopes the `[data-dialog-form]` rule in `globals.css`, which strips
+          // the border off every DS control in here and gives it the muted
+          // fill — the reference's field treatment, applied once for all
+          // control families rather than per control.
+          data-dialog-form="true"
+          className="min-h-0 flex-1 overflow-y-auto py-5"
           onScroll={() => {
             // Tell the DS date/time fields to close their (controlled) popover
             // so a portalled popover doesn't float over the form or drift away
@@ -546,7 +561,7 @@ export function CalendarEventEditor({
             onSubmit={handleSubmit}
           />
         </DialogBody>
-        <DialogFooter>
+        <DialogFooter bordered>
           <Button
             type="button"
             variant="outline"
