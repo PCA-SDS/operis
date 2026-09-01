@@ -1,4 +1,5 @@
-import type { CalendarItem } from '../../components/calendar/types'
+import type {
+  CalendarInteractionItem, CalendarItem } from '../../components/calendar/types'
 import { parseRecurrenceRule } from './recurrence'
 
 export type EditorKind = 'meeting' | 'call' | 'email' | 'note' | 'event' | 'task'
@@ -401,7 +402,7 @@ function parseRepeatFromRule(rawRule: unknown, start: Date): ParsedRepeat {
   }
 }
 
-function parseParticipants(item: CalendarItem): EditorParticipant[] {
+function parseParticipants(item: CalendarInteractionItem): EditorParticipant[] {
   const rawParticipants = Array.isArray(item.raw.participants) ? item.raw.participants : []
   const statusByUserId = new Map<string, string | null>()
   for (const raw of rawParticipants) {
@@ -415,7 +416,7 @@ function parseParticipants(item: CalendarItem): EditorParticipant[] {
   }))
 }
 
-export function parseItemToFormState(item: CalendarItem): EditorFormState {
+export function parseItemToFormState(item: CalendarInteractionItem): EditorFormState {
   const kind = editorKindOfInteractionType(item.interactionType)
   const raw = item.raw as Record<string, unknown>
   const { resources, preservedLinkedEntities } = parseLinkedEntities(raw.linkedEntities)

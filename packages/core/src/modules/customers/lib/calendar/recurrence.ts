@@ -1,4 +1,5 @@
-import type { CalendarItem, CalendarRange } from '../../components/calendar/types'
+import type {
+  CalendarInteractionItem, CalendarItem, CalendarRange } from '../../components/calendar/types'
 import { addCalendarDays, localDayKey } from './time'
 
 const MAX_OCCURRENCES_PER_WINDOW = 100
@@ -221,7 +222,10 @@ export function* occurrenceStarts(
   }
 }
 
-export function expandOccurrences(item: CalendarItem, range: CalendarRange): CalendarItem[] {
+export function expandOccurrences(
+  item: CalendarInteractionItem,
+  range: CalendarRange,
+): CalendarInteractionItem[] {
   const rawRule = item.raw.recurrenceRule
   if (typeof rawRule !== 'string' || rawRule.trim().length === 0) return [item]
   const rule = parseRecurrenceRule(rawRule)
@@ -239,7 +243,7 @@ export function expandOccurrences(item: CalendarItem, range: CalendarRange): Cal
   const hardLimitMs = Math.min(...limits)
 
   const exceptions = new Set(rule.exceptions)
-  const occurrences: CalendarItem[] = []
+  const occurrences: CalendarInteractionItem[] = []
   let occurrenceIndex = 0
 
   for (const occurrenceStart of occurrenceStarts(item.start, rule, hardLimitMs)) {

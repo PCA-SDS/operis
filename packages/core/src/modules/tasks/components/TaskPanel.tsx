@@ -60,15 +60,19 @@ type CreateDraft = {
   descriptionPlaintext: string
 }
 
-function emptyDraft(defaultStatus: TaskStatus): CreateDraft {
+function emptyDraft(
+  defaultStatus: TaskStatus,
+  defaultDueDate: string | null = null,
+  defaultDueTime: string | null = null,
+): CreateDraft {
   return {
     title: '',
     status: defaultStatus,
     priority: 'none',
     assigneeIds: [],
     assignmentTargets: [],
-    dueDate: null,
-    dueTime: null,
+    dueDate: defaultDueDate,
+    dueTime: defaultDueTime,
     recurrence: null,
     milestoneId: null,
     labelIds: [],
@@ -90,12 +94,19 @@ export function TaskPanel({
   taskId,
   projectId,
   defaultStatus = 'backlog',
+  defaultDueDate = null,
+  defaultDueTime = null,
   onClose,
   onCreated,
 }: {
   taskId: string | null
   projectId: string
   defaultStatus?: TaskStatus
+  /** Seeds a new task's due date (`YYYY-MM-DD`) — a calendar opening the panel
+   *  on a slot passes the slot it was opened from. */
+  defaultDueDate?: string | null
+  /** Seeds a new task's wall-clock due time (`HH:MM`). */
+  defaultDueTime?: string | null
   onClose: () => void
   onCreated?: (taskId: string) => void
 }) {
@@ -104,7 +115,9 @@ export function TaskPanel({
   const [activeId, setActiveId] = React.useState(taskId)
   const [subtaskComposer, setSubtaskComposer] = React.useState(false)
   const [banner, setBanner] = React.useState<string | null>(null)
-  const [draft, setDraft] = React.useState<CreateDraft>(() => emptyDraft(defaultStatus))
+  const [draft, setDraft] = React.useState<CreateDraft>(() =>
+    emptyDraft(defaultStatus, defaultDueDate, defaultDueTime),
+  )
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
 
   React.useEffect(() => setActiveId(taskId), [taskId])
