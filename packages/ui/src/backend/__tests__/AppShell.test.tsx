@@ -508,6 +508,124 @@ describe('AppShell', () => {
     })
   })
 
+  describe('sidebar loading placeholder', () => {
+    /** Render the rail with its chrome request left pending, so the skeleton stays up. */
+    async function renderLoadingRail() {
+      const previousFetch = global.fetch
+      const previousWindowFetch = window.fetch
+      const fetchMock = jest.fn(
+        () => new Promise<Response>(() => {}),
+      ) as unknown as typeof fetch
+      global.fetch = fetchMock
+      window.fetch = fetchMock
+      ;(window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch = fetchMock
+
+      const view = renderWithProviders(
+        <AppShell email="demo@example.com" groups={groups} adminNavApi="/api/auth/admin/nav-loading">
+          <div>Content</div>
+        </AppShell>,
+        { dict },
+      )
+      await waitFor(() => {
+        expect(screen.getAllByTestId('backend-chrome-loading').length).toBeGreaterThan(0)
+      })
+      const restore = () => {
+        global.fetch = previousFetch
+        window.fetch = previousWindowFetch
+      }
+      const rail = screen.getAllByTestId('backend-chrome-loading')[0] as HTMLElement
+      return { view, rail, restore }
+    }
+
+    it('announces itself as busy instead of loading in silence', async () => {
+      const { rail, restore } = await renderLoadingRail()
+      try {
+        expect(rail).toHaveAttribute('role', 'status')
+        expect(rail).toHaveAttribute('aria-busy', 'true')
+        expect(rail).toHaveAttribute('aria-label', 'Loading navigation')
+      } finally {
+        restore()
+      }
+    })
+
+    it('stands its rows on the same box a real nav row uses, so nothing shifts on load', async () => {
+      const { rail, restore } = await renderLoadingRail()
+      try {
+        const rows = Array.from(rail.querySelectorAll('.h-10.px-3.gap-3'))
+        expect(rows.length).toBeGreaterThanOrEqual(7)
+        for (const row of rows) {
+          // Full-width blocks with no inner padding is what put the old
+          // placeholder 12px left of every real row icon.
+          expect(row.className).toContain('px-3')
+          expect(row.className).toContain('items-center')
+        }
+      } finally {
+        restore()
+      }
+    })
+
+    it('gives each row an icon square and a label bar, not one undifferentiated slab', async () => {
+      const { rail, restore } = await renderLoadingRail()
+      try {
+        const row = rail.querySelector('.h-10.px-3.gap-3') as HTMLElement
+        const parts = Array.from(row.children) as HTMLElement[]
+        expect(parts).toHaveLength(2)
+        expect(parts[0].className).toContain('size-5')
+        expect(parts[1].className).toMatch(/\bw-\d+\b/)
+      } finally {
+        restore()
+      }
+    })
+
+    it('varies the label widths so the column reads as names rather than a bar chart', async () => {
+      const { rail, restore } = await renderLoadingRail()
+      try {
+        const widths = Array.from(rail.querySelectorAll('.h-3'))
+          .map((node) => (node.className.match(/\bw-\d+\b/) ?? [''])[0])
+          .filter(Boolean)
+        expect(widths.length).toBeGreaterThanOrEqual(7)
+        expect(new Set(widths).size).toBeGreaterThan(1)
+      } finally {
+        restore()
+      }
+    })
+
+    it('keeps the group overline short instead of a rail-wide slab', async () => {
+      const { rail, restore } = await renderLoadingRail()
+      try {
+        const headings = Array.from(rail.querySelectorAll('.h-8.px-3'))
+        expect(headings.length).toBeGreaterThanOrEqual(2)
+        for (const heading of headings) {
+          const bar = heading.firstElementChild as HTMLElement
+          expect(bar.className).toContain('w-16')
+          expect(bar.className).not.toContain('w-full')
+        }
+      } finally {
+        restore()
+      }
+    })
+
+    it('separates its groups with the same divider the loaded rail uses', async () => {
+      const { rail, restore } = await renderLoadingRail()
+      try {
+        // One divider for two groups — between them, not after the last.
+        expect(rail.querySelectorAll('.border-t.border-sidebar-border')).toHaveLength(1)
+      } finally {
+        restore()
+      }
+    })
+
+    it('respects reduced motion rather than pulsing regardless', async () => {
+      const { rail, restore } = await renderLoadingRail()
+      try {
+        const bar = rail.querySelector('.animate-pulse') as HTMLElement
+        expect(bar.className).toContain('motion-reduce:animate-none')
+      } finally {
+        restore()
+      }
+    })
+  })
+
   describe('sidebar scroll affordance', () => {
     function renderScrollableRail() {
       mockPathname = '/backend/users'

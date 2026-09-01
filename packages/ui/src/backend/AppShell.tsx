@@ -42,6 +42,7 @@ import {
   SIDEBAR_CHILD_BOX,
   SIDEBAR_GROUP_DIVIDER,
   SIDEBAR_GROUP_LABEL,
+  SIDEBAR_GROUP_LABEL_BOX,
   SIDEBAR_GUTTER,
   SIDEBAR_ICON_BOX,
   SIDEBAR_ITEM_BASE,
@@ -116,6 +117,25 @@ const SIDEBAR_SCROLL_AREA = 'flex min-h-0 flex-1 flex-col overflow-x-hidden over
  * adding it keeps it scrolling. */
 const SIDEBAR_AFFORDANCE_HEIGHT = 'h-10'
 const SIDEBAR_SCROLL_AREA_RESERVED = 'pb-10'
+
+/** One placeholder bar. Toned with the rail's own tokens rather than the DS
+ *  `Skeleton`, whose `bg-surface-muted` is tuned for the page surface and
+ *  disappears on the navy sidebar. */
+const SIDEBAR_SKELETON_BAR =
+  'animate-pulse rounded-md bg-sidebar-accent/60 motion-reduce:animate-none'
+
+/**
+ * The shape the rail loads into: two groups of rows under short overlines.
+ *
+ * Label widths are fixed rather than random so the rail does not reshuffle
+ * between renders, and varied so the column reads as a list of names rather
+ * than a stack of identical bars — which is what a single width looks like, and
+ * what made the old placeholder read as noise.
+ */
+const SIDEBAR_SKELETON_GROUPS: ReadonlyArray<ReadonlyArray<string>> = [
+  ['w-24', 'w-32', 'w-20', 'w-28'],
+  ['w-28', 'w-20', 'w-24'],
+]
 
 const SIDEBAR_OPEN_GROUPS_KEY = 'om:sidebarOpenGroups'
 const SIDEBAR_OPEN_GROUPS_VERSION = 1
@@ -1042,26 +1062,46 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
 
   function renderSidebar(hideHeader?: boolean, forceMainOnly?: boolean) {
     if (!isChromeReady && isChromeLoading) {
+      // The placeholder is built from the rail's own boxes — the same row
+      // height, the same heading box, the same group rhythm — so what loads in
+      // lands exactly where the placeholder stood. The previous version drew
+      // full-width blocks with no inner padding, which sat 12px left of every
+      // real row icon and made the whole rail appear to shift on load.
       return (
-        <div className="flex h-full flex-col gap-3" data-testid="backend-chrome-loading">
+        <div
+          className="flex h-full flex-col gap-3"
+          data-testid="backend-chrome-loading"
+          role="status"
+          aria-busy="true"
+          aria-live="polite"
+          aria-label={t('appShell.loadingNavigation', 'Loading navigation')}
+        >
           {!hideHeader ? renderBrandHeader() : null}
-          <div className="h-10 shrink-0 rounded-lg bg-sidebar-accent/50" />
-          <div className="flex min-h-0 flex-1 flex-col gap-3">
-            <div>
-              <div className="h-8 rounded-lg bg-sidebar-accent/50" />
-              <div className="flex flex-col gap-1 pt-1">
-                <div className="h-10 rounded-lg bg-sidebar-accent/50" />
-                <div className="h-10 rounded-lg bg-sidebar-accent/50" />
-                <div className="h-10 rounded-lg bg-sidebar-accent/50" />
+          {/* The search field is `lg`, the same 40px as a nav row. */}
+          <div aria-hidden className={`h-10 shrink-0 rounded-lg ${SIDEBAR_SKELETON_BAR}`} />
+          <div aria-hidden className="flex min-h-0 flex-1 flex-col gap-3">
+            {SIDEBAR_SKELETON_GROUPS.map((rows, groupIndex) => (
+              <div key={groupIndex}>
+                {/* A short overline on the real heading box, not a full-width
+                    slab: a group label is a few characters, and drawing it the
+                    width of the rail is what made headings and rows read as the
+                    same thing. */}
+                <div className={`flex items-center ${SIDEBAR_GROUP_LABEL_BOX}`}>
+                  <span className={`h-2.5 w-16 ${SIDEBAR_SKELETON_BAR}`} />
+                </div>
+                <div className="flex flex-col gap-1 pt-1">
+                  {rows.map((width, rowIndex) => (
+                    <div key={rowIndex} className={`flex items-center ${SIDEBAR_ITEM_BOX}`}>
+                      <span className={`${SIDEBAR_ICON_BOX} ${SIDEBAR_SKELETON_BAR}`} />
+                      <span className={`h-3 ${width} ${SIDEBAR_SKELETON_BAR}`} />
+                    </div>
+                  ))}
+                </div>
+                {groupIndex !== SIDEBAR_SKELETON_GROUPS.length - 1 ? (
+                  <div className={SIDEBAR_GROUP_DIVIDER} />
+                ) : null}
               </div>
-            </div>
-            <div>
-              <div className="h-8 rounded-lg bg-sidebar-accent/50" />
-              <div className="flex flex-col gap-1 pt-1">
-                <div className="h-10 rounded-lg bg-sidebar-accent/50" />
-                <div className="h-10 rounded-lg bg-sidebar-accent/50" />
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       )
