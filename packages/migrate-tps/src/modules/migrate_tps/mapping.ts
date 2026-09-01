@@ -1,4 +1,22 @@
 import type { OptionGroup, Option, Price, ServiceItem } from './data/types'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const _dirname = path.dirname(fileURLToPath(import.meta.url))
+const localesDir = path.resolve(_dirname, './data/locales')
+
+let localesData: Record<string, any> = {}
+try {
+  localesData = {
+    en: JSON.parse(fs.readFileSync(path.join(localesDir, 'en.json'), 'utf-8')),
+    fr: JSON.parse(fs.readFileSync(path.join(localesDir, 'fr.json'), 'utf-8')),
+    vi: JSON.parse(fs.readFileSync(path.join(localesDir, 'vi.json'), 'utf-8')),
+    zh: JSON.parse(fs.readFileSync(path.join(localesDir, 'zh.json'), 'utf-8'))
+  }
+} catch (e) {
+  console.warn('Failed to load locale JSON files', e)
+}
 
 export function slugifyTpsText(text: string): string {
   return text
@@ -148,4 +166,33 @@ export function enumerateTpsOptionPaths(groups: OptionGroup[], currentPath: Opti
   }
 
   return paths
+}
+
+function resolveKeyPath(obj: any, path: string): string | undefined {
+  try {
+    const val = path.split('.').reduce((acc, part) => acc && acc[part], obj)
+    return typeof val === 'string' ? val : undefined
+  } catch {
+    return undefined
+  }
+}
+
+export function buildTranslationsPayload(fieldKeys: Record<string, string | undefined>): Record<string, Record<string, unknown>> {
+  const translations: Record<string, Record<string, unknown>> = {}
+  
+  for (const [locale, data] of Object.entries(localesData)) {
+    const localeContent: Record<string, string> = {}
+    for (const [field, keyPath] of Object.entries(fieldKeys)) {
+      if (!keyPath) continue
+      const val = resolveKeyPath(data, keyPath)
+      if (val) {
+        localeContent[field] = val
+      }
+    }
+    if (Object.keys(localeContent).length > 0) {
+      translations[locale] = localeContent
+    }
+  }
+  
+  return translations
 }

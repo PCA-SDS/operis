@@ -1,0 +1,1134 @@
+{
+  "common": {
+    "close": "关闭",
+    "cancel": "取消",
+    "continue": "继续"
+  },
+  "meta": {
+    "title": "Privé Spa - 预约",
+    "logoAlt": "Privé Spa 标志"
+  },
+  "landing": {
+    "title": "让我们为您安排专属预约",
+    "description": "欢迎来到 Privé —— 让我们为您安排一段放松惬意的专属时光。",
+    "returningDescription": "欢迎再次光临！您可以选择预约上次的服务，或探索更多服务项目。",
+    "bookingForMyself": "我为自己预约",
+    "bookingForGroup": "我为团体预约",
+    "groupBookingMessage": "团体预约请直接联系我们，以便我们为您做更周到的安排。",
+    "button1Label": "这是我第一次体验 Privé",
+    "button2Label": "我是回访客户",
+    "returningForm": {
+      "title": "请输入您的信息",
+      "checking": "正在确认…",
+      "nextInstruction": "点击“下一步”以确认您的信息"
+    },
+    "returningOptions": {
+      "explore": "我想探索更多 Privé 服务",
+      "repeat": "我想预约与上次相同的服务"
+    },
+    "disclaimer": {
+      "checkboxLabel": "我已阅读并同意",
+      "linkText": "《水疗与美容服务协议》",
+      "pleaseAccept": "请先接受免责协议以继续",
+      "hint": "请先阅读并同意《水疗与美容服务协议》后再继续",
+      "title": "免责协议",
+      "content": "水疗与美容服务协议书\n（SPA & BEAUTY SERVICES CONTRACT）\n本《水疗与美容服务协议》（以下简称“本协议”）由以下双方订立：\n(1) 服务提供方：HỘ KINH DOANH NEXUS，以 The Privé Spa 或 The Privé Spa – International Luxury Nail Care & Spa 品牌运营，注册地址为：越南胡志明市滨城坊黎氏玲街7号（以下简称“服务方”）；\n(2) 顾客：任何预订、购买或接受服务方提供之服务的个人（以下简称“顾客”）。\n服务方与顾客以下合称为“双方”。\n\n1. 服务范围、服务确认及双方关系\n1.1 服务范围\n本协议适用于服务方提供的所有水疗及美容服务，包括但不限于美甲、美睫、脱毛、按摩、面部护理、身体护理及相关产品或附加服务（统称“服务”）。\n1.2 服务确认\n顾客明确确认并同意：\n a) 服务方作为独立服务提供者，依据其专业标准、内部流程及相关法规提供服务；\n b) 顾客在服务过程中主动参与，包括表达偏好、确认选择，并在服务过程中配合技师及工作人员。\n1.3 非医疗服务\n本协议项下服务不属于医疗服务，不构成医疗行为，亦不替代专业医疗建议、诊断或治疗。\n1.4 单次服务关系\n每一次预约、到店或服务购买均构成受本协议约束的独立服务关系。\n2. 接受方式\n2.1 条款公示与行为接受\n本协议条款通过服务方网站及/或门店公开提供（包括但不限于二维码、公告或应要求提供），以便顾客在使用服务前查阅。\n顾客在发生以下任一行为时，即视为已完全、无条件且不可撤销地接受本协议：\n通过任何渠道提交预约请求（包括信息、电话、网站或到店）；\n支付定金或任何费用；\n自愿提供身份证明（用于预约确认及保障），并同意服务方在必要范围内收集、存储及使用该信息；\n签署、确认或口头同意服务清单或预账单；\n开始或继续接受服务（包括入座、准备或接受任何服务）。\n提前预约的顾客，其预约确认或付款即视为有效接受本协议。\n 未预约直接到店的顾客，在知悉并有合理机会查阅本协议后继续接受服务，即视为接受本协议。\n上述接受方式具有与书面签署同等法律效力。\n2.2 拒绝接受\n如顾客不同意本协议任何条款，应在服务开始前停止预约并拒绝服务。\n3. 预约流程、确认及身份核实\n3.1 预约渠道\n服务方接受以下渠道预约：\nMeta（Facebook & Instagram）\n网站预约表单\n热线\nZalo\nWhatsApp\n3.2 预约确认\n仅在服务方通过书面形式（信息或邮件）或明确确认服务时间及内容后，预约方视为成立。\n3.3 定金及预约保障\na) 服务方可要求定金；\n b) 定金不予退还（详见第4条）；\n c) 如无需定金，顾客需提供护照或驾照副本以作身份核实，否则预约可能被取消。\n3.4 迟到政策\n顾客迟到时，服务方最多保留15分钟；逾时可能视为取消或未到。\n3.5 合同确认\n顾客确认预约或使用服务，即表示已阅读、理解并同意本协议，包括预约、取消及责任条款。\n4. 修改、取消及缺席\n4.1 修改\n预约变更需至少提前2小时通知。\n4.2 取消\n需至少提前24小时通知。\n4.3 代金券\n提前24小时取消可申请等额代金券（定金不退）。\n4.4 迟取消 / 未到\n将扣除定金，严重者可能限制预约。\n4.5 服务方调整\n因人员或不可抗力等原因，服务方可调整预约。\n5. 价格与透明度\n5.1 价格确认\n服务开始前将确认总价。\n5.2 最终价格\n确认后价格具有约束力。\n5.3 参考价格\n线上价格仅供参考，以门店确认为准。\n5.4 服务前确认\n顾客确认服务与价格后方开始服务。\n5.5 支付附加费\n非银行卡支付可能产生5%手续费，并提前告知。\n6. 健康声明与拒绝权\n顾客须确保无影响服务安全的健康状况，并主动告知相关信息。\n 服务方有权基于专业判断拒绝或调整服务。\n\n7. 问题与投诉处理\n顾客应在服务过程中或完成后及时反馈问题，以便及时处理。\n8. 顾客行为与安全\n顾客需遵守店内规定。\n 如存在不当行为或安全风险，服务方可拒绝服务。\n未满18岁须由监护人陪同。\n9. 责任与免责\n服务方将按专业标准提供服务。\n 顾客理解服务存在一定风险（如过敏、刺激等）。\n在法律允许范围内，服务方对以下情况不承担责任：\n未披露健康信息\n未遵守护理建议\n顾客自身行为\n不可抗力\n10. 付款与税务\n顾客需完成付款，服务方依法缴税。\n11. 数据与影像\n门店可能使用监控与拍照用于质量控制，营销用途需顾客同意。\n12. 不可抗力\n因不可抗力导致服务延误或取消，服务方不承担责任。\n13. 条款修改\n服务方可更新本协议，更新后适用于后续服务。\n14. 法律适用\n本协议适用越南法律。\n15. 其他\n条款部分无效不影响整体效力。\n 未经同意，顾客不得转让权利义务。",
+      "closeButton": "点击下方按钮，即表示我确认已披露所有相关健康状况，并理解在法律允许范围内，若因信息披露不完整或未披露而导致任何结果，供应方不承担责任。"
+    },
+    "privacyNoticePrefix": "我们不会在本隐私政策范围之外存储、出售或使用您的个人数据，依据我们的",
+    "privacyNoticeSuffix": "。",
+    "privacyPolicy": "数据隐私政策",
+    "privacyPolicyContent": "数据隐私政策（Data Privacy Policy）\n欢迎来到 The Privé Spa。本数据隐私政策说明我们如何收集、使用、披露及保护您的个人信息。当您访问我们的沙龙或水疗中心或使用我们的服务时，即表示您同意本政策中所述的做法。\n1. 我们收集的信息\n我们可能会收集您的多种信息，包括但不限于：\n– 个人信息（如姓名、联系方式、出生日期）\n– 支付信息（信用卡信息、账单地址）\n– 与水疗护理相关的健康或医疗信息\n– 通讯偏好\n– 顾客在服务前、服务中及服务后的照片及视频记录\n2. 信息的使用方式\n我们收集的信息将用于：\n– 提供和管理我们的服务、预约及护理项目\n– 处理付款及维护财务记录\n– 与您沟通预约、促销活动及相关更新\n– 个性化您的体验并根据您的偏好调整服务\n– 遵守法律及监管要求\n– 顾客的照片及视频可能用于培训、质量控制及保障社区安全。这些资料仅在内部保存，并暂时存储于我们的服务器中，仅在获得顾客（口头或书面）同意的情况下用于营销目的。\n3. 数据共享与披露\n我们不会向第三方出售、出租或交易您的个人信息。但我们可能会与协助我们运营业务的可信第三方共享信息，例如支付处理机构或营销合作伙伴。我们确保这些第三方遵循与本政策同等水平的数据保护标准。\n4. 安全措施\n我们采取技术和组织措施，以保护您的个人信息免遭未经授权的访问、披露、修改或破坏。尽管我们已尽最大努力，但任何在线数据传输或存储方式均无法保证绝对安全。\n5. 您的权利\n您有权访问、更正或删除我们持有的您的个人信息。您还可以管理您的通讯偏好，并选择不接收推广邮件。如需行使上述权利，请通过下方联系方式与我们联系。\n6. 儿童隐私\n我们的服务不面向16岁以下人士。我们不会主动收集儿童的个人信息。如您是家长或监护人，并认为您的孩子向我们提供了个人信息，请联系我们以便删除相关数据。\n7. 政策变更\n我们保留随时修改本数据隐私政策的权利。任何更改将在门店公布后立即生效。您在变更后继续使用我们的服务，即视为接受更新后的政策。\n8. 联系我们\n如您对本数据隐私政策或我们的数据处理方式有任何疑问或顾虑，请联系：\n📧 mgmt@theprivespa.com\n当您访问 The Privé Spa 门店并使用我们的服务，即表示您已阅读、理解并同意本数据隐私政策。\n感谢您选择 The Privé Spa，开启您的美丽与身心放松之旅!"
+  },
+  "form": {
+    "stepIndicator": "第 {{current}} / {{total}} 步",
+    "backButton": "返回",
+    "nextButton": "下一步",
+    "submitButton": "提交预约",
+    "steps": {
+      "visitDetails": {
+        "title": "来访详情"
+      },
+      "serviceSelection": {
+        "title": "选择服务"
+      },
+      "contactInfo": {
+        "title": "联系信息"
+      }
+    },
+    "visitDetails": {
+      "branchInstruction": "请选择您希望前往的门店",
+      "dateTimeInstruction": "请选择您的到访日期与时间",
+      "branches": {
+        "benThanh": "Privé Ben Thanh\n(第1郡 - Le Thi Rieng - 胡志明市)",
+        "thaoDien": "Privé Thao Dien\n(第2郡/Thu Duc - 胡志明市)",
+        "phuMyHung": "Privé Phu My Hung/Midtown\n(第7郡 - 胡志明市)",
+        "hoanKiem": "Privé Hoan Kiem\n(Hoan Kiem - 河内)"
+      },
+      "info": {
+        "hours": "所有门店营业时间为 9:00–21:00（最晚接待时间为20:00）",
+        "alternateSlot": "如有其他方便的时间，请在下方备注，我们将尽力为您安排"
+      },
+      "labels": {
+        "branch": "分店",
+        "date": "日期",
+        "time": "时间",
+        "altDate": "日期",
+        "altTime": "时间",
+        "note": "备注 / 健康信息"
+      },
+      "descriptions": {
+        "note": "您可在此填写特殊需求、个人偏好或相关健康信息（如过敏、敏感体质、怀孕、近期护理或用药情况等），以便我们更好地为您准备与服务。\n\n准确的信息将帮助我们更周到地为您提供服务。"
+      },
+      "placeholders": {
+        "note": "关于您来访的特殊要求或备注..."
+      },
+      "alternatePrompt": "请分享您另一个可行时间段（可选）。"
+    },
+    "serviceSelection": {
+      "instruction": "请选择您希望的服务",
+      "lastBooking": {
+        "title": "您上一次的预约",
+        "serviceLabel": "服务",
+        "branchLabel": "分店",
+        "timeLabel": "时间",
+        "repeat": "修改上次的服务",
+        "chooseNew": "选择新的服务"
+      },
+      "returningChoice": {
+        "title": "很高兴再次为您服务！",
+        "subtitle": "您想再次预约之前的服务，还是体验一些新的项目？",
+        "lastServices": "您上次的服务：",
+        "quickBook": "快速预约",
+        "explore": "探索新服务",
+        "exploreDesc": "浏览我们的完整菜单，发现为您量身定制的新疗程。",
+        "browseMenu": "浏览菜单",
+        "helper": "您随时可以修改您的选择"
+      },
+      "returningMissingContact": "缺少联系信息，请检查。",
+      "services": {
+        "basic_nail_care": "经典美甲",
+        "gel_polish_refresh": "凝胶补色",
+        "quick_nail_art": "快速美甲艺术",
+        "nail_repair": "指甲修复",
+        "lash_lift": "睫毛提升",
+        "lash_extension_refill": "嫁接补毛",
+        "eyebrow_shaping": "眉型设计",
+        "eyebrow_tint": "染眉",
+        "express_facial": "速效面部护理",
+        "body_scrub": "排毒身体磨砂",
+        "relaxing_massage": "放松按摩",
+        "hydrotherapy_boost": "水疗强化",
+        "eyebrow_wax": "眉型整理",
+        "full_leg_wax": "全腿脱毛",
+        "brazilian_wax": "巴西脱毛",
+        "back_wax": "背部脱毛"
+      }
+    },
+    "serviceCart": {
+      "title": "服务购物车",
+      "empty": "购物车中暂无服务。",
+      "emptyHint": "选择服务并完成必要选项后即可加入清单",
+      "remove": "移除",
+      "subtotal": "总计",
+      "itemCount": "{{count}} 项服务",
+      "bookNow": "立即预约",
+      "priceNote1": "最终价格将在服务前确认。",
+      "priceNote2": "所有价格已包含税费"
+    },
+    "subtotalNote": "最终价格将在预约确认时确定。",
+    "checkout": {
+      "title": "查看已选服务",
+      "subtitle": "请确认您所选择的服务",
+      "empty": "您尚未选择任何服务",
+      "emptyHint": "请返回并至少选择一项服务。",
+      "backToServices": "返回服务选择",
+      "subtotal": "暂计金额",
+      "subtotalNote": "最终价格可能因实际服务而有所不同。",
+      "proceedButton": "继续",
+      "editServices": "修改服务"
+    },
+    "summary": {
+      "title": "即将完成！",
+      "subtitle": "请在确认前检查您的信息",
+      "bookingInfo": "预约信息",
+      "servicesSelected": "已选服务"
+    },
+    "contactDetails": {
+      "labels": {
+        "name": "您的姓名",
+        "phone": "Zalo / WhatsApp",
+        "phoneNote": "请选择您的国家区号，并且不要在电话号码中重复输入区号",
+        "email": "电子邮箱",
+        "origin": "您来自哪里？",
+        "referral": "您是怎么知道我们的？"
+      },
+      "placeholders": {
+        "name": "您的全名",
+        "phone": "电话号码",
+        "email": "you@example.com"
+      },
+      "salutation": {
+        "select": "称谓",
+        "preferNotToSay": "不愿透露",
+        "mx": "Mx.",
+        "mr": "先生",
+        "mrs": "女士",
+        "ms": "女士"
+      },
+      "origin": {
+        "tourist": "游客",
+        "expatriate": "外籍居住者",
+        "local": "本地越南人"
+      },
+      "referrals": {
+        "google": "Google",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "tiktok": "TikTok",
+        "other": "其他"
+      },
+      "submitting": "正在提交信息..."
+    },
+    "submit": {
+      "errors": {
+        "createCustomerFailed": "无法创建客户",
+        "saveBookingFailed": "无法保存预约",
+        "generic": "发生错误，请重试"
+      }
+    },
+    "returning": {
+      "toast": {
+        "welcomeBack": "很高兴再次为您服务！",
+        "missingInfo": "请填写电话号码和邮箱",
+        "invalidInfo": "请填写有效的电话号码和邮箱",
+        "notFound": "未找到您的信息。请检查电话号码或邮箱。",
+        "checkError": "检查时出现错误，请重试"
+      },
+      "errors": {
+        "phone": "无效的电话号码",
+        "email": "无效的邮箱地址"
+      }
+    },
+    "success": {
+      "title": "预约请求已提交！",
+      "message": "我们将尽快与您联系确认预约",
+      "summaryTitle": "预约信息",
+      "summary": {
+        "name": "姓名",
+        "branch": "分店",
+        "dateTime": "日期与时间",
+        "email": "邮箱",
+        "phone": "电话"
+      },
+      "exploreWebsite": "浏览我们的网站"
+    },
+    "confirmation": {
+      "title": "确认预约",
+      "message": "只差最后一步，是否提交您的预约？",
+      "confirm": "是的，立即提交",
+      "cancel": "返回修改",
+      "submitting": "提交中…",
+      "confirmBooking": "点击提交预约"
+    }
+  },
+  "serviceMenu": {
+    "common": {
+      "duration": {
+        "15m": "15分钟",
+        "30m": "30分钟",
+        "45m": "45分钟",
+        "60m": "60分钟",
+        "75m": "75分钟",
+        "90m": "90分钟",
+        "105m": "105分钟",
+        "120m": "120分钟"
+      },
+      "unit": {
+        "perColor": "每种颜色",
+        "perLayer": "每层",
+        "perNail": "每个指甲",
+        "perSet10": "每套(x10)"
+      },
+      "searchPlaceholder": "按名称或SKU代码搜索...",
+      "noServices": "此类别暂无服务",
+      "detailedInfo": {
+        "toggle": "详情"
+      },
+      "conflict": {
+        "title": "服务冲突",
+        "message": "您选择的服务",
+        "notAvailable": "不适用于此服务。",
+        "pleaseChoose": "请选择",
+        "instead": "作为替代。",
+        "willRemove": "如果您继续，这些服务将自动从您的选择中删除。",
+        "suggestGelPolish": "请改选凝胶甲油。",
+        "gelDependencyTitle": "凝胶甲油要求",
+        "gelDependencyIntro": "您正在移除",
+        "gelDependencyNotAvailable": "如果继续，该项也将被移除。",
+        "gelDependencyPairWillRemove": "如果继续，{{currentService}} 和 {{dependentService}} 都将被移除。",
+        "gelDependencyWillRemove": "点击继续将移除这两项服务，或点击取消以保留当前选择。"
+      },
+      "nailArtPrerequisite": {
+        "title": "需要凝胶甲油",
+        "messageManicure": "若要选择手部美甲彩绘，请先为手部护理选择凝胶甲油。",
+        "messagePedicure": "若要选择足部美甲彩绘，请先为足部护理选择凝胶甲油。",
+        "messageNailExtensions": "若要选择美甲延长，请先为手部护理选择凝胶甲油。",
+        "messageSwitchManicure": "美甲彩绘不提供普通甲油，我们将自动改为凝胶甲油。",
+        "messageSwitchPedicure": "美甲彩绘不提供普通甲油，我们将自动改为凝胶甲油。",
+        "messageSwitchNailExtensions": "美甲延长不提供普通甲油，我们将自动改为凝胶甲油。",
+        "hint": "点击继续，我们会带您前往正确的套餐分类。",
+        "hintSwitch": "点击继续，我们会自动将您的套餐从普通甲油切换为凝胶甲油。"
+      }
+    },
+    "packages": {
+      "categories": {
+        "lashCombos": {
+          "label": "美睫和眉毛"
+        },
+        "lashPackages": {
+          "label": "美睫和眉毛"
+        },
+        "manicurePackages": {
+          "label": "手部修甲SPA护理套餐"
+        },
+        "pedicurePackages": {
+          "label": "脚部修甲SPA护理套餐"
+        },
+        "pedicureCombos": {
+          "label": "脚部修甲SPA护理套餐"
+        },
+        "signatureFacials": {
+          "label": "特色面部护理"
+        }
+      },
+      "items": {
+        "packageLashBotox": {
+          "name": "蛋白翘睫组合",
+          "desc": "蛋白翘睫+染睫"
+        },
+        "packageBrowReshape": {
+          "name": "野生眉塑形组合",
+          "desc": "野生眉,染眉,蜜蜡脱眉,舒缓果冻眉膜"
+        },
+        "packageLashBrowReform": {
+          "name": "睫毛与眉毛焕新套餐",
+          "desc": "染睫毛(深色), 睫毛提升,野生烫眉,修眉"
+        },
+        "manicureEssential": {
+          "name": "基本手部修甲护理组合 (男士可选)",
+          "desc": "修甲去指缘死皮\n无甲油\n15分钟手部按摩"
+        },
+        "manicureRelaxing": {
+          "name": "解压手部修甲护理组合",
+          "desc": "修甲去指缘死皮 + 甲油\n15分钟手部按摩"
+        },
+        "manicureSignature": {
+          "name": "王牌手部修甲护理组合",
+          "desc": "修甲去指缘死皮 + 甲油\n滋润保湿手套式手膜\n30分钟手部按摩"
+        },
+        "manicureLoccitane": {
+          "name": "欧舒丹杏仁护肤手部修甲护理组合",
+          "desc": "修甲去指缘死皮 + 甲油\n洗浄/杏仁沐浴油 + 磨砂/紧肤油 + 手膜 + 杏仁油护手霜"
+        },
+        "manicurePremium": {
+          "name": "特色手部修甲护理组合 ® (最受欢迎项目)",
+          "desc": "修甲去指缘死皮 + 甲油\nPrivé™ 专用 CND PRO 手部护理\n30分钟手部按摩"
+        },
+        "pedicureEssential": {
+          "name": "基本脚部修甲护理组合 (男士可选)",
+          "desc": "修甲去指缘死皮\n无甲油\n脚跟去角质死皮"
+        },
+        "pedicureRelaxing": {
+          "name": "速效修腳按摩组合",
+          "desc": "修甲去指缘死皮 + 甲油\n15分钟脚部按摩"
+        },
+        "pedicureBasic": {
+          "name": "基本保養修腳組合",
+          "desc": "修甲去指缘死皮 + 甲油\n脚跟去角质死皮"
+        },
+        "pedicureMuscleRelief": {
+          "name": "舒緩腿部修腳按摩组合",
+          "desc": "修甲去指缘死皮 + 甲油\n30分钟脚部按摩"
+        },
+        "pedicureDeluxe": {
+          "name": "特色保养修腳按摩組合",
+          "desc": "修甲去指缘死皮 + 甲油\n脚跟去角质死皮\n15分钟脚部按摩"
+        },
+        "pedicureSignature": {
+          "name": "王牌保养修腳組合",
+          "desc": "修甲去指缘死皮 + 甲油\n脚跟去角质死皮\nPrivé™ 脚膜\n15分钟脚部按摩"
+        },
+        "pedicurePremium": {
+          "name": "滋养修脚按摩组合 (●最受欢迎项目)",
+          "desc": "修甲去指缘死皮 + 甲油\n脚跟去角质死皮\n30分钟脚部按摩"
+        },
+        "pedicureRoyal": {
+          "name": "至尊修脚按摩组合",
+          "desc": "修甲去指缘死皮 + 甲油\n脚跟去角质死皮\n腿腳護理 (泡腳, 磨砂, 腳膜)\n15分钟脚部按摩"
+        },
+        "facialYoga": {
+          "name": "纯手式瑜伽提拉面部护理",
+          "desc": "结合专注呼吸与放松技巧，带来由内而外的亮丽与平衡。\n灵感源自面部瑜伽手法的焕活护理，通过温和按摩与深层刺激，促进循环、放松肌肉、提拉紧致，让肌肤自然散发健康光泽。",
+          "details": {
+            "treatment": "提拉紧致面部肌肤\n促进淋巴排毒与血液循环\n缓解肌肉紧绷，提升弹性\n自然无创的紧致效果，去面部浮肿水肿\n即刻焕发光采\n无需仪器与针剂的自然提拉护理",
+            "effects": "时长：(60分钟)\n一次体验，全方位效果"
+          }
+        },
+        "facialAqua": {
+          "name": "AQUA PEEL 小气泡深层清洁护理",
+          "desc": "效果：更新并平滑皮肤，针对死皮细胞、黑头/白头和粗大毛孔，深层清洁使肤色更加明亮，并平衡油脂分泌。\n专业：(75分钟)\n深层清洁-更新- 平衡- 焕发光彩",
+          "details": {
+            "overview": "产品描述与适用范围：\n通过Aqua Peel小气泡焕发您的肌肤 - 去除黑头、粗大毛孔，迎接明亮、平衡的肤色。这种技术既有效又温和，并针对每种肤质量身定制。",
+            "suitableFor": "适用于：适用于所有肤质，尤其是油性混合性肌肤；适用于毛孔护理、多余的皮脂以及因油脂和堵塞毛孔引起的化妆品所致的皮肤损伤问题；适用于黑头问题，促进皮肤新陈代谢。",
+            "benefits": "护理步骤/功能：\n去角质\n深层清洁 抑制螨虫\n清爽舒适\n增加弹性\n改善暗沉\n滋养和保湿\n日晒后舒缓\n补水和美白",
+            "results": "美白亮肤，提亮肤色，保持肌肤清洁透亮，改善肌肤暗沉，并清洁毛孔。\n舒缓抗敏"
+          }
+        }
+      },
+      "optionGroups": {
+        "polishType": {
+          "label": "甲油类型"
+        }
+      },
+      "options": {
+        "polishRegularType": {
+          "name": "传统指甲油"
+        },
+        "polishGelType": {
+          "name": "照灯光療甲油胶"
+        }
+      },
+      "detailedSections": {
+        "treatment": "护理流程",
+        "effects": "效果",
+        "benefits": "亮点",
+        "suitableFor": "适合人群",
+        "overview": "概览",
+        "results": "结果"
+      }
+    },
+    "nail": {
+      "tabLabel": "美甲",
+      "categories": {
+        "dryCuticleCare": {
+          "label": "手部去死皮",
+          "note": "合适男士"
+        },
+        "nailServices": {
+          "label": "美甲",
+          "note": "包含干性死皮护理 - Privé™技术"
+        },
+        "nailDesign": {
+          "label": "美甲设计与款式"
+        },
+        "nailArts": {
+          "label": "美甲艺术"
+        },
+        "nailExtensions": {
+          "label": "甲片延长"
+        },
+        "handFootSpaAddons": {
+          "label": "指甲增项"
+        }
+      },
+      "items": {
+        "cuticlePriveTechnique": {
+          "name": "Privé™ 品牌标准方式",
+          "desc": "标准甘皮护理技术"
+        },
+        "cuticleEfile": {
+          "name": "E-file 前置无水方式",
+          "desc": "使用电动锉的高级技术。合适男士"
+        },
+        "builderGel": {
+          "name": "加固/微建构胶",
+          "desc": "(提供更饱满指甲效果和针对薄软指甲增加色胶持久度)"
+        },
+        "polish": {
+          "name": "普通不照灯指甲油",
+          "desc": "NAILS INC 英国纯素无毒无害21Free指甲油\n(需要长一点的时间风干/穿鞋子的话不合适哦!)"
+        },
+        "removal": {
+          "name": "卸甲",
+          "desc": "凝胶或电磨卸甲服务"
+        },
+        "nailArts": {
+          "name": "美甲彩绘",
+          "desc": "专业美甲彩绘设计，分为1到5级"
+        },
+        "artLevel": {
+          "name": "美甲设计与款式",
+          "desc": "专业美甲彩绘设计，分为1到5级"
+        },
+        "extensionType": {
+          "name": "甲片延长",
+          "desc": "通过我们的专业全套或补甲服务，打造理想长度"
+        },
+        "nailExtensions": {
+          "name": "甲片延长",
+          "desc": "通过我们的专业全套或补甲服务，打造理想长度"
+        },
+        "handMaskPrive": {
+          "name": "PRIVÉ™ 滋养王牌手膜",
+          "desc": "套式手膜 (20分钟)\n手部按摩 (10分钟)"
+        },
+        "footMaskPrive": {
+          "name": "PRIVÉ™ 滋养王牌脚膜",
+          "desc": "套式脚膜 (20分钟)\n脚部按摩 (10分钟)"
+        },
+        "heelCarePrive": {
+          "name": "PRIVÉ™ 脚跟去角质护理",
+          "desc": "软化去角质乳液\n去角质\n护理乳 (能提高效果维持时间)"
+        },
+        "armHandCarePrive": {
+          "name": "PRIVÉ™ 手 & 脚护理 (30分钟)",
+          "desc": "磨砂去角质\n软化手膜\n保湿乳液 + 按摩 (10分钟)"
+        },
+        "footCarePrive": {
+          "name": "PRIVÉ™ 腿 & 脚护理",
+          "desc": "泡脚\n清洁\n磨砂腿部和脚\n脚膜\n保湿乳液"
+        },
+        "handCareLoccitane": {
+          "name": "欧舒丹甜杏仁手部护理",
+          "desc": "清洁\n磨砂去角质\n滋养手膜\n手与指甲护理乳"
+        }
+      },
+      "optionGroups": {
+        "serviceScope": {
+          "label": "服务范围"
+        },
+        "addOns": {
+          "label": "其他增项"
+        },
+        "brand": {
+          "label": "品牌"
+        },
+        "nailLength": {
+          "label": "指甲长度"
+        },
+        "polishType": {
+          "label": "指甲油类型"
+        },
+        "removalType": {
+          "label": "卸甲"
+        },
+        "builderType": {
+          "label": "加固/微建构胶"
+        },
+        "artLevel": {
+          "label": "美甲设计与款式"
+        },
+        "artLevelSelection": {
+          "label": "选择等级"
+        },
+        "extensionTypeSelection": {
+          "label": "选择类型"
+        },
+        "extensionType": {
+          "label": "延长类型"
+        },
+        "pricingOption": {
+          "label": "计价选项"
+        },
+        "serviceType": {
+          "label": "服务类型"
+        },
+        "cuticleTechnique": {
+          "label": "甲缘护理技术"
+        },
+        "techniqueEfile": {
+          "label": "升级为电磨甲缘护理技术"
+        }
+      },
+      "options": {
+        "scopeMani": {
+          "name": "美甲"
+        },
+        "scopePedi": {
+          "name": "足疗"
+        },
+        "scopeBoth": {
+          "name": "美甲 + 足疗"
+        },
+        "addonExtraColors": {
+          "name": "额外颜色"
+        },
+        "gelPolishLongNail": {
+          "name": "超长甲额外甲油胶费用",
+          "desc": "(10指的价格)"
+        },
+        "addonTopCoat": {
+          "name": "美国增加封层",
+          "desc": "(适用于钢化亮泽封层/磨砂封层/珠光封层/闪粉封层)"
+        },
+        "brandEstemio": {
+          "name": "ESTEMIO韩国高端系列",
+          "desc": "自然效果的普通甲油。适合短期佩戴且易于卸除。"
+        },
+        "brandCnd": {
+          "name": "美国品牌 CND™ SHELLAC 孕妇可用",
+          "desc": "轻薄凝胶甲油，光泽持久且不易崩裂。需在LED/UV灯下固化。"
+        },
+        "brandTgb": {
+          "name": "英国品牌 THE GEL BOTTLE™",
+          "desc": "高显色度的高端凝胶甲油，光泽亮丽且持久耐用。"
+        },
+        "brandBiab": {
+          "name": "英国品牌 BIAB™ 有色牛奶胶 (建构2合1)",
+          "desc": "带颜色的建构胶，可增强自然甲并提供持久效果。"
+        },
+        "lengthShort": {
+          "name": "短或中长度"
+        },
+        "lengthLong": {
+          "name": "长与超长度"
+        },
+        "lengthShortFullset": {
+          "name": "全套（短/中）"
+        },
+        "lengthLongFullset": {
+          "name": "全套（长/超长）"
+        },
+        "lengthShortRefill": {
+          "name": "补甲（短/中）"
+        },
+        "lengthLongRefill": {
+          "name": "补甲（长/超长）"
+        },
+        "addonRemoval": {
+          "name": "卸除服务"
+        },
+        "polishRegularType": {
+          "name": "普通指甲油"
+        },
+        "polishGelType": {
+          "name": "凝胶指甲油"
+        },
+        "polishTypeRegular": {
+          "name": "普通甲油"
+        },
+        "polishTypeGel": {
+          "name": "可卸UV光疗胶",
+          "desc": "(不需要风干时间)\n\nESTEMIO韩国高端系列\n美国品牌 CND™ SHELLAC 孕妇可用\n英国品牌 THE GEL BOTTLE™\n英国品牌 BIAB™ 有色牛奶胶 (建构2合1)"
+        },
+        "removalTypeGel": {
+          "name": "SHELLAC™ 或光疗胶卸甲"
+        },
+        "removalTypeDrill": {
+          "name": "打磨机器卸甲"
+        },
+        "addonExtraColor": {
+          "name": "超过两个颜色甲油胶",
+          "desc": "(每个增加的颜色)"
+        },
+        "addonBufferShine": {
+          "name": "抛光本甲",
+          "desc": "(10指的价格)"
+        },
+        "addonIngrown": {
+          "name": "内嵌甲处理",
+          "desc": "(每个指)"
+        },
+        "efileSingle": {
+          "name": "手部护理 / 足部护理"
+        },
+        "efileBoth": {
+          "name": "手部 + 足部"
+        },
+        "shortMedium": {
+          "name": "短或中长度"
+        },
+        "longExtraLong": {
+          "name": "长与超长度"
+        },
+        "servicePlexigel": {
+          "name": "*美国CND™ PLEXIGEL / BIAB同款"
+        },
+        "serviceAcrylic": {
+          "name": "水晶粉"
+        },
+        "serviceAcrylicRefill": {
+          "name": "水晶粉"
+        },
+        "serviceHardGel": {
+          "name": "光疗建构凝胶 - 美国IBD"
+        },
+        "serviceHardGelRefill": {
+          "name": "光疗建构凝胶"
+        },
+        "serviceGelXExpress": {
+          "name": "GEL-X® 快速延长"
+        },
+        "gelishStructure": {
+          "name": "美国 GELISH 加固/微建构胶"
+        },
+        "plexigelOverlay": {
+          "name": "美国 CND™ 加固凝胶覆盖"
+        },
+        "artLevel1": {
+          "name": "渐变/猫眼/魔镜效果/法式"
+        },
+        "artLevel2": {
+          "name": "初级款等级二"
+        },
+        "artLevel3": {
+          "name": "中级款等级三"
+        },
+        "artLevel4": {
+          "name": "复杂款等级四"
+        },
+        "artLevel5": {
+          "name": "复杂款等级五"
+        },
+        "extensionFullSet": {
+          "name": "整套十指"
+        },
+        "extensionRefills": {
+          "name": "甲片二次利用"
+        },
+        "level1PerNail": {
+          "name": "单指：55.000VND"
+        },
+        "level1FullSet": {
+          "name": "十指：240.000VND"
+        },
+        "level2PerNail": {
+          "name": "单指：75.000VND"
+        },
+        "level3PerNail": {
+          "name": "单指：100.000VND"
+        },
+        "level4PerNail": {
+          "name": "单指：125.000VND"
+        },
+        "level5PerNail": {
+          "name": "单指：175.000VND"
+        },
+        "techniqueNailsInc": {
+          "name": "NAILS INC"
+        },
+        "techniqueEfile": {
+          "name": "升级电磨甲缘护理技术"
+        },
+        "note": {
+          "includedNailCare": "已含干式甲缘护理 - Privé™ 技术"
+        }
+      }
+    },
+    "lash": {
+      "tabLabel": "美睫和眉毛",
+      "categories": {
+        "lashExtensions": {
+          "label": "设计款美睫",
+          "note": "需要保持60%以上的睫毛才能进行补睫毛。我们建议客户每两周补充一次，以保持您的美睫浓密一致的效果，并防止长出的睫毛过重和下垂造成的损害。"
+        },
+        "lashServices": {
+          "label": "睫毛服务"
+        },
+        "browServices": {
+          "label": "眉部服务"
+        }
+      },
+      "items": {
+        "lashClassic": {
+          "name": "经典款/极致单根"
+        },
+        "lashPremium2d": {
+          "name": "2D/开花款/婴儿弯"
+        },
+        "lash34d": {
+          "name": "3-4D/开花浓密款/漫画款/轻泰款"
+        },
+        "lash56d": {
+          "name": "5-6D/层次轻欧式浓密款/太阳花款"
+        },
+        "lashMega": {
+          "name": "8-12D欧式超浓密款"
+        },
+        "lashHybrid": {
+          "name": "穿插款/仙女款/漫画/小恶魔款"
+        },
+        "lashKimk": {
+          "name": "卡戴珊款/轻欧式浓密款"
+        },
+        "lashRemoval": {
+          "name": "卸睫毛",
+          "desc": "无痛无创卸睫，可以选择上睫毛或下睫毛。"
+        },
+        "colorLash": {
+          "name": "彩色睫毛",
+          "desc": "利用各种颜色的睫毛增强眼部的明亮和突出效果。"
+        },
+        "lowerLash": {
+          "name": "下睫毛",
+          "desc": "增长增密下睫毛，使眼睛看起来扩大和一致感。"
+        },
+        "lashTint": {
+          "name": "染睫毛/染眉",
+          "desc": "无创涂抹半永久颜色染色，覆盖在睫毛和眉毛上。"
+        },
+        "lashLift": {
+          "name": "角蛋白 翘睫",
+          "desc": "自然睫毛经合适卷曲并提升，使其看起来更长，眼睛更加明亮开阔。"
+        },
+        "browTint": {
+          "name": "染睫毛/染眉",
+          "desc": "无创涂抹半永久颜色染色，覆盖在睫毛和眉毛上。"
+        },
+        "browLamination": {
+          "name": "野生眉/塑眉定型",
+          "desc": "让整体眉毛更丰满和立体，野生眉的定型效果，可以维持大概约6周时间。"
+        },
+        "lashExtensions": {
+          "name": "设计款美睫",
+          "desc": "需要保持60%以上的睫毛才能进行补睫毛。我们建议客户每两周补充一次，以保持您的美睫浓密一致的效果，并防止长出的睫毛过重和下垂造成的损害。"
+        },
+        "browWax": {
+          "name": "眉部脱毛"
+        }
+      },
+      "optionGroups": {
+        "setType": {
+          "label": "全新/补睫"
+        },
+        "extensionType": {
+          "label": "设计款美睫"
+        }
+      },
+      "options": {
+        "setFull": {
+          "name": "全新"
+        },
+        "setRefill": {
+          "name": "补睫"
+        },
+        "lashClassic": {
+          "name": "经典款/极致单根"
+        },
+        "lashPremium2d": {
+          "name": "2D/开花款/婴儿弯"
+        },
+        "lash34d": {
+          "name": "3-4D/开花浓密款/漫画款/轻泰款"
+        },
+        "lash56d": {
+          "name": "5-6D/层次轻欧式浓密款/太阳花款"
+        },
+        "lashMega": {
+          "name": "8-12D欧式超浓密款"
+        },
+        "lashHybrid": {
+          "name": "穿插款/仙女款/漫画/小恶魔款"
+        },
+        "lashKimk": {
+          "name": "卡戴珊款/轻欧式浓密款"
+        }
+      }
+    },
+    "massage": {
+      "tabLabel": "按摩",
+      "categories": {
+        "handFootMassage": {
+          "label": "手和脚部"
+        },
+        "upperBodyMassage": {
+          "label": "上半身"
+        },
+        "bodyMassage": {
+          "label": "身体"
+        },
+        "handFootSpaAddons": {
+          "label": "SPA 护理增项"
+        }
+      },
+      "items": {
+        "massagePriveHand": {
+          "name": "PRIVÉ™ 舒缓手和脚部 RELAX HAND & FOOT",
+          "desc": "柔和细腻的手部与足部护理，带来纯粹的放松体验。唤醒身心活力，令您倍感轻盈舒适。"
+        },
+        "massagePriveFoot": {
+          "name": "PRIVÉ™ 舒缓手和脚部 RELAX HAND & FOOT",
+          "desc": "柔和细腻的手部与足部护理，带来纯粹的放松体验。唤醒身心活力，令您倍感轻盈舒适。"
+        },
+        "massageFacial": {
+          "name": "PRIVÉ™ 放松面部 RELAX FACE",
+          "desc": "温和舒缓的面部护理过程，有效减轻紧绷压力，使肌肤焕发自然光采与年轻活力。"
+        },
+        "massageNeckBack": {
+          "name": "PRIVÉ™ 释放颈背部 RELEASE",
+          "desc": "深层放松背部与颈部紧绷肌肉，释放疲劳与压力，让身体重获轻盈与能量平衡。"
+        },
+        "massageCoconut": {
+          "name": "PRIVÉ™ 本地纯椰子油按摩 COCONUT BLISS",
+          "desc": "椰子油全身按摩，越南纯天然提炼的椰子油滋润皮肤，同时缓解紧张，营造宁静氛围，让椰子油疗愈香气带来滋养与放松。"
+        },
+        "massageAroma": {
+          "name": "PRIVÉ™ 有机香薰精油疗法按摩 AROMA RECHARGE",
+          "desc": "让各种香薰精油疗愈香气将您带入一个宁静的世界，驱散疲劳。"
+        },
+        "massageAthlete": {
+          "name": "PRIVÉ™ 运动缓解按摩 ATHLETE RECOVERY MASSAGE",
+          "desc": "我们的运动缓解按摩专为经常运动人士定制，既有助于放松运动过度的疲惫以及提升运动表现，无论您是职业运动员还是健身爱好者都非常适合。"
+        },
+        "massageSignature": {
+          "name": "PRIVÉ™ 招牌疗愈按摩 SIGNATURE SPA TREATMENT",
+          "desc": "120分钟疗程包括：\n药草球：香薰疗法和排毒\n热石按摩（120分钟）：舒缓和缓解肌肉疼痛"
+        },
+        "handMaskPrive": {
+          "name": "PRIVÉ™ 滋养王牌手膜",
+          "desc": "套式手膜 (20分钟)\n手部按摩 (10分钟)"
+        },
+        "footMaskPrive": {
+          "name": "PRIVÉ™ 滋养王牌脚膜",
+          "desc": "套式脚膜 (20分钟)\n脚部按摩 (10分钟)"
+        },
+        "heelCarePrive": {
+          "name": "PRIVÉ™ 脚跟去角质护理",
+          "desc": "软化去角质乳液\n去角质\n护理乳 (能提高效果维持时间)"
+        },
+        "armHandCarePrive": {
+          "name": "PRIVÉ™ 手 & 脚护理 (30分钟)",
+          "desc": "磨砂去角质\n软化手膜\n保湿乳液 + 按摩 (10分钟)"
+        },
+        "footCarePrive": {
+          "name": "PRIVÉ™ 腿 & 脚护理",
+          "desc": "泡脚\n清洁\n磨砂腿部和脚\n脚膜\n保湿乳液"
+        },
+        "handCareLoccitane": {
+          "name": "欧舒丹甜杏仁手部护理",
+          "desc": "清洁\n磨砂去角质\n滋养手膜\n手与指甲护理乳"
+        }
+      },
+      "optionGroups": {
+        "duration": {
+          "label": "时长"
+        }
+      },
+      "options": {
+        "duration60Hotstone": {
+          "name": "脚和腿部按摩60分钟：包含15分钟热石腿脚按摩"
+        }
+      }
+    },
+    "spa": {
+      "tabLabel": "头皮护理/头疗",
+      "tabNote": "达维尼斯Davines品牌产品优势：\n达维尼斯美发产品的主要优势在于它们温和的配方，适用于所有发质。针对干燥、断裂或头皮屑等各种发质问题，达维尼斯产品在提供深层滋养和有效治疗方面表现出色，能够快速且全面地改善发质。\n值得一提的是，达维尼斯美发产品不含有害成分，如硫酸盐和对羟基苯甲酸酯。\n达维尼斯的产品：在Privé™ Spa，我们坚信只提供最优质的服务。这就是我们专门使用达维尼斯的产品进行头皮护理服务。",
+      "categories": {
+        "hairWash": {
+          "label": "基本洗发"
+        },
+        "headSpa": {
+          "label": "特色头皮头发护理"
+        },
+        "headSpaAddons": {
+          "label": "增加小项目"
+        }
+      },
+      "detailedSections": {
+        "products": "达维尼斯Davines品牌产品优势"
+      },
+      "items": {
+        "hairEssential": {
+          "name": "基本洗发 (30分钟)",
+          "desc": "使头发恢复清爽和活力\n头部或手部按摩 (10分钟)",
+          "details": {
+            "products": "达维尼斯美发产品的主要优势在于它们温和的配方，适用于所有发质。针对干燥、断裂或头皮屑等各种发质问题，达维尼斯产品在提供深层滋养和有效治疗方面表现出色，能够快速且全面地改善发质。\n值得一提的是，达维尼斯美发产品不含有害成分，如硫酸盐和对羟基苯甲酸酯。\n达维尼斯的产品：在Privé™ Spa，我们坚信只提供最优质的服务。这就是我们专门使用达维尼斯的产品进行头皮护理服务。"
+          }
+        },
+        "hairSignature": {
+          "name": "特色头皮头发护理 (60分钟)",
+          "desc": "为不同发质选择适合的护理产品\n肩颈磨砂清洁和按摩 (25分钟)\n手部按摩 (10分钟)\n眼部和腹部草本热敷包",
+          "details": {
+            "products": "达维尼斯美发产品的主要优势在于它们温和的配方，适用于所有发质。针对干燥、断裂或头皮屑等各种发质问题，达维尼斯产品在提供深层滋养和有效治疗方面表现出色，能够快速且全面地改善发质。\n值得一提的是，达维尼斯美发产品不含有害成分，如硫酸盐和对羟基苯甲酸酯。\n达维尼斯的产品：在Privé™ Spa，我们坚信只提供最优质的服务。这就是我们专门使用达维尼斯的产品进行头皮护理服务。"
+          }
+        },
+        "addonRadiantCleansing": {
+          "name": "清洁洗脸-15分钟",
+          "desc": "卸妆，洗脸"
+        },
+        "addonNaturalGlow": {
+          "name": "亮泽护理洗脸-30分钟",
+          "desc": "卸妆，洗脸，面部按摩，保湿提亮面膜"
+        }
+      },
+      "optionGroups": {
+        "hairLength": {
+          "label": "发长"
+        }
+      },
+      "options": {
+        "lengthShort": {
+          "name": "短发和中长度发"
+        },
+        "longBelowShoulder": {
+          "name": "长发"
+        },
+        "addonRadiantCleansing": {
+          "name": "清洁洗脸-15分钟",
+          "desc": "卸妆，洗脸"
+        },
+        "addonNaturalGlow": {
+          "name": "亮泽护理洗脸-30分钟",
+          "desc": "卸妆，洗脸，面部按摩，保湿提亮面膜"
+        }
+      }
+    },
+    "facial": {
+      "tabLabel": "面部护理疗程",
+      "categories": {
+        "comfortZoneFacials": {
+          "label": "[意大利 舒适地带]"
+        }
+      },
+      "detailedSections": {
+        "benefits": "功效",
+        "suitableFor": "适合人群",
+        "effects": "效果",
+        "treatment": "护理"
+      },
+      "items": {
+        "facialRemedy": {
+          "name": "舒缓抗敏",
+          "desc": "更新和平静皮肤\n舒缓发红和刺激\n滋养和强健皮肤屏障"
+        },
+        "facialRecover": {
+          "name": "晶采滋养",
+          "desc": "保护皮肤免受自由基的伤害\n滋养、修复提升柔软和盈亮"
+        },
+        "facialPureness": {
+          "name": "净化清洁",
+          "desc": "净化和提亮油光或混油皮\n缩小毛孔粗大问题\n减少粗糙毛孔暗疮和暗疮疤印\n平衡油型肌肤滋养、修复提升柔软和盈亮"
+        },
+        "facialHydramemory": {
+          "name": "水亿保湿",
+          "desc": "深层补水\n增加弹性饱满亮泽和亮度\n延迟皮肤干裂"
+        },
+        "facialSublime": {
+          "name": "提升线条 专业版",
+          "desc": "促进皮肤再生\n打造雕形肤色\n增强肌肤紧致度\n配方不含人工香料"
+        }
+      },
+      "optionGroups": {
+        "duration": {
+          "label": "时长"
+        }
+      },
+      "options": {
+        "durationBasic60": {
+          "name": "基础(60分钟)"
+        },
+        "durationPro90": {
+          "name": "专业(90分钟)"
+        }
+      }
+    },
+    "waxing": {
+      "tabLabel": "蜜蜡脱毛",
+      "categories": {
+        "waxingWomen": {
+          "label": "女",
+          "note": "硬蜡豆和 GIGI 软蜡豆适用"
+        },
+        "waxingMen": {
+          "label": "男",
+          "note": "硬蜡豆和 GIGI 软蜡豆适用"
+        }
+      },
+      "items": {
+        "waxFace": {
+          "name": "面部"
+        },
+        "waxArms": {
+          "name": "手臂"
+        },
+        "waxLegs": {
+          "name": "腿部"
+        },
+        "waxBikini": {
+          "name": "比基尼"
+        },
+        "waxBack": {
+          "name": "背部"
+        },
+        "waxBelly": {
+          "name": "腹部（大面积）"
+        }
+      },
+      "optionGroups": {
+        "area": {
+          "label": "项目"
+        },
+        "coverage": {
+          "label": "范围"
+        }
+      },
+      "options": {
+        "areaLip": {
+          "name": "嘴唇"
+        },
+        "areaHairline": {
+          "name": "面部发际线"
+        },
+        "areaChin": {
+          "name": "下巴"
+        },
+        "areaLipChin": {
+          "name": "全唇和下巴"
+        },
+        "areaEyebrow": {
+          "name": "眉毛"
+        },
+        "areaNeck": {
+          "name": "腹部"
+        },
+        "coverageHalf": {
+          "name": "半脱"
+        },
+        "coverageFull": {
+          "name": "全脱"
+        },
+        "areaUnderarms": {
+          "name": "腋下"
+        },
+        "areaHalfArms": {
+          "name": "半脱"
+        },
+        "areaFullArms": {
+          "name": "全脱"
+        }
+      }
+    }
+  },
+  "contact": {
+    "zalo": "Zalo",
+    "whatsapp": "WhatsApp",
+    "phone": "电话",
+    "email": "邮箱",
+    "bookingMessageTemplate": "您好 Privé，\n我想预约，信息如下：\n\n首选门店：\n- 胡志明市：第1郡 / 第2郡 / 第7郡\n- 河内：还剑区\n服务项目：\n日期与时间：\n客户姓名：\n电话 / WhatsApp：\n人数：\n特殊要求（如有）：\n\n感谢您，期待很快与您见面 🌿",
+    "urgentMessage": "如您计划在90分钟内到访，请直接联系我们，以便我们为您及时安排"
+  },
+  "settings": {
+    "title": "语言",
+    "languages": {
+      "english": "英语",
+      "french": "法语",
+      "chinese": "中文",
+      "vietnamese": "越南语"
+    },
+    "actions": {
+      "clearProgress": "清除已填写信息",
+      "clearCancel": "返回"
+    },
+    "clearConfirm": {
+      "message": "所有已填写信息将被清除，且无法恢复"
+    }
+  },
+  "nav": {
+    "back": "返回",
+    "next": "下一步",
+    "cart": "购物车",
+    "call": "拨打",
+    "formNavLabel": "表单导航"
+  }
+}

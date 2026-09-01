@@ -2,11 +2,13 @@ import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import { SERVICE_MENU } from './data/serviceMenu'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { CatalogProductCategory } from '@open-mercato/core/modules/catalog/data/entities'
+import { EntityTranslation } from '@open-mercato/core/modules/translations/data/entities'
 import { rebuildCategoryHierarchyForOrganization } from '@open-mercato/core/modules/catalog/lib/categoryHierarchy'
 import { randomUUID } from 'crypto'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { parseTpsMigrateFlags } from './lib'
+import { buildTranslationsPayload } from './mapping'
 
 const logger = createLogger('migrate_tps')
 
@@ -39,6 +41,10 @@ export const migrateTpsCategoriesCommand: ModuleCli = {
       await baseEm.transactional(async (em) => {
         if (existingCount > 0) {
           logger.info('Cleaning up existing categories for this organization...')
+          await em.getConnection().execute(
+            'DELETE FROM entity_translations WHERE tenant_id = ? AND organization_id = ? AND entity_type = ?',
+            [tenantId, organizationId, 'catalog:catalog_product_category']
+          )
           await em.getConnection().execute(
             'DELETE FROM catalog_product_categories WHERE tenant_id = ? AND organization_id = ?',
             [tenantId, organizationId]
@@ -86,6 +92,20 @@ export const migrateTpsCategoriesCommand: ModuleCli = {
           updatedAt: now,
         })
         em.persist(parentCat)
+        
+        const parentTranslations = buildTranslationsPayload({ name: tab.labelKey, description: tab.noteKey })
+        if (Object.keys(parentTranslations).length > 0) {
+          em.persist(em.create(EntityTranslation, {
+            id: randomUUID(),
+            entityType: 'catalog:catalog_product_category',
+            entityId: parentCat.id,
+            tenantId,
+            organizationId,
+            translations: parentTranslations,
+            createdAt: now,
+            updatedAt: now,
+          }))
+        }
         addedCategories++
 
         if (tab.categories && tab.categories.length > 0) {
@@ -116,6 +136,20 @@ export const migrateTpsCategoriesCommand: ModuleCli = {
               updatedAt: now,
             })
             em.persist(childEntity)
+            
+            const childTranslations = buildTranslationsPayload({ name: childCat.labelKey, description: childCat.descriptionKey || childCat.noteKey })
+            if (Object.keys(childTranslations).length > 0) {
+              em.persist(em.create(EntityTranslation, {
+                id: randomUUID(),
+                entityType: 'catalog:catalog_product_category',
+                entityId: childEntity.id,
+                tenantId,
+                organizationId,
+                translations: childTranslations,
+                createdAt: now,
+                updatedAt: now,
+              }))
+            }
             addedSubcategories++
           }
         }

@@ -14,6 +14,7 @@ import {
   CatalogProductOption,
   CatalogProductConstraint,
 } from '@open-mercato/core/modules/catalog/data/entities'
+import { EntityTranslation } from '@open-mercato/core/modules/translations/data/entities'
 import { randomUUID } from 'crypto'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { parseTpsMigrateFlags } from './lib'
@@ -22,6 +23,7 @@ import {
   parseTpsPrice,
   extractTpsDuration,
   parseTpsDurationForEntity,
+  buildTranslationsPayload,
 } from './mapping'
 
 const logger = createLogger('migrate_tps')
@@ -50,6 +52,20 @@ function traverseOptionTree(
       isActive: true,
     })
     em.persist(groupEntity)
+    
+    const groupTranslations = buildTranslationsPayload({ name: group.labelKey })
+    if (Object.keys(groupTranslations).length > 0) {
+      em.persist(em.create(EntityTranslation, {
+        id: randomUUID(),
+        entityType: 'catalog:catalog_product_option_group',
+        entityId: groupEntity.id,
+        tenantId,
+        organizationId,
+        translations: groupTranslations,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }))
+    }
 
     let sortOrderOption = 0
     for (const opt of group.options) {
@@ -80,6 +96,21 @@ function traverseOptionTree(
         },
       })
       em.persist(optionEntity)
+      
+      const optionTranslations = buildTranslationsPayload({ name: opt.nameKey, description: opt.descriptionKey, note: opt.noteKey, unit: opt.unitKey })
+      if (Object.keys(optionTranslations).length > 0) {
+        em.persist(em.create(EntityTranslation, {
+          id: randomUUID(),
+          entityType: 'catalog:catalog_product_option',
+          entityId: optionEntity.id,
+          tenantId,
+          organizationId,
+          translations: optionTranslations,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }))
+      }
+      
       tpsOptionMap.set(opt.id, optionEntity.id)
 
       if (opt.nextGroups && opt.nextGroups.length > 0) {
@@ -174,6 +205,12 @@ export const migrateTpsProductsCommand: ModuleCli = {
       await baseEm.transactional(async (em) => {
         if (existingCount > 0) {
           logger.info('Cleaning up existing products for this organization...')
+          
+          await em.getConnection().execute(
+            `DELETE FROM entity_translations WHERE tenant_id = ? AND organization_id = ? AND entity_type IN (?, ?, ?)`,
+            [tenantId, organizationId, 'catalog:catalog_product', 'catalog:catalog_product_option_group', 'catalog:catalog_product_option']
+          )
+          
           await em.nativeDelete(CatalogProductPrice, { tenantId, organizationId })
           await em.nativeDelete(CatalogProductCategoryAssignment, { tenantId, organizationId })
           await em.nativeDelete(CatalogProductVariant, { tenantId, organizationId })
@@ -250,6 +287,21 @@ export const migrateTpsProductsCommand: ModuleCli = {
             metadata: productMetadata,
           })
           em.persist(product)
+          
+          const productTranslations = buildTranslationsPayload({ title: item.nameKey, description: item.descriptionKey })
+          if (Object.keys(productTranslations).length > 0) {
+            em.persist(em.create(EntityTranslation, {
+              id: randomUUID(),
+              entityType: 'catalog:catalog_product',
+              entityId: product.id,
+              tenantId,
+              organizationId,
+              translations: productTranslations,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }))
+          }
+          
           if (item.id) {
             tpsProductMap.set(item.id, product.id)
           }

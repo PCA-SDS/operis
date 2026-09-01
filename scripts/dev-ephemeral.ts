@@ -325,7 +325,7 @@ function resolveSplashLogoSvg(): string {
 
 function renderSplashHtml(): string {
   const splashBootstrap = JSON.stringify({
-    supportedLocales: ['en', 'pl', 'es', 'de'],
+    supportedLocales: ['en', 'pl', 'es', 'de', 'ko', 'vi', 'fr', 'zh'],
     defaultLocale: 'en',
     initialLocale: 'en',
     localeLabels: {
