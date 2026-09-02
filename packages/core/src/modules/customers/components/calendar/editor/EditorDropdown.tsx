@@ -97,6 +97,7 @@ export function EditorDropdown({
   emptyLabel,
 }: EditorDropdownProps) {
   const t = useT()
+  const anchorRef = React.useRef<HTMLDivElement | null>(null)
   useCloseOnEditorScroll(onOpenChange)
   const selected = React.useMemo(() => new Set(selectedValues ?? []), [selectedValues])
   const isEmpty = groups.every((group) => group.options.length === 0)
@@ -104,7 +105,17 @@ export function EditorDropdown({
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       {triggerMode === 'anchor' ? (
-        <PopoverAnchor asChild>{trigger}</PopoverAnchor>
+        // NOT `asChild`. The chip pickers' trigger is a `SearchInput`, which
+        // forwards its ref to the inner `<input>` — so `asChild` anchored the
+        // panel to the element between the magnifier and the clear button
+        // instead of to the field. The panel came out narrower than the field,
+        // shifted right by the width of the glyph, and — because the input is
+        // vertically centred in the 36px box — overlapping the field's own
+        // bottom edge. Anchoring to a wrapper the picker owns measures the
+        // whole control.
+        <PopoverAnchor ref={anchorRef} className="w-full">
+          {trigger}
+        </PopoverAnchor>
       ) : (
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       )}
@@ -123,6 +134,17 @@ export function EditorDropdown({
           // already holds focus and must keep it.
           if (onSearchChange || triggerMode === 'anchor') event.preventDefault()
         }}
+        // Radix counts a `PopoverTrigger` as part of the popover but an anchor
+        // as outside it, so clicking the search field the panel belongs to
+        // dismissed it — and the field's own focus handler opened it straight
+        // back up. That round trip is the flicker. Treat presses on the anchor
+        // as inside and let the caller decide what they mean.
+        onPointerDownOutside={(event) => {
+          if (anchorRef.current?.contains(event.target as Node)) event.preventDefault()
+        }}
+        onFocusOutside={(event) => {
+          if (anchorRef.current?.contains(event.target as Node)) event.preventDefault()
+        }}
       >
         {headerSlot}
         {onSearchChange ? (
@@ -137,7 +159,11 @@ export function EditorDropdown({
           />
         ) : null}
         <div role="listbox" aria-label={ariaLabel} className="max-h-56 space-y-1 overflow-y-auto">
-          {loading ? (
+          {/* Rows stay put while the next search is in flight. Swapping the
+              whole list out for a "Searching…" line meant the panel emptied and
+              refilled on every keystroke, which reads as flicker; the hint is
+              only worth showing when there is nothing underneath it yet. */}
+          {loading && isEmpty ? (
             <p className="px-2 py-3 text-center text-xs text-muted-foreground">
               {t('customers.calendar.editor.searching', 'Searching…')}
             </p>
@@ -147,49 +173,47 @@ export function EditorDropdown({
               {emptyLabel ?? t('customers.calendar.editor.noResults', 'No results')}
             </p>
           ) : null}
-          {!loading
-            ? groups.map((group, groupIndex) => (
-                <React.Fragment key={group.label ?? `group-${groupIndex}`}>
-                  {group.label && group.options.length > 0 ? (
-                    <p className="px-2 pb-1 pt-2 text-overline font-medium uppercase text-muted-foreground">
-                      {group.label}
-                    </p>
-                  ) : null}
-                  {group.options.map((option) => {
-                    const active = selected.has(option.value)
-                    return (
-                      <Button
-                        key={`${group.label ?? ''}:${option.value}`}
-                        type="button"
-                        variant="ghost"
-                        role="option"
-                        aria-selected={active}
-                        aria-label={option.ariaLabel}
-                        title={option.title}
-                        onClick={() => onSelect(option.value)}
-                        className={cn(
-                          'h-auto w-full justify-start gap-2 whitespace-normal px-2 py-1.5 text-left text-sm font-normal text-foreground',
-                          menuRowStateClass({ selected: active }),
-                        )}
-                      >
-                        {option.icon}
-                        <span className="min-w-0 flex-1 truncate">
-                          {option.label}
-                          {option.subtitle ? (
-                            <span className="ml-1.5 text-xs text-muted-foreground">{option.subtitle}</span>
-                          ) : null}
-                        </span>
-                        {option.trailing}
-                        <Check
-                          aria-hidden
-                          className={cn('size-4 shrink-0', active ? 'opacity-100' : 'opacity-0')}
-                        />
-                      </Button>
-                    )
-                  })}
-                </React.Fragment>
-              ))
-            : null}
+          {groups.map((group, groupIndex) => (
+            <React.Fragment key={group.label ?? `group-${groupIndex}`}>
+              {group.label && group.options.length > 0 ? (
+                <p className="px-2 pb-1 pt-2 text-overline font-medium uppercase text-muted-foreground">
+                  {group.label}
+                </p>
+              ) : null}
+              {group.options.map((option) => {
+                const active = selected.has(option.value)
+                return (
+                  <Button
+                    key={`${group.label ?? ''}:${option.value}`}
+                    type="button"
+                    variant="ghost"
+                    role="option"
+                    aria-selected={active}
+                    aria-label={option.ariaLabel}
+                    title={option.title}
+                    onClick={() => onSelect(option.value)}
+                    className={cn(
+                      'h-auto w-full justify-start gap-2 whitespace-normal px-2 py-1.5 text-left text-sm font-normal text-foreground',
+                      menuRowStateClass({ selected: active }),
+                    )}
+                  >
+                    {option.icon}
+                    <span className="min-w-0 flex-1 truncate">
+                      {option.label}
+                      {option.subtitle ? (
+                        <span className="ml-1.5 text-xs text-muted-foreground">{option.subtitle}</span>
+                      ) : null}
+                    </span>
+                    {option.trailing}
+                    <Check
+                      aria-hidden
+                      className={cn('size-4 shrink-0', active ? 'opacity-100' : 'opacity-0')}
+                    />
+                  </Button>
+                )
+              })}
+            </React.Fragment>
+          ))}
         </div>
       </PopoverContent>
     </Popover>

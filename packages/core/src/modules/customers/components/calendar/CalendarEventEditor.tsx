@@ -202,8 +202,15 @@ function EditorBody({
         </Alert>
       ) : null}
       <div className="w-full lg:col-span-2">
+        {/* The track hugs its labels, like every other toggle in the product and
+            like the reference's own filter toggle. `fullWidth` is for a
+            field-like row of fixed choices (the repeat "Ends" control); this is
+            a filter across the top of the form, and stretching it read as a row
+            of buttons rather than one control with a chosen segment.
+            `max-w-full` with a scroll keeps a tenant whose activity-type
+            dictionary runs long from widening the dialog. */}
         <SegmentedControl
-          fullWidth
+          className="max-w-full overflow-x-auto"
           aria-label={t('customers.calendar.editor.typeSwitcher', 'Event type')}
           value={selectedType}
           onValueChange={(type) => update({ kind: editorKindOfInteractionType(type), category: type })}
