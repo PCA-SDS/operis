@@ -528,9 +528,11 @@ export function CalendarEventEditor({
         size="xl"
         className="flex max-h-[92dvh] flex-col overflow-hidden sm:max-h-[calc(100dvh-4rem)]"
       >
-        {/* No leading icon: the reference header is the title and the close
-            button on one band, separated from the body by a rule. */}
-        <DialogHeader className="border-b border-border">
+        {/* No leading icon and no rule under the header. The reference modal
+            (`CreateUserDialog`) is a plain `px-5 py-4 sm:px-6` band holding the
+            title and the close button, with nothing drawn beneath it — which is
+            exactly what the DS `DialogHeader` already renders. */}
+        <DialogHeader>
           <DialogTitle>{dialogTitle}</DialogTitle>
         </DialogHeader>
         <DialogBody
@@ -539,7 +541,7 @@ export function CalendarEventEditor({
           // fill — the reference's field treatment, applied once for all
           // control families rather than per control.
           data-dialog-form="true"
-          className="min-h-0 flex-1 overflow-y-auto py-5"
+          className="min-h-0 flex-1 overflow-y-auto"
           onScroll={() => {
             // Tell the DS date/time fields to close their (controlled) popover
             // so a portalled popover doesn't float over the form or drift away
@@ -561,7 +563,9 @@ export function CalendarEventEditor({
             onSubmit={handleSubmit}
           />
         </DialogBody>
-        <DialogFooter bordered>
+        {/* Unruled and unfilled, like the reference: the actions sit close
+            under the body, right-aligned. */}
+        <DialogFooter>
           <Button
             type="button"
             variant="outline"
