@@ -624,6 +624,23 @@
           "enumItems": [],
           "mappedType": "text"
         },
+        "parent_role_id": {
+          "name": "parent_role_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
         "tenant_id": {
           "name": "tenant_id",
           "type": "uuid",
