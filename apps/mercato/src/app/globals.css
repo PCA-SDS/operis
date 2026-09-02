@@ -675,14 +675,25 @@ TODO: Fix that latter to have reference by the package names
  * Declared once here rather than per control because a section can hold any
  * control family, and those must never disagree. `:where()` keeps specificity
  * at zero, so the invalid rule below still wins and any control needing a
- * deliberate exception can override with a plain utility class. */
+ * deliberate exception can override with a plain utility class.
+ *
+ * The `:not()` tail matters. A composite field — `SearchInput`, `Input` — is a
+ * wrapper that draws the box plus a bare `<input>` inside it that is deliberately
+ * transparent. Without the exclusion the bare-`input` branch repaints that inner
+ * element, so the field renders as a filled box inside a filled box: on the deal
+ * form that showed up as a white slab sitting inside the search field. The
+ * wrapper is the thing that should carry the fill; its contents must not. */
 [data-crud-section='true']
   :where(
     input:not([type='checkbox']):not([type='radio']),
     textarea,
     select,
     [data-slot='input-wrapper'],
+    [data-slot='search-input-wrapper'],
     [data-slot='select-trigger']
+  ):not(
+    [data-slot='input-wrapper'] *,
+    [data-slot='search-input-wrapper'] *
   ) {
   border-color: transparent;
   background-color: var(--surface);
@@ -705,8 +716,12 @@ TODO: Fix that latter to have reference by the package names
     textarea,
     select,
     [data-slot='input-wrapper'],
+    [data-slot='search-input-wrapper'],
     [data-slot='select-trigger'],
     [data-slot='date-picker-trigger']
+  ):not(
+    [data-slot='input-wrapper'] *,
+    [data-slot='search-input-wrapper'] *
   ) {
   border-color: transparent;
   background-color: var(--surface-muted);

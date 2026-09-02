@@ -19,8 +19,6 @@ export type FormSectionProps = {
   title?: React.ReactNode
   /** Supporting copy under the title. */
   description?: React.ReactNode
-  /** Optional leading glyph, aligned to the title's optical centre. */
-  icon?: React.ComponentType<{ className?: string }>
   /** Controls that belong to the section rather than to the form (Manage, Save…). */
   actions?: React.ReactNode
   /** Applied to the panel, not the wrapper, so callers can tune the fill area. */
@@ -41,7 +39,6 @@ export type FormSectionProps = {
 export function FormSection({
   title,
   description,
-  icon: Icon,
   actions,
   className,
   children,
@@ -58,12 +55,11 @@ export function FormSection({
             'flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between',
           )}
         >
+          {/* No glyph beside a section title. The reference form chrome titles
+              its sections with words alone, and every `CrudForm` group already
+              did — only the deal-create sections passed an icon, so they were
+              the odd block out on an otherwise plain stack. */}
           <div className="flex min-w-0 flex-1 items-start gap-2.5">
-            {Icon ? (
-              // The title's line box is 32px (text-2xl) and the glyph is 20px, so
-              // 6px of top offset puts it on the first line's centre.
-              <Icon className="mt-1.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-            ) : null}
             <div className="min-w-0">
               {title ? <h2 className={FORM_SECTION_TITLE}>{title}</h2> : null}
               {description ? <p className={FORM_SECTION_DESCRIPTION}>{description}</p> : null}
