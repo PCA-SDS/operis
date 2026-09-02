@@ -2,13 +2,13 @@
  * @jest-environment jsdom
  */
 import * as React from 'react'
-import { cleanup } from '@testing-library/react'
+import { cleanup, fireEvent } from '@testing-library/react'
 import { renderWithProviders } from '@open-mercato/shared/lib/testing/renderWithProviders'
 import { CalendarScopeBar } from '../CalendarScopeBar'
 
 const COUNTS = { all: 4, meetings: 0, events: 4 }
 
-function renderScopeBar() {
+function renderScopeBar(overrides: { onOpenSettings?: () => void } = {}) {
   return renderWithProviders(
     <CalendarScopeBar
       tab="all"
@@ -19,6 +19,7 @@ function renderScopeBar() {
       onTabChange={jest.fn()}
       onPresetChange={jest.fn()}
       onAnchorChange={jest.fn()}
+      onOpenSettings={overrides.onOpenSettings ?? jest.fn()}
     />,
     { locale: 'en' },
   )
@@ -69,5 +70,21 @@ describe('CalendarScopeBar', () => {
     )
 
     expect(getByTestId('scope-trailing')).not.toBeNull()
+  })
+
+  it('closes the row with settings, past the date range', () => {
+    // Settings is the one control here that does not narrow what the grid
+    // shows, so it belongs at the end rather than among the filters. It used to
+    // render inside the toolbar's trailing slot, which put it before the range
+    // preset and the date button.
+    const onOpenSettings = jest.fn()
+    const { container, getByRole } = renderScopeBar({ onOpenSettings })
+    const settings = getByRole('button', { name: 'Calendar settings' })
+
+    const controls = Array.from(container.querySelectorAll('button'))
+    expect(controls[controls.length - 1]).toBe(settings)
+
+    fireEvent.click(settings)
+    expect(onOpenSettings).toHaveBeenCalledTimes(1)
   })
 })
