@@ -131,6 +131,8 @@
   "auth.roles.form.errors.load": "Rolle konnte nicht geladen werden",
   "auth.roles.form.errors.tenantRequired": "Mandant ist erforderlich",
   "auth.roles.form.field.name": "Name",
+  "auth.roles.form.field.parentRole": "Reports to",
+  "auth.roles.form.field.parentRoleNone": "No parent (top level)",
   "auth.roles.form.field.tenant": "Mandant",
   "auth.roles.form.group.access": "Zugriff",
   "auth.roles.form.group.details": "Details",

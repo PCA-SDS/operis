@@ -202,8 +202,15 @@ function EditorBody({
         </Alert>
       ) : null}
       <div className="w-full lg:col-span-2">
+        {/* The track hugs its labels, like every other toggle in the product and
+            like the reference's own filter toggle. `fullWidth` is for a
+            field-like row of fixed choices (the repeat "Ends" control); this is
+            a filter across the top of the form, and stretching it read as a row
+            of buttons rather than one control with a chosen segment.
+            `max-w-full` with a scroll keeps a tenant whose activity-type
+            dictionary runs long from widening the dialog. */}
         <SegmentedControl
-          fullWidth
+          className="max-w-full overflow-x-auto"
           aria-label={t('customers.calendar.editor.typeSwitcher', 'Event type')}
           value={selectedType}
           onValueChange={(type) => update({ kind: editorKindOfInteractionType(type), category: type })}
@@ -528,9 +535,11 @@ export function CalendarEventEditor({
         size="xl"
         className="flex max-h-[92dvh] flex-col overflow-hidden sm:max-h-[calc(100dvh-4rem)]"
       >
-        {/* No leading icon: the reference header is the title and the close
-            button on one band, separated from the body by a rule. */}
-        <DialogHeader className="border-b border-border">
+        {/* No leading icon and no rule under the header. The reference modal
+            (`CreateUserDialog`) is a plain `px-5 py-4 sm:px-6` band holding the
+            title and the close button, with nothing drawn beneath it — which is
+            exactly what the DS `DialogHeader` already renders. */}
+        <DialogHeader>
           <DialogTitle>{dialogTitle}</DialogTitle>
         </DialogHeader>
         <DialogBody
@@ -539,7 +548,7 @@ export function CalendarEventEditor({
           // fill — the reference's field treatment, applied once for all
           // control families rather than per control.
           data-dialog-form="true"
-          className="min-h-0 flex-1 overflow-y-auto py-5"
+          className="min-h-0 flex-1 overflow-y-auto"
           onScroll={() => {
             // Tell the DS date/time fields to close their (controlled) popover
             // so a portalled popover doesn't float over the form or drift away
@@ -561,7 +570,9 @@ export function CalendarEventEditor({
             onSubmit={handleSubmit}
           />
         </DialogBody>
-        <DialogFooter bordered>
+        {/* Unruled and unfilled, like the reference: the actions sit close
+            under the body, right-aligned. */}
+        <DialogFooter>
           <Button
             type="button"
             variant="outline"

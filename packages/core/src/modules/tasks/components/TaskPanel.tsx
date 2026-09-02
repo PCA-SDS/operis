@@ -14,7 +14,14 @@ import {
   User,
 } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Dialog, DialogContent, DialogTitle } from '@open-mercato/ui/primitives/dialog'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@open-mercato/ui/primitives/dialog'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
@@ -43,6 +50,8 @@ import {
   UserAvatar,
 } from './ui-bits'
 import { browserTimeZone, formatTaskDate, isOverdue, taskRef } from './format'
+import { tasksApi } from './api'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { useMilestones, useTask, useTaskError, useTaskMutations } from './hooks'
 
 type CreateDraft = {
@@ -146,8 +155,64 @@ export function TaskPanel({
     )
   }
 
-  const setField = <K extends keyof CreateDraft>(key: K, value: CreateDraft[K]) =>
+  /**
+   * Fields the user has set by hand. Quick Add fills the rest.
+   *
+   * This is the composer's `UNSET` rule in the shape this form needs: there the
+   * absence of an override means "the parser may fill this in", here the
+   * absence of a touch means the same. Without it, typing one more word in the
+   * quick-add line would undo a picker the user had already set.
+   */
+  const touchedRef = React.useRef(new Set<keyof CreateDraft>())
+
+  const setField = <K extends keyof CreateDraft>(key: K, value: CreateDraft[K]) => {
+    touchedRef.current.add(key)
     setDraft((previous) => ({ ...previous, [key]: value }))
+  }
+
+  /** Writes a parsed value only where the user has not already decided. */
+  const fillUntouched = React.useCallback((values: Partial<CreateDraft>) => {
+    setDraft((previous) => {
+      const next = { ...previous }
+      for (const [key, value] of Object.entries(values)) {
+        if (touchedRef.current.has(key as keyof CreateDraft)) continue
+        Object.assign(next, { [key]: value })
+      }
+      return next
+    })
+  }, [])
+
+  const [quickAddText, setQuickAddText] = React.useState('')
+
+  // Same two-step the composer uses: the server resolves `#project`, `@person`
+  // and `@label` to real records, which no client-side parse can do.
+  React.useEffect(() => {
+    if (!isCreate) return
+    const line = quickAddText.trim()
+    if (line.length === 0) return
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      try {
+        const parsed = await tasksApi.parseQuickAdd({ text: line, tz: browserTimeZone() }, controller.signal)
+        fillUntouched({
+          title: parsed.title,
+          dueDate: parsed.dueDate,
+          dueTime: parsed.dueTime,
+          recurrence: parsed.recurrence,
+          priority: parsed.priority ?? 'none',
+          labelIds: parsed.labels.map((label) => label.id),
+          assigneeIds: parsed.assignee ? [parsed.assignee.id] : [],
+        })
+      } catch {
+        // A failed parse leaves the fields as the user last had them; the line
+        // itself is still there to submit or correct.
+      }
+    }, 250)
+    return () => {
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, [isCreate, quickAddText, fillUntouched])
 
   const submitCreate = async () => {
     const title = draft.title.trim()
@@ -235,6 +300,7 @@ export function TaskPanel({
   const showLoading = !isCreate && (isLoading || !task)
 
   const attributes = (
+    <AttrRowFillsCell.Provider value={isCreate}>
     <div className={isCreate ? 'grid gap-x-8 gap-y-3 sm:grid-cols-2' : 'grid gap-y-1.5'}>
       <AttrRow icon={CircleDashed} label={t('tasks.panel.status', 'Status')}>
         <StatusSelect
@@ -335,6 +401,7 @@ export function TaskPanel({
         </div>
       </AttrRow>
     </div>
+    </AttrRowFillsCell.Provider>
   )
 
   return (
@@ -342,23 +409,25 @@ export function TaskPanel({
       <Dialog open onOpenChange={(open) => (open || busyCreate ? undefined : onClose())}>
         <DialogContent
           disableBodyWrap
-          dismissible={false}
+          // Create mode takes the DS close button, like the event editor;
+          // detail mode draws its own header row with Delete and Close.
+          dismissible={isCreate}
+          closeAriaLabel={t('tasks.common.cancel', 'Cancel')}
           className={cn(
             'flex flex-col gap-0 overflow-hidden p-0',
             isCreate
-              ? 'max-h-[calc(100dvh-4rem)] max-w-4xl'
+              // One step past the event editor's `xl` (`max-w-4xl`). The form
+              // lays out in two columns and the parse bar spans both, so it
+              // earns the extra width. A standard scale step, not an arbitrary
+              // value — `sm:` so the mobile sheet still goes full-bleed.
+              ? 'max-h-[calc(100dvh-4rem)] sm:max-w-5xl'
               : 'h-full max-h-[calc(100dvh-2.5rem)] max-w-[80rem]',
           )}
         >
           {isCreate ? (
-            <div className="flex shrink-0 items-start justify-between gap-4 px-5 pb-2 pt-5 sm:px-6">
-              <DialogTitle className="text-xl font-semibold text-foreground">
-                {t('tasks.panel.newTask', 'New task')}
-              </DialogTitle>
-              <Button type="button" variant="ghost" size="sm" onClick={onClose} disabled={busyCreate}>
-                {t('tasks.common.cancel', 'Cancel')}
-              </Button>
-            </div>
+            <DialogHeader>
+              <DialogTitle>{t('tasks.panel.newTask', 'New task')}</DialogTitle>
+            </DialogHeader>
           ) : (
             <header className="flex shrink-0 items-center justify-between gap-2 px-4 py-2.5">
               <DialogTitle className="font-mono text-xs font-normal text-muted-foreground">
@@ -394,23 +463,49 @@ export function TaskPanel({
           ) : (
             <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
               <div className="min-w-0 flex-1 lg:overflow-y-auto">
-                <div
-                  className={
-                    isCreate
-                      ? 'space-y-5 px-5 pb-6 pt-3 sm:px-6'
-                      : 'mx-auto w-full max-w-3xl space-y-6 px-5 py-6 sm:px-6'
-                  }
-                >
+                <BodyColumn isCreate={isCreate}>
                   {banner && <ErrorBanner>{banner}</ErrorBanner>}
 
                   {isCreate ? (
-                    <TitleInput
-                      value={draft.title}
-                      onChange={(value) => setField('title', value)}
-                      placeholder={t('tasks.panel.titlePlaceholder', 'Task title')}
-                      autoFocus
-                      minHeightClass="min-h-18"
-                    />
+                    <>
+                      {/* Quick Add, the same line the composer takes. Typing
+                          `#project @alice @label p1 tomorrow 3pm` fills the
+                          controls below; anything set by hand there wins and is
+                          left alone. The title field keeps the cleaned text, so
+                          the tokens never end up in the task's name. */}
+                      <div className="flex flex-col gap-1.5">
+                        <SearchInput
+                          value={quickAddText}
+                          onChange={setQuickAddText}
+                          placeholder={t(
+                            'tasks.panel.quickAddPlaceholder',
+                            'Quick add — try "Fix login #web @alice p1 tomorrow 3pm"',
+                          )}
+                          aria-label={t('tasks.panel.quickAdd', 'Quick add')}
+                          // The entry point for the form, so it takes the
+                          // focus the title used to. It also has to: TitleInput
+                          // holds its own text and only re-syncs from its prop
+                          // while unfocused, so a parse could never reach a
+                          // title the caret was already sitting in.
+                          autoFocus
+                        />
+                        {/* Not CARD_CAPTION_CLASS: that is the uppercase field
+                            caption used for DESCRIPTION, and a whole sentence
+                            set in it shouts. */}
+                        <p className="text-xs leading-4 text-muted-foreground">
+                          {t(
+                            'tasks.panel.quickAddHint',
+                            'Recognised tokens fill the fields below. Edit any field to keep your own value.',
+                          )}
+                        </p>
+                      </div>
+                      <TitleInput
+                        value={draft.title}
+                        onChange={(value) => setField('title', value)}
+                        placeholder={t('tasks.panel.titlePlaceholder', 'Task title')}
+                        minHeightClass="min-h-18"
+                      />
+                    </>
                   ) : (
                     <div className="space-y-2">
                       {task?.parent && (
@@ -487,7 +582,7 @@ export function TaskPanel({
                       <CommentsThread taskId={task.id} />
                     </section>
                   )}
-                </div>
+                </BodyColumn>
               </div>
 
               {!isCreate && task && (
@@ -532,19 +627,18 @@ export function TaskPanel({
           )}
 
           {isCreate && (
-            <div className="flex shrink-0 justify-end gap-2 px-5 pb-4 pt-1.5 sm:px-6">
-              <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={busyCreate}>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose} disabled={busyCreate}>
                 {t('tasks.common.cancel', 'Cancel')}
               </Button>
               <Button
                 type="button"
-                size="sm"
                 onClick={() => void submitCreate()}
                 disabled={busyCreate || draft.title.trim() === ''}
               >
                 {t('tasks.panel.createTask', 'Create task')}
               </Button>
-            </div>
+            </DialogFooter>
           )}
         </DialogContent>
       </Dialog>
@@ -552,6 +646,17 @@ export function TaskPanel({
     </>
   )
 }
+
+/**
+ * Whether a row's control spans its cell.
+ *
+ * Detail mode stacks the rows down a narrow sidebar, where an unbounded control
+ * reads badly, so it caps them. Create mode lays them out in a two-column grid
+ * that already bounds each cell — there the cap just leaves every control's
+ * right edge in a different place depending on whether the row asked to fill,
+ * which is the ragged edge down the middle of the form.
+ */
+const AttrRowFillsCell = React.createContext(false)
 
 function AttrRow({
   icon: Icon,
@@ -564,13 +669,14 @@ function AttrRow({
   fill?: boolean
   children: React.ReactNode
 }) {
+  const fillsCell = React.useContext(AttrRowFillsCell)
   return (
     <div className="flex items-start gap-3">
       <span className="flex h-8 w-24 shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
         <Icon className="size-3.5" aria-hidden />
         {label}
       </span>
-      <div className={cn('min-w-0 flex-1', !fill && 'max-w-52')}>{children}</div>
+      <div className={cn('min-w-0 flex-1', !fill && !fillsCell && 'max-w-52')}>{children}</div>
     </div>
   )
 }
@@ -585,4 +691,14 @@ function PersonLine({ label, name, title }: { label: string; name?: string | nul
       </span>
     </div>
   )
+}
+
+/**
+ * The body column. Create mode is a form, so it takes the DS `DialogBody` and
+ * the same padding rhythm as the event editor; detail mode keeps its own
+ * centred reading column, which is a different job.
+ */
+function BodyColumn({ isCreate, children }: { isCreate: boolean; children: React.ReactNode }) {
+  if (isCreate) return <DialogBody className="space-y-5">{children}</DialogBody>
+  return <div className="mx-auto w-full max-w-3xl space-y-6 px-5 py-6 sm:px-6">{children}</div>
 }

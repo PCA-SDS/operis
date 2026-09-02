@@ -131,6 +131,8 @@
   "auth.roles.form.errors.load": "Failed to load role",
   "auth.roles.form.errors.tenantRequired": "Tenant is required",
   "auth.roles.form.field.name": "Name",
+  "auth.roles.form.field.parentRole": "Reports to",
+  "auth.roles.form.field.parentRoleNone": "No parent (top level)",
   "auth.roles.form.field.tenant": "Tenant",
   "auth.roles.form.group.access": "Access",
   "auth.roles.form.group.details": "Details",

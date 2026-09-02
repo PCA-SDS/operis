@@ -2,11 +2,18 @@
 
 import * as React from 'react'
 import { Info } from 'lucide-react'
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Dialog, DialogContent, DialogTitle } from '@open-mercato/ui/primitives/dialog'
-import { CloseButton } from '@open-mercato/ui/primitives/close-button'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@open-mercato/ui/primitives/dialog'
+import { Kbd } from '@open-mercato/ui/primitives/kbd'
 import { Switch } from '@open-mercato/ui/primitives/switch'
 import { TagInput } from '@open-mercato/ui/primitives/tag-input'
 import { SimpleTooltip } from '@open-mercato/ui/primitives/tooltip'
@@ -21,6 +28,29 @@ import {
   SegmentedControl,
   SegmentedControlItem,
 } from '@open-mercato/ui/primitives/segmented-control'
+
+/**
+ * Every global calendar shortcut, in the order this modal lists them.
+ *
+ * The keys themselves are bound in `CalendarScreen`; this is the legend. It
+ * used to have a dialog of its own, which meant two modals a user could be
+ * looking for the same thing in — so it is a section here instead, and `?`
+ * opens this modal.
+ */
+export const CALENDAR_SHORTCUTS: ReadonlyArray<{
+  key: string
+  labelKey: string
+  fallback: string
+}> = [
+  { key: 'T', labelKey: 'customers.calendar.shortcuts.today', fallback: 'Today' },
+  { key: 'D', labelKey: 'customers.calendar.shortcuts.dayView', fallback: 'Day view' },
+  { key: 'W', labelKey: 'customers.calendar.shortcuts.week', fallback: 'Week' },
+  { key: 'M', labelKey: 'customers.calendar.shortcuts.month', fallback: 'Month' },
+  { key: 'A', labelKey: 'customers.calendar.shortcuts.agenda', fallback: 'Agenda' },
+  { key: 'N', labelKey: 'customers.calendar.shortcuts.newEvent', fallback: 'New event' },
+  { key: '/', labelKey: 'customers.calendar.shortcuts.search', fallback: 'Search' },
+  { key: '?', labelKey: 'customers.calendar.shortcuts.help', fallback: 'Shortcuts' },
+]
 
 export type CalendarSettingsModalProps = {
   open: boolean
@@ -89,29 +119,23 @@ export function CalendarSettingsModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        disableBodyWrap
         onKeyDown={handleKeyDown}
-        aria-describedby={undefined}
-        dismissible={false}
-        className="flex w-full max-w-[400px] flex-col gap-0 overflow-hidden rounded-2xl border-0 bg-card p-0 shadow-xl"
+        closeAriaLabel={t('customers.calendar.settings.close', 'Close')}
+        // Same shell as the event editor: a `size` variant rather than a width
+        // class, the DS header band with nothing drawn under it, and a footer
+        // with nothing drawn above it. `lg` rather than the editor's `xl` —
+        // this is a single column of settings, and it now carries the shortcut
+        // legend that used to have a modal to itself.
+        size="lg"
+        className="flex max-h-[92dvh] flex-col overflow-hidden sm:max-h-[calc(100dvh-4rem)]"
       >
-        <VisuallyHidden>
+        <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-        </VisuallyHidden>
-        <div className="flex shrink-0 items-start gap-3.5 px-5 py-4 sm:px-6">
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <p className="text-sm font-medium leading-5 text-foreground">{title}</p>
-            <p className="text-xs leading-4 text-muted-foreground">
-              {t('customers.calendar.settings.subtitle', 'Customise your calendar module.')}
-            </p>
-          </div>
-          <CloseButton
-            onClick={() => onOpenChange(false)}
-            aria-label={t('customers.calendar.settings.close', 'Close')}
-          />
-        </div>
-
-        <div className="flex flex-col gap-4 p-5">
+          <DialogDescription>
+            {t('customers.calendar.settings.subtitle', 'Customise your calendar module.')}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogBody className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
           <SettingsTagInput
             label={t('customers.calendar.settings.eventCategories', 'Event Categories')}
             maxLabel={t('customers.calendar.settings.max', '(max. {count})', { count: MAX_EVENT_CATEGORIES })}
@@ -175,16 +199,34 @@ export function CalendarSettingsModal({
               ) : null}
             </React.Fragment>
           ))}
-        </div>
+          {/* The shortcut legend, folded in from the dialog it used to own. It
+              is reference rather than a setting, so it closes the body under a
+              heading instead of sitting among the controls. */}
+          <section className="flex flex-col gap-2 pt-1">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              {t('customers.calendar.shortcuts.title', 'Keyboard shortcuts')}
+            </h3>
+            <ul className="flex flex-col gap-2">
+              {CALENDAR_SHORTCUTS.map((shortcut) => (
+                <li key={shortcut.key} className="flex items-center justify-between gap-3">
+                  <span className="text-sm leading-5 text-foreground">
+                    {t(shortcut.labelKey, shortcut.fallback)}
+                  </span>
+                  <Kbd>{shortcut.key}</Kbd>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </DialogBody>
 
-        <div className="flex shrink-0 items-center gap-3 px-5 pt-1.5 pb-4 sm:px-6">
-          <Button type="button" variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t('customers.calendar.settings.cancel', 'Cancel')}
           </Button>
-          <Button type="button" className="flex-1" onClick={handleSave}>
+          <Button type="button" onClick={handleSave}>
             {t('customers.calendar.settings.save', 'Save Changes')}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

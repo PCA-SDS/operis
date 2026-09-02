@@ -19,7 +19,6 @@ function renderToolbar() {
       onAnchorChange={jest.fn()}
       onSearchChange={jest.fn()}
       onFiltersChange={jest.fn()}
-      onOpenSettings={jest.fn()}
     />,
     { locale: 'en' },
   )
@@ -30,17 +29,18 @@ afterEach(() => {
 })
 
 describe('CalendarToolbar', () => {
-  it('stands search, filter and settings at one height', () => {
+  it('stands search and filter at one height', () => {
     // At `size="sm"` the buttons beside the search field are 32px and an
     // IconButton is 28px — three heights on one row. Everything on the scope
     // row is 36px, which is each primitive's default and `lg` on IconButton.
+    // Settings is asserted on the scope bar, which is where it now lives.
     const { container } = renderToolbar()
     const search = container.querySelector('[data-slot="search-input-wrapper"]') as HTMLElement
     const buttons = Array.from(container.querySelectorAll('button'))
 
     expect(search).not.toBeNull()
     expect(search.className).toMatch(/\bh-9\b/)
-    expect(buttons.length).toBeGreaterThanOrEqual(2)
+    expect(buttons.length).toBeGreaterThanOrEqual(1)
     for (const button of buttons) {
       expect(button.className).toMatch(/\b(h-9|size-9)\b/)
       expect(button.className).not.toMatch(/\b(size-6|size-7|size-8|h-7|h-8|h-10|h-11)\b/)

@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from 'react'
-import { CalendarRange } from 'lucide-react'
+import { CalendarRange, Settings } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Calendar } from '@open-mercato/ui/primitives/calendar'
+import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import {
   Select,
@@ -40,6 +41,7 @@ export function CalendarScopeBar({
   onTabChange,
   onPresetChange,
   onAnchorChange,
+  onOpenSettings,
 }: CalendarScopeBarProps) {
   const t = useT()
   const locale = useLocale()
@@ -101,6 +103,20 @@ export function CalendarScopeBar({
             </PopoverContent>
           </Popover>
         </div>
+        {/* Settings closes the row. It is the only control here that does not
+            change what the grid shows, so it sits past the date range rather
+            than among the narrowing controls. `lg` is the IconButton size that
+            stands 36px, the height every control on this row shares. */}
+        <IconButton
+          type="button"
+          variant="outline"
+          size="lg"
+          className="shrink-0"
+          aria-label={t('customers.calendar.toolbar.settings', 'Calendar settings')}
+          onClick={onOpenSettings}
+        >
+          <Settings aria-hidden />
+        </IconButton>
       </div>
     </div>
   )

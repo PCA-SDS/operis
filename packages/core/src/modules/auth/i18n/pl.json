@@ -131,6 +131,8 @@
   "auth.roles.form.errors.load": "Nie udało się wczytać roli",
   "auth.roles.form.errors.tenantRequired": "Wymagane jest wybranie najemcy",
   "auth.roles.form.field.name": "Nazwa",
+  "auth.roles.form.field.parentRole": "Reports to",
+  "auth.roles.form.field.parentRoleNone": "No parent (top level)",
   "auth.roles.form.field.tenant": "Najemca",
   "auth.roles.form.group.access": "Dostęp",
   "auth.roles.form.group.details": "Szczegóły",

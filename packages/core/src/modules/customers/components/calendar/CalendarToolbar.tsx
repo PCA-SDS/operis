@@ -1,11 +1,10 @@
 "use client"
 
 import * as React from 'react'
-import { ListFilter, Settings } from 'lucide-react'
+import { ListFilter } from 'lucide-react'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { CheckboxField } from '@open-mercato/ui/primitives/checkbox-field'
-import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import {
@@ -25,20 +24,21 @@ const ALL_OPTION = 'all'
 const EMPTY_FILTERS: CalendarFiltersValue = { types: [], status: null, ownerUserId: null }
 
 /**
- * Search, filters and settings — the cluster that narrows what the grid shows.
+ * Search and filters — the cluster that narrows what the grid shows.
  *
  * It renders inside the navigation bar's trailing slot rather than as a row of
  * its own: none of it changes *when* you are looking at, so none of it earns a
  * band of height above the grid.
  *
- * Search, Filter and the settings button all stand 36px — see the chrome-height
- * note on `CalendarHeader`, and so does every box control inside the filter
- * popover. The two exceptions are not choices: `Checkbox` tops out at 20px
+ * Search and Filter both stand 36px — see the chrome-height note on
+ * `CalendarHeader`, and so does every box control inside the filter popover.
+ * Settings is NOT here: it is not a narrowing control, and it sits at the far
+ * end of the scope row past the date range. The two exceptions are not choices: `Checkbox` tops out at 20px
  * (`md`), and the count `Badge` is an adornment sitting inside the Filter
  * button rather than a control of its own.
  */
 export function CalendarToolbar(props: CalendarToolbarProps) {
-  const { search, filters, typeOptions, ownerOptions, onSearchChange, onFiltersChange, onOpenSettings } = props
+  const { search, filters, typeOptions, ownerOptions, onSearchChange, onFiltersChange } = props
   const t = useT()
   const [filtersOpen, setFiltersOpen] = React.useState(false)
   const [pendingFilters, setPendingFilters] = React.useState<CalendarFiltersValue>(filters)
@@ -211,16 +211,6 @@ export function CalendarToolbar(props: CalendarToolbarProps) {
           </div>
         </PopoverContent>
       </Popover>
-      <IconButton
-        type="button"
-        variant="outline"
-        size="lg"
-        className="shrink-0"
-        aria-label={t('customers.calendar.toolbar.settings', 'Calendar settings')}
-        onClick={onOpenSettings}
-      >
-        <Settings aria-hidden />
-      </IconButton>
     </div>
   )
 }
