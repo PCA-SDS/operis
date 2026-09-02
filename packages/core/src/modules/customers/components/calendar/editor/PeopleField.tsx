@@ -1,14 +1,13 @@
 "use client"
 
 import * as React from 'react'
-import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
-import { Input } from '@open-mercato/ui/primitives/input'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import type { EditorParticipant } from '../../../lib/calendar/editorPayload'
 import { composeAccessibleName } from '../../../lib/calendar/labels'
 import { searchPeopleOptions, type PersonOption } from './lookups'
-import { CONTROL_BOX, CONTROL_MIN_HEIGHT, PersonChip, UppercaseBadge } from './inputs'
+import { PersonAvatarChip, UppercaseBadge } from './inputs'
 import { EditorDropdown, type EditorDropdownGroup } from './EditorDropdown'
 
 export function PeopleField({
@@ -98,39 +97,29 @@ export function PeopleField({
     if (mode === 'single') setOpen(false)
   }
 
+  const customerWord = t('customers.calendar.editor.customerBadge', 'Customer')
+
   return (
-    <EditorDropdown
-      open={open}
-      onOpenChange={setOpen}
-      ariaLabel={ariaLabel}
-      // The search box is the input sitting among the chips, so the panel is
-      // just the list and the caller keeps ownership of `open`.
-      triggerMode="anchor"
-      groups={groups}
-      loading={loading}
-      onSelect={handleSelect}
-      trigger={
-        <div
-          className={cn(
-            'flex w-full flex-wrap content-center items-center gap-2 px-2.5 py-1.5',
-            CONTROL_MIN_HEIGHT,
-            CONTROL_BOX,
-          )}
-        >
-          {value.map((participant) => (
-            <PersonChip
-              key={participant.userId}
-              name={participant.name}
-              badge={participant.isCustomer ? customerBadge : undefined}
-              onRemove={() => onChange(value.filter((entry) => entry.userId !== participant.userId))}
-              removeLabel={t('customers.calendar.editor.removePerson', 'Remove {name}', { name: participant.name })}
-            />
-          ))}
-          <Input
-            type="text"
+    // The search field and the selection are separate rows on purpose. They used
+    // to share one box, so picking someone could rewrap the input onto a second
+    // line and move the caret out from under the cursor mid-search. With the
+    // chips below, the field never changes height and never moves.
+    <div className="flex w-full flex-col gap-2">
+      <EditorDropdown
+        open={open}
+        onOpenChange={setOpen}
+        ariaLabel={ariaLabel}
+        // The field IS the search box, so the panel holds only the results and
+        // the caller keeps ownership of `open`.
+        triggerMode="anchor"
+        groups={groups}
+        loading={loading}
+        onSelect={handleSelect}
+        trigger={
+          <SearchInput
             value={query}
-            onChange={(event) => {
-              setQuery(event.target.value)
+            onChange={(next) => {
+              setQuery(next)
               setOpen(true)
             }}
             onFocus={() => setOpen(true)}
@@ -138,11 +127,27 @@ export function PeopleField({
             aria-label={ariaLabel}
             role="combobox"
             aria-expanded={open}
-            className="min-w-36 flex-1 border-0 bg-transparent px-0 shadow-none hover:bg-transparent focus-within:border-transparent focus-within:shadow-none"
-            inputClassName="text-sm text-foreground placeholder:text-muted-foreground"
           />
+        }
+      />
+      {value.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {value.map((participant) => (
+            <PersonAvatarChip
+              key={participant.userId}
+              name={participant.name}
+              tone={participant.isCustomer ? 'customer' : 'staff'}
+              title={composeAccessibleName([
+                participant.name,
+                participant.email,
+                participant.isCustomer ? customerWord : null,
+              ])}
+              onRemove={() => onChange(value.filter((entry) => entry.userId !== participant.userId))}
+              removeLabel={t('customers.calendar.editor.removePerson', 'Remove {name}', { name: participant.name })}
+            />
+          ))}
         </div>
-      }
-    />
+      ) : null}
+    </div>
   )
 }

@@ -1,15 +1,16 @@
 "use client"
 
 import * as React from 'react'
-import { Box, Check, ChevronDown, Plus } from 'lucide-react'
+import { Box, Check, ChevronDown, X } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Input } from '@open-mercato/ui/primitives/input'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import type { EditorResource } from '../../../lib/calendar/editorPayload'
 import { fetchResourceTypes, searchResourceOptions, type ResourceOption, type ResourceType } from './lookups'
-import { CONTROL_BOX, CONTROL_HEIGHT, CONTROL_MIN_HEIGHT } from './inputs'
+import { CONTROL_BOX, CONTROL_HEIGHT } from './inputs'
 import { EditorDropdown, type EditorDropdownGroup } from './EditorDropdown'
 
 const TYPE_SEARCH_THRESHOLD = 8
@@ -143,6 +144,9 @@ export function ResourcesField({
     : []
 
   return (
+    // Search above, selection below — the field keeps one height while picking,
+    // so nothing under it moves. See `PeopleField` for the same reasoning.
+    <div className="flex w-full flex-col gap-2">
     <EditorDropdown
       open={open}
       onOpenChange={(next) => { setOpen(next); if (!next) setTypeMenuOpen(false) }}
@@ -175,46 +179,43 @@ export function ResourcesField({
         </div>
       ) : undefined}
       trigger={
-        <div
-          className={cn(
-            'flex w-full flex-wrap content-center items-center gap-2 px-2.5 py-1.5',
-            CONTROL_MIN_HEIGHT,
-            CONTROL_BOX,
-          )}
-        >
-          {value.map((resource) => (
-            <span key={resource.id} className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-muted py-1 pl-2 pr-2">
-              <Box aria-hidden className="size-3.5 text-muted-foreground" />
-              <span className="max-w-40 truncate text-xs font-medium text-foreground">{resource.label}</span>
-              <IconButton
-                variant="ghost"
-                size="xs"
-                onClick={(event) => {
-                  event.stopPropagation()
-                  onChange(value.filter((entry) => entry.id !== resource.id))
-                }}
-                aria-label={t('customers.calendar.editor.removeResource', 'Remove {name}', { name: resource.label })}
-                className="size-5 shrink-0"
-              >
-                <Plus aria-hidden className="size-3.5 rotate-45 opacity-50" />
-              </IconButton>
-            </span>
-          ))}
-          <Input
-            type="text"
-            value={query}
-            onChange={(event) => { setQuery(event.target.value); setOpen(true) }}
-            onFocus={() => setOpen(true)}
-            placeholder={value.length > 0 ? '' : placeholder}
-            aria-label={ariaLabel}
-            role="combobox"
-            aria-expanded={open}
-            className="min-w-36 flex-1 border-0 bg-transparent px-0 shadow-none hover:bg-transparent focus-within:border-transparent focus-within:shadow-none"
-            inputClassName="text-sm text-foreground placeholder:text-muted-foreground"
-          />
-        </div>
+        <SearchInput
+          value={query}
+          onChange={(next) => {
+            setQuery(next)
+            setOpen(true)
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder}
+          aria-label={ariaLabel}
+          role="combobox"
+          aria-expanded={open}
+        />
       }
     />
+      {value.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {value.map((resource) => (
+            <span
+              key={resource.id}
+              className="group/chip inline-flex shrink-0 items-center gap-1.5 rounded-full bg-muted py-1 pl-2 pr-1"
+              title={resource.label}
+            >
+              <Box aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="max-w-40 truncate text-xs font-medium text-foreground">{resource.label}</span>
+              <button
+                type="button"
+                onClick={() => onChange(value.filter((entry) => entry.id !== resource.id))}
+                aria-label={t('customers.calendar.editor.removeResource', 'Remove {name}', { name: resource.label })}
+                className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:shadow-focus focus-visible:outline-none"
+              >
+                <X aria-hidden className="size-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
   )
 }
 

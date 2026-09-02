@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { FormFieldLabel } from '@open-mercato/ui/backend/forms/FormSection'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
@@ -30,13 +30,6 @@ import { Switch } from '@open-mercato/ui/primitives/switch'
 export const CONTROL_BOX = 'rounded-lg border border-transparent bg-surface-muted'
 /** Every control in the editor is one height, the same 36px as the app chrome. */
 export const CONTROL_HEIGHT = 'h-9'
-/**
- * The chip pickers use this instead: empty they match `CONTROL_HEIGHT`, and
- * they grow a line at a time as chips are added. Spelled out rather than
- * composed from `CONTROL_HEIGHT` because Tailwind only sees literal class
- * strings — an interpolated `min-${CONTROL_HEIGHT}` is never emitted.
- */
-export const CONTROL_MIN_HEIGHT = 'min-h-9'
 /**
  * The field micro-label. Same typography as the shared `FORM_FIELD_LABEL` but
  * without its `mb-2.5`: these labels sit in flex columns that own the spacing,
@@ -158,6 +151,56 @@ export function TimeControl({ value, onChange, ariaLabel }: { value: string; onC
         ))}
       </SelectContent>
     </Select>
+  )
+}
+
+/**
+ * A selected person, reduced to their initials.
+ *
+ * The picker used to spell the full name out in a pill. Three attendees then
+ * filled the field edge to edge and wrapped it onto a second line, which is
+ * what made the form jump while you were still typing. The avatar carries the
+ * identity at a fifth of the width; the name stays available as the title and
+ * the accessible name, and the customer/staff distinction moves to the avatar's
+ * tone rather than a badge that would put the words back.
+ *
+ * The remove control is revealed on hover and on keyboard focus rather than
+ * drawn permanently — at this size a row of avatars each carrying a visible
+ * cross reads as clutter, and `focus-visible` keeps it reachable without one.
+ */
+export function PersonAvatarChip({
+  name,
+  title,
+  tone = 'staff',
+  onRemove,
+  removeLabel,
+}: {
+  name: string
+  /** Falls back to the name; pass a fuller string to carry e.g. "· Customer". */
+  title?: string
+  tone?: 'staff' | 'customer'
+  onRemove?: () => void
+  removeLabel?: string
+}) {
+  return (
+    <span className="group/chip relative inline-flex shrink-0" title={title ?? name}>
+      <Avatar size="sm" label={name} variant={tone === 'customer' ? 'default' : 'monochrome'} />
+      {onRemove ? (
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); onRemove() }}
+          aria-label={removeLabel}
+          className={cn(
+            'absolute -right-1 -top-1 inline-flex size-4 items-center justify-center rounded-full',
+            'border border-surface bg-surface-strong text-muted-foreground',
+            'opacity-0 transition-opacity hover:text-foreground',
+            'group-hover/chip:opacity-100 focus-visible:opacity-100 focus-visible:shadow-focus focus-visible:outline-none',
+          )}
+        >
+          <X aria-hidden className="size-2.5" />
+        </button>
+      ) : null}
+    </span>
   )
 }
 
