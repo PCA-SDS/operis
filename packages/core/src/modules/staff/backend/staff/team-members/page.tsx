@@ -6,13 +6,13 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { LegacyColumnDef as ColumnDef, LegacyFeatures } from '@tanstack/react-table/legacy'
 import type { SortFn, SortingState } from '@tanstack/react-table'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { DataTable, withDataTableNamespaces } from '@open-mercato/ui/backend/DataTable'
+import { DataTable, type DataTableExportFormat, withDataTableNamespaces } from '@open-mercato/ui/backend/DataTable'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { BooleanIcon } from '@open-mercato/ui/backend/ValueIcons'
 import { markdownToPlainText } from '@open-mercato/ui/backend/markdown/markdownToPlainText'
 import { readApiResultOrThrow, apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
-import { deleteCrud } from '@open-mercato/ui/backend/utils/crud'
+import { deleteCrud, buildCrudExportUrl } from '@open-mercato/ui/backend/utils/crud'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
@@ -233,6 +233,37 @@ export default function StaffTeamMembersPage() {
     },
   ], [groupedSortingFn, labels.table.active, labels.table.name, labels.table.roles, labels.table.tags, labels.table.updatedAt, labels.table.user])
 
+  /**
+   * The filters currently shaping the list, shared by the loader and the export
+   * so "export this view" means the rows actually on screen.
+   */
+  const currentParams = React.useMemo(() => {
+    const params: Record<string, string> = {}
+    if (search.trim()) params.search = search.trim()
+    if (resolvedTeamId) params.teamId = String(resolvedTeamId)
+    if (filterValues.roleId) params.roleId = String(filterValues.roleId)
+    const sort = sorting[0]
+    if (sort?.id) {
+      params.sortField = sort.id
+      params.sortDir = sort.desc ? 'desc' : 'asc'
+    }
+    return params
+  }, [search, resolvedTeamId, filterValues.roleId, sorting])
+
+  // The platform exporter rather than a bespoke CSV endpoint: it already gives
+  // every format the rest of the product exports in, and honours the same
+  // scoping and column set as the list.
+  const exportConfig = React.useMemo(() => ({
+    view: {
+      getUrl: (format: DataTableExportFormat) =>
+        buildCrudExportUrl('staff/team-members', { ...currentParams, exportScope: 'view' }, format),
+    },
+    full: {
+      getUrl: (format: DataTableExportFormat) =>
+        buildCrudExportUrl('staff/team-members', { ...currentParams, exportScope: 'full', all: 'true' }, format),
+    },
+  }), [currentParams])
+
   const loadTeamMembers = React.useCallback(async () => {
     setIsLoading(true)
     try {
@@ -426,6 +457,7 @@ export default function StaffTeamMembersPage() {
           filterValues={filterValues}
           onFiltersApply={handleFiltersApply}
           onFiltersClear={handleFiltersClear}
+          exporter={exportConfig}
           emptyState={(
             <ListEmptyState
               entityName={labels.title}
