@@ -121,9 +121,10 @@ describe('TimeGrid — timed placement', () => {
     })
     const { container } = renderGrid([item])
     const [block] = labelledButtons(container, 'Standup')
-    // 48px per hour: 09:00 is 432px down and one hour is 48px tall.
-    expect(Number.parseFloat(block.style.top)).toBeCloseTo(9 * 48 + 1, 0)
-    expect(Number.parseFloat(block.style.height)).toBeCloseTo(48 - 2, 0)
+    // 48px per hour: 09:00 is 432px down and one hour is 48px tall, less the
+    // 2px the block is inset by on every side.
+    expect(Number.parseFloat(block.style.top)).toBeCloseTo(9 * 48 + 2, 0)
+    expect(Number.parseFloat(block.style.height)).toBeCloseTo(48 - 4, 0)
   })
 
   it('splits a midnight crossing across both day columns', () => {
@@ -146,7 +147,7 @@ describe('TimeGrid — timed placement', () => {
     })
     const { container } = renderGrid([item])
     const [block] = labelledButtons(container, 'Quick sync')
-    expect(Number.parseFloat(block.style.top)).toBeCloseTo((9 * 60 + 5) * (48 / 60) + 1, 0)
+    expect(Number.parseFloat(block.style.top)).toBeCloseTo((9 * 60 + 5) * (48 / 60) + 2, 0)
     expect(Number.parseFloat(block.style.height)).toBeGreaterThanOrEqual(16)
   })
 
@@ -244,6 +245,36 @@ describe('TimeGrid — column dividers', () => {
   })
 })
 
+describe('TimeGrid — block inset', () => {
+  it('insets an event block equally on all four sides', () => {
+    const start = new Date(2026, 7, 12, 9, 0, 0)
+    const end = new Date(2026, 7, 12, 9, 30, 0)
+    const { container } = renderGrid([buildCalendarItem({ id: 'inset', title: 'Inset check', start, end })])
+    const block = container.querySelector('button[style*="inset-inline-start"]') as HTMLElement
+    expect(block).not.toBeNull()
+
+    // The horizontal gap used to be subtracted from the width without being
+    // added to the start, so the block sat flush against its column's left edge
+    // with the whole gap on the right, while top and bottom got a different
+    // value again — measured at left 0, right 2, top 1, bottom 1.
+    const pxIn = (value: string, sign: '+' | '-') =>
+      Number(new RegExp(`\\${sign} (\\d+(?:\\.\\d+)?)px`).exec(value)?.[1] ?? NaN)
+    const startInset = pxIn(block.style.insetInlineStart, '+')
+    const widthLost = pxIn(block.style.width, '-')
+
+    // 09:00 at 48px an hour, half an hour long, before any inset is applied.
+    const rawTop = 9 * 48
+    const rawHeight = 24
+    const topInset = Number.parseFloat(block.style.top) - rawTop
+    const heightLost = rawHeight - Number.parseFloat(block.style.height)
+
+    expect(startInset).toBeGreaterThan(0)
+    expect(widthLost).toBe(startInset * 2)
+    expect(topInset).toBe(startInset)
+    expect(heightLost).toBe(startInset * 2)
+  })
+})
+
 describe('TimeGrid — permissions', () => {
   it('exposes no resize affordance when the user cannot manage events', () => {
     const item = buildCalendarItem({ id: 'locked', title: 'Locked event' })
@@ -310,7 +341,7 @@ describe('TimeGrid — Task Manager tasks', () => {
     const { container } = renderGrid([taskAt(start, new Date(2026, 7, 12, 10, 0))])
     const block = labelledButtons(container, 'Prepare proposal')[0]
     expect(block).toBeDefined()
-    expect(Number.parseFloat(block.style.top)).toBeCloseTo(9 * 48 + 1, 0)
+    expect(Number.parseFloat(block.style.top)).toBeCloseTo(9 * 48 + 2, 0)
   })
 
   it('offers no resize handle on a task — its record stores no duration', () => {

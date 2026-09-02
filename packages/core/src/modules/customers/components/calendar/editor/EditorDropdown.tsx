@@ -121,6 +121,10 @@ export function EditorDropdown({
       )}
       <PopoverContent
         align="start"
+        // One step up from the popover default, staying on the 4px rhythm, so
+        // the panel reads as separate from the field that opened it rather than
+        // hanging off its bottom edge.
+        sideOffset={8}
         // Match the field it belongs to rather than the popover default, so the
         // list reads as that control opening rather than as a floating panel.
         // The arbitrary value is deliberate and unavoidable: the width is the

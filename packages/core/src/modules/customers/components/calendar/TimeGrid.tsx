@@ -42,9 +42,19 @@ import type { CalendarItem, CalendarReschedule, TimeGridProps } from './types'
 const HOUR_HEIGHT_PX = 48
 /** Shortest card that can still show a title. */
 const MIN_BLOCK_HEIGHT_PX = 18
-const BLOCK_VERTICAL_GAP_PX = 1
+/**
+ * Gap between an event block and the slot around it, applied equally on all four
+ * sides so the block sits centred in its cell.
+ *
+ * It was three different numbers: the horizontal gap was subtracted from the
+ * block's width but never added to its start, so a block sat flush against its
+ * column's left edge with the whole 2px on the right, while top and bottom got
+ * 1px each. The all-day bar already insets both sides equally (`CalendarBar`),
+ * and this is that same rule for the timed grid. Stacked blocks end up two
+ * insets apart, which is what separates them from one another.
+ */
+const BLOCK_INSET_PX = 2
 /** Gutter between two concurrent cards, so a shared slot still reads as two. */
-const COLUMN_GAP_PX = 2
 const DEFAULT_VISIBLE_ALL_DAY_ROWS = 2
 const DRAG_THRESHOLD_PX = 4
 const DEFAULT_WORKING_HOURS = { startHour: 8, endHour: 18 }
@@ -113,8 +123,8 @@ function segmentGeometry(segment: PositionedSegment): { insetInlineStart: string
   const startPercent = (segment.column / segment.columns) * 100
   const widthPercent = (segment.span / segment.columns) * 100
   return {
-    insetInlineStart: `calc(${startPercent}% + ${segment.column * COLUMN_GAP_PX}px)`,
-    width: `calc(${widthPercent}% - ${COLUMN_GAP_PX}px)`,
+    insetInlineStart: `calc(${startPercent}% + ${BLOCK_INSET_PX}px)`,
+    width: `calc(${widthPercent}% - ${BLOCK_INSET_PX * 2}px)`,
   }
 }
 
@@ -710,8 +720,8 @@ export function TimeGrid({
                         >
                           <EventBlock
                             item={segment.item}
-                            top={rawTop + BLOCK_VERTICAL_GAP_PX}
-                            height={Math.max(MIN_BLOCK_HEIGHT_PX, rawHeight - BLOCK_VERTICAL_GAP_PX * 2)}
+                            top={rawTop + BLOCK_INSET_PX}
+                            height={Math.max(MIN_BLOCK_HEIGHT_PX, rawHeight - BLOCK_INSET_PX * 2)}
                             insetInlineStart={insetInlineStart}
                             width={width}
                             stackIndex={segment.column}
