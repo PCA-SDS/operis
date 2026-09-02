@@ -21,6 +21,15 @@ import type { CalendarHeaderProps, CalendarView } from './types'
  * *when*, so they sit on the scope row below; keeping them off this row is also
  * what stops the date label — the one fact the whole grid is answering — from
  * being squeezed into an ellipsis at ordinary window widths.
+ *
+ * **Chrome height.** Every control across both chrome rows — this bar and the
+ * scope row below it — stands 36px tall, with no exception. The primitives
+ * disagree about what their size names mean (`sm` is 36px on nothing, 32px on
+ * `Button`/`SegmentedControl`/`SearchInput`/`Select` and 28px on `IconButton`),
+ * so the rule is stated as a height rather than as a prop: take each
+ * primitive's `default`, and give `IconButton` `lg`, whose scale sits one step
+ * below `Button`'s. `CalendarHeader.test.tsx` and `CalendarToolbar.test.tsx`
+ * hold the row to it.
  */
 export function CalendarHeader({
   view,
@@ -58,16 +67,20 @@ export function CalendarHeader({
   return (
     <header className="flex flex-wrap items-center gap-x-2 gap-y-2 sm:gap-x-3">
       {onToday ? (
-        <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={onToday}>
+        <Button type="button" variant="outline" className="shrink-0" onClick={onToday}>
           {t('customers.calendar.toolbar.today', 'Today')}
         </Button>
       ) : null}
+      {/* Every control on this bar is 36px tall — see the chrome-height note
+          in the component docblock. That means each primitive's own `default`,
+          except `IconButton`, whose scale is one step down from `Button`'s and
+          needs `lg` to reach the same box. */}
       {onPrevious && onNext ? (
         <div className="flex shrink-0 items-center">
-          <IconButton type="button" variant="ghost" size="sm" aria-label={previousLabel} onClick={onPrevious}>
+          <IconButton type="button" variant="ghost" size="lg" aria-label={previousLabel} onClick={onPrevious}>
             <ChevronLeft aria-hidden />
           </IconButton>
-          <IconButton type="button" variant="ghost" size="sm" aria-label={nextLabel} onClick={onNext}>
+          <IconButton type="button" variant="ghost" size="lg" aria-label={nextLabel} onClick={onNext}>
             <ChevronRight aria-hidden />
           </IconButton>
         </div>
@@ -83,7 +96,6 @@ export function CalendarHeader({
       {onViewChange ? (
         <SegmentedControl
           value={view}
-          size="sm"
           className="shrink-0"
           onValueChange={(value) => onViewChange(value as CalendarView)}
           aria-label={t('customers.calendar.views.label', 'Calendar view')}
@@ -98,7 +110,7 @@ export function CalendarHeader({
         <IconButton
           type="button"
           variant="ghost"
-          size="sm"
+          size="lg"
           className="hidden shrink-0 md:inline-flex"
           aria-label={t('customers.calendar.shortcuts.title', 'Keyboard shortcuts')}
           onClick={onOpenShortcuts}
@@ -109,7 +121,6 @@ export function CalendarHeader({
       {onNewTask ? (
         <Button
           type="button"
-          size="sm"
           variant="outline"
           onClick={onNewTask}
           className="shrink-0"
@@ -122,7 +133,6 @@ export function CalendarHeader({
       {onNewEvent ? (
         <Button
           type="button"
-          size="sm"
           onClick={onNewEvent}
           className="shrink-0"
           aria-label={t('customers.calendar.actions.newEvent', 'New event')}
