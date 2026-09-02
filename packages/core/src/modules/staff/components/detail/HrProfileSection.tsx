@@ -83,24 +83,37 @@ export function HrProfileSection({ memberId, canManage }: { memberId: string | n
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
-  const load = React.useCallback(async () => {
+  /**
+   * `signal` is optional because this also runs after a save, where there is no
+   * effect to tear down. When the effect does supply one, an abort must not
+   * surface as an error: the request was cancelled because the user navigated,
+   * not because anything failed.
+   */
+  const load = React.useCallback(async (signal?: AbortSignal) => {
     if (!memberId) return
     setIsLoading(true)
     setLoadError(null)
     try {
       const result = await readApiResultOrThrow<{ items?: Record<string, unknown>[] }>(
         `/api/staff/employee-profiles?memberId=${encodeURIComponent(memberId)}&pageSize=1`,
+        { signal },
       )
+      if (signal?.aborted) return
       const row = result?.items?.[0]
       setRecord(row ? toRecord(row) : null)
     } catch (err) {
+      if (signal?.aborted) return
       setLoadError(err instanceof Error ? err.message : String(err))
     } finally {
-      setIsLoading(false)
+      if (!signal?.aborted) setIsLoading(false)
     }
   }, [memberId])
 
-  React.useEffect(() => { void load() }, [load])
+  React.useEffect(() => {
+    const controller = new AbortController()
+    void load(controller.signal)
+    return () => controller.abort()
+  }, [load])
 
   const labels = React.useMemo(() => ({
     title: t('staff.hrProfile.title', 'HR profile'),

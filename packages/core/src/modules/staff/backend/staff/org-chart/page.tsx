@@ -84,13 +84,28 @@ export default function StaffOrgChartPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     setIsLoading(true)
     setLoadError(null)
-    readApiResultOrThrow<OrgStructure>('/api/staff/org-structure')
-      .then((result) => { if (!cancelled) setStructure(result) })
-      .catch((err) => { if (!cancelled) setLoadError(err instanceof Error ? err.message : String(err)) })
-      .finally(() => { if (!cancelled) setIsLoading(false) })
-    return () => { cancelled = true }
+    async function loadStructure() {
+      try {
+        const result = await readApiResultOrThrow<OrgStructure>('/api/staff/org-structure', {
+          signal: controller.signal,
+        })
+        if (cancelled) return
+        setStructure(result)
+      } catch (err) {
+        // `cancelled` is set before the abort, so a torn-down effect lands here
+        // with the flag already true and shows no error for a request the user
+        // themselves navigated away from.
+        if (cancelled) return
+        setLoadError(err instanceof Error ? err.message : String(err))
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    void loadStructure()
+    return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
 
   const forest = React.useMemo(() => buildOrgForest(structure?.roles ?? []), [structure])

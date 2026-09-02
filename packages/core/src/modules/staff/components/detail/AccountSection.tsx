@@ -47,7 +47,8 @@ export function AccountSection({
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [inviteBusy, setInviteBusy] = React.useState(false)
 
-  const load = React.useCallback(async () => {
+  /** See `HrProfileSection` — an aborted load is a navigation, not a failure. */
+  const load = React.useCallback(async (signal?: AbortSignal) => {
     if (!userId) {
       setAccount(null)
       return
@@ -57,16 +58,23 @@ export function AccountSection({
     try {
       const result = await readApiResultOrThrow<{ items?: AccountRow[] }>(
         `/api/auth/users?id=${encodeURIComponent(userId)}`,
+        { signal },
       )
+      if (signal?.aborted) return
       setAccount(result?.items?.[0] ?? null)
     } catch (err) {
+      if (signal?.aborted) return
       setLoadError(err instanceof Error ? err.message : String(err))
     } finally {
-      setIsLoading(false)
+      if (!signal?.aborted) setIsLoading(false)
     }
   }, [userId])
 
-  React.useEffect(() => { void load() }, [load])
+  React.useEffect(() => {
+    const controller = new AbortController()
+    void load(controller.signal)
+    return () => controller.abort()
+  }, [load])
 
   const resendInvite = React.useCallback(async () => {
     if (!account) return
