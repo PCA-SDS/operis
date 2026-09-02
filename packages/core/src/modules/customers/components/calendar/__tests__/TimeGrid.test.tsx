@@ -203,6 +203,47 @@ describe('TimeGrid — current-time indicator', () => {
   })
 })
 
+describe('TimeGrid — column dividers', () => {
+  // jsdom applies no stylesheet, so these assert the classes the rows are
+  // authored with, which is where the fault was: the timed strip also holds the
+  // now-indicator overlay, and that overlay — not the seventh day — is its real
+  // `:last-child`, so a `last:border-e-0` rule never reached the day it was
+  // meant for. That left a line down the grid's right edge with nothing above
+  // it in the all-day lane, and because `flex-basis: 0` shares out only what the
+  // borders leave over, the extra border knocked every column a fraction of a
+  // pixel out of step with that lane. Keying the divider off the index instead
+  // makes both rows land on the same boundaries whether the overlay is there or
+  // not, which the two cases below pin.
+  function endBorderCounts(container: HTMLElement) {
+    const carrying = (nodes: Element[]) => nodes.filter((node) => node.classList.contains('border-e')).length
+    const lane = Array.from(container.querySelectorAll('.absolute.inset-0.flex > div'))
+    const timed = Array.from(container.querySelectorAll('[role="gridcell"]'))
+    return {
+      lane: { columns: lane.length, withEndBorder: carrying(lane) },
+      timed: { columns: timed.length, withEndBorder: carrying(timed) },
+    }
+  }
+
+  const dividedButNotOnTheOuterEdge = {
+    lane: { columns: 7, withEndBorder: 6 },
+    timed: { columns: 7, withEndBorder: 6 },
+  }
+
+  it('divides between days and not on the outer edge, with the now indicator on screen', () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 7, 12, 14, 30))
+    const { container } = renderGrid()
+    expect(container.querySelector('[aria-hidden="true"].z-40')).not.toBeNull()
+    expect(endBorderCounts(container)).toEqual(dividedButNotOnTheOuterEdge)
+  })
+
+  it('divides identically with the indicator absent, so the lines never shift with the clock', () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 0, 5, 14, 30))
+    const { container } = renderGrid()
+    expect(container.querySelector('[aria-hidden="true"].z-40')).toBeNull()
+    expect(endBorderCounts(container)).toEqual(dividedButNotOnTheOuterEdge)
+  })
+})
+
 describe('TimeGrid — permissions', () => {
   it('exposes no resize affordance when the user cannot manage events', () => {
     const item = buildCalendarItem({ id: 'locked', title: 'Locked event' })
