@@ -29,6 +29,22 @@ type ResourceTypeRow = {
   name: string
 }
 
+export type ResourceFormValues = {
+  id?: string
+  name: string
+  description?: string
+  resourceTypeId?: string | null
+  areaId?: string | null
+  sort_order: number
+}
+
+type ResourceAreaRow = {
+  id: string
+  name: string
+  parent_area_id: string | null
+  sort_order: number
+}
+
 type ResourceTypesResponse = {
   items: ResourceTypeRow[]
 }
@@ -82,6 +98,51 @@ export function useResourcesResourceFormConfig(options: {
     loadResourceTypes()
     return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
+
+  const [resourceAreas, setResourceAreas] = React.useState<ResourceAreaRow[]>([])
+  const [resourceAreasLoaded, setResourceAreasLoaded] = React.useState(false)
+
+  React.useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+    async function loadResourceAreas() {
+      try {
+        const params = new URLSearchParams({ pageSize: '1000' })
+        const call = await apiCall<{ items: ResourceAreaRow[] }>(`/api/resources/areas?${params.toString()}`, { signal: controller.signal })
+        if (!cancelled) {
+          const items = Array.isArray(call.result?.items) ? call.result.items : []
+          setResourceAreas(items)
+        }
+      } catch {
+        if (!cancelled) setResourceAreas([])
+      } finally {
+        if (!cancelled) setResourceAreasLoaded(true)
+      }
+    }
+    loadResourceAreas()
+    return () => { cancelled = true; controller.abort() }
+  }, [scopeVersion])
+
+  const formattedAreas = React.useMemo(() => {
+    type TreeNode = ResourceAreaRow & { children: TreeNode[] }
+    const map = new Map<string, TreeNode>()
+    const roots: TreeNode[] = []
+    resourceAreas.forEach(item => map.set(item.id, { ...item, children: [] }))
+    resourceAreas.forEach(item => {
+      if (item.parent_area_id && map.has(item.parent_area_id)) {
+        map.get(item.parent_area_id)!.children.push(map.get(item.id)!)
+      } else {
+        roots.push(map.get(item.id)!)
+      }
+    })
+    const result: { id: string, name: string }[] = []
+    const traverse = (node: TreeNode, depth: number) => {
+      result.push({ id: node.id, name: depth > 0 ? `${'  '.repeat(depth)}↳ ${node.name}` : node.name })
+      node.children.sort((a, b) => a.sort_order - b.sort_order).forEach(child => traverse(child, depth + 1))
+    }
+    roots.sort((a, b) => a.sort_order - b.sort_order).forEach(root => traverse(root, 0))
+    return result
+  }, [resourceAreas])
 
   React.useEffect(() => {
     const selectedId = typeof selectedResourceTypeId === 'string' && selectedResourceTypeId.trim().length
@@ -238,6 +299,35 @@ export function useResourcesResourceFormConfig(options: {
         },
       },
       {
+        id: 'areaId',
+        label: t('resources.resources.form.fields.area', 'Area'),
+        type: 'custom',
+        component: ({ value, setValue, disabled }) => {
+          const selectedValue = typeof value === 'string' && value ? value : 'none'
+          return (
+            <div className="flex items-center gap-2">
+              <Select
+                value={selectedValue}
+                onValueChange={(next) => setValue(next === 'none' ? null : next)}
+                disabled={disabled || !resourceAreasLoaded}
+              >
+                <SelectTrigger data-crud-focus-target="">
+                  <SelectValue placeholder={t('ui.forms.select.emptyOption', '—')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{t('ui.forms.select.emptyOption', '—')}</SelectItem>
+                  {formattedAreas.map((area) => (
+                    <SelectItem key={area.id} value={area.id}>
+                      <span className="whitespace-pre">{area.name}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )
+        },
+      },
+      {
         id: 'capacity',
         label: t('resources.resources.form.fields.capacity', 'Capacity'),
         description: t(
@@ -299,12 +389,14 @@ export function useResourcesResourceFormConfig(options: {
 
     return baseFields
   }, [
-    appearanceLabels,
-    capacityUnitDictionaryId,
-    resolveFieldsetCode,
-    resourceTypes,
-    selectedCapacityUnit,
     t,
+    resourceTypes,
+    resolveFieldsetCode,
+    capacityUnitDictionaryId,
+    formattedAreas,
+    resourceAreasLoaded,
+    selectedCapacityUnit,
+    appearanceLabels,
   ])
 
   const groups = React.useMemo<CrudFormGroup[]>(() => {
@@ -316,6 +408,7 @@ export function useResourcesResourceFormConfig(options: {
           'name',
           'description',
           'resourceTypeId',
+          'areaId',
           'capacity',
           'capacityUnitValue',
           'appearance',
