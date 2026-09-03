@@ -16,6 +16,7 @@ const F = {
   tenant_id: "tenant_id",
   organization_id: "organization_id",
   resource_type_id: "resource_type_id",
+  area_id: "area_id",
   name: "name",
   description: "description",
   capacity: "capacity",
@@ -50,6 +51,7 @@ const listSchema = z
     search: z.string().optional(),
     ids: z.string().optional(),
     resourceTypeId: z.string().uuid().optional(),
+    areaId: z.string().uuid().optional(),
     isActive: z.string().optional(),
     tagIds: z.string().optional(),
     sortField: z.string().optional(),
@@ -77,6 +79,7 @@ const crud = makeCrudRoute({
       F.name,
       'description',
       F.resource_type_id,
+      F.area_id,
       F.capacity,
       'capacity_unit_value',
       'capacity_unit_name',
@@ -112,6 +115,9 @@ const crud = makeCrudRoute({
       }
       if (query.resourceTypeId) {
         filters[F.resource_type_id] = query.resourceTypeId
+      }
+      if (query.areaId) {
+        filters[F.area_id] = query.areaId
       }
       const isActive = parseBooleanFlag(query.isActive)
       if (isActive !== undefined) {

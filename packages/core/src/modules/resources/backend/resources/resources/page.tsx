@@ -31,6 +31,7 @@ type ResourceRow = {
   id: string
   name: string
   resourceTypeId: string | null
+  areaId: string | null
   capacity: number | null
   tags?: TagOption[] | null
   isActive: boolean
@@ -69,6 +70,15 @@ type ResourceTypesResponse = {
   items: Array<Record<string, unknown>>
 }
 
+type ResourceAreasResponse = {
+  items: Array<{
+    id?: string
+    name?: string
+    parent_area_id?: string | null
+    sort_order?: number
+  }>
+}
+
 type ResourceListMutationContext = {
   formId: string
   resourceKind: string
@@ -85,6 +95,7 @@ export default function ResourcesResourcesPage() {
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [isLoading, setIsLoading] = React.useState(true)
   const [resourceTypes, setResourceTypes] = React.useState<Map<string, ResourceTypeRow>>(new Map())
+  const [resourceAreas, setResourceAreas] = React.useState<Map<string, { id: string; name: string }>>(new Map())
   const [canManage, setCanManage] = React.useState(false)
   const [tagOptions, setTagOptions] = React.useState<FilterOption[]>([])
   const scopeVersion = useOrganizationScopeVersion()
@@ -194,6 +205,42 @@ export default function ResourcesResourcesPage() {
     return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
 
+  React.useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+    async function loadResourceAreas() {
+      try {
+        const params = new URLSearchParams({ pageSize: '1000' })
+        const call = await apiCall<ResourceAreasResponse>(`/api/resources/areas?${params.toString()}`, { signal: controller.signal })
+        const items = Array.isArray(call.result?.items) ? call.result.items : []
+        
+        // Quick tree indentation
+        const map = new Map<string, any>()
+        const roots: any[] = []
+        items.forEach(item => map.set(item.id!, { ...item, children: [] }))
+        items.forEach(item => {
+          if (item.parent_area_id && map.has(item.parent_area_id)) {
+            map.get(item.parent_area_id)!.children.push(map.get(item.id!)!)
+          } else {
+            roots.push(map.get(item.id!)!)
+          }
+        })
+        const result = new Map<string, { id: string; name: string }>()
+        const traverse = (node: any, depth: number) => {
+          result.set(node.id, { id: node.id, name: depth > 0 ? `${'  '.repeat(depth)}↳ ${node.name}` : node.name })
+          node.children.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)).forEach((child: any) => traverse(child, depth + 1))
+        }
+        roots.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).forEach(root => traverse(root, 0))
+
+        if (!cancelled) setResourceAreas(result)
+      } catch {
+        if (!cancelled) setResourceAreas(new Map())
+      }
+    }
+    loadResourceAreas()
+    return () => { cancelled = true; controller.abort() }
+  }, [scopeVersion])
+
   const loadTagOptions = React.useCallback(
     async (query?: string): Promise<FilterOption[]> => {
       try {
@@ -234,12 +281,23 @@ export default function ResourcesResourcesPage() {
     return entries.map((entry) => ({ value: entry.id, label: entry.name }))
   }, [resourceTypes])
 
+  const resourceAreaOptions = React.useMemo<FilterOption[]>(() => {
+    const entries = Array.from(resourceAreas.values())
+    return entries.map((entry) => ({ value: entry.id, label: entry.name }))
+  }, [resourceAreas])
+
   const filters = React.useMemo<FilterDef[]>(() => [
     {
       id: 'resourceTypeId',
       label: t('resources.resources.list.filters.resourceType', 'Resource type'),
       type: 'select',
       options: resourceTypeOptions,
+    },
+    {
+      id: 'areaId',
+      label: t('resources.resources.list.filters.area', 'Area'),
+      type: 'select',
+      options: resourceAreaOptions,
     },
     {
       id: 'tagIds',
@@ -249,7 +307,7 @@ export default function ResourcesResourcesPage() {
       options: tagOptions,
       formatValue: (val: string) => tagOptions.find((o) => o.value === val)?.label ?? val,
     },
-  ], [loadTagOptions, resourceTypeOptions, tagOptions, t])
+  ], [loadTagOptions, resourceTypeOptions, resourceAreaOptions, tagOptions, t])
 
   const handleFiltersApply = React.useCallback((values: FilterValues) => {
     setFilterValues(values)
@@ -345,6 +403,9 @@ export default function ResourcesResourcesPage() {
         })
         if (search) params.set('search', search)
         if (selectedResourceTypeId) params.set('resourceTypeId', selectedResourceTypeId)
+        if (typeof filterValues.areaId === 'string' && filterValues.areaId.length) {
+          params.set('areaId', filterValues.areaId)
+        }
         const tagIds = Array.isArray(filterValues.tagIds)
           ? filterValues.tagIds
               .map((value) => (typeof value === 'string' ? value.trim() : String(value || '').trim()))
@@ -474,6 +535,15 @@ export default function ResourcesResourcesPage() {
       },
     },
     {
+      accessorKey: 'areaId',
+      header: t('resources.resources.list.columns.area', 'Area'),
+      meta: { priority: 4 },
+      cell: ({ row }) => {
+        if (row.original.rowKind === 'group') return null
+        return resourceAreas.get(row.original.areaId ?? '')?.name || t('resources.resources.list.columns.area.empty', '-')
+      },
+    },
+    {
       accessorKey: 'capacity',
       header: t('resources.resources.list.columns.capacity', 'Capacity'),
       meta: { priority: 4 },
@@ -508,7 +578,7 @@ export default function ResourcesResourcesPage() {
       meta: { priority: 6 },
       cell: ({ row }) => row.original.rowKind === 'group' ? null : <BooleanIcon value={row.original.isActive} />,
     },
-  ], [canManage, resourceTypes, t])
+  ], [canManage, resourceTypes, resourceAreas, t])
 
   return (
     <Page>
@@ -566,6 +636,11 @@ function mapApiResource(item: Record<string, unknown>): ResourceRow {
     : typeof item.resource_type_id === 'string'
       ? item.resource_type_id
       : null
+  const areaId = typeof item.areaId === 'string'
+    ? item.areaId
+    : typeof item.area_id === 'string'
+      ? item.area_id
+      : null
   const capacity = typeof item.capacity === 'number'
     ? item.capacity
     : typeof item.capacity === 'string'
@@ -596,6 +671,7 @@ function mapApiResource(item: Record<string, unknown>): ResourceRow {
     id,
     name,
     resourceTypeId,
+    areaId,
     capacity: Number.isFinite(capacity as number) ? capacity as number : null,
     tags,
     isActive,
