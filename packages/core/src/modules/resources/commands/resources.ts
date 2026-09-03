@@ -41,6 +41,7 @@ type ResourceSnapshot = {
   name: string
   description: string | null
   resourceTypeId: string | null
+  areaId: string | null
   capacity: number | null
   capacityUnitValue: string | null
   capacityUnitName: string | null
@@ -146,6 +147,7 @@ async function loadResourceSnapshot(em: EntityManager, id: string): Promise<Reso
     name: resource.name,
     description: resource.description ?? null,
     resourceTypeId: resource.resourceTypeId ?? null,
+    areaId: resource.areaId ?? null,
     capacity: resource.capacity ?? null,
     capacityUnitValue: resource.capacityUnitValue ?? null,
     capacityUnitName: resource.capacityUnitName ?? null,
@@ -228,6 +230,7 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
       name: parsed.name,
       description: parsed.description ?? null,
       resourceTypeId: parsed.resourceTypeId ?? null,
+      areaId: parsed.areaId ?? null,
       capacity: parsed.capacity ?? null,
       capacityUnitValue: unitSnapshot?.value ?? null,
       capacityUnitName: unitSnapshot?.name ?? null,
@@ -352,6 +355,7 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
             name: after.name,
             description: after.description ?? null,
             resourceTypeId: after.resourceTypeId ?? null,
+            areaId: after.areaId ?? null,
             capacity: after.capacity ?? null,
             capacityUnitValue: after.capacityUnitValue ?? null,
             capacityUnitName: after.capacityUnitName ?? null,
@@ -371,6 +375,7 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
           record.name = after.name
           record.description = after.description ?? null
           record.resourceTypeId = after.resourceTypeId ?? null
+          record.areaId = after.areaId ?? null
           record.capacity = after.capacity ?? null
           record.capacityUnitValue = after.capacityUnitValue ?? null
           record.capacityUnitName = after.capacityUnitName ?? null
@@ -472,6 +477,7 @@ const updateResourceCommand: CommandHandler<ResourcesResourceUpdateInput, { reso
         if (parsed.name !== undefined) record.name = parsed.name
         if (parsed.description !== undefined) record.description = parsed.description ?? null
         if (parsed.resourceTypeId !== undefined) record.resourceTypeId = parsed.resourceTypeId ?? null
+        if (parsed.areaId !== undefined) record.areaId = parsed.areaId ?? null
         if (parsed.capacity !== undefined) record.capacity = parsed.capacity ?? null
         if (parsed.appearanceIcon !== undefined) record.appearanceIcon = parsed.appearanceIcon ?? null
         if (parsed.appearanceColor !== undefined) record.appearanceColor = parsed.appearanceColor ?? null
@@ -528,6 +534,7 @@ const updateResourceCommand: CommandHandler<ResourcesResourceUpdateInput, { reso
       'name',
       'description',
       'resourceTypeId',
+      'areaId',
       'capacity',
       'capacityUnitValue',
       'capacityUnitName',
@@ -581,6 +588,7 @@ const updateResourceCommand: CommandHandler<ResourcesResourceUpdateInput, { reso
         record.name = before.name
         record.description = before.description ?? null
         record.resourceTypeId = before.resourceTypeId ?? null
+        record.areaId = before.areaId ?? null
         record.capacity = before.capacity ?? null
         record.capacityUnitValue = before.capacityUnitValue ?? null
         record.capacityUnitName = before.capacityUnitName ?? null
@@ -715,6 +723,7 @@ const deleteResourceCommand: CommandHandler<{ id?: string }, { resourceId: strin
             name: before.name,
             description: before.description ?? null,
             resourceTypeId: before.resourceTypeId ?? null,
+            areaId: before.areaId ?? null,
             capacity: before.capacity ?? null,
             capacityUnitValue: before.capacityUnitValue ?? null,
             capacityUnitName: before.capacityUnitName ?? null,
@@ -734,6 +743,7 @@ const deleteResourceCommand: CommandHandler<{ id?: string }, { resourceId: strin
           record.name = before.name
           record.description = before.description ?? null
           record.resourceTypeId = before.resourceTypeId ?? null
+          record.areaId = before.areaId ?? null
           record.capacity = before.capacity ?? null
           record.capacityUnitValue = before.capacityUnitValue ?? null
           record.capacityUnitName = before.capacityUnitName ?? null
