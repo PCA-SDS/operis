@@ -766,5 +766,7 @@
   "resources.teams.table.updatedAt": "업데이트됨",
   "resources.teams.tabs.details": "상세 정보",
   "resources.teams.tabs.label": "팀 섹션",
-  "resources.teams.tabs.members": "팀원"
+  "resources.teams.tabs.members": "팀원",
+  "resources.resourceAreas.types.campus": "캠퍼스",
+  "resources.resourceAreas.types.section": "섹션"
 }

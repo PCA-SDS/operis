@@ -9,7 +9,9 @@ export const metadata: ModuleInfo = {
   category: 'Administrative',
 }
 
+export { migrateTpsBranchesCommand } from './branches'
 export { migrateTpsCategoriesCommand } from './categories'
 export { migrateTpsProductsCommand } from './products'
+export { migrateTpsResourcesCommand } from './resources'
 export { SERVICE_MENU } from './data/serviceMenu'
 export type { ServiceMenuData } from './data/types'

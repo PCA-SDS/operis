@@ -1206,5 +1206,7 @@
   "vector.api.errors.purgeFailed": "Czyszczenie indeksu wektorowego nie powiodło się",
   "vector.api.errors.reindexFailed": "Ponowne indeksowanie wektorowe nie powiodło się",
   "vector.api.errors.searchFailed": "Wyszukiwanie wektorowe nie powiodło się",
-  "vector.api.errors.updateFailed": "Nie udało się zaktualizować ustawień wektorowych."
+  "vector.api.errors.updateFailed": "Nie udało się zaktualizować ustawień wektorowych.",
+  "resources.resourceAreas.types.campus": "Campus",
+  "resources.resourceAreas.types.section": "Sekcja"
 }

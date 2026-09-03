@@ -105,36 +105,43 @@ export function ResourceAreaCrudForm({
     { id: 'name', label: t('resources.resourceAreas.form.name', 'Name'), type: 'text', required: true },
     { id: 'description', label: t('resources.resourceAreas.form.description', 'Description'), type: 'richtext', editor: 'uiw' },
     { 
-      id: 'areaType', 
-      label: t('resources.resourceAreas.form.areaType', 'Area Type'), 
+      id: 'areaType',
+      label: t('resources.resourceAreas.form.areaType', 'Area Type'),
       type: 'custom',
       component: ({ value, setValue, disabled }) => {
+        React.useEffect(() => {
+          if (initialValues?.areaType && value !== initialValues.areaType) {
+            setValue(initialValues.areaType)
+          }
+        }, [initialValues?.areaType, value, setValue])
         const val = typeof value === 'string' && value ? value : 'other'
+        const selectKey = `areaType-${val}`
         return (
-          <Select disabled={disabled} value={val} onValueChange={setValue}>
+          <Select key={selectKey} disabled={disabled} value={val} onValueChange={setValue}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="campus">{t('resources.resourceAreas.types.campus', 'Campus')}</SelectItem>
               <SelectItem value="building">{t('resources.resourceAreas.types.building', 'Building')}</SelectItem>
               <SelectItem value="floor">{t('resources.resourceAreas.types.floor', 'Floor')}</SelectItem>
               <SelectItem value="zone">{t('resources.resourceAreas.types.zone', 'Zone')}</SelectItem>
               <SelectItem value="room">{t('resources.resourceAreas.types.room', 'Room')}</SelectItem>
+              <SelectItem value="section">{t('resources.resourceAreas.types.section', 'Section')}</SelectItem>
               <SelectItem value="other">{t('resources.resourceAreas.types.other', 'Other')}</SelectItem>
             </SelectContent>
           </Select>
         )
       }
     },
-    { 
-      id: 'parentAreaId', 
-      label: t('resources.resourceAreas.form.parentArea', 'Parent Area'), 
+    {
+      id: 'parentAreaId',
+      label: t('resources.resourceAreas.form.parentArea', 'Parent Area'),
       type: 'custom',
       component: ({ value, setValue, disabled }) => {
-        // Force sync value from initialValues if RHF drops it
         React.useEffect(() => {
           if (initialValues?.parentAreaId && value !== initialValues.parentAreaId && value !== 'none') {
             setValue(initialValues.parentAreaId)
           }
-        }, [initialValues?.parentAreaId])
+        }, [initialValues?.parentAreaId, value, setValue])
         const val = typeof value === 'string' && value ? value : 'none'
         const selectKey = `${areasLoading ? 'loading' : 'loaded'}-${val}`
         return (

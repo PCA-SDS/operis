@@ -1206,5 +1206,7 @@
   "vector.api.errors.purgeFailed": "Error al purgar el índice vectorial",
   "vector.api.errors.reindexFailed": "Reindexación vectorial fallida",
   "vector.api.errors.searchFailed": "Búsqueda vectorial fallida",
-  "vector.api.errors.updateFailed": "No se pudieron actualizar la configuración vectorial."
+  "vector.api.errors.updateFailed": "No se pudieron actualizar la configuración vectorial.",
+  "resources.resourceAreas.types.campus": "Campus",
+  "resources.resourceAreas.types.section": "Sección"
 }

@@ -766,5 +766,7 @@
   "resources.teams.table.updatedAt": "Aktualisiert",
   "resources.teams.tabs.details": "Details",
   "resources.teams.tabs.label": "Teamabschnitte",
-  "resources.teams.tabs.members": "Teammitglieder"
+  "resources.teams.tabs.members": "Teammitglieder",
+  "resources.resourceAreas.types.campus": "Campus",
+  "resources.resourceAreas.types.section": "Bereich"
 }
