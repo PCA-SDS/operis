@@ -54,6 +54,7 @@ export const resourcesResourceCreateSchema = z.object({
     .optional()
     .nullable(),
   isActive: z.boolean().optional(),
+  areaId: z.string().uuid().optional().nullable(),
   availabilityRuleSetId: z.string().uuid().optional().nullable(),
   customFieldsetCode: customFieldsetCodeSchema.optional().nullable(),
 })
@@ -74,6 +75,7 @@ export const resourcesResourceUpdateSchema = z.object({
     .optional()
     .nullable(),
   isActive: z.boolean().optional(),
+  areaId: z.string().uuid().optional().nullable(),
   availabilityRuleSetId: z.string().uuid().optional().nullable(),
   customFieldsetCode: customFieldsetCodeSchema.optional().nullable(),
 })
@@ -143,6 +145,52 @@ export const resourcesResourceActivityUpdateSchema = z
   })
   .merge(resourcesResourceActivityCreateSchema.partial())
 
+export const RESOURCE_AREA_TYPES = [
+  'campus',
+  'building',
+  'floor',
+  'zone',
+  'room',
+  'section',
+  'other',
+] as const
+
+export type ResourceAreaType = typeof RESOURCE_AREA_TYPES[number]
+
+export const resourcesResourceAreaCreateSchema = z.object({
+  ...scopedCreateFields,
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  areaType: z.string().min(1).default('other'),
+  parentAreaId: z.string().uuid().optional().nullable(),
+  sortOrder: z.coerce.number().int().default(0),
+  appearanceIcon: z.string().trim().max(100).optional().nullable(),
+  appearanceColor: z
+    .string()
+    .trim()
+    .regex(/^#([0-9a-fA-F]{6})$/)
+    .optional()
+    .nullable(),
+  isActive: z.boolean().optional(),
+})
+
+export const resourcesResourceAreaUpdateSchema = z.object({
+  ...scopedUpdateFields,
+  name: z.string().min(1).optional(),
+  description: z.string().optional().nullable(),
+  areaType: z.string().min(1).optional(),
+  parentAreaId: z.string().uuid().optional().nullable(),
+  sortOrder: z.coerce.number().int().optional(),
+  appearanceIcon: z.string().trim().max(100).optional().nullable(),
+  appearanceColor: z
+    .string()
+    .trim()
+    .regex(/^#([0-9a-fA-F]{6})$/)
+    .optional()
+    .nullable(),
+  isActive: z.boolean().optional(),
+})
+
 export type ResourcesResourceTypeCreateInput = z.infer<typeof resourcesResourceTypeCreateSchema>
 export type ResourcesResourceTypeUpdateInput = z.infer<typeof resourcesResourceTypeUpdateSchema>
 export type ResourcesResourceCreateInput = z.infer<typeof resourcesResourceCreateSchema>
@@ -154,3 +202,6 @@ export type ResourcesResourceCommentCreateInput = z.infer<typeof resourcesResour
 export type ResourcesResourceCommentUpdateInput = z.infer<typeof resourcesResourceCommentUpdateSchema>
 export type ResourcesResourceActivityCreateInput = z.infer<typeof resourcesResourceActivityCreateSchema>
 export type ResourcesResourceActivityUpdateInput = z.infer<typeof resourcesResourceActivityUpdateSchema>
+export type ResourcesResourceAreaCreateInput = z.infer<typeof resourcesResourceAreaCreateSchema>
+export type ResourcesResourceAreaUpdateInput = z.infer<typeof resourcesResourceAreaUpdateSchema>
+

@@ -21,6 +21,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -37,6 +38,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -53,6 +55,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -69,6 +72,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -85,6 +89,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -101,6 +106,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         },
@@ -117,6 +123,7 @@
           "scale": null,
           "default": "gen_random_uuid()",
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -133,6 +140,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         },
@@ -149,6 +157,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -165,6 +174,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -181,6 +191,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -197,6 +208,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -213,6 +225,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         }
@@ -263,6 +276,7 @@
         }
       ],
       "checks": [],
+      "triggers": [],
       "foreignKeys": {
         "resources_resource_activities_resource_id_foreign": {
           "columnNames": [
@@ -276,6 +290,287 @@
           "referencedTableName": "public.resources_resources"
         }
       },
+      "comment": null
+    },
+    {
+      "name": "resources_resource_areas",
+      "schema": "public",
+      "columns": {
+        "appearance_color": {
+          "name": "appearance_color",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "appearance_icon": {
+          "name": "appearance_icon",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "area_type": {
+          "name": "area_type",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "'other'",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "gen_random_uuid()",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "true",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "boolean"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "parent_area_id": {
+          "name": "parent_area_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "int",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "0",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "integer"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "parent_area_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "resources_resource_areas_parent_idx",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "resources_resource_areas_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "tenant_id",
+            "organization_id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "resources_resource_areas_tenant_org_idx",
+          "primary": false,
+          "unique": false
+        }
+      ],
+      "checks": [],
+      "triggers": [],
+      "foreignKeys": {},
       "comment": null
     },
     {
@@ -295,6 +590,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -311,6 +607,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -327,6 +624,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -343,6 +641,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -359,6 +658,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         },
@@ -375,6 +675,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         },
@@ -391,6 +692,7 @@
           "scale": null,
           "default": "gen_random_uuid()",
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -407,6 +709,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -423,6 +726,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -439,6 +743,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -455,6 +760,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         }
@@ -493,6 +799,7 @@
         }
       ],
       "checks": [],
+      "triggers": [],
       "foreignKeys": {
         "resources_resource_comments_resource_id_foreign": {
           "columnNames": [
@@ -525,6 +832,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         },
@@ -541,6 +849,7 @@
           "scale": null,
           "default": "gen_random_uuid()",
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -557,6 +866,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -573,6 +883,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -589,6 +900,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -605,6 +917,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -621,6 +934,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         }
@@ -660,6 +974,7 @@
         }
       ],
       "checks": [],
+      "triggers": [],
       "foreignKeys": {
         "resources_resource_tag_assignments_resource_id_foreign": {
           "columnNames": [
@@ -703,6 +1018,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -719,6 +1035,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         },
@@ -735,6 +1052,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -751,6 +1069,7 @@
           "scale": null,
           "default": "gen_random_uuid()",
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -767,6 +1086,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -783,6 +1103,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -799,6 +1120,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -815,6 +1137,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -831,6 +1154,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         }
@@ -871,6 +1195,7 @@
         }
       ],
       "checks": [],
+      "triggers": [],
       "foreignKeys": {},
       "comment": null
     },
@@ -891,6 +1216,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -907,6 +1233,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -923,6 +1250,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         },
@@ -939,6 +1267,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         },
@@ -955,6 +1284,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -971,6 +1301,7 @@
           "scale": null,
           "default": "gen_random_uuid()",
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -987,6 +1318,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -1003,6 +1335,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -1019,6 +1352,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -1035,6 +1369,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         }
@@ -1063,6 +1398,7 @@
         }
       ],
       "checks": [],
+      "triggers": [],
       "foreignKeys": {},
       "comment": null
     },
@@ -1083,6 +1419,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -1099,8 +1436,26 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
+        },
+        "area_id": {
+          "name": "area_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
         },
         "availability_rule_set_id": {
           "name": "availability_rule_set_id",
@@ -1115,24 +1470,9 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
-        },
-        "custom_fieldset_code": {
-          "name": "custom_fieldset_code",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "unique": false,
-          "length": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "comment": null,
-          "enumItems": [],
-          "mappedType": "text"
         },
         "capacity": {
           "name": "capacity",
@@ -1147,6 +1487,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "integer"
         },
@@ -1163,6 +1504,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -1179,6 +1521,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -1195,6 +1538,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -1211,6 +1555,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -1227,8 +1572,26 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
+        },
+        "custom_fieldset_code": {
+          "name": "custom_fieldset_code",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
         },
         "deleted_at": {
           "name": "deleted_at",
@@ -1243,6 +1606,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         },
@@ -1259,6 +1623,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -1275,6 +1640,7 @@
           "scale": null,
           "default": "gen_random_uuid()",
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -1291,6 +1657,7 @@
           "scale": null,
           "default": "true",
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "boolean"
         },
@@ -1307,6 +1674,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "text"
         },
@@ -1323,6 +1691,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -1339,6 +1708,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -1355,6 +1725,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
         },
@@ -1371,6 +1742,7 @@
           "scale": null,
           "default": null,
           "comment": null,
+          "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
         }
@@ -1399,6 +1771,7 @@
         }
       ],
       "checks": [],
+      "triggers": [],
       "foreignKeys": {},
       "comment": null
     }
