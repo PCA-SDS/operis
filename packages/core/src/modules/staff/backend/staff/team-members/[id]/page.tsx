@@ -35,9 +35,11 @@ import { JobHistorySection } from '@open-mercato/core/modules/staff/components/d
 import { HrProfileSection } from '@open-mercato/core/modules/staff/components/detail/HrProfileSection'
 import { AccountSection } from '@open-mercato/core/modules/staff/components/detail/AccountSection'
 import type { DictionarySelectLabels } from '@open-mercato/core/modules/dictionaries/components/DictionaryEntrySelect'
-import { Plus } from 'lucide-react'
+import { MessageSquare, Plus } from 'lucide-react'
 import { TranslationDrawerAction } from '@open-mercato/core/modules/translations/components/TranslationDrawerAction'
 import { SendObjectMessageDialog } from '@open-mercato/ui/backend/messages'
+import { ModuleGate, useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
+import { hasFeature } from '@open-mercato/shared/security/features'
 
 const MARKDOWN_CLASSNAME =
   'text-sm text-muted-foreground break-words [&>*]:mb-2 [&>*:last-child]:mb-0 [&_ul]:ml-4 [&_ul]:list-disc [&_ol]:ml-4 [&_ol]:list-decimal [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:text-xs'
@@ -403,6 +405,14 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
     ? memberRecord?.roleNames
     : [t('staff.teamMembers.detail.roles.unassigned', 'No roles assigned')]
   const userEmail = memberRecord?.user?.email ?? null
+  // The linked login, if this member has one. Chat is between accounts, so a
+  // member record with no user has nobody to message.
+  const linkedUserId = memberRecord?.user?.id ?? null
+  // `ModuleGate` answers "is chat reachable for this tenant"; the route behind
+  // this button additionally requires `chat.send`, so both are checked or a
+  // read-only member gets a button that always lands on Access Denied.
+  const { payload: backendChrome } = useBackendChrome()
+  const canStartChat = hasFeature(backendChrome?.grantedFeatures ?? [], 'chat.send')
 
   // Publish page-load record context to the AppShell-owned `backend:record:current`
   // mount so the enterprise record_locks widget resolves `staff.teamMember` + id
@@ -465,6 +475,21 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {/* Chat's one integration point into staff. `ModuleGate` keeps the
+                  link out of the DOM for a tenant whose entitlement withholds
+                  chat, and `/backend/chat/with/<userId>` resolves the canonical
+                  direct conversation through chat's own API — this page owns no
+                  conversation logic of its own. */}
+              {linkedUserId && canStartChat ? (
+                <ModuleGate module="chat">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/backend/chat/with/${linkedUserId}`}>
+                      <MessageSquare className="size-4" aria-hidden="true" />
+                      {t('chat.staff.messageAction', 'Message')}
+                    </Link>
+                  </Button>
+                </ModuleGate>
+              ) : null}
               {memberId ? (
                 <SendObjectMessageDialog
                   object={{
