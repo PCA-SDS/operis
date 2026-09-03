@@ -21,10 +21,12 @@ import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/u
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { formatDateTime } from '@open-mercato/shared/lib/time'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 
 const logger = createLogger('resources').child({ component: 'resource-areas-page' })
 
 const PAGE_SIZE = 50
+const CHILD_PAGE_SIZE = 100
 const DESCRIPTION_CLASSNAME = 'line-clamp-3 whitespace-pre-line text-sm text-foreground'
 const SUBTEXT_CLASSNAME = 'line-clamp-2 text-xs text-muted-foreground'
 const RESOURCE_AREAS_MUTATION_CONTEXT_ID = 'resources.resource-areas.list'
@@ -40,13 +42,32 @@ type ResourceAreaRow = {
   appearance_color: string | null
   is_active: boolean
   updatedAt: string | null
-  depth?: number // for nested table
+  depth: number
+  child_count: number
+  path_label: string | null
 }
+
+type ResourceAreaTableRow =
+  | (ResourceAreaRow & { rowKind: 'area' })
+  | {
+      id: string
+      rowKind: 'loadMore'
+      parentId: string
+      depth: number
+      loadedCount: number
+      totalCount: number
+    }
 
 type ResourceAreasResponse = {
   items?: Array<Record<string, unknown>>
   total?: number
   totalPages?: number
+}
+
+type ChildPageState = {
+  page: number
+  totalPages: number
+  total: number
 }
 
 type ResourceAreasMutationContext = {
@@ -69,6 +90,10 @@ export default function ResourcesResourceAreasPage() {
   const [search, setSearch] = React.useState('')
   const [isLoading, setIsLoading] = React.useState(true)
   const [reloadToken, setReloadToken] = React.useState(0)
+  const [expandedAreaIds, setExpandedAreaIds] = React.useState<Set<string>>(new Set())
+  const [childRowsByParentId, setChildRowsByParentId] = React.useState<Map<string, ResourceAreaRow[]>>(new Map())
+  const [childPageByParentId, setChildPageByParentId] = React.useState<Map<string, ChildPageState>>(new Map())
+  const [loadingChildrenIds, setLoadingChildrenIds] = React.useState<Set<string>>(new Set())
   const { runMutation, retryLastMutation } = useGuardedMutation<ResourceAreasMutationContext>({
     contextId: RESOURCE_AREAS_MUTATION_CONTEXT_ID,
     blockedMessage: translate('ui.forms.flash.saveBlocked', 'Save blocked by validation'),
@@ -97,12 +122,14 @@ export default function ResourcesResourceAreasPage() {
     description: translate('resources.resourceAreas.page.description', 'Manage hierarchical locations like buildings and rooms.'),
     table: {
       name: translate('resources.resourceAreas.table.name', 'Name'),
+      children: translate('resources.resourceAreas.table.children', 'Child areas'),
       description: translate('resources.resourceAreas.table.description', 'Description'),
       areaType: translate('resources.resourceAreas.table.areaType', 'Type'),
       appearance: translate('resources.resourceAreas.table.appearance', 'Appearance'),
       updatedAt: translate('resources.resourceAreas.table.updatedAt', 'Updated'),
       empty: translate('resources.resourceAreas.table.empty', 'No resource areas yet.'),
       search: translate('resources.resourceAreas.table.search', 'Search resource areas…'),
+      loadMoreChildren: translate('resources.resourceAreas.table.loadMoreChildren', 'Load more child areas'),
     },
     actions: {
       add: translate('resources.resourceAreas.actions.add', 'Add resource area'),
@@ -110,6 +137,8 @@ export default function ResourcesResourceAreasPage() {
       delete: translate('resources.resourceAreas.actions.delete', 'Delete'),
       deleteConfirm: translate('resources.resourceAreas.actions.deleteConfirm', 'Delete resource area "{{name}}"?'),
       refresh: translate('resources.resourceAreas.actions.refresh', 'Refresh'),
+      expand: translate('resources.resourceAreas.actions.expand', 'Expand area'),
+      collapse: translate('resources.resourceAreas.actions.collapse', 'Collapse area'),
     },
     messages: {
       deleted: translate('resources.resourceAreas.messages.deleted', 'Resource area deleted.'),
@@ -121,23 +150,162 @@ export default function ResourcesResourceAreasPage() {
     },
   }), [translate])
 
-  const columns = React.useMemo<ColumnDef<ResourceAreaRow>[]>(() => [
+  const loadChildren = React.useCallback(async (parentId: string, pageNumber = 1, append = false) => {
+    setLoadingChildrenIds((current) => {
+      const next = new Set(current)
+      next.add(parentId)
+      return next
+    })
+    try {
+      const params = new URLSearchParams({
+        parentAreaId: parentId,
+        page: String(pageNumber),
+        pageSize: String(CHILD_PAGE_SIZE),
+      })
+      const payload = await readApiResultOrThrow<ResourceAreasResponse>(
+        `/api/resources/areas?${params.toString()}`,
+        undefined,
+        { errorMessage: translations.errors.load, fallback: { items: [], total: 0, totalPages: 1 } },
+      )
+      const items = Array.isArray(payload.items) ? payload.items : []
+      const mapped = items.map(mapApiResourceArea)
+      setChildRowsByParentId((current) => {
+        const next = new Map(current)
+        const existing = append ? next.get(parentId) ?? [] : []
+        const byId = new Map(existing.map((item) => [item.id, item]))
+        for (const item of mapped) byId.set(item.id, item)
+        next.set(parentId, Array.from(byId.values()))
+        return next
+      })
+      setChildPageByParentId((current) => {
+        const next = new Map(current)
+        next.set(parentId, {
+          page: pageNumber,
+          totalPages: payload.totalPages ?? 1,
+          total: payload.total ?? mapped.length,
+        })
+        return next
+      })
+    } catch (error) {
+      logger.error('Failed to load child resource areas', { err: error, parentId })
+      flash(translations.errors.load, 'error')
+    } finally {
+      setLoadingChildrenIds((current) => {
+        const next = new Set(current)
+        next.delete(parentId)
+        return next
+      })
+    }
+  }, [translations.errors.load])
+
+  const toggleAreaExpanded = React.useCallback((area: ResourceAreaRow) => {
+    if (area.child_count <= 0) return
+    setExpandedAreaIds((current) => {
+      const next = new Set(current)
+      if (next.has(area.id)) {
+        next.delete(area.id)
+        return next
+      }
+      next.add(area.id)
+      if (!childRowsByParentId.has(area.id)) {
+        void loadChildren(area.id)
+      }
+      return next
+    })
+  }, [childRowsByParentId, loadChildren])
+
+  const loadMoreChildren = React.useCallback((parentId: string) => {
+    const state = childPageByParentId.get(parentId)
+    if (!state || state.page >= state.totalPages) return
+    void loadChildren(parentId, state.page + 1, true)
+  }, [childPageByParentId, loadChildren])
+
+  const tableRows = React.useMemo<ResourceAreaTableRow[]>(() => {
+    const output: ResourceAreaTableRow[] = []
+    const appendArea = (area: ResourceAreaRow) => {
+      output.push({ ...area, rowKind: 'area' })
+      if (!expandedAreaIds.has(area.id)) return
+      const children = childRowsByParentId.get(area.id) ?? []
+      for (const child of children) appendArea(child)
+      const childPage = childPageByParentId.get(area.id)
+      if (childPage && childPage.page < childPage.totalPages) {
+        output.push({
+          id: `load-more:${area.id}`,
+          rowKind: 'loadMore',
+          parentId: area.id,
+          depth: area.depth + 1,
+          loadedCount: children.length,
+          totalCount: childPage.total,
+        })
+      }
+    }
+    for (const row of rows) appendArea(row)
+    return output
+  }, [childPageByParentId, childRowsByParentId, expandedAreaIds, rows])
+
+  const columns = React.useMemo<ColumnDef<ResourceAreaTableRow>[]>(() => [
     {
       accessorKey: 'name',
       header: translations.table.name,
       meta: { priority: 1, sticky: true },
       cell: ({ row }) => {
-        const depth = row.original.depth || 0;
-        const paddingLeft = `${depth * 24}px`;
+        if (row.original.rowKind === 'loadMore') {
+          const loadMoreRow = row.original
+          const paddingLeft = `${loadMoreRow.depth * 24}px`
+          const loading = loadingChildrenIds.has(loadMoreRow.parentId)
+          return (
+            <div style={{ paddingLeft }}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={loading}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  loadMoreChildren(loadMoreRow.parentId)
+                }}
+              >
+                {loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+                {translations.table.loadMoreChildren}
+              </Button>
+            </div>
+          )
+        }
+        const area = row.original
+        const depth = area.depth || 0
+        const paddingLeft = `${depth * 24}px`
+        const hasChildren = area.child_count > 0
+        const expanded = expandedAreaIds.has(area.id)
+        const childrenLoading = loadingChildrenIds.has(area.id)
         return (
-          <div className="flex flex-col" style={{ paddingLeft }}>
-            <span className="font-medium">
-              {depth > 0 && <span className="mr-2 text-muted-foreground">↳</span>}
-              {row.original.name}
-            </span>
-            {row.original.description ? (
-              <span className={SUBTEXT_CLASSNAME}>
-                {markdownToPlainText(row.original.description)}
+          <div className="flex flex-col gap-1" style={{ paddingLeft }}>
+            <div className="flex min-w-0 items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-7 shrink-0"
+                disabled={!hasChildren}
+                aria-label={expanded ? translations.actions.collapse : translations.actions.expand}
+                aria-expanded={hasChildren ? expanded : undefined}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  toggleAreaExpanded(area)
+                }}
+              >
+                {childrenLoading ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                ) : expanded ? (
+                  <ChevronDown className="size-4" aria-hidden />
+                ) : (
+                  <ChevronRight className="size-4" aria-hidden />
+                )}
+              </Button>
+              <span className="min-w-0 truncate font-medium">{area.name}</span>
+            </div>
+            {area.description ? (
+              <span className={SUBTEXT_CLASSNAME} style={{ paddingLeft: hasChildren ? 36 : 0 }}>
+                {markdownToPlainText(area.description)}
               </span>
             ) : null}
           </div>
@@ -145,20 +313,31 @@ export default function ResourcesResourceAreasPage() {
       },
     },
     {
+      accessorKey: 'child_count',
+      header: translations.table.children,
+      meta: { priority: 2 },
+      cell: ({ row }) => row.original.rowKind === 'area' ? (
+        <span className="text-sm tabular-nums text-muted-foreground">
+          {row.original.child_count}
+        </span>
+      ) : null,
+    },
+    {
       accessorKey: 'area_type',
       header: translations.table.areaType,
       meta: { priority: 3 },
-      cell: ({ row }) => (
+      cell: ({ row }) => row.original.rowKind === 'area' ? (
         <span className="text-sm uppercase tracking-wider text-muted-foreground">
           {row.original.area_type}
         </span>
-      ),
+      ) : null,
     },
     {
       accessorKey: 'appearance',
       header: translations.table.appearance,
       meta: { priority: 2 },
       cell: ({ row }) => {
+        if (row.original.rowKind !== 'area') return null
         const icon = row.original.appearance_icon
         const color = row.original.appearance_color
         if (!icon && !color) {
@@ -176,11 +355,13 @@ export default function ResourcesResourceAreasPage() {
       accessorKey: 'updatedAt',
       header: translations.table.updatedAt,
       meta: { priority: 4 },
-      cell: ({ row }) => row.original.updatedAt
+      cell: ({ row }) => row.original.rowKind === 'area' && row.original.updatedAt
         ? <span className="text-xs text-muted-foreground">{formatDateTime(row.original.updatedAt)}</span>
-        : <span className="text-xs text-muted-foreground">—</span>,
+        : row.original.rowKind === 'area'
+          ? <span className="text-xs text-muted-foreground">—</span>
+          : null,
     },
-  ], [translations])
+  ], [expandedAreaIds, loadMoreChildren, loadingChildrenIds, toggleAreaExpanded, translations])
 
   const loadResourceAreas = React.useCallback(async () => {
     setIsLoading(true)
@@ -191,6 +372,8 @@ export default function ResourcesResourceAreasPage() {
       })
       if (search.trim()) {
         params.set('search', search.trim())
+      } else {
+        params.set('parentAreaId', 'null')
       }
       const payload = await readApiResultOrThrow<ResourceAreasResponse>(
         `/api/resources/areas?${params.toString()}`,
@@ -203,6 +386,9 @@ export default function ResourcesResourceAreasPage() {
       setRows(mapped)
       setTotal(payload.total ?? 0)
       setTotalPages(payload.totalPages ?? 1)
+      setExpandedAreaIds(new Set())
+      setChildRowsByParentId(new Map())
+      setChildPageByParentId(new Map())
     } catch (error) {
       logger.error('Failed to list resource areas', { err: error })
       flash(translations.errors.load, 'error')
@@ -255,9 +441,9 @@ export default function ResourcesResourceAreasPage() {
   return (
     <Page>
       <PageBody>
-        <DataTable<ResourceAreaRow>
+        <DataTable<ResourceAreaTableRow>
           title={translations.title}
-          data={rows}
+          data={tableRows}
           columns={columns}
           isLoading={isLoading}
           searchValue={search}
@@ -279,14 +465,18 @@ export default function ResourcesResourceAreasPage() {
           sortable={false}
           pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
           rowActions={(row) => (
-            <RowActions
-              items={[
-                { id: 'edit', label: translations.actions.edit, href: `/backend/resources/areas/${row.id}/edit` },
-                { id: 'delete', label: translations.actions.delete, destructive: true, onSelect: () => handleDelete(row) },
-              ]}
-            />
+            row.rowKind === 'area' ? (
+              <RowActions
+                items={[
+                  { id: 'edit', label: translations.actions.edit, href: `/backend/resources/areas/${row.id}/edit` },
+                  { id: 'delete', label: translations.actions.delete, destructive: true, onSelect: () => handleDelete(row) },
+                ]}
+              />
+            ) : null
           )}
-          onRowClick={(row) => router.push(`/backend/resources/areas/${row.id}/edit`)}
+          onRowClick={(row) => {
+            if (row.rowKind === 'area') router.push(`/backend/resources/areas/${row.id}/edit`)
+          }}
         />
       </PageBody>
       {ConfirmDialogElement}
@@ -312,9 +502,11 @@ function mapApiResourceArea(item: Record<string, unknown>): ResourceAreaRow {
       : null
   
   const depth = typeof item.depth === 'number' ? item.depth : 0
+  const child_count = typeof item.child_count === 'number' ? item.child_count : 0
+  const path_label = typeof item.path_label === 'string' ? item.path_label : null
   
   return withDataTableNamespaces({ 
     id, name, description, area_type, parent_area_id, sort_order,
-    appearance_icon, appearance_color, is_active, updatedAt, depth 
+    appearance_icon, appearance_color, is_active, updatedAt, depth, child_count, path_label
   }, item)
 }

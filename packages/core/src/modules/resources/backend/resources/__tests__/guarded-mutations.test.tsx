@@ -3,6 +3,7 @@
  */
 import * as React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import ResourcesResourceAreasPage from '../areas/page'
 import ResourcesResourceTypesPage from '../resource-types/page'
 import ResourcesResourcesPage from '../resources/page'
 import ResourcesResourceDetailPage from '../resources/[id]/page'
@@ -70,11 +71,61 @@ jest.mock('@open-mercato/ui/primitives/button', () => ({
   ),
 }))
 
-jest.mock('@open-mercato/ui/backend/DataTable', () => ({
-  DataTable: (props: { data?: Array<Record<string, unknown>>; rowActions?: (row: Record<string, unknown>) => React.ReactNode }) => (
+jest.mock('@open-mercato/ui/primitives/select', () => ({
+  Select: ({ children, onValueChange }: { children: React.ReactNode; onValueChange?: (value: string) => void }) => (
     <div>
+      {React.Children.map(children, (child) => (
+        React.isValidElement(child)
+          ? React.cloneElement(child as React.ReactElement<{ onSelectValue?: (value: string) => void }>, { onSelectValue: onValueChange })
+          : child
+      ))}
+    </div>
+  ),
+  SelectTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SelectValue: () => null,
+  SelectContent: ({ children, onSelectValue }: { children: React.ReactNode; onSelectValue?: (value: string) => void }) => (
+    <div>
+      {React.Children.map(children, (child) => (
+        React.isValidElement(child)
+          ? React.cloneElement(child as React.ReactElement<{ onSelectValue?: (value: string) => void }>, { onSelectValue })
+          : child
+      ))}
+    </div>
+  ),
+  SelectItem: ({ children, value, onSelectValue }: { children: React.ReactNode; value: string; onSelectValue?: (value: string) => void }) => (
+    <button type="button" onClick={() => onSelectValue?.(value)}>
+      {children}
+    </button>
+  ),
+}))
+
+jest.mock('@open-mercato/ui/backend/DataTable', () => ({
+  DataTable: (props: {
+    columns?: Array<{
+      accessorKey?: string
+      header?: React.ReactNode
+      cell?: (ctx: { row: { original: Record<string, unknown> } }) => React.ReactNode
+    }>
+    data?: Array<Record<string, unknown>>
+    actions?: React.ReactNode
+    rowActions?: (row: Record<string, unknown>) => React.ReactNode
+  }) => (
+    <div>
+      {props.actions}
+      <div>
+        {(props.columns ?? []).map((column, columnIndex) => (
+          <span key={String(column.accessorKey ?? columnIndex)}>
+            {column.header}
+          </span>
+        ))}
+      </div>
       {(props.data ?? []).map((row, index) => (
         <div key={String(row.id ?? index)} data-testid={`row-${String(row.id ?? index)}`}>
+          {(props.columns ?? []).map((column, columnIndex) => (
+            <div key={String(column.accessorKey ?? columnIndex)}>
+              {column.cell?.({ row: { original: row } })}
+            </div>
+          ))}
           {props.rowActions?.(row)}
         </div>
       ))}
@@ -313,6 +364,7 @@ beforeEach(() => {
             id: 'resource-1',
             name: 'Room 1',
             resourceTypeId: null,
+            areaId: 'area-1',
             capacity: 1,
             tags: [],
             isActive: true,
@@ -321,6 +373,21 @@ beforeEach(() => {
         ],
         total: 1,
         page: 1,
+        totalPages: 1,
+      })
+    }
+    if (url.startsWith('/api/resources/areas')) {
+      return apiResult({
+        items: [
+          {
+            id: 'area-1',
+            name: 'Head Office',
+            parent_area_id: null,
+            sort_order: 0,
+            depth: 0,
+          },
+        ],
+        total: 1,
         totalPages: 1,
       })
     }
@@ -383,6 +450,89 @@ it('wraps resource list deletes in the guarded mutation path', async () => {
     }),
     mutationPayload: expect.objectContaining({ operation: 'deleteResource', id: 'resource-1' }),
   }))
+})
+
+it('can group the resource list by area', async () => {
+  render(<ResourcesResourcesPage />)
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Area' }))
+
+  const groupRow = await screen.findByTestId('row-group:area:area-1')
+  expect(groupRow).toHaveTextContent('Head Office')
+  expect(screen.getByTestId('row-resource-1')).toBeInTheDocument()
+})
+
+it('loads resource area children when a parent row is expanded', async () => {
+  mockReadApiResultOrThrow.mockImplementation(async (url: string) => {
+    if (url.startsWith('/api/resources/areas?')) {
+      const query = new URL(`http://localhost${url}`).searchParams
+      if (query.get('parentAreaId') === 'null') {
+        return {
+          items: [{
+            id: 'area-root',
+            name: 'Head Office',
+            description: null,
+            area_type: 'building',
+            parent_area_id: null,
+            sort_order: 0,
+            appearance_icon: null,
+            appearance_color: null,
+            is_active: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+            depth: 0,
+            child_count: 1,
+          }],
+          total: 1,
+          totalPages: 1,
+        }
+      }
+      if (query.get('parentAreaId') === 'area-root') {
+        return {
+          items: [{
+            id: 'area-child',
+            name: 'Floor 1',
+            description: null,
+            area_type: 'floor',
+            parent_area_id: 'area-root',
+            sort_order: 0,
+            appearance_icon: null,
+            appearance_color: null,
+            is_active: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+            depth: 1,
+            child_count: 0,
+          }],
+          total: 1,
+          totalPages: 1,
+        }
+      }
+    }
+    return { items: [], total: 0, totalPages: 1 }
+  })
+
+  render(<ResourcesResourceAreasPage />)
+
+  await waitFor(() => {
+    expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+      expect.stringContaining('parentAreaId=null'),
+      undefined,
+      expect.any(Object),
+    )
+  })
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Expand area' }))
+
+  await waitFor(() => {
+    expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+      expect.stringContaining('parentAreaId=area-root'),
+      undefined,
+      expect.any(Object),
+    )
+  })
+  expect(await screen.findByTestId('row-area-child')).toBeInTheDocument()
+  expect(screen.getByText('Child areas')).toBeInTheDocument()
+  expect(screen.getByTestId('row-area-root')).toHaveTextContent('1')
+  expect(screen.getByTestId('row-area-child')).toHaveTextContent('0')
 })
 
 it('wraps resource type list deletes in the guarded mutation path', async () => {

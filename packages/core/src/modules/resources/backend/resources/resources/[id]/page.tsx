@@ -484,6 +484,8 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
     tagsSection,
     selectedResourceTypeId:
       typeof initialValues?.resourceTypeId === 'string' ? initialValues.resourceTypeId : null,
+    selectedAreaId:
+      typeof initialValues?.areaId === 'string' ? initialValues.areaId : null,
     selectedCapacityUnit:
       typeof initialValues?.capacityUnitValue === 'string' && initialValues.capacityUnitValue.length > 0
         ? selectedCapacityUnit

@@ -10,6 +10,7 @@ import { DataTable, withDataTableNamespaces } from '@open-mercato/ui/backend/Dat
 import { ListEmptyState } from '@open-mercato/ui/backend/filters/ListEmptyState'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { BooleanIcon } from '@open-mercato/ui/backend/ValueIcons'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { deleteCrud } from '@open-mercato/ui/backend/utils/crud'
@@ -47,14 +48,18 @@ type ResourceTypeRow = {
   appearanceColor: string | null
 }
 
+type ResourceGroupBy = 'resourceType' | 'area'
+
 type ResourceGroupRow = {
   id: string
   name: string
   resourceTypeId: string | null
+  areaId: string | null
   appearanceIcon: string | null
   appearanceColor: string | null
   rowKind: 'group'
   depth: number
+  groupBy: ResourceGroupBy
 }
 
 type ResourceTableRow = (ResourceRow & { rowKind: 'resource'; depth: number }) | ResourceGroupRow
@@ -76,7 +81,9 @@ type ResourceAreasResponse = {
     name?: string
     parent_area_id?: string | null
     sort_order?: number
+    depth?: number
   }>
+  totalPages?: number
 }
 
 type ResourceListMutationContext = {
@@ -86,6 +93,13 @@ type ResourceListMutationContext = {
   retryLastMutation: () => Promise<boolean>
 }
 
+function formatResourceAreaName(area: { name?: string; id?: string; depth?: number }): string | null {
+  const name = typeof area.name === 'string' && area.name.length ? area.name : area.id
+  if (!name) return null
+  const depth = typeof area.depth === 'number' && area.depth > 0 ? area.depth : 0
+  return depth > 0 ? `${'  '.repeat(depth)}↳ ${name}` : name
+}
+
 export default function ResourcesResourcesPage() {
   const [rows, setRows] = React.useState<ResourceRow[]>([])
   const [page, setPage] = React.useState(1)
@@ -93,6 +107,7 @@ export default function ResourcesResourcesPage() {
   const [totalPages, setTotalPages] = React.useState(1)
   const [search, setSearch] = React.useState('')
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
+  const [groupBy, setGroupBy] = React.useState<ResourceGroupBy>('resourceType')
   const [isLoading, setIsLoading] = React.useState(true)
   const [resourceTypes, setResourceTypes] = React.useState<Map<string, ResourceTypeRow>>(new Map())
   const [resourceAreas, setResourceAreas] = React.useState<Map<string, { id: string; name: string }>>(new Map())
@@ -210,27 +225,15 @@ export default function ResourcesResourcesPage() {
     const controller = new AbortController()
     async function loadResourceAreas() {
       try {
-        const params = new URLSearchParams({ pageSize: '1000' })
+        const params = new URLSearchParams({ page: '1', pageSize: '100' })
         const call = await apiCall<ResourceAreasResponse>(`/api/resources/areas?${params.toString()}`, { signal: controller.signal })
         const items = Array.isArray(call.result?.items) ? call.result.items : []
-        
-        // Quick tree indentation
-        const map = new Map<string, any>()
-        const roots: any[] = []
-        items.forEach(item => map.set(item.id!, { ...item, children: [] }))
-        items.forEach(item => {
-          if (item.parent_area_id && map.has(item.parent_area_id)) {
-            map.get(item.parent_area_id)!.children.push(map.get(item.id!)!)
-          } else {
-            roots.push(map.get(item.id!)!)
-          }
-        })
         const result = new Map<string, { id: string; name: string }>()
-        const traverse = (node: any, depth: number) => {
-          result.set(node.id, { id: node.id, name: depth > 0 ? `${'  '.repeat(depth)}↳ ${node.name}` : node.name })
-          node.children.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)).forEach((child: any) => traverse(child, depth + 1))
+        for (const item of items) {
+          if (!item.id) continue
+          const name = formatResourceAreaName(item)
+          if (name) result.set(item.id, { id: item.id, name })
         }
-        roots.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)).forEach(root => traverse(root, 0))
 
         if (!cancelled) setResourceAreas(result)
       } catch {
@@ -240,6 +243,41 @@ export default function ResourcesResourcesPage() {
     loadResourceAreas()
     return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
+
+  React.useEffect(() => {
+    const areaIds = new Set<string>()
+    for (const row of rows) {
+      if (row.areaId && !resourceAreas.has(row.areaId)) areaIds.add(row.areaId)
+    }
+    if (typeof filterValues.areaId === 'string' && filterValues.areaId.length && !resourceAreas.has(filterValues.areaId)) {
+      areaIds.add(filterValues.areaId)
+    }
+    if (areaIds.size === 0) return
+
+    let cancelled = false
+    const controller = new AbortController()
+    async function loadVisibleResourceAreas() {
+      try {
+        const params = new URLSearchParams({ ids: Array.from(areaIds).join(','), page: '1', pageSize: String(areaIds.size) })
+        const call = await apiCall<ResourceAreasResponse>(`/api/resources/areas?${params.toString()}`, { signal: controller.signal })
+        const items = Array.isArray(call.result?.items) ? call.result.items : []
+        if (cancelled || items.length === 0) return
+        setResourceAreas((current) => {
+          const next = new Map(current)
+          for (const item of items) {
+            if (!item.id) continue
+            const name = formatResourceAreaName(item)
+            if (name) next.set(item.id, { id: item.id, name })
+          }
+          return next
+        })
+      } catch {
+        if (!cancelled) setResourceAreas((current) => current)
+      }
+    }
+    void loadVisibleResourceAreas()
+    return () => { cancelled = true; controller.abort() }
+  }, [filterValues.areaId, resourceAreas, rows])
 
   const loadTagOptions = React.useCallback(
     async (query?: string): Promise<FilterOption[]> => {
@@ -337,6 +375,64 @@ export default function ResourcesResourcesPage() {
   const groupedRows = React.useMemo(() => {
     const grouped: ResourceTableRow[] = []
     if (!rows.length) return grouped
+    if (groupBy === 'area') {
+      const byArea = new Map<string, ResourceRow[]>()
+      const unassigned: ResourceRow[] = []
+      rows.forEach((row) => {
+        if (!row.areaId) {
+          unassigned.push(row)
+          return
+        }
+        const list = byArea.get(row.areaId) ?? []
+        list.push(row)
+        byArea.set(row.areaId, list)
+      })
+      const areaEntries = Array.from(byArea.entries())
+        .map(([areaId, list]) => ({
+          areaId,
+          list,
+          area: resourceAreas.get(areaId),
+        }))
+        .sort((a, b) => {
+          const nameA = a.area?.name ?? ''
+          const nameB = b.area?.name ?? ''
+          return nameA.localeCompare(nameB)
+        })
+      for (const entry of areaEntries) {
+        grouped.push({
+          id: `group:area:${entry.areaId}`,
+          name: entry.area?.name ?? t('resources.resources.list.group.unknownArea', 'Unknown area'),
+          resourceTypeId: null,
+          areaId: entry.areaId,
+          appearanceIcon: null,
+          appearanceColor: null,
+          rowKind: 'group',
+          depth: 0,
+          groupBy: 'area',
+        })
+        entry.list.forEach((resource) => {
+          grouped.push({ ...resource, rowKind: 'resource', depth: 1 })
+        })
+      }
+      if (unassigned.length) {
+        grouped.push({
+          id: 'group:area:unassigned',
+          name: t('resources.resources.list.group.unassignedArea', 'No area'),
+          resourceTypeId: null,
+          areaId: null,
+          appearanceIcon: null,
+          appearanceColor: null,
+          rowKind: 'group',
+          depth: 0,
+          groupBy: 'area',
+        })
+        unassigned.forEach((resource) => {
+          grouped.push({ ...resource, rowKind: 'resource', depth: 1 })
+        })
+      }
+      return grouped
+    }
+
     const byType = new Map<string, ResourceRow[]>()
     const unassigned: ResourceRow[] = []
     rows.forEach((row) => {
@@ -365,10 +461,12 @@ export default function ResourcesResourcesPage() {
         id: `group:${entry.typeId}`,
         name: label,
         resourceTypeId: entry.typeId,
+        areaId: null,
         appearanceIcon: entry.type?.appearanceIcon ?? null,
         appearanceColor: entry.type?.appearanceColor ?? null,
         rowKind: 'group',
         depth: 0,
+        groupBy: 'resourceType',
       })
       entry.list.forEach((resource) => {
         grouped.push({ ...resource, rowKind: 'resource', depth: 1 })
@@ -379,17 +477,19 @@ export default function ResourcesResourcesPage() {
         id: 'group:unassigned',
         name: t('resources.resources.list.group.unassigned', 'Unassigned'),
         resourceTypeId: null,
+        areaId: null,
         appearanceIcon: null,
         appearanceColor: null,
         rowKind: 'group',
         depth: 0,
+        groupBy: 'resourceType',
       })
       unassigned.forEach((resource) => {
         grouped.push({ ...resource, rowKind: 'resource', depth: 1 })
       })
     }
     return grouped
-  }, [resourceTypes, rows, t])
+  }, [groupBy, resourceAreas, resourceTypes, rows, t])
 
   React.useEffect(() => {
     let cancelled = false
@@ -475,11 +575,14 @@ export default function ResourcesResourcesPage() {
       cell: ({ row }) => {
         const depth = row.original.depth ?? 0
         const indent = depth > 0 ? 18 : 0
-        const isGroup = row.original.rowKind === 'group'
-        const showEdit = isGroup && canManage && row.original.resourceTypeId
+        const groupRow = row.original.rowKind === 'group' ? row.original : null
+        const showEdit = groupRow
+          && canManage
+          && groupRow.groupBy === 'resourceType'
+          && groupRow.resourceTypeId
         return (
-          <div className={isGroup ? 'flex items-center justify-between gap-3' : 'flex items-center gap-2'}>
-            <span style={{ marginLeft: indent }} className={isGroup ? 'text-sm font-semibold text-foreground' : 'text-sm font-medium text-foreground'}>
+          <div className={groupRow ? 'flex items-center justify-between gap-3' : 'flex items-center gap-2'}>
+            <span style={{ marginLeft: indent }} className={groupRow ? 'text-sm font-semibold text-foreground' : 'text-sm font-medium text-foreground'}>
               {row.original.name}
             </span>
             {showEdit ? (
@@ -491,7 +594,7 @@ export default function ResourcesResourcesPage() {
                 title={t('resources.resourceTypes.actions.edit', 'Edit')}
                 aria-label={t('resources.resourceTypes.actions.edit', 'Edit')}
               >
-                <Link href={`/backend/resources/resource-types/${encodeURIComponent(row.original.resourceTypeId ?? '')}/edit`}>
+                <Link href={`/backend/resources/resource-types/${encodeURIComponent(groupRow.resourceTypeId ?? '')}/edit`}>
                   <Pencil className="h-4 w-4" />
                 </Link>
               </Button>
@@ -586,9 +689,29 @@ export default function ResourcesResourcesPage() {
         <DataTable
           title={t('resources.resources.page.title', 'Resources')}
           actions={canManage ? (
-            <Button asChild>
-              <Link href="/backend/resources/resources/create">{t('resources.resources.list.actions.create', 'New resource')}</Link>
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {t('resources.resources.list.groupBy.label', 'Group by')}
+                </span>
+                <Select value={groupBy} onValueChange={(value) => setGroupBy(value === 'area' ? 'area' : 'resourceType')}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="resourceType">
+                      {t('resources.resources.list.groupBy.resourceType', 'Resource type')}
+                    </SelectItem>
+                    <SelectItem value="area">
+                      {t('resources.resources.list.groupBy.area', 'Area')}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button asChild>
+                <Link href="/backend/resources/resources/create">{t('resources.resources.list.actions.create', 'New resource')}</Link>
+              </Button>
+            </div>
           ) : null}
           columns={columns}
           data={groupedRows}

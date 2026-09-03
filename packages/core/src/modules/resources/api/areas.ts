@@ -116,6 +116,7 @@ const viewSchema = z
     status: z.enum(['all', 'active', 'inactive']).optional(),
     ids: z.string().optional(),
     id: z.string().optional(),
+    parentAreaId: z.string().optional(),
   })
   .passthrough()
 
@@ -139,6 +140,7 @@ export async function GET(req: Request) {
     status: url.searchParams.get('status') ?? undefined,
     ids: url.searchParams.get('ids') ?? undefined,
     id: url.searchParams.get('id') ?? undefined,
+    parentAreaId: url.searchParams.get('parentAreaId') ?? undefined,
   })
   if (!parsed.success) {
     return NextResponse.json({ items: [], error: 'Invalid query' }, { status: 400 })
@@ -186,6 +188,11 @@ export async function GET(req: Request) {
     } else if (query.ids) {
       const ids = query.ids.split(',').map((id) => id.trim())
       rows = rows.filter((node) => ids.includes(node.id))
+    } else if (typeof query.parentAreaId === 'string') {
+      const parentAreaId = query.parentAreaId.trim()
+      rows = parentAreaId === 'null'
+        ? rows.filter((node) => node.parentId === null)
+        : rows.filter((node) => node.parentId === parentAreaId)
     }
 
     if (status === 'active') rows = rows.filter((node) => node.isActive)
@@ -263,6 +270,9 @@ const areaListItemSchema = z.object({
   organization_id: z.string().uuid().nullable().optional(),
   tenant_id: z.string().uuid().nullable().optional(),
   depth: z.number().optional(),
+  path_label: z.string().nullable().optional(),
+  child_count: z.number().optional(),
+  descendant_count: z.number().optional(),
 })
 
 export const openApi = createResourcesCrudOpenApi({
@@ -285,4 +295,3 @@ export const openApi = createResourcesCrudOpenApi({
     description: 'Deletes a resource area by id.',
   },
 })
-

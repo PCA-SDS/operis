@@ -19,10 +19,13 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { RESOURCES_CAPACITY_UNIT_DICTIONARY_KEY } from '@open-mercato/core/modules/resources/lib/capacityUnits'
 import { RESOURCES_RESOURCE_FIELDSET_DEFAULT, resolveResourcesResourceFieldsetCode } from '@open-mercato/core/modules/resources/lib/resourceCustomFields'
+import { createLogger } from '@open-mercato/shared/lib/logger'
 import Link from 'next/link'
 import { Plus, Settings } from 'lucide-react'
 
+const logger = createLogger('resources').child({ component: 'ResourceCrudForm' })
 const DEFAULT_PAGE_SIZE = 100
+const RESOURCE_AREA_SCROLL_THRESHOLD_PX = 48
 
 type ResourceTypeRow = {
   id: string
@@ -43,10 +46,16 @@ type ResourceAreaRow = {
   name: string
   parent_area_id: string | null
   sort_order: number
+  depth?: number
 }
 
 type ResourceTypesResponse = {
   items: ResourceTypeRow[]
+}
+
+type ResourceAreasResponse = {
+  items?: ResourceAreaRow[]
+  totalPages?: number
 }
 
 type ResourceTagsSectionConfig = {
@@ -69,9 +78,10 @@ export type ResourcesResourceFormConfig = {
 export function useResourcesResourceFormConfig(options: {
   tagsSection?: ResourceTagsSectionConfig
   selectedResourceTypeId?: string | null
+  selectedAreaId?: string | null
   selectedCapacityUnit?: { value: string; label: string; color?: string | null; icon?: string | null } | null
 } = {}): ResourcesResourceFormConfig {
-  const { selectedCapacityUnit, selectedResourceTypeId, tagsSection } = options
+  const { selectedAreaId, selectedCapacityUnit, selectedResourceTypeId, tagsSection } = options
   const t = useT()
   const scopeVersion = useOrganizationScopeVersion()
   const [resourceTypes, setResourceTypes] = React.useState<ResourceTypeRow[]>([])
@@ -101,48 +111,111 @@ export function useResourcesResourceFormConfig(options: {
 
   const [resourceAreas, setResourceAreas] = React.useState<ResourceAreaRow[]>([])
   const [resourceAreasLoaded, setResourceAreasLoaded] = React.useState(false)
+  const [resourceAreasPage, setResourceAreasPage] = React.useState(1)
+  const [resourceAreasTotalPages, setResourceAreasTotalPages] = React.useState(1)
+  const [resourceAreasLoadingMore, setResourceAreasLoadingMore] = React.useState(false)
+  const resourceAreasLoadingMoreRef = React.useRef(false)
+
+  const mergeResourceAreas = React.useCallback((current: ResourceAreaRow[], next: ResourceAreaRow[]) => {
+    const merged = new Map<string, ResourceAreaRow>()
+    for (const area of current) merged.set(area.id, area)
+    for (const area of next) merged.set(area.id, area)
+    return Array.from(merged.values())
+  }, [])
+
+  const fetchResourceAreasPage = React.useCallback(async (
+    page: number,
+    signal?: AbortSignal,
+  ): Promise<ResourceAreasResponse> => {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(DEFAULT_PAGE_SIZE) })
+    const call = await apiCall<ResourceAreasResponse>(`/api/resources/areas?${params.toString()}`, { signal })
+    return call.result ?? { items: [], totalPages: 1 }
+  }, [])
+
+  const fetchSelectedResourceArea = React.useCallback(async (
+    areaId: string,
+    signal?: AbortSignal,
+  ): Promise<ResourceAreaRow[]> => {
+    const params = new URLSearchParams({ ids: areaId, page: '1', pageSize: '1' })
+    const call = await apiCall<ResourceAreasResponse>(`/api/resources/areas?${params.toString()}`, { signal })
+    return Array.isArray(call.result?.items) ? call.result.items : []
+  }, [])
 
   React.useEffect(() => {
     let cancelled = false
     const controller = new AbortController()
     async function loadResourceAreas() {
       try {
-        const params = new URLSearchParams({ pageSize: '1000' })
-        const call = await apiCall<{ items: ResourceAreaRow[] }>(`/api/resources/areas?${params.toString()}`, { signal: controller.signal })
+        setResourceAreasLoaded(false)
+        setResourceAreasLoadingMore(false)
+        resourceAreasLoadingMoreRef.current = false
+        const payload = await fetchResourceAreasPage(1, controller.signal)
         if (!cancelled) {
-          const items = Array.isArray(call.result?.items) ? call.result.items : []
-          setResourceAreas(items)
+          const items = Array.isArray(payload.items) ? payload.items : []
+          const selectedItems = selectedAreaId && !items.some((area) => area.id === selectedAreaId)
+            ? await fetchSelectedResourceArea(selectedAreaId, controller.signal)
+            : []
+          if (cancelled) return
+          setResourceAreas(mergeResourceAreas(selectedItems, items))
+          setResourceAreasPage(1)
+          setResourceAreasTotalPages(payload.totalPages ?? 1)
         }
-      } catch {
-        if (!cancelled) setResourceAreas([])
+      } catch (err) {
+        logger.error('Failed to load resource areas', { err })
+        if (!cancelled) {
+          setResourceAreas([])
+          setResourceAreasPage(1)
+          setResourceAreasTotalPages(1)
+        }
       } finally {
         if (!cancelled) setResourceAreasLoaded(true)
       }
     }
     loadResourceAreas()
     return () => { cancelled = true; controller.abort() }
-  }, [scopeVersion])
+  }, [fetchResourceAreasPage, fetchSelectedResourceArea, mergeResourceAreas, scopeVersion, selectedAreaId])
 
   const formattedAreas = React.useMemo(() => {
-    type TreeNode = ResourceAreaRow & { children: TreeNode[] }
-    const map = new Map<string, TreeNode>()
-    const roots: TreeNode[] = []
-    resourceAreas.forEach(item => map.set(item.id, { ...item, children: [] }))
-    resourceAreas.forEach(item => {
-      if (item.parent_area_id && map.has(item.parent_area_id)) {
-        map.get(item.parent_area_id)!.children.push(map.get(item.id)!)
-      } else {
-        roots.push(map.get(item.id)!)
-      }
-    })
     const result: { id: string, name: string }[] = []
-    const traverse = (node: TreeNode, depth: number) => {
-      result.push({ id: node.id, name: depth > 0 ? `${'  '.repeat(depth)}↳ ${node.name}` : node.name })
-      node.children.sort((a, b) => a.sort_order - b.sort_order).forEach(child => traverse(child, depth + 1))
+    for (const area of resourceAreas) {
+      const depth = typeof area.depth === 'number' && area.depth > 0 ? area.depth : 0
+      result.push({ id: area.id, name: depth > 0 ? `${'  '.repeat(depth)}↳ ${area.name}` : area.name })
     }
-    roots.sort((a, b) => a.sort_order - b.sort_order).forEach(root => traverse(root, 0))
     return result
   }, [resourceAreas])
+
+  const loadMoreResourceAreas = React.useCallback(async () => {
+    if (!resourceAreasLoaded || resourceAreasLoadingMoreRef.current || resourceAreasPage >= resourceAreasTotalPages) return
+    const nextPage = resourceAreasPage + 1
+    try {
+      resourceAreasLoadingMoreRef.current = true
+      setResourceAreasLoadingMore(true)
+      const payload = await fetchResourceAreasPage(nextPage)
+      const items = Array.isArray(payload.items) ? payload.items : []
+      setResourceAreas((current) => mergeResourceAreas(current, items))
+      setResourceAreasPage(nextPage)
+      setResourceAreasTotalPages(payload.totalPages ?? resourceAreasTotalPages)
+    } catch (err) {
+      logger.error('Failed to load more resource areas', { err })
+    } finally {
+      resourceAreasLoadingMoreRef.current = false
+      setResourceAreasLoadingMore(false)
+    }
+  }, [
+    fetchResourceAreasPage,
+    mergeResourceAreas,
+    resourceAreasLoaded,
+    resourceAreasPage,
+    resourceAreasTotalPages,
+  ])
+
+  const handleResourceAreasViewportScroll = React.useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    const viewport = event.currentTarget
+    const remaining = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
+    if (remaining <= RESOURCE_AREA_SCROLL_THRESHOLD_PX) {
+      void loadMoreResourceAreas()
+    }
+  }, [loadMoreResourceAreas])
 
   React.useEffect(() => {
     const selectedId = typeof selectedResourceTypeId === 'string' && selectedResourceTypeId.trim().length
@@ -314,13 +387,18 @@ export function useResourcesResourceFormConfig(options: {
                 <SelectTrigger data-crud-focus-target="">
                   <SelectValue placeholder={t('ui.forms.select.emptyOption', '—')} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent viewportProps={{ onScroll: handleResourceAreasViewportScroll }}>
                   <SelectItem value="none">{t('ui.forms.select.emptyOption', '—')}</SelectItem>
                   {formattedAreas.map((area) => (
                     <SelectItem key={area.id} value={area.id}>
                       <span className="whitespace-pre">{area.name}</span>
                     </SelectItem>
                   ))}
+                  {resourceAreasLoadingMore ? (
+                    <SelectItem value="__loading_more_resource_areas" disabled>
+                      {t('resources.resourceAreas.form.loadingMore', 'Loading more...')}
+                    </SelectItem>
+                  ) : null}
                 </SelectContent>
               </Select>
             </div>
@@ -394,6 +472,8 @@ export function useResourcesResourceFormConfig(options: {
     resolveFieldsetCode,
     capacityUnitDictionaryId,
     formattedAreas,
+    handleResourceAreasViewportScroll,
+    resourceAreasLoadingMore,
     resourceAreasLoaded,
     selectedCapacityUnit,
     appearanceLabels,
