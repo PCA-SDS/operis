@@ -181,7 +181,7 @@ export default function ProductsDataTable({
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'title', desc: false }])
   const [search, setSearch] = React.useState('')
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
-  const [isLoading, setIsLoading] = React.useState(false)
+  const [isLoading, setIsLoading] = React.useState(true)
   const [reloadToken, setReloadToken] = React.useState(0)
   // Step 5.18 (spec §10 line 836, D18 demo): refresh the list when a
   // catalog.product.* event arrives via the DOM event bridge. Confirmed
