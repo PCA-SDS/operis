@@ -11,7 +11,7 @@ import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { CrudIndexerConfig } from '@open-mercato/shared/lib/crud/types'
 import { Dictionary, DictionaryEntry } from '@open-mercato/core/modules/dictionaries/data/entities'
-import { ResourcesResource, ResourcesResourceTag, ResourcesResourceTagAssignment } from '../data/entities'
+import { ResourcesResource, ResourcesResourceTag, ResourcesResourceTagAssignment, ResourcesResourceArea } from '../data/entities'
 import {
   resourcesResourceCreateSchema,
   resourcesResourceUpdateSchema,
@@ -218,6 +218,15 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
     ensureOrganizationScope(ctx, parsed.organizationId)
 
     const em = (ctx.container.resolve('em') as EntityManager).fork()
+    
+    if (parsed.areaId) {
+      const area = await em.findOne(ResourcesResourceArea, { id: parsed.areaId, deletedAt: null })
+      if (!area) throw new CrudHttpError(404, { error: 'Resource area not found.' })
+      if (area.organizationId !== parsed.organizationId) {
+        throw new CrudHttpError(400, { error: 'Resource area does not belong to the same organization.' })
+      }
+    }
+
     const now = new Date()
     const unitValue =
       typeof parsed.capacityUnitValue === 'string' ? parsed.capacityUnitValue.trim() : ''
@@ -453,6 +462,16 @@ const updateResourceCommand: CommandHandler<ResourcesResourceUpdateInput, { reso
     if (!record) throw new CrudHttpError(404, { error: 'Resources resource not found.' })
     ensureTenantScope(ctx, record.tenantId)
     ensureOrganizationScope(ctx, record.organizationId)
+
+    if (parsed.areaId !== undefined && parsed.areaId !== record.areaId) {
+      if (parsed.areaId) {
+        const area = await em.findOne(ResourcesResourceArea, { id: parsed.areaId, deletedAt: null })
+        if (!area) throw new CrudHttpError(404, { error: 'Resource area not found.' })
+        if (area.organizationId !== record.organizationId) {
+          throw new CrudHttpError(400, { error: 'Resource area does not belong to the same organization.' })
+        }
+      }
+    }
 
     let capacityUnit: CapacityUnitSnapshot | null | undefined
     if (parsed.capacityUnitValue !== undefined) {
