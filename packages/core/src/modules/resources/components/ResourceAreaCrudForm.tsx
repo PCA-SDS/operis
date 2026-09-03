@@ -46,8 +46,8 @@ export const buildResourceAreaPayload = (
     ...(options.id ? { id: options.id } : {}),
     name,
     description,
-    areaType: values.areaType ?? 'other',
-    parentAreaId: values.parentAreaId ?? null,
+    areaType: values.areaType || 'other',
+    parentAreaId: values.parentAreaId || null,
     sortOrder: typeof values.sortOrder === 'number' ? values.sortOrder : 0,
     appearanceIcon: appearance.icon ?? null,
     appearanceColor: appearance.color ?? null,
@@ -109,7 +109,7 @@ export function ResourceAreaCrudForm({
       label: t('resources.resourceAreas.form.areaType', 'Area Type'), 
       type: 'custom',
       component: ({ value, setValue, disabled }) => {
-        const val = typeof value === 'string' ? value : 'other'
+        const val = typeof value === 'string' && value ? value : 'other'
         return (
           <Select disabled={disabled} value={val} onValueChange={setValue}>
             <SelectTrigger><SelectValue /></SelectTrigger>
@@ -129,9 +129,16 @@ export function ResourceAreaCrudForm({
       label: t('resources.resourceAreas.form.parentArea', 'Parent Area'), 
       type: 'custom',
       component: ({ value, setValue, disabled }) => {
+        // Force sync value from initialValues if RHF drops it
+        React.useEffect(() => {
+          if (initialValues?.parentAreaId && value !== initialValues.parentAreaId && value !== 'none') {
+            setValue(initialValues.parentAreaId)
+          }
+        }, [initialValues?.parentAreaId])
         const val = typeof value === 'string' && value ? value : 'none'
+        const selectKey = `${areasLoading ? 'loading' : 'loaded'}-${val}`
         return (
-          <Select disabled={disabled || areasLoading} value={val} onValueChange={(v) => setValue(v === 'none' ? null : v)}>
+          <Select key={selectKey} disabled={disabled || areasLoading} value={val} onValueChange={(v) => setValue(v === 'none' ? null : v)}>
             <SelectTrigger><SelectValue placeholder="Select a parent area..." /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">-- {t('resources.resourceAreas.form.noParent', 'None')} --</SelectItem>

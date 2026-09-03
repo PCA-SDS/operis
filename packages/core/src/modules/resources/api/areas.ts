@@ -1,4 +1,10 @@
 import { z } from 'zod'
+import { NextResponse } from 'next/server'
+import type { EntityManager } from '@mikro-orm/postgresql'
+import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
+import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { resolveOrganizationScopeFilter } from '@open-mercato/core/modules/directory/utils/organizationScopeFilter'
 import { makeCrudRoute } from '@open-mercato/shared/lib/crud/factory'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
@@ -14,7 +20,7 @@ const createInputSchema = resourcesResourceAreaCreateSchema
 const listSchema = z
   .object({
     page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(100).default(100),
+    pageSize: z.coerce.number().min(1).max(2000).default(100),
     search: z.string().optional(),
     sortField: z.string().optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
@@ -101,7 +107,145 @@ const crud = makeCrudRoute({
   },
 })
 
-export const GET = crud.GET
+const viewSchema = z
+  .object({
+    view: z.enum(['manage', 'tree']).default('manage'),
+    page: z.coerce.number().min(1).default(1),
+    pageSize: z.coerce.number().min(1).max(2000).default(100),
+    search: z.string().optional(),
+    status: z.enum(['all', 'active', 'inactive']).optional(),
+    ids: z.string().optional(),
+    id: z.string().optional(),
+  })
+  .passthrough()
+
+type QueryShape = z.infer<typeof viewSchema>
+
+function sanitizeSearch(term?: string | null): string {
+  if (!term) return ''
+  return term.trim().toLowerCase()
+}
+
+export async function GET(req: Request) {
+  const auth = await getAuthFromRequest(req)
+  if (!auth) return NextResponse.json({ items: [] }, { status: 401 })
+
+  const url = new URL(req.url)
+  const parsed = viewSchema.safeParse({
+    view: url.searchParams.get('view') ?? undefined,
+    page: url.searchParams.get('page') ?? undefined,
+    pageSize: url.searchParams.get('pageSize') ?? undefined,
+    search: url.searchParams.get('search') ?? undefined,
+    status: url.searchParams.get('status') ?? undefined,
+    ids: url.searchParams.get('ids') ?? undefined,
+    id: url.searchParams.get('id') ?? undefined,
+  })
+  if (!parsed.success) {
+    return NextResponse.json({ items: [], error: 'Invalid query' }, { status: 400 })
+  }
+  const query: QueryShape = parsed.data
+
+  const container = await createRequestContainer()
+  try {
+    const em = container.resolve<EntityManager>('em')
+    const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
+    const { translate } = await resolveTranslations()
+
+    const tenantId = scope?.tenantId ?? auth.tenantId ?? null
+    if (!tenantId) {
+      return NextResponse.json(
+        { items: [], error: translate('resources.errors.tenant_required', 'Tenant context is required.') },
+        { status: 400 }
+      )
+    }
+
+    const orgFilter = resolveOrganizationScopeFilter(scope, auth)
+    const responseOrganizationId = orgFilter.rbacOrganizationId ?? null
+
+    const areas = await em.find(
+      ResourcesResourceArea,
+      { ...orgFilter.where, tenantId, deletedAt: null },
+      { orderBy: { sortOrder: 'ASC', name: 'ASC' } }
+    )
+    const areaMap = new Map(areas.map((area) => [String(area.id), area]))
+    
+    // Lazy load the compute logic so we don't circular depend or error if not found
+    const { computeHierarchyForAreas } = await import('../lib/areaHierarchy')
+    const hierarchy = computeHierarchyForAreas(areas)
+
+    if (query.view === 'tree') {
+      return NextResponse.json({ items: hierarchy.ordered })
+    }
+
+    const status = query.status ?? 'all'
+    const search = sanitizeSearch(query.search ?? null)
+    let rows = hierarchy.ordered
+
+    if (query.id) {
+      rows = rows.filter((node) => node.id === query.id)
+    } else if (query.ids) {
+      const ids = query.ids.split(',').map((id) => id.trim())
+      rows = rows.filter((node) => ids.includes(node.id))
+    }
+
+    if (status === 'active') rows = rows.filter((node) => node.isActive)
+    if (status === 'inactive') rows = rows.filter((node) => !node.isActive)
+    if (search) {
+      rows = rows.filter((node) => {
+        const label = node.pathLabel.toLowerCase()
+        return node.name.toLowerCase().includes(search) || label.includes(search)
+      })
+    }
+
+    const total = rows.length
+    const pageSize = query.pageSize
+    const page = query.page
+    const start = (page - 1) * pageSize
+    const paged = rows.slice(start, start + pageSize)
+
+    const items = paged.map((node) => {
+      const area = areaMap.get(node.id)
+      const parentName = node.parentId ? hierarchy.map.get(node.parentId)?.name ?? null : null
+      
+      return {
+        id: node.id,
+        name: node.name,
+        description: area?.description ?? null,
+        area_type: area?.areaType ?? null,
+        parent_area_id: node.parentId,
+        parent_name: parentName,
+        sort_order: node.sortOrder,
+        appearance_icon: area?.appearanceIcon ?? null,
+        appearance_color: area?.appearanceColor ?? null,
+        is_active: node.isActive,
+        organization_id: area?.organizationId ?? null,
+        tenant_id: tenantId,
+        depth: node.depth,
+        path_label: node.pathLabel,
+        child_count: node.childIds.length,
+        descendant_count: node.descendantIds.length,
+        updatedAt: area?.updatedAt ? new Date(area.updatedAt).toISOString() : null,
+      }
+    })
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
+    return NextResponse.json({
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages,
+      organizationId: responseOrganizationId,
+      tenantId,
+    })
+  } finally {
+    const disposable = container as unknown as { dispose?: () => Promise<void> }
+    if (typeof disposable.dispose === 'function') {
+      await disposable.dispose()
+    }
+  }
+}
+
 export const POST = crud.POST
 export const PUT = crud.PUT
 export const DELETE = crud.DELETE
@@ -118,12 +262,13 @@ const areaListItemSchema = z.object({
   is_active: z.boolean().nullable().optional(),
   organization_id: z.string().uuid().nullable().optional(),
   tenant_id: z.string().uuid().nullable().optional(),
+  depth: z.number().optional(),
 })
 
 export const openApi = createResourcesCrudOpenApi({
   resourceName: 'Resource area',
   pluralName: 'Resource areas',
-  querySchema: listSchema,
+  querySchema: viewSchema,
   listResponseSchema: createPagedListResponseSchema(areaListItemSchema),
   create: {
     schema: createInputSchema,
@@ -140,3 +285,4 @@ export const openApi = createResourcesCrudOpenApi({
     description: 'Deletes a resource area by id.',
   },
 })
+

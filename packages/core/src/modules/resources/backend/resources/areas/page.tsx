@@ -182,38 +182,12 @@ export default function ResourcesResourceAreasPage() {
     },
   ], [translations])
 
-  const buildTree = React.useCallback((items: ResourceAreaRow[]) => {
-    type TreeNode = ResourceAreaRow & { children: TreeNode[] }
-    const map = new Map<string, TreeNode>()
-    const roots: TreeNode[] = []
-
-    items.forEach(item => {
-      map.set(item.id, { ...item, children: [] })
-    })
-
-    items.forEach(item => {
-      if (item.parent_area_id && map.has(item.parent_area_id)) {
-        map.get(item.parent_area_id)!.children.push(map.get(item.id)!)
-      } else {
-        roots.push(map.get(item.id)!)
-      }
-    })
-
-    const result: ResourceAreaRow[] = []
-    const traverse = (node: TreeNode, depth: number) => {
-      result.push({ ...node, depth })
-      node.children.sort((a, b) => a.sort_order - b.sort_order).forEach(child => traverse(child, depth + 1))
-    }
-
-    roots.sort((a, b) => a.sort_order - b.sort_order).forEach(root => traverse(root, 0))
-    return result
-  }, [])
-
   const loadResourceAreas = React.useCallback(async () => {
     setIsLoading(true)
     try {
       const params = new URLSearchParams({
-        pageSize: '1000', // We fetch all to build tree client-side
+        page: String(page),
+        pageSize: String(PAGE_SIZE),
       })
       if (search.trim()) {
         params.set('search', search.trim())
@@ -226,32 +200,16 @@ export default function ResourcesResourceAreasPage() {
       const items = Array.isArray(payload.items) ? payload.items : []
       const mapped = items.map(mapApiResourceArea)
       
-      let rowsToSet = mapped
-      if (!search.trim()) {
-         rowsToSet = buildTree(mapped)
-      } else {
-         // Sort normally if searching
-         const sort = sorting[0]
-         if (sort?.id) {
-           rowsToSet.sort((a, b) => {
-             const valA = (a as any)[sort.id]
-             const valB = (b as any)[sort.id]
-             if (valA < valB) return sort.desc ? 1 : -1
-             if (valA > valB) return sort.desc ? -1 : 1
-             return 0
-           })
-         }
-      }
-      setRows(rowsToSet)
-      setTotal(rowsToSet.length)
-      setTotalPages(1) // Client side paging/tree
+      setRows(mapped)
+      setTotal(payload.total ?? 0)
+      setTotalPages(payload.totalPages ?? 1)
     } catch (error) {
       logger.error('Failed to list resource areas', { err: error })
       flash(translations.errors.load, 'error')
     } finally {
       setIsLoading(false)
     }
-  }, [buildTree, search, sorting, translations.errors.load])
+  }, [page, search, translations.errors.load])
 
   React.useEffect(() => {
     void loadResourceAreas()
@@ -318,10 +276,8 @@ export default function ResourcesResourceAreasPage() {
             onRefresh: handleRefresh,
             isRefreshing: isLoading,
           }}
-          sortable
-          sorting={sorting}
-          onSortingChange={setSorting}
-          pagination={{ page: 1, pageSize: total || 1, total, totalPages: 1, onPageChange: setPage }}
+          sortable={false}
+          pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
           rowActions={(row) => (
             <RowActions
               items={[
@@ -355,8 +311,10 @@ function mapApiResourceArea(item: Record<string, unknown>): ResourceAreaRow {
       ? item.updated_at
       : null
   
+  const depth = typeof item.depth === 'number' ? item.depth : 0
+  
   return withDataTableNamespaces({ 
     id, name, description, area_type, parent_area_id, sort_order,
-    appearance_icon, appearance_color, is_active, updatedAt 
+    appearance_icon, appearance_color, is_active, updatedAt, depth 
   }, item)
 }
