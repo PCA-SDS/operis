@@ -1,16 +1,55 @@
 "use client"
 
 import * as React from 'react'
-import { ArrowUp, Quote, X } from 'lucide-react'
+import { ArrowUp, AtSign, Quote, X } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { MAX_MESSAGE_LENGTH } from '../data/validators'
+import { EVERYONE_TOKEN, userToken } from '../lib/mentions'
+import { applyMention, detectMentionDraft, type MentionDraft } from '../lib/mentionDraft'
+
+/**
+ * How many colleagues the menu offers at once.
+ *
+ * Enough to pick from without scrolling; anything longer is answered by typing
+ * another letter, which is faster than reading a list.
+ */
+const MENTION_SUGGESTION_LIMIT = 6
+
+/**
+ * The combobox wiring. The textarea keeps focus the whole time the menu is open
+ * — that is what lets someone keep typing to narrow it — so the highlighted row
+ * is conveyed by `aria-activedescendant` pointing at one of these ids, not by
+ * moving focus into the list.
+ */
+const MENTION_LISTBOX_ID = 'chat-mention-suggestions'
+const mentionOptionId = (index: number) => `${MENTION_LISTBOX_ID}-option-${index}`
+
+export type MentionCandidate = {
+  id: string
+  name: string
+  /** `everyone` is offered alongside people, so one menu handles both. */
+  kind: 'user' | 'everyone'
+  subtitle?: string
+}
 
 export type MessageComposerProps = {
   disabled?: boolean
+  /**
+   * Who this conversation lets you name. Empty disables the menu entirely, which
+   * is what a direct conversation gets: a picker to choose between the one
+   * person already reading it would be friction with nothing behind it.
+   */
+  mentionCandidates?: MentionCandidate[]
+  /**
+   * The text after the `@` currently being typed, or null when no mention is in
+   * progress. The parent uses it to ask the server for matches, so a space
+   * larger than one page of members is still fully mentionable.
+   */
+  onMentionQueryChange?: (query: string | null) => void
   /** Hands the body to the transcript, which owns delivery and retry from there. */
   onSend: (body: string) => void
   placeholder: string
@@ -40,6 +79,8 @@ export function MessageComposer({
   placeholder,
   replyTarget,
   onCancelReply,
+  mentionCandidates = [],
+  onMentionQueryChange,
 }: MessageComposerProps) {
   const t = useT()
   const [value, setValue] = React.useState('')
@@ -93,6 +134,71 @@ export function MessageComposer({
   const pendingValue = React.useRef(value)
   pendingValue.current = value
 
+  /**
+   * The `@` the caret is inside, and the menu it opens.
+   *
+   * Filtering happens against the candidates the conversation already handed
+   * down — its own members — so typing `@` costs no request until the query
+   * outgrows the page the parent already holds. That is both faster and the
+   * security posture: the menu cannot offer somebody the server would refuse,
+   * because every candidate came from the membership the server validates
+   * against.
+   *
+   * The filter still runs here over whatever the parent supplies, so a small
+   * space never waits on a round-trip and `@everyone` — which is synthesised,
+   * not a member — is matched by the same rule as a person.
+   */
+  const [draft, setDraft] = React.useState<MentionDraft | null>(null)
+  const [highlighted, setHighlighted] = React.useState(0)
+
+  const suggestions = React.useMemo(() => {
+    if (!draft || mentionCandidates.length === 0) return []
+    const needle = draft.query.trim().toLowerCase()
+    return mentionCandidates
+      .filter((candidate) => candidate.name.toLowerCase().includes(needle))
+      .slice(0, MENTION_SUGGESTION_LIMIT)
+  }, [draft, mentionCandidates])
+
+  const menuOpen = draft !== null && suggestions.length > 0
+
+  React.useEffect(() => {
+    setHighlighted(0)
+  }, [draft?.query])
+
+  // Tell the parent what is being typed so it can widen the candidate list
+  // beyond the first page of members. Reported rather than fetched here because
+  // the parent already owns the membership query and its cache key.
+  React.useEffect(() => {
+    onMentionQueryChange?.(draft ? draft.query : null)
+  }, [draft, onMentionQueryChange])
+
+  const syncDraft = React.useCallback(
+    (next: string) => {
+      const textarea = textareaRef.current
+      setDraft(detectMentionDraft(next, textarea ? textarea.selectionStart : null))
+    },
+    [],
+  )
+
+  const choose = React.useCallback(
+    (candidate: MentionCandidate) => {
+      const textarea = textareaRef.current
+      if (!draft || !textarea) return
+      const token = candidate.kind === 'everyone' ? EVERYONE_TOKEN : userToken(candidate.id)
+      const next = applyMention(value, draft, textarea.selectionStart, token)
+      setValue(next.value)
+      pendingValue.current = next.value
+      setDraft(null)
+      // Restore the caret after React re-renders the field from state, or it
+      // jumps to the end and the next word lands in the wrong place.
+      requestAnimationFrame(() => {
+        textarea.focus()
+        textarea.setSelectionRange(next.caret, next.caret)
+      })
+    },
+    [draft, value],
+  )
+
   const submit = React.useCallback(() => {
     if (disabled) return
     const body = pendingValue.current.trim()
@@ -105,6 +211,31 @@ export function MessageComposer({
 
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // The mention menu owns these keys while it is open — Enter picks the
+      // highlighted colleague rather than sending a half-typed message, and
+      // Escape closes the menu rather than dropping the reply behind it.
+      if (menuOpen) {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault()
+          setHighlighted((current) => {
+            const delta = event.key === 'ArrowDown' ? 1 : -1
+            return (current + delta + suggestions.length) % suggestions.length
+          })
+          return
+        }
+        if (event.key === 'Enter' || event.key === 'Tab') {
+          event.preventDefault()
+          const candidate = suggestions[highlighted]
+          if (candidate) choose(candidate)
+          return
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          setDraft(null)
+          return
+        }
+      }
+
       // Escape drops the reply before it drops anything else — the same key that
       // dismisses a dialog dismisses this, and it does not clear the draft, so a
       // mistaken Reply costs nothing that was typed.
@@ -121,7 +252,7 @@ export function MessageComposer({
       event.preventDefault()
       submit()
     },
-    [onCancelReply, replyTarget, submit],
+    [choose, highlighted, menuOpen, onCancelReply, replyTarget, submit, suggestions],
   )
 
   return (
@@ -146,11 +277,73 @@ export function MessageComposer({
         those states with `focus-within`, so focus and disabled still look exactly
         like every other input in the product.
       */}
+      {/* The menu sits above the box rather than floating over the transcript:
+          the composer is already at the bottom of the pane, so a popover below
+          it would open off-screen, and one anchored to the caret would jump as
+          the field grows. Rendered in flow, it pushes the box down by its own
+          height and nothing overlaps. */}
+      {menuOpen ? (
+        <div
+          role="listbox"
+          id={MENTION_LISTBOX_ID}
+          aria-label={t('chat.mentions.suggestionsLabel', 'People you can mention')}
+          className="mb-1 overflow-hidden rounded-xl border border-border bg-surface shadow-md"
+        >
+          {suggestions.map((candidate, index) => (
+            <button
+              key={candidate.id}
+              // Focus never leaves the textarea, so the highlighted row has to
+              // be announced by id from there rather than by receiving focus.
+              id={mentionOptionId(index)}
+              type="button"
+              role="option"
+              aria-selected={index === highlighted}
+              // The textarea keeps focus so typing continues uninterrupted;
+              // without this the blur would close the menu before the click.
+              onMouseDown={(event) => event.preventDefault()}
+              onMouseEnter={() => setHighlighted(index)}
+              onClick={() => choose(candidate)}
+              className={cn(
+                'flex w-full items-center gap-2 px-3 py-2 text-left transition-colors',
+                index === highlighted ? 'bg-surface-muted' : 'hover:bg-surface-muted',
+              )}
+            >
+              {/* The same `Avatar` the person rows use, with an icon instead of
+                  initials — hand-rolling the circle gave the everyone row a
+                  different fill from the people directly beneath it. */}
+              <Avatar
+                label={candidate.name}
+                size="sm"
+                icon={candidate.kind === 'everyone' ? <AtSign className="size-4" /> : undefined}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-foreground">
+                  {candidate.kind === 'everyone' ? `@${candidate.name}` : candidate.name}
+                </span>
+                {candidate.subtitle ? (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {candidate.subtitle}
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <div
         className={cn(
-          'rounded-xl border border-input bg-input-bg transition-colors',
-          'focus-within:border-input-border-focus focus-within:shadow-focus',
-          disabled && 'bg-input-disabled-bg border-border-disabled',
+          // The tint of your own bubbles, and no border.
+          //
+          // What you are writing becomes a message from you, so the box you
+          // write it in is the same surface those messages land on — the
+          // composer reads as the next bubble in the column rather than as a
+          // form control bolted underneath it. The focus ring still lands here,
+          // so the field is no less findable by keyboard for having lost its
+          // outline.
+          'rounded-xl bg-primary-soft transition-colors',
+          'focus-within:shadow-focus',
+          disabled && 'bg-input-disabled-bg',
         )}
       >
         {/* Inside the box, above the field: the reply is part of the message
@@ -218,15 +411,36 @@ export function MessageComposer({
           rows={1}
           value={value}
           disabled={disabled}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={(event) => {
+            setValue(event.target.value)
+            syncDraft(event.target.value)
+          }}
+          onKeyUp={(event) => syncDraft(event.currentTarget.value)}
+          onClick={(event) => syncDraft(event.currentTarget.value)}
+          onBlur={() => setDraft(null)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           aria-describedby="chat-composer-hint"
+          // Announce whichever row the arrow keys are on.
+          //
+          // `aria-activedescendant` and `aria-controls` are both valid on a
+          // textbox, so the highlighted option is announced without the element
+          // changing what it is. Promoting it to `role="combobox"` — the usual
+          // reflex here — would override the textarea's native role, and a
+          // MULTILINE combobox is poorly supported: screen readers stop
+          // announcing it as a text area, and `aria-expanded` on one is
+          // inconsistently handled. The menu is a helper over a text field, not
+          // a select.
+          aria-controls={menuOpen ? MENTION_LISTBOX_ID : undefined}
+          aria-activedescendant={menuOpen ? mentionOptionId(highlighted) : undefined}
           aria-invalid={tooLong || undefined}
           className={cn(
             // One row of room, plus the padding — a reply that fits on a line
             // should not open a box twice its height. It grows from here.
-            'max-h-48 min-h-9 w-full resize-none overflow-y-auto px-3 pb-0 pt-2.5 font-normal',
+            // `py-2`, not `pt-2.5 pb-0`: at the one-line height the field
+            // opens at, 10px above the text and 6px below sat it visibly high
+            // in its own box. 8/8 centres the line the caret is on.
+            'max-h-48 min-h-9 w-full resize-none overflow-y-auto px-3 py-2 font-normal',
             // The container owns every one of these now.
             'rounded-none border-0 bg-transparent shadow-none',
             'hover:bg-transparent focus-visible:border-0 focus-visible:bg-transparent focus-visible:shadow-none',

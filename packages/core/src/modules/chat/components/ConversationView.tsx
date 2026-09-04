@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ChevronRight, Users } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Pin, Users } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
@@ -10,10 +10,19 @@ import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { ChatMessageDto } from '../data/types'
-import { MessageComposer } from './MessageComposer'
+import { MessageComposer, type MentionCandidate } from './MessageComposer'
 import { MessageList, type PendingMessage } from './MessageList'
+import { PinnedMessagesPanel } from './PinnedMessagesPanel'
 import { SpaceDetailsDialog } from './SpaceDetailsDialog'
-import { useCanSendChat, useConversation, useMarkRead, useMessages, useSendMessage } from './hooks'
+import {
+  useCanSendChat,
+  useConversation,
+  useMarkRead,
+  useMessageEngagement,
+  useMessages,
+  useSendMessage,
+  useSpaceMembers,
+} from './hooks'
 
 /** What the composer is replying to, as the view holds it. */
 export type ReplyTarget = {
@@ -30,6 +39,12 @@ export type ConversationViewProps = {
 }
 
 const logger = createLogger('chat').child({ component: 'ConversationView' })
+
+/**
+ * Long enough that a typist does not fire a request per keystroke, short enough
+ * that the menu still feels live. The same window the member picker uses.
+ */
+const MENTION_SEARCH_DEBOUNCE_MS = 250
 
 function newClientMessageId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
@@ -49,6 +64,15 @@ function newClientMessageId(): string {
  */
 export function ConversationView({ conversationId, currentUserId, showBackToList }: ConversationViewProps) {
   const t = useT()
+  /**
+   * The message the transcript is currently centred on.
+   *
+   * Set only when a jump target is not already loaded — a pin from last month —
+   * so the common case of jumping to something on screen costs no request at
+   * all.
+   */
+  const [anchorMessageId, setAnchorMessageId] = React.useState<string | null>(null)
+
   const { conversation, isLoading: isLoadingConversation, error: conversationError, retry } =
     useConversation(conversationId)
   const {
@@ -59,13 +83,22 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
     isLoadingOlder,
     loadOlder,
     retry: retryMessages,
-  } = useMessages(conversationId)
+  } = useMessages(conversationId, anchorMessageId)
   const sendMessage = useSendMessage(conversationId)
   const canSend = useCanSendChat()
 
   const [pending, setPending] = React.useState<PendingMessage[]>([])
   const [replyTarget, setReplyTarget] = React.useState<ReplyTarget | null>(null)
   const [detailsOpen, setDetailsOpen] = React.useState(false)
+  const [pinsOpen, setPinsOpen] = React.useState(false)
+  /**
+   * A message to bring into view once it is loaded.
+   *
+   * Set by pin navigation. It cannot scroll immediately: the message may not be
+   * in the current window, in which case the transcript first refetches around
+   * it, and only then is there something to scroll to.
+   */
+  const [jumpTarget, setJumpTarget] = React.useState<string | null>(null)
 
   /**
    * A conversation switch must not carry the previous one's unsent drafts — or
@@ -80,6 +113,9 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
     setPending([])
     setReplyTarget(null)
     setDetailsOpen(false)
+    setPinsOpen(false)
+    setJumpTarget(null)
+    setAnchorMessageId(null)
   }, [conversationId])
 
   const confirmedIds = React.useMemo(
@@ -185,7 +221,60 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
     [conversationId, deliver, pending],
   )
 
+  const { toggleReaction, setPinned } = useMessageEngagement(conversationId)
   const isSpace = conversation?.kind === 'space'
+
+  /**
+   * Who this conversation lets you name.
+   *
+   * A space offers its members plus `@everyone`; a direct offers nobody, because
+   * a picker to choose between the one person already reading it is friction
+   * with nothing behind it. The list is the same membership the server validates
+   * against, so the menu cannot suggest someone the send would refuse.
+   */
+  /**
+   * What is being typed after an `@`, debounced.
+   *
+   * The membership endpoint pages at 50, so an unfiltered fetch made everyone
+   * past the first page silently unmentionable in a large space — the menu
+   * simply never offered them, while the server would have accepted the mention
+   * happily. Feeding the query through means the search happens where the whole
+   * membership is, and the debounce keeps a fast typist from firing a request
+   * per keystroke.
+   */
+  const [mentionQuery, setMentionQuery] = React.useState('')
+  const [debouncedMentionQuery, setDebouncedMentionQuery] = React.useState('')
+  React.useEffect(() => {
+    const timer = setTimeout(
+      () => setDebouncedMentionQuery(mentionQuery.trim()),
+      MENTION_SEARCH_DEBOUNCE_MS,
+    )
+    return () => clearTimeout(timer)
+  }, [mentionQuery])
+  const handleMentionQueryChange = React.useCallback((query: string | null) => {
+    setMentionQuery(query ?? '')
+  }, [])
+
+  const { members } = useSpaceMembers(conversationId, debouncedMentionQuery, Boolean(isSpace))
+  const mentionCandidates = React.useMemo<MentionCandidate[]>(() => {
+    if (!isSpace) return []
+    const people = members
+      .filter((member) => member.id !== currentUserId)
+      .map((member) => ({
+        id: member.id,
+        name: member.name,
+        kind: 'user' as const,
+        subtitle: member.email,
+      }))
+    return [
+      { id: 'everyone', name: t('chat.mentions.everyone', 'everyone'), kind: 'everyone' as const,
+        subtitle: t('chat.mentions.everyoneHint', 'Notify everyone in this space') },
+      ...people,
+    ]
+  }, [currentUserId, isSpace, members, t])
+
+  /** Owners in a space; either participant in a direct — matching the server. */
+  const canPin = Boolean(conversation) && (!isSpace || conversation?.viewerRole === 'owner')
   // Resolved server-side for both kinds — a space's name, or the other person's.
   const conversationTitle = conversation?.title ?? t('chat.list.unknownPerson', 'Former colleague')
   // Only a DIRECT conversation can become one-way. A space with a departed
@@ -279,6 +368,27 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
           <div className="flex min-w-0 flex-1 items-center gap-3">{identity}</div>
         )
       })()}
+
+      {/* Pushes the pin control to the trailing edge, away from the identity. */}
+      <span className="flex-1" />
+
+      {/* Only when there is something to show. At zero this is not rendered
+          rather than rendered disabled: the panel's whole job is to answer
+          "what has been pinned here", and a control that opens an empty answer
+          is the dead end it exists to avoid. */}
+      {conversation && conversation.pinnedCount > 0 ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="shrink-0 gap-1.5 text-muted-foreground"
+          onClick={() => setPinsOpen(true)}
+        >
+          <Pin className="size-4" aria-hidden="true" />
+          <span className="tabular-nums">{conversation.pinnedCount}</span>
+          <span className="sr-only">{t('chat.pins.open', 'View pinned messages')}</span>
+        </Button>
+      ) : null}
     </header>
   )
 
@@ -339,6 +449,16 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
         </div>
       ) : (
         <MessageList
+          jumpToMessageId={jumpTarget}
+          onJumpHandled={() => setJumpTarget(null)}
+          onToggleReaction={
+            canSend ? (messageId, emoji) => toggleReaction.mutate({ messageId, emoji }) : undefined
+          }
+          onTogglePin={
+            canSend && canPin
+              ? (messageId, pinned) => setPinned.mutate({ messageId, pinned })
+              : undefined
+          }
           messages={messages}
           pending={pending}
           currentUserId={currentUserId}
@@ -361,6 +481,8 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
         onSend={handleSend}
         replyTarget={replyTarget}
         onCancelReply={() => setReplyTarget(null)}
+        mentionCandidates={mentionCandidates}
+        onMentionQueryChange={handleMentionQueryChange}
         placeholder={
           !canSend
             ? t('chat.composer.readOnly', 'You do not have permission to send messages')
@@ -369,6 +491,27 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
               : t('chat.composer.placeholder', 'Message {name}', { name: conversationTitle })
         }
       />
+
+      {/* Only when there is something to open. A control that leads to an empty
+          panel is the dead end the panel exists to avoid. */}
+      {conversation && conversation.pinnedCount > 0 ? (
+        <PinnedMessagesPanel
+          open={pinsOpen}
+          onClose={() => setPinsOpen(false)}
+          conversationId={conversationId}
+          canUnpin={canPin}
+          onJumpToMessage={(messageId) => {
+            // Already on screen: just scroll. Otherwise re-anchor the transcript
+            // around it first — the row has to exist before it can be scrolled
+            // to, and loading the whole history to find it is what the centred
+            // window exists to avoid.
+            if (!messages.some((message) => message.id === messageId)) {
+              setAnchorMessageId(messageId)
+            }
+            setJumpTarget(messageId)
+          }}
+        />
+      ) : null}
 
       {/* Mounted only for a space, and only once the conversation has loaded —
           it needs the title, the viewer's role and the member count, and there

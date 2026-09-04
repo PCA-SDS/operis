@@ -1,16 +1,28 @@
 "use client"
 
 import * as React from 'react'
-import { ArrowDown, MessageSquare, Quote } from 'lucide-react'
+import { ArrowDown, MessageSquare, Pin, Quote } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
+import { Separator } from '@open-mercato/ui/primitives/separator'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import type { ChatMessageDto } from '../data/types'
-import { formatDateSeparator, formatFullTimestamp, formatTimeOfDay, isSameDay } from './format'
+import {
+  formatDateSeparator,
+  formatFullTimestamp,
+  formatTimeOfDay,
+  isSameDay,
+} from './format'
+import { MessageBody } from './MessageBody'
+import {
+  MessageReactions,
+  QuickReactions,
+  ReactionPicker,
+} from './MessageReactions'
 
 export type PendingMessage = {
   clientMessageId: string
@@ -44,6 +56,17 @@ type MessageListProps = {
   isSpace: boolean
   /** Absent for a read-only member: there is no Reply action to offer them. */
   onReply?: (target: ReplyRequest) => void
+  /** Absent for a read-only member — the picker and chips go with it. */
+  onToggleReaction?: (messageId: string, emoji: string) => void
+  /** Absent where the viewer may not pin: a space member who is not an owner. */
+  onTogglePin?: (messageId: string, pinned: boolean) => void
+  /**
+   * A message to bring into view, set by pin navigation. Cleared through
+   * `onJumpHandled` once it has been scrolled to, so re-pinning the same message
+   * can jump to it again.
+   */
+  jumpToMessageId?: string | null
+  onJumpHandled?: () => void
   isLoading: boolean
   hasOlder: boolean
   isLoadingOlder: boolean
@@ -108,13 +131,17 @@ type TopGap = keyof typeof TOP_GAP
  * transcript. Setting `scrollTop` touches this element and nothing else, and the
  * browser clamps it to the real maximum.
  */
-function scrollToBottom(container: HTMLElement, behavior: ScrollBehavior = 'auto') {
+function scrollToBottom(
+  container: HTMLElement,
+  behavior: ScrollBehavior = 'auto',
+) {
   container.scrollTo({ top: container.scrollHeight, behavior })
 }
 
 /** Bring `target` to the top of `container`, measured between the two. */
 function scrollToTopOf(container: HTMLElement, target: HTMLElement) {
-  const offset = target.getBoundingClientRect().top - container.getBoundingClientRect().top
+  const offset =
+    target.getBoundingClientRect().top - container.getBoundingClientRect().top
   container.scrollTo({ top: container.scrollTop + offset, behavior: 'auto' })
 }
 
@@ -187,7 +214,17 @@ function MessageListSkeleton() {
  * failure is swallowed rather than left as an entry that silently does nothing
  * on some machines.
  */
-function MessageMenu({ body, onReply }: { body: string; onReply?: () => void }) {
+function MessageMenu({
+  body,
+  onReply,
+  pinned,
+  onTogglePin,
+}: {
+  body: string
+  onReply?: () => void
+  pinned: boolean
+  onTogglePin?: () => void
+}) {
   const t = useT()
   return (
     <RowActions
@@ -196,13 +233,34 @@ function MessageMenu({ body, onReply }: { body: string; onReply?: () => void }) 
       // the line it acts on.
       size="xs"
       items={[
+        // Reply first: it is the action taken most often, and reaction has its
+        // own one-click control beside the bubble rather than a menu entry.
         ...(onReply
-          ? [{ id: 'reply', label: t('chat.reply.action', 'Reply'), onSelect: onReply }]
+          ? [
+              {
+                id: 'reply',
+                label: t('chat.reply.action', 'Reply'),
+                onSelect: onReply,
+              },
+            ]
+          : []),
+        // Pinning is rarer and belongs behind the overflow, not on the hover row.
+        ...(onTogglePin
+          ? [
+              {
+                id: 'pin',
+                label: pinned
+                  ? t('chat.pins.unpin', 'Unpin message')
+                  : t('chat.pins.pin', 'Pin message'),
+                onSelect: onTogglePin,
+              },
+            ]
           : []),
         {
           id: 'copy',
           label: t('chat.messages.copy', 'Copy message'),
-          onSelect: () => navigator.clipboard?.writeText(body).catch(() => undefined),
+          onSelect: () =>
+            navigator.clipboard?.writeText(body).catch(() => undefined),
         },
       ]}
     />
@@ -247,18 +305,27 @@ function ReplyQuote({
       <span className="flex items-center gap-1.5">
         {/* Structural, not decorative: it is what says "quotation" before any
             text is read. Token-coloured rather than Google's brand pink. */}
-        <Quote className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <span className="min-w-0 truncate text-xs font-semibold text-foreground">{authorName}</span>
+        <Quote
+          className="size-3 shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
+        <span className="min-w-0 truncate text-xs font-semibold text-foreground">
+          {authorName}
+        </span>
       </span>
       {/* `line-clamp-3` needs the text to wrap, so no `truncate` here — that
           would pin it to one line and the clamp would never engage. */}
       <span
         className={cn(
           'mt-0.5 block whitespace-pre-wrap break-words text-xs',
-          missing ? 'italic text-muted-foreground' : 'line-clamp-3 text-foreground',
+          missing
+            ? 'italic text-muted-foreground'
+            : 'line-clamp-3 text-foreground',
         )}
       >
-        {missing ? t('chat.reply.unavailable', 'Original message unavailable') : body}
+        {missing
+          ? t('chat.reply.unavailable', 'Original message unavailable')
+          : body}
       </span>
     </>
   )
@@ -266,7 +333,8 @@ function ReplyQuote({
   // `bg-surface` on top of the bubble's own fill, the way Google puts a white
   // card on a grey message — it separates quotation from reply without a second
   // border weight.
-  const shell = 'mb-1.5 block w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-left'
+  const shell =
+    'mb-1.5 block w-full rounded-lg bg-surface px-2.5 py-1.5 text-left'
   if (!onJump) return <span className={shell}>{content}</span>
 
   return (
@@ -305,6 +373,10 @@ export function MessageList({
   conversationTitle,
   isSpace,
   onReply,
+  onToggleReaction,
+  onTogglePin,
+  jumpToMessageId,
+  onJumpHandled,
   isLoading,
   hasOlder,
   isLoadingOlder,
@@ -327,7 +399,10 @@ export function MessageList({
   const stuckToBottom = React.useRef(true)
 
   const separatorLabels = React.useMemo(
-    () => ({ today: t('chat.date.today', 'Today'), yesterday: t('chat.date.yesterday', 'Yesterday') }),
+    () => ({
+      today: t('chat.date.today', 'Today'),
+      yesterday: t('chat.date.yesterday', 'Yesterday'),
+    }),
     [t],
   )
 
@@ -340,22 +415,35 @@ export function MessageList({
    */
   const systemLine = React.useCallback(
     (message: ChatMessageDto): string => {
-      const actor = message.senderUserId === currentUserId
-        ? t('chat.messages.you', 'You')
-        : message.senderName
+      const actor =
+        message.senderUserId === currentUserId
+          ? t('chat.messages.you', 'You')
+          : message.senderName
       const target = message.systemTargetName ?? ''
       switch (message.systemEvent) {
         case 'member_added':
-          return t('chat.system.memberAdded', '{actor} added {target}', { actor, target })
-        case 'member_removed':
-          return t('chat.system.memberRemoved', '{actor} removed {target}', { actor, target })
-        case 'member_left':
-          return t('chat.system.memberLeft', '{actor} left the space', { actor })
-        case 'space_renamed':
-          return t('chat.system.spaceRenamed', '{actor} renamed the space to {title}', {
+          return t('chat.system.memberAdded', '{actor} added {target}', {
             actor,
-            title: message.body,
+            target,
           })
+        case 'member_removed':
+          return t('chat.system.memberRemoved', '{actor} removed {target}', {
+            actor,
+            target,
+          })
+        case 'member_left':
+          return t('chat.system.memberLeft', '{actor} left the space', {
+            actor,
+          })
+        case 'space_renamed':
+          return t(
+            'chat.system.spaceRenamed',
+            '{actor} renamed the space to {title}',
+            {
+              actor,
+              title: message.body,
+            },
+          )
         default:
           // An event this build does not know about — a row written by a newer
           // deploy against the same database. Rendering nothing beats rendering
@@ -375,19 +463,64 @@ export function MessageList({
   const jumpToMessage = React.useCallback((messageId: string) => {
     const container = scrollRef.current
     if (!container) return
-    const target = container.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(messageId)}"]`)
+    const target = container.querySelector<HTMLElement>(
+      `[data-message-id="${CSS.escape(messageId)}"]`,
+    )
     if (!target) return
     scrollToTopOf(container, target)
     // A brief ring rather than a persistent highlight: it answers "which one?"
     // and then gets out of the way, and it needs no cleanup state.
     target.classList.add('ring-2', 'ring-primary', 'rounded-xl')
-    setTimeout(() => target.classList.remove('ring-2', 'ring-primary', 'rounded-xl'), 1200)
+    setTimeout(
+      () => target.classList.remove('ring-2', 'ring-primary', 'rounded-xl'),
+      1200,
+    )
   }, [])
 
   const loadedMessageIds = React.useMemo(
     () => new Set(messages.map((message) => message.id)),
     [messages],
   )
+
+  /**
+   * Bring a message requested from outside the transcript into view.
+   *
+   * Runs after every render while a target is set, because the message may not
+   * be loaded yet: the panel can point at something far back in history, the
+   * conversation refetches a window around it, and the row only exists once that
+   * lands. Clearing the target is what stops this firing forever.
+   */
+  React.useEffect(() => {
+    if (!jumpToMessageId) return
+    const container = scrollRef.current
+    if (!container) return
+    const target = container.querySelector<HTMLElement>(
+      `[data-message-id="${CSS.escape(jumpToMessageId)}"]`,
+    )
+    if (!target) return
+    scrollToTopOf(container, target)
+    // Anchor the reader here rather than letting the follow-the-bottom rule
+    // yank them back down on the next arriving message.
+    stuckToBottom.current = false
+    // Move the caret here too, not just the viewport.
+    //
+    // The panel that sent us is a dialog, and closing it returns focus to the
+    // trigger — which no longer exists, so focus fell to `<body>` and the next
+    // Tab restarted from the top of the page. Focusing the row keeps a keyboard
+    // reader where they asked to be and gives a screen reader something to
+    // announce on arrival; the flash below is the same landing said to someone
+    // who used the mouse and will never see a focus ring.
+    //
+    // `preventScroll` because the line above already placed it: letting focus
+    // scroll again would fight that and land the row somewhere else.
+    target.focus({ preventScroll: true })
+    target.classList.add('ring-2', 'ring-primary', 'rounded-xl')
+    setTimeout(
+      () => target.classList.remove('ring-2', 'ring-primary', 'rounded-xl'),
+      1200,
+    )
+    onJumpHandled?.()
+  })
 
   /**
    * The receipt hangs off the newest message you sent, not every one of them.
@@ -406,7 +539,8 @@ export function MessageList({
   const lastOwnMessageId = React.useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       const message = messages[index]!
-      if (message.kind === 'user' && message.senderUserId === currentUserId) return message.id
+      if (message.kind === 'user' && message.senderUserId === currentUserId)
+        return message.id
     }
     return null
   }, [currentUserId, messages])
@@ -417,7 +551,11 @@ export function MessageList({
     // divider belongs above the first message someone else sent. `undefined` is
     // the different case of not knowing yet, and suppresses it.
     const unreadCutoff =
-      unreadSince === undefined ? null : unreadSince === null ? -Infinity : new Date(unreadSince).getTime()
+      unreadSince === undefined
+        ? null
+        : unreadSince === null
+          ? -Infinity
+          : new Date(unreadSince).getTime()
     /**
      * The last message that can START a turn — user messages only.
      *
@@ -433,7 +571,8 @@ export function MessageList({
 
     for (const message of messages) {
       const createdAt = new Date(message.createdAt)
-      const sameDay = lastRenderedDay !== null && isSameDay(lastRenderedDay, createdAt)
+      const sameDay =
+        lastRenderedDay !== null && isSameDay(lastRenderedDay, createdAt)
 
       if (!sameDay) {
         result.push({
@@ -467,7 +606,11 @@ export function MessageList({
         message.senderUserId !== currentUserId &&
         createdAt.getTime() > unreadCutoff
       if (isUnread && !unreadMarked) {
-        result.push({ kind: 'unread', key: `unread-${message.id}`, first: result.length === 0 })
+        result.push({
+          kind: 'unread',
+          key: `unread-${message.id}`,
+          first: result.length === 0,
+        })
         unreadMarked = true
       }
 
@@ -475,7 +618,8 @@ export function MessageList({
         previous !== null &&
         isSameDay(new Date(previous.createdAt), createdAt) &&
         previous.senderUserId === message.senderUserId &&
-        createdAt.getTime() - new Date(previous.createdAt).getTime() < GROUPING_WINDOW_MS &&
+        createdAt.getTime() - new Date(previous.createdAt).getTime() <
+          GROUPING_WINDOW_MS &&
         // A turn cannot continue across the unread divider, or the divider would
         // sit inside a group with no avatar beneath it — nor across a membership
         // line, which would leave Alice's second bubble headerless under a row
@@ -485,7 +629,8 @@ export function MessageList({
 
       const precededByDivider =
         result.length > 0 &&
-        (result[result.length - 1]!.kind === 'separator' || result[result.length - 1]!.kind === 'unread')
+        (result[result.length - 1]!.kind === 'separator' ||
+          result[result.length - 1]!.kind === 'unread')
 
       result.push({
         kind: 'message',
@@ -494,7 +639,11 @@ export function MessageList({
         mine: message.senderUserId === currentUserId,
         startsGroup: !continuesGroup,
         topGap:
-          result.length === 0 || precededByDivider ? 'none' : continuesGroup ? 'tight' : 'turn',
+          result.length === 0 || precededByDivider
+            ? 'none'
+            : continuesGroup
+              ? 'tight'
+              : 'turn',
       })
       previous = message
     }
@@ -505,12 +654,14 @@ export function MessageList({
       // other message would.
       const last = result[result.length - 1]
       const continuesOwnTurn =
-        last !== undefined && (last.kind === 'pending' || (last.kind === 'message' && last.mine))
+        last !== undefined &&
+        (last.kind === 'pending' || (last.kind === 'message' && last.mine))
       result.push({
         kind: 'pending',
         key: `pending-${item.clientMessageId}`,
         pending: item,
-        topGap: result.length === 0 ? 'none' : continuesOwnTurn ? 'tight' : 'turn',
+        topGap:
+          result.length === 0 ? 'none' : continuesOwnTurn ? 'tight' : 'turn',
       })
     }
     return result
@@ -555,7 +706,10 @@ export function MessageList({
       const rect = row.getBoundingClientRect()
       // The first row still on screen: the one the reader is reading from.
       if (rect.bottom > containerTop) {
-        readingAnchor.current = { id: row.dataset.messageId ?? '', top: rect.top - containerTop }
+        readingAnchor.current = {
+          id: row.dataset.messageId ?? '',
+          top: rect.top - containerTop,
+        }
         return
       }
     }
@@ -571,11 +725,16 @@ export function MessageList({
     if (!container || !positioned.current || stuckToBottom.current) return
     const anchor = readingAnchor.current
     if (!anchor) return
-    const row = container.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(anchor.id)}"]`)
+    const row = container.querySelector<HTMLElement>(
+      `[data-message-id="${CSS.escape(anchor.id)}"]`,
+    )
     // The anchored message fell out of the window entirely — there is nothing
     // left to hold on to, so leave the position alone rather than guess.
     if (!row) return
-    const delta = row.getBoundingClientRect().top - container.getBoundingClientRect().top - anchor.top
+    const delta =
+      row.getBoundingClientRect().top -
+      container.getBoundingClientRect().top -
+      anchor.top
     if (delta !== 0) container.scrollTop += delta
   }, [messages])
 
@@ -605,15 +764,19 @@ export function MessageList({
     previousCount.current = messageCount
   }, [messageCount])
 
-  const handleScroll = React.useCallback((event: React.UIEvent<HTMLDivElement>) => {
-    const el = event.currentTarget
-    const near = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX
-    stuckToBottom.current = near
-    setAtBottom(near)
-    // Only worth tracking while the reader is away from the bottom; at the
-    // bottom the pin owns the position and the anchor would just be noise.
-    if (!near) captureAnchor()
-  }, [captureAnchor])
+  const handleScroll = React.useCallback(
+    (event: React.UIEvent<HTMLDivElement>) => {
+      const el = event.currentTarget
+      const near =
+        el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD_PX
+      stuckToBottom.current = near
+      setAtBottom(near)
+      // Only worth tracking while the reader is away from the bottom; at the
+      // bottom the pin owns the position and the anchor would just be noise.
+      if (!near) captureAnchor()
+    },
+    [captureAnchor],
+  )
 
   /**
    * Stay pinned to the newest message while the reader is at the bottom.
@@ -645,7 +808,10 @@ export function MessageList({
   React.useLayoutEffect(() => {
     const container = scrollRef.current
     if (!container || !positioned.current || !stuckToBottom.current) return
-    if (container.scrollHeight - container.scrollTop - container.clientHeight > 0) {
+    if (
+      container.scrollHeight - container.scrollTop - container.clientHeight >
+      0
+    ) {
       container.scrollTop = container.scrollHeight
     }
   })
@@ -697,7 +863,13 @@ export function MessageList({
         tabIndex={0}
         aria-label={t('chat.messages.label', 'Messages')}
         onScroll={handleScroll}
-        className="h-full overflow-y-auto px-4 py-3 outline-none focus-visible:shadow-focus"
+        // `overflow-x-hidden` is a guarantee, not a fix: a transcript must never
+        // scroll sideways, and `overflow-y-auto` alone promotes the other axis to
+        // `auto`, so ANY descendant that outgrows the pane — a pasted token, a
+        // long URL, a future embed — lays a scrollbar under the whole
+        // conversation. Content is clamped at its source; this makes the failure
+        // mode a clipped pixel rather than a broken pane.
+        className="h-full overflow-y-auto overflow-x-hidden px-4 py-3 outline-none focus-visible:shadow-focus"
       >
         {/* A short conversation belongs at the bottom, against the composer, not
             stranded at the top of a tall empty pane. `mt-auto` rather than
@@ -710,10 +882,19 @@ export function MessageList({
               <div className="mb-4 flex flex-col items-center gap-1">
                 {loadOlderFailed ? (
                   <p role="alert" className="text-xs text-status-error-text">
-                    {t('chat.messages.loadOlderFailed', "Couldn't load earlier messages.")}
+                    {t(
+                      'chat.messages.loadOlderFailed',
+                      "Couldn't load earlier messages.",
+                    )}
                   </p>
                 ) : null}
-                <Button type="button" variant="ghost" size="sm" disabled={isLoadingOlder} onClick={onLoadOlder}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={isLoadingOlder}
+                  onClick={onLoadOlder}
+                >
                   {isLoadingOlder
                     ? t('chat.messages.loadingOlder', 'Loading…')
                     : loadOlderFailed
@@ -732,12 +913,20 @@ export function MessageList({
                   title={t('chat.messages.emptyTitle', 'No messages yet')}
                   description={
                     isSpace
-                      ? t('chat.messages.emptySpaceDescription', 'Start the conversation in {name}.', {
-                          name: conversationTitle,
-                        })
-                      : t('chat.messages.emptyDescription', 'Say hello to {name}.', {
-                          name: conversationTitle,
-                        })
+                      ? t(
+                          'chat.messages.emptySpaceDescription',
+                          'Start the conversation in {name}.',
+                          {
+                            name: conversationTitle,
+                          },
+                        )
+                      : t(
+                          'chat.messages.emptyDescription',
+                          'Say hello to {name}.',
+                          {
+                            name: conversationTitle,
+                          },
+                        )
                   }
                 />
               </div>
@@ -745,7 +934,11 @@ export function MessageList({
 
             {/* `aria-live` so an incoming message is announced. Without it the core
                 interaction of a chat client is silent for a screen-reader user. */}
-            <ol className="flex flex-col" aria-live="polite" aria-relevant="additions">
+            <ol
+              className="flex flex-col"
+              aria-live="polite"
+              aria-relevant="additions"
+            >
               {rows.map((row) => {
                 if (row.kind === 'system') {
                   // Centred, muted, no bubble and no avatar: it is a note about
@@ -756,7 +949,14 @@ export function MessageList({
                     <li
                       key={row.key}
                       data-message-id={row.message.id}
-                      className={cn('flex justify-center px-2', TOP_GAP[row.topGap])}
+                      // Focusable only programmatically, so jumping to a pinned
+                      // message can put the caret on it without adding every
+                      // message in the transcript to the Tab order.
+                      tabIndex={-1}
+                      className={cn(
+                        'flex justify-center px-2 outline-none',
+                        TOP_GAP[row.topGap],
+                      )}
                     >
                       {/* The sentence alone. Each of these used to be prefixed
                           with its own clock, so three membership changes in a row
@@ -765,7 +965,10 @@ export function MessageList({
                           looking for. It stays in the tooltip. */}
                       <p
                         className="max-w-full truncate text-xs text-muted-foreground"
-                        title={formatFullTimestamp(locale, new Date(row.message.createdAt))}
+                        title={formatFullTimestamp(
+                          locale,
+                          new Date(row.message.createdAt),
+                        )}
                       >
                         {systemLine(row.message)}
                       </p>
@@ -787,7 +990,10 @@ export function MessageList({
                       // which tied the test to the decoration rather than to the
                       // thing being counted.
                       data-row="separator"
-                      className={cn('flex justify-center', row.first ? 'mb-4' : DIVIDER_GAP)}
+                      className={cn(
+                        'flex justify-center',
+                        row.first ? 'mb-4' : DIVIDER_GAP,
+                      )}
                     >
                       <span className="text-overline font-semibold uppercase tracking-wider text-muted-foreground">
                         {row.label}
@@ -804,13 +1010,22 @@ export function MessageList({
                       // The anchor a conversation opens on when the reader is
                       // behind. See the first-paint effect above.
                       ref={unreadDividerRef}
-                      className={cn('flex items-center gap-3', row.first ? 'mb-4' : DIVIDER_GAP)}
+                      className={cn(
+                        'flex items-center gap-3',
+                        row.first ? 'mb-4' : DIVIDER_GAP,
+                      )}
                     >
-                      <span className="h-px flex-1 bg-status-error-border" aria-hidden="true" />
+                      <span
+                        className="h-px flex-1 bg-status-error-border"
+                        aria-hidden="true"
+                      />
                       <span className="text-xs font-semibold text-status-error-text">
                         {t('chat.messages.newDivider', 'New')}
                       </span>
-                      <span className="h-px flex-1 bg-status-error-border" aria-hidden="true" />
+                      <span
+                        className="h-px flex-1 bg-status-error-border"
+                        aria-hidden="true"
+                      />
                     </li>
                   )
                 }
@@ -820,7 +1035,13 @@ export function MessageList({
                     // An unsent message is always yours, so it sits on your side
                     // from the moment it appears — it must not jump across the
                     // pane when the server confirms it.
-                    <li key={row.key} className={cn('relative flex flex-col items-end pl-10 pr-2', TOP_GAP[row.topGap])}>
+                    <li
+                      key={row.key}
+                      className={cn(
+                        'relative flex flex-col items-end px-10',
+                        TOP_GAP[row.topGap],
+                      )}
+                    >
                       <div
                         className={cn(
                           'w-fit max-w-[85%] rounded-2xl px-3 py-2 sm:max-w-prose',
@@ -844,7 +1065,9 @@ export function MessageList({
                         <p
                           className={cn(
                             'whitespace-pre-wrap break-words text-sm',
-                            row.pending.failed ? 'text-status-error-text' : 'text-foreground',
+                            row.pending.failed
+                              ? 'text-status-error-text'
+                              : 'text-foreground',
                           )}
                         >
                           {row.pending.body}
@@ -860,7 +1083,9 @@ export function MessageList({
                               type="button"
                               variant="link"
                               size="2xs"
-                              onClick={() => onRetryPending(row.pending.clientMessageId)}
+                              onClick={() =>
+                                onRetryPending(row.pending.clientMessageId)
+                              }
                             >
                               {t('chat.actions.retry', 'Try again')}
                             </Button>
@@ -877,15 +1102,23 @@ export function MessageList({
                 // The sender's own name, resolved with the page — so a space
                 // labels each turn with whoever wrote it rather than with the
                 // one counterpart a direct has.
-                const author = row.mine ? t('chat.messages.you', 'You') : row.message.senderName
+                const author = row.mine
+                  ? t('chat.messages.you', 'You')
+                  : row.message.senderName
                 const fullTimestamp = formatFullTimestamp(locale, createdAt)
                 // Read once their cursor reaches this message. `null` cursor is
                 // "never opened", which is unread rather than read-at-epoch.
-                const counterpartRead = counterpartLastReadAt ? new Date(counterpartLastReadAt) : null
+                const counterpartRead = counterpartLastReadAt
+                  ? new Date(counterpartLastReadAt)
+                  : null
                 const readAt =
-                  counterpartRead && counterpartRead.getTime() >= createdAt.getTime()
+                  counterpartRead &&
+                  counterpartRead.getTime() >= createdAt.getTime()
                     ? counterpartRead
                     : null
+                // The receipt hangs off the newest message you sent, so it is
+                // the one row whose footer can carry two things at once.
+                const showReceipt = row.mine && row.message.id === lastOwnMessageId
 
                 return (
                   <li
@@ -893,17 +1126,27 @@ export function MessageList({
                     // What the reading anchor holds on to when the list changes
                     // under a reader who has scrolled up.
                     data-message-id={row.message.id}
+                    // Focusable only programmatically — see the system row above.
+                    tabIndex={-1}
                     className={cn(
-                      // `group/msg` names the hover scope so the action bar reacts to
-                      // this row only. `focus-within` is the keyboard equivalent —
-                      // without it the menu trigger can be focused but never seen.
+                      'outline-none',
                       // No row fill: the bubble already carries the surface, and
                       // tinting the row behind it just muddies both.
-                      'group/msg relative flex flex-col',
+                      //
+                      // The hover scope is NOT here — see the bubble wrapper. A
+                      // row spans the full pane, so scoping to it armed the
+                      // toolbar from anywhere on the line, including the empty
+                      // half opposite the bubble.
+                      'relative flex flex-col',
                       // Side is the primary "who said this". The avatar gutter is
-                      // reserved on both sides so the two columns wrap at the same
-                      // measure and the bubbles line up against opposite edges.
-                      row.mine ? 'items-end pl-10 pr-2' : 'items-start pl-10 pr-2',
+                      // reserved on BOTH sides, not just the one the avatar is
+                      // drawn in: the two columns then wrap at the same measure
+                      // and each bubble sits the same distance from the rail it
+                      // hugs. With the gutter only on the left, an incoming
+                      // bubble stood 40px off the left edge and an outgoing one
+                      // 8px off the right, and the transcript read as lopsided.
+                      'px-10',
+                      row.mine ? 'items-end' : 'items-start',
                       TOP_GAP[row.topGap],
                     )}
                   >
@@ -958,11 +1201,35 @@ export function MessageList({
                         rather than to the row: parked at the row's outer margin it
                         drifted far away from a short reply and read as belonging to
                         the column instead of to the thing it acts on. */}
-                    <div className="relative w-fit max-w-[85%] sm:max-w-prose">
+                    {/* `group/msg` names the hover scope, and it is deliberately
+                        the MESSAGE rather than the row: the row is the full width
+                        of the pane, so scoping there revealed the toolbar when the
+                        pointer was anywhere on that line — including the empty
+                        half the bubble does not occupy. This box is exactly the
+                        bubble plus what hangs off it, and the floaters are its
+                        descendants, so hovering them keeps the scope alive.
+                        `focus-within` is the keyboard equivalent — without it the
+                        menu trigger can be focused but never seen. */}
+                    <div className="group/msg relative w-fit max-w-[85%] sm:max-w-prose">
                       <div
                         className={cn(
-                          'rounded-2xl px-3 py-2',
-                          row.mine ? 'bg-primary-soft' : 'bg-surface-muted',
+                          // `w-fit` and, on your side, `ml-auto`: the wrapper is
+                          // sized by its widest child, and the footer under the
+                          // bubble can now be wider than the bubble itself — a
+                          // two-word message with a delivery receipt under it.
+                          // Without this the bubble stretched to the receipt's
+                          // width and a one-word reply rendered as a long empty
+                          // pill.
+                          //
+                          // `max-w-full` is what keeps `w-fit` honest. `fit-content`
+                          // resolves against MAX-CONTENT, and `overflow-wrap` does
+                          // not reduce a word's intrinsic width — so an unbroken
+                          // 400-character token sized the bubble to 3800px, straight
+                          // through the wrapper's own cap, and put a horizontal
+                          // scrollbar under the entire transcript. Clamped to the
+                          // wrapper, the same token wraps instead.
+                          'w-fit max-w-full rounded-2xl px-3 py-2',
+                          row.mine ? 'ml-auto bg-primary-soft' : 'bg-surface-muted',
                         )}
                       >
                         {/* Inside the bubble, above the text: the quote is part
@@ -988,29 +1255,104 @@ export function MessageList({
                             }
                           />
                         ) : null}
-                        <p className="whitespace-pre-wrap break-words text-sm text-foreground">
-                          {row.message.body}
-                        </p>
+                        <MessageBody
+                          body={row.message.body}
+                          mentionNames={row.message.mentionNames}
+                          currentUserId={currentUserId}
+                        />
                       </div>
+
+                      {/* Subtle by design: the pin's job is to be findable from
+                          the panel, not to shout inside the transcript. */}
+                      {row.message.pinned ? (
+                        <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                          <Pin className="size-3" aria-hidden="true" />
+                          {t('chat.pins.pinnedLabel', 'Pinned')}
+                        </p>
+                      ) : null}
+
+                      {/* One line under the bubble for everything that trails it.
+                          The receipt used to be a sibling of this wrapper, so
+                          reacting to your own newest message pushed "Delivered"
+                          onto a line of its own with a band of empty space above
+                          it. The two are the same kind of thing — marginalia
+                          about the message overhead — so they share a row: chips
+                          at the bubble's leading edge, receipt pushed to the
+                          trailing one.
+
+                          Rendered only when it has something to hold, so an
+                          ordinary message reserves no space here. */}
+                      {row.message.reactions.length > 0 || showReceipt ? (
+                        <div className="mt-1 flex items-center gap-2">
+                          <MessageReactions
+                            reactions={row.message.reactions}
+                            disabled={!onToggleReaction}
+                            onToggle={(emoji) =>
+                              onToggleReaction?.(row.message.id, emoji)
+                            }
+                          />
+                          {showReceipt ? (
+                            <p
+                              // `ml-auto`, not `justify-between`: with no chips
+                              // beside it the receipt still has to sit at the
+                              // trailing edge, which is where it has always been.
+                              className="ml-auto shrink-0 text-xs text-muted-foreground"
+                              title={
+                                readAt
+                                  ? t(
+                                      'chat.receipt.detail',
+                                      'Delivered at {delivered} · Read at {read}',
+                                      {
+                                        delivered: fullTimestamp,
+                                        read: formatFullTimestamp(locale, readAt),
+                                      },
+                                    )
+                                  : t(
+                                      'chat.receipt.deliveredDetail',
+                                      'Delivered at {delivered}',
+                                      { delivered: fullTimestamp },
+                                    )
+                              }
+                            >
+                              {readAt
+                                ? t('chat.receipt.read', 'Read {time}', {
+                                    time: formatTimeOfDay(locale, readAt),
+                                  })
+                                : t('chat.receipt.delivered', 'Delivered {time}', {
+                                    time: formatTimeOfDay(locale, createdAt),
+                                  })}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
 
                       {/*
                         Two floating elements, at opposite ends of the bubble,
                         revealed together on hover or keyboard focus.
 
-                        They are separate because they have opposite constraints.
-                        The ACTIONS belong at the bubble's far end — the edge
-                        pointing away from the wall it hugs — which is the one
-                        place above a bubble that is always free of the author
-                        line. But the far end is also the direction that runs OUT
-                        of room: a 98px bar hanging off a 46px bubble's left edge
-                        overshot the scroller by 28px and, because `overflow-y-auto`
-                        promotes `overflow-x` to `auto`, put a horizontal scrollbar
-                        across the whole transcript.
+                        They are separate because they have opposite constraints,
+                        and which end each takes follows from ONE rule: a box may
+                        only overhang its bubble by less than the row's 40px
+                        gutter, or it reaches the scroller edge — and because
+                        `overflow-y-auto` promotes `overflow-x` to `auto`, that
+                        puts a horizontal scrollbar across the whole transcript.
 
-                        So the timestamp moves to the NEAR end, over the wall the
-                        bubble is already against, where it can only grow inwards.
-                        The actions stay narrow enough to fit above the shortest
-                        bubble, and neither can reach the edge.
+                        The ACTIONS are the wide one. At 155px — three reactions,
+                        a picker and the menu — a bar hung off the far end of a
+                        short bubble overshoots by more than the gutter can
+                        absorb, and no plausible gutter would hold it: a one-word
+                        bubble is ~32px, so the overhang would be over 120px. So
+                        the actions take the NEAR end, over the wall the bubble is
+                        already against, and grow INWARDS across a pane that is
+                        always wider than they are. Google Chat anchors its bar
+                        the same way and for the same reason. The cost is that on
+                        the first row of a group it covers the author line while
+                        the pointer is on the message; the alternative was a
+                        scrollbar under every conversation.
+
+                        The TIMESTAMP is the narrow one — ~66px — so it can take
+                        the far end, where its overhang past even the shortest
+                        bubble stays inside the gutter.
 
                         Both boxes are positioners whose padding is a hit bridge:
                         `bottom-full` glues the bottom edge to the top of the
@@ -1022,13 +1364,53 @@ export function MessageList({
                       <div
                         className={cn(
                           REVEAL_ON_HOVER,
-                          // The far end: yours sits right, so its actions go
-                          // left; theirs sits left, so its actions go right.
-                          row.mine ? 'left-0' : 'right-0',
+                          // The near end: yours hugs the right wall, so its
+                          // actions anchor right and open leftwards; theirs hugs
+                          // the left, so they anchor left and open rightwards.
+                          // Either way the bar grows into the empty half of the
+                          // pane and can never reach an edge.
+                          row.mine ? 'right-0' : 'left-0',
                         )}
                       >
                         <div className={FLOATING_CHROME}>
+                          {onToggleReaction ? (
+                            <>
+                              <QuickReactions
+                                onToggle={(emoji) =>
+                                  onToggleReaction(row.message.id, emoji)
+                                }
+                              />
+                              {/* Separates what reacts from what acts. Both are
+                                  one click, so without a rule between them the
+                                  bar reads as one undifferentiated strip of
+                                  glyphs. The DS primitive rather than a hand-cut
+                                  span, so it carries `role="separator"` and the
+                                  same rule colour as every other divider. */}
+                              <Separator
+                                orientation="vertical"
+                                className="mx-0.5 h-4 shrink-0"
+                              />
+                              <ReactionPicker
+                                // Opens the way the bar itself grows, so the
+                                // panel stays over the pane's open half.
+                                align={row.mine ? 'end' : 'start'}
+                                onToggle={(emoji) =>
+                                  onToggleReaction(row.message.id, emoji)
+                                }
+                              />
+                            </>
+                          ) : null}
                           <MessageMenu
+                            pinned={row.message.pinned}
+                            onTogglePin={
+                              onTogglePin
+                                ? () =>
+                                    onTogglePin(
+                                      row.message.id,
+                                      !row.message.pinned,
+                                    )
+                                : undefined
+                            }
                             body={row.message.body}
                             onReply={
                               onReply
@@ -1050,13 +1432,22 @@ export function MessageList({
                           start already prints the time beside its author. */}
                       {row.startsGroup ? null : (
                         <div
-                          className={cn(REVEAL_ON_HOVER, row.mine ? 'right-0' : 'left-0')}
+                          // The far end, opposite the actions, so the two never
+                          // land on the same corner of the same bubble.
+                          className={cn(
+                            REVEAL_ON_HOVER,
+                            row.mine ? 'left-0' : 'right-0',
+                          )}
                         >
                           <div className={FLOATING_CHROME}>
                             <time
                               dateTime={row.message.createdAt}
                               title={fullTimestamp}
-                              className="px-1 text-xs text-muted-foreground"
+                              // No inset of its own: the chrome around it
+                              // already pads by the same amount, and doubling it
+                              // both looked loose and spent 8px of the clearance
+                              // this box has against the pane edge.
+                              className="text-xs text-muted-foreground"
                             >
                               {formatTimeOfDay(locale, createdAt)}
                             </time>
@@ -1064,37 +1455,6 @@ export function MessageList({
                         </div>
                       )}
                     </div>
-
-                    {/* The receipt, on the newest message you sent.
-                        "Delivered" is the moment the server stored it — that is
-                        the only delivery this system actually observes, so it is
-                        the message's own timestamp rather than an invented
-                        second one. "Read" comes from the other person's cursor
-                        passing this message. The full pair is in the `title`, so
-                        the line stays one short phrase. */}
-                    {row.mine && row.message.id === lastOwnMessageId ? (
-                      <p
-                        className="mt-1 text-xs text-muted-foreground"
-                        title={
-                          readAt
-                            ? t('chat.receipt.detail', 'Delivered at {delivered} · Read at {read}', {
-                                delivered: fullTimestamp,
-                                read: formatFullTimestamp(locale, readAt),
-                              })
-                            : t('chat.receipt.deliveredDetail', 'Delivered at {delivered}', {
-                                delivered: fullTimestamp,
-                              })
-                        }
-                      >
-                        {readAt
-                          ? t('chat.receipt.read', 'Read {time}', {
-                              time: formatTimeOfDay(locale, readAt),
-                            })
-                          : t('chat.receipt.delivered', 'Delivered {time}', {
-                              time: formatTimeOfDay(locale, createdAt),
-                            })}
-                      </p>
-                    ) : null}
                   </li>
                 )
               })}
