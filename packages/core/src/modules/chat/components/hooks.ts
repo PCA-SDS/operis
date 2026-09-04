@@ -19,6 +19,7 @@ import { hasFeature } from '@open-mercato/shared/security/features'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
+import type { AppEventPayload } from '@open-mercato/shared/modules/widgets/injection'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import type { ChatConversationDto, ChatMessageDto, ChatParticipantRole } from '../data/types'
 import { CONVERSATION_PAGE_STEP, MAX_CONVERSATION_PAGE_SIZE } from '../data/validators'
@@ -48,6 +49,7 @@ export const chatKeys = {
   directory: (scope: number, q: string) => [...chatKeys.scoped(scope), 'directory', q] as const,
   members: (scope: number, id: string, q: string) =>
     [...chatKeys.scoped(scope), 'members', id, q] as const,
+  pinned: (scope: number, id: string) => [...chatKeys.scoped(scope), 'pinned', id] as const,
   unreadCount: (scope: number) => [...chatKeys.scoped(scope), 'unread-count'] as const,
 }
 
@@ -88,23 +90,51 @@ let pendingRefresh: ReturnType<typeof setTimeout> | null = null
  * if anything in the coalescing window needs the transcript, the whole window
  * refetches it.
  */
-let pendingScope: 'badges' | 'all' = 'badges'
+let pendingScope: RefreshScope = 'badges'
+/**
+ * The conversations named by `engagement` events in this window. Only read on
+ * the `engagement` path; an upgrade to `all` makes it irrelevant.
+ */
+let pendingConversationIds = new Set<string>()
+
+/** Widest wins, so the order here is the upgrade order. */
+type RefreshScope = 'badges' | 'engagement' | 'all'
+const SCOPE_RANK: Record<RefreshScope, number> = { badges: 0, engagement: 1, all: 2 }
 
 /**
- * Reading a conversation is bookkeeping, not new content.
+ * How much of the cache an event can possibly have invalidated.
  *
- * `chat.conversation.read` is emitted to the reader's OWN sessions so their
- * other tabs can clear the badge. It came back to the tab that caused it, which
- * invalidated the entire chat key space — so opening a conversation refetched
- * the very messages it had just loaded, plus the conversation, on every open.
- * Measured on a cold load: 17 chat requests, with the transcript fetched four
- * times.
+ * The wide path refetches every chat query that is mounted. That is right for a
+ * new message — it can move the conversation order, the previews, the unread
+ * counts and the transcript at once — and wrong for everything narrower, which
+ * is why the two exceptions below exist.
  *
- * A read can only ever move a badge, so it refreshes the two surfaces that show
- * one and leaves the transcript alone.
+ * `chat.conversation.read` is bookkeeping, not content. It is emitted to the
+ * reader's OWN sessions so their other tabs can clear the badge, and it came
+ * back to the tab that caused it — so opening a conversation refetched the very
+ * messages it had just loaded. Measured on a cold load: 17 chat requests, with
+ * the transcript fetched four times. A read can only move a badge.
+ *
+ * A reaction or a pin is narrower still, and the server already tells us where
+ * it landed. Left on the wide path, one person adding an emoji made every
+ * participant refetch their conversation list, their member list, the directory
+ * and — because `useMessages` is an infinite query — *every loaded page* of a
+ * transcript that may not even be the one reacted in. A reader scrolled five
+ * pages back paid nine requests for someone else's thumbs-up, twice over: once
+ * from the mutation and once from the event echoing back.
  */
-function scopeForEvent(eventId: string): 'badges' | 'all' {
-  return eventId === 'chat.conversation.read' ? 'badges' : 'all'
+function scopeForEvent(eventId: string): RefreshScope {
+  if (eventId === 'chat.conversation.read') return 'badges'
+  if (eventId === 'chat.message.reacted' || eventId === 'chat.conversation.pinned') {
+    return 'engagement'
+  }
+  return 'all'
+}
+
+/** The event's conversation, when it named one we can trust. */
+function conversationIdOf(payload: AppEventPayload): string | null {
+  const value = payload.payload?.conversationId
+  return typeof value === 'string' && value.length > 0 ? value : null
 }
 
 export function useChatLiveRefresh(): void {
@@ -112,15 +142,38 @@ export function useChatLiveRefresh(): void {
   const scope = useOrganizationScopeVersion()
 
   const schedule = React.useCallback(
-    (eventId: string) => {
-      if (scopeForEvent(eventId) === 'all') pendingScope = 'all'
+    (eventId: string, conversationId: string | null) => {
+      let wanted = scopeForEvent(eventId)
+      // An engagement event that did not say where it happened cannot be
+      // narrowed, so it falls back to the wide path rather than being dropped.
+      if (wanted === 'engagement' && !conversationId) wanted = 'all'
+      if (SCOPE_RANK[wanted] > SCOPE_RANK[pendingScope]) pendingScope = wanted
+      if (wanted === 'engagement' && conversationId) pendingConversationIds.add(conversationId)
+
       if (pendingRefresh) return
       pendingRefresh = setTimeout(() => {
         pendingRefresh = null
-        const wanted = pendingScope
+        const settled = pendingScope
+        const conversationIds = pendingConversationIds
         pendingScope = 'badges'
-        if (wanted === 'all') {
+        pendingConversationIds = new Set()
+
+        if (settled === 'all') {
           invalidateChat(client)
+          return
+        }
+        if (settled === 'engagement') {
+          // A reaction changes the chips on a message; a pin changes those, the
+          // pinned list, and the count in that conversation's header. None of
+          // them can reorder the conversation list, move an unread count, or
+          // touch another conversation — so none of those are refetched.
+          for (const conversationId of conversationIds) {
+            void client.invalidateQueries({ queryKey: chatKeys.messages(scope, conversationId) })
+            void client.invalidateQueries({ queryKey: chatKeys.pinned(scope, conversationId) })
+            void client.invalidateQueries({
+              queryKey: chatKeys.conversation(scope, conversationId),
+            })
+          }
           return
         }
         void client.invalidateQueries({ queryKey: chatKeys.conversations(scope) })
@@ -130,10 +183,10 @@ export function useChatLiveRefresh(): void {
     [client, scope],
   )
 
-  useAppEvent('chat.*', (payload) => schedule(payload.id), [schedule])
+  useAppEvent('chat.*', (payload) => schedule(payload.id, conversationIdOf(payload)), [schedule])
   // A dropped socket means the client cannot know what it missed, so this one
   // always takes the wide path.
-  useAppEvent('om:bridge:reconnected', () => schedule('om:bridge:reconnected'), [schedule])
+  useAppEvent('om:bridge:reconnected', () => schedule('om:bridge:reconnected', null), [schedule])
 }
 
 /**
@@ -230,13 +283,21 @@ export function useConversation(id: string | undefined) {
  * Pages arrive newest-page-first with each page oldest-first inside it, so
  * flattening in reverse page order yields one chronological transcript.
  */
-export function useMessages(conversationId: string | undefined) {
+export function useMessages(conversationId: string | undefined, anchorMessageId?: string | null) {
   const scope = useOrganizationScopeVersion()
   const query = useInfiniteQuery({
-    queryKey: chatKeys.messages(scope, conversationId ?? 'none'),
+    // The anchor is part of the key, so asking for a window around an old
+    // message is a different cached result from the newest page rather than an
+    // overwrite of it — going back to the bottom does not refetch.
+    queryKey: [...chatKeys.messages(scope, conversationId ?? 'none'), anchorMessageId ?? null],
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
-      chatApi.listMessages(conversationId as string, { cursor: pageParam }, signal),
+      // Only the FIRST page is centred. Once the reader scrolls up from there,
+      // paging continues backwards from the window's own edge exactly as it
+      // would anywhere else.
+      pageParam === undefined && anchorMessageId
+        ? chatApi.listMessagesAround(conversationId as string, anchorMessageId, signal)
+        : chatApi.listMessages(conversationId as string, { cursor: pageParam }, signal),
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     enabled: Boolean(conversationId),
   })
@@ -383,6 +444,80 @@ export function useSpaceMutations(conversationId?: string) {
   })
 
   return { createSpace, rename, addMembers, removeMember, setMemberRole }
+}
+
+/**
+ * The messages pinned in a conversation.
+ *
+ * `enabled` so a closed panel costs nothing; the header's count comes from the
+ * conversation row, which every surface already has, so opening the panel is the
+ * first request this makes.
+ */
+export function usePinnedMessages(conversationId: string | undefined, enabled: boolean) {
+  const scope = useOrganizationScopeVersion()
+  const query = useQuery({
+    queryKey: chatKeys.pinned(scope, conversationId ?? 'none'),
+    queryFn: ({ signal }) => chatApi.listPinned(conversationId as string, signal),
+    enabled: enabled && Boolean(conversationId),
+  })
+  return {
+    pinned: query.data?.items ?? [],
+    total: query.data?.total ?? 0,
+    isLoading: query.isLoading,
+    error: query.error,
+    retry: query.refetch,
+  }
+}
+
+/**
+ * Reacting and pinning.
+ *
+ * Both are toggles the server owns — it decides whether the emoji goes on or
+ * off, and whether the pin exists — so neither is applied optimistically. A
+ * reaction that flickered on and then off because the server disagreed would be
+ * worse than one that appears a moment later.
+ */
+export function useMessageEngagement(conversationId: string | undefined) {
+  const client = useQueryClient()
+  const scope = useOrganizationScopeVersion()
+  const { runMutation } = useGuardedMutation({ contextId: 'chat.message' })
+  // The same three keys the live-refresh `engagement` path uses, for the same
+  // reason: this can only have changed the chips on a message, the pinned list,
+  // and the pin count in this conversation's header. Invalidating the whole
+  // `['chat']` tree here made the actor refetch their conversation list, member
+  // list, directory and every loaded transcript page — and then do it again
+  // when the event echoed back to them.
+  const settled = React.useCallback(() => {
+    if (!conversationId) {
+      invalidateChat(client)
+      return
+    }
+    void client.invalidateQueries({ queryKey: chatKeys.messages(scope, conversationId) })
+    void client.invalidateQueries({ queryKey: chatKeys.pinned(scope, conversationId) })
+    void client.invalidateQueries({ queryKey: chatKeys.conversation(scope, conversationId) })
+  }, [client, conversationId, scope])
+
+  const toggleReaction = useMutation({
+    mutationFn: (input: { messageId: string; emoji: string }) =>
+      runMutation({
+        operation: () => chatApi.toggleReaction(conversationId as string, input.messageId, input.emoji),
+        context: { resourceKind: 'chat.message', resourceId: input.messageId },
+        mutationPayload: input,
+      }),
+    onSuccess: settled,
+  })
+
+  const setPinned = useMutation({
+    mutationFn: (input: { messageId: string; pinned: boolean }) =>
+      runMutation({
+        operation: () => chatApi.setPinned(conversationId as string, input.messageId, input.pinned),
+        context: { resourceKind: 'chat.conversation', resourceId: conversationId ?? null },
+        mutationPayload: input,
+      }),
+    onSuccess: settled,
+  })
+
+  return { toggleReaction, setPinned }
 }
 
 export function useSendMessage(conversationId: string | undefined) {

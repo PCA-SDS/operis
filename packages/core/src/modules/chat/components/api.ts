@@ -6,6 +6,7 @@
 import { apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import type {
   ChatConversationDto,
+  ChatPinnedListDto,
   ChatConversationListDto,
   ChatMemberListDto,
   ChatMessagePageDto,
@@ -87,6 +88,28 @@ export const chatApi = {
 
   listMessages: (id: string, params: { cursor?: string; limit?: number }, signal?: AbortSignal) =>
     readApiResultOrThrow<ChatMessagePageDto>(`${BASE}/conversations/${id}/messages${query(params)}`, { signal }),
+
+  /** A window centred on one message — how pin navigation reaches history. */
+  listMessagesAround: (id: string, around: string, signal?: AbortSignal) =>
+    readApiResultOrThrow<ChatMessagePageDto>(
+      `${BASE}/conversations/${id}/messages${query({ around })}`,
+      { signal },
+    ),
+
+  listPinned: (id: string, signal?: AbortSignal) =>
+    readApiResultOrThrow<ChatPinnedListDto>(`${BASE}/conversations/${id}/pins`, { signal }),
+
+  toggleReaction: async (conversationId: string, messageId: string, emoji: string) =>
+    (await apiCallOrThrow<{ emoji: string; reacted: boolean }>(
+      `${BASE}/conversations/${conversationId}/messages/${messageId}/reactions`,
+      jsonInit('POST', { emoji }),
+    )).result!,
+
+  setPinned: async (conversationId: string, messageId: string, pinned: boolean) =>
+    (await apiCallOrThrow<{ pinned: boolean }>(
+      `${BASE}/conversations/${conversationId}/messages/${messageId}/pin`,
+      jsonInit(pinned ? 'POST' : 'DELETE'),
+    )).result!,
 
   sendMessage: async (
     id: string,
