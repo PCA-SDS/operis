@@ -7,7 +7,9 @@ import { apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/backend/u
 import type {
   ChatConversationDto,
   ChatConversationListDto,
+  ChatMemberListDto,
   ChatMessagePageDto,
+  ChatParticipantRole,
   ChatSendMessageResultDto,
   ChatUnreadCountDto,
 } from '../data/types'
@@ -46,10 +48,50 @@ export const chatApi = {
   openConversation: async (userId: string) =>
     (await apiCallOrThrow<ChatConversationDto>(`${BASE}/conversations`, jsonInit('POST', { userId }))).result!,
 
+  createSpace: async (input: { title: string; memberIds: string[] }) =>
+    (await apiCallOrThrow<ChatConversationDto>(
+      `${BASE}/conversations`,
+      jsonInit('POST', {
+        kind: 'space',
+        title: input.title,
+        // Omitted rather than sent empty: the schema treats an empty array as a
+        // validation failure, and "just me for now" is a valid space.
+        memberIds: input.memberIds.length > 0 ? input.memberIds : undefined,
+      }),
+    )).result!,
+
+  renameSpace: async (id: string, title: string) =>
+    (await apiCallOrThrow<ChatConversationDto>(`${BASE}/conversations/${id}`, jsonInit('PATCH', { title })))
+      .result!,
+
+  listMembers: (id: string, params: { q?: string; limit?: number; offset?: number }, signal?: AbortSignal) =>
+    readApiResultOrThrow<ChatMemberListDto>(`${BASE}/conversations/${id}/members${query(params)}`, { signal }),
+
+  addMembers: async (id: string, memberIds: string[]) =>
+    (await apiCallOrThrow<{ added: string[] }>(
+      `${BASE}/conversations/${id}/members`,
+      jsonInit('POST', { memberIds }),
+    )).result!,
+
+  removeMember: async (id: string, userId: string) =>
+    (await apiCallOrThrow<{ removed: string; spaceDeleted: boolean }>(
+      `${BASE}/conversations/${id}/members/${userId}`,
+      jsonInit('DELETE'),
+    )).result!,
+
+  setMemberRole: async (id: string, userId: string, role: ChatParticipantRole) =>
+    (await apiCallOrThrow<{ userId: string; role: ChatParticipantRole }>(
+      `${BASE}/conversations/${id}/members/${userId}`,
+      jsonInit('PATCH', { role }),
+    )).result!,
+
   listMessages: (id: string, params: { cursor?: string; limit?: number }, signal?: AbortSignal) =>
     readApiResultOrThrow<ChatMessagePageDto>(`${BASE}/conversations/${id}/messages${query(params)}`, { signal }),
 
-  sendMessage: async (id: string, body: { body: string; clientMessageId?: string }) =>
+  sendMessage: async (
+    id: string,
+    body: { body: string; clientMessageId?: string; replyToMessageId?: string },
+  ) =>
     (await apiCallOrThrow<ChatSendMessageResultDto>(
       `${BASE}/conversations/${id}/messages`,
       jsonInit('POST', body),

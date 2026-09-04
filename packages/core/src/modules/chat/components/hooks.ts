@@ -20,7 +20,7 @@ import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/u
 import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
-import type { ChatConversationDto, ChatMessageDto } from '../data/types'
+import type { ChatConversationDto, ChatMessageDto, ChatParticipantRole } from '../data/types'
 import { CONVERSATION_PAGE_STEP, MAX_CONVERSATION_PAGE_SIZE } from '../data/validators'
 import { chatApi } from './api'
 
@@ -46,6 +46,8 @@ export const chatKeys = {
   conversation: (scope: number, id: string) => [...chatKeys.scoped(scope), 'conversation', id] as const,
   messages: (scope: number, id: string) => [...chatKeys.scoped(scope), 'messages', id] as const,
   directory: (scope: number, q: string) => [...chatKeys.scoped(scope), 'directory', q] as const,
+  members: (scope: number, id: string, q: string) =>
+    [...chatKeys.scoped(scope), 'members', id, q] as const,
   unreadCount: (scope: number) => [...chatKeys.scoped(scope), 'unread-count'] as const,
 }
 
@@ -248,12 +250,109 @@ export function useChatUnreadCount(enabled: boolean) {
   return { unreadCount: query.data?.unreadCount ?? 0 }
 }
 
+/**
+ * The members of a space, and the search over them.
+ *
+ * Shares the module's scope-partitioned key space, so switching organization
+ * cannot serve one space's membership under another's id — and `enabled` keeps
+ * a closed details panel from fetching anything at all.
+ */
+export function useSpaceMembers(conversationId: string | undefined, search: string, enabled: boolean) {
+  const scope = useOrganizationScopeVersion()
+  const query = useQuery({
+    queryKey: chatKeys.members(scope, conversationId ?? 'none', search),
+    queryFn: ({ signal }) => chatApi.listMembers(conversationId as string, { q: search || undefined }, signal),
+    enabled: enabled && Boolean(conversationId),
+    placeholderData: keepPreviousData,
+  })
+  return {
+    members: query.data?.items ?? [],
+    total: query.data?.total ?? 0,
+    hasMore: query.data?.hasMore ?? false,
+    isLoading: query.isLoading,
+    error: query.error,
+    retry: query.refetch,
+  }
+}
+
+/**
+ * The space write operations.
+ *
+ * One hook rather than five, because they share a cache-invalidation rule and
+ * differ only in which request they send: every one of them changes something
+ * the conversation list, the header or the member panel is rendering, so all of
+ * them invalidate the module's whole key space exactly as sending does. Each
+ * goes through `useGuardedMutation`, so none is the write that quietly opts out
+ * of record locks and future global guards.
+ */
+export function useSpaceMutations(conversationId?: string) {
+  const client = useQueryClient()
+  const { runMutation } = useGuardedMutation({ contextId: 'chat.conversation' })
+  const context = React.useMemo(
+    () => ({ resourceKind: 'chat.conversation', resourceId: conversationId ?? null }),
+    [conversationId],
+  )
+  const settled = React.useCallback(() => invalidateChat(client), [client])
+
+  const createSpace = useMutation({
+    mutationFn: (input: { title: string; memberIds: string[] }) =>
+      runMutation({
+        operation: () => chatApi.createSpace(input),
+        context: { resourceKind: 'chat.conversation', resourceId: null },
+        mutationPayload: input,
+      }),
+    onSuccess: settled,
+  })
+
+  const rename = useMutation({
+    mutationFn: (title: string) =>
+      runMutation({
+        operation: () => chatApi.renameSpace(conversationId as string, title),
+        context,
+        mutationPayload: { title },
+      }),
+    onSuccess: settled,
+  })
+
+  const addMembers = useMutation({
+    mutationFn: (memberIds: string[]) =>
+      runMutation({
+        operation: () => chatApi.addMembers(conversationId as string, memberIds),
+        context,
+        mutationPayload: { memberIds },
+      }),
+    onSuccess: settled,
+  })
+
+  const removeMember = useMutation({
+    mutationFn: (userId: string) =>
+      runMutation({
+        operation: () => chatApi.removeMember(conversationId as string, userId),
+        context,
+        mutationPayload: { userId },
+      }),
+    onSuccess: settled,
+  })
+
+  const setMemberRole = useMutation({
+    mutationFn: (input: { userId: string; role: ChatParticipantRole }) =>
+      runMutation({
+        operation: () => chatApi.setMemberRole(conversationId as string, input.userId, input.role),
+        context,
+        mutationPayload: input,
+      }),
+    onSuccess: settled,
+  })
+
+  return { createSpace, rename, addMembers, removeMember, setMemberRole }
+}
+
 export function useSendMessage(conversationId: string | undefined) {
   const client = useQueryClient()
   const { runMutation } = useGuardedMutation({ contextId: 'chat.message' })
 
   return useMutation({
-    mutationFn: (input: { body: string; clientMessageId: string }) =>
+    mutationFn: (input: { body: string; clientMessageId: string; replyToMessageId?: string }) =>
       runMutation({
         operation: () => chatApi.sendMessage(conversationId as string, input),
         context: { resourceKind: 'chat.message', resourceId: conversationId ?? null },
