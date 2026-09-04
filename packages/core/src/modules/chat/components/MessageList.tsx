@@ -121,6 +121,27 @@ function scrollToTopOf(container: HTMLElement, target: HTMLElement) {
 /** Dividers own the space on both sides, so the rows around them add none. */
 const DIVIDER_GAP = 'my-4'
 
+/**
+ * The positioner shared by everything that floats above a bubble on hover.
+ *
+ * `bottom-full` anchors the box's bottom edge to the top of the bubble, `-mb-px`
+ * laps it, and `pb-1.5` is the visible offset — so the gap between the chrome
+ * and the message is PADDING INSIDE the hit box, not empty space. The pointer
+ * never crosses a pixel belonging to the row above, and since the box is a DOM
+ * descendant of the row, hovering it keeps `:hover` on the row.
+ */
+const REVEAL_ON_HOVER = [
+  'pointer-events-none absolute bottom-full z-10 -mb-px pb-1.5',
+  'opacity-0 transition-opacity',
+  'focus-within:pointer-events-auto focus-within:opacity-100',
+  'group-hover/msg:pointer-events-auto group-hover/msg:opacity-100',
+  'group-focus-within/msg:pointer-events-auto group-focus-within/msg:opacity-100',
+].join(' ')
+
+/** The pill those floating elements are drawn as. */
+const FLOATING_CHROME =
+  'flex items-center gap-1 whitespace-nowrap rounded-lg border border-border bg-surface px-1 py-0.5 shadow-sm'
+
 type Row =
   | { kind: 'separator'; key: string; label: string; first: boolean }
   | { kind: 'unread'; key: string; first: boolean }
@@ -170,6 +191,10 @@ function MessageMenu({ body, onReply }: { body: string; onReply?: () => void }) 
   const t = useT()
   return (
     <RowActions
+      // Smaller than the table default: this floats above a message bubble
+      // rather than sitting in a row, so the affordance should be lighter than
+      // the line it acts on.
+      size="xs"
       items={[
         ...(onReply
           ? [{ id: 'reply', label: t('chat.reply.action', 'Reply'), onSelect: onReply }]
@@ -968,87 +993,76 @@ export function MessageList({
                         </p>
                       </div>
 
-                      {/* Metadata and actions share one floating bar, revealed on
-                          hover or keyboard focus, sitting just above the bubble's
-                          own top edge rather than beside it — so it never covers
-                          the message, and a short one still gets its controls
-                          within reach.
+                      {/*
+                        Two floating elements, at opposite ends of the bubble,
+                        revealed together on hover or keyboard focus.
 
-                          It carries the timestamp too: a grouped message has no
-                          header of its own, and the alternative — a time in the
-                          40px avatar gutter — does not fit a 12-hour locale.
+                        They are separate because they have opposite constraints.
+                        The ACTIONS belong at the bubble's far end — the edge
+                        pointing away from the wall it hugs — which is the one
+                        place above a bubble that is always free of the author
+                        line. But the far end is also the direction that runs OUT
+                        of room: a 98px bar hanging off a 46px bubble's left edge
+                        overshot the scroller by 28px and, because `overflow-y-auto`
+                        promotes `overflow-x` to `auto`, put a horizontal scrollbar
+                        across the whole transcript.
 
-                          The outer element is a POSITIONER whose padding is a hit
-                          bridge; the inner one is the visible chrome. They are
-                          separate because the gap between the bar and the bubble
-                          has to be reachable, not merely empty — see below. */}
+                        So the timestamp moves to the NEAR end, over the wall the
+                        bubble is already against, where it can only grow inwards.
+                        The actions stay narrow enough to fit above the shortest
+                        bubble, and neither can reach the edge.
+
+                        Both boxes are positioners whose padding is a hit bridge:
+                        `bottom-full` glues the bottom edge to the top of the
+                        bubble and `-mb-px` laps it, so the pointer travels from
+                        the message to the button without crossing a pixel this
+                        row does not own — and because the box is a DOM descendant
+                        of the row, hovering it keeps `:hover` on the row.
+                      */}
                       <div
                         className={cn(
-                          // Anchored to the bubble's own top edge, and the padding
-                          // below the chrome is a HIT BRIDGE rather than spacing.
-                          //
-                          // Parked at a fixed `-top-10` this bar was ~2px clear of
-                          // the bubble, and those 2px belonged to the message
-                          // ABOVE. Moving the pointer up to the bar therefore left
-                          // this row, which dropped `:hover`, which hid the bar —
-                          // so the only way to press it was to cross the dead band
-                          // fast enough to land on the bar in a single pointer
-                          // sample. Every slower path handed the hover to the
-                          // neighbour instead.
-                          //
-                          // `bottom-full` glues the box's bottom edge to the top of
-                          // the bubble and `-mb-px` laps it by one pixel, so the
-                          // padding runs continuously from the chrome down into the
-                          // message. The pointer travels from bubble to button
-                          // without ever crossing a pixel this row does not own,
-                          // and because the box is a DOM descendant of the row,
-                          // hovering it keeps `:hover` on the row — the bar stays up
-                          // for as long as you are heading towards it.
-                          'pointer-events-none absolute bottom-full z-10 -mb-px pb-1.5',
-                          'opacity-0 transition-opacity',
-                          'focus-within:pointer-events-auto focus-within:opacity-100',
-                          'group-hover/msg:pointer-events-auto group-hover/msg:opacity-100',
-                          'group-focus-within/msg:pointer-events-auto group-focus-within/msg:opacity-100',
-                          // Pinned to the bubble edge nearest the pane wall, so the
-                          // bar opens *inwards*. Anchoring the near edge instead
-                          // pushed it outwards: a short bubble against the right
-                          // wall sent an 83px bar 20px past the scroller, and
-                          // because `overflow-y-auto` promotes `overflow-x` to
-                          // `auto`, that produced a horizontal scrollbar across
-                          // the whole transcript.
-                          row.mine ? 'right-0' : 'left-0',
+                          REVEAL_ON_HOVER,
+                          // The far end: yours sits right, so its actions go
+                          // left; theirs sits left, so its actions go right.
+                          row.mine ? 'left-0' : 'right-0',
                         )}
                       >
-                        <div className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-border bg-surface px-1 py-0.5 shadow-sm">
-                        {/* Only where the row has no header of its own. A group
-                            start already prints the time beside the author, and
-                            repeating it put the same clock twice within 20px. */}
-                        {row.startsGroup ? null : (
-                          <time
-                            dateTime={row.message.createdAt}
-                            title={fullTimestamp}
-                            className="px-1 text-xs text-muted-foreground"
-                          >
-                            {formatTimeOfDay(locale, createdAt)}
-                          </time>
-                        )}
-                        <MessageMenu
-                          body={row.message.body}
-                          onReply={
-                            onReply
-                              ? () =>
-                                  onReply({
-                                    messageId: row.message.id,
-                                    authorName: row.mine
-                                      ? t('chat.messages.you', 'You')
-                                      : row.message.senderName,
-                                    body: row.message.body,
-                                  })
-                              : undefined
-                          }
-                        />
+                        <div className={FLOATING_CHROME}>
+                          <MessageMenu
+                            body={row.message.body}
+                            onReply={
+                              onReply
+                                ? () =>
+                                    onReply({
+                                      messageId: row.message.id,
+                                      authorName: row.mine
+                                        ? t('chat.messages.you', 'You')
+                                        : row.message.senderName,
+                                      body: row.message.body,
+                                    })
+                                : undefined
+                            }
+                          />
                         </div>
                       </div>
+
+                      {/* Only where the row has no header of its own — a group
+                          start already prints the time beside its author. */}
+                      {row.startsGroup ? null : (
+                        <div
+                          className={cn(REVEAL_ON_HOVER, row.mine ? 'right-0' : 'left-0')}
+                        >
+                          <div className={FLOATING_CHROME}>
+                            <time
+                              dateTime={row.message.createdAt}
+                              title={fullTimestamp}
+                              className="px-1 text-xs text-muted-foreground"
+                            >
+                              {formatTimeOfDay(locale, createdAt)}
+                            </time>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* The receipt, on the newest message you sent.

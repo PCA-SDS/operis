@@ -613,25 +613,33 @@ describe('MessageList', () => {
     })
 
     /**
-     * The bar is wider than a short bubble, so which edge it is pinned to decides
-     * which way it grows. It has to grow *inwards*, away from the wall the bubble
-     * is already against — pinning the near edge instead sent an 83px bar 20px
-     * past the scroller on a three-character message, and because the transcript's
-     * `overflow-y-auto` promotes `overflow-x` to `auto`, that produced a
-     * horizontal scrollbar across the whole conversation.
+     * The bar hangs off the bubble's FAR end — the edge pointing away from the
+     * wall the bubble is aligned against.
+     *
+     * That is the one place above a bubble that is always free: a group start
+     * prints its author and time hard against the same wall the bubble hugs, so
+     * anchoring the actions at the opposite edge puts them beside that header
+     * instead of on top of it, which is what hid the sender's name.
      */
-    it('opens the bar inwards, away from the wall its bubble is against', () => {
+    it('hangs the bar off the far end of the bubble', () => {
       renderList([
         message({ id: 'a', senderUserId: THEM, createdAt: '2026-09-02T10:00:00.000Z' }),
         message({ id: 'b', senderUserId: ME, createdAt: '2026-09-02T10:30:00.000Z' }),
       ])
       const rows = [...document.querySelectorAll('li[class*="group/msg"]')]
-      // Theirs hugs the left wall: pin its left edge so the bar grows right.
-      expect(barOf(rows[0]!).className).toContain('left-0')
-      expect(barOf(rows[0]!).className).not.toContain('right-0')
-      // Yours hugs the right wall: pin its right edge so the bar grows left.
-      expect(barOf(rows[1]!).className).toContain('right-0')
-      expect(barOf(rows[1]!).className).not.toContain('left-0')
+      // Theirs hugs the left wall, so its bar goes to the right.
+      expect(barOf(rows[0]!).className).toContain('right-0')
+      expect(barOf(rows[0]!).className).not.toContain('left-0')
+      // Yours hugs the right wall, so its bar goes to the left.
+      expect(barOf(rows[1]!).className).toContain('left-0')
+      expect(barOf(rows[1]!).className).not.toContain('right-0')
+    })
+
+    it('rests just above the bubble rather than clearing the header', () => {
+      renderList([message({ id: 'a', senderUserId: THEM })])
+      const bar = barOf(document.querySelector('li[class*="group/msg"]')!)
+      expect(bar.className).toContain('pb-1.5')
+      expect(bar.className).not.toMatch(/pb-[3-9]/)
     })
   })
 
