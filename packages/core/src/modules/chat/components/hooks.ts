@@ -129,7 +129,7 @@ export function useCanSendChat(): boolean {
  * The set is naturally bounded — you have as many direct conversations as
  * colleagues you talk to — so this stays one indexed query at any size.
  */
-export function useConversations() {
+export function useConversations(enabled: boolean = true) {
   const scope = useOrganizationScopeVersion()
   const [limit, setLimit] = React.useState(CONVERSATION_PAGE_STEP)
 
@@ -141,6 +141,10 @@ export function useConversations() {
   const query = useQuery({
     queryKey: chatKeys.conversations(scope, limit),
     queryFn: ({ signal }) => chatApi.listConversations({ limit }, signal),
+    // The topbar panel shares this query but only needs it while it is open, so
+    // a closed panel costs nothing. The chat page passes nothing and keeps the
+    // previous default.
+    enabled,
     // Growing the limit re-reads a superset, so showing the previous answer
     // while it lands avoids blanking a list the reader is looking at.
     placeholderData: keepPreviousData,
@@ -254,6 +258,29 @@ export function useSendMessage(conversationId: string | undefined) {
         operation: () => chatApi.sendMessage(conversationId as string, input),
         context: { resourceKind: 'chat.message', resourceId: conversationId ?? null },
         mutationPayload: input,
+      }),
+    onSuccess: () => {
+      invalidateChat(client)
+    },
+  })
+}
+
+/**
+ * Catch up on everything — what "clear" means for a chat notification.
+ *
+ * Wrapped in `useGuardedMutation` like every other write in the module, so it
+ * goes through the same mutation-guard and conflict surface rather than being
+ * the one write that bypasses it.
+ */
+export function useMarkAllRead() {
+  const client = useQueryClient()
+  const { runMutation } = useGuardedMutation({ contextId: 'chat.conversation' })
+
+  return useMutation({
+    mutationFn: () =>
+      runMutation({
+        operation: () => chatApi.markAllRead(),
+        context: { resourceKind: 'chat.conversation', resourceId: null },
       }),
     onSuccess: () => {
       invalidateChat(client)

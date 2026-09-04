@@ -61,6 +61,12 @@ export const chatApi = {
       jsonInit('POST', readAt ? { readAt } : {}),
     )).result!,
 
+  markAllRead: async () =>
+    (await apiCallOrThrow<{ conversationIds: string[]; lastReadAt: string }>(
+      `${BASE}/read-all`,
+      jsonInit('POST'),
+    )).result!,
+
   unreadCount: (signal?: AbortSignal) =>
     readApiResultOrThrow<ChatUnreadCountDto>(`${BASE}/unread-count`, { signal }),
 }
