@@ -321,6 +321,71 @@ test.describe('TC-CHAT-003: internal group spaces', () => {
     }
   })
 
+  /**
+   * Two owners pressing "Add" on the same person at the same moment.
+   *
+   * The unique index keeps the membership correct either way; what this guards
+   * is the RESPONSE. Before the retry was added the loser of the race got a
+   * bare 500 from the constraint — measured with six parallel adds, which left
+   * one membership row and several server errors. Both callers did something
+   * reasonable and both should be told it worked.
+   */
+  test('concurrent adds of the same person converge instead of erroring', async ({ request }) => {
+    const adminToken = await getAuthToken(request, 'admin')
+    const { organizationId } = getTokenContext(adminToken)
+
+    let roleId: string | null = null
+    let owner: Person | null = null
+    let coOwner: Person | null = null
+    let target: Person | null = null
+
+    try {
+      roleId = await createRoleFixture(request, adminToken, { name: `QA Race ${Date.now()}` })
+      await setRoleAclFeatures(request, adminToken, { roleId, features: ['chat.view', 'chat.send'] })
+      owner = await createColleague(request, adminToken, organizationId, roleId, 'owner')
+      coOwner = await createColleague(request, adminToken, organizationId, roleId, 'coowner')
+      target = await createColleague(request, adminToken, organizationId, roleId, 'target')
+
+      const created = await apiRequest(request, 'POST', '/api/chat/conversations', {
+        token: owner.token,
+        data: { kind: 'space', title: 'QA Race', memberIds: [coOwner.id] },
+      })
+      const spaceId = (await created.json()).id as string
+      await apiRequest(request, 'PATCH', `/api/chat/conversations/${spaceId}/members/${coOwner.id}`, {
+        token: owner.token,
+        data: { role: 'owner' },
+      })
+
+      const add = (token: string) =>
+        apiRequest(request, 'POST', `/api/chat/conversations/${spaceId}/members`, {
+          token,
+          data: { memberIds: [target!.id] },
+        })
+
+      const responses = await Promise.all([add(owner.token), add(coOwner.token), add(owner.token)])
+      for (const response of responses) {
+        expect(response.status(), 'a losing racer is still told it worked').toBe(200)
+      }
+      // Exactly one of them reports having done the seating.
+      const addedCounts = await Promise.all(responses.map(async (r) => ((await r.json()).added as string[]).length))
+      expect(addedCounts.filter((n) => n === 1)).toHaveLength(1)
+      expect(addedCounts.filter((n) => n === 0)).toHaveLength(2)
+
+      // And the membership is right: one row, not three.
+      const members = await apiRequest(request, 'GET', `/api/chat/conversations/${spaceId}/members`, {
+        token: owner.token,
+      })
+      const body = await members.json()
+      expect(body.items.filter((m: { id: string }) => m.id === target!.id)).toHaveLength(1)
+      expect(body.total).toBe(3)
+    } finally {
+      await deleteUserIfExists(request, adminToken, owner?.id ?? null)
+      await deleteUserIfExists(request, adminToken, coOwner?.id ?? null)
+      await deleteUserIfExists(request, adminToken, target?.id ?? null)
+      await deleteRoleIfExists(request, adminToken, roleId)
+    }
+  })
+
   test('a space never reaches outside its own organization', async ({ request }) => {
     const adminToken = await getAuthToken(request, 'admin')
     const { organizationId: orgA } = getTokenContext(adminToken)

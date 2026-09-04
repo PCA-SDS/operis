@@ -1,7 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
-import { badRequest, notFound } from '@open-mercato/shared/lib/crud/errors'
+import { badRequest, isUniqueViolation, notFound } from '@open-mercato/shared/lib/crud/errors'
 import { ChatConversation, ChatMessage, ChatParticipant } from '../data/entities'
 import type { ChatParticipantRole, ChatSystemEvent } from '../data/entities'
 import { dbNow } from '../lib/clock'
@@ -273,62 +273,105 @@ const addSpaceMembersCommand: CommandHandler<AddSpaceMembersInput, { added: stri
     const members = await loadOrganizationMembers(em, scope, requested)
     if (members.size !== requested.length) throw badRequest(messages.memberNotFound)
 
-    const existing = await em.find(ChatParticipant, {
-      conversationId: input.conversationId,
-      userId: { $in: requested },
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-    })
-    const alreadyIn = new Set(existing.map((participant) => participant.userId))
-    const toAdd = requested.filter((userId) => !alreadyIn.has(userId))
-    if (toAdd.length === 0) return { added: [] }
-
-    await em.transactional(async (tx) => {
-      const now = await dbNow(tx)
-      const target = await tx.findOne(ChatConversation, {
-        id: input.conversationId,
+    /** Which of the requested people are not in the space yet, read fresh. */
+    const stillMissing = async (candidates: readonly string[]): Promise<string[]> => {
+      if (candidates.length === 0) return []
+      const rows = await forkEm(ctx).find(ChatParticipant, {
+        conversationId: input.conversationId,
+        userId: { $in: [...candidates] },
         tenantId: scope.tenantId,
         organizationId: scope.organizationId,
-        deletedAt: null,
       })
-      if (!target) throw notFound(messages.conversationNotFound)
+      const present = new Set(rows.map((participant) => participant.userId))
+      return candidates.filter((userId) => !present.has(userId))
+    }
 
-      for (const userId of toAdd) {
-        tx.persist(
-          tx.create(ChatParticipant, {
-            tenantId: scope.tenantId,
-            organizationId: scope.organizationId,
-            conversationId: target.id,
-            userId,
-            role: 'member',
-            createdAt: now,
-            updatedAt: now,
-          }),
-        )
-        await appendSystemMessage(tx, scope, {
-          conversationId: target.id,
-          actorUserId,
-          event: 'member_added',
-          targetUserId: userId,
-          now,
+    /** Seat these people and record it. One transaction, all or nothing. */
+    const seat = async (userIds: readonly string[]): Promise<void> => {
+      await forkEm(ctx).transactional(async (tx) => {
+        const now = await dbNow(tx)
+        const target = await tx.findOne(ChatConversation, {
+          id: input.conversationId,
+          tenantId: scope.tenantId,
+          organizationId: scope.organizationId,
+          deletedAt: null,
         })
+        if (!target) throw notFound(messages.conversationNotFound)
+
+        for (const userId of userIds) {
+          tx.persist(
+            tx.create(ChatParticipant, {
+              tenantId: scope.tenantId,
+              organizationId: scope.organizationId,
+              conversationId: target.id,
+              userId,
+              role: 'member',
+              createdAt: now,
+              updatedAt: now,
+            }),
+          )
+          await appendSystemMessage(tx, scope, {
+            conversationId: target.id,
+            actorUserId,
+            event: 'member_added',
+            targetUserId: userId,
+            now,
+          })
+        }
+        // The preview is a display name rather than a rendered sentence: the list
+        // row has no room for one, and the name is the useful half.
+        const lastName = members.get(userIds[userIds.length - 1]!)?.name ?? ''
+        bumpConversation(target, now, lastName, actorUserId)
+        await tx.flush()
+      })
+    }
+
+    /**
+     * Adding is idempotent under concurrency, and the unique index is what makes
+     * that safe rather than the read above.
+     *
+     * Two owners pressing "Add" on the same person at the same moment both see
+     * them missing, and both insert. `chat_participants_conversation_user_uq`
+     * rejects the loser with a 23505 — which, unhandled, surfaced as a 500 to
+     * one of two people who each did something perfectly reasonable. Measured:
+     * six parallel adds of one person produced 500s while the membership stayed
+     * correct at one row, so the database was right and only the response was
+     * wrong.
+     *
+     * On a violation the state is re-read and whatever is genuinely still
+     * missing is seated. A second violation means the other writer finished the
+     * job in between, which is success — the requested people are members, and
+     * this call simply added none of them.
+     */
+    let added = await stillMissing(requested)
+    if (added.length === 0) return { added: [] }
+
+    try {
+      await seat(added)
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error
+      added = await stillMissing(added)
+      if (added.length > 0) {
+        try {
+          await seat(added)
+        } catch (retryError) {
+          if (!isUniqueViolation(retryError)) throw retryError
+          added = []
+        }
       }
-      // The preview is a display name rather than a rendered sentence: the list
-      // row has no room for one, and the name is the useful half.
-      const lastName = members.get(toAdd[toAdd.length - 1]!)?.name ?? ''
-      bumpConversation(target, now, lastName, actorUserId)
-      await tx.flush()
-    })
+    }
 
     // Recomputed after the write, so the people just added are in it and receive
-    // the frame that tells their client to pick the space up.
+    // the frame that tells their client to pick the space up. Emitted even when
+    // this call added nobody: the concurrent winner's own emit may have raced
+    // ahead of its own commit, and a second pointer costs one refetch.
     const recipients = await conversationAudience(forkEm(ctx), scope, input.conversationId)
     await emitConversationEvent('chat.conversation.updated', scope, recipients, {
       conversationId: input.conversationId,
       change: 'members_added',
     })
 
-    return { added: toAdd }
+    return { added }
   },
 }
 
