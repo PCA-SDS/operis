@@ -20,7 +20,7 @@ const createInputSchema = resourcesResourceAreaCreateSchema
 const listSchema = z
   .object({
     page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(2000).default(100),
+    pageSize: z.coerce.number().min(1).max(100).default(100),
     search: z.string().optional(),
     sortField: z.string().optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
@@ -111,7 +111,7 @@ const viewSchema = z
   .object({
     view: z.enum(['manage', 'tree']).default('manage'),
     page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(2000).default(100),
+    pageSize: z.coerce.number().min(1).max(100).default(100),
     search: z.string().optional(),
     status: z.enum(['all', 'active', 'inactive']).optional(),
     areaType: z.string().optional(),

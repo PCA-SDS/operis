@@ -406,11 +406,6 @@ export function useResourcesResourceFormConfig(options: {
         },
       },
       {
-        id: 'sortOrder',
-        label: t('resources.resources.form.fields.sortOrder', 'Sort Order'),
-        type: 'number',
-      },
-      {
         id: 'capacity',
         label: t('resources.resources.form.fields.capacity', 'Capacity'),
         description: t(
@@ -494,7 +489,6 @@ export function useResourcesResourceFormConfig(options: {
           'description',
           'resourceTypeId',
           'areaId',
-          'sortOrder',
           'capacity',
           'capacityUnitValue',
           'appearance',

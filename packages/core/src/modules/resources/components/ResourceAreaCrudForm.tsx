@@ -84,7 +84,6 @@ export const buildResourceAreaPayload = (
     description,
     areaType: values.areaType || 'other',
     parentAreaId: values.parentAreaId || null,
-    sortOrder: typeof values.sortOrder === 'number' ? values.sortOrder : 0,
     appearanceIcon: appearance.icon ?? null,
     appearanceColor: appearance.color ?? null,
     isActive: typeof values.isActive === 'boolean' ? values.isActive : true,
@@ -273,7 +272,6 @@ export function ResourceAreaCrudForm({
         )
       }
     },
-    { id: 'sortOrder', label: t('resources.resourceAreas.form.sortOrder', 'Sort Order'), type: 'number' },
     { id: 'isActive', label: t('resources.resourceAreas.form.isActive', 'Is Active'), type: 'checkbox' },
     {
       id: 'appearance',
@@ -295,7 +293,7 @@ export function ResourceAreaCrudForm({
   ], [appearanceLabels, areas, areasLoading, areasLoadingMore, handleAreasViewportScroll, initialValues.areaType, initialValues.id, initialValues.parentAreaId, t])
 
   const groups = React.useMemo<CrudFormGroup[]>(() => [
-    { id: 'details', fields: ['name', 'description', 'areaType', 'parentAreaId', 'sortOrder', 'isActive'] },
+    { id: 'details', fields: ['name', 'description', 'areaType', 'parentAreaId', 'isActive'] },
     { id: 'appearance', fields: ['appearance'], column: 2 },
   ], [])
 

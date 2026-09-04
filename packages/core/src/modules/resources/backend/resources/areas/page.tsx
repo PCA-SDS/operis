@@ -13,7 +13,7 @@ import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterOve
 import { Button } from '@open-mercato/ui/primitives/button'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { readApiResultOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCallOrThrow, readApiResultOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { deleteCrud } from '@open-mercato/ui/backend/utils/crud'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -23,7 +23,7 @@ import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/u
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { formatDateTime } from '@open-mercato/shared/lib/time'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, GripVertical, Loader2 } from 'lucide-react'
 
 const logger = createLogger('resources').child({ component: 'resource-areas-page' })
 
@@ -88,7 +88,7 @@ export default function ResourcesResourceAreasPage() {
   const [page, setPage] = React.useState(1)
   const [total, setTotal] = React.useState(0)
   const [totalPages, setTotalPages] = React.useState(1)
-  const [sorting, setSorting] = React.useState<SortingState>([{ id: 'name', desc: false }])
+  const [sorting, setSorting] = React.useState<SortingState>([{ id: 'sort_order', desc: false }])
   const [search, setSearch] = React.useState('')
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [isLoading, setIsLoading] = React.useState(true)
@@ -97,6 +97,7 @@ export default function ResourcesResourceAreasPage() {
   const [childRowsByParentId, setChildRowsByParentId] = React.useState<Map<string, ResourceAreaRow[]>>(new Map())
   const [childPageByParentId, setChildPageByParentId] = React.useState<Map<string, ChildPageState>>(new Map())
   const [loadingChildrenIds, setLoadingChildrenIds] = React.useState<Set<string>>(new Set())
+  const [draggingAreaId, setDraggingAreaId] = React.useState<string | null>(null)
   const { runMutation, retryLastMutation } = useGuardedMutation<ResourceAreasMutationContext>({
     contextId: RESOURCE_AREAS_MUTATION_CONTEXT_ID,
     blockedMessage: translate('ui.forms.flash.saveBlocked', 'Save blocked by validation'),
@@ -133,6 +134,7 @@ export default function ResourcesResourceAreasPage() {
       empty: translate('resources.resourceAreas.table.empty', 'No resource areas yet.'),
       search: translate('resources.resourceAreas.table.search', 'Search resource areas…'),
       loadMoreChildren: translate('resources.resourceAreas.table.loadMoreChildren', 'Load more child areas'),
+      reorderDisabled: translate('resources.resourceAreas.table.reorderDisabled', 'Reordering is available when viewing areas by order without filters.'),
     },
     filters: {
       status: translate('resources.resourceAreas.filters.status', 'Status'),
@@ -157,6 +159,9 @@ export default function ResourcesResourceAreasPage() {
       refresh: translate('resources.resourceAreas.actions.refresh', 'Refresh'),
       expand: translate('resources.resourceAreas.actions.expand', 'Expand area'),
       collapse: translate('resources.resourceAreas.actions.collapse', 'Collapse area'),
+      dragToReorder: translate('resources.resourceAreas.actions.dragToReorder', 'Drag to reorder'),
+      moveDown: translate('resources.resourceAreas.actions.moveDown', 'Move down'),
+      moveUp: translate('resources.resourceAreas.actions.moveUp', 'Move up'),
     },
     messages: {
       deleted: translate('resources.resourceAreas.messages.deleted', 'Resource area deleted.'),
@@ -165,8 +170,15 @@ export default function ResourcesResourceAreasPage() {
       load: translate('resources.resourceAreas.errors.load', 'Failed to load resource areas.'),
       delete: translate('resources.resourceAreas.errors.delete', 'Failed to delete resource area.'),
       deleteAssigned: translate('resources.resourceAreas.errors.deleteAssigned', 'Cannot delete an area with children or assigned resources.'),
+      reorder: translate('resources.resourceAreas.errors.reorder', 'Failed to reorder resource areas.'),
     },
   }), [translate])
+
+  const canReorderAreas = React.useMemo(() => {
+    const sort = sorting[0]
+    const hasActiveFilters = Boolean(filterValues.status || filterValues.areaType || search.trim())
+    return !hasActiveFilters && sort?.id === 'sort_order' && sort.desc !== true
+  }, [filterValues.areaType, filterValues.status, search, sorting])
 
   const filters = React.useMemo<FilterDef[]>(() => [
     {
@@ -264,6 +276,49 @@ export default function ResourcesResourceAreasPage() {
     void loadChildren(parentId, state.page + 1, true)
   }, [childPageByParentId, loadChildren])
 
+  const handleRefresh = React.useCallback(() => {
+    setReloadToken((token) => token + 1)
+  }, [])
+
+  const getAreaSiblingRows = React.useCallback((parentAreaId: string | null): ResourceAreaRow[] => {
+    return parentAreaId ? childRowsByParentId.get(parentAreaId) ?? [] : rows
+  }, [childRowsByParentId, rows])
+
+  const handleReorderArea = React.useCallback(async (
+    area: ResourceAreaRow,
+    movement: { direction?: 'up' | 'down'; targetId?: string },
+  ) => {
+    if (!canReorderAreas) return
+    try {
+      const payload = { id: area.id, ...movement }
+      await runResourceAreaMutation(
+        () => apiCallOrThrow('/api/resources/areas/reorder', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        }, { errorMessage: translations.errors.reorder }),
+        { operation: 'reorderResourceArea', ...payload },
+        area.id,
+      )
+      if (area.parent_area_id) {
+        await loadChildren(area.parent_area_id)
+      } else {
+        handleRefresh()
+      }
+    } catch (error) {
+      logger.error('Failed to reorder resource area', { err: error, areaId: area.id })
+      flash(translations.errors.reorder, 'error')
+    }
+  }, [canReorderAreas, handleRefresh, loadChildren, runResourceAreaMutation, translations.errors.reorder])
+
+  const handleAreaDrop = React.useCallback((target: ResourceAreaRow) => {
+    if (!draggingAreaId || draggingAreaId === target.id || !canReorderAreas) return
+    const siblings = getAreaSiblingRows(target.parent_area_id)
+    const dragged = siblings.find((area) => area.id === draggingAreaId)
+    if (!dragged || dragged.parent_area_id !== target.parent_area_id) return
+    void handleReorderArea(dragged, { targetId: target.id })
+  }, [canReorderAreas, draggingAreaId, getAreaSiblingRows, handleReorderArea])
+
   const tableRows = React.useMemo<ResourceAreaTableRow[]>(() => {
     const output: ResourceAreaTableRow[] = []
     const appendArea = (area: ResourceAreaRow) => {
@@ -321,9 +376,76 @@ export default function ResourcesResourceAreasPage() {
         const hasChildren = area.child_count > 0
         const expanded = expandedAreaIds.has(area.id)
         const childrenLoading = loadingChildrenIds.has(area.id)
+        const siblingRows = getAreaSiblingRows(area.parent_area_id)
+        const siblingIndex = siblingRows.findIndex((item) => item.id === area.id)
+        const canMoveUp = canReorderAreas && siblingIndex > 0
+        const canMoveDown = canReorderAreas && siblingIndex >= 0 && siblingIndex < siblingRows.length - 1
         return (
-          <div className="flex flex-col gap-1" style={{ paddingLeft }}>
+          <div
+            className="flex flex-col gap-1"
+            style={{ paddingLeft }}
+            onDragOver={(event) => {
+              if (!canReorderAreas || !draggingAreaId) return
+              event.preventDefault()
+            }}
+            onDrop={(event) => {
+              event.preventDefault()
+              handleAreaDrop(area)
+            }}
+          >
             <div className="flex min-w-0 items-center gap-2">
+              <div className="flex items-center gap-1" data-actions-cell>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0 cursor-grab"
+                  disabled={!canReorderAreas}
+                  draggable={canReorderAreas}
+                  title={canReorderAreas ? translations.actions.dragToReorder : translations.table.reorderDisabled}
+                  aria-label={translations.actions.dragToReorder}
+                  onClick={(event) => event.stopPropagation()}
+                  onDragStart={(event) => {
+                    event.stopPropagation()
+                    setDraggingAreaId(area.id)
+                    event.dataTransfer.effectAllowed = 'move'
+                    event.dataTransfer.setData('text/plain', area.id)
+                  }}
+                  onDragEnd={() => setDraggingAreaId(null)}
+                >
+                  <GripVertical className="size-4" aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0"
+                  disabled={!canMoveUp}
+                  title={translations.actions.moveUp}
+                  aria-label={translations.actions.moveUp}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    void handleReorderArea(area, { direction: 'up' })
+                  }}
+                >
+                  <ArrowUp className="size-4" aria-hidden />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7 shrink-0"
+                  disabled={!canMoveDown}
+                  title={translations.actions.moveDown}
+                  aria-label={translations.actions.moveDown}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    void handleReorderArea(area, { direction: 'down' })
+                  }}
+                >
+                  <ArrowDown className="size-4" aria-hidden />
+                </Button>
+              </div>
               <Button
                 type="button"
                 variant="ghost"
@@ -405,7 +527,18 @@ export default function ResourcesResourceAreasPage() {
           ? <span className="text-xs text-muted-foreground">—</span>
           : null,
     },
-  ], [expandedAreaIds, loadMoreChildren, loadingChildrenIds, toggleAreaExpanded, translations])
+  ], [
+    canReorderAreas,
+    draggingAreaId,
+    expandedAreaIds,
+    getAreaSiblingRows,
+    handleAreaDrop,
+    handleReorderArea,
+    loadMoreChildren,
+    loadingChildrenIds,
+    toggleAreaExpanded,
+    translations,
+  ])
 
   const loadResourceAreas = React.useCallback(async () => {
     setIsLoading(true)
@@ -468,10 +601,6 @@ export default function ResourcesResourceAreasPage() {
   const handleFiltersClear = React.useCallback(() => {
     setFilterValues({})
     setPage(1)
-  }, [])
-
-  const handleRefresh = React.useCallback(() => {
-    setReloadToken((token) => token + 1)
   }, [])
 
   const handleDelete = React.useCallback(async (entry: ResourceAreaRow) => {

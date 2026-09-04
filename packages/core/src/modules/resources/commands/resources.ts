@@ -14,8 +14,10 @@ import { Dictionary, DictionaryEntry } from '@open-mercato/core/modules/dictiona
 import { ResourcesResource, ResourcesResourceTag, ResourcesResourceTagAssignment, ResourcesResourceArea } from '../data/entities'
 import {
   resourcesResourceCreateSchema,
+  resourcesResourceReorderSchema,
   resourcesResourceUpdateSchema,
   type ResourcesResourceCreateInput,
+  type ResourcesResourceReorderInput,
   type ResourcesResourceUpdateInput,
 } from '../data/validators'
 import { resourcesResourceCrudEvents } from '../lib/crud'
@@ -63,6 +65,15 @@ type ResourceUndoPayload = {
   after?: ResourceSnapshot | null
   customBefore?: CustomFieldSnapshot | null
   customAfter?: CustomFieldSnapshot | null
+}
+
+type ResourceReorderSnapshot = {
+  resources: Array<{ id: string; sortOrder: number }>
+}
+
+type ResourceReorderUndoPayload = {
+  before?: ResourceReorderSnapshot | null
+  after?: ResourceReorderSnapshot | null
 }
 
 async function resolveCapacityUnit(
@@ -121,6 +132,51 @@ function normalizeTagIds(tags?: Array<string | null | undefined>): string[] {
     if (typeof id === 'string' && id.trim().length > 0) set.add(id.trim())
   })
   return Array.from(set)
+}
+
+async function resolveNextResourceSortOrder(
+  em: EntityManager,
+  params: { tenantId: string; organizationId: string; areaId?: string | null },
+): Promise<number> {
+  const siblings = await em.find(
+    ResourcesResource,
+    {
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
+      areaId: params.areaId ?? null,
+      deletedAt: null,
+    },
+    { orderBy: { sortOrder: 'DESC', name: 'ASC' }, limit: 1 },
+  )
+  return (siblings[0]?.sortOrder ?? -1) + 1
+}
+
+function snapshotResourceOrder(resources: ResourcesResource[]): ResourceReorderSnapshot {
+  return {
+    resources: resources.map((resource) => ({ id: resource.id, sortOrder: resource.sortOrder ?? 0 })),
+  }
+}
+
+function moveSiblingOrder<TEntity extends { id: string }>(
+  rows: TEntity[],
+  input: { id: string; targetId?: string; direction?: 'up' | 'down' },
+): TEntity[] {
+  const ordered = [...rows]
+  const from = ordered.findIndex((row) => row.id === input.id)
+  if (from < 0) throw new CrudHttpError(404, { error: 'Reorder item not found.' })
+  if (input.targetId) {
+    if (input.targetId === input.id) return ordered
+    const [moving] = ordered.splice(from, 1)
+    const target = ordered.findIndex((row) => row.id === input.targetId)
+    if (target < 0) throw new CrudHttpError(404, { error: 'Reorder target not found.' })
+    ordered.splice(target, 0, moving)
+    return ordered
+  }
+  const to = input.direction === 'up' ? from - 1 : from + 1
+  if (to < 0 || to >= ordered.length) return ordered
+  const [moving] = ordered.splice(from, 1)
+  ordered.splice(to, 0, moving)
+  return ordered
 }
 
 async function loadResourceSnapshot(em: EntityManager, id: string): Promise<ResourceSnapshot | null> {
@@ -235,6 +291,15 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
     const unitSnapshot = unitValue
       ? await resolveCapacityUnit(em, { tenantId: parsed.tenantId, organizationId: parsed.organizationId }, unitValue)
       : null
+    const hasExplicitSortOrder = Boolean(rawInput && typeof rawInput === 'object' && 'sortOrder' in rawInput)
+    const sortOrder = hasExplicitSortOrder
+      ? parsed.sortOrder ?? 0
+      : await resolveNextResourceSortOrder(em, {
+          tenantId: parsed.tenantId,
+          organizationId: parsed.organizationId,
+          areaId: parsed.areaId ?? null,
+        })
+
     const record = em.create(ResourcesResource, {
       tenantId: parsed.tenantId,
       organizationId: parsed.organizationId,
@@ -242,7 +307,7 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
       description: parsed.description ?? null,
       resourceTypeId: parsed.resourceTypeId ?? null,
       areaId: parsed.areaId ?? null,
-      sortOrder: parsed.sortOrder ?? 0,
+      sortOrder,
       capacity: parsed.capacity ?? null,
       capacityUnitValue: unitSnapshot?.value ?? null,
       capacityUnitName: unitSnapshot?.name ?? null,
@@ -468,13 +533,21 @@ const updateResourceCommand: CommandHandler<ResourcesResourceUpdateInput, { reso
     ensureTenantScope(ctx, record.tenantId)
     ensureOrganizationScope(ctx, record.organizationId)
 
-    if (parsed.areaId !== undefined && parsed.areaId !== record.areaId) {
+    const areaChanged = parsed.areaId !== undefined && parsed.areaId !== record.areaId
+    if (areaChanged) {
       if (parsed.areaId) {
         const area = await em.findOne(ResourcesResourceArea, { id: parsed.areaId, deletedAt: null })
         if (!area) throw new CrudHttpError(404, { error: 'Resource area not found.' })
         if (area.organizationId !== record.organizationId) {
           throw new CrudHttpError(400, { error: 'Resource area does not belong to the same organization.' })
         }
+      }
+      if (parsed.sortOrder === undefined) {
+        record.sortOrder = await resolveNextResourceSortOrder(em, {
+          tenantId: record.tenantId,
+          organizationId: record.organizationId,
+          areaId: parsed.areaId ?? null,
+        })
       }
     }
 
@@ -826,6 +899,147 @@ const deleteResourceCommand: CommandHandler<{ id?: string }, { resourceId: strin
   },
 }
 
+const reorderResourcesCommand: CommandHandler<ResourcesResourceReorderInput, { updatedIds: string[] }> = {
+  id: 'resources.resources.reorder',
+  async prepare(rawInput, ctx) {
+    const parsed = resourcesResourceReorderSchema.parse(rawInput ?? {})
+    const em = (ctx.container.resolve('em') as EntityManager)
+    const record = await em.findOne(ResourcesResource, {
+      id: parsed.id,
+      tenantId: parsed.tenantId,
+      organizationId: parsed.organizationId,
+      deletedAt: null,
+    })
+    if (!record) return {}
+    const siblings = await em.find(
+      ResourcesResource,
+      {
+        tenantId: parsed.tenantId,
+        organizationId: parsed.organizationId,
+        areaId: record.areaId ?? null,
+        deletedAt: null,
+      },
+      { orderBy: { sortOrder: 'ASC', name: 'ASC', id: 'ASC' } },
+    )
+    return { before: snapshotResourceOrder(siblings) }
+  },
+  async execute(rawInput, ctx) {
+    const parsed = resourcesResourceReorderSchema.parse(rawInput ?? {})
+    ensureTenantScope(ctx, parsed.tenantId)
+    ensureOrganizationScope(ctx, parsed.organizationId)
+
+    const em = (ctx.container.resolve('em') as EntityManager).fork()
+    const record = await em.findOne(ResourcesResource, {
+      id: parsed.id,
+      tenantId: parsed.tenantId,
+      organizationId: parsed.organizationId,
+      deletedAt: null,
+    })
+    if (!record) throw new CrudHttpError(404, { error: 'Resources resource not found.' })
+    if (parsed.targetId) {
+      const target = await em.findOne(ResourcesResource, {
+        id: parsed.targetId,
+        tenantId: parsed.tenantId,
+        organizationId: parsed.organizationId,
+        areaId: record.areaId ?? null,
+        deletedAt: null,
+      })
+      if (!target) throw new CrudHttpError(404, { error: 'Resource reorder target not found.' })
+    }
+
+    const siblings = await em.find(
+      ResourcesResource,
+      {
+        tenantId: parsed.tenantId,
+        organizationId: parsed.organizationId,
+        areaId: record.areaId ?? null,
+        deletedAt: null,
+      },
+      { orderBy: { sortOrder: 'ASC', name: 'ASC', id: 'ASC' } },
+    )
+    const reordered = moveSiblingOrder(siblings, parsed)
+    const now = new Date()
+    reordered.forEach((resource, index) => {
+      resource.sortOrder = index
+      resource.updatedAt = now
+    })
+    await em.flush()
+    return { updatedIds: reordered.map((resource) => resource.id) }
+  },
+  captureAfter: async (input, _result, ctx) => {
+    const parsed = resourcesResourceReorderSchema.parse(input ?? {})
+    const em = (ctx.container.resolve('em') as EntityManager).fork()
+    const record = await em.findOne(ResourcesResource, { id: parsed.id })
+    if (!record) return null
+    const siblings = await em.find(
+      ResourcesResource,
+      {
+        tenantId: record.tenantId,
+        organizationId: record.organizationId,
+        areaId: record.areaId ?? null,
+        deletedAt: null,
+      },
+      { orderBy: { sortOrder: 'ASC', name: 'ASC', id: 'ASC' } },
+    )
+    return { after: snapshotResourceOrder(siblings) }
+  },
+  buildLog: async ({ input, snapshots }) => {
+    const parsed = resourcesResourceReorderSchema.parse(input ?? {})
+    const { translate } = await resolveTranslations()
+    return {
+      actionLabel: translate('resources.audit.resources.reorder', 'Reorder resources'),
+      resourceKind: 'resources.resource',
+      resourceId: parsed.id,
+      tenantId: parsed.tenantId,
+      organizationId: parsed.organizationId,
+      snapshotBefore: snapshots.before,
+      snapshotAfter: snapshots.after,
+      payload: {
+        undo: {
+          before: snapshots.before as ResourceReorderSnapshot | null | undefined,
+          after: snapshots.after as ResourceReorderSnapshot | null | undefined,
+        } satisfies ResourceReorderUndoPayload,
+      },
+    }
+  },
+  undo: async ({ logEntry, ctx }) => {
+    const payload = extractUndoPayload<ResourceReorderUndoPayload>(logEntry)
+    const before = payload?.before
+    if (!before) return
+    const em = (ctx.container.resolve('em') as EntityManager).fork()
+    const ids = before.resources.map((resource) => resource.id)
+    const resources = await em.find(ResourcesResource, { id: { $in: ids } })
+    const byId = new Map(resources.map((resource) => [resource.id, resource]))
+    const now = new Date()
+    before.resources.forEach((snapshot) => {
+      const resource = byId.get(snapshot.id)
+      if (!resource) return
+      resource.sortOrder = snapshot.sortOrder
+      resource.updatedAt = now
+    })
+    await em.flush()
+  },
+  redo: async ({ logEntry, ctx }) => {
+    const payload = extractUndoPayload<ResourceReorderUndoPayload>(logEntry)
+    const after = payload?.after
+    if (!after) return { updatedIds: [] }
+    const em = (ctx.container.resolve('em') as EntityManager).fork()
+    const ids = after.resources.map((resource) => resource.id)
+    const resources = await em.find(ResourcesResource, { id: { $in: ids } })
+    const byId = new Map(resources.map((resource) => [resource.id, resource]))
+    const now = new Date()
+    after.resources.forEach((snapshot) => {
+      const resource = byId.get(snapshot.id)
+      if (!resource) return
+      resource.sortOrder = snapshot.sortOrder
+      resource.updatedAt = now
+    })
+    await em.flush()
+    return { updatedIds: ids }
+  },
+}
+
 registerCommand(createResourceCommand)
 registerCommand(updateResourceCommand)
 registerCommand(deleteResourceCommand)
+registerCommand(reorderResourcesCommand)

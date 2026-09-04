@@ -26,7 +26,7 @@ export default function ResourcesResourceAreaCreatePage() {
       <PageBody>
         <ResourceAreaCrudForm
           mode="create"
-          initialValues={{ name: '', description: '', appearance: { icon: null, color: null }, areaType: 'other', parentAreaId: null, sortOrder: 0, isActive: true }}
+          initialValues={{ name: '', description: '', appearance: { icon: null, color: null }, areaType: 'other', parentAreaId: null, isActive: true }}
           onSubmit={handleSubmit}
         />
       </PageBody>

@@ -12,6 +12,17 @@ const scopedUpdateFields = {
   id: z.string().uuid(),
 }
 
+const reorderMoveSchema = z
+  .object({
+    ...scopedCreateFields,
+    id: z.string().uuid(),
+    targetId: z.string().uuid().optional(),
+    direction: z.enum(['up', 'down']).optional(),
+  })
+  .refine((value) => value.targetId || value.direction, {
+    message: 'Reorder target or direction is required.',
+  })
+
 export const resourcesResourceTypeCreateSchema = z.object({
   ...scopedCreateFields,
   name: z.string().min(1),
@@ -81,6 +92,8 @@ export const resourcesResourceUpdateSchema = z.object({
   availabilityRuleSetId: z.string().uuid().optional().nullable(),
   customFieldsetCode: customFieldsetCodeSchema.optional().nullable(),
 })
+
+export const resourcesResourceReorderSchema = reorderMoveSchema
 
 export const resourcesResourceTagCreateSchema = z.object({
   ...scopedCreateFields,
@@ -193,10 +206,13 @@ export const resourcesResourceAreaUpdateSchema = z.object({
   isActive: z.boolean().optional(),
 })
 
+export const resourcesResourceAreaReorderSchema = reorderMoveSchema
+
 export type ResourcesResourceTypeCreateInput = z.infer<typeof resourcesResourceTypeCreateSchema>
 export type ResourcesResourceTypeUpdateInput = z.infer<typeof resourcesResourceTypeUpdateSchema>
 export type ResourcesResourceCreateInput = z.infer<typeof resourcesResourceCreateSchema>
 export type ResourcesResourceUpdateInput = z.infer<typeof resourcesResourceUpdateSchema>
+export type ResourcesResourceReorderInput = z.infer<typeof resourcesResourceReorderSchema>
 export type ResourcesResourceTagCreateInput = z.infer<typeof resourcesResourceTagCreateSchema>
 export type ResourcesResourceTagUpdateInput = z.infer<typeof resourcesResourceTagUpdateSchema>
 export type ResourcesResourceTagAssignmentInput = z.infer<typeof resourcesResourceTagAssignmentSchema>
@@ -206,3 +222,4 @@ export type ResourcesResourceActivityCreateInput = z.infer<typeof resourcesResou
 export type ResourcesResourceActivityUpdateInput = z.infer<typeof resourcesResourceActivityUpdateSchema>
 export type ResourcesResourceAreaCreateInput = z.infer<typeof resourcesResourceAreaCreateSchema>
 export type ResourcesResourceAreaUpdateInput = z.infer<typeof resourcesResourceAreaUpdateSchema>
+export type ResourcesResourceAreaReorderInput = z.infer<typeof resourcesResourceAreaReorderSchema>

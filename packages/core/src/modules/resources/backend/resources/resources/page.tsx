@@ -12,7 +12,7 @@ import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { BooleanIcon } from '@open-mercato/ui/backend/ValueIcons'
-import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCall, apiCallOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { deleteCrud } from '@open-mercato/ui/backend/utils/crud'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
@@ -23,7 +23,7 @@ import { renderDictionaryColor, renderDictionaryIcon } from '@open-mercato/core/
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
-import { Pencil } from 'lucide-react'
+import { ArrowDown, ArrowUp, GripVertical, Pencil } from 'lucide-react'
 
 const PAGE_SIZE = 20
 const RESOURCE_LIST_MUTATION_CONTEXT_ID = 'resources.resources.list'
@@ -121,6 +121,8 @@ export default function ResourcesResourcesPage() {
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [groupBy, setGroupBy] = React.useState<ResourceGroupBy>('resourceType')
   const [isLoading, setIsLoading] = React.useState(true)
+  const [reloadToken, setReloadToken] = React.useState(0)
+  const [draggingResourceId, setDraggingResourceId] = React.useState<string | null>(null)
   const [resourceTypes, setResourceTypes] = React.useState<Map<string, ResourceTypeRow>>(new Map())
   const [resourceAreas, setResourceAreas] = React.useState<Map<string, { id: string; name: string }>>(new Map())
   const [canManage, setCanManage] = React.useState(false)
@@ -384,6 +386,44 @@ export default function ResourcesResourcesPage() {
     }
   }, [pathname, router, searchParams])
 
+  const handleRefresh = React.useCallback(() => {
+    setReloadToken((token) => token + 1)
+  }, [])
+
+  const canReorderResources = canManage && groupBy === 'area'
+
+  const handleReorderResource = React.useCallback(async (
+    resource: ResourceRow,
+    movement: { direction?: 'up' | 'down'; targetId?: string },
+  ) => {
+    if (!canReorderResources) return
+    try {
+      const payload = { id: resource.id, ...movement }
+      await runResourceMutation(
+        () => apiCallOrThrow('/api/resources/resources/reorder', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        }, { errorMessage: t('resources.resources.list.error.reorder', 'Failed to reorder resources.') }),
+        { operation: 'reorderResource', ...payload },
+        resource.id,
+      )
+      handleRefresh()
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : t('resources.resources.list.error.reorder', 'Failed to reorder resources.')
+      flash(message, 'error')
+    }
+  }, [canReorderResources, handleRefresh, runResourceMutation, t])
+
+  const handleResourceDrop = React.useCallback((target: ResourceRow) => {
+    if (!draggingResourceId || draggingResourceId === target.id || !canReorderResources) return
+    const dragged = rows.find((row) => row.id === draggingResourceId)
+    if (!dragged || dragged.areaId !== target.areaId) return
+    void handleReorderResource(dragged, { targetId: target.id })
+  }, [canReorderResources, draggingResourceId, handleReorderResource, rows])
+
   const groupedRows = React.useMemo(() => {
     const grouped: ResourceTableRow[] = []
     if (!rows.length) return grouped
@@ -557,7 +597,7 @@ export default function ResourcesResourcesPage() {
     }
     load()
     return () => { cancelled = true; controller.abort() }
-  }, [filterValues, groupBy, page, search, scopeVersion, selectedResourceTypeId, t])
+  }, [filterValues, groupBy, page, reloadToken, search, scopeVersion, selectedResourceTypeId, t])
 
   const handleDelete = React.useCallback(async (row: ResourceTableRow) => {
     if (row.rowKind !== 'resource') return
@@ -596,15 +636,81 @@ export default function ResourcesResourcesPage() {
         const depth = row.original.depth ?? 0
         const indent = depth > 0 ? 18 : 0
         const groupRow = row.original.rowKind === 'group' ? row.original : null
+        const resourceRow = row.original.rowKind === 'resource' ? row.original : null
         const showEdit = groupRow
           && canManage
           && groupRow.groupBy === 'resourceType'
           && groupRow.resourceTypeId
         return (
-          <div className={groupRow ? 'flex items-center justify-between gap-3' : 'flex items-center gap-2'}>
-            <span style={{ marginLeft: indent }} className={groupRow ? 'text-sm font-semibold text-foreground' : 'text-sm font-medium text-foreground'}>
-              {row.original.name}
-            </span>
+          <div
+            className={groupRow ? 'flex items-center justify-between gap-3' : 'flex items-center gap-2'}
+            onDragOver={(event) => {
+              if (!resourceRow || !canReorderResources || !draggingResourceId) return
+              event.preventDefault()
+            }}
+            onDrop={(event) => {
+              if (!resourceRow) return
+              event.preventDefault()
+              handleResourceDrop(resourceRow)
+            }}
+          >
+            <div className="flex min-w-0 items-center gap-2" style={{ marginLeft: indent }}>
+              {resourceRow && canManage && groupBy === 'area' ? (
+                <div className="flex items-center gap-1" data-actions-cell>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 shrink-0 cursor-grab"
+                    disabled={!canReorderResources}
+                    draggable={canReorderResources}
+                    title={t('resources.resources.list.actions.dragToReorder', 'Drag to reorder')}
+                    aria-label={t('resources.resources.list.actions.dragToReorder', 'Drag to reorder')}
+                    onClick={(event) => event.stopPropagation()}
+                    onDragStart={(event) => {
+                      event.stopPropagation()
+                      setDraggingResourceId(resourceRow.id)
+                      event.dataTransfer.effectAllowed = 'move'
+                      event.dataTransfer.setData('text/plain', resourceRow.id)
+                    }}
+                    onDragEnd={() => setDraggingResourceId(null)}
+                  >
+                    <GripVertical className="size-4" aria-hidden />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 shrink-0"
+                    title={t('resources.resources.list.actions.moveUp', 'Move up')}
+                    aria-label={t('resources.resources.list.actions.moveUp', 'Move up')}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      void handleReorderResource(resourceRow, { direction: 'up' })
+                    }}
+                  >
+                    <ArrowUp className="size-4" aria-hidden />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 shrink-0"
+                    title={t('resources.resources.list.actions.moveDown', 'Move down')}
+                    aria-label={t('resources.resources.list.actions.moveDown', 'Move down')}
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      void handleReorderResource(resourceRow, { direction: 'down' })
+                    }}
+                  >
+                    <ArrowDown className="size-4" aria-hidden />
+                  </Button>
+                </div>
+              ) : null}
+              <span className={groupRow ? 'text-sm font-semibold text-foreground' : 'min-w-0 truncate text-sm font-medium text-foreground'}>
+                {row.original.name}
+              </span>
+            </div>
             {showEdit ? (
               <Button
                 asChild
@@ -707,7 +813,17 @@ export default function ResourcesResourcesPage() {
       meta: { priority: 7 },
       cell: ({ row }) => row.original.rowKind === 'group' ? null : <BooleanIcon value={row.original.isActive} />,
     },
-  ], [canManage, resourceTypes, resourceAreas, t])
+  ], [
+    canManage,
+    canReorderResources,
+    draggingResourceId,
+    groupBy,
+    handleReorderResource,
+    handleResourceDrop,
+    resourceTypes,
+    resourceAreas,
+    t,
+  ])
 
   return (
     <Page>

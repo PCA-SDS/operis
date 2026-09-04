@@ -11,8 +11,10 @@ import type { CrudIndexerConfig } from '@open-mercato/shared/lib/crud/types'
 import { ResourcesResourceArea } from '../data/entities'
 import {
   resourcesResourceAreaCreateSchema,
+  resourcesResourceAreaReorderSchema,
   resourcesResourceAreaUpdateSchema,
   type ResourcesResourceAreaCreateInput,
+  type ResourcesResourceAreaReorderInput,
   type ResourcesResourceAreaUpdateInput,
 } from '../data/validators'
 import { resourcesResourceAreaCrudEvents } from '../lib/crud'
@@ -41,6 +43,15 @@ type ResourceAreaSnapshot = {
 type ResourceAreaUndoPayload = {
   before?: ResourceAreaSnapshot | null
   after?: ResourceAreaSnapshot | null
+}
+
+type ResourceAreaReorderSnapshot = {
+  areas: Array<{ id: string; sortOrder: number }>
+}
+
+type ResourceAreaReorderUndoPayload = {
+  before?: ResourceAreaReorderSnapshot | null
+  after?: ResourceAreaReorderSnapshot | null
 }
 
 async function loadResourceAreaSnapshot(em: EntityManager, id: string): Promise<ResourceAreaSnapshot | null> {
@@ -75,6 +86,51 @@ async function checkCircularDependency(em: EntityManager, areaId: string, newPar
   }
 }
 
+async function resolveNextAreaSortOrder(
+  em: EntityManager,
+  params: { tenantId: string; organizationId: string; parentAreaId?: string | null },
+): Promise<number> {
+  const siblings = await em.find(
+    ResourcesResourceArea,
+    {
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
+      parentAreaId: params.parentAreaId ?? null,
+      deletedAt: null,
+    },
+    { orderBy: { sortOrder: 'DESC', name: 'ASC' }, limit: 1 },
+  )
+  return (siblings[0]?.sortOrder ?? -1) + 1
+}
+
+function snapshotAreaOrder(areas: ResourcesResourceArea[]): ResourceAreaReorderSnapshot {
+  return {
+    areas: areas.map((area) => ({ id: area.id, sortOrder: area.sortOrder ?? 0 })),
+  }
+}
+
+function moveSiblingOrder<TEntity extends { id: string }>(
+  rows: TEntity[],
+  input: { id: string; targetId?: string; direction?: 'up' | 'down' },
+): TEntity[] {
+  const ordered = [...rows]
+  const from = ordered.findIndex((row) => row.id === input.id)
+  if (from < 0) throw new CrudHttpError(404, { error: 'Reorder item not found.' })
+  if (input.targetId) {
+    if (input.targetId === input.id) return ordered
+    const [moving] = ordered.splice(from, 1)
+    const target = ordered.findIndex((row) => row.id === input.targetId)
+    if (target < 0) throw new CrudHttpError(404, { error: 'Reorder target not found.' })
+    ordered.splice(target, 0, moving)
+    return ordered
+  }
+  const to = input.direction === 'up' ? from - 1 : from + 1
+  if (to < 0 || to >= ordered.length) return ordered
+  const [moving] = ordered.splice(from, 1)
+  ordered.splice(to, 0, moving)
+  return ordered
+}
+
 const createResourceAreaCommand: CommandHandler<ResourcesResourceAreaCreateInput, { areaId: string }> = {
   id: 'resources.resourceAreas.create',
   async execute(rawInput, ctx) {
@@ -89,6 +145,15 @@ const createResourceAreaCommand: CommandHandler<ResourcesResourceAreaCreateInput
       if (!parent) throw new CrudHttpError(404, { error: 'Parent area not found.' })
     }
 
+    const hasExplicitSortOrder = Boolean(rawInput && typeof rawInput === 'object' && 'sortOrder' in rawInput)
+    const sortOrder = hasExplicitSortOrder
+      ? parsed.sortOrder ?? 0
+      : await resolveNextAreaSortOrder(em, {
+          tenantId: parsed.tenantId,
+          organizationId: parsed.organizationId,
+          parentAreaId: parsed.parentAreaId ?? null,
+        })
+
     const record = em.create(ResourcesResourceArea, {
       tenantId: parsed.tenantId,
       organizationId: parsed.organizationId,
@@ -96,7 +161,7 @@ const createResourceAreaCommand: CommandHandler<ResourcesResourceAreaCreateInput
       description: parsed.description ?? null,
       areaType: parsed.areaType ?? 'other',
       parentAreaId: parsed.parentAreaId ?? null,
-      sortOrder: parsed.sortOrder ?? 0,
+      sortOrder,
       appearanceIcon: parsed.appearanceIcon ?? null,
       appearanceColor: parsed.appearanceColor ?? null,
       isActive: parsed.isActive ?? true,
@@ -256,13 +321,21 @@ const updateResourceAreaCommand: CommandHandler<ResourcesResourceAreaUpdateInput
     ensureTenantScope(ctx, record.tenantId)
     ensureOrganizationScope(ctx, record.organizationId)
 
-    if (parsed.parentAreaId !== undefined && parsed.parentAreaId !== record.parentAreaId) {
+    const parentChanged = parsed.parentAreaId !== undefined && parsed.parentAreaId !== record.parentAreaId
+    if (parentChanged) {
       if (parsed.parentAreaId) {
         await checkCircularDependency(em, record.id, parsed.parentAreaId)
         const parent = await em.findOne(ResourcesResourceArea, { id: parsed.parentAreaId, deletedAt: null })
         if (!parent) throw new CrudHttpError(404, { error: 'Parent area not found.' })
       }
       record.parentAreaId = parsed.parentAreaId
+      if (parsed.sortOrder === undefined) {
+        record.sortOrder = await resolveNextAreaSortOrder(em, {
+          tenantId: record.tenantId,
+          organizationId: record.organizationId,
+          parentAreaId: parsed.parentAreaId ?? null,
+        })
+      }
     }
 
     if (parsed.name !== undefined) record.name = parsed.name
@@ -541,6 +614,147 @@ const deleteResourceAreaCommand: CommandHandler<{ id?: string }, { areaId: strin
   },
 }
 
+const reorderResourceAreasCommand: CommandHandler<ResourcesResourceAreaReorderInput, { updatedIds: string[] }> = {
+  id: 'resources.resourceAreas.reorder',
+  async prepare(rawInput, ctx) {
+    const parsed = resourcesResourceAreaReorderSchema.parse(rawInput ?? {})
+    const em = (ctx.container.resolve('em') as EntityManager)
+    const record = await em.findOne(ResourcesResourceArea, {
+      id: parsed.id,
+      tenantId: parsed.tenantId,
+      organizationId: parsed.organizationId,
+      deletedAt: null,
+    })
+    if (!record) return {}
+    const siblings = await em.find(
+      ResourcesResourceArea,
+      {
+        tenantId: parsed.tenantId,
+        organizationId: parsed.organizationId,
+        parentAreaId: record.parentAreaId ?? null,
+        deletedAt: null,
+      },
+      { orderBy: { sortOrder: 'ASC', name: 'ASC', id: 'ASC' } },
+    )
+    return { before: snapshotAreaOrder(siblings) }
+  },
+  async execute(rawInput, ctx) {
+    const parsed = resourcesResourceAreaReorderSchema.parse(rawInput ?? {})
+    ensureTenantScope(ctx, parsed.tenantId)
+    ensureOrganizationScope(ctx, parsed.organizationId)
+
+    const em = (ctx.container.resolve('em') as EntityManager).fork()
+    const record = await em.findOne(ResourcesResourceArea, {
+      id: parsed.id,
+      tenantId: parsed.tenantId,
+      organizationId: parsed.organizationId,
+      deletedAt: null,
+    })
+    if (!record) throw new CrudHttpError(404, { error: 'Resource area not found.' })
+    if (parsed.targetId) {
+      const target = await em.findOne(ResourcesResourceArea, {
+        id: parsed.targetId,
+        tenantId: parsed.tenantId,
+        organizationId: parsed.organizationId,
+        parentAreaId: record.parentAreaId ?? null,
+        deletedAt: null,
+      })
+      if (!target) throw new CrudHttpError(404, { error: 'Resource area reorder target not found.' })
+    }
+
+    const siblings = await em.find(
+      ResourcesResourceArea,
+      {
+        tenantId: parsed.tenantId,
+        organizationId: parsed.organizationId,
+        parentAreaId: record.parentAreaId ?? null,
+        deletedAt: null,
+      },
+      { orderBy: { sortOrder: 'ASC', name: 'ASC', id: 'ASC' } },
+    )
+    const reordered = moveSiblingOrder(siblings, parsed)
+    const now = new Date()
+    reordered.forEach((area, index) => {
+      area.sortOrder = index
+      area.updatedAt = now
+    })
+    await em.flush()
+    return { updatedIds: reordered.map((area) => area.id) }
+  },
+  captureAfter: async (input, _result, ctx) => {
+    const parsed = resourcesResourceAreaReorderSchema.parse(input ?? {})
+    const em = (ctx.container.resolve('em') as EntityManager).fork()
+    const record = await em.findOne(ResourcesResourceArea, { id: parsed.id })
+    if (!record) return null
+    const siblings = await em.find(
+      ResourcesResourceArea,
+      {
+        tenantId: record.tenantId,
+        organizationId: record.organizationId,
+        parentAreaId: record.parentAreaId ?? null,
+        deletedAt: null,
+      },
+      { orderBy: { sortOrder: 'ASC', name: 'ASC', id: 'ASC' } },
+    )
+    return { after: snapshotAreaOrder(siblings) }
+  },
+  buildLog: async ({ input, snapshots }) => {
+    const parsed = resourcesResourceAreaReorderSchema.parse(input ?? {})
+    const { translate } = await resolveTranslations()
+    return {
+      actionLabel: translate('resources.audit.resourceAreas.reorder', 'Reorder resource areas'),
+      resourceKind: 'resources.resourceArea',
+      resourceId: parsed.id,
+      tenantId: parsed.tenantId,
+      organizationId: parsed.organizationId,
+      snapshotBefore: snapshots.before,
+      snapshotAfter: snapshots.after,
+      payload: {
+        undo: {
+          before: snapshots.before as ResourceAreaReorderSnapshot | null | undefined,
+          after: snapshots.after as ResourceAreaReorderSnapshot | null | undefined,
+        } satisfies ResourceAreaReorderUndoPayload,
+      },
+    }
+  },
+  undo: async ({ logEntry, ctx }) => {
+    const payload = extractUndoPayload<ResourceAreaReorderUndoPayload>(logEntry)
+    const before = payload?.before
+    if (!before) return
+    const em = (ctx.container.resolve('em') as EntityManager).fork()
+    const ids = before.areas.map((area) => area.id)
+    const areas = await em.find(ResourcesResourceArea, { id: { $in: ids } })
+    const byId = new Map(areas.map((area) => [area.id, area]))
+    const now = new Date()
+    before.areas.forEach((snapshot) => {
+      const area = byId.get(snapshot.id)
+      if (!area) return
+      area.sortOrder = snapshot.sortOrder
+      area.updatedAt = now
+    })
+    await em.flush()
+  },
+  redo: async ({ logEntry, ctx }) => {
+    const payload = extractUndoPayload<ResourceAreaReorderUndoPayload>(logEntry)
+    const after = payload?.after
+    if (!after) return { updatedIds: [] }
+    const em = (ctx.container.resolve('em') as EntityManager).fork()
+    const ids = after.areas.map((area) => area.id)
+    const areas = await em.find(ResourcesResourceArea, { id: { $in: ids } })
+    const byId = new Map(areas.map((area) => [area.id, area]))
+    const now = new Date()
+    after.areas.forEach((snapshot) => {
+      const area = byId.get(snapshot.id)
+      if (!area) return
+      area.sortOrder = snapshot.sortOrder
+      area.updatedAt = now
+    })
+    await em.flush()
+    return { updatedIds: ids }
+  },
+}
+
 registerCommand(createResourceAreaCommand)
 registerCommand(updateResourceAreaCommand)
 registerCommand(deleteResourceAreaCommand)
+registerCommand(reorderResourceAreasCommand)
