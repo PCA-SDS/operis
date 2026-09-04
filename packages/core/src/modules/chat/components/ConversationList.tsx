@@ -11,6 +11,7 @@ import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { tCount } from './plurals'
 import { cn } from '@open-mercato/shared/lib/utils'
 import type { ChatConversationDto } from '../data/types'
 import { MAX_CONVERSATION_PAGE_SIZE } from '../data/validators'
@@ -110,11 +111,7 @@ function ConversationRow({
         <>
           <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-primary" />
           <span className="sr-only">
-            {t(
-              `chat.list.unreadLabel${unread === 1 ? '' : '_plural'}`,
-              '{count} unread messages',
-              { count: unread },
-            )}
+            {tCount(t, 'chat.list.unreadLabel', unread, '{count} unread messages')}
           </span>
         </>
       ) : null}
