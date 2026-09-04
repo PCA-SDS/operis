@@ -83,19 +83,57 @@ const REFRESH_COALESCE_MS = 200
  *   the chat page collapse into the same refresh rather than two.
  */
 let pendingRefresh: ReturnType<typeof setTimeout> | null = null
+/**
+ * How much the pending refresh needs to touch. Upgraded, never downgraded —
+ * if anything in the coalescing window needs the transcript, the whole window
+ * refetches it.
+ */
+let pendingScope: 'badges' | 'all' = 'badges'
+
+/**
+ * Reading a conversation is bookkeeping, not new content.
+ *
+ * `chat.conversation.read` is emitted to the reader's OWN sessions so their
+ * other tabs can clear the badge. It came back to the tab that caused it, which
+ * invalidated the entire chat key space — so opening a conversation refetched
+ * the very messages it had just loaded, plus the conversation, on every open.
+ * Measured on a cold load: 17 chat requests, with the transcript fetched four
+ * times.
+ *
+ * A read can only ever move a badge, so it refreshes the two surfaces that show
+ * one and leaves the transcript alone.
+ */
+function scopeForEvent(eventId: string): 'badges' | 'all' {
+  return eventId === 'chat.conversation.read' ? 'badges' : 'all'
+}
 
 export function useChatLiveRefresh(): void {
   const client = useQueryClient()
-  const schedule = React.useCallback(() => {
-    if (pendingRefresh) return
-    pendingRefresh = setTimeout(() => {
-      pendingRefresh = null
-      invalidateChat(client)
-    }, REFRESH_COALESCE_MS)
-  }, [client])
+  const scope = useOrganizationScopeVersion()
 
-  useAppEvent('chat.*', schedule, [schedule])
-  useAppEvent('om:bridge:reconnected', schedule, [schedule])
+  const schedule = React.useCallback(
+    (eventId: string) => {
+      if (scopeForEvent(eventId) === 'all') pendingScope = 'all'
+      if (pendingRefresh) return
+      pendingRefresh = setTimeout(() => {
+        pendingRefresh = null
+        const wanted = pendingScope
+        pendingScope = 'badges'
+        if (wanted === 'all') {
+          invalidateChat(client)
+          return
+        }
+        void client.invalidateQueries({ queryKey: chatKeys.conversations(scope) })
+        void client.invalidateQueries({ queryKey: chatKeys.unreadCount(scope) })
+      }, REFRESH_COALESCE_MS)
+    },
+    [client, scope],
+  )
+
+  useAppEvent('chat.*', (payload) => schedule(payload.id), [schedule])
+  // A dropped socket means the client cannot know what it missed, so this one
+  // always takes the wide path.
+  useAppEvent('om:bridge:reconnected', () => schedule('om:bridge:reconnected'), [schedule])
 }
 
 /**
