@@ -14,6 +14,7 @@ import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
+import { SelectionIndicator } from '@open-mercato/ui/primitives/selection-indicator'
 import { Button } from '@open-mercato/ui/primitives/button'
 import {
   Dialog,
@@ -170,32 +171,6 @@ function mergeOptionMaps(
   const next = new Map(existing)
   entries.forEach((entry) => next.set(entry.id, entry))
   return next
-}
-
-type SelectionIndicatorProps = {
-  checked: boolean
-  disabled?: boolean
-  label: string
-}
-
-function SelectionIndicator({ checked, disabled, label }: SelectionIndicatorProps) {
-  return (
-    <span
-      role="checkbox"
-      aria-checked={checked}
-      aria-disabled={disabled || undefined}
-      aria-label={label}
-      className={cn(
-        'inline-flex size-6 shrink-0 items-center justify-center rounded-full border transition-colors',
-        checked
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-border bg-surface',
-        disabled && 'opacity-50',
-      )}
-    >
-      {checked ? <Check className="size-3" strokeWidth={2.5} /> : null}
-    </span>
-  )
 }
 
 type DefaultRowProps = {
