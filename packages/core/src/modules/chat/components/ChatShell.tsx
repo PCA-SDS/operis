@@ -109,10 +109,15 @@ export function ChatShell({ currentUserId, conversationId, organizationId }: Cha
 
         {/* The transcript carries the card now that the wrapper does not.
             `overflow-hidden` so the message list is clipped by the rounded
-            corners instead of squaring them off. */}
+            corners instead of squaring them off.
+
+            No border: the fill already separates it. `bg-surface` on the page's
+            `bg-background` is its own edge, and the rail beside it is defined the
+            same way — a rule around only one of the two panels made them look
+            like different kinds of thing. */}
         <section
           className={cn(
-            'min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-surface lg:flex',
+            'min-h-0 flex-col overflow-hidden rounded-xl bg-surface lg:flex',
             conversationId ? 'flex' : 'hidden lg:flex',
           )}
         >
