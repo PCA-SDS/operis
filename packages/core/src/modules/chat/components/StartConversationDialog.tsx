@@ -101,7 +101,12 @@ export function StartConversationDialog({ open, onClose }: StartConversationDial
 
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
-      <DialogContent className="max-h-[calc(100dvh-6rem)] max-w-lg overflow-hidden">
+      {/* `size`, not hand-rolled `max-w-*`/`max-h-*`. `default` already resolves
+          to the DS's `sm:max-w-lg`, and the primitive owns the mobile
+          bottom-sheet reflow plus its own max-height — a raw `max-w-lg` applies
+          below the `sm:` breakpoint too and silently opts out of the full-width
+          sheet on a phone. The module's three other dialogs all do this. */}
+      <DialogContent size="default" className="flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>{t('chat.start.title', 'Start a chat')}</DialogTitle>
           <DialogDescription>

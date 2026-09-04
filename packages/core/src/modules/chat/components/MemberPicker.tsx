@@ -36,7 +36,7 @@ function PickerSkeleton() {
   return (
     <div className="space-y-1" aria-busy="true">
       {[0, 1, 2].map((row) => (
-        <div key={row} className="flex items-center gap-3 px-2 py-2">
+        <div key={row} className="flex items-center gap-3 px-3 py-2.5">
           <Skeleton shape="circle" className="size-9" />
           <div className="min-w-0 flex-1 space-y-2">
             <Skeleton className="h-3 w-1/3" />
@@ -148,7 +148,7 @@ export function MemberPicker({
           between two controls. */}
       {selected.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-0.5 text-overline font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="mr-0.5 text-overline font-semibold uppercase tracking-widest text-muted-foreground">
             {t('chat.members.selected', '{count} selected', { count: selected.length })}
           </span>
           {selected.map((person) => (

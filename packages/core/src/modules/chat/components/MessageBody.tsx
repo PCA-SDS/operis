@@ -59,7 +59,12 @@ export function MessageBody({ body, mentionNames, currentUserId, className }: Me
               // Inline and wrapping, not a pill with its own line box — a chip
               // that could not break would push a long message sideways.
               'rounded px-0.5 font-medium',
-              addressesMe ? 'bg-primary-soft text-primary' : 'text-primary',
+              // `bg-primary`, not `bg-primary-soft`. Your own bubbles ARE
+              // `bg-primary-soft`, so a soft-filled chip on one of them was the
+              // same colour as its background and the highlight did nothing —
+              // reachable any time you send a message naming yourself or
+              // everyone. The strong pair reads against both bubble grounds.
+              addressesMe ? 'bg-primary text-primary-foreground' : 'text-primary',
             )}
           >
             @{segment.label}

@@ -23,6 +23,7 @@ import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { tCount } from './plurals'
 import type { ChatConversationDto, ChatDirectoryEntryDto } from '../data/types'
 import { MAX_SPACE_MEMBERS_PER_REQUEST, MAX_SPACE_TITLE_LENGTH } from '../data/validators'
 import { MemberPicker } from './MemberPicker'
@@ -40,7 +41,7 @@ const MEMBER_SEARCH_THRESHOLD = 8
 
 function MemberSkeleton() {
   return (
-    <div className="flex items-center gap-3 px-2 py-2">
+    <div className="flex items-center gap-3 px-3 py-2.5">
       <Skeleton shape="circle" className="size-9" />
       <div className="min-w-0 flex-1 space-y-2">
         <Skeleton className="h-3 w-1/3" />
@@ -235,8 +236,11 @@ export function SpaceDetailsDialog({
                       ? {
                           id: 'demote',
                           label: t('chat.space.makeMember', 'Make member'),
+                          // No `void`: `RowActions` disables an entry whose
+                          // `onSelect` returns a promise, and discarding it
+                          // opted out of the primitive's own double-fire guard.
                           onSelect: () =>
-                            void run(
+                            run(
                               () => setMemberRole.mutateAsync({ userId: member.id, role: 'member' }),
                               t('chat.space.roleFailed', "Couldn't change that role."),
                             ),
@@ -245,7 +249,7 @@ export function SpaceDetailsDialog({
                           id: 'promote',
                           label: t('chat.space.makeOwner', 'Make owner'),
                           onSelect: () =>
-                            void run(
+                            run(
                               () => setMemberRole.mutateAsync({ userId: member.id, role: 'owner' }),
                               t('chat.space.roleFailed', "Couldn't change that role."),
                             ),
@@ -254,7 +258,7 @@ export function SpaceDetailsDialog({
                       id: 'remove',
                       label: t('chat.space.remove', 'Remove from space'),
                       destructive: true,
-                      onSelect: () => void handleRemove(member.id, member.name),
+                      onSelect: () => handleRemove(member.id, member.name),
                     },
                   ]
                 : []
@@ -305,11 +309,7 @@ export function SpaceDetailsDialog({
             <DialogDescription>
               {mode === 'add'
                 ? t('chat.space.addDescription', 'Only people from your organization can be added.')
-                : t(
-                    `chat.space.memberCount${total === 1 ? '' : '_plural'}`,
-                    '{count} members',
-                    { count: total },
-                  )}
+                : tCount(t, 'chat.space.memberCount', total, '{count} members')}
             </DialogDescription>
           </DialogHeader>
 

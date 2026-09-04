@@ -17,6 +17,7 @@ import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
+import { tCount } from './plurals'
 import { formatListTimestamp } from './format'
 import { useMessageEngagement, usePinnedMessages } from './hooks'
 
@@ -56,11 +57,7 @@ export function PinnedMessagesPanel({
         <DialogHeader>
           <DialogTitle>{t('chat.pins.title', 'Pinned messages')}</DialogTitle>
           <DialogDescription>
-            {t(
-              `chat.pins.count${total === 1 ? '' : '_plural'}`,
-              '{count} pinned messages in this conversation',
-              { count: total },
-            )}
+            {tCount(t, 'chat.pins.count', total, '{count} pinned messages in this conversation')}
           </DialogDescription>
         </DialogHeader>
 
@@ -68,8 +65,8 @@ export function PinnedMessagesPanel({
           {isLoading ? (
             <div aria-busy="true" className="space-y-2">
               {[0, 1, 2].map((row) => (
-                <div key={row} className="flex items-start gap-3 px-2 py-2">
-                  <Skeleton shape="circle" className="size-8" />
+                <div key={row} className="flex items-start gap-3 px-3 py-2.5">
+                  <Skeleton shape="circle" className="size-7" />
                   <div className="min-w-0 flex-1 space-y-2">
                     <Skeleton className="h-3 w-1/3" />
                     <Skeleton className="h-3 w-2/3" />

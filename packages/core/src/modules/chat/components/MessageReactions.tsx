@@ -119,6 +119,10 @@ export function ReactionPicker({ onToggle, align }: ReactionPickerProps) {
               key={emoji}
               type="button"
               variant="ghost"
+              // Explicit, like every other IconButton in the module. Left
+              // unset this defaulted to `size-8` beside the bar's `size-6`
+              // quick reactions — the same control at two sizes.
+              size="sm"
               onClick={() => {
                 onToggle(emoji)
                 setOpen(false)
