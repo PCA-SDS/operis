@@ -8,6 +8,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { ConversationList } from './ConversationList'
 import { ConversationView } from './ConversationView'
+import { CreateSpaceDialog } from './CreateSpaceDialog'
 import { StartConversationDialog } from './StartConversationDialog'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useCanSendChat, useChatLiveRefresh, useConversations } from './hooks'
@@ -36,6 +37,7 @@ export function ChatShell({ currentUserId, conversationId, organizationId }: Cha
   const t = useT()
   const router = useRouter()
   const [startOpen, setStartOpen] = React.useState(false)
+  const [createSpaceOpen, setCreateSpaceOpen] = React.useState(false)
   const canSend = useCanSendChat()
   const scope = useOrganizationScopeDetail()
 
@@ -83,7 +85,7 @@ export function ChatShell({ currentUserId, conversationId, organizationId }: Cha
           module rather than a column inside the transcript. */}
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-6">
         <aside
-          aria-label={t('chat.list.directMessages', 'Direct messages')}
+          aria-label={t('chat.nav.title', 'Chat')}
           className={cn(
             'min-h-0 flex-col lg:flex',
             conversationId ? 'hidden' : 'flex',
@@ -101,6 +103,7 @@ export function ChatShell({ currentUserId, conversationId, organizationId }: Cha
             onRetry={() => void retry()}
             canStartConversation={canSend}
             onStartConversation={() => setStartOpen(true)}
+            onCreateSpace={() => setCreateSpaceOpen(true)}
           />
         </aside>
 
@@ -149,7 +152,7 @@ export function ChatShell({ currentUserId, conversationId, organizationId }: Cha
                     canSend
                       ? t(
                           'chat.empty.firstRunDescription',
-                          'Use New chat to find a colleague in your organization.',
+                          'Use New chat to message a colleague or create a space.',
                         )
                       : t(
                           'chat.list.emptyReadOnly',
@@ -163,11 +166,12 @@ export function ChatShell({ currentUserId, conversationId, organizationId }: Cha
         </section>
       </div>
 
-      {/* Always mounted, driven by `open`. Unmounting it on close tore the
-          Radix dialog down before it could restore focus, so Escape left a
-          keyboard user at the top of the document instead of back on the
-          button they opened it from. */}
+      {/* Always mounted, driven by `open`. Unmounting on close tore the Radix
+          dialog down before it could restore focus, so Escape left a keyboard
+          user at the top of the document instead of back on the control they
+          opened it from. */}
       <StartConversationDialog open={startOpen} onClose={() => setStartOpen(false)} />
+      <CreateSpaceDialog open={createSpaceOpen} onClose={() => setCreateSpaceOpen(false)} />
     </>
   )
 }

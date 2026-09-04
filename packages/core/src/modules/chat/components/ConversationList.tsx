@@ -2,8 +2,9 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { CirclePlus } from 'lucide-react'
+import { CirclePlus, MessageSquarePlus, Users } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
+import { Dropdown } from '@open-mercato/ui/primitives/dropdown'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
@@ -28,6 +29,7 @@ type ConversationListProps = {
   /** False for a `chat.view`-only member; the affordance is hidden rather than shown-and-refused. */
   canStartConversation: boolean
   onStartConversation: () => void
+  onCreateSpace: () => void
 }
 
 /**
@@ -62,8 +64,11 @@ function ConversationRow({
   isActive: boolean
 }) {
   const t = useT()
-  const name = conversation.counterpart?.name ?? t('chat.list.unknownPerson', 'Former colleague')
+  // The title is resolved server-side for both kinds, so the row does not have
+  // to know whether it is naming a person or a space.
+  const name = conversation.title
   const unread = conversation.unreadCount
+  const isSpace = conversation.kind === 'space'
 
   return (
     <Link
@@ -78,7 +83,18 @@ function ConversationRow({
             : 'text-muted-foreground hover:bg-surface-strong hover:text-foreground',
       )}
     >
-      <Avatar label={name} size="sm" variant={unread > 0 ? 'default' : 'monochrome'} />
+      {/* One quiet glyph for a space, a person's initials for a direct.
+          A stack of member avatars was tried here and had to go: Operis has no
+          avatar images, so the stack was two or three sets of INITIALS overlapping
+          inside 20px, which read as smudged letters rather than as people. The
+          same slot either way, so both kinds of row are exactly as tall and their
+          labels line up. */}
+      <Avatar
+        label={name}
+        size="sm"
+        variant={unread > 0 ? 'default' : 'monochrome'}
+        icon={isSpace ? <Users className="size-4" aria-hidden="true" /> : undefined}
+      />
       <span className="min-w-0 flex-1 truncate">{name}</span>
       {/* A dot, not a number: the panel is a place to notice something is waiting,
           and the count is on the section header above. Weight carries it too, so
@@ -97,6 +113,49 @@ function ConversationRow({
         </>
       ) : null}
     </Link>
+  )
+}
+
+/**
+ * One labelled group of conversations.
+ *
+ * Renders nothing at all when it is empty, so a person with no spaces sees the
+ * rail they have always seen rather than a caption over blank space.
+ */
+function ConversationSection({
+  label,
+  conversations,
+  unread,
+  activeConversationId,
+}: {
+  label: string
+  conversations: ChatConversationDto[]
+  unread: number
+  activeConversationId?: string
+}) {
+  const t = useT()
+  if (conversations.length === 0) return null
+
+  return (
+    <section className="pb-1">
+      <div className="flex shrink-0 items-center gap-2 pb-1 pt-2">
+        <h2 className={cn(PANEL_LABEL, 'flex-1')}>{label}</h2>
+        {unread > 0 ? (
+          <span className="px-2 text-xs font-semibold tabular-nums text-primary">
+            {unread > 99 ? t('chat.list.unreadOverflow', '99+') : unread}
+          </span>
+        ) : null}
+      </div>
+      <nav aria-label={label} className="flex flex-col gap-0.5">
+        {conversations.map((conversation) => (
+          <ConversationRow
+            key={conversation.id}
+            conversation={conversation}
+            isActive={conversation.id === activeConversationId}
+          />
+        ))}
+      </nav>
+    </section>
   )
 }
 
@@ -123,6 +182,7 @@ export function ConversationList({
   onRetry,
   canStartConversation,
   onStartConversation,
+  onCreateSpace,
 }: ConversationListProps) {
   const t = useT()
   const [filter, setFilter] = React.useState('')
@@ -137,15 +197,38 @@ export function ConversationList({
   const visible = React.useMemo(() => {
     if (!needle) return conversations
     return conversations.filter((conversation) => {
-      const name = conversation.counterpart?.name ?? ''
+      // Matches the resolved title for both kinds, so typing a space's name
+      // finds it exactly as typing a colleague's finds them. A space the caller
+      // is not a member of is not in this array at all — the list comes from
+      // their own participant rows — so this cannot surface a private space.
       const email = conversation.counterpart?.email ?? ''
-      return name.toLowerCase().includes(needle) || email.toLowerCase().includes(needle)
+      return (
+        conversation.title.toLowerCase().includes(needle) || email.toLowerCase().includes(needle)
+      )
     })
   }, [conversations, needle])
 
-  const totalUnread = React.useMemo(
-    () => conversations.reduce((sum, conversation) => sum + conversation.unreadCount, 0),
-    [conversations],
+  /**
+   * Two sections, not one mixed list.
+   *
+   * A direct is a person and a space is a room; sorting them into one stream by
+   * recency means the answer to "where is the Finance Team space?" changes every
+   * time somebody sends a DM. Splitting them keeps each list short enough to
+   * scan and matches how the rail already labels things.
+   */
+  const directs = React.useMemo(
+    () => visible.filter((conversation) => conversation.kind === 'direct'),
+    [visible],
+  )
+  const spaces = React.useMemo(
+    () => visible.filter((conversation) => conversation.kind === 'space'),
+    [visible],
+  )
+
+  const unreadIn = React.useCallback(
+    (items: ChatConversationDto[]) =>
+      items.reduce((sum, conversation) => sum + conversation.unreadCount, 0),
+    [],
   )
 
   return (
@@ -153,21 +236,46 @@ export function ConversationList({
     // to stop at the last row, which was invisible while the pane was plain but
     // obvious the moment it carried its own background.
     <div className="flex min-h-0 flex-1 flex-col gap-1 rounded-xl bg-surface-muted p-2">
+      {/* One create control, not two. The rail is 16rem wide and a second
+          primary row would compete with the first for the same glance — so the
+          two things you can start live behind one action, which is also how a
+          user thinks about it: "new conversation", then what kind.
+
+          `Dropdown` in `menu` mode owns the portal, the placement flip, the
+          roving focus and the `role="menu"` semantics. Only its trigger box is
+          restated, so a command row here is exactly as tall as the conversation
+          rows under it instead of the primitive's fixed 36px control. */}
       {canStartConversation ? (
-        <button
-          type="button"
-          onClick={onStartConversation}
-          className={cn(PANEL_ROW, 'font-semibold text-primary hover:bg-primary-soft')}
-        >
-          {/* The glyph sits in an avatar-sized slot so this row is exactly as tall
-              as a conversation row and its label starts on the same line as their
-              names. A bare icon made the rail's first row 8px shorter than every
-              row under it. */}
-          <span className="flex size-7 shrink-0 items-center justify-center" aria-hidden="true">
-            <CirclePlus className="size-5" />
-          </span>
-          {t('chat.list.start', 'New chat')}
-        </button>
+        <Dropdown
+          menu
+          align="start"
+          variant="ghost"
+          placeholder={t('chat.list.start', 'New chat')}
+          triggerLeading={
+            <span className="flex size-7 shrink-0 items-center justify-center" aria-hidden="true">
+              <CirclePlus className="size-5" />
+            </span>
+          }
+          triggerLabel={t('chat.list.start', 'New chat')}
+          triggerClassName={cn(
+            PANEL_ROW,
+            'h-auto justify-start px-2 py-2 font-semibold text-primary hover:bg-primary-soft',
+          )}
+          actions={[
+            {
+              id: 'direct',
+              label: t('chat.list.startDirect', 'Direct message'),
+              leading: <MessageSquarePlus className="size-4" aria-hidden="true" />,
+              onSelect: onStartConversation,
+            },
+            {
+              id: 'space',
+              label: t('chat.list.startSpace', 'New space'),
+              leading: <Users className="size-4" aria-hidden="true" />,
+              onSelect: onCreateSpace,
+            },
+          ]}
+        />
       ) : null}
 
       {conversations.length > FILTER_THRESHOLD ? (
@@ -182,21 +290,10 @@ export function ConversationList({
         </div>
       ) : null}
 
-      {/* The caption carries the total, the way the Tasks rail puts a count beside
-          a view. Not collapsible: Google Chat's carets exist because it has four
-          sections to triage between, and hiding the only list here would leave an
-          empty panel. */}
-      <div className="flex shrink-0 items-center gap-2 pb-1 pt-2">
-        <h2 className={cn(PANEL_LABEL, 'flex-1')}>
-          {t('chat.list.directMessages', 'Direct messages')}
-        </h2>
-        {totalUnread > 0 ? (
-          <span className="px-2 text-xs font-semibold tabular-nums text-primary">
-            {totalUnread > 99 ? t('chat.list.unreadOverflow', '99+') : totalUnread}
-          </span>
-        ) : null}
-      </div>
-
+      {/* Section captions carry their own unread total, the way the Tasks rail
+          puts a count beside a view. Not collapsible: Google Chat's carets exist
+          because it has four sections to triage between, and hiding one of two
+          here would leave a mostly empty panel. */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {isLoading ? (
           <div aria-busy="true">
@@ -249,17 +346,23 @@ export function ConversationList({
             />
           </div>
         ) : (
-          <nav
-            aria-label={t('chat.list.directMessages', 'Direct messages')}
-            className="flex flex-col gap-0.5"
-          >
-            {visible.map((conversation) => (
-              <ConversationRow
-                key={conversation.id}
-                conversation={conversation}
-                isActive={conversation.id === activeConversationId}
-              />
-            ))}
+          <>
+            {/* A section with nothing in it is not rendered. An empty "Spaces"
+                caption above blank space would be a heading that promises a list
+                and delivers none. */}
+            <ConversationSection
+              label={t('chat.list.directMessages', 'Direct messages')}
+              conversations={directs}
+              unread={unreadIn(directs)}
+              activeConversationId={activeConversationId}
+            />
+            <ConversationSection
+              label={t('chat.list.spaces', 'Spaces')}
+              conversations={spaces}
+              unread={unreadIn(spaces)}
+              activeConversationId={activeConversationId}
+            />
+
             {hasMore && !needle ? (
               <div className="space-y-1 p-1">
                 {/* A failed page-fetch reports itself here rather than replacing
@@ -296,7 +399,7 @@ export function ConversationList({
                 )}
               </p>
             ) : null}
-          </nav>
+          </>
         )}
       </div>
     </div>
