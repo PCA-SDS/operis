@@ -1,10 +1,12 @@
 import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { Client } from 'pg'
+import * as pg from 'pg'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { parseTpsMigrateFlags } from './lib'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+
+type Client = InstanceType<typeof pg.Client>
 
 const logger = createLogger('migrate_tps')
 
@@ -25,7 +27,7 @@ const LOCATION_MAPPING: Array<{ tpsKey: string; orgName: string; slug: string }>
 
 async function connectTps(url: string): Promise<Client> {
   const isLocalhost = url.includes('localhost') || url.includes('127.0.0.1')
-  const client = new Client({
+  const client = new pg.Client({
     connectionString: url,
     ssl: isLocalhost ? false : { rejectUnauthorized: false },
   })
@@ -62,10 +64,10 @@ export const migrateTpsBranchesCommand: ModuleCli = {
       tpsClient = await connectTps(tpsDbUrl)
 
       // Verify locations exist in TPS
-      const locations = await tpsClient.query<{ location: string }>(
+      const locations = await tpsClient.query(
         'SELECT DISTINCT location FROM floors WHERE deleted_at IS NULL ORDER BY location',
       )
-      logger.info(`Found ${locations.rowCount} TPS locations: ${locations.rows.map(r => r.location).join(', ')}`)
+      logger.info(`Found ${locations.rowCount} TPS locations: ${locations.rows.map((r: { location: string }) => r.location).join(', ')}`)
 
       const baseEm = container.resolve<EntityManager>('em').fork()
 
@@ -91,7 +93,7 @@ export const migrateTpsBranchesCommand: ModuleCli = {
         let skipped = 0
 
         for (const mapping of LOCATION_MAPPING) {
-          const hasFloors = locations.rows.some(r => r.location === mapping.tpsKey)
+          const hasFloors = locations.rows.some((r: { location: string }) => r.location === mapping.tpsKey)
           if (!hasFloors) {
             logger.info(`  ⏭ Skipping "${mapping.orgName}" — no floors in TPS`)
             skipped++

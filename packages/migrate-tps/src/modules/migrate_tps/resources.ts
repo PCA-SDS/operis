@@ -1,6 +1,6 @@
 import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { Client } from 'pg'
+import * as pg from 'pg'
 import { randomUUID } from 'crypto'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
@@ -10,6 +10,8 @@ import {
   ResourcesResourceArea,
   ResourcesResourceType,
 } from '@open-mercato/core/modules/resources/data/entities'
+
+type Client = InstanceType<typeof pg.Client>
 
 const logger = createLogger('migrate_tps')
 
@@ -53,7 +55,7 @@ interface TpsSeat {
 
 async function connectTps(url: string): Promise<Client> {
   const isLocalhost = url.includes('localhost') || url.includes('127.0.0.1')
-  const client = new Client({
+  const client = new pg.Client({
     connectionString: url,
     ssl: isLocalhost ? false : { rejectUnauthorized: false },
   })
@@ -112,22 +114,22 @@ export const migrateTpsResourcesCommand: ModuleCli = {
       // ---------------------------------------------------------------------------
 
       const [tpsSeatTypes, tpsFloors, tpsSeats] = await Promise.all([
-        tpsClient.query<TpsSeatTypeConfig>(
+        tpsClient.query(
           'SELECT * FROM seat_type_configs WHERE deleted_at IS NULL',
-        ),
-        tpsClient.query<TpsFloor>(
+        ) as Promise<{ rows: TpsSeatTypeConfig[]; rowCount: number }>,
+        tpsClient.query(
           locationFilter
             ? 'SELECT * FROM floors WHERE deleted_at IS NULL AND location = $1'
             : 'SELECT * FROM floors WHERE deleted_at IS NULL',
           locationFilter ? [locationFilter] : [],
-        ),
-        tpsClient.query<TpsSeat>(
+        ) as Promise<{ rows: TpsFloor[]; rowCount: number }>,
+        tpsClient.query(
           locationFilter
             ? `SELECT s.* FROM seats s JOIN floors f ON f.id = s.floor_id
                WHERE s.deleted_at IS NULL AND f.deleted_at IS NULL AND f.location = $1`
             : 'SELECT * FROM seats WHERE deleted_at IS NULL',
           locationFilter ? [locationFilter] : [],
-        ),
+        ) as Promise<{ rows: TpsSeat[]; rowCount: number }>,
       ])
 
       logger.info(`Found ${tpsSeatTypes.rowCount} seat type configs, ${tpsFloors.rowCount} floors, ${tpsSeats.rowCount} seats`)
