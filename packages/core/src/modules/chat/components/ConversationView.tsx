@@ -227,7 +227,13 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
               <span className="block truncate text-sm font-semibold text-foreground">
                 {conversation ? conversationTitle : t('chat.conversation.loading', 'Loading conversation…')}
               </span>
-              {isSpace && conversation ? (
+              {/* Suppressed once the conversation can no longer be read. The
+                  cached copy survives a failed refetch, so a member count from
+                  before you were removed would sit directly above "Couldn't open
+                  this conversation" — the header asserting membership the body
+                  is denying. The name stays: it is what you clicked, and losing
+                  it too would leave the pane unlabelled. */}
+              {conversationError ? null : isSpace && conversation ? (
                 <span className="block truncate text-xs text-muted-foreground">
                   {t(
                     `chat.space.memberCount${conversation.memberCount === 1 ? '' : '_plural'}`,
