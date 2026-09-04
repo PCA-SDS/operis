@@ -10,6 +10,8 @@ import { DataTable, withDataTableNamespaces } from '@open-mercato/ui/backend/Dat
 import { ListEmptyState } from '@open-mercato/ui/backend/filters/ListEmptyState'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
+import { Input } from '@open-mercato/ui/primitives/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { BooleanIcon } from '@open-mercato/ui/backend/ValueIcons'
 import { apiCall, apiCallOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
@@ -23,7 +25,7 @@ import { renderDictionaryColor, renderDictionaryIcon } from '@open-mercato/core/
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
-import { ArrowDown, ArrowUp, GripVertical, Pencil } from 'lucide-react'
+import { GripVertical, Pencil } from 'lucide-react'
 
 const PAGE_SIZE = 20
 const RESOURCE_LIST_MUTATION_CONTEXT_ID = 'resources.resources.list'
@@ -65,6 +67,10 @@ type ResourceGroupRow = {
 }
 
 type ResourceTableRow = (ResourceRow & { rowKind: 'resource'; depth: number }) | ResourceGroupRow
+
+type ResourceMoveDialogState = {
+  resource: ResourceRow
+}
 
 type ResourcesResponse = {
   items: Array<Record<string, unknown>>
@@ -123,6 +129,10 @@ export default function ResourcesResourcesPage() {
   const [isLoading, setIsLoading] = React.useState(true)
   const [reloadToken, setReloadToken] = React.useState(0)
   const [draggingResourceId, setDraggingResourceId] = React.useState<string | null>(null)
+  const [moveDialog, setMoveDialog] = React.useState<ResourceMoveDialogState | null>(null)
+  const [moveDialogSearch, setMoveDialogSearch] = React.useState('')
+  const [moveDialogOptions, setMoveDialogOptions] = React.useState<ResourceRow[]>([])
+  const [moveDialogLoading, setMoveDialogLoading] = React.useState(false)
   const [resourceTypes, setResourceTypes] = React.useState<Map<string, ResourceTypeRow>>(new Map())
   const [resourceAreas, setResourceAreas] = React.useState<Map<string, { id: string; name: string }>>(new Map())
   const [canManage, setCanManage] = React.useState(false)
@@ -257,6 +267,49 @@ export default function ResourcesResourcesPage() {
     loadResourceAreas()
     return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
+
+  React.useEffect(() => {
+    if (!moveDialog) {
+      setMoveDialogOptions([])
+      setMoveDialogSearch('')
+      setMoveDialogLoading(false)
+      return
+    }
+    const activeMoveDialog = moveDialog
+    let cancelled = false
+    const controller = new AbortController()
+    async function loadMoveTargets() {
+      setMoveDialogLoading(true)
+      try {
+        const params = new URLSearchParams({
+          page: '1',
+          pageSize: '100',
+          areaId: activeMoveDialog.resource.areaId ?? 'null',
+          sortField: 'sortOrder',
+          sortDir: 'asc',
+        })
+        const searchTerm = moveDialogSearch.trim()
+        if (searchTerm) params.set('search', searchTerm)
+        const call = await apiCall<ResourcesResponse>(`/api/resources/resources?${params.toString()}`, { signal: controller.signal })
+        if (cancelled) return
+        const items = Array.isArray(call.result?.items) ? call.result.items : []
+        setMoveDialogOptions(
+          items
+            .map(mapApiResource)
+            .filter((resource) => resource.id !== activeMoveDialog.resource.id),
+        )
+      } catch {
+        if (!cancelled) setMoveDialogOptions([])
+      } finally {
+        if (!cancelled) setMoveDialogLoading(false)
+      }
+    }
+    void loadMoveTargets()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [moveDialog, moveDialogSearch])
 
   React.useEffect(() => {
     const areaIds = new Set<string>()
@@ -394,7 +447,7 @@ export default function ResourcesResourcesPage() {
 
   const handleReorderResource = React.useCallback(async (
     resource: ResourceRow,
-    movement: { direction?: 'up' | 'down'; targetId?: string },
+    movement: { direction?: 'up' | 'down'; targetId?: string; position?: 'top' | 'bottom' | 'before' | 'after' },
   ) => {
     if (!canReorderResources) return
     try {
@@ -416,6 +469,12 @@ export default function ResourcesResourcesPage() {
       flash(message, 'error')
     }
   }, [canReorderResources, handleRefresh, runResourceMutation, t])
+
+  const handleMoveDialogSelect = React.useCallback(async (targetId: string) => {
+    if (!moveDialog) return
+    await handleReorderResource(moveDialog.resource, { targetId, position: 'before' })
+    setMoveDialog(null)
+  }, [handleReorderResource, moveDialog])
 
   const handleResourceDrop = React.useCallback((target: ResourceRow) => {
     if (!draggingResourceId || draggingResourceId === target.id || !canReorderResources) return
@@ -677,34 +736,6 @@ export default function ResourcesResourcesPage() {
                   >
                     <GripVertical className="size-4" aria-hidden />
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-7 shrink-0"
-                    title={t('resources.resources.list.actions.moveUp', 'Move up')}
-                    aria-label={t('resources.resources.list.actions.moveUp', 'Move up')}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      void handleReorderResource(resourceRow, { direction: 'up' })
-                    }}
-                  >
-                    <ArrowUp className="size-4" aria-hidden />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-7 shrink-0"
-                    title={t('resources.resources.list.actions.moveDown', 'Move down')}
-                    aria-label={t('resources.resources.list.actions.moveDown', 'Move down')}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      void handleReorderResource(resourceRow, { direction: 'down' })
-                    }}
-                  >
-                    <ArrowDown className="size-4" aria-hidden />
-                  </Button>
                 </div>
               ) : null}
               <span className={groupRow ? 'text-sm font-semibold text-foreground' : 'min-w-0 truncate text-sm font-medium text-foreground'}>
@@ -866,9 +897,34 @@ export default function ResourcesResourcesPage() {
           perspective={{ tableId: extensionPoints.hosts.resourcesTable.tableId }}
           rowActions={(row) => {
             if (!canManage || row.rowKind !== 'resource') return null
+            const siblingRows = canReorderResources
+              ? sortResourcesForAreaLayout(rows.filter((item) => item.areaId === row.areaId))
+              : []
+            const siblingIndex = siblingRows.findIndex((item) => item.id === row.id)
+            const reorderItems = canReorderResources ? [
+              {
+                id: 'move-up',
+                label: t('resources.resources.list.actions.moveUp', 'Move up'),
+                disabled: siblingIndex <= 0,
+                onSelect: () => { void handleReorderResource(row, { direction: 'up' }) },
+              },
+              {
+                id: 'move-down',
+                label: t('resources.resources.list.actions.moveDown', 'Move down'),
+                disabled: siblingIndex < 0 || siblingIndex >= siblingRows.length - 1,
+                onSelect: () => { void handleReorderResource(row, { direction: 'down' }) },
+              },
+              {
+                id: 'move-to',
+                label: t('resources.resources.list.actions.moveTo', 'Move to...'),
+                disabled: siblingRows.length <= 1,
+                onSelect: () => setMoveDialog({ resource: row }),
+              },
+            ] : []
             return (
               <RowActions items={[
                 { id: 'edit', label: t('common.edit', 'Edit'), href: `/backend/resources/resources/${encodeURIComponent(row.id)}` },
+                ...reorderItems,
                 { id: 'delete', label: t('common.delete', 'Delete'), destructive: true, onSelect: () => { void handleDelete(row) } },
               ]} />
             )
@@ -888,6 +944,54 @@ export default function ResourcesResourcesPage() {
           isLoading={isLoading}
         />
       </PageBody>
+      <Dialog open={Boolean(moveDialog)} onOpenChange={(open) => { if (!open) setMoveDialog(null) }}>
+        <DialogContent size="default">
+          <DialogHeader>
+            <DialogTitle>
+              {t('resources.resources.moveDialog.title', 'Move resource')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <Input
+              value={moveDialogSearch}
+              onChange={(event) => setMoveDialogSearch(event.target.value)}
+              placeholder={t('resources.resources.moveDialog.search', 'Search sibling resources...')}
+            />
+            <div className="max-h-72 overflow-y-auto rounded-md border border-border">
+              {moveDialogLoading ? (
+                <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  {t('resources.resources.moveDialog.loading', 'Loading resources...')}
+                </div>
+              ) : moveDialogOptions.length ? (
+                moveDialogOptions.map((resource) => (
+                  <button
+                    key={resource.id}
+                    type="button"
+                    className="flex w-full flex-col gap-0.5 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-accent"
+                    onClick={() => { void handleMoveDialogSelect(resource.id) }}
+                  >
+                    <span className="text-sm font-medium text-foreground">{resource.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {resource.areaId
+                        ? resourceAreas.get(resource.areaId)?.name ?? t('resources.resources.list.group.unknownArea', 'Unknown area')
+                        : t('resources.resources.list.group.unassignedArea', 'No area')}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  {t('resources.resources.moveDialog.empty', 'No sibling resources found.')}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setMoveDialog(null)}>
+              {t('common.cancel', 'Cancel')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {ConfirmDialogElement}
     </Page>
   )

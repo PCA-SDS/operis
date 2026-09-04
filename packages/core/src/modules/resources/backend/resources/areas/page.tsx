@@ -11,6 +11,8 @@ import { markdownToPlainText } from '@open-mercato/ui/backend/markdown/markdownT
 import { DataTable, withDataTableNamespaces } from '@open-mercato/ui/backend/DataTable'
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterOverlay'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
+import { Input } from '@open-mercato/ui/primitives/input'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { apiCallOrThrow, readApiResultOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
@@ -23,7 +25,7 @@ import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/u
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { formatDateTime } from '@open-mercato/shared/lib/time'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, GripVertical, Loader2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, GripVertical, Loader2 } from 'lucide-react'
 
 const logger = createLogger('resources').child({ component: 'resource-areas-page' })
 
@@ -72,6 +74,10 @@ type ChildPageState = {
   total: number
 }
 
+type ResourceAreaMoveDialogState = {
+  area: ResourceAreaRow
+}
+
 type ResourceAreasMutationContext = {
   formId: string
   resourceKind: string
@@ -98,6 +104,10 @@ export default function ResourcesResourceAreasPage() {
   const [childPageByParentId, setChildPageByParentId] = React.useState<Map<string, ChildPageState>>(new Map())
   const [loadingChildrenIds, setLoadingChildrenIds] = React.useState<Set<string>>(new Set())
   const [draggingAreaId, setDraggingAreaId] = React.useState<string | null>(null)
+  const [moveDialog, setMoveDialog] = React.useState<ResourceAreaMoveDialogState | null>(null)
+  const [moveDialogSearch, setMoveDialogSearch] = React.useState('')
+  const [moveDialogOptions, setMoveDialogOptions] = React.useState<ResourceAreaRow[]>([])
+  const [moveDialogLoading, setMoveDialogLoading] = React.useState(false)
   const { runMutation, retryLastMutation } = useGuardedMutation<ResourceAreasMutationContext>({
     contextId: RESOURCE_AREAS_MUTATION_CONTEXT_ID,
     blockedMessage: translate('ui.forms.flash.saveBlocked', 'Save blocked by validation'),
@@ -162,6 +172,14 @@ export default function ResourcesResourceAreasPage() {
       dragToReorder: translate('resources.resourceAreas.actions.dragToReorder', 'Drag to reorder'),
       moveDown: translate('resources.resourceAreas.actions.moveDown', 'Move down'),
       moveUp: translate('resources.resourceAreas.actions.moveUp', 'Move up'),
+      moveTo: translate('resources.resourceAreas.actions.moveTo', 'Move to...'),
+      cancel: translate('common.cancel', 'Cancel'),
+    },
+    moveDialog: {
+      title: translate('resources.resourceAreas.moveDialog.title', 'Move area'),
+      search: translate('resources.resourceAreas.moveDialog.search', 'Search sibling areas...'),
+      loading: translate('resources.resourceAreas.moveDialog.loading', 'Loading areas...'),
+      empty: translate('resources.resourceAreas.moveDialog.empty', 'No sibling areas found.'),
     },
     messages: {
       deleted: translate('resources.resourceAreas.messages.deleted', 'Resource area deleted.'),
@@ -254,6 +272,56 @@ export default function ResourcesResourceAreasPage() {
     }
   }, [translations.errors.load])
 
+  React.useEffect(() => {
+    if (!moveDialog) {
+      setMoveDialogOptions([])
+      setMoveDialogSearch('')
+      setMoveDialogLoading(false)
+      return
+    }
+    const activeMoveDialog = moveDialog
+    let cancelled = false
+    const controller = new AbortController()
+    async function loadMoveTargets() {
+      setMoveDialogLoading(true)
+      try {
+        const params = new URLSearchParams({
+          page: '1',
+          pageSize: '100',
+          parentAreaId: activeMoveDialog.area.parent_area_id ?? 'null',
+          sortField: 'sort_order',
+          sortDir: 'asc',
+        })
+        const searchTerm = moveDialogSearch.trim()
+        if (searchTerm) params.set('search', searchTerm)
+        const result = await readApiResultOrThrow<ResourceAreasResponse>(
+          `/api/resources/areas?${params.toString()}`,
+          { signal: controller.signal },
+          { errorMessage: translations.errors.load },
+        )
+        if (cancelled) return
+        const items = Array.isArray(result.items) ? result.items : []
+        setMoveDialogOptions(
+          items
+            .map(mapApiResourceArea)
+            .filter((area) => area.id !== activeMoveDialog.area.id),
+        )
+      } catch (error) {
+        if (!cancelled) {
+          logger.error('Failed to load resource area move targets', { err: error, areaId: activeMoveDialog.area.id })
+          setMoveDialogOptions([])
+        }
+      } finally {
+        if (!cancelled) setMoveDialogLoading(false)
+      }
+    }
+    void loadMoveTargets()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [moveDialog, moveDialogSearch, translations.errors.load])
+
   const toggleAreaExpanded = React.useCallback((area: ResourceAreaRow) => {
     if (area.child_count <= 0) return
     setExpandedAreaIds((current) => {
@@ -286,7 +354,7 @@ export default function ResourcesResourceAreasPage() {
 
   const handleReorderArea = React.useCallback(async (
     area: ResourceAreaRow,
-    movement: { direction?: 'up' | 'down'; targetId?: string },
+    movement: { direction?: 'up' | 'down'; targetId?: string; position?: 'top' | 'bottom' | 'before' | 'after' },
   ) => {
     if (!canReorderAreas) return
     try {
@@ -310,6 +378,12 @@ export default function ResourcesResourceAreasPage() {
       flash(translations.errors.reorder, 'error')
     }
   }, [canReorderAreas, handleRefresh, loadChildren, runResourceAreaMutation, translations.errors.reorder])
+
+  const handleMoveDialogSelect = React.useCallback(async (targetId: string) => {
+    if (!moveDialog) return
+    await handleReorderArea(moveDialog.area, { targetId, position: 'before' })
+    setMoveDialog(null)
+  }, [handleReorderArea, moveDialog])
 
   const handleAreaDrop = React.useCallback((target: ResourceAreaRow) => {
     if (!draggingAreaId || draggingAreaId === target.id || !canReorderAreas) return
@@ -376,10 +450,6 @@ export default function ResourcesResourceAreasPage() {
         const hasChildren = area.child_count > 0
         const expanded = expandedAreaIds.has(area.id)
         const childrenLoading = loadingChildrenIds.has(area.id)
-        const siblingRows = getAreaSiblingRows(area.parent_area_id)
-        const siblingIndex = siblingRows.findIndex((item) => item.id === area.id)
-        const canMoveUp = canReorderAreas && siblingIndex > 0
-        const canMoveDown = canReorderAreas && siblingIndex >= 0 && siblingIndex < siblingRows.length - 1
         return (
           <div
             className="flex flex-col gap-1"
@@ -413,38 +483,8 @@ export default function ResourcesResourceAreasPage() {
                   }}
                   onDragEnd={() => setDraggingAreaId(null)}
                 >
-                  <GripVertical className="size-4" aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 shrink-0"
-                  disabled={!canMoveUp}
-                  title={translations.actions.moveUp}
-                  aria-label={translations.actions.moveUp}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    void handleReorderArea(area, { direction: 'up' })
-                  }}
-                >
-                  <ArrowUp className="size-4" aria-hidden />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 shrink-0"
-                  disabled={!canMoveDown}
-                  title={translations.actions.moveDown}
-                  aria-label={translations.actions.moveDown}
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    void handleReorderArea(area, { direction: 'down' })
-                  }}
-                >
-                  <ArrowDown className="size-4" aria-hidden />
-                </Button>
+                    <GripVertical className="size-4" aria-hidden />
+                  </Button>
               </div>
               <Button
                 type="button"
@@ -531,9 +571,7 @@ export default function ResourcesResourceAreasPage() {
     canReorderAreas,
     draggingAreaId,
     expandedAreaIds,
-    getAreaSiblingRows,
     handleAreaDrop,
-    handleReorderArea,
     loadMoreChildren,
     loadingChildrenIds,
     toggleAreaExpanded,
@@ -664,14 +702,39 @@ export default function ResourcesResourceAreasPage() {
           onSortingChange={setSorting}
           pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
           rowActions={(row) => (
-            row.rowKind === 'area' ? (
-              <RowActions
-                items={[
-                  { id: 'edit', label: translations.actions.edit, href: `/backend/resources/areas/${row.id}/edit` },
-                  { id: 'delete', label: translations.actions.delete, destructive: true, onSelect: () => handleDelete(row) },
-                ]}
-              />
-            ) : null
+            row.rowKind === 'area' ? (() => {
+              const siblingRows = getAreaSiblingRows(row.parent_area_id)
+              const siblingIndex = siblingRows.findIndex((item) => item.id === row.id)
+              const reorderItems = canReorderAreas ? [
+                {
+                  id: 'move-up',
+                  label: translations.actions.moveUp,
+                  disabled: siblingIndex <= 0,
+                  onSelect: () => { void handleReorderArea(row, { direction: 'up' }) },
+                },
+                {
+                  id: 'move-down',
+                  label: translations.actions.moveDown,
+                  disabled: siblingIndex < 0 || siblingIndex >= siblingRows.length - 1,
+                  onSelect: () => { void handleReorderArea(row, { direction: 'down' }) },
+                },
+                {
+                  id: 'move-to',
+                  label: translations.actions.moveTo,
+                  disabled: siblingRows.length <= 1,
+                  onSelect: () => setMoveDialog({ area: row }),
+                },
+              ] : []
+              return (
+                <RowActions
+                  items={[
+                    { id: 'edit', label: translations.actions.edit, href: `/backend/resources/areas/${row.id}/edit` },
+                    ...reorderItems,
+                    { id: 'delete', label: translations.actions.delete, destructive: true, onSelect: () => handleDelete(row) },
+                  ]}
+                />
+              )
+            })() : null
           )}
           onRowClick={(row) => {
             if (row.rowKind === 'area') router.push(`/backend/resources/areas/${row.id}/edit`)
@@ -679,6 +742,52 @@ export default function ResourcesResourceAreasPage() {
           perspective={{ tableId: extensionPoints.hosts.resourceAreasTable.tableId }}
         />
       </PageBody>
+      <Dialog open={Boolean(moveDialog)} onOpenChange={(open) => { if (!open) setMoveDialog(null) }}>
+        <DialogContent size="default">
+          <DialogHeader>
+            <DialogTitle>
+              {translations.moveDialog.title}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <Input
+              value={moveDialogSearch}
+              onChange={(event) => setMoveDialogSearch(event.target.value)}
+              placeholder={translations.moveDialog.search}
+            />
+            <div className="max-h-72 overflow-y-auto rounded-md border border-border">
+              {moveDialogLoading ? (
+                <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  {translations.moveDialog.loading}
+                </div>
+              ) : moveDialogOptions.length ? (
+                moveDialogOptions.map((area) => (
+                  <button
+                    key={area.id}
+                    type="button"
+                    className="flex w-full flex-col gap-0.5 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-accent"
+                    onClick={() => { void handleMoveDialogSelect(area.id) }}
+                  >
+                    <span className="text-sm font-medium text-foreground">{area.name}</span>
+                    {area.path_label ? (
+                      <span className="text-xs text-muted-foreground">{area.path_label}</span>
+                    ) : null}
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  {translations.moveDialog.empty}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setMoveDialog(null)}>
+              {translations.actions.cancel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {ConfirmDialogElement}
     </Page>
   )

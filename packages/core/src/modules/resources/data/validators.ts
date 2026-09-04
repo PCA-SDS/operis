@@ -18,9 +18,13 @@ const reorderMoveSchema = z
     id: z.string().uuid(),
     targetId: z.string().uuid().optional(),
     direction: z.enum(['up', 'down']).optional(),
+    position: z.enum(['top', 'bottom', 'before', 'after']).optional(),
   })
-  .refine((value) => value.targetId || value.direction, {
+  .refine((value) => value.targetId || value.direction || value.position === 'top' || value.position === 'bottom', {
     message: 'Reorder target or direction is required.',
+  })
+  .refine((value) => !value.position || value.position === 'top' || value.position === 'bottom' || Boolean(value.targetId), {
+    message: 'Reorder target is required for relative moves.',
   })
 
 export const resourcesResourceTypeCreateSchema = z.object({

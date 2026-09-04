@@ -91,4 +91,57 @@ describe('resource area reorder command', () => {
     expect(areaA.sortOrder).toBe(1)
     expect(em.flush).toHaveBeenCalledTimes(1)
   })
+
+  it('moves areas after a selected sibling target', async () => {
+    const em = buildFakeEm()
+    const areaA = {
+      id: TEST_AREA_ID,
+      tenantId: TEST_TENANT_ID,
+      organizationId: TEST_ORG_ID,
+      parentAreaId: TEST_PARENT_AREA_ID,
+      name: 'Floor A',
+      sortOrder: 0,
+      updatedAt: new Date('2026-06-19T10:00:00.000Z'),
+    }
+    const areaB = {
+      id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      tenantId: TEST_TENANT_ID,
+      organizationId: TEST_ORG_ID,
+      parentAreaId: TEST_PARENT_AREA_ID,
+      name: 'Floor B',
+      sortOrder: 1,
+      updatedAt: new Date('2026-06-19T10:00:00.000Z'),
+    }
+    const areaC = {
+      id: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+      tenantId: TEST_TENANT_ID,
+      organizationId: TEST_ORG_ID,
+      parentAreaId: TEST_PARENT_AREA_ID,
+      name: 'Floor C',
+      sortOrder: 2,
+      updatedAt: new Date('2026-06-19T10:00:00.000Z'),
+    }
+    em.findOne
+      .mockResolvedValueOnce(areaA)
+      .mockResolvedValueOnce(areaC)
+    em.find.mockResolvedValue([areaA, areaB, areaC])
+    const { ctx } = buildEnvelope(em)
+    const handler = commandRegistry.get('resources.resourceAreas.reorder')
+
+    await handler!.execute(
+      {
+        id: TEST_AREA_ID,
+        tenantId: TEST_TENANT_ID,
+        organizationId: TEST_ORG_ID,
+        targetId: areaC.id,
+        position: 'after',
+      },
+      ctx as any,
+    )
+
+    expect(areaB.sortOrder).toBe(0)
+    expect(areaC.sortOrder).toBe(1)
+    expect(areaA.sortOrder).toBe(2)
+    expect(em.flush).toHaveBeenCalledTimes(1)
+  })
 })

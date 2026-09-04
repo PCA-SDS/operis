@@ -52,7 +52,7 @@ const listSchema = z
     search: z.string().optional(),
     ids: z.string().optional(),
     resourceTypeId: z.string().uuid().optional(),
-    areaId: z.string().uuid().optional(),
+    areaId: z.union([z.string().uuid(), z.literal('null')]).optional(),
     isActive: z.string().optional(),
     tagIds: z.string().optional(),
     sortField: z.string().optional(),
@@ -121,7 +121,7 @@ const crud = makeCrudRoute({
         filters[F.resource_type_id] = query.resourceTypeId
       }
       if (query.areaId) {
-        filters[F.area_id] = query.areaId
+        filters[F.area_id] = query.areaId === 'null' ? null : query.areaId
       }
       const isActive = parseBooleanFlag(query.isActive)
       if (isActive !== undefined) {

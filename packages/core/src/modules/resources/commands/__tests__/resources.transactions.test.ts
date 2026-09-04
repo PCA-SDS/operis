@@ -230,4 +230,39 @@ describe('resources commands — atomic relation writes (issue #2341)', () => {
     expect(resourceA.sortOrder).toBe(1)
     expect(em.flush).toHaveBeenCalledTimes(1)
   })
+
+  it('moves resources directly to the end of their area', async () => {
+    const em = buildFakeEm()
+    const resourceA = {
+      id: TEST_RESOURCE_ID,
+      tenantId: TEST_TENANT_ID,
+      organizationId: TEST_ORG_ID,
+      areaId: TEST_AREA_ID,
+      name: 'Room A',
+      sortOrder: 0,
+      updatedAt: new Date('2026-06-19T10:00:00.000Z'),
+    }
+    const resourceB = {
+      id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      tenantId: TEST_TENANT_ID,
+      organizationId: TEST_ORG_ID,
+      areaId: TEST_AREA_ID,
+      name: 'Room B',
+      sortOrder: 1,
+      updatedAt: new Date('2026-06-19T10:00:00.000Z'),
+    }
+    em.findOne.mockResolvedValue(resourceA)
+    em.find.mockResolvedValue([resourceA, resourceB])
+    const { ctx } = buildEnvelope(em)
+    const handler = commandRegistry.get('resources.resources.reorder')
+
+    await handler!.execute(
+      { id: TEST_RESOURCE_ID, tenantId: TEST_TENANT_ID, organizationId: TEST_ORG_ID, position: 'bottom' },
+      ctx as any,
+    )
+
+    expect(resourceB.sortOrder).toBe(0)
+    expect(resourceA.sortOrder).toBe(1)
+    expect(em.flush).toHaveBeenCalledTimes(1)
+  })
 })
