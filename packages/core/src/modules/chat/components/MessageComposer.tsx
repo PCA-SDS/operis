@@ -76,12 +76,32 @@ export function MessageComposer({
   const remaining = MAX_MESSAGE_LENGTH - trimmed.length
   const nearLimit = !tooLong && remaining <= Math.round(MAX_MESSAGE_LENGTH / 10)
 
+  /**
+   * What has actually been handed off, tracked outside React state.
+   *
+   * `setValue('')` does not take effect until the next render, so three clicks
+   * on Send inside one tick all read the same `trimmed` and all called `onSend`
+   * — and because each send mints its OWN `clientMessageId`, the server saw
+   * three distinct messages and idempotency could not collapse them. Measured:
+   * a triple click posted the message three times.
+   *
+   * The ref clears synchronously, so the second and third clicks of a
+   * double-click see an empty box and do nothing, while typing something new
+   * re-arms it immediately. Guarding by disabling the button instead would also
+   * have blocked the legitimate case of sending two different lines quickly.
+   */
+  const pendingValue = React.useRef(value)
+  pendingValue.current = value
+
   const submit = React.useCallback(() => {
-    if (!canSend) return
-    onSend(trimmed)
+    if (disabled) return
+    const body = pendingValue.current.trim()
+    if (body.length === 0 || body.length > MAX_MESSAGE_LENGTH) return
+    pendingValue.current = ''
+    onSend(body)
     setValue('')
     textareaRef.current?.focus()
-  }, [canSend, onSend, trimmed])
+  }, [disabled, onSend])
 
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {

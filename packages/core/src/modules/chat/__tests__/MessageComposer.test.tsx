@@ -129,3 +129,53 @@ describe('MessageComposer', () => {
     expect(onSend).toHaveBeenNthCalledWith(2, 'second')
   })
 })
+
+/**
+ * One click, one message.
+ *
+ * `setValue('')` only lands on the next render, so several clicks inside one
+ * tick used to read the same draft and each call `onSend` — and since every send
+ * mints its own idempotency key, the server stored each one. A triple click
+ * posted the message three times.
+ */
+describe('double submit', () => {
+  it('sends once however many times Send is clicked in one tick', () => {
+    const onSend = jest.fn()
+    render(<MessageComposer onSend={onSend} placeholder="Message" />)
+    const box = screen.getByRole('textbox')
+    fireEvent.change(box, { target: { value: 'only once' } })
+
+    const send = screen.getByRole('button', { name: /send/i })
+    fireEvent.click(send)
+    fireEvent.click(send)
+    fireEvent.click(send)
+
+    expect(onSend).toHaveBeenCalledTimes(1)
+    expect(onSend).toHaveBeenCalledWith('only once')
+  })
+
+  it('re-arms as soon as something new is typed', () => {
+    const onSend = jest.fn()
+    render(<MessageComposer onSend={onSend} placeholder="Message" />)
+    const box = screen.getByRole('textbox')
+    const send = screen.getByRole('button', { name: /send/i })
+
+    fireEvent.change(box, { target: { value: 'first' } })
+    fireEvent.click(send)
+    fireEvent.change(box, { target: { value: 'second' } })
+    fireEvent.click(send)
+
+    expect(onSend.mock.calls.map((call) => call[0])).toEqual(['first', 'second'])
+  })
+
+  it('does not fire a repeated Enter into a cleared box', () => {
+    const onSend = jest.fn()
+    render(<MessageComposer onSend={onSend} placeholder="Message" />)
+    const box = screen.getByRole('textbox')
+    fireEvent.change(box, { target: { value: 'held down' } })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    fireEvent.keyDown(box, { key: 'Enter' })
+    expect(onSend).toHaveBeenCalledTimes(1)
+  })
+})
