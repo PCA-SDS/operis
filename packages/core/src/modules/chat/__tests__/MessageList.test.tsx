@@ -90,6 +90,10 @@ function message(overrides: Partial<ChatMessageDto> = {}): ChatMessageDto {
     systemEvent: null,
     systemTargetUserId: null,
     systemTargetName: null,
+    reactions: [],
+    mentionNames: {},
+    mentionsEveryone: false,
+    pinned: false,
     ...overrides,
   }
 }
@@ -311,7 +315,7 @@ describe('MessageList', () => {
 
     it('puts your messages on one side and theirs on the other', () => {
       renderList([theirs, mine])
-      const rows = [...document.querySelectorAll('li[class*="group/msg"]')]
+      const rows = [...document.querySelectorAll('li[data-message-id]')]
       expect(rows).toHaveLength(2)
       // Side is the primary signal: theirs start-aligned, yours end-aligned.
       expect(rows[0].className).toContain('items-start')
@@ -320,7 +324,7 @@ describe('MessageList', () => {
 
     it('shows an avatar only for the other person', () => {
       renderList([theirs, mine])
-      const rows = [...document.querySelectorAll('li[class*="group/msg"]')]
+      const rows = [...document.querySelectorAll('li[data-message-id]')]
       expect(rows[0].querySelector('[class*="rounded-full"]')).not.toBeNull()
       expect(rows[1].querySelector('[class*="rounded-full"]')).toBeNull()
     })
@@ -564,7 +568,7 @@ describe('MessageList', () => {
 
     it('puts the bar in the same box as the bubble, not loose in the row', () => {
       renderList([message({ id: 'a', senderUserId: THEM })])
-      const li = document.querySelector('li[class*="group/msg"]')!
+      const li = document.querySelector('li[data-message-id]')!
       const bar = barOf(li)
       const bubble = bubbleOf(li)
       // Same parent, and that parent is the one sized to the bubble.
@@ -590,7 +594,7 @@ describe('MessageList', () => {
      */
     it('bridges the gap to the bubble instead of floating clear of it', () => {
       renderList([message({ id: 'a', senderUserId: THEM })])
-      const bar = barOf(document.querySelector('li[class*="group/msg"]')!)
+      const bar = barOf(document.querySelector('li[data-message-id]')!)
       // Anchored to the bubble's top edge, not parked at a fixed offset.
       expect(bar.className).toContain('bottom-full')
       expect(bar.className).not.toMatch(/(^|\s)-top-\d/)
@@ -603,7 +607,7 @@ describe('MessageList', () => {
     /** The chrome is the inner element, so the bridge stays invisible. */
     it('keeps the visible chrome separate from the hit bridge', () => {
       renderList([message({ id: 'a', senderUserId: THEM })])
-      const bar = barOf(document.querySelector('li[class*="group/msg"]')!)
+      const bar = barOf(document.querySelector('li[data-message-id]')!)
       const chrome = bar.firstElementChild!
       expect(chrome.className).toContain('rounded-lg')
       expect(chrome.className).toContain('bg-surface')
@@ -613,31 +617,235 @@ describe('MessageList', () => {
     })
 
     /**
-     * The bar hangs off the bubble's FAR end — the edge pointing away from the
-     * wall the bubble is aligned against.
+     * The bar anchors to the bubble's NEAR end — the wall the bubble already
+     * hugs — so it opens across the empty half of the pane.
      *
-     * That is the one place above a bubble that is always free: a group start
-     * prints its author and time hard against the same wall the bubble hugs, so
-     * anchoring the actions at the opposite edge puts them beside that header
-     * instead of on top of it, which is what hid the sender's name.
+     * This is a containment rule, not a taste one. The positioner's containing
+     * block is the bubble wrapper, which is `w-fit`, so a bar wider than its
+     * bubble overhangs by the difference. Anchored at the FAR end that overhang
+     * points at the scroller edge, and the row's 40px gutter is all the slack
+     * there is: at 155px over a one-word bubble the bar clears the edge, and
+     * because the scroller is `overflow-y-auto` — which promotes `overflow-x` to
+     * `auto` — that lays a horizontal scrollbar under the whole transcript.
+     * Anchored at the near end the overhang points inwards instead, into a pane
+     * always wider than the bar, so no bubble width can push it out.
      */
-    it('hangs the bar off the far end of the bubble', () => {
+    it('anchors the bar to the wall its bubble hugs, so it opens inwards', () => {
       renderList([
         message({ id: 'a', senderUserId: THEM, createdAt: '2026-09-02T10:00:00.000Z' }),
         message({ id: 'b', senderUserId: ME, createdAt: '2026-09-02T10:30:00.000Z' }),
       ])
-      const rows = [...document.querySelectorAll('li[class*="group/msg"]')]
-      // Theirs hugs the left wall, so its bar goes to the right.
-      expect(barOf(rows[0]!).className).toContain('right-0')
-      expect(barOf(rows[0]!).className).not.toContain('left-0')
-      // Yours hugs the right wall, so its bar goes to the left.
-      expect(barOf(rows[1]!).className).toContain('left-0')
-      expect(barOf(rows[1]!).className).not.toContain('right-0')
+      const rows = [...document.querySelectorAll('li[data-message-id]')]
+      // Theirs hugs the left wall, so its bar anchors left and opens rightwards.
+      expect(barOf(rows[0]!).className).toContain('left-0')
+      expect(barOf(rows[0]!).className).not.toContain('right-0')
+      // Yours hugs the right wall, so its bar anchors right and opens leftwards.
+      expect(barOf(rows[1]!).className).toContain('right-0')
+      expect(barOf(rows[1]!).className).not.toContain('left-0')
+    })
+
+    /**
+     * The gutter is what the overhang is measured against, so it has to exist on
+     * BOTH sides — and equally, or the two columns sit at different distances
+     * from their own edges and the transcript reads as lopsided.
+     */
+    it('reserves the same gutter on both sides of every row', () => {
+      renderList([
+        message({ id: 'a', senderUserId: THEM, createdAt: '2026-09-02T10:00:00.000Z' }),
+        message({ id: 'b', senderUserId: ME, createdAt: '2026-09-02T10:30:00.000Z' }),
+      ])
+      for (const row of document.querySelectorAll('li[data-message-id]')) {
+        expect(row.className).toContain('px-10')
+        // An asymmetric override would silently reintroduce the lopsided column.
+        expect(row.className).not.toMatch(/\b(pl|pr)-\d/)
+      }
+    })
+
+    /**
+     * The narrow floater takes the end the wide one gave up, so the two never
+     * land on the same corner.
+     */
+    it('puts the timestamp opposite the actions', () => {
+      renderList([
+        message({ id: 'a', senderUserId: THEM, createdAt: '2026-09-02T10:00:00.000Z' }),
+        message({ id: 'b', senderUserId: THEM, createdAt: '2026-09-02T10:00:30.000Z' }),
+      ])
+      // The second message continues the run, so it carries no header of its own
+      // and gets the floating timestamp instead.
+      const row = [...document.querySelectorAll('li[data-message-id]')][1]!
+      const floaters = [...row.querySelectorAll('[class*="bottom-full"]')]
+      const stamp = floaters.find((el) => el.querySelector('time'))!
+      const actions = floaters.find((el) => !el.querySelector('time'))!
+      expect(actions.className).toContain('left-0')
+      expect(stamp.className).toContain('right-0')
+    })
+
+    /**
+     * An empty reactions row is not an invisible row — it is a row.
+     *
+     * Fading the add-reaction control in on hover still leaves its box in flow,
+     * so every message in the transcript, reacted to or not, carried a 28px band
+     * of dead space beneath it. The control moved into the hover bar; what stays
+     * under the bubble is the chips, which are content, and content that does
+     * not exist must not reserve a line.
+     */
+    it('renders nothing under a message that has no reactions', () => {
+      renderList([message({ id: 'a', senderUserId: THEM, reactions: [] })], [], {
+        onToggleReaction: jest.fn(),
+      })
+      const li = document.querySelector('li[data-message-id]')!
+      expect(li.querySelector('[aria-label*="reacted"]')).toBeNull()
+      // Nothing between the bubble and the end of the row.
+      expect(li.querySelector('div[class*="flex-wrap"]')).toBeNull()
+    })
+
+    it('renders the chips under a message that has them', () => {
+      renderList(
+        [
+          message({
+            id: 'a',
+            senderUserId: THEM,
+            reactions: [{ emoji: '👍', count: 2, mine: true, sampleNames: ['Ann', 'Bo'] }],
+          }),
+        ],
+        [],
+        { onToggleReaction: jest.fn() },
+      )
+      const chip = document.querySelector('[aria-label*="reacted"]')!
+      expect(chip).not.toBeNull()
+      // Whether you are one of the count has to survive a reader who cannot see
+      // the tint.
+      expect(chip.getAttribute('aria-pressed')).toBe('true')
+    })
+
+    /**
+     * The common reactions are reachable without opening anything.
+     *
+     * Behind a picker, the three emoji that account for most reactions cost a
+     * click to open, a scan, and a second click. Inline they cost one click, and
+     * the rest of the set is still one click away beside them.
+     */
+    it('offers reactions inline in the bar, divided from the actions', () => {
+      const onToggleReaction = jest.fn()
+      renderList([message({ id: 'a', senderUserId: THEM })], [], { onToggleReaction })
+      const bar = barOf(document.querySelector('li[data-message-id]')!)
+      const quick = [...bar.querySelectorAll('button')].filter((b) =>
+        (b.getAttribute('aria-label') ?? '').startsWith('React with'),
+      )
+      expect(quick.length).toBeGreaterThanOrEqual(3)
+      fireEvent.click(quick[0]!)
+      expect(onToggleReaction).toHaveBeenCalledWith('a', expect.any(String))
+      // Reacting and acting are both one click, so a rule separates them —
+      // the DS separator, so it announces itself rather than being a bare span.
+      expect(bar.querySelector('[role="separator"][aria-orientation="vertical"]')).not.toBeNull()
+      // And every control in the bar is the same primitive, so the radius and
+      // hover fill cannot drift apart within one strip.
+      const controls = [...bar.querySelectorAll('[data-slot="icon-button"]')]
+      expect(controls.length).toBeGreaterThanOrEqual(4)
+    })
+
+    /** No reaction handler means no reaction affordance — and no stray divider. */
+    it('omits the reaction controls when reacting is not offered', () => {
+      renderList([message({ id: 'a', senderUserId: THEM })])
+      const bar = barOf(document.querySelector('li[data-message-id]')!)
+      expect(bar.querySelector('[aria-label^="React with"]')).toBeNull()
+      expect(bar.querySelector('[role="separator"]')).toBeNull()
+    })
+
+    /**
+     * The hover scope is the MESSAGE, not the row.
+     *
+     * A row spans the full width of the pane, so scoping the reveal there armed
+     * the toolbar from anywhere on that line — including the empty half opposite
+     * the bubble, where there is nothing to act on. Scoping it to the box that
+     * holds the bubble and its floaters means the pointer has to actually be on
+     * the message; and because the floaters are descendants of that box,
+     * hovering them still counts.
+     */
+    it('scopes the hover reveal to the message, not the whole row', () => {
+      renderList([message({ id: 'a', senderUserId: THEM })])
+      const li = document.querySelector('li[data-message-id]')!
+      expect(li.className).not.toContain('group/msg')
+      const scope = bubbleOf(li).parentElement!
+      expect(scope.className).toContain('group/msg')
+      // The scope is the box sized to the bubble, so it cannot span the pane.
+      expect(scope.className).toContain('w-fit')
+      // And the bar it governs lives inside it.
+      expect(scope.contains(barOf(li))).toBe(true)
+    })
+
+    /**
+     * A reacted message's receipt shares the chips' line.
+     *
+     * The receipt used to be a sibling of the bubble's wrapper, so reacting to
+     * your own newest message stacked "Delivered" under the chips with a band of
+     * empty space above it. Both are marginalia about the message overhead, so
+     * they belong on one row.
+     */
+    it('puts the delivery receipt on the same line as the reactions', () => {
+      renderList([
+        message({
+          id: 'a',
+          senderUserId: ME,
+          reactions: [{ emoji: '😄', count: 1, mine: false, sampleNames: ['Ann'] }],
+        }),
+      ])
+      const li = document.querySelector('li[data-message-id]')!
+      const receipt = screen.getByText(/delivered/i)
+      const chip = li.querySelector('[aria-label*="reacted"]')!
+      // Same row, and the receipt is pushed to the far end of it.
+      expect(receipt.parentElement).toBe(chip.closest('div[class*="flex-wrap"]')!.parentElement)
+      expect(receipt.className).toContain('ml-auto')
+    })
+
+    /** With nothing to react to, the receipt still sits where it always did. */
+    it('keeps the receipt at the trailing edge when there are no reactions', () => {
+      renderList([message({ id: 'a', senderUserId: ME, reactions: [] })])
+      const receipt = screen.getByText(/delivered/i)
+      expect(receipt.className).toContain('ml-auto')
+      expect(document.querySelector('[aria-label*="reacted"]')).toBeNull()
+    })
+
+    /**
+     * The footer can outgrow the bubble — a two-word message with a receipt
+     * under it — and the bubble must not stretch to match.
+     */
+    it('keeps the bubble sized to its text, not to the footer', () => {
+      renderList([message({ id: 'a', senderUserId: ME, body: 'ok' })])
+      const bubble = bubbleOf(document.querySelector('li[data-message-id]')!)
+      expect(bubble.className).toContain('w-fit')
+      // On your side it hugs the trailing edge of the wrapper it no longer fills.
+      expect(bubble.className).toContain('ml-auto')
+    })
+
+    /**
+     * A transcript must never scroll sideways, and `w-fit` is the thing most
+     * likely to make it.
+     *
+     * `fit-content` resolves against MAX-CONTENT, and `overflow-wrap` does not
+     * reduce a word's intrinsic width — so an unbroken 400-character token sized
+     * the bubble to 3800px, straight through the wrapper's own `max-w-prose`,
+     * and laid a 3000px horizontal scrollbar under the whole conversation.
+     * jsdom has no layout, so what is asserted is the clamp that prevents it.
+     */
+    it('clamps the bubble to its wrapper so long tokens wrap', () => {
+      renderList([message({ id: 'a', senderUserId: THEM, body: 'A'.repeat(400) })])
+      const bubble = bubbleOf(document.querySelector('li[data-message-id]')!)
+      expect(bubble.className).toContain('max-w-full')
+      // The text itself still has to be allowed to break mid-token.
+      expect(bubble.querySelector('p')!.className).toContain('break-words')
+    })
+
+    /** The guarantee behind the clamp: the pane cannot scroll sideways at all. */
+    it('never lets the transcript scroll horizontally', () => {
+      renderList([message({ id: 'a', senderUserId: THEM })])
+      const scroller = screen.getByRole('region', { name: /messages/i })
+      expect(scroller.className).toContain('overflow-x-hidden')
     })
 
     it('rests just above the bubble rather than clearing the header', () => {
       renderList([message({ id: 'a', senderUserId: THEM })])
-      const bar = barOf(document.querySelector('li[class*="group/msg"]')!)
+      const bar = barOf(document.querySelector('li[data-message-id]')!)
       expect(bar.className).toContain('pb-1.5')
       expect(bar.className).not.toMatch(/pb-[3-9]/)
     })
@@ -652,6 +860,45 @@ describe('MessageList', () => {
    * browser would — rather than the test hand-waving a shift. What is asserted is
    * the compensation the component applies.
    */
+  describe('jumping to a message', () => {
+    /**
+     * The pinned panel is a dialog. Closing it returns focus to the trigger,
+     * and that trigger is inside the dialog that just unmounted — so without
+     * this, focus fell to `<body>` and a keyboard reader's next Tab restarted
+     * from the top of the page, nowhere near the message they asked to see.
+     */
+    it('puts the caret on the message it scrolled to, not on the body', () => {
+      const messages = [
+        message({ id: 'm1', body: 'first' }),
+        message({ id: 'm2', body: 'the pinned one' }),
+        message({ id: 'm3', body: 'last' }),
+      ]
+      renderList(messages, [], { jumpToMessageId: 'm2', onJumpHandled: jest.fn() })
+
+      const target = document.querySelector('[data-message-id="m2"]')
+      expect(document.activeElement).toBe(target)
+      expect(document.activeElement).not.toBe(document.body)
+    })
+
+    it('keeps the transcript out of the Tab order', () => {
+      // Focusable programmatically, never by tabbing: a hundred-message
+      // conversation must not put a hundred stops between the composer and
+      // the rest of the page.
+      renderList([message({ id: 'm1', body: 'hi' })])
+      const row = document.querySelector('[data-message-id="m1"]')
+      expect(row?.getAttribute('tabindex')).toBe('-1')
+    })
+
+    it('reports the jump as handled so the same message can be chosen twice', () => {
+      const onJumpHandled = jest.fn()
+      renderList([message({ id: 'm1', body: 'hi' })], [], {
+        jumpToMessageId: 'm1',
+        onJumpHandled,
+      })
+      expect(onJumpHandled).toHaveBeenCalled()
+    })
+  })
+
   describe('reading anchor', () => {
     const ROW_H = 40
 

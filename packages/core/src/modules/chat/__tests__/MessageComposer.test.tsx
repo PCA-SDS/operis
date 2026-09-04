@@ -138,6 +138,68 @@ describe('MessageComposer', () => {
  * mints its own idempotency key, the server stored each one. A triple click
  * posted the message three times.
  */
+describe('mention menu', () => {
+  const CANDIDATES = [
+    { id: 'everyone', name: 'everyone', kind: 'everyone' as const, subtitle: 'Notify everyone' },
+    { id: 'u-ana', name: 'Ana Diaz', kind: 'user' as const, subtitle: 'ana@acme.test' },
+    { id: 'u-ben', name: 'Ben Cole', kind: 'user' as const, subtitle: 'ben@acme.test' },
+  ]
+
+  it('reports what is being typed so the parent can widen the candidate list', () => {
+    // The membership endpoint pages, so a space larger than one page needs the
+    // query to reach the server. Without this the menu silently cannot offer
+    // anyone past the first page.
+    const onMentionQueryChange = jest.fn()
+    const { textarea } = setup({ mentionCandidates: CANDIDATES, onMentionQueryChange })
+
+    fireEvent.change(textarea, { target: { value: 'hey @an' } })
+    fireEvent.keyUp(textarea, { key: 'n' })
+
+    expect(onMentionQueryChange).toHaveBeenCalledWith('an')
+  })
+
+  it('reports null once the mention is finished, so the parent stops searching', () => {
+    const onMentionQueryChange = jest.fn()
+    const { textarea } = setup({ mentionCandidates: CANDIDATES, onMentionQueryChange })
+
+    fireEvent.change(textarea, { target: { value: 'hey @an' } })
+    fireEvent.keyUp(textarea, { key: 'n' })
+    onMentionQueryChange.mockClear()
+    fireEvent.change(textarea, { target: { value: 'hey nobody' } })
+    fireEvent.keyUp(textarea, { key: 'y' })
+
+    expect(onMentionQueryChange).toHaveBeenCalledWith(null)
+  })
+
+  it('points the caret at the highlighted row without changing what the field is', () => {
+    // `aria-activedescendant` on the textbox, NOT `role="combobox"` — a
+    // multiline combobox is inconsistently announced, and the field must stay a
+    // text area to screen readers.
+    const { textarea } = setup({ mentionCandidates: CANDIDATES })
+
+    fireEvent.change(textarea, { target: { value: 'hey @a' } })
+    fireEvent.keyUp(textarea, { key: 'a' })
+
+    expect(textarea.getAttribute('role')).toBeNull()
+    expect(screen.getByRole('textbox')).toBe(textarea)
+    const active = textarea.getAttribute('aria-activedescendant')
+    expect(active).toBeTruthy()
+    expect(document.getElementById(active as string)).not.toBeNull()
+    expect(document.getElementById(active as string)?.getAttribute('aria-selected')).toBe('true')
+  })
+
+  it('drops the pointer when the menu closes', () => {
+    const { textarea } = setup({ mentionCandidates: CANDIDATES })
+    fireEvent.change(textarea, { target: { value: 'hey @a' } })
+    fireEvent.keyUp(textarea, { key: 'a' })
+    expect(textarea.getAttribute('aria-activedescendant')).toBeTruthy()
+
+    fireEvent.keyDown(textarea, { key: 'Escape' })
+    expect(textarea.getAttribute('aria-activedescendant')).toBeNull()
+    expect(textarea.getAttribute('aria-controls')).toBeNull()
+  })
+})
+
 describe('double submit', () => {
   it('sends once however many times Send is clicked in one tick', () => {
     const onSend = jest.fn()
