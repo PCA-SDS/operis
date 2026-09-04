@@ -15,8 +15,11 @@ import {
   MAX_MESSAGE_PAGE_SIZE,
 } from '../data/validators'
 import { decodeCursor, encodeCursor } from '../lib/cursor'
+import { resolveReplyTargets } from '../lib/replies'
 import { loadOrganizationMembers, type ChatScope } from '../lib/scope'
 import { loadChatMessages } from '../lib/messages'
+import type { ChatMemberListDto } from '../data/types'
+import { DEFAULT_MEMBER_PAGE_SIZE, MAX_MEMBER_PAGE_SIZE } from '../data/validators'
 
 /**
  * The chat tables as Kysely sees them.
@@ -30,6 +33,8 @@ type ChatDatabase = {
     id: string
     tenant_id: string
     organization_id: string
+    kind: string
+    title: string | null
     last_message_at: Date
     last_message_preview: string | null
     last_message_sender_user_id: string | null
@@ -40,6 +45,7 @@ type ChatDatabase = {
     user_id: string
     tenant_id: string
     organization_id: string
+    role: string
     last_read_at: Date | null
   }
   chat_messages: {
@@ -47,6 +53,7 @@ type ChatDatabase = {
     sender_user_id: string
     tenant_id: string
     organization_id: string
+    kind: string
     created_at: Date
     deleted_at: Date | null
   }
@@ -61,6 +68,8 @@ type ChatDatabase = {
  */
 type ChatConversationRow = {
   id: string
+  kind: string
+  title: string | null
   last_message_at: Date | string
   last_message_preview: string | null
   last_message_sender_user_id: string | null
@@ -78,14 +87,27 @@ export type ChatReadContext = {
   userId: string
 }
 
-function toMessageDto(message: ChatMessage): ChatMessageDto {
+function toMessageDto(
+  message: ChatMessage,
+  replyTo: ChatMessageDto['replyTo'],
+  names: ReadonlyMap<string, string>,
+  fallbackName: string,
+): ChatMessageDto {
   return {
     id: message.id,
     conversationId: message.conversationId,
     senderUserId: message.senderUserId,
+    senderName: names.get(message.senderUserId) ?? fallbackName,
+    kind: message.kind,
     body: message.body,
     createdAt: message.createdAt.toISOString(),
     clientMessageId: message.clientMessageId ?? null,
+    replyTo,
+    systemEvent: message.systemEvent ?? null,
+    systemTargetUserId: message.systemTargetUserId ?? null,
+    systemTargetName: message.systemTargetUserId
+      ? names.get(message.systemTargetUserId) ?? fallbackName
+      : null,
   }
 }
 
@@ -132,6 +154,19 @@ export interface ChatService {
 
   /** Unread messages across every conversation the caller is in. */
   countUnread(ctx: ChatReadContext): Promise<number>
+
+  /**
+   * The members of a space the caller belongs to.
+   *
+   * Paged, because a space is bounded by the organization rather than by the
+   * handful of people in a direct conversation, and a details panel must not
+   * become a request for every user in the company.
+   */
+  listMembers(
+    ctx: ChatReadContext,
+    conversationId: string,
+    options: { limit?: number; offset?: number; query?: string },
+  ): Promise<ChatMemberListDto>
 }
 
 export class DefaultChatService implements ChatService {
@@ -206,7 +241,14 @@ export class DefaultChatService implements ChatService {
       .orderBy('c.id', 'desc')
       // One extra row is the `hasMore` probe.
       .limit(limit + 1)
-      .select(['c.id', 'c.last_message_at', 'c.last_message_preview', 'c.last_message_sender_user_id'])
+      .select([
+        'c.id',
+        'c.kind',
+        'c.title',
+        'c.last_message_at',
+        'c.last_message_preview',
+        'c.last_message_sender_user_id',
+      ])
       .execute()
 
     const hasMore = rows.length > limit
@@ -220,6 +262,8 @@ export class DefaultChatService implements ChatService {
     const [dto] = await this.decorateConversations(ctx, [
       {
         id: conversation.id,
+        kind: conversation.kind,
+        title: conversation.title ?? null,
         last_message_at: conversation.lastMessageAt,
         last_message_preview: conversation.lastMessagePreview ?? null,
         last_message_sender_user_id: conversation.lastMessageSenderUserId ?? null,
@@ -263,8 +307,48 @@ export class DefaultChatService implements ChatService {
     const page = hasMore ? rows.slice(0, limit) : rows
     const oldest = page[page.length - 1]
 
+    // Every person the page names, in one lookup: senders, and whoever a
+    // membership event is about. A space's transcript can carry messages from
+    // anyone in it, so resolving names here is what lets the client label a
+    // bubble without loading the whole membership — and it stays correct for
+    // someone who has since left, whose name the client could not look up at all.
+    const messages = await loadChatMessages()
+    const fallbackName = messages.formerColleague
+    const people = await loadOrganizationMembers(
+      ctx.em,
+      ctx.scope,
+      page.flatMap((message) =>
+        message.systemTargetUserId
+          ? [message.senderUserId, message.systemTargetUserId]
+          : [message.senderUserId],
+      ),
+    )
+    const names = new Map([...people].map(([id, person]) => [id, person.name]))
+
+    // One query for the whole page's reply targets, not one per bubble — and it
+    // reuses the names above, so replying to something on screen costs nothing
+    // extra at all.
+    const replyTargets = await resolveReplyTargets(
+      ctx.em,
+      ctx.scope,
+      conversationId,
+      page,
+      names,
+      fallbackName,
+    )
+
     return {
-      items: page.slice().reverse().map(toMessageDto),
+      items: page
+        .slice()
+        .reverse()
+        .map((message) =>
+          toMessageDto(
+            message,
+            message.replyToMessageId ? replyTargets.get(message.replyToMessageId) ?? null : null,
+            names,
+            fallbackName,
+          ),
+        ),
       nextCursor: hasMore && oldest ? encodeCursor({ createdAt: oldest.createdAt, id: oldest.id }) : null,
       hasMore,
     }
@@ -305,6 +389,12 @@ export class DefaultChatService implements ChatService {
       .where('m.deleted_at', 'is', null)
       // Your own messages are never unread to you.
       .where('m.sender_user_id', '!=', ctx.userId)
+      // Membership events are not unread. Being added to a space, or watching
+      // someone else be added, is context rather than something addressed to
+      // the reader — badging every member for it would make a space with active
+      // membership permanently unread. They still bump `last_message_at`, so the
+      // space rises in the list, which is the useful half.
+      .where('m.kind', '=', 'user')
       // `coalesce`, not `OR`. A disjunction cannot be pushed into the index
       // bound, so the planner would scan every message in every one of the
       // caller's conversations and filter afterwards. Collapsing the null case
@@ -340,13 +430,16 @@ export class DefaultChatService implements ChatService {
   }
 
   /**
-   * Turn conversation rows into what the list renders: the other person, the
+   * Turn conversation rows into what the list renders: who it is with, the
    * preview, and the unread count.
    *
-   * Three queries, constant in the number of conversations the caller has and
-   * bounded by the page size — the participant rows for this page (which supply
-   * both the counterpart and the caller's own read cursor), one batched people
-   * lookup, and one grouped unread aggregate.
+   * Four queries, constant in the number of conversations the caller has and
+   * bounded by the page size, whatever mix of kinds the page holds — the
+   * participant rows for this page (which supply the counterpart, the caller's
+   * own read cursor and their role), one grouped member count, one batched
+   * people lookup, and one grouped unread aggregate. Adding spaces did not add a
+   * query: a space's members come from the same participant fetch a direct's
+   * counterpart already needed.
    */
   private async decorateConversations(
     ctx: ChatReadContext,
@@ -371,19 +464,40 @@ export class DefaultChatService implements ChatService {
       else counterpartByConversation.set(participant.conversationId, participant)
     }
 
-    const people = await loadOrganizationMembers(
-      ctx.em,
-      ctx.scope,
-      [...counterpartByConversation.values()].map((participant) => participant.userId),
-    )
+    // Counted in SQL rather than from the rows above, because the fetch above is
+    // not guaranteed to be the whole membership of a large space — and "8
+    // members" in the header must be the real number, not the number that
+    // happened to load.
+    const memberCounts = await this.countMembers(ctx, conversationIds)
+
+    // Only the people actually rendered are looked up — which, now that a space
+    // row wears a single glyph rather than a stack of member faces, is just the
+    // counterpart of each direct conversation. A space of any size costs no name
+    // lookups at all here; its header loads them when it is opened.
+    const counterpartIds = conversations
+      .filter((conversation) => conversation.kind !== 'space')
+      .map((conversation) => counterpartByConversation.get(conversation.id)?.userId)
+      .filter((userId): userId is string => typeof userId === 'string')
+
+    const people = await loadOrganizationMembers(ctx.em, ctx.scope, counterpartIds)
     const unreadCounts = await this.countUnreadPerConversation(ctx, conversationIds)
+    const messages = await loadChatMessages()
+    const unknownPerson = messages.formerColleague
 
     return conversations.map((conversation) => {
-      const counterpartParticipant = counterpartByConversation.get(conversation.id) ?? null
+      const isSpace = conversation.kind === 'space'
+      const counterpartParticipant = isSpace ? null : counterpartByConversation.get(conversation.id) ?? null
       const person = counterpartParticipant ? people.get(counterpartParticipant.userId) ?? null : null
       const membership = membershipByConversation.get(conversation.id) ?? null
       return {
         id: conversation.id,
+        kind: isSpace ? 'space' : 'direct',
+        // Resolved once, here, so the rail, the header, the topbar panel and the
+        // page title all say the same thing without each one reimplementing the
+        // "they left the organization" fallback.
+        title: isSpace ? conversation.title ?? unknownPerson : person?.name ?? unknownPerson,
+        memberCount: isSpace ? memberCounts.get(conversation.id) ?? 0 : 0,
+        viewerRole: membership?.role ?? 'member',
         counterpart: person ? { id: person.id, name: person.name, email: person.email } : null,
         lastMessageAt: toIsoString(conversation.last_message_at),
         lastMessagePreview: conversation.last_message_preview ?? null,
@@ -393,5 +507,94 @@ export class DefaultChatService implements ChatService {
         counterpartLastReadAt: counterpartParticipant?.lastReadAt?.toISOString() ?? null,
       }
     })
+  }
+
+  /**
+   * The members of a conversation the caller belongs to.
+   *
+   * `requireParticipant` first, so this is only ever answerable about a space the
+   * caller is in — it cannot be used to enumerate the membership of one they are
+   * not, and it cannot reach another organization because the participant rows,
+   * the user lookup and the count are all pinned to the caller's scope.
+   *
+   * Members who have left the organization are omitted rather than shown as
+   * blanks: the participant row outlives the membership, and a details panel
+   * listing people who can no longer sign in would invite removing them one by
+   * one for no effect.
+   */
+  async listMembers(
+    ctx: ChatReadContext,
+    conversationId: string,
+    options: { limit?: number; offset?: number; query?: string },
+  ): Promise<ChatMemberListDto> {
+    await this.requireParticipant(ctx, conversationId)
+
+    const limit = Math.min(Math.max(options.limit ?? DEFAULT_MEMBER_PAGE_SIZE, 1), MAX_MEMBER_PAGE_SIZE)
+    const offset = Math.max(options.offset ?? 0, 0)
+
+    const participants = await ctx.em.find(
+      ChatParticipant,
+      {
+        conversationId,
+        tenantId: ctx.scope.tenantId,
+        organizationId: ctx.scope.organizationId,
+      },
+      // Owners first, then by when they joined: the people who can change things
+      // are the ones a details panel is usually opened to find.
+      { orderBy: { role: 'asc', createdAt: 'asc', id: 'asc' } },
+    )
+
+    const people = await loadOrganizationMembers(
+      ctx.em,
+      ctx.scope,
+      participants.map((participant) => participant.userId),
+    )
+
+    const needle = (options.query ?? '').trim().toLowerCase()
+    const all = participants
+      .map((participant) => {
+        const person = people.get(participant.userId)
+        if (!person) return null
+        return {
+          id: person.id,
+          name: person.name,
+          email: person.email,
+          role: participant.role,
+          joinedAt: participant.createdAt.toISOString(),
+        }
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+      .filter((entry) =>
+        needle.length === 0 ||
+        entry.name.toLowerCase().includes(needle) ||
+        entry.email.toLowerCase().includes(needle),
+      )
+
+    const page = all.slice(offset, offset + limit)
+    return { items: page, total: all.length, hasMore: offset + page.length < all.length }
+  }
+
+  /** Member totals for one page of conversations, as one grouped count. */
+  private async countMembers(
+    ctx: ChatReadContext,
+    conversationIds: readonly string[],
+  ): Promise<Map<string, number>> {
+    const counts = new Map<string, number>()
+    if (conversationIds.length === 0) return counts
+
+    const rows = await ctx.em
+      .getKysely<ChatDatabase>()
+      .selectFrom('chat_participants as p')
+      .where('p.conversation_id', 'in', [...conversationIds])
+      .where('p.tenant_id', '=', ctx.scope.tenantId)
+      .where('p.organization_id', '=', ctx.scope.organizationId)
+      .groupBy('p.conversation_id')
+      .select((eb) => ['p.conversation_id as conversation_id', eb.fn.countAll().as('count')])
+      .execute()
+
+    for (const row of rows as Array<{ conversation_id: string; count: string | number }>) {
+      counts.set(row.conversation_id, Number(row.count))
+    }
+    return counts
   }
 }
