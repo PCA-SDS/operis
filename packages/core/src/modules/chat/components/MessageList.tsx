@@ -67,6 +67,15 @@ type MessageListProps = {
    */
   jumpToMessageId?: string | null
   onJumpHandled?: () => void
+  /**
+   * True while the transcript is a bounded window around a jumped-to message
+   * rather than the live tail. In that state the bottom of the list is NOT the
+   * latest message, so "Jump to latest" has to drop the anchor rather than
+   * scroll.
+   */
+  isAnchored?: boolean
+  /** Clears the anchor so the newest page loads again. */
+  onReturnToLatest?: () => void
   isLoading: boolean
   hasOlder: boolean
   isLoadingOlder: boolean
@@ -377,6 +386,8 @@ export function MessageList({
   onTogglePin,
   jumpToMessageId,
   onJumpHandled,
+  isAnchored,
+  onReturnToLatest,
   isLoading,
   hasOlder,
   isLoadingOlder,
@@ -995,7 +1006,7 @@ export function MessageList({
                         row.first ? 'mb-4' : DIVIDER_GAP,
                       )}
                     >
-                      <span className="text-overline font-semibold uppercase tracking-wider text-muted-foreground">
+                      <span className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">
                         {row.label}
                       </span>
                     </li>
@@ -1016,14 +1027,14 @@ export function MessageList({
                       )}
                     >
                       <span
-                        className="h-px flex-1 bg-status-error-border"
+                        className="h-px flex-1 bg-primary/40"
                         aria-hidden="true"
                       />
-                      <span className="text-xs font-semibold text-status-error-text">
+                      <span className="text-xs font-semibold text-primary">
                         {t('chat.messages.newDivider', 'New')}
                       </span>
                       <span
-                        className="h-px flex-1 bg-status-error-border"
+                        className="h-px flex-1 bg-primary/40"
                         aria-hidden="true"
                       />
                     </li>
@@ -1044,7 +1055,7 @@ export function MessageList({
                     >
                       <div
                         className={cn(
-                          'w-fit max-w-[85%] rounded-2xl px-3 py-2 sm:max-w-prose',
+                          'w-fit max-w-[min(85%,65ch)] rounded-2xl px-3 py-2',
                           row.pending.failed
                             ? 'border border-status-error-border bg-status-error-bg'
                             : 'bg-primary-soft opacity-70',
@@ -1190,12 +1201,20 @@ export function MessageList({
                     {/* `w-fit` so a two-word reply is a two-word bubble; the cap
                         stops a long one running the width of the pane.
 
-                        Two caps, because they solve different problems. On a wide
-                        pane `max-w-prose` holds the line to a readable measure. On a
-                        narrow one 65ch is wider than the pane, so every bubble
-                        reached full width and the left/right alignment — the only
-                        thing distinguishing sender from recipient — became invisible.
-                        The proportional cap keeps the asymmetry legible on a phone. */}
+                        Two limits, because they solve different problems. `65ch`
+                        holds a long line to a readable measure. `85%` keeps the
+                        left/right asymmetry — the only thing distinguishing sender
+                        from recipient — legible when the pane is narrow.
+
+                        `min()` of the two, NOT a breakpoint between them. A
+                        breakpoint asks how wide the VIEWPORT is; the thing that
+                        actually constrains a bubble is the PANE, which is the
+                        viewport minus the app sidebar and the conversation column.
+                        Those diverge: at a 768px viewport the pane is 608px, so
+                        `sm:max-w-prose` licensed a 666px bubble and an unbreakable
+                        string overflowed the pane by 18px and pushed the shell
+                        110px wide. Comparing against the container cannot drift
+                        the way a breakpoint can. */}
                     {/* The bubble and its actions share one box, sized to the
                         bubble. That is what lets the bar anchor to the message
                         rather than to the row: parked at the row's outer margin it
@@ -1210,7 +1229,7 @@ export function MessageList({
                         descendants, so hovering them keeps the scope alive.
                         `focus-within` is the keyboard equivalent — without it the
                         menu trigger can be focused but never seen. */}
-                    <div className="group/msg relative w-fit max-w-[85%] sm:max-w-prose">
+                    <div className="group/msg relative w-fit max-w-[min(85%,65ch)]">
                       <div
                         className={cn(
                           // `w-fit` and, on your side, `ml-auto`: the wrapper is
@@ -1464,8 +1483,17 @@ export function MessageList({
       </div>
 
       {/* Only offered when it does something: at the bottom already, it is not
-          rendered rather than rendered inert. */}
-      {!atBottom && rows.length > 0 ? (
+          rendered rather than rendered inert.
+
+          Except while anchored. Jumping to a pinned message replaces the
+          transcript with a bounded window around it, and the bottom of that
+          window is a message from whenever the pin was — not the latest. So the
+          control stays offered there even at the bottom, and its job changes:
+          drop the anchor and reload the tail. Without that it scrolled to the
+          end of an old window and called it "latest", while new messages never
+          rendered and the unread count climbed for a conversation the reader was
+          looking straight at. */}
+      {(isAnchored || !atBottom) && rows.length > 0 ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
           <Button
             type="button"
@@ -1473,6 +1501,12 @@ export function MessageList({
             size="sm"
             className="pointer-events-auto shadow-sm"
             onClick={() => {
+              if (isAnchored && onReturnToLatest) {
+                // Follow the tail again once the newest page lands.
+                stuckToBottom.current = true
+                onReturnToLatest()
+                return
+              }
               const container = scrollRef.current
               if (container) scrollToBottom(container, 'smooth')
             }}

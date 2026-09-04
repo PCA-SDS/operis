@@ -9,6 +9,7 @@ import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { tCount } from './plurals'
 import type { ChatMessageDto } from '../data/types'
 import { MessageComposer, type MentionCandidate } from './MessageComposer'
 import { MessageList, type PendingMessage } from './MessageList'
@@ -324,11 +325,7 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
                   it too would leave the pane unlabelled. */}
               {conversationError ? null : isSpace && conversation ? (
                 <span className="block truncate text-xs text-muted-foreground">
-                  {t(
-                    `chat.space.memberCount${conversation.memberCount === 1 ? '' : '_plural'}`,
-                    '{count} members',
-                    { count: conversation.memberCount },
-                  )}
+                  {tCount(t, 'chat.space.memberCount', conversation.memberCount, '{count} members')}
                 </span>
               ) : conversation?.counterpart ? (
                 <span className="block truncate text-xs text-muted-foreground">
@@ -449,6 +446,8 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
         </div>
       ) : (
         <MessageList
+          isAnchored={Boolean(anchorMessageId)}
+          onReturnToLatest={() => setAnchorMessageId(null)}
           jumpToMessageId={jumpTarget}
           onJumpHandled={() => setJumpTarget(null)}
           onToggleReaction={

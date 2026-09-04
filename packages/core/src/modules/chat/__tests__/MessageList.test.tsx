@@ -899,6 +899,38 @@ describe('MessageList', () => {
     })
   })
 
+  describe('returning to the live tail', () => {
+    /**
+     * Jumping to a pinned message replaces the transcript with a bounded window
+     * around it. The bottom of that window is whenever the pin was — not the
+     * latest — so the control has to drop the anchor rather than scroll, and it
+     * has to be offered even when the reader is already at the bottom.
+     */
+    const messages = [
+      message({ id: 'm1', body: 'old' }),
+      message({ id: 'm2', body: 'older still' }),
+    ]
+
+    it('offers the control while anchored, even at the bottom', () => {
+      renderList(messages, [], { isAnchored: true, onReturnToLatest: jest.fn() })
+      expect(screen.getByRole('button', { name: /jump to latest/i })).toBeTruthy()
+    })
+
+    it('drops the anchor rather than only scrolling', () => {
+      const onReturnToLatest = jest.fn()
+      renderList(messages, [], { isAnchored: true, onReturnToLatest })
+      fireEvent.click(screen.getByRole('button', { name: /jump to latest/i }))
+      expect(onReturnToLatest).toHaveBeenCalledTimes(1)
+    })
+
+    it('is not offered at the bottom of the live tail', () => {
+      // Unanchored and already at the bottom: nothing to jump to, so the
+      // control is absent rather than present-and-inert.
+      renderList(messages, [], { isAnchored: false })
+      expect(screen.queryByRole('button', { name: /jump to latest/i })).toBeNull()
+    })
+  })
+
   describe('reading anchor', () => {
     const ROW_H = 40
 
