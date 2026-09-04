@@ -38,15 +38,56 @@ export const conversationSchema = z.object({
   unreadCount: z.number(),
   lastReadAt: z.string().nullable(),
   counterpartLastReadAt: z.string().nullable(),
+  kind: z.enum(['direct', 'space']),
+  title: z.string(),
+  memberCount: z.number(),
+  viewerRole: z.enum(['owner', 'member']),
+})
+
+export const memberSchema = participantSchema.extend({
+  role: z.enum(['owner', 'member']),
+  joinedAt: z.string(),
+})
+
+export const memberListSchema = z.object({
+  items: z.array(memberSchema),
+  total: z.number(),
+  hasMore: z.boolean(),
+})
+
+export const addMembersResponseSchema = z.object({ added: z.array(z.string().uuid()) })
+export const removeMemberResponseSchema = z.object({
+  removed: z.string().uuid(),
+  spaceDeleted: z.boolean(),
+})
+export const memberRoleResponseSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(['owner', 'member']),
+})
+
+export const replyTargetSchema = z.object({
+  id: z.string().uuid(),
+  senderUserId: z.string(),
+  senderName: z.string(),
+  body: z.string(),
+  deleted: z.boolean(),
 })
 
 export const messageSchema = z.object({
   id: z.string().uuid(),
   conversationId: z.string().uuid(),
   senderUserId: z.string().uuid(),
+  senderName: z.string(),
   body: z.string(),
   createdAt: z.string(),
   clientMessageId: z.string().nullable(),
+  kind: z.enum(['user', 'system']),
+  replyTo: replyTargetSchema.nullable(),
+  systemEvent: z
+    .enum(['member_added', 'member_removed', 'member_left', 'space_renamed'])
+    .nullable(),
+  systemTargetUserId: z.string().uuid().nullable(),
+  systemTargetName: z.string().nullable(),
 })
 
 export const conversationListSchema = z.object({

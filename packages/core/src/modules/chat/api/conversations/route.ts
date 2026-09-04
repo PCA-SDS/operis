@@ -8,6 +8,7 @@ import type {
   EnsureDirectConversationInput,
   EnsureDirectConversationResult,
 } from '../../commands/conversations'
+import type { CreateSpaceInput } from '../../commands/spaces'
 import {
   chatService,
   enforceChatRateLimit,
@@ -49,10 +50,17 @@ export async function GET(req: Request) {
 }
 
 /**
- * Open the conversation with someone, creating it only if it does not exist.
+ * Create a conversation of either kind.
  *
- * Idempotent by design: pressing "message" twice, or both people doing it at the
- * same moment, converges on the same conversation id.
+ * One endpoint, because both produce the same resource and both are read back
+ * through the same `getConversation`. The body is a discriminated union on
+ * `kind`, which defaults to `direct` when absent — so a client that posts a bare
+ * `{ userId }`, as every caller did before spaces existed, is unaffected.
+ *
+ * The direct branch is idempotent by design: pressing "message" twice, or both
+ * people doing it at the same moment, converges on the same conversation id. The
+ * space branch is not, and must not be — two spaces with the same name are two
+ * different rooms, exactly as they are in every other product.
  */
 export async function POST(req: Request) {
   try {
@@ -64,20 +72,34 @@ export async function POST(req: Request) {
     if (limited) return limited
 
     const body = chatCreateConversationSchema.parse(await req.json())
-    const input: EnsureDirectConversationInput = {
-      tenantId: request.scope.tenantId,
-      organizationId: request.scope.organizationId,
-      userId: body.userId,
-    }
 
-    const outcome = await runChatCommand<EnsureDirectConversationInput, EnsureDirectConversationResult>({
-      request,
-      req,
-      commandId: 'chat.conversations.ensureDirect',
-      input,
-      resourceKind: 'chat.conversation',
-      operation: 'create',
-    })
+    const outcome =
+      body.kind === 'space'
+        ? await runChatCommand<CreateSpaceInput, { conversationId: string }>({
+            request,
+            req,
+            commandId: 'chat.spaces.create',
+            input: {
+              tenantId: request.scope.tenantId,
+              organizationId: request.scope.organizationId,
+              title: body.title,
+              memberIds: body.memberIds,
+            },
+            resourceKind: 'chat.conversation',
+            operation: 'create',
+          })
+        : await runChatCommand<EnsureDirectConversationInput, EnsureDirectConversationResult>({
+            request,
+            req,
+            commandId: 'chat.conversations.ensureDirect',
+            input: {
+              tenantId: request.scope.tenantId,
+              organizationId: request.scope.organizationId,
+              userId: body.userId,
+            },
+            resourceKind: 'chat.conversation',
+            operation: 'create',
+          })
     if (!outcome.ok) return outcome.response
 
     const conversation = await chatService(request).getConversation(
@@ -102,9 +124,9 @@ export const openApi: OpenApiRouteDoc = {
       errors: [...COMMON_ERRORS],
     },
     POST: {
-      summary: 'Open (or create) the direct conversation with someone',
+      summary: 'Create a conversation — a direct message or a space',
       description:
-        'Returns the one canonical conversation between the caller and the given user. A unique index on the sorted user pair makes repeated or concurrent calls converge on the same row. The target must be an active member of the caller’s own organization.',
+        'A discriminated union on `kind`. `direct` (the default when `kind` is omitted, so pre-space clients are unaffected) returns the one canonical conversation between the caller and `userId`; a unique index on the sorted user pair makes repeated or concurrent calls converge on the same row. `space` creates a named group with the caller as owner and `memberIds` as members. Every named user, and the caller, must be an active member of the caller’s own organization; one that is not fails the whole request with a message that does not distinguish "no such user" from "another organization".',
       responses: [{ status: 200, description: 'The conversation.', schema: conversationSchema }],
       errors: [...COMMON_ERRORS, ...RATE_LIMITED_ERRORS],
     },

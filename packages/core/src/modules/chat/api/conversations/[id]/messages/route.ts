@@ -71,6 +71,7 @@ export async function POST(req: Request, context: { params?: Record<string, unkn
       conversationId: id,
       body: body.body,
       clientMessageId: body.clientMessageId,
+      replyToMessageId: body.replyToMessageId,
     }
 
     const outcome = await runChatCommand<SendChatMessageInput, SendChatMessageResult>({
@@ -104,7 +105,7 @@ export const openApi: OpenApiRouteDoc = {
     POST: {
       summary: 'Send a message',
       description:
-        'Authorship comes from the session, never the payload. Supplying `clientMessageId` makes the send idempotent, so a retried request returns the message already stored instead of posting twice.',
+        'Authorship comes from the session, never the payload. Supplying `clientMessageId` makes the send idempotent, so a retried request returns the message already stored instead of posting twice. `replyToMessageId` must name a live message in this same conversation: the command checks it, and a composite foreign key on `(reply_to_message_id, conversation_id)` makes a cross-conversation or cross-organization reference unstorable even if that check were removed.',
       responses: [{ status: 200, description: 'The stored message.', schema: sendMessageResponseSchema }],
       errors: [...COMMON_ERRORS, ...RATE_LIMITED_ERRORS],
     },
