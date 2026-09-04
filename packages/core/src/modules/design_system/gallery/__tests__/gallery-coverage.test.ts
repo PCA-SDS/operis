@@ -18,6 +18,7 @@ const NON_COMPONENT: Record<string, string> = {
   'label.tsx': 'Form label sub-primitive shown through FormField/inputs, not a standalone entry.',
   'menu.ts': 'Shared menu row/surface class recipes consumed by Select, Dropdown and popover menus, no visual component.',
   'notification-stack.tsx': 'Imperative stacking host for notification primitives, no standalone visual.',
+  'selection-indicator.tsx': 'Row-level selected/unselected mark rendered inside multi-select list rows (entity linker, chat member picker), not a standalone entry.',
 }
 
 // Deprecated primitives are deliberately NOT showcased: rendering them would

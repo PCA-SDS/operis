@@ -405,7 +405,7 @@ function SortableEntryRow({
           type="text"
           value={entry.label}
           onChange={(e) => onLabelChange(e.target.value)}
-          className="w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm font-medium text-foreground outline-none focus:border-foreground"
+          className="w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm font-medium text-foreground outline-none"
         />
         {isDefault && (
           <div className="flex items-center gap-1.5">

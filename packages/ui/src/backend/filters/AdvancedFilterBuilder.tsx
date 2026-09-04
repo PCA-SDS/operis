@@ -592,7 +592,7 @@ function ValueInput({
   const fieldDef = fields.find((f) => f.key === rule.field)
   const value = rule.value
   const errorClass = hasError
-    ? 'border-status-error-border ring-1 ring-status-error-border focus-visible:border-status-error-border focus-within:border-status-error-border'
+    ? 'border-status-error-border ring-1 ring-status-error-border'
     : ''
 
   if (fieldType === 'select' && fieldDef?.options) {
@@ -788,7 +788,7 @@ function MultiValuePicker({
             so the operator + value pair stays visually consistent. */}
         <button
           type="button"
-          className={`inline-flex h-8 items-center justify-between gap-2 rounded-md border border-input bg-input-bg px-2.5 text-xs shadow-xs transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:shadow-focus focus-visible:border-foreground w-auto min-w-[160px] ${errorClass}`}
+          className={`inline-flex h-8 items-center justify-between gap-2 rounded-md border border-input bg-input-bg px-2.5 text-xs shadow-xs transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:shadow-focus w-auto min-w-[160px] ${errorClass}`}
           aria-label={t('ui.advancedFilter.selectValue', 'Select value')}
           data-testid="multi-value-trigger"
         >

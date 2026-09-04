@@ -8,7 +8,7 @@ import { cn } from '@open-mercato/shared/lib/utils'
    fill, same weight split between value and placeholder — so a form does not
    read as two different control families stacked on top of each other. */
 const baseTextareaClass =
-  'flex w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm font-medium transition-colors placeholder:font-normal placeholder:text-input-placeholder outline-none focus-visible:outline-none focus-visible:shadow-focus focus-visible:border-input-border-focus focus-visible:bg-modal-muted hover:bg-modal-muted disabled:cursor-not-allowed disabled:bg-input-disabled-bg disabled:text-text-disabled disabled:border-border-disabled disabled:shadow-none disabled:hover:bg-input-disabled-bg aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:border-destructive resize-y min-h-20'
+  'flex w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm font-medium transition-colors placeholder:font-normal placeholder:text-input-placeholder outline-none focus-visible:outline-none focus-visible:shadow-focus focus-visible:border-input-border-focus focus-visible:bg-modal-muted hover:bg-modal-muted disabled:cursor-not-allowed disabled:bg-input-disabled-bg disabled:text-text-disabled disabled:border-border-disabled disabled:shadow-none disabled:hover:bg-input-disabled-bg aria-[invalid=true]:border-destructive resize-y min-h-20'
 
 export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
   /** Show character counter (`current/max`) below the textarea. Requires `maxLength`. */
