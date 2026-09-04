@@ -1,5 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { findEntityIdsBySearchTokens } from '@open-mercato/shared/lib/search/tokenLookup'
+import { createSearchTokenAvailability } from '@open-mercato/shared/lib/search/availability'
+import type { SearchTokenProbeDb } from '@open-mercato/shared/lib/search/availability'
 import type { SearchTokenDatabase } from '@open-mercato/shared/lib/search/tokenLookup'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { E } from '#generated/entities.ids.generated'
@@ -126,19 +128,44 @@ export async function searchOrganizationDirectory(
   })
 
   if (lookup.matched) {
-    if (lookup.ids.length === 0) return { items: [], truncated: false }
-    // The index is tenant-scoped, not organization-scoped, so the org filter
-    // still runs in SQL here — an id that matched in a sibling organization is
-    // dropped by the database, not by this code.
-    const users = await findWithDecryption(
-      em,
-      User,
-      { ...memberFilter, id: { $in: lookup.ids.filter((id) => id !== options.excludeUserId) } },
-      { limit },
-      { tenantId: scope.tenantId, organizationId: scope.organizationId },
-    )
-    const roleNames = await loadRoleNames(em, users.map((user) => user.id))
-    return { items: toEntries(users, roleNames, limit), truncated: false }
+    // An empty result from the index means one of two very different things:
+    // nobody matches, or this entity type was never indexed. On a deployment
+    // where `auth:user` has no `search_tokens` rows — the state of any install
+    // that has not reindexed users — trusting it answered "no colleague called
+    // Sarah" to every query of three characters or more, while one- and
+    // two-character queries worked because they produce no tokens and fall
+    // through to the scan below. Confirming the entity type is actually indexed
+    // is what separates the two; the probe is a prefix seek on
+    // `search_tokens_presence_idx` with a process-level TTL cache, so the miss
+    // costs the same as the hit.
+    if (lookup.ids.length === 0) {
+      const availability = createSearchTokenAvailability({
+        // The same structural cast the query engine uses: the probe type is
+        // deliberately minimal so it does not depend on a Kysely schema.
+        getDb: () => em.getKysely() as unknown as SearchTokenProbeDb,
+        getConfig: () => ({ enabled: true }),
+        // The lookup above is already tenant-scoped and the org filter runs in
+        // SQL on the user query, so the probe only asks "is this entity type
+        // indexed for this tenant at all".
+        applyOrganizationScope: (query) => query,
+        logDebug: () => undefined,
+      })
+      const indexed = await availability.hasTokens(E.auth.user, scope.tenantId)
+      if (indexed) return { items: [], truncated: false }
+    } else {
+      // The index is tenant-scoped, not organization-scoped, so the org filter
+      // still runs in SQL here — an id that matched in a sibling organization is
+      // dropped by the database, not by this code.
+      const users = await findWithDecryption(
+        em,
+        User,
+        { ...memberFilter, id: { $in: lookup.ids.filter((id) => id !== options.excludeUserId) } },
+        { limit },
+        { tenantId: scope.tenantId, organizationId: scope.organizationId },
+      )
+      const roleNames = await loadRoleNames(em, users.map((user) => user.id))
+      return { items: toEntries(users, roleNames, limit), truncated: false }
+    }
   }
 
   // Degraded path: the token index was not consulted (search disabled, or this
