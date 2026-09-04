@@ -47,6 +47,22 @@ const events = [
     clientBroadcast: true,
   },
   {
+    id: 'chat.message.reacted',
+    label: 'Chat Message Reacted',
+    entity: 'message',
+    category: 'crud',
+    clientBroadcast: true,
+    // Reacting is not something another module should hang a workflow off.
+    excludeFromTriggers: true,
+  },
+  {
+    id: 'chat.conversation.pinned',
+    label: 'Chat Conversation Pin Changed',
+    entity: 'conversation',
+    category: 'crud',
+    clientBroadcast: true,
+  },
+  {
     id: 'chat.conversation.read',
     label: 'Chat Conversation Read',
     entity: 'conversation',

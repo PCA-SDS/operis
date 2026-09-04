@@ -2,9 +2,10 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
 import { badRequest, isUniqueViolation, notFound } from '@open-mercato/shared/lib/crud/errors'
-import { ChatConversation, ChatMessage, ChatParticipant } from '../data/entities'
+import { ChatConversation, ChatMessage, ChatMessageMention, ChatParticipant } from '../data/entities'
 import type { ChatMessageDto, ChatReplyTargetDto } from '../data/types'
 import { buildMessagePreview } from '../lib/conversations'
+import { extractMentionedUserIds, mentionsEveryone } from '../lib/mentions'
 import { resolveReplyTarget } from '../lib/replies'
 import { loadChatMessages } from '../lib/messages'
 import { dbNow } from '../lib/clock'
@@ -36,6 +37,7 @@ function toDto(
   message: ChatMessage,
   replyTo: ChatReplyTargetDto | null,
   senderName: string,
+  mentionNames: Record<string, string> = {},
 ): ChatMessageDto {
   return {
     id: message.id,
@@ -52,6 +54,12 @@ function toDto(
     // A send is always a user message, so there is never a membership target to
     // name here.
     systemTargetName: null,
+    // A message cannot be reacted to or pinned before it exists, so the sender's
+    // optimistic copy starts empty and picks the rest up on the next read.
+    reactions: [],
+    mentionNames,
+    mentionsEveryone: message.mentionsEveryone,
+    pinned: false,
   }
 }
 
@@ -139,7 +147,33 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
       if (!target) throw notFound(messages.replyTargetNotFound)
     }
 
+    /**
+     * Mentions are validated against the conversation, never trusted from the
+     * client.
+     *
+     * The body arrives carrying `<@id>` tokens the composer wrote. Each one must
+     * name somebody who is actually in this conversation: a forged id belonging
+     * to another space, another organization, or nobody at all is refused rather
+     * than stored — otherwise the mention table would become a way to make a
+     * stranger's client fetch a conversation, and `@everyone` a way to reach
+     * outside the room.
+     *
+     * `@everyone` is refused in a direct conversation, where it would mean the
+     * one person already reading it.
+     */
     const participantIds = await conversationAudience(em, scope, conversation.id)
+    const mentionedUserIds = extractMentionedUserIds(input.body)
+    const everyone = mentionsEveryone(input.body)
+
+    if (everyone && conversation.kind !== 'space') throw badRequest(messages.everyoneNotAllowed)
+    if (mentionedUserIds.length > 0) {
+      const inConversation = new Set(participantIds)
+      const outsiders = mentionedUserIds.filter((userId) => !inConversation.has(userId))
+      if (outsiders.length > 0) throw badRequest(messages.mentionNotAllowed)
+      // And they must still be active people, not stale participant rows.
+      const mentioned = await loadOrganizationMembers(em, scope, mentionedUserIds)
+      if (mentioned.size !== mentionedUserIds.length) throw badRequest(messages.mentionNotAllowed)
+    }
 
     // Re-check the OTHER side too, not just the sender.
     //
@@ -203,10 +237,28 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
           body: input.body,
           clientMessageId: input.clientMessageId ?? null,
           replyToMessageId: input.replyToMessageId ?? null,
+          mentionsEveryone: everyone,
           createdAt: now,
           updatedAt: now,
         })
         tx.persist(message)
+
+        // The mention rows land in the same transaction as the message, so a
+        // half-written send can never leave a message that names nobody or a
+        // mention pointing at nothing.
+        await tx.flush()
+        for (const mentionedUserId of mentionedUserIds) {
+          tx.persist(
+            tx.create(ChatMessageMention, {
+              tenantId: scope.tenantId,
+              organizationId: scope.organizationId,
+              messageId: message.id,
+              conversationId: conversation.id,
+              mentionedUserId,
+              createdAt: now,
+            }),
+          )
+        }
 
         target.lastMessageAt = now
         target.lastMessagePreview = buildMessagePreview(input.body)
@@ -246,8 +298,16 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
       createdAt: stored.createdAt.toISOString(),
     })
 
+    const mentionNames: Record<string, string> = {}
+    if (mentionedUserIds.length > 0) {
+      const mentioned = await loadOrganizationMembers(em, scope, mentionedUserIds)
+      for (const userId of mentionedUserIds) {
+        mentionNames[userId] = mentioned.get(userId)?.name ?? ''
+      }
+    }
+
     return {
-      message: toDto(stored, await resolveReplyTarget(em, scope, stored), sender.name),
+      message: toDto(stored, await resolveReplyTarget(em, scope, stored), sender.name, mentionNames),
       deduplicated: false,
     }
   },
