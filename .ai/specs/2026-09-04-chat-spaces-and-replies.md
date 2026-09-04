@@ -342,3 +342,48 @@ Integration tests ship with the change and cover every new API path:
   unread and role, a removed member cannot see it at all, an added member reads
   the history that predates them and their reply reference resolves, and another
   organization's directory returns only its own people.
+
+- 2026-09-04 — production-hardening pass. Four defects, all found by exercising
+  the running application rather than by reading the code.
+
+  **Concurrent adds returned 500.** Two owners pressing "Add" on the same person
+  both saw them missing and both inserted; `chat_participants_conversation_user_uq`
+  rejected the loser and the 23505 surfaced unhandled. Measured with six parallel
+  adds: the membership stayed correct at one row while several callers got a
+  server error. The command now re-reads and seats whatever is genuinely still
+  missing, and treats a second violation as the other writer having finished the
+  job. Re-measured: sixteen parallel adds, all 200, one row each.
+
+  **A double-click sent the message twice.** `setValue('')` lands on the next
+  render, so several clicks in one tick all read the same draft and each called
+  `onSend` — and since every send mints its own idempotency key, the server
+  stored each one. Measured: a triple click posted three copies. The draft is now
+  tracked in a ref that clears synchronously, so extra clicks see an empty box
+  while typing something new re-arms it immediately. Disabling the button instead
+  would have blocked the legitimate case of sending two lines quickly.
+
+  **Reading a conversation refetched it.** `chat.conversation.read` is emitted to
+  the reader's own sessions so their other tabs can clear the badge, and it came
+  back to the tab that caused it, where the live-refresh hook invalidated the
+  whole chat key space — so opening a conversation refetched the messages it had
+  just loaded. A read can only move a badge, so it now refreshes the two surfaces
+  that show one. Cold load went from 17 requests to 11 in production; idle
+  traffic is zero, so nothing polls.
+
+  **Dialogs dropped keyboard focus on `<body>`.** Both are reached through a
+  dropdown, and choosing an item unmounts the menu — so the element Radix would
+  restore to no longer exists by the time the dialog closes. The rail's create
+  control now carries a stable handle and the shell restores focus to it.
+
+  Also: the conversation header stopped asserting a member count while the
+  conversation can no longer be read — a failed refetch keeps the cached copy, so
+  a stale "2 members" sat directly above "Couldn't open this conversation".
+
+  Verified live and not by inference: eviction while the page is open (the view
+  transitions itself to the access-lost state, the post-eviction message never
+  reaches the DOM, the composer disappears, the space leaves the rail); reply
+  state cleared across a conversation switch while a cancel keeps the draft; a
+  space name carrying markup rendered as text with zero injected nodes; a
+  superadmin scoped outside their organization reaching nothing; the full
+  four-user scenario end to end; and no horizontal overflow at 1920, 1024, 768
+  and 375.
