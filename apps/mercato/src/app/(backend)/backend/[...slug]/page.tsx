@@ -135,7 +135,11 @@ export default async function BackendCatchAll(props: BackendParams) {
   return (
     <>
       <ApplyBreadcrumb breadcrumb={match.route.breadcrumb} title={match.route.title} titleKey={match.route.titleKey} />
-      <div data-component-handle={pageHandle}>
+      {/* `contents`, so this marker generates no box. It exists only to carry the
+          component-replacement handle, but as a plain block it was an auto-height
+          box between `main` and the page — which silently broke `Page fill`'s
+          `h-full` for every page that opted in. */}
+      <div className="contents" data-component-handle={pageHandle}>
         <Component params={match.params} />
       </div>
     </>

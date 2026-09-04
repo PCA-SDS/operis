@@ -1380,7 +1380,10 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
         {renderSidebar()}
       </aside>
 
-      <div className="flex min-h-svh flex-col min-w-0">
+      {/* `data-app-shell-column` is a styling hook only. `globals.css` uses it
+          to pin the shell to the viewport for pages that opted into
+          `<Page fill>`, and does nothing at all for every other page. */}
+      <div data-app-shell-column="" className="flex min-h-svh flex-col min-w-0">
         <header className="sticky top-0 z-sticky h-16 shrink-0 border-b border-border bg-surface-muted px-3 sm:px-4 lg:px-6 flex items-center gap-2 sm:gap-3">
           <div
             data-testid="backend-chrome-ready"

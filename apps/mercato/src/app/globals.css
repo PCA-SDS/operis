@@ -1122,3 +1122,69 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
 .om-mdx-editor .cm-dropCursor {
   border-left-color: var(--foreground);
 }
+
+/*
+ * Viewport-locked pages (`<Page fill>`).
+ *
+ * The shell column is deliberately `min-h-svh` so an ordinary page grows with
+ * its content and the document scrolls. That leaves no ancestor with a definite
+ * height, so `Page`'s `h-full` resolves to `auto` — a page that opted into
+ * `fill` grew with its content instead of handing the leftover height to its
+ * scrolling region, and a long chat transcript scrolled the whole document
+ * rather than the transcript.
+ *
+ * Scoped with `:has()` to pages that actually set `data-fill`, so every other
+ * page keeps document scrolling exactly as before. `main` keeps `overflow-y-auto`
+ * as a safety valve: if a fill page ever exceeds the viewport it scrolls inside
+ * the shell rather than being clipped.
+ *
+ * The breakpoint variants (`fill="sm|md|lg"`) only lock from that width up —
+ * matching `FILL_WRAPPER` in `packages/ui/src/backend/Page.tsx`, which applies
+ * its flex model at the same breakpoints. Narrow viewports keep natural
+ * document scrolling, which is the whole point of the opt-in variants.
+ */
+[data-app-shell-column]:has([data-slot='page'][data-fill='true']) {
+  height: 100svh;
+  overflow: hidden;
+}
+
+[data-app-shell-column]:has([data-slot='page'][data-fill='true']) > main {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (min-width: 40rem) {
+  [data-app-shell-column]:has([data-slot='page'][data-fill='sm']) {
+    height: 100svh;
+    overflow: hidden;
+  }
+
+  [data-app-shell-column]:has([data-slot='page'][data-fill='sm']) > main {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 48rem) {
+  [data-app-shell-column]:has([data-slot='page'][data-fill='md']) {
+    height: 100svh;
+    overflow: hidden;
+  }
+
+  [data-app-shell-column]:has([data-slot='page'][data-fill='md']) > main {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 64rem) {
+  [data-app-shell-column]:has([data-slot='page'][data-fill='lg']) {
+    height: 100svh;
+    overflow: hidden;
+  }
+
+  [data-app-shell-column]:has([data-slot='page'][data-fill='lg']) > main {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
