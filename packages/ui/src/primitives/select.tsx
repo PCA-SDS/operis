@@ -10,7 +10,7 @@ import { MENU_ROW_SPACING } from './menu'
 /* The trigger is a field, so it carries the same chrome as `Input` — matching
    border, hover/focus fill, and the value/placeholder weight split. */
 const selectTriggerVariants = cva(
-  'inline-flex w-full items-center justify-between gap-2 rounded-lg border border-input bg-input-bg font-medium transition-colors outline-none hover:bg-modal-muted focus:outline-none focus-visible:outline-none focus-visible:shadow-focus focus-visible:border-input-border-focus disabled:cursor-not-allowed disabled:bg-input-disabled-bg disabled:text-text-disabled disabled:border-border-disabled disabled:shadow-none disabled:hover:bg-input-disabled-bg disabled:[&_svg]:opacity-60 aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:border-destructive data-[placeholder]:font-normal data-[placeholder]:text-input-placeholder [&>span]:line-clamp-1 [&_svg]:pointer-events-none [&_svg:not([class*=size-])]:size-4 [&_svg]:shrink-0',
+  'inline-flex w-full items-center justify-between gap-2 rounded-lg border border-input bg-input-bg font-medium transition-colors outline-none hover:bg-modal-muted focus:outline-none focus-visible:outline-none focus-visible:shadow-focus focus-visible:border-input-border-focus disabled:cursor-not-allowed disabled:bg-input-disabled-bg disabled:text-text-disabled disabled:border-border-disabled disabled:shadow-none disabled:hover:bg-input-disabled-bg disabled:[&_svg]:opacity-60 aria-[invalid=true]:border-destructive data-[placeholder]:font-normal data-[placeholder]:text-input-placeholder [&>span]:line-clamp-1 [&_svg]:pointer-events-none [&_svg:not([class*=size-])]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       size: {

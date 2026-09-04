@@ -1188,3 +1188,71 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
     overflow-y: auto;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Focus indicators removed product-wide
+
+   Requested explicitly: no ring, halo, outline or border highlight on ANY
+   control when it is clicked or focused, anywhere in Operis, with no
+   exceptions.
+
+   This is done here, at the tokens and in one override block, rather than by
+   deleting ~477 `focus-visible:*` utilities across the codebase. Two reasons:
+   the utilities are the design system's documented recipe and stripping them
+   would fight every future component that follows the guide, and a rule here
+   also covers third-party markup (Radix, the rich editor, native controls)
+   that no source edit could reach.
+
+   ACCESSIBILITY: this removes the only cue a keyboard user has for where they
+   are, and fails WCAG 2.1 SC 2.4.7 (Focus Visible). Deleting this block is the
+   entire rollback — every `focus-visible:` utility underneath is still in place
+   and starts painting again the moment these are gone.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root,
+:root[data-theme='light'],
+:root[data-theme='dark'],
+.dark {
+  /* Belt: only reached if `shadow-focus` is ever consumed as a plain variable. */
+  --shadow-focus: none;
+  /* Braces, and the line that actually does the work.
+     `@theme inline` above INLINES the composite into `.shadow-focus`, which
+     compiles to
+       --tw-shadow: 0 0 0 2px var(--focus-ring-inner), 0 0 0 4px var(--focus-ring-outer)
+     so the utility never reads `--shadow-focus` at runtime and overriding that
+     token alone changes nothing. Blanking these two colours is what makes the
+     halo transparent. Do not delete them as redundant — they are the mechanism. */
+  --focus-ring-inner: transparent;
+  --focus-ring-outer: transparent;
+  /* The ring colours: `ring-ring`, `ring-ring/40`, `ring-focus-ring/30`,
+     `outline-ring/50` and the sidebar's own focus edge all resolve to these. */
+  --focus-ring: transparent;
+  --ring: transparent;
+  --sidebar-ring: transparent;
+  /* The focused-field border, so an input's edge does not change on focus. */
+  --input-border-focus: var(--input-border);
+}
+
+/* Outlines: the browser default, the `outline-ring/50` base rule, and any
+   explicit focus outline. */
+:focus,
+:focus-visible,
+:focus-within {
+  outline: none !important;
+}
+
+/* Tailwind draws `ring-*` as a box-shadow through these two slots. Blanking the
+   slots removes the ring while leaving `--tw-shadow` — real elevation — alone,
+   so a focused card keeps its drop shadow and only loses the halo. */
+:focus,
+:focus-visible,
+:focus-within {
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-color: transparent !important;
+}
+
+/* The one hand-rolled halo that does not go through a token. */
+.focus-ring-fancy:focus-visible {
+  box-shadow: none !important;
+}

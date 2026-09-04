@@ -7,10 +7,10 @@ import { cn } from '@open-mercato/shared/lib/utils'
 
 const counterWrapperVariants = cva(
   'inline-flex w-full items-center bg-input-bg border border-input shadow-xs transition-colors ' +
-    'focus-within:outline-none focus-within:shadow-focus focus-within:border-foreground ' +
+    'focus-within:outline-none focus-within:shadow-focus ' +
     'hover:bg-muted/40 ' +
     'has-[input:disabled]:bg-bg-disabled has-[input:disabled]:border-border-disabled has-[input:disabled]:shadow-none has-[input:disabled]:hover:bg-bg-disabled ' +
-    'has-[input[aria-invalid=true]]:border-destructive has-[input[aria-invalid=true]]:focus-within:border-destructive',
+    'has-[input[aria-invalid=true]]:border-destructive',
   {
     variants: {
       size: {
