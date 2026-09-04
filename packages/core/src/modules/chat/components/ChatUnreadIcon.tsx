@@ -9,8 +9,11 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
+import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { NotificationCountBadge } from '@open-mercato/ui/backend/notifications'
 import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
+import { tCount } from './plurals'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { formatListTimestamp } from './format'
 import { useChatLiveRefresh, useChatUnreadCount, useConversations, useMarkAllRead } from './hooks'
@@ -44,7 +47,7 @@ export function ChatUnreadIcon({ className }: ChatUnreadIconProps) {
   const { unreadCount } = useChatUnreadCount(true)
   // Only fetched while the panel is open — the badge alone needs the count, not
   // the list behind it.
-  const { conversations } = useConversations(open)
+  const { conversations, isLoading, error, retry } = useConversations(open)
   const markAllRead = useMarkAllRead()
 
   // Navigating away is the end of this panel's job. Without it the popover
@@ -60,13 +63,7 @@ export function ChatUnreadIcon({ className }: ChatUnreadIconProps) {
 
   const label =
     unreadCount > 0
-      ? t(
-          // The `_plural` suffix convention the tasks module uses; without it
-          // the badge announced "1 unread chat messages".
-          `chat.badge.unread${unreadCount === 1 ? '' : '_plural'}`,
-          '{count} unread chat messages',
-          { count: unreadCount },
-        )
+      ? tCount(t, 'chat.badge.unread', unreadCount, '{count} unread chat messages')
       : t('chat.nav.title', 'Chat')
 
   return (
@@ -109,7 +106,33 @@ export function ChatUnreadIcon({ className }: ChatUnreadIconProps) {
         </div>
 
         <div className="max-h-80 overflow-y-auto p-1">
-          {unread.length === 0 ? (
+          {/* Loading and failure come BEFORE the empty state, because
+              "You're all caught up" is a claim about the server's answer and
+              neither of those has one. Rendered unconditionally it stated that
+              claim while the badge beside it read 3 — the panel contradicting
+              the control that opened it. */}
+          {isLoading ? (
+            <div className="space-y-1 p-1" aria-busy="true">
+              {[0, 1, 2].map((row) => (
+                <div key={row} className="flex items-center gap-3 px-2 py-2">
+                  <Skeleton shape="circle" className="size-7" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-3 w-1/3" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            <ErrorMessage
+              label={t('chat.notifications.loadError', "Couldn't load your messages")}
+              action={
+                <Button type="button" variant="outline" size="sm" onClick={() => retry()}>
+                  {t('chat.actions.retry', 'Try again')}
+                </Button>
+              }
+            />
+          ) : unread.length === 0 ? (
             <EmptyState
               variant="subtle"
               size="sm"
@@ -153,11 +176,7 @@ export function ChatUnreadIcon({ className }: ChatUnreadIconProps) {
                         </span>
                       </span>
                       <span className="sr-only">
-                        {t(
-                          `chat.list.unreadLabel${conversation.unreadCount === 1 ? '' : '_plural'}`,
-                          '{count} unread messages',
-                          { count: conversation.unreadCount },
-                        )}
+                        {tCount(t, 'chat.list.unreadLabel', conversation.unreadCount, '{count} unread messages')}
                       </span>
                     </Link>
                   </li>

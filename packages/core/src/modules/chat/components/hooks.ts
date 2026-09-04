@@ -14,12 +14,14 @@ import {
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query'
+import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { hasFeature } from '@open-mercato/shared/security/features'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import type { AppEventPayload } from '@open-mercato/shared/modules/widgets/injection'
+import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import type { ChatConversationDto, ChatMessageDto, ChatParticipantRole } from '../data/types'
 import { CONVERSATION_PAGE_STEP, MAX_CONVERSATION_PAGE_SIZE } from '../data/validators'
@@ -477,10 +479,33 @@ export function usePinnedMessages(conversationId: string | undefined, enabled: b
  * reaction that flickered on and then off because the server disagreed would be
  * worse than one that appears a moment later.
  */
+/**
+ * Say so when a write fails.
+ *
+ * Reactions and pins are toggles the server owns, so nothing is applied
+ * optimistically — which means a rejected one leaves the UI exactly as it was.
+ * Without this the click simply did nothing, forever, with no explanation: a
+ * rate-limited reaction, a pin refused because the caller is not an owner, and
+ * a dropped connection were all indistinguishable from a missed click.
+ *
+ * A flash rather than inline state: these controls live in a transient hover bar
+ * and a dialog row, neither of which has anywhere to keep an error.
+ */
+function useMutationFailureFlash(): (fallback: string) => void {
+  const t = useT()
+  return React.useCallback(
+    (fallback: string) => {
+      flash(t('chat.errors.actionFailed', fallback), 'error')
+    },
+    [t],
+  )
+}
+
 export function useMessageEngagement(conversationId: string | undefined) {
   const client = useQueryClient()
   const scope = useOrganizationScopeVersion()
   const { runMutation } = useGuardedMutation({ contextId: 'chat.message' })
+  const flashFailure = useMutationFailureFlash()
   // The same three keys the live-refresh `engagement` path uses, for the same
   // reason: this can only have changed the chips on a message, the pinned list,
   // and the pin count in this conversation's header. Invalidating the whole
@@ -505,6 +530,7 @@ export function useMessageEngagement(conversationId: string | undefined) {
         mutationPayload: input,
       }),
     onSuccess: settled,
+    onError: () => flashFailure("Couldn't update that reaction. Please try again."),
   })
 
   const setPinned = useMutation({
@@ -515,6 +541,7 @@ export function useMessageEngagement(conversationId: string | undefined) {
         mutationPayload: input,
       }),
     onSuccess: settled,
+    onError: () => flashFailure("Couldn't update the pin. Please try again."),
   })
 
   return { toggleReaction, setPinned }
@@ -547,6 +574,7 @@ export function useSendMessage(conversationId: string | undefined) {
 export function useMarkAllRead() {
   const client = useQueryClient()
   const { runMutation } = useGuardedMutation({ contextId: 'chat.conversation' })
+  const flashFailure = useMutationFailureFlash()
 
   return useMutation({
     mutationFn: () =>
@@ -557,6 +585,9 @@ export function useMarkAllRead() {
     onSuccess: () => {
       invalidateChat(client)
     },
+    // The button re-enables and the badge stays put, which reads as "the badge
+    // is wrong" rather than "that did not work".
+    onError: () => flashFailure("Couldn't clear your unread messages. Please try again."),
   })
 }
 
