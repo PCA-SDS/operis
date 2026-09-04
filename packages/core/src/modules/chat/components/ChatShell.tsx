@@ -9,13 +9,19 @@ import { cn } from '@open-mercato/shared/lib/utils'
 import { ConversationList } from './ConversationList'
 import { ConversationView } from './ConversationView'
 import { StartConversationDialog } from './StartConversationDialog'
-import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
+import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useCanSendChat, useChatLiveRefresh, useConversations } from './hooks'
 
 export type ChatShellProps = {
   currentUserId: string
   /** Set on `/backend/chat/[id]`; absent on the list route. */
   conversationId?: string
+  /**
+   * The organization this page was rendered under, from the session on the
+   * server. It is the baseline the client scope is compared against — see the
+   * redirect effect.
+   */
+  organizationId: string | null
 }
 
 /**
@@ -26,12 +32,12 @@ export type ChatShellProps = {
  * component state — so browser back moves between them and a refresh keeps you
  * where you were.
  */
-export function ChatShell({ currentUserId, conversationId }: ChatShellProps) {
+export function ChatShell({ currentUserId, conversationId, organizationId }: ChatShellProps) {
   const t = useT()
   const router = useRouter()
   const [startOpen, setStartOpen] = React.useState(false)
   const canSend = useCanSendChat()
-  const scopeVersion = useOrganizationScopeVersion()
+  const scope = useOrganizationScopeDetail()
 
   useChatLiveRefresh()
 
@@ -41,13 +47,22 @@ export function ChatShell({ currentUserId, conversationId }: ChatShellProps) {
    * conversation the new scope cannot read, so the user lands on "Couldn't open
    * this conversation" for no reason they can see. Send them back to the list,
    * which is valid in every scope.
+   *
+   * Compared against the organization the *server* rendered this page under,
+   * not against a previous client render. The chrome publishes the active scope
+   * once after hydration, and the scope version counter treats that first
+   * publish as a change — so keying off it redirected on every fresh load, and
+   * a deep link to a conversation could never be opened at all. The server value
+   * cannot race: it is already correct on first paint.
    */
-  const previousScope = React.useRef(scopeVersion)
+  const activeOrganizationId = scope.organizationId
   React.useEffect(() => {
-    if (previousScope.current === scopeVersion) return
-    previousScope.current = scopeVersion
-    if (conversationId) router.replace('/backend/chat')
-  }, [conversationId, router, scopeVersion])
+    if (!conversationId) return
+    // `null` is the pre-hydration default and the super-admin "all organizations"
+    // selection; neither is a switch away from what the server rendered.
+    if (activeOrganizationId === null || activeOrganizationId === organizationId) return
+    router.replace('/backend/chat')
+  }, [activeOrganizationId, conversationId, organizationId, router])
 
   const {
     conversations,
@@ -62,10 +77,15 @@ export function ChatShell({ currentUserId, conversationId }: ChatShellProps) {
 
   return (
     <>
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] overflow-hidden rounded-xl border border-border bg-surface lg:grid-cols-[20rem_minmax(0,1fr)]">
-        <div
+      {/* Two surfaces with air between them, not one card split by a rule — the
+          same shape `TasksShell` uses for its rail and content. The rail is a
+          panel in its own right, so it reads as navigation belonging to the
+          module rather than a column inside the transcript. */}
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-6">
+        <aside
+          aria-label={t('chat.list.directMessages', 'Direct messages')}
           className={cn(
-            'min-h-0 flex-col border-border lg:flex lg:border-r',
+            'min-h-0 flex-col lg:flex',
             conversationId ? 'hidden' : 'flex',
           )}
         >
@@ -82,9 +102,17 @@ export function ChatShell({ currentUserId, conversationId }: ChatShellProps) {
             canStartConversation={canSend}
             onStartConversation={() => setStartOpen(true)}
           />
-        </div>
+        </aside>
 
-        <div className={cn('min-h-0 flex-col lg:flex', conversationId ? 'flex' : 'hidden lg:flex')}>
+        {/* The transcript carries the card now that the wrapper does not.
+            `overflow-hidden` so the message list is clipped by the rounded
+            corners instead of squaring them off. */}
+        <section
+          className={cn(
+            'min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-surface lg:flex',
+            conversationId ? 'flex' : 'hidden lg:flex',
+          )}
+        >
           {conversationId ? (
             <ConversationView
               key={conversationId}
@@ -132,10 +160,14 @@ export function ChatShell({ currentUserId, conversationId }: ChatShellProps) {
               )}
             </div>
           )}
-        </div>
+        </section>
       </div>
 
-      {startOpen ? <StartConversationDialog onClose={() => setStartOpen(false)} /> : null}
+      {/* Always mounted, driven by `open`. Unmounting it on close tore the
+          Radix dialog down before it could restore focus, so Escape left a
+          keyboard user at the top of the document instead of back on the
+          button they opened it from. */}
+      <StartConversationDialog open={startOpen} onClose={() => setStartOpen(false)} />
     </>
   )
 }

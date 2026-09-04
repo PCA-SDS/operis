@@ -12,7 +12,7 @@ export default async function ChatPage() {
   return (
     <Page fill>
       <PageBody fill>
-        <ChatShell currentUserId={auth?.sub ?? ''} />
+        <ChatShell currentUserId={auth?.sub ?? ''} organizationId={auth?.orgId ?? null} />
       </PageBody>
     </Page>
   )

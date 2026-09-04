@@ -16,7 +16,7 @@ export default async function ChatConversationPage({
   return (
     <Page fill>
       <PageBody fill>
-        <ChatShell currentUserId={auth?.sub ?? ''} conversationId={resolved.conversationId} />
+        <ChatShell currentUserId={auth?.sub ?? ''} conversationId={resolved.conversationId} organizationId={auth?.orgId ?? null} />
       </PageBody>
     </Page>
   )

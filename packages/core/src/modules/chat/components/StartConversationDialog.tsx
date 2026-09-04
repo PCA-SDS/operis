@@ -24,6 +24,8 @@ import { useDirectorySearch, useOpenConversation } from './hooks'
 const SEARCH_DEBOUNCE_MS = 250
 
 export type StartConversationDialogProps = {
+  /** Kept mounted so closing restores focus to whatever opened it. */
+  open: boolean
   onClose: () => void
 }
 
@@ -53,7 +55,7 @@ function DirectorySkeleton() {
  * Picking someone routes to the conversation rather than opening it inline, so
  * the result is a real URL the user can come back to.
  */
-export function StartConversationDialog({ onClose }: StartConversationDialogProps) {
+export function StartConversationDialog({ open, onClose }: StartConversationDialogProps) {
   const t = useT()
   const router = useRouter()
   const [term, setTerm] = React.useState('')
@@ -66,7 +68,18 @@ export function StartConversationDialog({ onClose }: StartConversationDialogProp
     return () => clearTimeout(timer)
   }, [term])
 
-  const { people, truncated, isLoading, error, retry } = useDirectorySearch(debounced, true)
+  // The dialog outlives a single opening now, so it has to clear itself: without
+  // this, reopening it showed the previous search and its results.
+  React.useEffect(() => {
+    if (open) return
+    setTerm('')
+    setDebounced('')
+    setOpenError(null)
+  }, [open])
+
+  // Gated on `open`: the dialog now stays mounted so Radix can run its close
+  // sequence, and an unopened dialog must not be polling the directory.
+  const { people, truncated, isLoading, error, retry } = useDirectorySearch(debounced, open)
 
   const handlePick = React.useCallback(
     async (userId: string) => {
@@ -87,7 +100,7 @@ export function StartConversationDialog({ onClose }: StartConversationDialogProp
   )
 
   return (
-    <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
+    <Dialog open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
       <DialogContent className="max-h-[calc(100dvh-6rem)] max-w-lg overflow-hidden">
         <DialogHeader>
           <DialogTitle>{t('chat.start.title', 'Start a chat')}</DialogTitle>
