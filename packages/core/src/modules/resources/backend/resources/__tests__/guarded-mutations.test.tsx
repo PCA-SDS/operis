@@ -93,7 +93,7 @@ jest.mock('@open-mercato/ui/primitives/select', () => ({
     </div>
   ),
   SelectItem: ({ children, value, onSelectValue }: { children: React.ReactNode; value: string; onSelectValue?: (value: string) => void }) => (
-    <button type="button" onClick={() => onSelectValue?.(value)}>
+    <button type="button" data-testid={`select-option-${value}`} onClick={() => onSelectValue?.(value)}>
       {children}
     </button>
   ),
@@ -108,10 +108,22 @@ jest.mock('@open-mercato/ui/backend/DataTable', () => ({
     }>
     data?: Array<Record<string, unknown>>
     actions?: React.ReactNode
+    filters?: Array<{ id: string; label: string }>
+    perspective?: { tableId: string }
     rowActions?: (row: Record<string, unknown>) => React.ReactNode
   }) => (
     <div>
       {props.actions}
+      {props.filters?.map((filter) => (
+        <button key={filter.id} type="button">
+          {filter.label}
+        </button>
+      ))}
+      {props.perspective ? (
+        <button type="button" aria-label="Customize columns">
+          ...
+        </button>
+      ) : null}
       <div>
         {(props.columns ?? []).map((column, columnIndex) => (
           <span key={String(column.accessorKey ?? columnIndex)}>
@@ -455,7 +467,7 @@ it('wraps resource list deletes in the guarded mutation path', async () => {
 it('can group the resource list by area', async () => {
   render(<ResourcesResourcesPage />)
 
-  fireEvent.click(await screen.findByRole('button', { name: 'Area' }))
+  fireEvent.click(await screen.findByTestId('select-option-area'))
 
   const groupRow = await screen.findByTestId('row-group:area:area-1')
   expect(groupRow).toHaveTextContent('Head Office')
@@ -519,6 +531,9 @@ it('loads resource area children when a parent row is expanded', async () => {
       expect.any(Object),
     )
   })
+  expect(screen.getByRole('button', { name: 'Status' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Area type' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Customize columns' })).toBeInTheDocument()
 
   fireEvent.click(await screen.findByRole('button', { name: 'Expand area' }))
 

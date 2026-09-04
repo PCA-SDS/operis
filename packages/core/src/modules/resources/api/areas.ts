@@ -114,6 +114,7 @@ const viewSchema = z
     pageSize: z.coerce.number().min(1).max(2000).default(100),
     search: z.string().optional(),
     status: z.enum(['all', 'active', 'inactive']).optional(),
+    areaType: z.string().optional(),
     ids: z.string().optional(),
     id: z.string().optional(),
     parentAreaId: z.string().optional(),
@@ -138,6 +139,7 @@ export async function GET(req: Request) {
     pageSize: url.searchParams.get('pageSize') ?? undefined,
     search: url.searchParams.get('search') ?? undefined,
     status: url.searchParams.get('status') ?? undefined,
+    areaType: url.searchParams.get('areaType') ?? undefined,
     ids: url.searchParams.get('ids') ?? undefined,
     id: url.searchParams.get('id') ?? undefined,
     parentAreaId: url.searchParams.get('parentAreaId') ?? undefined,
@@ -197,10 +199,28 @@ export async function GET(req: Request) {
 
     if (status === 'active') rows = rows.filter((node) => node.isActive)
     if (status === 'inactive') rows = rows.filter((node) => !node.isActive)
+    const areaType = typeof query.areaType === 'string' ? query.areaType.trim() : ''
+    if (areaType) {
+      rows = rows.filter((node) => areaMap.get(node.id)?.areaType === areaType)
+    }
     if (search) {
       rows = rows.filter((node) => {
         const label = node.pathLabel.toLowerCase()
         return node.name.toLowerCase().includes(search) || label.includes(search)
+      })
+    }
+    const sortField = typeof query.sortField === 'string' ? query.sortField.trim() : ''
+    if (sortField) {
+      const direction = query.sortDir === 'desc' ? -1 : 1
+      rows = [...rows].sort((left, right) => {
+        const leftArea = areaMap.get(left.id)
+        const rightArea = areaMap.get(right.id)
+        const leftValue = getResourceAreaSortValue(sortField, left, leftArea)
+        const rightValue = getResourceAreaSortValue(sortField, right, rightArea)
+        if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+          return (leftValue - rightValue) * direction
+        }
+        return String(leftValue).localeCompare(String(rightValue)) * direction
       })
     }
 
@@ -250,6 +270,26 @@ export async function GET(req: Request) {
     if (typeof disposable.dispose === 'function') {
       await disposable.dispose()
     }
+  }
+}
+
+function getResourceAreaSortValue(
+  sortField: string,
+  node: { name: string; sortOrder: number; childIds: string[] },
+  area: ResourcesResourceArea | undefined,
+): string | number {
+  switch (sortField) {
+    case 'area_type':
+      return area?.areaType ?? ''
+    case 'child_count':
+      return node.childIds.length
+    case 'updatedAt':
+      return area?.updatedAt ? new Date(area.updatedAt).getTime() : 0
+    case 'sort_order':
+      return node.sortOrder
+    case 'name':
+    default:
+      return node.name
   }
 }
 

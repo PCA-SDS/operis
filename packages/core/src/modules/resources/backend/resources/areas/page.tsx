@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { extensionPoints } from '@open-mercato/core/modules/resources/extension-points'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
@@ -8,6 +9,7 @@ import type { SortingState } from '@tanstack/react-table'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { markdownToPlainText } from '@open-mercato/ui/backend/markdown/markdownToPlainText'
 import { DataTable, withDataTableNamespaces } from '@open-mercato/ui/backend/DataTable'
+import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterOverlay'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
@@ -88,6 +90,7 @@ export default function ResourcesResourceAreasPage() {
   const [totalPages, setTotalPages] = React.useState(1)
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'name', desc: false }])
   const [search, setSearch] = React.useState('')
+  const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [isLoading, setIsLoading] = React.useState(true)
   const [reloadToken, setReloadToken] = React.useState(0)
   const [expandedAreaIds, setExpandedAreaIds] = React.useState<Set<string>>(new Set())
@@ -131,6 +134,21 @@ export default function ResourcesResourceAreasPage() {
       search: translate('resources.resourceAreas.table.search', 'Search resource areas…'),
       loadMoreChildren: translate('resources.resourceAreas.table.loadMoreChildren', 'Load more child areas'),
     },
+    filters: {
+      status: translate('resources.resourceAreas.filters.status', 'Status'),
+      active: translate('resources.resourceAreas.filters.active', 'Active'),
+      inactive: translate('resources.resourceAreas.filters.inactive', 'Inactive'),
+      areaType: translate('resources.resourceAreas.filters.areaType', 'Area type'),
+    },
+    types: {
+      campus: translate('resources.resourceAreas.types.campus', 'Campus'),
+      building: translate('resources.resourceAreas.types.building', 'Building'),
+      floor: translate('resources.resourceAreas.types.floor', 'Floor'),
+      zone: translate('resources.resourceAreas.types.zone', 'Zone'),
+      room: translate('resources.resourceAreas.types.room', 'Room'),
+      section: translate('resources.resourceAreas.types.section', 'Section'),
+      other: translate('resources.resourceAreas.types.other', 'Other'),
+    },
     actions: {
       add: translate('resources.resourceAreas.actions.add', 'Add resource area'),
       edit: translate('resources.resourceAreas.actions.edit', 'Edit'),
@@ -149,6 +167,32 @@ export default function ResourcesResourceAreasPage() {
       deleteAssigned: translate('resources.resourceAreas.errors.deleteAssigned', 'Cannot delete an area with children or assigned resources.'),
     },
   }), [translate])
+
+  const filters = React.useMemo<FilterDef[]>(() => [
+    {
+      id: 'status',
+      label: translations.filters.status,
+      type: 'select',
+      options: [
+        { value: 'active', label: translations.filters.active },
+        { value: 'inactive', label: translations.filters.inactive },
+      ],
+    },
+    {
+      id: 'areaType',
+      label: translations.filters.areaType,
+      type: 'select',
+      options: [
+        { value: 'campus', label: translations.types.campus },
+        { value: 'building', label: translations.types.building },
+        { value: 'floor', label: translations.types.floor },
+        { value: 'zone', label: translations.types.zone },
+        { value: 'room', label: translations.types.room },
+        { value: 'section', label: translations.types.section },
+        { value: 'other', label: translations.types.other },
+      ],
+    },
+  ], [translations])
 
   const loadChildren = React.useCallback(async (parentId: string, pageNumber = 1, append = false) => {
     setLoadingChildrenIds((current) => {
@@ -370,9 +414,19 @@ export default function ResourcesResourceAreasPage() {
         page: String(page),
         pageSize: String(PAGE_SIZE),
       })
+      const sort = sorting[0]
+      if (sort?.id) {
+        params.set('sortField', sort.id)
+        params.set('sortDir', sort.desc ? 'desc' : 'asc')
+      }
+      const status = typeof filterValues.status === 'string' ? filterValues.status : ''
+      if (status === 'active' || status === 'inactive') params.set('status', status)
+      const areaType = typeof filterValues.areaType === 'string' ? filterValues.areaType : ''
+      if (areaType) params.set('areaType', areaType)
+      const hasActiveFilters = Boolean(status || areaType)
       if (search.trim()) {
         params.set('search', search.trim())
-      } else {
+      } else if (!hasActiveFilters) {
         params.set('parentAreaId', 'null')
       }
       const payload = await readApiResultOrThrow<ResourceAreasResponse>(
@@ -395,7 +449,7 @@ export default function ResourcesResourceAreasPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [page, search, translations.errors.load])
+  }, [filterValues.areaType, filterValues.status, page, search, sorting, translations.errors.load])
 
   React.useEffect(() => {
     void loadResourceAreas()
@@ -403,6 +457,16 @@ export default function ResourcesResourceAreasPage() {
 
   const handleSearchChange = React.useCallback((value: string) => {
     setSearch(value)
+    setPage(1)
+  }, [])
+
+  const handleFiltersApply = React.useCallback((values: FilterValues) => {
+    setFilterValues(values)
+    setPage(1)
+  }, [])
+
+  const handleFiltersClear = React.useCallback(() => {
+    setFilterValues({})
     setPage(1)
   }, [])
 
@@ -449,6 +513,10 @@ export default function ResourcesResourceAreasPage() {
           searchValue={search}
           onSearchChange={handleSearchChange}
           searchPlaceholder={translations.table.search}
+          filters={filters}
+          filterValues={filterValues}
+          onFiltersApply={handleFiltersApply}
+          onFiltersClear={handleFiltersClear}
           emptyState={<p className="py-8 text-center text-sm text-muted-foreground">{translations.table.empty}</p>}
           actions={(
             <Button asChild size="sm">
@@ -462,7 +530,9 @@ export default function ResourcesResourceAreasPage() {
             onRefresh: handleRefresh,
             isRefreshing: isLoading,
           }}
-          sortable={false}
+          sortable
+          sorting={sorting}
+          onSortingChange={setSorting}
           pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
           rowActions={(row) => (
             row.rowKind === 'area' ? (
@@ -477,6 +547,7 @@ export default function ResourcesResourceAreasPage() {
           onRowClick={(row) => {
             if (row.rowKind === 'area') router.push(`/backend/resources/areas/${row.id}/edit`)
           }}
+          perspective={{ tableId: extensionPoints.hosts.resourceAreasTable.tableId }}
         />
       </PageBody>
       {ConfirmDialogElement}
