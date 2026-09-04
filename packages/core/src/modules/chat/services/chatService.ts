@@ -361,19 +361,26 @@ export class DefaultChatService implements ChatService {
       organizationId: ctx.scope.organizationId,
     })
 
-    const counterpartByConversation = new Map<string, string>()
+    // The counterpart's whole row, not just their id: their `last_read_at` is the
+    // read receipt for everything the caller has sent, and it is already in this
+    // result set — deriving it here costs no extra query.
+    const counterpartByConversation = new Map<string, ChatParticipant>()
     const membershipByConversation = new Map<string, ChatParticipant>()
     for (const participant of participants) {
       if (participant.userId === ctx.userId) membershipByConversation.set(participant.conversationId, participant)
-      else counterpartByConversation.set(participant.conversationId, participant.userId)
+      else counterpartByConversation.set(participant.conversationId, participant)
     }
 
-    const people = await loadOrganizationMembers(ctx.em, ctx.scope, [...counterpartByConversation.values()])
+    const people = await loadOrganizationMembers(
+      ctx.em,
+      ctx.scope,
+      [...counterpartByConversation.values()].map((participant) => participant.userId),
+    )
     const unreadCounts = await this.countUnreadPerConversation(ctx, conversationIds)
 
     return conversations.map((conversation) => {
-      const counterpartId = counterpartByConversation.get(conversation.id) ?? null
-      const person = counterpartId ? people.get(counterpartId) ?? null : null
+      const counterpartParticipant = counterpartByConversation.get(conversation.id) ?? null
+      const person = counterpartParticipant ? people.get(counterpartParticipant.userId) ?? null : null
       const membership = membershipByConversation.get(conversation.id) ?? null
       return {
         id: conversation.id,
@@ -383,6 +390,7 @@ export class DefaultChatService implements ChatService {
         lastMessageSenderUserId: conversation.last_message_sender_user_id ?? null,
         unreadCount: unreadCounts.get(conversation.id) ?? 0,
         lastReadAt: membership?.lastReadAt?.toISOString() ?? null,
+        counterpartLastReadAt: counterpartParticipant?.lastReadAt?.toISOString() ?? null,
       }
     })
   }

@@ -37,6 +37,7 @@ export const conversationSchema = z.object({
   lastMessageSenderUserId: z.string().uuid().nullable(),
   unreadCount: z.number(),
   lastReadAt: z.string().nullable(),
+  counterpartLastReadAt: z.string().nullable(),
 })
 
 export const messageSchema = z.object({
@@ -72,3 +73,8 @@ export const sendMessageResponseSchema = z.object({
 export const unreadCountSchema = z.object({ unreadCount: z.number() })
 
 export const markReadResponseSchema = z.object({ lastReadAt: z.string() })
+
+export const markAllReadResponseSchema = z.object({
+  conversationIds: z.array(z.string().uuid()),
+  lastReadAt: z.string(),
+})

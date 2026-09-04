@@ -27,6 +27,15 @@ export type ChatConversationDto = {
   lastMessageSenderUserId: string | null
   unreadCount: number
   lastReadAt: string | null
+  /**
+   * How far the other person has read, which is the read receipt for everything
+   * you have sent: a message of yours is read once this passes its `createdAt`.
+   *
+   * `null` means they have never opened the conversation — not that nothing has
+   * been read, and not that they are offline. Delivery is a separate thing: a
+   * stored message is delivered, so its own `createdAt` is the delivery time.
+   */
+  counterpartLastReadAt: string | null
 }
 
 export type ChatMessageDto = {
