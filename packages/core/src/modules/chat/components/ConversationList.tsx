@@ -44,6 +44,12 @@ const PANEL_ROW =
 const PANEL_LABEL =
   'px-2 text-overline font-semibold uppercase tracking-widest text-muted-foreground'
 
+/**
+ * Identifies the rail's create control so a dialog it opened can hand focus
+ * back to it. Exported rather than repeated as a string in two files.
+ */
+export const CREATE_TRIGGER_TESTID = 'chat-create-conversation'
+
 /** Enough conversations that narrowing them is worth a control. */
 const FILTER_THRESHOLD = 5
 
@@ -250,6 +256,11 @@ export function ConversationList({
           menu
           align="start"
           variant="ghost"
+          // A stable handle for focus restoration. The menu unmounts when an
+          // item is chosen, so by the time the dialog it opened is dismissed
+          // there is nothing left for Radix to hand focus back to — see
+          // `ChatShell`.
+          data-testid={CREATE_TRIGGER_TESTID}
           placeholder={t('chat.list.start', 'New chat')}
           triggerLeading={
             <span className="flex size-7 shrink-0 items-center justify-center" aria-hidden="true">

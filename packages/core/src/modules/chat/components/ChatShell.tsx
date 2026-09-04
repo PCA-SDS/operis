@@ -6,7 +6,7 @@ import { MessageSquare, MessageSquarePlus } from 'lucide-react'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
-import { ConversationList } from './ConversationList'
+import { ConversationList, CREATE_TRIGGER_TESTID } from './ConversationList'
 import { ConversationView } from './ConversationView'
 import { CreateSpaceDialog } from './CreateSpaceDialog'
 import { StartConversationDialog } from './StartConversationDialog'
@@ -38,6 +38,30 @@ export function ChatShell({ currentUserId, conversationId, organizationId }: Cha
   const router = useRouter()
   const [startOpen, setStartOpen] = React.useState(false)
   const [createSpaceOpen, setCreateSpaceOpen] = React.useState(false)
+
+  /**
+   * Hand focus back to the control that opened the dialog.
+   *
+   * Both dialogs are reached through a dropdown, and choosing an item unmounts
+   * the menu — so the element Radix would restore to is already gone by the time
+   * the dialog closes, and a keyboard user was dropped on `<body>` at the top of
+   * the document. Restoring to the trigger itself is what the menu would have
+   * done had it still been there.
+   */
+  const restoreFocusToCreateTrigger = React.useCallback(() => {
+    const trigger = document.querySelector<HTMLElement>(`[data-testid="${CREATE_TRIGGER_TESTID}"]`)
+    trigger?.focus()
+  }, [])
+
+  const closeStart = React.useCallback(() => {
+    setStartOpen(false)
+    restoreFocusToCreateTrigger()
+  }, [restoreFocusToCreateTrigger])
+
+  const closeCreateSpace = React.useCallback(() => {
+    setCreateSpaceOpen(false)
+    restoreFocusToCreateTrigger()
+  }, [restoreFocusToCreateTrigger])
   const canSend = useCanSendChat()
   const scope = useOrganizationScopeDetail()
 
@@ -175,8 +199,8 @@ export function ChatShell({ currentUserId, conversationId, organizationId }: Cha
           dialog down before it could restore focus, so Escape left a keyboard
           user at the top of the document instead of back on the control they
           opened it from. */}
-      <StartConversationDialog open={startOpen} onClose={() => setStartOpen(false)} />
-      <CreateSpaceDialog open={createSpaceOpen} onClose={() => setCreateSpaceOpen(false)} />
+      <StartConversationDialog open={startOpen} onClose={closeStart} />
+      <CreateSpaceDialog open={createSpaceOpen} onClose={closeCreateSpace} />
     </>
   )
 }
