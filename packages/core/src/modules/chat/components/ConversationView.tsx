@@ -81,6 +81,24 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
   const newestMessage = messages[messages.length - 1] as ChatMessageDto | undefined
   useMarkRead(conversationId, newestMessage, currentUserId)
 
+  /**
+   * Where the "New" divider goes, frozen at the moment this conversation opened.
+   *
+   * `useMarkRead` advances the cursor a beat after the transcript paints, so
+   * reading `conversation.lastReadAt` live would move the divider to the bottom
+   * and then delete it — the reader would never see the thing it exists to show.
+   * Captured once per conversation instead, and `undefined` until the first load
+   * resolves so an unopened conversation does not mark everything new.
+   */
+  const unreadSinceRef = React.useRef<{ id: string; value: string | null } | null>(null)
+  if (conversation && unreadSinceRef.current?.id !== conversationId) {
+    unreadSinceRef.current = { id: conversationId, value: conversation.lastReadAt }
+  }
+  // `undefined` while the conversation is still loading, so the transcript does
+  // not briefly mark every message new before the cursor is known.
+  const unreadSince =
+    unreadSinceRef.current?.id === conversationId ? unreadSinceRef.current.value : undefined
+
   const deliver = React.useCallback(
     async (clientMessageId: string, body: string) => {
       try {
@@ -151,7 +169,7 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
           </Link>
         </IconButton>
       ) : null}
-      <Avatar label={conversation ? counterpartName : ''} size="md" />
+      <Avatar label={conversation ? counterpartName : ''} size="sm" />
       <div className="min-w-0">
         <h2 className="truncate text-sm font-semibold text-foreground">
           {conversation ? counterpartName : t('chat.conversation.loading', 'Loading conversation…')}
@@ -232,6 +250,8 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
           hasOlder={hasOlder}
           isLoadingOlder={isLoadingOlder}
           loadOlderFailed={Boolean(messagesError)}
+          unreadSince={unreadSince}
+          counterpartLastReadAt={conversation.counterpartLastReadAt}
           onLoadOlder={() => void loadOlder()}
           onRetryPending={handleRetryPending}
         />
