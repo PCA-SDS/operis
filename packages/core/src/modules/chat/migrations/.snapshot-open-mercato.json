@@ -25,6 +25,23 @@
           "enumItems": [],
           "mappedType": "datetime"
         },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
         "deleted_at": {
           "name": "deleted_at",
           "type": "timestamptz(6)",
@@ -178,6 +195,23 @@
           "enumItems": [],
           "mappedType": "uuid"
         },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamptz(6)",
@@ -230,7 +264,13 @@
           "unique": false
         }
       ],
-      "checks": [],
+      "checks": [
+        {
+          "name": "chat_conversations_kind_shape_chk",
+          "expression": "(\"kind\" = 'direct' and \"direct_key\" is not null and \"title\" is null) or (\"kind\" = 'space' and \"title\" is not null and \"direct_key\" is null)",
+          "definition": "check ((\"kind\" = 'direct' and \"direct_key\" is not null and \"title\" is null) or (\"kind\" = 'space' and \"title\" is not null and \"direct_key\" is null))"
+        }
+      ],
       "triggers": [],
       "foreignKeys": {},
       "comment": null
@@ -331,7 +371,7 @@
           "autoincrement": false,
           "primary": true,
           "nullable": false,
-          "unique": false,
+          "unique": true,
           "length": null,
           "precision": null,
           "scale": null,
@@ -340,6 +380,23 @@
           "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "'user'",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
         },
         "organization_id": {
           "name": "organization_id",
@@ -358,6 +415,23 @@
           "enumItems": [],
           "mappedType": "uuid"
         },
+        "reply_to_message_id": {
+          "name": "reply_to_message_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
         "sender_user_id": {
           "name": "sender_user_id",
           "type": "uuid",
@@ -365,6 +439,40 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "system_event": {
+          "name": "system_event",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "system_target_user_id": {
+          "name": "system_target_user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
           "unique": false,
           "length": null,
           "precision": null,
@@ -433,6 +541,17 @@
         },
         {
           "columnNames": [
+            "id",
+            "conversation_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "chat_messages_id_conversation_uq",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
             "id"
           ],
           "composite": false,
@@ -440,6 +559,15 @@
           "keyName": "chat_messages_pkey",
           "primary": true,
           "unique": true
+        },
+        {
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "keyName": "chat_messages_reply_idx",
+          "primary": false,
+          "unique": false,
+          "expression": "create index \"chat_messages_reply_idx\" on \"chat_messages\" (\"reply_to_message_id\") where \"reply_to_message_id\" is not null"
         },
         {
           "columnNames": [
@@ -547,6 +675,23 @@
           "enumItems": [],
           "mappedType": "uuid"
         },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "'member'",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
         "tenant_id": {
           "name": "tenant_id",
           "type": "uuid",
@@ -620,6 +765,15 @@
           "keyName": "chat_participants_conversation_user_uq",
           "primary": false,
           "unique": true
+        },
+        {
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "keyName": "chat_participants_owner_idx",
+          "primary": false,
+          "unique": false,
+          "expression": "create index \"chat_participants_owner_idx\" on \"chat_participants\" (\"conversation_id\") where \"role\" = 'owner'"
         },
         {
           "columnNames": [
