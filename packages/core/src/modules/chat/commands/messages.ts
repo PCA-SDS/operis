@@ -3,8 +3,9 @@ import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
 import { badRequest, isUniqueViolation, notFound } from '@open-mercato/shared/lib/crud/errors'
 import { ChatConversation, ChatMessage, ChatParticipant } from '../data/entities'
-import type { ChatMessageDto } from '../data/types'
+import type { ChatMessageDto, ChatReplyTargetDto } from '../data/types'
 import { buildMessagePreview } from '../lib/conversations'
+import { resolveReplyTarget } from '../lib/replies'
 import { loadChatMessages } from '../lib/messages'
 import { dbNow } from '../lib/clock'
 import { loadOrganizationMember, loadOrganizationMembers, type ChatScope } from '../lib/scope'
@@ -23,6 +24,7 @@ export type SendChatMessageInput = {
   conversationId: string
   body: string
   clientMessageId?: string
+  replyToMessageId?: string
 }
 
 export type SendChatMessageResult = {
@@ -30,14 +32,26 @@ export type SendChatMessageResult = {
   deduplicated: boolean
 }
 
-function toDto(message: ChatMessage): ChatMessageDto {
+function toDto(
+  message: ChatMessage,
+  replyTo: ChatReplyTargetDto | null,
+  senderName: string,
+): ChatMessageDto {
   return {
     id: message.id,
     conversationId: message.conversationId,
     senderUserId: message.senderUserId,
+    senderName,
+    kind: message.kind,
     body: message.body,
     createdAt: message.createdAt.toISOString(),
     clientMessageId: message.clientMessageId ?? null,
+    replyTo,
+    systemEvent: message.systemEvent ?? null,
+    systemTargetUserId: message.systemTargetUserId ?? null,
+    // A send is always a user message, so there is never a membership target to
+    // name here.
+    systemTargetName: null,
   }
 }
 
@@ -102,24 +116,54 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
 
     if (input.clientMessageId) {
       const existing = await findByClientId(em, scope, conversation.id, input.clientMessageId)
-      if (existing) return { message: toDto(existing), deduplicated: true }
+      if (existing) {
+        return {
+          message: toDto(existing, await resolveReplyTarget(em, scope, existing), sender.name),
+          deduplicated: true,
+        }
+      }
     }
 
-    const recipients = await conversationAudience(em, scope, conversation.id)
+    // The reply target must be a live message in THIS conversation. The composite
+    // foreign key would refuse a cross-conversation id anyway, but a 23503 is a
+    // 500 to the caller — checking here turns a forged or stale id into the 404
+    // it actually is, and catches the soft-deleted case the constraint cannot see.
+    if (input.replyToMessageId) {
+      const target = await em.findOne(ChatMessage, {
+        id: input.replyToMessageId,
+        conversationId: conversation.id,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+        deletedAt: null,
+      })
+      if (!target) throw notFound(messages.replyTargetNotFound)
+    }
+
+    const participantIds = await conversationAudience(em, scope, conversation.id)
 
     // Re-check the OTHER side too, not just the sender.
     //
-    // A participant row outlives the membership that created it, so without this
-    // a colleague who has left the organization still looks like a valid
-    // recipient: the send succeeds, the message is stored, and they can never
-    // read it. Refusing here is what stops someone typing sensitive material
-    // into a conversation that has quietly become one-way.
-    const counterpartIds = recipients.filter((userId) => userId !== senderUserId)
-    // One batched lookup, not one per recipient — a 1:1 conversation has a single
-    // counterpart today, but the loop shape would become an N+1 the moment a
-    // conversation has more than two people in it.
+    // A participant row outlives the membership that created it, so a colleague
+    // who has left the organization still looks like a valid recipient.
+    //
+    // What happens next depends on the kind, because the same fact means
+    // different things:
+    //
+    // - In a DIRECT conversation the departed person is the only counterpart, so
+    //   the conversation has quietly become one-way. Refusing is what stops
+    //   someone typing sensitive material into it.
+    // - In a SPACE they are one of many. Refusing would let a single departed
+    //   colleague silently break the space for everyone still in it, which is a
+    //   far worse failure than not delivering to someone who cannot sign in
+    //   anyway. They are dropped from the audience instead.
+    //
+    // One batched lookup either way, never one per recipient.
+    const counterpartIds = participantIds.filter((userId) => userId !== senderUserId)
     const counterparts = await loadOrganizationMembers(em, scope, counterpartIds)
-    if (counterparts.size !== counterpartIds.length) throw notFound(messages.recipientNotFound)
+    if (conversation.kind === 'direct' && counterparts.size !== counterpartIds.length) {
+      throw notFound(messages.recipientNotFound)
+    }
+    const recipients = [senderUserId, ...counterpartIds.filter((userId) => counterparts.has(userId))]
 
     let stored: ChatMessage
     try {
@@ -158,6 +202,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
           senderUserId,
           body: input.body,
           clientMessageId: input.clientMessageId ?? null,
+          replyToMessageId: input.replyToMessageId ?? null,
           createdAt: now,
           updatedAt: now,
         })
@@ -179,8 +224,14 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
       // A retry that raced its own first attempt: the idempotency index rejected
       // the duplicate, so return the message that won.
       if (isUniqueViolation(error) && input.clientMessageId) {
-        const existing = await findByClientId(forkEm(ctx), scope, conversation.id, input.clientMessageId)
-        if (existing) return { message: toDto(existing), deduplicated: true }
+        const retryEm = forkEm(ctx)
+        const existing = await findByClientId(retryEm, scope, conversation.id, input.clientMessageId)
+        if (existing) {
+          return {
+            message: toDto(existing, await resolveReplyTarget(retryEm, scope, existing), sender.name),
+            deduplicated: true,
+          }
+        }
       }
       throw error
     }
@@ -195,7 +246,10 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
       createdAt: stored.createdAt.toISOString(),
     })
 
-    return { message: toDto(stored), deduplicated: false }
+    return {
+      message: toDto(stored, await resolveReplyTarget(em, scope, stored), sender.name),
+      deduplicated: false,
+    }
   },
 }
 
