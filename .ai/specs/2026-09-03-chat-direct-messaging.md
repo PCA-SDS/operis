@@ -284,3 +284,124 @@ Integration (`__integration__/`): the two-user happy path and the cross-tenant/c
 - 2026-09-03 — review pass. Directory search moved onto the shared `search_tokens` index; unread counting rewritten as a sargable SQL aggregate; query keys partitioned by organization scope; recipient membership re-checked on every send; rate limits added to the read-cursor and unread-count endpoints with an explicit per-endpoint fail-open/fail-closed policy; `chat.send` gated in the UI; several dead-end UI states fixed (transcript empty state, header retained in loading/error, pagination failure no longer discards loaded data).
 - 2026-09-03 — chat granted to every seeded role (adding WMS's `operator` and `supervisor`); Rollout section added after the missing `tenant_modules` entitlement row proved to be why the sidebar entry never appeared.
 - 2026-09-03 — empty states reworked: one persistent "New chat" affordance in the list header instead of three on the first-run screen, and the transcript pane no longer tells a new user to "choose someone on the left" when the left pane is empty.
+- 2026-09-03 — UI redesign pass. Transcript moved from opposing chat bubbles to a
+  flat, grouped message stream; turn grouping, an unread divider, hover
+  time/copy actions and jump-to-latest added; conversation filter added to the
+  list. Three bugs found and fixed on the way: the page-handle wrapper broke
+  `Page fill` for every backend page, `ChatShell` treated the chrome's first
+  scope publish as an organization switch so no conversation deep link could be
+  opened, and directory search answered an empty list for any query of three
+  characters or more on a deployment where `auth:user` has no `search_tokens`
+  rows.
+- 2026-09-03 — transcript moved to Google Chat-style bubbles: avatar top-aligned
+  with the bubble, name and time as a caption above the turn, and per-message
+  actions behind a hover/focus overflow menu (`RowActions`) carrying Copy for now.
+  The composer's keyboard hint was removed. The hidden action bar was made
+  `pointer-events-none` — opacity alone left it as the hit target, so a click on
+  the empty space at a message's top-right opened a menu the user could not see.
+- 2026-09-04 — sender differentiated by side: the counterpart's messages stay
+  left with an avatar, your own move right without one, and the hover bar flips
+  to whichever edge the bubble is not on. Bubbles gained a proportional width cap
+  below `sm` — at `max-w-prose` alone every bubble filled a phone-width pane and
+  the alignment carrying "who said this" became invisible. Also fixed
+  `Page fill`, which never actually locked the viewport: the shell column is
+  `min-h-svh`, so nothing had a definite height and `h-full` resolved to `auto` —
+  a long transcript grew `main` past the viewport and scrolled the document
+  instead of the transcript. Pinned via a `:has()` rule scoped to pages that set
+  `data-fill`, which leaves every other page untouched.
+- 2026-09-04 — transcript spacing unified. Margins are additive in a flex column,
+  and spacing was split across rows (`mt-3`/`mt-0.5`) and dividers (`my-4`,
+  `my-3`), so a day separator had 16px above it and 28px below — its own margin
+  plus the following row's. Each boundary now has exactly one owner: rows declare
+  only their own top gap, dividers own both of theirs, and a row under a divider
+  declares none. The whole transcript renders in two values, 2px within a turn
+  and 16px at every turn or divider boundary.
+- 2026-09-04 — conversation rail rebuilt as a module navigation panel: the Tasks
+  sidebar's structure (muted `bg-surface-muted` ground, one `PANEL_ROW` shape,
+  uppercase section caption, `bg-primary-soft` active row, primary create action
+  at the top) carrying a Google Chat roster (single-line rows, unread as weight
+  plus a dot with the total on the section caption). Message previews and
+  per-row timestamps were dropped — both reference designs list people, not
+  records, and the preview is one row-click away.
+- 2026-09-04 — the rail became its own surface. The shell was one bordered card
+  split by a rule; it is now two panels with air between them, the shape
+  `TasksShell` uses (`gap-4`, `lg:gap-6`): a filled `rounded-xl bg-surface-muted`
+  rail as module navigation, and the transcript as a separate bordered card that
+  now carries `overflow-hidden` itself. Rail narrowed to 16rem, which
+  single-line rows do not need 20rem for.
+- 2026-09-04 — read receipts and a notification panel.
+  `ChatConversationDto` gained `counterpartLastReadAt`, derived from the
+  participant rows the conversation query already loads, so a message of yours is
+  read once their cursor passes its `createdAt` — no new table, no extra query.
+  The transcript shows one receipt on the newest message you sent (Google Chat's
+  single marker rather than a tick per line): "Delivered HH:MM" until their
+  cursor reaches it, then "Read HH:MM", with both full timestamps in the `title`.
+  Delivery is the message's own `created_at` — the moment the server accepted it
+  — because that is the only delivery this system observes; a separate delivery
+  time would be invented data.
+  The topbar icon became a popover listing unread conversations with a
+  "Mark all read" action, backed by a new `POST /api/chat/read-all` and a
+  `chat.conversations.markAllRead` command: the same clamped, monotonic UPDATE as
+  the single-conversation cursor, minus the conversation filter, touching only
+  the caller's own rows and skipping conversations already caught up so an
+  already-clear inbox is a no-op write that emits no events.
+- 2026-09-04 — a conversation now opens where the reader left off. Caught up, it
+  lands on the newest message; behind, it lands on the "New" divider pinned to the
+  top so the unread run reads downwards, rather than at the bottom with the missed
+  messages above the fold. First paint only — following the bottom on new arrivals
+  is unchanged.
+- 2026-09-04 — fixed the opening position for an already-cached conversation.
+  `previousCount` was seeded from the current message count, so a conversation
+  React Query already held mounted with the ref equal to it: the "did it grow?"
+  test was false on the first render and the transcript was never positioned at
+  all, leaving it at the top. It only worked on a cold load, where the count
+  genuinely goes 0 → N. Positioning now belongs to an explicit `positioned` flag
+  that runs once per mount, independent of how the messages arrived.
+- 2026-09-04 — scrolling driven through the container's own `scrollTop` instead
+  of `scrollIntoView` on a sentinel. `scrollIntoView` aligns to the padding edge,
+  so a zero-height marker under a `py-3` scroller stopped short of the true
+  bottom, and it walks up the tree scrolling every scrollable ancestor — `main`
+  became one of those when fill pages were pinned to the viewport, so the page
+  could shift under the transcript. `scrollTo({ top: scrollHeight })` touches one
+  element and the browser clamps it to the real maximum. The bottom sentinel is
+  gone with it.
+- 2026-09-04 — message actions moved onto the bubble. The bar was absolutely
+  positioned against the row, so on a short reply it sat far out at the pane
+  margin and read as belonging to the column rather than to the message. Bubble
+  and bar now share one bubble-sized box: the bar floats just above the bubble's
+  top edge, pinned to whichever of its edges faces the middle of the pane so it
+  cannot overflow the wall the bubble is already against.
+- 2026-09-04 — fixed the action bar overflowing the transcript. The bar was
+  pinned to the bubble edge *nearest* the pane wall, so it grew outwards: an 83px
+  bar on a three-character bubble ran 20px past the scroller, and because
+  `overflow-y-auto` promotes `overflow-x` to `auto`, that produced a horizontal
+  scrollbar across the conversation and clipped the bar. It now pins the far edge
+  and grows inwards. Also lifted to `-top-10` so it clears its own bubble (at -7
+  it covered the top 10px of the message it acts on), given `whitespace-nowrap`
+  so the timestamp cannot reflow onto two lines, and the timestamp is dropped on
+  a group start where the header already prints it.
+- 2026-09-04 — staying at the bottom moved to a render-time pin. Scrolling once
+  when the message count changed aimed at a `scrollHeight` that was not final —
+  the read receipt arrives on a later refetch and the row rewraps — so the
+  transcript settled 96-128px short and stayed there. A layout effect with no
+  dependency array re-pins after every render, which is exactly when those late
+  growths happen; a `ResizeObserver` supplements it for growth no render
+  accompanies. Measured: a wrapping message delivered over SSE now settles at 0px
+  from the bottom, and a reader scrolled up is left alone.
+
+  Known limitation: for a reader scrolled up, an arriving message shifts their
+  viewport by roughly one row. The transcript window is the newest 30, so a new
+  arrival drops the oldest row and everything above the viewport moves up with
+  it. Anchoring on the oldest visible message rather than the distance from the
+  bottom would fix it.
+- 2026-09-04 — scroll anchoring for a scrolled-up reader rewritten. It preserved
+  the distance from the bottom, which is not stable under the change this list
+  actually makes: the transcript window is the newest page, so an arriving
+  message drops the oldest row *and* appends one — content leaves above the
+  viewport and arrives below it in the same update, and the reader moved by a
+  row. The anchor is now the message they are reading, captured on scroll and
+  restored to the same offset after the list changes. Measured: 0px drift where
+  it was 104px, and the same mechanism replaces the old prepend anchor — loading
+  older history also holds at 0px, where the distance rule was only approximately
+  right. Removes the known limitation recorded above.
+
