@@ -2,3 +2,4 @@
 // module's DI registrar imports this barrel once at startup.
 import './conversations'
 import './messages'
+import './spaces'
