@@ -1,3 +1,12 @@
+import type {
+  ChatConversationKind,
+  ChatMessageKind,
+  ChatParticipantRole,
+  ChatSystemEvent,
+} from './entities'
+
+export type { ChatConversationKind, ChatMessageKind, ChatParticipantRole, ChatSystemEvent }
+
 /**
  * The wire shapes. Everything the browser sees about a person is what a
  * colleague already sees in the staff directory — id, display name, work email,
@@ -18,9 +27,33 @@ export type ChatParticipantDto = {
   email: string
 }
 
+/** A person in a space, with their standing in it. */
+export type ChatMemberDto = ChatParticipantDto & {
+  role: ChatParticipantRole
+  joinedAt: string
+}
+
+export type ChatMemberListDto = {
+  items: ChatMemberDto[]
+  /** Total members, so the header can say "8 members" without loading all of them. */
+  total: number
+  hasMore: boolean
+}
+
 export type ChatConversationDto = {
   id: string
-  /** The other person in a direct conversation; null when they left the organization. */
+  kind: ChatConversationKind
+  /**
+   * What to call this conversation. The space's own name, or the other person's
+   * for a direct — resolved server-side so every surface renders the same label
+   * without each one reimplementing the fallback.
+   */
+  title: string
+  /** Members of a space, excluding the caller. Empty for a direct. */
+  memberCount: number
+  /** The caller's own standing. `member` in a direct, where it is not read. */
+  viewerRole: ChatParticipantRole
+  /** The other person in a direct conversation; null for a space, and null when they left the organization. */
   counterpart: ChatParticipantDto | null
   lastMessageAt: string | null
   lastMessagePreview: string | null
@@ -38,13 +71,48 @@ export type ChatConversationDto = {
   counterpartLastReadAt: string | null
 }
 
+/**
+ * The message a reply points at, as rendered in the quote strip.
+ *
+ * Resolved server-side in one batch per page rather than fetched per bubble, and
+ * deliberately not the full message: a quote shows an author and a truncated
+ * line, so sending more would be payload nobody renders.
+ */
+export type ChatReplyTargetDto = {
+  id: string
+  senderUserId: string
+  /** The original author's display name, resolved with the page. */
+  senderName: string
+  /** Truncated to a single preview line. Empty when the target was deleted. */
+  body: string
+  /** The original is gone; the quote renders "Original message unavailable". */
+  deleted: boolean
+}
+
 export type ChatMessageDto = {
   id: string
   conversationId: string
   senderUserId: string
+  /**
+   * The sender's display name, resolved server-side with the page.
+   *
+   * A space's transcript can carry messages from anyone in it, so the client
+   * would otherwise need the whole membership loaded just to label a bubble —
+   * and would still be wrong for a message from someone who has since left.
+   */
+  senderName: string
+  kind: ChatMessageKind
   body: string
   createdAt: string
   clientMessageId: string | null
+  /** The message this replies to, already resolved. Null for a normal message. */
+  replyTo: ChatReplyTargetDto | null
+  /** Which membership change this row records. Null for `kind: 'user'`. */
+  systemEvent: ChatSystemEvent | null
+  /** Who the membership change was about. The actor is `senderUserId`. */
+  systemTargetUserId: string | null
+  /** That person's display name, so a system line reads without a member fetch. */
+  systemTargetName: string | null
 }
 
 export type ChatConversationListDto = {

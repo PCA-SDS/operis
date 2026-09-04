@@ -29,5 +29,32 @@ export async function loadChatMessages() {
       'chat.errors.rateLimitUnavailable',
       'Chat is temporarily unavailable. Please try again in a moment.',
     ),
+    notASpace: t('chat.errors.notASpace', 'That conversation is not a space.'),
+    notSpaceOwner: t('chat.errors.notSpaceOwner', 'Only a space owner can do that.'),
+    // Same string as `recipientNotFound` would be, but reached from the member
+    // picker rather than from starting a chat — and deliberately identical for
+    // "no such user", "user in another organization" and "user deactivated", so
+    // adding a member cannot be used to probe who exists elsewhere.
+    memberNotFound: t(
+      'chat.errors.memberNotFound',
+      'One or more of those people are not active members of your organization.',
+    ),
+    memberNotInSpace: t('chat.errors.memberNotInSpace', 'That person is not in this space.'),
+    lastOwnerCannotLeave: t(
+      'chat.errors.lastOwnerCannotLeave',
+      'You are the only owner. Make someone else an owner before you leave.',
+    ),
+    lastOwnerCannotStepDown: t(
+      'chat.errors.lastOwnerCannotStepDown',
+      'A space needs at least one owner. Make someone else an owner first.',
+    ),
+    // The label the read model uses when a conversation's other person is no
+    // longer an active member. Resolved server-side because the title is
+    // computed there, so every surface renders the same words.
+    formerColleague: t('chat.list.unknownPerson', 'Former colleague'),
+    replyTargetNotFound: t(
+      'chat.errors.replyTargetNotFound',
+      'The message you replied to is no longer available.',
+    ),
   }
 }
