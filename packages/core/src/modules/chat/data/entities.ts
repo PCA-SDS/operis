@@ -36,6 +36,15 @@ export type ChatSystemEvent = 'member_added' | 'member_removed' | 'member_left' 
 export const MAX_SPACE_TITLE_LENGTH = 80
 
 /**
+ * Longest reaction the schema accepts.
+ *
+ * An emoji is one or more code points — a family or a flag is several joined by
+ * zero-width joiners — so this is a byte budget rather than a character count,
+ * generous enough for any single grapheme and far too small for a sentence.
+ */
+export const MAX_REACTION_LENGTH = 32
+
+/**
  * A conversation between a fixed set of people inside one organization.
  *
  * `directKey` is the canonical identity of a 1:1 pair — the two user ids sorted
@@ -233,6 +242,7 @@ export class ChatMessage {
     | 'kind'
     | 'clientMessageId'
     | 'replyToMessageId'
+    | 'mentionsEveryone'
     | 'systemEvent'
     | 'systemTargetUserId'
     | 'createdAt'
@@ -282,6 +292,16 @@ export class ChatMessage {
   @Property({ name: 'reply_to_message_id', type: 'uuid', nullable: true })
   replyToMessageId?: string | null
 
+  /**
+   * Whether this message addressed the whole space.
+   *
+   * A flag, not a mention row per member: `@everyone` means the people in the
+   * space at the moment it is read, so expanding it at send time would both
+   * notify members who have since left and miss members who have since joined.
+   */
+  @Property({ name: 'mentions_everyone', type: Boolean, default: false })
+  mentionsEveryone: boolean = false
+
   @Property({ name: 'client_message_id', type: 'text', nullable: true })
   clientMessageId?: string | null
 
@@ -293,4 +313,132 @@ export class ChatMessage {
 
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
+}
+
+/**
+ * One person's one emoji on one message.
+ *
+ * Aggregation happens at read time: the row is the atom, and `👍 4` is a count
+ * over four of these. Storing a counter instead would drift the moment a write
+ * failed halfway, and could not answer "did I react?" without a second table.
+ *
+ * The unique index is what makes the toggle safe. Reacting is idempotent by
+ * construction — pressing the same emoji twice removes it rather than inserting
+ * a duplicate — and two tabs racing on the same reaction cannot produce two rows.
+ *
+ * `conversationId` is carried so the composite foreign key can pin a reaction to
+ * the conversation its message lives in. Without it a forged `messageId` from
+ * another space would be storable; with it Postgres refuses.
+ */
+@Entity({ tableName: 'chat_message_reactions' })
+@Unique({ name: 'chat_message_reactions_uq', properties: ['messageId', 'userId', 'emoji'] })
+@Index({ name: 'chat_message_reactions_message_idx', properties: ['messageId'] })
+export class ChatMessageReaction {
+  [OptionalProps]?: 'createdAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'message_id', type: 'uuid' })
+  messageId!: string
+
+  @Property({ name: 'conversation_id', type: 'uuid' })
+  conversationId!: string
+
+  @Property({ name: 'user_id', type: 'uuid' })
+  userId!: string
+
+  @Property({ type: 'text' })
+  emoji!: string
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+}
+
+/**
+ * A message naming a person.
+ *
+ * The body already carries the mention as a `<@id>` token, so this table is not
+ * how a mention is rendered — it is how a mention is *found*. "Which
+ * conversations have an unread message naming me" is an indexed read here and a
+ * scan of every message body without it.
+ *
+ * `@everyone` deliberately has no rows: it means the members of the space *now*,
+ * so it is a flag on the message and is resolved against live membership when
+ * the audience is built. Freezing it into rows at send time would notify people
+ * who have since left and miss people who have since joined.
+ */
+@Entity({ tableName: 'chat_message_mentions' })
+@Unique({ name: 'chat_message_mentions_uq', properties: ['messageId', 'mentionedUserId'] })
+@Index({
+  name: 'chat_message_mentions_user_idx',
+  properties: ['mentionedUserId', 'conversationId'],
+})
+export class ChatMessageMention {
+  [OptionalProps]?: 'createdAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'message_id', type: 'uuid' })
+  messageId!: string
+
+  @Property({ name: 'conversation_id', type: 'uuid' })
+  conversationId!: string
+
+  @Property({ name: 'mentioned_user_id', type: 'uuid' })
+  mentionedUserId!: string
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+}
+
+/**
+ * A message held at the top of a conversation.
+ *
+ * A row rather than a flag on the message, because a pin has an author and a
+ * time of its own — "who decided this matters, and when" — and because the panel
+ * orders by when it was pinned, not by when the message was written.
+ *
+ * Unique on the pair, so pinning something already pinned is a no-op instead of
+ * a second entry in the panel.
+ */
+@Entity({ tableName: 'chat_pinned_messages' })
+@Unique({ name: 'chat_pinned_messages_uq', properties: ['conversationId', 'messageId'] })
+@Index({ name: 'chat_pinned_messages_recent_idx', properties: ['conversationId', 'pinnedAt'] })
+export class ChatPinnedMessage {
+  [OptionalProps]?: 'pinnedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'conversation_id', type: 'uuid' })
+  conversationId!: string
+
+  @Property({ name: 'message_id', type: 'uuid' })
+  messageId!: string
+
+  @Property({ name: 'pinned_by_user_id', type: 'uuid' })
+  pinnedByUserId!: string
+
+  @Property({ name: 'pinned_at', type: Date, onCreate: () => new Date() })
+  pinnedAt: Date = new Date()
 }
