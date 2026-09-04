@@ -88,6 +88,25 @@ function buildResourceTypePresenter(
   }
 }
 
+function buildResourceAreaPresenter(
+  t: TranslateFn,
+  record: Record<string, unknown>,
+  customFields: Record<string, unknown>,
+): SearchResultPresenter {
+  const title =
+    pickString(record.name, record.display_name, record.displayName, customFields.name, customFields.display_name) ??
+    (record.id as string | undefined) ??
+    t('resources.search.badge.resourceArea', 'Resource area')
+  const description = snippet(record.description ?? customFields.description)
+  const areaType = record.area_type ?? record.areaType ?? customFields.area_type
+  return {
+    title: String(title),
+    subtitle: formatSubtitle(description, areaType),
+    icon: 'map-pin',
+    badge: t('resources.search.badge.resourceArea', 'Resource area'),
+  }
+}
+
 function buildIndexSource(
   ctx: SearchBuildContext,
   presenter: SearchResultPresenter,
@@ -152,6 +171,30 @@ export const searchConfig: SearchModuleConfig = {
       resolveUrl: async (ctx) => `/backend/resources/resource-types/${encodeURIComponent(String(ctx.record.id))}/edit`,
       fieldPolicy: {
         searchable: ['name', 'description', 'appearance_icon', 'appearance_color'],
+      },
+    },
+    {
+      entityId: 'resources:resources_resource_area',
+      aclFeatures: ['resources.areas.view'],
+      enabled: true,
+      priority: 6,
+      buildSource: async (ctx) => {
+        const { t } = await resolveTranslations()
+        const record = ctx.record
+        const lines: string[] = []
+        appendLine(lines, 'Name', record.name)
+        appendLine(lines, 'Description', record.description)
+        appendLine(lines, 'Type', record.area_type)
+        appendLine(lines, 'Parent', record.parent_area_id ?? record.parentAreaId)
+        return buildIndexSource(ctx, buildResourceAreaPresenter(t, record, ctx.customFields), lines)
+      },
+      formatResult: async (ctx) => {
+        const { t } = await resolveTranslations()
+        return buildResourceAreaPresenter(t, ctx.record, ctx.customFields)
+      },
+      resolveUrl: async (ctx) => `/backend/resources/areas/${encodeURIComponent(String(ctx.record.id))}/edit`,
+      fieldPolicy: {
+        searchable: ['name', 'description', 'area_type'],
       },
     },
   ],

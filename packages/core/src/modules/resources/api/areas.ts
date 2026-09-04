@@ -28,10 +28,10 @@ const listSchema = z
   .passthrough()
 
 const routeMetadata = {
-  GET: { requireAuth: true, requireFeatures: ['resources.view'] },
-  POST: { requireAuth: true, requireFeatures: ['resources.manage_resources'] },
-  PUT: { requireAuth: true, requireFeatures: ['resources.manage_resources'] },
-  DELETE: { requireAuth: true, requireFeatures: ['resources.manage_resources'] },
+  GET: { requireAuth: true, requireFeatures: ['resources.areas.view'] },
+  POST: { requireAuth: true, requireFeatures: ['resources.areas.manage'] },
+  PUT: { requireAuth: true, requireFeatures: ['resources.areas.manage'] },
+  DELETE: { requireAuth: true, requireFeatures: ['resources.areas.manage'] },
 }
 
 export const metadata = routeMetadata

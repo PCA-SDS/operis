@@ -15,6 +15,10 @@ export const setup: ModuleSetupConfig = {
 
   defaultRoleFeatures: {
     admin: ['resources.*'],
+    employee: [
+      'resources.view',
+      'resources.areas.view',
+    ],
   },
 }
 
