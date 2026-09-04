@@ -34,6 +34,11 @@ export type MarkConversationReadInput = {
   readAt?: string
 }
 
+export type MarkAllConversationsReadInput = {
+  tenantId: string
+  organizationId: string
+}
+
 async function findDirectConversation(
   em: EntityManager,
   scope: ChatScope,
@@ -211,5 +216,72 @@ const markConversationReadCommand: CommandHandler<MarkConversationReadInput, { l
   },
 }
 
+/**
+ * Catch up on everything at once.
+ *
+ * The same clamped, monotonic UPDATE as the single-conversation command, minus
+ * the conversation filter — so "mark all read" cannot move any cursor backwards
+ * either, and a caller can only ever move their own rows. `returning` names the
+ * conversations that actually changed, which is what lets the caller's other
+ * tabs clear exactly those badges rather than refetching the whole list.
+ *
+ * One statement rather than a request per conversation: clearing a full inbox
+ * from the topbar would otherwise be up to `MAX_CONVERSATION_PAGE_SIZE` round
+ * trips, each with its own guard and event.
+ */
+const markAllConversationsReadCommand: CommandHandler<
+  MarkAllConversationsReadInput,
+  { conversationIds: string[]; lastReadAt: string }
+> = {
+  id: 'chat.conversations.markAllRead',
+  async execute(input, ctx) {
+    ensureTenantScope(ctx, input.tenantId)
+    ensureOrganizationScope(ctx, input.organizationId)
+
+    const scope: ChatScope = { tenantId: input.tenantId, organizationId: input.organizationId }
+    const userId = await actingUserId(ctx)
+    const em = forkEm(ctx)
+
+    const updated = await sql<{ conversation_id: string; last_read_at: Date | string }>`
+      update chat_participants
+         set last_read_at = date_trunc('milliseconds', now()),
+             updated_at = date_trunc('milliseconds', now())
+       where user_id = ${userId}::uuid
+         and tenant_id = ${scope.tenantId}::uuid
+         and organization_id = ${scope.organizationId}::uuid
+         -- Only rows that would actually move, so an already-caught-up inbox is
+         -- a no-op write and emits no events.
+         and last_read_at is distinct from date_trunc('milliseconds', now())
+         and exists (
+           select 1 from chat_messages m
+            where m.conversation_id = chat_participants.conversation_id
+              and m.deleted_at is null
+              and m.sender_user_id <> ${userId}::uuid
+              and m.created_at > coalesce(chat_participants.last_read_at, '-infinity'::timestamptz)
+         )
+      returning conversation_id, last_read_at
+    `.execute(em.getKysely())
+
+    const rows = updated.rows
+    const lastReadAt = (rows[0]?.last_read_at instanceof Date
+      ? (rows[0].last_read_at as Date)
+      : new Date(rows[0]?.last_read_at ?? Date.now())
+    ).toISOString()
+    const conversationIds = rows.map((row) => String(row.conversation_id))
+
+    // One event per conversation, to the reader's own sessions only — the same
+    // shape a single mark-read emits, so every listener already handles it.
+    for (const conversationId of conversationIds) {
+      await emitConversationEvent('chat.conversation.read', scope, [userId], {
+        conversationId,
+        lastReadAt,
+      })
+    }
+
+    return { conversationIds, lastReadAt }
+  },
+}
+
 registerCommand(ensureDirectConversationCommand)
 registerCommand(markConversationReadCommand)
+registerCommand(markAllConversationsReadCommand)
