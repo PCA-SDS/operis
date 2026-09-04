@@ -222,8 +222,83 @@ reaction costs two narrow invalidations rather than one. Suppressing the echo
 would mean tracking which events this client caused, for a modest gain over an
 already-coalesced 200ms window.
 
+## Third re-verification pass
+
+Widened from the phase-3 surface to the whole module, and into areas the earlier
+passes had not touched: dark theme, keyboard-only operation, loading/error
+states, and cross-component consistency across all fourteen components.
+
+**Verified correct, no change needed:** dark theme (every sampled pair passes
+WCAG AA, 5.84-14.07:1); keyboard-only mention flow (open, arrow, Escape, Tab to
+select, focus never leaves the composer); hover-only message actions reachable by
+Tab and revealed on focus; 165 interactive controls with no dead ones, no
+placeholder hrefs; message-send optimistic state, which rolls back visibly and
+retries idempotently on the same `clientMessageId`.
+
+Fixed:
+
+- **"Jump to latest" lied while anchored.** Jumping to a pinned message replaces
+  the transcript with a bounded window around it. The control only scrolled the
+  DOM, so it went to the bottom of a month-old window and called it latest, while
+  new messages never rendered and the unread count climbed for a conversation the
+  reader was looking straight at. It now drops the anchor and reloads the tail,
+  and is offered even at the bottom while anchored. Three tests.
+- **Reactions, pins and mark-all-read failed silently.** None is optimistic, so a
+  rejection left the UI exactly as it was — a rate-limited reaction, a pin refused
+  for lack of ownership, and a dropped connection were all indistinguishable from
+  a missed click. There was no i18n key for any of them because the path had never
+  been given a surface. Now flashed through the project's `flash` idiom.
+- **The unread panel asserted a falsehood.** It discarded `isLoading` and `error`,
+  so a failed or in-flight fetch rendered "You're all caught up" directly beneath
+  a badge reading 3. Now skeleton, then error with retry, then the empty state.
+- **A mention addressed to you was invisible on your own bubble.** The chip used
+  `bg-primary-soft`, which is also the fill of your own bubbles — identical token,
+  zero separation, reachable any time you sent a message naming yourself or
+  everyone. Now the strong pair: separation 1.0 → 5.45, text 6.36:1.
+- **An unbroken string overflowed the pane at tablet width.** The bubble cap
+  switched on a `sm:` VIEWPORT breakpoint while the thing that constrains a bubble
+  is the PANE — viewport minus sidebar and conversation column. At 768px the pane
+  is 608px, so `max-w-prose` licensed a 666px bubble that overflowed 18px and
+  pushed the shell 110px. Now `max-w-[min(85%,65ch)]`, which cannot drift.
+- **"New messages" was drawn on the error ramp.** The unread divider used
+  `status-error-*`, so a reader could not tell "this failed" from "this is new"
+  by colour, and retuning the error ramp would have moved it. Now `primary`.
+- **`StartConversationDialog` opted out of the mobile bottom sheet** with a
+  hand-rolled `max-w-lg`/`max-h-[…]`, which also applies below the `sm:`
+  breakpoint. Now `size="default"` like the module's three other dialogs.
+- **Two row actions discarded the promise `RowActions` uses to auto-disable**
+  (`onSelect: () => void run(...)`), opting out of the primitive's double-fire
+  guard — one of them with no confirm dialog in front of it.
+- **Three loading skeletons did not match the rows they stood in for**, so the
+  layout jumped when data landed; one used an avatar size no row in the module
+  uses. Aligned.
+- **Seven copies of the `_plural` branch** collapsed into one `tCount` helper —
+  the convention had already shipped "1 unread chat messages" once. Five tests.
+- The reaction picker was the only `IconButton` in the module with no explicit
+  size, rendering 33% larger than the quick reactions beside it; two eyebrows used
+  `tracking-wider` against the product's `tracking-widest`.
+
+Known and accepted:
+
+- **A failed send is discarded when you switch conversation.** The text lives only
+  in that bubble and the composer has already cleared. Preserving it means keying
+  pending state by conversation, which touches the most heavily tested path in the
+  module (send, retry, reconciliation, double-submit) for an edge case that has a
+  "Try again" button in reach. Left deliberately rather than risked late in a
+  verification pass.
+- **Focus indicators are suppressed app-wide** in `apps/mercato/src/app/globals.css`
+  — a documented, deliberate block that blanks `--focus-ring-*`, `--ring` and
+  `--input-border-focus` and notes that it fails WCAG 2.4.7. Chat inherits it.
+  Because `--input-border-focus` equals `--input-border`, the composer's border
+  never indicated focus either, so removing that border regressed nothing.
+- **The app shell overflows 110px at 768px**, and the customers DataTable 1224px.
+  Present on pages with no chat on them; outside this module.
+
 ## Changelog
 
+- 2026-09-05 — third re-verification pass: whole-module sweep incl. dark theme,
+  keyboard-only operation and failure states; eleven defects fixed (see above),
+  `tCount` helper extracted, 221 chat unit tests and 17 integration specs green.
 - 2026-09-05 — second re-verification pass: nine further defects fixed (see
   above), TC-CHAT-006 end-to-end spec and reaction/mention/late-join tests added.
 - 2026-09-05 — re-verification pass: full gate green, six defects fixed (listed
