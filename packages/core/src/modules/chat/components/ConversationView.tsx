@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Users } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
@@ -12,7 +12,15 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { ChatMessageDto } from '../data/types'
 import { MessageComposer } from './MessageComposer'
 import { MessageList, type PendingMessage } from './MessageList'
+import { SpaceDetailsDialog } from './SpaceDetailsDialog'
 import { useCanSendChat, useConversation, useMarkRead, useMessages, useSendMessage } from './hooks'
+
+/** What the composer is replying to, as the view holds it. */
+export type ReplyTarget = {
+  messageId: string
+  authorName: string
+  body: string
+}
 
 export type ConversationViewProps = {
   conversationId: string
@@ -56,10 +64,22 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
   const canSend = useCanSendChat()
 
   const [pending, setPending] = React.useState<PendingMessage[]>([])
+  const [replyTarget, setReplyTarget] = React.useState<ReplyTarget | null>(null)
+  const [detailsOpen, setDetailsOpen] = React.useState(false)
 
-  // A conversation switch must not carry the previous one's unsent drafts.
+  /**
+   * A conversation switch must not carry the previous one's unsent drafts — or
+   * its reply target, which would otherwise attach this conversation's next
+   * message to a message in the last one. The server would refuse that (the
+   * reply must be in the same conversation), so the failure would be a confusing
+   * 404 on send rather than a silent cross-post; clearing it here means it never
+   * gets that far. The details panel closes for the same reason: it describes a
+   * space that is no longer on screen.
+   */
   React.useEffect(() => {
     setPending([])
+    setReplyTarget(null)
+    setDetailsOpen(false)
   }, [conversationId])
 
   const confirmedIds = React.useMemo(
@@ -100,9 +120,9 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
     unreadSinceRef.current?.id === conversationId ? unreadSinceRef.current.value : undefined
 
   const deliver = React.useCallback(
-    async (clientMessageId: string, body: string) => {
+    async (clientMessageId: string, body: string, replyToMessageId?: string) => {
       try {
-        await sendMessage.mutateAsync({ body, clientMessageId })
+        await sendMessage.mutateAsync({ body, clientMessageId, replyToMessageId })
         setPending((current) => current.filter((item) => item.clientMessageId !== clientMessageId))
       } catch (error) {
         setPending((current) =>
@@ -119,18 +139,33 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
   const handleSend = React.useCallback(
     (body: string) => {
       const clientMessageId = newClientMessageId()
+      // Captured before the state is cleared, so the retry below still knows
+      // what this message was replying to even though the composer has moved on.
+      const replyToMessageId = replyTarget?.messageId
       setPending((current) => [
         ...current,
-        { clientMessageId, body, createdAt: new Date().toISOString(), failed: false },
+        {
+          clientMessageId,
+          body,
+          createdAt: new Date().toISOString(),
+          failed: false,
+          replyToMessageId,
+          replyToAuthorName: replyTarget?.authorName,
+          replyToBody: replyTarget?.body,
+        },
       ])
+      // Cleared on send rather than on success. The reply is already committed to
+      // the pending bubble, and leaving the strip up would invite a second reply
+      // to the same message while the first is still in flight.
+      setReplyTarget(null)
       // The bubble owns the message from here: a rejection flips it to `failed`
       // and the retry there reuses this same `clientMessageId`. The rejection is
       // already represented in the UI, so it is logged rather than re-thrown.
-      void deliver(clientMessageId, body).catch((err: unknown) => {
+      void deliver(clientMessageId, body, replyToMessageId).catch((err: unknown) => {
         logger.warn('Sending a chat message failed', { conversationId, clientMessageId, err })
       })
     },
-    [conversationId, deliver],
+    [conversationId, deliver, replyTarget],
   )
 
   const handleRetryPending = React.useCallback(
@@ -140,17 +175,24 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
       setPending((current) =>
         current.map((item) => (item.clientMessageId === clientMessageId ? { ...item, failed: false } : item)),
       )
-      // Same key as the first attempt, so a send that committed before the
-      // connection dropped is deduplicated rather than posted twice.
-      void deliver(clientMessageId, target.body).catch((err: unknown) => {
+      // Same key AND the same reply target as the first attempt, so a send that
+      // committed before the connection dropped is deduplicated rather than
+      // posted twice — and a retry never loses the reply it was.
+      void deliver(clientMessageId, target.body, target.replyToMessageId).catch((err: unknown) => {
         logger.warn('Retrying a chat message failed', { conversationId, clientMessageId, err })
       })
     },
     [conversationId, deliver, pending],
   )
 
-  const counterpartName = conversation?.counterpart?.name ?? t('chat.list.unknownPerson', 'Former colleague')
-  const counterpartLeft = Boolean(conversation) && conversation?.counterpart == null
+  const isSpace = conversation?.kind === 'space'
+  // Resolved server-side for both kinds — a space's name, or the other person's.
+  const conversationTitle = conversation?.title ?? t('chat.list.unknownPerson', 'Former colleague')
+  // Only a DIRECT conversation can become one-way. A space with a departed
+  // member is still a live room for everyone else, so it must not disable the
+  // composer for them.
+  const counterpartLeft =
+    Boolean(conversation) && !isSpace && conversation?.counterpart == null
 
   /**
    * The header renders in every state, including loading and error.
@@ -169,19 +211,68 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
           </Link>
         </IconButton>
       ) : null}
-      <Avatar label={conversation ? counterpartName : ''} size="sm" />
-      <div className="min-w-0">
-        <h2 className="truncate text-sm font-semibold text-foreground">
-          {conversation ? counterpartName : t('chat.conversation.loading', 'Loading conversation…')}
-        </h2>
-        {conversation?.counterpart ? (
-          <p className="truncate text-xs text-muted-foreground">{conversation.counterpart.email}</p>
-        ) : conversation ? (
-          <p className="truncate text-xs text-muted-foreground">
-            {t('chat.conversation.counterpartLeft', 'No longer in this organization')}
-          </p>
-        ) : null}
-      </div>
+
+      {/* One header for both kinds. A space differs only in its glyph, its
+          subtitle and the fact that the whole block is a button — so the two do
+          not drift into separate layouts that have to be kept in step. */}
+      {(() => {
+        const identity = (
+          <>
+            <Avatar
+              label={conversation ? conversationTitle : ''}
+              size="sm"
+              icon={isSpace ? <Users className="size-4" aria-hidden="true" /> : undefined}
+            />
+            <span className="min-w-0 text-left">
+              <span className="block truncate text-sm font-semibold text-foreground">
+                {conversation ? conversationTitle : t('chat.conversation.loading', 'Loading conversation…')}
+              </span>
+              {isSpace && conversation ? (
+                <span className="block truncate text-xs text-muted-foreground">
+                  {t(
+                    `chat.space.memberCount${conversation.memberCount === 1 ? '' : '_plural'}`,
+                    '{count} members',
+                    { count: conversation.memberCount },
+                  )}
+                </span>
+              ) : conversation?.counterpart ? (
+                <span className="block truncate text-xs text-muted-foreground">
+                  {conversation.counterpart.email}
+                </span>
+              ) : conversation ? (
+                <span className="block truncate text-xs text-muted-foreground">
+                  {t('chat.conversation.counterpartLeft', 'No longer in this organization')}
+                </span>
+              ) : null}
+            </span>
+          </>
+        )
+
+        // The header IS the way into the details panel, the way it is in every
+        // client people already use — rather than a separate button competing
+        // for the same 56px. A direct has no details, so it stays plain text
+        // instead of becoming a control that opens nothing.
+        return isSpace ? (
+          <button
+            type="button"
+            onClick={() => setDetailsOpen(true)}
+            aria-haspopup="dialog"
+            className="-mx-2 flex min-w-0 items-center gap-2 rounded-md px-2 py-1 outline-none transition-colors hover:bg-surface-muted focus-visible:shadow-focus"
+          >
+            {identity}
+            {/* The header is the way into the details panel, so it needs to look
+                like a way in. Without this it was an unmarked click target that
+                only revealed itself on hover — discoverable by accident. */}
+            <ChevronRight
+              className="size-4 shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <span className="sr-only">{t('chat.space.details', 'Space details')}</span>
+          </button>
+        ) : (
+          <div className="flex min-w-0 flex-1 items-center gap-3">{identity}</div>
+        )
+      })()}
     </header>
   )
 
@@ -245,7 +336,9 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
           messages={messages}
           pending={pending}
           currentUserId={currentUserId}
-          counterpartName={counterpartName}
+          conversationTitle={conversationTitle}
+          isSpace={Boolean(isSpace)}
+          onReply={canSend ? setReplyTarget : undefined}
           isLoading={isLoadingMessages}
           hasOlder={hasOlder}
           isLoadingOlder={isLoadingOlder}
@@ -260,14 +353,30 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
       <MessageComposer
         disabled={counterpartLeft || !canSend}
         onSend={handleSend}
+        replyTarget={replyTarget}
+        onCancelReply={() => setReplyTarget(null)}
         placeholder={
           !canSend
             ? t('chat.composer.readOnly', 'You do not have permission to send messages')
             : counterpartLeft
               ? t('chat.composer.disabled', 'This person has left the organization')
-              : t('chat.composer.placeholder', 'Message {name}', { name: counterpartName })
+              : t('chat.composer.placeholder', 'Message {name}', { name: conversationTitle })
         }
       />
+
+      {/* Mounted only for a space, and only once the conversation has loaded —
+          it needs the title, the viewer's role and the member count, and there
+          is no meaningful skeleton for a panel nobody has opened yet. Kept
+          mounted across open/close after that, so Radix can restore focus to
+          the header button. */}
+      {isSpace && conversation ? (
+        <SpaceDetailsDialog
+          open={detailsOpen}
+          onClose={() => setDetailsOpen(false)}
+          conversation={conversation}
+          currentUserId={currentUserId}
+        />
+      ) : null}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { ArrowDown, MessageSquare } from 'lucide-react'
+import { ArrowDown, MessageSquare, Quote } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
@@ -17,13 +17,33 @@ export type PendingMessage = {
   body: string
   createdAt: string
   failed: boolean
+  /** Carried so a retry re-sends the same reply rather than a bare message. */
+  replyToMessageId?: string
+  /** Enough to draw the quote before the server has echoed the message back. */
+  replyToAuthorName?: string
+  replyToBody?: string
+}
+
+export type ReplyRequest = {
+  messageId: string
+  authorName: string
+  body: string
 }
 
 type MessageListProps = {
   messages: ChatMessageDto[]
   pending: PendingMessage[]
   currentUserId: string
-  counterpartName: string
+  /** The space's name, or the other person's — resolved by the server for both. */
+  conversationTitle: string
+  /**
+   * In a space, a message can be from any of several people, so each turn is
+   * labelled with its own author. A direct has exactly two, and the alignment
+   * already says which — so the label would be noise.
+   */
+  isSpace: boolean
+  /** Absent for a read-only member: there is no Reply action to offer them. */
+  onReply?: (target: ReplyRequest) => void
   isLoading: boolean
   hasOlder: boolean
   isLoadingOlder: boolean
@@ -104,6 +124,7 @@ const DIVIDER_GAP = 'my-4'
 type Row =
   | { kind: 'separator'; key: string; label: string; first: boolean }
   | { kind: 'unread'; key: string; first: boolean }
+  | { kind: 'system'; key: string; message: ChatMessageDto; topGap: TopGap }
   | {
       kind: 'message'
       key: string
@@ -139,15 +160,20 @@ function MessageListSkeleton() {
  * and returning focus to the trigger. Rebuilding that here to gain a vertical
  * ellipsis instead of a horizontal one would be a worse trade.
  *
- * Only Copy for now. The clipboard write can be refused (an insecure origin, a
- * denied permission), so the failure is swallowed rather than left as a menu
- * entry that silently does nothing on some machines.
+ * Reply is absent rather than disabled for a read-only member: a permanently
+ * greyed entry in a two-item menu answers a question nobody asked. The clipboard
+ * write can be refused (an insecure origin, a denied permission), so that
+ * failure is swallowed rather than left as an entry that silently does nothing
+ * on some machines.
  */
-function MessageMenu({ body }: { body: string }) {
+function MessageMenu({ body, onReply }: { body: string; onReply?: () => void }) {
   const t = useT()
   return (
     <RowActions
       items={[
+        ...(onReply
+          ? [{ id: 'reply', label: t('chat.reply.action', 'Reply'), onSelect: onReply }]
+          : []),
         {
           id: 'copy',
           label: t('chat.messages.copy', 'Copy message'),
@@ -159,25 +185,101 @@ function MessageMenu({ body }: { body: string }) {
 }
 
 /**
+ * The quote above a reply.
+ *
+ * A bordered card carrying a quote glyph, the original author and up to three
+ * lines of what they said — the shape Google Chat uses, because it reads as a
+ * quotation rather than as the first paragraph of the reply. It sits on its own
+ * surface inside the bubble, so the reply's own text is clearly the message and
+ * this is clearly context.
+ *
+ * The body is clamped in CSS rather than cut server-side. Three *rendered* lines
+ * is the thing worth bounding, and only the browser knows how many characters
+ * that is at the reader's pane width — a character count would truncate a short
+ * wide line and let a long narrow one run.
+ *
+ * Clickable only when the original is currently loaded. The transcript pages
+ * backwards through history, so a quote of something far above may reference a
+ * message that is not in the DOM; a link that scrolls nowhere is worse than
+ * plain text, so that case renders inert. Where it can navigate, it uses the
+ * `data-message-id` anchor the transcript already carries for scroll
+ * restoration.
+ */
+function ReplyQuote({
+  authorName,
+  body,
+  onJump,
+}: {
+  authorName: string
+  body: string
+  onJump?: () => void
+}) {
+  const t = useT()
+  const missing = body.length === 0
+
+  const content = (
+    <>
+      <span className="flex items-center gap-1.5">
+        {/* Structural, not decorative: it is what says "quotation" before any
+            text is read. Token-coloured rather than Google's brand pink. */}
+        <Quote className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+        <span className="min-w-0 truncate text-xs font-semibold text-foreground">{authorName}</span>
+      </span>
+      {/* `line-clamp-3` needs the text to wrap, so no `truncate` here — that
+          would pin it to one line and the clamp would never engage. */}
+      <span
+        className={cn(
+          'mt-0.5 block whitespace-pre-wrap break-words text-xs',
+          missing ? 'italic text-muted-foreground' : 'line-clamp-3 text-foreground',
+        )}
+      >
+        {missing ? t('chat.reply.unavailable', 'Original message unavailable') : body}
+      </span>
+    </>
+  )
+
+  // `bg-surface` on top of the bubble's own fill, the way Google puts a white
+  // card on a grey message — it separates quotation from reply without a second
+  // border weight.
+  const shell = 'mb-1.5 block w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-left'
+  if (!onJump) return <span className={shell}>{content}</span>
+
+  return (
+    <button
+      type="button"
+      onClick={onJump}
+      className={cn(shell, 'transition-colors hover:bg-surface-muted')}
+    >
+      {content}
+    </button>
+  )
+}
+
+/**
  * The transcript.
  *
  * Message bodies are rendered as text nodes with `whitespace-pre-wrap`, never as
  * HTML — a message is exactly the characters that were typed, so there is no
  * markup path for someone to smuggle anything through.
  *
- * Laid out as a flat, left-aligned stream rather than opposing chat bubbles.
- * Bubbles are a two-party mobile convention: they spend half the width on
- * alignment, force a "You" label on your own turns, and put a timestamp under
- * every line. A single column with the author's name reads faster, stays
- * readable at ERP density, and is what every workplace client converged on.
- * Consecutive messages from one person collapse into a turn, so a fast
- * back-and-forth is a conversation rather than a wall of repeated names.
+ * Laid out as opposing bubbles: yours on the right, everyone else's on the
+ * left with an avatar. Consecutive messages from one person collapse into a
+ * turn, so a fast back-and-forth is a conversation rather than a wall of
+ * repeated names.
+ *
+ * The same transcript renders a direct conversation and a space. A space labels
+ * every incoming turn with its author, because it can be any of several people;
+ * a direct does not, because the alignment already says which of the two it was.
+ * Membership events render as a centred line rather than a bubble — they belong
+ * to the room, not to a speaker.
  */
 export function MessageList({
   messages,
   pending,
   currentUserId,
-  counterpartName,
+  conversationTitle,
+  isSpace,
+  onReply,
   isLoading,
   hasOlder,
   isLoadingOlder,
@@ -205,16 +307,81 @@ export function MessageList({
   )
 
   /**
+   * A membership event as a sentence.
+   *
+   * Built from the event and the two names rather than read out of the message
+   * body, so the same row reads correctly in all five locales and follows a
+   * later rename instead of freezing whatever the person was called that day.
+   */
+  const systemLine = React.useCallback(
+    (message: ChatMessageDto): string => {
+      const actor = message.senderUserId === currentUserId
+        ? t('chat.messages.you', 'You')
+        : message.senderName
+      const target = message.systemTargetName ?? ''
+      switch (message.systemEvent) {
+        case 'member_added':
+          return t('chat.system.memberAdded', '{actor} added {target}', { actor, target })
+        case 'member_removed':
+          return t('chat.system.memberRemoved', '{actor} removed {target}', { actor, target })
+        case 'member_left':
+          return t('chat.system.memberLeft', '{actor} left the space', { actor })
+        case 'space_renamed':
+          return t('chat.system.spaceRenamed', '{actor} renamed the space to {title}', {
+            actor,
+            title: message.body,
+          })
+        default:
+          // An event this build does not know about — a row written by a newer
+          // deploy against the same database. Rendering nothing beats rendering
+          // a raw enum value at the reader.
+          return ''
+      }
+    },
+    [currentUserId, t],
+  )
+
+  /**
+   * Scroll to the message a quote refers to, when it is on screen.
+   *
+   * Returns whether it could, so the quote can decide between a button and inert
+   * text — a link that scrolls nowhere is worse than no link.
+   */
+  const jumpToMessage = React.useCallback((messageId: string) => {
+    const container = scrollRef.current
+    if (!container) return
+    const target = container.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(messageId)}"]`)
+    if (!target) return
+    scrollToTopOf(container, target)
+    // A brief ring rather than a persistent highlight: it answers "which one?"
+    // and then gets out of the way, and it needs no cleanup state.
+    target.classList.add('ring-2', 'ring-primary', 'rounded-xl')
+    setTimeout(() => target.classList.remove('ring-2', 'ring-primary', 'rounded-xl'), 1200)
+  }, [])
+
+  const loadedMessageIds = React.useMemo(
+    () => new Set(messages.map((message) => message.id)),
+    [messages],
+  )
+
+  /**
    * The receipt hangs off the newest message you sent, not every one of them.
    *
    * A tick per message is how a two-party mobile client does it; in a workplace
    * transcript it repeats the same fact on every line. One marker under the last
    * of your messages says exactly as much — everything above it shares the same
    * state — and is what Google Chat settled on.
+   *
+   * `kind === 'user'` matters. A membership event carries YOUR id as its actor,
+   * so adding someone to a space made the newest thing you had "sent" a system
+   * row — and system rows render as a centred line with no receipt, so the
+   * receipt silently disappeared from the whole conversation until you typed
+   * again.
    */
   const lastOwnMessageId = React.useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
-      if (messages[index]!.senderUserId === currentUserId) return messages[index]!.id
+      const message = messages[index]!
+      if (message.kind === 'user' && message.senderUserId === currentUserId) return message.id
     }
     return null
   }, [currentUserId, messages])
@@ -226,12 +393,22 @@ export function MessageList({
     // the different case of not knowing yet, and suppresses it.
     const unreadCutoff =
       unreadSince === undefined ? null : unreadSince === null ? -Infinity : new Date(unreadSince).getTime()
+    /**
+     * The last message that can START a turn — user messages only.
+     *
+     * Grouping and day separators are tracked apart on purpose. A membership
+     * event must not break Alice's turn in two, so it never becomes `previous`;
+     * but it IS a rendered row on a day, so leaving it out of the day tracking
+     * as well would print a second separator for the same date as soon as a real
+     * message followed it.
+     */
     let previous: ChatMessageDto | null = null
+    let lastRenderedDay: Date | null = null
     let unreadMarked = false
 
     for (const message of messages) {
       const createdAt = new Date(message.createdAt)
-      const sameDay = previous !== null && isSameDay(new Date(previous.createdAt), createdAt)
+      const sameDay = lastRenderedDay !== null && isSameDay(lastRenderedDay, createdAt)
 
       if (!sameDay) {
         result.push({
@@ -240,6 +417,21 @@ export function MessageList({
           label: formatDateSeparator(locale, createdAt, separatorLabels),
           first: result.length === 0,
         })
+        lastRenderedDay = createdAt
+      }
+
+      // A membership event belongs to the room, not to a speaker: it gets its
+      // own centred row, never groups with the messages around it, and is not
+      // counted as unread — matching the server, which excludes it from the
+      // unread predicate for the same reason.
+      if (message.kind === 'system') {
+        result.push({
+          kind: 'system',
+          key: message.id,
+          message,
+          topGap: result.length === 0 ? 'none' : 'turn',
+        })
+        continue
       }
 
       // The divider belongs above the first message the reader had not seen —
@@ -256,12 +448,15 @@ export function MessageList({
 
       const continuesGroup =
         previous !== null &&
-        sameDay &&
+        isSameDay(new Date(previous.createdAt), createdAt) &&
         previous.senderUserId === message.senderUserId &&
         createdAt.getTime() - new Date(previous.createdAt).getTime() < GROUPING_WINDOW_MS &&
-        // A turn cannot continue across the divider, or the divider would sit
-        // inside a group with no avatar beneath it.
-        !(isUnread && result[result.length - 1]?.kind === 'unread')
+        // A turn cannot continue across the unread divider, or the divider would
+        // sit inside a group with no avatar beneath it — nor across a membership
+        // line, which would leave Alice's second bubble headerless under a row
+        // that is not hers.
+        result[result.length - 1]?.kind !== 'unread' &&
+        result[result.length - 1]?.kind !== 'system'
 
       const precededByDivider =
         result.length > 0 &&
@@ -510,9 +705,15 @@ export function MessageList({
                   size="sm"
                   icon={<MessageSquare className="size-5" aria-hidden="true" />}
                   title={t('chat.messages.emptyTitle', 'No messages yet')}
-                  description={t('chat.messages.emptyDescription', 'Say hello to {name}.', {
-                    name: counterpartName,
-                  })}
+                  description={
+                    isSpace
+                      ? t('chat.messages.emptySpaceDescription', 'Start the conversation in {name}.', {
+                          name: conversationTitle,
+                        })
+                      : t('chat.messages.emptyDescription', 'Say hello to {name}.', {
+                          name: conversationTitle,
+                        })
+                  }
                 />
               </div>
             ) : null}
@@ -521,12 +722,51 @@ export function MessageList({
                 interaction of a chat client is silent for a screen-reader user. */}
             <ol className="flex flex-col" aria-live="polite" aria-relevant="additions">
               {rows.map((row) => {
+                if (row.kind === 'system') {
+                  // Centred, muted, no bubble and no avatar: it is a note about
+                  // the room. The sentence is assembled here from translations
+                  // and the names the server resolved, so it reads correctly in
+                  // every locale and stays right when someone is renamed.
+                  return (
+                    <li
+                      key={row.key}
+                      data-message-id={row.message.id}
+                      className={cn('flex justify-center px-2', TOP_GAP[row.topGap])}
+                    >
+                      {/* The sentence alone. Each of these used to be prefixed
+                          with its own clock, so three membership changes in a row
+                          read as three timestamps before three facts — and the
+                          time of an administrative event is rarely what you are
+                          looking for. It stays in the tooltip. */}
+                      <p
+                        className="max-w-full truncate text-xs text-muted-foreground"
+                        title={formatFullTimestamp(locale, new Date(row.message.createdAt))}
+                      >
+                        {systemLine(row.message)}
+                      </p>
+                    </li>
+                  )
+                }
+
                 if (row.kind === 'separator') {
                   return (
-                    <li key={row.key} className={cn('flex items-center gap-3', row.first ? 'mb-4' : DIVIDER_GAP)}>
-                      <span className="h-px flex-1 bg-border" aria-hidden="true" />
-                      <span className="text-xs font-medium text-muted-foreground">{row.label}</span>
-                      <span className="h-px flex-1 bg-border" aria-hidden="true" />
+                    // The label alone, centred. It used to be flanked by two
+                    // full-width hairlines, which drew a pair of rules across the
+                    // pane for something that only needs to be findable while
+                    // scanning — the date is already the only centred, uppercase
+                    // thing in a column of left- and right-aligned bubbles.
+                    <li
+                      key={row.key}
+                      // A stable hook for "this row is a date separator". The
+                      // count used to be asserted by counting hairline spans,
+                      // which tied the test to the decoration rather than to the
+                      // thing being counted.
+                      data-row="separator"
+                      className={cn('flex justify-center', row.first ? 'mb-4' : DIVIDER_GAP)}
+                    >
+                      <span className="text-overline font-semibold uppercase tracking-wider text-muted-foreground">
+                        {row.label}
+                      </span>
                     </li>
                   )
                 }
@@ -564,6 +804,18 @@ export function MessageList({
                             : 'bg-primary-soft opacity-70',
                         )}
                       >
+                        {/* The quote is drawn from what the composer knew, so an
+                            in-flight reply looks exactly like the sent one it is
+                            about to become — never inert-then-quoted. Not
+                            clickable: the message it replies to is confirmed,
+                            but this bubble is not yet a row anything can anchor
+                            to. */}
+                        {row.pending.replyToMessageId ? (
+                          <ReplyQuote
+                            authorName={row.pending.replyToAuthorName ?? ''}
+                            body={row.pending.replyToBody ?? ''}
+                          />
+                        ) : null}
                         <p
                           className={cn(
                             'whitespace-pre-wrap break-words text-sm',
@@ -597,7 +849,10 @@ export function MessageList({
                 }
 
                 const createdAt = new Date(row.message.createdAt)
-                const author = row.mine ? t('chat.messages.you', 'You') : counterpartName
+                // The sender's own name, resolved with the page — so a space
+                // labels each turn with whoever wrote it rather than with the
+                // one counterpart a direct has.
+                const author = row.mine ? t('chat.messages.you', 'You') : row.message.senderName
                 const fullTimestamp = formatFullTimestamp(locale, createdAt)
                 // Read once their cursor reaches this message. `null` cursor is
                 // "never opened", which is unread rather than read-at-epoch.
@@ -685,6 +940,29 @@ export function MessageList({
                           row.mine ? 'bg-primary-soft' : 'bg-surface-muted',
                         )}
                       >
+                        {/* Inside the bubble, above the text: the quote is part
+                            of this message, and floating it outside would make
+                            the reply look like two rows. */}
+                        {row.message.replyTo ? (
+                          <ReplyQuote
+                            authorName={
+                              row.message.replyTo.senderUserId === currentUserId
+                                ? t('chat.messages.you', 'You')
+                                : row.message.replyTo.senderName
+                            }
+                            body={row.message.replyTo.body}
+                            // A button only when the original is actually in the
+                            // DOM. Paging backwards means an old original may not
+                            // be, and offering a jump that does nothing is the
+                            // dead end this avoids.
+                            onJump={
+                              !row.message.replyTo.deleted &&
+                              loadedMessageIds.has(row.message.replyTo.id)
+                                ? () => jumpToMessage(row.message.replyTo!.id)
+                                : undefined
+                            }
+                          />
+                        ) : null}
                         <p className="whitespace-pre-wrap break-words text-sm text-foreground">
                           {row.message.body}
                         </p>
@@ -698,14 +976,35 @@ export function MessageList({
 
                           It carries the timestamp too: a grouped message has no
                           header of its own, and the alternative — a time in the
-                          40px avatar gutter — does not fit a 12-hour locale. */}
+                          40px avatar gutter — does not fit a 12-hour locale.
+
+                          The outer element is a POSITIONER whose padding is a hit
+                          bridge; the inner one is the visible chrome. They are
+                          separate because the gap between the bar and the bubble
+                          has to be reachable, not merely empty — see below. */}
                       <div
                         className={cn(
-                          // `-top-10` clears the bar's own 38px height plus a hair, so it rests just
-                          // above the bubble instead of sitting on its first line —
-                          // at -7 it covered 10px of the message it acts on.
-                          'pointer-events-none absolute -top-10 z-10 flex items-center gap-1 whitespace-nowrap',
-                          'rounded-lg border border-border bg-surface px-1 py-0.5 shadow-sm',
+                          // Anchored to the bubble's own top edge, and the padding
+                          // below the chrome is a HIT BRIDGE rather than spacing.
+                          //
+                          // Parked at a fixed `-top-10` this bar was ~2px clear of
+                          // the bubble, and those 2px belonged to the message
+                          // ABOVE. Moving the pointer up to the bar therefore left
+                          // this row, which dropped `:hover`, which hid the bar —
+                          // so the only way to press it was to cross the dead band
+                          // fast enough to land on the bar in a single pointer
+                          // sample. Every slower path handed the hover to the
+                          // neighbour instead.
+                          //
+                          // `bottom-full` glues the box's bottom edge to the top of
+                          // the bubble and `-mb-px` laps it by one pixel, so the
+                          // padding runs continuously from the chrome down into the
+                          // message. The pointer travels from bubble to button
+                          // without ever crossing a pixel this row does not own,
+                          // and because the box is a DOM descendant of the row,
+                          // hovering it keeps `:hover` on the row — the bar stays up
+                          // for as long as you are heading towards it.
+                          'pointer-events-none absolute bottom-full z-10 -mb-px pb-1.5',
                           'opacity-0 transition-opacity',
                           'focus-within:pointer-events-auto focus-within:opacity-100',
                           'group-hover/msg:pointer-events-auto group-hover/msg:opacity-100',
@@ -720,6 +1019,7 @@ export function MessageList({
                           row.mine ? 'right-0' : 'left-0',
                         )}
                       >
+                        <div className="flex items-center gap-1 whitespace-nowrap rounded-lg border border-border bg-surface px-1 py-0.5 shadow-sm">
                         {/* Only where the row has no header of its own. A group
                             start already prints the time beside the author, and
                             repeating it put the same clock twice within 20px. */}
@@ -732,7 +1032,22 @@ export function MessageList({
                             {formatTimeOfDay(locale, createdAt)}
                           </time>
                         )}
-                        <MessageMenu body={row.message.body} />
+                        <MessageMenu
+                          body={row.message.body}
+                          onReply={
+                            onReply
+                              ? () =>
+                                  onReply({
+                                    messageId: row.message.id,
+                                    authorName: row.mine
+                                      ? t('chat.messages.you', 'You')
+                                      : row.message.senderName,
+                                    body: row.message.body,
+                                  })
+                              : undefined
+                          }
+                        />
+                        </div>
                       </div>
                     </div>
 
