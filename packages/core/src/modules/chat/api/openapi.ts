@@ -41,6 +41,8 @@ export const conversationSchema = z.object({
   kind: z.enum(['direct', 'space']),
   title: z.string(),
   memberCount: z.number(),
+  hasUnreadMention: z.boolean(),
+  pinnedCount: z.number(),
   viewerRole: z.enum(['owner', 'member']),
 })
 
@@ -73,6 +75,33 @@ export const replyTargetSchema = z.object({
   deleted: z.boolean(),
 })
 
+export const reactionSchema = z.object({
+  emoji: z.string(),
+  count: z.number(),
+  mine: z.boolean(),
+  sampleNames: z.array(z.string()),
+})
+
+export const reactionToggleSchema = z.object({ emoji: z.string(), reacted: z.boolean() })
+export const pinToggleSchema = z.object({ pinned: z.boolean() })
+
+export const pinnedMessageSchema = z.object({
+  messageId: z.string().uuid(),
+  pinnedByUserId: z.string().uuid(),
+  pinnedByName: z.string(),
+  pinnedAt: z.string(),
+  senderUserId: z.string().uuid(),
+  senderName: z.string(),
+  preview: z.string(),
+  createdAt: z.string(),
+  isReply: z.boolean(),
+})
+
+export const pinnedListSchema = z.object({
+  items: z.array(pinnedMessageSchema),
+  total: z.number(),
+})
+
 export const messageSchema = z.object({
   id: z.string().uuid(),
   conversationId: z.string().uuid(),
@@ -88,6 +117,10 @@ export const messageSchema = z.object({
     .nullable(),
   systemTargetUserId: z.string().uuid().nullable(),
   systemTargetName: z.string().nullable(),
+  reactions: z.array(reactionSchema),
+  mentionNames: z.record(z.string(), z.string()),
+  mentionsEveryone: z.boolean(),
+  pinned: z.boolean(),
 })
 
 export const conversationListSchema = z.object({

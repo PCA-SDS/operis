@@ -59,6 +59,13 @@ export type ChatConversationDto = {
   lastMessagePreview: string | null
   lastMessageSenderUserId: string | null
   unreadCount: number
+  /**
+   * Whether any of those unread messages names the viewer, directly or through
+   * `@everyone`. One badge with two states rather than a second counter.
+   */
+  hasUnreadMention: boolean
+  /** How many messages are pinned here, for the header control. */
+  pinnedCount: number
   lastReadAt: string | null
   /**
    * How far the other person has read, which is the read receipt for everything
@@ -89,6 +96,43 @@ export type ChatReplyTargetDto = {
   deleted: boolean
 }
 
+/**
+ * One emoji on one message, already aggregated.
+ *
+ * The client never sees the individual rows: it gets the emoji, how many people
+ * chose it, whether the viewer is one of them, and a short list of names for the
+ * tooltip. Sending the rows would make a busy message the most expensive thing
+ * on the page and would leak the full reactor list of a large space into every
+ * transcript payload.
+ */
+export type ChatReactionDto = {
+  emoji: string
+  count: number
+  /** Whether the viewer holds this emoji — what the toggle needs to know. */
+  mine: boolean
+  /** A few reactor names for the tooltip, capped server-side. */
+  sampleNames: string[]
+}
+
+export type ChatPinnedMessageDto = {
+  messageId: string
+  pinnedByUserId: string
+  pinnedByName: string
+  pinnedAt: string
+  senderUserId: string
+  senderName: string
+  /** Truncated for the panel — a pin is a pointer, not a second transcript. */
+  preview: string
+  createdAt: string
+  /** True when the pinned message is itself a reply, so the panel can say so. */
+  isReply: boolean
+}
+
+export type ChatPinnedListDto = {
+  items: ChatPinnedMessageDto[]
+  total: number
+}
+
 export type ChatMessageDto = {
   id: string
   conversationId: string
@@ -113,6 +157,17 @@ export type ChatMessageDto = {
   systemTargetUserId: string | null
   /** That person's display name, so a system line reads without a member fetch. */
   systemTargetName: string | null
+  /** Aggregated reactions, newest emoji last. Empty when nobody has reacted. */
+  reactions: ChatReactionDto[]
+  /**
+   * Display names for the people this message names, so the transcript can
+   * render `<@id>` tokens without a lookup of its own.
+   */
+  mentionNames: Record<string, string>
+  /** Whether this message addressed the whole space. */
+  mentionsEveryone: boolean
+  /** Whether this message is pinned in its conversation. */
+  pinned: boolean
 }
 
 export type ChatConversationListDto = {

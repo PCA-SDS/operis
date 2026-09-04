@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { MAX_SPACE_TITLE_LENGTH } from './entities'
+import { MAX_REACTION_LENGTH, MAX_SPACE_TITLE_LENGTH } from './entities'
 
-export { MAX_SPACE_TITLE_LENGTH }
+export { MAX_REACTION_LENGTH, MAX_SPACE_TITLE_LENGTH }
 
 /**
  * The longest message the server will store.
@@ -156,6 +156,36 @@ export const chatSendMessageSchema = z.object({
   clientMessageId: z.string().min(1).max(64).optional(),
 })
 
+/**
+ * A reaction is a single emoji, and nothing else.
+ *
+ * Bounded by grapheme count rather than by code points, because one emoji can be
+ * several joined code points — a flag, a skin tone, a family. Anything that
+ * renders as more than one character is a message, not a reaction, and belongs
+ * in the composer.
+ */
+export const chatReactionSchema = z.object({
+  emoji: z
+    .string()
+    .trim()
+    .min(1)
+    .max(MAX_REACTION_LENGTH)
+    .refine(
+      (value) => [...new Intl.Segmenter().segment(value)].length === 1,
+      { message: 'A reaction must be a single emoji.' },
+    )
+    // No control characters, for the same reason a message body strips them:
+    // they carry terminal escapes into logs and exports.
+    .refine((value) => !CONTROL_CHARACTERS.test(value), { message: 'Invalid reaction.' }),
+})
+
+
+export const chatMessageContextQuerySchema = z.object({
+  /** Centre the returned window on this message — how pin navigation reaches history. */
+  around: z.string().uuid(),
+  limit: z.coerce.number().int().min(1).max(MAX_MESSAGE_PAGE_SIZE).optional(),
+})
+
 export const chatMarkReadSchema = z.object({
   /**
    * Read up to this instant. Omitted means "everything currently in the
@@ -174,3 +204,5 @@ export type ChatMemberListQuery = z.infer<typeof chatMemberListQuerySchema>
 export type ChatMessageListQuery = z.infer<typeof chatMessageListQuerySchema>
 export type ChatSendMessageInput = z.infer<typeof chatSendMessageSchema>
 export type ChatMarkReadInput = z.infer<typeof chatMarkReadSchema>
+export type ChatReactionInput = z.infer<typeof chatReactionSchema>
+export type ChatMessageContextQuery = z.infer<typeof chatMessageContextQuerySchema>

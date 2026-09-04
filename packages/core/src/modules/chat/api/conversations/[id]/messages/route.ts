@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
-import { chatMessageListQuerySchema, chatSendMessageSchema } from '../../../../data/validators'
+import {
+  chatMessageContextQuerySchema,
+  chatMessageListQuerySchema,
+  chatSendMessageSchema,
+} from '../../../../data/validators'
 import { chatSendRateLimit } from '../../../../lib/rateLimits'
 import type { SendChatMessageInput, SendChatMessageResult } from '../../../../commands/messages'
 import {
@@ -42,7 +46,20 @@ export async function GET(req: Request, context: { params?: Record<string, unkno
     if (!resolved.ok) return resolved.response
     const request = resolved.value
 
-    const query = chatMessageListQuerySchema.parse(searchParamsToObject(req.url))
+    const params = searchParamsToObject(req.url)
+
+    // `?around=` centres the window on one message — how pin navigation reaches
+    // something far back in history without walking pages until it finds it.
+    if (params.around) {
+      const context = chatMessageContextQuerySchema.parse(params)
+      return jsonOk(
+        await chatService(request).listMessagesAround(readContext(request), id, context.around, {
+          limit: context.limit,
+        }),
+      )
+    }
+
+    const query = chatMessageListQuerySchema.parse(params)
     const page = await chatService(request).listMessages(readContext(request), id, {
       cursor: query.cursor,
       limit: query.limit,
@@ -98,7 +115,7 @@ export const openApi: OpenApiRouteDoc = {
     GET: {
       summary: 'Read a page of messages',
       description:
-        'Keyset pagination walking backwards from the newest message. Participants only; a conversation the caller does not belong to answers 404.',
+        'Keyset pagination walking backwards from the newest message. Passing `around={messageId}` instead returns a window centred on that message, which is how pin navigation reaches history without walking pages. Participants only; a conversation the caller does not belong to answers 404.',
       responses: [{ status: 200, description: 'A page of messages.', schema: messagePageSchema }],
       errors: [...COMMON_ERRORS],
     },
