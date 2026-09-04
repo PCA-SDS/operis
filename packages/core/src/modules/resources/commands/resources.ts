@@ -42,6 +42,7 @@ type ResourceSnapshot = {
   description: string | null
   resourceTypeId: string | null
   areaId: string | null
+  sortOrder: number
   capacity: number | null
   capacityUnitValue: string | null
   capacityUnitName: string | null
@@ -148,6 +149,7 @@ async function loadResourceSnapshot(em: EntityManager, id: string): Promise<Reso
     description: resource.description ?? null,
     resourceTypeId: resource.resourceTypeId ?? null,
     areaId: resource.areaId ?? null,
+    sortOrder: resource.sortOrder ?? 0,
     capacity: resource.capacity ?? null,
     capacityUnitValue: resource.capacityUnitValue ?? null,
     capacityUnitName: resource.capacityUnitName ?? null,
@@ -240,6 +242,7 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
       description: parsed.description ?? null,
       resourceTypeId: parsed.resourceTypeId ?? null,
       areaId: parsed.areaId ?? null,
+      sortOrder: parsed.sortOrder ?? 0,
       capacity: parsed.capacity ?? null,
       capacityUnitValue: unitSnapshot?.value ?? null,
       capacityUnitName: unitSnapshot?.name ?? null,
@@ -365,6 +368,7 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
             description: after.description ?? null,
             resourceTypeId: after.resourceTypeId ?? null,
             areaId: after.areaId ?? null,
+            sortOrder: after.sortOrder ?? 0,
             capacity: after.capacity ?? null,
             capacityUnitValue: after.capacityUnitValue ?? null,
             capacityUnitName: after.capacityUnitName ?? null,
@@ -385,6 +389,7 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
           record.description = after.description ?? null
           record.resourceTypeId = after.resourceTypeId ?? null
           record.areaId = after.areaId ?? null
+          record.sortOrder = after.sortOrder ?? 0
           record.capacity = after.capacity ?? null
           record.capacityUnitValue = after.capacityUnitValue ?? null
           record.capacityUnitName = after.capacityUnitName ?? null
@@ -497,6 +502,7 @@ const updateResourceCommand: CommandHandler<ResourcesResourceUpdateInput, { reso
         if (parsed.description !== undefined) record.description = parsed.description ?? null
         if (parsed.resourceTypeId !== undefined) record.resourceTypeId = parsed.resourceTypeId ?? null
         if (parsed.areaId !== undefined) record.areaId = parsed.areaId ?? null
+        if (parsed.sortOrder !== undefined) record.sortOrder = parsed.sortOrder
         if (parsed.capacity !== undefined) record.capacity = parsed.capacity ?? null
         if (parsed.appearanceIcon !== undefined) record.appearanceIcon = parsed.appearanceIcon ?? null
         if (parsed.appearanceColor !== undefined) record.appearanceColor = parsed.appearanceColor ?? null
@@ -554,6 +560,7 @@ const updateResourceCommand: CommandHandler<ResourcesResourceUpdateInput, { reso
       'description',
       'resourceTypeId',
       'areaId',
+      'sortOrder',
       'capacity',
       'capacityUnitValue',
       'capacityUnitName',
@@ -608,6 +615,7 @@ const updateResourceCommand: CommandHandler<ResourcesResourceUpdateInput, { reso
         record.description = before.description ?? null
         record.resourceTypeId = before.resourceTypeId ?? null
         record.areaId = before.areaId ?? null
+        record.sortOrder = before.sortOrder ?? 0
         record.capacity = before.capacity ?? null
         record.capacityUnitValue = before.capacityUnitValue ?? null
         record.capacityUnitName = before.capacityUnitName ?? null
@@ -743,6 +751,7 @@ const deleteResourceCommand: CommandHandler<{ id?: string }, { resourceId: strin
             description: before.description ?? null,
             resourceTypeId: before.resourceTypeId ?? null,
             areaId: before.areaId ?? null,
+            sortOrder: before.sortOrder ?? 0,
             capacity: before.capacity ?? null,
             capacityUnitValue: before.capacityUnitValue ?? null,
             capacityUnitName: before.capacityUnitName ?? null,
@@ -763,6 +772,7 @@ const deleteResourceCommand: CommandHandler<{ id?: string }, { resourceId: strin
           record.description = before.description ?? null
           record.resourceTypeId = before.resourceTypeId ?? null
           record.areaId = before.areaId ?? null
+          record.sortOrder = before.sortOrder ?? 0
           record.capacity = before.capacity ?? null
           record.capacityUnitValue = before.capacityUnitValue ?? null
           record.capacityUnitName = before.capacityUnitName ?? null

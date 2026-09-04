@@ -25,6 +25,7 @@ export default function ResourcesResourceCreatePage() {
       : RESOURCES_RESOURCE_FIELDSET_DEFAULT
     const payload: Record<string, unknown> = {
       ...rest,
+      sortOrder: values.sortOrder === '' || values.sortOrder == null ? 0 : Number(values.sortOrder),
       capacity: values.capacity ? Number(values.capacity) : null,
       capacityUnitValue: values.capacityUnitValue ? String(values.capacityUnitValue) : null,
       appearanceIcon: appearance.icon ?? null,
@@ -58,6 +59,7 @@ export default function ResourcesResourceCreatePage() {
           formConfig={formConfig}
           initialValues={{
             description: '',
+            sortOrder: 0,
             isActive: true,
             capacityUnitValue: '',
             appearance: { icon: null, color: null },

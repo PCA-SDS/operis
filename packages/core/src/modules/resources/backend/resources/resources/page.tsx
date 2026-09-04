@@ -33,6 +33,7 @@ type ResourceRow = {
   name: string
   resourceTypeId: string | null
   areaId: string | null
+  sortOrder: number
   capacity: number | null
   tags?: TagOption[] | null
   isActive: boolean
@@ -55,6 +56,7 @@ type ResourceGroupRow = {
   name: string
   resourceTypeId: string | null
   areaId: string | null
+  sortOrder: number | null
   appearanceIcon: string | null
   appearanceColor: string | null
   rowKind: 'group'
@@ -98,6 +100,16 @@ function formatResourceAreaName(area: { name?: string; id?: string; depth?: numb
   if (!name) return null
   const depth = typeof area.depth === 'number' && area.depth > 0 ? area.depth : 0
   return depth > 0 ? `${'  '.repeat(depth)}↳ ${name}` : name
+}
+
+function sortResourcesForAreaLayout(resources: ResourceRow[]): ResourceRow[] {
+  return [...resources].sort((a, b) => {
+    const orderA = Number.isFinite(a.sortOrder) ? a.sortOrder : 0
+    const orderB = Number.isFinite(b.sortOrder) ? b.sortOrder : 0
+    if (orderA !== orderB) return orderA - orderB
+    const nameCompare = a.name.localeCompare(b.name)
+    return nameCompare !== 0 ? nameCompare : a.id.localeCompare(b.id)
+  })
 }
 
 export default function ResourcesResourcesPage() {
@@ -404,13 +416,14 @@ export default function ResourcesResourcesPage() {
           name: entry.area?.name ?? t('resources.resources.list.group.unknownArea', 'Unknown area'),
           resourceTypeId: null,
           areaId: entry.areaId,
+          sortOrder: null,
           appearanceIcon: null,
           appearanceColor: null,
           rowKind: 'group',
           depth: 0,
           groupBy: 'area',
         })
-        entry.list.forEach((resource) => {
+        sortResourcesForAreaLayout(entry.list).forEach((resource) => {
           grouped.push({ ...resource, rowKind: 'resource', depth: 1 })
         })
       }
@@ -420,13 +433,14 @@ export default function ResourcesResourcesPage() {
           name: t('resources.resources.list.group.unassignedArea', 'No area'),
           resourceTypeId: null,
           areaId: null,
+          sortOrder: null,
           appearanceIcon: null,
           appearanceColor: null,
           rowKind: 'group',
           depth: 0,
           groupBy: 'area',
         })
-        unassigned.forEach((resource) => {
+        sortResourcesForAreaLayout(unassigned).forEach((resource) => {
           grouped.push({ ...resource, rowKind: 'resource', depth: 1 })
         })
       }
@@ -462,6 +476,7 @@ export default function ResourcesResourcesPage() {
         name: label,
         resourceTypeId: entry.typeId,
         areaId: null,
+        sortOrder: null,
         appearanceIcon: entry.type?.appearanceIcon ?? null,
         appearanceColor: entry.type?.appearanceColor ?? null,
         rowKind: 'group',
@@ -478,6 +493,7 @@ export default function ResourcesResourcesPage() {
         name: t('resources.resources.list.group.unassigned', 'Unassigned'),
         resourceTypeId: null,
         areaId: null,
+        sortOrder: null,
         appearanceIcon: null,
         appearanceColor: null,
         rowKind: 'group',
@@ -501,6 +517,10 @@ export default function ResourcesResourcesPage() {
           page: String(page),
           pageSize: String(PAGE_SIZE),
         })
+        if (groupBy === 'area') {
+          params.set('sortField', 'sortOrder')
+          params.set('sortDir', 'asc')
+        }
         if (search) params.set('search', search)
         if (selectedResourceTypeId) params.set('resourceTypeId', selectedResourceTypeId)
         if (typeof filterValues.areaId === 'string' && filterValues.areaId.length) {
@@ -537,7 +557,7 @@ export default function ResourcesResourcesPage() {
     }
     load()
     return () => { cancelled = true; controller.abort() }
-  }, [filterValues, page, search, scopeVersion, selectedResourceTypeId, t])
+  }, [filterValues, groupBy, page, search, scopeVersion, selectedResourceTypeId, t])
 
   const handleDelete = React.useCallback(async (row: ResourceTableRow) => {
     if (row.rowKind !== 'resource') return
@@ -647,9 +667,15 @@ export default function ResourcesResourcesPage() {
       },
     },
     {
+      accessorKey: 'sortOrder',
+      header: t('resources.resources.list.columns.sortOrder', 'Order'),
+      meta: { priority: 5 },
+      cell: ({ row }) => row.original.rowKind === 'group' ? null : row.original.sortOrder,
+    },
+    {
       accessorKey: 'capacity',
       header: t('resources.resources.list.columns.capacity', 'Capacity'),
-      meta: { priority: 4 },
+      meta: { priority: 5 },
       cell: ({ row }) => row.original.rowKind === 'group'
         ? null
         : row.original.capacity ?? t('resources.resources.list.columns.capacity.empty', '-'),
@@ -657,7 +683,7 @@ export default function ResourcesResourcesPage() {
     {
       accessorKey: 'tags',
       header: t('resources.resources.list.columns.tags', 'Tags'),
-      meta: { priority: 5 },
+      meta: { priority: 6 },
       cell: ({ row }) => {
         if (row.original.rowKind === 'group') {
           return null
@@ -678,7 +704,7 @@ export default function ResourcesResourcesPage() {
     {
       accessorKey: 'isActive',
       header: t('resources.resources.list.columns.active', 'Active'),
-      meta: { priority: 6 },
+      meta: { priority: 7 },
       cell: ({ row }) => row.original.rowKind === 'group' ? null : <BooleanIcon value={row.original.isActive} />,
     },
   ], [canManage, resourceTypes, resourceAreas, t])
@@ -769,6 +795,13 @@ function mapApiResource(item: Record<string, unknown>): ResourceRow {
     : typeof item.capacity === 'string'
       ? Number(item.capacity)
       : null
+  const sortOrder = typeof item.sortOrder === 'number'
+    ? item.sortOrder
+    : typeof item.sort_order === 'number'
+      ? item.sort_order
+      : typeof item.sort_order === 'string'
+        ? Number(item.sort_order)
+        : 0
   const isActive = typeof item.isActive === 'boolean'
     ? item.isActive
     : typeof item.is_active === 'boolean'
@@ -795,6 +828,7 @@ function mapApiResource(item: Record<string, unknown>): ResourceRow {
     name,
     resourceTypeId,
     areaId,
+    sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
     capacity: Number.isFinite(capacity as number) ? capacity as number : null,
     tags,
     isActive,

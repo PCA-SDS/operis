@@ -38,7 +38,7 @@ export type ResourceFormValues = {
   description?: string
   resourceTypeId?: string | null
   areaId?: string | null
-  sort_order: number
+  sortOrder?: number
 }
 
 type ResourceAreaRow = {
@@ -406,6 +406,11 @@ export function useResourcesResourceFormConfig(options: {
         },
       },
       {
+        id: 'sortOrder',
+        label: t('resources.resources.form.fields.sortOrder', 'Sort Order'),
+        type: 'number',
+      },
+      {
         id: 'capacity',
         label: t('resources.resources.form.fields.capacity', 'Capacity'),
         description: t(
@@ -489,6 +494,7 @@ export function useResourcesResourceFormConfig(options: {
           'description',
           'resourceTypeId',
           'areaId',
+          'sortOrder',
           'capacity',
           'capacityUnitValue',
           'appearance',

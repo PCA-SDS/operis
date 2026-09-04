@@ -732,6 +732,7 @@ export async function seedResourcesResourceExamples(
       organizationId: scope.organizationId,
       name: seed.name,
       resourceTypeId: seedType?.id ?? null,
+      sortOrder: 0,
       customFieldsetCode: seedFieldsetCode,
       isActive: true,
       createdAt: now,

@@ -44,6 +44,7 @@ interface TpsSeat {
   seat_type_id: string
   code: string
   name: string | null
+  sort_order: number
   status: string | null
   is_active: boolean
   deleted_at: string | null
@@ -75,6 +76,21 @@ function parseLocationFlag(rest: string[]): string | null {
   }
   return null
 }
+
+const seatSortOrderExpression = `
+  (
+    row_number() over (
+      partition by s.floor_id
+      order by
+        regexp_replace(s.code, '\\d+', '', 'g'),
+        nullif(regexp_replace(s.code, '\\D', '', 'g'), '')::int nulls last,
+        s.code,
+        coalesce(s.name, ''),
+        s.created_at,
+        s.id
+    ) - 1
+  )::int as sort_order
+`
 
 // ---------------------------------------------------------------------------
 // Main command
@@ -125,9 +141,9 @@ export const migrateTpsResourcesCommand: ModuleCli = {
         ) as Promise<{ rows: TpsFloor[]; rowCount: number }>,
         tpsClient.query(
           locationFilter
-            ? `SELECT s.* FROM seats s JOIN floors f ON f.id = s.floor_id
+            ? `SELECT s.*, ${seatSortOrderExpression} FROM seats s JOIN floors f ON f.id = s.floor_id
                WHERE s.deleted_at IS NULL AND f.deleted_at IS NULL AND f.location = $1`
-            : 'SELECT * FROM seats WHERE deleted_at IS NULL',
+            : `SELECT s.*, ${seatSortOrderExpression} FROM seats s WHERE s.deleted_at IS NULL`,
           locationFilter ? [locationFilter] : [],
         ) as Promise<{ rows: TpsSeat[]; rowCount: number }>,
       ])
@@ -259,6 +275,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
             tenantId,
             organizationId,
             name: seat.name?.trim() || seat.code,
+            sortOrder: seat.sort_order ?? 0,
             isActive: seat.is_active,
             createdAt: now,
             updatedAt: now,
@@ -268,6 +285,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
           entity.description = null
           entity.resourceTypeId = mappedTypeId
           entity.areaId = mappedAreaId
+          entity.sortOrder = seat.sort_order ?? 0
           entity.capacity = 1
           entity.capacityUnitValue = null
           entity.capacityUnitName = null
@@ -298,4 +316,3 @@ export const migrateTpsResourcesCommand: ModuleCli = {
     }
   },
 }
-

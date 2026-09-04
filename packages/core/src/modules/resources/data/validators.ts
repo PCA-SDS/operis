@@ -55,6 +55,7 @@ export const resourcesResourceCreateSchema = z.object({
     .nullable(),
   isActive: z.boolean().optional(),
   areaId: z.string().uuid().optional().nullable(),
+  sortOrder: z.coerce.number().int().default(0),
   availabilityRuleSetId: z.string().uuid().optional().nullable(),
   customFieldsetCode: customFieldsetCodeSchema.optional().nullable(),
 })
@@ -76,6 +77,7 @@ export const resourcesResourceUpdateSchema = z.object({
     .nullable(),
   isActive: z.boolean().optional(),
   areaId: z.string().uuid().optional().nullable(),
+  sortOrder: z.coerce.number().int().optional(),
   availabilityRuleSetId: z.string().uuid().optional().nullable(),
   customFieldsetCode: customFieldsetCodeSchema.optional().nullable(),
 })
@@ -204,4 +206,3 @@ export type ResourcesResourceActivityCreateInput = z.infer<typeof resourcesResou
 export type ResourcesResourceActivityUpdateInput = z.infer<typeof resourcesResourceActivityUpdateSchema>
 export type ResourcesResourceAreaCreateInput = z.infer<typeof resourcesResourceAreaCreateSchema>
 export type ResourcesResourceAreaUpdateInput = z.infer<typeof resourcesResourceAreaUpdateSchema>
-

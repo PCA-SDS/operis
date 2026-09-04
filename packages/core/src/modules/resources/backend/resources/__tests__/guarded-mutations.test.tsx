@@ -465,13 +465,76 @@ it('wraps resource list deletes in the guarded mutation path', async () => {
 })
 
 it('can group the resource list by area', async () => {
+  mockApiCall.mockImplementation(async (url: string) => {
+    if (url === '/api/auth/feature-check') {
+      return apiResult({ ok: true, granted: ['resources.manage_resources'] })
+    }
+    if (url.startsWith('/api/resources/resource-types')) {
+      return apiResult({
+        items: [{ id: 'type-1', name: 'Room', appearanceIcon: null, appearanceColor: null }],
+        total: 1,
+        page: 1,
+        totalPages: 1,
+      })
+    }
+    if (url.startsWith('/api/resources/resources')) {
+      return apiResult({
+        items: [
+          {
+            id: 'resource-high',
+            name: 'Room 2',
+            resourceTypeId: null,
+            areaId: 'area-1',
+            sort_order: 2,
+            capacity: 1,
+            tags: [],
+            isActive: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          },
+          {
+            id: 'resource-low',
+            name: 'Room 1',
+            resourceTypeId: null,
+            areaId: 'area-1',
+            sort_order: 1,
+            capacity: 1,
+            tags: [],
+            isActive: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          },
+        ],
+        total: 2,
+        page: 1,
+        totalPages: 1,
+      })
+    }
+    if (url.startsWith('/api/resources/areas')) {
+      return apiResult({
+        items: [
+          {
+            id: 'area-1',
+            name: 'Head Office',
+            parent_area_id: null,
+            sort_order: 0,
+            depth: 0,
+          },
+        ],
+        total: 1,
+        totalPages: 1,
+      })
+    }
+    return apiResult({ items: [] })
+  })
+
   render(<ResourcesResourcesPage />)
 
   fireEvent.click(await screen.findByTestId('select-option-area'))
 
   const groupRow = await screen.findByTestId('row-group:area:area-1')
   expect(groupRow).toHaveTextContent('Head Office')
-  expect(screen.getByTestId('row-resource-1')).toBeInTheDocument()
+  const firstResource = screen.getByTestId('row-resource-low')
+  const secondResource = screen.getByTestId('row-resource-high')
+  expect(firstResource.compareDocumentPosition(secondResource)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
 })
 
 it('loads resource area children when a parent row is expanded', async () => {

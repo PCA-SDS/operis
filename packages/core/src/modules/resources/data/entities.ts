@@ -59,6 +59,9 @@ export class ResourcesResource {
   @Property({ name: 'area_id', type: 'uuid', nullable: true })
   areaId?: string | null
 
+  @Property({ name: 'sort_order', type: 'int', default: 0 })
+  sortOrder: number = 0
+
   @Property({ type: 'int', nullable: true })
   capacity?: number | null
 
@@ -292,4 +295,3 @@ export class ResourcesResourceArea {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 }
-

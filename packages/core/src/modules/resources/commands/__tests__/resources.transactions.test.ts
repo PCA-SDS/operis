@@ -74,6 +74,8 @@ function buildResourceSnapshot() {
     name: 'Resource A',
     description: null,
     resourceTypeId: null,
+    areaId: null,
+    sortOrder: 0,
     capacity: null,
     capacityUnitValue: null,
     capacityUnitName: null,
