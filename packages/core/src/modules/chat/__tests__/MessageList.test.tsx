@@ -7,8 +7,23 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { MessageList } from '../components/MessageList'
 import type { ChatMessageDto } from '../data/types'
 
+/**
+ * The real `useT` substitutes `{name}` placeholders from the third argument.
+ * The mock does too, because several strings here — the system lines especially
+ * — are only meaningful once their names are in them; a mock that returned the
+ * raw fallback would let a component ship `{actor} added {target}` to a user and
+ * still pass.
+ */
 jest.mock('@open-mercato/shared/lib/i18n/context', () => ({
-  useT: () => (_key: string, fallback?: unknown) => (typeof fallback === 'string' ? fallback : String(_key)),
+  useT:
+    () =>
+    (key: string, fallback?: unknown, params?: Record<string, unknown>) => {
+      const template = typeof fallback === 'string' ? fallback : String(key)
+      if (!params) return template
+      return template.replace(/\{(\w+)\}/g, (match, name: string) =>
+        name in params ? String(params[name]) : match,
+      )
+    },
   useLocale: () => 'en',
 }))
 
@@ -66,9 +81,15 @@ function message(overrides: Partial<ChatMessageDto> = {}): ChatMessageDto {
     id: 'm1',
     conversationId: 'conv-1',
     senderUserId: THEM,
+    senderName: 'Bob',
+    kind: 'user',
     body: 'hello',
     createdAt: '2026-09-02T10:00:00.000Z',
     clientMessageId: null,
+    replyTo: null,
+    systemEvent: null,
+    systemTargetUserId: null,
+    systemTargetName: null,
     ...overrides,
   }
 }
@@ -83,7 +104,8 @@ function renderList(
       messages={messages}
       pending={pending}
       currentUserId={ME}
-      counterpartName="Bob"
+      conversationTitle="Bob"
+      isSpace={false}
       isLoading={false}
       hasOlder={false}
       isLoadingOlder={false}
@@ -168,7 +190,8 @@ describe('MessageList', () => {
         messages={[]}
         pending={[]}
         currentUserId={ME}
-        counterpartName="Bob"
+        conversationTitle="Bob"
+        isSpace={false}
         isLoading
         hasOlder={false}
         isLoadingOlder={false}
@@ -188,7 +211,8 @@ describe('MessageList', () => {
         messages={[message()]}
         pending={[]}
         currentUserId={ME}
-        counterpartName="Bob"
+        conversationTitle="Bob"
+        isSpace={false}
         isLoading={false}
         hasOlder
         isLoadingOlder={false}
@@ -377,7 +401,8 @@ describe('MessageList', () => {
     const props = (extra: Partial<React.ComponentProps<typeof MessageList>> = {}) => ({
       pending: [],
       currentUserId: ME,
-      counterpartName: 'Bob',
+      conversationTitle: 'Bob',
+      isSpace: false,
       isLoading: false,
       hasOlder: false,
       isLoadingOlder: false,
@@ -534,7 +559,8 @@ describe('MessageList', () => {
    */
   describe('message action placement', () => {
     const bubbleOf = (li: Element) => li.querySelector('div[class*="rounded-2xl"]')!
-    const barOf = (li: Element) => li.querySelector('div[class*="-top-"]')!
+    /** The positioner — the box that owns the anchor and the hit bridge. */
+    const barOf = (li: Element) => li.querySelector('div[class*="bottom-full"]')!
 
     it('puts the bar in the same box as the bubble, not loose in the row', () => {
       renderList([message({ id: 'a', senderUserId: THEM })])
@@ -547,11 +573,43 @@ describe('MessageList', () => {
       expect(bar.parentElement!.className).toContain('w-fit')
     })
 
-    it('sits above the bubble rather than beside it', () => {
+    /**
+     * The reachability contract, and the reason the bar is two elements rather
+     * than one.
+     *
+     * A bar parked at a fixed offset above the bubble leaves a band of pixels
+     * between the two that belongs to the message ABOVE. Moving the pointer up
+     * to press the button crosses that band, the row loses `:hover`, and the bar
+     * disappears mid-reach — measured in the browser, the two pixels below the
+     * old `-top-10` bar hit-tested to the transcript list rather than to the row.
+     *
+     * Anchoring the box's bottom edge to the bubble (`bottom-full`), lapping it
+     * by a pixel (`-mb-px`) and putting the visual offset in padding instead of
+     * in the anchor makes the box run continuously from the chrome into the
+     * message, so the whole path belongs to the row that owns the bar.
+     */
+    it('bridges the gap to the bubble instead of floating clear of it', () => {
       renderList([message({ id: 'a', senderUserId: THEM })])
       const bar = barOf(document.querySelector('li[class*="group/msg"]')!)
-      // A negative top lifts it clear of the bubble's first line of text.
-      expect(bar.className).toMatch(/-top-\d/)
+      // Anchored to the bubble's top edge, not parked at a fixed offset.
+      expect(bar.className).toContain('bottom-full')
+      expect(bar.className).not.toMatch(/(^|\s)-top-\d/)
+      // The gap is padding inside the hit box, and the box laps the bubble so no
+      // sub-pixel seam can open between them.
+      expect(bar.className).toMatch(/(^|\s)pb-/)
+      expect(bar.className).toContain('-mb-px')
+    })
+
+    /** The chrome is the inner element, so the bridge stays invisible. */
+    it('keeps the visible chrome separate from the hit bridge', () => {
+      renderList([message({ id: 'a', senderUserId: THEM })])
+      const bar = barOf(document.querySelector('li[class*="group/msg"]')!)
+      const chrome = bar.firstElementChild!
+      expect(chrome.className).toContain('rounded-lg')
+      expect(chrome.className).toContain('bg-surface')
+      // The padding that makes the bridge is on the positioner, never on the
+      // chrome — putting it there would inflate the visible pill instead.
+      expect(chrome.className).not.toMatch(/(^|\s)pb-1\.5/)
     })
 
     /**
@@ -593,7 +651,8 @@ describe('MessageList', () => {
     const props = {
       pending: [],
       currentUserId: ME,
-      counterpartName: 'Bob',
+      conversationTitle: 'Bob',
+      isSpace: false,
       isLoading: false,
       hasOlder: false,
       isLoadingOlder: false,
@@ -675,6 +734,243 @@ describe('MessageList', () => {
       rerender(<MessageList messages={from(['b', 'c', 'd', 'e'])} {...props} />)
 
       expect(scroller.scrollTop).toBe(SCROLL_HEIGHT - CLIENT_HEIGHT)
+    })
+  })
+})
+
+/**
+ * Spaces and replies.
+ *
+ * These assert the behaviour that differs from a direct conversation, and the
+ * two rules that keep a reply reference from becoming a dead end: a quote is a
+ * button only when its original is on screen, and a deleted original degrades to
+ * a sentence rather than an empty line.
+ */
+describe('spaces', () => {
+  it('labels each incoming turn with its own author', () => {
+    renderList(
+      [
+        message({ id: 'm1', senderUserId: 'user-a', senderName: 'Alice', body: 'first' }),
+        message({
+          id: 'm2',
+          senderUserId: 'user-b',
+          senderName: 'Bob',
+          body: 'second',
+          createdAt: '2026-09-02T10:01:00.000Z',
+        }),
+      ],
+      [],
+      { isSpace: true, conversationTitle: 'Project Alpha' },
+    )
+    expect(screen.getByText('Alice')).toBeTruthy()
+    expect(screen.getByText('Bob')).toBeTruthy()
+  })
+
+  it('renders a membership event as a sentence, not as a message bubble', () => {
+    renderList(
+      [
+        message({
+          id: 'sys1',
+          kind: 'system',
+          systemEvent: 'member_added',
+          senderUserId: 'user-a',
+          senderName: 'Alice',
+          systemTargetUserId: 'user-b',
+          systemTargetName: 'Bob',
+          body: '',
+        }),
+      ],
+      [],
+      { isSpace: true },
+    )
+    expect(screen.getByText(/Alice added Bob/)).toBeTruthy()
+  })
+
+  it('does not let a membership event split one person\'s turn in two', () => {
+    renderList(
+      [
+        message({ id: 'm1', senderUserId: 'user-a', senderName: 'Alice', body: 'first' }),
+        message({
+          id: 'sys1',
+          kind: 'system',
+          systemEvent: 'member_added',
+          senderUserId: 'user-a',
+          senderName: 'Alice',
+          systemTargetName: 'Bob',
+          body: '',
+          createdAt: '2026-09-02T10:00:30.000Z',
+        }),
+        message({
+          id: 'm2',
+          senderUserId: 'user-a',
+          senderName: 'Alice',
+          body: 'second',
+          createdAt: '2026-09-02T10:01:00.000Z',
+        }),
+      ],
+      [],
+      { isSpace: true },
+    )
+    // Two author lines: the turn restarts after the system row rather than
+    // leaving the second bubble headerless under a row that is not a message.
+    expect(authorLineCount()).toBe(2)
+  })
+
+  it('prints one date separator even when a system row opens the day', () => {
+    renderList(
+      [
+        message({
+          id: 'sys1',
+          kind: 'system',
+          systemEvent: 'member_added',
+          senderName: 'Alice',
+          systemTargetName: 'Bob',
+          body: '',
+          createdAt: '2026-09-02T09:00:00.000Z',
+        }),
+        message({ id: 'm1', senderName: 'Alice', body: 'hello', createdAt: '2026-09-02T10:00:00.000Z' }),
+      ],
+      [],
+      { isSpace: true },
+    )
+    expect(document.querySelectorAll('li[data-row="separator"]')).toHaveLength(1)
+  })
+})
+
+/**
+ * The receipt marks the newest message YOU SENT. A membership event carries your
+ * id as its actor, so without a `kind` filter, adding someone to a space made a
+ * system row the newest thing you had "sent" — and system rows render as a
+ * centred line with no receipt, so the receipt silently vanished from the whole
+ * conversation until you typed again.
+ */
+describe('read receipt vs system events', () => {
+  it('keeps the receipt on the newest message you actually sent', () => {
+    renderList(
+      [
+        message({ id: 'mine', senderUserId: ME, senderName: 'Me', body: 'the last thing I typed' }),
+        message({
+          id: 'sys',
+          kind: 'system',
+          systemEvent: 'member_added',
+          senderUserId: ME,
+          senderName: 'Me',
+          systemTargetName: 'Bob',
+          body: '',
+          createdAt: '2026-09-02T10:05:00.000Z',
+        }),
+      ],
+      [],
+      { isSpace: true, counterpartLastReadAt: null },
+    )
+    expect(screen.getByText(/Delivered/)).toBeTruthy()
+  })
+})
+
+describe('reply references', () => {
+  const original = message({ id: 'orig', senderUserId: THEM, senderName: 'Bob', body: 'the question' })
+
+  it('quotes the original above the reply body', () => {
+    renderList([
+      original,
+      message({
+        id: 'reply',
+        senderUserId: ME,
+        senderName: 'Me',
+        body: 'the answer',
+        createdAt: '2026-09-02T10:05:00.000Z',
+        replyTo: { id: 'orig', senderUserId: THEM, senderName: 'Bob', body: 'the question', deleted: false },
+      }),
+    ])
+    expect(screen.getAllByText('the question').length).toBeGreaterThan(0)
+    expect(screen.getByText('the answer')).toBeTruthy()
+  })
+
+  it('makes the quote a button when the original is loaded', () => {
+    renderList([
+      original,
+      message({
+        id: 'reply',
+        senderUserId: ME,
+        body: 'the answer',
+        createdAt: '2026-09-02T10:05:00.000Z',
+        replyTo: { id: 'orig', senderUserId: THEM, senderName: 'Bob', body: 'the question', deleted: false },
+      }),
+    ])
+    const quote = screen.getAllByText('Bob').find((node) => node.closest('button'))
+    expect(quote).toBeTruthy()
+  })
+
+  it('leaves the quote inert when the original is not on screen', () => {
+    // No `orig` message in the list — it is older than the loaded window.
+    renderList([
+      message({
+        id: 'reply',
+        senderUserId: ME,
+        body: 'the answer',
+        replyTo: { id: 'orig', senderUserId: THEM, senderName: 'Bob', body: 'the question', deleted: false },
+      }),
+    ])
+    const quote = screen.getAllByText('Bob').find((node) => node.closest('button'))
+    expect(quote).toBeUndefined()
+  })
+
+  /**
+   * Three RENDERED lines is the bound, so it is enforced in CSS rather than by
+   * cutting the string server-side: only the browser knows how many characters
+   * three lines holds at the reader's pane width. `truncate` would defeat it by
+   * pinning the text to a single line, so the quote must not carry both.
+   */
+  it('clamps a long quote to three lines rather than one', () => {
+    const long = 'x'.repeat(280)
+    renderList([
+      message({
+        id: 'reply',
+        senderUserId: ME,
+        body: 'short answer',
+        replyTo: { id: 'orig', senderUserId: THEM, senderName: 'Bob', body: long, deleted: false },
+      }),
+    ])
+    const quoted = screen.getByText(long)
+    expect(quoted.className).toContain('line-clamp-3')
+    expect(quoted.className).not.toContain('truncate')
+    // Wrapping is what gives the clamp lines to count.
+    expect(quoted.className).toContain('whitespace-pre-wrap')
+  })
+
+  it('says so rather than rendering a blank quote for a deleted original', () => {
+    renderList([
+      message({
+        id: 'reply',
+        senderUserId: ME,
+        body: 'the answer',
+        replyTo: { id: 'orig', senderUserId: THEM, senderName: 'Bob', body: '', deleted: true },
+      }),
+    ])
+    expect(screen.getByText('Original message unavailable')).toBeTruthy()
+  })
+
+  it('offers Reply only when the viewer can send', () => {
+    const onReply = jest.fn()
+    const { unmount } = renderList([original], [], { onReply })
+    fireEvent.click(screen.getAllByRole('button', { name: /actions/i })[0]!)
+    expect(screen.getByText('Reply')).toBeTruthy()
+    unmount()
+
+    renderList([original], [], { onReply: undefined })
+    fireEvent.click(screen.getAllByRole('button', { name: /actions/i })[0]!)
+    expect(screen.queryByText('Reply')).toBeNull()
+  })
+
+  it('hands the reply target back with the author and body', () => {
+    const onReply = jest.fn()
+    renderList([original], [], { onReply })
+    fireEvent.click(screen.getAllByRole('button', { name: /actions/i })[0]!)
+    fireEvent.click(screen.getByText('Reply'))
+    expect(onReply).toHaveBeenCalledWith({
+      messageId: 'orig',
+      authorName: 'Bob',
+      body: 'the question',
     })
   })
 })
