@@ -52,6 +52,18 @@ export async function loadChatMessages() {
     // longer an active member. Resolved server-side because the title is
     // computed there, so every surface renders the same words.
     formerColleague: t('chat.list.unknownPerson', 'Former colleague'),
+    /** How `<@everyone>` reads once resolved out of a stored body. */
+    everyoneLabel: t('chat.mentions.everyone', 'everyone'),
+    mentionNotAllowed: t(
+      'chat.errors.mentionNotAllowed',
+      'You can only mention people who are in this conversation.',
+    ),
+    everyoneNotAllowed: t(
+      'chat.errors.everyoneNotAllowed',
+      '@everyone can only be used in a space.',
+    ),
+    messageNotFound: t('chat.errors.messageNotFound', 'That message is no longer available.'),
+    notPinPermitted: t('chat.errors.notPinPermitted', 'Only a space owner can pin messages.'),
     replyTargetNotFound: t(
       'chat.errors.replyTargetNotFound',
       'The message you replied to is no longer available.',

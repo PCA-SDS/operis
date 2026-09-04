@@ -1,25 +1,29 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { sql } from 'kysely'
 import { notFound } from '@open-mercato/shared/lib/crud/errors'
-import { ChatConversation, ChatMessage, ChatParticipant } from '../data/entities'
+import { ChatConversation, ChatMessage, ChatParticipant, ChatPinnedMessage } from '../data/entities'
 import type {
   ChatConversationDto,
   ChatConversationListDto,
+  ChatMemberListDto,
   ChatMessageDto,
   ChatMessagePageDto,
+  ChatPinnedListDto,
 } from '../data/types'
 import {
   DEFAULT_CONVERSATION_PAGE_SIZE,
+  DEFAULT_MEMBER_PAGE_SIZE,
   DEFAULT_MESSAGE_PAGE_SIZE,
   MAX_CONVERSATION_PAGE_SIZE,
+  MAX_MEMBER_PAGE_SIZE,
   MAX_MESSAGE_PAGE_SIZE,
 } from '../data/validators'
 import { decodeCursor, encodeCursor } from '../lib/cursor'
+import { loadMessageExtras, loadUnreadMentionFlags, mentionNamesFor, type MessageExtras } from '../lib/messageExtras'
+import { extractMentionedUserIds, renderMentionsAsText } from '../lib/mentions'
 import { resolveReplyTargets } from '../lib/replies'
 import { loadOrganizationMembers, type ChatScope } from '../lib/scope'
 import { loadChatMessages } from '../lib/messages'
-import type { ChatMemberListDto } from '../data/types'
-import { DEFAULT_MEMBER_PAGE_SIZE, MAX_MEMBER_PAGE_SIZE } from '../data/validators'
 
 /**
  * The chat tables as Kysely sees them.
@@ -48,6 +52,13 @@ type ChatDatabase = {
     role: string
     last_read_at: Date | null
   }
+  chat_pinned_messages: {
+    conversation_id: string
+    message_id: string
+    tenant_id: string
+    organization_id: string
+    pinned_at: Date
+  }
   chat_messages: {
     conversation_id: string
     sender_user_id: string
@@ -75,6 +86,22 @@ type ChatConversationRow = {
   last_message_sender_user_id: string | null
 }
 
+/**
+ * How much of a pinned message the panel shows.
+ *
+ * A pin is a pointer to somewhere in the conversation, not a second copy of it —
+ * the panel exists to help you find the message, and clicking through is what
+ * shows the whole thing.
+ */
+const PIN_PREVIEW_LENGTH = 160
+
+function buildPinPreview(body: string): string {
+  const collapsed = body.replace(/\s+/g, ' ').trim()
+  return collapsed.length > PIN_PREVIEW_LENGTH
+    ? `${collapsed.slice(0, PIN_PREVIEW_LENGTH - 1)}…`
+    : collapsed
+}
+
 /** Postgres may hand a timestamp back as a Date or as a string, depending on the driver path. */
 function toIsoString(value: Date | string | null | undefined): string | null {
   if (value == null) return null
@@ -92,6 +119,7 @@ function toMessageDto(
   replyTo: ChatMessageDto['replyTo'],
   names: ReadonlyMap<string, string>,
   fallbackName: string,
+  extras: MessageExtras,
 ): ChatMessageDto {
   return {
     id: message.id,
@@ -108,6 +136,10 @@ function toMessageDto(
     systemTargetName: message.systemTargetUserId
       ? names.get(message.systemTargetUserId) ?? fallbackName
       : null,
+    reactions: extras.reactionsByMessage.get(message.id) ?? [],
+    mentionNames: mentionNamesFor(message, extras.namesByUserId, fallbackName),
+    mentionsEveryone: message.mentionsEveryone,
+    pinned: extras.pinnedMessageIds.has(message.id),
   }
 }
 
@@ -167,6 +199,22 @@ export interface ChatService {
     conversationId: string,
     options: { limit?: number; offset?: number; query?: string },
   ): Promise<ChatMemberListDto>
+
+  /** The messages pinned in a conversation, most recently pinned first. */
+  listPinned(ctx: ChatReadContext, conversationId: string): Promise<ChatPinnedListDto>
+
+  /**
+   * A window of messages centred on one message.
+   *
+   * What pin navigation uses to reach something far back in history without the
+   * client walking pages until it stumbles on it.
+   */
+  listMessagesAround(
+    ctx: ChatReadContext,
+    conversationId: string,
+    messageId: string,
+    options: { limit?: number },
+  ): Promise<ChatMessagePageDto>
 }
 
 export class DefaultChatService implements ChatService {
@@ -307,13 +355,42 @@ export class DefaultChatService implements ChatService {
     const page = hasMore ? rows.slice(0, limit) : rows
     const oldest = page[page.length - 1]
 
-    // Every person the page names, in one lookup: senders, and whoever a
-    // membership event is about. A space's transcript can carry messages from
-    // anyone in it, so resolving names here is what lets the client label a
-    // bubble without loading the whole membership — and it stays correct for
-    // someone who has since left, whose name the client could not look up at all.
+    return {
+      // Read newest-first so opening a long conversation costs one page, then
+      // reversed for rendering. `decorateMessages` takes the page in the order
+      // it will be shown, because the centred-window read builds it that way
+      // already — putting the reversal here keeps one ordering contract instead
+      // of two.
+      items: await this.decorateMessages(ctx, conversationId, page.slice().reverse()),
+      nextCursor: hasMore && oldest ? encodeCursor({ createdAt: oldest.createdAt, id: oldest.id }) : null,
+      hasMore,
+    }
+  }
+
+  /**
+   * Turn message rows into what the transcript renders.
+   *
+   * Shared by the paged read and the centred-window read so the two can never
+   * drift — a message fetched by pin navigation must arrive with the same
+   * reactions, mention names and pin state as one fetched by scrolling.
+   *
+   * Four batched reads for the whole page regardless of its size: the people it
+   * names, the reactions on it, the pins covering it, and the reply targets.
+   */
+  private async decorateMessages(
+    ctx: ChatReadContext,
+    conversationId: string,
+    page: readonly ChatMessage[],
+  ): Promise<ChatMessageDto[]> {
+    if (page.length === 0) return []
+
     const messages = await loadChatMessages()
     const fallbackName = messages.formerColleague
+
+    // A space's transcript can carry messages from anyone in it, so resolving
+    // names here is what lets the client label a bubble without loading the
+    // whole membership — and it stays correct for someone who has since left,
+    // whose name the client could not look up at all.
     const people = await loadOrganizationMembers(
       ctx.em,
       ctx.scope,
@@ -325,9 +402,15 @@ export class DefaultChatService implements ChatService {
     )
     const names = new Map([...people].map(([id, person]) => [id, person.name]))
 
-    // One query for the whole page's reply targets, not one per bubble — and it
-    // reuses the names above, so replying to something on screen costs nothing
-    // extra at all.
+    const extras = await loadMessageExtras(
+      ctx.em,
+      ctx.scope,
+      conversationId,
+      page,
+      ctx.userId,
+      fallbackName,
+    )
+
     const replyTargets = await resolveReplyTargets(
       ctx.em,
       ctx.scope,
@@ -337,21 +420,15 @@ export class DefaultChatService implements ChatService {
       fallbackName,
     )
 
-    return {
-      items: page
-        .slice()
-        .reverse()
-        .map((message) =>
-          toMessageDto(
-            message,
-            message.replyToMessageId ? replyTargets.get(message.replyToMessageId) ?? null : null,
-            names,
-            fallbackName,
-          ),
-        ),
-      nextCursor: hasMore && oldest ? encodeCursor({ createdAt: oldest.createdAt, id: oldest.id }) : null,
-      hasMore,
-    }
+    return page.map((message) =>
+      toMessageDto(
+        message,
+        message.replyToMessageId ? replyTargets.get(message.replyToMessageId) ?? null : null,
+        names,
+        fallbackName,
+        extras,
+      ),
+    )
   }
 
   async countUnread(ctx: ChatReadContext): Promise<number> {
@@ -448,10 +525,22 @@ export class DefaultChatService implements ChatService {
     if (conversations.length === 0) return []
 
     const conversationIds = conversations.map((conversation) => conversation.id)
+    // A direct conversation has exactly two participants; a space has as many as
+    // it has members. This list only ever needs the caller's own row (for their
+    // role and read cursor) plus, for directs, the other person's — so asking
+    // for every participant of every row meant hydrating the entire membership
+    // of every space on the page to pull one row out of each. Five 500-member
+    // spaces cost 2,500 entities to answer a question about five.
+    const directIds = conversations
+      .filter((conversation) => conversation.kind !== 'space')
+      .map((conversation) => conversation.id)
     const participants = await ctx.em.find(ChatParticipant, {
-      conversationId: { $in: conversationIds },
       tenantId: ctx.scope.tenantId,
       organizationId: ctx.scope.organizationId,
+      $or: [
+        { conversationId: { $in: conversationIds }, userId: ctx.userId },
+        ...(directIds.length > 0 ? [{ conversationId: { $in: directIds } }] : []),
+      ],
     })
 
     // The counterpart's whole row, not just their id: their `last_read_at` is the
@@ -464,10 +553,9 @@ export class DefaultChatService implements ChatService {
       else counterpartByConversation.set(participant.conversationId, participant)
     }
 
-    // Counted in SQL rather than from the rows above, because the fetch above is
-    // not guaranteed to be the whole membership of a large space — and "8
-    // members" in the header must be the real number, not the number that
-    // happened to load.
+    // Counted in SQL, because the fetch above deliberately is NOT the whole
+    // membership — it is the caller's row plus the other side of each direct.
+    // "8 members" has to be the real number, not the number this query needed.
     const memberCounts = await this.countMembers(ctx, conversationIds)
 
     // Only the people actually rendered are looked up — which, now that a space
@@ -483,6 +571,27 @@ export class DefaultChatService implements ChatService {
     const unreadCounts = await this.countUnreadPerConversation(ctx, conversationIds)
     const messages = await loadChatMessages()
     const unknownPerson = messages.formerColleague
+
+    // Two more grouped reads for the whole page, not one per row.
+    const [mentionFlags, pinnedCounts] = await Promise.all([
+      loadUnreadMentionFlags(ctx.em, ctx.scope, ctx.userId, conversationIds),
+      this.countPinnedPerConversation(ctx, conversationIds),
+    ])
+
+    /**
+     * Previews are stored with mention tokens in them, so the row would
+     * otherwise read `<@8f3c…> can you check this`. The names needed are only
+     * those appearing in the previews on this page.
+     */
+    const previewMentionIds = new Set<string>()
+    for (const conversation of conversations) {
+      for (const id of extractMentionedUserIds(conversation.last_message_preview ?? '')) {
+        previewMentionIds.add(id)
+      }
+    }
+    const previewPeople = await loadOrganizationMembers(ctx.em, ctx.scope, [...previewMentionIds])
+    const previewNames = new Map([...previewPeople].map(([id, person]) => [id, person.name]))
+    const mentionLabels = { everyone: messages.everyoneLabel, unknownPerson }
 
     return conversations.map((conversation) => {
       const isSpace = conversation.kind === 'space'
@@ -500,9 +609,13 @@ export class DefaultChatService implements ChatService {
         viewerRole: membership?.role ?? 'member',
         counterpart: person ? { id: person.id, name: person.name, email: person.email } : null,
         lastMessageAt: toIsoString(conversation.last_message_at),
-        lastMessagePreview: conversation.last_message_preview ?? null,
+        lastMessagePreview: conversation.last_message_preview
+          ? renderMentionsAsText(conversation.last_message_preview, previewNames, mentionLabels)
+          : null,
         lastMessageSenderUserId: conversation.last_message_sender_user_id ?? null,
         unreadCount: unreadCounts.get(conversation.id) ?? 0,
+        hasUnreadMention: mentionFlags.has(conversation.id),
+        pinnedCount: pinnedCounts.get(conversation.id) ?? 0,
         lastReadAt: membership?.lastReadAt?.toISOString() ?? null,
         counterpartLastReadAt: counterpartParticipant?.lastReadAt?.toISOString() ?? null,
       }
@@ -572,6 +685,144 @@ export class DefaultChatService implements ChatService {
 
     const page = all.slice(offset, offset + limit)
     return { items: page, total: all.length, hasMore: offset + page.length < all.length }
+  }
+
+  async listPinned(ctx: ChatReadContext, conversationId: string): Promise<ChatPinnedListDto> {
+    await this.requireParticipant(ctx, conversationId)
+
+    const pins = await ctx.em.find(
+      ChatPinnedMessage,
+      {
+        conversationId,
+        tenantId: ctx.scope.tenantId,
+        organizationId: ctx.scope.organizationId,
+      },
+      // Most recently pinned first: the panel answers "what has been marked
+      // important lately", and a pin's own moment is the useful ordering — not
+      // when the underlying message happened to be written.
+      { orderBy: { pinnedAt: 'desc', id: 'desc' } },
+    )
+    if (pins.length === 0) return { items: [], total: 0 }
+
+    // The message bodies and every name involved, in two batched reads. The
+    // panel never loads a conversation's history to render itself.
+    const bodies = await ctx.em.find(ChatMessage, {
+      id: { $in: pins.map((pin) => pin.messageId) },
+      conversationId,
+      tenantId: ctx.scope.tenantId,
+      organizationId: ctx.scope.organizationId,
+      deletedAt: null,
+    })
+    const byId = new Map(bodies.map((message) => [message.id, message]))
+
+    const messages = await loadChatMessages()
+    const fallbackName = messages.formerColleague
+    const mentionLabels = { everyone: messages.everyoneLabel, unknownPerson: fallbackName }
+
+    const wanted = new Set<string>()
+    for (const pin of pins) wanted.add(pin.pinnedByUserId)
+    for (const message of bodies) {
+      wanted.add(message.senderUserId)
+      for (const id of extractMentionedUserIds(message.body)) wanted.add(id)
+    }
+    const people = await loadOrganizationMembers(ctx.em, ctx.scope, [...wanted])
+    const names = new Map([...people].map(([id, person]) => [id, person.name]))
+
+    const items = pins
+      // A pin whose message is gone renders nothing rather than a broken row.
+      // The cascade should make this unreachable; it is here because a panel
+      // that can show a dangling entry is worse than one that quietly cannot.
+      .filter((pin) => byId.has(pin.messageId))
+      .map((pin) => {
+        const message = byId.get(pin.messageId)!
+        return {
+          messageId: pin.messageId,
+          pinnedByUserId: pin.pinnedByUserId,
+          pinnedByName: names.get(pin.pinnedByUserId) ?? fallbackName,
+          pinnedAt: pin.pinnedAt.toISOString(),
+          senderUserId: message.senderUserId,
+          senderName: names.get(message.senderUserId) ?? fallbackName,
+          preview: buildPinPreview(renderMentionsAsText(message.body, names, mentionLabels)),
+          createdAt: message.createdAt.toISOString(),
+          isReply: Boolean(message.replyToMessageId),
+        }
+      })
+
+    return { items, total: items.length }
+  }
+
+  async listMessagesAround(
+    ctx: ChatReadContext,
+    conversationId: string,
+    messageId: string,
+    options: { limit?: number },
+  ): Promise<ChatMessagePageDto> {
+    await this.requireParticipant(ctx, conversationId)
+
+    const limit = Math.min(Math.max(options.limit ?? DEFAULT_MESSAGE_PAGE_SIZE, 1), MAX_MESSAGE_PAGE_SIZE)
+    const anchor = await ctx.em.findOne(ChatMessage, {
+      id: messageId,
+      conversationId,
+      tenantId: ctx.scope.tenantId,
+      organizationId: ctx.scope.organizationId,
+      deletedAt: null,
+    })
+    if (!anchor) throw notFound((await loadChatMessages()).messageNotFound)
+
+    const where = (direction: 'older' | 'newer') => ({
+      conversationId,
+      tenantId: ctx.scope.tenantId,
+      organizationId: ctx.scope.organizationId,
+      deletedAt: null,
+      $or:
+        direction === 'older'
+          ? [{ createdAt: { $lt: anchor.createdAt } }, { createdAt: anchor.createdAt, id: { $lt: anchor.id } }]
+          : [{ createdAt: { $gt: anchor.createdAt } }, { createdAt: anchor.createdAt, id: { $gt: anchor.id } }],
+    })
+
+    // Half a page either side of the anchor, so the message lands in the middle
+    // of the viewport with context rather than at an edge.
+    const half = Math.floor(limit / 2)
+    const [older, newer] = await Promise.all([
+      ctx.em.find(ChatMessage, where('older'), { orderBy: { createdAt: 'desc', id: 'desc' }, limit: half + 1 }),
+      ctx.em.find(ChatMessage, where('newer'), { orderBy: { createdAt: 'asc', id: 'asc' }, limit: half }),
+    ])
+
+    const hasMore = older.length > half
+    const olderPage = hasMore ? older.slice(0, half) : older
+    const page = [...olderPage.slice().reverse(), anchor, ...newer]
+    const oldest = page[0]
+
+    return {
+      items: await this.decorateMessages(ctx, conversationId, page),
+      // The cursor keeps walking further back from the window's own top edge.
+      nextCursor: hasMore && oldest ? encodeCursor({ createdAt: oldest.createdAt, id: oldest.id }) : null,
+      hasMore,
+    }
+  }
+
+  /** Pin totals for one page of conversations, as one grouped count. */
+  private async countPinnedPerConversation(
+    ctx: ChatReadContext,
+    conversationIds: readonly string[],
+  ): Promise<Map<string, number>> {
+    const counts = new Map<string, number>()
+    if (conversationIds.length === 0) return counts
+
+    const rows = await ctx.em
+      .getKysely<ChatDatabase>()
+      .selectFrom('chat_pinned_messages as p')
+      .where('p.conversation_id', 'in', [...conversationIds])
+      .where('p.tenant_id', '=', ctx.scope.tenantId)
+      .where('p.organization_id', '=', ctx.scope.organizationId)
+      .groupBy('p.conversation_id')
+      .select((eb) => ['p.conversation_id as conversation_id', eb.fn.countAll().as('count')])
+      .execute()
+
+    for (const row of rows as Array<{ conversation_id: string; count: string | number }>) {
+      counts.set(row.conversation_id, Number(row.count))
+    }
+    return counts
   }
 
   /** Member totals for one page of conversations, as one grouped count. */
