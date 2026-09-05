@@ -510,6 +510,30 @@ export class ChatMessageTranslation {
   @Property({ name: 'model_revision', type: 'text', nullable: true })
   modelRevision?: string | null
 
+  /**
+   * SHA-256 of the NFC-normalised body this was made from.
+   *
+   * Messages are append-only today, so a body cannot change under a
+   * translation. That is a property of the current write paths, not of the
+   * schema, and a cache keyed only on the id would serve the old words in
+   * silence the day editing is added. Hashing rather than storing keeps a
+   * deleted message's text out of this table.
+   */
+  @Property({ name: 'source_hash', type: 'text' })
+  sourceHash!: string
+
+  /**
+   * Model, tokenizer and preprocessing, as one opaque string.
+   *
+   * Part of the lookup, not merely recorded: a row made by a different pipeline
+   * is not an answer to the current question, so it is not a hit and the next
+   * request overwrites it in place. That makes a model upgrade a lazy refresh
+   * costing nothing at deploy time, instead of a cache that is silently mixed
+   * forever.
+   */
+  @Property({ name: 'pipeline_revision', type: 'text' })
+  pipelineRevision!: string
+
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
 }
