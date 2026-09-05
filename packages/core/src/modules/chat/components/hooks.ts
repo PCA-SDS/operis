@@ -29,7 +29,11 @@ import type {
   ChatParticipantRole,
   ChatTranslationDto,
 } from '../data/types'
-import { CONVERSATION_PAGE_STEP, MAX_CONVERSATION_PAGE_SIZE } from '../data/validators'
+import {
+  CONVERSATION_PAGE_STEP,
+  MAX_CONVERSATION_PAGE_SIZE,
+  MAX_TRANSLATE_BATCH,
+} from '../data/validators'
 import { chatApi } from './api'
 
 const logger = createLogger('chat').child({ component: 'hooks' })
@@ -707,6 +711,8 @@ export function useChatLocale() {
     locale: query.data?.translationLocale ?? uiLocale,
     /** Whether it was chosen, as opposed to inherited from the interface. */
     isExplicit: Boolean(query.data?.translationLocale),
+    /** What this deployment can actually produce; empty when none is configured. */
+    translatableLocales: query.data?.translatableLocales ?? [],
     isLoading: query.isLoading,
     setLocale,
   }
@@ -735,8 +741,69 @@ function describeSkips(
   t: (key: string, fallback: string) => string,
 ): { message: string; kind: 'info' | 'error' } | null {
   const skipped = rows.filter((row) => !row.body)
-  if (skipped.length === 0 || skipped.length !== rows.length) return null
+  if (skipped.length === 0) return null
   const reasons = new Set(skipped.map((row) => row.skipped))
+  // A partly-failed batch used to say nothing at all, so three messages that
+  // could not be translated rendered as originals inside a translated
+  // transcript -- indistinguishable from "already in your language".
+  if (skipped.length !== rows.length) {
+    const unexplained = skipped.filter(
+      (row) => row.skipped !== 'same-language' && row.skipped !== 'nothing-to-translate',
+    )
+    if (unexplained.length === 0) return null
+    return {
+      message: t(
+        'chat.translation.partial',
+        "Some messages couldn't be translated. They are shown in their original language.",
+      ),
+      kind: 'info',
+    }
+  }
+  if (reasons.has('unsupported-language')) {
+    return {
+      message: t(
+        'chat.translation.unsupportedLanguage',
+        'This deployment cannot translate into the language you chose.',
+      ),
+      kind: 'error',
+    }
+  }
+  if (reasons.has('detection-declined')) {
+    return {
+      message: t(
+        'chat.translation.detectionDeclined',
+        "The language couldn't be identified confidently, so nothing was translated.",
+      ),
+      kind: 'info',
+    }
+  }
+  if (reasons.has('overloaded')) {
+    return {
+      message: t(
+        'chat.translation.overloaded',
+        'The translation service is busy. Please try again shortly.',
+      ),
+      kind: 'error',
+    }
+  }
+  if (reasons.has('deadline-exceeded')) {
+    return {
+      message: t(
+        'chat.translation.deadlineExceeded',
+        'Translating took too long. Press Translate again to carry on.',
+      ),
+      kind: 'error',
+    }
+  }
+  if (reasons.has('mentions-unsafe')) {
+    return {
+      message: t(
+        'chat.translation.mentionsUnsafe',
+        'This message names too many people to translate safely.',
+      ),
+      kind: 'info',
+    }
+  }
   if (reasons.has('unavailable')) {
     return {
       message: t(
@@ -807,6 +874,25 @@ export function useChatTranslation(
    * caller sees the first.
    */
   const inFlight = React.useRef<Set<string>>(new Set())
+  /**
+   * Messages the reader explicitly asked to see in the original.
+   *
+   * Whole-conversation mode re-reveals everything it holds on every run, and
+   * the run is triggered by things the reader did not do -- a message arriving,
+   * someone reacting, another batch landing. Without a record of the choice,
+   * pressing "Show original" was undone a second later by a background effect,
+   * which is the reader being overruled rather than a race.
+   */
+  const [hidden, setHidden] = React.useState<Set<string>>(new Set())
+  /**
+   * Which conversation the state belongs to.
+   *
+   * A request started in one conversation can resolve after the reader has
+   * moved to another, and the reset that runs on the switch happens first --
+   * so the late response would repopulate the fresh state and flash a message
+   * about a thread that is no longer on screen.
+   */
+  const generation = React.useRef(0)
 
   // A different conversation is a different transcript; carrying translations
   // across would show one message's words under another's id.
@@ -815,7 +901,9 @@ export function useChatTranslation(
     setShowing(new Set())
     setPending(new Set())
     setFailed(new Set())
+    setHidden(new Set())
     inFlight.current = new Set()
+    generation.current += 1
   }, [conversationId])
 
   const translate = React.useCallback(
@@ -833,7 +921,7 @@ export function useChatTranslation(
           .filter((row): row is ChatTranslationDto => Boolean(row))
         setShowing((current) => {
           const next = new Set(current)
-          for (const row of known) if (row.body) next.add(row.messageId)
+          for (const row of known) if (row.body && !hidden.has(row.messageId)) next.add(row.messageId)
           return next.size === current.size ? current : next
         })
         // Say it again. The reason is already known, so nothing is requested —
@@ -853,29 +941,45 @@ export function useChatTranslation(
         for (const key of wantedKeys) next.delete(key)
         return next
       })
+      // The server refuses more than `MAX_TRANSLATE_BATCH` ids, and a reader
+      // who scrolled back twice before pressing Translate has ninety loaded.
+      // Sent whole that is a 400 for every id at once, and because a failure is
+      // remembered the mode then does nothing for that conversation ever again.
+      const batches: string[][] = []
+      for (let index = 0; index < wanted.length; index += MAX_TRANSLATE_BATCH) {
+        batches.push(wanted.slice(index, index + MAX_TRANSLATE_BATCH))
+      }
+      const startedIn = generation.current
       try {
-        const result = await runMutation({
-          operation: () => chatApi.translateMessages(conversationId, wanted, targetLocale),
-          context: { resourceKind: 'chat.conversation', resourceId: conversationId },
-          mutationPayload: { count: wanted.length, targetLocale },
-        })
-        const rows = (result as { translations: ChatTranslationDto[] } | undefined)?.translations ?? []
-        setEntries((current) => {
-          const next = new Map(current)
-          for (const row of rows) next.set(entryKey(row.messageId, targetLocale), row)
-          return next
-        })
-        // Only reveal what actually produced words. A message already in the
-        // reader's language stays as it is rather than flickering to identical
-        // text.
-        setShowing((current) => {
-          const next = new Set(current)
-          for (const row of rows) if (row.body) next.add(row.messageId)
-          return next.size === current.size ? current : next
-        })
-        const outcome = describeSkips(rows, t)
-        if (outcome) flash(outcome.message, outcome.kind)
+        for (const batch of batches) {
+          const result = await runMutation({
+            operation: () => chatApi.translateMessages(conversationId, batch, targetLocale),
+            context: { resourceKind: 'chat.conversation', resourceId: conversationId },
+            mutationPayload: { count: batch.length, targetLocale },
+          })
+          // The reader moved on while this was in flight. Writing now would
+          // repopulate state that was deliberately cleared and raise a message
+          // about a conversation that is no longer open.
+          if (generation.current !== startedIn) return
+          const rows =
+            (result as { translations: ChatTranslationDto[] } | undefined)?.translations ?? []
+          setEntries((current) => {
+            const next = new Map(current)
+            for (const row of rows) next.set(entryKey(row.messageId, targetLocale), row)
+            return next
+          })
+          // Only reveal what actually produced words, and never re-reveal a
+          // message the reader asked to see in the original.
+          setShowing((current) => {
+            const next = new Set(current)
+            for (const row of rows) if (row.body && !hidden.has(row.messageId)) next.add(row.messageId)
+            return next.size === current.size ? current : next
+          })
+          const outcome = describeSkips(rows, t)
+          if (outcome) flash(outcome.message, outcome.kind)
+        }
       } catch {
+        if (generation.current !== startedIn) return
         setFailed((current) => new Set([...current, ...wantedKeys]))
         flashFailure("Couldn't translate that message. Please try again.")
       } finally {
@@ -887,7 +991,7 @@ export function useChatTranslation(
         })
       }
     },
-    [conversationId, entries, flashFailure, runMutation, t, targetLocale],
+    [conversationId, entries, flashFailure, hidden, runMutation, t, targetLocale],
   )
 
   /**
@@ -898,6 +1002,25 @@ export function useChatTranslation(
    * Otherwise a new message renders in its original language beside translated
    * ones, which is exactly the broken-looking state stickiness exists to avoid.
    */
+  /**
+   * Follow the reader's language for messages they had already opened.
+   *
+   * `showing` is keyed by message id, not by language, so switching language
+   * left a per-message translation marked as shown with nothing to show — the
+   * bubble silently reverted to the original and the footer disappeared, with
+   * no request and no explanation. Whole-conversation mode self-heals through
+   * the effect below; a single opened message had nothing to heal it.
+   */
+  React.useEffect(() => {
+    if (autoTranslateIds) return
+    const orphaned = [...showing].filter((id) => {
+      const key = entryKey(id, targetLocale)
+      return !entries.has(key) && !failed.has(key) && !inFlight.current.has(key)
+    })
+    if (orphaned.length === 0) return
+    void translate(orphaned)
+  }, [autoTranslateIds, entries, failed, showing, targetLocale, translate])
+
   React.useEffect(() => {
     if (!autoTranslateIds || autoTranslateIds.length === 0) return
     // Reveal first, and unconditionally: switching the mode off hides every
@@ -906,6 +1029,7 @@ export function useChatTranslation(
     setShowing((current) => {
       const next = new Set(current)
       for (const id of autoTranslateIds) {
+        if (hidden.has(id)) continue
         if (entries.get(entryKey(id, targetLocale))?.body) next.add(id)
       }
       return next.size === current.size ? current : next
@@ -916,9 +1040,13 @@ export function useChatTranslation(
     })
     if (wanted.length === 0) return
     void translate(wanted)
-  }, [autoTranslateIds, entries, failed, pending, targetLocale, translate])
+  }, [autoTranslateIds, entries, failed, hidden, targetLocale, translate])
 
   const showOriginal = React.useCallback((messageId: string) => {
+    // Recorded, not just applied. The auto-effect reveals everything it holds
+    // whenever the transcript changes, so a choice that lives only in `showing`
+    // is undone by the next inbound message.
+    setHidden((current) => (current.has(messageId) ? current : new Set(current).add(messageId)))
     setShowing((current) => {
       if (!current.has(messageId)) return current
       const next = new Set(current)
@@ -928,6 +1056,12 @@ export function useChatTranslation(
   }, [])
 
   const showTranslation = React.useCallback((messageId: string) => {
+    setHidden((current) => {
+      if (!current.has(messageId)) return current
+      const next = new Set(current)
+      next.delete(messageId)
+      return next
+    })
     setShowing((current) => (current.has(messageId) ? current : new Set(current).add(messageId)))
   }, [])
 

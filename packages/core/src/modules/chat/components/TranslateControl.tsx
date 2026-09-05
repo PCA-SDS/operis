@@ -24,6 +24,12 @@ export type TranslateControlProps = {
   /** The language this reader reads chat in. */
   locale: string
   onLocaleChange: (locale: string) => void
+  /**
+   * What this deployment can translate into. Every language stays choosable;
+   * the ones outside this are marked, so a reader learns before pressing rather
+   * than after every press fails.
+   */
+  translatableLocales?: readonly string[]
   /** Whether the whole conversation is currently being shown translated. */
   active: boolean
   onToggle: (next: boolean) => void
@@ -42,6 +48,7 @@ export type TranslateControlProps = {
 export function TranslateControl({
   locale,
   onLocaleChange,
+  translatableLocales,
   active,
   onToggle,
   busy,
@@ -67,15 +74,22 @@ export function TranslateControl({
   }, [open])
 
   const label = getIso639Label(locale) ?? locale.toUpperCase()
+  // An empty list means no engine is configured at all; marking all 183 as
+  // unsupported would be noise on a deployment where the control is moot.
+  const canTranslate = (code: string) =>
+    !translatableLocales || translatableLocales.length === 0 || translatableLocales.includes(code)
 
   return (
-    <div className="flex shrink-0 items-center">
+    <div className="flex shrink-0 items-center gap-2">
       <Button
         type="button"
         variant="ghost"
         size="sm"
         disabled={disabled || busy}
-        aria-pressed={active}
+        // No `aria-pressed`. The label already carries the state, and the two
+        // together announce "Show originals, pressed" — which reads as the
+        // inverse of what is true.
+        aria-live="polite"
         className={cn('gap-1.5', active ? 'text-primary' : 'text-muted-foreground')}
         onClick={() => onToggle(!active)}
       >
@@ -97,7 +111,12 @@ export function TranslateControl({
             size="sm"
             disabled={disabled}
             className="px-1.5 text-muted-foreground"
-            aria-label={t('chat.translation.chooseLanguage', 'Choose translation language')}
+            // Named with the current choice. "Choose translation language"
+            // alone never told a screen-reader user what they are reading in,
+            // and the code beside it is `aria-hidden` decoration.
+            aria-label={t('chat.translation.chooseLanguageNamed', 'Reading chat in {language}. Choose another.', {
+              language: label,
+            })}
           >
             {/* The current language is shown rather than a chevron: the reader
                 needs to know what "Translate" will produce before pressing it. */}
@@ -121,16 +140,18 @@ export function TranslateControl({
             aria-label={t('chat.translation.searchLanguage', 'Search languages…')}
             className="mb-2 h-8"
           />
-          <ul className="max-h-60 overflow-y-auto">
+          <ul className="max-h-60 overflow-y-auto" role="listbox" aria-label={t('chat.translation.readIn', 'Read chat in')}>
             {options.length === 0 ? (
               <li className="px-2 py-2 text-xs text-muted-foreground">
                 {t('chat.translation.noLanguage', 'No language matches that.')}
               </li>
             ) : (
               options.map((option) => (
-                <li key={option.code}>
+                <li key={option.code} role="none">
                   <button
                     type="button"
+                    role="option"
+                    aria-selected={option.code === locale}
                     onClick={() => {
                       onLocaleChange(option.code)
                       setOpen(false)
@@ -145,7 +166,14 @@ export function TranslateControl({
                       className={cn('size-3.5 shrink-0', option.code === locale ? 'opacity-100' : 'opacity-0')}
                       aria-hidden="true"
                     />
-                    <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {option.label}
+                      {canTranslate(option.code) ? null : (
+                        <span className="ml-1.5 text-xs text-muted-foreground">
+                          {t('chat.translation.notTranslatable', '(not translated here)')}
+                        </span>
+                      )}
+                    </span>
                     {/* Sighted readers use the code to tell near-identical
                         language names apart. Spoken aloud it just runs into the
                         name -- "Englishen" -- so it is decoration here. */}

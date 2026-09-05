@@ -6,13 +6,14 @@ import { ArrowLeft, ChevronRight, Pin, Users } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useTCount } from './plurals'
 import type { ChatMessageDto } from '../data/types'
 import { MessageComposer, type MentionCandidate } from './MessageComposer'
-import { MessageList, type PendingMessage } from './MessageList'
+import { MessageList, MessageListSkeleton, type PendingMessage } from './MessageList'
 import { PinnedMessagesPanel } from './PinnedMessagesPanel'
 import { TranslateControl } from './TranslateControl'
 import { SpaceDetailsDialog } from './SpaceDetailsDialog'
@@ -49,6 +50,17 @@ const logger = createLogger('chat').child({ component: 'ConversationView' })
  * that the menu still feels live. The same window the member picker uses.
  */
 const MENTION_SEARCH_DEBOUNCE_MS = 250
+
+/**
+ * How much of a scrolled-back transcript whole-conversation mode keeps
+ * translated.
+ *
+ * Four pages at the 30-message page size, so a reader who scrolls back a little
+ * sees it follow them, and one who scrolls back a long way does not silently
+ * queue hundreds of inferences. Above the batch cap so the window is the
+ * product decision rather than a side effect of the request limit.
+ */
+const STICKY_TRANSLATION_WINDOW = 120
 
 function newClientMessageId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
@@ -110,7 +122,17 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
   const translatableIds = React.useMemo(
     () =>
       translateAll
-        ? messages.filter((message) => message.kind === 'user').map((message) => message.id)
+        ? messages
+            .filter((message) => message.kind === 'user')
+            // Sticky means "keep up with the transcript", not "translate the
+            // archive". Without a bound, scrolling to the top of a long
+            // conversation translated every message in it — each page a real
+            // request against a CPU-bound engine, for history the reader
+            // scrolled past rather than read. The window is the newest
+            // messages, which is where a reader following a conversation
+            // actually is; anything older stays one click away on its own row.
+            .slice(-STICKY_TRANSLATION_WINDOW)
+            .map((message) => message.id)
         : null,
     [translateAll, messages],
   )
@@ -397,6 +419,7 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
       {conversation ? (
         <TranslateControl
           locale={chatLocale.locale}
+          translatableLocales={chatLocale.translatableLocales}
           // Choosing a language only records the choice. Re-translating the
           // transcript into it is the sticky mode's job, and doing it here as
           // well raced the mode: both paths asked for the same messages, and
@@ -435,8 +458,20 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         {header}
-        <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-          <LoadingMessage label={t('chat.conversation.loading', 'Loading conversation…')} />
+        {/* The transcript's own silhouette, not a centred spinner. A spinner in
+            the middle of an empty pane says "something is happening somewhere";
+            bubbles in the place bubbles will appear say what is coming, and the
+            composer stays put instead of arriving late and shifting the page.
+
+            `sr-only` carries the announcement the spinner used to make -- the
+            skeletons are decoration, and `Skeleton` is already a polite live
+            region, so the label is what a screen reader should hear. */}
+        <span className="sr-only" role="status">
+          {t('chat.conversation.loading', 'Loading conversation…')}
+        </span>
+        <MessageListSkeleton />
+        <div className="px-4 py-3">
+          <Skeleton className="h-11 w-full rounded-xl" />
         </div>
       </div>
     )
