@@ -185,10 +185,17 @@
   "chat.system.spaceRenamed": "{actor} cambió el nombre del espacio a {title}",
   "chat.translation.alreadyInLanguage": "Ya está en tu idioma de lectura.",
   "chat.translation.chooseLanguage": "Elegir idioma de traducción",
+  "chat.translation.chooseLanguageNamed": "Lees el chat en {language}. Elige otro idioma.",
+  "chat.translation.deadlineExceeded": "La traducción tardó demasiado. Pulsa Traducir para continuar.",
+  "chat.translation.detectionDeclined": "No se pudo identificar el idioma con certeza, así que no se tradujo nada.",
   "chat.translation.engineFailed": "No se pudo conectar con el servicio de traducción. Inténtalo de nuevo.",
   "chat.translation.localeHint": "Independiente del idioma de la interfaz.",
+  "chat.translation.mentionsUnsafe": "Este mensaje menciona a demasiadas personas para traducirlo con seguridad.",
   "chat.translation.noLanguage": "Ningún idioma coincide.",
+  "chat.translation.notTranslatable": "(aquí no se traduce)",
   "chat.translation.nothingToTranslate": "Aquí no hay nada que traducir.",
+  "chat.translation.overloaded": "El servicio de traducción está ocupado. Inténtalo de nuevo en un momento.",
+  "chat.translation.partial": "Algunos mensajes no se pudieron traducir. Se muestran en su idioma original.",
   "chat.translation.readIn": "Leer el chat en",
   "chat.translation.searchLanguage": "Buscar idiomas…",
   "chat.translation.showOriginal": "Ver original",
@@ -198,5 +205,6 @@
   "chat.translation.translated": "Traducido",
   "chat.translation.translatedFrom": "Traducido del {language}",
   "chat.translation.translating": "Traduciendo…",
-  "chat.translation.unavailable": "La traducción no está disponible en esta instalación."
+  "chat.translation.unavailable": "La traducción no está disponible en esta instalación.",
+  "chat.translation.unsupportedLanguage": "Esta instalación no puede traducir al idioma que elegiste."
 }

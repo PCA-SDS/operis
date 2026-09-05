@@ -185,10 +185,17 @@
   "chat.system.spaceRenamed": "{actor} hat den Raum in {title} umbenannt",
   "chat.translation.alreadyInLanguage": "Bereits in deiner Lesesprache.",
   "chat.translation.chooseLanguage": "Übersetzungssprache wählen",
+  "chat.translation.chooseLanguageNamed": "Du liest den Chat auf {language}. Andere Sprache wählen.",
+  "chat.translation.deadlineExceeded": "Die Übersetzung hat zu lange gedauert. Erneut auf Übersetzen tippen, um fortzufahren.",
+  "chat.translation.detectionDeclined": "Die Sprache konnte nicht sicher erkannt werden, daher wurde nichts übersetzt.",
   "chat.translation.engineFailed": "Der Übersetzungsdienst war nicht erreichbar. Bitte erneut versuchen.",
   "chat.translation.localeHint": "Unabhängig von der Sprache der Oberfläche.",
+  "chat.translation.mentionsUnsafe": "Diese Nachricht nennt zu viele Personen, um sie sicher zu übersetzen.",
   "chat.translation.noLanguage": "Keine Sprache passt dazu.",
+  "chat.translation.notTranslatable": "(hier nicht übersetzt)",
   "chat.translation.nothingToTranslate": "Hier gibt es nichts zu übersetzen.",
+  "chat.translation.overloaded": "Der Übersetzungsdienst ist ausgelastet. Bitte gleich noch einmal versuchen.",
+  "chat.translation.partial": "Einige Nachrichten konnten nicht übersetzt werden. Sie erscheinen in ihrer Originalsprache.",
   "chat.translation.readIn": "Chat lesen in",
   "chat.translation.searchLanguage": "Sprachen suchen…",
   "chat.translation.showOriginal": "Original anzeigen",
@@ -198,5 +205,6 @@
   "chat.translation.translated": "Übersetzt",
   "chat.translation.translatedFrom": "Übersetzt aus {language}",
   "chat.translation.translating": "Wird übersetzt…",
-  "chat.translation.unavailable": "Übersetzung ist in dieser Installation nicht verfügbar."
+  "chat.translation.unavailable": "Übersetzung ist in dieser Installation nicht verfügbar.",
+  "chat.translation.unsupportedLanguage": "Diese Installation kann nicht in die gewählte Sprache übersetzen."
 }

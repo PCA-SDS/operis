@@ -185,10 +185,17 @@
   "chat.system.spaceRenamed": "{actor} renamed the space to {title}",
   "chat.translation.alreadyInLanguage": "Already in your reading language.",
   "chat.translation.chooseLanguage": "Choose translation language",
+  "chat.translation.chooseLanguageNamed": "Reading chat in {language}. Choose another.",
+  "chat.translation.deadlineExceeded": "Translating took too long. Press Translate again to carry on.",
+  "chat.translation.detectionDeclined": "The language couldn't be identified confidently, so nothing was translated.",
   "chat.translation.engineFailed": "The translation service couldn't be reached. Please try again.",
   "chat.translation.localeHint": "Separate from your interface language.",
+  "chat.translation.mentionsUnsafe": "This message names too many people to translate safely.",
   "chat.translation.noLanguage": "No language matches that.",
+  "chat.translation.notTranslatable": "(not translated here)",
   "chat.translation.nothingToTranslate": "There are no words to translate here.",
+  "chat.translation.overloaded": "The translation service is busy. Please try again shortly.",
+  "chat.translation.partial": "Some messages couldn't be translated. They are shown in their original language.",
   "chat.translation.readIn": "Read chat in",
   "chat.translation.searchLanguage": "Search languages…",
   "chat.translation.showOriginal": "Show original",
@@ -198,5 +205,6 @@
   "chat.translation.translated": "Translated",
   "chat.translation.translatedFrom": "Translated from {language}",
   "chat.translation.translating": "Translating…",
-  "chat.translation.unavailable": "Translation is not available on this deployment."
+  "chat.translation.unavailable": "Translation is not available on this deployment.",
+  "chat.translation.unsupportedLanguage": "This deployment cannot translate into the language you chose."
 }

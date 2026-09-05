@@ -185,10 +185,17 @@
   "chat.system.spaceRenamed": "{actor} zmienił(a) nazwę przestrzeni na {title}",
   "chat.translation.alreadyInLanguage": "Ta wiadomość jest już w Twoim języku czytania.",
   "chat.translation.chooseLanguage": "Wybierz język tłumaczenia",
+  "chat.translation.chooseLanguageNamed": "Czytasz czat po: {language}. Wybierz inny język.",
+  "chat.translation.deadlineExceeded": "Tłumaczenie trwało zbyt długo. Naciśnij Przetłumacz, aby kontynuować.",
+  "chat.translation.detectionDeclined": "Nie udało się pewnie rozpoznać języka, więc nic nie przetłumaczono.",
   "chat.translation.engineFailed": "Nie udało się połączyć z usługą tłumaczenia. Spróbuj ponownie.",
   "chat.translation.localeHint": "Niezależnie od języka interfejsu.",
+  "chat.translation.mentionsUnsafe": "Ta wiadomość wymienia zbyt wiele osób, aby bezpiecznie ją przetłumaczyć.",
   "chat.translation.noLanguage": "Żaden język nie pasuje.",
+  "chat.translation.notTranslatable": "(tu nietłumaczone)",
   "chat.translation.nothingToTranslate": "Nie ma tu nic do przetłumaczenia.",
+  "chat.translation.overloaded": "Usługa tłumaczenia jest zajęta. Spróbuj ponownie za chwilę.",
+  "chat.translation.partial": "Niektórych wiadomości nie udało się przetłumaczyć. Są pokazane w oryginalnym języku.",
   "chat.translation.readIn": "Czytaj czat w języku",
   "chat.translation.searchLanguage": "Szukaj języków…",
   "chat.translation.showOriginal": "Pokaż oryginał",
@@ -198,5 +205,6 @@
   "chat.translation.translated": "Przetłumaczone",
   "chat.translation.translatedFrom": "Przetłumaczone z: {language}",
   "chat.translation.translating": "Tłumaczenie…",
-  "chat.translation.unavailable": "Tłumaczenie nie jest dostępne w tym wdrożeniu."
+  "chat.translation.unavailable": "Tłumaczenie nie jest dostępne w tym wdrożeniu.",
+  "chat.translation.unsupportedLanguage": "To wdrożenie nie tłumaczy na wybrany przez Ciebie język."
 }

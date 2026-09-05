@@ -6,6 +6,11 @@
 FROM python:3.11-slim AS models
 
 ARG MODEL_ID=facebook/m2m100_418M
+# The upstream revision, so weights and tokenizer come from ONE commit. Without
+# this, two builds a month apart can produce different weights under the
+# identical TRANSLATION_MODEL_REVISION label below — which is the string the
+# translation cache keys on, so the cache could not tell the vintages apart.
+ARG MODEL_REVISION=55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636
 ARG QUANTIZATION=int8
 
 # transformers 4.57.x: 4.46 predates the `dtype` argument CTranslate2 4.8's
@@ -21,6 +26,7 @@ RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/wh
 # pivot degrades twice.
 RUN ct2-transformers-converter \
       --model ${MODEL_ID} \
+      --revision ${MODEL_REVISION} \
       --output_dir /models/m2m100_418m \
       --quantization ${QUANTIZATION} \
       --copy_files tokenizer_config.json special_tokens_map.json sentencepiece.bpe.model vocab.json
@@ -31,11 +37,17 @@ RUN ct2-transformers-converter \
 # to recognise the model. Saving the HF tokenizer separately keeps the two
 # formats from colliding.
 RUN python -c "from transformers import AutoTokenizer; \
-    AutoTokenizer.from_pretrained('${MODEL_ID}').save_pretrained('/models/tokenizer')"
+    AutoTokenizer.from_pretrained('${MODEL_ID}', revision='${MODEL_REVISION}').save_pretrained('/models/tokenizer')"
 
 # fastText language identification: 176 languages, ~1MB, and far steadier than a
 # heuristic on the short text chat produces.
-RUN curl -fsSL -o /models/lid.176.ftz https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz
+# Verified, not merely fetched over TLS. This file is loaded and executed as a
+# model on every request; trusting the transport alone means a compromised or
+# swapped CDN object becomes the language detector. The digest is of the exact
+# asset this image was built and tested against (938013 bytes).
+ARG LID_SHA256=8f3472cfe8738a7b6099e8e999c3cbfae0dcd15696aac7d7738a8039db603e83
+RUN curl -fsSL -o /models/lid.176.ftz https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz \
+    && echo "${LID_SHA256}  /models/lid.176.ftz" | sha256sum -c -
 
 FROM python:3.11-slim AS runtime
 
@@ -43,7 +55,7 @@ ENV PYTHONUNBUFFERED=1 \
     TRANSLATION_MODEL_DIR=/models/m2m100_418m \
     TRANSLATION_TOKENIZER_DIR=/models/tokenizer \
     TRANSLATION_DETECTOR_PATH=/models/lid.176.ftz \
-    TRANSLATION_MODEL_REVISION=m2m100_418m-int8
+    TRANSLATION_MODEL_REVISION=m2m100_418m-int8-55c2e61b
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/*
@@ -60,6 +72,6 @@ USER translate
 
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
-  CMD curl -fsS http://127.0.0.1:8080/health || exit 1
+  CMD curl -fsS http://127.0.0.1:8080/ready || exit 1
 
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]
