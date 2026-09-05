@@ -204,3 +204,20 @@ export type ChatSendMessageResultDto = {
 export type ChatUnreadCountDto = {
   unreadCount: number
 }
+
+/** One message rendered into the reader's language. */
+export type ChatTranslationDto = {
+  messageId: string
+  /** Null when nothing was produced; `skipped` says why. */
+  body: string | null
+  sourceLocale: string | null
+  cached: boolean
+  skipped?: 'same-language' | 'nothing-to-translate' | 'unavailable' | 'failed'
+}
+
+export type ChatTranslationListDto = { translations: ChatTranslationDto[] }
+
+export type ChatSettingsDto = {
+  /** ISO-639-1, or null to follow the interface language. */
+  translationLocale: string | null
+}

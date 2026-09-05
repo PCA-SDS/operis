@@ -45,6 +45,12 @@ export const MAX_SPACE_TITLE_LENGTH = 80
 export const MAX_REACTION_LENGTH = 32
 
 /**
+ * ISO-639-1 is two letters; BCP-47 with a region ("pt-BR") is five. Ten is
+ * generous for both and still refuses anything that is not a language tag.
+ */
+export const MAX_LOCALE_LENGTH = 10
+
+/**
  * A conversation between a fixed set of people inside one organization.
  *
  * `directKey` is the canonical identity of a 1:1 pair — the two user ids sorted
@@ -441,4 +447,110 @@ export class ChatPinnedMessage {
 
   @Property({ name: 'pinned_at', type: Date, onCreate: () => new Date() })
   pinnedAt: Date = new Date()
+}
+
+/**
+ * One message rendered into one language.
+ *
+ * Keyed by `(message_id, target_locale)` rather than by viewer, because a
+ * translation is a property of the message and the language — not of the person
+ * who asked for it. Two colleagues who both read in French share the row, and
+ * the second one pays nothing.
+ *
+ * The composite foreign key is the same guarantee reactions, mentions and pins
+ * carry: a translation cannot reference a message belonging to another
+ * conversation, and the database refuses it rather than trusting the caller.
+ * `ON DELETE CASCADE` means a deleted message takes its translations with it,
+ * so there is no orphan sweep to write or forget.
+ */
+@Entity({ tableName: 'chat_message_translations' })
+@Unique({ name: 'chat_message_translations_uq', properties: ['messageId', 'targetLocale'] })
+@Index({ name: 'chat_message_translations_message_idx', properties: ['messageId'] })
+export class ChatMessageTranslation {
+  [OptionalProps]?: 'createdAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'message_id', type: 'uuid' })
+  messageId!: string
+
+  @Property({ name: 'conversation_id', type: 'uuid' })
+  conversationId!: string
+
+  /** The language this row is written in. */
+  @Property({ name: 'target_locale', type: 'text' })
+  targetLocale!: string
+
+  @Property({ type: 'text' })
+  body!: string
+
+  /**
+   * What the engine detected the original to be. Recorded so the reader can be
+   * told "Translated from French" rather than just handed different words, and
+   * so a wrong detection is diagnosable after the fact.
+   */
+  @Property({ name: 'source_locale', type: 'text', nullable: true })
+  sourceLocale?: string | null
+
+  /**
+   * Which engine and weights produced this. A translation is only reproducible
+   * against the model that made it, so replacing the model must not silently
+   * leave a mixed cache behind with no way to tell the vintages apart.
+   */
+  @Property({ type: 'text' })
+  provider!: string
+
+  @Property({ name: 'model_revision', type: 'text', nullable: true })
+  modelRevision?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+}
+
+/**
+ * The language a person reads chat in.
+ *
+ * Deliberately NOT the UI locale. The interface ships in five languages
+ * (`en`, `pl`, `es`, `de`, `ko`); the languages colleagues actually write to
+ * each other in are not limited to those. A Vietnamese speaker runs the
+ * interface in English because there is no Vietnamese interface — deriving
+ * their reading language from that would hand them English, which is the one
+ * language they did not need translating.
+ *
+ * One row per user per organization: the same person in two organizations may
+ * reasonably read in two languages.
+ */
+@Entity({ tableName: 'chat_user_settings' })
+@Unique({ name: 'chat_user_settings_uq', properties: ['userId', 'organizationId'] })
+export class ChatUserSettings {
+  [OptionalProps]?: 'createdAt' | 'updatedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'user_id', type: 'uuid' })
+  userId!: string
+
+  /** ISO-639-1. Null means "follow the interface language". */
+  @Property({ name: 'translation_locale', type: 'text', nullable: true })
+  translationLocale?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date(), nullable: true })
+  updatedAt?: Date | null
 }

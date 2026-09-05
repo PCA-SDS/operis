@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isValidIso639 } from '@open-mercato/shared/lib/i18n/iso639'
 import { MAX_REACTION_LENGTH, MAX_SPACE_TITLE_LENGTH } from './entities'
 
 export { MAX_REACTION_LENGTH, MAX_SPACE_TITLE_LENGTH }
@@ -206,3 +207,37 @@ export type ChatSendMessageInput = z.infer<typeof chatSendMessageSchema>
 export type ChatMarkReadInput = z.infer<typeof chatMarkReadSchema>
 export type ChatReactionInput = z.infer<typeof chatReactionSchema>
 export type ChatMessageContextQuery = z.infer<typeof chatMessageContextQuerySchema>
+
+/**
+ * How many messages one translate request may name.
+ *
+ * The header control asks for the loaded page in a single call rather than one
+ * request per message; a page is 30, and the ceiling leaves room for a longer
+ * one without letting a caller queue arbitrary work on the engine.
+ */
+export const MAX_TRANSLATE_BATCH = 60
+
+/**
+ * ISO-639-1, validated against the real table rather than the five UI locales.
+ * The languages colleagues write to each other in are not limited to the
+ * languages the interface ships in - which is the entire reason the reading
+ * language is a separate setting.
+ */
+const translationLocaleSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .refine((value) => isValidIso639(value), { message: 'Unknown language code' })
+
+export const chatTranslateSchema = z.object({
+  messageIds: z.array(z.string().uuid()).min(1).max(MAX_TRANSLATE_BATCH),
+  targetLocale: translationLocaleSchema,
+})
+
+export const chatSetLocaleSchema = z.object({
+  // Null clears the preference and falls back to the interface language.
+  translationLocale: translationLocaleSchema.nullable(),
+})
+
+export type ChatTranslateInput = z.infer<typeof chatTranslateSchema>
+export type ChatSetLocaleInput = z.infer<typeof chatSetLocaleSchema>
