@@ -19,6 +19,7 @@ import {
   isSameDay,
 } from './format'
 import { MessageBody } from './MessageBody'
+import type { HighlightPlan } from '../lib/searchQuery'
 import {
   MessageReactions,
   QuickReactions,
@@ -67,7 +68,28 @@ type MessageListProps = {
    * can jump to it again.
    */
   jumpToMessageId?: string | null
+  /**
+   * Whether landing should also take focus.
+   *
+   * True for a jump nothing else owns the caret for — a pin panel closing, a
+   * shared link opening. False while the reader is typing in the find bar:
+   * moving focus there takes the caret out of the field mid-word, and the rest
+   * of what they were typing goes to the transcript.
+   */
+  jumpShouldFocus?: boolean
+  /**
+   * Whether landing should flash the row.
+   *
+   * The flash is the landing signal for a jump with nothing else to show for
+   * itself. A search jump has the matched words marked in place, so it turns
+   * this off rather than ringing the whole bubble as well.
+   */
+  jumpShouldFlash?: boolean
   onJumpHandled?: () => void
+  /** Terms the open find bar is looking for; marked inside every message. */
+  searchHighlight?: HighlightPlan
+  /** The match the reader has navigated to, marked more strongly than the rest. */
+  currentSearchMessageId?: string | null
   /**
    * Translations the reader has asked to see, by message id. Absent entirely
    * when no engine is configured, which is what removes the control rather than
@@ -446,7 +468,11 @@ export function MessageList({
   onToggleReaction,
   onTogglePin,
   jumpToMessageId,
+  jumpShouldFocus = true,
+  jumpShouldFlash = true,
   onJumpHandled,
+  searchHighlight,
+  currentSearchMessageId,
   translations,
   showingTranslation,
   pendingTranslation,
@@ -617,12 +643,11 @@ export function MessageList({
     //
     // `preventScroll` because the line above already placed it: letting focus
     // scroll again would fight that and land the row somewhere else.
-    target.focus({ preventScroll: true })
-    target.classList.add('ring-2', 'ring-primary', 'rounded-xl')
-    setTimeout(
-      () => target.classList.remove('ring-2', 'ring-primary', 'rounded-xl'),
-      1200,
-    )
+    if (jumpShouldFocus) target.focus({ preventScroll: true })
+    if (jumpShouldFlash) {
+      target.classList.add('ring-2', 'ring-primary', 'rounded-xl')
+      setTimeout(() => target.classList.remove('ring-2', 'ring-primary', 'rounded-xl'), 1200)
+    }
     onJumpHandled?.()
   })
 
@@ -1382,6 +1407,13 @@ export function MessageList({
                           body={translationFor(row.message.id) ?? row.message.body}
                           mentionNames={row.message.mentionNames}
                           currentUserId={currentUserId}
+                          // Search ran against the original wording, so a
+                          // translated body has nothing to mark — the words the
+                          // query matched are not the words on screen.
+                          highlight={
+                            translationFor(row.message.id) ? undefined : searchHighlight
+                          }
+                          highlightActive={row.message.id === currentSearchMessageId}
                         />
 
                         {/* Says what happened and offers the way back. Machine
