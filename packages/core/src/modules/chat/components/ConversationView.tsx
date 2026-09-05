@@ -9,14 +9,17 @@ import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { tCount } from './plurals'
+import { useTCount } from './plurals'
 import type { ChatMessageDto } from '../data/types'
 import { MessageComposer, type MentionCandidate } from './MessageComposer'
 import { MessageList, type PendingMessage } from './MessageList'
 import { PinnedMessagesPanel } from './PinnedMessagesPanel'
+import { TranslateControl } from './TranslateControl'
 import { SpaceDetailsDialog } from './SpaceDetailsDialog'
 import {
   useCanSendChat,
+  useChatLocale,
+  useChatTranslation,
   useConversation,
   useMarkRead,
   useMessageEngagement,
@@ -65,6 +68,7 @@ function newClientMessageId(): string {
  */
 export function ConversationView({ conversationId, currentUserId, showBackToList }: ConversationViewProps) {
   const t = useT()
+  const tc = useTCount()
   /**
    * The message the transcript is currently centred on.
    *
@@ -91,6 +95,27 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
   const [pending, setPending] = React.useState<PendingMessage[]>([])
   const [replyTarget, setReplyTarget] = React.useState<ReplyTarget | null>(null)
   const [detailsOpen, setDetailsOpen] = React.useState(false)
+  const chatLocale = useChatLocale()
+  /**
+   * Whole-conversation mode. Sticky per conversation: a one-shot covering only
+   * what is on screen would look broken the moment the reader scrolled back, or
+   * a new message arrived untranslated beside translated ones.
+   */
+  const [translateAll, setTranslateAll] = React.useState(false)
+  React.useEffect(() => setTranslateAll(false), [conversationId])
+  /**
+   * Only user messages: joins, renames and the rest are system copy the product
+   * already renders in the interface language.
+   */
+  const translatableIds = React.useMemo(
+    () =>
+      translateAll
+        ? messages.filter((message) => message.kind === 'user').map((message) => message.id)
+        : null,
+    [translateAll, messages],
+  )
+  const translation = useChatTranslation(conversationId, chatLocale.locale, translatableIds)
+
   const [pinsOpen, setPinsOpen] = React.useState(false)
   /**
    * A message to bring into view once it is loaded.
@@ -325,7 +350,7 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
                   it too would leave the pane unlabelled. */}
               {conversationError ? null : isSpace && conversation ? (
                 <span className="block truncate text-xs text-muted-foreground">
-                  {tCount(t, 'chat.space.memberCount', conversation.memberCount, '{count} members')}
+                  {tc('chat.space.memberCount', conversation.memberCount, '{count} members')}
                 </span>
               ) : conversation?.counterpart ? (
                 <span className="block truncate text-xs text-muted-foreground">
@@ -368,6 +393,23 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
 
       {/* Pushes the pin control to the trailing edge, away from the identity. */}
       <span className="flex-1" />
+
+      {conversation ? (
+        <TranslateControl
+          locale={chatLocale.locale}
+          // Choosing a language only records the choice. Re-translating the
+          // transcript into it is the sticky mode's job, and doing it here as
+          // well raced the mode: both paths asked for the same messages, and
+          // whichever answered second wrote the other language's words.
+          onLocaleChange={(next) => chatLocale.setLocale.mutate(next)}
+          active={translateAll}
+          busy={translation.pending.size > 0}
+          onToggle={(next) => {
+            setTranslateAll(next)
+            if (!next) for (const message of messages) translation.showOriginal(message.id)
+          }}
+        />
+      ) : null}
 
       {/* Only when there is something to show. At zero this is not rendered
           rather than rendered disabled: the panel's whole job is to answer
@@ -446,6 +488,11 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
         </div>
       ) : (
         <MessageList
+          translations={translation.translations}
+          showingTranslation={translation.showing}
+          pendingTranslation={translation.pending}
+          onTranslate={(messageId) => void translation.translate([messageId])}
+          onShowOriginal={translation.showOriginal}
           isAnchored={Boolean(anchorMessageId)}
           onReturnToLatest={() => setAnchorMessageId(null)}
           jumpToMessageId={jumpTarget}

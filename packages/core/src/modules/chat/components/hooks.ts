@@ -14,7 +14,7 @@ import {
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query'
-import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { hasFeature } from '@open-mercato/shared/security/features'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
@@ -23,7 +23,12 @@ import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import type { AppEventPayload } from '@open-mercato/shared/modules/widgets/injection'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
-import type { ChatConversationDto, ChatMessageDto, ChatParticipantRole } from '../data/types'
+import type {
+  ChatConversationDto,
+  ChatMessageDto,
+  ChatParticipantRole,
+  ChatTranslationDto,
+} from '../data/types'
 import { CONVERSATION_PAGE_STEP, MAX_CONVERSATION_PAGE_SIZE } from '../data/validators'
 import { chatApi } from './api'
 
@@ -53,6 +58,7 @@ export const chatKeys = {
     [...chatKeys.scoped(scope), 'members', id, q] as const,
   pinned: (scope: number, id: string) => [...chatKeys.scoped(scope), 'pinned', id] as const,
   unreadCount: (scope: number) => [...chatKeys.scoped(scope), 'unread-count'] as const,
+  settings: (scope: number) => [...chatKeys.scoped(scope), 'settings'] as const,
 }
 
 function invalidateChat(client: QueryClient): void {
@@ -658,4 +664,287 @@ export function useMarkRead(
       cancelled = true
     }
   }, [client, conversationId, currentUserId, newestMessage, scope])
+}
+
+/**
+ * The language this person reads chat in.
+ *
+ * Separate from `useLocale()` on purpose. The interface ships in five languages;
+ * the languages colleagues write to each other in are not limited to those, and
+ * someone reading Vietnamese runs the interface in English because there is no
+ * Vietnamese interface. Falling back to the UI locale is right as a default and
+ * wrong as the only answer.
+ */
+export function useChatLocale() {
+  const scope = useOrganizationScopeVersion()
+  const client = useQueryClient()
+  const uiLocale = useLocale()
+  const { runMutation } = useGuardedMutation({ contextId: 'chat.settings' })
+  const flashFailure = useMutationFailureFlash()
+
+  const query = useQuery({
+    queryKey: chatKeys.settings(scope),
+    queryFn: ({ signal }) => chatApi.getChatSettings(signal),
+    // Rarely changes, and every message row would otherwise wait on it.
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const setLocale = useMutation({
+    mutationFn: (locale: string | null) =>
+      runMutation({
+        operation: () => chatApi.setChatLocale(locale),
+        context: { resourceKind: 'chat.settings', resourceId: null },
+        mutationPayload: { locale },
+      }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: chatKeys.settings(scope) })
+    },
+    onError: () => flashFailure("Couldn't save your language. Please try again."),
+  })
+
+  return {
+    /** What to translate into. Never null, so callers need no fallback of their own. */
+    locale: query.data?.translationLocale ?? uiLocale,
+    /** Whether it was chosen, as opposed to inherited from the interface. */
+    isExplicit: Boolean(query.data?.translationLocale),
+    isLoading: query.isLoading,
+    setLocale,
+  }
+}
+
+/**
+ * A cache slot. The reading language is part of the key, not context around it:
+ * the same message has a different translation in every language, and a map
+ * keyed on the id alone answers "already have it" with the previous language's
+ * words the moment the reader switches.
+ */
+function entryKey(messageId: string, locale: string): string {
+  return `${messageId}\u0000${locale}`
+}
+
+/**
+ * What to tell the reader when a translation produced nothing.
+ *
+ * The command distinguishes four reasons and the difference matters: a message
+ * already in your language is a non-event, while an engine that is not deployed
+ * or has just failed is something the reader needs told. Without this the
+ * action is indistinguishable from a dead button in all four cases.
+ */
+function describeSkips(
+  rows: ChatTranslationDto[],
+  t: (key: string, fallback: string) => string,
+): { message: string; kind: 'info' | 'error' } | null {
+  const skipped = rows.filter((row) => !row.body)
+  if (skipped.length === 0 || skipped.length !== rows.length) return null
+  const reasons = new Set(skipped.map((row) => row.skipped))
+  if (reasons.has('unavailable')) {
+    return {
+      message: t(
+        'chat.translation.unavailable',
+        'Translation is not available on this deployment.',
+      ),
+      kind: 'error',
+    }
+  }
+  if (reasons.has('failed')) {
+    return {
+      message: t(
+        'chat.translation.engineFailed',
+        "The translation service couldn't be reached. Please try again.",
+      ),
+      kind: 'error',
+    }
+  }
+  if (reasons.has('same-language')) {
+    return {
+      message: t('chat.translation.alreadyInLanguage', 'Already in your reading language.'),
+      kind: 'info',
+    }
+  }
+  return {
+    message: t('chat.translation.nothingToTranslate', 'There are no words to translate here.'),
+    kind: 'info',
+  }
+}
+
+/**
+ * Translations the reader has asked for, held per conversation.
+ *
+ * Client state rather than a query cache: which messages are *showing* their
+ * translation is a view preference, not server data. The translations
+ * themselves are cached server-side and shared between readers, so re-asking is
+ * cheap and nothing here needs to survive a remount.
+ *
+ * `autoTranslateIds` drives whole-conversation mode. It lives here rather than
+ * in an effect at the call site because the decision needs `entries`, `pending`
+ * and `failed`, and reaching those from outside means exporting three
+ * identities that change on every response — which turns the caller's effect
+ * into a re-render loop. Pass the ids that should be kept translated, or null
+ * when the mode is off.
+ */
+export function useChatTranslation(
+  conversationId: string | undefined,
+  targetLocale: string,
+  autoTranslateIds: string[] | null = null,
+) {
+  const t = useT()
+  const { runMutation } = useGuardedMutation({ contextId: 'chat.message' })
+  const flashFailure = useMutationFailureFlash()
+  const [entries, setEntries] = React.useState<Map<string, ChatTranslationDto>>(new Map())
+  const [showing, setShowing] = React.useState<Set<string>>(new Set())
+  const [pending, setPending] = React.useState<Set<string>>(new Set())
+  // Attempts that threw. Without this the auto-translate effect re-requests
+  // them the moment `pending` clears, so an engine that is down is asked again
+  // on every render for as long as the conversation is open.
+  const [failed, setFailed] = React.useState<Set<string>>(new Set())
+  /**
+   * Requests already out, tracked synchronously.
+   *
+   * `pending` is state, so it is not readable until the next render — and both
+   * the auto-translate effect and a reader's own click can call in before that
+   * commit, each seeing an empty set and asking the engine for the same
+   * messages. A ref is written the moment the decision is made, so the second
+   * caller sees the first.
+   */
+  const inFlight = React.useRef<Set<string>>(new Set())
+
+  // A different conversation is a different transcript; carrying translations
+  // across would show one message's words under another's id.
+  React.useEffect(() => {
+    setEntries(new Map())
+    setShowing(new Set())
+    setPending(new Set())
+    setFailed(new Set())
+    inFlight.current = new Set()
+  }, [conversationId])
+
+  const translate = React.useCallback(
+    async (messageIds: string[]) => {
+      if (!conversationId || messageIds.length === 0) return
+      // Anything already fetched for THIS language is already usable; asking
+      // again would spend a request to be handed the same rows.
+      const wanted = messageIds.filter((id) => {
+        const key = entryKey(id, targetLocale)
+        return !entries.has(key) && !inFlight.current.has(key)
+      })
+      if (wanted.length === 0) {
+        const known = messageIds
+          .map((id) => entries.get(entryKey(id, targetLocale)))
+          .filter((row): row is ChatTranslationDto => Boolean(row))
+        setShowing((current) => {
+          const next = new Set(current)
+          for (const row of known) if (row.body) next.add(row.messageId)
+          return next.size === current.size ? current : next
+        })
+        // Say it again. The reason is already known, so nothing is requested —
+        // but pressing Translate a second time on a message already in your
+        // language would otherwise be the one press that does nothing at all.
+        const repeated = describeSkips(known, t)
+        if (repeated) flash(repeated.message, repeated.kind)
+        return
+      }
+
+      const wantedKeys = wanted.map((id) => entryKey(id, targetLocale))
+      for (const key of wantedKeys) inFlight.current.add(key)
+      setPending((current) => new Set([...current, ...wanted]))
+      setFailed((current) => {
+        if (!wantedKeys.some((key) => current.has(key))) return current
+        const next = new Set(current)
+        for (const key of wantedKeys) next.delete(key)
+        return next
+      })
+      try {
+        const result = await runMutation({
+          operation: () => chatApi.translateMessages(conversationId, wanted, targetLocale),
+          context: { resourceKind: 'chat.conversation', resourceId: conversationId },
+          mutationPayload: { count: wanted.length, targetLocale },
+        })
+        const rows = (result as { translations: ChatTranslationDto[] } | undefined)?.translations ?? []
+        setEntries((current) => {
+          const next = new Map(current)
+          for (const row of rows) next.set(entryKey(row.messageId, targetLocale), row)
+          return next
+        })
+        // Only reveal what actually produced words. A message already in the
+        // reader's language stays as it is rather than flickering to identical
+        // text.
+        setShowing((current) => {
+          const next = new Set(current)
+          for (const row of rows) if (row.body) next.add(row.messageId)
+          return next.size === current.size ? current : next
+        })
+        const outcome = describeSkips(rows, t)
+        if (outcome) flash(outcome.message, outcome.kind)
+      } catch {
+        setFailed((current) => new Set([...current, ...wantedKeys]))
+        flashFailure("Couldn't translate that message. Please try again.")
+      } finally {
+        for (const key of wantedKeys) inFlight.current.delete(key)
+        setPending((current) => {
+          const next = new Set(current)
+          for (const id of wanted) next.delete(id)
+          return next
+        })
+      }
+    },
+    [conversationId, entries, flashFailure, runMutation, t, targetLocale],
+  )
+
+  /**
+   * Keep whole-conversation mode true as the transcript changes.
+   *
+   * The mode is sticky, so messages that arrive after it was switched on -- and
+   * older pages fetched by scrolling back -- have to be translated too.
+   * Otherwise a new message renders in its original language beside translated
+   * ones, which is exactly the broken-looking state stickiness exists to avoid.
+   */
+  React.useEffect(() => {
+    if (!autoTranslateIds || autoTranslateIds.length === 0) return
+    // Reveal first, and unconditionally: switching the mode off hides every
+    // message, so switching it back on has to show the translations already
+    // held rather than only the ones still to be fetched.
+    setShowing((current) => {
+      const next = new Set(current)
+      for (const id of autoTranslateIds) {
+        if (entries.get(entryKey(id, targetLocale))?.body) next.add(id)
+      }
+      return next.size === current.size ? current : next
+    })
+    const wanted = autoTranslateIds.filter((id) => {
+      const key = entryKey(id, targetLocale)
+      return !entries.has(key) && !failed.has(key) && !inFlight.current.has(key)
+    })
+    if (wanted.length === 0) return
+    void translate(wanted)
+  }, [autoTranslateIds, entries, failed, pending, targetLocale, translate])
+
+  const showOriginal = React.useCallback((messageId: string) => {
+    setShowing((current) => {
+      if (!current.has(messageId)) return current
+      const next = new Set(current)
+      next.delete(messageId)
+      return next
+    })
+  }, [])
+
+  const showTranslation = React.useCallback((messageId: string) => {
+    setShowing((current) => (current.has(messageId) ? current : new Set(current).add(messageId)))
+  }, [])
+
+  /**
+   * The entries for the language being read, keyed by message id.
+   *
+   * Callers render by message id and must never be handed another language's
+   * words, so the locale is resolved here rather than at each call site.
+   */
+  const translations = React.useMemo(() => {
+    const view = new Map<string, ChatTranslationDto>()
+    for (const [key, row] of entries) {
+      const [messageId, locale] = key.split('\u0000')
+      if (locale === targetLocale) view.set(messageId, row)
+    }
+    return view
+  }, [entries, targetLocale])
+
+  return { translations, showing, pending, translate, showOriginal, showTranslation }
 }

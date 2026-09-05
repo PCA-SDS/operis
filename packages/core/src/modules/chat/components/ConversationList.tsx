@@ -11,7 +11,7 @@ import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { tCount } from './plurals'
+import { useTCount } from './plurals'
 import { cn } from '@open-mercato/shared/lib/utils'
 import type { ChatConversationDto } from '../data/types'
 import { MAX_CONVERSATION_PAGE_SIZE } from '../data/validators'
@@ -71,6 +71,7 @@ function ConversationRow({
   isActive: boolean
 }) {
   const t = useT()
+  const tc = useTCount()
   // The title is resolved server-side for both kinds, so the row does not have
   // to know whether it is naming a person or a space.
   const name = conversation.title
@@ -111,7 +112,7 @@ function ConversationRow({
         <>
           <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-primary" />
           <span className="sr-only">
-            {tCount(t, 'chat.list.unreadLabel', unread, '{count} unread messages')}
+            {tc('chat.list.unreadLabel', unread, '{count} unread messages')}
           </span>
         </>
       ) : null}

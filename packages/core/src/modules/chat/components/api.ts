@@ -7,6 +7,8 @@ import { apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/backend/u
 import type {
   ChatConversationDto,
   ChatPinnedListDto,
+  ChatSettingsDto,
+  ChatTranslationListDto,
   ChatConversationListDto,
   ChatMemberListDto,
   ChatMessagePageDto,
@@ -109,6 +111,21 @@ export const chatApi = {
     (await apiCallOrThrow<{ pinned: boolean }>(
       `${BASE}/conversations/${conversationId}/messages/${messageId}/pin`,
       jsonInit(pinned ? 'POST' : 'DELETE'),
+    )).result!,
+
+  translateMessages: async (conversationId: string, messageIds: string[], targetLocale: string) =>
+    (await apiCallOrThrow<ChatTranslationListDto>(
+      `${BASE}/conversations/${conversationId}/translate`,
+      jsonInit('POST', { messageIds, targetLocale }),
+    )).result!,
+
+  getChatSettings: (signal?: AbortSignal) =>
+    readApiResultOrThrow<ChatSettingsDto>(`${BASE}/settings`, { signal }),
+
+  setChatLocale: async (translationLocale: string | null) =>
+    (await apiCallOrThrow<ChatSettingsDto>(
+      `${BASE}/settings`,
+      jsonInit('PUT', { translationLocale }),
     )).result!,
 
   sendMessage: async (
