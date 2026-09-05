@@ -611,18 +611,24 @@ jobs:
     permissions:
       contents: read
       packages: read
-    needs: [scope, quality, build]
+    # `translation-image` too: compose has no `profiles:` for the engine, so
+    # `docker compose up -d` fails the whole deploy if its image cannot be
+    # pulled. An optional feature must not be able to take the app down, and on
+    # the first merge `:latest` does not exist in the registry at all.
+    needs: [scope, quality, build, translation-image]
     # `always()` so this is evaluated even when a dependency was skipped —
     # without it, one skipped `needs` would skip this job outright. Each result
     # is then checked explicitly: success or skipped is fine, failure is not.
-    # skipped is legitimate for `quality` (skip_quality) and for `build`
-    # (redeploying an existing tag).
+    # skipped is legitimate for `quality` (skip_quality), for `build`
+    # (redeploying an existing tag), and for `translation-image` (nothing under
+    # services/translation changed, so the published image still stands).
     if: >-
       always()
       && github.event_name != 'pull_request'
       && needs.scope.result == 'success'
       && (needs.quality.result == 'success' || needs.quality.result == 'skipped')
       && (needs.build.result == 'success'   || needs.build.result == 'skipped')
+      && (needs['translation-image'].result == 'success' || needs['translation-image'].result == 'skipped')
     environment:
       name: production
       url: https://${{ vars.APP_DOMAIN }}
