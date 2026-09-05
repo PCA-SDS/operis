@@ -3397,9 +3397,6 @@ export function CrudForm<TValues extends Record<string, unknown>>({
 
       if (entityLayout.sections.length) {
         entityLayout.sections.forEach((section) => {
-          const FieldsetIcon = section.fieldset?.icon
-            ? FIELDSET_ICON_COMPONENTS[section.fieldset.icon]
-            : null
           const sectionKey = `${entityLayout.entityId}:${section.fieldsetCode ?? 'default'}`
           const manageDisabled = !manageHref
           nodes.push(
@@ -3407,7 +3404,6 @@ export function CrudForm<TValues extends Record<string, unknown>>({
               key={sectionKey}
               title={section.title}
               description={section.description}
-              icon={FieldsetIcon ?? undefined}
               actions={
                 <Button
                   type="button"

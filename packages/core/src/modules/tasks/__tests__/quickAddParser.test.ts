@@ -141,6 +141,53 @@ describe('times', () => {
   })
 })
 
+describe('deadline lead-ins', () => {
+  // Only "on" used to be recognised, and only by the absolute-date patterns
+  // that spelled it out inline, so "Plan lunch by 3pm" parsed the time but left
+  // "by" stranded on the end of the title.
+  it.each([
+    ['Plan lunch by 3pm', 'Plan lunch', '15:00'],
+    ['Plan lunch by 3:30pm', 'Plan lunch', '15:30'],
+    ['Finish before 5pm', 'Finish', '17:00'],
+    ['Report due 9am', 'Report', '09:00'],
+    ['Submit by noon', 'Submit', '12:00'],
+    ['Deliver by 15:00', 'Deliver', '15:00'],
+    ['Ship due by 8am', 'Ship', '08:00'],
+  ])('consumes the lead-in in %s', (input, title, time) => {
+    const result = parse(input)
+    expect(result.title).toBe(title)
+    expect(result.dueTime).toBe(time)
+  })
+
+  it.each([
+    ['Call by tomorrow', 'Call'],
+    ['Task by friday', 'Task'],
+    ['Review before monday', 'Review'],
+    ['Invoice due on 15 jan', 'Invoice'],
+    ['Retro by next week', 'Retro'],
+    ['Audit due end of month', 'Audit'],
+  ])('consumes the lead-in before a date in %s', (input, title) => {
+    const result = parse(input)
+    expect(result.title).toBe(title)
+    expect(result.dueDate).not.toBeNull()
+  })
+
+  it.each([
+    'Sort by 3 columns',
+    'Stand by 5 people',
+    'Group by 2 fields',
+  ])('leaves %s alone — a bare number after a lead-in is not a time', (input) => {
+    const result = parse(input)
+    expect(result.title).toBe(input)
+    expect(result.dueTime).toBeNull()
+    expect(result.dueDate).toBeNull()
+  })
+
+  it('still asks for minutes after "at", which does accept a bare hour', () => {
+    expect(codes('Standup at 3')).toContain('timeNeedsMinutes')
+  })
+})
+
 describe('recurrence', () => {
   it.each([
     ['every day', 'daily'],

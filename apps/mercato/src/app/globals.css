@@ -675,17 +675,56 @@ TODO: Fix that latter to have reference by the package names
  * Declared once here rather than per control because a section can hold any
  * control family, and those must never disagree. `:where()` keeps specificity
  * at zero, so the invalid rule below still wins and any control needing a
- * deliberate exception can override with a plain utility class. */
+ * deliberate exception can override with a plain utility class.
+ *
+ * The `:not()` tail matters. A composite field — `SearchInput`, `Input` — is a
+ * wrapper that draws the box plus a bare `<input>` inside it that is deliberately
+ * transparent. Without the exclusion the bare-`input` branch repaints that inner
+ * element, so the field renders as a filled box inside a filled box: on the deal
+ * form that showed up as a white slab sitting inside the search field. The
+ * wrapper is the thing that should carry the fill; its contents must not. */
 [data-crud-section='true']
   :where(
     input:not([type='checkbox']):not([type='radio']),
     textarea,
     select,
     [data-slot='input-wrapper'],
+    [data-slot='search-input-wrapper'],
     [data-slot='select-trigger']
+  ):not(
+    [data-slot='input-wrapper'] *,
+    [data-slot='search-input-wrapper'] *
   ) {
   border-color: transparent;
   background-color: var(--surface);
+}
+
+/* Borderless controls inside a dialog form (PCA modal chrome).
+ *
+ * The INVERSE of the section rule above, and deliberately so. A form section is
+ * a muted panel, so its controls take the surface fill. A dialog panel is
+ * already `surface`, so its controls take the muted fill — otherwise a white
+ * control on a white panel would have no edge at all once the border is gone.
+ *
+ * Measured from the PCA reference's `LOGIN_INPUT_CLASS`, which every PCA dialog
+ * field uses: a filled box with a transparent border and no focus ring. Scoped
+ * to the attribute for the same reason as above — the same control on the page
+ * ground would vanish, so this must never reach the Input primitive itself. */
+[data-dialog-form='true']
+  :where(
+    input:not([type='checkbox']):not([type='radio']),
+    textarea,
+    select,
+    [data-slot='input-wrapper'],
+    [data-slot='search-input-wrapper'],
+    [data-slot='select-trigger'],
+    [data-slot='date-picker-trigger']
+  ):not(
+    [data-slot='input-wrapper'] *,
+    [data-slot='search-input-wrapper'] *
+  ) {
+  border-color: transparent;
+  background-color: var(--surface-muted);
 }
 
 /* Invalid form fields.
@@ -1082,4 +1121,138 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
 .om-mdx-editor .cm-cursor,
 .om-mdx-editor .cm-dropCursor {
   border-left-color: var(--foreground);
+}
+
+/*
+ * Viewport-locked pages (`<Page fill>`).
+ *
+ * The shell column is deliberately `min-h-svh` so an ordinary page grows with
+ * its content and the document scrolls. That leaves no ancestor with a definite
+ * height, so `Page`'s `h-full` resolves to `auto` — a page that opted into
+ * `fill` grew with its content instead of handing the leftover height to its
+ * scrolling region, and a long chat transcript scrolled the whole document
+ * rather than the transcript.
+ *
+ * Scoped with `:has()` to pages that actually set `data-fill`, so every other
+ * page keeps document scrolling exactly as before. `main` keeps `overflow-y-auto`
+ * as a safety valve: if a fill page ever exceeds the viewport it scrolls inside
+ * the shell rather than being clipped.
+ *
+ * The breakpoint variants (`fill="sm|md|lg"`) only lock from that width up —
+ * matching `FILL_WRAPPER` in `packages/ui/src/backend/Page.tsx`, which applies
+ * its flex model at the same breakpoints. Narrow viewports keep natural
+ * document scrolling, which is the whole point of the opt-in variants.
+ */
+[data-app-shell-column]:has([data-slot='page'][data-fill='true']) {
+  height: 100svh;
+  overflow: hidden;
+}
+
+[data-app-shell-column]:has([data-slot='page'][data-fill='true']) > main {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (min-width: 40rem) {
+  [data-app-shell-column]:has([data-slot='page'][data-fill='sm']) {
+    height: 100svh;
+    overflow: hidden;
+  }
+
+  [data-app-shell-column]:has([data-slot='page'][data-fill='sm']) > main {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 48rem) {
+  [data-app-shell-column]:has([data-slot='page'][data-fill='md']) {
+    height: 100svh;
+    overflow: hidden;
+  }
+
+  [data-app-shell-column]:has([data-slot='page'][data-fill='md']) > main {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 64rem) {
+  [data-app-shell-column]:has([data-slot='page'][data-fill='lg']) {
+    height: 100svh;
+    overflow: hidden;
+  }
+
+  [data-app-shell-column]:has([data-slot='page'][data-fill='lg']) > main {
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Focus indicators removed product-wide
+
+   Requested explicitly: no ring, halo, outline or border highlight on ANY
+   control when it is clicked or focused, anywhere in Operis, with no
+   exceptions.
+
+   This is done here, at the tokens and in one override block, rather than by
+   deleting ~477 `focus-visible:*` utilities across the codebase. Two reasons:
+   the utilities are the design system's documented recipe and stripping them
+   would fight every future component that follows the guide, and a rule here
+   also covers third-party markup (Radix, the rich editor, native controls)
+   that no source edit could reach.
+
+   ACCESSIBILITY: this removes the only cue a keyboard user has for where they
+   are, and fails WCAG 2.1 SC 2.4.7 (Focus Visible). Deleting this block is the
+   entire rollback — every `focus-visible:` utility underneath is still in place
+   and starts painting again the moment these are gone.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root,
+:root[data-theme='light'],
+:root[data-theme='dark'],
+.dark {
+  /* Belt: only reached if `shadow-focus` is ever consumed as a plain variable. */
+  --shadow-focus: none;
+  /* Braces, and the line that actually does the work.
+     `@theme inline` above INLINES the composite into `.shadow-focus`, which
+     compiles to
+       --tw-shadow: 0 0 0 2px var(--focus-ring-inner), 0 0 0 4px var(--focus-ring-outer)
+     so the utility never reads `--shadow-focus` at runtime and overriding that
+     token alone changes nothing. Blanking these two colours is what makes the
+     halo transparent. Do not delete them as redundant — they are the mechanism. */
+  --focus-ring-inner: transparent;
+  --focus-ring-outer: transparent;
+  /* The ring colours: `ring-ring`, `ring-ring/40`, `ring-focus-ring/30`,
+     `outline-ring/50` and the sidebar's own focus edge all resolve to these. */
+  --focus-ring: transparent;
+  --ring: transparent;
+  --sidebar-ring: transparent;
+  /* The focused-field border, so an input's edge does not change on focus. */
+  --input-border-focus: var(--input-border);
+}
+
+/* Outlines: the browser default, the `outline-ring/50` base rule, and any
+   explicit focus outline. */
+:focus,
+:focus-visible,
+:focus-within {
+  outline: none !important;
+}
+
+/* Tailwind draws `ring-*` as a box-shadow through these two slots. Blanking the
+   slots removes the ring while leaving `--tw-shadow` — real elevation — alone,
+   so a focused card keeps its drop shadow and only loses the halo. */
+:focus,
+:focus-visible,
+:focus-within {
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-color: transparent !important;
+}
+
+/* The one hand-rolled halo that does not go through a token. */
+.focus-ring-fancy:focus-visible {
+  box-shadow: none !important;
 }

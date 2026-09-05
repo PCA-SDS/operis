@@ -247,7 +247,6 @@ export interface CalendarToolbarProps {
   onAnchorChange(date: Date): void
   onSearchChange(value: string): void
   onFiltersChange(value: CalendarFiltersValue): void
-  onOpenSettings(): void
 }
 
 /** The scope row: category filter, range preset and the jump-to-date control. */
@@ -259,11 +258,12 @@ export interface CalendarScopeBarProps {
   preset: CalendarRangePreset | null
   /** Transient status text (truncation, refreshing) shown between the controls. */
   status?: ReactNode
-  /** Search, filters and settings — the controls that narrow what is shown. */
+  /** Search and filters — the controls that narrow what is shown. */
   trailing?: ReactNode
   onTabChange(tab: CalendarTab): void
   onPresetChange(preset: CalendarRangePreset): void
   onAnchorChange(date: Date): void
+  onOpenSettings(): void
 }
 
 export interface CalendarTabsProps {

@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import * as React from 'react'
-import { MoreHorizontal, PlugZap, Settings, Mail } from 'lucide-react'
+import { MoreHorizontal, PlugZap, Settings, Mail, MessageSquare } from 'lucide-react'
 import { hasFeature } from '@open-mercato/shared/security/features'
 import { AuthSessionGuard } from '@open-mercato/ui/backend/AuthSessionGuard'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
@@ -33,6 +33,10 @@ const LazyNotificationBellWrapper = dynamic(
 )
 const LazyMessagesIcon = dynamic(
   () => import('@open-mercato/ui/backend/messages').then((module) => module.MessagesIcon),
+  { ssr: false, loading: () => null },
+)
+const LazyChatUnreadIcon = dynamic(
+  () => import('@open-mercato/core/modules/chat/components/ChatUnreadIcon').then((module) => module.ChatUnreadIcon),
   { ssr: false, loading: () => null },
 )
 
@@ -72,7 +76,7 @@ function MobileMoreMenu({ items }: { items: MobileMoreItem[] }) {
         <IconButton
           type="button"
           variant="ghost"
-          size="sm"
+          size="lg"
           aria-label={t('appShell.moreActions', 'More actions')}
           title={t('appShell.moreActions', 'More actions')}
         >
@@ -150,6 +154,13 @@ export function BackendHeaderChrome({
     () => hasVisibleRoute(payload?.groups, '/backend/messages'),
     [payload?.groups],
   )
+  // Same gate as Messages: `hasVisibleRoute` already accounts for the module
+  // entitlement and the `chat.view` feature, so a tenant without chat never sees
+  // the icon — and never loads the chunk behind it.
+  const showChat = React.useMemo(
+    () => hasVisibleRoute(payload?.groups, '/backend/chat'),
+    [payload?.groups],
+  )
   const showNotifications = React.useMemo(
     () => hasFeature(grantedFeatures, 'notifications.view'),
     [grantedFeatures],
@@ -179,8 +190,16 @@ export function BackendHeaderChrome({
         label: t('messages.nav.inbox', 'Messages'),
       })
     }
+    if (isReady && showChat) {
+      items.push({
+        id: 'chat',
+        href: '/backend/chat',
+        icon: <MessageSquare className="size-4" aria-hidden="true" />,
+        label: t('chat.nav.title', 'Chat'),
+      })
+    }
     return items
-  }, [showIntegrationsButton, isReady, showMessages, t])
+  }, [showIntegrationsButton, isReady, showChat, showMessages, t])
 
   return (
     <>
@@ -204,6 +223,11 @@ export function BackendHeaderChrome({
       {isReady && showMessages ? (
         <span className="hidden md:contents">
           <LazyMessagesIcon />
+        </span>
+      ) : null}
+      {isReady && showChat ? (
+        <span className="hidden md:contents">
+          <LazyChatUnreadIcon />
         </span>
       ) : null}
       <span className="md:hidden">

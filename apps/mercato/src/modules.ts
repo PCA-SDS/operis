@@ -127,6 +127,10 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'data_sync', from: '@open-mercato/core' },
   { id: 'sync_excel', from: '@open-mercato/core' },
   { id: 'messages', from: '@open-mercato/core' },
+  // Internal 1:1 chat between people in the same organization. Private direct
+  // messaging only — the external channel bridge is `communication_channels` and
+  // the email-shaped inbox is `messages`; this is neither.
+  { id: 'chat', from: '@open-mercato/core' },
   // Communication channels hub (SPEC-045d) — bridges external chat/email channels
   // (Slack, WhatsApp, Email) to the unified Messages inbox. Provider packages
   // (channel-slack, channel-whatsapp, future email providers) register adapters here.

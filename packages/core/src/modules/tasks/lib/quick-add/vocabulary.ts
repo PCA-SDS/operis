@@ -166,6 +166,29 @@ export const WEEKLY_PHRASES = ['every week', 'each week', 'once a week', 'weekly
 
 export const MONTHLY_PHRASES = ['every month', 'each month', 'once a month', 'monthly'] as const
 
+/**
+ * Deadline lead-ins that may precede a date or a time: "due by Friday",
+ * "before noon", "on 15 Jan".
+ *
+ * Ordered longest-first because they are joined into one alternation, and a
+ * regex alternation takes the first branch that matches — with "due" ahead of
+ * "due by", "due by Friday" would consume only "due" and strand "by".
+ *
+ * Only "on" was handled before, and only by the five absolute-date patterns
+ * that spelled it out inline, so "Plan lunch by 3pm" parsed the time but left
+ * "by" hanging on the end of the title. These are shared by every date and
+ * time pattern so the whole family agrees.
+ */
+export const DUE_LEADINS = [
+  'due by',
+  'due before',
+  'due on',
+  'due',
+  'by',
+  'before',
+  'on',
+] as const
+
 /** Lead-ins that combine with a weekday: "weekly on Tuesday", "once a week on
  *  Tue", "every week on Tuesday". */
 export const WEEKLY_ON_LEADINS = ['every week on', 'once a week on', 'weekly on'] as const

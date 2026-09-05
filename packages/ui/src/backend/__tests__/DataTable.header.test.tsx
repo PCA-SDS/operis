@@ -219,10 +219,28 @@ describe('DataTable column reorder feedback', () => {
     expect(grabbable.length).toBeGreaterThan(0)
   })
 
-  it('leaves headers unreorderable when the column chooser is off', () => {
+  it('reorders by default, so a table gets it without opting in', () => {
     const { container } = renderTable()
     const heads = Array.from(container.querySelectorAll('[data-slot="table-head"]')) as HTMLElement[]
+    expect(heads.some((el) => el.style.cursor === 'grab')).toBe(true)
+  })
+
+  it('leaves headers unreorderable when the column chooser is switched off', () => {
+    const { container } = renderTable({ columnChooser: false })
+    const heads = Array.from(container.querySelectorAll('[data-slot="table-head"]')) as HTMLElement[]
     expect(heads.every((el) => el.style.cursor !== 'grab')).toBe(true)
+  })
+
+  it('keeps the columnheader role while reordering, rather than dnd-kit\'s button', () => {
+    // dnd-kit defaults its draggable role to `button`, and `attributes` is
+    // spread onto the cell — so without pinning the role the header would stop
+    // being a header to assistive tech.
+    const { container } = renderTable()
+    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
+    expect(head.getAttribute('role')).toBe('columnheader')
+    // `useSortable` describes itself as "sortable"; `useDraggable` is the one
+    // that says "draggable". Either way the role stays `columnheader`.
+    expect(head.getAttribute('aria-roledescription')).toBe('sortable')
   })
 
   it('advertises the gesture with the cell itself, painting nothing into the row', () => {
@@ -241,7 +259,7 @@ describe('DataTable column reorder feedback', () => {
   })
 
   it('offers no grip where the column cannot be reordered', () => {
-    const { container } = renderTable()
+    const { container } = renderTable({ columnChooser: false })
     const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
     expect(head.className).not.toContain('hover:bg-surface-strong')
   })

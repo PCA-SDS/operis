@@ -36,12 +36,19 @@ const PLATFORM_MODULE_IDS = new Set([
  * The agreed MVP surface: CRM, the dashboard, tasks, employees, AI and the
  * modules those depend on. Everything else ships in the build but stays
  * switched off until someone decides it belongs in the product.
+ *
+ * `chat` joins the plan because internal direct messaging is a baseline
+ * capability of the product rather than an add-on: it needs no configuration,
+ * no external credentials and no seed data, so a tenant provisioned with it off
+ * would simply be missing a way for colleagues to talk to each other. See
+ * `.ai/specs/2026-09-03-chat-direct-messaging.md`.
  */
 const EXPECTED_DEFAULT_ENABLED_MODULE_IDS = [
   'ai_assistant',
   'business_rules',
   'channel_gmail',
   'channel_imap',
+  'chat',
   'communication_channels',
   'currencies',
   'customers',

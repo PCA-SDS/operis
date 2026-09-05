@@ -559,7 +559,7 @@ export function ScheduleActivityDialog({
                 ? t('customers.schedule.subjectPlaceholder', 'Subject...')
                 : t('customers.schedule.titlePlaceholder', 'Activity title...')
             }
-            className="w-full rounded-md border border-border bg-input-bg px-3 py-2.5 text-sm text-foreground outline-none focus:border-foreground"
+            className="w-full rounded-md border border-border bg-input-bg px-3 py-2.5 text-sm text-foreground outline-none"
             autoFocus
           />
         </div>

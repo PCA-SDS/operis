@@ -192,8 +192,8 @@ export const DigitInput = React.forwardRef<HTMLInputElement, DigitInputProps>(
               data-index={index}
               className={cn(
                 'h-16 w-12 sm:w-14 rounded-lg border border-input bg-input-bg text-center text-2xl font-medium shadow-xs transition-colors',
-                'focus:outline-none focus-visible:border-foreground focus-visible:shadow-focus',
-                'aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:border-destructive',
+                'focus:outline-none focus-visible:shadow-focus',
+                'aria-[invalid=true]:border-destructive',
                 'disabled:cursor-not-allowed disabled:bg-bg-disabled disabled:border-border-disabled disabled:shadow-none',
                 'hover:bg-muted/40',
                 cellClassName,

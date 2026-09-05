@@ -1380,7 +1380,10 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
         {renderSidebar()}
       </aside>
 
-      <div className="flex min-h-svh flex-col min-w-0">
+      {/* `data-app-shell-column` is a styling hook only. `globals.css` uses it
+          to pin the shell to the viewport for pages that opted into
+          `<Page fill>`, and does nothing at all for every other page. */}
+      <div data-app-shell-column="" className="flex min-h-svh flex-col min-w-0">
         <header className="sticky top-0 z-sticky h-16 shrink-0 border-b border-border bg-surface-muted px-3 sm:px-4 lg:px-6 flex items-center gap-2 sm:gap-3">
           <div
             data-testid="backend-chrome-ready"
@@ -1389,7 +1392,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           />
           <div className="flex flex-1 items-center gap-2 min-w-0">
             {/* Mobile menu button */}
-            <IconButton variant="ghost" size="sm" className="lg:hidden" aria-label={t('appShell.openMenu')} onClick={() => setMobileOpen(true)}>
+            <IconButton variant="ghost" size="lg" className="lg:hidden" aria-label={t('appShell.openMenu')} onClick={() => setMobileOpen(true)}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
             </IconButton>
             {/* Header breadcrumb: always starts with Dashboard */}

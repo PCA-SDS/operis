@@ -4,7 +4,6 @@ import * as React from 'react'
 import { FormSection } from '@open-mercato/ui/backend/forms/FormSection'
 
 export type DealSectionCardProps = {
-  icon: React.ComponentType<{ className?: string }>
   title: string
   subtitle?: React.ReactNode
   actions?: React.ReactNode
@@ -18,7 +17,6 @@ export type DealSectionCardProps = {
  * group rather than a look of its own.
  */
 export function DealSectionCard({
-  icon,
   title,
   subtitle,
   actions,
@@ -27,7 +25,6 @@ export function DealSectionCard({
 }: DealSectionCardProps) {
   return (
     <FormSection
-      icon={icon}
       title={title}
       description={subtitle}
       actions={actions}

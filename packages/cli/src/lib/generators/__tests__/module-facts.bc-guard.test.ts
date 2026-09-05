@@ -157,7 +157,19 @@ describe('module-facts BC resolve guard (T2)', () => {
     // provenance entries and override targets to every render. The
     // `warranty_claims` module (see above) lands alongside it, so the cap
     // absorbs both additions.
-    expect(Buffer.byteLength(completeJson)).toBeLessThan(4_000_000)
+    //
+    // JSON cap raised a sixth time by the `chat` module: conversations,
+    // participants, messages, reactions, mentions and pins, with their routes,
+    // ACL features, events, commands and i18n. It contributes 22,585 bytes —
+    // the 63rd module, and ordinary linear growth for its size (customers is
+    // 256KB, sales 210KB). The previous cap sat 14KB above the total, so a
+    // module of any real size was going to cross it.
+    //
+    // What says this is growth and not the blow-up this file exists to catch is
+    // the delta assertion below: complete-minus-legacy is 27,657 bytes against
+    // a 1,800,000 cap. The extraction SHAPE is unchanged; there is simply one
+    // more module in the repo.
+    expect(Buffer.byteLength(completeJson)).toBeLessThan(4_100_000)
     expect(Buffer.byteLength(completeJson) - Buffer.byteLength(legacyJson)).toBeLessThan(1_800_000)
     // Markdown cap raised with the source-link contract: entities, events, ACL
     // features, DI tokens, search entities, notifications, UMES hosts and UMES

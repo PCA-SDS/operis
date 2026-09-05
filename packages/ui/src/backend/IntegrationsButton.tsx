@@ -17,7 +17,7 @@ export function IntegrationsButton({ href = '/backend/integrations' }: Integrati
     <IconButton
       asChild
       variant="ghost"
-      size="sm"
+      size="lg"
       title={label}
       aria-label={label}
     >

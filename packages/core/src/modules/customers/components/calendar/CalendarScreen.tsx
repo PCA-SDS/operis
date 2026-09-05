@@ -31,7 +31,6 @@ import { CalendarHeader } from './CalendarHeader'
 import { CalendarScopeBar } from './CalendarScopeBar'
 import { CalendarToolbar } from './CalendarToolbar'
 import { MonthGrid } from './MonthGrid'
-import { ShortcutsDialog } from './ShortcutsDialog'
 import { TimeGrid } from './TimeGrid'
 import { UpcomingCards } from './UpcomingCards'
 import { CalendarSettingsModal } from './CalendarSettingsModal'
@@ -159,7 +158,6 @@ export function CalendarScreen({
     dueDate?: string | null
     dueTime?: string | null
   } | null>(null)
-  const [shortcutsOpen, setShortcutsOpen] = React.useState(false)
   const [settingsOpen, setSettingsOpen] = React.useState(false)
   const [highlightItemId, setHighlightItemId] = React.useState<string | null>(null)
   const [hasLoadedOnce, setHasLoadedOnce] = React.useState(false)
@@ -787,8 +785,10 @@ export function CalendarScreen({
           focusSearch()
           break
         case '?':
+          // The legend lives in Settings now, so `?` opens the one modal that
+          // carries it rather than a second dialog listing the same keys.
           event.preventDefault()
-          setShortcutsOpen((open) => !open)
+          setSettingsOpen((open) => !open)
           break
         case 'Escape':
           setHighlightItemId(null)
@@ -892,7 +892,7 @@ export function CalendarScreen({
         onViewChange={handleViewChange}
         onNewEvent={canManage ? openCreateEditor : undefined}
         onNewTask={tasksEnabled && canEditTasks ? () => openCreateTask() : undefined}
-        onOpenShortcuts={() => setShortcutsOpen(true)}
+        onOpenShortcuts={() => setSettingsOpen(true)}
       />
       <CalendarScopeBar
         tab={tab}
@@ -911,12 +911,12 @@ export function CalendarScreen({
             onAnchorChange={handleAnchorChange}
             onSearchChange={setSearchText}
             onFiltersChange={setFilters}
-            onOpenSettings={() => setSettingsOpen(true)}
           />
         }
         onTabChange={setTab}
         onPresetChange={handlePresetChange}
         onAnchorChange={handleAnchorChange}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
       {/* The next-up strip belongs with the agenda, which is the view that
           exists to answer "what is coming". Day, week and month answer it with
@@ -958,7 +958,6 @@ export function CalendarScreen({
           }}
         />
       ) : null}
-      <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <CalendarSettingsModal
         open={settingsOpen}
         preferences={preferences}

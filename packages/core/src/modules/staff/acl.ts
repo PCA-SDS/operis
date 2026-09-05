@@ -1,6 +1,10 @@
 export const features = [
   { id: 'staff.view', title: 'View employees', module: 'staff' },
   { id: 'staff.manage_team', title: 'Manage employees', module: 'staff' },
+  // Separate from `staff.view` on purpose: anyone who can see the team should
+  // not thereby see dates of birth and private phone numbers.
+  { id: 'staff.hr_profile.view', title: 'View HR profiles', module: 'staff' },
+  { id: 'staff.hr_profile.manage', title: 'Manage HR profiles', module: 'staff', dependsOn: ['staff.hr_profile.view'] },
   { id: 'staff.leave_requests.send', title: 'Send leave requests', module: 'staff' },
   { id: 'staff.leave_requests.manage', title: 'Manage leave requests', module: 'staff' },
   { id: 'staff.my_availability.view', title: 'View my availability', module: 'staff' },

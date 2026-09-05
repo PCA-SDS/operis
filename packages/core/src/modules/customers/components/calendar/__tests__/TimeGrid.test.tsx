@@ -121,9 +121,10 @@ describe('TimeGrid — timed placement', () => {
     })
     const { container } = renderGrid([item])
     const [block] = labelledButtons(container, 'Standup')
-    // 48px per hour: 09:00 is 432px down and one hour is 48px tall.
-    expect(Number.parseFloat(block.style.top)).toBeCloseTo(9 * 48 + 1, 0)
-    expect(Number.parseFloat(block.style.height)).toBeCloseTo(48 - 2, 0)
+    // 48px per hour: 09:00 is 432px down and one hour is 48px tall, less the
+    // 2px the block is inset by on every side.
+    expect(Number.parseFloat(block.style.top)).toBeCloseTo(9 * 48 + 2, 0)
+    expect(Number.parseFloat(block.style.height)).toBeCloseTo(48 - 4, 0)
   })
 
   it('splits a midnight crossing across both day columns', () => {
@@ -146,7 +147,7 @@ describe('TimeGrid — timed placement', () => {
     })
     const { container } = renderGrid([item])
     const [block] = labelledButtons(container, 'Quick sync')
-    expect(Number.parseFloat(block.style.top)).toBeCloseTo((9 * 60 + 5) * (48 / 60) + 1, 0)
+    expect(Number.parseFloat(block.style.top)).toBeCloseTo((9 * 60 + 5) * (48 / 60) + 2, 0)
     expect(Number.parseFloat(block.style.height)).toBeGreaterThanOrEqual(16)
   })
 
@@ -200,6 +201,77 @@ describe('TimeGrid — current-time indicator', () => {
     jest.useFakeTimers().setSystemTime(new Date(2026, 0, 5, 14, 30))
     const { container } = renderGrid()
     expect(container.querySelector('[aria-hidden="true"].z-40')).toBeNull()
+  })
+})
+
+describe('TimeGrid — column dividers', () => {
+  // jsdom applies no stylesheet, so these assert the classes the rows are
+  // authored with, which is where the fault was: the timed strip also holds the
+  // now-indicator overlay, and that overlay — not the seventh day — is its real
+  // `:last-child`, so a `last:border-e-0` rule never reached the day it was
+  // meant for. That left a line down the grid's right edge with nothing above
+  // it in the all-day lane, and because `flex-basis: 0` shares out only what the
+  // borders leave over, the extra border knocked every column a fraction of a
+  // pixel out of step with that lane. Keying the divider off the index instead
+  // makes both rows land on the same boundaries whether the overlay is there or
+  // not, which the two cases below pin.
+  function endBorderCounts(container: HTMLElement) {
+    const carrying = (nodes: Element[]) => nodes.filter((node) => node.classList.contains('border-e')).length
+    const lane = Array.from(container.querySelectorAll('.absolute.inset-0.flex > div'))
+    const timed = Array.from(container.querySelectorAll('[role="gridcell"]'))
+    return {
+      lane: { columns: lane.length, withEndBorder: carrying(lane) },
+      timed: { columns: timed.length, withEndBorder: carrying(timed) },
+    }
+  }
+
+  const dividedButNotOnTheOuterEdge = {
+    lane: { columns: 7, withEndBorder: 6 },
+    timed: { columns: 7, withEndBorder: 6 },
+  }
+
+  it('divides between days and not on the outer edge, with the now indicator on screen', () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 7, 12, 14, 30))
+    const { container } = renderGrid()
+    expect(container.querySelector('[aria-hidden="true"].z-40')).not.toBeNull()
+    expect(endBorderCounts(container)).toEqual(dividedButNotOnTheOuterEdge)
+  })
+
+  it('divides identically with the indicator absent, so the lines never shift with the clock', () => {
+    jest.useFakeTimers().setSystemTime(new Date(2026, 0, 5, 14, 30))
+    const { container } = renderGrid()
+    expect(container.querySelector('[aria-hidden="true"].z-40')).toBeNull()
+    expect(endBorderCounts(container)).toEqual(dividedButNotOnTheOuterEdge)
+  })
+})
+
+describe('TimeGrid — block inset', () => {
+  it('insets an event block equally on all four sides', () => {
+    const start = new Date(2026, 7, 12, 9, 0, 0)
+    const end = new Date(2026, 7, 12, 9, 30, 0)
+    const { container } = renderGrid([buildCalendarItem({ id: 'inset', title: 'Inset check', start, end })])
+    const block = container.querySelector('button[style*="inset-inline-start"]') as HTMLElement
+    expect(block).not.toBeNull()
+
+    // The horizontal gap used to be subtracted from the width without being
+    // added to the start, so the block sat flush against its column's left edge
+    // with the whole gap on the right, while top and bottom got a different
+    // value again — measured at left 0, right 2, top 1, bottom 1.
+    const pxIn = (value: string, sign: '+' | '-') =>
+      Number(new RegExp(`\\${sign} (\\d+(?:\\.\\d+)?)px`).exec(value)?.[1] ?? NaN)
+    const startInset = pxIn(block.style.insetInlineStart, '+')
+    const widthLost = pxIn(block.style.width, '-')
+
+    // 09:00 at 48px an hour, half an hour long, before any inset is applied.
+    const rawTop = 9 * 48
+    const rawHeight = 24
+    const topInset = Number.parseFloat(block.style.top) - rawTop
+    const heightLost = rawHeight - Number.parseFloat(block.style.height)
+
+    expect(startInset).toBeGreaterThan(0)
+    expect(widthLost).toBe(startInset * 2)
+    expect(topInset).toBe(startInset)
+    expect(heightLost).toBe(startInset * 2)
   })
 })
 
@@ -269,7 +341,7 @@ describe('TimeGrid — Task Manager tasks', () => {
     const { container } = renderGrid([taskAt(start, new Date(2026, 7, 12, 10, 0))])
     const block = labelledButtons(container, 'Prepare proposal')[0]
     expect(block).toBeDefined()
-    expect(Number.parseFloat(block.style.top)).toBeCloseTo(9 * 48 + 1, 0)
+    expect(Number.parseFloat(block.style.top)).toBeCloseTo(9 * 48 + 2, 0)
   })
 
   it('offers no resize handle on a task — its record stores no duration', () => {

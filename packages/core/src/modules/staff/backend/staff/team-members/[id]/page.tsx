@@ -6,7 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
-import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { readApiResultOrThrow, apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { extractCustomFieldEntries } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { updateCrud, deleteCrud } from '@open-mercato/ui/backend/utils/crud'
 import { switchTeamMemberSchedule } from '@open-mercato/core/modules/staff/lib/scheduleSwitch'
@@ -32,10 +32,14 @@ import {
   type DictionaryEntryOption,
 } from '@open-mercato/core/modules/staff/components/detail/dictionaries'
 import { JobHistorySection } from '@open-mercato/core/modules/staff/components/detail/JobHistorySection'
+import { HrProfileSection } from '@open-mercato/core/modules/staff/components/detail/HrProfileSection'
+import { AccountSection } from '@open-mercato/core/modules/staff/components/detail/AccountSection'
 import type { DictionarySelectLabels } from '@open-mercato/core/modules/dictionaries/components/DictionaryEntrySelect'
-import { Plus } from 'lucide-react'
+import { MessageSquare, Plus } from 'lucide-react'
 import { TranslationDrawerAction } from '@open-mercato/core/modules/translations/components/TranslationDrawerAction'
 import { SendObjectMessageDialog } from '@open-mercato/ui/backend/messages'
+import { ModuleGate, useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
+import { hasFeature } from '@open-mercato/shared/security/features'
 
 const MARKDOWN_CLASSNAME =
   'text-sm text-muted-foreground break-words [&>*]:mb-2 [&>*:last-child]:mb-0 [&_ul]:ml-4 [&_ul]:list-disc [&_ol]:ml-4 [&_ol]:list-decimal [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:text-xs'
@@ -80,7 +84,56 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
   const [error, setError] = React.useState<string | null>(null)
   const [isNotFound, setIsNotFound] = React.useState(false)
   const [availabilityRuleSetId, setAvailabilityRuleSetId] = React.useState<string | null>(null)
-  const [activePanel, setActivePanel] = React.useState<'details' | 'availability' | 'jobHistory'>('details')
+  const [activePanel, setActivePanel] = React.useState<
+    'details' | 'availability' | 'jobHistory' | 'hrProfile' | 'account'
+  >('details')
+
+  /**
+   * Which of the gated tabs this user may see.
+   *
+   * Asked of the server rather than read from a client-side feature list: the
+   * browser payload carries concrete ids, and the grant that matters here is
+   * usually the `staff.*` wildcard an admin holds. `/api/auth/feature-check` is
+   * what the rest of this module already uses (see the timesheets page) and it
+   * expands wildcards server-side, so the answer cannot drift from the one the
+   * API routes themselves enforce.
+   *
+   * The account tab answers to auth's own features, not staff's — being able to
+   * see the team is not the same as being able to see everyone's login.
+   */
+  const GATED_FEATURES = React.useMemo(() => ([
+    'staff.hr_profile.view',
+    'staff.hr_profile.manage',
+    'auth.users.list',
+    'auth.users.create',
+    'auth.users.edit',
+  ]), [])
+  const [grantedFeatures, setGrantedFeatures] = React.useState<Set<string>>(() => new Set())
+
+  React.useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        const res = await apiCall<{ ok: boolean; granted: string[] }>('/api/auth/feature-check', {
+          signal: controller.signal,
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ features: GATED_FEATURES }),
+        })
+        if (!cancelled) setGrantedFeatures(new Set(res.result?.granted ?? []))
+      } catch {
+        // Default closed: no gated tab renders.
+      }
+    })()
+    return () => { cancelled = true; controller.abort() }
+  }, [GATED_FEATURES])
+
+  const canViewHrProfile = grantedFeatures.has('staff.hr_profile.view')
+  const canManageHrProfile = grantedFeatures.has('staff.hr_profile.manage')
+  const canListUsers = grantedFeatures.has('auth.users.list')
+  const canCreateUsers = grantedFeatures.has('auth.users.create')
+  const canEditUsers = grantedFeatures.has('auth.users.edit')
   const [activeTab, setActiveTab] = React.useState<'notes' | 'activities' | 'addresses'>('notes')
   const [sectionAction, setSectionAction] = React.useState<SectionAction | null>(null)
   const [activityDictionaryId, setActivityDictionaryId] = React.useState<string | null>(null)
@@ -325,7 +378,15 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
     { id: 'details' as const, label: t('staff.teamMembers.detail.tabs.details', 'Details') },
     { id: 'availability' as const, label: t('staff.teamMembers.detail.tabs.availability', 'Availability') },
     { id: 'jobHistory' as const, label: t('staff.teamMembers.detail.tabs.jobHistory', 'Job history') },
-  ]), [t])
+    // Only offered to someone who may actually read HR data — an empty tab
+    // would otherwise advertise a record they cannot see.
+    ...(canViewHrProfile
+      ? [{ id: 'hrProfile' as const, label: t('staff.teamMembers.detail.tabs.hrProfile', 'HR profile') }]
+      : []),
+    ...(canListUsers
+      ? [{ id: 'account' as const, label: t('staff.teamMembers.detail.tabs.account', 'Account') }]
+      : []),
+  ]), [t, canViewHrProfile, canListUsers])
 
   const tabs = React.useMemo(() => ([
     { id: 'notes' as const, label: t('staff.teamMembers.detail.tabs.notes', 'Notes') },
@@ -344,6 +405,14 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
     ? memberRecord?.roleNames
     : [t('staff.teamMembers.detail.roles.unassigned', 'No roles assigned')]
   const userEmail = memberRecord?.user?.email ?? null
+  // The linked login, if this member has one. Chat is between accounts, so a
+  // member record with no user has nobody to message.
+  const linkedUserId = memberRecord?.user?.id ?? null
+  // `ModuleGate` answers "is chat reachable for this tenant"; the route behind
+  // this button additionally requires `chat.send`, so both are checked or a
+  // read-only member gets a button that always lands on Access Denied.
+  const { payload: backendChrome } = useBackendChrome()
+  const canStartChat = hasFeature(backendChrome?.grantedFeatures ?? [], 'chat.send')
 
   // Publish page-load record context to the AppShell-owned `backend:record:current`
   // mount so the enterprise record_locks widget resolves `staff.teamMember` + id
@@ -406,6 +475,21 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {/* Chat's one integration point into staff. `ModuleGate` keeps the
+                  link out of the DOM for a tenant whose entitlement withholds
+                  chat, and `/backend/chat/with/<userId>` resolves the canonical
+                  direct conversation through chat's own API — this page owns no
+                  conversation logic of its own. */}
+              {linkedUserId && canStartChat ? (
+                <ModuleGate module="chat">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={`/backend/chat/with/${linkedUserId}`}>
+                      <MessageSquare className="size-4" aria-hidden="true" />
+                      {t('chat.staff.messageAction', 'Message')}
+                    </Link>
+                  </Button>
+                </ModuleGate>
+              ) : null}
               {memberId ? (
                 <SendObjectMessageDialog
                   object={{
@@ -436,7 +520,9 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
 
           <Tabs
             value={activePanel}
-            onValueChange={(value) => setActivePanel(value as 'details' | 'availability' | 'jobHistory')}
+            onValueChange={(value) =>
+              setActivePanel(value as 'details' | 'availability' | 'jobHistory' | 'hrProfile' | 'account')
+            }
             variant="underline"
           >
             <TabsList
@@ -630,6 +716,18 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
                 buildMemberScheduleItems({ availabilityRules, translate: translateLabel })
               )}
             />
+          ) : activePanel === 'account' ? (
+            <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+              <AccountSection
+                userId={initialValues?.userId ?? null}
+                canCreateUsers={canCreateUsers}
+                canEditUsers={canEditUsers}
+              />
+            </div>
+          ) : activePanel === 'hrProfile' ? (
+            <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+              <HrProfileSection memberId={memberId ?? null} canManage={canManageHrProfile} />
+            </div>
           ) : (
             <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
               <JobHistorySection memberId={memberId ?? null} />

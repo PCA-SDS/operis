@@ -34,7 +34,6 @@ export function DealCreateSidebar({
   return (
     <div className="space-y-4">
       <DealSectionCard
-        icon={Sparkles}
         title={tr('customers.deals.create.sections.custom.title', 'Custom attributes')}
         subtitle={tr('customers.deals.create.sections.custom.subtitle', '{count} fields defined for this tenant', {
           count: customCount,

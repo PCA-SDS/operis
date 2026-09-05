@@ -27,6 +27,7 @@ import { buildAkeneoFieldsetCode, buildDefaultAkeneoMapping, buildProductFieldMa
 import { inferAkeneoProductMapping } from '../../../lib/inference'
 import type { AkeneoDiscoveryResponse } from '../../../data/validators'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
+import { TableEmptyRow } from '@open-mercato/ui/backend/TableEmptyRow'
 
 type MappingRecordResponse = {
   items?: Array<{
@@ -1966,11 +1967,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                           </TableCell>
                         </TableRow>
                       )) : (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center text-muted-foreground">
-                            {t('sync_akeneo.mapping.emptyPrices', 'No price mappings configured yet.')}
-                          </TableCell>
-                        </TableRow>
+                        <TableEmptyRow colSpan={5} title={t('sync_akeneo.mapping.emptyPrices', 'No price mappings configured yet.')} />
                       )}
                     </TableBody>
                   </Table>
@@ -2064,11 +2061,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                           </TableCell>
                         </TableRow>
                       )) : (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-center text-muted-foreground">
-                            {t('sync_akeneo.mapping.emptyMedia', 'No media mappings configured yet.')}
-                          </TableCell>
-                        </TableRow>
+                        <TableEmptyRow colSpan={4} title={t('sync_akeneo.mapping.emptyMedia', 'No media mappings configured yet.')} />
                       )}
                     </TableBody>
                   </Table>
@@ -2218,11 +2211,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                           </TableCell>
                         </TableRow>
                       )) : (
-                        <TableRow>
-                          <TableCell colSpan={7} className="text-center text-muted-foreground">
-                            {t('sync_akeneo.mapping.emptyFieldsets', 'No family fieldset mappings discovered yet. Save credentials and use Refresh discovery to generate them.')}
-                          </TableCell>
-                        </TableRow>
+                        <TableEmptyRow colSpan={7} title={t('sync_akeneo.mapping.emptyFieldsets', 'No family fieldset mappings discovered yet. Save credentials and use Refresh discovery to generate them.')} />
                       )}
                     </TableBody>
                   </Table>
@@ -2564,11 +2553,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
                       </TableRow>
                     )
                   }) : (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground">
-                        {t('sync_akeneo.customFields.empty', 'No Akeneo custom fields are mapped yet. Use the suggestions below or add a row manually.')}
-                      </TableCell>
-                    </TableRow>
+                    <TableEmptyRow colSpan={7} title={t('sync_akeneo.customFields.empty', 'No Akeneo custom fields are mapped yet. Use the suggestions below or add a row manually.')} />
                   )}
                 </TableBody>
               </Table>

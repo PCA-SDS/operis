@@ -69,6 +69,19 @@ export type EmptyStateProps = VariantProps<typeof emptyStateVariants> & {
   onAction?: () => void
   /** @deprecated Kept for legacy backend EmptyState consumers. Forwarded to the auto-generated action button. */
   actionLabelClassName?: string
+  /**
+   * Announce the state to assistive tech when it appears. On by default,
+   * because the usual case — a list or table that resolved to nothing — is a
+   * result the user is waiting on, and a sighted user sees it the moment it
+   * lands. Set `false` for decorative or always-present placeholders, where a
+   * live region would announce something that never actually changed.
+   */
+  live?: boolean
+  /**
+   * Raises the announcement from polite to assertive. For a failure the user
+   * has to act on, not for an ordinary empty list.
+   */
+  tone?: 'default' | 'error'
 }
 
 export function EmptyState({
@@ -85,13 +98,21 @@ export function EmptyState({
   actionLabel,
   onAction,
   actionLabelClassName,
+  live = true,
+  tone = 'default',
 }: EmptyStateProps) {
   const legacyAction = action ?? (actionLabel ? { label: actionLabel, onClick: onAction } : undefined)
   const renderLegacyButton = !actions && legacyAction
   const iconBoxSize = size === 'sm' ? 'size-10' : size === 'lg' ? 'size-16' : 'size-12'
 
   return (
-    <div className={cn(emptyStateVariants({ size, variant }), className)} data-slot="empty-state">
+    <div
+      // `status` is polite and `alert` is assertive; both are live regions, so
+      // the role IS the announcement — there is no separate `aria-live` here.
+      role={live ? (tone === 'error' ? 'alert' : 'status') : undefined}
+      className={cn(emptyStateVariants({ size, variant }), className)}
+      data-slot="empty-state"
+    >
       {illustration ? (
         <div className="flex items-center justify-center" aria-hidden="true">
           {illustration}
