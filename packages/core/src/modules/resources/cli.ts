@@ -2,7 +2,7 @@ import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { seedResourcesActivityTypes, seedResourcesAddressTypes, seedResourcesCapacityUnits, seedResourcesResourceExamples, type ResourcesSeedScope } from './lib/seeds'
-import { ResourcesResource, ResourcesResourceArea } from './data/entities'
+import { ResourcesResource, ResourcesResourceArea, ResourcesResourceAreaType } from './data/entities'
 import { CustomFieldValue } from '../entities/data/entities'
 import { E } from '#generated/entities.ids.generated'
 
@@ -131,16 +131,37 @@ const seedExamplesCommand: ModuleCli = {
   },
 }
 
+async function getOrCreateAreaType(
+  em: EntityManager,
+  tenantId: string,
+  organizationId: string,
+  name: string,
+  areaTypeName: string,
+): Promise<ResourcesResourceAreaType> {
+  let existing = await em.findOne(ResourcesResourceAreaType, { tenantId, organizationId, name: areaTypeName, deletedAt: null })
+  if (existing) return existing
+  const created = em.create(ResourcesResourceAreaType, {
+    tenantId,
+    organizationId,
+    name: areaTypeName,
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  })
+  em.persist(created)
+  return created
+}
+
 const migrateAreasCommand: ModuleCli = {
   command: 'migrate-areas',
-  async run(rest) {
+  async run(_rest) {
     const container = await createRequestContainer()
     try {
       const em = container.resolve<EntityManager>('em')
       console.log('🚀 Starting Resource Areas migration...')
       await em.transactional(async (tem) => {
         const entityId = E.resources.resources_resource
-        
+
         // Fetch all custom field values for room_zone and room_floor
         const zoneValues = await tem.find(CustomFieldValue, {
           entityId,
@@ -160,29 +181,41 @@ const migrateAreasCommand: ModuleCli = {
 
         console.log(`Found ${zoneValues.length} zone fields and ${floorValues.length} floor fields.`)
 
-        const zoneMap = new Map<string, ResourcesResourceArea>() // key: orgId:tenantId:zoneName
-        const floorMap = new Map<string, ResourcesResourceArea>() // key: orgId:tenantId:zoneName:floorName
+        // Collect unique orgs to seed area types per org
+        const orgKeys = new Set<string>()
+        for (const v of [...zoneValues, ...floorValues]) {
+          orgKeys.add(`${v.organizationId}:${v.tenantId}`)
+        }
 
-        // Process zones first
-        for (const zv of zoneValues) {
-          const zoneName = zv.valueText?.trim()
-          if (!zoneName) continue
-          const key = `${zv.organizationId}:${zv.tenantId}:${zoneName}`
-          
-          if (!zoneMap.has(key)) {
-            // Check if it exists in DB
+        const zoneMap = new Map<string, ResourcesResourceArea>()
+        const floorMap = new Map<string, ResourcesResourceArea>()
+
+        // Seed Zone and Floor area types for each org, then process areas
+        for (const orgKey of orgKeys) {
+          const [organizationId, tenantId] = orgKey.split(':')
+          const zoneType = await getOrCreateAreaType(tem, tenantId, organizationId, 'Zone', 'Zone')
+          const floorType = await getOrCreateAreaType(tem, tenantId, organizationId, 'Floor', 'Floor')
+
+          await tem.flush()
+
+          // Process zones
+          for (const zv of zoneValues) {
+            const zoneName = zv.valueText?.trim()
+            if (!zoneName) continue
+            const key = `${zv.organizationId}:${zv.tenantId}:${zoneName}`
+            if (zoneMap.has(key)) continue
+
             let area = await tem.findOne(ResourcesResourceArea, {
               organizationId: zv.organizationId,
               tenantId: zv.tenantId,
               name: zoneName,
-              areaType: 'zone',
             })
             if (!area) {
               area = tem.create(ResourcesResourceArea, {
                 organizationId: zv.organizationId || '',
                 tenantId: zv.tenantId || '',
                 name: zoneName,
-                areaType: 'zone',
+                areaType: zoneType,
                 isActive: true,
                 sortOrder: 0,
                 createdAt: new Date(),
@@ -192,36 +225,32 @@ const migrateAreasCommand: ModuleCli = {
             }
             zoneMap.set(key, area)
           }
-        }
 
-        await tem.flush() // Flush to get IDs for zones
+          await tem.flush()
 
-        // Process floors
-        for (const fv of floorValues) {
-          const floorName = fv.valueText?.trim()
-          if (!floorName) continue
-          
-          // Find if this record also has a zone
-          const zv = zoneValues.find(z => z.recordId === fv.recordId)
-          const zoneName = zv?.valueText?.trim() || ''
-          const zoneKey = `${fv.organizationId}:${fv.tenantId}:${zoneName}`
-          const parentZone = zoneMap.get(zoneKey)
-          
-          const key = `${fv.organizationId}:${fv.tenantId}:${zoneName}:${floorName}`
-          if (!floorMap.has(key)) {
+          // Process floors
+          for (const fv of floorValues) {
+            const floorName = fv.valueText?.trim()
+            if (!floorName) continue
+            const key = `${fv.organizationId}:${fv.tenantId}:${floorName}`
+            if (floorMap.has(key)) continue
+
+            const zv = zoneValues.find(z => z.recordId === fv.recordId)
+            const zoneName = zv?.valueText?.trim() || ''
+            const zoneKey = `${fv.organizationId}:${fv.tenantId}:${zoneName}`
+            const parentZone = zoneMap.get(zoneKey)
+
             let area = await tem.findOne(ResourcesResourceArea, {
               organizationId: fv.organizationId,
               tenantId: fv.tenantId,
               name: floorName,
-              areaType: 'floor',
-              parentAreaId: parentZone?.id ?? null,
             })
             if (!area) {
               area = tem.create(ResourcesResourceArea, {
                 organizationId: fv.organizationId || '',
                 tenantId: fv.tenantId || '',
                 name: floorName,
-                areaType: 'floor',
+                areaType: floorType,
                 parentAreaId: parentZone?.id ?? null,
                 isActive: true,
                 sortOrder: 0,
@@ -232,24 +261,24 @@ const migrateAreasCommand: ModuleCli = {
             }
             floorMap.set(key, area)
           }
-        }
 
-        await tem.flush() // Flush floors
+          await tem.flush()
+        }
 
         // Now link resources
         let linkedCount = 0
         const resourceIds = [...new Set([...zoneValues.map(z => z.recordId), ...floorValues.map(f => f.recordId)])]
-        
+
         for (const resId of resourceIds) {
           const resource = await tem.findOne(ResourcesResource, { id: resId })
           if (!resource) continue
-          
+
           const floorVal = floorValues.find(f => f.recordId === resId)?.valueText?.trim()
           const zoneVal = zoneValues.find(z => z.recordId === resId)?.valueText?.trim()
-          
+
           let targetArea: ResourcesResourceArea | undefined
           if (floorVal) {
-            targetArea = floorMap.get(`${resource.organizationId}:${resource.tenantId}:${zoneVal || ''}:${floorVal}`)
+            targetArea = floorMap.get(`${resource.organizationId}:${resource.tenantId}:${floorVal}`)
           } else if (zoneVal) {
             targetArea = zoneMap.get(`${resource.organizationId}:${resource.tenantId}:${zoneVal}`)
           }
@@ -259,9 +288,6 @@ const migrateAreasCommand: ModuleCli = {
             linkedCount++
           }
         }
-        
-        // Optional: delete old custom field values
-        // await tem.nativeDelete(CustomFieldValue, { entityId, fieldKey: { $in: ['room_zone', 'room_floor'] } })
 
         console.log(`✅ Successfully linked ${linkedCount} resources to areas.`)
       })
