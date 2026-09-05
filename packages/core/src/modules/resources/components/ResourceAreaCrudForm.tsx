@@ -13,17 +13,29 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 const logger = createLogger('resources').child({ component: 'ResourceAreaCrudForm' })
 const PARENT_AREA_PAGE_SIZE = 100
 const PARENT_AREA_SCROLL_THRESHOLD_PX = 48
+const AREA_TYPE_PAGE_SIZE = 100
 
 export type ResourceAreaFormValues = {
   id?: string
   name: string
   description?: string
-  areaType?: string
+  areaTypeId?: string | null
   parentAreaId?: string | null
   sortOrder?: number
   appearance?: { icon?: string | null; color?: string | null }
   isActive?: boolean
   updatedAt?: string | null
+}
+
+type AreaTypeOption = {
+  id: string
+  name: string
+  appearanceIcon?: string | null
+  appearanceColor?: string | null
+}
+
+type AreaTypesResponse = {
+  items?: AreaTypeOption[]
 }
 
 type ResourceAreaCrudFormProps = {
@@ -44,6 +56,18 @@ type ResourceAreaOption = {
 type ResourceAreasResponse = {
   items?: ResourceAreaOption[]
   totalPages?: number
+}
+
+async function fetchAreaTypes(): Promise<AreaTypeOption[]> {
+  try {
+    const params = new URLSearchParams({ page: '1', pageSize: String(AREA_TYPE_PAGE_SIZE) })
+    const payload = await readApiResultOrThrow<AreaTypesResponse>(
+      `/api/resources/area-types?${params.toString()}`,
+    )
+    return Array.isArray(payload.items) ? payload.items : []
+  } catch {
+    return []
+  }
 }
 
 function mergeAreaOptions(
@@ -82,7 +106,7 @@ export const buildResourceAreaPayload = (
     ...(options.id ? { id: options.id } : {}),
     name,
     description,
-    areaType: values.areaType || 'other',
+    areaTypeId: values.areaTypeId || null,
     parentAreaId: values.parentAreaId || null,
     appearanceIcon: appearance.icon ?? null,
     appearanceColor: appearance.color ?? null,
@@ -100,6 +124,8 @@ export function ResourceAreaCrudForm({
 }: ResourceAreaCrudFormProps) {
   const t = useT()
   const scopeVersion = useOrganizationScopeVersion()
+  const [areaTypes, setAreaTypes] = React.useState<AreaTypeOption[]>([])
+  const [areaTypesLoading, setAreaTypesLoading] = React.useState(true)
   const [areas, setAreas] = React.useState<ResourceAreaOption[]>([])
   const [areasLoading, setAreasLoading] = React.useState(true)
   const [areasLoadingMore, setAreasLoadingMore] = React.useState(false)
@@ -132,6 +158,23 @@ export function ResourceAreaCrudForm({
     )
     return Array.isArray(payload.items) ? payload.items : []
   }, [t])
+
+  React.useEffect(() => {
+    let cancelled = false
+    async function loadAreaTypes() {
+      try {
+        const types = await fetchAreaTypes()
+        if (cancelled) return
+        setAreaTypes(types)
+      } catch {
+        // non-critical — leave empty
+      } finally {
+        if (!cancelled) setAreaTypesLoading(false)
+      }
+    }
+    void loadAreaTypes()
+    return () => { cancelled = true }
+  }, [])
 
   React.useEffect(() => {
     let cancelled = false
@@ -210,29 +253,32 @@ export function ResourceAreaCrudForm({
   const fields = React.useMemo<CrudField[]>(() => [
     { id: 'name', label: t('resources.resourceAreas.form.name', 'Name'), type: 'text', required: true },
     { id: 'description', label: t('resources.resourceAreas.form.description', 'Description'), type: 'richtext', editor: 'uiw' },
-    { 
-      id: 'areaType',
+    {
+      id: 'areaTypeId',
       label: t('resources.resourceAreas.form.areaType', 'Area Type'),
       type: 'custom',
       component: ({ value, setValue, disabled }) => {
         React.useEffect(() => {
-          if (initialValues?.areaType && value !== initialValues.areaType) {
-            setValue(initialValues.areaType)
+          if (initialValues?.areaTypeId && value !== initialValues.areaTypeId) {
+            setValue(initialValues.areaTypeId)
           }
-        }, [initialValues?.areaType, value, setValue])
-        const val = typeof value === 'string' && value ? value : 'other'
-        const selectKey = `areaType-${val}`
+        }, [initialValues?.areaTypeId, value, setValue])
+        const val = typeof value === 'string' && value ? value : ''
+        const selectKey = `${areaTypesLoading ? 'loading' : 'loaded'}-${val}`
         return (
-          <Select key={selectKey} disabled={disabled} value={val} onValueChange={setValue}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Select key={selectKey} disabled={disabled || areaTypesLoading} value={val} onValueChange={setValue}>
+            <SelectTrigger><SelectValue placeholder={t('resources.resourceAreas.form.areaTypePlaceholder', 'Select an area type...')} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="campus">{t('resources.resourceAreas.types.campus', 'Campus')}</SelectItem>
-              <SelectItem value="building">{t('resources.resourceAreas.types.building', 'Building')}</SelectItem>
-              <SelectItem value="floor">{t('resources.resourceAreas.types.floor', 'Floor')}</SelectItem>
-              <SelectItem value="zone">{t('resources.resourceAreas.types.zone', 'Zone')}</SelectItem>
-              <SelectItem value="room">{t('resources.resourceAreas.types.room', 'Room')}</SelectItem>
-              <SelectItem value="section">{t('resources.resourceAreas.types.section', 'Section')}</SelectItem>
-              <SelectItem value="other">{t('resources.resourceAreas.types.other', 'Other')}</SelectItem>
+              {areaTypesLoading ? (
+                <SelectItem value="__loading" disabled>{t('resources.resourceAreas.form.loading', 'Loading…')}</SelectItem>
+              ) : areaTypes.map(at => (
+                <SelectItem key={at.id} value={at.id}>
+                  <span className="flex items-center gap-1.5">
+                    {at.appearanceIcon && <span>{at.appearanceIcon}</span>}
+                    <span>{at.name}</span>
+                  </span>
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         )
@@ -290,10 +336,10 @@ export function ResourceAreaCrudForm({
         )
       },
     },
-  ], [appearanceLabels, areas, areasLoading, areasLoadingMore, handleAreasViewportScroll, initialValues.areaType, initialValues.id, initialValues.parentAreaId, t])
+  ], [appearanceLabels, areaTypes, areaTypesLoading, areas, areasLoading, areasLoadingMore, handleAreasViewportScroll, initialValues.areaTypeId, initialValues.id, initialValues.parentAreaId, t])
 
   const groups = React.useMemo<CrudFormGroup[]>(() => [
-    { id: 'details', fields: ['name', 'description', 'areaType', 'parentAreaId', 'isActive'] },
+    { id: 'details', fields: ['name', 'description', 'areaTypeId', 'parentAreaId', 'isActive'] },
     { id: 'appearance', fields: ['appearance'], column: 2 },
   ], [])
 

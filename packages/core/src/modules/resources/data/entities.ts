@@ -1,6 +1,43 @@
 import { Collection } from '@mikro-orm/core'
 import { Entity, Index, ManyToOne, OneToMany, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 
+@Entity({ tableName: 'resources_resource_area_types' })
+@Index({ name: 'resources_resource_area_types_tenant_org_idx', properties: ['tenantId', 'organizationId'] })
+export class ResourcesResourceAreaType {
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ type: 'text' })
+  name!: string
+
+  @Property({ type: 'text', nullable: true })
+  description?: string | null
+
+  @Property({ name: 'appearance_icon', type: 'text', nullable: true })
+  appearanceIcon?: string | null
+
+  @Property({ name: 'appearance_color', type: 'text', nullable: true })
+  appearanceColor?: string | null
+
+  @Property({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean = true
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
+
 @Entity({ tableName: 'resources_resource_types' })
 @Index({ name: 'resources_resource_types_tenant_org_idx', properties: ['tenantId', 'organizationId'] })
 export class ResourcesResourceType {
@@ -268,8 +305,8 @@ export class ResourcesResourceArea {
   @Property({ type: 'text', nullable: true })
   description?: string | null
 
-  @Property({ name: 'area_type', type: 'text', default: 'other' })
-  areaType: string = 'other'
+  @ManyToOne(() => ResourcesResourceAreaType, { fieldName: 'area_type_id', nullable: true })
+  areaType?: ResourcesResourceAreaType | null
 
   @Property({ name: 'parent_area_id', type: 'uuid', nullable: true })
   parentAreaId?: string | null

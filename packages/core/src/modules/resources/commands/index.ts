@@ -1,5 +1,6 @@
 import './resources'
 import './resource-types'
+import './area-types'
 import './tags'
 import './tag-assignments'
 import './comments'

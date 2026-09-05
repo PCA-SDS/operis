@@ -1,6 +1,9 @@
 import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import * as pg from 'pg'
+import * as fs from 'fs'
+import * as path from 'path'
+import { fileURLToPath } from 'url'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { parseTpsMigrateFlags } from './lib'
@@ -10,20 +13,12 @@ type Client = InstanceType<typeof pg.Client>
 
 const logger = createLogger('migrate_tps')
 
-// ---------------------------------------------------------------------------
-// TPS location key → Operis organization name mapping
-// ---------------------------------------------------------------------------
-
 const LOCATION_MAPPING: Array<{ tpsKey: string; orgName: string; slug: string }> = [
-  { tpsKey: 'benThanh',     orgName: 'Bến Thành',     slug: 'ben-thanh' },
-  { tpsKey: 'thaoDien',     orgName: 'Thảo Điền',     slug: 'thao-dien' },
-  { tpsKey: 'phuMyHung',    orgName: 'Phú Mỹ Hưng',   slug: 'phu-my-hung' },
-  { tpsKey: 'hoanKiem',     orgName: 'Hoàn Kiếm',     slug: 'hoan-kiem' },
+  { tpsKey: 'benThanh',   orgName: 'Bến Thành',   slug: 'ben-thanh' },
+  { tpsKey: 'thaoDien',   orgName: 'Thảo Điền',   slug: 'thao-dien' },
+  { tpsKey: 'phuMyHung',  orgName: 'Phú Mỹ Hưng', slug: 'phu-my-hung' },
+  { tpsKey: 'hoanKiem',   orgName: 'Hoàn Kiếm',   slug: 'hoan-kiem' },
 ]
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 async function connectTps(url: string): Promise<Client> {
   const isLocalhost = url.includes('localhost') || url.includes('127.0.0.1')
@@ -35,9 +30,21 @@ async function connectTps(url: string): Promise<Client> {
   return client
 }
 
-// ---------------------------------------------------------------------------
-// Main command
-// ---------------------------------------------------------------------------
+function getDataDir(): string {
+  return process.env.TPS_DATA_DIR || path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'data')
+}
+
+function loadLocationsFromCsv(): string[] {
+  const filePath = path.join(getDataDir(), 'tps_floors.csv')
+  const content = fs.readFileSync(filePath, 'utf-8')
+  const lines = content.trim().split('\n')
+  const locations = new Set<string>()
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(',')
+    if (parts[1]) locations.add(parts[1].trim().replace(/^"|"$/g, ''))
+  }
+  return Array.from(locations).sort()
+}
 
 export const migrateTpsBranchesCommand: ModuleCli = {
   command: 'branches',
@@ -50,35 +57,41 @@ export const migrateTpsBranchesCommand: ModuleCli = {
     }
 
     const tpsDbUrl = process.env.TPS_DATABASE_URL
-    if (!tpsDbUrl) {
-      logger.error('Missing TPS_DATABASE_URL environment variable')
-      throw new Error('TPS_DATABASE_URL not set')
-    }
-
     logger.info(`Starting TPS Branches migration for Tenant: ${tenantId}`)
 
     const container = await createRequestContainer()
     let tpsClient: Client | null = null
+    let tpsLocations: { location: string }[]
 
     try {
-      tpsClient = await connectTps(tpsDbUrl)
-
-      // Verify locations exist in TPS
-      const locations = await tpsClient.query(
-        'SELECT DISTINCT location FROM floors WHERE deleted_at IS NULL ORDER BY location',
-      )
-      logger.info(`Found ${locations.rowCount} TPS locations: ${locations.rows.map((r: { location: string }) => r.location).join(', ')}`)
+      if (tpsDbUrl) {
+        try {
+          tpsClient = await connectTps(tpsDbUrl)
+          const result = await tpsClient.query(
+            'SELECT DISTINCT location FROM floors WHERE deleted_at IS NULL ORDER BY location',
+          )
+          tpsLocations = result.rows
+          logger.info(`Found ${result.rowCount} TPS locations: ${result.rows.map((r: { location: string }) => r.location).join(', ')}`)
+        } catch (err) {
+          logger.warn(`Failed to connect to TPS database: ${err}. Using CSV fallback...`)
+          if (tpsClient) { await tpsClient.end(); tpsClient = null }
+          tpsLocations = loadLocationsFromCsv().map(l => ({ location: l }))
+          logger.info(`Loaded ${tpsLocations.length} locations from CSV: ${tpsLocations.map(r => r.location).join(', ')}`)
+        }
+      } else {
+        logger.info('TPS_DATABASE_URL not set. Using CSV fallback...')
+        tpsLocations = loadLocationsFromCsv().map(l => ({ location: l }))
+        logger.info(`Loaded ${tpsLocations.length} locations from CSV: ${tpsLocations.map(r => r.location).join(', ')}`)
+      }
 
       const baseEm = container.resolve<EntityManager>('em').fork()
 
-      // Verify parent organization exists
       const parentOrg = await baseEm.findOne(Organization, { id: organizationId })
       if (!parentOrg) {
         throw new Error(`Parent organization ${organizationId} not found`)
       }
       logger.info(`Parent org: "${parentOrg.name}" (${organizationId})`)
 
-      // Check existing child orgs for this tenant
       const existingOrgs = await baseEm.find(Organization, {
         tenant: tenantId as unknown as any,
         deletedAt: null,
@@ -93,9 +106,9 @@ export const migrateTpsBranchesCommand: ModuleCli = {
         let skipped = 0
 
         for (const mapping of LOCATION_MAPPING) {
-          const hasFloors = locations.rows.some((r: { location: string }) => r.location === mapping.tpsKey)
+          const hasFloors = tpsLocations.some(r => r.location === mapping.tpsKey)
           if (!hasFloors) {
-            logger.info(`  ⏭ Skipping "${mapping.orgName}" — no floors in TPS`)
+            logger.info(`  Skipping "${mapping.orgName}" — no floors in TPS`)
             skipped++
             continue
           }
@@ -104,19 +117,23 @@ export const migrateTpsBranchesCommand: ModuleCli = {
 
           if (existing) {
             if (!replace) {
-              logger.info(`  ⏭ "${mapping.orgName}" already exists (${existing.id}) — skipping (use --replace to update)`)
+              logger.info(`  "${mapping.orgName}" already exists (${existing.id}) — skipping (use --replace to update)`)
               continue
             }
-            // Soft-delete existing so we can recreate
-            existing.deletedAt = now
-            existing.isActive = false
+            // Update existing org in-place
+            existing.name = mapping.orgName
+            existing.slug = mapping.slug
+            existing.parentId = organizationId
+            existing.rootId = organizationId
+            existing.depth = 1
+            existing.isActive = true
+            existing.updatedAt = now
             em.persist(existing)
-            logger.info(`  🔄 "${mapping.orgName}" — soft-deleted existing (${existing.id})`)
+            logger.info(`  "${mapping.orgName}" — updated existing (${existing.id})`)
+            continue
           }
 
-          // Create new child organization under parent
           const newOrg = em.create(Organization, {
-            id: existing?.id ?? undefined, // reuse id if replace
             tenant: tenantId as unknown as any,
             name: mapping.orgName,
             slug: mapping.slug,
@@ -124,7 +141,7 @@ export const migrateTpsBranchesCommand: ModuleCli = {
             logoPreserveAspectRatio: false,
             parentId: organizationId,
             rootId: organizationId,
-            treePath: `${organizationId}/${existing?.id ?? ''}`,
+            treePath: `${organizationId}`,
             depth: 1,
             ancestorIds: [organizationId],
             childIds: [],
@@ -133,13 +150,12 @@ export const migrateTpsBranchesCommand: ModuleCli = {
             updatedAt: now,
           })
           em.persist(newOrg)
-          logger.info(`  ✓ "${mapping.orgName}" → Organization (${newOrg.id})`)
+          logger.info(`  "${mapping.orgName}" -> Organization (${newOrg.id})`)
           created++
         }
 
         await em.flush()
 
-        // Rebuild full tenant hierarchy to fix tree_path / descendant_ids
         logger.info('Rebuilding tenant organization hierarchy...')
         const allOrgs = await em.find(Organization, {
           tenant: tenantId as unknown as any,
@@ -148,7 +164,7 @@ export const migrateTpsBranchesCommand: ModuleCli = {
         await rebuildTenantOrgHierarchy(em, tenantId, allOrgs, organizationId)
         await em.flush()
 
-        logger.info(`✅ Branches migration done. Created/updated ${created} organizations, skipped ${skipped}.`)
+        logger.info(`Created/updated ${created} organizations, skipped ${skipped}.`)
       })
     } catch (err) {
       logger.error('TPS Branches migration failed', { err })
@@ -162,10 +178,6 @@ export const migrateTpsBranchesCommand: ModuleCli = {
     }
   },
 }
-
-// ---------------------------------------------------------------------------
-// Rebuild tenant org hierarchy (simplified rebuildTenantHierarchyForTenant)
-// ---------------------------------------------------------------------------
 
 function normalizeUuid(value: unknown): string | null {
   if (!value) return null
@@ -199,7 +211,6 @@ async function rebuildTenantOrgHierarchy(
     })
   }
 
-  // Establish child relationships
   for (const [, node] of nodes) {
     if (!node.parentId || node.parentId === node.id) {
       node.parentId = null
@@ -218,7 +229,6 @@ async function rebuildTenantOrgHierarchy(
 
   function walk(nodeId: string, ancestors: string[]): string[] {
     if (ancestors.includes(nodeId)) {
-      // Cycle — break
       const node = nodes.get(nodeId)
       if (!node) return []
       node.org.rootId = nodeId
@@ -269,13 +279,11 @@ async function rebuildTenantOrgHierarchy(
     return descendantIds
   }
 
-  // Walk roots first
   for (const [id, node] of nodes) {
     if (!node.parentId || !nodes.has(node.parentId)) {
       walk(id, [])
     }
   }
-  // Handle remaining (orphaned / cycles)
   for (const id of nodes.keys()) {
     if (!visited.has(id)) {
       walk(id, [])

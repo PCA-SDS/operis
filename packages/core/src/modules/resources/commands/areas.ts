@@ -8,7 +8,7 @@ import { resolveRedoSnapshot } from '@open-mercato/shared/lib/commands/redo'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { CrudIndexerConfig } from '@open-mercato/shared/lib/crud/types'
-import { ResourcesResourceArea } from '../data/entities'
+import { ResourcesResourceArea, ResourcesResourceAreaType } from '../data/entities'
 import {
   resourcesResourceAreaCreateSchema,
   resourcesResourceAreaReorderSchema,
@@ -31,7 +31,7 @@ type ResourceAreaSnapshot = {
   organizationId: string
   name: string
   description: string | null
-  areaType: string
+  areaTypeId: string | null
   parentAreaId: string | null
   sortOrder: number
   appearanceIcon: string | null
@@ -63,7 +63,7 @@ async function loadResourceAreaSnapshot(em: EntityManager, id: string): Promise<
     organizationId: area.organizationId,
     name: area.name,
     description: area.description ?? null,
-    areaType: area.areaType,
+    areaTypeId: area.areaType?.id ?? null,
     parentAreaId: area.parentAreaId ?? null,
     sortOrder: area.sortOrder,
     appearanceIcon: area.appearanceIcon ?? null,
@@ -169,7 +169,7 @@ const createResourceAreaCommand: CommandHandler<ResourcesResourceAreaCreateInput
       organizationId: parsed.organizationId,
       name: parsed.name,
       description: parsed.description ?? null,
-      areaType: parsed.areaType ?? 'other',
+      areaType: parsed.areaTypeId ? em.getReference(ResourcesResourceAreaType, parsed.areaTypeId) : undefined,
       parentAreaId: parsed.parentAreaId ?? null,
       sortOrder,
       appearanceIcon: parsed.appearanceIcon ?? null,
@@ -268,7 +268,7 @@ const createResourceAreaCommand: CommandHandler<ResourcesResourceAreaCreateInput
             organizationId: after.organizationId,
             name: after.name,
             description: after.description ?? null,
-            areaType: after.areaType ?? 'other',
+            areaType: after.areaTypeId ? em.getReference(ResourcesResourceAreaType, after.areaTypeId) : undefined,
             parentAreaId: after.parentAreaId ?? null,
             sortOrder: after.sortOrder ?? 0,
             appearanceIcon: after.appearanceIcon ?? null,
@@ -282,7 +282,7 @@ const createResourceAreaCommand: CommandHandler<ResourcesResourceAreaCreateInput
         } else {
           record.name = after.name
           record.description = after.description ?? null
-          record.areaType = after.areaType ?? 'other'
+          record.areaType = after.areaTypeId ? em.getReference(ResourcesResourceAreaType, after.areaTypeId) : undefined
           record.parentAreaId = after.parentAreaId ?? null
           record.sortOrder = after.sortOrder ?? 0
           record.appearanceIcon = after.appearanceIcon ?? null
@@ -349,8 +349,8 @@ const updateResourceAreaCommand: CommandHandler<ResourcesResourceAreaUpdateInput
     }
 
     if (parsed.name !== undefined) record.name = parsed.name
-    if (parsed.description !== undefined) record.description = parsed.description
-    if (parsed.areaType !== undefined) record.areaType = parsed.areaType
+    if (parsed.description !== undefined) record.description = parsed.description ?? null
+    if (parsed.areaTypeId !== undefined) record.areaType = parsed.areaTypeId ? em.getReference(ResourcesResourceAreaType, parsed.areaTypeId) : undefined
     if (parsed.sortOrder !== undefined) record.sortOrder = parsed.sortOrder
     if (parsed.appearanceIcon !== undefined) record.appearanceIcon = parsed.appearanceIcon
     if (parsed.appearanceColor !== undefined) record.appearanceColor = parsed.appearanceColor
@@ -417,7 +417,7 @@ const updateResourceAreaCommand: CommandHandler<ResourcesResourceAreaUpdateInput
     
     record.name = before.name
     record.description = before.description
-    record.areaType = before.areaType
+    record.areaType = before.areaTypeId ? em.getReference(ResourcesResourceAreaType, before.areaTypeId) : undefined
     record.parentAreaId = before.parentAreaId
     record.sortOrder = before.sortOrder
     record.appearanceIcon = before.appearanceIcon
@@ -451,7 +451,7 @@ const updateResourceAreaCommand: CommandHandler<ResourcesResourceAreaUpdateInput
     
     record.name = after.name
     record.description = after.description
-    record.areaType = after.areaType
+    record.areaType = after.areaTypeId ? em.getReference(ResourcesResourceAreaType, after.areaTypeId) : undefined
     record.parentAreaId = after.parentAreaId
     record.sortOrder = after.sortOrder
     record.appearanceIcon = after.appearanceIcon
@@ -559,7 +559,7 @@ const deleteResourceAreaCommand: CommandHandler<{ id?: string }, { areaId: strin
             organizationId: before.organizationId,
             name: before.name,
             description: before.description ?? null,
-            areaType: before.areaType ?? 'other',
+            areaType: before.areaTypeId ? em.getReference(ResourcesResourceAreaType, before.areaTypeId) : undefined,
             parentAreaId: before.parentAreaId ?? null,
             sortOrder: before.sortOrder ?? 0,
             appearanceIcon: before.appearanceIcon ?? null,

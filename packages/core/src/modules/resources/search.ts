@@ -98,12 +98,30 @@ function buildResourceAreaPresenter(
     (record.id as string | undefined) ??
     t('resources.search.badge.resourceArea', 'Resource area')
   const description = snippet(record.description ?? customFields.description)
-  const areaType = record.area_type ?? record.areaType ?? customFields.area_type
+  const areaTypeId = record.area_type_id ?? record.areaTypeId
   return {
     title: String(title),
-    subtitle: formatSubtitle(description, areaType),
+    subtitle: formatSubtitle(description, areaTypeId),
     icon: 'map-pin',
     badge: t('resources.search.badge.resourceArea', 'Resource area'),
+  }
+}
+
+function buildAreaTypePresenter(
+  t: TranslateFn,
+  record: Record<string, unknown>,
+  _customFields: Record<string, unknown>,
+): SearchResultPresenter {
+  const title =
+    pickString(record.name, record.display_name, record.displayName) ??
+    (record.id as string | undefined) ??
+    t('resources.search.badge.areaType', 'Area type')
+  const description = snippet(record.description)
+  return {
+    title: String(title),
+    subtitle: formatSubtitle(description),
+    icon: 'layers',
+    badge: t('resources.search.badge.areaType', 'Area type'),
   }
 }
 
@@ -184,7 +202,7 @@ export const searchConfig: SearchModuleConfig = {
         const lines: string[] = []
         appendLine(lines, 'Name', record.name)
         appendLine(lines, 'Description', record.description)
-        appendLine(lines, 'Type', record.area_type)
+        appendLine(lines, 'Type', record.area_type_id ?? record.areaTypeId)
         appendLine(lines, 'Parent', record.parent_area_id ?? record.parentAreaId)
         return buildIndexSource(ctx, buildResourceAreaPresenter(t, record, ctx.customFields), lines)
       },
@@ -194,7 +212,31 @@ export const searchConfig: SearchModuleConfig = {
       },
       resolveUrl: async (ctx) => `/backend/resources/areas/${encodeURIComponent(String(ctx.record.id))}/edit`,
       fieldPolicy: {
-        searchable: ['name', 'description', 'area_type'],
+        searchable: ['name', 'description'],
+      },
+    },
+    {
+      entityId: 'resources:resources_resource_area_type',
+      aclFeatures: ['resources.areas.view'],
+      enabled: true,
+      priority: 6,
+      buildSource: async (ctx) => {
+        const { t } = await resolveTranslations()
+        const record = ctx.record
+        const lines: string[] = []
+        appendLine(lines, 'Name', record.name)
+        appendLine(lines, 'Description', record.description)
+        appendLine(lines, 'Icon', record.appearance_icon ?? record.appearanceIcon)
+        appendLine(lines, 'Color', record.appearance_color ?? record.appearanceColor)
+        return buildIndexSource(ctx, buildAreaTypePresenter(t, record, ctx.customFields), lines)
+      },
+      formatResult: async (ctx) => {
+        const { t } = await resolveTranslations()
+        return buildAreaTypePresenter(t, ctx.record, ctx.customFields)
+      },
+      resolveUrl: async (_ctx) => '/backend/resources/area-types',
+      fieldPolicy: {
+        searchable: ['name', 'description', 'appearance_icon', 'appearance_color'],
       },
     },
   ],

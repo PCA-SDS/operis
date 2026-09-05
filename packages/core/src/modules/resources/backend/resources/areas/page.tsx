@@ -39,7 +39,8 @@ type ResourceAreaRow = {
   id: string
   name: string
   description: string | null
-  area_type: string
+  area_type_id: string | null
+  area_type_name: string | null
   parent_area_id: string | null
   sort_order: number
   appearance_icon: string | null
@@ -206,20 +207,6 @@ export default function ResourcesResourceAreasPage() {
       options: [
         { value: 'active', label: translations.filters.active },
         { value: 'inactive', label: translations.filters.inactive },
-      ],
-    },
-    {
-      id: 'areaType',
-      label: translations.filters.areaType,
-      type: 'select',
-      options: [
-        { value: 'campus', label: translations.types.campus },
-        { value: 'building', label: translations.types.building },
-        { value: 'floor', label: translations.types.floor },
-        { value: 'zone', label: translations.types.zone },
-        { value: 'room', label: translations.types.room },
-        { value: 'section', label: translations.types.section },
-        { value: 'other', label: translations.types.other },
       ],
     },
   ], [translations])
@@ -529,12 +516,12 @@ export default function ResourcesResourceAreasPage() {
       ) : null,
     },
     {
-      accessorKey: 'area_type',
+      accessorKey: 'area_type_name',
       header: translations.table.areaType,
       meta: { priority: 3 },
       cell: ({ row }) => row.original.rowKind === 'area' ? (
-        <span className="text-sm uppercase tracking-wider text-muted-foreground">
-          {row.original.area_type}
+        <span className="text-sm text-muted-foreground">
+          {row.original.area_type_name ?? '—'}
         </span>
       ) : null,
     },
@@ -592,9 +579,9 @@ export default function ResourcesResourceAreasPage() {
       }
       const status = typeof filterValues.status === 'string' ? filterValues.status : ''
       if (status === 'active' || status === 'inactive') params.set('status', status)
-      const areaType = typeof filterValues.areaType === 'string' ? filterValues.areaType : ''
-      if (areaType) params.set('areaType', areaType)
-      const hasActiveFilters = Boolean(status || areaType)
+      const areaTypeId = typeof filterValues.areaType === 'string' ? filterValues.areaType : ''
+      if (areaTypeId) params.set('areaTypeId', areaTypeId)
+      const hasActiveFilters = Boolean(status || areaTypeId)
       if (search.trim()) {
         params.set('search', search.trim())
       } else if (!hasActiveFilters) {
@@ -797,7 +784,8 @@ function mapApiResourceArea(item: Record<string, unknown>): ResourceAreaRow {
   const id = typeof item.id === 'string' ? item.id : ''
   const name = typeof item.name === 'string' && item.name.length ? item.name : id
   const description = typeof item.description === 'string' && item.description.length ? item.description : null
-  const area_type = typeof item.area_type === 'string' ? item.area_type : 'other'
+  const area_type_id = typeof item.area_type_id === 'string' ? item.area_type_id : null
+  const area_type_name = typeof item.area_type_name === 'string' ? item.area_type_name : null
   const parent_area_id = typeof item.parent_area_id === 'string' ? item.parent_area_id : null
   const sort_order = typeof item.sort_order === 'number' ? item.sort_order : 0
   const appearance_icon = typeof item.appearance_icon === 'string' ? item.appearance_icon : null
@@ -814,8 +802,8 @@ function mapApiResourceArea(item: Record<string, unknown>): ResourceAreaRow {
   const child_count = typeof item.child_count === 'number' ? item.child_count : 0
   const path_label = typeof item.path_label === 'string' ? item.path_label : null
   
-  return withDataTableNamespaces({ 
-    id, name, description, area_type, parent_area_id, sort_order,
+  return withDataTableNamespaces({
+    id, name, description, area_type_id, area_type_name, parent_area_id, sort_order,
     appearance_icon, appearance_color, is_active, updatedAt, depth, child_count, path_label
   }, item)
 }

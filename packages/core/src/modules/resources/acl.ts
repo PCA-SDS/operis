@@ -18,6 +18,12 @@ export const features = [
     module: 'resources',
     dependsOn: ['resources.areas.view'],
   },
+  {
+    id: 'resources.area_types.manage',
+    title: 'Manage area types',
+    module: 'resources',
+    dependsOn: ['resources.areas.view'],
+  },
 ]
 
 export default features

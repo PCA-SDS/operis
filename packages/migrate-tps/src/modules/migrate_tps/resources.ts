@@ -1,6 +1,9 @@
 import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import * as pg from 'pg'
+import * as fs from 'fs'
+import * as path from 'path'
+import { fileURLToPath } from 'url'
 import { randomUUID } from 'crypto'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
@@ -8,6 +11,7 @@ import { parseTpsMigrateFlags } from './lib'
 import {
   ResourcesResource,
   ResourcesResourceArea,
+  ResourcesResourceAreaType,
   ResourcesResourceType,
 } from '@open-mercato/core/modules/resources/data/entities'
 
@@ -24,7 +28,7 @@ interface TpsFloor {
   location: string
   name: string
   sort_order: number
-  is_active: boolean
+  is_active: string
   deleted_at: string | null
 }
 
@@ -34,7 +38,7 @@ interface TpsSeatTypeConfig {
   name: string
   color_hex: string | null
   icon: string | null
-  is_active: boolean
+  is_active: string
   deleted_at: string | null
 }
 
@@ -46,7 +50,7 @@ interface TpsSeat {
   name: string | null
   sort_order: number
   status: string | null
-  is_active: boolean
+  is_active: string
   deleted_at: string | null
 }
 
@@ -63,10 +67,6 @@ async function connectTps(url: string): Promise<Client> {
   await client.connect()
   return client
 }
-
-// ---------------------------------------------------------------------------
-// Parse --location flag from CLI args
-// ---------------------------------------------------------------------------
 
 function parseLocationFlag(rest: string[]): string | null {
   for (let i = 0; i < rest.length; i++) {
@@ -93,6 +93,143 @@ const seatSortOrderExpression = `
 `
 
 // ---------------------------------------------------------------------------
+// CSV Fallback helpers
+// ---------------------------------------------------------------------------
+
+const DATA_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'data')
+
+function getDataDir(): string {
+  return process.env.TPS_DATA_DIR || DATA_DIR
+}
+
+function parseCsvLine(line: string): string[] {
+  const result: string[] = []
+  let current = ''
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"'
+        i++
+      } else {
+        inQuotes = !inQuotes
+      }
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim())
+      current = ''
+    } else {
+      current += char
+    }
+  }
+  result.push(current.trim())
+  return result
+}
+
+function parseCsv<T>(filename: string): T[] {
+  const filePath = path.join(getDataDir(), filename)
+  const content = fs.readFileSync(filePath, 'utf-8')
+  const lines = content.trim().split('\n')
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''))
+  const rows: T[] = []
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCsvLine(lines[i])
+    const row: Record<string, string> = {}
+    for (let j = 0; j < headers.length; j++) {
+      row[headers[j]] = values[j] ?? ''
+    }
+    rows.push(row as T)
+  }
+  return rows
+}
+
+function loadTpsSeatTypesFromCsv(): { rows: TpsSeatTypeConfig[]; rowCount: number } {
+  const all = parseCsv<TpsSeatTypeConfig>('tps_seat_types.csv')
+  const filtered = all.filter(r => !r.deleted_at)
+  return { rows: filtered, rowCount: filtered.length }
+}
+
+function loadTpsFloorsFromCsv(locationFilter?: string | null): { rows: TpsFloor[]; rowCount: number } {
+  const all = parseCsv<TpsFloor>('tps_floors.csv')
+  const filtered = locationFilter
+    ? all.filter(r => !r.deleted_at && r.location === locationFilter)
+    : all.filter(r => !r.deleted_at)
+  return { rows: filtered, rowCount: filtered.length }
+}
+
+function loadTpsSeatsFromCsv(locationFilter?: string | null): { rows: TpsSeat[]; rowCount: number } {
+  const seats = parseCsv<TpsSeat>('tps_seats.csv')
+  if (locationFilter) {
+    const floors = loadTpsFloorsFromCsv(locationFilter).rows
+    const floorIds = new Set(floors.map(f => f.id))
+    const filtered = seats.filter(s => !s.deleted_at && floorIds.has(s.floor_id))
+    return { rows: filtered, rowCount: filtered.length }
+  }
+  const filtered = seats.filter(s => !s.deleted_at)
+  return { rows: filtered, rowCount: filtered.length }
+}
+
+// ---------------------------------------------------------------------------
+// Seed default area types and return the "floor" area type ID
+// ---------------------------------------------------------------------------
+
+async function seedAreaTypeAndGetFloorId(
+  em: EntityManager,
+  tenantId: string,
+  organizationId: string,
+  now: Date,
+): Promise<string> {
+  const defaultTypes = [
+    { name: 'Campus', description: 'A campus location.', appearanceIcon: '\u{1F3DB}' },
+    { name: 'Building', description: 'A building within a campus.', appearanceIcon: '\u{1F3E2}' },
+    { name: 'Floor', description: 'A floor within a building.', appearanceIcon: '\u{1F4A6}' },
+    { name: 'Zone', description: 'A zone within a floor or area.', appearanceIcon: '\u{1F4CD}' },
+    { name: 'Room', description: 'A room within a building or zone.', appearanceIcon: '\u{1F6AA}' },
+    { name: 'Section', description: 'A section within a room or area.', appearanceIcon: '\u{1F4CB}' },
+    { name: 'Other', description: 'Other area type.', appearanceIcon: '\u{1F4E6}' },
+  ]
+
+  const existing = await em.find(
+    ResourcesResourceAreaType,
+    { tenantId, organizationId, deletedAt: null },
+  )
+  const existingByName = new Map(existing.map(t => [t.name, t]))
+
+  for (const seed of defaultTypes) {
+    const existingType = existingByName.get(seed.name)
+    if (existingType) {
+      if (!existingType.description?.trim() && seed.description) {
+        existingType.description = seed.description
+        existingType.updatedAt = now
+        em.persist(existingType)
+      }
+      continue
+    }
+    const areaType = em.create(ResourcesResourceAreaType, {
+      tenantId,
+      organizationId,
+      name: seed.name,
+      description: seed.description ?? null,
+      appearanceIcon: seed.appearanceIcon ?? null,
+      appearanceColor: null,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    })
+    em.persist(areaType)
+  }
+  await em.flush()
+
+  const floorType = await em.findOne(ResourcesResourceAreaType, {
+    tenantId,
+    organizationId,
+    name: 'Floor',
+    deletedAt: null,
+  })
+  return floorType?.id ?? ''
+}
+
+// ---------------------------------------------------------------------------
 // Main command
 // ---------------------------------------------------------------------------
 
@@ -109,75 +246,84 @@ export const migrateTpsResourcesCommand: ModuleCli = {
     }
 
     const tpsDbUrl = process.env.TPS_DATABASE_URL
-    if (!tpsDbUrl) {
-      logger.error('Missing TPS_DATABASE_URL environment variable')
-      throw new Error('TPS_DATABASE_URL not set')
-    }
 
-    const locationLabel = locationFilter
-      ? `location="${locationFilter}"`
-      : 'all locations'
+    const locationLabel = locationFilter ? `location="${locationFilter}"` : 'all locations'
     logger.info(`Starting TPS Resources migration for Tenant: ${tenantId}, Org: ${organizationId}, ${locationLabel}`)
 
     const container = await createRequestContainer()
     let tpsClient: Client | null = null
 
+    let tpsSeatTypes: { rows: TpsSeatTypeConfig[]; rowCount: number }
+    let tpsFloors: { rows: TpsFloor[]; rowCount: number }
+    let tpsSeats: { rows: TpsSeat[]; rowCount: number }
+
+    if (tpsDbUrl) {
+      try {
+        logger.info('Connecting to TPS database...')
+        tpsClient = await connectTps(tpsDbUrl)
+        ;[tpsSeatTypes, tpsFloors, tpsSeats] = await Promise.all([
+          tpsClient.query(
+            'SELECT * FROM seat_type_configs WHERE deleted_at IS NULL',
+          ) as Promise<{ rows: TpsSeatTypeConfig[]; rowCount: number }>,
+          tpsClient.query(
+            locationFilter
+              ? 'SELECT * FROM floors WHERE deleted_at IS NULL AND location = $1'
+              : 'SELECT * FROM floors WHERE deleted_at IS NULL',
+            locationFilter ? [locationFilter] : [],
+          ) as Promise<{ rows: TpsFloor[]; rowCount: number }>,
+          tpsClient.query(
+            locationFilter
+              ? `SELECT s.*, ${seatSortOrderExpression} FROM seats s JOIN floors f ON f.id = s.floor_id WHERE s.deleted_at IS NULL AND f.deleted_at IS NULL AND f.location = $1`
+              : `SELECT s.*, ${seatSortOrderExpression} FROM seats s WHERE s.deleted_at IS NULL`,
+            locationFilter ? [locationFilter] : [],
+          ) as Promise<{ rows: TpsSeat[]; rowCount: number }>,
+        ])
+        logger.info('Loaded data from TPS database.')
+      } catch (err) {
+        logger.warn(`Failed to connect to TPS database: ${err}. Falling back to CSV files...`)
+        if (tpsClient) { await tpsClient.end(); tpsClient = null }
+        ;[tpsSeatTypes, tpsFloors, tpsSeats] = [
+          loadTpsSeatTypesFromCsv(),
+          loadTpsFloorsFromCsv(locationFilter),
+          loadTpsSeatsFromCsv(locationFilter),
+        ]
+        logger.info('Loaded data from CSV files.')
+      }
+    } else {
+      logger.info('TPS_DATABASE_URL not set. Using CSV fallback from data directory...')
+      ;[tpsSeatTypes, tpsFloors, tpsSeats] = [
+        loadTpsSeatTypesFromCsv(),
+        loadTpsFloorsFromCsv(locationFilter),
+        loadTpsSeatsFromCsv(locationFilter),
+      ]
+      logger.info('Loaded data from CSV files.')
+    }
+
+    logger.info(`Found ${tpsSeatTypes.rowCount} seat type configs, ${tpsFloors.rowCount} floors, ${tpsSeats.rowCount} seats`)
+
+    if (tpsSeatTypes.rowCount === 0 && tpsFloors.rowCount === 0 && tpsSeats.rowCount === 0) {
+      logger.warn('No TPS data found. Nothing to migrate.')
+      return
+    }
+
+    const baseEm = container.resolve<EntityManager>('em').fork()
+
+    const [existingTypes, existingAreas, existingResources] = await Promise.all([
+      baseEm.count(ResourcesResourceType, { tenantId, organizationId }),
+      baseEm.count(ResourcesResourceArea, { tenantId, organizationId }),
+      baseEm.count(ResourcesResource, { tenantId, organizationId }),
+    ])
+
+    if (!replace && (existingTypes > 0 || existingAreas > 0 || existingResources > 0)) {
+      logger.error(`Found existing data: ${existingTypes} types, ${existingAreas} areas, ${existingResources} resources.`)
+      logger.error('Use --replace to overwrite existing data.')
+      throw new Error('Existing resource data found. Use --replace to overwrite.')
+    }
+
+    const now = new Date()
+
     try {
-      tpsClient = await connectTps(tpsDbUrl)
-
-      // ---------------------------------------------------------------------------
-      // 1. Fetch source data from TPS
-      // ---------------------------------------------------------------------------
-
-      const [tpsSeatTypes, tpsFloors, tpsSeats] = await Promise.all([
-        tpsClient.query(
-          'SELECT * FROM seat_type_configs WHERE deleted_at IS NULL',
-        ) as Promise<{ rows: TpsSeatTypeConfig[]; rowCount: number }>,
-        tpsClient.query(
-          locationFilter
-            ? 'SELECT * FROM floors WHERE deleted_at IS NULL AND location = $1'
-            : 'SELECT * FROM floors WHERE deleted_at IS NULL',
-          locationFilter ? [locationFilter] : [],
-        ) as Promise<{ rows: TpsFloor[]; rowCount: number }>,
-        tpsClient.query(
-          locationFilter
-            ? `SELECT s.*, ${seatSortOrderExpression} FROM seats s JOIN floors f ON f.id = s.floor_id
-               WHERE s.deleted_at IS NULL AND f.deleted_at IS NULL AND f.location = $1`
-            : `SELECT s.*, ${seatSortOrderExpression} FROM seats s WHERE s.deleted_at IS NULL`,
-          locationFilter ? [locationFilter] : [],
-        ) as Promise<{ rows: TpsSeat[]; rowCount: number }>,
-      ])
-
-      logger.info(`Found ${tpsSeatTypes.rowCount} seat type configs, ${tpsFloors.rowCount} floors, ${tpsSeats.rowCount} seats`)
-
-      if (tpsSeatTypes.rowCount === 0 && tpsFloors.rowCount === 0 && tpsSeats.rowCount === 0) {
-        logger.warn('No TPS data found. Nothing to migrate.')
-        return
-      }
-
-      const baseEm = container.resolve<EntityManager>('em').fork()
-
-      // Check existing data
-      const [existingTypes, existingAreas, existingResources] = await Promise.all([
-        baseEm.count(ResourcesResourceType, { tenantId, organizationId }),
-        baseEm.count(ResourcesResourceArea, { tenantId, organizationId }),
-        baseEm.count(ResourcesResource, { tenantId, organizationId }),
-      ])
-
-      if (!replace && (existingTypes > 0 || existingAreas > 0 || existingResources > 0)) {
-        logger.error(`Found existing data: ${existingTypes} types, ${existingAreas} areas, ${existingResources} resources.`)
-        logger.error('Use --replace to overwrite existing data.')
-        throw new Error('Existing resource data found. Use --replace to overwrite.')
-      }
-
-      // ---------------------------------------------------------------------------
-      // 3. Migrate: SeatTypeConfig → ResourcesResourceType (preserve UUID)
-      // ---------------------------------------------------------------------------
-
-      const now = new Date()
-
       await baseEm.transactional(async (em) => {
-        // Cleanup existing data if replace
         if (replace && (existingTypes > 0 || existingAreas > 0 || existingResources > 0)) {
           logger.info('Cleaning up existing resources data...')
           await em.nativeDelete(ResourcesResource, { tenantId, organizationId })
@@ -186,10 +332,13 @@ export const migrateTpsResourcesCommand: ModuleCli = {
           logger.info('Cleanup complete.')
         }
 
-        logger.info(`Migrating ${tpsSeatTypes.rowCount} seat type configs...`)
+        // Seed default area types and get the "floor" type ID
+        const floorAreaTypeId = await seedAreaTypeAndGetFloorId(em, tenantId, organizationId, now)
+
+        // Migrate: SeatTypeConfig -> ResourcesResourceType
         const tpsTypeIdMap: Record<string, string> = {}
+        logger.info(`Migrating ${tpsSeatTypes.rowCount} seat type configs...`)
         for (const tpsType of tpsSeatTypes.rows) {
-          // Generate new UUID — TPS type IDs are shared across all locations
           const newTypeId = randomUUID()
           const entity = em.create(ResourcesResourceType, {
             id: newTypeId,
@@ -204,71 +353,57 @@ export const migrateTpsResourcesCommand: ModuleCli = {
           entity.appearanceIcon = tpsType.icon || 'Box'
           em.persist(entity)
           tpsTypeIdMap[tpsType.id] = newTypeId
-          logger.info(`  ✓ SeatType "${tpsType.code}" → ResourceType`)
+          logger.info(`  SeatType "${tpsType.code}" -> ResourceType`)
         }
         await em.flush()
         logger.info(`Migrated ${tpsSeatTypes.rowCount} resource types.`)
 
-        // ---------------------------------------------------------------------------
-        // 4. Migrate: Floor → ResourcesResourceArea (preserve UUID, type=FLOOR)
-        // ---------------------------------------------------------------------------
-
+        // Migrate: Floor -> ResourcesResourceArea
         const floorMap: Record<string, string> = {}
         logger.info(`Migrating ${tpsFloors.rowCount} floors...`)
         for (const floor of tpsFloors.rows) {
-          // Generate new UUID — TPS floor IDs are shared across locations (same floor name = same ID across branches)
           const newAreaId = randomUUID()
           const entity = em.create(ResourcesResourceArea, {
             id: newAreaId,
             tenantId,
             organizationId,
             name: floor.name,
-            areaType: 'floor',
             sortOrder: floor.sort_order ?? 0,
-            isActive: floor.is_active,
+            isActive: floor.is_active === 'true' || floor.is_active === 't',
             createdAt: now,
             updatedAt: now,
           })
-
-          entity.name = floor.name
           entity.description = null
-          entity.areaType = 'floor'
+          entity.areaType = floorAreaTypeId
+            ? (em.getReference(ResourcesResourceAreaType, floorAreaTypeId) as unknown as ResourcesResourceAreaType)
+            : undefined
           entity.parentAreaId = null
           entity.sortOrder = floor.sort_order ?? 0
-          entity.isActive = floor.is_active
+          entity.isActive = floor.is_active === 'true' || floor.is_active === 't'
           entity.appearanceIcon = null
           entity.appearanceColor = null
           em.persist(entity)
-          // Map: TPS floor id → new Operis area id
           floorMap[floor.id] = newAreaId
-          logger.info(`  ✓ Floor "${floor.name}" (${floor.id.slice(0,8)}…) → Area (${newAreaId.slice(0,8)}…)`)
+          logger.info(`  Floor "${floor.name}" -> Area`)
         }
         await em.flush()
         logger.info(`Migrated ${tpsFloors.rowCount} resource areas.`)
 
-        // ---------------------------------------------------------------------------
-        // 5. Migrate: Seat → ResourcesResource (preserve UUID)
-        // ---------------------------------------------------------------------------
-
+        // Migrate: Seat -> ResourcesResource
         let migratedResources = 0
         let skippedSeats = 0
-
         logger.info(`Migrating ${tpsSeats.rowCount} seats...`)
         for (const seat of tpsSeats.rows) {
-          // Skip seats without a valid floor or type mapping
           if (!seat.floor_id || !seat.seat_type_id) {
             skippedSeats++
             continue
           }
-
           const mappedAreaId = floorMap[seat.floor_id]
           const mappedTypeId = tpsTypeIdMap[seat.seat_type_id]
           if (!mappedAreaId || !mappedTypeId) {
             skippedSeats++
             continue
           }
-
-          // Generate new UUID — TPS seat IDs are shared across locations
           const newResourceId = randomUUID()
           const entity = em.create(ResourcesResource, {
             id: newResourceId,
@@ -276,11 +411,10 @@ export const migrateTpsResourcesCommand: ModuleCli = {
             organizationId,
             name: seat.name?.trim() || seat.code,
             sortOrder: seat.sort_order ?? 0,
-            isActive: seat.is_active,
+            isActive: seat.is_active === 'true' || seat.is_active === 't',
             createdAt: now,
             updatedAt: now,
           })
-
           entity.name = seat.name?.trim() || seat.code
           entity.description = null
           entity.resourceTypeId = mappedTypeId
@@ -293,16 +427,15 @@ export const migrateTpsResourcesCommand: ModuleCli = {
           entity.capacityUnitIcon = null
           entity.appearanceIcon = null
           entity.appearanceColor = null
-          entity.isActive = seat.is_active
+          entity.isActive = seat.is_active === 'true' || seat.is_active === 't'
           entity.availabilityRuleSetId = null
           entity.customFieldsetCode = null
           em.persist(entity)
           migratedResources++
         }
         await em.flush()
-        logger.info(`Migrated ${migratedResources} resources (skipped ${skippedSeats} seats without valid floor/type mapping).`)
-
-        logger.info('✅ TPS Resources migration completed successfully!')
+        logger.info(`Migrated ${migratedResources} resources (skipped ${skippedSeats} seats).`)
+        logger.info('TPS Resources migration completed successfully!')
       })
     } catch (err) {
       logger.error('TPS Resources migration failed', { err })

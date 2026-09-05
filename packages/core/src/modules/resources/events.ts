@@ -19,6 +19,9 @@ const events = [
   { id: 'resources.resource_area.created', label: 'Resource Area Created', entity: 'resource_area', category: 'crud' },
   { id: 'resources.resource_area.updated', label: 'Resource Area Updated', entity: 'resource_area', category: 'crud' },
   { id: 'resources.resource_area.deleted', label: 'Resource Area Deleted', entity: 'resource_area', category: 'crud' },
+  { id: 'resources.area_type.created', label: 'Area Type Created', entity: 'area_type', category: 'crud' },
+  { id: 'resources.area_type.updated', label: 'Area Type Updated', entity: 'area_type', category: 'crud' },
+  { id: 'resources.area_type.deleted', label: 'Area Type Deleted', entity: 'area_type', category: 'crud' },
 ] as const
 
 export const eventsConfig = createModuleEvents({

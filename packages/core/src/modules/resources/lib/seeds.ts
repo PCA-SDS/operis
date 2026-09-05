@@ -8,6 +8,7 @@ import { setRecordCustomFields } from '@open-mercato/core/modules/entities/lib/h
 import {
   ResourcesResource,
   ResourcesResourceActivity,
+  ResourcesResourceAreaType,
   ResourcesResourceTag,
   ResourcesResourceTagAssignment,
   ResourcesResourceType,
@@ -309,6 +310,64 @@ export async function seedResourcesAddressTypes(
       updatedAt: new Date(),
     })
     em.persist(entry)
+  }
+  await em.flush()
+}
+
+const RESOURCES_AREA_TYPE_DEFAULTS: ResourcesResourceTypeSeed[] = [
+  { key: 'campus', name: 'Campus', description: 'A campus or main location.', appearanceIcon: '🏛️' },
+  { key: 'building', name: 'Building', description: 'A building within a campus.', appearanceIcon: '🏢' },
+  { key: 'floor', name: 'Floor', description: 'A floor within a building.', appearanceIcon: '📶' },
+  { key: 'zone', name: 'Zone', description: 'A zone within a floor or area.', appearanceIcon: '📍' },
+  { key: 'room', name: 'Room', description: 'A room within a building or zone.', appearanceIcon: '🚪' },
+  { key: 'section', name: 'Section', description: 'A section within a room or area.', appearanceIcon: '📋' },
+  { key: 'other', name: 'Other', description: 'Other area type.', appearanceIcon: '📦' },
+]
+
+export async function seedResourcesAreaTypes(
+  em: EntityManager,
+  scope: ResourcesSeedScope,
+) {
+  const existing = await em.find(
+    ResourcesResourceAreaType,
+    {
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+      deletedAt: null,
+    },
+  )
+  const existingByKey = new Map(existing.map((t) => [t.name.toLowerCase(), t]))
+  for (const seed of RESOURCES_AREA_TYPE_DEFAULTS) {
+    const normalizedKey = seed.name.toLowerCase()
+    const existingType = existingByKey.get(normalizedKey)
+    if (existingType) {
+      let updated = false
+      if (!existingType.description?.trim() && seed.description) {
+        existingType.description = seed.description
+        updated = true
+      }
+      if (!existingType.appearanceIcon && seed.appearanceIcon) {
+        existingType.appearanceIcon = seed.appearanceIcon
+        updated = true
+      }
+      if (updated) {
+        existingType.updatedAt = new Date()
+        em.persist(existingType)
+      }
+      continue
+    }
+    const areaType = em.create(ResourcesResourceAreaType, {
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+      name: seed.name,
+      description: seed.description ?? null,
+      appearanceIcon: seed.appearanceIcon ?? null,
+      appearanceColor: seed.appearanceColor ?? null,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    em.persist(areaType)
   }
   await em.flush()
 }

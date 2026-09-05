@@ -48,7 +48,7 @@ const crud = makeCrudRoute({
   list: {
     schema: listSchema,
     fields: [
-      'id', 'name', 'description', 'area_type', 'parent_area_id', 'sort_order', 
+      'id', 'name', 'description', 'area_type_id', 'parent_area_id', 'sort_order',
       'appearance_icon', 'appearance_color', 'is_active', 'organization_id', 'tenant_id'
     ],
     buildFilters: async (query: any) => {
@@ -114,7 +114,7 @@ const viewSchema = z
     pageSize: z.coerce.number().min(1).max(100).default(100),
     search: z.string().optional(),
     status: z.enum(['all', 'active', 'inactive']).optional(),
-    areaType: z.string().optional(),
+    areaTypeId: z.string().optional(),
     ids: z.string().optional(),
     id: z.string().optional(),
     parentAreaId: z.string().optional(),
@@ -139,7 +139,7 @@ export async function GET(req: Request) {
     pageSize: url.searchParams.get('pageSize') ?? undefined,
     search: url.searchParams.get('search') ?? undefined,
     status: url.searchParams.get('status') ?? undefined,
-    areaType: url.searchParams.get('areaType') ?? undefined,
+    areaTypeId: url.searchParams.get('areaTypeId') ?? undefined,
     ids: url.searchParams.get('ids') ?? undefined,
     id: url.searchParams.get('id') ?? undefined,
     parentAreaId: url.searchParams.get('parentAreaId') ?? undefined,
@@ -169,7 +169,7 @@ export async function GET(req: Request) {
     const areas = await em.find(
       ResourcesResourceArea,
       { ...orgFilter.where, tenantId, deletedAt: null },
-      { orderBy: { sortOrder: 'ASC', name: 'ASC' } }
+      { orderBy: { sortOrder: 'ASC', name: 'ASC' }, populate: ['areaType'] }
     )
     const areaMap = new Map(areas.map((area) => [String(area.id), area]))
     
@@ -199,9 +199,9 @@ export async function GET(req: Request) {
 
     if (status === 'active') rows = rows.filter((node) => node.isActive)
     if (status === 'inactive') rows = rows.filter((node) => !node.isActive)
-    const areaType = typeof query.areaType === 'string' ? query.areaType.trim() : ''
-    if (areaType) {
-      rows = rows.filter((node) => areaMap.get(node.id)?.areaType === areaType)
+    const areaTypeId = typeof query.areaTypeId === 'string' ? query.areaTypeId.trim() : ''
+    if (areaTypeId) {
+      rows = rows.filter((node) => areaMap.get(node.id)?.areaType?.id === areaTypeId)
     }
     if (search) {
       rows = rows.filter((node) => {
@@ -238,7 +238,8 @@ export async function GET(req: Request) {
         id: node.id,
         name: node.name,
         description: area?.description ?? null,
-        area_type: area?.areaType ?? null,
+        area_type_id: area?.areaType?.id ?? null,
+        area_type_name: area?.areaType?.name ?? null,
         parent_area_id: node.parentId,
         parent_name: parentName,
         sort_order: node.sortOrder,
@@ -279,8 +280,8 @@ function getResourceAreaSortValue(
   area: ResourcesResourceArea | undefined,
 ): string | number {
   switch (sortField) {
-    case 'area_type':
-      return area?.areaType ?? ''
+    case 'area_type_id':
+      return area?.areaType?.id ?? ''
     case 'child_count':
       return node.childIds.length
     case 'updatedAt':
@@ -301,7 +302,7 @@ const areaListItemSchema = z.object({
   id: z.string().uuid().nullable().optional(),
   name: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  area_type: z.string().nullable().optional(),
+  area_type_id: z.string().uuid().nullable().optional(),
   parent_area_id: z.string().uuid().nullable().optional(),
   sort_order: z.number().nullable().optional(),
   appearance_icon: z.string().nullable().optional(),

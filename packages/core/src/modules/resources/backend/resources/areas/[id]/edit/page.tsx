@@ -52,7 +52,7 @@ export default function ResourcesResourceAreaEditPage({ params }: { params?: { i
             id: typeof item.id === 'string' ? item.id : resourceAreaId,
             name: typeof item.name === 'string' ? item.name : '',
             description: typeof item.description === 'string' ? item.description : '',
-            areaType: typeof item.area_type === 'string' ? item.area_type : 'other',
+            areaTypeId: typeof item.area_type_id === 'string' ? item.area_type_id : null,
             parentAreaId: typeof item.parent_area_id === 'string' ? item.parent_area_id : null,
             isActive: typeof item.is_active === 'boolean' ? item.is_active : true,
             appearance: {
@@ -142,7 +142,7 @@ export default function ResourcesResourceAreaEditPage({ params }: { params?: { i
         ) : null}
         <ResourceAreaCrudForm
           mode="edit"
-          initialValues={initialValues ?? { id: resourceAreaId, name: '', description: '', appearance: { icon: null, color: null }, areaType: 'other', parentAreaId: null, isActive: true }}
+          initialValues={initialValues ?? { id: resourceAreaId, name: '', description: '', appearance: { icon: null, color: null }, areaTypeId: null, parentAreaId: null, isActive: true }}
           isLoading={loading}
           onSubmit={handleSubmit}
           onDelete={handleDelete}

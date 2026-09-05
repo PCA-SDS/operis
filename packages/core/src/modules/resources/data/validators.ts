@@ -53,6 +53,34 @@ export const resourcesResourceTypeUpdateSchema = z.object({
     .nullable(),
 })
 
+export const resourcesResourceAreaTypeCreateSchema = z.object({
+  ...scopedCreateFields,
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  appearanceIcon: z.string().trim().max(100).optional().nullable(),
+  appearanceColor: z
+    .string()
+    .trim()
+    .regex(/^#([0-9a-fA-F]{6})$/)
+    .optional()
+    .nullable(),
+  isActive: z.boolean().optional(),
+})
+
+export const resourcesResourceAreaTypeUpdateSchema = z.object({
+  ...scopedUpdateFields,
+  name: z.string().min(1).optional(),
+  description: z.string().optional().nullable(),
+  appearanceIcon: z.string().trim().max(100).optional().nullable(),
+  appearanceColor: z
+    .string()
+    .trim()
+    .regex(/^#([0-9a-fA-F]{6})$/)
+    .optional()
+    .nullable(),
+  isActive: z.boolean().optional(),
+})
+
 export const resourcesResourceCreateSchema = z.object({
   ...scopedCreateFields,
   name: z.string().min(1),
@@ -180,7 +208,7 @@ export const resourcesResourceAreaCreateSchema = z.object({
   ...scopedCreateFields,
   name: z.string().min(1),
   description: z.string().optional().nullable(),
-  areaType: z.string().min(1).default('other'),
+  areaTypeId: z.string().uuid().optional().nullable(),
   parentAreaId: z.string().uuid().optional().nullable(),
   sortOrder: z.coerce.number().int().default(0),
   appearanceIcon: z.string().trim().max(100).optional().nullable(),
@@ -197,7 +225,7 @@ export const resourcesResourceAreaUpdateSchema = z.object({
   ...scopedUpdateFields,
   name: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
-  areaType: z.string().min(1).optional(),
+  areaTypeId: z.string().uuid().optional().nullable(),
   parentAreaId: z.string().uuid().optional().nullable(),
   sortOrder: z.coerce.number().int().optional(),
   appearanceIcon: z.string().trim().max(100).optional().nullable(),
@@ -214,6 +242,8 @@ export const resourcesResourceAreaReorderSchema = reorderMoveSchema
 
 export type ResourcesResourceTypeCreateInput = z.infer<typeof resourcesResourceTypeCreateSchema>
 export type ResourcesResourceTypeUpdateInput = z.infer<typeof resourcesResourceTypeUpdateSchema>
+export type ResourcesResourceAreaTypeCreateInput = z.infer<typeof resourcesResourceAreaTypeCreateSchema>
+export type ResourcesResourceAreaTypeUpdateInput = z.infer<typeof resourcesResourceAreaTypeUpdateSchema>
 export type ResourcesResourceCreateInput = z.infer<typeof resourcesResourceCreateSchema>
 export type ResourcesResourceUpdateInput = z.infer<typeof resourcesResourceUpdateSchema>
 export type ResourcesResourceReorderInput = z.infer<typeof resourcesResourceReorderSchema>
