@@ -64,7 +64,9 @@ describe('TranslateControl', () => {
 
   describe('language picker', () => {
     const open = () =>
-      fireEvent.click(screen.getByRole('button', { name: /choose translation language/i }))
+      // The trigger names the CURRENT language: "Choose translation language"
+      // alone never told a screen-reader user what they were reading in.
+      fireEvent.click(screen.getByRole('button', { name: /reading chat in/i }))
 
     it('leads with the pairings this exists for, not the interface locales', () => {
       // French and Vietnamese have no interface translation and are exactly the
@@ -110,5 +112,58 @@ describe('TranslateControl', () => {
       open()
       expect(screen.getByText(/separate from your interface language/i)).toBeTruthy()
     })
+  })
+})
+
+describe('TranslateControl availability', () => {
+  const openPicker = () =>
+    fireEvent.click(screen.getByRole('button', { name: /reading chat in/i }))
+
+  /**
+   * Every ISO-639-1 code stays choosable — the reading language is a personal
+   * setting. But the engine serves a subset, and offering all of them with no
+   * indication which work means a reader picks one and every press afterwards
+   * fails with nothing to act on.
+   */
+  it('marks the languages this deployment cannot produce', () => {
+    setup({ translatableLocales: ['en', 'fr', 'vi'] })
+    openPicker()
+
+    expect(screen.getByRole('option', { name: /German/ }).textContent).toContain('not translated here')
+    expect(screen.getByRole('option', { name: /French/ }).textContent).not.toContain('not translated here')
+  })
+
+  it('marks nothing when no engine is configured, rather than marking everything', () => {
+    setup({ translatableLocales: [] })
+    openPicker()
+
+    expect(screen.queryByText(/not translated here/)).toBeNull()
+  })
+
+  it('still offers an unsupported language rather than hiding it', () => {
+    setup({ translatableLocales: ['en'] })
+    openPicker()
+
+    const german = screen.getByRole('option', { name: /German/ })
+    expect(german).toBeTruthy()
+    expect(german.hasAttribute('disabled')).toBe(false)
+  })
+
+  it('tells assistive technology which language is current', () => {
+    setup({ locale: 'vi', translatableLocales: ['en', 'vi'] })
+    openPicker()
+
+    expect(screen.getByRole('option', { name: /Vietnamese/ }).getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('option', { name: /English/ }).getAttribute('aria-selected')).toBe('false')
+  })
+
+  /**
+   * `aria-pressed` alongside a label that already swaps between "Translate" and
+   * "Show originals" announces "Show originals, pressed" — the inverse of what
+   * is true. The label carries the state.
+   */
+  it('does not contradict its own label with a pressed state', () => {
+    setup({ active: true })
+    expect(screen.getByRole('button', { name: /show originals/i }).hasAttribute('aria-pressed')).toBe(false)
   })
 })

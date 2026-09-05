@@ -1,8 +1,12 @@
 import {
+  MAX_TRANSLATABLE_SEGMENTS,
+  detectionSegment,
+  introducesMention,
   isTranslatable,
   normalizeText,
-  prepareForTranslation,
-  restoreAfterTranslation,
+  reassembleBody,
+  segmentBody,
+  translatableSegmentIndexes,
 } from '../lib/translationText'
 import { userToken, EVERYONE_TOKEN } from '../lib/mentions'
 
@@ -17,17 +21,11 @@ describe('normalizeText', () => {
    * re-translated forever with no visible symptom.
    */
   it('composes decomposed Vietnamese to a single representation', () => {
-    const decomposed = 'Vie\u0323\u0302t Nam' // e + dot below + circumflex
+    const decomposed = 'Vie\u0323\u0302t Nam'
     const composed = 'Việt Nam'
     expect(decomposed).not.toBe(composed)
     expect(normalizeText(decomposed)).toBe(composed)
     expect(normalizeText(composed)).toBe(composed)
-  })
-
-  it('makes the two forms compare equal once normalised', () => {
-    const a = normalizeText('ti\u00ea\u0301ng Vie\u0323\u0302t')
-    const b = normalizeText('tiếng Việt')
-    expect(a).toBe(b)
   })
 
   it('leaves French accents alone', () => {
@@ -35,145 +33,173 @@ describe('normalizeText', () => {
   })
 })
 
-describe('prepareForTranslation', () => {
-  it('lifts every mention out and leaves a marker', () => {
+describe('segmentBody', () => {
+  /**
+   * The engine never sees a mention. Measured against the real M2M100 weights,
+   * an in-band marker survived generation zero times out of twelve, and two or
+   * more of them drove the decoder into a degenerate loop that replaced the
+   * message with repeated filler. A structure the model cannot see cannot be
+   * dropped, reordered, mangled or invented.
+   */
+  it('keeps every mention out of the translatable runs', () => {
     const body = `Hi ${userToken(ALICE)}, ask ${userToken(BOB)} please`
-    const prepared = prepareForTranslation(body)
-    expect(prepared.placeholders).toHaveLength(2)
-    // Nothing resembling a token reaches the engine.
-    expect(prepared.text).not.toContain('<@')
-    expect(prepared.text).toContain('Hi ')
-    expect(prepared.text).toContain(' please')
+    const segments = segmentBody(body)
+
+    const mentions = segments.filter((s) => s.kind === 'mention').map((s) => s.value)
+    expect(mentions).toEqual([userToken(ALICE), userToken(BOB)])
+    for (const index of translatableSegmentIndexes(segments)) {
+      expect(segments[index]!.value).not.toContain('<@')
+    }
   })
 
-  it('lifts an everyone token too', () => {
-    const prepared = prepareForTranslation(`${EVERYONE_TOKEN} standup now`)
-    expect(prepared.placeholders).toHaveLength(1)
-    expect(prepared.text).not.toContain('<@')
+  it('loses no characters', () => {
+    for (const body of [
+      `${userToken(ALICE)} bonjour`,
+      `bonjour ${userToken(ALICE)}`,
+      `${userToken(ALICE)}${userToken(BOB)}`,
+      `${EVERYONE_TOKEN} standup now`,
+      'no mentions at all',
+    ]) {
+      expect(segmentBody(body).map((s) => s.value).join('')).toBe(normalizeText(body))
+    }
   })
 
-  it('normalises on the way out', () => {
-    const prepared = prepareForTranslation('Vie\u0323\u0302t')
-    expect(prepared.text).toBe('Việt')
+  it('treats @everyone like any other mention', () => {
+    const segments = segmentBody(`${EVERYONE_TOKEN} standup now`)
+    expect(segments[0]).toEqual({ kind: 'mention', value: EVERYONE_TOKEN })
   })
 
-  it('leaves a body with no mentions untouched apart from normalising', () => {
-    const prepared = prepareForTranslation('bonjour tout le monde')
-    expect(prepared.placeholders).toHaveLength(0)
-    expect(prepared.text).toBe('bonjour tout le monde')
+  it('does not split on text that merely looks like a mention', () => {
+    const segments = segmentBody('email me at <@not-a-uuid> please')
+    expect(segments.every((s) => s.kind === 'text')).toBe(true)
+  })
+
+  /** Repeats are separate segments, so one cannot swallow the other. */
+  it('keeps a repeated mention as two segments', () => {
+    const body = `${userToken(ALICE)} merci ${userToken(ALICE)} encore`
+    const mentions = segmentBody(body).filter((s) => s.kind === 'mention')
+    expect(mentions).toHaveLength(2)
   })
 })
 
-describe('restoreAfterTranslation', () => {
-  const roundTrip = (body: string, translate: (text: string) => string) => {
-    const prepared = prepareForTranslation(body)
-    return restoreAfterTranslation(translate(prepared.text), prepared.placeholders)
-  }
-
-  it('puts every mention back exactly as it was', () => {
-    const body = `Hi ${userToken(ALICE)}, ask ${userToken(BOB)}`
-    // A well-behaved engine carries the markers through.
-    const out = roundTrip(body, (t) => t.replace('Hi', 'Bonjour').replace('ask', 'demande à'))
-    expect(out).toContain(userToken(ALICE))
-    expect(out).toContain(userToken(BOB))
-    expect(out).toContain('Bonjour')
-  })
-
-  it('survives an engine that reorders the markers', () => {
-    // Word order changes between languages; the mentions must follow.
-    const body = `${userToken(ALICE)} sent ${userToken(BOB)} a file`
-    const prepared = prepareForTranslation(body)
-    const reversed = prepared.text.split(' ').reverse().join(' ')
-    const out = restoreAfterTranslation(reversed, prepared.placeholders)
-    expect(out).toContain(userToken(ALICE))
-    expect(out).toContain(userToken(BOB))
-  })
-
-  it('recovers a mention the engine dropped entirely', () => {
-    // Losing word order is recoverable; losing a mention is not, so a dropped
-    // marker is appended rather than silently discarded.
-    const body = `ping ${userToken(ALICE)}`
-    const out = roundTrip(body, () => 'ping')
-    expect(out).toContain(userToken(ALICE))
-  })
-
-  it('normalises what the engine returns', () => {
-    const out = restoreAfterTranslation('Vie\u0323\u0302t', [])
-    expect(out).toBe('Việt')
-  })
-
+describe('detectionSegment', () => {
   /**
-   * The delimiters are what make a marker a marker. Recognising the digits on
-   * their own turns every number in the message into a restoration target: the
-   * mention lands on the sender's "0", and the marker's own digits survive as
-   * literal text.
+   * Detection is settled once, on the longest run. A three-word fragment is
+   * exactly where fastText is least reliable, and letting each run decide for
+   * itself lets a fragment disagree with the sentence it came from.
    */
-  it('leaves ordinary numbers alone when the engine erases a marker', () => {
-    const body = `${userToken(ALICE)} we have 0 blockers`
-    const prepared = prepareForTranslation(body)
-    const erased = prepared.text.replace(/[\uE000\uE001]/g, '')
-    const out = restoreAfterTranslation(erased, prepared.placeholders)
-
-    expect(out).toContain('0 blockers')
-    expect(out.match(new RegExp(userToken(ALICE), 'g'))).toHaveLength(1)
-  })
-
-  /**
-   * The token appended for a lost marker is a UUID, which is full of digits. A
-   * later placeholder that matched bare digits found one inside it and restored
-   * itself into the middle of the mention just written, destroying both.
-   */
-  it('never restores one mention inside another', () => {
-    const body = `${userToken(ALICE)} and ${userToken(BOB)} ship it`
-    const prepared = prepareForTranslation(body)
-    const out = restoreAfterTranslation('expédie-le', prepared.placeholders)
-
-    expect(out).toContain(userToken(ALICE))
-    expect(out).toContain(userToken(BOB))
-    expect(out).not.toMatch(/<@[^>]*<@/)
-  })
-
-  /** One delimiter is enough to identify a marker; the digits alone are not. */
-  it('recovers a marker that kept one delimiter', () => {
-    const body = `hello ${userToken(ALICE)}`
-    const prepared = prepareForTranslation(body)
-    const out = restoreAfterTranslation(
-      prepared.text.replace('\uE001', ''),
-      prepared.placeholders,
+  it('hands over all of the prose, not the longest run of it', () => {
+    const segments = segmentBody(
+      `${userToken(ALICE)} et ${userToken(BOB)} doivent valider le budget avant vendredi`,
     )
-
-    expect(out).toBe(`hello ${userToken(ALICE)}`)
+    // Detection quality tracks how much text it sees, and the runs around a
+    // mention are exactly the fragments it is worst on.
+    expect(detectionSegment(segments)).toBe('et doivent valider le budget avant vendredi')
   })
 
-  /**
-   * U+E000 opens the icon-font range, so a glyph pasted from Font Awesome puts
-   * a delimiter in the body. Left there it forges a marker.
-   */
-  it('strips delimiters the sender typed', () => {
-    // The body forges marker zero, which would otherwise capture the first
-    // mention's restoration and leave that mention nowhere.
-    const prepared = prepareForTranslation(`\uE00000\uE001 hi ${userToken(BOB)}`)
-
-    expect(prepared.text.match(/[\uE000\uE001]/g)).toHaveLength(2)
-    expect(prepared.text.startsWith('00 hi ')).toBe(true)
-
-    const out = restoreAfterTranslation(prepared.text, prepared.placeholders)
-    expect(out).toBe(`00 hi ${userToken(BOB)}`)
+  it('leaves the identifiers out — a UUID is not evidence of a language', () => {
+    const segments = segmentBody(`${userToken(ALICE)} bonjour tout le monde`)
+    expect(detectionSegment(segments)).toBe('bonjour tout le monde')
   })
 
-  /**
-   * Marker 1 must not match the leading digit of marker 10, which is what a
-   * variable-width index allowed once a delimiter was lost.
-   */
-  it('keeps double-digit markers distinct from single-digit ones', () => {
-    const tokens = Array.from({ length: 11 }, (_, index) =>
-      userToken(`${index}0000000-0000-4000-8000-000000000000`),
+  it('is null when there is nothing worth detecting', () => {
+    expect(detectionSegment(segmentBody(userToken(ALICE)))).toBeNull()
+    expect(detectionSegment(segmentBody('👍'))).toBeNull()
+  })
+})
+
+describe('reassembleBody', () => {
+  it('puts translated runs back between untouched mentions', () => {
+    const body = `${userToken(ALICE)} peux-tu regarder la facture`
+    const segments = segmentBody(body)
+    const [index] = translatableSegmentIndexes(segments)
+    const out = reassembleBody(segments, new Map([[index!, 'can you check the invoice']]))
+
+    expect(out).toBe(`${userToken(ALICE)} can you check the invoice`)
+  })
+
+  /** The engine trims; the spacing around a mention comes from the original. */
+  it('preserves the whitespace that surrounded the run', () => {
+    const segments = segmentBody(`${userToken(ALICE)}   bonjour   ${userToken(BOB)}`)
+    const [index] = translatableSegmentIndexes(segments)
+    const out = reassembleBody(segments, new Map([[index!, 'hello']]))
+
+    expect(out).toBe(`${userToken(ALICE)}   hello   ${userToken(BOB)}`)
+  })
+
+  it('leaves a run with no translation exactly as it was', () => {
+    const segments = segmentBody(`${userToken(ALICE)} bonjour`)
+    expect(reassembleBody(segments, new Map())).toBe(`${userToken(ALICE)} bonjour`)
+  })
+
+  it('emits every mention exactly once, in the original order', () => {
+    const body = `${userToken(ALICE)} et ${userToken(BOB)} puis ${userToken(ALICE)}`
+    const segments = segmentBody(body)
+    const translations = new Map(
+      translatableSegmentIndexes(segments).map((index) => [index, 'and then']),
     )
-    const prepared = prepareForTranslation(`${tokens.join(' ')} done`)
-    const opened = prepared.text.replace(/\uE001/g, '')
-    const out = restoreAfterTranslation(opened, prepared.placeholders)
+    const out = reassembleBody(segments, translations)
 
-    for (const token of tokens) expect(out).toContain(token)
+    expect(out.indexOf(userToken(BOB))).toBeGreaterThan(out.indexOf(userToken(ALICE)))
+    expect(out.split(userToken(ALICE)).length - 1).toBe(2)
+    expect(out.split(userToken(BOB)).length - 1).toBe(1)
+  })
+})
+
+describe('introducesMention', () => {
+  /**
+   * A mention is a live relationship in the renderer. The model never sees one,
+   * so emitting one would be an invention — and an invented `@everyone` is an
+   * organization-wide ping nobody wrote.
+   */
+  it('catches a mention the engine invented', () => {
+    expect(introducesMention(`hello ${userToken(ALICE)}`)).toBe(true)
+    expect(introducesMention(`hello ${EVERYONE_TOKEN}`)).toBe(true)
+  })
+
+  it('passes ordinary prose, including text that resembles a token', () => {
+    expect(introducesMention('hello everyone')).toBe(false)
+    expect(introducesMention('see <@someone>')).toBe(false)
+  })
+})
+
+describe('MAX_TRANSLATABLE_SEGMENTS', () => {
+  it('is small enough that one message cannot fan out into many inferences', () => {
+    expect(MAX_TRANSLATABLE_SEGMENTS).toBeLessThanOrEqual(8)
+  })
+
+  it('still allows an ordinary multi-line message with a mention', () => {
+    const body = `${userToken(ALICE)} bonjour\nla réunion est jeudi\nmerci à tous`
+    expect(translatableSegmentIndexes(segmentBody(body)).length).toBeLessThanOrEqual(
+      MAX_TRANSLATABLE_SEGMENTS,
+    )
+  })
+})
+
+describe('line breaks', () => {
+  /**
+   * Measured against the real model: three lines came back as one and the
+   * greeting was dropped. A newline is whitespace to the engine, so a list or
+   * an address loses its shape and some of its content, silently and cached.
+   */
+  it('keeps line breaks out of the engine', () => {
+    const segments = segmentBody('bonjour\nla réunion est jeudi')
+    expect(segments.map((s) => s.kind)).toEqual(['text', 'break', 'text'])
+    for (const index of translatableSegmentIndexes(segments)) {
+      expect(segments[index]!.value).not.toContain('\n')
+    }
+  })
+
+  it('restores the exact break run, however many', () => {
+    const segments = segmentBody('un\n\n\ndeux')
+    const translated = new Map(
+      translatableSegmentIndexes(segments).map((index, order) => [index, order === 0 ? 'one' : 'two']),
+    )
+    expect(reassembleBody(segments, translated)).toBe('one\n\n\ntwo')
+  })
+
+  it('leaves detection unaffected by where the lines fall', () => {
+    expect(detectionSegment(segmentBody('bonjour\ntout le monde'))).toBe('bonjour tout le monde')
   })
 })
 
@@ -185,8 +211,6 @@ describe('isTranslatable', () => {
   })
 
   it('rejects text with nothing to translate', () => {
-    // Asking about these costs a request to be told what we already know, and
-    // invites a confident wrong answer on input with no linguistic content.
     for (const s of ['', '   ', '+1', '123', '👍', '🎉🎉']) {
       expect(isTranslatable(s)).toBe(false)
     }
@@ -195,10 +219,6 @@ describe('isTranslatable', () => {
   it('rejects a message that is only a mention', () => {
     expect(isTranslatable(userToken(ALICE))).toBe(false)
     expect(isTranslatable(EVERYONE_TOKEN)).toBe(false)
-  })
-
-  it('accepts a mention with real words around it', () => {
-    expect(isTranslatable(`${userToken(ALICE)} bonjour`)).toBe(true)
   })
 
   it('counts letters, not length, so a short real word passes', () => {

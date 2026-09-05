@@ -126,6 +126,33 @@ function authorLineCount(): number {
 }
 
 describe('MessageList', () => {
+  /**
+   * A skeleton earns its place by being the same silhouette as what replaces
+   * it. Even-width rows down the left read as a table and then jump when the
+   * real transcript lands.
+   */
+  describe('while loading', () => {
+    it('draws bubbles on both sides, not list rows', () => {
+      const { container } = renderList([], [], { isLoading: true })
+      const bubbles = Array.from(container.querySelectorAll('[data-slot="skeleton"]'))
+
+      expect(bubbles.length).toBeGreaterThan(3)
+      expect(bubbles.every((bubble) => bubble.className.includes('rounded-2xl'))).toBe(true)
+      expect(bubbles.some((bubble) => bubble.className.includes('bg-primary-soft'))).toBe(true)
+      expect(bubbles.some((bubble) => bubble.className.includes('bg-surface-muted'))).toBe(true)
+    })
+
+    it('weights the placeholder to the bottom, where a live transcript sits', () => {
+      const { container } = renderList([], [], { isLoading: true })
+      expect(container.firstElementChild?.className).toContain('justify-end')
+    })
+
+    it('announces itself', () => {
+      renderList([], [], { isLoading: true })
+      expect(screen.getAllByRole('status')[0]).toHaveAttribute('aria-busy', 'true')
+    })
+  })
+
   it('renders message bodies as text, never as markup', () => {
     renderList([message({ body: '<img src=x onerror=alert(1)>' })])
     // The body appears verbatim: if it had been parsed as HTML, this literal

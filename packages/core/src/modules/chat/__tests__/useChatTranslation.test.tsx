@@ -209,6 +209,129 @@ describe('useChatTranslation', () => {
   })
 
   /**
+   * The server refuses more than MAX_TRANSLATE_BATCH ids. A reader who scrolled
+   * back twice has ninety loaded, and one oversized request used to 400 — which
+   * marked every id failed, permanently, so the mode then did nothing for that
+   * conversation ever again.
+   */
+  it('splits a large request into batches the server will accept', async () => {
+    translateMessages.mockImplementation(async (_c: string, ids: string[]) => ({
+      translations: ids.map((id) => row(id, `t-${id}`)),
+    }))
+    const ids = Array.from({ length: 145 }, (_, index) => `m${index}`)
+
+    const { result } = renderHook(() => useChatTranslation(CONVERSATION, 'fr'))
+    await act(async () => {
+      await result.current.translate(ids)
+    })
+
+    const sent = requestedIds()
+    expect(sent.length).toBe(3)
+    for (const batch of sent) expect(batch.length).toBeLessThanOrEqual(60)
+    expect(sent.flat().sort()).toEqual([...ids].sort())
+    expect(result.current.translations.size).toBe(145)
+  })
+
+  /**
+   * Whole-conversation mode re-reveals everything it holds whenever the
+   * transcript changes, and the transcript changes for reasons the reader did
+   * not cause. Without a record of the choice, "Show original" was undone a
+   * second later by a background effect.
+   */
+  it('does not re-reveal a message the reader asked to see in the original', async () => {
+    translateMessages.mockImplementation(async (_c: string, ids: string[]) => ({
+      translations: ids.map((id) => row(id, `translated ${id}`)),
+    }))
+
+    const { result, rerender } = renderHook(
+      ({ ids }: { ids: string[] | null }) => useChatTranslation(CONVERSATION, 'en', ids),
+      { initialProps: { ids: ['m1'] as string[] | null } },
+    )
+    await waitFor(() => expect(result.current.showing.has('m1')).toBe(true))
+
+    act(() => result.current.showOriginal('m1'))
+    expect(result.current.showing.has('m1')).toBe(false)
+
+    // A new message arrives: the effect re-runs with a fresh id list.
+    rerender({ ids: ['m1', 'm2'] })
+    await waitFor(() => expect(result.current.translations.get('m2')?.body).toBe('translated m2'))
+
+    expect(result.current.showing.has('m1')).toBe(false)
+    expect(result.current.showing.has('m2')).toBe(true)
+  })
+
+  it('lets the reader take the translation back after hiding it', async () => {
+    translateMessages.mockImplementation(async (_c: string, ids: string[]) => ({
+      translations: ids.map((id) => row(id, 'bonjour')),
+    }))
+    const { result } = renderHook(() => useChatTranslation(CONVERSATION, 'fr'))
+
+    await act(async () => {
+      await result.current.translate(['m1'])
+    })
+    act(() => result.current.showOriginal('m1'))
+    act(() => result.current.showTranslation('m1'))
+
+    expect(result.current.showing.has('m1')).toBe(true)
+  })
+
+  /**
+   * Three messages that could not be translated used to render as originals
+   * inside a translated transcript with no message at all — indistinguishable
+   * from "already in your language".
+   */
+  it('says something when only part of a batch came back', async () => {
+    translateMessages.mockImplementation(async () => ({
+      translations: [
+        row('m1', 'bonjour'),
+        row('m2', null, { skipped: 'failed' }),
+      ],
+    }))
+    const { result } = renderHook(() => useChatTranslation(CONVERSATION, 'fr'))
+
+    await act(async () => {
+      await result.current.translate(['m1', 'm2'])
+    })
+
+    expect(flash).toHaveBeenCalledWith(
+      "Some messages couldn't be translated. They are shown in their original language.",
+      'info',
+    )
+  })
+
+  it('stays quiet when the only unexplained rows are same-language', async () => {
+    translateMessages.mockImplementation(async () => ({
+      translations: [
+        row('m1', 'bonjour'),
+        row('m2', null, { skipped: 'same-language' }),
+      ],
+    }))
+    const { result } = renderHook(() => useChatTranslation(CONVERSATION, 'fr'))
+
+    await act(async () => {
+      await result.current.translate(['m1', 'm2'])
+    })
+
+    expect(flash).not.toHaveBeenCalled()
+  })
+
+  it('names the language the deployment cannot produce', async () => {
+    translateMessages.mockImplementation(async (_c: string, ids: string[]) => ({
+      translations: ids.map((id) => row(id, null, { skipped: 'unsupported-language' })),
+    }))
+    const { result } = renderHook(() => useChatTranslation(CONVERSATION, 'sw'))
+
+    await act(async () => {
+      await result.current.translate(['m1'])
+    })
+
+    expect(flash).toHaveBeenCalledWith(
+      'This deployment cannot translate into the language you chose.',
+      'error',
+    )
+  })
+
+  /**
    * A translation belongs to a transcript. Carrying the map across would show
    * one conversation's words under another conversation's message ids.
    */
