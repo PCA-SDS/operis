@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { features } from '../acl'
@@ -37,11 +37,29 @@ describe('email module foundation', () => {
       join('backend', 'email', 'templates', 'page.meta.ts'),
       join('backend', 'email', 'templates', 'create', 'page.tsx'),
       join('backend', 'email', 'templates', 'create', 'page.meta.ts'),
+      join('backend', 'email', 'templates', '[id]', 'edit', 'page.tsx'),
+      join('backend', 'email', 'templates', '[id]', 'edit', 'page.meta.ts'),
+      join('backend', 'email', 'accounting-defaults', 'page.tsx'),
+      join('backend', 'email', 'accounting-defaults', 'page.meta.ts'),
       join('data', 'entities.ts'),
       join('data', 'validators.ts'),
     ]) {
       expect(existsSync(join(MODULE_ROOT, relativePath))).toBe(true)
     }
+  })
+
+  it('does not carry Finder conflict-copy module files', () => {
+    const stack = [MODULE_ROOT]
+    const conflictCopies: string[] = []
+    while (stack.length) {
+      const current = stack.pop()!
+      for (const entry of readdirSync(current, { withFileTypes: true })) {
+        const path = join(current, entry.name)
+        if (entry.isDirectory()) stack.push(path)
+        if (entry.isFile() && /\s2\.[^.]+$/.test(entry.name)) conflictCopies.push(path)
+      }
+    }
+    expect(conflictCopies).toEqual([])
   })
 
   it('registers scoped ACL features and default role grants', () => {

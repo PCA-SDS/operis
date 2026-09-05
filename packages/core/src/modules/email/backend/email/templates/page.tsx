@@ -93,6 +93,15 @@ export default function EmailTemplatesPage() {
         accessorKey: 'updatedAt',
         cell: ({ row }) => new Date(row.original.updatedAt).toLocaleString(),
       },
+      {
+        header: 'Actions',
+        id: 'actions',
+        cell: ({ row }) => (
+          <Button size="sm" variant="secondary" asChild>
+            <Link href={`/backend/email/templates/${row.original.id}/edit`}>Edit</Link>
+          </Button>
+        ),
+      },
     ],
     [],
   )
@@ -117,9 +126,14 @@ export default function EmailTemplatesPage() {
             />
             <Button type="submit" variant="secondary">Search</Button>
           </form>
-          <Button asChild>
-            <Link href="/backend/email/templates/create">New Template</Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" asChild>
+              <Link href="/backend/email/accounting-defaults">Accounting Defaults</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/backend/email/templates/create">New Template</Link>
+            </Button>
+          </div>
         </div>
         <DataTable<EmailTemplateRow>
           title="Email Templates"
