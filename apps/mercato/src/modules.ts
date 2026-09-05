@@ -9,6 +9,7 @@
 import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
 import type { ModuleOverrides } from '@open-mercato/shared/modules/overrides'
 import { officialModuleEntries } from './official-modules.generated'
+import * as email from '@open-mercato/core/modules/email'
 
 export type ModuleEntry = {
   id: string

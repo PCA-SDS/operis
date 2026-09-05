@@ -74,6 +74,10 @@
       "types": "./src/modules/directory/index.ts",
       "default": "./dist/modules/directory/index.js"
     },
+    "./modules/email": {
+      "types": "./src/modules/email/index.ts",
+      "default": "./dist/modules/email/index.js"
+    },
     "./modules/entities": {
       "types": "./src/modules/entities/index.ts",
       "default": "./dist/modules/entities/index.js"
