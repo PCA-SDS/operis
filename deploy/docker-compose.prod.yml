@@ -210,6 +210,40 @@ services:
       retries: 5
       start_period: 30s
 
+  translation:
+    # Self-hosted translation engine. Built and pushed by CI, never built here:
+    # the image bakes in ~2GB of converted model weights, and converting them on
+    # a production box would need the build toolchain and several minutes of
+    # network on every deploy.
+    image: ${TRANSLATION_IMAGE:-ghcr.io/pca-sds/operis-translation}:${TRANSLATION_IMAGE_TAG:-latest}
+    container_name: operis-translation
+    restart: unless-stopped
+    environment:
+      TRANSLATION_DEVICE: cpu
+      TRANSLATION_COMPUTE_TYPE: int8
+    # `internal` ONLY, never `edge`. The service has no authentication of its
+    # own by design - authorisation happens in the app, before a request reaches
+    # here. On the edge network it would be a free translation API running on
+    # your infrastructure.
+    networks: [ internal ]
+    security_opt: [ "no-new-privileges:true" ]
+    logging: *default-logging
+    # The one service here with an explicit cap. Model weights sit resident once
+    # loaded, and this box runs containers from several unrelated products with
+    # no swap - so the process that can grow is the one that must be bounded,
+    # rather than leaving the kernel to choose an OOM victim.
+    mem_limit: 3g
+    mem_reservation: 1g
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # Loading ~2GB of weights takes far longer than any other service here
+      # starts. A shorter window reports a healthy engine as unhealthy while it
+      # is merely still opening.
+      start_period: 120s
+
 networks:
   internal:
     name: operis-internal

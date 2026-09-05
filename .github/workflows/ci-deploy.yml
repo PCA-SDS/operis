@@ -79,6 +79,7 @@ jobs:
       contents: read
     outputs:
       image: ${{ steps.decide.outputs.image }}
+      translation: ${{ steps.decide.outputs.translation }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -92,6 +93,27 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
+          # The translation image bakes ~2GB of converted model weights into a
+          # layer, so it is rebuilt only when the service that defines it
+          # changes. Decided BEFORE the early exit below so that both the PR and
+          # the push paths emit it - an unset output reads as false, which would
+          # silently never rebuild the engine.
+          if [ "$EVENT" = "pull_request" ]; then
+            TRANSLATION_CHANGED="$(git diff --name-only "$BASE" "$HEAD")"
+            # Herestring, not a pipe, for the reason documented below: under
+            # pipefail `git diff | grep -q` reports failure ON A MATCH.
+            if grep -qE '^services/translation/' <<<"$TRANSLATION_CHANGED"; then
+              echo "translation=true"  >> "$GITHUB_OUTPUT"
+            else
+              echo "translation=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            # Push or manual dispatch: rebuild. The conversion layer is cached in
+            # the registry, so an unchanged model is a cache hit rather than a
+            # 2GB download.
+            echo "translation=true" >> "$GITHUB_OUTPUT"
+          fi
+
           # Anything that is not a PR (push to main, manual dispatch) always
           # builds: that is the artifact that gets deployed.
           if [ "$EVENT" != "pull_request" ]; then
@@ -495,6 +517,89 @@ jobs:
             echo "| tag | \`${{ steps.meta.outputs.tag }}\` |"
             echo "| digest | \`${{ steps.build.outputs.digest }}\` |"
             echo "| commit | ${{ github.sha }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  translation-image:
+    name: Build and push translation image
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    needs: [scope]
+    # Built independently of the app image. The weights are baked in at build
+    # time, so this layer only changes when the service or its model does — and
+    # rebuilding 2GB of converted weights on every application commit would burn
+    # runner time for nothing.
+    if: >-
+      always()
+      && needs.scope.result == 'success'
+      && needs.scope.outputs.translation == 'true'
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve image name
+        id: meta
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          IMAGE="${REGISTRY}/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')-translation"
+          TAG="sha-${GITHUB_SHA::7}"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG"     >> "$GITHUB_OUTPUT"
+          if [ "$EVENT" = "pull_request" ]; then
+            echo "push=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "push=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log in to GHCR
+        run: echo '${{ secrets.GITHUB_TOKEN }}' | docker login "$REGISTRY" -u '${{ github.actor }}' --password-stdin
+
+      - name: Create buildx builder
+        run: docker buildx create --name translation --driver docker-container --use
+
+      - name: Build and push
+        id: build
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          PUSH: ${{ steps.meta.outputs.push }}
+        run: |
+          set -euo pipefail
+          # The model-conversion stage is the expensive one and changes only when
+          # the model id or quantisation does, so the registry cache carries it
+          # across builds. `ignore-error` because a cache write failure must not
+          # fail a build that otherwise succeeded.
+          ARGS=(
+            --file services/translation/Dockerfile
+            --tag "$IMAGE:$TAG"
+            --cache-from "type=registry,ref=$IMAGE:buildcache"
+            --progress plain
+          )
+          if [ "$PUSH" = "true" ]; then
+            ARGS+=(--tag "$IMAGE:latest" --push
+                   --cache-to "type=registry,ref=$IMAGE:buildcache,mode=max,ignore-error=true")
+          else
+            ARGS+=(--output type=cacheonly)
+          fi
+          docker buildx build "${ARGS[@]}" services/translation
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Translation image ${{ steps.meta.outputs.push == 'true' && 'built and pushed' || 'build verified (not pushed)' }}"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| image | \`${{ steps.meta.outputs.image }}\` |"
+            echo "| tag | \`${{ steps.meta.outputs.tag }}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ---------------------------------------------------------------------------
