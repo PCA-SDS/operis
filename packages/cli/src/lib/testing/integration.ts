@@ -1981,6 +1981,9 @@ function buildReusableEnvironment(
     // adapters run end-to-end. Unlike `push_stub` (which replaces the whole adapter),
     // this replaces only each SDK client. Mirrors the fresh-environment env below.
     OM_PUSH_FAKE_PROVIDERS: process.env.OM_PUSH_FAKE_PROVIDERS ?? '1',
+    // Same reasoning for translation: the real adapter and command run, but
+    // no engine is reachable from a test environment.
+    OM_TRANSLATION_FAKE_PROVIDER: process.env.OM_TRANSLATION_FAKE_PROVIDER ?? '1',
     // Expo's receipt reaper ignores rows younger than 15 minutes by default, which no
     // integration test can wait out. Poll immediately instead.
     OM_PUSH_RECEIPT_MIN_AGE_MINUTES: process.env.OM_PUSH_RECEIPT_MIN_AGE_MINUTES ?? '0',
@@ -3359,6 +3362,7 @@ export async function startEphemeralEnvironment(options: EphemeralRuntimeOptions
       // registered only under this flag. Applies to the app server, the Playwright process, and any
       // drain/worker child that inherits this environment.
       OM_PUSH_FAKE_PROVIDERS: process.env.OM_PUSH_FAKE_PROVIDERS ?? '1',
+      OM_TRANSLATION_FAKE_PROVIDER: process.env.OM_TRANSLATION_FAKE_PROVIDER ?? '1',
       // Expo's receipt reaper ignores rows younger than 15 minutes by default (it polls a real
       // provider's async receipts). No integration test can wait that out — poll immediately.
       OM_PUSH_RECEIPT_MIN_AGE_MINUTES: process.env.OM_PUSH_RECEIPT_MIN_AGE_MINUTES ?? '0',

@@ -257,7 +257,11 @@ export function MessageComposer({
 
   return (
     <form
-      className="shrink-0 border-t border-border bg-surface px-4 py-3"
+      // No rule above it. The composer and the transcript are the same surface,
+      // so a line between them divided one panel into two; the padding already
+      // separates them. Kept as `py-3` rather than absorbed into the transcript
+      // so the distance is unchanged by the border going away.
+      className="shrink-0 bg-surface px-4 py-3"
       onSubmit={(event) => {
         event.preventDefault()
         submit()

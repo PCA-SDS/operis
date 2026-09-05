@@ -43,7 +43,15 @@ export function MessageBody({ body, mentionNames, currentUserId, className }: Me
   )
 
   return (
-    <p className={cn('whitespace-pre-wrap break-words text-sm text-foreground', className)}>
+    <p
+      // The message decides its own base direction from its own first strong
+      // character. Arabic, Hebrew, Farsi and Urdu are all selectable reading
+      // languages, and rendered in an LTR paragraph their trailing punctuation
+      // lands at the wrong end and mixed runs — mention chips, numbers, URLs —
+      // reorder incorrectly. Scoped to the body so the surrounding controls keep
+      // the interface direction.
+      dir="auto"
+      className={cn('whitespace-pre-wrap break-words text-sm text-foreground', className)}>
       {segments.map((segment, index) => {
         if (segment.kind === 'text') return <React.Fragment key={index}>{segment.text}</React.Fragment>
 

@@ -17,7 +17,7 @@ import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
-import { tCount } from './plurals'
+import { useTCount } from './plurals'
 import { formatListTimestamp } from './format'
 import { useMessageEngagement, usePinnedMessages } from './hooks'
 
@@ -47,6 +47,7 @@ export function PinnedMessagesPanel({
   onJumpToMessage,
 }: PinnedMessagesPanelProps) {
   const t = useT()
+  const tc = useTCount()
   const locale = useLocale()
   const { pinned, total, isLoading, error, retry } = usePinnedMessages(conversationId, open)
   const { setPinned } = useMessageEngagement(conversationId)
@@ -57,7 +58,7 @@ export function PinnedMessagesPanel({
         <DialogHeader>
           <DialogTitle>{t('chat.pins.title', 'Pinned messages')}</DialogTitle>
           <DialogDescription>
-            {tCount(t, 'chat.pins.count', total, '{count} pinned messages in this conversation')}
+            {tc('chat.pins.count', total, '{count} pinned messages in this conversation')}
           </DialogDescription>
         </DialogHeader>
 

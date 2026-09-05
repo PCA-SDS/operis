@@ -22,6 +22,26 @@ export const chatSendRateLimit = readEndpointRateLimitConfig('CHAT_SEND', {
   keyPrefix: 'chat_send',
 })
 
+/**
+ * Translation, on its own budget.
+ *
+ * Sharing the send bucket made a read gesture cost a write: holding the
+ * scroll-up key through thirty pages with whole-conversation mode on exhausted
+ * the quota and then blocked the reader from sending a message for thirty
+ * seconds. Reading should never be able to do that.
+ *
+ * Lower than sending, because the unit is not comparable: one request here can
+ * name sixty messages and each is real inference on a CPU-bound engine shared
+ * by the whole deployment. The engine's own concurrency gate is the hard bound;
+ * this is what stops one person reaching it.
+ */
+export const chatTranslateRateLimit = readEndpointRateLimitConfig('CHAT_TRANSLATE', {
+  points: 12,
+  duration: 10,
+  blockDuration: 20,
+  keyPrefix: 'chat_translate',
+})
+
 export const chatConversationCreateRateLimit = readEndpointRateLimitConfig('CHAT_CONVERSATION_CREATE', {
   // Starting conversations is rare; a burst of them is someone walking the
   // directory.

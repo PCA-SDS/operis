@@ -6,17 +6,21 @@ import { ArrowLeft, ChevronRight, Pin, Users } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { tCount } from './plurals'
+import { useTCount } from './plurals'
 import type { ChatMessageDto } from '../data/types'
 import { MessageComposer, type MentionCandidate } from './MessageComposer'
-import { MessageList, type PendingMessage } from './MessageList'
+import { MessageList, MessageListSkeleton, type PendingMessage } from './MessageList'
 import { PinnedMessagesPanel } from './PinnedMessagesPanel'
+import { TranslateControl } from './TranslateControl'
 import { SpaceDetailsDialog } from './SpaceDetailsDialog'
 import {
   useCanSendChat,
+  useChatLocale,
+  useChatTranslation,
   useConversation,
   useMarkRead,
   useMessageEngagement,
@@ -47,6 +51,17 @@ const logger = createLogger('chat').child({ component: 'ConversationView' })
  */
 const MENTION_SEARCH_DEBOUNCE_MS = 250
 
+/**
+ * How much of a scrolled-back transcript whole-conversation mode keeps
+ * translated.
+ *
+ * Four pages at the 30-message page size, so a reader who scrolls back a little
+ * sees it follow them, and one who scrolls back a long way does not silently
+ * queue hundreds of inferences. Above the batch cap so the window is the
+ * product decision rather than a side effect of the request limit.
+ */
+const STICKY_TRANSLATION_WINDOW = 120
+
 function newClientMessageId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -65,6 +80,7 @@ function newClientMessageId(): string {
  */
 export function ConversationView({ conversationId, currentUserId, showBackToList }: ConversationViewProps) {
   const t = useT()
+  const tc = useTCount()
   /**
    * The message the transcript is currently centred on.
    *
@@ -91,6 +107,37 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
   const [pending, setPending] = React.useState<PendingMessage[]>([])
   const [replyTarget, setReplyTarget] = React.useState<ReplyTarget | null>(null)
   const [detailsOpen, setDetailsOpen] = React.useState(false)
+  const chatLocale = useChatLocale()
+  /**
+   * Whole-conversation mode. Sticky per conversation: a one-shot covering only
+   * what is on screen would look broken the moment the reader scrolled back, or
+   * a new message arrived untranslated beside translated ones.
+   */
+  const [translateAll, setTranslateAll] = React.useState(false)
+  React.useEffect(() => setTranslateAll(false), [conversationId])
+  /**
+   * Only user messages: joins, renames and the rest are system copy the product
+   * already renders in the interface language.
+   */
+  const translatableIds = React.useMemo(
+    () =>
+      translateAll
+        ? messages
+            .filter((message) => message.kind === 'user')
+            // Sticky means "keep up with the transcript", not "translate the
+            // archive". Without a bound, scrolling to the top of a long
+            // conversation translated every message in it — each page a real
+            // request against a CPU-bound engine, for history the reader
+            // scrolled past rather than read. The window is the newest
+            // messages, which is where a reader following a conversation
+            // actually is; anything older stays one click away on its own row.
+            .slice(-STICKY_TRANSLATION_WINDOW)
+            .map((message) => message.id)
+        : null,
+    [translateAll, messages],
+  )
+  const translation = useChatTranslation(conversationId, chatLocale.locale, translatableIds)
+
   const [pinsOpen, setPinsOpen] = React.useState(false)
   /**
    * A message to bring into view once it is loaded.
@@ -325,7 +372,7 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
                   it too would leave the pane unlabelled. */}
               {conversationError ? null : isSpace && conversation ? (
                 <span className="block truncate text-xs text-muted-foreground">
-                  {tCount(t, 'chat.space.memberCount', conversation.memberCount, '{count} members')}
+                  {tc('chat.space.memberCount', conversation.memberCount, '{count} members')}
                 </span>
               ) : conversation?.counterpart ? (
                 <span className="block truncate text-xs text-muted-foreground">
@@ -369,6 +416,24 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
       {/* Pushes the pin control to the trailing edge, away from the identity. */}
       <span className="flex-1" />
 
+      {conversation ? (
+        <TranslateControl
+          locale={chatLocale.locale}
+          translatableLocales={chatLocale.translatableLocales}
+          // Choosing a language only records the choice. Re-translating the
+          // transcript into it is the sticky mode's job, and doing it here as
+          // well raced the mode: both paths asked for the same messages, and
+          // whichever answered second wrote the other language's words.
+          onLocaleChange={(next) => chatLocale.setLocale.mutate(next)}
+          active={translateAll}
+          busy={translation.pending.size > 0}
+          onToggle={(next) => {
+            setTranslateAll(next)
+            if (!next) for (const message of messages) translation.showOriginal(message.id)
+          }}
+        />
+      ) : null}
+
       {/* Only when there is something to show. At zero this is not rendered
           rather than rendered disabled: the panel's whole job is to answer
           "what has been pinned here", and a control that opens an empty answer
@@ -393,8 +458,20 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         {header}
-        <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-          <LoadingMessage label={t('chat.conversation.loading', 'Loading conversation…')} />
+        {/* The transcript's own silhouette, not a centred spinner. A spinner in
+            the middle of an empty pane says "something is happening somewhere";
+            bubbles in the place bubbles will appear say what is coming, and the
+            composer stays put instead of arriving late and shifting the page.
+
+            `sr-only` carries the announcement the spinner used to make -- the
+            skeletons are decoration, and `Skeleton` is already a polite live
+            region, so the label is what a screen reader should hear. */}
+        <span className="sr-only" role="status">
+          {t('chat.conversation.loading', 'Loading conversation…')}
+        </span>
+        <MessageListSkeleton />
+        <div className="px-4 py-3">
+          <Skeleton className="h-11 w-full rounded-xl" />
         </div>
       </div>
     )
@@ -446,6 +523,11 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
         </div>
       ) : (
         <MessageList
+          translations={translation.translations}
+          showingTranslation={translation.showing}
+          pendingTranslation={translation.pending}
+          onTranslate={(messageId) => void translation.translate([messageId])}
+          onShowOriginal={translation.showOriginal}
           isAnchored={Boolean(anchorMessageId)}
           onReturnToLatest={() => setAnchorMessageId(null)}
           jumpToMessageId={jumpTarget}

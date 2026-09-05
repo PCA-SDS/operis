@@ -204,3 +204,35 @@ export type ChatSendMessageResultDto = {
 export type ChatUnreadCountDto = {
   unreadCount: number
 }
+
+/** One message rendered into the reader's language. */
+export type ChatTranslationDto = {
+  messageId: string
+  /** Null when nothing was produced; `skipped` says why. */
+  body: string | null
+  sourceLocale: string | null
+  cached: boolean
+  skipped?:
+    | 'same-language'
+    | 'nothing-to-translate'
+    | 'unsupported-language'
+    | 'detection-declined'
+    | 'unavailable'
+    | 'overloaded'
+    | 'deadline-exceeded'
+    | 'mentions-unsafe'
+    | 'failed'
+}
+
+export type ChatTranslationListDto = { translations: ChatTranslationDto[] }
+
+export type ChatSettingsDto = {
+  /** ISO-639-1, or null to follow the interface language. */
+  translationLocale: string | null
+  /**
+   * What the engine registered on this deployment can translate into. Empty
+   * when none is configured. Every ISO-639-1 code stays choosable regardless —
+   * this is what the picker uses to say which choices will actually work.
+   */
+  translatableLocales: string[]
+}

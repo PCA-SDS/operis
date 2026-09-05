@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { ArrowDown, MessageSquare, Pin, Quote } from 'lucide-react'
+import { ArrowDown, Languages, MessageSquare, Pin, Quote } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
@@ -9,8 +9,9 @@ import { Separator } from '@open-mercato/ui/primitives/separator'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
+import { getIso639Label } from '@open-mercato/shared/lib/i18n/iso639'
 import { cn } from '@open-mercato/shared/lib/utils'
-import type { ChatMessageDto } from '../data/types'
+import type { ChatMessageDto, ChatTranslationDto } from '../data/types'
 import {
   formatDateSeparator,
   formatFullTimestamp,
@@ -67,6 +68,16 @@ type MessageListProps = {
    */
   jumpToMessageId?: string | null
   onJumpHandled?: () => void
+  /**
+   * Translations the reader has asked to see, by message id. Absent entirely
+   * when no engine is configured, which is what removes the control rather than
+   * offering one that cannot work.
+   */
+  translations?: Map<string, ChatTranslationDto>
+  showingTranslation?: Set<string>
+  pendingTranslation?: Set<string>
+  onTranslate?: (messageId: string) => void
+  onShowOriginal?: (messageId: string) => void
   /**
    * True while the transcript is a bounded window around a jumped-to message
    * rather than the live tail. In that state the bottom of the list is NOT the
@@ -193,16 +204,41 @@ type Row =
     }
   | { kind: 'pending'; key: string; pending: PendingMessage; topGap: TopGap }
 
-function MessageListSkeleton() {
+/**
+ * The shape a transcript is about to take, not a generic list of rows.
+ *
+ * A skeleton earns its place by being the same silhouette as what replaces it:
+ * bubbles, alternating sides, ragged widths, weighted towards the bottom the way
+ * a scrolled-to-latest transcript is. Even-width rows down the left read as a
+ * table and then jump when the real messages land.
+ *
+ * Widths are fixed per row rather than random so the placeholder does not
+ * reshuffle on every re-render while the request is still in flight.
+ */
+const SKELETON_ROWS = [
+  { mine: false, width: 'w-3/5' },
+  { mine: false, width: 'w-2/5' },
+  { mine: true, width: 'w-1/2' },
+  { mine: false, width: 'w-3/4' },
+  { mine: true, width: 'w-1/3' },
+  { mine: true, width: 'w-3/5' },
+] as const
+
+export function MessageListSkeleton() {
   return (
-    <div className="space-y-5 px-4 py-3">
-      {[0, 1, 2].map((row) => (
-        <div key={row} className="flex gap-3">
-          <Skeleton shape="circle" className="size-7" />
-          <div className="min-w-0 flex-1 space-y-2">
-            <Skeleton className="h-3 w-32" />
-            <Skeleton className={cn('h-3', row === 1 ? 'w-2/3' : 'w-1/2')} />
-          </div>
+    <div className="flex min-h-0 flex-1 flex-col justify-end gap-3 px-4 py-3">
+      {SKELETON_ROWS.map((row, index) => (
+        <div key={index} className={cn('flex w-full', row.mine && 'justify-end')}>
+          <Skeleton
+            className={cn(
+              'h-9 rounded-2xl',
+              row.width,
+              // The real bubbles are tinted by side; matching that here means
+              // only the words appear, rather than the whole column changing
+              // colour when the transcript arrives.
+              row.mine ? 'bg-primary-soft' : 'bg-surface-muted',
+            )}
+          />
         </div>
       ))}
     </div>
@@ -228,11 +264,18 @@ function MessageMenu({
   onReply,
   pinned,
   onTogglePin,
+  translationState,
+  onTranslate,
+  onShowOriginal,
 }: {
   body: string
   onReply?: () => void
   pinned: boolean
   onTogglePin?: () => void
+  /** Absent when translation is not configured for this deployment. */
+  translationState?: 'none' | 'pending' | 'showing' | 'original'
+  onTranslate?: () => void
+  onShowOriginal?: () => void
 }) {
   const t = useT()
   return (
@@ -263,6 +306,24 @@ function MessageMenu({
                   : t('chat.pins.pin', 'Pin message'),
                 onSelect: onTogglePin,
               },
+            ]
+          : []),
+        // Translation sits with the other per-message actions rather than as its
+        // own control on the bubble: it is used occasionally, and the transcript
+        // already carries a hover bar this belongs in.
+        ...(onTranslate && translationState !== 'pending'
+          ? [
+              translationState === 'showing'
+                ? {
+                    id: 'show-original',
+                    label: t('chat.translation.showOriginal', 'Show original'),
+                    onSelect: () => onShowOriginal?.(),
+                  }
+                : {
+                    id: 'translate',
+                    label: t('chat.translation.translate', 'Translate'),
+                    onSelect: onTranslate,
+                  },
             ]
           : []),
         {
@@ -386,6 +447,11 @@ export function MessageList({
   onTogglePin,
   jumpToMessageId,
   onJumpHandled,
+  translations,
+  showingTranslation,
+  pendingTranslation,
+  onTranslate,
+  onShowOriginal,
   isAnchored,
   onReturnToLatest,
   isLoading,
@@ -471,6 +537,33 @@ export function MessageList({
    * Returns whether it could, so the quote can decide between a button and inert
    * text — a link that scrolls nowhere is worse than no link.
    */
+  /**
+   * The translated body to render, or null to render the original.
+   *
+   * Both conditions matter: a translation that exists but is not being shown is
+   * the "Show original" state, and one that produced no words (already in this
+   * language, or nothing translatable in it) must never blank the message.
+   */
+  const translationFor = React.useCallback(
+    (messageId: string): string | null => {
+      if (!showingTranslation?.has(messageId)) return null
+      return translations?.get(messageId)?.body ?? null
+    },
+    [showingTranslation, translations],
+  )
+
+  /** "Translated from French", or just "Translated" when detection said nothing. */
+  const translationSourceLabel = React.useCallback(
+    (messageId: string): string => {
+      const source = translations?.get(messageId)?.sourceLocale
+      const name = source ? getIso639Label(source) : null
+      return name
+        ? t('chat.translation.translatedFrom', 'Translated from {language}', { language: name })
+        : t('chat.translation.translated', 'Translated')
+    },
+    [t, translations],
+  )
+
   const jumpToMessage = React.useCallback((messageId: string) => {
     const container = scrollRef.current
     if (!container) return
@@ -747,7 +840,13 @@ export function MessageList({
       container.getBoundingClientRect().top -
       anchor.top
     if (delta !== 0) container.scrollTop += delta
-  }, [messages])
+    // `translations` and `showingTranslation` belong here as much as `messages`
+    // does: a translation landing changes the height of bubbles that may be
+    // ABOVE the viewport, which grows the content over a reader who is scrolled
+    // back and moves the transcript under them -- the exact jump this anchor
+    // exists to absorb. It never fired for that case, because translations do
+    // not change the `messages` identity.
+  }, [messages, translations, showingTranslation])
 
   React.useLayoutEffect(() => {
     const container = scrollRef.current
@@ -1274,11 +1373,60 @@ export function MessageList({
                             }
                           />
                         ) : null}
+                        {/* The translation replaces the words, never the
+                            message. `MessageBody` renders either one, so mention
+                            chips, the no-HTML rule and every safety property are
+                            identical - translated text is not a second rendering
+                            path that could drift from the first. */}
                         <MessageBody
-                          body={row.message.body}
+                          body={translationFor(row.message.id) ?? row.message.body}
                           mentionNames={row.message.mentionNames}
                           currentUserId={currentUserId}
                         />
+
+                        {/* Says what happened and offers the way back. Machine
+                            translation is wrong often enough that hiding the
+                            original is a trust problem, not a UX detail - so the
+                            source language is named and the original is one
+                            click away.
+
+                            Inside the bubble, under the words it describes: it
+                            is a statement about THIS message, and outside it
+                            read as a separate note floating in the transcript.
+                            The hairline separates it from the message without
+                            making it a second block.
+
+                            It wraps as a row, not as words. The bubble is capped
+                            at 85% of the column, and on a phone that leaves this
+                            line about a pixel short of its content - which broke
+                            "Translated from French" and "Show original" across
+                            two ragged lines each. Wrapping the row instead puts
+                            the sentence on one line and the action on the next. */}
+                        {translationFor(row.message.id) ? (
+                          <p
+                            className={cn(
+                              'mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 border-t pt-1.5 text-xs',
+                              // The tint under the text differs by side, so the
+                              // hairline and the label have to follow it rather
+                              // than assume the page ground.
+                              row.mine
+                                ? 'border-primary/15 text-foreground/65'
+                                : 'border-border/60 text-muted-foreground',
+                            )}
+                          >
+                            <Languages className="size-3 shrink-0" aria-hidden="true" />
+                            <span>
+                              {translationSourceLabel(row.message.id)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => onShowOriginal?.(row.message.id)}
+                              className="shrink-0 whitespace-nowrap rounded underline underline-offset-2 outline-none transition-colors hover:text-foreground focus-visible:shadow-focus"
+                            >
+                              {t('chat.translation.showOriginal', 'Show original')}
+                            </button>
+                          </p>
+                        ) : null}
                       </div>
 
                       {/* Subtle by design: the pin's job is to be findable from
@@ -1420,6 +1568,19 @@ export function MessageList({
                             </>
                           ) : null}
                           <MessageMenu
+                            translationState={
+                              !onTranslate
+                                ? undefined
+                                : pendingTranslation?.has(row.message.id)
+                                  ? 'pending'
+                                  : showingTranslation?.has(row.message.id)
+                                    ? 'showing'
+                                    : 'none'
+                            }
+                            onTranslate={onTranslate ? () => onTranslate(row.message.id) : undefined}
+                            onShowOriginal={
+                              onShowOriginal ? () => onShowOriginal(row.message.id) : undefined
+                            }
                             pinned={row.message.pinned}
                             onTogglePin={
                               onTogglePin
