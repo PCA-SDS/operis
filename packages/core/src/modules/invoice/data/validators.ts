@@ -51,6 +51,12 @@ export const INVOICE_TRACKING_PIXEL_RATE_LIMIT_WINDOW_SECONDS = 60
 
 const uuid = () => z.string().uuid()
 const nullableTrimmedString = (max: number) => z.string().trim().max(max).nullable().optional()
+const optionalTrimmedString = (schema: z.ZodString) =>
+  z.preprocess((value) => {
+    if (typeof value !== 'string') return value
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : undefined
+  }, schema.optional())
 
 export const invoiceDirectionSchema = z.enum(INVOICE_DIRECTIONS)
 export const invoiceStatusSchema = z.enum(INVOICE_STATUSES)
@@ -133,6 +139,20 @@ export const invoiceEmailSchema = z.string().trim().email().max(320)
 
 export const invoiceDueDaysSchema = z.coerce.number().int().min(0).max(INVOICE_MAX_DUE_DAYS)
 export const invoiceClearableDueDaysSchema = invoiceDueDaysSchema.nullable()
+export const invoicePartnerDefaultDueDaysSchema = z.coerce.number().int().min(1).max(INVOICE_MAX_DUE_DAYS)
+export const invoiceClearablePartnerDefaultDueDaysSchema = invoicePartnerDefaultDueDaysSchema.nullable()
+export const invoicePartnerTermsUpdateSchema = z.object({
+  defaultDueDays: invoiceClearablePartnerDefaultDueDaysSchema,
+})
+export const invoicePartnerListQuerySchema = z.object({
+  page: invoicePageSchema,
+  pageSize: invoicePartnerPageSizeSchema,
+  search: invoiceSearchSchema,
+})
+export const invoicePartnerMatchQuerySchema = z.object({
+  taxCode: optionalTrimmedString(invoiceTaxCodeSchema),
+  name: optionalTrimmedString(invoiceCompanyNameSchema),
+})
 export const invoiceLineNumberSchema = z.coerce.number().int().min(1).max(INVOICE_LINE_ITEMS_MAX)
 export const invoiceInstallmentCountSchema = z.coerce
   .number()

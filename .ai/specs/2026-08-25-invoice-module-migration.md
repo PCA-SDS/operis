@@ -328,3 +328,5 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   boundaries, invoice search configuration, deferred company-registry payload
   encryption, reserved AI ACL behavior, soft-deleted company history, and DS
   governance pre-registration.
+- 2026-09-05: Implemented Task 4.1 CAP-003 partner payment terms service,
+  partner-term validators, DI registration, and focused service coverage.

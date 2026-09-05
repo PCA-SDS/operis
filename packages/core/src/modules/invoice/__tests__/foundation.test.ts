@@ -21,6 +21,7 @@ import { metadata } from '../index'
 import searchConfig from '../search'
 import setup from '../setup'
 import type { InvoiceScopedPersistenceService } from '../services/scoped-persistence-service'
+import type { InvoicePartnerTermsService } from '../services/partner-terms-service'
 
 const MODULE_ROOT = join(__dirname, '..')
 const MIGRATION_SOURCE = readFileSync(
@@ -117,6 +118,12 @@ describe('invoice module foundation', () => {
     expect(typeof service.findMany).toBe('function')
     expect(typeof service.findById).toBe('function')
     expect(typeof service.createScoped).toBe('function')
+
+    const partnerTermsService = container.resolve<InvoicePartnerTermsService>('invoicePartnerTermsService')
+    expect(typeof partnerTermsService.listPartners).toBe('function')
+    expect(typeof partnerTermsService.matchPartner).toBe('function')
+    expect(typeof partnerTermsService.updateDefaultDueDays).toBe('function')
+    expect(typeof partnerTermsService.resolveDefaultDueDate).toBe('function')
 
     for (const [token, entity] of Object.entries(ENTITY_EXPORTS)) {
       expect(container.resolve(token)).toBe(entity)

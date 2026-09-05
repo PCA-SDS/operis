@@ -132,6 +132,13 @@ Definition of done:
 
 ## M1 CAP-003 Partner Payment Terms
 
+Progress:
+
+- Task 4.1 implemented the domain service, DI registration, partner validators,
+  and focused unit coverage for list/search, matching, updates, and due-date
+  default resolution.
+- The API route and UI settings page remain for later CAP-003 tasks.
+
 Dependencies:
 
 - M0 tables and DI.
