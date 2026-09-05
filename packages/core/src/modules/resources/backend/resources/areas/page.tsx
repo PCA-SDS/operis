@@ -209,6 +209,20 @@ export default function ResourcesResourceAreasPage() {
         { value: 'inactive', label: translations.filters.inactive },
       ],
     },
+    {
+      id: 'areaType',
+      label: translations.filters.areaType,
+      type: 'select',
+      options: [
+        { value: 'campus', label: translations.types.campus },
+        { value: 'building', label: translations.types.building },
+        { value: 'floor', label: translations.types.floor },
+        { value: 'zone', label: translations.types.zone },
+        { value: 'room', label: translations.types.room },
+        { value: 'section', label: translations.types.section },
+        { value: 'other', label: translations.types.other },
+      ],
+    },
   ], [translations])
 
   const loadChildren = React.useCallback(async (parentId: string, pageNumber = 1, append = false) => {
