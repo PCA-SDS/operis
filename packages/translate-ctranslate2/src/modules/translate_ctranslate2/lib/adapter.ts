@@ -27,6 +27,8 @@ type ServiceResponse = {
 
 export type CTranslate2Options = {
   baseUrl: string
+  /** Operator-set; part of the cache key, so bump it with the model image. */
+  revision?: string
   timeoutMs?: number
   /**
    * Below this, the engine is guessing. Chat messages are short, and a wrong
@@ -43,12 +45,49 @@ export function createCTranslate2Provider(options: CTranslate2Options): Translat
 
   return {
     id: PROVIDER_ID,
+    revision: options.revision,
 
     supports(sourceLocale, targetLocale) {
       if (!SUPPORTED.has(targetLocale)) return false
       // An unknown source is fine: the engine detects it. Only a source we know
       // we cannot handle is a refusal.
       return sourceLocale === undefined || SUPPORTED.has(sourceLocale)
+    },
+
+    async detect(text: string, signal?: AbortSignal) {
+      const timeout = new AbortController()
+      const timer = setTimeout(() => timeout.abort(), timeoutMs)
+      const onAbort = () => timeout.abort()
+      signal?.addEventListener('abort', onAbort)
+      try {
+        const response = await fetch(`${baseUrl}/detect`, {
+          method: 'POST',
+          redirect: 'error',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ text }),
+          signal: timeout.signal,
+        })
+        if (!response.ok) throw new Error(`[internal] detection responded ${response.status}`)
+        const payload = (await response.json()) as {
+          source_locale?: unknown
+          confidence?: unknown
+          supported?: unknown
+        }
+        if (typeof payload?.source_locale !== 'string' || typeof payload?.confidence !== 'number') {
+          throw new Error('[internal] detection returned an unrecognised payload')
+        }
+        if (payload.confidence < minConfidence) {
+          throw new Error('[internal] source language could not be identified with confidence')
+        }
+        return {
+          sourceLocale: payload.source_locale,
+          confidence: payload.confidence,
+          supported: payload.supported === true && SUPPORTED.has(payload.source_locale),
+        }
+      } finally {
+        clearTimeout(timer)
+        signal?.removeEventListener('abort', onAbort)
+      }
     },
 
     async translate(request: TranslationRequest, signal?: AbortSignal): Promise<TranslationResult> {
@@ -62,6 +101,11 @@ export function createCTranslate2Provider(options: CTranslate2Options): Translat
       try {
         const response = await fetch(`${baseUrl}/translate`, {
           method: 'POST',
+          // A redirect is never a legitimate answer from this service, and
+          // following one turns a compromised or misconfigured endpoint into a
+          // way to steer the app at an arbitrary host — whose reply would then
+          // be persisted into the transcript as a colleague's words.
+          redirect: 'error',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             text: request.text,
@@ -72,13 +116,24 @@ export function createCTranslate2Provider(options: CTranslate2Options): Translat
         })
 
         if (!response.ok) {
-          const detail = await response.text().catch(() => '')
-          throw new Error(`[internal] translation engine responded ${response.status}: ${detail.slice(0, 200)}`)
+          // The status only. FastAPI's validation errors echo the offending
+          // input, so quoting the body here would put private message text into
+          // an Error that the caller is now expected to log.
+          if (response.status === 422) {
+            throw new Error(`[internal] unsupported source language or payload (${response.status})`)
+          }
+          throw new Error(`[internal] translation engine responded ${response.status}`)
         }
 
         const payload = (await response.json()) as ServiceResponse
         if (typeof payload?.body !== 'string' || typeof payload?.source_locale !== 'string') {
           throw new Error('[internal] translation engine returned an unrecognised payload')
+        }
+
+        // An empty body is storable (the column is NOT NULL) and would be read
+        // back forever as "nothing to translate" for a message that has words.
+        if (payload.body.trim() === '') {
+          throw new Error('[internal] translation engine returned an empty body')
         }
 
         if (
@@ -103,7 +158,11 @@ export function createCTranslate2Provider(options: CTranslate2Options): Translat
 
     async healthcheck() {
       try {
-        const response = await fetch(`${baseUrl}/health`, {
+        // Readiness, not liveness. "The process is up" is not the question a
+        // caller about to send work is asking — a container still loading two
+        // gigabytes of weights answers /health long before it can translate.
+        const response = await fetch(`${baseUrl}/ready`, {
+          redirect: 'error',
           signal: AbortSignal.timeout(5_000),
         })
         if (!response.ok) return { ok: false, detail: `responded ${response.status}` }
