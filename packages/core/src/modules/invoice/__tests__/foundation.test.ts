@@ -84,6 +84,9 @@ describe('invoice module foundation', () => {
       'events.ts',
       'search.ts',
       join('api', 'openapi.ts'),
+      join('api', 'partners', 'route.ts'),
+      join('api', 'partners', 'match', 'route.ts'),
+      join('api', 'partners', '[id]', 'route.ts'),
       join('data', 'entities.ts'),
       join('data', 'validators.ts'),
     ]) {
@@ -116,6 +119,7 @@ describe('invoice module foundation', () => {
     const service = container.resolve<InvoiceScopedPersistenceService>('invoiceScopedPersistenceService')
     expect(typeof service.findOne).toBe('function')
     expect(typeof service.findMany).toBe('function')
+    expect(typeof service.countMany).toBe('function')
     expect(typeof service.findById).toBe('function')
     expect(typeof service.createScoped).toBe('function')
 

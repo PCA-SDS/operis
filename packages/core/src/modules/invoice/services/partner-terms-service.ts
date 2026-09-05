@@ -32,13 +32,25 @@ export type InvoicePartnerDueDateInput = InvoicePartnerMatchQuery & {
   dueDate?: Date | null
 }
 
+export type InvoicePartnerListResult = {
+  items: InvoiceCompany[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 export class InvoicePartnerTermsService {
   constructor(
     private readonly em: EntityManager,
     private readonly scopedPersistence: InvoiceScopedPersistenceService,
   ) {}
 
-  async listPartners(scope: InvoiceScope, query: InvoicePartnerListQuery = {}): Promise<InvoiceCompany[]> {
+  private buildListWhere(query: InvoicePartnerListQuery): {
+    where: FilterQuery<InvoiceCompany>
+    page: number
+    pageSize: number
+  } {
     const parsed = invoicePartnerListQuerySchema.parse(query)
     const where: FilterQuery<InvoiceCompany> = {}
     const search = parsed.search?.trim()
@@ -51,11 +63,41 @@ export class InvoicePartnerTermsService {
       ] as FilterQuery<InvoiceCompany>[]
     }
 
+    return { where, page: parsed.page, pageSize: parsed.pageSize }
+  }
+
+  async listPartners(scope: InvoiceScope, query: InvoicePartnerListQuery = {}): Promise<InvoiceCompany[]> {
+    const { where, page, pageSize } = this.buildListWhere(query)
+
     return this.scopedPersistence.findMany(InvoiceCompany, scope, where, {
-      limit: parsed.pageSize,
-      offset: (parsed.page - 1) * parsed.pageSize,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
       orderBy: { name: 'asc' },
     })
+  }
+
+  async listPartnersPage(scope: InvoiceScope, query: InvoicePartnerListQuery = {}): Promise<InvoicePartnerListResult> {
+    const { where, page, pageSize } = this.buildListWhere(query)
+    const [items, total] = await Promise.all([
+      this.scopedPersistence.findMany(InvoiceCompany, scope, where, {
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+        orderBy: { name: 'asc' },
+      }),
+      this.scopedPersistence.countMany(InvoiceCompany, scope, where),
+    ])
+
+    return {
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    }
+  }
+
+  async getPartner(scope: InvoiceScope, companyId: string): Promise<InvoiceCompany | null> {
+    return this.scopedPersistence.findById(InvoiceCompany, scope, companyId)
   }
 
   async matchPartner(scope: InvoiceScope, query: InvoicePartnerMatchQuery): Promise<InvoiceCompany | null> {

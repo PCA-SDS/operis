@@ -111,3 +111,4 @@ Giữ một nguồn truth cho partner company, search được, và cấu hình 
 - `apps/frontend/src/modules/invoice/pages/InvoiceSettingsPaymentTermsPage.tsx`
 - `packages/core/src/modules/invoice/services/__tests__/partner-terms-service.test.ts`
 - `packages/core/src/modules/invoice/data/__tests__/validators.test.ts`
+- `packages/core/src/modules/invoice/api/partners/__tests__/partners.route.test.ts`

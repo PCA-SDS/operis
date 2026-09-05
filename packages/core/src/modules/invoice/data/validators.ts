@@ -143,7 +143,7 @@ export const invoicePartnerDefaultDueDaysSchema = z.coerce.number().int().min(1)
 export const invoiceClearablePartnerDefaultDueDaysSchema = invoicePartnerDefaultDueDaysSchema.nullable()
 export const invoicePartnerTermsUpdateSchema = z.object({
   defaultDueDays: invoiceClearablePartnerDefaultDueDaysSchema,
-})
+}).strict()
 export const invoicePartnerListQuerySchema = z.object({
   page: invoicePageSchema,
   pageSize: invoicePartnerPageSizeSchema,

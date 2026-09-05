@@ -330,3 +330,6 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   governance pre-registration.
 - 2026-09-05: Implemented Task 4.1 CAP-003 partner payment terms service,
   partner-term validators, DI registration, and focused service coverage.
+- 2026-09-05: Exposed CAP-003 partner list, partner match, and partner payment
+  terms update API routes with OpenAPI metadata, scope handling, optimistic
+  locking, and mutation guards.
