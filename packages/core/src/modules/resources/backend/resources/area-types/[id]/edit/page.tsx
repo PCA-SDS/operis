@@ -10,6 +10,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { extractCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { buildAreaTypePayload, AreaTypeCrudForm, type AreaTypeFormValues } from '@open-mercato/core/modules/resources/components/AreaTypeCrudForm'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { buildOptimisticLockHeader, withScopedApiRequestHeaders } from '@open-mercato/shared/lib/request'
 
 type AreaTypesResponse = {
   items?: Array<Record<string, unknown>>
@@ -28,6 +29,7 @@ export default function ResourcesAreaTypeEditPage({ params }: { params?: { id?: 
   React.useEffect(() => {
     if (!areaTypeId) return
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setLoading(true)
       setError(null)
@@ -35,6 +37,7 @@ export default function ResourcesAreaTypeEditPage({ params }: { params?: { id?: 
       try {
         const payload = await readApiResultOrThrow<AreaTypesResponse>(
           `/api/resources/area-types?ids=${encodeURIComponent(areaTypeId)}&page=1&pageSize=1&withAreaCounts=true`,
+          { signal: controller.signal },
         )
         const item = Array.isArray(payload.items) ? payload.items[0] : null
         if (!item) {
@@ -82,27 +85,33 @@ export default function ResourcesAreaTypeEditPage({ params }: { params?: { id?: 
       }
     }
     void load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [areaTypeId, t])
 
   const handleSubmit = React.useCallback(async (values: AreaTypeFormValues) => {
     if (!areaTypeId) return
     const payload = buildAreaTypePayload(values, { id: areaTypeId })
-    await updateCrud('resources/area-types', payload, {
-      errorMessage: t('resources.areaTypes.errors.save', 'Failed to save area type.'),
-    })
+    const headers = buildOptimisticLockHeader(initialValues?.updatedAt ?? null)
+    await withScopedApiRequestHeaders(headers, () =>
+      updateCrud('resources/area-types', payload, {
+        errorMessage: t('resources.areaTypes.errors.save', 'Failed to save area type.'),
+      }),
+    )
     flash(t('resources.areaTypes.messages.saved', 'Area type saved.'), 'success')
     router.push('/backend/resources/area-types')
-  }, [areaTypeId, router, t])
+  }, [areaTypeId, router, t, initialValues?.updatedAt])
 
   const handleDelete = React.useCallback(async () => {
     if (!areaTypeId) return
-    await deleteCrud('resources/area-types', areaTypeId, {
-      errorMessage: t('resources.areaTypes.errors.delete', 'Failed to delete area type.'),
-    })
+    const headers = buildOptimisticLockHeader(initialValues?.updatedAt ?? null)
+    await withScopedApiRequestHeaders(headers, () =>
+      deleteCrud('resources/area-types', areaTypeId, {
+        errorMessage: t('resources.areaTypes.errors.delete', 'Failed to delete area type.'),
+      }),
+    )
     flash(t('resources.areaTypes.messages.deleted', 'Area type deleted.'), 'success')
     router.push('/backend/resources/area-types')
-  }, [areaTypeId, router, t])
+  }, [areaTypeId, router, t, initialValues?.updatedAt])
 
   if (loading) return null
   if (error) return <Page><PageBody><ErrorMessage label={error} /></PageBody></Page>

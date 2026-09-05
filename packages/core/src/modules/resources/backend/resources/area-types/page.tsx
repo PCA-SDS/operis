@@ -16,6 +16,7 @@ import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/u
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { formatDateTime } from '@open-mercato/shared/lib/time'
 import { Plus } from 'lucide-react'
+import { buildOptimisticLockHeader, withScopedApiRequestHeaders } from '@open-mercato/shared/lib/request'
 
 const PAGE_SIZE = 50
 
@@ -106,7 +107,7 @@ export default function ResourcesAreaTypesPage() {
 
   React.useEffect(() => { void load() }, [load])
 
-  const handleDelete = React.useCallback(async (id: string) => {
+  const handleDelete = React.useCallback(async (id: string, updatedAt: string | null) => {
     const confirmed = await confirm({
       title: translations.confirm.deleteTitle,
       description: translations.confirm.deleteMessage,
@@ -115,9 +116,12 @@ export default function ResourcesAreaTypesPage() {
     })
     if (!confirmed) return
     try {
-      await deleteCrud('resources/area-types', id, {
-        errorMessage: translations.errors.delete,
-      })
+      const headers = buildOptimisticLockHeader(updatedAt)
+      await withScopedApiRequestHeaders(headers, () =>
+        deleteCrud('resources/area-types', id, {
+          errorMessage: translations.errors.delete,
+        }),
+      )
       flash(translations.messages.deleted, 'success')
       setReloadToken((t) => t + 1)
     } catch {
@@ -178,7 +182,7 @@ export default function ResourcesAreaTypesPage() {
             {
               id: `delete-${row.original.id}`,
               label: translations.actions.delete,
-              onSelect: () => handleDelete(row.original.id),
+              onSelect: () => handleDelete(row.original.id, row.original.updatedAt),
             },
           ]}
         />

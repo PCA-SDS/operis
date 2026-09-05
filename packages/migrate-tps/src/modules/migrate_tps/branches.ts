@@ -43,7 +43,7 @@ function loadLocationsFromCsv(): string[] {
     const parts = lines[i].split(',')
     if (parts[1]) locations.add(parts[1].trim().replace(/^"|"$/g, ''))
   }
-  return Array.from(locations).sort()
+  return Array.from(locations).sort((a, b) => a.localeCompare(b))
 }
 
 export const migrateTpsBranchesCommand: ModuleCli = {

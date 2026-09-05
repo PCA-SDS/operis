@@ -11,6 +11,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { buildResourceAreaPayload, ResourceAreaCrudForm, type ResourceAreaFormValues } from '@open-mercato/core/modules/resources/components/ResourceAreaCrudForm'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { buildOptimisticLockHeader, withScopedApiRequestHeaders } from '@open-mercato/shared/lib/request'
 
 const logger = createLogger('resources').child({ component: 'resource-areas-edit-page' })
 
@@ -88,19 +89,25 @@ export default function ResourcesResourceAreaEditPage({ params }: { params?: { i
   const handleSubmit = React.useCallback(async (values: ResourceAreaFormValues) => {
     if (!resourceAreaId) return
     const payload = buildResourceAreaPayload(values, { id: resourceAreaId })
-    await updateCrud('resources/areas', payload, {
-      errorMessage: t('resources.resourceAreas.errors.save', 'Failed to save resource area.'),
-    })
+    const headers = buildOptimisticLockHeader(initialValues?.updatedAt ?? null)
+    await withScopedApiRequestHeaders(headers, () =>
+      updateCrud('resources/areas', payload, {
+        errorMessage: t('resources.resourceAreas.errors.save', 'Failed to save resource area.'),
+      }),
+    )
     flash(t('resources.resourceAreas.messages.saved', 'Resource area saved.'), 'success')
     router.push('/backend/resources/areas')
-  }, [resourceAreaId, router, t])
+  }, [resourceAreaId, router, t, initialValues?.updatedAt])
 
   const handleDelete = React.useCallback(async () => {
     if (!resourceAreaId) return
+    const headers = buildOptimisticLockHeader(initialValues?.updatedAt ?? null)
     try {
-      await deleteCrud('resources/areas', resourceAreaId, {
-        errorMessage: t('resources.resourceAreas.errors.delete', 'Failed to delete resource area.'),
-      })
+      await withScopedApiRequestHeaders(headers, () =>
+        deleteCrud('resources/areas', resourceAreaId, {
+          errorMessage: t('resources.resourceAreas.errors.delete', 'Failed to delete resource area.'),
+        }),
+      )
       flash(t('resources.resourceAreas.messages.deleted', 'Resource area deleted.'), 'success')
       router.push('/backend/resources/areas')
     } catch (error: any) {
@@ -108,7 +115,7 @@ export default function ResourcesResourceAreaEditPage({ params }: { params?: { i
         flash(t('resources.resourceAreas.errors.deleteAssigned', 'Cannot delete area with children or assigned resources.'), 'error')
       }
     }
-  }, [resourceAreaId, router, t])
+  }, [resourceAreaId, router, t, initialValues?.updatedAt])
 
   useSetCurrentRecordInjectionContext(
     buildRecordInjectionContext({
