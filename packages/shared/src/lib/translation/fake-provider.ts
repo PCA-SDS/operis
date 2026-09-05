@@ -23,6 +23,9 @@ export const FAKE_PROVIDER_ID = 'fake'
 export function createFakeTranslationProvider(): TranslationProvider {
   return {
     id: FAKE_PROVIDER_ID,
+    // Fixed, so a cache written by the fake is keyed distinctly from anything
+    // the real engine produces and cannot be mistaken for it.
+    revision: 'fake-1',
 
     // Anything, so a test can use an unusual language without the fake being the
     // thing that refuses it.
@@ -44,6 +47,20 @@ export function createFakeTranslationProvider(): TranslationProvider {
         sourceLocale,
         provider: FAKE_PROVIDER_ID,
         modelRevision: 'fake-1',
+      }
+    },
+
+    /**
+     * Same shape as the real engine's, so the deterministic path exercises the
+     * detect-then-assert flow rather than a shortcut the real one does not
+     * take. `[[xx]]` declares the answer; anything else is English.
+     */
+    async detect(text: string) {
+      const declared = /^\[\[([a-z]{2})\]\]\s*/i.exec(text)
+      return {
+        sourceLocale: declared?.[1]?.toLowerCase() ?? 'en',
+        confidence: 1,
+        supported: true,
       }
     },
 

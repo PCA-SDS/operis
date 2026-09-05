@@ -39,12 +39,34 @@ export type TranslationProvider = {
   /** Stable key, recorded on every row this engine writes. */
   readonly id: string
   /**
+   * What this engine's answers may be cached against.
+   *
+   * Declared by the provider rather than read from a result, because a cache
+   * lookup happens BEFORE any call is made — a revision only learned from a
+   * response cannot key the read that was supposed to avoid it. Operator-set
+   * for the self-hosted engine, so changing the model image and bumping this
+   * together is what retires the previous vintage; leaving it unset means the
+   * cache can never distinguish two, which is a deployment choice rather than a
+   * silent default.
+   */
+  readonly revision?: string
+  /**
    * Pairs the engine can actually serve, as `from:to`, or `'*'` for "any pair it
    * is asked for". Checked before a request is made so an unsupported pair fails
    * as a clear refusal rather than as confident nonsense.
    */
   supports(sourceLocale: TranslationLocale | undefined, targetLocale: TranslationLocale): boolean
   translate(request: TranslationRequest, signal?: AbortSignal): Promise<TranslationResult>
+  /**
+   * What language a text is, without translating it.
+   *
+   * Optional, because not every engine can answer it separately. Where it can,
+   * a caller translating several runs of one message detects ONCE on the whole
+   * message rather than asking about each fragment — fragments are exactly
+   * where detection is least reliable, and disagreement between them would
+   * translate one sentence from two different languages.
+   */
+  detect?(text: string, signal?: AbortSignal): Promise<{ sourceLocale: string; confidence: number; supported: boolean }>
   /** Liveness, for the integrations health surface. */
   healthcheck?(): Promise<{ ok: boolean; detail?: string }>
 }
