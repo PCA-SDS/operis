@@ -16,7 +16,8 @@ import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/u
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { formatDateTime } from '@open-mercato/shared/lib/time'
 import { Plus } from 'lucide-react'
-import { buildOptimisticLockHeader, withScopedApiRequestHeaders } from '@open-mercato/shared/lib/request'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 
 const PAGE_SIZE = 50
 

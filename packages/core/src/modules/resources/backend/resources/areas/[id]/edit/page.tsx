@@ -11,7 +11,8 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { buildResourceAreaPayload, ResourceAreaCrudForm, type ResourceAreaFormValues } from '@open-mercato/core/modules/resources/components/ResourceAreaCrudForm'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { buildOptimisticLockHeader, withScopedApiRequestHeaders } from '@open-mercato/shared/lib/request'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 
 const logger = createLogger('resources').child({ component: 'resource-areas-edit-page' })
 

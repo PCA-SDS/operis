@@ -10,7 +10,8 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { extractCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { buildAreaTypePayload, AreaTypeCrudForm, type AreaTypeFormValues } from '@open-mercato/core/modules/resources/components/AreaTypeCrudForm'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { buildOptimisticLockHeader, withScopedApiRequestHeaders } from '@open-mercato/shared/lib/request'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 
 type AreaTypesResponse = {
   items?: Array<Record<string, unknown>>
