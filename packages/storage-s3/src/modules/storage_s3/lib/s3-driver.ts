@@ -8,9 +8,19 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   ListObjectsV2Command,
+  HeadObjectCommand,
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
-import type { PrepareFilePayload, StorageDriver, StoreFilePayload, StoredFile, ReadFileResult } from '@open-mercato/core/modules/attachments/lib/drivers'
+import type {
+  CreateDirectUploadPayload,
+  DirectUploadTicket,
+  PrepareFilePayload,
+  ReadFileResult,
+  StorageDriver,
+  StoredFile,
+  StoredObjectFacts,
+  StoreFilePayload,
+} from '@open-mercato/core/modules/attachments/lib/drivers'
 import {
   assertSafeS3Endpoint,
   assertStaticallySafeS3Endpoint,
@@ -224,6 +234,75 @@ export class S3StorageDriver implements StorageDriver {
     } catch (error) {
       await Promise.allSettled([cleanup()])
       throw error
+    }
+  }
+
+  /**
+   * A URL the client can PUT to, bound to one key, type and length.
+   *
+   * The key is minted here, never accepted from the client: a client that could
+   * choose its own key could write outside its tenant's prefix, and the whole
+   * isolation model rests on that prefix. `assertKeyScoped` inside
+   * `getSignedUrl` enforces it a second time.
+   *
+   * `createOnly` sets `If-None-Match: *`, so the signature cannot be replayed
+   * to overwrite an object that already exists — a granted upload is for one
+   * object, once.
+   *
+   * The content length is part of the signature too, which is what stops a
+   * ticket issued for a small file being used to store a large one and walk
+   * around the quota that was reserved for it.
+   */
+  async createDirectUpload(payload: CreateDirectUploadPayload): Promise<DirectUploadTicket> {
+    const storagePath = this.prepareStoragePath(payload)
+    this.assertPartitionScoped(payload.partitionCode, storagePath)
+    const expiresIn = Math.max(60, Math.min(payload.expiresInSeconds ?? 900, 3600))
+    const url = await this.getSignedUrl(
+      storagePath,
+      'upload',
+      expiresIn,
+      payload.contentType,
+      payload.contentLength,
+      true,
+      { tenantId: payload.tenantId ?? null, organizationId: payload.orgId ?? null },
+    )
+    return {
+      url,
+      method: 'PUT',
+      // Sent verbatim by the client. They are covered by the signature, so a
+      // client that changes them gets a rejection from S3 rather than a
+      // successful upload of something else.
+      headers: {
+        'content-type': payload.contentType,
+        'content-length': String(payload.contentLength),
+        'if-none-match': '*',
+      },
+      storagePath,
+      expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+    }
+  }
+
+  /**
+   * What is actually at this key.
+   *
+   * `null` rather than a throw for "nothing there": after a direct upload the
+   * absence of an object is an ordinary outcome — the client may have failed,
+   * given up, or never tried — and it is the finalisation's job to say so
+   * rather than the driver's.
+   */
+  async stat(partitionCode: string, storagePath: string): Promise<StoredObjectFacts | null> {
+    this.assertPartitionScoped(partitionCode, storagePath)
+    await this.assertEndpointSafe()
+    try {
+      const head = await this.client.send(
+        new HeadObjectCommand({ Bucket: this.bucket, Key: storagePath }),
+      )
+      return {
+        size: typeof head.ContentLength === 'number' ? head.ContentLength : 0,
+        contentType: head.ContentType ?? null,
+      }
+    } catch {
+      return null
     }
   }
 

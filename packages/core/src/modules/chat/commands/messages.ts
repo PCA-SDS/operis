@@ -2,14 +2,26 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
 import { badRequest, isUniqueViolation, notFound } from '@open-mercato/shared/lib/crud/errors'
-import { ChatConversation, ChatMessage, ChatMessageMention, ChatParticipant } from '../data/entities'
-import type { ChatMessageDto, ChatReplyTargetDto } from '../data/types'
+import {
+  ChatConversation,
+  ChatMessage,
+  ChatMessageLink,
+  ChatMessageMention,
+  ChatParticipant,
+} from '../data/entities'
+import type { Attachment } from '@open-mercato/core/modules/attachments/data/entities'
+import type { ChatAttachmentDto, ChatMessageDto, ChatReplyTargetDto } from '../data/types'
 import { buildMessagePreview } from '../lib/conversations'
 import { extractMentionedUserIds, mentionsEveryone } from '../lib/mentions'
+import { extractLinks } from '../lib/links'
 import { resolveReplyTarget } from '../lib/replies'
 import { loadChatMessages } from '../lib/messages'
 import { dbNow } from '../lib/clock'
 import { buildSearchDocument } from '../lib/searchText'
+import { ChatAttachmentError, linkDraftAttachmentsToMessage } from '../lib/attachments'
+import { checkAttachmentCounts } from '../lib/attachmentPolicy'
+import { toChatAttachmentDto } from '../lib/attachmentDto'
+import { getAttachmentsForMessages } from '../lib/attachments'
 import { loadOrganizationMember, loadOrganizationMembers, type ChatScope } from '../lib/scope'
 import {
   actingUserId,
@@ -27,6 +39,8 @@ export type SendChatMessageInput = {
   body: string
   clientMessageId?: string
   replyToMessageId?: string
+  /** Drafts to carry on this message; validated against the server's own rows. */
+  attachmentIds?: string[]
 }
 
 export type SendChatMessageResult = {
@@ -39,6 +53,7 @@ function toDto(
   replyTo: ChatReplyTargetDto | null,
   senderName: string,
   mentionNames: Record<string, string> = {},
+  attachments: ChatAttachmentDto[] = [],
 ): ChatMessageDto {
   return {
     id: message.id,
@@ -61,6 +76,7 @@ function toDto(
     mentionNames,
     mentionsEveryone: message.mentionsEveryone,
     pinned: false,
+    attachments,
   }
 }
 
@@ -127,7 +143,17 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
       const existing = await findByClientId(em, scope, conversation.id, input.clientMessageId)
       if (existing) {
         return {
-          message: toDto(existing, await resolveReplyTarget(em, scope, existing), sender.name),
+          message: toDto(
+            existing,
+            await resolveReplyTarget(em, scope, existing),
+            sender.name,
+            {},
+            // Read back rather than assumed: a retry may carry no attachment
+            // ids at all, and the answer has to describe the message that
+            // exists, not the request that asked about it.
+            (await getAttachmentsForMessages({ em, scope, messageIds: [existing.id] })
+              .then((byMessage) => byMessage.get(existing.id) ?? [])).map(toChatAttachmentDto),
+          ),
           deduplicated: true,
         }
       }
@@ -200,7 +226,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
     }
     const recipients = [senderUserId, ...counterpartIds.filter((userId) => counterparts.has(userId))]
 
-    let stored: ChatMessage
+    let stored: { message: ChatMessage; attachments: Attachment[] }
     try {
       // The message and the conversation's denormalized "latest" columns move
       // together; a preview that disagrees with the transcript is worse than no
@@ -266,6 +292,62 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
           )
         }
 
+        // Inside the same transaction as the message. An attachment that
+        // failed a check throws here, so the message never commits — there is
+        // no state where a message exists with its files still parked as
+        // drafts, and no half-attached message for anyone to see.
+        let attachments: Awaited<ReturnType<typeof linkDraftAttachmentsToMessage>>
+        try {
+          attachments = await linkDraftAttachmentsToMessage({
+            em: tx,
+            scope: { tenantId: scope.tenantId, organizationId: scope.organizationId },
+            uploaderUserId: senderUserId,
+            conversationId: conversation.id,
+            messageId: message.id,
+            attachmentIds: input.attachmentIds ?? [],
+          })
+        } catch (error) {
+          if (!(error instanceof ChatAttachmentError)) throw error
+          // Translated at the boundary rather than inside the linker: the
+          // linker's job is to decide, and a decision phrased for a person is
+          // a different concern from the rule that produced it.
+          throw badRequest(
+            error.code === 'rejected'
+              ? messages.attachmentRejected
+              : error.code === 'not_ready'
+                ? messages.attachmentNotReady
+                : messages.attachmentNotAvailable,
+          )
+        }
+
+        // Counted from the rows rather than from what the client sent, because
+        // the true media/file split is the stored MIME type and nothing else.
+        const counts = checkAttachmentCounts(attachments.map((one) => one.mimeType))
+        if (!counts.ok) {
+          throw badRequest(
+            counts.reason === 'too_many_media'
+              ? messages.tooManyMediaAttachments
+              : messages.tooManyFileAttachments,
+          )
+        }
+
+        // Indexed in the same transaction as the message, exactly as mentions
+        // are: a half-written send can never leave a link pointing at a message
+        // that does not exist, or a message whose links were never recorded.
+        for (const link of extractLinks(input.body)) {
+          tx.persist(
+            tx.create(ChatMessageLink, {
+              tenantId: scope.tenantId,
+              organizationId: scope.organizationId,
+              messageId: message.id,
+              conversationId: conversation.id,
+              url: link.url,
+              host: link.host,
+              createdAt: now,
+            }),
+          )
+        }
+
         target.lastMessageAt = now
         target.lastMessagePreview = buildMessagePreview(input.body)
         target.lastMessageSenderUserId = senderUserId
@@ -276,7 +358,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         // must come from the shared clock.
 
         await tx.flush()
-        return message
+        return { message, attachments }
       })
     } catch (error) {
       // A retry that raced its own first attempt: the idempotency index rejected
@@ -286,7 +368,14 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         const existing = await findByClientId(retryEm, scope, conversation.id, input.clientMessageId)
         if (existing) {
           return {
-            message: toDto(existing, await resolveReplyTarget(retryEm, scope, existing), sender.name),
+            message: toDto(
+              existing,
+              await resolveReplyTarget(retryEm, scope, existing),
+              sender.name,
+              {},
+              (await getAttachmentsForMessages({ em: retryEm, scope, messageIds: [existing.id] })
+                .then((byMessage) => byMessage.get(existing.id) ?? [])).map(toChatAttachmentDto),
+            ),
             deduplicated: true,
           }
         }
@@ -299,9 +388,13 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
     // — the SSE endpoint drops the frame for everyone else.
     await emitConversationEvent('chat.message.sent', scope, recipients, {
       conversationId: conversation.id,
-      messageId: stored.id,
+      messageId: stored.message.id,
       senderUserId,
-      createdAt: stored.createdAt.toISOString(),
+      createdAt: stored.message.createdAt.toISOString(),
+      // Enough for a client to know a file is coming without putting anything
+      // fetchable in the frame (§82). The bytes are still reached only through
+      // the authorized route.
+      attachmentCount: stored.attachments.length,
     })
 
     const mentionNames: Record<string, string> = {}
@@ -313,7 +406,13 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
     }
 
     return {
-      message: toDto(stored, await resolveReplyTarget(em, scope, stored), sender.name, mentionNames),
+      message: toDto(
+        stored.message,
+        await resolveReplyTarget(em, scope, stored.message),
+        sender.name,
+        mentionNames,
+        stored.attachments.map(toChatAttachmentDto),
+      ),
       deduplicated: false,
     }
   },

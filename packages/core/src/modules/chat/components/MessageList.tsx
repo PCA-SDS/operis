@@ -20,6 +20,7 @@ import {
 } from './format'
 import { MessageBody } from './MessageBody'
 import type { HighlightPlan } from '../lib/searchQuery'
+import { MessageAttachments } from './MessageAttachments'
 import {
   MessageReactions,
   QuickReactions,
@@ -1403,17 +1404,27 @@ export function MessageList({
                             chips, the no-HTML rule and every safety property are
                             identical - translated text is not a second rendering
                             path that could drift from the first. */}
-                        <MessageBody
-                          body={translationFor(row.message.id) ?? row.message.body}
-                          mentionNames={row.message.mentionNames}
-                          currentUserId={currentUserId}
-                          // Search ran against the original wording, so a
-                          // translated body has nothing to mark — the words the
-                          // query matched are not the words on screen.
-                          highlight={
-                            translationFor(row.message.id) ? undefined : searchHighlight
-                          }
-                          highlightActive={row.message.id === currentSearchMessageId}
+                        {/* Text first, then its files: the message is the
+                            context, and the attachment belongs to it rather
+                            than the other way round. An attachment-only message
+                            renders no empty paragraph. */}
+                        {row.message.body.length > 0 ? (
+                          <MessageBody
+                            body={translationFor(row.message.id) ?? row.message.body}
+                            mentionNames={row.message.mentionNames}
+                            currentUserId={currentUserId}
+                            // Search ran against the original wording, so a
+                            // translated body has nothing to mark — the words the
+                            // query matched are not the words on screen.
+                            highlight={
+                              translationFor(row.message.id) ? undefined : searchHighlight
+                            }
+                            highlightActive={row.message.id === currentSearchMessageId}
+                          />
+                        ) : null}
+                        <MessageAttachments
+                          attachments={row.message.attachments}
+                          onOwnBubble={row.message.senderUserId === currentUserId}
                         />
 
                         {/* Says what happened and offers the way back. Machine

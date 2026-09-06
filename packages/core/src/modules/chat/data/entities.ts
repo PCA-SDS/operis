@@ -401,6 +401,56 @@ export class ChatMessageReaction {
  * the audience is built. Freezing it into rows at send time would notify people
  * who have since left and miss people who have since joined.
  */
+/**
+ * A URL somebody shared, indexed when the message was sent.
+ *
+ * Indexed rather than extracted on read for the same reason mentions are: the
+ * Shared panel has to page through every link in a workspace's history, and
+ * finding them by scanning message bodies means reading the entire transcript
+ * to answer one screen of results.
+ *
+ * The row is derived data. The message body remains the record of what was
+ * said; this is only how it is found again.
+ */
+@Entity({ tableName: 'chat_message_links' })
+// One row per distinct URL per message. Saying the same link twice in one
+// message is one thing shared, not two.
+@Unique({ name: 'chat_message_links_uq', properties: ['messageId', 'url'] })
+// The Shared panel's own query: this conversation's links, newest first.
+@Index({
+  name: 'chat_message_links_conversation_idx',
+  properties: ['conversationId', 'createdAt'],
+})
+export class ChatMessageLink {
+  [OptionalProps]?: 'createdAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'message_id', type: 'uuid' })
+  messageId!: string
+
+  @Property({ name: 'conversation_id', type: 'uuid' })
+  conversationId!: string
+
+  /** The URL as written, normalised only enough to deduplicate. */
+  @Property({ name: 'url', type: 'text' })
+  url!: string
+
+  /** The host, so the panel can label a link without parsing on every render. */
+  @Property({ name: 'host', type: 'text' })
+  host!: string
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+}
+
 @Entity({ tableName: 'chat_message_mentions' })
 @Unique({ name: 'chat_message_mentions_uq', properties: ['messageId', 'mentionedUserId'] })
 @Index({

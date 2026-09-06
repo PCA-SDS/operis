@@ -578,7 +578,12 @@ export function useSendMessage(conversationId: string | undefined) {
   const { runMutation } = useGuardedMutation({ contextId: 'chat.message' })
 
   return useMutation({
-    mutationFn: (input: { body: string; clientMessageId: string; replyToMessageId?: string }) =>
+    mutationFn: (input: {
+      body: string
+      clientMessageId: string
+      replyToMessageId?: string
+      attachmentIds?: string[]
+    }) =>
       runMutation({
         operation: () => chatApi.sendMessage(conversationId as string, input),
         context: { resourceKind: 'chat.message', resourceId: conversationId ?? null },
@@ -1196,5 +1201,45 @@ export function useChatSearch(options: {
     isSearching: enabled && query.isFetching && !query.isFetchingNextPage,
     error: query.error,
     retry: query.refetch,
+  }
+}
+
+export type SharedKind = 'files' | 'media' | 'links'
+
+/**
+ * A page of shared resources.
+ *
+ * `enabled` is the panel's open state: a conversation nobody has opened the
+ * panel for should not be fetching three views of its history in the
+ * background.
+ */
+export function useSharedResources(
+  conversationId: string | undefined,
+  kind: SharedKind,
+  enabled: boolean,
+) {
+  const scope = useOrganizationScopeVersion()
+  const query = useInfiniteQuery({
+    queryKey: [...chatKeys.scoped(scope), 'shared', conversationId ?? 'none', kind],
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam, signal }) =>
+      chatApi.listSharedResources(conversationId as string, { kind, cursor: pageParam }, signal),
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled: Boolean(conversationId) && enabled,
+  })
+
+  const items = React.useMemo(
+    () => (query.data?.pages ?? []).flatMap((page) => page.items),
+    [query.data],
+  )
+
+  return {
+    items,
+    isLoading: query.isLoading,
+    error: query.error,
+    retry: query.refetch,
+    hasMore: query.hasNextPage,
+    loadMore: query.fetchNextPage,
+    isLoadingMore: query.isFetchingNextPage,
   }
 }

@@ -133,6 +133,17 @@ export type ChatPinnedListDto = {
   total: number
 }
 
+/** See `lib/attachmentDto.ts`; re-exported so DTO consumers need one import. */
+export type ChatAttachmentDto = {
+  id: string
+  fileName: string
+  mimeType: string
+  fileSize: number
+  kind: 'media' | 'file'
+  status: 'pending' | 'ready' | 'rejected' | 'failed'
+  createdAt: string
+}
+
 export type ChatMessageDto = {
   id: string
   conversationId: string
@@ -168,6 +179,15 @@ export type ChatMessageDto = {
   mentionsEveryone: boolean
   /** Whether this message is pinned in its conversation. */
   pinned: boolean
+  /**
+   * Files carried by this message.
+   *
+   * Metadata only — never a storage path or a download URL. The id is the
+   * stable reference and the client asks for bytes through an authorized
+   * endpoint, so a transcript that is cached, logged or forwarded carries no
+   * means of reaching the file.
+   */
+  attachments: ChatAttachmentDto[]
 }
 
 export type ChatConversationListDto = {
@@ -267,3 +287,51 @@ export type ChatSearchResultDto = {
   /** False when the deployment lacks pg_trgm, so the UI can say so honestly. */
   fuzzyAvailable: boolean
 }
+/** One entry in the Shared panel: a file, a piece of media, or a link. */
+export type ChatSharedFileDto = {
+  kind: 'file' | 'media'
+  attachmentId: string
+  messageId: string
+  fileName: string
+  mimeType: string
+  fileSize: number
+  uploaderUserId: string
+  uploaderName: string
+  createdAt: string
+}
+
+export type ChatSharedLinkDto = {
+  kind: 'link'
+  id: string
+  messageId: string
+  url: string
+  host: string
+  sharedByUserId: string
+  sharedByName: string
+  createdAt: string
+}
+
+export type ChatSharedEntryDto = ChatSharedFileDto | ChatSharedLinkDto
+
+export type ChatSharedResourcesDto = {
+  items: ChatSharedEntryDto[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+/**
+ * The answer to "may I upload straight to storage?".
+ *
+ * `supported: false` is a normal answer, not a failure: the deployment's store
+ * cannot presign, and the client should use the multipart endpoint instead.
+ */
+export type ChatDirectUploadTicketDto =
+  | {
+      supported: true
+      uploadId: string
+      url: string
+      method: 'PUT'
+      headers: Record<string, string>
+      expiresAt: string
+    }
+  | { supported: false }
