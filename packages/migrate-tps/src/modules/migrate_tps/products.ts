@@ -52,7 +52,7 @@ function traverseOptionTree(
       isActive: true,
     })
     em.persist(groupEntity)
-    
+
     const groupTranslations = buildTranslationsPayload({ name: group.labelKey })
     if (Object.keys(groupTranslations).length > 0) {
       em.persist(em.create(EntityTranslation, {
@@ -96,7 +96,7 @@ function traverseOptionTree(
         },
       })
       em.persist(optionEntity)
-      
+
       const optionTranslations = buildTranslationsPayload({ name: opt.nameKey, description: opt.descriptionKey, note: opt.noteKey, unit: opt.unitKey })
       if (Object.keys(optionTranslations).length > 0) {
         em.persist(em.create(EntityTranslation, {
@@ -110,7 +110,7 @@ function traverseOptionTree(
           updatedAt: new Date(),
         }))
       }
-      
+
       tpsOptionMap.set(opt.id, optionEntity.id)
 
       if (opt.nextGroups && opt.nextGroups.length > 0) {
@@ -205,12 +205,23 @@ export const migrateTpsProductsCommand: ModuleCli = {
       await baseEm.transactional(async (em) => {
         if (existingCount > 0) {
           logger.info('Cleaning up existing products for this organization...')
-          
-          await em.getConnection().execute(
-            `DELETE FROM entity_translations WHERE tenant_id = ? AND organization_id = ? AND entity_type IN (?, ?, ?)`,
-            [tenantId, organizationId, 'catalog:catalog_product', 'catalog:catalog_product_option_group', 'catalog:catalog_product_option']
-          )
-          
+
+          // See categories.ts: the translations module cleans up per record from
+          // `query_index.delete_one`, which this migration does not emit, and a
+          // raw `getConnection().execute()` would run outside the transaction
+          // the surrounding `nativeDelete` calls take part in.
+          await em.nativeDelete(EntityTranslation, {
+            tenantId,
+            organizationId,
+            entityType: {
+              $in: [
+                'catalog:catalog_product',
+                'catalog:catalog_product_option_group',
+                'catalog:catalog_product_option',
+              ],
+            },
+          })
+
           await em.nativeDelete(CatalogProductPrice, { tenantId, organizationId })
           await em.nativeDelete(CatalogProductCategoryAssignment, { tenantId, organizationId })
           await em.nativeDelete(CatalogProductVariant, { tenantId, organizationId })
@@ -287,7 +298,7 @@ export const migrateTpsProductsCommand: ModuleCli = {
             metadata: productMetadata,
           })
           em.persist(product)
-          
+
           const productTranslations = buildTranslationsPayload({ title: item.nameKey, description: item.descriptionKey })
           if (Object.keys(productTranslations).length > 0) {
             em.persist(em.create(EntityTranslation, {
@@ -301,7 +312,7 @@ export const migrateTpsProductsCommand: ModuleCli = {
               updatedAt: new Date(),
             }))
           }
-          
+
           if (item.id) {
             tpsProductMap.set(item.id, product.id)
           }

@@ -41,10 +41,18 @@ export const migrateTpsCategoriesCommand: ModuleCli = {
       await baseEm.transactional(async (em) => {
         if (existingCount > 0) {
           logger.info('Cleaning up existing categories for this organization...')
-          await em.getConnection().execute(
-            'DELETE FROM entity_translations WHERE tenant_id = ? AND organization_id = ? AND entity_type = ?',
-            [tenantId, organizationId, 'catalog:catalog_product_category']
-          )
+          // Translations are cleaned up per record by the translations module's
+          // `query_index.delete_one` subscriber, which this migration never
+          // emits — so it removes them itself. `nativeDelete` rather than
+          // `getConnection().execute()`: the raw connection runs outside the
+          // surrounding `em.transactional()` (see AbstractSqlConnection: it
+          // falls back to the pool client when given no transaction context),
+          // so a later failure would leave the rows deleted and unreplaced.
+          await em.nativeDelete(EntityTranslation, {
+            tenantId,
+            organizationId,
+            entityType: 'catalog:catalog_product_category',
+          })
           await em.getConnection().execute(
             'DELETE FROM catalog_product_categories WHERE tenant_id = ? AND organization_id = ?',
             [tenantId, organizationId]
@@ -92,7 +100,7 @@ export const migrateTpsCategoriesCommand: ModuleCli = {
           updatedAt: now,
         })
         em.persist(parentCat)
-        
+
         const parentTranslations = buildTranslationsPayload({ name: tab.labelKey, description: tab.noteKey })
         if (Object.keys(parentTranslations).length > 0) {
           em.persist(em.create(EntityTranslation, {
@@ -136,7 +144,7 @@ export const migrateTpsCategoriesCommand: ModuleCli = {
               updatedAt: now,
             })
             em.persist(childEntity)
-            
+
             const childTranslations = buildTranslationsPayload({ name: childCat.labelKey, description: childCat.descriptionKey || childCat.noteKey })
             if (Object.keys(childTranslations).length > 0) {
               em.persist(em.create(EntityTranslation, {

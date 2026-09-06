@@ -33,8 +33,28 @@ import { compareLocale, flattenDictionary } from './i18n-values-scanner.mjs'
 const __filename_ = typeof __filename !== 'undefined' ? __filename : fileURLToPath(import.meta.url)
 const ROOT = path.resolve(path.dirname(__filename_), '..')
 
-const REFERENCE_LOCALE = 'en'
-const TARGET_LOCALES = ['pl', 'es', 'de', 'ko']
+/**
+ * Read the locale list out of the shared config source rather than keeping a
+ * copy here. A plain `.mjs` cannot import the `.ts` module, so this parses the
+ * two literals it declares; it throws instead of falling back to a stale list,
+ * because silently reporting on fewer locales than the app ships is the exact
+ * blind spot this checker exists to close.
+ */
+function readSharedLocaleConfig() {
+  const configPath = path.join(ROOT, 'packages', 'shared', 'src', 'lib', 'i18n', 'config.ts')
+  const source = fs.readFileSync(configPath, 'utf-8')
+  const localesMatch = source.match(/export const locales\s*:[^=]+=\s*\[([^\]]*)\]/)
+  const defaultMatch = source.match(/export const defaultLocale\s*:[^=]+=\s*'([^']+)'/)
+  if (!localesMatch || !defaultMatch) {
+    throw new Error(`Could not read locales/defaultLocale from ${configPath} — update this parser.`)
+  }
+  const locales = [...localesMatch[1].matchAll(/'([^']+)'/g)].map((match) => match[1])
+  if (locales.length === 0) throw new Error(`No locales parsed from ${configPath}`)
+  return { locales, defaultLocale: defaultMatch[1] }
+}
+
+const { locales: SUPPORTED_LOCALES, defaultLocale: REFERENCE_LOCALE } = readSharedLocaleConfig()
+const TARGET_LOCALES = SUPPORTED_LOCALES.filter((locale) => locale !== REFERENCE_LOCALE)
 const ALLOWLIST_PATH = path.join(ROOT, 'scripts', 'i18n-values-allowlist.json')
 
 const red = (s) => `\x1b[31m${s}\x1b[0m`
