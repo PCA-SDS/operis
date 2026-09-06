@@ -12,6 +12,7 @@ import type {
   ChatConversationListDto,
   ChatMemberListDto,
   ChatMessagePageDto,
+  ChatSearchResultDto,
   ChatParticipantRole,
   ChatSendMessageResultDto,
   ChatUnreadCountDto,
@@ -35,6 +36,30 @@ function jsonInit(method: string, body?: unknown): RequestInit {
     method,
     headers: { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+  }
+}
+
+export type ChatSearchParams = {
+  q: string
+  limit?: number
+  cursor?: string
+  /** Canonical user ids. Display names are ambiguous and not stable handles. */
+  senderUserIds?: string[]
+  after?: string
+  before?: string
+  pinnedOnly?: boolean
+}
+
+/** One place that knows the wire names, so the two search calls cannot drift. */
+function searchQueryParams(params: ChatSearchParams): Record<string, string | number | undefined> {
+  return {
+    q: params.q,
+    limit: params.limit,
+    cursor: params.cursor,
+    from: params.senderUserIds?.length ? params.senderUserIds.join(',') : undefined,
+    after: params.after,
+    before: params.before,
+    pinned: params.pinnedOnly ? 'true' : undefined,
   }
 }
 
@@ -90,6 +115,27 @@ export const chatApi = {
 
   listMessages: (id: string, params: { cursor?: string; limit?: number }, signal?: AbortSignal) =>
     readApiResultOrThrow<ChatMessagePageDto>(`${BASE}/conversations/${id}/messages${query(params)}`, { signal }),
+
+  /**
+   * Search one conversation. Scoped server-side; the id in the path is the
+   * whole scope, and a conversation the caller is not in answers 404.
+   */
+  searchConversation: (
+    id: string,
+    params: ChatSearchParams,
+    signal?: AbortSignal,
+  ) =>
+    readApiResultOrThrow<ChatSearchResultDto>(
+      `${BASE}/conversations/${id}/search${query(searchQueryParams(params))}`,
+      { signal },
+    ),
+
+  /** Search every conversation the caller currently belongs to. */
+  searchAllChats: (params: ChatSearchParams, signal?: AbortSignal) =>
+    readApiResultOrThrow<ChatSearchResultDto>(
+      `${BASE}/search${query(searchQueryParams(params))}`,
+      { signal },
+    ),
 
   /** A window centred on one message — how pin navigation reaches history. */
   listMessagesAround: (id: string, around: string, signal?: AbortSignal) =>

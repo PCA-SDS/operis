@@ -34,7 +34,7 @@ import {
   MAX_CONVERSATION_PAGE_SIZE,
   MAX_TRANSLATE_BATCH,
 } from '../data/validators'
-import { chatApi } from './api'
+import { chatApi, type ChatSearchParams } from './api'
 
 const logger = createLogger('chat').child({ component: 'hooks' })
 
@@ -63,6 +63,17 @@ export const chatKeys = {
   pinned: (scope: number, id: string) => [...chatKeys.scoped(scope), 'pinned', id] as const,
   unreadCount: (scope: number) => [...chatKeys.scoped(scope), 'unread-count'] as const,
   settings: (scope: number) => [...chatKeys.scoped(scope), 'settings'] as const,
+  /**
+   * Search results, deliberately outside `scoped`.
+   *
+   * `useChatLiveRefresh` invalidates the whole `chatKeys.all` tree on every
+   * inbound event, which is right for a transcript and wrong for a result
+   * list: it would refetch — and visibly reshuffle — the reader's results every
+   * time anyone sent a message anywhere. The scope version is still in the key,
+   * so results can never cross an organization switch.
+   */
+  search: (scope: number, conversationId: string | null, params: string) =>
+    ['chat-search', { scope }, conversationId ?? 'all', params] as const,
 }
 
 function invalidateChat(client: QueryClient): void {
@@ -322,6 +333,11 @@ export function useMessages(conversationId: string | undefined, anchorMessageId?
   return {
     messages,
     isLoading: query.isLoading,
+    // `isFetching`, not `isLoading`: switching to an anchored window keeps the
+    // previous transcript on screen while the new one loads, so `isLoading` is
+    // false at exactly the moment the rows are about to be replaced. Anything
+    // that needs the transcript to have stopped moving has to ask this instead.
+    isFetching: query.isFetching,
     error: query.error,
     hasOlder: Boolean(query.hasNextPage),
     isLoadingOlder: query.isFetchingNextPage,
@@ -1081,4 +1097,104 @@ export function useChatTranslation(
   }, [entries, targetLocale])
 
   return { translations, showing, pending, translate, showOriginal, showTranslation }
+}
+
+
+/** How long after the last keystroke a search is actually issued. */
+const SEARCH_DEBOUNCE_MS = 250
+
+/**
+ * Debounced, cancellable message search.
+ *
+ * Three separate protections against a fast typist, because each covers a case
+ * the others do not:
+ *
+ * - The debounce stops a request per keystroke.
+ * - `signal` cancels a request the reader has already typed past, so `pro`
+ *   cannot land after `production` and overwrite it.
+ * - `keepPreviousData` holds the last results on screen while the next arrive,
+ *   so the list does not blink through an empty state on every keystroke.
+ *
+ * The query key carries the organization scope, the conversation and every
+ * filter, so no cached result can be served under a scope it did not come
+ * from.
+ */
+export function useChatSearch(options: {
+  query: string
+  conversationId?: string | null
+  filters?: Omit<ChatSearchParams, 'q' | 'limit' | 'cursor'>
+  enabled?: boolean
+}) {
+  const scope = useOrganizationScopeVersion()
+  const [debounced, setDebounced] = React.useState('')
+
+  React.useEffect(() => {
+    const trimmed = options.query.trim()
+    // Clearing is immediate. Waiting to show "no query" would leave stale
+    // results under an empty box, which reads as the search being broken.
+    if (trimmed.length === 0) {
+      setDebounced('')
+      return
+    }
+    const timer = setTimeout(() => setDebounced(trimmed), SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(timer)
+  }, [options.query])
+
+  const filters = options.filters
+  const conversationId = options.conversationId ?? null
+  const enabled = (options.enabled ?? true) && debounced.length > 0
+
+  const params = React.useMemo<ChatSearchParams>(
+    () => ({ q: debounced, ...filters }),
+    [debounced, filters],
+  )
+
+  // Paged, because the count and the results have to agree. The endpoint caps
+  // its total at several hundred while a page holds a few dozen, so a
+  // single-page hook would report a number the reader could never reach —
+  // stepping through matches would wrap long before the count said it should.
+  const query = useInfiniteQuery({
+    queryKey: chatKeys.search(scope, conversationId, JSON.stringify(params)),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam, signal }) => {
+      const paged: ChatSearchParams = { ...params, cursor: pageParam }
+      return conversationId
+        ? chatApi.searchConversation(conversationId, paged, signal)
+        : chatApi.searchAllChats(paged, signal)
+    },
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    enabled,
+    placeholderData: keepPreviousData,
+    // Results for one query do not change on the timescale of typing, and
+    // holding them means backspacing through a query does not refire every
+    // request that was already answered.
+    staleTime: 15_000,
+  })
+
+  const pages = React.useMemo(() => query.data?.pages ?? [], [query.data])
+  // Stable identity while the pages are unchanged: callers step through this
+  // array from an effect, and a new array every render would re-fire it.
+  const results = React.useMemo(() => pages.flatMap((page) => page.items), [pages])
+  // Totals describe the whole result set, so they come from the first page
+  // rather than the most recent one.
+  const first = pages[0] ?? null
+
+  return {
+    /** The query actually searched for, which lags what is in the box. */
+    activeQuery: debounced,
+    results,
+    total: first?.total ?? 0,
+    totalIsCapped: first?.totalIsCapped ?? false,
+    hasMore: query.hasNextPage,
+    loadMore: query.fetchNextPage,
+    isLoadingMore: query.isFetchingNextPage,
+    fuzzyAvailable: first?.fuzzyAvailable ?? true,
+    // `isFetching`, not `isLoading`: with previous data held, `isLoading` is
+    // false on every query after the first, so the spinner would never show.
+    // Fetching a further page is excluded — that has its own affordance, and
+    // routing it here would put the whole surface back into a loading state.
+    isSearching: enabled && query.isFetching && !query.isFetchingNextPage,
+    error: query.error,
+    retry: query.refetch,
+  }
 }

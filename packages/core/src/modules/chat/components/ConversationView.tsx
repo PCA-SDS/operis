@@ -2,7 +2,8 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ChevronRight, Pin, Users } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { ArrowLeft, ChevronRight, Pin, Search, Users } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
@@ -15,6 +16,8 @@ import type { ChatMessageDto } from '../data/types'
 import { MessageComposer, type MentionCandidate } from './MessageComposer'
 import { MessageList, MessageListSkeleton, type PendingMessage } from './MessageList'
 import { PinnedMessagesPanel } from './PinnedMessagesPanel'
+import { ConversationSearchBar } from './ConversationSearchBar'
+import { highlightPlan, parseSearchQuery } from '../lib/searchQuery'
 import { TranslateControl } from './TranslateControl'
 import { SpaceDetailsDialog } from './SpaceDetailsDialog'
 import {
@@ -95,6 +98,7 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
   const {
     messages,
     isLoading: isLoadingMessages,
+    isFetching: isFetchingMessages,
     error: messagesError,
     hasOlder,
     isLoadingOlder,
@@ -139,6 +143,61 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
   const translation = useChatTranslation(conversationId, chatLocale.locale, translatableIds)
 
   const [pinsOpen, setPinsOpen] = React.useState(false)
+  const [searchOpen, setSearchOpen] = React.useState(false)
+
+  /**
+   * Bring a message into view, loading its window first if it is not on screen.
+   *
+   * Lifted out of the pin panel's prop so search uses the identical path: a
+   * result from three years ago and a pin from three years ago are the same
+   * problem, and solving it twice would mean two behaviours to keep in step.
+   */
+  const jumpToMessage = React.useCallback(
+    (messageId: string, options?: { focus?: boolean; flash?: boolean }) => {
+      if (!messages.some((message) => message.id === messageId)) {
+        setAnchorMessageId(messageId)
+      }
+      // Held in a ref rather than in state because the re-assert below fires
+      // later, once the anchored window has loaded, and has to land the same way
+      // the original request asked for — silently focusing there would undo the
+      // whole point for a jump that came from someone typing.
+      jumpShouldFocus.current = options?.focus ?? true
+      jumpShouldFlash.current = options?.flash ?? true
+      setJumpTarget(messageId)
+    },
+    [messages],
+  )
+
+  /**
+   * Cmd/Ctrl+F opens the conversation find bar.
+   *
+   * Scoped to this view rather than bound globally, and it only takes over the
+   * browser's own find when a conversation is actually open — searching a
+   * transcript is what someone means by "find" here, and the browser can only
+   * see the page of history that happens to be loaded.
+   */
+  React.useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f') return
+      event.preventDefault()
+      setSearchOpen(true)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  // A different conversation is a different search.
+  React.useEffect(() => setSearchOpen(false), [conversationId])
+
+  /**
+   * The message a search result named, if this conversation was opened at one.
+   *
+   * The id arrives as `?message=`, which is what lets a result from the
+   * cross-conversation search open the right thread AND the right point in it
+   * — through a real navigation, so back works and the link can be shared.
+   */
+  const searchParams = useSearchParams()
+  const requestedMessageId = searchParams?.get('message') ?? null
   /**
    * A message to bring into view once it is loaded.
    *
@@ -147,6 +206,25 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
    * it, and only then is there something to scroll to.
    */
   const [jumpTarget, setJumpTarget] = React.useState<string | null>(null)
+  /** Whether the pending jump should take focus; see `jumpToMessage`. */
+  const jumpShouldFocus = React.useRef(true)
+  /** Whether the pending jump should flash the row; see `jumpToMessage`. */
+  const jumpShouldFlash = React.useRef(true)
+
+  /**
+   * What the open find bar wants marked in the transcript.
+   *
+   * Terms rather than ranges: the transcript renders messages the search
+   * response never mentioned, and they have to mark the same words.
+   */
+  const [searchState, setSearchState] = React.useState<{
+    query: string
+    currentMessageId: string | null
+  }>({ query: '', currentMessageId: null })
+  const searchHighlight = React.useMemo(
+    () => (searchState.query ? highlightPlan(parseSearchQuery(searchState.query)) : undefined),
+    [searchState.query],
+  )
 
   /**
    * A conversation switch must not carry the previous one's unsent drafts — or
@@ -162,9 +240,41 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
     setReplyTarget(null)
     setDetailsOpen(false)
     setPinsOpen(false)
-    setJumpTarget(null)
-    setAnchorMessageId(null)
-  }, [conversationId])
+    // Where to land is part of the same decision as what to clear, so it is
+    // resolved here rather than in an effect of its own. As two effects the
+    // reset ran second on mount and wiped the jump the URL had just asked for,
+    // and a shared link opened at the bottom of the conversation instead of at
+    // its message. Keyed on the id, so it fires when the destination changes
+    // and not on every render — re-running would drag the reader back each
+    // time they scrolled away from it.
+    // Arriving from a link, nothing else holds the caret, so landing takes it.
+    jumpShouldFocus.current = true
+    jumpShouldFlash.current = true
+    setJumpTarget(requestedMessageId)
+    setAnchorMessageId(requestedMessageId)
+  }, [conversationId, requestedMessageId])
+
+  /**
+   * Land again once the window we asked for has arrived.
+   *
+   * Opening at a message sets an anchor and a jump together, but the jump is
+   * applied to whatever is on screen at that moment — the tail, usually, still
+   * cached from the conversation list. Loading the window around the message
+   * then replaces every row, and a transcript whose rows all vanished counts as
+   * scrolled to the bottom, so the follow-the-bottom rule takes the reader back
+   * down. The first landing is real but lands on rows that are about to be
+   * discarded; this is the one the reader actually sees.
+   *
+   * Keyed on the arrival rather than on `messages`, so paging further back
+   * afterwards does not drag them here again.
+   */
+  const anchorLanded =
+    Boolean(anchorMessageId) &&
+    !isFetchingMessages &&
+    messages.some((message) => message.id === anchorMessageId)
+  React.useEffect(() => {
+    if (anchorLanded) setJumpTarget(anchorMessageId)
+  }, [anchorLanded, anchorMessageId])
 
   const confirmedIds = React.useMemo(
     () => new Set(messages.map((message) => message.clientMessageId).filter(Boolean) as string[]),
@@ -339,8 +449,13 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
    * — left a phone user on a broken conversation with no back button, no list,
    * and a "Try again" that for a 404 can never succeed.
    */
+  // The header and the find bar are one unit: the bar sits under the header
+  // and above the transcript, and every branch below renders `header` — so
+  // grouping them here means search appears in the loading and error states
+  // too, rather than vanishing the moment a refetch fails.
   const header = (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
+    <>
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
       {showBackToList ? (
         <IconButton variant="ghost" size="sm" asChild className="lg:hidden">
           <Link href="/backend/chat" aria-label={t('chat.conversation.back', 'Back to conversations')}>
@@ -417,6 +532,18 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
       <span className="flex-1" />
 
       {conversation ? (
+        <IconButton
+          variant="ghost"
+          size="sm"
+          onClick={() => setSearchOpen((open) => !open)}
+          aria-expanded={searchOpen}
+          aria-label={t('chat.search.openInConversation', 'Search this conversation')}
+        >
+          <Search className="size-4" aria-hidden="true" />
+        </IconButton>
+      ) : null}
+
+      {conversation ? (
         <TranslateControl
           locale={chatLocale.locale}
           translatableLocales={chatLocale.translatableLocales}
@@ -451,7 +578,16 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
           <span className="sr-only">{t('chat.pins.open', 'View pinned messages')}</span>
         </Button>
       ) : null}
-    </header>
+      </header>
+      {searchOpen && conversation ? (
+        <ConversationSearchBar
+          conversationId={conversationId}
+          onJumpToMessage={jumpToMessage}
+          onSearchStateChange={setSearchState}
+          onClose={() => setSearchOpen(false)}
+        />
+      ) : null}
+    </>
   )
 
   if (isLoadingConversation) {
@@ -531,6 +667,10 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
           isAnchored={Boolean(anchorMessageId)}
           onReturnToLatest={() => setAnchorMessageId(null)}
           jumpToMessageId={jumpTarget}
+          jumpShouldFocus={jumpShouldFocus.current}
+          jumpShouldFlash={jumpShouldFlash.current}
+          searchHighlight={searchHighlight}
+          currentSearchMessageId={searchState.currentMessageId}
           onJumpHandled={() => setJumpTarget(null)}
           onToggleReaction={
             canSend ? (messageId, emoji) => toggleReaction.mutate({ messageId, emoji }) : undefined
@@ -581,16 +721,7 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
           onClose={() => setPinsOpen(false)}
           conversationId={conversationId}
           canUnpin={canPin}
-          onJumpToMessage={(messageId) => {
-            // Already on screen: just scroll. Otherwise re-anchor the transcript
-            // around it first — the row has to exist before it can be scrolled
-            // to, and loading the whole history to find it is what the centred
-            // window exists to avoid.
-            if (!messages.some((message) => message.id === messageId)) {
-              setAnchorMessageId(messageId)
-            }
-            setJumpTarget(messageId)
-          }}
+          onJumpToMessage={jumpToMessage}
         />
       ) : null}
 

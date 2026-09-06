@@ -169,9 +169,11 @@ const DEFAULT_EPHEMERAL_POSTGRES_IMAGE = 'pgvector/pgvector:pg16'
 // Mirrors docker/postgres-init.sh (default DB + template1 so any future DB inherits them).
 const EPHEMERAL_POSTGRES_INIT_SQL = `CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 \\connect template1
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 `
 
 export function resolveEphemeralPostgresImage(env: NodeJS.ProcessEnv = process.env): string {
