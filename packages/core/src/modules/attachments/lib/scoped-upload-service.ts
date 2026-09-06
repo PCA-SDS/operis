@@ -10,6 +10,8 @@ import { buildAttachmentFileUrl } from './imageUrls'
 import { ensureDefaultPartitions, resolveDefaultPartitionCode } from './partitions'
 import { extractAttachmentContent } from './textExtraction'
 import { requestOcrProcessing } from './ocrQueue'
+import { requestAttachmentScan } from './scanning/scanService'
+import { inspectArchive, isArchiveFileName } from './archiveInspection'
 import { OcrService, shouldUseLlmOcr } from './ocrService'
 import { assertAttachmentScopeInvariant } from './access'
 import {
@@ -30,6 +32,7 @@ const logger = createLogger('attachments')
 
 export type ScopedAttachmentUploadErrorCode =
   | 'dangerous_executable'
+  | 'archive_rejected'
   | 'max_upload_size'
   | 'active_content'
   | 'partition_unavailable'
@@ -62,6 +65,14 @@ export type ScopedAttachmentUploadInput = {
   assignments?: AttachmentAssignment[]
   partitionCode?: string | null
   maxBytes?: number
+  /**
+   * Extra metadata the calling module needs kept with the row.
+   *
+   * Merged alongside assignments and tags rather than replacing them: this is
+   * the caller's own namespace, and a module that overwrote the shared keys
+   * would break the assignment lookups every other module reads.
+   */
+  metadata?: Record<string, unknown>
 }
 
 type QuotaRecoveryScheduler = (
@@ -183,10 +194,25 @@ export class ScopedAttachmentUploadService {
 
     let assignments = input.assignments?.slice() ?? []
     assignments = upsertAssignment(assignments, { type: input.entityId, id: input.recordId })
-    const metadata = mergeAttachmentMetadata(null, {
-      assignments,
-      tags: input.tags ?? [],
-    })
+    // An upload policy that blocks `.exe` and waves through `.zip` blocks
+    // nothing — the executable just travels one layer down. Reads the central
+    // directory only; it never decompresses, so the check that guards against a
+    // zip bomb cannot itself expand one.
+    if (isArchiveFileName(safeName)) {
+      const inspection = inspectArchive(safeName, input.buffer)
+      if (!inspection.ok) {
+        logger.warn('Rejected an archive upload', {
+          tenantId: input.tenantId,
+          reason: inspection.reason,
+        })
+        throw new ScopedAttachmentUploadError('archive_rejected', 400)
+      }
+    }
+
+    const metadata = {
+      ...mergeAttachmentMetadata(null, { assignments, tags: input.tags ?? [] }),
+      ...(input.metadata ?? {}),
+    }
     const attachmentId = randomUUID()
     let attachment!: Attachment
 
@@ -216,6 +242,21 @@ export class ScopedAttachmentUploadService {
       await this.compensateStorage(driver, partition.code, storedPath, reservation)
       logger.error('Scoped attachment persistence failed', { err: error })
       throw new ScopedAttachmentUploadError('persistence_failed', 500)
+    }
+
+    // Before OCR and before the row is handed back. The attachment persists as
+    // `pending`, so nothing can read it until this settles; awaiting it means a
+    // deployment without a scanner returns a file the caller can use straight
+    // away rather than one that is briefly and confusingly unavailable.
+    try {
+      await requestAttachmentScan(em, attachment, driver)
+    } catch (error) {
+      // Left `pending`, which is closed. A file nobody could scan being
+      // unreadable is the right outcome.
+      logger.error('Scoped attachment scan scheduling failed', {
+        attachmentId: attachment.id,
+        err: error,
+      })
     }
 
     if (useLlmOcr) {
