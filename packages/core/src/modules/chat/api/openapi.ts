@@ -152,3 +152,42 @@ export const markAllReadResponseSchema = z.object({
   conversationIds: z.array(z.string().uuid()),
   lastReadAt: z.string(),
 })
+
+export const chatAttachmentSchema = z.object({
+  id: z.string().uuid(),
+  fileName: z.string(),
+  mimeType: z.string(),
+  fileSize: z.number(),
+  kind: z.enum(['media', 'file']),
+  status: z.enum(['pending', 'ready', 'rejected', 'failed']),
+  createdAt: z.string(),
+})
+
+const sharedFileEntrySchema = z.object({
+  kind: z.enum(['file', 'media']),
+  attachmentId: z.string().uuid(),
+  messageId: z.string().uuid(),
+  fileName: z.string(),
+  mimeType: z.string(),
+  fileSize: z.number(),
+  uploaderUserId: z.string().uuid(),
+  uploaderName: z.string(),
+  createdAt: z.string(),
+})
+
+const sharedLinkEntrySchema = z.object({
+  kind: z.literal('link'),
+  id: z.string().uuid(),
+  messageId: z.string().uuid(),
+  url: z.string(),
+  host: z.string(),
+  sharedByUserId: z.string().uuid(),
+  sharedByName: z.string(),
+  createdAt: z.string(),
+})
+
+export const sharedResourcesSchema = z.object({
+  items: z.array(z.union([sharedFileEntrySchema, sharedLinkEntrySchema])),
+  nextCursor: z.string().nullable(),
+  hasMore: z.boolean(),
+})
