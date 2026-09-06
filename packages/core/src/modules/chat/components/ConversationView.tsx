@@ -16,10 +16,17 @@ import type { ChatMessageDto } from '../data/types'
 import { MessageComposer, type MentionCandidate } from './MessageComposer'
 import { useChatAttachments } from './useChatAttachments'
 import { MessageList, MessageListSkeleton, type PendingMessage } from './MessageList'
-import { PinnedMessagesPanel } from './PinnedMessagesPanel'
+import { PinnedMessagesList } from './PinnedMessagesList'
 import { ConversationSearchBar } from './ConversationSearchBar'
 import { highlightPlan, parseSearchQuery } from '../lib/searchQuery'
-import { SharedResourcesPanel } from './SharedResourcesPanel'
+import { SharedResourcesList } from './SharedResourcesList'
+import { ChatContextPanel } from './ChatContextPanel'
+import {
+  clampPanelWidth,
+  minimumSplitWidth,
+  useContainerWidth,
+  type ChatContextPanelState,
+} from './contextPanel'
 import { TranslateControl } from './TranslateControl'
 import { SpaceDetailsDialog } from './SpaceDetailsDialog'
 import {
@@ -46,6 +53,14 @@ export type ConversationViewProps = {
   currentUserId: string
   /** Rendered on narrow viewports, where the list and the conversation are separate screens. */
   showBackToList?: boolean
+  /**
+   * The contextual region's state, owned by `ChatShell`.
+   *
+   * Held above this component's `key` on purpose: a conversation switch
+   * remounts the view, and a panel the reader opened should survive that and
+   * re-point at the new conversation rather than vanish (§18).
+   */
+  contextPanel: ChatContextPanelState
 }
 
 const logger = createLogger('chat').child({ component: 'ConversationView' })
@@ -83,7 +98,12 @@ function newClientMessageId(): string {
  * committed before the connection dropped is deduplicated server-side instead of
  * posting twice.
  */
-export function ConversationView({ conversationId, currentUserId, showBackToList }: ConversationViewProps) {
+export function ConversationView({
+  conversationId,
+  currentUserId,
+  showBackToList,
+  contextPanel,
+}: ConversationViewProps) {
   const t = useT()
   const tc = useTCount()
   /**
@@ -144,9 +164,31 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
   )
   const translation = useChatTranslation(conversationId, chatLocale.locale, translatableIds)
 
-  const [pinsOpen, setPinsOpen] = React.useState(false)
   const [searchOpen, setSearchOpen] = React.useState(false)
-  const [sharedOpen, setSharedOpen] = React.useState(false)
+
+  /**
+   * The contextual region beside the transcript, and how wide it is.
+   *
+   * One region for both tools rather than one each: opening Shared while Pins
+   * is showing swaps the contents and keeps the width, so the reader never ends
+   * up with two narrow columns competing with the conversation for the same
+   * space (§47).
+   */
+  const [splitRef, splitWidth] = useContainerWidth<HTMLDivElement>()
+  /**
+   * Whether a split is possible at all — asked of the container rather than of
+   * the viewport. The conversation rail appears at `lg`, the browser can be
+   * zoomed, and neither of those is a window width. Below this the same content
+   * opens as a drawer instead.
+   *
+   * `splitWidth === 0` is the first paint, before the observer has measured;
+   * assuming a split then would flash a two-pane layout on a phone.
+   */
+  const canSplit = splitWidth > 0 && splitWidth >= minimumSplitWidth()
+  // Fitted on every render: a width stored on a wide monitor must not survive
+  // literally into a narrow window, which is how a saved preference turns into
+  // a horizontal scrollbar (§9).
+  const panelWidth = clampPanelWidth(contextPanel.width, splitWidth)
 
   /**
    * Bring a message into view, loading its window first if it is not on screen.
@@ -170,6 +212,28 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
       setJumpTarget(messageId)
     },
     [messages],
+  )
+
+  /**
+   * Following a row in the contextual region to the message it points at.
+   *
+   * Split and drawer want opposite things here. Side by side, the transcript is
+   * already visible, so the panel stays open and keeps the caret — that is what
+   * makes it possible to walk a list of pins one after another instead of
+   * reopening the panel between each (§28). As a drawer it is covering the
+   * conversation, so landing on a message behind it is not landing at all: it
+   * closes, and the message takes focus the way it does from search (§29).
+   */
+  const handlePanelJump = React.useCallback(
+    (messageId: string) => {
+      if (canSplit) {
+        jumpToMessage(messageId, { focus: false, flash: true })
+        return
+      }
+      contextPanel.close()
+      jumpToMessage(messageId)
+    },
+    [canSplit, contextPanel, jumpToMessage],
   )
 
   /**
@@ -252,8 +316,13 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
     setPending([])
     setReplyTarget(null)
     setDetailsOpen(false)
-    setPinsOpen(false)
-    setSharedOpen(false)
+    // The contextual region is deliberately NOT closed here. It is scoped to
+    // whichever conversation is open, not owned by one, so switching re-points
+    // it rather than dismissing it — closing a panel the reader opened, every
+    // time they moved between conversations, made it useless for the one job it
+    // has: comparing what was pinned here with what was pinned there (§18).
+    // Its state lives in `ChatShell`, above this component's `key`, which is
+    // what lets it survive the remount a switch causes.
     // Where to land is part of the same decision as what to clear, so it is
     // resolved here rather than in an effect of its own. As two effects the
     // reset ran second on mount and wiped the jump the URL had just asked for,
@@ -483,8 +552,11 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
   const header = (
     <>
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
+      {/* 32px, like every other control in this header. It is the only one a
+          narrow screen shows alongside the title, so at 28px it was the odd
+          size out on exactly the viewport where touch targets matter most. */}
       {showBackToList ? (
-        <IconButton variant="ghost" size="sm" asChild className="lg:hidden">
+        <IconButton variant="ghost" size="default" asChild className="lg:hidden">
           <Link href="/backend/chat" aria-label={t('chat.conversation.back', 'Back to conversations')}>
             <ArrowLeft className="size-4" aria-hidden="true" />
           </Link>
@@ -558,10 +630,13 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
       {/* Pushes the pin control to the trailing edge, away from the identity. */}
       <span className="flex-1" />
 
+      {/* `size="default"` is 32px, the height every other control in this row
+          already has. At `sm` this one alone was 28px, so its hover target was
+          visibly smaller than its neighbours'. */}
       {conversation ? (
         <IconButton
           variant="ghost"
-          size="sm"
+          size="default"
           onClick={() => setSearchOpen((open) => !open)}
           aria-expanded={searchOpen}
           aria-label={t('chat.search.openInConversation', 'Search this conversation')}
@@ -594,24 +669,29 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
           is the dead end it exists to avoid. */}
       {/* Beside pins, not buried in a menu: both answer "where did that go?",
           and the panel is the only route back to a resource shared months ago. */}
-      <Button
+      {/* Icon-only, like the search control beside it, so the same primitive
+          at the same size — the two were a `Button` and an `IconButton` at two
+          different heights. Pins keeps `Button` because it shows a count. */}
+      <IconButton
         type="button"
         variant="ghost"
-        size="sm"
+        size="default"
         className="shrink-0 text-muted-foreground"
-        onClick={() => setSharedOpen(true)}
+        onClick={() => contextPanel.toggle('shared')}
+        aria-pressed={contextPanel.kind === 'shared'}
+        aria-label={t('chat.shared.open', 'Shared files and links')}
         title={t('chat.shared.open', 'Shared files and links')}
       >
         <Paperclip className="size-4" aria-hidden="true" />
-        <span className="sr-only">{t('chat.shared.open', 'Shared files and links')}</span>
-      </Button>
+      </IconButton>
       {conversation && conversation.pinnedCount > 0 ? (
         <Button
           type="button"
           variant="ghost"
           size="sm"
           className="shrink-0 gap-1.5 text-muted-foreground"
-          onClick={() => setPinsOpen(true)}
+          onClick={() => contextPanel.toggle('pins')}
+          aria-pressed={contextPanel.kind === 'pins'}
         >
           <Pin className="size-4" aria-hidden="true" />
           <span className="tabular-nums">{conversation.pinnedCount}</span>
@@ -630,9 +710,17 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
     </>
   )
 
+  /**
+   * The transcript column's contents for whichever state this conversation is
+   * in. Kept as values rather than early returns so the split row and the
+   * contextual region below wrap all three: returning early skipped them, so a
+   * conversation switch collapsed the panel while the next one loaded and then
+   * reopened it, which is the jump §13 and §14 exist to prevent.
+   */
+  let body: React.ReactNode
   if (isLoadingConversation) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
+    body = (
+      <>
         {header}
         {/* The transcript's own silhouette, not a centred spinner. A spinner in
             the middle of an empty pane says "something is happening somewhere";
@@ -649,13 +737,11 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
         <div className="px-4 py-3">
           <Skeleton className="h-11 w-full rounded-xl" />
         </div>
-      </div>
+      </>
     )
-  }
-
-  if (conversationError || !conversation) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
+  } else if (conversationError || !conversation) {
+    body = (
+      <>
         {header}
         <div className="flex min-h-0 flex-1 items-center justify-center p-6">
           <ErrorMessage
@@ -678,13 +764,12 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
             }
           />
         </div>
-      </div>
+      </>
     )
-  }
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {header}
+  } else {
+    body = (
+      <>
+        {header}
 
       {messagesError && messages.length === 0 ? (
         <div className="p-4">
@@ -757,41 +842,64 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
         }
       />
 
-      {/* Only when there is something to open. A control that leads to an empty
-          panel is the dead end the panel exists to avoid. */}
-      {/* Always mounted, unlike the pins panel: there is no count that tells us
-          in advance whether anything has been shared, and the panel answers
-          that question itself with an empty state. */}
-      <SharedResourcesPanel
-        open={sharedOpen}
-        onClose={() => setSharedOpen(false)}
-        conversationId={conversationId}
-        onJumpToMessage={jumpToMessage}
-      />
+        {/* Mounted only for a space, and only once the conversation has loaded —
+            it needs the title, the viewer's role and the member count, and there
+            is no meaningful skeleton for a panel nobody has opened yet. Kept
+            mounted across open/close after that, so Radix can restore focus to
+            the header button. */}
+        {isSpace && conversation ? (
+          <SpaceDetailsDialog
+            open={detailsOpen}
+            onClose={() => setDetailsOpen(false)}
+            conversation={conversation}
+            currentUserId={currentUserId}
+          />
+        ) : null}
+      </>
+    )
+  }
 
-      {conversation && conversation.pinnedCount > 0 ? (
-        <PinnedMessagesPanel
-          open={pinsOpen}
-          onClose={() => setPinsOpen(false)}
-          conversationId={conversationId}
-          canUnpin={canPin}
-          onJumpToMessage={jumpToMessage}
-        />
-      ) : null}
+  return (
+    // The row is always here, panel or no panel. Mounting it conditionally
+    // would insert a wrapper between the transcript and its parent the moment
+    // the region opened, and React would treat the message list as a different
+    // element and remount it — losing its scroll position and every loaded page
+    // (§36). One stable row costs nothing and makes that impossible.
+    <div ref={splitRef} className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">{body}</div>
 
-      {/* Mounted only for a space, and only once the conversation has loaded —
-          it needs the title, the viewer's role and the member count, and there
-          is no meaningful skeleton for a panel nobody has opened yet. Kept
-          mounted across open/close after that, so Radix can restore focus to
-          the header button. */}
-      {isSpace && conversation ? (
-        <SpaceDetailsDialog
-          open={detailsOpen}
-          onClose={() => setDetailsOpen(false)}
-          conversation={conversation}
-          currentUserId={currentUserId}
-        />
-      ) : null}
+      <ChatContextPanel
+        open={contextPanel.kind !== null}
+        split={canSplit}
+        title={
+          contextPanel.kind === 'shared'
+            ? t('chat.shared.title', 'Shared')
+            : t('chat.pins.title', 'Pinned messages')
+        }
+        width={panelWidth}
+        containerWidth={splitWidth}
+        onWidthChange={contextPanel.setWidth}
+        onResetWidth={contextPanel.resetWidth}
+        onClose={contextPanel.close}
+      >
+        {contextPanel.kind === 'shared' ? (
+          <SharedResourcesList
+            conversationId={conversationId}
+            active={contextPanel.kind === 'shared'}
+            onJumpToMessage={handlePanelJump}
+          />
+        ) : (
+          <PinnedMessagesList
+            conversationId={conversationId}
+            active={contextPanel.kind === 'pins'}
+            // `canSend` as well as `canPin`: the server requires both, so an
+            // unpin control shown without it is a button that answers 403 — the
+            // dead end this panel is supposed to remove (§66).
+            canUnpin={canSend && canPin}
+            onJumpToMessage={handlePanelJump}
+          />
+        )}
+      </ChatContextPanel>
     </div>
   )
 }

@@ -119,6 +119,8 @@
   "chat.notifications.emptyTitle": "Alles gelesen",
   "chat.notifications.loadError": "Nachrichten konnten nicht geladen werden",
   "chat.notifications.openAll": "Chat öffnen",
+  "chat.panel.close": "Bereich schließen",
+  "chat.panel.resize": "Bereich anpassen",
   "chat.pins.count": "{count} angeheftete Nachricht in dieser Unterhaltung",
   "chat.pins.count_few": "{count} angeheftete Nachrichten in dieser Unterhaltung",
   "chat.pins.count_many": "{count} angeheftete Nachrichten in dieser Unterhaltung",

@@ -3,14 +3,6 @@
 import * as React from 'react'
 import { Download, FileText, Link2, MessageSquareText } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@open-mercato/ui/primitives/dialog'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
@@ -25,7 +17,7 @@ import { useSharedResources, type SharedKind } from './hooks'
 /**
  * What has been shared in this conversation.
  *
- * One panel with three views rather than three places to look. Files, media and
+ * One list with three views rather than three places to look. Files, media and
  * links are different shapes of the same question — "where did that go?" — and
  * splitting them across separate surfaces would make the reader guess which one
  * held the thing they half-remember.
@@ -34,11 +26,10 @@ import { useSharedResources, type SharedKind } from './hooks'
  * conversation is a file in a list; with it, it is something somebody said.
  */
 
-export type SharedResourcesPanelProps = {
-  open: boolean
-  onClose: () => void
+export type SharedResourcesListProps = {
   conversationId: string
-  /** The same jump the pins panel makes, so old resources load their window. */
+  /** Whether the region is showing this list; gates the fetch. */
+  active: boolean
   onJumpToMessage: (messageId: string) => void
 }
 
@@ -48,68 +39,50 @@ const TABS: { value: SharedKind; labelKey: string; fallback: string }[] = [
   { value: 'links', labelKey: 'chat.shared.links', fallback: 'Links' },
 ]
 
-export function SharedResourcesPanel({
-  open,
-  onClose,
+export function SharedResourcesList({
   conversationId,
+  active,
   onJumpToMessage,
-}: SharedResourcesPanelProps) {
+}: SharedResourcesListProps) {
   const t = useT()
   const [kind, setKind] = React.useState<SharedKind>('files')
 
   return (
-    <Dialog open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{t('chat.shared.title', 'Shared')}</DialogTitle>
-          <DialogDescription>
-            {t('chat.shared.description', 'Files, media and links shared in this conversation.')}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogBody className="min-h-0">
-          <Tabs value={kind} onValueChange={(next) => setKind(next as SharedKind)}>
-            <TabsList aria-label={t('chat.shared.title', 'Shared')}>
-              {TABS.map((tab) => (
-                <TabsTrigger key={tab.value} value={tab.value}>
-                  {t(tab.labelKey, tab.fallback)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            {TABS.map((tab) => (
-              <TabsContent key={tab.value} value={tab.value}>
-                {/* Mounted only while selected, so opening the panel fetches one
-                    view rather than all three. */}
-                {kind === tab.value ? (
-                  <SharedList
-                    conversationId={conversationId}
-                    kind={tab.value}
-                    open={open}
-                    onJumpToMessage={(messageId) => {
-                      // Closing first: the message is behind this dialog, and
-                      // landing on something you cannot see is not landing.
-                      onClose()
-                      onJumpToMessage(messageId)
-                    }}
-                  />
-                ) : null}
-              </TabsContent>
-            ))}
-          </Tabs>
-        </DialogBody>
-      </DialogContent>
-    </Dialog>
+    <Tabs value={kind} onValueChange={(next) => setKind(next as SharedKind)}>
+      <TabsList aria-label={t('chat.shared.title', 'Shared')}>
+        {TABS.map((tab) => (
+          <TabsTrigger key={tab.value} value={tab.value}>
+            {t(tab.labelKey, tab.fallback)}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      {TABS.map((tab) => (
+        <TabsContent key={tab.value} value={tab.value}>
+          {/* Mounted only while selected, so opening the region fetches one view
+              rather than all three. */}
+          {kind === tab.value ? (
+            <SharedList
+              conversationId={conversationId}
+              kind={tab.value}
+              active={active}
+              onJumpToMessage={onJumpToMessage}
+            />
+          ) : null}
+        </TabsContent>
+      ))}
+    </Tabs>
   )
 }
 
 function SharedList({
   conversationId,
   kind,
-  open,
+  active,
   onJumpToMessage,
 }: {
   conversationId: string
   kind: SharedKind
-  open: boolean
+  active: boolean
   onJumpToMessage: (messageId: string) => void
 }) {
   const t = useT()
@@ -117,7 +90,7 @@ function SharedList({
   const { items, isLoading, error, retry, hasMore, loadMore, isLoadingMore } = useSharedResources(
     conversationId,
     kind,
-    open,
+    active,
   )
 
   if (error) {
@@ -163,7 +136,10 @@ function SharedList({
 
   return (
     <div className="flex flex-col gap-2">
-      <ul className={cn(kind === 'media' ? 'grid grid-cols-3 gap-2' : 'flex flex-col gap-2')}>
+      {/* Two columns rather than three: the region is narrower than the dialog
+          was, and a third thumbnail per row left each one too small to
+          recognise. */}
+      <ul className={cn(kind === 'media' ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2')}>
         {items.map((item) => {
           const key = item.kind === 'link' ? item.id : item.attachmentId
           const openInChat = () => onJumpToMessage(item.messageId)
@@ -193,7 +169,7 @@ function SharedList({
           return (
             <li
               key={key}
-              className="flex items-center gap-3 rounded-lg border border-border bg-surface p-2"
+              className="flex items-center gap-2 rounded-lg border border-border bg-surface p-2"
             >
               <span
                 className="flex size-9 shrink-0 items-center justify-center rounded bg-surface-muted"
@@ -209,10 +185,9 @@ function SharedList({
               <div className="min-w-0 flex-1">
                 {item.kind === 'link' ? (
                   <>
-                    {/* The URL is shown, not fetched. Nothing here asks a
-                        server to visit a link somebody pasted, which is what
-                        keeps this from becoming a way to reach the inside of
-                        the network. */}
+                    {/* The URL is shown, not fetched. Nothing here asks a server
+                        to visit a link somebody pasted, which is what keeps this
+                        from becoming a way to reach the inside of the network. */}
                     <a
                       href={item.url}
                       target="_blank"
@@ -253,9 +228,7 @@ function SharedList({
                 ) : null}
                 <Button variant="ghost" size="sm" onClick={openInChat}>
                   <MessageSquareText className="size-3.5" aria-hidden="true" />
-                  <span className="sr-only">
-                    {t('chat.shared.viewInChatShort', 'View in chat')}
-                  </span>
+                  <span className="sr-only">{t('chat.shared.viewInChatShort', 'View in chat')}</span>
                 </Button>
               </div>
             </li>
@@ -265,12 +238,7 @@ function SharedList({
 
       {hasMore ? (
         <div className="flex justify-center pt-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={isLoadingMore}
-            onClick={() => void loadMore()}
-          >
+          <Button variant="ghost" size="sm" disabled={isLoadingMore} onClick={() => void loadMore()}>
             {isLoadingMore
               ? t('chat.shared.loadingMore', 'Loading…')
               : t('chat.shared.loadMore', 'Load more')}

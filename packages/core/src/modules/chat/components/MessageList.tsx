@@ -847,10 +847,15 @@ export function MessageList({
   }, [])
 
   /**
-   * Put the anchored message back where it was, whenever the list changes under
-   * a reader who is not at the bottom.
+   * Put the anchored message back where it was.
+   *
+   * Shared by the two things that move the transcript under a reader who is not
+   * at the bottom: the list changing, and the list being made narrower. The
+   * second is what the contextual panel does — every bubble rewraps, so the
+   * content above the viewport grows or shrinks and the reader is carried away
+   * from the message they were on, without a single message having changed.
    */
-  React.useLayoutEffect(() => {
+  const restoreAnchor = React.useCallback(() => {
     const container = scrollRef.current
     if (!container || !positioned.current || stuckToBottom.current) return
     const anchor = readingAnchor.current
@@ -866,13 +871,17 @@ export function MessageList({
       container.getBoundingClientRect().top -
       anchor.top
     if (delta !== 0) container.scrollTop += delta
+  }, [])
+
+  React.useLayoutEffect(() => {
+    restoreAnchor()
     // `translations` and `showingTranslation` belong here as much as `messages`
     // does: a translation landing changes the height of bubbles that may be
     // ABOVE the viewport, which grows the content over a reader who is scrolled
     // back and moves the transcript under them -- the exact jump this anchor
     // exists to absorb. It never fired for that case, because translations do
     // not change the `messages` identity.
-  }, [messages, translations, showingTranslation])
+  }, [messages, translations, showingTranslation, restoreAnchor])
 
   React.useLayoutEffect(() => {
     const container = scrollRef.current
@@ -971,17 +980,26 @@ export function MessageList({
       container.scrollTop = container.scrollHeight
     }
     const observer = new ResizeObserver(() => {
-      if (!positioned.current || !stuckToBottom.current) return
-      pin()
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(pin)
+      if (!positioned.current) return
+      if (stuckToBottom.current) {
+        pin()
+        cancelAnimationFrame(frame)
+        frame = requestAnimationFrame(pin)
+        return
+      }
+      // Not at the bottom, so the content changed shape under someone reading
+      // history. The contextual panel opening, closing or being dragged is
+      // exactly this: no message changed, but every bubble rewrapped, and
+      // without putting the anchor back the reader is silently carried off the
+      // message they were on (§15).
+      restoreAnchor()
     })
     observer.observe(content)
     return () => {
       cancelAnimationFrame(frame)
       observer.disconnect()
     }
-  }, [])
+  }, [restoreAnchor])
 
   if (isLoading) return <MessageListSkeleton />
 

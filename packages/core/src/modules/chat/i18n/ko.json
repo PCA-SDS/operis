@@ -119,6 +119,8 @@
   "chat.notifications.emptyTitle": "모두 확인했습니다",
   "chat.notifications.loadError": "메시지를 불러오지 못했습니다",
   "chat.notifications.openAll": "채팅 열기",
+  "chat.panel.close": "패널 닫기",
+  "chat.panel.resize": "패널 크기 조절",
   "chat.pins.count": "이 대화에 고정된 메시지 {count}개",
   "chat.pins.count_few": "이 대화에 고정된 메시지 {count}개",
   "chat.pins.count_many": "이 대화에 고정된 메시지 {count}개",

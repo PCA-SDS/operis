@@ -119,6 +119,8 @@
   "chat.notifications.emptyTitle": "Estás al día",
   "chat.notifications.loadError": "No se pudieron cargar tus mensajes",
   "chat.notifications.openAll": "Abrir chat",
+  "chat.panel.close": "Cerrar panel",
+  "chat.panel.resize": "Redimensionar panel",
   "chat.pins.count": "{count} mensaje fijado en esta conversación",
   "chat.pins.count_few": "{count} mensajes fijados en esta conversación",
   "chat.pins.count_many": "{count} mensajes fijados en esta conversación",

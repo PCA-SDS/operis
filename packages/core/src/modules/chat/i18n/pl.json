@@ -119,6 +119,8 @@
   "chat.notifications.emptyTitle": "Wszystko przeczytane",
   "chat.notifications.loadError": "Nie udało się wczytać wiadomości",
   "chat.notifications.openAll": "Otwórz czat",
+  "chat.panel.close": "Zamknij panel",
+  "chat.panel.resize": "Zmień szerokość panelu",
   "chat.pins.count": "{count} przypięta wiadomość w tej rozmowie",
   "chat.pins.count_few": "{count} przypięte wiadomości w tej rozmowie",
   "chat.pins.count_many": "Przypięte wiadomości: {count}",
