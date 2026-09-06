@@ -19,6 +19,7 @@ import {
   isSameDay,
 } from './format'
 import { MessageBody } from './MessageBody'
+import { MessageAttachments } from './MessageAttachments'
 import {
   MessageReactions,
   QuickReactions,
@@ -1378,10 +1379,20 @@ export function MessageList({
                             chips, the no-HTML rule and every safety property are
                             identical - translated text is not a second rendering
                             path that could drift from the first. */}
-                        <MessageBody
-                          body={translationFor(row.message.id) ?? row.message.body}
-                          mentionNames={row.message.mentionNames}
-                          currentUserId={currentUserId}
+                        {/* Text first, then its files: the message is the
+                            context, and the attachment belongs to it rather
+                            than the other way round. An attachment-only message
+                            renders no empty paragraph. */}
+                        {row.message.body.length > 0 ? (
+                          <MessageBody
+                            body={translationFor(row.message.id) ?? row.message.body}
+                            mentionNames={row.message.mentionNames}
+                            currentUserId={currentUserId}
+                          />
+                        ) : null}
+                        <MessageAttachments
+                          attachments={row.message.attachments}
+                          onOwnBubble={row.message.senderUserId === currentUserId}
                         />
 
                         {/* Says what happened and offers the way back. Machine

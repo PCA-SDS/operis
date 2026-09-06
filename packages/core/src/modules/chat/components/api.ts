@@ -12,6 +12,9 @@ import type {
   ChatConversationListDto,
   ChatMemberListDto,
   ChatMessagePageDto,
+  ChatAttachmentDto,
+  ChatDirectUploadTicketDto,
+  ChatSharedResourcesDto,
   ChatParticipantRole,
   ChatSendMessageResultDto,
   ChatUnreadCountDto,
@@ -91,6 +94,41 @@ export const chatApi = {
   listMessages: (id: string, params: { cursor?: string; limit?: number }, signal?: AbortSignal) =>
     readApiResultOrThrow<ChatMessagePageDto>(`${BASE}/conversations/${id}/messages${query(params)}`, { signal }),
 
+  /**
+   * Ask whether this file may go straight to storage, and for the ticket if so.
+   *
+   * The answer may be `{ supported: false }`, which is not an error — it is the
+   * deployment saying its store cannot presign, and the caller should upload
+   * through the multipart endpoint instead.
+   */
+  requestDirectUpload: (
+    id: string,
+    body: { fileName: string; contentType: string; contentLength: number },
+    signal?: AbortSignal,
+  ) =>
+    readApiResultOrThrow<ChatDirectUploadTicketDto>(
+      `${BASE}/conversations/${id}/attachments/direct`,
+      { ...jsonInit('POST', body), signal },
+    ),
+
+  /** Tell the server the direct upload finished, so it can verify and record it. */
+  finalizeDirectUpload: (id: string, body: { uploadId: string }, signal?: AbortSignal) =>
+    readApiResultOrThrow<{ item: ChatAttachmentDto }>(
+      `${BASE}/conversations/${id}/attachments/direct`,
+      { ...jsonInit('PUT', body), signal },
+    ),
+
+  /** Files, media or links shared in a conversation, one page at a time. */
+  listSharedResources: (
+    id: string,
+    params: { kind: string; limit?: number; cursor?: string },
+    signal?: AbortSignal,
+  ) =>
+    readApiResultOrThrow<ChatSharedResourcesDto>(
+      `${BASE}/conversations/${id}/shared${query(params)}`,
+      { signal },
+    ),
+
   /** A window centred on one message — how pin navigation reaches history. */
   listMessagesAround: (id: string, around: string, signal?: AbortSignal) =>
     readApiResultOrThrow<ChatMessagePageDto>(
@@ -130,7 +168,13 @@ export const chatApi = {
 
   sendMessage: async (
     id: string,
-    body: { body: string; clientMessageId?: string; replyToMessageId?: string },
+    body: {
+      body: string
+      clientMessageId?: string
+      replyToMessageId?: string
+      /** Staged attachment ids; the server validates each against its own row. */
+      attachmentIds?: string[]
+    },
   ) =>
     (await apiCallOrThrow<ChatSendMessageResultDto>(
       `${BASE}/conversations/${id}/messages`,

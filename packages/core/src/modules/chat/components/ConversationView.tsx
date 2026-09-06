@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ChevronRight, Pin, Users } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Paperclip, Pin, Users } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
@@ -13,8 +13,10 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useTCount } from './plurals'
 import type { ChatMessageDto } from '../data/types'
 import { MessageComposer, type MentionCandidate } from './MessageComposer'
+import { useChatAttachments } from './useChatAttachments'
 import { MessageList, MessageListSkeleton, type PendingMessage } from './MessageList'
 import { PinnedMessagesPanel } from './PinnedMessagesPanel'
+import { SharedResourcesPanel } from './SharedResourcesPanel'
 import { TranslateControl } from './TranslateControl'
 import { SpaceDetailsDialog } from './SpaceDetailsDialog'
 import {
@@ -139,6 +141,28 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
   const translation = useChatTranslation(conversationId, chatLocale.locale, translatableIds)
 
   const [pinsOpen, setPinsOpen] = React.useState(false)
+  const [sharedOpen, setSharedOpen] = React.useState(false)
+
+  /**
+   * Bring a message into view, loading its window first if it is not on screen.
+   *
+   * Shared by the pins panel and the Shared panel: a resource from three years
+   * ago and a pin from three years ago are the same problem, and solving it
+   * twice would leave two behaviours to keep in step.
+   */
+  const jumpToMessage = React.useCallback(
+    (messageId: string) => {
+      // Already on screen: just scroll. Otherwise re-anchor the transcript
+      // around it first — the row has to exist before it can be scrolled to,
+      // and loading the whole history to find it is what the centred window
+      // exists to avoid.
+      if (!messages.some((message) => message.id === messageId)) {
+        setAnchorMessageId(messageId)
+      }
+      setJumpTarget(messageId)
+    },
+    [messages],
+  )
   /**
    * A message to bring into view once it is loaded.
    *
@@ -146,6 +170,15 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
    * in the current window, in which case the transcript first refetches around
    * it, and only then is there something to scroll to.
    */
+  /**
+   * Files staged for the message being written.
+   *
+   * Keyed on the conversation, so switching away aborts anything still
+   * uploading and empties the strip — a file chosen in one conversation must
+   * never ride out on a message to another (§79).
+   */
+  const draftAttachments = useChatAttachments(conversationId)
+
   const [jumpTarget, setJumpTarget] = React.useState<string | null>(null)
 
   /**
@@ -162,6 +195,7 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
     setReplyTarget(null)
     setDetailsOpen(false)
     setPinsOpen(false)
+    setSharedOpen(false)
     setJumpTarget(null)
     setAnchorMessageId(null)
   }, [conversationId])
@@ -204,9 +238,14 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
     unreadSinceRef.current?.id === conversationId ? unreadSinceRef.current.value : undefined
 
   const deliver = React.useCallback(
-    async (clientMessageId: string, body: string, replyToMessageId?: string) => {
+    async (
+      clientMessageId: string,
+      body: string,
+      replyToMessageId?: string,
+      attachmentIds?: string[],
+    ) => {
       try {
-        await sendMessage.mutateAsync({ body, clientMessageId, replyToMessageId })
+        await sendMessage.mutateAsync({ body, clientMessageId, replyToMessageId, attachmentIds })
         setPending((current) => current.filter((item) => item.clientMessageId !== clientMessageId))
       } catch (error) {
         setPending((current) =>
@@ -226,6 +265,9 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
       // Captured before the state is cleared, so the retry below still knows
       // what this message was replying to even though the composer has moved on.
       const replyToMessageId = replyTarget?.messageId
+      // Read before the strip is cleared, for the same reason as the reply
+      // target: the send is in flight after the composer has moved on.
+      const attachmentIds = draftAttachments.readyIds
       setPending((current) => [
         ...current,
         {
@@ -245,11 +287,16 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
       // The bubble owns the message from here: a rejection flips it to `failed`
       // and the retry there reuses this same `clientMessageId`. The rejection is
       // already represented in the UI, so it is logged rather than re-thrown.
-      void deliver(clientMessageId, body, replyToMessageId).catch((err: unknown) => {
+      // Cleared with the reply target and for the same reason: the message owns
+      // these files now, and leaving them in the strip would invite the next
+      // message to carry them a second time.
+      draftAttachments.clear()
+
+      void deliver(clientMessageId, body, replyToMessageId, attachmentIds).catch((err: unknown) => {
         logger.warn('Sending a chat message failed', { conversationId, clientMessageId, err })
       })
     },
-    [conversationId, deliver, replyTarget],
+    [conversationId, deliver, draftAttachments, replyTarget],
   )
 
   const handleRetryPending = React.useCallback(
@@ -438,6 +485,19 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
           rather than rendered disabled: the panel's whole job is to answer
           "what has been pinned here", and a control that opens an empty answer
           is the dead end it exists to avoid. */}
+      {/* Beside pins, not buried in a menu: both answer "where did that go?",
+          and the panel is the only route back to a resource shared months ago. */}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="shrink-0 text-muted-foreground"
+        onClick={() => setSharedOpen(true)}
+        title={t('chat.shared.open', 'Shared files and links')}
+      >
+        <Paperclip className="size-4" aria-hidden="true" />
+        <span className="sr-only">{t('chat.shared.open', 'Shared files and links')}</span>
+      </Button>
       {conversation && conversation.pinnedCount > 0 ? (
         <Button
           type="button"
@@ -558,6 +618,10 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
       )}
 
       <MessageComposer
+        attachments={draftAttachments.items}
+        onAttachFiles={draftAttachments.add}
+        onRemoveAttachment={draftAttachments.remove}
+        onRetryAttachment={draftAttachments.retry}
         disabled={counterpartLeft || !canSend}
         onSend={handleSend}
         replyTarget={replyTarget}
@@ -575,22 +639,23 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
 
       {/* Only when there is something to open. A control that leads to an empty
           panel is the dead end the panel exists to avoid. */}
+      {/* Always mounted, unlike the pins panel: there is no count that tells us
+          in advance whether anything has been shared, and the panel answers
+          that question itself with an empty state. */}
+      <SharedResourcesPanel
+        open={sharedOpen}
+        onClose={() => setSharedOpen(false)}
+        conversationId={conversationId}
+        onJumpToMessage={jumpToMessage}
+      />
+
       {conversation && conversation.pinnedCount > 0 ? (
         <PinnedMessagesPanel
           open={pinsOpen}
           onClose={() => setPinsOpen(false)}
           conversationId={conversationId}
           canUnpin={canPin}
-          onJumpToMessage={(messageId) => {
-            // Already on screen: just scroll. Otherwise re-anchor the transcript
-            // around it first — the row has to exist before it can be scrolled
-            // to, and loading the whole history to find it is what the centred
-            // window exists to avoid.
-            if (!messages.some((message) => message.id === messageId)) {
-              setAnchorMessageId(messageId)
-            }
-            setJumpTarget(messageId)
-          }}
+          onJumpToMessage={jumpToMessage}
         />
       ) : null}
 
