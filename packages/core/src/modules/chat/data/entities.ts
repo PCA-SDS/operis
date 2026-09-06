@@ -280,6 +280,27 @@ export class ChatMessage {
   @Property({ type: 'text' })
   body!: string
 
+  /**
+   * The body folded for search: diacritics removed, case folded, compatibility
+   * forms normalised, mention tokens stripped, and separator-free forms of any
+   * identifier appended.
+   *
+   * A second column rather than a transformation at query time, because a
+   * function applied to every row is a sequential scan by definition. This one
+   * is indexed, so a search reads an index rather than the table.
+   *
+   * Written by the application through `buildSearchDocument`, not by a
+   * generated column: the fold has to be identical in the indexer, the query
+   * builder and the client-side highlighter, and only one of those three can
+   * run inside Postgres. Nullable so the backfill can proceed in batches
+   * without blocking writes -- a row with `null` here is simply not yet
+   * searchable, never wrong.
+   *
+   * It is derived data. The original `body` is never modified.
+   */
+  @Property({ name: 'search_body', type: 'text', nullable: true })
+  searchBody?: string | null
+
   @Property({ type: 'text', default: 'user' })
   kind: ChatMessageKind = 'user'
 

@@ -1236,6 +1236,23 @@
           "enumItems": [],
           "mappedType": "uuid"
         },
+        "search_body": {
+          "name": "search_body",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
         "sender_user_id": {
           "name": "sender_user_id",
           "type": "uuid",

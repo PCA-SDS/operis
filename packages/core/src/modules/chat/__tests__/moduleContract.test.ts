@@ -89,11 +89,13 @@ describe('API routes', () => {
       'api/conversations/[id]/pins/route.ts',
       'api/conversations/[id]/read/route.ts',
       'api/conversations/[id]/route.ts',
+      'api/conversations/[id]/search/route.ts',
       'api/conversations/[id]/shared/route.ts',
       'api/conversations/[id]/translate/route.ts',
       'api/conversations/route.ts',
       'api/directory/route.ts',
       'api/read-all/route.ts',
+      'api/search/route.ts',
       'api/settings/route.ts',
       'api/unread-count/route.ts',
     ])
@@ -202,7 +204,7 @@ describe('i18n', () => {
         fs.readFileSync(path.join(MODULE_ROOT, `i18n/${name}.json`), 'utf8'),
       ) as Record<string, string>
       const keys = Object.keys(bundle).sort()
-      return keys.join(' ') === englishKeys.join(' ') ? [] : [name]
+      return keys.join('\u0000') === englishKeys.join('\u0000') ? [] : [name]
     })
     expect(drift).toEqual([])
   })

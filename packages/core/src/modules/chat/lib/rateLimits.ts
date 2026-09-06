@@ -56,6 +56,21 @@ export const chatTranslateRateLimit = readEndpointRateLimitConfig('CHAT_TRANSLAT
   keyPrefix: 'chat_translate',
 })
 
+/**
+ * Search, on its own budget.
+ *
+ * Search-as-you-type fires far more often than any other read, so it needs a
+ * ceiling — but billing it to the send bucket would let looking for a message
+ * stop you replying to one. Generous enough that a debounced typist never sees
+ * it, tight enough that an undebounced client does.
+ */
+export const chatSearchRateLimit = readEndpointRateLimitConfig('CHAT_SEARCH', {
+  points: 40,
+  duration: 10,
+  blockDuration: 10,
+  keyPrefix: 'chat_search',
+})
+
 export const chatConversationCreateRateLimit = readEndpointRateLimitConfig('CHAT_CONVERSATION_CREATE', {
   // Starting conversations is rare; a burst of them is someone walking the
   // directory.

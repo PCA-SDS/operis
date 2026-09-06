@@ -257,6 +257,36 @@ export type ChatSettingsDto = {
   translatableLocales: string[]
 }
 
+/** A run of the original body that matched, in original-string coordinates. */
+export type ChatSearchHighlight = { start: number; end: number }
+
+export type ChatSearchHitDto = {
+  messageId: string
+  conversationId: string
+  /** Null for a direct conversation, whose name is the other person. */
+  conversationTitle: string | null
+  conversationKind: 'direct' | 'space'
+  senderUserId: string
+  senderName: string
+  /** A window of the ORIGINAL text around the match, never the folded form. */
+  snippet: string
+  /** Ranges into `snippet`, so the caller highlights without re-deriving them. */
+  highlights: ChatSearchHighlight[]
+  truncatedStart: boolean
+  truncatedEnd: boolean
+  createdAt: string
+}
+
+export type ChatSearchResultDto = {
+  items: ChatSearchHitDto[]
+  nextCursor: string | null
+  hasMore: boolean
+  /** Accessible matches only, and capped — never a total over the whole corpus. */
+  total: number
+  totalIsCapped: boolean
+  /** False when the deployment lacks pg_trgm, so the UI can say so honestly. */
+  fuzzyAvailable: boolean
+}
 /** One entry in the Shared panel: a file, a piece of media, or a link. */
 export type ChatSharedFileDto = {
   kind: 'file' | 'media'

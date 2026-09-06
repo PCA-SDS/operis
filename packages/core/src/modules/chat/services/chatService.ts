@@ -9,6 +9,8 @@ import type {
   ChatMessageDto,
   ChatMessagePageDto,
   ChatPinnedListDto,
+  ChatSearchHitDto,
+  ChatSearchResultDto,
 } from '../data/types'
 import {
   DEFAULT_CONVERSATION_PAGE_SIZE,
@@ -17,8 +19,19 @@ import {
   MAX_CONVERSATION_PAGE_SIZE,
   MAX_MEMBER_PAGE_SIZE,
   MAX_MESSAGE_PAGE_SIZE,
+  SEARCH_COUNT_CAP,
 } from '../data/validators'
 import { decodeCursor, encodeCursor } from '../lib/cursor'
+import {
+  countMessages,
+  decodeSearchCursor,
+  detectTrigramSupport,
+  encodeSearchCursor,
+  searchMessages,
+  type MessageSearchFilters,
+} from '../lib/messageSearch'
+import { parseSearchQuery, highlightPlan, SEARCH_LIMITS } from '../lib/searchQuery'
+import { buildSnippet, findMatchRanges } from '../lib/searchText'
 import { loadMessageExtras, loadUnreadMentionFlags, mentionNamesFor, type MessageExtras } from '../lib/messageExtras'
 import { extractMentionedUserIds, renderMentionsAsText } from '../lib/mentions'
 import { resolveReplyTargets } from '../lib/replies'
@@ -153,6 +166,23 @@ function toMessageDto(
  * indistinguishable from one that does not exist.
  */
 export interface ChatService {
+  /**
+   * Find messages, in one conversation or across every conversation the caller
+   * belongs to. Omitting `conversationId` is what makes it the wider search;
+   * both share one ranking so a message cannot rank differently depending on
+   * where it was found.
+   */
+  searchMessages(
+    ctx: ChatReadContext,
+    options: {
+      query: string
+      conversationId?: string
+      filters?: MessageSearchFilters
+      limit?: number
+      cursor?: string
+    },
+  ): Promise<ChatSearchResultDto>
+
   /**
    * The caller's membership row for a conversation, or a 404.
    *
@@ -437,6 +467,168 @@ export class DefaultChatService implements ChatService {
       .select(sql<number>`count(*)`.as('count'))
       .executeTakeFirst()
     return Number((row as { count?: string | number } | undefined)?.count ?? 0)
+  }
+
+  /**
+   * Find messages, in one conversation or across every conversation the caller
+   * can read.
+   *
+   * `conversationId` is the only difference between the two search
+   * experiences. Sharing one implementation is what keeps a message ranked the
+   * same wherever it is found, and keeps the authorization predicate in one
+   * place rather than two that must be kept in step.
+   *
+   * When a conversation is named, membership is checked first and separately —
+   * so searching a conversation you are not in is a 404 like every other read,
+   * rather than an empty result set that quietly tells you it exists.
+   */
+  async searchMessages(
+    ctx: ChatReadContext,
+    options: {
+      query: string
+      conversationId?: string
+      filters?: MessageSearchFilters
+      limit?: number
+      cursor?: string
+    },
+  ): Promise<ChatSearchResultDto> {
+    if (options.conversationId) await this.requireParticipant(ctx, options.conversationId)
+
+    const parsed = parseSearchQuery(options.query)
+    const trigramAvailable = await detectTrigramSupport(ctx.em)
+
+    const empty: ChatSearchResultDto = {
+      items: [],
+      nextCursor: null,
+      hasMore: false,
+      total: 0,
+      totalIsCapped: false,
+      fuzzyAvailable: trigramAvailable,
+    }
+    if (parsed.isEmpty) return empty
+
+    const limit = Math.min(
+      Math.max(options.limit ?? SEARCH_LIMITS.defaultPageSize, 1),
+      SEARCH_LIMITS.maxPageSize,
+    )
+
+    // One instant for the whole search, minted here because this is also where
+    // the next cursor is written. Recency is part of the score, so scoring page
+    // two against a later clock would move rows underneath the keyset and hand
+    // the reader the same message twice.
+    const cursor = decodeSearchCursor(options.cursor)
+    const searchedAt = cursor ? new Date(cursor.at) : new Date()
+
+    const shared = {
+      em: ctx.em,
+      scope: ctx.scope,
+      userId: ctx.userId,
+      parsed,
+      conversationId: options.conversationId,
+      filters: options.filters,
+      trigramAvailable,
+      searchedAt,
+    }
+
+    // One extra row decides `hasMore` without a second count.
+    const [hits, counted] = await Promise.all([
+      searchMessages({ ...shared, limit: limit + 1, cursor }),
+      countMessages({ ...shared, cap: SEARCH_COUNT_CAP }),
+    ])
+
+    const hasMore = hits.length > limit
+    const page = hasMore ? hits.slice(0, limit) : hits
+    if (page.length === 0) return { ...empty, total: counted.total, totalIsCapped: counted.capped }
+
+    // Every name the page needs, resolved in one read rather than one per row:
+    // senders, plus anyone their messages mention.
+    const chatText = await loadChatMessages()
+    const mentionLabels = {
+      everyone: chatText.everyoneLabel,
+      unknownPerson: chatText.formerColleague,
+    }
+    const referenced = new Set<string>()
+    for (const hit of page) {
+      referenced.add(hit.senderUserId)
+      for (const id of extractMentionedUserIds(hit.body)) referenced.add(id)
+    }
+
+    // A direct conversation stores no title; everywhere else in the module it is
+    // shown as the other person's name. Leaving it null here made a result fall
+    // back to whoever sent the matching message — so your own messages appeared
+    // under a heading with your own name on it.
+    const directConversationIds = [
+      ...new Set(
+        page
+          .filter((hit) => hit.conversationKind !== 'space')
+          .map((hit) => hit.conversationId),
+      ),
+    ]
+    const counterpartByConversation = new Map<string, string>()
+    if (directConversationIds.length > 0) {
+      const participants = await ctx.em.find(ChatParticipant, {
+        tenantId: ctx.scope.tenantId,
+        organizationId: ctx.scope.organizationId,
+        conversationId: { $in: directConversationIds },
+      })
+      for (const participant of participants) {
+        if (participant.userId === ctx.userId) continue
+        counterpartByConversation.set(participant.conversationId, participant.userId)
+        // Resolved in the same lookup the senders use, not a second one.
+        referenced.add(participant.userId)
+      }
+    }
+
+    const members = await loadOrganizationMembers(ctx.em, ctx.scope, [...referenced])
+    const namesByUserId = new Map(
+      [...members.entries()].map(([id, person]) => [id, person.name || person.email]),
+    )
+    const nameOf = (userId: string) => namesByUserId.get(userId) ?? ''
+
+    const plan = highlightPlan(parsed)
+    const items: ChatSearchHitDto[] = page.map((hit) => {
+      // Mentions are rendered to names before the snippet is cut, so a result
+      // shows "@Alice" rather than a raw uuid — the same substitution the
+      // transcript's own previews already use.
+      const readable = renderMentionsAsText(hit.body, namesByUserId, mentionLabels)
+      const ranges = findMatchRanges(readable, plan.terms, {
+        fuzzyThreshold: plan.fuzzyThreshold,
+      })
+      const snippet = buildSnippet(readable, ranges)
+      const counterpartId = counterpartByConversation.get(hit.conversationId)
+      return {
+        messageId: hit.messageId,
+        conversationId: hit.conversationId,
+        conversationTitle:
+          hit.conversationKind === 'space'
+            ? hit.conversationTitle
+            : (counterpartId ? nameOf(counterpartId) : '') || hit.conversationTitle,
+        conversationKind: hit.conversationKind === 'space' ? 'space' : 'direct',
+        senderUserId: hit.senderUserId,
+        senderName: nameOf(hit.senderUserId),
+        snippet: snippet.text,
+        highlights: snippet.ranges,
+        truncatedStart: snippet.truncatedStart,
+        truncatedEnd: snippet.truncatedEnd,
+        createdAt: hit.createdAt.toISOString(),
+      }
+    })
+
+    const last = page[page.length - 1]!
+    return {
+      items,
+      nextCursor: hasMore
+        ? encodeSearchCursor({
+            score: last.score,
+            messageId: last.messageId,
+            at: searchedAt.getTime(),
+          })
+        : null,
+      hasMore,
+      total: counted.total,
+      totalIsCapped: counted.capped,
+      fuzzyAvailable: trigramAvailable,
+    }
   }
 
   /**

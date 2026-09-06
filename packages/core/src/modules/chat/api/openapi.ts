@@ -153,6 +153,29 @@ export const markAllReadResponseSchema = z.object({
   lastReadAt: z.string(),
 })
 
+export const searchHitSchema = z.object({
+  messageId: z.string().uuid(),
+  conversationId: z.string().uuid(),
+  conversationTitle: z.string().nullable(),
+  conversationKind: z.enum(['direct', 'space']),
+  senderUserId: z.string().uuid(),
+  senderName: z.string(),
+  snippet: z.string(),
+  highlights: z.array(z.object({ start: z.number(), end: z.number() })),
+  truncatedStart: z.boolean(),
+  truncatedEnd: z.boolean(),
+  createdAt: z.string(),
+})
+
+export const searchResultSchema = z.object({
+  items: z.array(searchHitSchema),
+  nextCursor: z.string().nullable(),
+  hasMore: z.boolean(),
+  total: z.number(),
+  totalIsCapped: z.boolean(),
+  fuzzyAvailable: z.boolean(),
+})
+
 export const chatAttachmentSchema = z.object({
   id: z.string().uuid(),
   fileName: z.string(),

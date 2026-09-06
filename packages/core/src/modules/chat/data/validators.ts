@@ -280,3 +280,36 @@ export const chatSetLocaleSchema = z.object({
 
 export type ChatTranslateInput = z.infer<typeof chatTranslateSchema>
 export type ChatSetLocaleInput = z.infer<typeof chatSetLocaleSchema>
+
+/**
+ * Message search input.
+ *
+ * The query is bounded before it reaches the parser, so an oversized payload is
+ * refused by the schema rather than truncated somewhere downstream. Filters use
+ * canonical ids rather than display names: two colleagues may share a name, and
+ * a name is not a stable handle.
+ */
+export const MAX_SEARCH_QUERY_LENGTH = 256
+export const DEFAULT_SEARCH_PAGE_SIZE = 20
+export const MAX_SEARCH_PAGE_SIZE = 50
+/** Past this the exact number costs more to produce than it is worth. */
+export const SEARCH_COUNT_CAP = 500
+
+const searchFiltersSchema = z.object({
+  from: z
+    .string()
+    .transform((value) => value.split(',').map((id) => id.trim()).filter(Boolean))
+    .pipe(z.array(z.string().uuid()).max(20))
+    .optional(),
+  after: z.coerce.date().optional(),
+  before: z.coerce.date().optional(),
+  pinned: z.enum(['true', 'false']).optional(),
+})
+
+export const chatMessageSearchQuerySchema = searchFiltersSchema.extend({
+  q: z.string().trim().min(1).max(MAX_SEARCH_QUERY_LENGTH),
+  limit: z.coerce.number().int().min(1).max(MAX_SEARCH_PAGE_SIZE).optional(),
+  cursor: z.string().optional(),
+})
+
+export type ChatMessageSearchQuery = z.infer<typeof chatMessageSearchQuerySchema>

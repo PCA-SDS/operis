@@ -17,6 +17,7 @@ import { extractLinks } from '../lib/links'
 import { resolveReplyTarget } from '../lib/replies'
 import { loadChatMessages } from '../lib/messages'
 import { dbNow } from '../lib/clock'
+import { buildSearchDocument } from '../lib/searchText'
 import { ChatAttachmentError, linkDraftAttachmentsToMessage } from '../lib/attachments'
 import { checkAttachmentCounts } from '../lib/attachmentPolicy'
 import { toChatAttachmentDto } from '../lib/attachmentDto'
@@ -261,6 +262,11 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
           conversationId: conversation.id,
           senderUserId,
           body: input.body,
+          // Written in the same transaction as the body, so a message is
+          // searchable the moment it is visible. Deriving it later would leave
+          // a window in which a message exists and cannot be found — short,
+          // but exactly when someone is looking for what was just said.
+          searchBody: buildSearchDocument(input.body),
           clientMessageId: input.clientMessageId ?? null,
           replyToMessageId: input.replyToMessageId ?? null,
           mentionsEveryone: everyone,
