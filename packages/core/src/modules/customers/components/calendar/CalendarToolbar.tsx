@@ -1,11 +1,10 @@
 "use client"
 
 import * as React from 'react'
-import { ListFilter, Settings } from 'lucide-react'
+import { ListFilter } from 'lucide-react'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { CheckboxField } from '@open-mercato/ui/primitives/checkbox-field'
-import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import {
@@ -25,14 +24,21 @@ const ALL_OPTION = 'all'
 const EMPTY_FILTERS: CalendarFiltersValue = { types: [], status: null, ownerUserId: null }
 
 /**
- * Search, filters and settings — the cluster that narrows what the grid shows.
+ * Search and filters — the cluster that narrows what the grid shows.
  *
  * It renders inside the navigation bar's trailing slot rather than as a row of
  * its own: none of it changes *when* you are looking at, so none of it earns a
  * band of height above the grid.
+ *
+ * Search and Filter both stand 36px — see the chrome-height note on
+ * `CalendarHeader`, and so does every box control inside the filter popover.
+ * Settings is NOT here: it is not a narrowing control, and it sits at the far
+ * end of the scope row past the date range. The two exceptions are not choices: `Checkbox` tops out at 20px
+ * (`md`), and the count `Badge` is an adornment sitting inside the Filter
+ * button rather than a control of its own.
  */
 export function CalendarToolbar(props: CalendarToolbarProps) {
-  const { search, filters, typeOptions, ownerOptions, onSearchChange, onFiltersChange, onOpenSettings } = props
+  const { search, filters, typeOptions, ownerOptions, onSearchChange, onFiltersChange } = props
   const t = useT()
   const [filtersOpen, setFiltersOpen] = React.useState(false)
   const [pendingFilters, setPendingFilters] = React.useState<CalendarFiltersValue>(filters)
@@ -66,8 +72,17 @@ export function CalendarToolbar(props: CalendarToolbarProps) {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
-      <div className="min-w-0 flex-1 basis-40 sm:max-w-56 lg:max-w-64">
+    // No `min-w-0` on either box below, and that is load-bearing. A flex item
+    // defaults to `min-width: auto` (its content), and `min-w-0` overrides that
+    // to "may shrink to nothing" — which is exactly what happened here: the
+    // magnifier and the clear button are `shrink-0`, so once the field held a
+    // value the ✕ appeared, the row ran out of room, and the `<input>` was the
+    // only thing left that could give. It collapsed to 0px wide, leaving a
+    // search box with no search box in it. The floor keeps the field usable and
+    // the wrapping parent in `CalendarScopeBar` moves the cluster to its own
+    // line instead of crushing it.
+    <div className="flex flex-1 items-center justify-end gap-2">
+      <div className="min-w-40 flex-1 basis-40 sm:max-w-56 lg:max-w-64">
         <SearchInput
           value={search}
           onChange={onSearchChange}
@@ -81,7 +96,6 @@ export function CalendarToolbar(props: CalendarToolbarProps) {
           <Button
             type="button"
             variant="outline"
-            size="sm"
             className="shrink-0"
             aria-label={t('customers.calendar.toolbar.filters.label', 'Filter')}
           >
@@ -116,7 +130,6 @@ export function CalendarToolbar(props: CalendarToolbarProps) {
                   <CheckboxField
                     key={option.value}
                     label={option.label}
-                    size="sm"
                     checked={pendingFilters.types.includes(option.value)}
                     onCheckedChange={(checked) =>
                       togglePendingType(option.value, checked === true)
@@ -139,7 +152,6 @@ export function CalendarToolbar(props: CalendarToolbarProps) {
                 }
               >
                 <SelectTrigger
-                  size="sm"
                   aria-label={t('customers.calendar.toolbar.filters.status', 'Status')}
                 >
                   <SelectValue />
@@ -171,7 +183,6 @@ export function CalendarToolbar(props: CalendarToolbarProps) {
                   }
                 >
                   <SelectTrigger
-                    size="sm"
                     aria-label={t('customers.calendar.toolbar.filters.owner', 'Owner')}
                   >
                     <SelectValue />
@@ -190,26 +201,16 @@ export function CalendarToolbar(props: CalendarToolbarProps) {
               </div>
             ) : null}
             <div className="flex items-center justify-end gap-2 border-t pt-3">
-              <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
+              <Button type="button" variant="ghost" onClick={clearFilters}>
                 {t('customers.calendar.toolbar.filters.clear', 'Clear')}
               </Button>
-              <Button type="button" size="sm" onClick={applyFilters}>
+              <Button type="button" onClick={applyFilters}>
                 {t('customers.calendar.toolbar.filters.apply', 'Apply')}
               </Button>
             </div>
           </div>
         </PopoverContent>
       </Popover>
-      <IconButton
-        type="button"
-        variant="outline"
-        size="sm"
-        className="shrink-0"
-        aria-label={t('customers.calendar.toolbar.settings', 'Calendar settings')}
-        onClick={onOpenSettings}
-      >
-        <Settings aria-hidden />
-      </IconButton>
     </div>
   )
 }

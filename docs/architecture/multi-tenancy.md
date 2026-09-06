@@ -146,6 +146,38 @@ foreign keys. But it means **their isolation is inherited, not enforced** — a 
 that joins a junction table without scoping the parent gets no protection from the
 engine. Treat these tables as requiring the parent to be scoped explicitly.
 
+### 3.2a Modules that scope outside the query engine
+
+§3.1 describes the engine's automatic `tenant_id` predicate, and it is easy to read
+that as "every module is covered." It is not — a module that talks to the
+`EntityManager` or to Kysely directly never reaches the engine, so its isolation is
+whatever its own code does.
+
+`chat` is the clearest current example, and it is deliberate: a conversation list and
+a message transcript are read at keystroke frequency, so they use direct ORM reads and
+one Kysely aggregate rather than the engine.
+
+| Table | `tenant_id` | `organization_id` | Scope enforced by |
+|---|---|---|---|
+| `chat_conversations` | yes | yes | every read predicate in `services/chatService.ts`, plus `requireParticipant` |
+| `chat_participants` | yes | yes | same; membership *is* the authorization check |
+| `chat_messages` | yes | yes | same, plus the `INNER JOIN chat_participants` in the unread aggregate |
+
+The scope pair itself is never reachable from request input: it is built once per
+request in `chat/api/shared.ts` from `auth.tenantId` and `resolveActiveOrganizationId(auth)`.
+A module-contract test greps every chat route for `body.tenantId` / `body.organizationId`
+and fails if one appears.
+
+Two consequences worth knowing:
+
+- Chat pins to a **single** organization rather than expanding `Organization.descendantIds`
+  the way `resolveOrganizationScopeFilter` does. That is stricter than the platform
+  default, not looser — but it means a manager whose scope spans child organizations
+  cannot message people in them. See the chat spec's Known limitations.
+- `messages`, `notifications` and `inbox_ops` also read through Kysely for aggregates.
+  The same rule applies to them: read the module's own predicates, not §3.1, to know
+  what its isolation is.
+
 ### 3.3 The documented bypass
 
 `omitAutomaticTenantOrgScope` (declared in `packages/shared/src/lib/query/types.ts`)
@@ -357,6 +389,29 @@ Attack matrix run 2026-08-23 from a genuinely tenant-scoped principal
 | `?organizationId=<A org>` injection on users / people / products | 200, own-tenant data only |
 | `PUT /api/auth/users` with A's user id | **404** |
 | `DELETE /api/auth/users?id=<A user>` | **404** |
+
+### Chat module, 2026-09-03
+
+Run against a real application and database, from three users: A and B in one
+organization, C in a second organization under a **different tenant**.
+
+| Attempt (as C) | Result |
+|---|---|
+| `GET /api/chat/directory?q=…` for A or B | absent from results |
+| `POST /api/chat/conversations` naming A's user id | 400/403/404 — refused |
+| `GET /api/chat/conversations/<A+B's id>` | **404** |
+| `GET /api/chat/conversations/<id>/messages` | **404** |
+| `POST /api/chat/conversations/<id>/messages` | **404** |
+| `POST /api/chat/conversations/<id>/read` | **404** |
+| `GET /api/chat/conversations` | own conversations only |
+| `GET /api/chat/unread-count` | 0 |
+| `POST /api/chat/conversations` with forged `organizationId` + `tenantId` in the body | refused; body scope ignored entirely |
+| `GET /api/chat/conversations/<random uuid>` | **404**, identical body to the foreign-id case |
+| any chat endpoint unauthenticated | 401 |
+
+A conversation the caller is not a participant of returns the **same 404, with the
+same body**, as one that does not exist — so the endpoint is not an existence oracle
+for conversation ids. Covered by `TC-CHAT-002-tenant-isolation.spec.ts`.
 
 Tenant A's rows were confirmed unchanged afterwards. Note the deliberate asymmetry:
 a foreign **tenant** id is rejected outright (403), whereas a foreign **organization**

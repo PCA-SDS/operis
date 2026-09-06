@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from 'react'
-import { Users } from 'lucide-react'
 import { DealSectionCard } from './DealSectionCard'
 import { DealFormField } from './DealFormField'
 import { DealAssociationsField } from './DealAssociationsField'
@@ -43,7 +42,6 @@ export function DealAssociationsSection({
 
   return (
     <DealSectionCard
-      icon={Users}
       title={tr('customers.deals.create.sections.associations.title', 'Associations')}
       subtitle={tr('customers.deals.create.sections.associations.subtitle', 'Link people and companies to this deal')}
     >

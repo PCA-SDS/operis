@@ -128,6 +128,29 @@ export default [
       'om-ds/no-legacy-alert-variant': 'error',
     },
   },
+  // `chat` ships strict from day one, same reasoning as `tasks`: a module added
+  // today has no baseline debt, so every rule is an error rather than a warning
+  // it could accumulate against. The glob covers `components/` because that is
+  // where the module's UI lives — its `backend/` files are thin page shells.
+  {
+    files: [
+      'packages/core/src/modules/chat/backend/**/*.{ts,tsx}',
+      'packages/core/src/modules/chat/components/**/*.{ts,tsx}',
+    ],
+    ignores: ['**/__tests__/**', '**/*.generated.*'],
+    linterOptions,
+    languageOptions,
+    plugins,
+    rules: {
+      'om-ds/require-empty-state': 'error',
+      'om-ds/require-page-wrapper': 'error',
+      'om-ds/no-raw-table': 'error',
+      'om-ds/require-loading-state': 'error',
+      'om-ds/require-status-badge': 'error',
+      'om-ds/no-hardcoded-status-colors': 'error',
+      'om-ds/no-legacy-alert-variant': 'error',
+    },
+  },
   {
     files: [
       'packages/core/src/modules/invoice/backend/**/*.{ts,tsx}',
@@ -153,7 +176,10 @@ export default [
   // here rather than as an inline disable because `om-ds/*` rules exist only in
   // this config; an inline disable is an unknown-rule error under the general one.
   {
-    files: ['packages/core/src/modules/tasks/components/api.ts'],
+    files: [
+      'packages/core/src/modules/tasks/components/api.ts',
+      'packages/core/src/modules/chat/components/api.ts',
+    ],
     linterOptions,
     languageOptions,
     plugins,

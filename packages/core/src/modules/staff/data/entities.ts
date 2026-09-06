@@ -2,6 +2,16 @@ import { Entity, Enum, Index, ManyToOne, PrimaryKey, Property } from '@open-merc
 
 export type StaffLeaveRequestStatus = 'pending' | 'approved' | 'rejected'
 
+export type StaffEmploymentType = 'full_time' | 'part_time' | 'contract' | 'intern' | 'temporary'
+
+export const STAFF_EMPLOYMENT_TYPES: StaffEmploymentType[] = [
+  'full_time',
+  'part_time',
+  'contract',
+  'intern',
+  'temporary',
+]
+
 @Entity({ tableName: 'staff_teams' })
 @Index({ name: 'staff_teams_tenant_org_idx', properties: ['tenantId', 'organizationId'] })
 export class StaffTeam {
@@ -556,6 +566,107 @@ export class StaffTimeProjectMember {
 
   @Property({ name: 'updated_at', type: Date, onUpdate: () => new Date() })
   updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
+
+/**
+ * The HR record for a team member: who they are to the company, as opposed to
+ * `StaffTeamMember`, which is who they are to the schedule.
+ *
+ * Kept as its own table rather than columns on `StaffTeamMember` so the HR
+ * fields can be permission-gated as a unit — `staff.hr_profile.*` guards this
+ * row, while everything that reads the member for scheduling is unaffected and
+ * never loads a date of birth it has no business seeing.
+ *
+ * It hangs off the member, NOT off a user account. `StaffTeamMember.userId` is
+ * nullable, so Operis already allows a member with no login; keying the profile
+ * to the account would have taken that away.
+ *
+ * There is deliberately no address column. The reference model carries a single
+ * free-text address, but `StaffTeamMemberAddress` already stores structured,
+ * multi-address data with geocoding — the richer of the two wins.
+ */
+@Entity({ tableName: 'staff_employee_profiles' })
+@Index({ name: 'staff_employee_profiles_tenant_org_idx', properties: ['tenantId', 'organizationId'] })
+@Index({ name: 'staff_employee_profiles_member_idx', properties: ['member'] })
+export class StaffEmployeeProfile {
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  /**
+   * `ManyToOne` with a partial unique index in the migration, not `OneToOne`.
+   *
+   * A declared `unique: true` becomes a hard constraint that a soft-deleted row
+   * still occupies, so clearing an HR record and entering a fresh one would
+   * fail. The module solves this the same way elsewhere
+   * (`staff_time_projects_code_unique_idx`): a plain index on the entity, and a
+   * `where deleted_at is null` unique index in SQL.
+   */
+  @ManyToOne(() => StaffTeamMember, { fieldName: 'member_id' })
+  member!: StaffTeamMember
+
+  @Property({ name: 'employee_number', type: 'text', nullable: true })
+  employeeNumber?: string | null
+
+  @Property({ name: 'job_title', type: 'text', nullable: true })
+  jobTitle?: string | null
+
+  @Enum({ items: () => STAFF_EMPLOYMENT_TYPES, type: 'text', name: 'employment_type', nullable: true })
+  employmentType?: StaffEmploymentType | null
+
+  /**
+   * Calendar dates, so a Postgres `date` rather than a timestamp.
+   *
+   * A start date is the same day in every timezone. Stored as `timestamptz` it
+   * would be read back shifted for anyone west of UTC — a 2026-01-05 start
+   * showing as 2026-01-04 — and this module already uses `date` for
+   * `StaffTimeEntry.date` for the same reason.
+   *
+   * Typed `string`, not `Date`, because that is what the driver actually hands
+   * back for a `date` column. Declaring `Date` here is what made the snapshot
+   * loader call `toISOString()` on a string and return a 500.
+   */
+  @Property({ name: 'start_date', type: 'date', nullable: true })
+  startDate?: string | null
+
+  @Property({ name: 'end_date', type: 'date', nullable: true })
+  endDate?: string | null
+
+  @Property({ name: 'work_phone', type: 'text', nullable: true })
+  workPhone?: string | null
+
+  @Property({ name: 'personal_phone', type: 'text', nullable: true })
+  personalPhone?: string | null
+
+  @Property({ name: 'personal_email', type: 'text', nullable: true })
+  personalEmail?: string | null
+
+  /**
+   * Text, not a date column, because this field is encrypted at rest.
+   *
+   * Encryption replaces the value with a ciphertext string, which a `date`
+   * column cannot hold — the write would fail outright. It is never sorted or
+   * filtered on, so nothing is lost by storing the `YYYY-MM-DD` as text.
+   */
+  @Property({ name: 'date_of_birth', type: 'text', nullable: true })
+  dateOfBirth?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  notes?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date(), nullable: true })
+  updatedAt?: Date | null
 
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null

@@ -443,10 +443,25 @@ export type DataTableProps<T extends RowData> = {
         onApply: () => void
         onClear: () => void
       }
-  columnChooser?: {
-    availableColumns?: ColumnChooserField[]
-    auto?: boolean
-  }
+  /**
+   * Column reordering and show/hide.
+   *
+   * On by default: every list should let an operator move a column where they
+   * want it, and the fields are derived from the table's own columns when none
+   * are given, so it costs a caller nothing. It used to be opt-in, and the
+   * result was that 6 of ~100 tables could reorder their headers while the rest
+   * silently could not.
+   *
+   * Pass `false` for a table where reordering is meaningless — a fixed
+   * two-column summary, a totals block. Pass `auto` to additionally discover
+   * the entity's custom fields; that stays opt-in because it costs a query.
+   */
+  columnChooser?:
+    | {
+        availableColumns?: ColumnChooserField[]
+        auto?: boolean
+      }
+    | false
   /**
    * Slot rendered between the toolbar and the table body when filters are active
    * and the popover is closed. Use ActiveFilterChips from filters/.
@@ -1165,8 +1180,16 @@ function ColumnResizeHandle({
   )
 }
 
-function SortableHeaderCell({ id, children, className, width, ariaSort, align }: { id: string; children: React.ReactNode; className?: string; width?: number; ariaSort?: React.AriaAttributes['aria-sort']; align?: TableCellAlign }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+function SortableHeaderCell({ id, children, className, width, ariaSort, align, resizing }: { id: string; children: React.ReactNode; className?: string; width?: number; ariaSort?: React.AriaAttributes['aria-sort']; align?: TableCellAlign; resizing?: boolean }) {
+  // `attributes` is spread onto the cell below, and dnd-kit defaults its `role`
+  // to `button` — which would overwrite the `columnheader` role `TableHead`
+  // sets and leave the header announcing as a button. Pinning it here keeps the
+  // table semantics while dnd-kit still contributes
+  // `aria-roledescription="draggable"`, which is the part worth having.
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+    attributes: { role: 'columnheader' },
+  })
   const isSticky = typeof className === 'string' && className.includes('sticky')
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -1182,6 +1205,11 @@ function SortableHeaderCell({ id, children, className, width, ariaSort, align }:
       aria-sort={ariaSort}
       align={align}
       data-dragging={isDragging ? 'true' : undefined}
+      /* Resize and reorder are separate gestures on the same cell, so the
+         reorderable header has to carry the resize marker too — the body cells
+         tag themselves off the same column id, and without this the header
+         would be the only part of the column not highlighted mid-drag. */
+      data-resizing={resizing ? 'true' : undefined}
       /* The vacated slot reads as a dashed outline rather than a dimmed copy of
          the header: a half-opacity label next to a full-opacity one looks like a
          rendering fault, an empty outline looks like a place something came from. */
@@ -2618,7 +2646,10 @@ export function DataTable<T extends RowData>({
   }, [table])
 
   const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
-  const enableHeaderDnd = Boolean(columnChooser)
+  // Reordering is the default; `false` is the opt-out. A drag needs 5px of
+  // travel (see `dndSensors`), so a plain click still reaches the sort handler.
+  const columnChooserConfig = columnChooser === false ? undefined : columnChooser
+  const enableHeaderDnd = columnChooser !== false
   // Column resize is offered only where widths can persist (#1835): tables with a
   // perspective config. Portal / settings / sub-tables that opt out of perspectives
   // get no handle, so resizing never silently resets on reload for them.
@@ -2925,7 +2956,7 @@ export function DataTable<T extends RowData>({
   })
 
   const isAutoAdvancedFilter = Boolean(advancedFilter?.auto)
-  const isAutoColumnChooser = Boolean(columnChooser?.auto)
+  const isAutoColumnChooser = Boolean(columnChooserConfig?.auto)
   const needsAutoDiscovery = isAutoAdvancedFilter || isAutoColumnChooser
   const { data: autoDiscoveryDefs = [] } = useCustomFieldDefs(
     needsAutoDiscovery && entityKey ? resolvedEntityIds : [],
@@ -2953,7 +2984,7 @@ export function DataTable<T extends RowData>({
   }, [advancedFilter])
   const resolvedColumnChooserFields = isAutoColumnChooser
     ? autoDiscovered.columnChooserFields
-    : columnChooser?.availableColumns ?? []
+    : columnChooserConfig?.availableColumns ?? []
 
   const effectiveColumnChooserFields = React.useMemo<ColumnChooserField[]>(() => {
     if (resolvedColumnChooserFields.length > 0) return resolvedColumnChooserFields
@@ -3687,7 +3718,7 @@ export function DataTable<T extends RowData>({
                     />
                   ) : null
                   return enableHeaderDnd ? (
-                    <SortableHeaderCell key={header.id} id={header.id} width={sizedWidth} ariaSort={ariaSort} align={columnAlign} className={cn('group', responsiveClass(priority, columnMeta?.hidden))}>
+                    <SortableHeaderCell key={header.id} id={header.id} width={sizedWidth} ariaSort={ariaSort} align={columnAlign} resizing={Boolean(columnId && resizingColumnId === columnId)} className={cn('group', responsiveClass(priority, columnMeta?.hidden))}>
                       {headerCellContent}
                       {resizeHandle}
                     </SortableHeaderCell>
@@ -3884,7 +3915,14 @@ export function DataTable<T extends RowData>({
               <TableRow>
                 <TableCell colSpan={mergedColumns.length + (rowActions || injectedRowActions.length > 0 ? 1 : 0) + (hasInjectedBulkActions ? 1 : 0)} className="p-0">
                   <div
-                    className={cn('sticky left-0 flex justify-center py-6', emptyStateViewportWidth ? '' : 'w-fit')}
+                    // `w-full` rather than `w-fit` until the viewport width is
+                    // measured: `w-fit` hugs the content, so the state paints
+                    // hard against the left edge for a frame and then jumps to
+                    // the middle once the observer fires. The measured width
+                    // still wins when it arrives — it is what keeps the state in
+                    // the visible viewport rather than centred on the full
+                    // scroll width when the table is wider than its container.
+                    className={cn('sticky left-0 flex justify-center py-6', emptyStateViewportWidth ? '' : 'w-full')}
                     style={emptyStateViewportWidth ? { width: emptyStateViewportWidth } : undefined}
                   >
                     {filterAwareEmptyState?.active ? (

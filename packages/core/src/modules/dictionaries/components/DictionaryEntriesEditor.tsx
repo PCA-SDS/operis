@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { Plus, Pencil, Trash2, RefreshCw, Languages } from 'lucide-react'
+import { Languages, Pencil, Plus, RefreshCw, Trash2, TriangleAlert } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import {
@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
+import { TableEmptyRow } from '@open-mercato/ui/backend/TableEmptyRow'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
@@ -305,22 +306,10 @@ export function DictionaryEntriesEditor({ dictionaryId, dictionaryName, readOnly
       )
     }
     if (loadError) {
-      return (
-        <TableRow>
-          <TableCell colSpan={4} className="py-6 text-center text-sm text-destructive">
-            {loadError}
-          </TableCell>
-        </TableRow>
-      )
+      return <TableEmptyRow colSpan={4} tone="error" icon={<TriangleAlert className="size-6" aria-hidden />} title={loadError} />
     }
     if (!entries.length) {
-      return (
-        <TableRow>
-          <TableCell colSpan={4} className="py-6 text-center text-sm text-muted-foreground">
-            {t('dictionaries.config.entries.empty', 'No entries yet.')}
-          </TableCell>
-        </TableRow>
-      )
+      return <TableEmptyRow colSpan={4} title={t('dictionaries.config.entries.empty', 'No entries yet.')} />
     }
     return entries.map((entry) => (
         <TableRow key={entry.id}>

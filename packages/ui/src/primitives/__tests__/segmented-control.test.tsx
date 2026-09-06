@@ -92,15 +92,26 @@ describe('SegmentedControl', () => {
   })
 
   it('lets items stretch to the track instead of carrying their own height', () => {
-    // The pill is inset by the track's p-0.5 on every side only while the item
-    // fills the track's content box. A fixed item height reintroduces a
+    // The pill is inset by the track's padding on every side only while the
+    // item fills the track's content box. A fixed item height reintroduces a
     // different vertical gap than the horizontal one.
     const { container } = render(<Controlled />)
     const root = container.querySelector('[data-slot="segmented-control"]') as HTMLElement
     expect(root.className).toContain('items-stretch')
-    expect(root.className).toContain('p-0.5')
     const item = container.querySelector('[data-slot="segmented-control-item"]') as HTMLElement
     expect(item.className).not.toMatch(/(^|\s)h-\d/)
+  })
+
+  it.each([
+    ['default', undefined, 'p-1'],
+    ['sm', 'sm' as const, 'p-0.5'],
+  ])('insets the pill by the %s size\'s own padding, matching the reference toggle', (_name, size, pad) => {
+    // The inset IS the gap between the selected pill and the rail around it,
+    // and the reference gives its roomy size twice the inset of its dense one.
+    // A single shared value made the default read tight against its rail.
+    const { container } = render(<Controlled size={size} />)
+    const root = container.querySelector('[data-slot="segmented-control"]') as HTMLElement
+    expect(root.className).toContain(pad)
   })
 
   it('disables all items when disabled prop is set on the root', () => {

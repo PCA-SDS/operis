@@ -131,6 +131,8 @@
   "auth.roles.form.errors.load": "No se pudo cargar el rol",
   "auth.roles.form.errors.tenantRequired": "El inquilino es obligatorio",
   "auth.roles.form.field.name": "Nombre",
+  "auth.roles.form.field.parentRole": "Reports to",
+  "auth.roles.form.field.parentRoleNone": "No parent (top level)",
   "auth.roles.form.field.tenant": "Inquilino",
   "auth.roles.form.group.access": "Acceso",
   "auth.roles.form.group.details": "Detalles",

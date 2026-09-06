@@ -22,7 +22,7 @@ export function MessagesIcon({ className }: MessagesIconProps) {
     : t('messages.nav.inbox', 'Messages')
 
   return (
-    <IconButton variant="ghost" size="sm" asChild className={cn('relative', className)}>
+    <IconButton variant="ghost" size="lg" asChild className={cn('relative', className)}>
       <Link href="/backend/messages" aria-label={ariaLabel}>
         <Mail className={cn('h-5 w-5', hasNew && 'animate-pulse')} />
         <NotificationCountBadge count={unreadCount} />

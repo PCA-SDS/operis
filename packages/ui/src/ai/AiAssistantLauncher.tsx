@@ -513,7 +513,6 @@ export function AiAssistantLauncher({
       <Button
         type="button"
         variant="ghost"
-        size="sm"
         onClick={openPicker}
         className={cn('hidden sm:inline-flex items-center gap-2 text-foreground [&_svg]:text-foreground', className)}
         data-ai-launcher-trigger=""
@@ -530,7 +529,7 @@ export function AiAssistantLauncher({
       <IconButton
         type="button"
         variant="ghost"
-        size="sm"
+        size="lg"
         className="sm:hidden text-foreground [&_svg]:text-foreground"
         onClick={openPicker}
         aria-label={triggerLabel}

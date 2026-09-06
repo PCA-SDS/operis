@@ -154,7 +154,7 @@ export function MyTasksView({ view }: { view: MyTaskView }) {
     : ''
 
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col">
+    <div className="flex h-full min-h-0 w-full flex-col">
       <div className="flex shrink-0 items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{title}</h1>

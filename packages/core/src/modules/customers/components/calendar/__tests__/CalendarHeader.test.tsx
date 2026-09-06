@@ -100,6 +100,22 @@ describe('CalendarHeader', () => {
     expect(onOpenShortcuts).toHaveBeenCalledTimes(1)
   })
 
+  it('stands every control on the bar at one height', () => {
+    // The primitives disagree about what their size names mean — `sm` is 32px
+    // on Button but 28px on IconButton — so matching the prop name across the
+    // two is what put three heights on one row. The bar is 36px throughout.
+    const { container } = renderHeader()
+    const controls = Array.from(
+      container.querySelectorAll('button, [data-slot="segmented-control"]'),
+    ).filter((node) => !node.closest('[data-slot="segmented-control"]') || node.matches('[data-slot="segmented-control"]'))
+
+    expect(controls.length).toBeGreaterThanOrEqual(6)
+    for (const control of controls) {
+      expect(control.className).toMatch(/\b(h-9|size-9)\b/)
+      expect(control.className).not.toMatch(/\b(size-6|size-7|size-8|h-7|h-8|h-10|h-11)\b/)
+    }
+  })
+
   it('titles the agenda view by name rather than by date range', () => {
     const { getByRole } = renderHeader({ view: 'agenda' })
 

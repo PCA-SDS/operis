@@ -1,54 +1,48 @@
 "use client"
 
 import * as React from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, X } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { FormFieldLabel } from '@open-mercato/ui/backend/forms/FormSection'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { DatePicker } from '@open-mercato/ui/primitives/date-picker'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { Switch } from '@open-mercato/ui/primitives/switch'
 
-export const CONTROL_BORDER = 'border border-input'
-export const CONTROL_TEXT = 'text-sm text-foreground placeholder:text-muted-foreground'
-export const LABEL_CLASS = 'text-xs font-medium text-muted-foreground'
-export const DROPDOWN_PANEL_CLASS =
-  'absolute z-50 mt-1 max-h-56 w-full space-y-1 overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md'
-
 /**
- * Closes an editor dropdown on pointer-down outside the component or Escape.
- * Blur alone is unreliable inside the Radix dialog focus trap (#3552 feedback:
- * the Resources list stayed open), so dismissal listens on the document while
- * the dropdown is open. Returns the ref to attach to the component root.
+ * The editor's field chrome, matching the PCA modal reference rather than the
+ * DS form default.
+ *
+ * A PCA dialog field is a FILLED box with a transparent border and no focus
+ * ring — `LOGIN_INPUT_CLASS` in the reference repo, used by every field in
+ * `CreateUserDialog`. That is the opposite of the DS `Input`, which is an
+ * outlined box, because the DS input has to survive on the page ground where a
+ * fill alone would not read as a control. Inside a dialog the panel does that
+ * work, so the border comes off.
+ *
+ * Controls built from DS primitives get this treatment from the
+ * `[data-dialog-form]` rule in `globals.css` instead of from a class here — a
+ * dialog holds several control families (Input, Select trigger, DatePicker
+ * trigger, Textarea) and they must not disagree. `CONTROL_BOX` is for the
+ * hand-built boxes (chip pickers, dropdown triggers) that rule cannot reach.
  */
-export function useDropdownDismiss(open: boolean, onClose: () => void): React.RefObject<HTMLDivElement | null> {
-  const rootRef = React.useRef<HTMLDivElement | null>(null)
-  React.useEffect(() => {
-    if (!open) return
-    const handlePointerDown = (event: PointerEvent) => {
-      if (rootRef.current && event.target instanceof Node && !rootRef.current.contains(event.target)) onClose()
-    }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        // Swallow Escape so the dialog itself stays open.
-        event.stopPropagation()
-        onClose()
-      }
-    }
-    document.addEventListener('pointerdown', handlePointerDown, true)
-    document.addEventListener('keydown', handleKeyDown, true)
-    return () => {
-      document.removeEventListener('pointerdown', handlePointerDown, true)
-      document.removeEventListener('keydown', handleKeyDown, true)
-    }
-  }, [open, onClose])
-  return rootRef
-}
+export const CONTROL_BOX = 'rounded-lg border border-transparent bg-surface-muted'
+/** Every control in the editor is one height, the same 36px as the app chrome. */
+export const CONTROL_HEIGHT = 'h-9'
+/**
+ * The field micro-label. Same typography as the shared `FORM_FIELD_LABEL` but
+ * without its `mb-2.5`: these labels sit in flex columns that own the spacing,
+ * so carrying the margin too would double it.
+ */
+export const LABEL_CLASS = 'block text-xs font-bold uppercase tracking-wide text-muted-foreground'
 
 export function Field({ label, children, error, className }: { label: string; children: React.ReactNode; error?: string | null; className?: string }) {
   return (
-    <div className={cn('flex w-full flex-col gap-1.5', className)}>
-      <span className={LABEL_CLASS}>{label}</span>
+    // `gap-2.5` reproduces the reference label's `mb-2.5`, which `LABEL_CLASS`
+    // deliberately drops so the spacing is owned in one place.
+    <div className={cn('flex w-full flex-col gap-2.5', className)}>
+      <FormFieldLabel className="mb-0">{label}</FormFieldLabel>
       {children}
       {error ? <p className="text-xs text-status-error-text">{error}</p> : null}
     </div>
@@ -96,7 +90,7 @@ function formatDateValue(date: Date): string {
 // this drives the popover's controlled `open` state instead. The editor
 // dispatches `EDITOR_SCROLL_EVENT` on scroll.
 export const EDITOR_SCROLL_EVENT = 'om-calendar-editor-scroll'
-function useCloseOnEditorScroll(setOpen: (open: boolean) => void) {
+export function useCloseOnEditorScroll(setOpen: (open: boolean) => void) {
   React.useEffect(() => {
     const handler = () => setOpen(false)
     document.addEventListener(EDITOR_SCROLL_EVENT, handler)
@@ -157,6 +151,56 @@ export function TimeControl({ value, onChange, ariaLabel }: { value: string; onC
         ))}
       </SelectContent>
     </Select>
+  )
+}
+
+/**
+ * A selected person, reduced to their initials.
+ *
+ * The picker used to spell the full name out in a pill. Three attendees then
+ * filled the field edge to edge and wrapped it onto a second line, which is
+ * what made the form jump while you were still typing. The avatar carries the
+ * identity at a fifth of the width; the name stays available as the title and
+ * the accessible name, and the customer/staff distinction moves to the avatar's
+ * tone rather than a badge that would put the words back.
+ *
+ * The remove control is revealed on hover and on keyboard focus rather than
+ * drawn permanently — at this size a row of avatars each carrying a visible
+ * cross reads as clutter, and `focus-visible` keeps it reachable without one.
+ */
+export function PersonAvatarChip({
+  name,
+  title,
+  tone = 'staff',
+  onRemove,
+  removeLabel,
+}: {
+  name: string
+  /** Falls back to the name; pass a fuller string to carry e.g. "· Customer". */
+  title?: string
+  tone?: 'staff' | 'customer'
+  onRemove?: () => void
+  removeLabel?: string
+}) {
+  return (
+    <span className="group/chip relative inline-flex shrink-0" title={title ?? name}>
+      <Avatar size="sm" label={name} variant={tone === 'customer' ? 'default' : 'monochrome'} />
+      {onRemove ? (
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); onRemove() }}
+          aria-label={removeLabel}
+          className={cn(
+            'absolute -right-1 -top-1 inline-flex size-4 items-center justify-center rounded-full',
+            'border border-surface bg-surface-strong text-muted-foreground',
+            'opacity-0 transition-opacity hover:text-foreground',
+            'group-hover/chip:opacity-100 focus-visible:opacity-100 focus-visible:shadow-focus focus-visible:outline-none',
+          )}
+        >
+          <X aria-hidden className="size-2.5" />
+        </button>
+      ) : null}
+    </span>
   )
 }
 

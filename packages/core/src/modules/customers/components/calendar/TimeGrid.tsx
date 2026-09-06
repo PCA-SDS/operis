@@ -42,14 +42,39 @@ import type { CalendarItem, CalendarReschedule, TimeGridProps } from './types'
 const HOUR_HEIGHT_PX = 48
 /** Shortest card that can still show a title. */
 const MIN_BLOCK_HEIGHT_PX = 18
-const BLOCK_VERTICAL_GAP_PX = 1
+/**
+ * Gap between an event block and the slot around it, applied equally on all four
+ * sides so the block sits centred in its cell.
+ *
+ * It was three different numbers: the horizontal gap was subtracted from the
+ * block's width but never added to its start, so a block sat flush against its
+ * column's left edge with the whole 2px on the right, while top and bottom got
+ * 1px each. The all-day bar already insets both sides equally (`CalendarBar`),
+ * and this is that same rule for the timed grid. Stacked blocks end up two
+ * insets apart, which is what separates them from one another.
+ */
+const BLOCK_INSET_PX = 2
 /** Gutter between two concurrent cards, so a shared slot still reads as two. */
-const COLUMN_GAP_PX = 2
 const DEFAULT_VISIBLE_ALL_DAY_ROWS = 2
 const DRAG_THRESHOLD_PX = 4
 const DEFAULT_WORKING_HOURS = { startHour: 8, endHour: 18 }
 /** Width of the hour gutter, shared by the header corner and the grid. */
 const GUTTER_CLASS = 'w-14 shrink-0 md:w-16'
+
+/**
+ * Divider between two day columns, keyed off the index rather than `last:`.
+ *
+ * The timed strip also holds the now-indicator overlay, and that overlay — not
+ * the seventh day — is the real `:last-child`, so `last:border-e-0` never fired
+ * there. It left a line down the grid's right edge that the all-day lane above
+ * has no counterpart for, and because `flex-basis: 0` splits only what the
+ * borders leave over, one extra border shifted every column a fraction of a
+ * pixel out of step with that lane. The overlay is conditional, so both faults
+ * came and went with the current time being on screen.
+ */
+function dayDividerClass(index: number, total: number) {
+  return index === total - 1 ? null : 'border-e border-border'
+}
 
 type Gesture =
   | { kind: 'create'; dayIndex: number; anchorMinutes: number; pointerMinutes: number; moved: boolean }
@@ -98,8 +123,8 @@ function segmentGeometry(segment: PositionedSegment): { insetInlineStart: string
   const startPercent = (segment.column / segment.columns) * 100
   const widthPercent = (segment.span / segment.columns) * 100
   return {
-    insetInlineStart: `calc(${startPercent}% + ${segment.column * COLUMN_GAP_PX}px)`,
-    width: `calc(${widthPercent}% - ${COLUMN_GAP_PX}px)`,
+    insetInlineStart: `calc(${startPercent}% + ${BLOCK_INSET_PX}px)`,
+    width: `calc(${widthPercent}% - ${BLOCK_INSET_PX * 2}px)`,
   }
 }
 
@@ -126,8 +151,35 @@ export function TimeGrid({
   const gridRef = React.useRef<HTMLDivElement | null>(null)
   const columnsRef = React.useRef<HTMLDivElement | null>(null)
   const allDayLaneRef = React.useRef<HTMLDivElement | null>(null)
+
   const didInitialScroll = React.useRef(false)
 
+  /**
+   * Width the vertical scrollbar takes from the timed region.
+   *
+   * The header and the all-day lane sit OUTSIDE the scroll container so they
+   * stay pinned, which means the scrollbar narrows the hour columns and not
+   * them. Each column is `flex-1`, so the shortfall is divided among the days
+   * and the error compounds left to right — measured at 2px on the first
+   * separator and 11px by the last, which is the whole scrollbar. Reserving the
+   * same width on the pinned rows puts all three on one content width.
+   */
+  const [scrollbarWidth, setScrollbarWidth] = React.useState(0)
+  React.useLayoutEffect(() => {
+    const scroller = scrollRef.current
+    if (!scroller) return
+    const measure = () => {
+      const next = scroller.offsetWidth - scroller.clientWidth
+      setScrollbarWidth((current) => (current === next ? current : next))
+    }
+    measure()
+    // The scrollbar appears and disappears with the content, so watch the inner
+    // grid too — resizing the scroller alone does not cover a day gaining rows.
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure)
+    observer?.observe(scroller)
+    if (gridRef.current) observer?.observe(gridRef.current)
+    return () => observer?.disconnect()
+  }, [])
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
   const [gesture, setGesture] = React.useState<Gesture | null>(null)
   const [allDayExpanded, setAllDayExpanded] = React.useState(false)
@@ -439,8 +491,15 @@ export function TimeGrid({
       aria-colcount={dayStarts.length}
     >
       {/* Header and all-day lane sit outside the scroll container, so they stay
-          pinned while the timed region scrolls. */}
-      <div className="shrink-0 bg-surface">
+          pinned while the timed region scrolls — which is also why they have to
+          reserve the width the scrollbar takes from that region, or their day
+          columns land on different x positions than the hours below. The
+          padding is a logical property so it follows the writing direction,
+          like the `border-e` / `pe-*` used throughout this grid. */}
+      <div
+        className="shrink-0 bg-surface"
+        style={scrollbarWidth ? { paddingInlineEnd: scrollbarWidth } : undefined}
+      >
         <div className="flex" role="row">
           {/* The gutter corner carries the timezone, the way a calendar labels
               the axis it is measuring against. */}
@@ -516,8 +575,11 @@ export function TimeGrid({
             }}
           >
             <div aria-hidden className="absolute inset-0 flex">
-              {dayStarts.map((dayStart) => (
-                <div key={dayStart.getTime()} className="min-w-0 flex-1 border-e border-border last:border-e-0" />
+              {dayStarts.map((dayStart, index) => (
+                <div
+                  key={dayStart.getTime()}
+                  className={cn('min-w-0 flex-1', dayDividerClass(index, dayStarts.length))}
+                />
               ))}
             </div>
             {allDayBars
@@ -621,7 +683,8 @@ export function TimeGrid({
                   aria-colindex={dayIndex + 1}
                   aria-label={formatters.fullDate.format(dayStart)}
                   className={cn(
-                    'relative min-w-0 flex-1 border-e border-border last:border-e-0',
+                    'relative min-w-0 flex-1',
+                    dayDividerClass(dayIndex, dayStarts.length),
                     today && 'bg-accent/25',
                   )}
                 >
@@ -657,8 +720,8 @@ export function TimeGrid({
                         >
                           <EventBlock
                             item={segment.item}
-                            top={rawTop + BLOCK_VERTICAL_GAP_PX}
-                            height={Math.max(MIN_BLOCK_HEIGHT_PX, rawHeight - BLOCK_VERTICAL_GAP_PX * 2)}
+                            top={rawTop + BLOCK_INSET_PX}
+                            height={Math.max(MIN_BLOCK_HEIGHT_PX, rawHeight - BLOCK_INSET_PX * 2)}
                             insetInlineStart={insetInlineStart}
                             width={width}
                             stackIndex={segment.column}
