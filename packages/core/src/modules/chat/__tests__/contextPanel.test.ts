@@ -105,3 +105,48 @@ describe('the default width', () => {
     expect(CHAT_PANEL_WIDTH.default).toBeGreaterThanOrEqual(CHAT_PANEL_WIDTH.min)
   })
 })
+
+describe('standing the conversation rail down', () => {
+  /**
+   * On a laptop the module spends the rail's width before the conversation gets
+   * anything, which left too little for a transcript and a panel side by side.
+   * The rail goes only when keeping it is the reason a split will not fit.
+   */
+  const { CHAT_RAIL, railStandsDownForPanel } = require('../components/contextPanel') as typeof import('../components/contextPanel')
+
+  it('keeps the rail when everything already fits', () => {
+    // A wide monitor holds rail, transcript and panel at once.
+    const roomy = minimumSplitWidth() + CHAT_RAIL.totalWidth
+    expect(railStandsDownForPanel(roomy)).toBe(false)
+  })
+
+  it('stands the rail down exactly when that is what buys the split', () => {
+    // One pixel under "everything fits": without the rail there is room, with
+    // it there is not.
+    const tight = minimumSplitWidth() + CHAT_RAIL.totalWidth - 1
+    expect(railStandsDownForPanel(tight)).toBe(true)
+    expect(tight - CHAT_RAIL.totalWidth).toBeLessThan(minimumSplitWidth())
+    expect(tight).toBeGreaterThanOrEqual(minimumSplitWidth())
+  })
+
+  it('leaves the rail alone when even the whole shell is too narrow', () => {
+    // Removing it would cost the reader their navigation and still not produce
+    // a usable split — that width belongs to the drawer.
+    expect(railStandsDownForPanel(minimumSplitWidth() - 1)).toBe(false)
+  })
+
+  it('does the right thing on a 1280 laptop', () => {
+    // The measured shell width at a 1280 viewport, once the app's own
+    // navigation and page padding are taken out. With the rail the conversation
+    // gets 632, which is under the split minimum; without it, 912.
+    const shellAt1280 = 912
+    expect(shellAt1280 - CHAT_RAIL.totalWidth).toBeLessThan(minimumSplitWidth())
+    expect(railStandsDownForPanel(shellAt1280)).toBe(true)
+    // And what the transcript is left with is comfortably readable.
+    expect(shellAt1280 - CHAT_PANEL_WIDTH.default - CHAT_PANEL_WIDTH.handle).toBeGreaterThan(500)
+  })
+
+  it('ignores an unmeasured container', () => {
+    expect(railStandsDownForPanel(0)).toBe(false)
+  })
+})

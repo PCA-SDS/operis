@@ -13,7 +13,7 @@ export const integrationMeta = { dependsOnModules: ['chat'] }
  * because its open state is held outside React. That is a question about Next,
  * not about React, so it is asked here in a real browser (§18).
  *
- * Four fuller cases rather than one per assertion, deliberately. Signing in
+ * Five fuller cases rather than one per assertion, deliberately. Signing in
  * costs an attempt against a limit of five per minute per email, and each case
  * needs both an API token and a browser session — so a case per assertion put
  * enough sign-ins through in a few seconds that later ones were refused, the
@@ -199,5 +199,45 @@ test.describe('TC-CHAT-008: contextual side panel', () => {
     // reflects it without a manual refresh (§31).
     await panel.getByRole('button', { name: /unpin message/i }).first().click()
     await expect(panel).not.toContainText(`pinned marker for ${title}`, { timeout: 10_000 })
+  })
+
+  test('splits on a 1280 laptop by standing the conversation rail down', async ({
+    page,
+    request,
+  }) => {
+    const token = await getAuthToken(request, 'admin')
+    const conversationId = await createSpaceWithPin(request, token, `Panel L ${Date.now()}`)
+
+    // The size of a standard laptop, and the one this layout used to give up on:
+    // the rail took enough of it that a transcript and a panel could not both
+    // fit, so pins covered the conversation instead of sitting beside it.
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await login(page, 'admin')
+    await page.goto(`/backend/chat/${conversationId}`)
+
+    const rail = page.getByRole('complementary', { name: 'Chat' })
+    await expect(rail).toBeVisible()
+
+    await openPins(page)
+
+    // Beside the conversation, not over it.
+    await expect(page.locator(PANEL)).toBeVisible()
+    await expect(page.locator('[role="dialog"]')).toHaveCount(0)
+
+    // The width came from the rail, which stands down while the region is open.
+    await expect(rail).toBeHidden()
+
+    // And the transcript that bought is genuinely readable, not a sliver.
+    const transcript = page.getByRole('region', { name: 'Messages' })
+    expect((await transcript.boundingBox())?.width ?? 0).toBeGreaterThan(500)
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
+    ).toBe(0)
+
+    // Closing the region gives the rail back.
+    await page.getByRole('button', { name: 'Close panel' }).click()
+    await expect(rail).toBeVisible()
   })
 })

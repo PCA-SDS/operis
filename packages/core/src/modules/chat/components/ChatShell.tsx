@@ -12,7 +12,7 @@ import { CreateSpaceDialog } from './CreateSpaceDialog'
 import { StartConversationDialog } from './StartConversationDialog'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useCanSendChat, useChatLiveRefresh, useConversations } from './hooks'
-import { useChatContextPanel } from './contextPanel'
+import { railStandsDownForPanel, useChatContextPanel, useContainerWidth } from './contextPanel'
 
 export type ChatShellProps = {
   currentUserId: string
@@ -55,6 +55,23 @@ export function ChatShell({ currentUserId, conversationId, organizationId }: Cha
   // Destructured because the hook returns a fresh object each render; depending
   // on the whole object would re-run the effect below on every render.
   const { close: closeContextPanel } = contextPanel
+
+  /**
+   * Give the conversation the rail's width when that is what makes a split
+   * possible.
+   *
+   * On a laptop the module spends 256px on this rail before the conversation
+   * gets anything, which left too little for a transcript and a panel side by
+   * side — so opening pins covered the conversation instead of sitting beside
+   * it. Standing the rail down while the region is open buys back exactly the
+   * width needed, and it is the cheaper thing to lose: the conversation list is
+   * navigation you have already used to get here, while the transcript is what
+   * you are reading.
+   *
+   * Only when it actually helps. Where all three fit, all three stay.
+   */
+  const [shellRef, shellWidth] = useContainerWidth<HTMLDivElement>()
+  const railHidesForPanel = contextPanel.kind !== null && railStandsDownForPanel(shellWidth)
 
   /**
    * Hand focus back to the control that opened the dialog.
@@ -130,12 +147,19 @@ export function ChatShell({ currentUserId, conversationId, organizationId }: Cha
           same shape `TasksShell` uses for its rail and content. The rail is a
           panel in its own right, so it reads as navigation belonging to the
           module rather than a column inside the transcript. */}
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-6">
+      <div
+        ref={shellRef}
+        className={cn(
+          'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 lg:gap-6',
+          railHidesForPanel ? 'lg:grid-cols-[minmax(0,1fr)]' : 'lg:grid-cols-[16rem_minmax(0,1fr)]',
+        )}
+      >
         <aside
           aria-label={t('chat.nav.title', 'Chat')}
           className={cn(
             'min-h-0 flex-col lg:flex',
             conversationId ? 'hidden' : 'flex',
+            railHidesForPanel && 'lg:hidden',
           )}
         >
           <ConversationList

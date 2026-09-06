@@ -59,9 +59,38 @@ export const CHAT_PANEL_WIDTH = {
  */
 const WIDTH_STORAGE_KEY = 'om:chat:context-panel-width'
 
+/**
+ * The conversation rail, in the same units as everything else.
+ *
+ * Mirrors `ChatShell`'s `lg:grid-cols-[16rem_…] lg:gap-6`. Kept here so the
+ * question "would standing the rail down make a split fit?" is arithmetic
+ * rather than a guess — and so the answer changes if the layout does.
+ */
+export const CHAT_RAIL = {
+  width: 256,
+  gap: 24,
+  get totalWidth() {
+    return this.width + this.gap
+  },
+} as const
+
 /** The smallest container that can hold a usable transcript and a usable panel. */
 export function minimumSplitWidth(): number {
   return CHAT_PANEL_WIDTH.minChat + CHAT_PANEL_WIDTH.min + CHAT_PANEL_WIDTH.handle
+}
+
+/**
+ * Whether standing the rail down is what makes a split possible.
+ *
+ * Three conditions, and the middle one is the point: the rail only goes when
+ * keeping it is the reason a split will not fit. Where there is room for all
+ * three the rail stays, and where even the whole shell is too narrow it goes
+ * nowhere useful — that width belongs to the drawer instead.
+ */
+export function railStandsDownForPanel(shellWidth: number): boolean {
+  if (shellWidth <= 0) return false
+  const withRail = shellWidth - CHAT_RAIL.totalWidth
+  return withRail < minimumSplitWidth() && shellWidth >= minimumSplitWidth()
 }
 
 /**
@@ -111,15 +140,6 @@ export type ChatContextPanelState = {
   resetWidth: () => void
 }
 
-/**
- * Which tool is showing, and how wide the region is.
- *
- * The width is read after mount rather than during render: the server has no
- * `localStorage`, so seeding state from it directly renders one width on the
- * server and another on the client, which React reports as a hydration
- * mismatch. Every other persisted preference in this codebase reads it the same
- * way.
- */
 /**
  * Which tool is showing, held outside React.
  *
