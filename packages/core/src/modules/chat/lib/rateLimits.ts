@@ -35,6 +35,20 @@ export const chatSendRateLimit = readEndpointRateLimitConfig('CHAT_SEND', {
  * by the whole deployment. The engine's own concurrency gate is the hard bound;
  * this is what stops one person reaching it.
  */
+/**
+ * Uploads, limited harder than sends.
+ *
+ * An upload costs storage and a scan, not just a row, so the ceiling that
+ * matters is not the same one that governs typing. External participants are
+ * counted by the same key as everyone else — the limiter keys on the verified
+ * subject, so nothing about being external routes around it.
+ */
+export const chatAttachmentUploadRateLimit = readEndpointRateLimitConfig('CHAT_ATTACHMENT_UPLOAD', {
+  points: 30,
+  duration: 60,
+  keyPrefix: 'chat:attachment-upload',
+})
+
 export const chatTranslateRateLimit = readEndpointRateLimitConfig('CHAT_TRANSLATE', {
   points: 12,
   duration: 10,

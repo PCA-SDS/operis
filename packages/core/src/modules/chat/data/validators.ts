@@ -142,8 +142,30 @@ export const chatMessageListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(MAX_MESSAGE_PAGE_SIZE).optional(),
 })
 
+/**
+ * The most attachment ids one message may name.
+ *
+ * The looser of the two product limits (media), because the array cannot tell
+ * media from files — the real per-kind check happens server-side once the rows
+ * are read and their true types are known.
+ */
+export const MAX_MESSAGE_ATTACHMENTS = 20
+
+/**
+ * The same normalisation as `messageBodySchema`, without the `min(1)`.
+ *
+ * A message may be text, an attachment, or both (§3), so "is there anything
+ * here" is a question about the whole payload and not about this field — the
+ * refinement below asks it once the attachments are also in view. Sending a
+ * file should not require typing a character first.
+ */
+const sendMessageBodySchema = z
+  .string()
+  .transform((value) => value.replace(/\r\n?/g, '\n').replace(CONTROL_CHARACTERS, '').trim())
+  .pipe(z.string().max(MAX_MESSAGE_LENGTH))
+
 export const chatSendMessageSchema = z.object({
-  body: messageBodySchema,
+  body: sendMessageBodySchema,
   /**
    * The message this replies to. Validated server-side against the conversation
    * it is being sent to — a client cannot make a message reference one from
@@ -155,7 +177,24 @@ export const chatSendMessageSchema = z.object({
    * server returns the message it already stored instead of posting twice.
    */
   clientMessageId: z.string().min(1).max(64).optional(),
-})
+  /**
+   * Drafts to carry on this message.
+   *
+   * Ids only. Everything else about the file — who staged it, which
+   * conversation, whether the scan cleared it — is read from the server's own
+   * row, because a client that could assert those could attach somebody else's
+   * file.
+   */
+  attachmentIds: z.array(z.string().uuid()).max(MAX_MESSAGE_ATTACHMENTS).optional(),
+}).refine(
+  (value) => value.body.length > 0 || (value.attachmentIds?.length ?? 0) > 0,
+  {
+    // Reported against `body` because that is the field a composer with nothing
+    // in it would highlight.
+    path: ['body'],
+    message: 'A message needs either text or an attachment.',
+  },
+)
 
 /**
  * A reaction is a single emoji, and nothing else.

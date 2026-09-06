@@ -23,6 +23,26 @@ export async function loadChatMessages() {
       'chat.errors.notOrganizationMember',
       'You are not a member of the selected organization, so you cannot use chat there.',
     ),
+    tooManyMediaAttachments: t(
+      'chat.errors.tooManyMediaAttachments',
+      'A message can carry up to 20 images or videos.',
+    ),
+    tooManyFileAttachments: t(
+      'chat.errors.tooManyFileAttachments',
+      'A message can carry one file. Send the others separately.',
+    ),
+    attachmentNotAvailable: t(
+      'chat.errors.attachmentNotAvailable',
+      'That attachment is no longer available. Remove it and try again.',
+    ),
+    attachmentNotReady: t(
+      'chat.errors.attachmentNotReady',
+      'That attachment is still being checked. Try again in a moment.',
+    ),
+    attachmentRejected: t(
+      'chat.errors.attachmentRejected',
+      "That attachment didn't pass our security check and can't be sent.",
+    ),
     cannotMessageSelf: t('chat.errors.cannotMessageSelf', 'You cannot start a conversation with yourself.'),
     rateLimited: t('chat.errors.rateLimited', 'You are sending messages too quickly. Please slow down.'),
     rateLimitUnavailable: t(

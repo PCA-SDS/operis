@@ -140,6 +140,7 @@ function toMessageDto(
     mentionNames: mentionNamesFor(message, extras.namesByUserId, fallbackName),
     mentionsEveryone: message.mentionsEveryone,
     pinned: extras.pinnedMessageIds.has(message.id),
+    attachments: extras.attachmentsByMessage.get(message.id) ?? [],
   }
 }
 
