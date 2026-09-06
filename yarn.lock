@@ -5021,9 +5021,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@figma/code-connect@npm:^1.3.4":
-  version: 1.5.1
-  resolution: "@figma/code-connect@npm:1.5.1"
+"@figma/code-connect@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "@figma/code-connect@npm:2.0.0"
   dependencies:
     boxen: "npm:5.1.1"
     chalk: "npm:^4.1.2"
@@ -5050,7 +5050,7 @@ __metadata:
     zod-validation-error: "npm:^3.2.0"
   bin:
     figma: bin/figma
-  checksum: 10/202a83e7d922cf6a01af8c31d90053b34c0a69fedec24f973ab22929d8501f926f9f246b40fbe5d7e40c274b5353347c5809aacd132c6136cdc91371e3862502
+  checksum: 10/89971f53969dc2ab3aef39a3651707293248bb29ea3731bae18814fe3d6f205266772cac8f37148d0bfe7fe0a7a03605642f4e69015ce373082d94fac1b768ab
   languageName: node
   linkType: hard
 
@@ -8752,7 +8752,7 @@ __metadata:
     "@dnd-kit/core": "npm:^6.3.1"
     "@dnd-kit/sortable": "npm:^10.0.0"
     "@dnd-kit/utilities": "npm:^3.2.2"
-    "@figma/code-connect": "npm:^1.3.4"
+    "@figma/code-connect": "npm:^2.0.0"
     "@mdxeditor/editor": "npm:^4.0.4"
     "@open-mercato/shared": "workspace:*"
     "@radix-ui/react-accordion": "npm:^1.2.20"
