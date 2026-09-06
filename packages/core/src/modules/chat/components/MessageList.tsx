@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from 'react'
-import { ArrowDown, Languages, MessageSquare, Pin, Quote } from 'lucide-react'
+import { ArrowDown, Languages, MessageSquare, Pin, PinOff, Quote } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Separator } from '@open-mercato/ui/primitives/separator'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
@@ -285,16 +286,12 @@ export function MessageListSkeleton() {
 function MessageMenu({
   body,
   onReply,
-  pinned,
-  onTogglePin,
   translationState,
   onTranslate,
   onShowOriginal,
 }: {
   body: string
   onReply?: () => void
-  pinned: boolean
-  onTogglePin?: () => void
   /** Absent when translation is not configured for this deployment. */
   translationState?: 'none' | 'pending' | 'showing' | 'original'
   onTranslate?: () => void
@@ -319,18 +316,9 @@ function MessageMenu({
               },
             ]
           : []),
-        // Pinning is rarer and belongs behind the overflow, not on the hover row.
-        ...(onTogglePin
-          ? [
-              {
-                id: 'pin',
-                label: pinned
-                  ? t('chat.pins.unpin', 'Unpin message')
-                  : t('chat.pins.pin', 'Pin message'),
-                onSelect: onTogglePin,
-              },
-            ]
-          : []),
+        // Pinning is NOT here any more: it has its own control in the hover
+        // bar, and the same action offered twice on one surface is clutter that
+        // makes the bar harder to read rather than the action easier to reach.
         // Translation sits with the other per-message actions rather than as its
         // own control on the bubble: it is used occasionally, and the transcript
         // already carries a hover bar this belongs in.
@@ -1628,6 +1616,46 @@ export function MessageList({
                               />
                             </>
                           ) : null}
+                          {/* Pinning is one click from the bar rather than two
+                              through the overflow. It is the action people take
+                              on a message they want to come back to, and the
+                              panel that lists the results is now beside the
+                              conversation — so burying the way in behind a menu
+                              made the quicker route to it the slower one.
+
+                              The same `IconButton` at the same size as the
+                              reaction controls beside it, so the bar stays one
+                              strip of equal targets. */}
+                          {onTogglePin ? (
+                            <IconButton
+                              type="button"
+                              variant="ghost"
+                              size="xs"
+                              onClick={() =>
+                                onTogglePin(row.message.id, !row.message.pinned)
+                              }
+                              aria-pressed={row.message.pinned}
+                              aria-label={
+                                row.message.pinned
+                                  ? t('chat.pins.unpin', 'Unpin message')
+                                  : t('chat.pins.pin', 'Pin message')
+                              }
+                              title={
+                                row.message.pinned
+                                  ? t('chat.pins.unpin', 'Unpin message')
+                                  : t('chat.pins.pin', 'Pin message')
+                              }
+                            >
+                              {/* Filled while pinned, so the control states what
+                                  is true of the message rather than only what
+                                  clicking it would do. */}
+                              {row.message.pinned ? (
+                                <PinOff className="size-4" aria-hidden="true" />
+                              ) : (
+                                <Pin className="size-4" aria-hidden="true" />
+                              )}
+                            </IconButton>
+                          ) : null}
                           <MessageMenu
                             translationState={
                               !onTranslate
@@ -1641,16 +1669,6 @@ export function MessageList({
                             onTranslate={onTranslate ? () => onTranslate(row.message.id) : undefined}
                             onShowOriginal={
                               onShowOriginal ? () => onShowOriginal(row.message.id) : undefined
-                            }
-                            pinned={row.message.pinned}
-                            onTogglePin={
-                              onTogglePin
-                                ? () =>
-                                    onTogglePin(
-                                      row.message.id,
-                                      !row.message.pinned,
-                                    )
-                                : undefined
                             }
                             body={row.message.body}
                             onReply={

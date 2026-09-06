@@ -5,7 +5,10 @@ import { Download, FileText, Link2, MessageSquareText } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from '@open-mercato/ui/primitives/segmented-control'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -48,29 +51,36 @@ export function SharedResourcesList({
   const [kind, setKind] = React.useState<SharedKind>('files')
 
   return (
-    <Tabs value={kind} onValueChange={(next) => setKind(next as SharedKind)}>
-      <TabsList aria-label={t('chat.shared.title', 'Shared')}>
+    <div className="flex flex-col gap-2">
+      {/* `SegmentedControl`, not `Tabs`: these three filter one list in one
+          area rather than swapping between panels, so the `tabpanel` contract
+          `Tabs` ships would be a claim about the markup that is not true. It is
+          the same call `CalendarTabs` makes for the same reason, and the
+          component the design system names for a mutually-exclusive view
+          toggle. `fullWidth` because the region is narrow enough that three
+          hugging labels leave the row looking unfinished. */}
+      <SegmentedControl
+        value={kind}
+        onValueChange={(next) => setKind(next as SharedKind)}
+        size="sm"
+        fullWidth
+        aria-label={t('chat.shared.title', 'Shared')}
+      >
         {TABS.map((tab) => (
-          <TabsTrigger key={tab.value} value={tab.value}>
+          <SegmentedControlItem key={tab.value} value={tab.value}>
             {t(tab.labelKey, tab.fallback)}
-          </TabsTrigger>
+          </SegmentedControlItem>
         ))}
-      </TabsList>
-      {TABS.map((tab) => (
-        <TabsContent key={tab.value} value={tab.value}>
-          {/* Mounted only while selected, so opening the region fetches one view
-              rather than all three. */}
-          {kind === tab.value ? (
-            <SharedList
-              conversationId={conversationId}
-              kind={tab.value}
-              active={active}
-              onJumpToMessage={onJumpToMessage}
-            />
-          ) : null}
-        </TabsContent>
-      ))}
-    </Tabs>
+      </SegmentedControl>
+
+      {/* One list, filtered — so only the selected kind is ever fetched. */}
+      <SharedList
+        conversationId={conversationId}
+        kind={kind}
+        active={active}
+        onJumpToMessage={onJumpToMessage}
+      />
+    </div>
   )
 }
 

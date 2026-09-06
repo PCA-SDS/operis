@@ -125,6 +125,38 @@ test.describe('TC-CHAT-008: contextual side panel', () => {
     await expect(page.locator(PANEL)).toHaveCount(0)
     expect(Math.round((await shared.boundingBox())?.width ?? 0)).toBe(widened)
 
+    // The two panes meet flush, so the rule under the conversation header and
+    // the rule under the panel header read as one line rather than two with a
+    // break where the splitter sits.
+    const seam = await page.evaluate(() => {
+      const panel = document.querySelector('aside[aria-label="Shared"]') as HTMLElement | null
+      const column = panel?.parentElement?.firstElementChild as HTMLElement | null
+      if (!panel || !column) return null
+      const headers = [
+        column.querySelector('header'),
+        panel.querySelector('header'),
+      ] as (HTMLElement | null)[]
+      return {
+        gap: Math.round(panel.getBoundingClientRect().left - column.getBoundingClientRect().right),
+        headerBottoms: headers.map((h) =>
+          h ? Math.round(h.getBoundingClientRect().bottom) : -1,
+        ),
+      }
+    })
+    expect(seam, 'panel and transcript column should both be found').not.toBeNull()
+    // Flush: no column of empty layout between them.
+    expect(seam!.gap).toBe(0)
+    // And their rules sit on the same line.
+    expect(seam!.headerBottoms).not.toContain(-1)
+    expect(new Set(seam!.headerBottoms).size).toBe(1)
+
+    // The kind switcher is the design system's segmented control, not a
+    // hand-rolled toggle and not `Tabs` — these filter one list rather than
+    // swapping panels, so there is no tabpanel to promise.
+    await expect(page.getByRole('radiogroup', { name: /shared/i })).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'Files' })).toBeVisible()
+    await expect(page.locator('[role="tablist"]')).toHaveCount(0)
+
     // None of it produces a horizontal scrollbar (§12).
     expect(
       await page.evaluate(
@@ -195,9 +227,27 @@ test.describe('TC-CHAT-008: contextual side panel', () => {
     const panel = page.locator(PANEL)
     await expect(panel).toContainText(`pinned marker for ${title}`)
 
-    // The control is in the panel, it actually unpins (§30), and the list
-    // reflects it without a manual refresh (§31).
-    await panel.getByRole('button', { name: /unpin message/i }).first().click()
+    // Pinning is reachable in one click from the message itself, not only from
+    // the overflow menu — the fixture pinned this message, so the bar offers to
+    // undo it.
+    // Hover the BUBBLE, not the row. `data-message-id` sits on a list item that
+    // spans the full pane, so its centre is the empty half opposite an
+    // own-message bubble — outside the hover scope, which is deliberately the
+    // bubble so the toolbar does not arm from anywhere on the line. Hovering
+    // there leaves the bar unarmed and `pointer-events-none`, and the click
+    // falls through to the timestamp underneath.
+    const row = page.locator('[data-message-id]').last()
+    await row.getByText(`pinned marker for ${title}`).hover()
+    const barUnpin = row.getByRole('button', { name: 'Unpin message' })
+    await expect(barUnpin).toBeVisible()
+
+    // That the action left the overflow menu is asserted in the unit tests
+    // instead, where it is a question about what the menu contains rather than
+    // about hit-testing a floating bar.
+
+    // Unpinning from the bar takes effect, and the panel beside it reflects
+    // that without a manual refresh (§30, §31).
+    await barUnpin.click()
     await expect(panel).not.toContainText(`pinned marker for ${title}`, { timeout: 10_000 })
   })
 
