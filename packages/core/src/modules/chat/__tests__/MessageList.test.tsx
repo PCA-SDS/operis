@@ -1288,3 +1288,39 @@ describe('reply references', () => {
     })
   })
 })
+
+describe('pinning from the hover bar', () => {
+  /**
+   * Pinning is the action people take on a message they mean to come back to,
+   * and the panel that lists the results now sits beside the conversation — so
+   * it belongs on the bar rather than two clicks deep in the overflow.
+   */
+  it('offers a pin control on the message itself', () => {
+    renderList([message({ id: 'm1' })], [], {
+      onTogglePin: jest.fn(),
+    })
+    expect(screen.getByRole('button', { name: 'Pin message' })).toBeTruthy()
+  })
+
+  it('offers to undo it on a message already pinned', () => {
+    const pinnedMessage = message({ id: 'm1', pinned: true })
+    renderList([pinnedMessage], [], { onTogglePin: jest.fn() })
+    expect(screen.getByRole('button', { name: 'Unpin message' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Pin message' })).toBeNull()
+  })
+
+  it('pins the message it belongs to', () => {
+    const onTogglePin = jest.fn()
+    renderList([message({ id: 'm1' })], [], { onTogglePin })
+    fireEvent.click(screen.getByRole('button', { name: 'Pin message' }))
+    expect(onTogglePin).toHaveBeenCalledWith('m1', true)
+  })
+
+  it('offers nothing to a reader who may not pin', () => {
+    // A space member who is not an owner: the server refuses, so a control here
+    // would be a button that answers 403.
+    renderList([message({ id: 'm1' })])
+    expect(screen.queryByRole('button', { name: 'Pin message' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Unpin message' })).toBeNull()
+  })
+})
