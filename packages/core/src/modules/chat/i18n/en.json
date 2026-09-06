@@ -119,6 +119,8 @@
   "chat.notifications.emptyTitle": "You're all caught up",
   "chat.notifications.loadError": "Couldn't load your messages",
   "chat.notifications.openAll": "Open chat",
+  "chat.panel.close": "Close panel",
+  "chat.panel.resize": "Resize panel",
   "chat.pins.count": "{count} pinned message in this conversation",
   "chat.pins.count_few": "{count} pinned messages in this conversation",
   "chat.pins.count_many": "{count} pinned messages in this conversation",
