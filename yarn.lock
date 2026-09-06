@@ -8214,7 +8214,7 @@ __metadata:
     "@types/react": "npm:^19.2.17"
     "@types/react-dom": "npm:^19.2.3"
     esbuild: "npm:^0.28.1"
-    expo-server-sdk: "npm:^3.15.0"
+    expo-server-sdk: "npm:^7.2.0"
     glob: "npm:^13.0.6"
     jest: "npm:^30.4.2"
     react: "npm:19.2.7"
@@ -19955,14 +19955,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-server-sdk@npm:^3.15.0":
-  version: 3.15.0
-  resolution: "expo-server-sdk@npm:3.15.0"
+"expo-server-sdk@npm:^7.2.0":
+  version: 7.2.0
+  resolution: "expo-server-sdk@npm:7.2.0"
   dependencies:
-    node-fetch: "npm:^2.6.0"
     promise-limit: "npm:^2.7.0"
     promise-retry: "npm:^2.0.1"
-  checksum: 10/b2a5ff26647220eda19a5a6ad7d6973dcd91d6307ed9ccd44c90e8f7328db564f292f6d0fa6338d13d961180858a4669a4b79c26fee2841d0b3b1b0a54f534b5
+    undici: "npm:^7.2.0"
+  checksum: 10/ca139366ba712e496ee2462598cc0c2df96a31bc630602b80bb85c87054dfb295abbe403416864c2cf7b9328fcf8611665385d5845ffc4cc1975054d144b872a
   languageName: node
   linkType: hard
 
@@ -26410,7 +26410,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-fetch@npm:^2.6.0, node-fetch@npm:^2.6.9, node-fetch@npm:^2.7.0":
+"node-fetch@npm:^2.6.9, node-fetch@npm:^2.7.0":
   version: 2.7.0
   resolution: "node-fetch@npm:2.7.0"
   dependencies:
@@ -32909,7 +32909,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici@npm:7.29.0, undici@npm:^7.19.1, undici@npm:^7.28.0":
+"undici@npm:7.29.0, undici@npm:^7.19.1, undici@npm:^7.2.0, undici@npm:^7.28.0":
   version: 7.29.0
   resolution: "undici@npm:7.29.0"
   checksum: 10/ca73639071bdcbc41e57be1800847fa18f86f8fbf7a5641ff9899f7bbb6f5cecdd593e225f5fd94e31703dcbfaea4a722a3b81cab90c5c4e2b406aec1ae55732
