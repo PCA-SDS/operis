@@ -19,7 +19,7 @@ describe('resolveForcedLocale', () => {
   })
 
   it('returns null for unsupported locales rather than forcing garbage', () => {
-    expect(resolveForcedLocale({ OM_FORCE_LOCALE: 'fr' })).toBeNull()
+    expect(resolveForcedLocale({ OM_FORCE_LOCALE: 'it' })).toBeNull()
     expect(resolveForcedLocale({ OM_FORCE_LOCALE: 'not-a-locale' })).toBeNull()
   })
 })

@@ -14,9 +14,11 @@ import { cn } from '@open-mercato/shared/lib/utils'
  *
  * Not the interface locales: those are the languages the product is translated
  * INTO, which is a different question from the languages colleagues write to
- * each other in. French and Vietnamese have no interface translation and are
- * exactly the pairings this feature exists for, so they lead. Every other
- * ISO-639-1 language stays reachable by typing.
+ * each other in. French and Vietnamese lead because they are exactly the
+ * pairings this feature exists for — their interface dictionaries are still
+ * English placeholders, so chat translation is the only translation a reader
+ * of those languages actually gets. Every other ISO-639-1 language stays
+ * reachable by typing.
  */
 const SUGGESTED = ['en', 'fr', 'vi', 'es', 'de', 'pl', 'ko'] as const
 
