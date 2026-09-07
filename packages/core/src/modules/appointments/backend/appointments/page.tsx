@@ -20,6 +20,7 @@ import { AppointmentNotesCell } from '../../components/AppointmentNotesCell'
 import { AppointmentStatusSelect } from '../../components/AppointmentStatusSelect'
 import { AppointmentUrgencyCell } from '../../components/AppointmentUrgencyCell'
 import { AppointmentArrivalInfo } from '../../components/AppointmentArrivalInfo'
+import { APPOINTMENT_BOOKING_TYPE_OPTIONS } from '../../data/constants'
 import { formatCustomerDisplayName } from '../../lib/customerName'
 import { formatCustomerPhone } from '../../lib/phoneSnapshot'
 
@@ -66,6 +67,15 @@ function formatBookingTime(value: string, emptyLabel: string) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
+const BOOKING_TYPE_LABELS = new Map(
+  APPOINTMENT_BOOKING_TYPE_OPTIONS.map((option) => [option.value, option.label]),
+)
+
+function formatBookingType(value: string | null | undefined, emptyLabel: string) {
+  if (!value) return emptyLabel
+  return BOOKING_TYPE_LABELS.get(value) ?? value
+}
+
 function matchesSearch(row: Row, query: string, statusLabel: string | undefined): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return true
@@ -77,6 +87,7 @@ function matchesSearch(row: Row, query: string, statusLabel: string | undefined)
     formatCustomerPhone(row.customerPhoneCountryCode, row.customerPhone),
     row.customerPhone ?? '',
     row.bookingType ?? '',
+    row.bookingType ? formatBookingType(row.bookingType, '') : '',
     row.statusCode,
     statusLabel ?? '',
     row.notes ?? '',
@@ -133,6 +144,7 @@ export default function AppointmentsListPage() {
         id: 'statusCode',
         label: t('appointments.list.filters.status'),
         type: 'select',
+        multiple: true,
         options: statusOptions.map((option) => ({
           value: option.code,
           label: option.label,
@@ -148,13 +160,8 @@ export default function AppointmentsListPage() {
     async function load() {
       setIsLoading(true)
       try {
-        const params = new URLSearchParams()
-        const statusCode =
-          typeof filterValues.statusCode === 'string' ? filterValues.statusCode.trim() : ''
-        if (statusCode) params.set('statusCode', statusCode)
-        const qs = params.toString()
         const call = await apiCall<ListPayload>(
-          `/api/appointments${qs ? `?${qs}` : ''}`,
+          '/api/appointments',
           { signal: controller.signal },
           { fallback: { items: [] } },
         )
@@ -188,7 +195,7 @@ export default function AppointmentsListPage() {
       cancelled = true
       controller.abort()
     }
-  }, [filterValues, scopeVersion, t])
+  }, [scopeVersion, t])
 
   const handleRowStatusChange = React.useCallback((appointmentId: string, nextStatusCode: string) => {
     setRows((current) =>
@@ -206,10 +213,21 @@ export default function AppointmentsListPage() {
     return map
   }, [statusOptions])
 
+  const selectedStatusCodes = React.useMemo(() => {
+    const raw = filterValues.statusCode
+    if (Array.isArray(raw)) return new Set(raw.filter((item): item is string => typeof item === 'string'))
+    if (typeof raw === 'string' && raw.trim()) return new Set([raw.trim()])
+    return new Set<string>()
+  }, [filterValues.statusCode])
+
   const visibleRows = React.useMemo(
     () =>
-      rows.filter((row) => matchesSearch(row, search, statusLabelByCode.get(row.statusCode))),
-    [rows, search, statusLabelByCode],
+      rows.filter(
+        (row) =>
+          (selectedStatusCodes.size === 0 || selectedStatusCodes.has(row.statusCode)) &&
+          matchesSearch(row, search, statusLabelByCode.get(row.statusCode)),
+      ),
+    [rows, search, selectedStatusCodes, statusLabelByCode],
   )
 
   const columns = React.useMemo<ColumnDef<Row>[]>(
@@ -228,40 +246,6 @@ export default function AppointmentsListPage() {
               statusCode={row.original.statusCode}
             />
           </div>
-        ),
-      },
-      {
-        id: 'customerName',
-        accessorFn: (row) =>
-          formatCustomerDisplayName(row.customerSalutation, row.customerName),
-        header: t('appointments.list.columns.customerName', 'Customer Name'),
-        cell: ({ row }) => (
-          <span className="truncate font-medium">
-            {formatCustomerDisplayName(
-              row.original.customerSalutation,
-              row.original.customerName,
-            ) || t('appointments.list.noValue')}
-          </span>
-        ),
-      },
-      {
-        id: 'organizationName',
-        accessorKey: 'organizationName',
-        header: t('appointments.list.columns.location', 'Location'),
-        cell: ({ row }) =>
-          row.original.organizationName?.trim() || t('appointments.list.noValue'),
-      },
-      {
-        id: 'externalNotes',
-        accessorKey: 'externalNotes',
-        header: t('appointments.list.columns.customerNotes', 'Customer Notes'),
-        meta: { truncate: false },
-        cell: ({ row }) => (
-          <AppointmentNotesCell
-            notes={row.original.externalNotes}
-            titleKey="appointments.list.notes.customerTitle"
-            titleFallback="Customer Notes"
-          />
         ),
       },
       {
@@ -288,16 +272,17 @@ export default function AppointmentsListPage() {
         ),
       },
       {
-        id: 'notes',
-        accessorKey: 'notes',
-        header: t('appointments.list.columns.internalNotes', 'Internal Notes'),
-        meta: { truncate: false },
+        id: 'customerName',
+        accessorFn: (row) =>
+          formatCustomerDisplayName(row.customerSalutation, row.customerName),
+        header: t('appointments.list.columns.customerName', 'Customer Name'),
         cell: ({ row }) => (
-          <AppointmentNotesCell
-            notes={row.original.notes}
-            titleKey="appointments.list.notes.internalTitle"
-            titleFallback="Internal Notes"
-          />
+          <span className="truncate font-medium">
+            {formatCustomerDisplayName(
+              row.original.customerSalutation,
+              row.original.customerName,
+            ) || t('appointments.list.noValue')}
+          </span>
         ),
       },
       {
@@ -311,6 +296,45 @@ export default function AppointmentsListPage() {
             phoneCountryCode={row.original.customerPhoneCountryCode}
             customerPhone={row.original.customerPhone}
             customerEmail={row.original.customerEmail}
+          />
+        ),
+      },
+      {
+        id: 'organizationName',
+        accessorKey: 'organizationName',
+        header: t('appointments.list.columns.location', 'Location'),
+        cell: ({ row }) =>
+          row.original.organizationName?.trim() || t('appointments.list.noValue'),
+      },
+      {
+        id: 'bookingType',
+        accessorKey: 'bookingType',
+        header: t('appointments.list.columns.bookingType', 'Type of booking'),
+        cell: ({ row }) => formatBookingType(row.original.bookingType, t('appointments.list.noValue')),
+      },
+      {
+        id: 'externalNotes',
+        accessorKey: 'externalNotes',
+        header: t('appointments.list.columns.customerNotes', 'Customer Notes'),
+        meta: { truncate: false },
+        cell: ({ row }) => (
+          <AppointmentNotesCell
+            notes={row.original.externalNotes}
+            titleKey="appointments.list.notes.customerTitle"
+            titleFallback="Customer Notes"
+          />
+        ),
+      },
+      {
+        id: 'notes',
+        accessorKey: 'notes',
+        header: t('appointments.list.columns.internalNotes', 'Internal Notes'),
+        meta: { truncate: false },
+        cell: ({ row }) => (
+          <AppointmentNotesCell
+            notes={row.original.notes}
+            titleKey="appointments.list.notes.internalTitle"
+            titleFallback="Internal Notes"
           />
         ),
       },

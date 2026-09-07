@@ -8,6 +8,7 @@ import { createCrudFormError } from '@open-mercato/ui/backend/utils/serverErrors
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
 import {
   PhoneNumberField,
   PHONE_COUNTRIES,
@@ -170,11 +171,10 @@ function ServiceChecklist({
         return (
           <li key={service.id}>
             <label className="flex cursor-pointer items-start gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 className="mt-0.5"
                 checked={checked}
-                onChange={() => {
+                onCheckedChange={() => {
                   const next = new Set(selected)
                   if (checked) next.delete(service.id)
                   else next.add(service.id)
