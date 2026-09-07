@@ -1,6 +1,10 @@
 {
+  "invoice.errors.invalid_input": "Invalid input",
   "invoice.errors.organization_required": "Wymagany jest kontekst organizacji.",
+  "invoice.errors.partner_not_found": "Partner not found",
+  "invoice.errors.request_failed": "Failed to process invoice request",
   "invoice.errors.tenant_required": "Wymagany jest kontekst dzierżawy.",
+  "invoice.errors.unauthorized": "Unauthorized",
   "invoice.search.badge.company": "Firma na fakturze",
   "invoice.search.badge.invoice": "Faktura"
 }

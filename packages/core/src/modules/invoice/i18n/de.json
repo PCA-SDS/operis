@@ -1,6 +1,10 @@
 {
+  "invoice.errors.invalid_input": "Invalid input",
   "invoice.errors.organization_required": "Organisationskontext ist erforderlich.",
+  "invoice.errors.partner_not_found": "Partner not found",
+  "invoice.errors.request_failed": "Failed to process invoice request",
   "invoice.errors.tenant_required": "Mandantenkontext ist erforderlich.",
+  "invoice.errors.unauthorized": "Unauthorized",
   "invoice.search.badge.company": "Rechnungsunternehmen",
   "invoice.search.badge.invoice": "Rechnung"
 }
