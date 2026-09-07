@@ -192,12 +192,21 @@ new module, the pixel route can hash the raw path token and query
 
 Decision:
 
-Use process-local cache first to preserve old behavior.
+Use process-local cache first to preserve old behavior. The invoice exchange
+rate service uses a 24-hour fresh TTL. If the provider fails after the snapshot
+expires, it returns the stale process-local snapshot. If no usable snapshot
+exists, it returns service unavailable.
 
 Reason:
 
 Old repo used process-local cache. A shared cache can be added later only as an
 explicit design change.
+
+Implementation note:
+
+The CAP-007 service is read-only, has no `EntityManager` dependency, does not
+write Invoice tables, uses `EXCHANGE_RATE_API_URL` only as an upstream override,
+and rejects malformed or incomplete provider responses before caching.
 
 ## DEC-018 Company Lookup Cache
 
@@ -379,3 +388,33 @@ Reason:
 
 Future M9 invoice UI work should be checked by the same design-system rules as
 other backend module surfaces from the first UI file.
+
+## DEC-032 Company Email Memory Ownership
+
+Decision:
+
+Company email memory belongs to the invoice module and is scoped by both the
+invoice company and trusted tenant/organization scope. Recording a recipient
+email is an idempotent upsert. Removing an email must require the scoped company
+context and must not delete rows from another tenant or organization.
+
+Reason:
+
+The feature is a convenience memory for invoice send and payment confirmation
+flows, not a global contact directory. It should be safe to call best-effort from
+later CAP-001 and CAP-005 flows without changing partner identity data.
+
+## DEC-033 Invoice Exchange Rate Provider Contract
+
+Decision:
+
+The CAP-007 provider contract is an open.er-api style USD-based payload with a
+`rates` object. Supported invoice currencies are fixed to the invoice currency
+contract. VND per unit is derived as `rates.VND / rates[currency]`, while VND is
+always exactly `1`.
+
+Reason:
+
+This preserves old business behavior and gives summary, forecast, and form
+preview a single VND normalization service. Other provider shapes or shared
+cache backends are separate design changes.

@@ -122,6 +122,11 @@ Source questions resolved before Phase 3:
   180-second captcha TTL, and 82800-second GDT token TTL cap.
 - Due-date fallback is locked: explicit due date, then partner default due
   days, then null.
+- Company email memory is implemented as invoice-local, scoped recipient memory:
+  list by company, idempotent upsert, and scoped delete.
+- Exchange rates are implemented as an invoice-local read service with a
+  24-hour process-local cache, stale fallback, no database writes, and
+  open.er-api style provider validation.
 
 ## Architecture
 
@@ -248,6 +253,13 @@ Detailed route ownership is in
 `docs/invoice/TARGET-INVOICE-ARCHITECTURE.md` and milestone order is in
 `docs/invoice/CAPABILITY-MIGRATION-PLAN.md`.
 
+Implemented CAP route notes:
+
+- `/api/invoice/company-emails` is available for company-scoped recipient email
+  memory and uses `invoice.manage`.
+- `/api/invoice/exchange-rates` is available for VND conversion hints and uses
+  `invoice.view`.
+
 ## Risks & Impact Review
 
 | Risk | Severity | Affected area | Mitigation | Residual risk |
@@ -333,3 +345,9 @@ This is a pre-implementation spec. Compliance requirements for implementation:
 - 2026-09-05: Exposed CAP-003 partner list, partner match, and partner payment
   terms update API routes with OpenAPI metadata, scope handling, optimistic
   locking, and mutation guards.
+- 2026-09-07: Documented CAP-006 company email memory service/API progress,
+  ownership decision, remaining UI/consumer gaps, and direct service/API
+  coverage.
+- 2026-09-07: Documented CAP-007 exchange rates service/API progress,
+  24-hour process-local cache decision, stale fallback behavior, provider
+  validation, no-DB-write boundary, and remaining consumer gaps.
