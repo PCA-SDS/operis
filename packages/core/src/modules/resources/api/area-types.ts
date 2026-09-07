@@ -43,6 +43,7 @@ const listSchema = z
     ids: z.string().optional(),
     sortField: z.string().optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
+    status: z.enum(['active', 'inactive']).optional(),
     withAreaCounts: z.string().optional(),
   })
   .passthrough()
@@ -92,6 +93,11 @@ const crud = makeCrudRoute({
       if (term) {
         const like = `%${escapeLikePattern(term)}%`
         filters[F.name] = { $ilike: like }
+      }
+      if (query.status === 'active') {
+        filters[F.is_active] = true
+      } else if (query.status === 'inactive') {
+        filters[F.is_active] = false
       }
       return filters
     },
