@@ -126,6 +126,33 @@ function authorLineCount(): number {
 }
 
 describe('MessageList', () => {
+  /**
+   * A skeleton earns its place by being the same silhouette as what replaces
+   * it. Even-width rows down the left read as a table and then jump when the
+   * real transcript lands.
+   */
+  describe('while loading', () => {
+    it('draws bubbles on both sides, not list rows', () => {
+      const { container } = renderList([], [], { isLoading: true })
+      const bubbles = Array.from(container.querySelectorAll('[data-slot="skeleton"]'))
+
+      expect(bubbles.length).toBeGreaterThan(3)
+      expect(bubbles.every((bubble) => bubble.className.includes('rounded-2xl'))).toBe(true)
+      expect(bubbles.some((bubble) => bubble.className.includes('bg-primary-soft'))).toBe(true)
+      expect(bubbles.some((bubble) => bubble.className.includes('bg-surface-muted'))).toBe(true)
+    })
+
+    it('weights the placeholder to the bottom, where a live transcript sits', () => {
+      const { container } = renderList([], [], { isLoading: true })
+      expect(container.firstElementChild?.className).toContain('justify-end')
+    })
+
+    it('announces itself', () => {
+      renderList([], [], { isLoading: true })
+      expect(screen.getAllByRole('status')[0]).toHaveAttribute('aria-busy', 'true')
+    })
+  })
+
   it('renders message bodies as text, never as markup', () => {
     renderList([message({ body: '<img src=x onerror=alert(1)>' })])
     // The body appears verbatim: if it had been parsed as HTML, this literal
@@ -1259,5 +1286,41 @@ describe('reply references', () => {
       authorName: 'Bob',
       body: 'the question',
     })
+  })
+})
+
+describe('pinning from the hover bar', () => {
+  /**
+   * Pinning is the action people take on a message they mean to come back to,
+   * and the panel that lists the results now sits beside the conversation — so
+   * it belongs on the bar rather than two clicks deep in the overflow.
+   */
+  it('offers a pin control on the message itself', () => {
+    renderList([message({ id: 'm1' })], [], {
+      onTogglePin: jest.fn(),
+    })
+    expect(screen.getByRole('button', { name: 'Pin message' })).toBeTruthy()
+  })
+
+  it('offers to undo it on a message already pinned', () => {
+    const pinnedMessage = message({ id: 'm1', pinned: true })
+    renderList([pinnedMessage], [], { onTogglePin: jest.fn() })
+    expect(screen.getByRole('button', { name: 'Unpin message' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Pin message' })).toBeNull()
+  })
+
+  it('pins the message it belongs to', () => {
+    const onTogglePin = jest.fn()
+    renderList([message({ id: 'm1' })], [], { onTogglePin })
+    fireEvent.click(screen.getByRole('button', { name: 'Pin message' }))
+    expect(onTogglePin).toHaveBeenCalledWith('m1', true)
+  })
+
+  it('offers nothing to a reader who may not pin', () => {
+    // A space member who is not an owner: the server refuses, so a control here
+    // would be a button that answers 403.
+    renderList([message({ id: 'm1' })])
+    expect(screen.queryByRole('button', { name: 'Pin message' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Unpin message' })).toBeNull()
   })
 })

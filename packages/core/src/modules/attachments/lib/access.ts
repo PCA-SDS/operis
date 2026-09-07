@@ -63,7 +63,50 @@ function isSameScope(auth: AuthContext | null | undefined, attachment: Attachmen
   return attachmentTenant === auth.tenantId && attachmentOrg === auth.orgId
 }
 
+/**
+ * Whether the scan has cleared this file for reading.
+ *
+ * Inlined rather than imported from the scan service: this module is on every
+ * read path, and the service reaches a socket client through its scanner
+ * resolution. A one-line comparison is not worth that dependency.
+ */
+function isScanCleared(attachment: Attachment): boolean {
+  return attachment.scanStatus === 'clean'
+}
+
+/**
+ * Whether a principal may read this attachment.
+ *
+ * Two questions in a fixed order, and the order is the point. Authorization is
+ * settled first, so a caller from another tenant is told 403 and learns
+ * nothing else; only a caller who was already entitled to the file gets told
+ * anything about its scan state. Answering "still scanning" to an outsider
+ * would confirm the file exists, which is the disclosure the scope check is
+ * there to prevent.
+ *
+ * `allowUnscanned` is for callers that show a file's own status back to the
+ * person who uploaded it — a composer row that says "checking" or "rejected".
+ * It must never be set on a path that serves bytes.
+ */
 export function checkAttachmentAccess(
+  auth: AuthContext | null | undefined,
+  attachment: Attachment,
+  partition: AttachmentPartition,
+  options?: { requireAuthForPublic?: boolean; allowUnscanned?: boolean }
+): { ok: true } | { ok: false; status: number } {
+  const authorized = checkAttachmentAuthorization(auth, attachment, partition, options)
+  if (!authorized.ok) return authorized
+
+  // 409, not 404: the caller is entitled to this file, so pretending it does
+  // not exist would be a lie they can disprove. It is not ready, and that is a
+  // state they can act on — wait, or re-upload something that passes.
+  if (options?.allowUnscanned !== true && !isScanCleared(attachment)) {
+    return { ok: false, status: 409 }
+  }
+  return { ok: true }
+}
+
+function checkAttachmentAuthorization(
   auth: AuthContext | null | undefined,
   attachment: Attachment,
   partition: AttachmentPartition,

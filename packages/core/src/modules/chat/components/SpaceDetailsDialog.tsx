@@ -23,7 +23,7 @@ import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { tCount } from './plurals'
+import { useTCount } from './plurals'
 import type { ChatConversationDto, ChatDirectoryEntryDto } from '../data/types'
 import { MAX_SPACE_MEMBERS_PER_REQUEST, MAX_SPACE_TITLE_LENGTH } from '../data/validators'
 import { MemberPicker } from './MemberPicker'
@@ -71,6 +71,7 @@ export function SpaceDetailsDialog({
   currentUserId,
 }: SpaceDetailsDialogProps) {
   const t = useT()
+  const tc = useTCount()
   const router = useRouter()
   const isOwner = conversation.viewerRole === 'owner'
 
@@ -309,7 +310,7 @@ export function SpaceDetailsDialog({
             <DialogDescription>
               {mode === 'add'
                 ? t('chat.space.addDescription', 'Only people from your organization can be added.')
-                : tCount(t, 'chat.space.memberCount', total, '{count} members')}
+                : tc('chat.space.memberCount', total, '{count} members')}
             </DialogDescription>
           </DialogHeader>
 
