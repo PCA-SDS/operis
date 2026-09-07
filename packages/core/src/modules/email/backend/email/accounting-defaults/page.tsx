@@ -65,11 +65,12 @@ export default function EmailAccountingDefaultsPage() {
   }
 
   React.useEffect(() => {
+    const controller = new AbortController()
     let cancelled = false
     async function load() {
       setIsLoading(true)
       setError(null)
-      const response = await apiCall<DefaultsResponse>('/api/email/accounting-defaults')
+      const response = await apiCall<DefaultsResponse>('/api/email/accounting-defaults', { signal: controller.signal })
       if (cancelled) return
       if (!response.ok) throw new Error('Failed to load accounting defaults')
       if (response.result) setForm(toForm(response.result))
@@ -83,6 +84,7 @@ export default function EmailAccountingDefaultsPage() {
     })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [])
 

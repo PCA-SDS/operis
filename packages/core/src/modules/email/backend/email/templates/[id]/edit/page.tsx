@@ -166,11 +166,12 @@ export default function EditEmailTemplatePage() {
   }
 
   React.useEffect(() => {
+    const controller = new AbortController()
     let cancelled = false
     async function load() {
       setIsLoading(true)
       setError(null)
-      const response = await apiCall<EmailTemplateListResponse>(`/api/email/templates?id=${encodeURIComponent(id)}`)
+      const response = await apiCall<EmailTemplateListResponse>(`/api/email/templates?id=${encodeURIComponent(id)}`, { signal: controller.signal })
       if (cancelled) return
       if (!response.ok) throw new Error('Failed to load email template')
       const record = response.result?.items?.[0]
@@ -186,6 +187,7 @@ export default function EditEmailTemplatePage() {
     })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [id])
 
