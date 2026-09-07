@@ -631,6 +631,8 @@
   "products.edit.title": "Edit product",
   "profile.title": "Profile",
   "resources.messageObjects.resource.title": "Resource",
+  "resources.resourceAreas.types.campus": "校园",
+  "resources.resourceAreas.types.section": "区域",
   "rules.nav.group": "Business Rules",
   "rules.nav.logs": "Logs",
   "rules.nav.rules": "Business Rules",

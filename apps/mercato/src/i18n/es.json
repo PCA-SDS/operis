@@ -631,6 +631,8 @@
   "products.edit.title": "Editar producto",
   "profile.title": "Perfil",
   "resources.messageObjects.resource.title": "Resource",
+  "resources.resourceAreas.types.campus": "Campus",
+  "resources.resourceAreas.types.section": "Sección",
   "rules.nav.group": "Reglas de negocio",
   "rules.nav.logs": "Registros",
   "rules.nav.rules": "Reglas de negocio",

@@ -8498,6 +8498,7 @@ __metadata:
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^26.1.2"
     jest: "npm:^30.4.2"
+    pg: "npm:8.22.0"
     ts-jest: "npm:^29.4.12"
     typescript: "npm:7.0.2"
   peerDependencies:
