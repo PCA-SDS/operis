@@ -23,6 +23,7 @@ import setup from '../setup'
 import type { InvoiceScopedPersistenceService } from '../services/scoped-persistence-service'
 import type { InvoicePartnerTermsService } from '../services/partner-terms-service'
 import type { InvoiceCompanyEmailsService } from '../services/company-emails-service'
+import type { InvoiceExchangeRatesService } from '../services/exchange-rates-service'
 
 const MODULE_ROOT = join(__dirname, '..')
 const MIGRATION_SOURCE = readFileSync(
@@ -88,8 +89,10 @@ describe('invoice module foundation', () => {
       join('api', 'partners', 'route.ts'),
       join('api', 'partners', 'match', 'route.ts'),
       join('api', 'partners', '[id]', 'route.ts'),
+      join('api', 'exchange-rates', 'route.ts'),
       join('data', 'entities.ts'),
       join('data', 'validators.ts'),
+      join('services', 'exchange-rates-service.ts'),
     ]) {
       expect(existsSync(join(MODULE_ROOT, relativePath))).toBe(true)
     }
@@ -134,6 +137,9 @@ describe('invoice module foundation', () => {
     expect(typeof companyEmailsService.listByCompany).toBe('function')
     expect(typeof companyEmailsService.record).toBe('function')
     expect(typeof companyEmailsService.remove).toBe('function')
+
+    const exchangeRatesService = container.resolve<InvoiceExchangeRatesService>('invoiceExchangeRatesService')
+    expect(typeof exchangeRatesService.getRates).toBe('function')
 
     for (const [token, entity] of Object.entries(ENTITY_EXPORTS)) {
       expect(container.resolve(token)).toBe(entity)

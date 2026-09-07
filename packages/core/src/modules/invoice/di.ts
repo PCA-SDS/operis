@@ -15,6 +15,7 @@ import {
 import { createInvoiceScopedPersistenceService } from './services/scoped-persistence-service'
 import { createInvoicePartnerTermsService } from './services/partner-terms-service'
 import { createInvoiceCompanyEmailsService } from './services/company-emails-service'
+import { createInvoiceExchangeRatesService } from './services/exchange-rates-service'
 
 export function register(container: AppContainer) {
   container.register({
@@ -25,6 +26,7 @@ export function register(container: AppContainer) {
     invoiceCompanyEmailsService: asFunction(({ em, invoiceScopedPersistenceService }) =>
       createInvoiceCompanyEmailsService(em, invoiceScopedPersistenceService),
     ).scoped().proxy(),
+    invoiceExchangeRatesService: asFunction(() => createInvoiceExchangeRatesService()).singleton().proxy(),
     Invoice: asValue(Invoice),
     InvoiceAutoPaidTaxCode: asValue(InvoiceAutoPaidTaxCode),
     InvoiceCompany: asValue(InvoiceCompany),
