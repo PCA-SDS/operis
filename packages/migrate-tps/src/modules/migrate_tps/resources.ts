@@ -20,11 +20,13 @@ const logger = createLogger('migrate_tps')
 // TPS Source types
 // ---------------------------------------------------------------------------
 
+type TpsSortOrder = number | string | null | undefined
+
 interface TpsFloor {
   id: string
   location: string
   name: string
-  sort_order: number
+  sort_order: TpsSortOrder
   is_active: string
   deleted_at: string | null
 }
@@ -39,16 +41,17 @@ interface TpsSeatTypeConfig {
   deleted_at: string | null
 }
 
-interface TpsSeat {
+export interface TpsSeat {
   id: string
   floor_id: string
   seat_type_id: string
   code: string
   name: string | null
-  sort_order: number
+  sort_order: TpsSortOrder
   status: string | null
   is_active: string
   deleted_at: string | null
+  created_at?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -89,6 +92,64 @@ const seatSortOrderExpression = `
   )::int as sort_order
 `
 
+function parseSortOrder(value: TpsSortOrder, fallback = 0): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : fallback
+  if (typeof value !== 'string' || value.trim() === '') return fallback
+  const parsed = Number.parseInt(value, 10)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function compareNullableNumber(left: number | null, right: number | null): number {
+  if (left === right) return 0
+  if (left === null) return 1
+  if (right === null) return -1
+  return left - right
+}
+
+function compareText(left: string | null | undefined, right: string | null | undefined): number {
+  return (left ?? '').localeCompare(right ?? '')
+}
+
+function seatSortPrefix(code: string): string {
+  return code.replace(/\d+/g, '')
+}
+
+function seatSortNumber(code: string): number | null {
+  const digits = code.replace(/\D/g, '')
+  if (!digits) return null
+  const parsed = Number.parseInt(digits, 10)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export function assignSeatSortOrders(rows: TpsSeat[]): TpsSeat[] {
+  const byFloor = new Map<string, TpsSeat[]>()
+  for (const row of rows) {
+    const floorRows = byFloor.get(row.floor_id) ?? []
+    floorRows.push(row)
+    byFloor.set(row.floor_id, floorRows)
+  }
+
+  const sortedById = new Map<string, number>()
+  for (const floorRows of byFloor.values()) {
+    floorRows
+      .slice()
+      .sort((left, right) => (
+        compareText(seatSortPrefix(left.code), seatSortPrefix(right.code))
+        || compareNullableNumber(seatSortNumber(left.code), seatSortNumber(right.code))
+        || compareText(left.code, right.code)
+        || compareText(left.name, right.name)
+        || compareText(left.created_at, right.created_at)
+        || compareText(left.id, right.id)
+      ))
+      .forEach((row, index) => sortedById.set(row.id, index))
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    sort_order: sortedById.get(row.id) ?? parseSortOrder(row.sort_order),
+  }))
+}
+
 // ---------------------------------------------------------------------------
 // CSV Fallback helpers
 // ---------------------------------------------------------------------------
@@ -113,10 +174,10 @@ function loadTpsSeatsFromCsv(locationFilter?: string | null): { rows: TpsSeat[];
   if (locationFilter) {
     const floors = loadTpsFloorsFromCsv(locationFilter).rows
     const floorIds = new Set(floors.map(f => f.id))
-    const filtered = seats.filter(s => !s.deleted_at && floorIds.has(s.floor_id))
+    const filtered = assignSeatSortOrders(seats.filter(s => !s.deleted_at && floorIds.has(s.floor_id)))
     return { rows: filtered, rowCount: filtered.length }
   }
-  const filtered = seats.filter(s => !s.deleted_at)
+  const filtered = assignSeatSortOrders(seats.filter(s => !s.deleted_at))
   return { rows: filtered, rowCount: filtered.length }
 }
 
@@ -319,7 +380,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
             tenantId,
             organizationId,
             name: floor.name,
-            sortOrder: floor.sort_order ?? 0,
+            sortOrder: parseSortOrder(floor.sort_order),
             isActive: floor.is_active === 'true' || floor.is_active === 't',
             createdAt: now,
             updatedAt: now,
@@ -329,7 +390,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
             ? (em.getReference(ResourcesResourceAreaType, floorAreaTypeId) as unknown as ResourcesResourceAreaType)
             : undefined
           entity.parentAreaId = null
-          entity.sortOrder = floor.sort_order ?? 0
+          entity.sortOrder = parseSortOrder(floor.sort_order)
           entity.isActive = floor.is_active === 'true' || floor.is_active === 't'
           entity.appearanceIcon = null
           entity.appearanceColor = null
@@ -361,7 +422,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
             tenantId,
             organizationId,
             name: seat.name?.trim() || seat.code,
-            sortOrder: seat.sort_order ?? 0,
+            sortOrder: parseSortOrder(seat.sort_order),
             isActive: seat.is_active === 'true' || seat.is_active === 't',
             createdAt: now,
             updatedAt: now,
@@ -370,7 +431,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
           entity.description = null
           entity.resourceTypeId = mappedTypeId
           entity.areaId = mappedAreaId
-          entity.sortOrder = seat.sort_order ?? 0
+          entity.sortOrder = parseSortOrder(seat.sort_order)
           entity.capacity = 1
           entity.capacityUnitValue = null
           entity.capacityUnitName = null

@@ -8,7 +8,12 @@ import { Organization } from '@open-mercato/core/modules/directory/data/entities
 const logger = createLogger('migrate_tps')
 
 // TPS locations that can be created as branches
-const TPS_LOCATION_SLUGS = ['ben-thanh', 'thao-dien', 'phu-my-hung', 'hoan-kiem']
+const TPS_LOCATIONS = [
+  { location: 'benThanh', slug: 'ben-thanh' },
+  { location: 'thaoDien', slug: 'thao-dien' },
+  { location: 'phuMyHung', slug: 'phu-my-hung' },
+  { location: 'hoanKiem', slug: 'hoan-kiem' },
+]
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -139,10 +144,13 @@ export const migrateTpsAllCommand: ModuleCli = {
         logger.info('Querying child organizations from database...')
         const childOrgs = await queryChildOrgs(tenantId, rootOrgId)
 
-        // Filter to only TPS location slugs
-        const tpsOrgs = childOrgs.filter(o =>
-          TPS_LOCATION_SLUGS.some(slug => o.slug.includes(slug))
-        )
+        // Filter to only TPS location slugs and keep the source location key.
+        const tpsOrgs = childOrgs
+          .map((org) => {
+            const location = TPS_LOCATIONS.find((entry) => entry.slug === org.slug)
+            return location ? { ...org, location: location.location } : null
+          })
+          .filter((org): org is { id: string; name: string; slug: string; location: string } => org !== null)
 
         if (tpsOrgs.length === 0) {
           logger.warn('No TPS child organizations found in database. Skipping resources migration.')
@@ -159,7 +167,7 @@ export const migrateTpsAllCommand: ModuleCli = {
 
             for (const org of tpsOrgs) {
               logger.info(`  Migrating resources for "${org.name}" (${org.id})...`)
-              const args = ['migrate_tps', 'resources', tenantId, org.id]
+              const args = ['migrate_tps', 'resources', tenantId, org.id, '--location', org.location]
               if (replace) args.push('--replace')
               await runMercato(args)
             }

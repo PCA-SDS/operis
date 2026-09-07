@@ -32,10 +32,15 @@ export function parseTpsMigrateFlags(rest: string[]): { tenantId: string | undef
 // CSV fallback (used when TPS_DATABASE_URL is unset)
 // ---------------------------------------------------------------------------
 
-const DEFAULT_DATA_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'data')
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url))
+const DATA_DIR_CANDIDATES = [
+  path.resolve(MODULE_DIR, '..', '..', '..', 'data'),
+  path.resolve(MODULE_DIR, '..', '..', 'data'),
+]
 
 export function getTpsDataDir(): string {
-  return process.env.TPS_DATA_DIR || DEFAULT_DATA_DIR
+  if (process.env.TPS_DATA_DIR) return process.env.TPS_DATA_DIR
+  return DATA_DIR_CANDIDATES.find((candidate) => fs.existsSync(candidate)) ?? DATA_DIR_CANDIDATES[0]
 }
 
 /** Split one CSV record, honouring quoted fields and escaped quotes. */
