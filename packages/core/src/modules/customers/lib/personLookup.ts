@@ -175,7 +175,6 @@ export async function findOrCreatePersonForIntake(
   if (existingEntityId) {
     const profile = await em.findOne(CustomerPersonProfile, {
       entity: existingEntityId,
-      deletedAt: null,
     })
     return {
       entityId: existingEntityId,
