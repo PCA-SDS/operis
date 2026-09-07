@@ -47,10 +47,11 @@ export default function AppointmentsListPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadStatuses() {
       const call = await apiCall<{ items?: StatusOption[] }>(
         '/api/appointments/statuses',
-        undefined,
+        { signal: controller.signal },
         { fallback: { items: [] } },
       )
       if (cancelled || !call.ok) return
@@ -64,6 +65,7 @@ export default function AppointmentsListPage() {
     void loadStatuses()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [scopeVersion])
 
@@ -81,6 +83,7 @@ export default function AppointmentsListPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       try {
@@ -91,10 +94,11 @@ export default function AppointmentsListPage() {
         const qs = params.toString()
         const call = await apiCall<ListPayload>(
           `/api/appointments${qs ? `?${qs}` : ''}`,
-          undefined,
+          { signal: controller.signal },
           { fallback: { items: [] } },
         )
         if (!call.ok) {
+          if (cancelled) return
           const errorPayload = call.result as { error?: string } | undefined
           flash(
             typeof errorPayload?.error === 'string'
@@ -121,6 +125,7 @@ export default function AppointmentsListPage() {
     void load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [filterValues, scopeVersion, t])
 

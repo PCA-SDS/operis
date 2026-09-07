@@ -101,6 +101,7 @@ export default function AppointmentCreatePage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadServices() {
       if (!tenantId || !organizationId) {
         setServices([])
@@ -113,7 +114,7 @@ export default function AppointmentCreatePage() {
       })
       const call = await apiCall<{ items?: BookableService[] }>(
         `/api/catalog/bookable-services?${params.toString()}`,
-        undefined,
+        { signal: controller.signal },
         { fallback: { items: [] } },
       )
       if (cancelled) return
@@ -123,6 +124,7 @@ export default function AppointmentCreatePage() {
     void loadServices()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [tenantId, organizationId])
 

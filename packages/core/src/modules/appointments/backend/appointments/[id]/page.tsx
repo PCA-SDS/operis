@@ -4,7 +4,9 @@ import * as React from 'react'
 import Link from 'next/link'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { LoadingMessage, ErrorMessage, RecordNotFoundState } from '@open-mercato/ui/backend/detail'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -29,6 +31,7 @@ type Detail = {
   requestedEndAt: string | null
   notes: string | null
   lines: Line[]
+  updatedAt: string
 }
 
 type StatusOption = { code: string; label: string }
@@ -68,14 +71,15 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       if (!id) return
       setIsLoading(true)
       setError(null)
       setNotFound(false)
       const [detailCall, statusCall] = await Promise.all([
-        apiCall<Detail>(`/api/appointments/${encodeURIComponent(id)}`, undefined, { fallback: null }),
-        apiCall<{ items?: StatusOption[] }>('/api/appointments/statuses', undefined, {
+        apiCall<Detail>(`/api/appointments/${encodeURIComponent(id)}`, { signal: controller.signal }, { fallback: null }),
+        apiCall<{ items?: StatusOption[] }>('/api/appointments/statuses', { signal: controller.signal }, {
           fallback: { items: [] },
         }),
       ])
@@ -96,24 +100,32 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
     void load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [id, t])
 
   const handleSaveStatus = React.useCallback(async () => {
-    if (!id || !statusCode) return
+    if (!id || !statusCode || !detail) return
     try {
       const updated = await runMutation({
         operation: async () => {
-          const call = await apiCall<Detail>(
-            `/api/appointments/${encodeURIComponent(id)}`,
-            {
-              method: 'PATCH',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ statusCode }),
-            },
-            { fallback: null },
+          const call = await withScopedApiRequestHeaders(
+            buildOptimisticLockHeader(detail.updatedAt),
+            () =>
+              apiCall<Detail>(
+                `/api/appointments/${encodeURIComponent(id)}`,
+                {
+                  method: 'PATCH',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ statusCode }),
+                },
+                { fallback: null },
+              ),
           )
           if (!call.ok || !call.result?.id) {
+            if (surfaceRecordConflict({ status: call.status, body: call.result }, t)) {
+              return null
+            }
             const errorPayload = call.result as { error?: string } | undefined
             throw new Error(
               typeof errorPayload?.error === 'string'
@@ -125,13 +137,14 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
         },
         context: {},
       })
+      if (!updated) return
       setDetail(updated)
       setStatusCode(updated.statusCode)
       flash(t('appointments.detail.statusSaved'), 'success')
     } catch (err) {
       flash(err instanceof Error ? err.message : t('appointments.status.failed'), 'error')
     }
-  }, [id, statusCode, runMutation, t])
+  }, [id, statusCode, detail, runMutation, t])
 
   if (isLoading) {
     return (

@@ -1,5 +1,5 @@
 import { Collection, OptionalProps } from '@mikro-orm/core'
-import { Entity, Index, ManyToOne, OneToMany, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, ManyToOne, OneToMany, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 
 @Entity({ tableName: 'appointment_statuses' })
 @Unique({ name: 'appointment_statuses_tenant_code_unique', properties: ['tenantId', 'code'] })
