@@ -11,6 +11,10 @@ import {
   ResourcesResourceAreaType,
   ResourcesResourceType,
 } from '@open-mercato/core/modules/resources/data/entities'
+import {
+  PlannerAvailabilityRuleSet,
+  PlannerAvailabilityRule,
+} from '@open-mercato/core/modules/planner/data/entities'
 
 type Client = InstanceType<typeof pg.Client>
 
@@ -341,11 +345,61 @@ export const migrateTpsResourcesCommand: ModuleCli = {
           await em.nativeDelete(ResourcesResource, { tenantId, organizationId })
           await em.nativeDelete(ResourcesResourceArea, { tenantId, organizationId })
           await em.nativeDelete(ResourcesResourceType, { tenantId, organizationId })
+          // Also cleanup old availability rule sets created by previous migrations
+          await em.nativeDelete(PlannerAvailabilityRule, { tenantId, organizationId })
+          await em.nativeDelete(PlannerAvailabilityRuleSet, { tenantId, organizationId })
           logger.info('Cleanup complete.')
         }
 
         // Seed default area types and get the "floor" type ID
         const floorAreaTypeId = await seedAreaTypeAndGetFloorId(em, tenantId, organizationId, now)
+
+        // Find or create AvailabilityRuleSet for Standard Business Hours (9:00-10:00)
+        // This is idempotent: reuse existing ruleset if already created by a previous run
+        let standardHoursRuleSet = await em.findOne(PlannerAvailabilityRuleSet, {
+          tenantId,
+          organizationId,
+          name: 'Standard Business Hours',
+          deletedAt: null,
+        })
+
+        if (!standardHoursRuleSet) {
+          standardHoursRuleSet = em.create(PlannerAvailabilityRuleSet, {
+            tenantId,
+            organizationId,
+            name: 'Standard Business Hours',
+            description: 'Open daily 9:00 AM - 10:00 PM',
+            timezone: 'Asia/Ho_Chi_Minh',
+            createdAt: now,
+            updatedAt: now,
+          })
+          em.persist(standardHoursRuleSet)
+          await em.flush() // Flush to get the ID assigned
+
+          // Create AvailabilityRule for the ruleset (daily 9:00-22:00)
+          // RRULE format: DTSTART (UTC) + DURATION + FREQ
+          // Asia/Ho_Chi_Minh = UTC+7
+          // 9:00 AM local = 2:00 UTC
+          // 10:00 PM local (22:00) = 15:00 UTC
+          // Duration = 13 hours
+          const standardHoursRule = em.create(PlannerAvailabilityRule, {
+            tenantId,
+            organizationId,
+            subjectType: 'ruleset',
+            subjectId: standardHoursRuleSet.id,
+            timezone: 'Asia/Ho_Chi_Minh',
+            kind: 'availability',
+            rrule: 'DTSTART:20240101T020000Z\nDURATION:PT13H\nRRULE:FREQ=DAILY',
+            exdates: [],
+            createdAt: now,
+            updatedAt: now,
+          })
+          em.persist(standardHoursRule)
+          await em.flush()
+          logger.info('Created AvailabilityRuleSet "Standard Business Hours" with daily 9:00 AM - 10:00 PM rule.')
+        } else {
+          logger.info(`Reusing existing AvailabilityRuleSet "Standard Business Hours" (${standardHoursRuleSet.id})`)
+        }
 
         // Migrate: SeatTypeConfig -> ResourcesResourceType
         const tpsTypeIdMap: Record<string, string> = {}
@@ -440,7 +494,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
           entity.appearanceIcon = null
           entity.appearanceColor = null
           entity.isActive = seat.is_active === 'true' || seat.is_active === 't'
-          entity.availabilityRuleSetId = null
+          entity.availabilityRuleSetId = standardHoursRuleSet.id
           entity.customFieldsetCode = null
           em.persist(entity)
           migratedResources++
