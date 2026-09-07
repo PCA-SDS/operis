@@ -22,6 +22,7 @@ import searchConfig from '../search'
 import setup from '../setup'
 import type { InvoiceScopedPersistenceService } from '../services/scoped-persistence-service'
 import type { InvoicePartnerTermsService } from '../services/partner-terms-service'
+import type { InvoiceCompanyEmailsService } from '../services/company-emails-service'
 
 const MODULE_ROOT = join(__dirname, '..')
 const MIGRATION_SOURCE = readFileSync(
@@ -128,6 +129,11 @@ describe('invoice module foundation', () => {
     expect(typeof partnerTermsService.matchPartner).toBe('function')
     expect(typeof partnerTermsService.updateDefaultDueDays).toBe('function')
     expect(typeof partnerTermsService.resolveDefaultDueDate).toBe('function')
+
+    const companyEmailsService = container.resolve<InvoiceCompanyEmailsService>('invoiceCompanyEmailsService')
+    expect(typeof companyEmailsService.listByCompany).toBe('function')
+    expect(typeof companyEmailsService.record).toBe('function')
+    expect(typeof companyEmailsService.remove).toBe('function')
 
     for (const [token, entity] of Object.entries(ENTITY_EXPORTS)) {
       expect(container.resolve(token)).toBe(entity)

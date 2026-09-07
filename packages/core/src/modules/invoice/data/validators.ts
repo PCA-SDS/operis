@@ -74,6 +74,7 @@ export const invoiceSortDirectionSchema = z.enum(['asc', 'desc'])
 
 export const invoiceIdSchema = uuid()
 export const invoiceCompanyIdSchema = uuid()
+export const invoiceCompanyEmailIdSchema = uuid()
 export const invoiceLineItemIdSchema = uuid()
 export const invoiceInstallmentIdSchema = uuid()
 export const invoicePaymentConfirmationIdSchema = uuid()
@@ -152,6 +153,16 @@ export const invoicePartnerListQuerySchema = z.object({
 export const invoicePartnerMatchQuerySchema = z.object({
   taxCode: optionalTrimmedString(invoiceTaxCodeSchema),
   name: optionalTrimmedString(invoiceCompanyNameSchema),
+})
+export const invoiceCompanyEmailListQuerySchema = z.object({
+  companyId: invoiceCompanyIdSchema,
+})
+export const invoiceCompanyEmailRecordSchema = z.object({
+  companyId: invoiceCompanyIdSchema,
+  email: invoiceEmailSchema,
+}).strict()
+export const invoiceCompanyEmailDeleteQuerySchema = z.object({
+  companyId: invoiceCompanyIdSchema,
 })
 export const invoiceLineNumberSchema = z.coerce.number().int().min(1).max(INVOICE_LINE_ITEMS_MAX)
 export const invoiceInstallmentCountSchema = z.coerce

@@ -14,12 +14,16 @@ import {
 } from './data/entities'
 import { createInvoiceScopedPersistenceService } from './services/scoped-persistence-service'
 import { createInvoicePartnerTermsService } from './services/partner-terms-service'
+import { createInvoiceCompanyEmailsService } from './services/company-emails-service'
 
 export function register(container: AppContainer) {
   container.register({
     invoiceScopedPersistenceService: asFunction(({ em }) => createInvoiceScopedPersistenceService(em)).scoped().proxy(),
     invoicePartnerTermsService: asFunction(({ em, invoiceScopedPersistenceService }) =>
       createInvoicePartnerTermsService(em, invoiceScopedPersistenceService),
+    ).scoped().proxy(),
+    invoiceCompanyEmailsService: asFunction(({ em, invoiceScopedPersistenceService }) =>
+      createInvoiceCompanyEmailsService(em, invoiceScopedPersistenceService),
     ).scoped().proxy(),
     Invoice: asValue(Invoice),
     InvoiceAutoPaidTaxCode: asValue(InvoiceAutoPaidTaxCode),
