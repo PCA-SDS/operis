@@ -12,7 +12,7 @@ import {
 } from '../../data/validators'
 import { createEmailCrudOpenApi, createPagedListResponseSchema } from '../openapi'
 
-const ENTITY_ID = 'email:template' as const
+const ENTITY_ID = 'email:email_template' as const
 
 const templateListItemSchema = z.object({
   id: z.string().uuid(),
