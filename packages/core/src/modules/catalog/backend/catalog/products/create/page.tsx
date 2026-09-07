@@ -13,6 +13,7 @@ import {
 import { createCrud } from "@open-mercato/ui/backend/utils/crud";
 import { createCrudFormError } from "@open-mercato/ui/backend/utils/serverErrors";
 import { flash } from "@open-mercato/ui/backend/FlashMessages";
+import { useModuleEnabled } from "@open-mercato/ui/backend/BackendChromeProvider";
 import { TagsInput } from "@open-mercato/ui/backend/inputs/TagsInput";
 import MarkdownField from "@open-mercato/ui/backend/inputs/MarkdownField";
 import { Button } from "@open-mercato/ui/primitives/button";
@@ -242,6 +243,7 @@ export default function CreateCatalogProductPage() {
   const t = useT();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const inboxOpsEnabled = useModuleEnabled("inbox_ops");
   const fromInboxAction = searchParams.get("fromInboxAction");
 
   const inboxDraft = React.useMemo<InboxProductDraft | null>(() => {
@@ -891,7 +893,7 @@ export default function CreateCatalogProductPage() {
                 t("catalog.products.create.success", "Product created."),
                 "success",
               );
-              if (inboxDraft) {
+              if (inboxDraft && inboxOpsEnabled) {
                 router.push(
                   `/backend/inbox-ops/proposals/${encodeURIComponent(inboxDraft.proposalId)}`,
                 );
