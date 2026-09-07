@@ -18,6 +18,7 @@ import {
   invoiceCurrencyCodeSchema,
   invoiceDirectionSchema,
   invoiceDueDaysSchema,
+  invoicePartnerTermsUpdateSchema,
   hashInvoicePublicToken,
   invoiceNonRecoverableNoteSchema,
   invoicePageSizeSchema,
@@ -72,6 +73,10 @@ describe('invoice validators', () => {
     expect(invoicePageSizeSchema.safeParse(101).success).toBe(false)
     expect(invoiceDueDaysSchema.parse('3650')).toBe(3650)
     expect(invoiceDueDaysSchema.safeParse(3651).success).toBe(false)
+    expect(invoicePartnerTermsUpdateSchema.parse({ defaultDueDays: '1' })).toEqual({ defaultDueDays: 1 })
+    expect(invoicePartnerTermsUpdateSchema.parse({ defaultDueDays: null })).toEqual({ defaultDueDays: null })
+    expect(invoicePartnerTermsUpdateSchema.safeParse({ defaultDueDays: 0 }).success).toBe(false)
+    expect(invoicePartnerTermsUpdateSchema.safeParse({ defaultDueDays: 3651 }).success).toBe(false)
     expect(invoicePublicTokenSchema.parse('a'.repeat(64))).toBe('a'.repeat(64))
     expect(invoicePublicTokenSchema.safeParse('A'.repeat(64)).success).toBe(false)
     expect(invoicePublicTokenSchema.safeParse('a'.repeat(63)).success).toBe(false)
