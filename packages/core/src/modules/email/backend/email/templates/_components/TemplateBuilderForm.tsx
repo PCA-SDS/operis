@@ -20,6 +20,8 @@ export type TemplateBuilderFormValue = {
   defaultValues: string
   rules: string
   workflowKey: string
+  sortOrder: string
+  isActive: boolean
   blocks: TemplateBlockFormValue[]
 }
 
@@ -57,10 +59,14 @@ export const starterTemplates: Record<string, Partial<TemplateBuilderFormValue>>
     }, null, 2),
     rules: JSON.stringify({ workflow: 'quarterly-info', requiresVatActivityCheck: false }, null, 2),
     workflowKey: 'quarterly-info',
+    sortOrder: '1',
+    isActive: true,
     blocks: [
-      createBlock('heading', 'Quarterly information request'),
-      createBlock('paragraph', 'Hello {{clientName}},\n\nPlease send accounting documents for {{quarterLabel}} by {{deadlineDate}}.'),
+      createBlock('heading', '[PCACS][{{companyCode}}] Accounting {{accountingPeriod}}'),
+      createBlock('paragraph', '{{greeting}}\n\nA new quarter will come to an end soon. As required by law, we are to file the VAT and PIT declarations after preparing the legal accounting.'),
+      createBlock('paragraph', 'Please prepare supporting documents, VAT invoices, bank statements for {{bankStatementPeriod}}, new commercial contracts, and receivable/payable tracking files.'),
       createBlock('button', 'Open upload folder', 'https://example.com/client-upload-folder'),
+      createBlock('paragraph', 'Thank you very much for your support. We look forward to your report before {{submissionDeadline}}.\n\nBest regards,'),
     ],
   },
   quarterly_tax_activity: {
@@ -78,10 +84,13 @@ export const starterTemplates: Record<string, Partial<TemplateBuilderFormValue>>
     }, null, 2),
     rules: JSON.stringify({ workflow: 'quarterly-tax', hasActivity: true }, null, 2),
     workflowKey: 'quarterly-tax',
+    sortOrder: '2',
+    isActive: true,
     blocks: [
       createBlock('heading', 'Quarterly tax filing'),
-      createBlock('paragraph', 'Hello {{clientName}},\n\nWe detected activity for {{quarterLabel}}. Please review the sales and purchase placeholders before {{deadlineDate}}.'),
-      createBlock('paragraph', 'Sales sheet: {{salesSheetUrl}}\nPurchase sheet: {{purchaseSheetUrl}}'),
+      createBlock('paragraph', '{{greeting}}\n\nFollowing the provided accounting supporting documents, PCA has prepared your accounting for {{quarterPeriod}}, including PIT declaration, VAT declaration, sales invoices report, expenses invoices report, and taxes obligations tracking.'),
+      createBlock('paragraph', 'VAT and PIT reports: {{vatPitReportsLink}}\nTaxes obligations tracking: {{taxTrackingLink}}'),
+      createBlock('paragraph', 'Declaration deadline: {{declarationDeadline}}\nVAT payable: {{vatPayable}}\nPIT payable: {{pitPayable}}\nTotal taxes to be paid: {{totalTaxPayable}}\nPayment deadline: {{paymentDeadline}}'),
     ],
   },
   quarterly_tax_no_activity: {
@@ -93,9 +102,13 @@ export const starterTemplates: Record<string, Partial<TemplateBuilderFormValue>>
     defaultValues: JSON.stringify({ clientName: 'Acme Corp', quarterLabel: 'Q3 2026', confirmationDeadline: '15 Oct 2026' }, null, 2),
     rules: JSON.stringify({ workflow: 'quarterly-tax', hasActivity: false }, null, 2),
     workflowKey: 'quarterly-tax',
+    sortOrder: '3',
+    isActive: true,
     blocks: [
       createBlock('heading', 'No activity confirmation'),
-      createBlock('paragraph', 'Hello {{clientName}},\n\nPlease confirm there was no taxable activity for {{quarterLabel}} by {{confirmationDeadline}}.'),
+      createBlock('paragraph', '{{greeting}}\n\nFollowing the provided accounting supporting documents, PCA has prepared your accounting for {{quarterPeriod}}.'),
+      createBlock('paragraph', 'Please check the reports attached and let us know if anything needs to be amended:\nVAT and PIT reports: {{vatPitReportsLink}}\nTaxes obligations tracking: {{taxTrackingLink}}'),
+      createBlock('paragraph', 'Declaration deadline: {{declarationDeadline}}\nTaxes payable: 0 VND'),
     ],
   },
   q3_cit: {
@@ -107,7 +120,9 @@ export const starterTemplates: Record<string, Partial<TemplateBuilderFormValue>>
     defaultValues: JSON.stringify({ clientName: 'Acme Corp', fiscalYear: '2026', citSheetUrl: 'https://example.com/cit-working-paper', deadlineDate: '31 Oct 2026' }, null, 2),
     rules: JSON.stringify({ workflow: 'cit', quarter: 'Q3' }, null, 2),
     workflowKey: 'cit-q3',
-    blocks: [createBlock('heading', 'Q3 CIT preparation'), createBlock('paragraph', 'Hello {{clientName}},\n\nPlease review Q3 CIT preparation for {{fiscalYear}} at {{citSheetUrl}} by {{deadlineDate}}.')],
+    sortOrder: '4',
+    isActive: true,
+    blocks: [createBlock('heading', 'Q3 CIT preparation'), createBlock('paragraph', '{{greeting}}\n\nPlease review the Q3 tax reports and provisional CIT report for {{citYear}}.'), createBlock('paragraph', 'VAT/PIT reports: {{vatPitReportsLink}}\nTax tracking: {{taxTrackingLink}}\nCIT report: {{citReportLink}}\nProvisional CIT: {{provisionalCit}}')],
   },
   q4_cit: {
     templateKey: 'accounting.q4-cit',
@@ -118,7 +133,9 @@ export const starterTemplates: Record<string, Partial<TemplateBuilderFormValue>>
     defaultValues: JSON.stringify({ clientName: 'Acme Corp', fiscalYear: '2026', citSheetUrl: 'https://example.com/cit-final-working-paper', finalDeadline: '31 Mar 2027' }, null, 2),
     rules: JSON.stringify({ workflow: 'cit', quarter: 'Q4' }, null, 2),
     workflowKey: 'cit-q4',
-    blocks: [createBlock('heading', 'Q4 CIT finalization'), createBlock('paragraph', 'Hello {{clientName}},\n\nPlease finalize CIT for {{fiscalYear}} using {{citSheetUrl}} before {{finalDeadline}}.')],
+    sortOrder: '5',
+    isActive: true,
+    blocks: [createBlock('heading', 'Q4 CIT finalization'), createBlock('paragraph', '{{greeting}}\n\nPlease review the Q4 tax reports and annual CIT payment details for {{citYear}}.'), createBlock('paragraph', 'VAT/PIT reports: {{vatPitReportsLink}}\nTax tracking: {{taxTrackingLink}}\nCIT report: {{citReportLink}}\nCIT payable: {{citPayable}}\nTotal taxes to be paid: {{totalTaxPayable}}')],
   },
 }
 
@@ -173,6 +190,10 @@ export function renderWithSamples(value: string, samples: Record<string, unknown
   return value.replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_match, key: string) => String(samples[key] ?? `{{${key}}}`))
 }
 
+function formatFieldLabel(value: string): string {
+  return value.replace(/[_-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -183,6 +204,8 @@ function escapeHtml(value: string): string {
 }
 
 export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, onSubmit, onDelete }: TemplateBuilderFormProps) {
+  const subjectInputRef = React.useRef<HTMLInputElement>(null)
+  const blockInputRefs = React.useRef<Record<string, HTMLTextAreaElement | null>>({})
   const setField = <K extends keyof TemplateBuilderFormValue>(key: K, fieldValue: TemplateBuilderFormValue[K]) => {
     onChange({ ...value, [key]: fieldValue })
   }
@@ -197,6 +220,36 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
     if (!block) return
     next.splice(nextIndex, 0, block)
     onChange({ ...value, blocks: next })
+  }
+  const availableFields = React.useMemo(() => {
+    const fields = ['greeting', ...splitCsv(value.fields), ...splitCsv(value.variables), 'taxQuarter']
+    return [...new Set(fields.filter(Boolean))]
+  }, [value.fields, value.variables])
+  const insertIntoSubject = (field: string) => {
+    const input = subjectInputRef.current
+    const token = `{{${field}}}`
+    const selectionStart = input?.selectionStart ?? value.subject.length
+    const selectionEnd = input?.selectionEnd ?? selectionStart
+    setField('subject', `${value.subject.slice(0, selectionStart)}${token}${value.subject.slice(selectionEnd)}`)
+    window.requestAnimationFrame(() => {
+      input?.focus()
+      const cursorPosition = selectionStart + token.length
+      input?.setSelectionRange(cursorPosition, cursorPosition)
+    })
+  }
+  const insertIntoBlock = (index: number, field: string) => {
+    const block = value.blocks[index]
+    if (!block) return
+    const input = blockInputRefs.current[block.id]
+    const token = `{{${field}}}`
+    const selectionStart = input?.selectionStart ?? block.content.length
+    const selectionEnd = input?.selectionEnd ?? selectionStart
+    updateBlock(index, { content: `${block.content.slice(0, selectionStart)}${token}${block.content.slice(selectionEnd)}` })
+    window.requestAnimationFrame(() => {
+      input?.focus()
+      const cursorPosition = selectionStart + token.length
+      input?.setSelectionRange(cursorPosition, cursorPosition)
+    })
   }
 
   let sampleValues: Record<string, unknown> = {}
@@ -236,7 +289,18 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
             <label className="block text-sm font-medium">Status<select className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.status} onChange={(event) => setField('status', event.target.value as TemplateStatus)}><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></label>
           </div>
           <label className="block text-sm font-medium">Description<textarea className="mt-1 min-h-20 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.description} onChange={(event) => setField('description', event.target.value)} /></label>
-          <label className="block text-sm font-medium">Subject<input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.subject} onChange={(event) => setField('subject', event.target.value)} required /></label>
+          <label className="block text-sm font-medium">Subject
+            <div className="mt-1 flex gap-2">
+              <input ref={subjectInputRef} className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.subject} onChange={(event) => setField('subject', event.target.value)} required />
+              <select className="w-52 rounded-md border border-border bg-background px-3 py-2 text-sm" defaultValue="" onChange={(event) => {
+                if (event.target.value) insertIntoSubject(event.target.value)
+                event.target.value = ''
+              }}>
+                <option value="" disabled>Insert variable</option>
+                {availableFields.map((field) => <option key={field} value={field}>{formatFieldLabel(field)}</option>)}
+              </select>
+            </div>
+          </label>
           <label className="block text-sm font-medium">Preheader<input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.preheader} onChange={(event) => setField('preheader', event.target.value)} /></label>
 
           <section className="space-y-3 rounded-md border border-border bg-background p-3">
@@ -258,7 +322,18 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
                   <input className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={block.label} onChange={(event) => updateBlock(index, { label: event.target.value })} placeholder="Block label" />
                   <div className="flex gap-1"><Button type="button" size="sm" variant="ghost" onClick={() => moveBlock(index, -1)}>↑</Button><Button type="button" size="sm" variant="ghost" onClick={() => moveBlock(index, 1)}>↓</Button><Button type="button" size="sm" variant="ghost" onClick={() => onChange({ ...value, blocks: value.blocks.filter((_, blockIndex) => blockIndex !== index) })}>Remove</Button></div>
                 </div>
-                {block.type !== 'divider' ? <textarea className="min-h-24 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={block.content} onChange={(event) => updateBlock(index, { content: event.target.value })} placeholder="Use {{variables}} in content" /> : null}
+                {block.type !== 'divider' ? (
+                  <div className="space-y-2">
+                    <textarea ref={(element) => { blockInputRefs.current[block.id] = element }} className="min-h-24 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={block.content} onChange={(event) => updateBlock(index, { content: event.target.value })} placeholder="Use {{variables}} in content" />
+                    <select className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" defaultValue="" onChange={(event) => {
+                      if (event.target.value) insertIntoBlock(index, event.target.value)
+                      event.target.value = ''
+                    }}>
+                      <option value="" disabled>Insert variable into this block</option>
+                      {availableFields.map((field) => <option key={field} value={field}>{formatFieldLabel(field)}</option>)}
+                    </select>
+                  </div>
+                ) : null}
                 {block.type === 'button' ? <input className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={block.url} onChange={(event) => updateBlock(index, { url: event.target.value })} placeholder="https://example.com/link" /> : null}
               </div>
             ))}
@@ -269,6 +344,10 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
             <label className="block text-sm font-medium">Accounting fields<input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.fields} onChange={(event) => setField('fields', event.target.value)} placeholder="clientName, deadlineDate" /></label>
           </div>
           <label className="block text-sm font-medium">Workflow key<input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.workflowKey} onChange={(event) => setField('workflowKey', event.target.value)} /></label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block text-sm font-medium">Display order<input type="number" min={0} className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.sortOrder} onChange={(event) => setField('sortOrder', event.target.value)} /></label>
+            <label className="mt-7 flex items-center gap-2 text-sm font-medium"><input type="checkbox" className="size-4" checked={value.isActive} onChange={(event) => setField('isActive', event.target.checked)} /> Show in accounting generator</label>
+          </div>
           <label className="block text-sm font-medium">Sample/default values JSON<textarea className="mt-1 min-h-32 w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm" value={value.defaultValues} onChange={(event) => setField('defaultValues', event.target.value)} /></label>
           <label className="block text-sm font-medium">Rules JSON<textarea className="mt-1 min-h-32 w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm" value={value.rules} onChange={(event) => setField('rules', event.target.value)} /></label>
           <div className="flex justify-between gap-2">

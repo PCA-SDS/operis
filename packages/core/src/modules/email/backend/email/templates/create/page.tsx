@@ -29,6 +29,8 @@ const initialForm: TemplateBuilderFormValue = {
   defaultValues: JSON.stringify({ clientName: 'Acme Corp' }, null, 2),
   rules: '{}',
   workflowKey: '',
+  sortOrder: '0',
+  isActive: true,
   blocks: [createBlock('paragraph', 'Hello {{clientName}},\n\nWrite your email body here.')],
 }
 
@@ -38,6 +40,7 @@ function buildPayload(form: TemplateBuilderFormValue) {
   const defaultValues = parseJsonObject(form.defaultValues, 'Default values')
   const rules = parseJsonObject(form.rules, 'Rules')
   const html = blocksToHtml(form.blocks)
+  const sortOrder = Number.parseInt(form.sortOrder, 10)
 
   return {
     template_key: form.templateKey.trim(),
@@ -62,8 +65,8 @@ function buildPayload(form: TemplateBuilderFormValue) {
       fields,
       defaultValues: Object.fromEntries(Object.entries(defaultValues).map(([key, value]) => [key, String(value)])),
       rules,
-      sortOrder: 0,
-      isActive: form.status !== 'archived',
+      sortOrder: Number.isFinite(sortOrder) && sortOrder >= 0 ? sortOrder : 0,
+      isActive: form.isActive && form.status !== 'archived',
     },
   }
 }

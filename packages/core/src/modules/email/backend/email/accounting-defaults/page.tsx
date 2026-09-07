@@ -34,6 +34,37 @@ const emptyForm: DefaultsForm = {
   updatedAt: null,
 }
 
+const pcaStarterDefaults = {
+  defaultSenderName: 'PCA Accounting',
+  defaultReplyTo: '',
+  placeholders: JSON.stringify({
+    greeting: 'Dear Client,',
+    companyCode: 'ACME',
+    accountingPeriod: 'Q1 2026',
+    quarterShort: 'Q1',
+    quarterPeriod: 'Quarter 1 2026',
+    bankStatementPeriod: '01/01/2026 to 31/03/2026',
+    submissionDeadline: 'April 7, 2026',
+    declarationDeadline: 'April 29, 2026',
+    paymentDeadline: 'April 29, 2026',
+    taxQuarter: 'Q1',
+  }, null, 2),
+  linkPlaceholders: JSON.stringify({
+    uploadLink: 'https://example.com/client-upload-folder',
+    vatPitReportsLink: 'https://example.com/vat-pit-reports-folder',
+    taxTrackingLink: 'https://example.com/tax-obligations-tracking-sheet',
+    citReportLink: 'https://example.com/cit-report-sheet',
+  }, null, 2),
+  rules: JSON.stringify({
+    selection: 'rules-match-accounting-metadata',
+    requestDocuments: { type: 'request_documents' },
+    taxWithPayable: { type: 'tax_report', hasTaxPayable: true, hasCit: false },
+    taxNoPayable: { type: 'tax_report', hasTaxPayable: false, hasCit: false },
+    q3Cit: { type: 'tax_report', hasTaxPayable: true, hasCit: true, quarter: 'Q3' },
+    q4Cit: { type: 'tax_report', hasTaxPayable: true, hasCit: true, quarter: 'Q4' },
+  }, null, 2),
+}
+
 function parseJsonObject(value: string, label: string): Record<string, unknown> {
   const parsed = JSON.parse(value || '{}') as unknown
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -138,6 +169,22 @@ export default function EmailAccountingDefaultsPage() {
           <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">Loading accounting defaults…</div>
         ) : (
           <form className="space-y-4 rounded-lg border bg-card p-4" onSubmit={submit}>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-background p-3">
+              <div>
+                <p className="text-sm font-medium">PCA accounting starter</p>
+                <p className="text-xs text-muted-foreground">Loads safe sample values and placeholder links for user testing; it does not use customer Drive or Sheets URLs.</p>
+              </div>
+              <Button type="button" variant="secondary" onClick={() => {
+                setForm((current) => ({
+                  ...current,
+                  defaultSenderName: pcaStarterDefaults.defaultSenderName,
+                  defaultReplyTo: pcaStarterDefaults.defaultReplyTo,
+                  placeholders: pcaStarterDefaults.placeholders,
+                  linkPlaceholders: pcaStarterDefaults.linkPlaceholders,
+                  rules: pcaStarterDefaults.rules,
+                }))
+              }}>Use PCA Starter</Button>
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block text-sm font-medium">Default sender name<input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={form.defaultSenderName} onChange={(event) => setField('defaultSenderName', event.target.value)} /></label>
               <label className="block text-sm font-medium">Default reply-to<input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={form.defaultReplyTo} onChange={(event) => setField('defaultReplyTo', event.target.value)} placeholder="accounting@example.com" /></label>

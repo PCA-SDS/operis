@@ -37,6 +37,8 @@ type EmailTemplateRecord = {
     fields?: string[]
     defaultValues?: Record<string, string>
     rules?: Record<string, unknown>
+    sortOrder?: number
+    isActive?: boolean
   } | null
   updatedAt: string
 }
@@ -58,6 +60,8 @@ const emptyForm: EditTemplateForm = {
   defaultValues: '{}',
   rules: '{}',
   workflowKey: '',
+  sortOrder: '0',
+  isActive: true,
   blocks: [],
   updatedAt: '',
 }
@@ -108,6 +112,8 @@ function toForm(record: EmailTemplateRecord): EditTemplateForm {
     defaultValues: JSON.stringify(defaultValues, null, 2),
     rules: JSON.stringify(rules, null, 2),
     workflowKey: metadata.workflowKey ?? '',
+    sortOrder: String(typeof metadata.sortOrder === 'number' ? metadata.sortOrder : 0),
+    isActive: metadata.isActive !== false && record.status !== 'archived',
     blocks: blocksFromRecord(record.blocks, record.design),
     updatedAt: record.updatedAt,
   }
@@ -119,6 +125,7 @@ function buildPayload(form: EditTemplateForm, id: string) {
   const defaultValues = parseJsonObject(form.defaultValues, 'Default values')
   const rules = parseJsonObject(form.rules, 'Rules')
   const html = blocksToHtml(form.blocks)
+  const sortOrder = Number.parseInt(form.sortOrder, 10)
 
   return {
     id,
@@ -141,8 +148,8 @@ function buildPayload(form: EditTemplateForm, id: string) {
       fields,
       defaultValues: Object.fromEntries(Object.entries(defaultValues).map(([key, value]) => [key, String(value)])),
       rules,
-      sortOrder: 0,
-      isActive: form.status !== 'archived',
+      sortOrder: Number.isFinite(sortOrder) && sortOrder >= 0 ? sortOrder : 0,
+      isActive: form.isActive && form.status !== 'archived',
     },
   }
 }
