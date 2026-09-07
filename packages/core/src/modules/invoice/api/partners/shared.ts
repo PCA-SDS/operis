@@ -58,7 +58,7 @@ export const invoicePartnerUpdateResponseSchema = z.object({
   partner: invoicePartnerDtoSchema,
 })
 
-export const invoicePartnerRouteErrors = invoiceCommonErrors as readonly OpenApiResponseDoc[]
+export const invoicePartnerRouteErrors: OpenApiResponseDoc[] = [...invoiceCommonErrors]
 export { invoicePartnersTag }
 
 export type InvoicePartnerRouteContext = {
