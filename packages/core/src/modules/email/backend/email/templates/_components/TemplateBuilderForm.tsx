@@ -336,7 +336,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
       <form className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(340px,460px)]" onSubmit={onSubmit}>
         <div className="space-y-4 rounded-lg border bg-card p-4">
           {mode === 'create' ? (
-            <label className="block text-sm font-medium">Start from template
+            <label className="block text-sm font-medium">Use starter preset
               <select className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" defaultValue="" onChange={(event) => {
                 const starter = starterTemplates[event.target.value]
                 if (starter) onChange({ ...value, ...starter, blocks: starter.blocks ?? value.blocks })
@@ -348,7 +348,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
                 <option value="q3_cit">Q3 CIT reminder</option>
                 <option value="q4_cit">Q4 CIT finalization</option>
               </select>
-              <span className="mt-1 block text-xs text-muted-foreground">Choose a PCA accounting preset to prefill the form, or keep a blank template and build it yourself.</span>
+              <span className="mt-1 block text-xs text-muted-foreground">These are built-in PCA accounting presets. They prefill this new template but are not saved templates yet.</span>
             </label>
           ) : null}
           <div className="grid gap-4 md:grid-cols-2">

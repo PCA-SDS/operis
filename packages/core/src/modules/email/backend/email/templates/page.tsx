@@ -141,7 +141,7 @@ export default function EmailTemplatesPage() {
           data={rows}
           isLoading={isLoading}
           error={error}
-          emptyState="No email templates yet. Create one from a PCA starter or from scratch."
+          emptyState="No saved email templates yet. Create one from a built-in preset or start blank."
           pagination={{ page, pageSize, total, totalPages, onPageChange: setPage }}
         />
       </PageBody>
