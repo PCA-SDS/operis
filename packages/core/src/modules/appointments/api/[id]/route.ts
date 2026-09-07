@@ -5,10 +5,16 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { createLogger } from '@open-mercato/shared/lib/logger'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { enforceCommandOptimisticLockWithGuards } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { Appointment, AppointmentLine, AppointmentStatus } from '../../data/entities'
 import { appointmentStatusUpdateSchema } from '../../data/validators'
 import { emitAppointmentEvent } from '../../events'
+
+const logger = createLogger('appointments').child({ component: 'appointments-detail' })
+
+export const APPOINTMENT_RESOURCE_KIND = 'appointments.appointment'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -91,7 +97,8 @@ export async function GET(req: Request, ctx: RouteContext) {
       { orderBy: { sortOrder: 'asc' } },
     )
     return NextResponse.json(mapAppointment(appointment, lines))
-  } catch {
+  } catch (error) {
+    logger.error('Failed to load appointment', { err: error })
     return NextResponse.json(
       { error: translate('appointments.detail.notFound', 'Appointment not found.'), code: 'NOT_FOUND' },
       { status: 404 },
@@ -123,6 +130,17 @@ export async function PATCH(req: Request, ctx: RouteContext) {
         { status: 404 },
       )
     }
+    // Two staff members moving the same appointment would otherwise silently
+    // overwrite each other. `assertOptimisticLock` no-ops when the caller sends
+    // no version header, so this stays backward compatible for API clients that
+    // have not adopted it yet.
+    await enforceCommandOptimisticLockWithGuards(container, {
+      resourceKind: APPOINTMENT_RESOURCE_KIND,
+      resourceId: appointment.id,
+      current: appointment.updatedAt ?? null,
+      request: req,
+    })
+
     const status = await em.findOne(AppointmentStatus, {
       tenantId: auth.tenantId,
       code: body.statusCode,
@@ -169,6 +187,7 @@ export async function PATCH(req: Request, ctx: RouteContext) {
         { status: 400 },
       )
     }
+    logger.error('Failed to update appointment', { err: error })
     return NextResponse.json(
       {
         error: translate('appointments.status.failed', 'Unable to update appointment status.'),

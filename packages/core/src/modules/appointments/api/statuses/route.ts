@@ -4,8 +4,11 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { createLogger } from '@open-mercato/shared/lib/logger'
 import { AppointmentStatus } from '../../data/entities'
 import { ensureSystemAppointmentStatuses } from '../../setup'
+
+const logger = createLogger('appointments').child({ component: 'appointments-statuses' })
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -36,7 +39,8 @@ export async function GET(req: Request) {
         sortOrder: row.sortOrder,
       })),
     })
-  } catch {
+  } catch (error) {
+    logger.error('Failed to list appointment statuses', { err: error })
     return NextResponse.json(
       {
         error: translate('appointments.statuses.failed', 'Unable to list appointment statuses.'),

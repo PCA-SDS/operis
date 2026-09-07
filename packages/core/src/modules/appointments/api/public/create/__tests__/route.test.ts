@@ -2,10 +2,24 @@
 
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 
+const mockGetRateLimiterService = jest.fn()
+const mockCheckRateLimit = jest.fn()
 const mockCreateAppointmentFromPublicIntake = jest.fn()
 const mockResolveTranslations = jest.fn()
 const mockCreateRequestContainer = jest.fn()
 const mockEmitAppointmentEvent = jest.fn()
+
+jest.mock('@open-mercato/core/bootstrap', () => ({
+  getCachedRateLimiterService: (...args: unknown[]) => mockGetRateLimiterService(...args),
+}))
+
+jest.mock('@open-mercato/shared/lib/ratelimit/helpers', () => {
+  const actual = jest.requireActual('@open-mercato/shared/lib/ratelimit/helpers')
+  return {
+    ...actual,
+    checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
+  }
+})
 
 jest.mock('../../../../lib/intake', () => ({
   createAppointmentFromPublicIntake: (...args: unknown[]) =>
@@ -38,6 +52,10 @@ describe('appointments public create route', () => {
     })
     mockCreateAppointmentFromPublicIntake.mockReset()
     mockEmitAppointmentEvent.mockReset()
+    mockGetRateLimiterService.mockReset()
+    mockCheckRateLimit.mockReset()
+    mockGetRateLimiterService.mockReturnValue({ trustProxyDepth: 0 })
+    mockCheckRateLimit.mockResolvedValue(null)
   })
 
   it('returns 201 for a valid intake payload', async () => {
@@ -103,5 +121,23 @@ describe('appointments public create route', () => {
     expect(response.status).toBe(400)
     const payload = await response.json()
     expect(payload.code).toBe('SERVICE_NOT_BOOKABLE')
+  })
+
+  it('throttles anonymous intake per client IP before touching the database', async () => {
+    const tooMany = new Response(JSON.stringify({ error: 'Too many requests.' }), { status: 429 })
+    mockCheckRateLimit.mockResolvedValue(tooMany)
+
+    const { POST } = await import('../route')
+    const response = await POST(
+      new Request('http://localhost/api/appointments/public/create', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      }),
+    )
+
+    expect(response.status).toBe(429)
+    // The throttle must run before any customer or appointment row is written.
+    expect(mockCreateAppointmentFromPublicIntake).not.toHaveBeenCalled()
   })
 })

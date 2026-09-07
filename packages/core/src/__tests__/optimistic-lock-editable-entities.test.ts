@@ -28,6 +28,7 @@ import { join } from 'node:path'
  */
 
 const moduleEntities: Record<string, string[]> = {
+  appointments: ['Appointment'],
   auth: ['User', 'Role'],
   catalog: [
     'CatalogProduct',

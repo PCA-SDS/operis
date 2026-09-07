@@ -5,12 +5,15 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { createLogger } from '@open-mercato/shared/lib/logger'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { Appointment } from '../data/entities'
 import { appointmentStaffCreateSchema } from '../data/validators'
 import { createAppointmentFromPublicIntake } from '../lib/intake'
 import { emitAppointmentEvent } from '../events'
 import type { CatalogPricingService } from '@open-mercato/core/modules/catalog/services/catalogPricingService'
+
+const logger = createLogger('appointments').child({ component: 'appointments-api' })
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -59,7 +62,8 @@ export async function GET(req: Request) {
       limit: 100,
     })
     return NextResponse.json({ items: rows.map(mapAppointment) })
-  } catch {
+  } catch (error) {
+    logger.error('Failed to list appointments', { err: error })
     return NextResponse.json(
       {
         error: translate('appointments.list.failed', 'Unable to list appointments.'),
@@ -122,6 +126,7 @@ export async function POST(req: Request) {
         { status: 400 },
       )
     }
+    logger.error('Failed to create appointment', { err: error })
     return NextResponse.json(
       {
         error: translate('appointments.create.failed', 'Unable to create appointment.'),
