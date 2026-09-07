@@ -12,6 +12,8 @@ import {
   blocksToHtml,
   buildTemplateBlocks,
   createBlock,
+  customTemplateValues,
+  customTemplateVariables,
   parseJsonObject,
   splitCsv,
 } from '../_components/TemplateBuilderForm'
@@ -24,18 +26,18 @@ const initialForm: TemplateBuilderFormValue = {
   status: 'draft',
   subject: '',
   preheader: '',
-  variables: 'clientName',
-  fields: 'clientName',
-  defaultValues: JSON.stringify({ clientName: 'Acme Corp' }, null, 2),
+  variables: '',
+  fields: '',
+  defaultValues: '{}',
   rules: '{}',
   workflowKey: '',
   sortOrder: '0',
   isActive: true,
-  blocks: [createBlock('paragraph', 'Hello {{clientName}},\n\nWrite your email body here.')],
+  blocks: [createBlock('paragraph', 'Hello {{companyName}},\n\nWrite your email body here.')],
 }
 
 function buildPayload(form: TemplateBuilderFormValue) {
-  const variables = splitCsv(form.variables)
+  const variables = customTemplateVariables(form.variables)
   const fields = splitCsv(form.fields)
   const defaultValues = parseJsonObject(form.defaultValues, 'Default values')
   const rules = parseJsonObject(form.rules, 'Rules')
@@ -63,7 +65,7 @@ function buildPayload(form: TemplateBuilderFormValue) {
       migratedFrom: 'pca-accounting',
       sourceTemplateId: form.templateKey.trim() || null,
       fields,
-      defaultValues: Object.fromEntries(Object.entries(defaultValues).map(([key, value]) => [key, String(value)])),
+      defaultValues: customTemplateValues(defaultValues),
       rules,
       sortOrder: Number.isFinite(sortOrder) && sortOrder >= 0 ? sortOrder : 0,
       isActive: form.isActive && form.status !== 'archived',

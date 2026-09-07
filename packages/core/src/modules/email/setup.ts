@@ -15,7 +15,7 @@ const pcaDefaultPlaceholders = {
 }
 
 const pcaDefaultLinks = {
-  uploadLink: 'https://example.com/client-upload-folder',
+  uploadLink: 'https://example.com/company-upload-folder',
   vatPitReportsLink: 'https://example.com/vat-pit-reports-folder',
   taxTrackingLink: 'https://example.com/tax-obligations-tracking-sheet',
   citReportLink: 'https://example.com/cit-report-sheet',
@@ -27,7 +27,7 @@ const pcaStarterTemplates = [
     name: 'Mau email xin thong tin hang quy (Mau chung)',
     description: 'Request quarterly accounting documents from a client.',
     subject: '[PCACS][{{companyCode}}] Accounting {{accountingPeriod}}',
-    fields: ['companyCode', 'accountingPeriod', 'quarterShort', 'bankStatementPeriod', 'uploadLink', 'submissionDeadline'],
+    fields: ['accountingPeriod', 'quarterShort', 'bankStatementPeriod', 'uploadLink', 'submissionDeadline'],
     rules: { type: 'request_documents' },
     sortOrder: 1,
     html: '<p>{{greeting}}</p><p>A new quarter will come to an end soon. Please prepare supporting documents, VAT invoices, bank statements for {{bankStatementPeriod}}, new commercial contracts, and receivable/payable tracking files.</p><p>Upload folder: <a href="{{uploadLink}}">{{uploadLink}}</a></p><p>Please send them before {{submissionDeadline}}.</p><p>Best regards,</p>',
@@ -119,7 +119,7 @@ export const setup: ModuleSetupConfig = {
           migratedFrom: 'pca-accounting',
           sourceTemplateId: starter.templateKey.replace(/^accounting\./, ''),
           fields: starter.fields,
-          defaultValues: { ...pcaDefaultPlaceholders, ...pcaDefaultLinks },
+          defaultValues: Object.fromEntries(starter.fields.map((field) => [field, { ...pcaDefaultPlaceholders, ...pcaDefaultLinks }[field] ?? ''])),
           rules: starter.rules,
           sortOrder: starter.sortOrder,
           isActive: true,

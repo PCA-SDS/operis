@@ -43,19 +43,39 @@ type TemplateBuilderFormProps = {
   onDelete?: () => void
 }
 
+const systemVariables = [
+  { key: 'companyName', label: 'Company name', sample: 'Harborview Analytics' },
+  { key: 'companyCode', label: 'Company code', sample: 'HV-001' },
+  { key: 'companyEmail', label: 'Company email', sample: 'info@harborviewanalytics.com' },
+  { key: 'contactNames', label: 'Contact names', sample: 'Ms. Linh, Mr. David' },
+  { key: 'recipientEmails', label: 'Recipient emails', sample: 'linh@example.com, david@example.com' },
+  { key: 'greeting', label: 'Greeting', sample: 'Dear Ms. Linh and Mr. David,' },
+] as const
+
+const systemVariableKeys = new Set(systemVariables.map((variable) => variable.key))
+
+export function customTemplateVariables(value: string): string[] {
+  return splitCsv(value).filter((variable) => !systemVariableKeys.has(variable))
+}
+
+export function customTemplateValues(values: Record<string, unknown>): Record<string, string> {
+  return Object.fromEntries(Object.entries(values)
+    .filter(([key]) => !systemVariableKeys.has(key))
+    .map(([key, value]) => [key, String(value)]))
+}
+
 export const starterTemplates: Record<string, Partial<TemplateBuilderFormValue>> = {
   quarterly_info: {
     templateKey: 'accounting.quarterly-info',
     name: 'Quarterly info request',
     subject: 'Quarterly accounting information request',
     preheader: 'Please send documents for the current quarter.',
-    variables: 'clientName, quarterLabel, deadlineDate, uploadFolderUrl',
-    fields: 'clientName, quarterLabel, deadlineDate, uploadFolderUrl',
+    variables: 'quarterLabel, deadlineDate, uploadFolderUrl',
+    fields: 'quarterLabel, deadlineDate, uploadFolderUrl',
     defaultValues: JSON.stringify({
-      clientName: 'Acme Corp',
       quarterLabel: 'Q3 2026',
       deadlineDate: '15 Oct 2026',
-      uploadFolderUrl: 'https://example.com/client-upload-folder',
+      uploadFolderUrl: 'https://example.com/company-upload-folder',
     }, null, 2),
     rules: JSON.stringify({ workflow: 'quarterly-info', requiresVatActivityCheck: false }, null, 2),
     workflowKey: 'quarterly-info',
@@ -65,7 +85,7 @@ export const starterTemplates: Record<string, Partial<TemplateBuilderFormValue>>
       createBlock('heading', '[PCACS][{{companyCode}}] Accounting {{accountingPeriod}}'),
       createBlock('paragraph', '{{greeting}}\n\nA new quarter will come to an end soon. As required by law, we are to file the VAT and PIT declarations after preparing the legal accounting.'),
       createBlock('paragraph', 'Please prepare supporting documents, VAT invoices, bank statements for {{bankStatementPeriod}}, new commercial contracts, and receivable/payable tracking files.'),
-      createBlock('button', 'Open upload folder', 'https://example.com/client-upload-folder'),
+      createBlock('button', 'Open upload folder', 'https://example.com/company-upload-folder'),
       createBlock('paragraph', 'Thank you very much for your support. We look forward to your report before {{submissionDeadline}}.\n\nBest regards,'),
     ],
   },
@@ -73,10 +93,9 @@ export const starterTemplates: Record<string, Partial<TemplateBuilderFormValue>>
     templateKey: 'accounting.quarterly-tax-with-activity',
     name: 'Quarterly tax — with activity',
     subject: 'Quarterly tax filing — activity detected',
-    variables: 'clientName, quarterLabel, salesSheetUrl, purchaseSheetUrl, deadlineDate',
-    fields: 'clientName, quarterLabel, salesSheetUrl, purchaseSheetUrl, deadlineDate',
+    variables: 'quarterLabel, salesSheetUrl, purchaseSheetUrl, deadlineDate',
+    fields: 'quarterLabel, salesSheetUrl, purchaseSheetUrl, deadlineDate',
     defaultValues: JSON.stringify({
-      clientName: 'Acme Corp',
       quarterLabel: 'Q3 2026',
       salesSheetUrl: 'https://example.com/sales-sheet',
       purchaseSheetUrl: 'https://example.com/purchase-sheet',
@@ -97,9 +116,9 @@ export const starterTemplates: Record<string, Partial<TemplateBuilderFormValue>>
     templateKey: 'accounting.quarterly-tax-no-activity',
     name: 'Quarterly tax — no activity',
     subject: 'Quarterly tax filing — no activity confirmation',
-    variables: 'clientName, quarterLabel, confirmationDeadline',
-    fields: 'clientName, quarterLabel, confirmationDeadline',
-    defaultValues: JSON.stringify({ clientName: 'Acme Corp', quarterLabel: 'Q3 2026', confirmationDeadline: '15 Oct 2026' }, null, 2),
+    variables: 'quarterLabel, confirmationDeadline',
+    fields: 'quarterLabel, confirmationDeadline',
+    defaultValues: JSON.stringify({ quarterLabel: 'Q3 2026', confirmationDeadline: '15 Oct 2026' }, null, 2),
     rules: JSON.stringify({ workflow: 'quarterly-tax', hasActivity: false }, null, 2),
     workflowKey: 'quarterly-tax',
     sortOrder: '3',
@@ -115,9 +134,9 @@ export const starterTemplates: Record<string, Partial<TemplateBuilderFormValue>>
     templateKey: 'accounting.q3-cit',
     name: 'Q3 CIT reminder',
     subject: 'Q3 CIT preparation',
-    variables: 'clientName, fiscalYear, citSheetUrl, deadlineDate',
-    fields: 'clientName, fiscalYear, citSheetUrl, deadlineDate',
-    defaultValues: JSON.stringify({ clientName: 'Acme Corp', fiscalYear: '2026', citSheetUrl: 'https://example.com/cit-working-paper', deadlineDate: '31 Oct 2026' }, null, 2),
+    variables: 'fiscalYear, citSheetUrl, deadlineDate',
+    fields: 'fiscalYear, citSheetUrl, deadlineDate',
+    defaultValues: JSON.stringify({ fiscalYear: '2026', citSheetUrl: 'https://example.com/cit-working-paper', deadlineDate: '31 Oct 2026' }, null, 2),
     rules: JSON.stringify({ workflow: 'cit', quarter: 'Q3' }, null, 2),
     workflowKey: 'cit-q3',
     sortOrder: '4',
@@ -128,9 +147,9 @@ export const starterTemplates: Record<string, Partial<TemplateBuilderFormValue>>
     templateKey: 'accounting.q4-cit',
     name: 'Q4 CIT finalization',
     subject: 'Q4 CIT finalization',
-    variables: 'clientName, fiscalYear, citSheetUrl, finalDeadline',
-    fields: 'clientName, fiscalYear, citSheetUrl, finalDeadline',
-    defaultValues: JSON.stringify({ clientName: 'Acme Corp', fiscalYear: '2026', citSheetUrl: 'https://example.com/cit-final-working-paper', finalDeadline: '31 Mar 2027' }, null, 2),
+    variables: 'fiscalYear, citSheetUrl, finalDeadline',
+    fields: 'fiscalYear, citSheetUrl, finalDeadline',
+    defaultValues: JSON.stringify({ fiscalYear: '2026', citSheetUrl: 'https://example.com/cit-final-working-paper', finalDeadline: '31 Mar 2027' }, null, 2),
     rules: JSON.stringify({ workflow: 'cit', quarter: 'Q4' }, null, 2),
     workflowKey: 'cit-q4',
     sortOrder: '5',
@@ -194,6 +213,18 @@ function formatFieldLabel(value: string): string {
   return value.replace(/[_-]+/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
+function parseDefaultValues(value: string): Record<string, unknown> {
+  try {
+    return parseJsonObject(value, 'Default values')
+  } catch {
+    return {}
+  }
+}
+
+function formatDefaultValues(value: Record<string, unknown>): string {
+  return JSON.stringify(value, null, 2)
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -222,9 +253,44 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
     onChange({ ...value, blocks: next })
   }
   const availableFields = React.useMemo(() => {
-    const fields = ['greeting', ...splitCsv(value.fields), ...splitCsv(value.variables), 'taxQuarter']
+    const fields = [...systemVariables.map((variable) => variable.key), ...splitCsv(value.fields), ...splitCsv(value.variables), 'taxQuarter']
     return [...new Set(fields.filter(Boolean))]
   }, [value.fields, value.variables])
+  const variableRows = React.useMemo(() => customTemplateVariables(value.variables), [value.variables])
+  const setVariables = (variables: string[], defaultValues = parseDefaultValues(value.defaultValues)) => {
+    const uniqueVariables = [...new Set(variables.map((variable) => variable.trim()).filter(Boolean))]
+    onChange({ ...value, variables: uniqueVariables.join(', '), defaultValues: formatDefaultValues(customTemplateValues(defaultValues)) })
+  }
+  const addVariable = () => {
+    const existingVariables = new Set(variableRows)
+    let nextName = 'newVariable'
+    let suffix = 2
+    while (existingVariables.has(nextName)) {
+      nextName = `newVariable${suffix}`
+      suffix += 1
+    }
+    setVariables([...variableRows, nextName], { ...parseDefaultValues(value.defaultValues), [nextName]: '' })
+  }
+  const updateVariableName = (index: number, nextName: string) => {
+    const sanitizedName = nextName.trim().replace(/\s+/g, '')
+    const currentName = variableRows[index]
+    const nextVariables = variableRows.map((variable, variableIndex) => variableIndex === index ? sanitizedName : variable)
+    const defaultValues = parseDefaultValues(value.defaultValues)
+    if (currentName && currentName !== sanitizedName && Object.prototype.hasOwnProperty.call(defaultValues, currentName)) {
+      defaultValues[sanitizedName] = defaultValues[currentName]
+      delete defaultValues[currentName]
+    }
+    setVariables(nextVariables, defaultValues)
+  }
+  const updateVariableSample = (variableName: string, sampleValue: string) => {
+    setField('defaultValues', formatDefaultValues({ ...parseDefaultValues(value.defaultValues), [variableName]: sampleValue }))
+  }
+  const removeVariable = (index: number) => {
+    const currentName = variableRows[index]
+    const defaultValues = parseDefaultValues(value.defaultValues)
+    if (currentName) delete defaultValues[currentName]
+    setVariables(variableRows.filter((_, variableIndex) => variableIndex !== index), defaultValues)
+  }
   const insertIntoSubject = (field: string) => {
     const input = subjectInputRef.current
     const token = `{{${field}}}`
@@ -259,6 +325,8 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
   } catch (err) {
     previewError = err instanceof Error ? err.message : 'Default values must be valid JSON'
   }
+  sampleValues = Object.fromEntries(systemVariables.map((variable) => [variable.key, variable.sample]))
+  Object.assign(sampleValues, customTemplateValues(parseDefaultValues(value.defaultValues)))
   const previewSubject = renderWithSamples(value.subject || 'Untitled subject', sampleValues)
   const previewHtml = renderWithSamples(blocksToHtml(value.blocks), sampleValues)
 
@@ -289,6 +357,41 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
             <label className="block text-sm font-medium">Status<select className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.status} onChange={(event) => setField('status', event.target.value as TemplateStatus)}><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></label>
           </div>
           <label className="block text-sm font-medium">Description<textarea className="mt-1 min-h-20 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.description} onChange={(event) => setField('description', event.target.value)} /></label>
+          <section className="space-y-3 rounded-md border border-border bg-background p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="font-medium">System variables</h2>
+                <p className="text-xs text-muted-foreground">Filled automatically from the selected Operis company and linked people during email compose.</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {systemVariables.map((variable) => (
+                <span key={variable.key} className="rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium" title={variable.sample}>
+                  {'{{'}{variable.key}{'}}'}
+                </span>
+              ))}
+            </div>
+          </section>
+          <section className="space-y-3 rounded-md border border-border bg-background p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="font-medium">Custom accounting variables</h2>
+                <p className="text-xs text-muted-foreground">Define only values that come from accounting context, rules, or manual input. Sample values are preview-only.</p>
+              </div>
+              <Button type="button" size="sm" variant="secondary" onClick={addVariable}>Add variable</Button>
+            </div>
+            <div className="space-y-2">
+              {variableRows.length ? variableRows.map((variableName, index) => (
+                <div key={`${variableName}-${index}`} className="grid gap-2 md:grid-cols-[minmax(160px,1fr)_minmax(180px,1fr)_auto]">
+                  <input className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={variableName} onChange={(event) => updateVariableName(index, event.target.value)} placeholder="quarterLabel" />
+                  <input className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={String(parseDefaultValues(value.defaultValues)[variableName] ?? '')} onChange={(event) => updateVariableSample(variableName, event.target.value)} placeholder="Sample preview value" />
+                  <Button type="button" size="sm" variant="ghost" onClick={() => removeVariable(index)}>Remove</Button>
+                </div>
+              )) : (
+                <div className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">No custom variables yet. Use system variables for company/contact data, or add accounting fields like quarterLabel and deadlineDate.</div>
+              )}
+            </div>
+          </section>
           <label className="block text-sm font-medium">Subject
             <div className="mt-1 flex gap-2">
               <input ref={subjectInputRef} className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.subject} onChange={(event) => setField('subject', event.target.value)} required />
@@ -340,8 +443,8 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
           </section>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="block text-sm font-medium">Variables<input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.variables} onChange={(event) => setField('variables', event.target.value)} placeholder="clientName, deadlineDate" /></label>
-            <label className="block text-sm font-medium">Accounting fields<input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.fields} onChange={(event) => setField('fields', event.target.value)} placeholder="clientName, deadlineDate" /></label>
+            <label className="block text-sm font-medium">Custom variables CSV<input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.variables} onChange={(event) => setField('variables', event.target.value)} placeholder="quarterLabel, deadlineDate" /><span className="mt-1 block text-xs text-muted-foreground">Advanced: synced with the custom variable rows above.</span></label>
+            <label className="block text-sm font-medium">Accounting fields<input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.fields} onChange={(event) => setField('fields', event.target.value)} placeholder="quarterLabel, deadlineDate" /></label>
           </div>
           <label className="block text-sm font-medium">Workflow key<input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.workflowKey} onChange={(event) => setField('workflowKey', event.target.value)} /></label>
           <div className="grid gap-4 md:grid-cols-2">

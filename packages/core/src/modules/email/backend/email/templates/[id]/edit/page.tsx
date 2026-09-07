@@ -14,6 +14,8 @@ import {
   blocksToHtml,
   buildTemplateBlocks,
   createBlock,
+  customTemplateValues,
+  customTemplateVariables,
   parseJsonObject,
   splitCsv,
 } from '../../_components/TemplateBuilderForm'
@@ -107,7 +109,7 @@ function toForm(record: EmailTemplateRecord): EditTemplateForm {
     status: record.status,
     subject: record.subject,
     preheader: record.preheader ?? '',
-    variables: variables.join(', '),
+    variables: customTemplateVariables(variables.join(', ')).join(', '),
     fields: fields.join(', '),
     defaultValues: JSON.stringify(defaultValues, null, 2),
     rules: JSON.stringify(rules, null, 2),
@@ -120,7 +122,7 @@ function toForm(record: EmailTemplateRecord): EditTemplateForm {
 }
 
 function buildPayload(form: EditTemplateForm, id: string) {
-  const variables = splitCsv(form.variables)
+  const variables = customTemplateVariables(form.variables)
   const fields = splitCsv(form.fields)
   const defaultValues = parseJsonObject(form.defaultValues, 'Default values')
   const rules = parseJsonObject(form.rules, 'Rules')
@@ -146,7 +148,7 @@ function buildPayload(form: EditTemplateForm, id: string) {
       migratedFrom: 'pca-accounting',
       sourceTemplateId: form.templateKey.trim() || null,
       fields,
-      defaultValues: Object.fromEntries(Object.entries(defaultValues).map(([key, value]) => [key, String(value)])),
+      defaultValues: customTemplateValues(defaultValues),
       rules,
       sortOrder: Number.isFinite(sortOrder) && sortOrder >= 0 ? sortOrder : 0,
       isActive: form.isActive && form.status !== 'archived',
