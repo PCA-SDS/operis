@@ -2,21 +2,37 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ChevronRight, Pin, Users } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
+import { ArrowLeft, ChevronRight, Paperclip, Pin, Search, Users } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { tCount } from './plurals'
+import { useTCount } from './plurals'
 import type { ChatMessageDto } from '../data/types'
 import { MessageComposer, type MentionCandidate } from './MessageComposer'
-import { MessageList, type PendingMessage } from './MessageList'
-import { PinnedMessagesPanel } from './PinnedMessagesPanel'
+import { useChatAttachments } from './useChatAttachments'
+import { MessageList, MessageListSkeleton, type PendingMessage } from './MessageList'
+import { PinnedMessagesList } from './PinnedMessagesList'
+import { ConversationSearchBar } from './ConversationSearchBar'
+import { highlightPlan, parseSearchQuery } from '../lib/searchQuery'
+import { SharedResourcesList } from './SharedResourcesList'
+import { ChatContextPanel } from './ChatContextPanel'
+import {
+  clampPanelWidth,
+  minimumSplitWidth,
+  useContainerWidth,
+  type ChatContextPanelState,
+} from './contextPanel'
+import { TranslateControl } from './TranslateControl'
 import { SpaceDetailsDialog } from './SpaceDetailsDialog'
 import {
   useCanSendChat,
+  useChatLocale,
+  useChatTranslation,
   useConversation,
   useMarkRead,
   useMessageEngagement,
@@ -37,6 +53,14 @@ export type ConversationViewProps = {
   currentUserId: string
   /** Rendered on narrow viewports, where the list and the conversation are separate screens. */
   showBackToList?: boolean
+  /**
+   * The contextual region's state, owned by `ChatShell`.
+   *
+   * Held above this component's `key` on purpose: a conversation switch
+   * remounts the view, and a panel the reader opened should survive that and
+   * re-point at the new conversation rather than vanish (§18).
+   */
+  contextPanel: ChatContextPanelState
 }
 
 const logger = createLogger('chat').child({ component: 'ConversationView' })
@@ -46,6 +70,17 @@ const logger = createLogger('chat').child({ component: 'ConversationView' })
  * that the menu still feels live. The same window the member picker uses.
  */
 const MENTION_SEARCH_DEBOUNCE_MS = 250
+
+/**
+ * How much of a scrolled-back transcript whole-conversation mode keeps
+ * translated.
+ *
+ * Four pages at the 30-message page size, so a reader who scrolls back a little
+ * sees it follow them, and one who scrolls back a long way does not silently
+ * queue hundreds of inferences. Above the batch cap so the window is the
+ * product decision rather than a side effect of the request limit.
+ */
+const STICKY_TRANSLATION_WINDOW = 120
 
 function newClientMessageId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
@@ -63,8 +98,14 @@ function newClientMessageId(): string {
  * committed before the connection dropped is deduplicated server-side instead of
  * posting twice.
  */
-export function ConversationView({ conversationId, currentUserId, showBackToList }: ConversationViewProps) {
+export function ConversationView({
+  conversationId,
+  currentUserId,
+  showBackToList,
+  contextPanel,
+}: ConversationViewProps) {
   const t = useT()
+  const tc = useTCount()
   /**
    * The message the transcript is currently centred on.
    *
@@ -79,6 +120,7 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
   const {
     messages,
     isLoading: isLoadingMessages,
+    isFetching: isFetchingMessages,
     error: messagesError,
     hasOlder,
     isLoadingOlder,
@@ -91,7 +133,148 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
   const [pending, setPending] = React.useState<PendingMessage[]>([])
   const [replyTarget, setReplyTarget] = React.useState<ReplyTarget | null>(null)
   const [detailsOpen, setDetailsOpen] = React.useState(false)
-  const [pinsOpen, setPinsOpen] = React.useState(false)
+  const chatLocale = useChatLocale()
+  /**
+   * Whole-conversation mode. Sticky per conversation: a one-shot covering only
+   * what is on screen would look broken the moment the reader scrolled back, or
+   * a new message arrived untranslated beside translated ones.
+   */
+  const [translateAll, setTranslateAll] = React.useState(false)
+  React.useEffect(() => setTranslateAll(false), [conversationId])
+  /**
+   * Only user messages: joins, renames and the rest are system copy the product
+   * already renders in the interface language.
+   */
+  const translatableIds = React.useMemo(
+    () =>
+      translateAll
+        ? messages
+            .filter((message) => message.kind === 'user')
+            // Sticky means "keep up with the transcript", not "translate the
+            // archive". Without a bound, scrolling to the top of a long
+            // conversation translated every message in it — each page a real
+            // request against a CPU-bound engine, for history the reader
+            // scrolled past rather than read. The window is the newest
+            // messages, which is where a reader following a conversation
+            // actually is; anything older stays one click away on its own row.
+            .slice(-STICKY_TRANSLATION_WINDOW)
+            .map((message) => message.id)
+        : null,
+    [translateAll, messages],
+  )
+  const translation = useChatTranslation(conversationId, chatLocale.locale, translatableIds)
+
+  const [searchOpen, setSearchOpen] = React.useState(false)
+
+  /**
+   * The contextual region beside the transcript, and how wide it is.
+   *
+   * One region for both tools rather than one each: opening Shared while Pins
+   * is showing swaps the contents and keeps the width, so the reader never ends
+   * up with two narrow columns competing with the conversation for the same
+   * space (§47).
+   */
+  const [splitRef, splitWidth] = useContainerWidth<HTMLDivElement>()
+  /**
+   * Whether a split is possible at all — asked of the container rather than of
+   * the viewport. The conversation rail appears at `lg`, the browser can be
+   * zoomed, and neither of those is a window width. Below this the same content
+   * opens as a drawer instead.
+   *
+   * `splitWidth === 0` is the first paint, before the observer has measured;
+   * assuming a split then would flash a two-pane layout on a phone.
+   */
+  const canSplit = splitWidth > 0 && splitWidth >= minimumSplitWidth()
+  // Fitted on every render: a width stored on a wide monitor must not survive
+  // literally into a narrow window, which is how a saved preference turns into
+  // a horizontal scrollbar (§9).
+  const panelWidth = clampPanelWidth(contextPanel.width, splitWidth)
+
+  /**
+   * Bring a message into view, loading its window first if it is not on screen.
+   *
+   * Lifted out of the pin panel's prop so search and the Shared panel use the
+   * identical path: a result from three years ago and a pin from three years
+   * ago are the same problem, and solving it twice would mean two behaviours
+   * to keep in step.
+   */
+  const jumpToMessage = React.useCallback(
+    (messageId: string, options?: { focus?: boolean; flash?: boolean }) => {
+      if (!messages.some((message) => message.id === messageId)) {
+        setAnchorMessageId(messageId)
+      }
+      // Held in a ref rather than in state because the re-assert below fires
+      // later, once the anchored window has loaded, and has to land the same way
+      // the original request asked for — silently focusing there would undo the
+      // whole point for a jump that came from someone typing.
+      jumpShouldFocus.current = options?.focus ?? true
+      jumpShouldFlash.current = options?.flash ?? true
+      setJumpTarget(messageId)
+    },
+    [messages],
+  )
+
+  /**
+   * Following a row in the contextual region to the message it points at.
+   *
+   * Split and drawer want opposite things here. Side by side, the transcript is
+   * already visible, so the panel stays open and keeps the caret — that is what
+   * makes it possible to walk a list of pins one after another instead of
+   * reopening the panel between each (§28). As a drawer it is covering the
+   * conversation, so landing on a message behind it is not landing at all: it
+   * closes, and the message takes focus the way it does from search (§29).
+   */
+  const handlePanelJump = React.useCallback(
+    (messageId: string) => {
+      if (canSplit) {
+        jumpToMessage(messageId, { focus: false, flash: true })
+        return
+      }
+      contextPanel.close()
+      jumpToMessage(messageId)
+    },
+    [canSplit, contextPanel, jumpToMessage],
+  )
+
+  /**
+   * Cmd/Ctrl+F opens the conversation find bar.
+   *
+   * Scoped to this view rather than bound globally, and it only takes over the
+   * browser's own find when a conversation is actually open — searching a
+   * transcript is what someone means by "find" here, and the browser can only
+   * see the page of history that happens to be loaded.
+   */
+  React.useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'f') return
+      event.preventDefault()
+      setSearchOpen(true)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  // A different conversation is a different search.
+  React.useEffect(() => setSearchOpen(false), [conversationId])
+
+  /**
+   * The message a search result named, if this conversation was opened at one.
+   *
+   * The id arrives as `?message=`, which is what lets a result from the
+   * cross-conversation search open the right thread AND the right point in it
+   * — through a real navigation, so back works and the link can be shared.
+   */
+  const searchParams = useSearchParams()
+  const requestedMessageId = searchParams?.get('message') ?? null
+  /**
+   * Files staged for the message being written.
+   *
+   * Keyed on the conversation, so switching away aborts anything still
+   * uploading and empties the strip — a file chosen in one conversation must
+   * never ride out on a message to another (§79).
+   */
+  const draftAttachments = useChatAttachments(conversationId)
+
   /**
    * A message to bring into view once it is loaded.
    *
@@ -100,6 +283,25 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
    * it, and only then is there something to scroll to.
    */
   const [jumpTarget, setJumpTarget] = React.useState<string | null>(null)
+  /** Whether the pending jump should take focus; see `jumpToMessage`. */
+  const jumpShouldFocus = React.useRef(true)
+  /** Whether the pending jump should flash the row; see `jumpToMessage`. */
+  const jumpShouldFlash = React.useRef(true)
+
+  /**
+   * What the open find bar wants marked in the transcript.
+   *
+   * Terms rather than ranges: the transcript renders messages the search
+   * response never mentioned, and they have to mark the same words.
+   */
+  const [searchState, setSearchState] = React.useState<{
+    query: string
+    currentMessageId: string | null
+  }>({ query: '', currentMessageId: null })
+  const searchHighlight = React.useMemo(
+    () => (searchState.query ? highlightPlan(parseSearchQuery(searchState.query)) : undefined),
+    [searchState.query],
+  )
 
   /**
    * A conversation switch must not carry the previous one's unsent drafts — or
@@ -114,10 +316,48 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
     setPending([])
     setReplyTarget(null)
     setDetailsOpen(false)
-    setPinsOpen(false)
-    setJumpTarget(null)
-    setAnchorMessageId(null)
-  }, [conversationId])
+    // The contextual region is deliberately NOT closed here. It is scoped to
+    // whichever conversation is open, not owned by one, so switching re-points
+    // it rather than dismissing it — closing a panel the reader opened, every
+    // time they moved between conversations, made it useless for the one job it
+    // has: comparing what was pinned here with what was pinned there (§18).
+    // Its state lives in `ChatShell`, above this component's `key`, which is
+    // what lets it survive the remount a switch causes.
+    // Where to land is part of the same decision as what to clear, so it is
+    // resolved here rather than in an effect of its own. As two effects the
+    // reset ran second on mount and wiped the jump the URL had just asked for,
+    // and a shared link opened at the bottom of the conversation instead of at
+    // its message. Keyed on the id, so it fires when the destination changes
+    // and not on every render — re-running would drag the reader back each
+    // time they scrolled away from it.
+    // Arriving from a link, nothing else holds the caret, so landing takes it.
+    jumpShouldFocus.current = true
+    jumpShouldFlash.current = true
+    setJumpTarget(requestedMessageId)
+    setAnchorMessageId(requestedMessageId)
+  }, [conversationId, requestedMessageId])
+
+  /**
+   * Land again once the window we asked for has arrived.
+   *
+   * Opening at a message sets an anchor and a jump together, but the jump is
+   * applied to whatever is on screen at that moment — the tail, usually, still
+   * cached from the conversation list. Loading the window around the message
+   * then replaces every row, and a transcript whose rows all vanished counts as
+   * scrolled to the bottom, so the follow-the-bottom rule takes the reader back
+   * down. The first landing is real but lands on rows that are about to be
+   * discarded; this is the one the reader actually sees.
+   *
+   * Keyed on the arrival rather than on `messages`, so paging further back
+   * afterwards does not drag them here again.
+   */
+  const anchorLanded =
+    Boolean(anchorMessageId) &&
+    !isFetchingMessages &&
+    messages.some((message) => message.id === anchorMessageId)
+  React.useEffect(() => {
+    if (anchorLanded) setJumpTarget(anchorMessageId)
+  }, [anchorLanded, anchorMessageId])
 
   const confirmedIds = React.useMemo(
     () => new Set(messages.map((message) => message.clientMessageId).filter(Boolean) as string[]),
@@ -157,9 +397,14 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
     unreadSinceRef.current?.id === conversationId ? unreadSinceRef.current.value : undefined
 
   const deliver = React.useCallback(
-    async (clientMessageId: string, body: string, replyToMessageId?: string) => {
+    async (
+      clientMessageId: string,
+      body: string,
+      replyToMessageId?: string,
+      attachmentIds?: string[],
+    ) => {
       try {
-        await sendMessage.mutateAsync({ body, clientMessageId, replyToMessageId })
+        await sendMessage.mutateAsync({ body, clientMessageId, replyToMessageId, attachmentIds })
         setPending((current) => current.filter((item) => item.clientMessageId !== clientMessageId))
       } catch (error) {
         setPending((current) =>
@@ -179,6 +424,9 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
       // Captured before the state is cleared, so the retry below still knows
       // what this message was replying to even though the composer has moved on.
       const replyToMessageId = replyTarget?.messageId
+      // Read before the strip is cleared, for the same reason as the reply
+      // target: the send is in flight after the composer has moved on.
+      const attachmentIds = draftAttachments.readyIds
       setPending((current) => [
         ...current,
         {
@@ -198,11 +446,16 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
       // The bubble owns the message from here: a rejection flips it to `failed`
       // and the retry there reuses this same `clientMessageId`. The rejection is
       // already represented in the UI, so it is logged rather than re-thrown.
-      void deliver(clientMessageId, body, replyToMessageId).catch((err: unknown) => {
+      // Cleared with the reply target and for the same reason: the message owns
+      // these files now, and leaving them in the strip would invite the next
+      // message to carry them a second time.
+      draftAttachments.clear()
+
+      void deliver(clientMessageId, body, replyToMessageId, attachmentIds).catch((err: unknown) => {
         logger.warn('Sending a chat message failed', { conversationId, clientMessageId, err })
       })
     },
-    [conversationId, deliver, replyTarget],
+    [conversationId, deliver, draftAttachments, replyTarget],
   )
 
   const handleRetryPending = React.useCallback(
@@ -292,10 +545,18 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
    * — left a phone user on a broken conversation with no back button, no list,
    * and a "Try again" that for a 404 can never succeed.
    */
+  // The header and the find bar are one unit: the bar sits under the header
+  // and above the transcript, and every branch below renders `header` — so
+  // grouping them here means search appears in the loading and error states
+  // too, rather than vanishing the moment a refetch fails.
   const header = (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
+    <>
+      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
+      {/* 32px, like every other control in this header. It is the only one a
+          narrow screen shows alongside the title, so at 28px it was the odd
+          size out on exactly the viewport where touch targets matter most. */}
       {showBackToList ? (
-        <IconButton variant="ghost" size="sm" asChild className="lg:hidden">
+        <IconButton variant="ghost" size="default" asChild className="lg:hidden">
           <Link href="/backend/chat" aria-label={t('chat.conversation.back', 'Back to conversations')}>
             <ArrowLeft className="size-4" aria-hidden="true" />
           </Link>
@@ -325,7 +586,7 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
                   it too would leave the pane unlabelled. */}
               {conversationError ? null : isSpace && conversation ? (
                 <span className="block truncate text-xs text-muted-foreground">
-                  {tCount(t, 'chat.space.memberCount', conversation.memberCount, '{count} members')}
+                  {tc('chat.space.memberCount', conversation.memberCount, '{count} members')}
                 </span>
               ) : conversation?.counterpart ? (
                 <span className="block truncate text-xs text-muted-foreground">
@@ -369,40 +630,118 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
       {/* Pushes the pin control to the trailing edge, away from the identity. */}
       <span className="flex-1" />
 
+      {/* `size="default"` is 32px, the height every other control in this row
+          already has. At `sm` this one alone was 28px, so its hover target was
+          visibly smaller than its neighbours'. */}
+      {conversation ? (
+        <IconButton
+          variant="ghost"
+          size="default"
+          onClick={() => setSearchOpen((open) => !open)}
+          aria-expanded={searchOpen}
+          aria-label={t('chat.search.openInConversation', 'Search this conversation')}
+        >
+          <Search className="size-4" aria-hidden="true" />
+        </IconButton>
+      ) : null}
+
+      {conversation ? (
+        <TranslateControl
+          locale={chatLocale.locale}
+          translatableLocales={chatLocale.translatableLocales}
+          // Choosing a language only records the choice. Re-translating the
+          // transcript into it is the sticky mode's job, and doing it here as
+          // well raced the mode: both paths asked for the same messages, and
+          // whichever answered second wrote the other language's words.
+          onLocaleChange={(next) => chatLocale.setLocale.mutate(next)}
+          active={translateAll}
+          busy={translation.pending.size > 0}
+          onToggle={(next) => {
+            setTranslateAll(next)
+            if (!next) for (const message of messages) translation.showOriginal(message.id)
+          }}
+        />
+      ) : null}
+
       {/* Only when there is something to show. At zero this is not rendered
           rather than rendered disabled: the panel's whole job is to answer
           "what has been pinned here", and a control that opens an empty answer
           is the dead end it exists to avoid. */}
+      {/* Beside pins, not buried in a menu: both answer "where did that go?",
+          and the panel is the only route back to a resource shared months ago. */}
+      {/* Icon-only, like the search control beside it, so the same primitive
+          at the same size — the two were a `Button` and an `IconButton` at two
+          different heights. Pins keeps `Button` because it shows a count. */}
+      <IconButton
+        type="button"
+        variant="ghost"
+        size="default"
+        className="shrink-0 text-muted-foreground"
+        onClick={() => contextPanel.toggle('shared')}
+        aria-pressed={contextPanel.kind === 'shared'}
+        aria-label={t('chat.shared.open', 'Shared files and links')}
+        title={t('chat.shared.open', 'Shared files and links')}
+      >
+        <Paperclip className="size-4" aria-hidden="true" />
+      </IconButton>
       {conversation && conversation.pinnedCount > 0 ? (
         <Button
           type="button"
           variant="ghost"
           size="sm"
           className="shrink-0 gap-1.5 text-muted-foreground"
-          onClick={() => setPinsOpen(true)}
+          onClick={() => contextPanel.toggle('pins')}
+          aria-pressed={contextPanel.kind === 'pins'}
         >
           <Pin className="size-4" aria-hidden="true" />
           <span className="tabular-nums">{conversation.pinnedCount}</span>
           <span className="sr-only">{t('chat.pins.open', 'View pinned messages')}</span>
         </Button>
       ) : null}
-    </header>
+      </header>
+      {searchOpen && conversation ? (
+        <ConversationSearchBar
+          conversationId={conversationId}
+          onJumpToMessage={jumpToMessage}
+          onSearchStateChange={setSearchState}
+          onClose={() => setSearchOpen(false)}
+        />
+      ) : null}
+    </>
   )
 
+  /**
+   * The transcript column's contents for whichever state this conversation is
+   * in. Kept as values rather than early returns so the split row and the
+   * contextual region below wrap all three: returning early skipped them, so a
+   * conversation switch collapsed the panel while the next one loaded and then
+   * reopened it, which is the jump §13 and §14 exist to prevent.
+   */
+  let body: React.ReactNode
   if (isLoadingConversation) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
+    body = (
+      <>
         {header}
-        <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-          <LoadingMessage label={t('chat.conversation.loading', 'Loading conversation…')} />
-        </div>
-      </div>
-    )
-  }
+        {/* The transcript's own silhouette, not a centred spinner. A spinner in
+            the middle of an empty pane says "something is happening somewhere";
+            bubbles in the place bubbles will appear say what is coming, and the
+            composer stays put instead of arriving late and shifting the page.
 
-  if (conversationError || !conversation) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
+            `sr-only` carries the announcement the spinner used to make -- the
+            skeletons are decoration, and `Skeleton` is already a polite live
+            region, so the label is what a screen reader should hear. */}
+        <span className="sr-only" role="status">
+          {t('chat.conversation.loading', 'Loading conversation…')}
+        </span>
+        <MessageListSkeleton />
+        <div className="px-4 py-3">
+          <Skeleton className="h-11 w-full rounded-xl" />
+        </div>
+      </>
+    )
+  } else if (conversationError || !conversation) {
+    body = (
+      <>
         {header}
         <div className="flex min-h-0 flex-1 items-center justify-center p-6">
           <ErrorMessage
@@ -425,13 +764,12 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
             }
           />
         </div>
-      </div>
+      </>
     )
-  }
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {header}
+  } else {
+    body = (
+      <>
+        {header}
 
       {messagesError && messages.length === 0 ? (
         <div className="p-4">
@@ -446,9 +784,18 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
         </div>
       ) : (
         <MessageList
+          translations={translation.translations}
+          showingTranslation={translation.showing}
+          pendingTranslation={translation.pending}
+          onTranslate={(messageId) => void translation.translate([messageId])}
+          onShowOriginal={translation.showOriginal}
           isAnchored={Boolean(anchorMessageId)}
           onReturnToLatest={() => setAnchorMessageId(null)}
           jumpToMessageId={jumpTarget}
+          jumpShouldFocus={jumpShouldFocus.current}
+          jumpShouldFlash={jumpShouldFlash.current}
+          searchHighlight={searchHighlight}
+          currentSearchMessageId={searchState.currentMessageId}
           onJumpHandled={() => setJumpTarget(null)}
           onToggleReaction={
             canSend ? (messageId, emoji) => toggleReaction.mutate({ messageId, emoji }) : undefined
@@ -476,6 +823,10 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
       )}
 
       <MessageComposer
+        attachments={draftAttachments.items}
+        onAttachFiles={draftAttachments.add}
+        onRemoveAttachment={draftAttachments.remove}
+        onRetryAttachment={draftAttachments.retry}
         disabled={counterpartLeft || !canSend}
         onSend={handleSend}
         replyTarget={replyTarget}
@@ -491,40 +842,64 @@ export function ConversationView({ conversationId, currentUserId, showBackToList
         }
       />
 
-      {/* Only when there is something to open. A control that leads to an empty
-          panel is the dead end the panel exists to avoid. */}
-      {conversation && conversation.pinnedCount > 0 ? (
-        <PinnedMessagesPanel
-          open={pinsOpen}
-          onClose={() => setPinsOpen(false)}
-          conversationId={conversationId}
-          canUnpin={canPin}
-          onJumpToMessage={(messageId) => {
-            // Already on screen: just scroll. Otherwise re-anchor the transcript
-            // around it first — the row has to exist before it can be scrolled
-            // to, and loading the whole history to find it is what the centred
-            // window exists to avoid.
-            if (!messages.some((message) => message.id === messageId)) {
-              setAnchorMessageId(messageId)
-            }
-            setJumpTarget(messageId)
-          }}
-        />
-      ) : null}
+        {/* Mounted only for a space, and only once the conversation has loaded —
+            it needs the title, the viewer's role and the member count, and there
+            is no meaningful skeleton for a panel nobody has opened yet. Kept
+            mounted across open/close after that, so Radix can restore focus to
+            the header button. */}
+        {isSpace && conversation ? (
+          <SpaceDetailsDialog
+            open={detailsOpen}
+            onClose={() => setDetailsOpen(false)}
+            conversation={conversation}
+            currentUserId={currentUserId}
+          />
+        ) : null}
+      </>
+    )
+  }
 
-      {/* Mounted only for a space, and only once the conversation has loaded —
-          it needs the title, the viewer's role and the member count, and there
-          is no meaningful skeleton for a panel nobody has opened yet. Kept
-          mounted across open/close after that, so Radix can restore focus to
-          the header button. */}
-      {isSpace && conversation ? (
-        <SpaceDetailsDialog
-          open={detailsOpen}
-          onClose={() => setDetailsOpen(false)}
-          conversation={conversation}
-          currentUserId={currentUserId}
-        />
-      ) : null}
+  return (
+    // The row is always here, panel or no panel. Mounting it conditionally
+    // would insert a wrapper between the transcript and its parent the moment
+    // the region opened, and React would treat the message list as a different
+    // element and remount it — losing its scroll position and every loaded page
+    // (§36). One stable row costs nothing and makes that impossible.
+    <div ref={splitRef} className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">{body}</div>
+
+      <ChatContextPanel
+        open={contextPanel.kind !== null}
+        split={canSplit}
+        title={
+          contextPanel.kind === 'shared'
+            ? t('chat.shared.title', 'Shared')
+            : t('chat.pins.title', 'Pinned messages')
+        }
+        width={panelWidth}
+        containerWidth={splitWidth}
+        onWidthChange={contextPanel.setWidth}
+        onResetWidth={contextPanel.resetWidth}
+        onClose={contextPanel.close}
+      >
+        {contextPanel.kind === 'shared' ? (
+          <SharedResourcesList
+            conversationId={conversationId}
+            active={contextPanel.kind === 'shared'}
+            onJumpToMessage={handlePanelJump}
+          />
+        ) : (
+          <PinnedMessagesList
+            conversationId={conversationId}
+            active={contextPanel.kind === 'pins'}
+            // `canSend` as well as `canPin`: the server requires both, so an
+            // unpin control shown without it is a button that answers 403 — the
+            // dead end this panel is supposed to remove (§66).
+            canUnpin={canSend && canPin}
+            onJumpToMessage={handlePanelJump}
+          />
+        )}
+      </ChatContextPanel>
     </div>
   )
 }

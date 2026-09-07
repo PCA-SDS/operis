@@ -157,11 +157,14 @@
   "common.export": "Eksportuj",
   "common.inactive": "Nieaktywny",
   "common.language": "Język",
+  "common.languages.chinese": "中文",
   "common.languages.english": "Angielski",
+  "common.languages.french": "Français",
   "common.languages.german": "Niemiecki",
   "common.languages.korean": "Koreański",
   "common.languages.polish": "Polski",
   "common.languages.spanish": "Hiszpański",
+  "common.languages.vietnamese": "Tiếng Việt",
   "common.loading": "Ładowanie…",
   "common.no": "Nie",
   "common.none": "Brak",
@@ -628,6 +631,8 @@
   "products.edit.title": "Edytuj produkt",
   "profile.title": "Profil",
   "resources.messageObjects.resource.title": "Resource",
+  "resources.resourceAreas.types.campus": "Campus",
+  "resources.resourceAreas.types.section": "Sekcja",
   "rules.nav.group": "Reguły biznesowe",
   "rules.nav.logs": "Logi",
   "rules.nav.rules": "Reguły biznesowe",
@@ -1206,7 +1211,5 @@
   "vector.api.errors.purgeFailed": "Czyszczenie indeksu wektorowego nie powiodło się",
   "vector.api.errors.reindexFailed": "Ponowne indeksowanie wektorowe nie powiodło się",
   "vector.api.errors.searchFailed": "Wyszukiwanie wektorowe nie powiodło się",
-  "vector.api.errors.updateFailed": "Nie udało się zaktualizować ustawień wektorowych.",
-  "resources.resourceAreas.types.campus": "Campus",
-  "resources.resourceAreas.types.section": "Sekcja"
+  "vector.api.errors.updateFailed": "Nie udało się zaktualizować ustawień wektorowych."
 }

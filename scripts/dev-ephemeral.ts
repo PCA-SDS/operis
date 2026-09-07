@@ -328,11 +328,18 @@ function renderSplashHtml(): string {
     supportedLocales: ['en', 'pl', 'es', 'de', 'ko', 'vi', 'fr', 'zh'],
     defaultLocale: 'en',
     initialLocale: 'en',
+    // One label per entry in `supportedLocales` above: the splash falls back to
+    // the uppercased code when a label is missing, so an unlabelled locale
+    // renders as "VI" next to "Tiếng Việt". Mirrors scripts/dev.mjs.
     localeLabels: {
       en: 'English',
       pl: 'Polski',
       es: 'Español',
       de: 'Deutsch',
+      ko: '한국어',
+      vi: 'Tiếng Việt',
+      fr: 'Français',
+      zh: '中文',
     },
     codingFlow: codingFlow.getBootstrapPayload(),
   }).replace(/</g, '\\u003c')

@@ -133,6 +133,17 @@ export type ChatPinnedListDto = {
   total: number
 }
 
+/** See `lib/attachmentDto.ts`; re-exported so DTO consumers need one import. */
+export type ChatAttachmentDto = {
+  id: string
+  fileName: string
+  mimeType: string
+  fileSize: number
+  kind: 'media' | 'file'
+  status: 'pending' | 'ready' | 'rejected' | 'failed'
+  createdAt: string
+}
+
 export type ChatMessageDto = {
   id: string
   conversationId: string
@@ -168,6 +179,15 @@ export type ChatMessageDto = {
   mentionsEveryone: boolean
   /** Whether this message is pinned in its conversation. */
   pinned: boolean
+  /**
+   * Files carried by this message.
+   *
+   * Metadata only — never a storage path or a download URL. The id is the
+   * stable reference and the client asks for bytes through an authorized
+   * endpoint, so a transcript that is cached, logged or forwarded carries no
+   * means of reaching the file.
+   */
+  attachments: ChatAttachmentDto[]
 }
 
 export type ChatConversationListDto = {
@@ -204,3 +224,114 @@ export type ChatSendMessageResultDto = {
 export type ChatUnreadCountDto = {
   unreadCount: number
 }
+
+/** One message rendered into the reader's language. */
+export type ChatTranslationDto = {
+  messageId: string
+  /** Null when nothing was produced; `skipped` says why. */
+  body: string | null
+  sourceLocale: string | null
+  cached: boolean
+  skipped?:
+    | 'same-language'
+    | 'nothing-to-translate'
+    | 'unsupported-language'
+    | 'detection-declined'
+    | 'unavailable'
+    | 'overloaded'
+    | 'deadline-exceeded'
+    | 'mentions-unsafe'
+    | 'failed'
+}
+
+export type ChatTranslationListDto = { translations: ChatTranslationDto[] }
+
+export type ChatSettingsDto = {
+  /** ISO-639-1, or null to follow the interface language. */
+  translationLocale: string | null
+  /**
+   * What the engine registered on this deployment can translate into. Empty
+   * when none is configured. Every ISO-639-1 code stays choosable regardless —
+   * this is what the picker uses to say which choices will actually work.
+   */
+  translatableLocales: string[]
+}
+
+/** A run of the original body that matched, in original-string coordinates. */
+export type ChatSearchHighlight = { start: number; end: number }
+
+export type ChatSearchHitDto = {
+  messageId: string
+  conversationId: string
+  /** Null for a direct conversation, whose name is the other person. */
+  conversationTitle: string | null
+  conversationKind: 'direct' | 'space'
+  senderUserId: string
+  senderName: string
+  /** A window of the ORIGINAL text around the match, never the folded form. */
+  snippet: string
+  /** Ranges into `snippet`, so the caller highlights without re-deriving them. */
+  highlights: ChatSearchHighlight[]
+  truncatedStart: boolean
+  truncatedEnd: boolean
+  createdAt: string
+}
+
+export type ChatSearchResultDto = {
+  items: ChatSearchHitDto[]
+  nextCursor: string | null
+  hasMore: boolean
+  /** Accessible matches only, and capped — never a total over the whole corpus. */
+  total: number
+  totalIsCapped: boolean
+  /** False when the deployment lacks pg_trgm, so the UI can say so honestly. */
+  fuzzyAvailable: boolean
+}
+/** One entry in the Shared panel: a file, a piece of media, or a link. */
+export type ChatSharedFileDto = {
+  kind: 'file' | 'media'
+  attachmentId: string
+  messageId: string
+  fileName: string
+  mimeType: string
+  fileSize: number
+  uploaderUserId: string
+  uploaderName: string
+  createdAt: string
+}
+
+export type ChatSharedLinkDto = {
+  kind: 'link'
+  id: string
+  messageId: string
+  url: string
+  host: string
+  sharedByUserId: string
+  sharedByName: string
+  createdAt: string
+}
+
+export type ChatSharedEntryDto = ChatSharedFileDto | ChatSharedLinkDto
+
+export type ChatSharedResourcesDto = {
+  items: ChatSharedEntryDto[]
+  nextCursor: string | null
+  hasMore: boolean
+}
+
+/**
+ * The answer to "may I upload straight to storage?".
+ *
+ * `supported: false` is a normal answer, not a failure: the deployment's store
+ * cannot presign, and the client should use the multipart endpoint instead.
+ */
+export type ChatDirectUploadTicketDto =
+  | {
+      supported: true
+      uploadId: string
+      url: string
+      method: 'PUT'
+      headers: Record<string, string>
+      expiresAt: string
+    }
+  | { supported: false }

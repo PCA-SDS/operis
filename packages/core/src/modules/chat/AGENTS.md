@@ -22,6 +22,29 @@ second messaging engine for groups.
   oracle.
 - Validate a `replyToMessageId` against the conversation being posted to.
 
+## Translation
+
+- Translation is **per viewer**. It never alters the stored message and never
+  touches another reader's language. The reading language lives on
+  `chat_user_settings (user_id, organization_id)` and is separate from the UI
+  locale — French and Vietnamese have no interface translation and are exactly
+  the pairings the feature exists for.
+- **Never put a mention through the engine.** `segmentBody` splits the body at
+  `<@...>` and only the prose between is translated. This is not caution: PUA
+  markers were measured against the real M2M100 weights and survived generation
+  **zero times out of twelve**, and two or more of them drove the decoder into a
+  degenerate loop that replaced the message with repeated filler.
+- Detect **once per message**, on all of its prose joined, and assert that
+  source for every run. A single run of ordinary French measured 0.40 against
+  the detector and was declined while the whole message was unambiguous.
+- A cached row is only a hit when `source_hash` AND `pipeline_revision` match.
+  Change preprocessing and you MUST bump `PREPROCESSING_REVISION` in
+  `lib/translationGate.ts`, or readers keep the previous pipeline's output.
+- Never cache a transient failure. `same-language` is a stable outcome and is
+  cached; timeouts, overload and engine errors are not.
+- Every requested message gets an outcome. Do not drop unfinished items from the
+  response.
+
 ## Ask First
 
 - Ask before adding a third `kind`. Both existing kinds are load-bearing in the

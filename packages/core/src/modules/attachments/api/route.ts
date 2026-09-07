@@ -9,6 +9,7 @@ import { ensureDefaultPartitions, resolveDefaultPartitionCode, sanitizePartition
 import { Attachment, AttachmentPartition } from '../data/entities'
 import { extractAttachmentContent } from '../lib/textExtraction'
 import { requestOcrProcessing } from '../lib/ocrQueue'
+import { requestAttachmentScan } from '../lib/scanning/scanService'
 import { StorageDriverFactory } from '../lib/drivers'
 import { OcrService, shouldUseLlmOcr } from '../lib/ocrService'
 import { clearAttachmentThumbnailCache } from '../lib/thumbnailCache'
@@ -596,6 +597,19 @@ export async function POST(req: Request) {
       logger.error('Failed to compensate attachment persistence', { err: cleanupError })
     }
     return NextResponse.json({ error: 'Failed to save attachment attributes.' }, { status: 500 })
+  }
+
+  // Before anything else that touches the stored bytes. The row was written as
+  // `pending`, so it is unreadable until this settles — awaited rather than
+  // fired off, because a deployment without a scanner resolves inline and the
+  // uploader should get a usable file back from this request rather than one
+  // that is briefly and confusingly unavailable.
+  try {
+    await requestAttachmentScan(em, att, uploadDriver)
+  } catch (error) {
+    // The row stays `pending`, which is closed. An unscanned file being
+    // unreadable is the correct outcome of a scanner that could not be reached.
+    logger.error('Failed to start attachment scan', { attachmentId: att.id, err: error })
   }
 
   if (useLlmOcr) {

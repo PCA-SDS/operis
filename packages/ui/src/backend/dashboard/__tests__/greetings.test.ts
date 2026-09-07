@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { locales } from '@open-mercato/shared/lib/i18n/config'
 import {
   GREETINGS,
   formatGreeting,
@@ -10,7 +11,10 @@ import {
   type GreetingSlot,
 } from '../greetings'
 
-const LOCALES = ['en', 'pl', 'es', 'de', 'ko']
+// Read from the shared config, not a hand-kept copy: this is the only guard that
+// holds the dashboard greetings to "every app locale", and a hardcoded list
+// silently stops covering a locale the moment one is added to `locales`.
+const LOCALES = locales
 const SLOTS: GreetingSlot[] = ['morning', 'afternoon', 'evening', 'night']
 
 function readAppDictionary(locale: string): Record<string, string> {

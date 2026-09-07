@@ -160,6 +160,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'channel_apns', from: '@open-mercato/channel-apns' },
   { id: 'channel_expo', from: '@open-mercato/channel-expo' },
   { id: 'channel_fcm', from: '@open-mercato/channel-fcm' },
+  { id: 'translate_ctranslate2', from: '@open-mercato/translate-ctranslate2' },
   { id: 'sync_akeneo', from: '@open-mercato/sync-akeneo' },
   // One-shot TPS catalog importer. CLI only — no routes, no entities. Client
   // menu data lives in the package so core carries no single customer's catalogue.

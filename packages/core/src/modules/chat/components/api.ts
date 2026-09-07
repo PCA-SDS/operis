@@ -7,9 +7,15 @@ import { apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/backend/u
 import type {
   ChatConversationDto,
   ChatPinnedListDto,
+  ChatSettingsDto,
+  ChatTranslationListDto,
   ChatConversationListDto,
   ChatMemberListDto,
   ChatMessagePageDto,
+  ChatSearchResultDto,
+  ChatAttachmentDto,
+  ChatDirectUploadTicketDto,
+  ChatSharedResourcesDto,
   ChatParticipantRole,
   ChatSendMessageResultDto,
   ChatUnreadCountDto,
@@ -33,6 +39,30 @@ function jsonInit(method: string, body?: unknown): RequestInit {
     method,
     headers: { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+  }
+}
+
+export type ChatSearchParams = {
+  q: string
+  limit?: number
+  cursor?: string
+  /** Canonical user ids. Display names are ambiguous and not stable handles. */
+  senderUserIds?: string[]
+  after?: string
+  before?: string
+  pinnedOnly?: boolean
+}
+
+/** One place that knows the wire names, so the two search calls cannot drift. */
+function searchQueryParams(params: ChatSearchParams): Record<string, string | number | undefined> {
+  return {
+    q: params.q,
+    limit: params.limit,
+    cursor: params.cursor,
+    from: params.senderUserIds?.length ? params.senderUserIds.join(',') : undefined,
+    after: params.after,
+    before: params.before,
+    pinned: params.pinnedOnly ? 'true' : undefined,
   }
 }
 
@@ -89,6 +119,62 @@ export const chatApi = {
   listMessages: (id: string, params: { cursor?: string; limit?: number }, signal?: AbortSignal) =>
     readApiResultOrThrow<ChatMessagePageDto>(`${BASE}/conversations/${id}/messages${query(params)}`, { signal }),
 
+  /**
+   * Search one conversation. Scoped server-side; the id in the path is the
+   * whole scope, and a conversation the caller is not in answers 404.
+   */
+  searchConversation: (
+    id: string,
+    params: ChatSearchParams,
+    signal?: AbortSignal,
+  ) =>
+    readApiResultOrThrow<ChatSearchResultDto>(
+      `${BASE}/conversations/${id}/search${query(searchQueryParams(params))}`,
+      { signal },
+    ),
+
+  /** Search every conversation the caller currently belongs to. */
+  searchAllChats: (params: ChatSearchParams, signal?: AbortSignal) =>
+    readApiResultOrThrow<ChatSearchResultDto>(
+      `${BASE}/search${query(searchQueryParams(params))}`,
+      { signal },
+    ),
+
+  /**
+   * Ask whether this file may go straight to storage, and for the ticket if so.
+   *
+   * The answer may be `{ supported: false }`, which is not an error — it is the
+   * deployment saying its store cannot presign, and the caller should upload
+   * through the multipart endpoint instead.
+   */
+  requestDirectUpload: (
+    id: string,
+    body: { fileName: string; contentType: string; contentLength: number },
+    signal?: AbortSignal,
+  ) =>
+    readApiResultOrThrow<ChatDirectUploadTicketDto>(
+      `${BASE}/conversations/${id}/attachments/direct`,
+      { ...jsonInit('POST', body), signal },
+    ),
+
+  /** Tell the server the direct upload finished, so it can verify and record it. */
+  finalizeDirectUpload: (id: string, body: { uploadId: string }, signal?: AbortSignal) =>
+    readApiResultOrThrow<{ item: ChatAttachmentDto }>(
+      `${BASE}/conversations/${id}/attachments/direct`,
+      { ...jsonInit('PUT', body), signal },
+    ),
+
+  /** Files, media or links shared in a conversation, one page at a time. */
+  listSharedResources: (
+    id: string,
+    params: { kind: string; limit?: number; cursor?: string },
+    signal?: AbortSignal,
+  ) =>
+    readApiResultOrThrow<ChatSharedResourcesDto>(
+      `${BASE}/conversations/${id}/shared${query(params)}`,
+      { signal },
+    ),
+
   /** A window centred on one message — how pin navigation reaches history. */
   listMessagesAround: (id: string, around: string, signal?: AbortSignal) =>
     readApiResultOrThrow<ChatMessagePageDto>(
@@ -111,9 +197,30 @@ export const chatApi = {
       jsonInit(pinned ? 'POST' : 'DELETE'),
     )).result!,
 
+  translateMessages: async (conversationId: string, messageIds: string[], targetLocale: string) =>
+    (await apiCallOrThrow<ChatTranslationListDto>(
+      `${BASE}/conversations/${conversationId}/translate`,
+      jsonInit('POST', { messageIds, targetLocale }),
+    )).result!,
+
+  getChatSettings: (signal?: AbortSignal) =>
+    readApiResultOrThrow<ChatSettingsDto>(`${BASE}/settings`, { signal }),
+
+  setChatLocale: async (translationLocale: string | null) =>
+    (await apiCallOrThrow<ChatSettingsDto>(
+      `${BASE}/settings`,
+      jsonInit('PUT', { translationLocale }),
+    )).result!,
+
   sendMessage: async (
     id: string,
-    body: { body: string; clientMessageId?: string; replyToMessageId?: string },
+    body: {
+      body: string
+      clientMessageId?: string
+      replyToMessageId?: string
+      /** Staged attachment ids; the server validates each against its own row. */
+      attachmentIds?: string[]
+    },
   ) =>
     (await apiCallOrThrow<ChatSendMessageResultDto>(
       `${BASE}/conversations/${id}/messages`,

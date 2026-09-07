@@ -12,6 +12,7 @@ import { CreateSpaceDialog } from './CreateSpaceDialog'
 import { StartConversationDialog } from './StartConversationDialog'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useCanSendChat, useChatLiveRefresh, useConversations } from './hooks'
+import { railStandsDownForPanel, useChatContextPanel, useContainerWidth } from './contextPanel'
 
 export type ChatShellProps = {
   currentUserId: string
@@ -38,6 +39,39 @@ export function ChatShell({ currentUserId, conversationId, organizationId }: Cha
   const router = useRouter()
   const [startOpen, setStartOpen] = React.useState(false)
   const [createSpaceOpen, setCreateSpaceOpen] = React.useState(false)
+  /**
+   * The contextual region beside the transcript.
+   *
+   * Held here rather than inside `ConversationView`, which is keyed on the
+   * conversation id and so is destroyed on every switch. That alone is not
+   * enough: the App Router remounts this component too when the id in the path
+   * changes, which an integration test caught closing the panel on every move
+   * between conversations. What actually carries it across is a module binding
+   * inside `useChatContextPanel` — see the note there. This component is still
+   * the right owner, because the region belongs to the chat module rather than
+   * to any one conversation (§18, §49).
+   */
+  const contextPanel = useChatContextPanel()
+  // Destructured because the hook returns a fresh object each render; depending
+  // on the whole object would re-run the effect below on every render.
+  const { close: closeContextPanel } = contextPanel
+
+  /**
+   * Give the conversation the rail's width when that is what makes a split
+   * possible.
+   *
+   * On a laptop the module spends 256px on this rail before the conversation
+   * gets anything, which left too little for a transcript and a panel side by
+   * side — so opening pins covered the conversation instead of sitting beside
+   * it. Standing the rail down while the region is open buys back exactly the
+   * width needed, and it is the cheaper thing to lose: the conversation list is
+   * navigation you have already used to get here, while the transcript is what
+   * you are reading.
+   *
+   * Only when it actually helps. Where all three fit, all three stay.
+   */
+  const [shellRef, shellWidth] = useContainerWidth<HTMLDivElement>()
+  const railHidesForPanel = contextPanel.kind !== null && railStandsDownForPanel(shellWidth)
 
   /**
    * Hand focus back to the control that opened the dialog.
@@ -87,8 +121,14 @@ export function ChatShell({ currentUserId, conversationId, organizationId }: Cha
     // `null` is the pre-hydration default and the super-admin "all organizations"
     // selection; neither is a switch away from what the server rendered.
     if (activeOrganizationId === null || activeOrganizationId === organizationId) return
+    // Closed before the redirect, not after: the region is scoped to a
+    // conversation in the organization being left, and leaving it open would
+    // carry a panel titled for one tenant into another (§19). The data itself
+    // cannot cross — every chat query key is keyed on the scope version — but
+    // the open panel is UI state, and UI state has no such guard.
+    closeContextPanel()
     router.replace('/backend/chat')
-  }, [activeOrganizationId, conversationId, organizationId, router])
+  }, [activeOrganizationId, closeContextPanel, conversationId, organizationId, router])
 
   const {
     conversations,
@@ -107,12 +147,19 @@ export function ChatShell({ currentUserId, conversationId, organizationId }: Cha
           same shape `TasksShell` uses for its rail and content. The rail is a
           panel in its own right, so it reads as navigation belonging to the
           module rather than a column inside the transcript. */}
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-6">
+      <div
+        ref={shellRef}
+        className={cn(
+          'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 lg:gap-6',
+          railHidesForPanel ? 'lg:grid-cols-[minmax(0,1fr)]' : 'lg:grid-cols-[16rem_minmax(0,1fr)]',
+        )}
+      >
         <aside
           aria-label={t('chat.nav.title', 'Chat')}
           className={cn(
             'min-h-0 flex-col lg:flex',
             conversationId ? 'hidden' : 'flex',
+            railHidesForPanel && 'lg:hidden',
           )}
         >
           <ConversationList
@@ -151,6 +198,7 @@ export function ChatShell({ currentUserId, conversationId, organizationId }: Cha
               conversationId={conversationId}
               currentUserId={currentUserId}
               showBackToList
+              contextPanel={contextPanel}
             />
           ) : (
             <div className="flex min-h-0 flex-1 items-center justify-center p-6">

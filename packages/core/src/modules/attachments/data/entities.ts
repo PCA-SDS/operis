@@ -48,6 +48,11 @@ export class AttachmentPartition {
   updatedAt: Date = new Date()
 }
 
+/**
+ * The scan lifecycle. `clean` is the only readable state.
+ */
+export type AttachmentScanStatus = 'pending' | 'clean' | 'infected' | 'failed'
+
 @Entity({ tableName: 'attachments' })
 // `quota-service.recalculate` runs `sum(file_size) where tenant_id = ?` under a
 // tenant-wide advisory lock on every upload, and the table had no tenant index —
@@ -56,7 +61,7 @@ export class AttachmentPartition {
 // sum with an index-only scan.
 @Index({ name: 'attachments_tenant_file_size_idx', properties: ['tenantId', 'fileSize'] })
 export class Attachment {
-  [OptionalProps]?: 'createdAt'
+  [OptionalProps]?: 'createdAt' | 'scanStatus'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -101,6 +106,40 @@ export class Attachment {
 
   @Property({ name: 'content', type: 'text', nullable: true })
   content: string | null = null
+
+  /**
+   * Where this file is in the malware-scan lifecycle.
+   *
+   * `pending` means uploaded but not yet cleared: the bytes are in storage and
+   * the row exists, but nothing may serve it. `clean` is the only state that
+   * reads. `infected` and `failed` both stay unreadable — a scanner that could
+   * not answer is not the same as a file that is safe, and treating it as such
+   * is the failure this column exists to prevent.
+   *
+   * Defaulted to `pending` so a new row is closed until something opens it.
+   * Rows that predate the column were backfilled to `clean` by the migration:
+   * they were readable before it existed, and retroactively quarantining every
+   * attachment in every module is not a security improvement anyone asked for.
+   */
+  // The supporting index is partial (`where scan_status <> 'clean'`) and owned by
+  // the migration: only the scan queue reads by status, and `clean` is nearly
+  // every row. A decorator index here would be a second, full-width index
+  // answering a question nobody asks.
+  @Property({ name: 'scan_status', type: 'text', default: 'pending' })
+  scanStatus: AttachmentScanStatus = 'pending'
+
+  /** When the scan reached its verdict; null while pending. */
+  @Property({ name: 'scanned_at', type: Date, nullable: true })
+  scannedAt?: Date | null
+
+  /**
+   * Which scanner answered, for operational triage.
+   *
+   * Deliberately not the scanner's own message: a verdict shown to a user must
+   * not describe the engine that produced it.
+   */
+  @Property({ name: 'scanner', type: 'text', nullable: true })
+  scanner?: string | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

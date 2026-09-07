@@ -157,11 +157,14 @@
   "common.export": "내보내기",
   "common.inactive": "비활성",
   "common.language": "언어",
+  "common.languages.chinese": "中文",
   "common.languages.english": "English",
+  "common.languages.french": "Français",
   "common.languages.german": "Deutsch",
   "common.languages.korean": "한국어",
   "common.languages.polish": "Polski",
   "common.languages.spanish": "Español",
+  "common.languages.vietnamese": "Tiếng Việt",
   "common.loading": "불러오는 중…",
   "common.no": "아니요",
   "common.none": "없음",
@@ -628,6 +631,8 @@
   "products.edit.title": "제품 수정",
   "profile.title": "프로필",
   "resources.messageObjects.resource.title": "리소스",
+  "resources.resourceAreas.types.campus": "캠퍼스",
+  "resources.resourceAreas.types.section": "섹션",
   "rules.nav.group": "비즈니스 규칙",
   "rules.nav.logs": "로그",
   "rules.nav.rules": "비즈니스 규칙",
@@ -1206,7 +1211,5 @@
   "vector.api.errors.purgeFailed": "벡터 인덱스 삭제에 실패했습니다",
   "vector.api.errors.reindexFailed": "벡터 재인덱싱에 실패했습니다",
   "vector.api.errors.searchFailed": "벡터 검색에 실패했습니다",
-  "vector.api.errors.updateFailed": "벡터 설정 업데이트에 실패했습니다.",
-  "resources.resourceAreas.types.campus": "캠퍼스",
-  "resources.resourceAreas.types.section": "섹션"
+  "vector.api.errors.updateFailed": "벡터 설정 업데이트에 실패했습니다."
 }

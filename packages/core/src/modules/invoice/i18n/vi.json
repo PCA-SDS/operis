@@ -1,0 +1,6 @@
+{
+  "invoice.errors.organization_required": "Organization context is required.",
+  "invoice.errors.tenant_required": "Tenant context is required.",
+  "invoice.search.badge.company": "Invoice company",
+  "invoice.search.badge.invoice": "Invoice"
+}

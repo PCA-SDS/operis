@@ -1,21 +1,49 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import type { OptionGroup, Option, Price, ServiceItem } from './data/types'
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
 
-const _dirname = path.dirname(fileURLToPath(import.meta.url))
-const localesDir = path.resolve(_dirname, './data/locales')
+/**
+ * Locales carried by the legacy TPS export. This is a property of the source
+ * data in `data/locales/`, not of the application's UI locale list, so it is
+ * deliberately not derived from `@open-mercato/shared/lib/i18n/config`.
+ */
+const TPS_LOCALES = ['en', 'fr', 'vi', 'zh'] as const
+type TpsLocale = (typeof TPS_LOCALES)[number]
 
-let localesData: Record<string, any> = {}
-try {
-  localesData = {
-    en: JSON.parse(fs.readFileSync(path.join(localesDir, 'en.json'), 'utf-8')),
-    fr: JSON.parse(fs.readFileSync(path.join(localesDir, 'fr.json'), 'utf-8')),
-    vi: JSON.parse(fs.readFileSync(path.join(localesDir, 'vi.json'), 'utf-8')),
-    zh: JSON.parse(fs.readFileSync(path.join(localesDir, 'zh.json'), 'utf-8'))
+/** A TPS locale file: nested groups of dot-addressable string entries. */
+type TpsLocaleDictionary = { [key: string]: string | TpsLocaleDictionary }
+
+const localesDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), './data/locales')
+
+/**
+ * Read with `fs` rather than `import ... with { type: 'json' }`: these commands
+ * run under plain Node through `packages/cli/dist/bin.js`, where an ESM JSON
+ * import without an import attribute throws `ERR_IMPORT_ATTRIBUTE_MISSING`.
+ *
+ * Loaded lazily and memoized so importing this module for its pure helpers
+ * (`slugifyTpsText`, `parseTpsPrice`, …) costs no file I/O.
+ */
+let localesData: Record<TpsLocale, TpsLocaleDictionary> | null = null
+
+function loadTpsLocales(): Record<TpsLocale, TpsLocaleDictionary> {
+  if (localesData) return localesData
+  const loaded = {} as Record<TpsLocale, TpsLocaleDictionary>
+  for (const locale of TPS_LOCALES) {
+    const filePath = path.join(localesDir, `${locale}.json`)
+    try {
+      loaded[locale] = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as TpsLocaleDictionary
+    } catch (err) {
+      // Never degrade to "no translations": the migration would report success
+      // while silently dropping every localized name, and the loss only shows
+      // up once someone switches locale in the storefront.
+      throw new Error(
+        `[internal] migrate_tps: failed to read TPS locale file ${filePath}: ${err instanceof Error ? err.message : String(err)}`,
+      )
+    }
   }
-} catch (e) {
-  console.warn('Failed to load locale JSON files', e)
+  localesData = loaded
+  return localesData
 }
 
 export function slugifyTpsText(text: string): string {
@@ -168,31 +196,38 @@ export function enumerateTpsOptionPaths(groups: OptionGroup[], currentPath: Opti
   return paths
 }
 
-function resolveKeyPath(obj: any, path: string): string | undefined {
-  try {
-    const val = path.split('.').reduce((acc, part) => acc && acc[part], obj)
-    return typeof val === 'string' ? val : undefined
-  } catch {
-    return undefined
+function resolveKeyPath(dictionary: TpsLocaleDictionary, keyPath: string): string | undefined {
+  let current: string | TpsLocaleDictionary | undefined = dictionary
+  for (const segment of keyPath.split('.')) {
+    if (typeof current !== 'object' || current === null) return undefined
+    if (!Object.prototype.hasOwnProperty.call(current, segment)) return undefined
+    current = current[segment]
   }
+  return typeof current === 'string' ? current : undefined
 }
 
-export function buildTranslationsPayload(fieldKeys: Record<string, string | undefined>): Record<string, Record<string, unknown>> {
-  const translations: Record<string, Record<string, unknown>> = {}
-  
-  for (const [locale, data] of Object.entries(localesData)) {
+/**
+ * Build an `entity_translations.translations` payload from TPS locale keys.
+ *
+ * `fieldKeys` maps a target entity column (`name`, `description`, …) to the key
+ * path in the TPS locale files. Locales resolving no field at all are omitted,
+ * so an entity with no localized copy produces `{}` and the caller can skip
+ * writing a translation row entirely.
+ */
+export function buildTranslationsPayload(
+  fieldKeys: Record<string, string | undefined>,
+): Record<string, Record<string, string>> {
+  const translations: Record<string, Record<string, string>> = {}
+
+  for (const [locale, dictionary] of Object.entries(loadTpsLocales())) {
     const localeContent: Record<string, string> = {}
     for (const [field, keyPath] of Object.entries(fieldKeys)) {
       if (!keyPath) continue
-      const val = resolveKeyPath(data, keyPath)
-      if (val) {
-        localeContent[field] = val
-      }
+      const value = resolveKeyPath(dictionary, keyPath)
+      if (value) localeContent[field] = value
     }
-    if (Object.keys(localeContent).length > 0) {
-      translations[locale] = localeContent
-    }
+    if (Object.keys(localeContent).length > 0) translations[locale] = localeContent
   }
-  
+
   return translations
 }

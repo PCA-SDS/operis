@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isValidIso639 } from '@open-mercato/shared/lib/i18n/iso639'
 import { MAX_REACTION_LENGTH, MAX_SPACE_TITLE_LENGTH } from './entities'
 
 export { MAX_REACTION_LENGTH, MAX_SPACE_TITLE_LENGTH }
@@ -141,8 +142,30 @@ export const chatMessageListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(MAX_MESSAGE_PAGE_SIZE).optional(),
 })
 
+/**
+ * The most attachment ids one message may name.
+ *
+ * The looser of the two product limits (media), because the array cannot tell
+ * media from files — the real per-kind check happens server-side once the rows
+ * are read and their true types are known.
+ */
+export const MAX_MESSAGE_ATTACHMENTS = 20
+
+/**
+ * The same normalisation as `messageBodySchema`, without the `min(1)`.
+ *
+ * A message may be text, an attachment, or both (§3), so "is there anything
+ * here" is a question about the whole payload and not about this field — the
+ * refinement below asks it once the attachments are also in view. Sending a
+ * file should not require typing a character first.
+ */
+const sendMessageBodySchema = z
+  .string()
+  .transform((value) => value.replace(/\r\n?/g, '\n').replace(CONTROL_CHARACTERS, '').trim())
+  .pipe(z.string().max(MAX_MESSAGE_LENGTH))
+
 export const chatSendMessageSchema = z.object({
-  body: messageBodySchema,
+  body: sendMessageBodySchema,
   /**
    * The message this replies to. Validated server-side against the conversation
    * it is being sent to — a client cannot make a message reference one from
@@ -154,7 +177,24 @@ export const chatSendMessageSchema = z.object({
    * server returns the message it already stored instead of posting twice.
    */
   clientMessageId: z.string().min(1).max(64).optional(),
-})
+  /**
+   * Drafts to carry on this message.
+   *
+   * Ids only. Everything else about the file — who staged it, which
+   * conversation, whether the scan cleared it — is read from the server's own
+   * row, because a client that could assert those could attach somebody else's
+   * file.
+   */
+  attachmentIds: z.array(z.string().uuid()).max(MAX_MESSAGE_ATTACHMENTS).optional(),
+}).refine(
+  (value) => value.body.length > 0 || (value.attachmentIds?.length ?? 0) > 0,
+  {
+    // Reported against `body` because that is the field a composer with nothing
+    // in it would highlight.
+    path: ['body'],
+    message: 'A message needs either text or an attachment.',
+  },
+)
 
 /**
  * A reaction is a single emoji, and nothing else.
@@ -206,3 +246,70 @@ export type ChatSendMessageInput = z.infer<typeof chatSendMessageSchema>
 export type ChatMarkReadInput = z.infer<typeof chatMarkReadSchema>
 export type ChatReactionInput = z.infer<typeof chatReactionSchema>
 export type ChatMessageContextQuery = z.infer<typeof chatMessageContextQuerySchema>
+
+/**
+ * How many messages one translate request may name.
+ *
+ * The header control asks for the loaded page in a single call rather than one
+ * request per message; a page is 30, and the ceiling leaves room for a longer
+ * one without letting a caller queue arbitrary work on the engine.
+ */
+export const MAX_TRANSLATE_BATCH = 60
+
+/**
+ * ISO-639-1, validated against the real table rather than the five UI locales.
+ * The languages colleagues write to each other in are not limited to the
+ * languages the interface ships in - which is the entire reason the reading
+ * language is a separate setting.
+ */
+const translationLocaleSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .refine((value) => isValidIso639(value), { message: 'Unknown language code' })
+
+export const chatTranslateSchema = z.object({
+  messageIds: z.array(z.string().uuid()).min(1).max(MAX_TRANSLATE_BATCH),
+  targetLocale: translationLocaleSchema,
+})
+
+export const chatSetLocaleSchema = z.object({
+  // Null clears the preference and falls back to the interface language.
+  translationLocale: translationLocaleSchema.nullable(),
+})
+
+export type ChatTranslateInput = z.infer<typeof chatTranslateSchema>
+export type ChatSetLocaleInput = z.infer<typeof chatSetLocaleSchema>
+
+/**
+ * Message search input.
+ *
+ * The query is bounded before it reaches the parser, so an oversized payload is
+ * refused by the schema rather than truncated somewhere downstream. Filters use
+ * canonical ids rather than display names: two colleagues may share a name, and
+ * a name is not a stable handle.
+ */
+export const MAX_SEARCH_QUERY_LENGTH = 256
+export const DEFAULT_SEARCH_PAGE_SIZE = 20
+export const MAX_SEARCH_PAGE_SIZE = 50
+/** Past this the exact number costs more to produce than it is worth. */
+export const SEARCH_COUNT_CAP = 500
+
+const searchFiltersSchema = z.object({
+  from: z
+    .string()
+    .transform((value) => value.split(',').map((id) => id.trim()).filter(Boolean))
+    .pipe(z.array(z.string().uuid()).max(20))
+    .optional(),
+  after: z.coerce.date().optional(),
+  before: z.coerce.date().optional(),
+  pinned: z.enum(['true', 'false']).optional(),
+})
+
+export const chatMessageSearchQuerySchema = searchFiltersSchema.extend({
+  q: z.string().trim().min(1).max(MAX_SEARCH_QUERY_LENGTH),
+  limit: z.coerce.number().int().min(1).max(MAX_SEARCH_PAGE_SIZE).optional(),
+  cursor: z.string().optional(),
+})
+
+export type ChatMessageSearchQuery = z.infer<typeof chatMessageSearchQuerySchema>
