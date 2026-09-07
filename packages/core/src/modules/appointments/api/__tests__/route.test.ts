@@ -40,7 +40,10 @@ describe('appointments staff create route', () => {
       translate: (_key: string, fallback?: string) => fallback ?? _key,
     })
     mockCreateRequestContainer.mockResolvedValue({
-      resolve: () => ({ fork: () => ({}) }),
+      resolve: (token: string) => {
+        if (token === 'catalogPricingService') return {}
+        return { fork: () => ({}) }
+      },
     })
     mockCreateAppointmentFromPublicIntake.mockReset()
     mockEmitAppointmentEvent.mockReset()
@@ -86,6 +89,7 @@ describe('appointments staff create route', () => {
         tenantId: '22222222-2222-4222-8222-222222222222',
         organizationId: '33333333-3333-4333-8333-333333333333',
       }),
+      { pricingService: {} },
     )
   })
 

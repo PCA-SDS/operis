@@ -10,6 +10,7 @@ import { Appointment } from '../data/entities'
 import { appointmentStaffCreateSchema } from '../data/validators'
 import { createAppointmentFromPublicIntake } from '../lib/intake'
 import { emitAppointmentEvent } from '../events'
+import type { CatalogPricingService } from '@open-mercato/core/modules/catalog/services/catalogPricingService'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -88,11 +89,16 @@ export async function POST(req: Request) {
     const body = appointmentStaffCreateSchema.parse(await req.json())
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
-    const result = await createAppointmentFromPublicIntake(em, {
-      ...body,
-      tenantId: auth.tenantId,
-      organizationId: auth.orgId,
-    })
+    const pricingService = container.resolve<CatalogPricingService>('catalogPricingService')
+    const result = await createAppointmentFromPublicIntake(
+      em,
+      {
+        ...body,
+        tenantId: auth.tenantId,
+        organizationId: auth.orgId,
+      },
+      { pricingService },
+    )
     try {
       await emitAppointmentEvent('appointments.appointment.created', {
         id: result.id,

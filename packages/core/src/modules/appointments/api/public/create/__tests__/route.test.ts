@@ -31,7 +31,10 @@ describe('appointments public create route', () => {
       translate: (_key: string, fallback?: string) => fallback ?? _key,
     })
     mockCreateRequestContainer.mockResolvedValue({
-      resolve: () => ({ fork: () => ({}) }),
+      resolve: (token: string) => {
+        if (token === 'catalogPricingService') return {}
+        return { fork: () => ({}) }
+      },
     })
     mockCreateAppointmentFromPublicIntake.mockReset()
     mockEmitAppointmentEvent.mockReset()

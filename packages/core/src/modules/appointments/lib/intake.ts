@@ -1,7 +1,10 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { findOrCreatePersonForIntake } from '@open-mercato/core/modules/customers/lib/personLookup'
-import { listBookableServicesForOrganization } from '@open-mercato/core/modules/catalog/lib/bookableServices'
+import {
+  listBookableServicesForOrganization,
+  type BookableServiceDeps,
+} from '@open-mercato/core/modules/catalog/lib/bookableServices'
 import { Appointment, AppointmentLine, AppointmentStatus } from '../data/entities'
 import { DEFAULT_PUBLIC_APPOINTMENT_STATUS_CODE } from '../data/constants'
 import { ensureSystemAppointmentStatuses } from '../setup'
@@ -24,6 +27,7 @@ function addMinutes(date: Date, minutes: number): Date {
 export async function createAppointmentFromPublicIntake(
   em: EntityManager,
   input: AppointmentPublicCreateInput,
+  deps: BookableServiceDeps,
 ): Promise<CreatedAppointmentResult> {
   const requestedStartAt = new Date(input.requestedStartAt)
   if (Number.isNaN(requestedStartAt.getTime())) {
@@ -43,10 +47,14 @@ export async function createAppointmentFromPublicIntake(
     phoneCountry: input.customer.phoneCountry,
   })
 
-  const bookable = await listBookableServicesForOrganization(em, {
-    tenantId: input.tenantId,
-    organizationId: input.organizationId,
-  })
+  const bookable = await listBookableServicesForOrganization(
+    em,
+    {
+      tenantId: input.tenantId,
+      organizationId: input.organizationId,
+    },
+    deps,
+  )
   const bookableById = new Map(bookable.map((service) => [service.id, service]))
 
   const resolvedLines = input.lines.map((line, index) => {

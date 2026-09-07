@@ -8,6 +8,7 @@ import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { appointmentPublicCreateSchema } from '../../../data/validators'
 import { createAppointmentFromPublicIntake } from '../../../lib/intake'
 import { emitAppointmentEvent } from '../../../events'
+import type { CatalogPricingService } from '@open-mercato/core/modules/catalog/services/catalogPricingService'
 
 export const metadata = {
   POST: { requireAuth: false },
@@ -29,7 +30,8 @@ export async function POST(req: Request) {
     const body = appointmentPublicCreateSchema.parse(await req.json())
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
-    const result = await createAppointmentFromPublicIntake(em, body)
+    const pricingService = container.resolve<CatalogPricingService>('catalogPricingService')
+    const result = await createAppointmentFromPublicIntake(em, body, { pricingService })
     try {
       await emitAppointmentEvent('appointments.appointment.created', {
         id: result.id,
