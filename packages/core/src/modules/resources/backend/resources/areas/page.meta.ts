@@ -1,6 +1,6 @@
 export const metadata = {
   requireAuth: true,
-  requireFeatures: ['resources.manage_resources'],
+  requireFeatures: ['resources.areas.view'],
   pageTitle: 'Resource Areas',
   pageTitleKey: 'resources.resourceAreas.page.title',
   pageGroup: 'Resource Planning',

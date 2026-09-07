@@ -26,9 +26,9 @@ const F = {
 
 const routeMetadata = {
   GET: { requireAuth: true, requireFeatures: ['resources.view'] },
-  POST: { requireAuth: true, requireFeatures: ['resources.manage_resources'] },
-  PUT: { requireAuth: true, requireFeatures: ['resources.manage_resources'] },
-  DELETE: { requireAuth: true, requireFeatures: ['resources.manage_resources'] },
+  POST: { requireAuth: true, requireFeatures: ['resources.area_types.manage'] },
+  PUT: { requireAuth: true, requireFeatures: ['resources.area_types.manage'] },
+  DELETE: { requireAuth: true, requireFeatures: ['resources.area_types.manage'] },
 }
 
 export const metadata = routeMetadata

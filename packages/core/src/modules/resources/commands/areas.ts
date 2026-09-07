@@ -8,7 +8,7 @@ import { resolveRedoSnapshot } from '@open-mercato/shared/lib/commands/redo'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { CrudIndexerConfig } from '@open-mercato/shared/lib/crud/types'
-import { ResourcesResourceArea, ResourcesResourceAreaType } from '../data/entities'
+import { ResourcesResource, ResourcesResourceArea, ResourcesResourceAreaType } from '../data/entities'
 import {
   resourcesResourceAreaCreateSchema,
   resourcesResourceAreaReorderSchema,
@@ -73,15 +73,64 @@ async function loadResourceAreaSnapshot(em: EntityManager, id: string): Promise<
   }
 }
 
+/**
+ * Load the parent an area is being attached to, refusing one that belongs to a
+ * different organization.
+ *
+ * `createResourceCommand` already enforces this for Resource -> Area; the same
+ * invariant has to hold one level up, or a caller can splice their own area
+ * under another organization's tree by passing its id.
+ */
+async function resolveParentAreaInScope(
+  em: EntityManager,
+  parentAreaId: string,
+  scope: { tenantId: string; organizationId: string },
+): Promise<ResourcesResourceArea> {
+  const parent = await em.findOne(ResourcesResourceArea, { id: parentAreaId, deletedAt: null })
+  if (!parent) throw new CrudHttpError(404, { error: 'Parent area not found.' })
+  if (parent.tenantId !== scope.tenantId || parent.organizationId !== scope.organizationId) {
+    throw new CrudHttpError(400, { error: 'Parent area does not belong to the same organization.' })
+  }
+  return parent
+}
+
+/**
+ * Resolve an area type within the caller's scope.
+ *
+ * `em.getReference()` never reads the row, so an unchecked id both accepts
+ * another tenant's area type — whose name the areas list then renders as
+ * `area_type_name` — and turns a non-existent id into a foreign-key 500 instead
+ * of a 404.
+ */
+async function resolveAreaTypeInScope(
+  em: EntityManager,
+  areaTypeId: string,
+  scope: { tenantId: string; organizationId: string },
+): Promise<ResourcesResourceAreaType> {
+  const areaType = await em.findOne(ResourcesResourceAreaType, { id: areaTypeId, deletedAt: null })
+  if (!areaType) throw new CrudHttpError(404, { error: 'Area type not found.' })
+  if (areaType.tenantId !== scope.tenantId || areaType.organizationId !== scope.organizationId) {
+    throw new CrudHttpError(400, { error: 'Area type does not belong to the same organization.' })
+  }
+  return areaType
+}
+
 async function checkCircularDependency(em: EntityManager, areaId: string, newParentId: string): Promise<void> {
   if (areaId === newParentId) throw new CrudHttpError(400, { error: 'Area cannot be its own parent.' })
+  // `seen` is what stops the walk when the stored hierarchy already contains a
+  // cycle that does not include `areaId` — two concurrent re-parents can each
+  // pass this check and then commit a loop, and without the guard every later
+  // update that walks through it spins forever. `computeHierarchyForAreas`
+  // makes the same allowance on the read side.
+  const seen = new Set<string>([areaId])
   let currentParentId: string | null | undefined = newParentId
   while (currentParentId) {
-    const parent: ResourcesResourceArea | null = await em.findOne(ResourcesResourceArea, { id: currentParentId })
-    if (!parent) break
-    if (parent.id === areaId) {
+    if (seen.has(currentParentId)) {
       throw new CrudHttpError(400, { error: 'Circular dependency detected in area parent hierarchy.' })
     }
+    seen.add(currentParentId)
+    const parent: ResourcesResourceArea | null = await em.findOne(ResourcesResourceArea, { id: currentParentId })
+    if (!parent) break
     currentParentId = parent.parentAreaId
   }
 }
@@ -150,10 +199,9 @@ const createResourceAreaCommand: CommandHandler<ResourcesResourceAreaCreateInput
 
     const em = (ctx.container.resolve('em') as EntityManager).fork()
 
-    if (parsed.parentAreaId) {
-      const parent = await em.findOne(ResourcesResourceArea, { id: parsed.parentAreaId })
-      if (!parent) throw new CrudHttpError(404, { error: 'Parent area not found.' })
-    }
+    const scope = { tenantId: parsed.tenantId, organizationId: parsed.organizationId }
+    if (parsed.parentAreaId) await resolveParentAreaInScope(em, parsed.parentAreaId, scope)
+    const areaType = parsed.areaTypeId ? await resolveAreaTypeInScope(em, parsed.areaTypeId, scope) : undefined
 
     const hasExplicitSortOrder = Boolean(rawInput && typeof rawInput === 'object' && 'sortOrder' in rawInput)
     const sortOrder = hasExplicitSortOrder
@@ -169,7 +217,7 @@ const createResourceAreaCommand: CommandHandler<ResourcesResourceAreaCreateInput
       organizationId: parsed.organizationId,
       name: parsed.name,
       description: parsed.description ?? null,
-      areaType: parsed.areaTypeId ? em.getReference(ResourcesResourceAreaType, parsed.areaTypeId) : undefined,
+      areaType,
       parentAreaId: parsed.parentAreaId ?? null,
       sortOrder,
       appearanceIcon: parsed.appearanceIcon ?? null,
@@ -335,8 +383,10 @@ const updateResourceAreaCommand: CommandHandler<ResourcesResourceAreaUpdateInput
     if (parentChanged) {
       if (parsed.parentAreaId) {
         await checkCircularDependency(em, record.id, parsed.parentAreaId)
-        const parent = await em.findOne(ResourcesResourceArea, { id: parsed.parentAreaId, deletedAt: null })
-        if (!parent) throw new CrudHttpError(404, { error: 'Parent area not found.' })
+        await resolveParentAreaInScope(em, parsed.parentAreaId, {
+          tenantId: record.tenantId,
+          organizationId: record.organizationId,
+        })
       }
       record.parentAreaId = parsed.parentAreaId
       if (parsed.sortOrder === undefined) {
@@ -350,7 +400,14 @@ const updateResourceAreaCommand: CommandHandler<ResourcesResourceAreaUpdateInput
 
     if (parsed.name !== undefined) record.name = parsed.name
     if (parsed.description !== undefined) record.description = parsed.description ?? null
-    if (parsed.areaTypeId !== undefined) record.areaType = parsed.areaTypeId ? em.getReference(ResourcesResourceAreaType, parsed.areaTypeId) : undefined
+    if (parsed.areaTypeId !== undefined) {
+      record.areaType = parsed.areaTypeId
+        ? await resolveAreaTypeInScope(em, parsed.areaTypeId, {
+            tenantId: record.tenantId,
+            organizationId: record.organizationId,
+          })
+        : undefined
+    }
     if (parsed.sortOrder !== undefined) record.sortOrder = parsed.sortOrder
     if (parsed.appearanceIcon !== undefined) record.appearanceIcon = parsed.appearanceIcon
     if (parsed.appearanceColor !== undefined) record.appearanceColor = parsed.appearanceColor
@@ -497,10 +554,17 @@ const deleteResourceAreaCommand: CommandHandler<{ id?: string }, { areaId: strin
     ensureTenantScope(ctx, record.tenantId)
     ensureOrganizationScope(ctx, record.organizationId)
 
-    // Check if there are children areas before deleting
+    // Child areas and assigned resources are both dangling references waiting to
+    // happen: neither `parent_area_id` nor `resources_resources.area_id` carries
+    // a foreign key, so nothing at the database level would clear them.
     const children = await em.count(ResourcesResourceArea, { parentAreaId: record.id, deletedAt: null })
     if (children > 0) {
       throw new CrudHttpError(400, { error: 'Cannot delete area with child areas.' })
+    }
+
+    const assignedResources = await em.count(ResourcesResource, { areaId: record.id, deletedAt: null })
+    if (assignedResources > 0) {
+      throw new CrudHttpError(400, { error: 'Cannot delete area with assigned resources.' })
     }
 
     await withAtomicFlush(em, [

@@ -135,7 +135,6 @@ async function getOrCreateAreaType(
   em: EntityManager,
   tenantId: string,
   organizationId: string,
-  name: string,
   areaTypeName: string,
 ): Promise<ResourcesResourceAreaType> {
   let existing = await em.findOne(ResourcesResourceAreaType, { tenantId, organizationId, name: areaTypeName, deletedAt: null })
@@ -181,10 +180,21 @@ const migrateAreasCommand: ModuleCli = {
 
         console.log(`Found ${zoneValues.length} zone fields and ${floorValues.length} floor fields.`)
 
-        // Collect unique orgs to seed area types per org
+        // Collect unique orgs to seed area types per org.
+        // custom_field_values.organization_id / tenant_id are nullable but the
+        // area tables are `uuid not null`, so an unscoped legacy row would reach
+        // em.create() as the string "undefined" and abort the whole migration.
         const orgKeys = new Set<string>()
+        let unscopedValues = 0
         for (const v of [...zoneValues, ...floorValues]) {
+          if (!v.organizationId || !v.tenantId) {
+            unscopedValues++
+            continue
+          }
           orgKeys.add(`${v.organizationId}:${v.tenantId}`)
+        }
+        if (unscopedValues > 0) {
+          console.warn(`Skipping ${unscopedValues} legacy value(s) with no organization/tenant.`)
         }
 
         const zoneMap = new Map<string, ResourcesResourceArea>()
@@ -193,27 +203,35 @@ const migrateAreasCommand: ModuleCli = {
         // Seed Zone and Floor area types for each org, then process areas
         for (const orgKey of orgKeys) {
           const [organizationId, tenantId] = orgKey.split(':')
-          const zoneType = await getOrCreateAreaType(tem, tenantId, organizationId, 'Zone', 'Zone')
-          const floorType = await getOrCreateAreaType(tem, tenantId, organizationId, 'Floor', 'Floor')
+          const zoneType = await getOrCreateAreaType(tem, tenantId, organizationId, 'Zone')
+          const floorType = await getOrCreateAreaType(tem, tenantId, organizationId, 'Floor')
 
           await tem.flush()
 
+          // Only this organization's values: the loops used to walk every value
+          // on every pass, so the first organization in the set created areas
+          // for all the others and stamped them with ITS Zone/Floor area type —
+          // a cross-organization reference, and one later passes skipped because
+          // the key was already in the map.
+          const belongsToOrg = (value: CustomFieldValue) =>
+            value.organizationId === organizationId && value.tenantId === tenantId
+
           // Process zones
-          for (const zv of zoneValues) {
+          for (const zv of zoneValues.filter(belongsToOrg)) {
             const zoneName = zv.valueText?.trim()
             if (!zoneName) continue
-            const key = `${zv.organizationId}:${zv.tenantId}:${zoneName}`
+            const key = `${organizationId}:${tenantId}:${zoneName}`
             if (zoneMap.has(key)) continue
 
             let area = await tem.findOne(ResourcesResourceArea, {
-              organizationId: zv.organizationId,
-              tenantId: zv.tenantId,
+              organizationId,
+              tenantId,
               name: zoneName,
             })
             if (!area) {
               area = tem.create(ResourcesResourceArea, {
-                organizationId: zv.organizationId || '',
-                tenantId: zv.tenantId || '',
+                organizationId,
+                tenantId,
                 name: zoneName,
                 areaType: zoneType,
                 isActive: true,
@@ -229,26 +247,25 @@ const migrateAreasCommand: ModuleCli = {
           await tem.flush()
 
           // Process floors
-          for (const fv of floorValues) {
+          for (const fv of floorValues.filter(belongsToOrg)) {
             const floorName = fv.valueText?.trim()
             if (!floorName) continue
-            const key = `${fv.organizationId}:${fv.tenantId}:${floorName}`
+            const key = `${organizationId}:${tenantId}:${floorName}`
             if (floorMap.has(key)) continue
 
             const zv = zoneValues.find(z => z.recordId === fv.recordId)
             const zoneName = zv?.valueText?.trim() || ''
-            const zoneKey = `${fv.organizationId}:${fv.tenantId}:${zoneName}`
-            const parentZone = zoneMap.get(zoneKey)
+            const parentZone = zoneMap.get(`${organizationId}:${tenantId}:${zoneName}`)
 
             let area = await tem.findOne(ResourcesResourceArea, {
-              organizationId: fv.organizationId,
-              tenantId: fv.tenantId,
+              organizationId,
+              tenantId,
               name: floorName,
             })
             if (!area) {
               area = tem.create(ResourcesResourceArea, {
-                organizationId: fv.organizationId || '',
-                tenantId: fv.tenantId || '',
+                organizationId,
+                tenantId,
                 name: floorName,
                 areaType: floorType,
                 parentAreaId: parentZone?.id ?? null,

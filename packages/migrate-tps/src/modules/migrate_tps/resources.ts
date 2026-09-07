@@ -1,13 +1,10 @@
 import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import * as pg from 'pg'
-import * as fs from 'fs'
-import * as path from 'path'
-import { fileURLToPath } from 'url'
 import { randomUUID } from 'crypto'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { parseTpsMigrateFlags } from './lib'
+import { parseTpsMigrateFlags, parseTpsCsv } from './lib'
 import {
   ResourcesResource,
   ResourcesResourceArea,
@@ -96,61 +93,15 @@ const seatSortOrderExpression = `
 // CSV Fallback helpers
 // ---------------------------------------------------------------------------
 
-const DATA_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'data')
-
-function getDataDir(): string {
-  return process.env.TPS_DATA_DIR || DATA_DIR
-}
-
-function parseCsvLine(line: string): string[] {
-  const result: string[] = []
-  let current = ''
-  let inQuotes = false
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i]
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"'
-        i++
-      } else {
-        inQuotes = !inQuotes
-      }
-    } else if (char === ',' && !inQuotes) {
-      result.push(current.trim())
-      current = ''
-    } else {
-      current += char
-    }
-  }
-  result.push(current.trim())
-  return result
-}
-
-function parseCsv<T>(filename: string): T[] {
-  const filePath = path.join(getDataDir(), filename)
-  const content = fs.readFileSync(filePath, 'utf-8')
-  const lines = content.trim().split('\n')
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''))
-  const rows: T[] = []
-  for (let i = 1; i < lines.length; i++) {
-    const values = parseCsvLine(lines[i])
-    const row: Record<string, string> = {}
-    for (let j = 0; j < headers.length; j++) {
-      row[headers[j]] = values[j] ?? ''
-    }
-    rows.push(row as T)
-  }
-  return rows
-}
 
 function loadTpsSeatTypesFromCsv(): { rows: TpsSeatTypeConfig[]; rowCount: number } {
-  const all = parseCsv<TpsSeatTypeConfig>('tps_seat_types.csv')
+  const all = parseTpsCsv<TpsSeatTypeConfig>('tps_seat_types.csv')
   const filtered = all.filter(r => !r.deleted_at)
   return { rows: filtered, rowCount: filtered.length }
 }
 
 function loadTpsFloorsFromCsv(locationFilter?: string | null): { rows: TpsFloor[]; rowCount: number } {
-  const all = parseCsv<TpsFloor>('tps_floors.csv')
+  const all = parseTpsCsv<TpsFloor>('tps_floors.csv')
   const filtered = locationFilter
     ? all.filter(r => !r.deleted_at && r.location === locationFilter)
     : all.filter(r => !r.deleted_at)
@@ -158,7 +109,7 @@ function loadTpsFloorsFromCsv(locationFilter?: string | null): { rows: TpsFloor[
 }
 
 function loadTpsSeatsFromCsv(locationFilter?: string | null): { rows: TpsSeat[]; rowCount: number } {
-  const seats = parseCsv<TpsSeat>('tps_seats.csv')
+  const seats = parseTpsCsv<TpsSeat>('tps_seats.csv')
   if (locationFilter) {
     const floors = loadTpsFloorsFromCsv(locationFilter).rows
     const floorIds = new Set(floors.map(f => f.id))

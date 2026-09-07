@@ -1,12 +1,9 @@
 import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import * as pg from 'pg'
-import * as fs from 'fs'
-import * as path from 'path'
-import { fileURLToPath } from 'url'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { parseTpsMigrateFlags } from './lib'
+import { parseTpsMigrateFlags, parseTpsCsv } from './lib'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 
 type Client = InstanceType<typeof pg.Client>
@@ -30,18 +27,11 @@ async function connectTps(url: string): Promise<Client> {
   return client
 }
 
-function getDataDir(): string {
-  return process.env.TPS_DATA_DIR || path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'data')
-}
-
 function loadLocationsFromCsv(): string[] {
-  const filePath = path.join(getDataDir(), 'tps_floors.csv')
-  const content = fs.readFileSync(filePath, 'utf-8')
-  const lines = content.trim().split('\n')
   const locations = new Set<string>()
-  for (let i = 1; i < lines.length; i++) {
-    const parts = lines[i].split(',')
-    if (parts[1]) locations.add(parts[1].trim().replace(/^"|"$/g, ''))
+  for (const floor of parseTpsCsv<{ location?: string }>('tps_floors.csv')) {
+    const location = floor.location?.trim().replace(/^"|"$/g, '')
+    if (location) locations.add(location)
   }
   return Array.from(locations).sort((a, b) => a.localeCompare(b))
 }

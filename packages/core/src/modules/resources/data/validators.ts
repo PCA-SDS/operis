@@ -192,18 +192,6 @@ export const resourcesResourceActivityUpdateSchema = z
   })
   .merge(resourcesResourceActivityCreateSchema.partial())
 
-export const RESOURCE_AREA_TYPES = [
-  'campus',
-  'building',
-  'floor',
-  'zone',
-  'room',
-  'section',
-  'other',
-] as const
-
-export type ResourceAreaType = typeof RESOURCE_AREA_TYPES[number]
-
 export const resourcesResourceAreaCreateSchema = z.object({
   ...scopedCreateFields,
   name: z.string().min(1),

@@ -10,7 +10,7 @@ const createPageIcon = React.createElement(
 
 export const metadata = {
   requireAuth: true,
-  requireFeatures: ['resources.manage_resources'],
+  requireFeatures: ['resources.areas.manage'],
   pageTitle: 'Create Resource Area',
   pageTitleKey: 'resources.resourceAreas.form.createTitle',
   pageGroup: 'Resource Planning',
