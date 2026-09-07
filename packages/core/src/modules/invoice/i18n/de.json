@@ -1,6 +1,10 @@
 {
+  "invoice.errors.company_lookup_unavailable": "Unternehmenssuche ist vorübergehend nicht verfügbar",
+  "invoice.errors.invalid_input": "Ungültige Eingabe",
   "invoice.errors.organization_required": "Organisationskontext ist erforderlich.",
+  "invoice.errors.request_failed": "Fehler beim Verarbeiten der Rechnungsanfrage",
   "invoice.errors.tenant_required": "Mandantenkontext ist erforderlich.",
+  "invoice.errors.unauthorized": "Nicht autorisiert",
   "invoice.search.badge.company": "Rechnungsunternehmen",
   "invoice.search.badge.invoice": "Rechnung"
 }

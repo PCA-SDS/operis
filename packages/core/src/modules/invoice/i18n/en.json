@@ -1,6 +1,10 @@
 {
+  "invoice.errors.company_lookup_unavailable": "Company lookup is temporarily unavailable",
+  "invoice.errors.invalid_input": "Invalid input",
   "invoice.errors.organization_required": "Organization context is required.",
+  "invoice.errors.request_failed": "Failed to process invoice request",
   "invoice.errors.tenant_required": "Tenant context is required.",
+  "invoice.errors.unauthorized": "Unauthorized",
   "invoice.search.badge.company": "Invoice company",
   "invoice.search.badge.invoice": "Invoice"
 }
