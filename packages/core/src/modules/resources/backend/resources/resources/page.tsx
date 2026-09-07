@@ -10,8 +10,11 @@ import { DataTable, withDataTableNamespaces } from '@open-mercato/ui/backend/Dat
 import { ListEmptyState } from '@open-mercato/ui/backend/filters/ListEmptyState'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
+import { Input } from '@open-mercato/ui/primitives/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { BooleanIcon } from '@open-mercato/ui/backend/ValueIcons'
-import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCall, apiCallOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { deleteCrud } from '@open-mercato/ui/backend/utils/crud'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
@@ -22,7 +25,7 @@ import { renderDictionaryColor, renderDictionaryIcon } from '@open-mercato/core/
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
-import { Pencil } from 'lucide-react'
+import { GripVertical, Pencil } from 'lucide-react'
 
 const PAGE_SIZE = 20
 const RESOURCE_LIST_MUTATION_CONTEXT_ID = 'resources.resources.list'
@@ -31,6 +34,8 @@ type ResourceRow = {
   id: string
   name: string
   resourceTypeId: string | null
+  areaId: string | null
+  sortOrder: number
   capacity: number | null
   tags?: TagOption[] | null
   isActive: boolean
@@ -46,17 +51,26 @@ type ResourceTypeRow = {
   appearanceColor: string | null
 }
 
+type ResourceGroupBy = 'resourceType' | 'area'
+
 type ResourceGroupRow = {
   id: string
   name: string
   resourceTypeId: string | null
+  areaId: string | null
+  sortOrder: number | null
   appearanceIcon: string | null
   appearanceColor: string | null
   rowKind: 'group'
   depth: number
+  groupBy: ResourceGroupBy
 }
 
 type ResourceTableRow = (ResourceRow & { rowKind: 'resource'; depth: number }) | ResourceGroupRow
+
+type ResourceMoveDialogState = {
+  resource: ResourceRow
+}
 
 type ResourcesResponse = {
   items: Array<Record<string, unknown>>
@@ -69,11 +83,39 @@ type ResourceTypesResponse = {
   items: Array<Record<string, unknown>>
 }
 
+type ResourceAreasResponse = {
+  items: Array<{
+    id?: string
+    name?: string
+    parent_area_id?: string | null
+    sort_order?: number
+    depth?: number
+  }>
+  totalPages?: number
+}
+
 type ResourceListMutationContext = {
   formId: string
   resourceKind: string
   resourceId?: string
   retryLastMutation: () => Promise<boolean>
+}
+
+function formatResourceAreaName(area: { name?: string; id?: string; depth?: number }): string | null {
+  const name = typeof area.name === 'string' && area.name.length ? area.name : area.id
+  if (!name) return null
+  const depth = typeof area.depth === 'number' && area.depth > 0 ? area.depth : 0
+  return depth > 0 ? `${'  '.repeat(depth)}↳ ${name}` : name
+}
+
+function sortResourcesForAreaLayout(resources: ResourceRow[]): ResourceRow[] {
+  return [...resources].sort((a, b) => {
+    const orderA = Number.isFinite(a.sortOrder) ? a.sortOrder : 0
+    const orderB = Number.isFinite(b.sortOrder) ? b.sortOrder : 0
+    if (orderA !== orderB) return orderA - orderB
+    const nameCompare = a.name.localeCompare(b.name)
+    return nameCompare !== 0 ? nameCompare : a.id.localeCompare(b.id)
+  })
 }
 
 export default function ResourcesResourcesPage() {
@@ -83,8 +125,16 @@ export default function ResourcesResourcesPage() {
   const [totalPages, setTotalPages] = React.useState(1)
   const [search, setSearch] = React.useState('')
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
+  const [groupBy, setGroupBy] = React.useState<ResourceGroupBy>('resourceType')
   const [isLoading, setIsLoading] = React.useState(true)
+  const [reloadToken, setReloadToken] = React.useState(0)
+  const [draggingResourceId, setDraggingResourceId] = React.useState<string | null>(null)
+  const [moveDialog, setMoveDialog] = React.useState<ResourceMoveDialogState | null>(null)
+  const [moveDialogSearch, setMoveDialogSearch] = React.useState('')
+  const [moveDialogOptions, setMoveDialogOptions] = React.useState<ResourceRow[]>([])
+  const [moveDialogLoading, setMoveDialogLoading] = React.useState(false)
   const [resourceTypes, setResourceTypes] = React.useState<Map<string, ResourceTypeRow>>(new Map())
+  const [resourceAreas, setResourceAreas] = React.useState<Map<string, { id: string; name: string }>>(new Map())
   const [canManage, setCanManage] = React.useState(false)
   const [tagOptions, setTagOptions] = React.useState<FilterOption[]>([])
   const scopeVersion = useOrganizationScopeVersion()
@@ -194,6 +244,108 @@ export default function ResourcesResourcesPage() {
     return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
 
+  React.useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+    async function loadResourceAreas() {
+      try {
+        const params = new URLSearchParams({ page: '1', pageSize: '100' })
+        const call = await apiCall<ResourceAreasResponse>(`/api/resources/areas?${params.toString()}`, { signal: controller.signal })
+        const items = Array.isArray(call.result?.items) ? call.result.items : []
+        const result = new Map<string, { id: string; name: string }>()
+        for (const item of items) {
+          if (!item.id) continue
+          const name = formatResourceAreaName(item)
+          if (name) result.set(item.id, { id: item.id, name })
+        }
+
+        if (!cancelled) setResourceAreas(result)
+      } catch {
+        if (!cancelled) setResourceAreas(new Map())
+      }
+    }
+    loadResourceAreas()
+    return () => { cancelled = true; controller.abort() }
+  }, [scopeVersion])
+
+  React.useEffect(() => {
+    if (!moveDialog) {
+      setMoveDialogOptions([])
+      setMoveDialogSearch('')
+      setMoveDialogLoading(false)
+      return
+    }
+    const activeMoveDialog = moveDialog
+    let cancelled = false
+    const controller = new AbortController()
+    async function loadMoveTargets() {
+      setMoveDialogLoading(true)
+      try {
+        const params = new URLSearchParams({
+          page: '1',
+          pageSize: '100',
+          areaId: activeMoveDialog.resource.areaId ?? 'null',
+          sortField: 'sortOrder',
+          sortDir: 'asc',
+        })
+        const searchTerm = moveDialogSearch.trim()
+        if (searchTerm) params.set('search', searchTerm)
+        const call = await apiCall<ResourcesResponse>(`/api/resources/resources?${params.toString()}`, { signal: controller.signal })
+        if (cancelled) return
+        const items = Array.isArray(call.result?.items) ? call.result.items : []
+        setMoveDialogOptions(
+          items
+            .map(mapApiResource)
+            .filter((resource) => resource.id !== activeMoveDialog.resource.id),
+        )
+      } catch {
+        if (!cancelled) setMoveDialogOptions([])
+      } finally {
+        if (!cancelled) setMoveDialogLoading(false)
+      }
+    }
+    void loadMoveTargets()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [moveDialog, moveDialogSearch])
+
+  React.useEffect(() => {
+    const areaIds = new Set<string>()
+    for (const row of rows) {
+      if (row.areaId && !resourceAreas.has(row.areaId)) areaIds.add(row.areaId)
+    }
+    if (typeof filterValues.areaId === 'string' && filterValues.areaId.length && !resourceAreas.has(filterValues.areaId)) {
+      areaIds.add(filterValues.areaId)
+    }
+    if (areaIds.size === 0) return
+
+    let cancelled = false
+    const controller = new AbortController()
+    async function loadVisibleResourceAreas() {
+      try {
+        const params = new URLSearchParams({ ids: Array.from(areaIds).join(','), page: '1', pageSize: String(areaIds.size) })
+        const call = await apiCall<ResourceAreasResponse>(`/api/resources/areas?${params.toString()}`, { signal: controller.signal })
+        const items = Array.isArray(call.result?.items) ? call.result.items : []
+        if (cancelled || items.length === 0) return
+        setResourceAreas((current) => {
+          const next = new Map(current)
+          for (const item of items) {
+            if (!item.id) continue
+            const name = formatResourceAreaName(item)
+            if (name) next.set(item.id, { id: item.id, name })
+          }
+          return next
+        })
+      } catch {
+        if (!cancelled) setResourceAreas((current) => current)
+      }
+    }
+    void loadVisibleResourceAreas()
+    return () => { cancelled = true; controller.abort() }
+  }, [filterValues.areaId, resourceAreas, rows])
+
   const loadTagOptions = React.useCallback(
     async (query?: string): Promise<FilterOption[]> => {
       try {
@@ -234,12 +386,23 @@ export default function ResourcesResourcesPage() {
     return entries.map((entry) => ({ value: entry.id, label: entry.name }))
   }, [resourceTypes])
 
+  const resourceAreaOptions = React.useMemo<FilterOption[]>(() => {
+    const entries = Array.from(resourceAreas.values())
+    return entries.map((entry) => ({ value: entry.id, label: entry.name }))
+  }, [resourceAreas])
+
   const filters = React.useMemo<FilterDef[]>(() => [
     {
       id: 'resourceTypeId',
       label: t('resources.resources.list.filters.resourceType', 'Resource type'),
       type: 'select',
       options: resourceTypeOptions,
+    },
+    {
+      id: 'areaId',
+      label: t('resources.resources.list.filters.area', 'Area'),
+      type: 'select',
+      options: resourceAreaOptions,
     },
     {
       id: 'tagIds',
@@ -249,7 +412,7 @@ export default function ResourcesResourcesPage() {
       options: tagOptions,
       formatValue: (val: string) => tagOptions.find((o) => o.value === val)?.label ?? val,
     },
-  ], [loadTagOptions, resourceTypeOptions, tagOptions, t])
+  ], [loadTagOptions, resourceTypeOptions, resourceAreaOptions, tagOptions, t])
 
   const handleFiltersApply = React.useCallback((values: FilterValues) => {
     setFilterValues(values)
@@ -276,9 +439,113 @@ export default function ResourcesResourcesPage() {
     }
   }, [pathname, router, searchParams])
 
+  const handleRefresh = React.useCallback(() => {
+    setReloadToken((token) => token + 1)
+  }, [])
+
+  const canReorderResources = canManage && groupBy === 'area'
+
+  const handleReorderResource = React.useCallback(async (
+    resource: ResourceRow,
+    movement: { direction?: 'up' | 'down'; targetId?: string; position?: 'top' | 'bottom' | 'before' | 'after' },
+  ) => {
+    if (!canReorderResources) return
+    try {
+      const payload = { id: resource.id, ...movement }
+      await runResourceMutation(
+        () => apiCallOrThrow('/api/resources/resources/reorder', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        }, { errorMessage: t('resources.resources.list.error.reorder', 'Failed to reorder resources.') }),
+        { operation: 'reorderResource', ...payload },
+        resource.id,
+      )
+      handleRefresh()
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : t('resources.resources.list.error.reorder', 'Failed to reorder resources.')
+      flash(message, 'error')
+    }
+  }, [canReorderResources, handleRefresh, runResourceMutation, t])
+
+  const handleMoveDialogSelect = React.useCallback(async (targetId: string) => {
+    if (!moveDialog) return
+    await handleReorderResource(moveDialog.resource, { targetId, position: 'before' })
+    setMoveDialog(null)
+  }, [handleReorderResource, moveDialog])
+
+  const handleResourceDrop = React.useCallback((target: ResourceRow) => {
+    if (!draggingResourceId || draggingResourceId === target.id || !canReorderResources) return
+    const dragged = rows.find((row) => row.id === draggingResourceId)
+    if (!dragged || dragged.areaId !== target.areaId) return
+    void handleReorderResource(dragged, { targetId: target.id })
+  }, [canReorderResources, draggingResourceId, handleReorderResource, rows])
+
   const groupedRows = React.useMemo(() => {
     const grouped: ResourceTableRow[] = []
     if (!rows.length) return grouped
+    if (groupBy === 'area') {
+      const byArea = new Map<string, ResourceRow[]>()
+      const unassigned: ResourceRow[] = []
+      rows.forEach((row) => {
+        if (!row.areaId) {
+          unassigned.push(row)
+          return
+        }
+        const list = byArea.get(row.areaId) ?? []
+        list.push(row)
+        byArea.set(row.areaId, list)
+      })
+      const areaEntries = Array.from(byArea.entries())
+        .map(([areaId, list]) => ({
+          areaId,
+          list,
+          area: resourceAreas.get(areaId),
+        }))
+        .sort((a, b) => {
+          const nameA = a.area?.name ?? ''
+          const nameB = b.area?.name ?? ''
+          return nameA.localeCompare(nameB)
+        })
+      for (const entry of areaEntries) {
+        grouped.push({
+          id: `group:area:${entry.areaId}`,
+          name: entry.area?.name ?? t('resources.resources.list.group.unknownArea', 'Unknown area'),
+          resourceTypeId: null,
+          areaId: entry.areaId,
+          sortOrder: null,
+          appearanceIcon: null,
+          appearanceColor: null,
+          rowKind: 'group',
+          depth: 0,
+          groupBy: 'area',
+        })
+        sortResourcesForAreaLayout(entry.list).forEach((resource) => {
+          grouped.push({ ...resource, rowKind: 'resource', depth: 1 })
+        })
+      }
+      if (unassigned.length) {
+        grouped.push({
+          id: 'group:area:unassigned',
+          name: t('resources.resources.list.group.unassignedArea', 'No area'),
+          resourceTypeId: null,
+          areaId: null,
+          sortOrder: null,
+          appearanceIcon: null,
+          appearanceColor: null,
+          rowKind: 'group',
+          depth: 0,
+          groupBy: 'area',
+        })
+        sortResourcesForAreaLayout(unassigned).forEach((resource) => {
+          grouped.push({ ...resource, rowKind: 'resource', depth: 1 })
+        })
+      }
+      return grouped
+    }
+
     const byType = new Map<string, ResourceRow[]>()
     const unassigned: ResourceRow[] = []
     rows.forEach((row) => {
@@ -307,10 +574,13 @@ export default function ResourcesResourcesPage() {
         id: `group:${entry.typeId}`,
         name: label,
         resourceTypeId: entry.typeId,
+        areaId: null,
+        sortOrder: null,
         appearanceIcon: entry.type?.appearanceIcon ?? null,
         appearanceColor: entry.type?.appearanceColor ?? null,
         rowKind: 'group',
         depth: 0,
+        groupBy: 'resourceType',
       })
       entry.list.forEach((resource) => {
         grouped.push({ ...resource, rowKind: 'resource', depth: 1 })
@@ -321,17 +591,20 @@ export default function ResourcesResourcesPage() {
         id: 'group:unassigned',
         name: t('resources.resources.list.group.unassigned', 'Unassigned'),
         resourceTypeId: null,
+        areaId: null,
+        sortOrder: null,
         appearanceIcon: null,
         appearanceColor: null,
         rowKind: 'group',
         depth: 0,
+        groupBy: 'resourceType',
       })
       unassigned.forEach((resource) => {
         grouped.push({ ...resource, rowKind: 'resource', depth: 1 })
       })
     }
     return grouped
-  }, [resourceTypes, rows, t])
+  }, [groupBy, resourceAreas, resourceTypes, rows, t])
 
   React.useEffect(() => {
     let cancelled = false
@@ -343,8 +616,15 @@ export default function ResourcesResourcesPage() {
           page: String(page),
           pageSize: String(PAGE_SIZE),
         })
+        if (groupBy === 'area') {
+          params.set('sortField', 'sortOrder')
+          params.set('sortDir', 'asc')
+        }
         if (search) params.set('search', search)
         if (selectedResourceTypeId) params.set('resourceTypeId', selectedResourceTypeId)
+        if (typeof filterValues.areaId === 'string' && filterValues.areaId.length) {
+          params.set('areaId', filterValues.areaId)
+        }
         const tagIds = Array.isArray(filterValues.tagIds)
           ? filterValues.tagIds
               .map((value) => (typeof value === 'string' ? value.trim() : String(value || '').trim()))
@@ -376,7 +656,7 @@ export default function ResourcesResourcesPage() {
     }
     load()
     return () => { cancelled = true; controller.abort() }
-  }, [filterValues, page, search, scopeVersion, selectedResourceTypeId, t])
+  }, [filterValues, groupBy, page, reloadToken, search, scopeVersion, selectedResourceTypeId, t])
 
   const handleDelete = React.useCallback(async (row: ResourceTableRow) => {
     if (row.rowKind !== 'resource') return
@@ -414,13 +694,54 @@ export default function ResourcesResourcesPage() {
       cell: ({ row }) => {
         const depth = row.original.depth ?? 0
         const indent = depth > 0 ? 18 : 0
-        const isGroup = row.original.rowKind === 'group'
-        const showEdit = isGroup && canManage && row.original.resourceTypeId
+        const groupRow = row.original.rowKind === 'group' ? row.original : null
+        const resourceRow = row.original.rowKind === 'resource' ? row.original : null
+        const showEdit = groupRow
+          && canManage
+          && groupRow.groupBy === 'resourceType'
+          && groupRow.resourceTypeId
         return (
-          <div className={isGroup ? 'flex items-center justify-between gap-3' : 'flex items-center gap-2'}>
-            <span style={{ marginLeft: indent }} className={isGroup ? 'text-sm font-semibold text-foreground' : 'text-sm font-medium text-foreground'}>
-              {row.original.name}
-            </span>
+          <div
+            className={groupRow ? 'flex items-center justify-between gap-3' : 'flex items-center gap-2'}
+            onDragOver={(event) => {
+              if (!resourceRow || !canReorderResources || !draggingResourceId) return
+              event.preventDefault()
+            }}
+            onDrop={(event) => {
+              if (!resourceRow) return
+              event.preventDefault()
+              handleResourceDrop(resourceRow)
+            }}
+          >
+            <div className="flex min-w-0 items-center gap-2" style={{ marginLeft: indent }}>
+              {resourceRow && canManage && groupBy === 'area' ? (
+                <div className="flex items-center gap-1" data-actions-cell>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 shrink-0 cursor-grab"
+                    disabled={!canReorderResources}
+                    draggable={canReorderResources}
+                    title={t('resources.resources.list.actions.dragToReorder', 'Drag to reorder')}
+                    aria-label={t('resources.resources.list.actions.dragToReorder', 'Drag to reorder')}
+                    onClick={(event) => event.stopPropagation()}
+                    onDragStart={(event) => {
+                      event.stopPropagation()
+                      setDraggingResourceId(resourceRow.id)
+                      event.dataTransfer.effectAllowed = 'move'
+                      event.dataTransfer.setData('text/plain', resourceRow.id)
+                    }}
+                    onDragEnd={() => setDraggingResourceId(null)}
+                  >
+                    <GripVertical className="size-4" aria-hidden />
+                  </Button>
+                </div>
+              ) : null}
+              <span className={groupRow ? 'text-sm font-semibold text-foreground' : 'min-w-0 truncate text-sm font-medium text-foreground'}>
+                {row.original.name}
+              </span>
+            </div>
             {showEdit ? (
               <Button
                 asChild
@@ -430,7 +751,7 @@ export default function ResourcesResourcesPage() {
                 title={t('resources.resourceTypes.actions.edit', 'Edit')}
                 aria-label={t('resources.resourceTypes.actions.edit', 'Edit')}
               >
-                <Link href={`/backend/resources/resource-types/${encodeURIComponent(row.original.resourceTypeId ?? '')}/edit`}>
+                <Link href={`/backend/resources/resource-types/${encodeURIComponent(groupRow.resourceTypeId ?? '')}/edit`}>
                   <Pencil className="h-4 w-4" />
                 </Link>
               </Button>
@@ -474,9 +795,24 @@ export default function ResourcesResourcesPage() {
       },
     },
     {
+      accessorKey: 'areaId',
+      header: t('resources.resources.list.columns.area', 'Area'),
+      meta: { priority: 4 },
+      cell: ({ row }) => {
+        if (row.original.rowKind === 'group') return null
+        return resourceAreas.get(row.original.areaId ?? '')?.name || t('resources.resources.list.columns.area.empty', '-')
+      },
+    },
+    {
+      accessorKey: 'sortOrder',
+      header: t('resources.resources.list.columns.sortOrder', 'Order'),
+      meta: { priority: 5 },
+      cell: ({ row }) => row.original.rowKind === 'group' ? null : row.original.sortOrder,
+    },
+    {
       accessorKey: 'capacity',
       header: t('resources.resources.list.columns.capacity', 'Capacity'),
-      meta: { priority: 4 },
+      meta: { priority: 5 },
       cell: ({ row }) => row.original.rowKind === 'group'
         ? null
         : row.original.capacity ?? t('resources.resources.list.columns.capacity.empty', '-'),
@@ -484,7 +820,7 @@ export default function ResourcesResourcesPage() {
     {
       accessorKey: 'tags',
       header: t('resources.resources.list.columns.tags', 'Tags'),
-      meta: { priority: 5 },
+      meta: { priority: 6 },
       cell: ({ row }) => {
         if (row.original.rowKind === 'group') {
           return null
@@ -505,10 +841,20 @@ export default function ResourcesResourcesPage() {
     {
       accessorKey: 'isActive',
       header: t('resources.resources.list.columns.active', 'Active'),
-      meta: { priority: 6 },
+      meta: { priority: 7 },
       cell: ({ row }) => row.original.rowKind === 'group' ? null : <BooleanIcon value={row.original.isActive} />,
     },
-  ], [canManage, resourceTypes, t])
+  ], [
+    canManage,
+    canReorderResources,
+    draggingResourceId,
+    groupBy,
+    handleReorderResource,
+    handleResourceDrop,
+    resourceTypes,
+    resourceAreas,
+    t,
+  ])
 
   return (
     <Page>
@@ -516,9 +862,29 @@ export default function ResourcesResourcesPage() {
         <DataTable
           title={t('resources.resources.page.title', 'Resources')}
           actions={canManage ? (
-            <Button asChild>
-              <Link href="/backend/resources/resources/create">{t('resources.resources.list.actions.create', 'New resource')}</Link>
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {t('resources.resources.list.groupBy.label', 'Group by')}
+                </span>
+                <Select value={groupBy} onValueChange={(value) => setGroupBy(value === 'area' ? 'area' : 'resourceType')}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="resourceType">
+                      {t('resources.resources.list.groupBy.resourceType', 'Resource type')}
+                    </SelectItem>
+                    <SelectItem value="area">
+                      {t('resources.resources.list.groupBy.area', 'Area')}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button asChild>
+                <Link href="/backend/resources/resources/create">{t('resources.resources.list.actions.create', 'New resource')}</Link>
+              </Button>
+            </div>
           ) : null}
           columns={columns}
           data={groupedRows}
@@ -531,9 +897,34 @@ export default function ResourcesResourcesPage() {
           perspective={{ tableId: extensionPoints.hosts.resourcesTable.tableId }}
           rowActions={(row) => {
             if (!canManage || row.rowKind !== 'resource') return null
+            const siblingRows = canReorderResources
+              ? sortResourcesForAreaLayout(rows.filter((item) => item.areaId === row.areaId))
+              : []
+            const siblingIndex = siblingRows.findIndex((item) => item.id === row.id)
+            const reorderItems = canReorderResources ? [
+              {
+                id: 'move-up',
+                label: t('resources.resources.list.actions.moveUp', 'Move up'),
+                disabled: siblingIndex <= 0,
+                onSelect: () => { void handleReorderResource(row, { direction: 'up' }) },
+              },
+              {
+                id: 'move-down',
+                label: t('resources.resources.list.actions.moveDown', 'Move down'),
+                disabled: siblingIndex < 0 || siblingIndex >= siblingRows.length - 1,
+                onSelect: () => { void handleReorderResource(row, { direction: 'down' }) },
+              },
+              {
+                id: 'move-to',
+                label: t('resources.resources.list.actions.moveTo', 'Move to...'),
+                disabled: siblingRows.length <= 1,
+                onSelect: () => setMoveDialog({ resource: row }),
+              },
+            ] : []
             return (
               <RowActions items={[
                 { id: 'edit', label: t('common.edit', 'Edit'), href: `/backend/resources/resources/${encodeURIComponent(row.id)}` },
+                ...reorderItems,
                 { id: 'delete', label: t('common.delete', 'Delete'), destructive: true, onSelect: () => { void handleDelete(row) } },
               ]} />
             )
@@ -553,6 +944,54 @@ export default function ResourcesResourcesPage() {
           isLoading={isLoading}
         />
       </PageBody>
+      <Dialog open={Boolean(moveDialog)} onOpenChange={(open) => { if (!open) setMoveDialog(null) }}>
+        <DialogContent size="default">
+          <DialogHeader>
+            <DialogTitle>
+              {t('resources.resources.moveDialog.title', 'Move resource')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <Input
+              value={moveDialogSearch}
+              onChange={(event) => setMoveDialogSearch(event.target.value)}
+              placeholder={t('resources.resources.moveDialog.search', 'Search sibling resources...')}
+            />
+            <div className="max-h-72 overflow-y-auto rounded-md border border-border">
+              {moveDialogLoading ? (
+                <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  {t('resources.resources.moveDialog.loading', 'Loading resources...')}
+                </div>
+              ) : moveDialogOptions.length ? (
+                moveDialogOptions.map((resource) => (
+                  <button
+                    key={resource.id}
+                    type="button"
+                    className="flex w-full flex-col gap-0.5 border-b border-border px-3 py-2 text-left last:border-b-0 hover:bg-accent"
+                    onClick={() => { void handleMoveDialogSelect(resource.id) }}
+                  >
+                    <span className="text-sm font-medium text-foreground">{resource.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {resource.areaId
+                        ? resourceAreas.get(resource.areaId)?.name ?? t('resources.resources.list.group.unknownArea', 'Unknown area')
+                        : t('resources.resources.list.group.unassignedArea', 'No area')}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  {t('resources.resources.moveDialog.empty', 'No sibling resources found.')}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setMoveDialog(null)}>
+              {t('common.cancel', 'Cancel')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       {ConfirmDialogElement}
     </Page>
   )
@@ -566,11 +1005,23 @@ function mapApiResource(item: Record<string, unknown>): ResourceRow {
     : typeof item.resource_type_id === 'string'
       ? item.resource_type_id
       : null
+  const areaId = typeof item.areaId === 'string'
+    ? item.areaId
+    : typeof item.area_id === 'string'
+      ? item.area_id
+      : null
   const capacity = typeof item.capacity === 'number'
     ? item.capacity
     : typeof item.capacity === 'string'
       ? Number(item.capacity)
       : null
+  const sortOrder = typeof item.sortOrder === 'number'
+    ? item.sortOrder
+    : typeof item.sort_order === 'number'
+      ? item.sort_order
+      : typeof item.sort_order === 'string'
+        ? Number(item.sort_order)
+        : 0
   const isActive = typeof item.isActive === 'boolean'
     ? item.isActive
     : typeof item.is_active === 'boolean'
@@ -596,6 +1047,8 @@ function mapApiResource(item: Record<string, unknown>): ResourceRow {
     id,
     name,
     resourceTypeId,
+    areaId,
+    sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
     capacity: Number.isFinite(capacity as number) ? capacity as number : null,
     tags,
     isActive,

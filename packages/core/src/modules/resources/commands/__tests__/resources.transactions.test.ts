@@ -30,6 +30,7 @@ jest.mock('@open-mercato/shared/lib/commands/helpers', () => {
 const TEST_TENANT_ID = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa'
 const TEST_ORG_ID = 'bbbbbbbb-bbbb-4bbb-abbb-bbbbbbbbbbbb'
 const TEST_RESOURCE_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+const TEST_AREA_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'
 
 function buildFakeEm() {
   return {
@@ -74,6 +75,8 @@ function buildResourceSnapshot() {
     name: 'Resource A',
     description: null,
     resourceTypeId: null,
+    areaId: null,
+    sortOrder: 0,
     capacity: null,
     capacityUnitValue: null,
     capacityUnitName: null,
@@ -191,5 +194,75 @@ describe('resources commands — atomic relation writes (issue #2341)', () => {
     expect(em.begin).toHaveBeenCalledTimes(1)
     expect(em.commit).toHaveBeenCalledTimes(1)
     expect(em.rollback).not.toHaveBeenCalled()
+  })
+
+  it('reorders resources within the same area', async () => {
+    const em = buildFakeEm()
+    const resourceA = {
+      id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      tenantId: TEST_TENANT_ID,
+      organizationId: TEST_ORG_ID,
+      areaId: TEST_AREA_ID,
+      name: 'Room A',
+      sortOrder: 0,
+      updatedAt: new Date('2026-06-19T10:00:00.000Z'),
+    }
+    const resourceB = {
+      id: TEST_RESOURCE_ID,
+      tenantId: TEST_TENANT_ID,
+      organizationId: TEST_ORG_ID,
+      areaId: TEST_AREA_ID,
+      name: 'Room B',
+      sortOrder: 1,
+      updatedAt: new Date('2026-06-19T10:00:00.000Z'),
+    }
+    em.findOne.mockResolvedValue(resourceB)
+    em.find.mockResolvedValue([resourceA, resourceB])
+    const { ctx } = buildEnvelope(em)
+    const handler = commandRegistry.get('resources.resources.reorder')
+
+    await handler!.execute(
+      { id: TEST_RESOURCE_ID, tenantId: TEST_TENANT_ID, organizationId: TEST_ORG_ID, direction: 'up' },
+      ctx as any,
+    )
+
+    expect(resourceB.sortOrder).toBe(0)
+    expect(resourceA.sortOrder).toBe(1)
+    expect(em.flush).toHaveBeenCalledTimes(1)
+  })
+
+  it('moves resources directly to the end of their area', async () => {
+    const em = buildFakeEm()
+    const resourceA = {
+      id: TEST_RESOURCE_ID,
+      tenantId: TEST_TENANT_ID,
+      organizationId: TEST_ORG_ID,
+      areaId: TEST_AREA_ID,
+      name: 'Room A',
+      sortOrder: 0,
+      updatedAt: new Date('2026-06-19T10:00:00.000Z'),
+    }
+    const resourceB = {
+      id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      tenantId: TEST_TENANT_ID,
+      organizationId: TEST_ORG_ID,
+      areaId: TEST_AREA_ID,
+      name: 'Room B',
+      sortOrder: 1,
+      updatedAt: new Date('2026-06-19T10:00:00.000Z'),
+    }
+    em.findOne.mockResolvedValue(resourceA)
+    em.find.mockResolvedValue([resourceA, resourceB])
+    const { ctx } = buildEnvelope(em)
+    const handler = commandRegistry.get('resources.resources.reorder')
+
+    await handler!.execute(
+      { id: TEST_RESOURCE_ID, tenantId: TEST_TENANT_ID, organizationId: TEST_ORG_ID, position: 'bottom' },
+      ctx as any,
+    )
+
+    expect(resourceB.sortOrder).toBe(0)
+    expect(resourceA.sortOrder).toBe(1)
+    expect(em.flush).toHaveBeenCalledTimes(1)
   })
 })

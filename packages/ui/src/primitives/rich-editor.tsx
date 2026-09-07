@@ -1577,7 +1577,7 @@ function RichEditorAutoToolbar({
   const showMoreButton = hasOverflow || !!moreMenu
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full overflow-hidden">
       <div
         ref={measureRef}
         aria-hidden="true"

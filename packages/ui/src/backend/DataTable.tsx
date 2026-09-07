@@ -3757,8 +3757,14 @@ export function DataTable<T extends RowData>({
           >
             {isFirstLoad ? (
               <TableRow>
-                <TableCell colSpan={mergedColumns.length + (rowActions || injectedRowActions.length > 0 ? 1 : 0) + (hasInjectedBulkActions ? 1 : 0)} className="h-24 text-center">
-                  <div className="flex items-center justify-center gap-2">
+                <TableCell
+                  colSpan={mergedColumns.length + (rowActions || injectedRowActions.length > 0 ? 1 : 0) + (hasInjectedBulkActions ? 1 : 0)}
+                  className="p-0"
+                >
+                  <div
+                    className={cn('sticky left-0 flex items-center justify-center gap-2 h-24', emptyStateViewportWidth ? '' : 'w-full')}
+                    style={emptyStateViewportWidth ? { width: emptyStateViewportWidth } : undefined}
+                  >
                     <Spinner size="md" />
                     <span className="text-muted-foreground">{t('ui.dataTable.loading', 'Loading data...')}</span>
                   </div>
@@ -3766,8 +3772,16 @@ export function DataTable<T extends RowData>({
               </TableRow>
             ) : error ? (
               <TableRow>
-                <TableCell colSpan={mergedColumns.length + (rowActions || injectedRowActions.length > 0 ? 1 : 0) + (hasInjectedBulkActions ? 1 : 0)} className="h-24 text-center text-destructive">
-                  {error}
+                <TableCell
+                  colSpan={mergedColumns.length + (rowActions || injectedRowActions.length > 0 ? 1 : 0) + (hasInjectedBulkActions ? 1 : 0)}
+                  className="p-0"
+                >
+                  <div
+                    className={cn('sticky left-0 flex items-center justify-center h-24 text-center text-destructive', emptyStateViewportWidth ? '' : 'w-full')}
+                    style={emptyStateViewportWidth ? { width: emptyStateViewportWidth } : undefined}
+                  >
+                    {error}
+                  </div>
                 </TableCell>
               </TableRow>
             ) : allRows.length ? (
