@@ -48,6 +48,8 @@ export const INVOICE_SYNC_GDT_TOKEN_TTL_CAP_SECONDS = 82800
 export const INVOICE_COMPANY_LOOKUP_CACHE_TTL_DAYS = 30
 export const INVOICE_TRACKING_PIXEL_RATE_LIMIT_REQUESTS = 120
 export const INVOICE_TRACKING_PIXEL_RATE_LIMIT_WINDOW_SECONDS = 60
+export const INVOICE_COMPANY_LOOKUP_RATE_LIMIT_REQUESTS = 60
+export const INVOICE_COMPANY_LOOKUP_RATE_LIMIT_WINDOW_SECONDS = 60
 
 const uuid = () => z.string().uuid()
 const nullableTrimmedString = (max: number) => z.string().trim().max(max).nullable().optional()
@@ -137,6 +139,8 @@ export const invoiceSourceInvoiceIdSchema = z.string().trim().min(1).max(191)
 export const invoiceProviderSchema = z.string().trim().min(1).max(80)
 export const invoiceIdempotencyKeySchema = z.string().trim().min(1).max(191)
 export const invoiceEmailSchema = z.string().trim().email().max(320)
+export const invoiceCompanyLookupCountrySchema = invoiceCountryCodeSchema
+export const invoiceCompanyLookupIdentifierSchema = z.string().trim().min(1).max(80)
 
 export const invoiceDueDaysSchema = z.coerce.number().int().min(0).max(INVOICE_MAX_DUE_DAYS)
 export const invoiceClearableDueDaysSchema = invoiceDueDaysSchema.nullable()
@@ -190,3 +194,36 @@ export function hashInvoicePublicToken(token: InvoicePublicToken): InvoiceTokenH
 
 export const invoiceScopeTaxCodesSchema = z.array(invoiceTaxCodeSchema).max(100)
 export const invoiceJsonRecordSchema = z.record(z.string(), z.unknown())
+
+export const invoiceCompanyLookupProviderSchema = z.enum(['vietqr', 'data_gov_sg'])
+export const invoiceCompanyLookupCompanySchema = z.object({
+  name: invoiceCompanyNameSchema,
+  registrationNumber: invoiceCompanyLookupIdentifierSchema,
+  taxCode: invoiceTaxCodeSchema.nullable(),
+  address: z.string().trim().max(1000).nullable(),
+  status: z.string().trim().max(120).nullable(),
+  sourceUpdatedAt: z.string().datetime().nullable(),
+}).strict()
+export const invoiceCompanyLookupResultSchema = z.object({
+  mode: z.enum(['registry', 'manual']),
+  countryCode: invoiceCompanyLookupCountrySchema,
+  identifier: invoiceCompanyLookupIdentifierSchema,
+  provider: invoiceCompanyLookupProviderSchema.nullable(),
+  fetchedAt: z.string().datetime().nullable(),
+  stale: z.boolean(),
+  company: invoiceCompanyLookupCompanySchema.nullable(),
+}).strict()
+export const invoiceCompanyLookupCachePayloadSchema = z.object({
+  version: z.literal(1),
+  normalized: invoiceCompanyLookupCompanySchema,
+  rawProviderResponse: z.unknown(),
+  providerFetchedAt: z.string().datetime(),
+}).strict()
+export const invoiceCompanyLookupRouteQuerySchema = z.object({
+  country: invoiceCompanyLookupCountrySchema.default('VN'),
+}).strict()
+
+export type InvoiceCompanyLookupProviderKey = z.infer<typeof invoiceCompanyLookupProviderSchema>
+export type InvoiceCompanyLookupCompany = z.infer<typeof invoiceCompanyLookupCompanySchema>
+export type InvoiceCompanyLookupResult = z.infer<typeof invoiceCompanyLookupResultSchema>
+export type InvoiceCompanyLookupCachePayload = z.infer<typeof invoiceCompanyLookupCachePayloadSchema>

@@ -24,6 +24,7 @@ import type { InvoiceScopedPersistenceService } from '../services/scoped-persist
 import type { InvoicePartnerTermsService } from '../services/partner-terms-service'
 import type { InvoiceCompanyEmailsService } from '../services/company-emails-service'
 import type { InvoiceExchangeRatesService } from '../services/exchange-rates-service'
+import type { InvoiceCompanyLookupService } from '../services/company-lookup-service'
 
 const MODULE_ROOT = join(__dirname, '..')
 const MIGRATION_SOURCE = readFileSync(
@@ -85,13 +86,16 @@ describe('invoice module foundation', () => {
       'di.ts',
       'events.ts',
       'search.ts',
+      'encryption.ts',
       join('api', 'openapi.ts'),
+      join('api', 'company-lookup', '[identifier]', 'route.ts'),
       join('api', 'partners', 'route.ts'),
       join('api', 'partners', 'match', 'route.ts'),
       join('api', 'partners', '[id]', 'route.ts'),
       join('api', 'exchange-rates', 'route.ts'),
       join('data', 'entities.ts'),
       join('data', 'validators.ts'),
+      join('services', 'company-lookup-service.ts'),
       join('services', 'exchange-rates-service.ts'),
     ]) {
       expect(existsSync(join(MODULE_ROOT, relativePath))).toBe(true)
@@ -141,6 +145,9 @@ describe('invoice module foundation', () => {
     const exchangeRatesService = container.resolve<InvoiceExchangeRatesService>('invoiceExchangeRatesService')
     expect(typeof exchangeRatesService.getRates).toBe('function')
 
+    const companyLookupService = container.resolve<InvoiceCompanyLookupService>('invoiceCompanyLookupService')
+    expect(typeof companyLookupService.lookup).toBe('function')
+
     for (const [token, entity] of Object.entries(ENTITY_EXPORTS)) {
       expect(container.resolve(token)).toBe(entity)
     }
@@ -159,6 +166,7 @@ describe('invoice module foundation', () => {
       'invoice:invoice',
       'invoice:invoice_company',
     ])
+    expect(searchConfig.entities.map((entity) => entity.entityId)).not.toContain('invoice:invoice_company_registry')
 
     for (const entity of searchConfig.entities) {
       expect(entity.aclFeatures).toEqual(['invoice.view'])
@@ -175,6 +183,7 @@ describe('invoice module foundation', () => {
     expect(searchConfig.entities.find((entity) => entity.entityId === 'invoice:invoice_company')?.fieldPolicy).toMatchObject({
       hashOnly: ['tax_code'],
     })
+    expect(JSON.stringify(searchConfig)).not.toContain('payload')
   })
 
   it('pins tenant and organization columns on every target migration table', () => {

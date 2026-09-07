@@ -213,15 +213,24 @@ and rejects malformed or incomplete provider responses before caching.
 Decision:
 
 Keep `invoice_company_registry` separate from `invoice_companies`.
-M0 creates the table but defers raw provider payload writes to M4. Before M4
-writes provider responses, the implementation must add payload encryption or
-document a stricter provider response shape that proves encryption is not
-needed.
+Provider responses are persisted only through the encrypted
+`invoice_company_registry.payload` contract. The module declares
+`invoice:invoice_company_registry.payload` in `encryption.ts`, reads cache rows
+through `findOneWithDecryption`, and exposes only the normalized
+`CompanyLookupResult` contract to callers.
 
 Reason:
 
 Lookup cache is provider/reference data. It must not create business partner
-records until the user saves/imports an invoice.
+records until the user saves/imports an invoice. Provider payloads can include
+names, addresses, registry status, and future provider fields, so encrypting the
+payload is safer than proving every provider shape is always non-sensitive.
+
+Implementation note:
+
+CAP-008 uses a 30-day tenant/organization-scoped cache TTL based on
+`fetched_at`. Provider payloads are excluded from invoice search text and logs
+must never include raw provider responses.
 
 ## DEC-019 API Shape
 

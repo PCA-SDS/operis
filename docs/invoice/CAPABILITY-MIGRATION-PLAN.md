@@ -97,9 +97,8 @@ Data requirements:
 - Add optimistic locking to every user-editable entity.
 - Add search configuration with `invoice.view` ACL gating, allowlisted text
   fields, tax-code hash-only fields, and token/hash exclusions.
-- Keep `invoice_company_registry.payload` unencrypted in M0 only because M0 does
-  not call lookup providers or write raw provider responses. M4 must revisit
-  payload encryption before provider writes.
+- `invoice_company_registry.payload` is encrypted before CAP-008 provider
+  writes are enabled.
 
 Optimistic locking decisions:
 
@@ -274,6 +273,14 @@ Definition of done:
 
 ## M4 CAP-008 Company Lookup
 
+Progress:
+
+- Task 4.5 finalized the provider cache security contract by encrypting
+  `invoice_company_registry.payload` and requiring decrypted scoped reads.
+- Task 4.6 implemented the invoice company lookup service/API boundary for
+  Vietnam MST and Singapore UEN, with 30-day cache freshness, stale fallback,
+  and no `invoice_companies` writes.
+
 Dependencies:
 
 - M0 table `invoice_company_registry`.
@@ -289,9 +296,8 @@ Data read/write:
 
 - Reads/writes `invoice_company_registry`.
 - Does not create `invoice_companies`.
-- Before writing provider payloads, either add payload encryption for
-  `invoice_company_registry.payload` or document a stricter provider response
-  shape that proves encryption is not required.
+- Provider payload writes use encrypted `invoice_company_registry.payload` and
+  decrypted scoped cache reads.
 
 Implementation type:
 
