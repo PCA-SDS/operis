@@ -12,6 +12,7 @@ import { usePortalEventBridge } from './hooks/usePortalEventBridge'
 import { mergeMenuItems } from '../backend/injection/mergeMenuItems'
 import type { MergedMenuItem } from '../backend/injection/mergeMenuItems'
 import { PortalNotificationBell } from './components/PortalNotificationBell'
+import { CloseButton } from '../primitives/close-button'
 import { usePortalContext } from './PortalContext'
 import { apiCall } from '../backend/utils/apiCall'
 import type { PortalNavGroup } from './utils/nav'
@@ -211,11 +212,13 @@ export function PortalShell({
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     setIsNavLoading(true)
     const load = async () => {
       try {
         const { ok, result } = await apiCall<{ ok: boolean; groups?: PortalNavGroup[] }>(
           '/api/customer_accounts/portal/nav',
+          { signal: controller.signal },
         )
         if (cancelled || !ok || !result?.ok) return
         setAutoNavGroups(Array.isArray(result.groups) ? result.groups : [])
@@ -228,6 +231,7 @@ export function PortalShell({
     void load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [authenticated])
 
@@ -405,12 +409,10 @@ export function PortalShell({
 
       {mobileOpen ? (
         <div className="fixed inset-0 z-modal lg:hidden">
-          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={closeMobile} />
+          <div className="absolute inset-0 bg-foreground/40" onClick={closeMobile} />
           <aside className="relative z-10 h-full w-[280px] bg-surface shadow-2xl">
             <div className="absolute right-3 top-4 z-20">
-              <IconButton variant="ghost" size="sm" type="button" onClick={closeMobile} aria-label="Close menu">
-                <XIcon className="size-4" />
-              </IconButton>
+              <CloseButton onClick={closeMobile} aria-label="Close menu" />
             </div>
             {sidebarContent}
           </aside>

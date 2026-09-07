@@ -61,7 +61,12 @@ function withFixture(options, assertions) {
 test('the repository globals.css passes parity, template sync and contrast', () => {
   const result = runChecker()
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
-  assert.match(result.stdout, /create-app template copy in sync/)
+  // Either verdict proves the template-sync STAGE ran. This fork carries no
+  // create-app template (see NOTICE.md), so the checker takes its documented
+  // "absent" branch; the drift branch is still covered against a synthetic
+  // template by the `--root` fixture test below, and this assertion flips back
+  // to the in-sync wording on its own if a template copy ever returns.
+  assert.match(result.stdout, /create-app template copy (?:in sync|absent, sync check skipped)/)
   assert.match(result.stdout, /contrast checked on \d+ theme×pair combinations/)
 })
 

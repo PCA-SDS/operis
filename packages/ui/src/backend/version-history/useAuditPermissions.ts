@@ -45,9 +45,11 @@ export function useAuditPermissions(enabled: boolean): AuditPermissions {
   React.useEffect(() => {
     if (!enabled) return
     let cancelled = false
+    const controller = new AbortController()
     void (async () => {
       try {
         const res = await apiCall<FeatureCheckResponse>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ features: AUDIT_FEATURES }),
@@ -69,7 +71,7 @@ export function useAuditPermissions(enabled: boolean): AuditPermissions {
         }
       }
     })()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [enabled])
 
   return permissions

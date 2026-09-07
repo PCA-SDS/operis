@@ -53,11 +53,12 @@ export default function ProfileChangePasswordPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setLoading(true)
       setError(null)
       try {
-        const { ok, result } = await apiCall<ProfileResponse>('/api/auth/profile')
+        const { ok, result } = await apiCall<ProfileResponse>('/api/auth/profile', { signal: controller.signal })
         if (!ok) throw new Error(t('auth.profile.form.errors.load', 'Failed to load profile.'))
         const resolvedEmail = typeof result?.email === 'string' ? result.email : ''
         if (!cancelled) setEmail(resolvedEmail)
@@ -69,7 +70,7 @@ export default function ProfileChangePasswordPage() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [t])
 
   const fields = React.useMemo<CrudField[]>(() => [

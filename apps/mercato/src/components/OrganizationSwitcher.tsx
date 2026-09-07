@@ -451,10 +451,9 @@ export default function OrganizationSwitcher({ compact }: OrganizationSwitcherEx
         <Button
           type="button"
           variant="outline"
-          size="sm"
           aria-label={`${t('organizationSwitcher.label')}: ${activeOrgLabel}`}
           title={activeOrgLabel}
-          className="w-8 px-0 hover:bg-muted/40 data-[state=open]:bg-muted/40 sm:w-auto sm:justify-start sm:px-3 sm:max-w-48 md:max-w-64"
+          className="w-9 px-0 hover:bg-muted/40 data-[state=open]:bg-muted/40 sm:w-auto sm:justify-start sm:px-3 sm:max-w-48 md:max-w-64"
         >
           <Building2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <span className="hidden sm:block truncate flex-1 text-left">{activeOrgLabel}</span>

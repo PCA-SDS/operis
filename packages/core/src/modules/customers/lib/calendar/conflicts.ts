@@ -1,4 +1,6 @@
-import type { CalendarItem, CalendarItemStatus, CalendarParticipant } from '../../components/calendar/types'
+import { isTaskItem } from '../../components/calendar/types'
+import type {
+  CalendarInteractionItem, CalendarItem, CalendarItemStatus, CalendarParticipant } from '../../components/calendar/types'
 import type { ConflictScope } from './preferences'
 
 export const EDITOR_DRAFT_CONFLICT_ID = '__draft__'
@@ -81,7 +83,8 @@ export function findEditorConflictItems(
   options: FindConflictsOptions = {},
 ): CalendarItem[] {
   const draftStatus: CalendarItemStatus = draft.status ?? 'planned'
-  const draftItem: CalendarItem = {
+  const draftItem: CalendarInteractionItem = {
+    source: 'interaction',
     id: EDITOR_DRAFT_CONFLICT_ID,
     title: '',
     interactionType: 'meeting',
@@ -107,7 +110,9 @@ export function findEditorConflictItems(
   // share the series `raw.id` but get distinct display ids) so it never conflicts
   // with itself.
   const candidates = others.filter(
-    (item) => item.id !== EDITOR_DRAFT_CONFLICT_ID && item.raw.id !== excludeId,
+    (item) =>
+      item.id !== EDITOR_DRAFT_CONFLICT_ID &&
+      (isTaskItem(item) ? item.id !== excludeId : item.raw.id !== excludeId),
   )
   const conflictIds = findConflicts([draftItem, ...candidates], options).get(EDITOR_DRAFT_CONFLICT_ID) ?? []
   const byId = new Map(candidates.map((item) => [item.id, item]))

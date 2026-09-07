@@ -184,9 +184,11 @@ export function LeaveRequestForm(props: LeaveRequestFormProps) {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadPermissions() {
       try {
         const call = await apiCall<FeatureCheckResponse>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ features: ['dictionaries.manage'] }),
@@ -200,7 +202,7 @@ export function LeaveRequestForm(props: LeaveRequestFormProps) {
       }
     }
     void loadPermissions()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
 
   React.useEffect(() => {
@@ -209,11 +211,12 @@ export function LeaveRequestForm(props: LeaveRequestFormProps) {
     if (memberOptions.some((option) => option.id === selected)) return
     const selectedId = selected
     let cancelled = false
+    const controller = new AbortController()
     async function loadMember() {
       try {
         const params = new URLSearchParams({ page: '1', pageSize: '1' })
         params.set('ids', selectedId)
-        const call = await apiCall<TeamMemberResponse>(`/api/staff/team-members?${params.toString()}`)
+        const call = await apiCall<TeamMemberResponse>(`/api/staff/team-members?${params.toString()}`, { signal: controller.signal })
         const item = Array.isArray(call.result?.items) ? call.result.items[0] : null
         const id = typeof item?.id === 'string' ? item.id : null
         const displayName = typeof item?.displayName === 'string'
@@ -233,7 +236,7 @@ export function LeaveRequestForm(props: LeaveRequestFormProps) {
       }
     }
     loadMember()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [allowMemberSelect, initialValues.memberId, memberOptions])
 
   const fields = React.useMemo<CrudField[]>(() => {

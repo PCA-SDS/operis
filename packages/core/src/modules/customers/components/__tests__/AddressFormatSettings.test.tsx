@@ -39,7 +39,7 @@ describe('AddressFormatSettings', () => {
     renderWithProviders(<AddressFormatSettings />)
 
     await waitFor(() => {
-      expect(apiCallMock).toHaveBeenCalledWith('/api/customers/settings/address-format')
+      expect(apiCallMock).toHaveBeenCalledWith('/api/customers/settings/address-format', expect.objectContaining({ signal: expect.anything() }))
     })
 
     fireEvent.click(await screen.findByLabelText(/Street-first/i))

@@ -14,6 +14,7 @@ import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
+import { SelectionIndicator } from '@open-mercato/ui/primitives/selection-indicator'
 import { Button } from '@open-mercato/ui/primitives/button'
 import {
   Dialog,
@@ -170,32 +171,6 @@ function mergeOptionMaps(
   const next = new Map(existing)
   entries.forEach((entry) => next.set(entry.id, entry))
   return next
-}
-
-type SelectionIndicatorProps = {
-  checked: boolean
-  disabled?: boolean
-  label: string
-}
-
-function SelectionIndicator({ checked, disabled, label }: SelectionIndicatorProps) {
-  return (
-    <span
-      role="checkbox"
-      aria-checked={checked}
-      aria-disabled={disabled || undefined}
-      aria-label={label}
-      className={cn(
-        'inline-flex size-6 shrink-0 items-center justify-center rounded-full border transition-colors',
-        checked
-          ? 'border-primary bg-primary text-primary-foreground'
-          : 'border-border bg-surface',
-        disabled && 'opacity-50',
-      )}
-    >
-      {checked ? <Check className="size-3" strokeWidth={2.5} /> : null}
-    </span>
-  )
 }
 
 type DefaultRowProps = {
@@ -533,6 +508,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
     <>
       <Dialog open={open} onOpenChange={handleDialogOpenChange}>
         <DialogContent
+        disableBodyWrap
           className="flex flex-col gap-0 overflow-hidden p-0"
           style={{
             width: 'min(calc(100vw - 2rem), 920px)',
@@ -542,7 +518,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
           onKeyDown={handleKeyDown}
           aria-hidden={nestedOpen ? 'true' : undefined}
         >
-          <DialogHeader className="flex flex-row items-center gap-3 space-y-0 border-b border-border/70 bg-card px-6 py-5">
+          <DialogHeader className="flex-row items-center gap-3 space-y-0">
             {adapter.headerIcon ? (
               <div className="flex size-6 shrink-0 items-center justify-center text-foreground">
                 {adapter.headerIcon}
@@ -879,7 +855,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
             </div>
           </div>
 
-          <DialogFooter className="flex flex-row items-center justify-between border-t border-border/70 bg-muted/30 px-6 py-4 sm:flex-row sm:justify-between">
+          <DialogFooter className="flex-row items-center justify-between sm:justify-between">
             <div className="text-xs text-muted-foreground">{selectedCountLabel}</div>
             <div className="flex items-center gap-3">
               <Button

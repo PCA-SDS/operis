@@ -29,6 +29,9 @@ const localeLabels: Record<Locale, string> = {
   es: 'Español',
   pl: 'Polski',
   ko: '한국어',
+  vi: 'Tiếng Việt',
+  fr: 'Français',
+  zh: '中文',
 }
 
 export function ProfileDropdown({
@@ -356,7 +359,7 @@ export function ProfileDropdown({
       <IconButton
         ref={buttonRef}
         variant="ghost"
-        size="sm"
+        size="lg"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         aria-haspopup="menu"

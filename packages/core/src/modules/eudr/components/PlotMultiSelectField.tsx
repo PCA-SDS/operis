@@ -93,11 +93,12 @@ export function PlotMultiSelectField({
     const missing = selectedPlotIds.filter((plotId) => !(plotId in plotNames))
     if (!missing.length) return
     let cancelled = false
+    const controller = new AbortController()
     async function resolveNames() {
       const params = new URLSearchParams({ ids: missing.join(','), pageSize: '100' })
       const call = await apiCall<PlotListResponse>(
         `/api/eudr/plots?${params.toString()}`,
-        undefined,
+        { signal: controller.signal },
         { fallback: { items: [] } },
       )
       if (cancelled) return
@@ -113,6 +114,7 @@ export function PlotMultiSelectField({
     resolveNames().catch(() => {})
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [plotNames, selectedPlotIds])
 

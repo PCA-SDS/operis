@@ -1,4 +1,4 @@
-import { Entity, Index, ManyToOne, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, ManyToOne, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 
 @Entity({ tableName: 'users' })
 // Email uniqueness is per-tenant, enforced by a partial unique index
@@ -101,6 +101,17 @@ export class Role {
 
   @Property({ name: 'min_active_holders', type: 'integer', default: 0 })
   minActiveHolders: number = 0
+
+  /**
+   * Reporting line for the organisation chart: the role this one sits under.
+   *
+   * Purely descriptive. Permission resolution does NOT walk this edge — a child
+   * role inherits nothing from its parent, and `RoleAcl` remains the only thing
+   * that grants a feature. It is stored as a bare id rather than a relation so
+   * nothing in the RBAC path can accidentally cascade or eager-load along it.
+   */
+  @Property({ name: 'parent_role_id', type: 'uuid', nullable: true })
+  parentRoleId?: string | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

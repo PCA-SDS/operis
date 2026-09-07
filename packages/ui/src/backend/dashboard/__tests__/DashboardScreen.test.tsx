@@ -8,6 +8,7 @@ import { renderWithProviders } from '@open-mercato/shared/lib/testing/renderWith
 import { DashboardScreen } from '../DashboardScreen'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { getDashboardWidgets, loadDashboardWidgetModule } from '../widgetRegistry'
+import { GREETINGS } from '../greetings'
 
 jest.setTimeout(20000)
 
@@ -57,6 +58,7 @@ const dict = {
   'dashboard.action.customize': 'Customize',
   'dashboard.action.done': 'Done',
   'dashboard.addWidget': 'Add a widget',
+  'dashboard.title': 'Dashboard',
 }
 
 const widgetResponse = {
@@ -124,6 +126,10 @@ describe('DashboardScreen', () => {
       hydrateSettings: (value: unknown) => value,
       dehydrateSettings: (value: unknown) => value,
     })
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
   })
 
   it('renders widget cards when layout loads successfully', async () => {
@@ -269,5 +275,56 @@ describe('DashboardScreen', () => {
     expect(await screen.findByText('Widget Foo')).toBeInTheDocument()
     expect(await screen.findByText('Unable to load widget.')).toBeInTheDocument()
     expect(screen.queryByText('Widget body')).not.toBeInTheDocument()
+  })
+
+  it('greets the signed-in user with a headline matching the local time of day', async () => {
+    jest.spyOn(Date.prototype, 'getHours').mockReturnValue(8)
+    jest.spyOn(Math, 'random').mockReturnValue(0)
+    ;(apiCall as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      result: widgetResponse,
+      response: createMockResponse(200),
+    })
+
+    renderWithProviders(<DashboardScreen />, { dict })
+
+    const heading = await screen.findByRole('heading', { level: 1 })
+    expect(heading).toHaveTextContent(GREETINGS.morning[0].text.replace('{{user}}', 'Demo'))
+  })
+
+  it('rotates to another greeting from the same slot on a different roll', async () => {
+    jest.spyOn(Date.prototype, 'getHours').mockReturnValue(23)
+    jest.spyOn(Math, 'random').mockReturnValue(0.99)
+    ;(apiCall as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      result: widgetResponse,
+      response: createMockResponse(200),
+    })
+
+    renderWithProviders(<DashboardScreen />, { dict })
+
+    const heading = await screen.findByRole('heading', { level: 1 })
+    expect(heading).toHaveTextContent(
+      GREETINGS.night[GREETINGS.night.length - 1].text.replace('{{user}}', 'Demo')
+    )
+  })
+
+  it('keeps the plain page title when the layout context carries no name to greet', async () => {
+    ;(apiCall as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      result: {
+        ...widgetResponse,
+        context: { ...widgetResponse.context, userName: null, userEmail: null, userLabel: null },
+      },
+      response: createMockResponse(200),
+    })
+
+    renderWithProviders(<DashboardScreen />, { dict })
+
+    const heading = await screen.findByRole('heading', { level: 1 })
+    expect(heading).toHaveTextContent('Dashboard')
   })
 })

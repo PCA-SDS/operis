@@ -6,10 +6,10 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import type { AllDayBar } from '../../lib/calendar/layout'
 import { eventDisplayTitle } from '../../lib/calendar/labels'
-import { resolveEventTone } from './EventBlock'
+import { resolveEventTone } from '../../lib/calendar/tone'
 
 /** Height of one bar row, shared by the week all-day lane and month rows. */
-export const BAR_ROW_HEIGHT_PX = 20
+export const BAR_ROW_HEIGHT_PX = 22
 export const BAR_ROW_GAP_PX = 2
 
 export type CalendarBarProps = {
@@ -48,10 +48,10 @@ export const CalendarBar = React.forwardRef<HTMLButtonElement, CalendarBarProps>
       variant="ghost"
       aria-label={label}
       className={cn(
-        'absolute h-auto min-w-0 justify-start gap-1 truncate px-2 py-0 text-start text-xs font-medium transition-[filter,box-shadow]',
-        'hover:brightness-95',
-        bar.continuesBefore ? 'rounded-s-none' : 'rounded-s-sm',
-        bar.continuesAfter ? 'rounded-e-none' : 'rounded-e-sm',
+        'absolute h-auto min-w-0 justify-start gap-1 truncate px-2 py-0 text-start text-xs font-medium leading-none transition-[filter,box-shadow]',
+        'hover:brightness-95 hover:shadow-sm',
+        bar.continuesBefore ? 'rounded-s-none' : 'rounded-s',
+        bar.continuesAfter ? 'rounded-e-none' : 'rounded-e',
         tone.surfaceClassName,
         tone.titleClassName,
         conflicted && 'ring-1 ring-status-warning-icon',
@@ -64,7 +64,7 @@ export const CalendarBar = React.forwardRef<HTMLButtonElement, CalendarBarProps>
       style={{
         insetInlineStart: `calc(${(bar.startIndex / dayCount) * 100}% + 2px)`,
         width: `calc(${(spanDays / dayCount) * 100}% - 4px)`,
-        top: bar.lane * (BAR_ROW_HEIGHT_PX + BAR_ROW_GAP_PX),
+        top: BAR_ROW_GAP_PX + bar.lane * (BAR_ROW_HEIGHT_PX + BAR_ROW_GAP_PX),
         height: BAR_ROW_HEIGHT_PX,
         ...tone.style,
       }}

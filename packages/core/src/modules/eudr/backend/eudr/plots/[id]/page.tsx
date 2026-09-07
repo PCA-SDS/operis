@@ -98,6 +98,7 @@ export default function EditEudrPlotPage({ params }: { params?: { id?: string } 
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadRecord() {
       if (!plotId) {
         setNotFound(true)
@@ -110,7 +111,7 @@ export default function EditEudrPlotPage({ params }: { params?: { id?: string } 
       try {
         const call = await apiCall<PlotDetailResponse>(
           `/api/eudr/plots?id=${encodeURIComponent(plotId)}`,
-          undefined,
+          { signal: controller.signal },
           { fallback: { items: [] } },
         )
         if (!call.ok) {
@@ -134,6 +135,7 @@ export default function EditEudrPlotPage({ params }: { params?: { id?: string } 
     loadRecord()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [plotId, translate])
 

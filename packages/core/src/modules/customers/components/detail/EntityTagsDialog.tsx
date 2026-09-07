@@ -10,7 +10,7 @@ import { apiCall, apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { entityColorStyle } from '@open-mercato/ui/primitives/tag'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import {
@@ -725,6 +725,7 @@ export function EntityTagsDialog({
     }
 
     let cancelled = false
+    const controller = new AbortController()
     const params = new URLSearchParams({
       page: String(activeCategoryPage),
       pageSize: String(REMOTE_CATEGORY_PAGE_SIZE),
@@ -755,6 +756,7 @@ export function EntityTagsDialog({
 
     setActiveCategoryLoading(true)
     void apiCall<{ items?: Array<DictEntry | LabelItem>; totalPages?: number }>(endpoint, {
+      signal: controller.signal,
       cache: 'no-store',
       headers: { 'x-om-unauthorized-redirect': '0' },
     })
@@ -783,6 +785,7 @@ export function EntityTagsDialog({
 
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [
     activeCategoryKindValue,
@@ -1119,6 +1122,7 @@ export function EntityTagsDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
       <DialogContent
+        disableBodyWrap
         className="flex max-h-[85vh] flex-col overflow-hidden border-border bg-surface p-0 shadow-[0px_16px_40px_0px_rgba(0,0,0,0.14)] sm:max-w-[760px] sm:rounded-xl [&>[data-dialog-close]]:hidden"
         aria-describedby={undefined}
       >
@@ -1126,7 +1130,7 @@ export function EntityTagsDialog({
           <DialogTitle>{t('customers.personTags.title', 'Edit tags')}</DialogTitle>
         </VisuallyHidden>
 
-        <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-5 py-4">
+        <div className="flex shrink-0 items-center justify-between px-5 py-4 sm:px-6">
           <div className="flex items-center gap-2">
             <Tag className="size-4 text-foreground" />
             <span className="text-sm font-bold text-foreground">
@@ -1144,15 +1148,10 @@ export function EntityTagsDialog({
               <SlidersHorizontal className="size-3.5" />
               {t('customers.personTags.settingsButton', 'Tag settings')}
             </Button>
-            <IconButton
-              type="button"
-              variant="outline"
-              size="xs"
-              className="size-7 rounded-sm border-border bg-surface"
+            <CloseButton
               onClick={onClose}
-            >
-              <X className="size-3.5" />
-            </IconButton>
+              aria-label={t('customers.personTags.close', 'Close')}
+            />
           </div>
         </div>
 
@@ -1362,7 +1361,7 @@ export function EntityTagsDialog({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-between border-t border-border bg-muted/20 px-5 py-3.5">
+        <div className="flex shrink-0 items-center justify-between px-5 pt-1.5 pb-4 sm:px-6">
           <span className="text-xs text-muted-foreground">
             {t('customers.personTags.activeCount', '{{count}} selected', { count: activeCount })}
           </span>

@@ -47,6 +47,7 @@ describe('module-facts customers fixture (T1 anti-drift guard)', () => {
       'seed-examples',
       'seed-stresstest',
       'interactions:backfill',
+      'people:backfill-contact-hashes',
     ])
     expect(facts.hostTokens.tableIds).toEqual([
       'customers.companies.list',

@@ -64,11 +64,12 @@ function InviteForm({ personEntityId, onSuccess }: { personEntityId: string; onS
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadPerson() {
       try {
         const call = await apiCall<PersonData>(
           `/api/customers/people/${encodeURIComponent(personEntityId)}`,
-        )
+        { signal: controller.signal })
         if (cancelled) return
         if (call.ok && call.result) {
           const person = call.result.person
@@ -90,16 +91,17 @@ function InviteForm({ personEntityId, onSuccess }: { personEntityId: string; onS
       }
     }
     loadPerson()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [personEntityId])
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadRoles() {
       try {
         const call = await apiCall<{ items?: RoleOption[] }>(
           '/api/customer_accounts/admin/roles?pageSize=100',
-        )
+        { signal: controller.signal })
         if (cancelled) return
         if (call.ok && call.result) {
           const items = Array.isArray(call.result.items) ? call.result.items : []
@@ -112,7 +114,7 @@ function InviteForm({ personEntityId, onSuccess }: { personEntityId: string; onS
       }
     }
     loadRoles()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [])
 
   function toggleRole(roleId: string) {

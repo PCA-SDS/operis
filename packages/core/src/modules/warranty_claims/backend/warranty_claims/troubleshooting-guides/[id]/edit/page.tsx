@@ -30,6 +30,7 @@ export default function EditWarrantyTroubleshootingGuidePage({ params }: { param
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadGuide() {
       setLoading(true)
       setError(null)
@@ -37,7 +38,7 @@ export default function EditWarrantyTroubleshootingGuidePage({ params }: { param
       try {
         const payload = await readApiResultOrThrow<{ items?: unknown[] }>(
           `/api/warranty_claims/troubleshooting-guides?ids=${encodeURIComponent(id)}&page=1&pageSize=1`,
-          undefined,
+          { signal: controller.signal },
           {
             fallback: { items: [] },
             errorMessage: t('warranty_claims.troubleshootingGuides.edit.error.load', 'Failed to load troubleshooting guide.'),
@@ -68,6 +69,7 @@ export default function EditWarrantyTroubleshootingGuidePage({ params }: { param
     if (id) void loadGuide()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [id, t])
 

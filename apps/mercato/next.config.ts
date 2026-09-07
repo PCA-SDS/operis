@@ -1,24 +1,17 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 import { resolveAllowedDevOrigins } from './src/lib/dev-origins'
+import {
+  buildBaseSecurityHeaders,
+  buildContentSecurityPolicy,
+} from './src/lib/security-headers'
 import { telemetryServerExternalPackages } from '@open-mercato/telemetry/nextjs-config'
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
 const allowedDevOrigins = isDevelopment ? resolveAllowedDevOrigins() : []
 
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "font-src 'self' data: https:",
-  "form-action 'self'",
-  "frame-ancestors 'self'",
-  "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
-  "img-src 'self' data: blob: https:",
-  "object-src 'none'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
-  "style-src 'self' 'unsafe-inline'",
-  "connect-src 'self' https: ws: wss:",
-].join('; ')
+const contentSecurityPolicy = buildContentSecurityPolicy(isDevelopment)
+const baseSecurityHeaders = buildBaseSecurityHeaders(isDevelopment)
 
 const nextConfig: NextConfig & { agentRules?: boolean } = {
   distDir: '.mercato/next',
@@ -37,31 +30,33 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
     //   - date-fns: already uses deep imports everywhere; listing it here
     //     is defense-in-depth and harmless.
     optimizePackageImports: ['lucide-react', 'recharts', 'date-fns'],
-    // BOTH minifiers MUST stay off in EVERY environment, production included.
-    // This is not a dev-speed preference — it is load-bearing for MikroORM.
+    // BOTH minifiers MUST stay off, production included.
     //
-    // The legacy MikroORM decorators key entity metadata off the class name
-    // (`getMetadataFromDecorator(target.constructor)`). The minifier mangles
-    // distinct entity classes down to the same short identifier, so their
-    // metadata buckets collide. `comments` is declared as a `@OneToMany` in
-    // customers/data/entities.ts:115 and :383 but as a scalar `@Property` in
-    // sales/data/entities.ts:425,886 and workflows/data/entities.ts:540 — once
-    // two of those classes share a mangled name the kinds disagree and
-    // `validateSingleDecorator` throws:
-    //   MetadataError: Multiple property decorators used on 'I.comments'
+    // Two independent reasons, and only ONE of them has been removed:
     //
-    // Verified empirically: enabling either flag makes `next build` fail while
-    // collecting page data for /api/docs/markdown. Turbopack applies
-    // `turbopackMinify` to the server graph too, so disabling only
-    // `serverMinification` is NOT sufficient. Next exposes no `keep_classnames`
-    // escape hatch.
+    // 1. MikroORM legacy decorators keyed entity metadata off `target.constructor.name`,
+    //    which mangling collapses. FIXED — entities now use the TC39 decorators via
+    //    `@open-mercato/shared/lib/db/decorators`, which receive the class name as a
+    //    compile-time string literal. Verified with an esbuild --minify probe and by
+    //    `yarn db:generate` reporting zero schema drift.
     //
-    // Cost of this workaround: production client chunks ship unminified
-    // (~62 MB raw across static/chunks; measured ~40% gzip / ~69% raw headroom).
-    // Lifting it requires migrating entities off the legacy decorators to the
-    // Stage-3 (`Symbol.metadata`) ones, which are per-class and immune to name
-    // mangling. Tracked as a remaining recommendation — do not flip these
-    // without doing that first.
+    // 2. Awilix runs in `InjectionMode.CLASSIC` (packages/shared/src/lib/di/container.ts),
+    //    which resolves every dependency BY CONSTRUCTOR PARAMETER NAME. Mangling renames
+    //    those parameters to `e`, `t`, `n`, so every `asClass` registration fails at runtime:
+    //
+    //        ⨯ Could not resolve 'e'.  Resolution path: authService -> e
+    //
+    //    Login returns 500 and the app never becomes ready. STILL OPEN. This is why the
+    //    flags are back off after the decorator migration briefly enabled them.
+    //
+    // Note how this escaped: unit tests run unminified source, and the deploy smoke test
+    // probes only `/api/configs/health`, which resolves nothing from the container — so CI
+    // and the deploy both reported green while authentication was broken.
+    //
+    // Lifting this now requires moving the container off CLASSIC to explicit `asFunction`
+    // registrations with destructured cradle access (parameter names stop being load-bearing),
+    // or a server-only `keepNames`, which Next does not expose separately. Do not flip these
+    // without doing that first AND booting the app to a successful `POST /api/auth/login`.
     serverMinification: false,
     turbopackMinify: false,
     ...(isDevelopment
@@ -129,9 +124,7 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
         source: '/:path*',
         headers: [
           { key: 'Content-Security-Policy', value: contentSecurityPolicy },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          ...baseSecurityHeaders,
         ],
       },
       {
@@ -141,9 +134,7 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
         source: '/api/attachments/file/:path*',
         headers: [
           { key: 'Content-Security-Policy', value: "default-src 'none'; sandbox" },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+          ...baseSecurityHeaders,
         ],
       },
       {

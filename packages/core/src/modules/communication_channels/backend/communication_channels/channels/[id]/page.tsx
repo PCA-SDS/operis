@@ -49,13 +49,14 @@ export default function ChannelDetailPage() {
   React.useEffect(() => {
     if (!id) return
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setErrorMessage(null)
       setNotFound(false)
       const [detailRes, healthRes] = await Promise.all([
-        apiCall<ChannelDetail>(`/api/communication_channels/channels/${encodeURIComponent(id)}`),
-        apiCall<ChannelHealth>(`/api/communication_channels/channels/${encodeURIComponent(id)}/health`),
+        apiCall<ChannelDetail>(`/api/communication_channels/channels/${encodeURIComponent(id)}`, { signal: controller.signal }),
+        apiCall<ChannelHealth>(`/api/communication_channels/channels/${encodeURIComponent(id)}/health`, { signal: controller.signal }),
       ]).catch((err: unknown) => {
         return [
           { ok: false, result: { error: err instanceof Error ? err.message : 'load failed' } },
@@ -84,6 +85,7 @@ export default function ChannelDetailPage() {
     void load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [id, t])
 

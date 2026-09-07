@@ -1,4 +1,4 @@
-import { Entity, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy';
+import { Entity, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators';
 
 @Entity({ tableName: 'example_items' })
 export class ExampleItem {

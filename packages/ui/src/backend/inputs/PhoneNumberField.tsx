@@ -4,13 +4,7 @@ import * as React from 'react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { extractPhoneDigits, validatePhoneNumber } from '@open-mercato/shared/lib/phone'
 import { cn } from '@open-mercato/shared/lib/utils'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectItemLeading,
-  SelectTrigger,
-} from '../../primitives/select'
+import { Dropdown, type DropdownOption } from '../../primitives/dropdown'
 
 export type PhoneDuplicateMatch = {
   id: string
@@ -312,6 +306,26 @@ export const PHONE_COUNTRIES: PhoneCountry[] = RAW_PHONE_COUNTRIES
   .sort((a, b) => a.label.localeCompare(b.label, 'en', { sensitivity: 'base' }))
 
 /**
+ * The 243 countries as dropdown rows, built once. Shared with the custom-field
+ * editor so both country pickers search the same way: the name matches through
+ * `label`, and the dial code and ISO code through `keywords` — typing "44",
+ * "+44", "gb" or "United King" all reach the United Kingdom.
+ */
+export function buildPhoneCountryOptions(countries: PhoneCountry[]): DropdownOption<string>[] {
+  return countries.map((country) => ({
+    value: country.iso2,
+    label: country.label,
+    leading: <span className="text-base leading-none">{country.flag}</span>,
+    trailing: (
+      <span className="text-xs text-muted-foreground tabular-nums">{country.dialCode}</span>
+    ),
+    keywords: [country.dialCode, country.dialCode.replace('+', ''), country.iso2],
+  }))
+}
+
+export const PHONE_COUNTRY_OPTIONS: DropdownOption<string>[] = buildPhoneCountryOptions(PHONE_COUNTRIES)
+
+/**
  * Sovereign/primary country that wins auto-detection for a calling code shared
  * by several territories. US vs. Canada is the one irreducible ambiguity — both
  * are `+1` — and it resolves to the US.
@@ -374,6 +388,13 @@ export type PhoneNumberFieldProps = {
   value?: string | null
   onValueChange: (next: string | undefined) => void
   onDigitsChange?: (digits: string | null) => void
+  /**
+   * Reports the country behind the composed value, whether the user picked it
+   * or it was parsed from `value`. Surfaces that persist the dial code or ISO
+   * code alongside the number need this — the composed string alone cannot
+   * disambiguate countries that share a dial code (`+1`).
+   */
+  onCountryChange?: (country: PhoneCountry) => void
   externalError?: string | null
   disabled?: boolean
   autoFocus?: boolean
@@ -400,6 +421,7 @@ export function PhoneNumberField({
   value,
   onValueChange,
   onDigitsChange,
+  onCountryChange,
   externalError,
   disabled = false,
   autoFocus,
@@ -430,6 +452,11 @@ export function PhoneNumberField({
   )
   const resolvedPlaceholder = placeholder ?? DEFAULT_PLACEHOLDER
   const countries = countriesProp ?? PHONE_COUNTRIES
+  // Reuse the prebuilt list unless a surface passed its own countries.
+  const countryOptions = React.useMemo(
+    () => (countriesProp ? buildPhoneCountryOptions(countriesProp) : PHONE_COUNTRY_OPTIONS),
+    [countriesProp],
+  )
   const fallbackCountry = React.useMemo(
     () => (defaultCountryIso2 && findCountryByIso(defaultCountryIso2)) || DEFAULT_COUNTRY,
     [defaultCountryIso2],
@@ -449,6 +476,14 @@ export function PhoneNumberField({
   const [validationHint, setValidationHint] = React.useState<string | null>(null)
   const [focused, setFocused] = React.useState(false)
   const userEditingRef = React.useRef(false)
+
+  // Held in a ref so an inline callback cannot retrigger the report effect,
+  // which would loop when the parent stores the reported country in state.
+  const countryChangeRef = React.useRef(onCountryChange)
+  countryChangeRef.current = onCountryChange
+  React.useEffect(() => {
+    countryChangeRef.current?.(country)
+  }, [country])
 
   const externalFieldError = externalError && externalError.trim().length > 0 ? externalError : null
   const errorMessage = externalFieldError ?? validationHint
@@ -581,32 +616,27 @@ export function PhoneNumberField({
         )}
         aria-invalid={errorMessage ? 'true' : undefined}
       >
-        <Select value={country.iso2} onValueChange={handleCountryChange} disabled={disabled}>
-          <SelectTrigger
-            aria-label={ariaLabel ? `${ariaLabel} country` : 'Country code'}
-            className={cn(
-              'h-auto w-auto shrink-0 gap-1.5 rounded-none rounded-l-md border-0 bg-transparent px-2.5 py-2 shadow-none',
-              'hover:bg-muted/40 focus:bg-muted/40 focus-visible:shadow-none focus-visible:border-0',
-              'disabled:bg-transparent disabled:hover:bg-transparent',
-            )}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-          >
-            <span className="text-base leading-none" aria-hidden="true">{country.flag}</span>
-            <span className="text-sm text-foreground tabular-nums">{country.dialCode}</span>
-          </SelectTrigger>
-          <SelectContent align="start">
-            {countries.map((c) => (
-              <SelectItem key={`${c.iso2}-${c.dialCode}`} value={c.iso2}>
-                <SelectItemLeading>
-                  <span className="text-base leading-none">{c.flag}</span>
-                </SelectItemLeading>
-                <span className="flex-1 truncate">{c.label}</span>
-                <span className="ml-2 text-xs text-muted-foreground tabular-nums">{c.dialCode}</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Searchable: 243 rows is far past what anyone will scroll, so the menu
+            opens on a search field and matches name, dial code or ISO code. The
+            trigger keeps showing the dial code rather than the country name —
+            that is what the number reads as. */}
+        <Dropdown<string>
+          value={country.iso2}
+          onChange={(next) => { if (next) handleCountryChange(next) }}
+          options={countryOptions}
+          searchable={t('ui.phone.searchCountry', 'Search country…')}
+          ariaLabel={ariaLabel ? `${ariaLabel} country` : t('ui.phone.countryCode', 'Country code')}
+          placeholder={t('ui.phone.countryCode', 'Country code')}
+          disabled={disabled}
+          align="start"
+          triggerLeading={<span className="text-base leading-none" aria-hidden="true">{country.flag}</span>}
+          triggerLabel={<span className="text-sm text-foreground tabular-nums">{country.dialCode}</span>}
+          triggerClassName={cn(
+            'h-auto w-auto shrink-0 gap-1.5 rounded-none rounded-l-md border-0 bg-transparent px-2.5 py-2 shadow-none',
+            'hover:bg-muted/40 focus:bg-muted/40 focus-visible:shadow-none focus-visible:border-0',
+            'disabled:bg-transparent disabled:hover:bg-transparent',
+          )}
+        />
         <div aria-hidden="true" className="w-px self-stretch bg-input" />
         <input
           type="tel"

@@ -525,8 +525,8 @@ describe('isConfigurableProductType', () => {
     expect(isConfigurableProductType('configurable')).toBe(true)
   })
 
-  it('returns true for virtual', () => {
-    expect(isConfigurableProductType('virtual')).toBe(true)
+  it('returns true for service', () => {
+    expect(isConfigurableProductType('service')).toBe(true)
   })
 
   it('returns true for downloadable', () => {

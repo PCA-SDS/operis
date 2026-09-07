@@ -1,4 +1,4 @@
-import { Entity, Index, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 
 // Generic JSONB-backed index rows for any entity ('<module>:<entity>')
 @Entity({ tableName: 'entity_indexes' })

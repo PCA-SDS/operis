@@ -177,7 +177,7 @@ describe('API routes', () => {
     // `quick-add/parse` is a POST because the input is a body, not because it
     // writes: it interprets a line of text and returns the reading. The client
     // then creates the task through the normal create endpoint, which is guarded.
-    const readOnlyPosts = new Set(['api/quick-add/parse/route.ts'])
+    const readOnlyPosts = new Set([path.normalize('api/quick-add/parse/route.ts')])
     const offenders = apiRoutes.filter((file) => {
       if (readOnlyPosts.has(relative(file))) return false
       const source = read(file)
@@ -283,7 +283,9 @@ describe('notifications', () => {
 
   it('resolves every notification string through the locale bundle', () => {
     const offenders = notificationTypes.flatMap((type) =>
-      [type.titleKey, type.bodyKey].filter((key) => !locale[key]),
+      [type.titleKey, type.bodyKey]
+        .filter((key): key is string => typeof key === 'string')
+        .filter((key) => !locale[key]),
     )
     expect(offenders).toEqual([])
   })

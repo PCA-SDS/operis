@@ -9,6 +9,31 @@ import { login } from '@open-mercato/core/modules/core/__integration__/helpers/a
  * editing the page, and opens a sheet embedding `<AiChat>` wired to
  * `customers.account_assistant`.
  */
+/**
+ * The injected body renders `<AiProviderSetupPanel>` instead of `<AiChat>` when
+ * no LLM provider key is configured, which is the case in the ephemeral test
+ * environment. Keep the real agent list (the widget needs
+ * `customers.account_assistant`) and only force the `aiConfigured` flag, so the
+ * test exercises the chat path it is written to cover.
+ */
+async function stubAiConfigured(page: import('@playwright/test').Page): Promise<void> {
+  await page.route('**/api/ai_assistant/ai/agents**', async (route) => {
+    const response = await route.fetch();
+    let body: unknown = null;
+    try {
+      body = await response.json();
+    } catch {
+      await route.fulfill({ response });
+      return;
+    }
+    await route.fulfill({
+      response,
+      contentType: 'application/json',
+      body: JSON.stringify({ ...(body as Record<string, unknown>), aiConfigured: true }),
+    });
+  });
+}
+
 test.describe('TC-AI-INJECT-009: backend AiChat injection', () => {
   test('people list header shows the injected AI trigger for superadmin', async ({ page }) => {
     // Cold-compile of /login + /backend/customers/people can take a
@@ -29,6 +54,7 @@ test.describe('TC-AI-INJECT-009: backend AiChat injection', () => {
 
   test('clicking the injected trigger opens a dialog with the AiChat composer', async ({ page }) => {
     test.setTimeout(120_000);
+    await stubAiConfigured(page);
     await page.goto('/login', { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('form[data-auth-ready="1"]', { state: 'visible', timeout: 30_000 });
     await login(page, 'superadmin');

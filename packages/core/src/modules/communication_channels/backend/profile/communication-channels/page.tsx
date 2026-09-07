@@ -116,11 +116,13 @@ export default function ProfileCommunicationChannelsPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setErrorMessage(null)
       const response = await apiCall<{ items?: ChannelRow[] }>(
         '/api/communication_channels/me/channels',
+        { signal: controller.signal },
       ).catch((err: unknown) => ({
         ok: false,
         result: { error: err instanceof Error ? err.message : 'Failed to load channels' },
@@ -141,6 +143,7 @@ export default function ProfileCommunicationChannelsPage() {
     void load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [reloadKey, t])
 

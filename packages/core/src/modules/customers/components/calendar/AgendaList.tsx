@@ -198,7 +198,7 @@ export function AgendaList({ anchor, horizonDays, items, typeLabels, onItemClick
   const t = useT()
   const groups = React.useMemo(() => buildDayGroups(anchor, horizonDays, items), [anchor, horizonDays, items])
   return (
-    <div className="flex w-full flex-col divide-y divide-border overflow-hidden border border-border bg-surface">
+    <div className="flex h-full min-h-0 w-full flex-col divide-y divide-border overflow-y-auto rounded-lg border border-border bg-surface">
       {groups.map((group) => (
         <React.Fragment key={dayKeyOf(group.date)}>
           <AgendaDayHeader date={group.date} count={group.items.length} />

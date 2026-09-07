@@ -729,6 +729,14 @@
         "type": "COLOR"
       }
     },
+    "font-body": {
+      "kind": "reference",
+      "light": "var(--font-geist-sans)",
+      "dark": null,
+      "themeInvariant": true,
+      "figma": null,
+      "note": "Third-party components that theme themselves through their own custom properties rather than inheriting. MDXEditor's stylesheet sets `font-family: var(--font-body)` / `var(--font-mono)` on its editing surface and defines neither, so without these two lines its rich-text area is the one input in the product whose typeface depends on undefined-variable fallback behaviour. Binding them to the product faces makes it explicit. Theme-invariant, like the two faces they alias: a typeface does not change between light and dark."
+    },
     "font-geist-mono": {
       "kind": "fontStack",
       "light": "\"DM Mono\", ui-monospace, \"SFMono-Regular\", \"SF Mono\", Consolas, \"Liberation Mono\", Menlo, monospace",
@@ -744,7 +752,14 @@
       "themeInvariant": true,
       "themeAlias": "font-sans",
       "figma": null,
-      "note": "Figtree / DM Mono are loaded from Google Fonts in the root layout (same delivery the design reference uses). The system stack stays behind them so an offline or blocked-font environment degrades to native type rather than to a serif fallback."
+      "note": "Figtree / DM Mono are SELF-HOSTED — see ./fonts.css, imported at the top of this file. They are deliberately not pulled from fonts.googleapis.com: the app's CSP is `style-src 'self' 'unsafe-inline'` with no external hosts, so a Google Fonts <link> is blocked at runtime and the product would silently fall back to system type. The system stack stays behind them so an offline or blocked-font environment degrades to native type, never to a serif."
+    },
+    "font-mono": {
+      "kind": "reference",
+      "light": "var(--font-geist-mono)",
+      "dark": null,
+      "themeInvariant": true,
+      "figma": null
     },
     "font-size-overline": {
       "kind": "dimension",
@@ -1209,11 +1224,11 @@
     },
     "sidebar": {
       "kind": "color",
-      "light": "#FFFFFF",
-      "dark": "#171E2A",
+      "light": "#43608E",
+      "dark": "#1B2A42",
       "hex": {
-        "light": "#ffffff",
-        "dark": "#171e2a"
+        "light": "#43608e",
+        "dark": "#1b2a42"
       },
       "themeInvariant": false,
       "themeAlias": "color-sidebar",
@@ -1221,15 +1236,15 @@
         "name": "sidebar",
         "type": "COLOR"
       },
-      "note": "Sidebar — the reference sidebar sits on the raised surface, not on a tinted panel, so it reads as part of the same sheet as the content."
+      "note": "Sidebar — an inked chrome column, NOT a step on the neutral surface ladder. The rail is painted in the CTA navy (`--sidebar` == `--primary`) so the product's one saturated colour anchors the left edge, and every piece of nav chrome therefore has to read on navy rather than on white. That is why the family is complete — ink, quiet ink, hover fill, active pill, hairline — instead of borrowing `foreground` / `surface-muted` / `border` from the content side: those are tuned for a light ground and vanish here. `--sidebar-muted-foreground` is the quiet ink (rest-state icons, group overlines); the active row is a pale `--sidebar-primary` pill with `--sidebar-primary-foreground` ink, which reads as the rail colour cut out of the row."
     },
     "sidebar-accent": {
       "kind": "color",
-      "light": "#EDF1F7",
-      "dark": "#1E2735",
+      "light": "#55719C",
+      "dark": "#26385A",
       "hex": {
-        "light": "#edf1f7",
-        "dark": "#1e2735"
+        "light": "#55719c",
+        "dark": "#26385a"
       },
       "themeInvariant": false,
       "themeAlias": "color-sidebar-accent",
@@ -1240,11 +1255,11 @@
     },
     "sidebar-accent-foreground": {
       "kind": "color",
-      "light": "#1D2735",
-      "dark": "#E6ECF4",
+      "light": "#FFFFFF",
+      "dark": "#EAF1FB",
       "hex": {
-        "light": "#1d2735",
-        "dark": "#e6ecf4"
+        "light": "#ffffff",
+        "dark": "#eaf1fb"
       },
       "themeInvariant": false,
       "themeAlias": "color-sidebar-accent-foreground",
@@ -1255,11 +1270,11 @@
     },
     "sidebar-border": {
       "kind": "color",
-      "light": "#D9E0EA",
-      "dark": "#2E3948",
+      "light": "#5A749D",
+      "dark": "#32456A",
       "hex": {
-        "light": "#d9e0ea",
-        "dark": "#2e3948"
+        "light": "#5a749d",
+        "dark": "#32456a"
       },
       "themeInvariant": false,
       "themeAlias": "color-sidebar-border",
@@ -1270,11 +1285,11 @@
     },
     "sidebar-foreground": {
       "kind": "color",
-      "light": "#1D2735",
-      "dark": "#E6ECF4",
+      "light": "#EDF2FA",
+      "dark": "#DFE8F4",
       "hex": {
-        "light": "#1d2735",
-        "dark": "#e6ecf4"
+        "light": "#edf2fa",
+        "dark": "#dfe8f4"
       },
       "themeInvariant": false,
       "themeAlias": "color-sidebar-foreground",
@@ -1283,13 +1298,28 @@
         "type": "COLOR"
       }
     },
+    "sidebar-muted-foreground": {
+      "kind": "color",
+      "light": "#CAD9EF",
+      "dark": "#9DB3D3",
+      "hex": {
+        "light": "#cad9ef",
+        "dark": "#9db3d3"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-sidebar-muted-foreground",
+      "figma": {
+        "name": "sidebar-muted-foreground",
+        "type": "COLOR"
+      }
+    },
     "sidebar-primary": {
       "kind": "color",
-      "light": "#43608E",
-      "dark": "#8FAEDA",
+      "light": "#EAF1FA",
+      "dark": "#31496F",
       "hex": {
-        "light": "#43608e",
-        "dark": "#8faeda"
+        "light": "#eaf1fa",
+        "dark": "#31496f"
       },
       "themeInvariant": false,
       "themeAlias": "color-sidebar-primary",
@@ -1300,11 +1330,11 @@
     },
     "sidebar-primary-foreground": {
       "kind": "color",
-      "light": "#FFFFFF",
-      "dark": "#101822",
+      "light": "#33507B",
+      "dark": "#CFE0F8",
       "hex": {
-        "light": "#ffffff",
-        "dark": "#101822"
+        "light": "#33507b",
+        "dark": "#cfe0f8"
       },
       "themeInvariant": false,
       "themeAlias": "color-sidebar-primary-foreground",
@@ -1315,10 +1345,10 @@
     },
     "sidebar-ring": {
       "kind": "color",
-      "light": "#7FA3CF",
+      "light": "#B6C7DF",
       "dark": "#5D82B4",
       "hex": {
-        "light": "#7fa3cf",
+        "light": "#b6c7df",
         "dark": "#5d82b4"
       },
       "themeInvariant": false,

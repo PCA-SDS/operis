@@ -14,6 +14,7 @@ import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { usePortalContext } from '@open-mercato/ui/portal/PortalContext'
 import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
+import { FORM_FIELD_LABEL } from '@open-mercato/ui/backend/forms/formChrome'
 
 type Props = { params: { orgSlug: string } }
 
@@ -145,13 +146,13 @@ export default function PortalResetPasswordPage({ params }: Props) {
           </Alert>
         ) : null}
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="reset-password" className="text-overline font-semibold uppercase tracking-wider text-muted-foreground/70">{t('portal.resetPassword.password', 'New Password')}</Label>
+        <div>
+          <Label htmlFor="reset-password" className={FORM_FIELD_LABEL}>{t('portal.resetPassword.password', 'New Password')}</Label>
           <PasswordInput id="reset-password" autoComplete="new-password" required placeholder={t('portal.resetPassword.password.placeholder', '••••••••')} value={password} onChange={(e) => setPassword(e.target.value)} disabled={submitting || !token} className="rounded-lg" />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="confirm-password" className="text-overline font-semibold uppercase tracking-wider text-muted-foreground/70">{t('portal.resetPassword.confirmPassword', 'Confirm New Password')}</Label>
+        <div>
+          <Label htmlFor="confirm-password" className={FORM_FIELD_LABEL}>{t('portal.resetPassword.confirmPassword', 'Confirm New Password')}</Label>
           <PasswordInput id="confirm-password" autoComplete="new-password" required placeholder={t('portal.resetPassword.confirmPassword.placeholder', '••••••••')} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={submitting || !token} className="rounded-lg" />
         </div>
 

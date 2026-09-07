@@ -1,15 +1,14 @@
 "use client"
 
 import * as React from 'react'
-import { X } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@open-mercato/ui/primitives/popover'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { translateWithFallback } from '@open-mercato/shared/lib/i18n/translate'
 import { ChipButton } from './ChipButton'
 
@@ -124,15 +123,7 @@ export function CurrencyFilterPopover({
                 'Filter kanban by currency',
               )}
             </span>
-            <IconButton
-              variant="ghost"
-              size="xs"
-              onClick={() => setOpen(false)}
-              aria-label={closeLabel}
-              className="flex size-7 items-center justify-center rounded-md border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <X className="size-3.5" aria-hidden="true" />
-            </IconButton>
+            <CloseButton onClick={() => setOpen(false)} aria-label={closeLabel} />
           </div>
 
           <div className="flex flex-col bg-card pt-3.5">

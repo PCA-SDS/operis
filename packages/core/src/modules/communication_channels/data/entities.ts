@@ -1,5 +1,5 @@
 import { OptionalProps } from '@mikro-orm/core'
-import { Check, Entity, Index, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Check, Entity, Index, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 
 /**
  * Hub entities for the Communication Channels module.

@@ -1,4 +1,4 @@
-import { Entity, Enum, Index, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Entity, Enum, Index, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 import {
   MILESTONE_STATUSES,
   PROJECT_DEFAULT_ICON,

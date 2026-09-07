@@ -4,7 +4,7 @@
   "globalEnv": [
     "NODE_ENV"
   ],
-  "//": "globalPassThroughEnv: Turbo runs in strict env mode, so anything not listed here is STRIPPED before a task starts. Without DATABASE_URL, `DATABASE_URL=\u2026 yarn db:migrate` silently migrated whatever apps/mercato/.env pointed at and reported success. These are passed through but deliberately NOT hashed, so overriding a secret or a connection string does not invalidate the build cache.",
+  "//": "globalPassThroughEnv: Turbo runs in strict env mode, so anything not listed here is STRIPPED before a task starts. Without DATABASE_URL, `DATABASE_URL=\u2026 yarn db:migrate` silently migrated whatever apps/mercato/.env pointed at and reported success. These are passed through but deliberately NOT hashed, so overriding a secret or a connection string does not invalidate the build cache. || globalDependencies: the jest entries are load-bearing for `test` caching. Every package's jest.config.cjs spreads jest.config.base.cjs and runs through the shared transformer/resolver, so a change there alters results in EVERY package; without them listed turbo would replay a stale pass for packages whose own files did not change. || tasks.test: `dependsOn: [^build]` is what makes caching this task SAFE, and it is not about build artifacts. Package jest configs map sibling packages to their SOURCE (packages/core maps @open-mercato/shared/* to ../shared/src/*), so a core test can fail because shared/src changed. Turbo hashes a package's own files only; without an edge to the dependency that change would leave core#test on a cached pass and report a false green. ^build pulls each dependency's source into this task's hash, and guarantees packages/core/generated exists before suites that import #generated run. || open-mercato-docs#build: Docusaurus writes build/, not dist/ or .next/, so the generic build task declared no outputs for it and could never restore a cache hit. || open-mercato-docs#test: this suite asserts on build/search-index.json, so it needs its OWN build. The script used to run `yarn clean && yarn build` inline, force-rebuilding the docs site on every CI run and putting it on the unit-test critical path. As a turbo edge it is cached instead. || CI / JEST_MAX_WORKERS / JEST_CACHE_DIR: strict env mode STRIPS anything not listed, so without these three jest.config.base.cjs never sees them \u2014 `test:serial` would silently keep using workers instead of running in-band, the CI crash-retry would re-roll the same dice instead of dropping to in-band, and the CI jest cache would be written to a tmpdir that is discarded. Deliberately NOT hashed: changing worker count or cache location must not invalidate a test result.",
   "globalPassThroughEnv": [
     "DATABASE_URL",
     "DB_POOL_MAX",
@@ -26,12 +26,20 @@
     "OM_DEV_SEED_PASSWORD",
     "OM_LOG_LEVEL",
     "OM_PROFILE",
-    "PORT"
+    "PORT",
+    "CI",
+    "JEST_MAX_WORKERS",
+    "JEST_CACHE_DIR"
   ],
   "globalDependencies": [
     "scripts/build-package.mjs",
     "scripts/watch.mjs",
-    "scripts/lib/add-js-extension.mjs"
+    "scripts/lib/add-js-extension.mjs",
+    "jest.config.base.cjs",
+    "jest.setup.ts",
+    "jest.dom.setup.ts",
+    "scripts/jest-mikroorm-transformer.cjs",
+    "scripts/jest-typescript-resolver.cjs"
   ],
   "tasks": {
     "build": {
@@ -45,6 +53,19 @@
         ".next/**",
         "!.next/cache/**"
       ]
+    },
+    "open-mercato-docs#build": {
+      "cache": true,
+      "outputs": [
+        "build/**"
+      ]
+    },
+    "open-mercato-docs#test": {
+      "dependsOn": [
+        "build"
+      ],
+      "cache": true,
+      "outputs": []
     },
     "@open-mercato/cli#build": {
       "dependsOn": [
@@ -84,7 +105,10 @@
       "outputs": []
     },
     "test": {
-      "cache": false,
+      "dependsOn": [
+        "^build"
+      ],
+      "cache": true,
       "outputs": []
     },
     "lint": {

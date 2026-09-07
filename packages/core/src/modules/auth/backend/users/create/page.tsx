@@ -107,11 +107,12 @@ export default function CreateUserPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadCatalog() {
       setWidgetLoading(true)
       setWidgetError(null)
       try {
-        const { ok, result } = await apiCall<WidgetCatalogResponse>('/api/dashboards/widgets/catalog')
+        const { ok, result } = await apiCall<WidgetCatalogResponse>('/api/dashboards/widgets/catalog', { signal: controller.signal })
         if (!ok) {
           throw new Error(t(
             'auth.users.widgets.errors.load',
@@ -149,14 +150,15 @@ export default function CreateUserPage() {
       }
     }
     loadCatalog()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [t])
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadActor() {
       try {
-        const { ok, result } = await apiCall<UserListResponse>('/api/auth/users?page=1&pageSize=1')
+        const { ok, result } = await apiCall<UserListResponse>('/api/auth/users?page=1&pageSize=1', { signal: controller.signal })
         if (!cancelled && ok) setActorIsSuperAdmin(Boolean(result?.isSuperAdmin))
       } catch (err) {
         logger.error('Failed to resolve actor super admin flag', { err })
@@ -165,7 +167,7 @@ export default function CreateUserPage() {
       }
     }
     loadActor()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [])
 
   const toggleWidget = React.useCallback((id: string) => {

@@ -12,6 +12,12 @@ jest.mock('@open-mercato/ui/primitives/dialog', () => ({
     <div data-testid="dialog-content" className={className}>{children}</div>
   ),
   DialogTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogBody: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-testid="dialog-body" className={className}>{children}</div>
+  ),
+  DialogFooter: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-testid="dialog-footer" className={className}>{children}</div>
+  ),
 }))
 
 describe('DealWonPopup', () => {
@@ -36,9 +42,12 @@ describe('DealWonPopup', () => {
     )
 
     expect(screen.getByTestId('dialog-content').className).toEqual(expect.stringContaining('max-h-[90vh]'))
+    // The panel caps its own height and hides overflow, so the body slot has to
+    // be a shrinkable flex child for the content to scroll rather than clip.
     const scrollRegion = Array.from(container.querySelectorAll('div')).find((node) =>
       node.className.includes('overflow-y-auto'),
     )
-    expect(scrollRegion?.className).toEqual(expect.stringContaining('max-h-[90vh]'))
+    expect(scrollRegion?.className).toEqual(expect.stringContaining('min-h-0'))
+    expect(scrollRegion?.className).toEqual(expect.stringContaining('flex-1'))
   })
 })

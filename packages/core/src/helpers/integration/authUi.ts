@@ -4,7 +4,9 @@ export async function createUserViaUi(page: Page, input: { email: string; passwo
   const role = input.role ?? 'employee';
 
   await page.goto('/backend/users/create');
-  await expect(page.getByText('Create User')).toBeVisible();
+  // Scoped to the page body: the form title also exists in the app chrome, so a
+  // page-wide text match resolves to two nodes and trips Playwright strict mode.
+  await expect(page.getByRole('main').getByText('Create User')).toBeVisible();
 
   const emailInput = page.locator('[data-crud-field-id="email"] input').first();
   const nameInput = page.locator('[data-crud-field-id="name"] input').first();
@@ -31,7 +33,14 @@ export async function createUserViaUi(page: Page, input: { email: string; passwo
     await orgSelect.selectOption(orgValue);
   }
 
-  const rolesInput = page.getByRole('textbox', { name: /add tag and press enter/i });
+  // TagsInput renders a bare <input> carrying only a placeholder — no id, label
+  // or aria-label — so there is no accessible name to match on by role. It also
+  // sits at the fold with its suggestion list over it, so scroll and focus it
+  // before typing or fill() times out on the actionability check.
+  const rolesInput = page.getByPlaceholder(/add tag and press enter/i).first();
+  await rolesInput.scrollIntoViewIfNeeded();
+  await expect(rolesInput).toBeVisible();
+  await rolesInput.click();
   await rolesInput.fill(role);
   await rolesInput.press('Enter');
 

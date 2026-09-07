@@ -407,7 +407,7 @@ export function ComboboxInput({
         ref={inputRef}
         type="text"
         className={[
-          'w-full h-9 rounded-md border border-input bg-input-bg px-3 text-sm shadow-xs transition-colors outline-none placeholder:text-muted-foreground focus-visible:shadow-focus focus-visible:border-foreground disabled:bg-bg-disabled disabled:border-border-disabled disabled:text-muted-foreground disabled:cursor-not-allowed',
+          'w-full h-9 rounded-md border border-input bg-input-bg px-3 text-sm shadow-xs transition-colors outline-none placeholder:text-muted-foreground focus-visible:shadow-focus disabled:bg-bg-disabled disabled:border-border-disabled disabled:text-muted-foreground disabled:cursor-not-allowed',
           showClearButton ? 'pr-9' : '',
         ]
           .filter(Boolean)

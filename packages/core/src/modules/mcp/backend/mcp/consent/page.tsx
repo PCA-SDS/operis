@@ -45,9 +45,11 @@ export default function McpConsentPage() {
     setTicket(request)
 
     let cancelled = false
+    const controller = new AbortController()
     void (async () => {
       const outcome = await apiCall<ConsentContext>(
         `/api/mcp/oauth/consent-context?request=${encodeURIComponent(request)}`,
+        { signal: controller.signal },
       )
       if (cancelled) return
       if (!outcome.ok || !outcome.result) {
@@ -60,6 +62,7 @@ export default function McpConsentPage() {
 
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [t])
 

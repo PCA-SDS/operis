@@ -1,6 +1,7 @@
 import { generateText } from 'ai'
 import { z } from 'zod'
 import { resolveConfiguredStructuredModel, withTimeout } from './llmProvider'
+import { resolveTranslationTimeoutMs } from './config'
 
 const LANGUAGE_NAMES: Record<string, string> = { en: 'English', de: 'German', es: 'Spanish', pl: 'Polish' }
 
@@ -23,7 +24,7 @@ export async function translateProposalContent(input: {
   const sourceLang = LANGUAGE_NAMES[input.sourceLanguage] || input.sourceLanguage
   const targetLang = LANGUAGE_NAMES[input.targetLocale] || input.targetLocale
 
-  const timeoutMs = parseInt(process.env.INBOX_OPS_TRANSLATION_TIMEOUT_MS || '30000', 10)
+  const timeoutMs = resolveTranslationTimeoutMs()
 
   const actionIds = Object.keys(input.actionDescriptions)
 

@@ -3,7 +3,6 @@ import fs from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import ts from 'typescript-js'
 import { MikroORM, MetadataStorage, type Logger } from '@mikro-orm/core'
-import { ReflectMetadataProvider } from '@mikro-orm/decorators/legacy'
 import { Migrator } from '@mikro-orm/migrations'
 import { PostgreSqlDriver } from '@mikro-orm/postgresql'
 import { getSslConfig } from '@open-mercato/shared/lib/db/ssl'
@@ -138,7 +137,11 @@ async function importWithTypeScriptFile(filePath: string): Promise<any> {
       esModuleInterop: true,
       resolveJsonModule: true,
       jsx: ts.JsxEmit.ReactJSX,
-      experimentalDecorators: true,
+      // Must match tsconfig.base.json: entities use TC39 (Stage-3) decorators. Transpiling
+      // them with the legacy transform silently produces entities with no usable metadata,
+      // which surfaces here as a `Cannot convert undefined or null to object` during
+      // schema diffing rather than as a decorator error.
+      experimentalDecorators: false,
       emitDecoratorMetadata: false,
       useDefineForClassFields: false,
     },
@@ -347,7 +350,6 @@ export async function dbGenerate(resolver: PackageResolver, options: DbOptions =
       loggerFactory: () => createMinimalLogger(),
       dynamicImportProvider,
       entities,
-      metadataProvider: ReflectMetadataProvider,
       migrations: {
         path: migrationsPath,
         glob: '!(*.d).{ts,js}',
@@ -443,7 +445,6 @@ export async function dbMigrate(resolver: PackageResolver, options: DbOptions = 
       loggerFactory: () => createMinimalLogger(),
       dynamicImportProvider,
       entities: [],
-      metadataProvider: ReflectMetadataProvider,
       discovery: { warnWhenNoEntities: false },
       migrations: {
         path: migrationsPath,

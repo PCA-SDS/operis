@@ -20,6 +20,7 @@ function DateTimeRow({
   time,
   showTime,
   locale,
+  trailing,
   onDateChange,
   onTimeChange,
 }: {
@@ -28,16 +29,26 @@ function DateTimeRow({
   time: string
   showTime: boolean
   locale: string
+  /** Sits on the label line, opposite the label. */
+  trailing?: React.ReactNode
   onDateChange(next: string): void
   onTimeChange(next: string): void
 }) {
   return (
-    <div className="flex w-full items-end gap-2.5">
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+    // Same label geometry as `Field`: a label line with `gap-2.5` beneath it.
+    // The rows in the other column are built that way, and the two columns only
+    // line up while both spend the same height above their first control.
+    <div className="flex w-full flex-col gap-2.5">
+      <div className="flex w-full items-center justify-between gap-2">
         <span className={LABEL_CLASS}>{label}</span>
-        <DateControl value={date} onChange={onDateChange} ariaLabel={label} locale={locale} />
+        {trailing}
       </div>
-      {showTime ? <TimeControl value={time} onChange={onTimeChange} ariaLabel={label} /> : null}
+      <div className="flex w-full items-end gap-2.5">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <DateControl value={date} onChange={onDateChange} ariaLabel={label} locale={locale} />
+        </div>
+        {showTime ? <TimeControl value={time} onChange={onTimeChange} ariaLabel={label} /> : null}
+      </div>
     </div>
   )
 }
@@ -78,20 +89,32 @@ export function ScheduleSection({
   const t = useT()
   const showTime = !(hasAllDay && allDay)
   const multiDaySpan = hasEnd && !endsError ? multiDayEventSpan(date, endDate) : 0
+  const allDayLabel = t('customers.calendar.editor.allDay', 'All day')
   return (
     <div className="flex w-full flex-col gap-2.5">
-      {hasAllDay ? (
-        <div className="flex w-full items-center justify-between">
-          <span className={LABEL_CLASS}>{t('customers.calendar.editor.allDay', 'All day')}</span>
-          <AllDayToggle checked={allDay} onCheckedChange={onAllDayChange} label={t('customers.calendar.editor.allDay', 'All day')} />
-        </div>
-      ) : null}
       <DateTimeRow
         label={t(DATE_LABEL_TEXT[dateLabel].key, DATE_LABEL_TEXT[dateLabel].fallback)}
         date={date}
         time={startTime}
         showTime={showTime}
         locale={locale}
+        // All-day rides the first date row's label line instead of taking a row
+        // of its own. As its own row it pushed every field in this column one
+        // row down, so the left column stopped lining up with the right — and
+        // it belongs here anyway: it is the switch that removes the time
+        // controls from these very rows.
+        trailing={hasAllDay ? (
+          // `-my-1` keeps the 24px switch from growing the 16px label line —
+          // without it this column's first control sits 4px lower than the
+          // other's, which is the misalignment the toggle used to cause as a
+          // row of its own.
+          <span className="-my-1 flex shrink-0 items-center gap-2">
+            <span className="text-xs font-medium normal-case tracking-normal text-muted-foreground">
+              {allDayLabel}
+            </span>
+            <AllDayToggle checked={allDay} onCheckedChange={onAllDayChange} label={allDayLabel} />
+          </span>
+        ) : undefined}
         onDateChange={onDateChange}
         onTimeChange={onStartTimeChange}
       />

@@ -3,9 +3,9 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import { useT } from "@open-mercato/shared/lib/i18n/context";
 import { Button } from "@open-mercato/ui/primitives/button";
-import { IconButton } from "../../primitives/icon-button";
+import { CloseButton } from "../../primitives/close-button";
 import { cn } from "@open-mercato/shared/lib/utils";
-import { Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export type ConfirmDialogProps = {
   /** Whether the dialog is open (controlled mode — used by useConfirmDialog) */
@@ -203,8 +203,8 @@ export function ConfirmDialog({
       className={cn(
         // Reset dialog defaults
         "m-0 p-0 max-w-none bg-transparent border-none pointer-events-auto",
-        // Backdrop styling
-        "backdrop:bg-black/50 backdrop:backdrop-blur-sm backdrop:transition-opacity",
+        // Backdrop — the canonical modal scrim (no blur).
+        "backdrop:bg-foreground/40 backdrop:transition-opacity",
         // Mobile: bottom sheet
         "fixed inset-x-0 bottom-0 top-auto w-full",
         // Desktop: centered
@@ -219,50 +219,40 @@ export function ConfirmDialog({
       <div
         role="document"
         className={cn(
-          // Panel container
-          "flex flex-col gap-4 rounded-t-2xl border-t bg-card p-6 text-foreground shadow-lg",
-          "sm:rounded-xl sm:border",
-          // Relative positioning for close button
-          "relative"
+          // Panel — canonical borderless chrome: the rhythm comes from the
+          // header/body/footer padding trio, never from divider lines.
+          "relative flex flex-col rounded-t-2xl bg-surface text-foreground shadow-xl",
+          "sm:rounded-2xl"
         )}
       >
-        {/* Close button */}
-        <IconButton
-          type="button"
-          variant="ghost"
-          size="sm"
+        <CloseButton
           onClick={handleCancel}
           disabled={loading}
           aria-label={closeAriaLabel}
-          className="absolute right-4 top-4 opacity-70 hover:opacity-100"
-        >
-          <X className="h-4 w-4" />
-        </IconButton>
+          className="absolute right-5 top-4 z-10 sm:right-6"
+        />
 
-        {/* Title */}
-        <h2
-          id={titleId}
-          className={cn(
-            "text-sm font-medium leading-snug tracking-tight pr-6",
-            // Mobile: centered, Desktop: left-aligned
-            "text-center sm:text-left"
-          )}
-        >
-          {resolvedTitle}
-        </h2>
-
-        {/* Description (optional) */}
-        {text && (
-          <p
-            id={descriptionId}
-            className="text-sm font-medium leading-snug text-muted-foreground"
+        {/* Header */}
+        <div className="shrink-0 px-5 py-4 pr-11 text-left sm:px-6 sm:pr-12">
+          <h2
+            id={titleId}
+            className="text-xl font-semibold tracking-tight text-foreground"
           >
-            {text}
-          </p>
+            {resolvedTitle}
+          </h2>
+        </div>
+
+        {/* Body (optional) */}
+        {text && (
+          <div className="shrink-0 px-5 pt-3 pb-5 sm:px-6">
+            <p id={descriptionId} className="text-sm text-muted-foreground">
+              {text}
+            </p>
+          </div>
         )}
 
         {/* Actions */}
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div className="flex shrink-0 flex-col-reverse gap-2 px-5 pt-1.5 pb-4 sm:flex-row sm:justify-end sm:px-6">
           {resolvedCancelText !== false && (
             <Button
               ref={cancelButtonRef}

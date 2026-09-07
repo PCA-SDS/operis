@@ -44,7 +44,7 @@ describe('StatementReadinessChecklist', () => {
     expect(screen.getByTestId('alert-information')).toBeInTheDocument()
     expect(apiCallMock).toHaveBeenCalledWith(
       '/api/eudr/statements/st-1/readiness',
-      undefined,
+      expect.objectContaining({ signal: expect.anything() }),
       { fallback: null },
     )
   })

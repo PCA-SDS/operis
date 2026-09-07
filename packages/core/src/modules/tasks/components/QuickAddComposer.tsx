@@ -135,7 +135,7 @@ export function QuickAddComposer({
   // Identifying the consumed event itself does not depend on that timing.
   const menuEscapeRef = React.useRef<KeyboardEvent | null>(null)
 
-  const { inbox } = useInboxProject()
+  const { inbox, ensureInbox } = useInboxProject()
   const { projects } = useProjects({ archived: 'active', pageSize: 100, sort: 'name', order: 'asc' })
   const { users } = useAssignableUsers()
   const { labels } = useLabels()
@@ -370,14 +370,19 @@ export function QuickAddComposer({
       // keystroke behind, and only the server can resolve references.
       const final = await tasksApi.parseQuickAdd({ text: line, tz: browserTimeZone() })
 
-      const projectId =
+      // The Inbox is the fallback when nothing else names a project. Awaiting it
+      // rather than reading the cached value is what makes Enter work on the
+      // first keystrokes: the inbox request is still in flight while the
+      // composer is opening, and bailing there dropped the task on the floor
+      // with a "try again" toast (caught by TC-TASKS-030).
+      const explicitProjectId =
         parentTask?.projectId ||
         (overrides.projectId !== UNSET
           ? overrides.projectId
           : final.project && !final.project.isInbox
             ? final.project.id
-            : '') ||
-        inbox?.id
+            : '')
+      const projectId = explicitProjectId || inbox?.id || (await ensureInbox().catch(() => null))?.id
       if (!projectId) {
         flash(t('tasks.quickAdd.inboxNotReady', "The Inbox isn't ready yet — try again in a second."), 'error')
         return

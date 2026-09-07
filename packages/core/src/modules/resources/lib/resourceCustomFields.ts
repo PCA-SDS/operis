@@ -109,16 +109,6 @@ export const RESOURCES_RESOURCE_CUSTOM_FIELD_SETS: FieldSetInput[] = [
     }),
   ]),
   defineFields(E.resources.resources_resource, [
-    cf.text('room_floor', {
-      label: 'Floor',
-      fieldset: RESOURCES_RESOURCE_FIELDSET_ROOM,
-      group: { code: 'location' },
-    }),
-    cf.text('room_zone', {
-      label: 'Zone',
-      fieldset: RESOURCES_RESOURCE_FIELDSET_ROOM,
-      group: { code: 'location' },
-    }),
     cf.boolean('room_projector', {
       label: 'Projector available',
       fieldset: RESOURCES_RESOURCE_FIELDSET_ROOM,

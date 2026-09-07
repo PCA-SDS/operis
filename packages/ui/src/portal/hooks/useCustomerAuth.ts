@@ -39,10 +39,11 @@ export function useCustomerAuth(orgSlug?: string) {
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
 
     async function fetchProfile() {
       try {
-        const { ok, status, result: data } = await apiCall<{ ok: boolean; user: CustomerAuthResult['user']; roles: CustomerAuthResult['roles']; resolvedFeatures: string[]; isPortalAdmin: boolean; error?: string }>('/api/customer_accounts/portal/profile')
+        const { ok, status, result: data } = await apiCall<{ ok: boolean; user: CustomerAuthResult['user']; roles: CustomerAuthResult['roles']; resolvedFeatures: string[]; isPortalAdmin: boolean; error?: string }>('/api/customer_accounts/portal/profile', { signal: controller.signal })
         if (cancelled) return
 
         if (status === 401) {
@@ -71,7 +72,7 @@ export function useCustomerAuth(orgSlug?: string) {
     }
 
     fetchProfile()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [])
 
   const loginPath = orgSlug ? `/${orgSlug}/portal/login` : '/portal/login'

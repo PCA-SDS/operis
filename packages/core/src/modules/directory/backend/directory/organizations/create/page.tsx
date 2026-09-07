@@ -90,9 +90,10 @@ export default function CreateOrganizationPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function bootstrap() {
       try {
-        const call = await apiCall<{ isSuperAdmin?: boolean }>('/api/auth/roles?page=1&pageSize=1')
+        const call = await apiCall<{ isSuperAdmin?: boolean }>('/api/auth/roles?page=1&pageSize=1', { signal: controller.signal })
         if (!cancelled) setActorIsSuperAdmin(Boolean(call.result?.isSuperAdmin))
       } catch {
         if (!cancelled) setActorIsSuperAdmin(false)
@@ -100,7 +101,7 @@ export default function CreateOrganizationPage() {
       if (!cancelled) await loadTree(null)
     }
     bootstrap()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [loadTree])
 
   React.useEffect(() => {

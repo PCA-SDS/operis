@@ -20,7 +20,8 @@ test.describe('TC-AUTH-003: Login with Remember Me', () => {
     await expect(emailInput).toHaveValue('admin@acme.com');
     await passwordInput.fill('secret');
     await expect(passwordInput).toHaveValue('secret');
-    await page.getByRole('checkbox', { name: /remember me/i }).check();
+    // Accessible name comes from `auth.login.rememberMe` ("Keep me signed in").
+    await page.getByRole('checkbox', { name: /keep me signed in/i }).check();
     await passwordInput.press('Enter');
 
     await expect(page).toHaveURL(/\/backend(?:\/.*)?$/);

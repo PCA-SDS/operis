@@ -2,6 +2,7 @@ import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/core'
 import { ScheduledJob } from './data/entities.js'
+import { getSchedulerPollIntervalMs } from './lib/pollInterval.js'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 
 const writeLine = (text = '') => {
@@ -96,7 +97,7 @@ const statusCommand: ModuleCli = {
     writeLine(`Strategy: ${queueStrategy === 'async' ? 'BullMQ (async)' : 'Local (polling)'}`)
     
     if (queueStrategy === 'local') {
-      const pollInterval = parseInt(process.env.SCHEDULER_POLL_INTERVAL_MS || '30000', 10)
+      const pollInterval = getSchedulerPollIntervalMs()
       writeLine(`Poll Interval: ${Math.round(pollInterval / 1000)}s`)
     }
     
@@ -193,7 +194,7 @@ const startCommand: ModuleCli = {
           process.exit(1)
         }
 
-        const pollInterval = parseInt(process.env.SCHEDULER_POLL_INTERVAL_MS || '30000', 10)
+        const pollInterval = getSchedulerPollIntervalMs()
 
         // Start the local polling engine
         await localService.start()

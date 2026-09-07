@@ -84,13 +84,30 @@ export function useProject(id: string | undefined) {
   }
 }
 
+const inboxQuery = {
+  queryKey: taskKeys.inbox(),
+  queryFn: ({ signal }: { signal?: AbortSignal }) => tasksApi.getInbox(signal),
+  staleTime: 5 * 60 * 1000,
+} as const
+
 export function useInboxProject() {
-  const query = useQuery({
-    queryKey: taskKeys.inbox(),
-    queryFn: ({ signal }) => tasksApi.getInbox(signal),
-    staleTime: 5 * 60 * 1000,
-  })
-  return { inbox: query.data ?? null, isLoading: query.isLoading }
+  const client = useQueryClient()
+  const query = useQuery(inboxQuery)
+  /**
+   * The Inbox, waiting for it if the query has not landed yet.
+   *
+   * A submit handler cannot read `inbox` and give up when it is still null:
+   * the Inbox is the fallback project for anything Quick Add creates without
+   * one, and the request is in flight for the first moment the composer is
+   * open — exactly when someone typing quickly presses Enter. Reading through
+   * the client resolves from cache when it is there and awaits the same
+   * in-flight request when it is not, so the write happens either way.
+   */
+  const ensureInbox = React.useCallback(
+    () => client.ensureQueryData(inboxQuery),
+    [client],
+  )
+  return { inbox: query.data ?? null, isLoading: query.isLoading, ensureInbox }
 }
 
 export function useProjectMutations() {

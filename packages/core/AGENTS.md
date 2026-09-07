@@ -182,7 +182,7 @@ Follow the customers module API patterns (CRUD factory + query engine):
 
 When adding or changing a MikroORM entity, coding agents MUST read this section, the customers reference module guide, and `packages/cli/AGENTS.md` before editing.
 
-1. Update `data/entities.ts` using MikroORM v7 imports: decorators from `@mikro-orm/decorators/legacy`, types from `@mikro-orm/core`.
+1. Update `data/entities.ts`: decorators from `@open-mercato/shared/lib/db/decorators` only, types from `@mikro-orm/core`.
 2. Run `yarn generate` when module structure or entity discovery changed.
 3. Treat `yarn db:generate` as a schema-diff probe. Review every generated file before keeping it.
 4. Keep only SQL for the intended module/entity change. If the generator emits unrelated migrations because another module's snapshot is stale, remove those files from the diff instead of committing them.

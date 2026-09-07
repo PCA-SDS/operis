@@ -49,4 +49,11 @@ describe('createdTaskDestination', () => {
   it('drops the old filters when it redirects', () => {
     expect(destination('/backend/tasks/today', 'q=invoice', null)).toBe('/backend/tasks/all?new=task-1')
   })
+
+  it('closes Quick Add rather than reopening it over the task just created', () => {
+    expect(destination('/backend/tasks/all', 'quickAdd=1', null)).toBe('/backend/tasks/all?new=task-1')
+    expect(destination('/backend/tasks/today', 'quickAdd=1&q=invoice', TODAY)).toBe(
+      '/backend/tasks/today?q=invoice&new=task-1',
+    )
+  })
 })

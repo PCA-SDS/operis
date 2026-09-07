@@ -161,12 +161,13 @@ export function DealsKpiStrip({
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     const scopeChanged = previousScopeVersionRef.current !== scopeVersion
     previousScopeVersionRef.current = scopeVersion
     if (scopeChanged) setData(null)
     setLoading(true)
     setError(null)
-    apiCall<DealsSummaryResponse>('/api/customers/deals/summary')
+    apiCall<DealsSummaryResponse>('/api/customers/deals/summary', { signal: controller.signal })
       .then((call) => {
         if (cancelled) return
         if (!call.ok || !isDealsSummaryResponse(call.result)) {
@@ -184,6 +185,7 @@ export function DealsKpiStrip({
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [t, scopeVersion, reloadToken, retryToken])
 

@@ -1,5 +1,5 @@
 import { OptionalProps } from '@mikro-orm/core'
-import { Entity, Index, ManyToOne, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, ManyToOne, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 import type { JsonValue } from '@open-mercato/shared/lib/json'
 
 

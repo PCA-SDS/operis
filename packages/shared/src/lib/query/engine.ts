@@ -20,6 +20,7 @@ import {
   type SearchTokenProbeQueryBuilder,
 } from '../search/availability'
 import { tokenizeText } from '../search/tokenize'
+import { tableHasColumn } from './schema-presence'
 import { runBeforeQueryPipeline, runAfterQueryPipeline, type QueryExtensionContext } from './query-extension-runner'
 import {
   buildCustomFieldDefinitionIndexFromRows,
@@ -223,7 +224,6 @@ function computeCustomFieldScore(cfg: Record<string, unknown>, kind: string, ent
  * {@link HybridQueryEngine} when the query index is unavailable or incomplete.
  */
 export class BasicQueryEngine implements QueryEngine {
-  private columnCache = new Map<string, boolean>()
   private searchAliasSeq = 0
   private searchAvailabilityInstance: SearchTokenAvailability | null = null
 
@@ -547,8 +547,8 @@ export class BasicQueryEngine implements QueryEngine {
     // today's complete selection (base fields + CF projections + extension joins).
     // `projection: 'sortKeys'` selects only `id` + the sort columns — the slim phase-1
     // candidate scan used when `requiresPlaintextSort`. Re-running the WHERE/JOIN logic
-    // twice is cheap: every `columnExists` check is memoized on `this.columnCache`,
-    // so the second pass hits no extra DB calls.
+    // twice is cheap: every `columnExists` check is answered from the connection-scoped
+    // per-table column set in `./schema-presence`, so the second pass hits no extra DB calls.
     const buildQuery = async (projection: 'full' | 'sortKeys'): Promise<BuiltQuery> => {
       const isSortKeysProjection = projection === 'sortKeys'
       let q: AnyBuilder = db.selectFrom(table as any)
@@ -1228,24 +1228,7 @@ export class BasicQueryEngine implements QueryEngine {
   }
 
   private async columnExists(table: string, column: string): Promise<boolean> {
-    const key = `${table}.${column}`
-    if (this.columnCache.has(key)) {
-      const cached = this.columnCache.get(key)
-      if (cached === true) return true
-      this.columnCache.delete(key)
-    }
-    const db = this.getDb()
-    const exists = await db
-      .selectFrom('information_schema.columns' as any)
-      .select(sql<number>`1`.as('one'))
-      .where('table_name' as any, '=', table)
-      .where('column_name' as any, '=', column)
-      .limit(1)
-      .executeTakeFirst()
-    const present = !!exists
-    if (present) this.columnCache.set(key, true)
-    else this.columnCache.delete(key)
-    return present
+    return tableHasColumn(this.getDb(), table, column)
   }
 
   private applySearchTokens(

@@ -147,6 +147,7 @@ export function CommandPalette() {
       )}
       <Dialog open={isOpen} onOpenChange={handleOpenChange} modal={!showDebug}>
         <DialogContent
+        disableBodyWrap
           className={cn(
             'fixed left-1/2 top-[10vh] z-modal -translate-x-1/2',
             'w-full max-w-2xl p-0',

@@ -182,7 +182,7 @@ export function AppearanceSelector({
                   placeholder={labels.iconSearchPlaceholder}
                   aria-label={labels.iconSearchPlaceholder}
                 />
-                <div className="max-h-64 overflow-y-auto pr-1">
+                <div className="max-h-72 overflow-y-auto pr-1">
                   {filteredIcons.length ? (
                     <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
                       {filteredIcons.map((option) => {
@@ -207,32 +207,32 @@ export function AppearanceSelector({
                   ) : (
                     <p className="text-sm text-muted-foreground">{labels.iconSearchEmptyLabel}</p>
                   )}
-                </div>
-                {iconSuggestions.length ? (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      {labels.iconSuggestionsLabel}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {iconSuggestions.map((suggestion) => {
-                        const isSelected = normalizedIcon === suggestion.value
-                        return (
-                          <Button
-                            key={suggestion.value}
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className={`text-xs ${isSelected ? 'border-primary bg-primary/10 text-primary' : ''}`}
-                            onClick={() => handleIconSelection(suggestion.value)}
-                          >
-                            {renderDictionaryIcon(suggestion.value, 'h-3 w-3')}
-                            {suggestion.label}
-                          </Button>
-                        )
-                      })}
+                  {iconSuggestions.length ? (
+                    <div className="mt-3 space-y-2 border-t border-border pt-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {labels.iconSuggestionsLabel}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {iconSuggestions.map((suggestion) => {
+                          const isSelected = normalizedIcon === suggestion.value
+                          return (
+                            <Button
+                              key={suggestion.value}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className={`text-xs ${isSelected ? 'border-primary bg-primary/10 text-primary' : ''}`}
+                              onClick={() => handleIconSelection(suggestion.value)}
+                            >
+                              {renderDictionaryIcon(suggestion.value, 'h-3 w-3')}
+                              {suggestion.label}
+                            </Button>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
                 <div className="flex justify-end">
                   <Button type="button" variant="ghost" size="sm" onClick={() => onIconChange(null)}>
                     {labels.iconClearLabel}

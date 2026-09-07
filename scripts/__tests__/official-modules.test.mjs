@@ -6,6 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { moduleId, packageName, renderGenerated, scanAvailable } from '../lib/official-modules.mjs'
+import { whenTemplatePresent } from './helpers/create-app-template.mjs'
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 
@@ -31,7 +32,7 @@ test('renderGenerated produces an empty array when nothing is activated', () => 
   assert.match(renderGenerated([]), /export const officialModuleEntries: ModuleEntry\[\] = \[\n\]\n$/)
 })
 
-test('standalone template ships official-modules.generated.ts so scaffolded apps build', () => {
+test('standalone template ships official-modules.generated.ts so scaffolded apps build', whenTemplatePresent(), () => {
   const templateGenerated = path.join(
     REPO_ROOT,
     'packages',

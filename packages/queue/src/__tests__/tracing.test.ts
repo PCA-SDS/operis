@@ -99,25 +99,36 @@ describe('queue trace propagation (real local strategy)', () => {
   it('persists the trace carrier on enqueue and continues it on dispatch', async () => {
     const queue = createLocalQueue<{ orderId: string }>('orders-process', { baseDir })
 
-    await queue.enqueue({ orderId: 'o-1' })
+    // `process()` below starts the REAL local worker, which holds a polling
+    // `setInterval` and an `fs.watch` handle. Neither is unref'd, so leaving the
+    // queue open keeps the Node event loop alive for the whole run: under the
+    // default forked workers jest force-exits the worker and only warns, but
+    // `--runInBand` has nothing to force-exit and the process hangs after the
+    // last test. `close()` is what releases both, so it has to run even when an
+    // assertion below throws.
+    try {
+      await queue.enqueue({ orderId: 'o-1' })
 
-    // The carrier is written to the job's metadata — NOT the user payload.
-    const stored = JSON.parse(
-      fs.readFileSync(path.join(baseDir, 'orders-process', 'queue.json'), 'utf8'),
-    ) as Array<{ payload: unknown; metadata?: Record<string, unknown> }>
-    expect(stored[0].metadata).toEqual({ _trace: { traceparent: 'test-traceparent' } })
-    expect(stored[0].payload).toEqual({ orderId: 'o-1' })
+      // The carrier is written to the job's metadata — NOT the user payload.
+      const stored = JSON.parse(
+        fs.readFileSync(path.join(baseDir, 'orders-process', 'queue.json'), 'utf8'),
+      ) as Array<{ payload: unknown; metadata?: Record<string, unknown> }>
+      expect(stored[0].metadata).toEqual({ _trace: { traceparent: 'test-traceparent' } })
+      expect(stored[0].payload).toEqual({ orderId: 'o-1' })
 
-    let handlerRan = false
-    await queue.process((job) => {
-      handlerRan = true
-      // The handler still sees only its payload; the carrier is invisible to it.
-      expect(job.payload).toEqual({ orderId: 'o-1' })
-    })
+      let handlerRan = false
+      await queue.process((job) => {
+        handlerRan = true
+        // The handler still sees only its payload; the carrier is invisible to it.
+        expect(job.payload).toEqual({ orderId: 'o-1' })
+      })
 
-    expect(handlerRan).toBe(true)
-    // The worker continued the producer's trace under a `queue.<name>` span.
-    expect(remoteCarriers).toContainEqual({ traceparent: 'test-traceparent' })
-    expect(spanNames).toContain('queue.orders-process')
+      expect(handlerRan).toBe(true)
+      // The worker continued the producer's trace under a `queue.<name>` span.
+      expect(remoteCarriers).toContainEqual({ traceparent: 'test-traceparent' })
+      expect(spanNames).toContain('queue.orders-process')
+    } finally {
+      await queue.close()
+    }
   })
 })

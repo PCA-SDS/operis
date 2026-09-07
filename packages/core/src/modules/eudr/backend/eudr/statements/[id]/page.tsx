@@ -206,6 +206,7 @@ export default function EditEudrStatementPage({ params }: { params?: { id?: stri
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadRecord() {
       if (!statementId) {
         setNotFound(true)
@@ -218,7 +219,7 @@ export default function EditEudrStatementPage({ params }: { params?: { id?: stri
       try {
         const call = await apiCall<StatementDetailResponse>(
           `/api/eudr/statements?id=${encodeURIComponent(statementId)}`,
-          undefined,
+          { signal: controller.signal },
           { fallback: { items: [] } },
         )
         if (!call.ok) {
@@ -242,11 +243,13 @@ export default function EditEudrStatementPage({ params }: { params?: { id?: stri
     loadRecord()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [reloadToken, statementId, translate])
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadSubmissions() {
       if (!statementId) return
       setSubmissionsLoading(true)
@@ -254,7 +257,7 @@ export default function EditEudrStatementPage({ params }: { params?: { id?: stri
       try {
         const call = await apiCall<LinkedSubmissionsResponse>(
           `/api/eudr/evidence-submissions?statementId=${encodeURIComponent(statementId)}&pageSize=100`,
-          undefined,
+          { signal: controller.signal },
           { fallback: { items: [] } },
         )
         if (!call.ok) {
@@ -271,6 +274,7 @@ export default function EditEudrStatementPage({ params }: { params?: { id?: stri
     loadSubmissions()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [statementId, translate])
 
@@ -288,11 +292,13 @@ export default function EditEudrStatementPage({ params }: { params?: { id?: stri
     }
     setSpeciesMissing(false)
     let cancelled = false
+    const controller = new AbortController()
     async function loadProductMappings() {
       try {
         const call = await apiCall<ProductMappingsResponse>(
           `/api/eudr/product-mappings?ids=${encodeURIComponent(productMappingIds.join(','))}&pageSize=100`,
           {
+            signal: controller.signal,
             headers: {
               'x-om-forbidden-redirect': '0',
               'x-om-unauthorized-redirect': '0',
@@ -311,6 +317,7 @@ export default function EditEudrStatementPage({ params }: { params?: { id?: stri
     void loadProductMappings()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [submissionRows])
 
@@ -328,12 +335,14 @@ export default function EditEudrStatementPage({ params }: { params?: { id?: stri
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     async function loadPlots() {
       setPlotsLoading(true)
       try {
         const call = await apiCall<PlotsResponse>(
           `/api/eudr/plots?ids=${encodeURIComponent(plotIds.join(','))}&pageSize=100`,
           {
+            signal: controller.signal,
             headers: {
               'x-om-forbidden-redirect': '0',
               'x-om-unauthorized-redirect': '0',
@@ -358,6 +367,7 @@ export default function EditEudrStatementPage({ params }: { params?: { id?: stri
     loadPlots()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [submissionRows])
 

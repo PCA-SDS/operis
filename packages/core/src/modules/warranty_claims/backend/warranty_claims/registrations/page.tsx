@@ -199,13 +199,14 @@ export default function WarrantyClaimRegistrationsPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadRegistrations() {
       setLoading(true)
       try {
         const fallback: RegistrationsResponse = { items: [], total: 0, totalPages: 1 }
         const call = await apiCall<RegistrationsResponse>(
           `/api/warranty_claims/registrations?${listQueryString}`,
-          undefined,
+          { signal: controller.signal },
           { fallback },
         )
         if (!call.ok) {
@@ -232,6 +233,7 @@ export default function WarrantyClaimRegistrationsPage() {
     void loadRegistrations()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [listQueryString, reloadToken, scopeVersion, t])
 

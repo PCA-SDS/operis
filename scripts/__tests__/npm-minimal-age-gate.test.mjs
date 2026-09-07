@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
+import { whenTemplatePresent } from './helpers/create-app-template.mjs'
 
 const templateYarnrcPath = path.resolve('packages/create-app/template/.yarnrc.yml.template')
 const retryScriptPath = path.resolve('scripts/ci/npm-retry-on-quarantine.sh')
@@ -10,7 +11,7 @@ function readText(filePath) {
   return fs.readFileSync(filePath, 'utf8')
 }
 
-test('scaffolded apps preapprove the first-party scope against yarn minimum release age', () => {
+test('scaffolded apps preapprove the first-party scope against yarn minimum release age', whenTemplatePresent(), () => {
   const template = readText(templateYarnrcPath)
 
   assert.match(

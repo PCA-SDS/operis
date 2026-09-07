@@ -131,10 +131,12 @@ export default function LoginPage() {
 
   useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     const hasAclChallenge = requiredFeatures.length > 0 || requiredRoles.length > 0
     void (async () => {
       try {
         const res = await apiCall<{ userId?: string }>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: {
             'content-type': 'application/json',
@@ -177,7 +179,7 @@ export default function LoginPage() {
         // ignore — leave login form usable on network failure
       }
     })()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [router, redirectParam, requiredFeatures.length, requiredRoles.length])
 
   useEffect(() => {

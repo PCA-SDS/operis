@@ -40,11 +40,12 @@ export default function InboxSettingsPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setError(null)
       try {
-        const result = await apiCall<{ settings: { inboxAddress?: string; isActive?: boolean; workingLanguage?: string; updatedAt?: string | null } | null }>('/api/inbox_ops/settings')
+        const result = await apiCall<{ settings: { inboxAddress?: string; isActive?: boolean; workingLanguage?: string; updatedAt?: string | null } | null }>('/api/inbox_ops/settings', { signal: controller.signal })
         if (!cancelled) {
           if (result?.ok && result.result?.settings) {
             setSettings(result.result.settings)
@@ -59,7 +60,7 @@ export default function InboxSettingsPage() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [t])
 
   const handleCopy = React.useCallback(() => {

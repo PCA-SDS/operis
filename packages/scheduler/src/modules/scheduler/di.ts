@@ -5,6 +5,7 @@ import { SchedulerService } from './services/schedulerService.js'
 import { BullMQSchedulerService } from './services/bullmqSchedulerService.js'
 import { LocalSchedulerService } from './services/localSchedulerService.js'
 import { ScheduledJobSubscriber } from './lib/scheduledJobSubscriber.js'
+import { getSchedulerPollIntervalMs } from './lib/pollInterval.js'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 const logger = createLogger('scheduler')
@@ -70,7 +71,7 @@ export function register(container: AppContainer) {
           queueFactory,
           rbacService: container.resolve('rbacService'),
           config: {
-            pollIntervalMs: parseInt(process.env.SCHEDULER_POLL_INTERVAL_MS || '30000', 10),
+            pollIntervalMs: getSchedulerPollIntervalMs(),
           },
         })),
     })

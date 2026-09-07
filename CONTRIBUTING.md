@@ -71,72 +71,25 @@ The legacy npm canary snapshot path is still available for comparison by dispatc
 
 ## Releasing
 
-Two channels ship packages to npm:
+This fork does not publish. The root manifest is `"private": true`, no package is
+on npm, and there are no external consumers — see
+[`docs/architecture/adr/ADR-0004-compatibility-scope.md`](docs/architecture/adr/ADR-0004-compatibility-scope.md).
+The inherited `Release Prepare` / `Release` / snapshot workflows were removed in
+#237 along with the rest of the automation this fork cannot run.
 
-- **Snapshots** — every push to `develop` runs `Develop Snapshot Release`, publishing under the `develop` dist-tag. Fully automatic; nothing to do.
-- **Stable releases** — a maintainer-driven two-stage flow off `main`, described below.
+"Releasing" here means shipping to the VPS:
 
-Stable releases are split across two workflows on purpose. `main` is protected, so a workflow cannot push a version bump to it directly; the bump lands through a normal PR, and the publishing workflow only ever pushes a tag.
+1. Add the `# <version> (YYYY-MM-DD)` section to [`CHANGELOG.md`](CHANGELOG.md).
+   The `om-auto-update-changelog` skill drafts it.
+2. Bump the version in the manifests you actually changed. `yarn release:bump
+   <patch|minor|major>` still rewrites them all locally if you want a uniform bump.
+3. Merge to `main`. `CI & Deploy` builds the image and deploys it — that push *is*
+   the release.
+4. Tag it if you want a marker: `git tag v<version> && git push origin v<version>`.
 
-### Stage 0 — land the changelog
-
-Add the `# <version> (YYYY-MM-DD)` section to [`CHANGELOG.md`](CHANGELOG.md) and merge it to `main`. The release workflow reads its GitHub Release notes from this section and **fails without it**, so this comes first. The `om-auto-update-changelog` skill drafts the entry.
-
-### Stage 1 — `Release Prepare`
-
-Dispatch **Release Prepare** from the Actions tab with a `patch`, `minor` or `major` bump:
-
-```bash
-gh workflow run release-prepare.yml --ref main -f bump=patch
-```
-
-It bumps every public package plus the root manifest, pushes `release/v<version>`, and opens a PR against `main`. It publishes nothing. The PR body confirms whether the changelog entry exists. Review and merge it as usual.
-
-> Opening the PR automatically requires _Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to create and approve pull requests"_. Without it the branch is still pushed and the job summary links straight to the compare page — one click instead of zero.
-
-### Stage 2 — `Release`
-
-With the bump on `main`, dispatch **Release**:
-
-```bash
-gh workflow run release.yml --ref main
-```
-
-The job requires approval from the `production` environment, then runs in a deliberate order — every reversible step before the irreversible one:
-
-1. **Preflight** — version alignment across packages, the version is not already on npm, and the changelog section exists. Nothing has happened yet if any of these fail.
-2. **Build** — `build:packages`, `generate`, `build:packages`.
-3. **Tag** — pushes `v<version>`. A tag is cheap to delete; an npm version is not.
-4. **Publish** — `publish-packages.sh` with npm provenance, skipping anything already published.
-5. **GitHub Release** — notes built from the changelog section plus the published-package table.
-
-### Resuming a failed release
-
-If publishing fails partway, packages are already on npm and cannot be republished — npm is ahead of git, and the repository has to catch up. Both stages take the same `resume` flag for this, which relaxes the guards that would otherwise refuse an already-published version.
-
-If the version bump never landed on `main`, run the whole flow again with `resume: true`:
-
-```bash
-gh workflow run release-prepare.yml --ref main -f bump=patch -f resume=true
-# merge the recovery PR, then
-gh workflow run release.yml --ref main -f resume=true
-```
-
-If the bump is already on `main` and only publishing failed, just the second command is needed.
-
-In resume mode, `Release Prepare` skips the "not on npm yet" and "tag does not exist" checks and marks the PR as a recovery; `Release` skips the same npm preflight, skips packages that already published, reuses the existing tag, and refreshes the release notes instead of failing.
-
-> `resume` disables the guard that prevents double-publishing. Use it only when a run died *after* npm publish — on a normal release it removes a check you want.
-
-### Local equivalents
-
-`yarn release:{patch,minor,major}` bump, build and publish from a working copy; `yarn release:existing` publishes the version already in the root `package.json`. None of them tag or push — prefer the workflows. Useful for inspection:
-
-```bash
-yarn release:bump patch                 # bump manifests only, no build or publish
-yarn release:check-unpublished 0.6.8    # is this version already on npm?
-./scripts/changelog-section.sh 0.6.8    # preview the release notes body
-```
+`./scripts/changelog-section.sh <version>` previews the notes for a version and is
+still covered by tests; the npm-facing helpers (`yarn release:*` beyond `bump`)
+target a publishing flow this fork does not use.
 
 ## Helpful Resources
 

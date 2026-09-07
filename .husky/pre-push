@@ -1,0 +1,63 @@
+#!/usr/bin/env sh
+# Refuse direct pushes to main.
+#
+# Why this exists. A push to main triggers CI & Deploy, which builds an image
+# and ships it to production. Normally the thing that stops unreviewed code
+# reaching that trigger is a branch protection rule requiring a PR and green
+# checks — but this repository is private on a plan that does not include
+# rulesets or required status checks, so GitHub cannot enforce that server-side
+# at all. This hook is the local stand-in.
+#
+# It is a seatbelt, not a lock. `git push --no-verify` skips every hook, and so
+# does a clone where husky was never activated (`yarn install` runs the
+# `prepare` script, which sets core.hooksPath — a clone that skipped it has no
+# hooks at all). It catches the accident, not the intent. Delete it in favour of
+# a GitHub ruleset the moment the plan allows one.
+
+PROTECTED_BRANCH='main'
+
+# Git feeds pre-push one line per ref being pushed:
+#   <local ref> <local sha> <remote ref> <remote sha>
+#
+# The REMOTE ref is what has to be checked, not the branch currently checked
+# out: `git push origin HEAD:main` from a feature branch updates main just the
+# same, and a current-branch check would wave it through.
+while read -r _local_ref local_sha remote_ref _remote_sha
+do
+  [ "$remote_ref" = "refs/heads/$PROTECTED_BRANCH" ] || continue
+
+  if [ "${OM_ALLOW_PUSH_TO_MAIN:-}" = "1" ]; then
+    echo "pre-push: OM_ALLOW_PUSH_TO_MAIN=1 — allowing a direct push to $PROTECTED_BRANCH." >&2
+    continue
+  fi
+
+  # An all-zero local sha means the push deletes the remote ref. Matched by
+  # shape rather than against a literal, because the digest is 40 characters
+  # under sha1 and 64 under sha256.
+  case "$local_sha" in
+    *[!0]*) attempted="push directly to" ;;
+    *)      attempted="DELETE" ;;
+  esac
+
+  cat >&2 <<EOF
+
+  ✖ Refusing to $attempted $PROTECTED_BRANCH.
+
+    Pushing to $PROTECTED_BRANCH deploys to production — CI & Deploy builds an
+    image from the commit and ships it. Open a pull request instead:
+
+        git switch -c <branch>
+        git push -u origin <branch>
+        gh pr create
+
+    If you genuinely mean to push straight to $PROTECTED_BRANCH:
+
+        OM_ALLOW_PUSH_TO_MAIN=1 git push ...
+
+    Prefer that over --no-verify, which also skips the pre-commit hook.
+
+EOF
+  exit 1
+done
+
+exit 0

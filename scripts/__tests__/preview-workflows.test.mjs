@@ -13,6 +13,23 @@ const skillTiersPath = path.resolve('.ai/skills/tiers.json')
 const standaloneExampleActivationScriptPath = path.resolve('scripts/prepare-standalone-example-integration.ts')
 const tsxCliPath = createRequire(import.meta.url).resolve('tsx/cli')
 
+/**
+ * The npm publish pipeline was removed from this fork (`bd26f2f5 refactor:
+ * remove the npm publish pipeline`) — Operis publishes no packages, so the
+ * three preview/snapshot workflows these tests describe no longer exist. The
+ * assertions stay, guarded, so they come back with the pipeline instead of
+ * having to be reconstructed from git history. Tests that cover surviving
+ * assets (the activation helper, the auto-publish skill) still run
+ * unconditionally.
+ */
+function whenPublishPipelinePresent() {
+  const missing = [packagePreviewWorkflowPath, npmSnapshotPreviewWorkflowPath, snapshotWorkflowPath]
+    .filter((workflowPath) => !fs.existsSync(workflowPath))
+  return missing.length === 0
+    ? {}
+    : { skip: `this fork ships no npm publish pipeline — missing ${missing.map((p) => path.basename(p)).join(', ')}` }
+}
+
 function readText(filePath) {
   return fs.readFileSync(filePath, 'utf8')
 }
@@ -44,7 +61,7 @@ function assertStandaloneExampleActivationLane(workflow) {
   assert.match(workflow, /OM_TEST_APP_ROOT: \/tmp\/standalone-app/)
 }
 
-test('package previews are explicit same-repository workflow dispatches', () => {
+test('package previews are explicit same-repository workflow dispatches', whenPublishPipelinePresent(), () => {
   const workflow = readText(packagePreviewWorkflowPath)
 
   assert.match(workflow, /workflow_dispatch:/)
@@ -63,7 +80,7 @@ test('package previews are explicit same-repository workflow dispatches', () => 
   assert.match(workflow, /yarn pkg-pr-new publish --comment=update --no-template --yarn --packageManager=yarn/)
 })
 
-test('npm snapshot previews preserve PR canary behavior behind manual dispatch', () => {
+test('npm snapshot previews preserve PR canary behavior behind manual dispatch', whenPublishPipelinePresent(), () => {
   const workflow = readText(npmSnapshotPreviewWorkflowPath)
 
   assert.match(workflow, /workflow_dispatch:/)
@@ -83,7 +100,7 @@ test('npm snapshot previews preserve PR canary behavior behind manual dispatch',
   assert.doesNotMatch(workflow, /issue_number: context\.issue\.number/)
 })
 
-test('published standalone lanes verify the disabled baseline before activating TC-EXAMPLE-016', () => {
+test('published standalone lanes verify the disabled baseline before activating TC-EXAMPLE-016', whenPublishPipelinePresent(), () => {
   for (const workflowPath of [snapshotWorkflowPath, npmSnapshotPreviewWorkflowPath]) {
     assertStandaloneExampleActivationLane(readText(workflowPath))
   }

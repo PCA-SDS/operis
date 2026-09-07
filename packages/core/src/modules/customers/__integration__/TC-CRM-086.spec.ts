@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { login } from '@open-mercato/core/modules/core/__integration__/helpers/auth';
 import { apiRequest, getAuthToken } from '@open-mercato/core/modules/core/__integration__/helpers/api';
 import { deleteEntityIfExists, readJsonSafe } from '@open-mercato/core/modules/core/__integration__/helpers/crmFixtures';
+import { TABLE_HEADER_SELECTOR, TABLE_HEAD_SELECTOR, tableHeadCells, tableRows } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom';
 
 /**
  * TC-CRM-086: DataTable interactive column resize + width persistence (#1835).
@@ -26,11 +27,11 @@ test.describe('TC-CRM-086: DataTable column resize + persistence', () => {
     const waitForTableReady = async () => {
       await page.getByText('Loading table', { exact: false })
         .waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => {});
-      await page.locator('tbody tr').first().waitFor({ state: 'visible', timeout: 10_000 });
+      await tableRows(page).first().waitFor({ state: 'visible', timeout: 10_000 });
     };
 
     const targetHeader = () =>
-      page.locator('thead th:has([role="separator"][aria-orientation="vertical"])').first();
+      page.locator(`${TABLE_HEADER_SELECTOR} ${TABLE_HEAD_SELECTOR}:has([role="separator"][aria-orientation="vertical"])`).first();
     const resizeHandle = () => targetHeader().getByRole('separator');
     const targetColumnWidth = () =>
       targetHeader().evaluate((el) => Math.round((el as HTMLElement).getBoundingClientRect().width));
@@ -177,9 +178,9 @@ test.describe('TC-CRM-086: DataTable column resize + persistence', () => {
     // grid is a stable no-perspective backoffice table.
     await login(page, 'admin');
     await page.goto('/backend/logs', { waitUntil: 'domcontentloaded' });
-    await page.locator('thead th').first().waitFor({ state: 'visible', timeout: 10_000 });
+    await tableHeadCells(page).first().waitFor({ state: 'visible', timeout: 10_000 });
 
     await expect(page.getByRole('button', { name: /Perspektywy|Perspectives/i })).toHaveCount(0);
-    await expect(page.locator('thead [role="separator"][aria-orientation="vertical"]')).toHaveCount(0);
+    await expect(page.locator(`${TABLE_HEADER_SELECTOR} [role="separator"][aria-orientation="vertical"]`)).toHaveCount(0);
   });
 });

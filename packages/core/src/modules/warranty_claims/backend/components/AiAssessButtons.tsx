@@ -238,11 +238,12 @@ export function AiAssessButtons({ claimId, line, canManage, onRefresh }: AiAsses
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     setLoadingAttachments(true)
     setError(null)
     readApiResultOrThrow<AttachmentsResponse>(
       `/api/attachments?entityId=${encodeURIComponent(LINE_ATTACHMENT_ENTITY_ID)}&recordId=${encodeURIComponent(line.id)}`,
-      undefined,
+      { signal: controller.signal },
       {
         fallback: { items: [] },
         errorMessage: t('warranty_claims.ai.assess.attachmentsError', 'Failed to load line attachments.'),
@@ -266,6 +267,7 @@ export function AiAssessButtons({ claimId, line, canManage, onRefresh }: AiAsses
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [line.id, t])
 

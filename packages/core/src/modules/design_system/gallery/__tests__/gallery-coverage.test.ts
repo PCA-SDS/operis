@@ -12,11 +12,13 @@ import { galleryFamilies } from '../registry'
 
 // Files that are not standalone visual components and will never get an entry.
 const NON_COMPONENT: Record<string, string> = {
+  'close-button.tsx': 'Dismiss affordance rendered as Dialog/Drawer header chrome, not a standalone entry.',
   'date-format.ts': 'Date formatting helpers, no visual component.',
   'date-picker-helpers.ts': 'Shared date-picker parsing/formatting helpers, no visual component.',
   'label.tsx': 'Form label sub-primitive shown through FormField/inputs, not a standalone entry.',
   'menu.ts': 'Shared menu row/surface class recipes consumed by Select, Dropdown and popover menus, no visual component.',
   'notification-stack.tsx': 'Imperative stacking host for notification primitives, no standalone visual.',
+  'selection-indicator.tsx': 'Row-level selected/unselected mark rendered inside multi-select list rows (entity linker, chat member picker), not a standalone entry.',
 }
 
 // Deprecated primitives are deliberately NOT showcased: rendering them would

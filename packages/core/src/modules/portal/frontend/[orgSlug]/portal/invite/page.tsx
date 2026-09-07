@@ -16,6 +16,7 @@ import { usePortalContext } from '@open-mercato/ui/portal/PortalContext'
 import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
 import { PortalInjectionSpots } from '@open-mercato/ui/backend/injection/spotIds'
 import { navigateWithPageReload } from '@open-mercato/core/modules/portal/lib/navigation'
+import { FORM_FIELD_LABEL } from '@open-mercato/ui/backend/forms/formChrome'
 
 type Props = { params: { orgSlug: string } }
 
@@ -131,18 +132,18 @@ export default function PortalInvitePage({ params }: Props) {
           </Alert>
         ) : null}
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="invite-display-name" className="text-overline font-semibold uppercase tracking-wider text-muted-foreground/70">{t('portal.invite.displayName', 'Display Name')}</Label>
+        <div>
+          <Label htmlFor="invite-display-name" className={FORM_FIELD_LABEL}>{t('portal.invite.displayName', 'Display Name')}</Label>
           <Input id="invite-display-name" autoComplete="name" required value={displayName} onChange={(e) => setDisplayName(e.target.value)} disabled={submitting || !token} className="rounded-lg" />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="invite-password" className="text-overline font-semibold uppercase tracking-wider text-muted-foreground/70">{t('portal.invite.password', 'Password')}</Label>
+        <div>
+          <Label htmlFor="invite-password" className={FORM_FIELD_LABEL}>{t('portal.invite.password', 'Password')}</Label>
           <PasswordInput id="invite-password" autoComplete="new-password" required placeholder={t('portal.invite.password.placeholder', '••••••••')} value={password} onChange={(e) => setPassword(e.target.value)} disabled={submitting || !token} className="rounded-lg" />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="invite-confirm-password" className="text-overline font-semibold uppercase tracking-wider text-muted-foreground/70">{t('portal.invite.confirmPassword', 'Confirm Password')}</Label>
+        <div>
+          <Label htmlFor="invite-confirm-password" className={FORM_FIELD_LABEL}>{t('portal.invite.confirmPassword', 'Confirm Password')}</Label>
           <PasswordInput id="invite-confirm-password" autoComplete="new-password" required placeholder={t('portal.invite.confirmPassword.placeholder', '••••••••')} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={submitting || !token} className="rounded-lg" />
         </div>
 

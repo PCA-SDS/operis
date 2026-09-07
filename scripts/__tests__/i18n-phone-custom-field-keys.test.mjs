@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { templateMirrors, whenTemplatePresent } from './helpers/create-app-template.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 
@@ -15,10 +16,9 @@ const SOURCE = 'packages/ui/src/backend/fields/phone.tsx'
 
 const LOCALES = ['en', 'pl', 'de', 'es']
 
-const CATALOG_DIRS = [
-  'apps/mercato/src/i18n',
-  'packages/create-app/template/src/i18n',
-]
+const APP_CATALOG_DIR = 'apps/mercato/src/i18n'
+const TEMPLATE_CATALOG_DIR = 'packages/create-app/template/src/i18n'
+const CATALOG_DIRS = [APP_CATALOG_DIR, ...templateMirrors(TEMPLATE_CATALOG_DIR)]
 
 const MULTILINE_CALL_PATTERN = /(?<![a-zA-Z_])(?:t|translate)\(\s*(['"])([a-zA-Z0-9_.]+)\1/g
 
@@ -64,9 +64,9 @@ test('every translation key referenced by the phone custom-field editor is defin
   }
 })
 
-test('the app catalogs and the create-app template catalogs agree on the phone keys', () => {
+test('the app catalogs and the create-app template catalogs agree on the phone keys', whenTemplatePresent(), () => {
   const keys = readSourceKeys()
-  const [appDir, templateDir] = CATALOG_DIRS
+  const [appDir, templateDir] = [APP_CATALOG_DIR, TEMPLATE_CATALOG_DIR]
   for (const locale of LOCALES) {
     const app = readCatalog(appDir, locale)
     const template = readCatalog(templateDir, locale)

@@ -3,11 +3,12 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { whenTemplatePresent } from './helpers/create-app-template.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const COMPOSE_FILES = [
-  'docker-compose.fullapp.yml',
-  'packages/create-app/template/docker-compose.fullapp.yml',
+  { path: 'docker-compose.fullapp.yml', options: {} },
+  { path: 'packages/create-app/template/docker-compose.fullapp.yml', options: whenTemplatePresent() },
 ]
 const FORWARDED_VARIABLES = [
   'CONSENT_INTEGRITY_SECRET',
@@ -38,8 +39,8 @@ function readAppService(relPath) {
   return content.slice(appStart, nextService)
 }
 
-for (const relPath of COMPOSE_FILES) {
-  test(`${relPath} forwards production runtime configuration into the app service`, () => {
+for (const { path: relPath, options } of COMPOSE_FILES) {
+  test(`${relPath} forwards production runtime configuration into the app service`, options, () => {
     const appService = readAppService(relPath)
 
     for (const variable of FORWARDED_VARIABLES) {

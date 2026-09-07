@@ -977,13 +977,24 @@ function NotesSectionImpl<C = unknown>({
 
   return (
     <div className="mt-0 space-y-2">
+      {/* Row-track animation, not max-height: `max-h-0 -> max-h-[1200px]` spends
+          the 300ms crossing 1200px, so a short composer snapped open and then sat
+          idle. `0fr -> 1fr` interpolates to the real height. The padding and fill
+          live on the inner element so they clip with the track instead of leaving
+          a ghost band when closed. */}
       <div
         className={[
-          'overflow-hidden rounded-xl transition-all duration-300 ease-out',
-          composerOpen ? 'max-h-[1200px] bg-muted/30 p-4 opacity-100' : 'pointer-events-none max-h-0 p-0 opacity-0',
+          'grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none',
+          composerOpen ? 'grid-rows-[1fr]' : 'pointer-events-none grid-rows-[0fr]',
         ].join(' ')}
         aria-hidden={!composerOpen}
       >
+        <div
+          className={[
+            'overflow-hidden rounded-xl transition-[opacity,background-color] duration-300 ease-out',
+            composerOpen ? 'bg-muted/30 p-4 opacity-100' : 'p-0 opacity-0',
+          ].join(' ')}
+        >
         {composerOpen ? (
           <form
             ref={formRef}
@@ -1145,6 +1156,7 @@ function NotesSectionImpl<C = unknown>({
             </div>
           </form>
         ) : null}
+        </div>
       </div>
 
       {loadError ? <ErrorMessage label={loadError} className="mt-3" /> : null}

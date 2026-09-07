@@ -156,7 +156,25 @@ function createFakeKysely(overrides?: FakeData) {
         return makeBuilder(nextOps, false)
       },
       as(this: any, alias: string) { this._ops.alias = alias; return this },
-      async execute(this: any) { return cloneRows(data[this._ops.table]) },
+      async execute(this: any) {
+        const localOps = this._ops
+        // The catalog views are the one place this stub has to honour the WHERE clause:
+        // every other table records its ops and hands back the whole fixture, but a
+        // `select column_name from information_schema.columns where table_name = ?` that
+        // ignored `table_name` would report every fixture column as present on every table.
+        // `executeTakeFirst` below already filters these for the same reason.
+        if (localOps.table === 'information_schema.columns') {
+          const infoRows = data['information_schema.columns']
+          if (!Array.isArray(infoRows)) return []
+          const targetTable = extractEqValue(localOps.wheres, 'table_name')
+          const targetColumn = extractEqValue(localOps.wheres, 'column_name')
+          return cloneRows(infoRows.filter((row: any) =>
+            (!targetTable || row.table_name === targetTable) &&
+            (!targetColumn || row.column_name === targetColumn)
+          ))
+        }
+        return cloneRows(data[this._ops.table])
+      },
       async executeTakeFirst(this: any) {
         const localOps = this._ops
         if (localOps.table === 'information_schema.columns') {

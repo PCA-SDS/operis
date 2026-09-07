@@ -199,10 +199,11 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
     setInitialRoleOptions(seedOptions)
     if (!roleIds.length) return
     let cancelled = false
+    const controller = new AbortController()
     Promise.all(roleIds.map(async (roleId) => {
       const response = await apiCall<RoleLookupResponse>(
         `/api/auth/roles?id=${encodeURIComponent(roleId)}&page=1&pageSize=1`,
-        undefined,
+        { signal: controller.signal },
         { fallback: { items: [] } },
       )
       if (!response.ok || !Array.isArray(response.result?.items)) return null
@@ -221,6 +222,7 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
       .catch(() => {})
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [initialUser])
 
@@ -231,6 +233,7 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setLoading(true)
       setError(null)
@@ -239,7 +242,7 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
       try {
         const { ok, result } = await apiCall<UserListResponse>(
           `/api/auth/users?id=${encodeURIComponent(String(id))}&page=1&pageSize=1`,
-        )
+        { signal: controller.signal })
         if (!ok) throw new Error(tRef.current('auth.users.form.errors.load', 'Failed to load user data'))
         const item = Array.isArray(result?.items) ? result?.items?.[0] : undefined
         if (!cancelled) {
@@ -293,6 +296,7 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
         const featureCheck = await apiCall<FeatureCheckResponse>(
           '/api/auth/feature-check',
           {
+            signal: controller.signal,
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ features: ['directory.organizations.view'] }),
@@ -305,7 +309,7 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [id])
 
   const selectedOrgId = initialUser?.organizationId ? String(initialUser.organizationId) : null

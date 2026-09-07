@@ -431,11 +431,12 @@ export default function CustomersCompaniesPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setCacheStatus(null)
       try {
-        const call = await apiCall<CompaniesResponse>(`/api/customers/companies?${queryParams}`)
+        const call = await apiCall<CompaniesResponse>(`/api/customers/companies?${queryParams}`, { signal: controller.signal })
         if (!call.ok) {
           const errorPayload = call.result as { error?: string } | undefined
           const message = typeof errorPayload?.error === 'string' ? errorPayload.error : t('customers.companies.list.error.load')
@@ -461,7 +462,7 @@ export default function CustomersCompaniesPage() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [queryParams, reloadToken, scopeVersion, t])
 
   const handleRefresh = React.useCallback(() => {

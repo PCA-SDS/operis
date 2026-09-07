@@ -3,6 +3,7 @@ import { CustomerUser, CustomerUserSession } from '@open-mercato/core/modules/cu
 import { generateSecureToken, hashToken } from '@open-mercato/core/modules/customer_accounts/lib/tokenGenerator'
 import { signAudienceJwt } from '@open-mercato/shared/lib/auth/jwt'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { parseNumberWithDefault } from '@open-mercato/shared/lib/number'
 
 export const CUSTOMER_JWT_AUDIENCE = 'customer'
 const CUSTOMER_JWT_TTL_SECONDS = 60 * 60 * 8
@@ -29,7 +30,14 @@ export class CustomerSessionService {
   ): Promise<{ rawToken: string; jwt: string; session: CustomerUserSession }> {
     const rawToken = generateSecureToken()
     const tokenHash = hashToken(rawToken)
-    const days = Number(process.env.CUSTOMER_SESSION_TTL_DAYS || DEFAULT_SESSION_TTL_DAYS)
+    // A non-numeric value here would make `expiresAt` an Invalid Date, and the
+    // expiry checks below compare `getTime() < Date.now()` — NaN makes that
+    // comparison false, so the session would never expire. Fall back to the
+    // default instead of trusting the raw env value.
+    const days = parseNumberWithDefault(process.env.CUSTOMER_SESSION_TTL_DAYS, DEFAULT_SESSION_TTL_DAYS, {
+      min: 1,
+      integer: true,
+    })
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000)
 
     await this.enforceSessionCap(user.id, user.tenantId, user.organizationId)

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { whenTemplatePresent } from './helpers/create-app-template.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const MIN_HEAP_MB = 1024
@@ -22,7 +23,7 @@ test('docker-compose.fullapp.yml NODE_OPTIONS default heap cap is at least 1024 
   )
 })
 
-test('create-app template docker-compose.fullapp.yml NODE_OPTIONS default heap cap is at least 1024 MB', () => {
+test('create-app template docker-compose.fullapp.yml NODE_OPTIONS default heap cap is at least 1024 MB', whenTemplatePresent(), () => {
   const mb = extractDefaultHeapMb('packages/create-app/template/docker-compose.fullapp.yml')
   assert.notStrictEqual(mb, null, 'NODE_OPTIONS default not found in template docker-compose.fullapp.yml')
   assert.ok(

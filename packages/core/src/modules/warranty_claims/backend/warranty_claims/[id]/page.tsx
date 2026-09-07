@@ -789,7 +789,8 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
 
   React.useEffect(() => {
     let cancelled = false
-    void apiCall<{ result?: { defaultWarrantyMonths?: number | null } }>('/api/warranty_claims/settings-general', { headers: { 'x-om-forbidden-redirect': '0' } }, { fallback: {} })
+    const controller = new AbortController()
+    void apiCall<{ result?: { defaultWarrantyMonths?: number | null } }>('/api/warranty_claims/settings-general', { signal: controller.signal, headers: { 'x-om-forbidden-redirect': '0' } }, { fallback: {} })
       .then((call) => {
         if (cancelled || !call.ok) return
         const months = call.result?.result?.defaultWarrantyMonths
@@ -798,14 +799,17 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
       .catch(() => undefined)
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [scopeVersion])
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     void apiCall<FeatureCheckResponse>(
       '/api/auth/feature-check',
       {
+        signal: controller.signal,
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -848,6 +852,7 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [scopeVersion])
   const [transitionDialog, setTransitionDialog] = React.useState<{ toStatus: ClaimStatus } | null>(null)

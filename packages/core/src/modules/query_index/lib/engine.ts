@@ -31,6 +31,7 @@ import {
 import { tokenizeText } from '@open-mercato/shared/lib/search/tokenize'
 import { runBeforeQueryPipeline, runAfterQueryPipeline, type QueryExtensionContext } from '@open-mercato/shared/lib/query/query-extension-runner'
 import { warnOnCiphertextLikeFallback } from '@open-mercato/shared/lib/query/ciphertext-search-warning'
+import { tableHasColumn, tableColumnTypes } from '@open-mercato/shared/lib/query/schema-presence'
 import { resolveEncryptedSortFields, resolveEncryptedSortMaxRows, sortRowsInMemory } from '@open-mercato/shared/lib/query/encrypted-sort'
 import { mapWithConcurrency } from '@open-mercato/shared/lib/query/bounded-decrypt'
 import { createLogger } from '@open-mercato/shared/lib/logger'
@@ -187,7 +188,6 @@ export class HybridQueryEngine implements QueryEngine {
   private coverageStatsTtlMs: number
   private customFieldKeysCache = new Map<string, { expiresAt: number; value: string[] }>()
   private customFieldKeysTtlMs: number
-  private columnCache = new Map<string, boolean>()
   private customEntityCache = new Map<string, boolean>()
   private debugVerbosity: boolean | null = null
   private sqlDebugEnabled: boolean | null = null
@@ -2239,37 +2239,14 @@ export class HybridQueryEngine implements QueryEngine {
   }
 
   private async columnExists(table: string, column: string): Promise<boolean> {
-    const key = `${table}.${column}`
-    if (this.columnCache.has(key)) {
-      const cached = this.columnCache.get(key)
-      if (cached === true) return true
-      this.columnCache.delete(key)
-    }
-    const db = this.getDb() as any
-    const exists = await db
-      .selectFrom('information_schema.columns')
-      .select(sql<number>`1`.as('one'))
-      .where('table_name', '=', table)
-      .where('column_name', '=', column)
-      .limit(1)
-      .executeTakeFirst()
-    const present = !!exists
-    if (present) this.columnCache.set(key, true)
-    else this.columnCache.delete(key)
-    return present
+    return tableHasColumn(this.getDb() as any, table, column)
   }
 
   private async getBaseColumnsForEntity(entity: string): Promise<Map<string, string>> {
-    const db = this.getDb() as any
-    const table = resolveEntityTableName(this.em, entity)
-    const rows = await db
-      .selectFrom('information_schema.columns')
-      .select(['column_name', 'data_type'])
-      .where('table_name', '=', table)
-      .execute() as Array<{ column_name: string; data_type: string }>
-    const map = new Map<string, string>()
-    for (const r of rows) map.set(r.column_name, r.data_type)
-    return map
+    // Shares one cached introspection per table with `columnExists`, which the three
+    // base-table probes right after this call site then answer for free. Returns its own
+    // Map, so the previous "caller owns the result" contract is unchanged.
+    return tableColumnTypes(this.getDb() as any, resolveEntityTableName(this.em, entity))
   }
 
   private resolveOrganizationScope(opts: QueryOptions): { ids: string[]; includeNull: boolean } | null {

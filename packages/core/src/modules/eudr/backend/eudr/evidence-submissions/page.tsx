@@ -129,13 +129,14 @@ export default function EudrEvidenceSubmissionsPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadRows() {
       setLoading(true)
       try {
         const fallback: EvidenceSubmissionsResponse = { items: [], total: 0, totalPages: 1 }
         const call = await apiCall<EvidenceSubmissionsResponse>(
           `/api/eudr/evidence-submissions?${queryParams}`,
-          undefined,
+          { signal: controller.signal },
           { fallback },
         )
         if (!call.ok) {
@@ -156,6 +157,7 @@ export default function EudrEvidenceSubmissionsPage() {
     loadRows()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [queryParams, reloadToken, scopeVersion, translate])
 

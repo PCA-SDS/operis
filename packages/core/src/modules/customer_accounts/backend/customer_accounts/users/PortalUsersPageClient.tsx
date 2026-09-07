@@ -304,13 +304,14 @@ export function PortalUsersPageClient({ portalOrigin }: PortalUsersPageClientPro
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       try {
         const fallback: UsersResponse = { items: [], total: 0, totalPages: 1 }
         const payload = await readApiResultOrThrow<UsersResponse>(
           `/api/customer_accounts/admin/users?${queryParams}`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('customer_accounts.admin.error.loadUsers', 'Failed to load customer users'), fallback },
         )
         if (cancelled) return
@@ -328,7 +329,7 @@ export function PortalUsersPageClient({ portalOrigin }: PortalUsersPageClientPro
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [queryParams, reloadToken, t])
 
   const handleToggleActive = React.useCallback(async (user: UserRow) => {

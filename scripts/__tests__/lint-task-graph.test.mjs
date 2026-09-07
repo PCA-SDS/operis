@@ -10,7 +10,7 @@ import {
 } from '../check-turbo-task-graph.mjs'
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..')
-const workflowPath = path.join(repoRoot, '.github', 'workflows', 'ci.yml')
+const workflowPath = path.join(repoRoot, '.github', 'workflows', 'ci-deploy.yml')
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'))
@@ -87,7 +87,9 @@ test('the root lint script fans out to every workspace lint script', () => {
 test('the CI lint job lints instead of filtering every lint script away', () => {
   const workflow = fs.readFileSync(workflowPath, 'utf8')
 
-  assert.match(workflow, /^\s+run: yarn lint:check-graph$/m)
-  assert.match(workflow, /^\s+run: yarn lint$/m)
+  // ci-deploy.yml runs both through one `run: |` block, so accept either the
+  // inline `run: yarn X` form or a bare command line inside a block.
+  assert.match(workflow, /^\s+(run: )?yarn lint:check-graph$/m)
+  assert.match(workflow, /^\s+(run: )?yarn lint$/m)
   assert.doesNotMatch(workflow, /turbo run lint[^\n]*--filter/)
 })

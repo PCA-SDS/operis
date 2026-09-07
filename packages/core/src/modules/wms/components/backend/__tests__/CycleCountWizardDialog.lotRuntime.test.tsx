@@ -121,6 +121,9 @@ jest.mock('@open-mercato/ui/backend/inputs/DateTimePicker', () => ({
 }))
 
 jest.mock('@open-mercato/ui/primitives/dialog', () => ({
+  DialogBody: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-slot="dialog-body" className={className}>{children}</div>
+  ),
   Dialog: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
     open ? <div>{children}</div> : null,
   DialogContent: ({ children, onKeyDown }: { children: React.ReactNode; onKeyDown?: (event: React.KeyboardEvent) => void }) => (

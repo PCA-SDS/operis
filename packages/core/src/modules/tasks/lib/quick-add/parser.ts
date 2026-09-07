@@ -23,6 +23,7 @@ import {
   WEEKLY_ON_LEADINS,
   WEEKLY_PHRASES,
   type AliasEntry,
+  DUE_LEADINS,
 } from './vocabulary'
 import { addDaysIso, addMonthsClamped, isoOrNull, lastDayOfMonth, parseIsoUtc } from '../calendar'
 import { firstOccurrenceOnOrAfter } from '../recurrence'
@@ -49,6 +50,13 @@ export type ParsedQuickAdd = {
 
 const B_START = '(^|[\\s,;:(])'
 const B_END = '(?=$|[\\s,.;:!?)])'
+
+/**
+ * An optional deadline lead-in, consumed together with the date or time that
+ * follows it. Non-capturing on purpose: every pattern below indexes its groups
+ * positionally, so introducing a capture here would shift them all by one.
+ */
+const LEADIN = `(?:(?:${phraseAlt(DUE_LEADINS)})\\s+)?`
 /** Private-use codepoint standing in for text the parser must skip over. */
 const MASK = '\uE000'
 
@@ -434,9 +442,9 @@ const NAMED_TIMES: Record<string, string> = {
 }
 const AT_TIME_REGEX =
   /(^|\s)at\s+(?:(noon|midday|midnight)|(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)?)(?=$|[\s,.;:!?)])/i
-const BARE_MERIDIEM_REGEX = /(^|[\s,;:(])(\d{1,2})(?:[:.](\d{2}))?\s?(am|pm)(?=$|[\s,.;:!?)])/i
-const BARE_24H_REGEX = /(^|[\s,;:(])([01]?\d|2[0-3]):([0-5]\d)(?=$|[\s,.;!?)])/
-const BARE_NAMED_TIME_REGEX = new RegExp(`${B_START}(noon|midday|midnight)${B_END}`, 'i')
+const BARE_MERIDIEM_REGEX = new RegExp(`(^|[\\s,;:(])${LEADIN}(\\d{1,2})(?:[:.](\\d{2}))?\\s?(am|pm)(?=$|[\\s,.;:!?)])`, 'i')
+const BARE_24H_REGEX = new RegExp(`(^|[\\s,;:(])${LEADIN}([01]?\\d|2[0-3]):([0-5]\\d)(?=$|[\\s,.;!?)])`)
+const BARE_NAMED_TIME_REGEX = new RegExp(`${B_START}${LEADIN}(noon|midday|midnight)${B_END}`, 'i')
 
 function extractTime(state: ParseState): string | null {
   const at = state.match(AT_TIME_REGEX)
@@ -506,35 +514,35 @@ function pad2(value: number): string {
   return String(value).padStart(2, '0')
 }
 
-const ISO_DATE_TOKEN_REGEX = new RegExp(`${B_START}(\\d{4})-(\\d{2})-(\\d{2})${B_END}`)
+const ISO_DATE_TOKEN_REGEX = new RegExp(`${B_START}${LEADIN}(\\d{4})-(\\d{2})-(\\d{2})${B_END}`)
 const MONTH_FIRST_REGEX = new RegExp(
-  `${B_START}(?:on\\s+)?(${MONTH_ALT})\\.?\\s+(?:the\\s+)?(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?${B_END}`,
+  `${B_START}${LEADIN}(${MONTH_ALT})\\.?\\s+(?:the\\s+)?(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?${B_END}`,
   'i',
 )
 const DAY_FIRST_REGEX = new RegExp(
-  `${B_START}(?:on\\s+)?(?:the\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_ALT})\\.?(?:,?\\s+(\\d{4}))?${B_END}`,
+  `${B_START}${LEADIN}(?:the\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_ALT})\\.?(?:,?\\s+(\\d{4}))?${B_END}`,
   'i',
 )
-const SLASH_DATE_REGEX = new RegExp(`${B_START}(?:on\\s+)?(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?${B_END}`)
-const DAY_OF_MONTH_REGEX = new RegExp(`${B_START}(?:on\\s+)?the\\s+(\\d{1,2})(st|nd|rd|th)${B_END}`, 'i')
-const TODAY_REGEX = new RegExp(`${B_START}(${aliasAlt(TODAY_WORDS)})${B_END}`, 'i')
-const TOMORROW_REGEX = new RegExp(`${B_START}(${aliasAlt(TOMORROW_WORDS)})${B_END}`, 'i')
-const DAY_AFTER_TOMORROW_REGEX = new RegExp(`${B_START}(?:the\\s+)?day\\s+after\\s+tomorrow${B_END}`, 'i')
+const SLASH_DATE_REGEX = new RegExp(`${B_START}${LEADIN}(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?${B_END}`)
+const DAY_OF_MONTH_REGEX = new RegExp(`${B_START}${LEADIN}the\\s+(\\d{1,2})(st|nd|rd|th)${B_END}`, 'i')
+const TODAY_REGEX = new RegExp(`${B_START}${LEADIN}(${aliasAlt(TODAY_WORDS)})${B_END}`, 'i')
+const TOMORROW_REGEX = new RegExp(`${B_START}${LEADIN}(${aliasAlt(TOMORROW_WORDS)})${B_END}`, 'i')
+const DAY_AFTER_TOMORROW_REGEX = new RegExp(`${B_START}${LEADIN}(?:the\\s+)?day\\s+after\\s+tomorrow${B_END}`, 'i')
 const IN_OFFSET_REGEX = new RegExp(`${B_START}in\\s+(${NUMBER_ALT})\\s+(day|week|month)s?${B_END}`, 'i')
 const FROM_NOW_REGEX = new RegExp(
   `${B_START}(${NUMBER_ALT})\\s+(day|week|month)s?\\s+from\\s+(?:now|today)${B_END}`,
   'i',
 )
-const NEXT_WEEK_REGEX = new RegExp(`${B_START}next\\s+week${B_END}`, 'i')
-const NEXT_MONTH_REGEX = new RegExp(`${B_START}next\\s+month${B_END}`, 'i')
-const END_OF_WEEK_REGEX = new RegExp(`${B_START}(?:end\\s+of\\s+(?:the\\s+)?week|eow)${B_END}`, 'i')
-const END_OF_MONTH_REGEX = new RegExp(`${B_START}(?:end\\s+of\\s+(?:the\\s+)?month|eom)${B_END}`, 'i')
-const START_OF_NEXT_MONTH_REGEX = new RegExp(`${B_START}start\\s+of\\s+next\\s+month${B_END}`, 'i')
-const THIS_WEEKEND_REGEX = new RegExp(`${B_START}this\\s+weekend${B_END}`, 'i')
-const NEXT_WEEKEND_REGEX = new RegExp(`${B_START}next\\s+weekend${B_END}`, 'i')
-const NEXT_WEEKDAY_REGEX = new RegExp(`${B_START}next\\s+((?:${WD_SINGULAR_ALT})\\.?)${B_END}`, 'i')
-const THIS_WEEKDAY_REGEX = new RegExp(`${B_START}this\\s+((?:${WD_SINGULAR_ALT})\\.?)${B_END}`, 'i')
-const BARE_WEEKDAY_REGEX = new RegExp(`${B_START}(?:on\\s+)?((?:${WD_SINGULAR_ALT})\\.?)${B_END}`, 'i')
+const NEXT_WEEK_REGEX = new RegExp(`${B_START}${LEADIN}next\\s+week${B_END}`, 'i')
+const NEXT_MONTH_REGEX = new RegExp(`${B_START}${LEADIN}next\\s+month${B_END}`, 'i')
+const END_OF_WEEK_REGEX = new RegExp(`${B_START}${LEADIN}(?:end\\s+of\\s+(?:the\\s+)?week|eow)${B_END}`, 'i')
+const END_OF_MONTH_REGEX = new RegExp(`${B_START}${LEADIN}(?:end\\s+of\\s+(?:the\\s+)?month|eom)${B_END}`, 'i')
+const START_OF_NEXT_MONTH_REGEX = new RegExp(`${B_START}${LEADIN}start\\s+of\\s+next\\s+month${B_END}`, 'i')
+const THIS_WEEKEND_REGEX = new RegExp(`${B_START}${LEADIN}this\\s+weekend${B_END}`, 'i')
+const NEXT_WEEKEND_REGEX = new RegExp(`${B_START}${LEADIN}next\\s+weekend${B_END}`, 'i')
+const NEXT_WEEKDAY_REGEX = new RegExp(`${B_START}${LEADIN}next\\s+((?:${WD_SINGULAR_ALT})\\.?)${B_END}`, 'i')
+const THIS_WEEKDAY_REGEX = new RegExp(`${B_START}${LEADIN}this\\s+((?:${WD_SINGULAR_ALT})\\.?)${B_END}`, 'i')
+const BARE_WEEKDAY_REGEX = new RegExp(`${B_START}${LEADIN}((?:${WD_SINGULAR_ALT})\\.?)${B_END}`, 'i')
 
 function extractDate(state: ParseState, todayIso: string): string | null {
   return extractAbsoluteDate(state, todayIso) ?? extractRelativeDate(state, todayIso)

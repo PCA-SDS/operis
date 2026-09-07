@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { login } from '@open-mercato/core/modules/core/__integration__/helpers/auth';
+import { tableHeaderButton } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom';
 
 /**
  * TC-CRM-032: DataTable Column Chooser
@@ -20,7 +21,7 @@ test.describe('TC-CRM-032: DataTable Column Chooser', () => {
     await page.goto('/backend/customers/people', { waitUntil: 'domcontentloaded' });
     await page.getByText('Loading table', { exact: false }).waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
 
-    const emailHeader = page.locator('thead button', { hasText: 'Email' }).first();
+    const emailHeader = tableHeaderButton(page, 'Email');
     await expect(emailHeader).toBeVisible();
 
     const viewsToolbarButton = page.getByTestId('data-table-open-views-sidebar').first();
@@ -69,6 +70,6 @@ test.describe('TC-CRM-032: DataTable Column Chooser', () => {
 
     await page.getByRole('button', { name: 'Close', exact: true }).click();
 
-    await expect(page.locator('thead button', { hasText: 'Email' }).first()).toBeVisible();
+    await expect(tableHeaderButton(page, 'Email')).toBeVisible();
   });
 });

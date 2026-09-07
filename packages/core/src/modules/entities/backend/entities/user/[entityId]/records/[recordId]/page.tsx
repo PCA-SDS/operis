@@ -62,11 +62,12 @@ function EditRecordPageInner({ params }: { params: { entityId?: string; recordId
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       try {
         const j = await readApiResultOrThrow<RecordsResponse>(
           `/api/entities/records?entityId=${encodeURIComponent(entityId)}&page=1&pageSize=1&sortField=id&sortDir=asc&id=${encodeURIComponent(recordId)}`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: 'Failed to load record', fallback: { items: [] } },
         )
         const item = (j.items || []).find((x: any) => String(x.id) === String(recordId)) || null
@@ -78,7 +79,7 @@ function EditRecordPageInner({ params }: { params: { entityId?: string; recordId
       }
     }
     if (entityId && recordId) load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [entityId, recordId])
 
   const schema = React.useMemo(() => z.object({}).passthrough(), [])

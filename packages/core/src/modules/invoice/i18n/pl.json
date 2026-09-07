@@ -1,0 +1,6 @@
+{
+  "invoice.errors.organization_required": "Wymagany jest kontekst organizacji.",
+  "invoice.errors.tenant_required": "Wymagany jest kontekst dzierżawy.",
+  "invoice.search.badge.company": "Firma na fakturze",
+  "invoice.search.badge.invoice": "Faktura"
+}

@@ -81,15 +81,48 @@ describe('DataTable column headers', () => {
     expect(cells[1].getAttribute('data-align')).toBe('right')
   })
 
-  it('leaves the header unpinned unless the table owns a vertical scrollport', () => {
-    const { container } = renderTable()
-    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
-    expect(head.className).not.toContain('sticky top-0')
+  /**
+   * A table's footer spot exists for every table that has an id, but almost no
+   * table registers a widget for it. Wrapping the empty spot in its bordered
+   * strip left companies, deals and friends with a blank band and a rule across
+   * the foot of the card — reported twice. The strip may only exist when a
+   * widget does.
+   */
+  it('renders no footer strip when nothing is injected into the footer spot', () => {
+    // `extensionTableId` is what yields a footer spot id — without it the strip
+    // is unreachable and this test would pass vacuously.
+    const { container } = renderTable({ extensionTableId: 'test.headers' })
 
-    const pinned = renderTable({ stickyHeader: true })
-    const pinnedHead = pinned.container.querySelector('[data-slot="table-head"]') as HTMLElement
-    expect(pinnedHead.className).toContain('sticky')
-    expect(pinnedHead.className).toContain('top-0')
+    // The strip is the only element carrying the card's bottom-band padding.
+    // (Matching on `border-t` alone is a trap: `border-table-border` contains it
+    // as a substring, so every row matches.)
+    expect(container.querySelectorAll('div.border-t.px-4.py-3')).toHaveLength(0)
+  })
+
+  it('pins the header row group exactly when the table owns a vertical scrollport', () => {
+    /* The pin must sit on the row GROUP: a sticky cell cannot escape its row, so
+       pinning cells lets the header scroll away with the row containing them. */
+    const { container } = renderTable()
+    const group = container.querySelector('[data-slot="table-header"]') as HTMLElement
+    expect(group.className).toContain('sticky')
+    expect(group.className).toContain('top-0')
+    // The fill is what stops the body showing through the pinned header.
+    expect(group.className).toContain('bg-table-header')
+    // Cells stay unpinned — the group carries it.
+    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
+    expect(head.className).not.toContain('sticky')
+
+    // Opting out of the cap hands scrolling back to the page — pinning there
+    // would stick the header to the viewport and slide it under the app topbar.
+    const unbounded = renderTable({ maxBodyHeight: false })
+    const unboundedGroup = unbounded.container.querySelector('[data-slot="table-header"]') as HTMLElement
+    expect(unboundedGroup.className).not.toContain('sticky')
+
+    // The explicit prop still wins either way.
+    const pinned = renderTable({ maxBodyHeight: false, stickyHeader: true })
+    const pinnedGroup = pinned.container.querySelector('[data-slot="table-header"]') as HTMLElement
+    expect(pinnedGroup.className).toContain('sticky')
+    expect(pinnedGroup.className).toContain('top-0')
   })
 
   it('paints nothing at the column edge — the resize zone is cursor-only', () => {
@@ -186,10 +219,28 @@ describe('DataTable column reorder feedback', () => {
     expect(grabbable.length).toBeGreaterThan(0)
   })
 
-  it('leaves headers unreorderable when the column chooser is off', () => {
+  it('reorders by default, so a table gets it without opting in', () => {
     const { container } = renderTable()
     const heads = Array.from(container.querySelectorAll('[data-slot="table-head"]')) as HTMLElement[]
+    expect(heads.some((el) => el.style.cursor === 'grab')).toBe(true)
+  })
+
+  it('leaves headers unreorderable when the column chooser is switched off', () => {
+    const { container } = renderTable({ columnChooser: false })
+    const heads = Array.from(container.querySelectorAll('[data-slot="table-head"]')) as HTMLElement[]
     expect(heads.every((el) => el.style.cursor !== 'grab')).toBe(true)
+  })
+
+  it('keeps the columnheader role while reordering, rather than dnd-kit\'s button', () => {
+    // dnd-kit defaults its draggable role to `button`, and `attributes` is
+    // spread onto the cell — so without pinning the role the header would stop
+    // being a header to assistive tech.
+    const { container } = renderTable()
+    const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
+    expect(head.getAttribute('role')).toBe('columnheader')
+    // `useSortable` describes itself as "sortable"; `useDraggable` is the one
+    // that says "draggable". Either way the role stays `columnheader`.
+    expect(head.getAttribute('aria-roledescription')).toBe('sortable')
   })
 
   it('advertises the gesture with the cell itself, painting nothing into the row', () => {
@@ -208,7 +259,7 @@ describe('DataTable column reorder feedback', () => {
   })
 
   it('offers no grip where the column cannot be reordered', () => {
-    const { container } = renderTable()
+    const { container } = renderTable({ columnChooser: false })
     const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
     expect(head.className).not.toContain('hover:bg-surface-strong')
   })

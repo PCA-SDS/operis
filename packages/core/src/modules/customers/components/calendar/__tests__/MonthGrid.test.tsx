@@ -4,7 +4,7 @@
 import * as React from 'react'
 import { cleanup, fireEvent } from '@testing-library/react'
 import { renderWithProviders } from '@open-mercato/shared/lib/testing/renderWithProviders'
-import { MonthGrid } from '../MonthGrid'
+import { MonthGrid, rowsPerCellFor } from '../MonthGrid'
 import { formatTimeRange } from '../EventBlock'
 import type { CalendarItem } from '../types'
 import { buildCalendarItem } from './fixtures'
@@ -229,5 +229,31 @@ describe('MonthGrid — interaction consistency with the week view', () => {
     fireEvent.click(row)
 
     expect(onItemClick).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('rowsPerCellFor', () => {
+  it('falls back to the fixed capacity before the grid has been measured', () => {
+    expect(rowsPerCellFor(null)).toBe(4)
+    expect(rowsPerCellFor(0)).toBe(4)
+    expect(rowsPerCellFor(Number.NaN)).toBe(4)
+  })
+
+  it('shows more of a busy day as the row gets taller', () => {
+    const short = rowsPerCellFor(120)
+    const tall = rowsPerCellFor(260)
+    expect(tall).toBeGreaterThan(short)
+  })
+
+  it('always leaves room for at least one entry, however short the row', () => {
+    expect(rowsPerCellFor(1)).toBe(1)
+    expect(rowsPerCellFor(40)).toBe(1)
+  })
+
+  it('reserves space for the date numeral and the overflow control', () => {
+    // 22px numeral + 2*2px padding + 16px overflow = 42px of chrome; a 24px
+    // unit means 4 rows need 96px of content plus that chrome.
+    expect(rowsPerCellFor(42 + 4 * 24)).toBe(4)
+    expect(rowsPerCellFor(42 + 4 * 24 - 1)).toBe(3)
   })
 })

@@ -1,4 +1,4 @@
-import { Entity, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Entity, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 
 type OnboardingStatus = 'pending' | 'processing' | 'completed' | 'expired'
 

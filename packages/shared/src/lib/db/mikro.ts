@@ -1,7 +1,5 @@
 import 'dotenv/config'
-import 'reflect-metadata'
 import { MikroORM } from '@mikro-orm/core'
-import { ReflectMetadataProvider } from '@mikro-orm/decorators/legacy'
 import { PostgreSqlDriver, type EntityManager as PostgreSqlEntityManager } from '@mikro-orm/postgresql'
 import { getSslConfig } from './ssl'
 import { createLogger } from '../logger'
@@ -163,11 +161,12 @@ export async function getOrm() {
     clientUrl,
     entities,
     debug: false,
-    // v7 no longer defaults to ReflectMetadataProvider. Entities in this repo use
-    // `@mikro-orm/decorators/legacy`, which relies on TypeScript `emitDecoratorMetadata`
-    // + reflect-metadata for type inference (nullability, column types). Without this,
-    // inferred types are silently wrong at runtime.
-    metadataProvider: ReflectMetadataProvider,
+    // No metadataProvider override: entities use the TC39 decorators from
+    // `@mikro-orm/decorators/es`, which carry every property's `type` and `nullable`
+    // explicitly, so v7's default provider has nothing left to infer. The previous
+    // `ReflectMetadataProvider` + `emitDecoratorMetadata` + `reflect-metadata` chain existed
+    // to infer those from TypeScript design-time types; it is dead weight now, and the
+    // Stage-3 decorators cannot emit that metadata anyway.
     // MikroORM v7 pool shape (min/max/idleTimeoutMillis). Knex-era `acquireTimeoutMillis` /
     // `destroyTimeoutMillis` were removed; acquire wait maps to pg `connectionTimeoutMillis`
     // below under `driverOptions`. Mirror `connectionTimeoutMillis` here too — older Mikro

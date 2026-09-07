@@ -5,6 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { whenTemplatePresent } from './helpers/create-app-template.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const scriptPath = path.join(repoRoot, 'docker/scripts/init-or-migrate.sh')
@@ -86,6 +87,6 @@ test('an initialization failure still aborts startup', () => {
   assert.equal(markerExists, false)
 })
 
-test('the create-app template ships the same boot script', () => {
+test('the create-app template ships the same boot script', whenTemplatePresent(), () => {
   assert.equal(fs.readFileSync(templateScriptPath, 'utf8'), fs.readFileSync(scriptPath, 'utf8'))
 })

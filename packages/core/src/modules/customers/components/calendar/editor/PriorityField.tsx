@@ -1,12 +1,17 @@
 "use client"
 
 import * as React from 'react'
-import { Check, ChevronDown, ChevronsDown, ChevronsUp, Equal } from 'lucide-react'
+import { ChevronsDown, ChevronsUp, Equal } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
-import { menuRowStateClass } from '@open-mercato/ui/primitives/menu'
-import { Button } from '@open-mercato/ui/primitives/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@open-mercato/ui/primitives/select'
 import type { EditorPriority } from '../../../lib/calendar/editorPayload'
-import { CONTROL_BORDER, DROPDOWN_PANEL_CLASS, useDropdownDismiss } from './inputs'
+import { useCloseOnEditorScroll } from './inputs'
 
 // Jira/Linear-style priority glyphs: filled double chevrons for the extremes,
 // an equals bar for the middle. Colours stay on DS status tokens (no amber):
@@ -19,6 +24,18 @@ const PRIORITY_META: Record<EditorPriority, { Icon: React.ComponentType<{ classN
 
 const PRIORITY_ORDER: EditorPriority[] = ['high', 'medium', 'low']
 
+/**
+ * A fixed three-value enum, so it is a `Select` rather than a combobox — there
+ * is nothing to search. This used to be a hand-built listbox, which meant
+ * re-implementing what Radix already gives us: typeahead, arrow-key roving,
+ * the selected-item checkmark, and dismissal. The old version needed a
+ * document-level pointerdown listener to close at all; `Select` portals to
+ * `z-popover`, which is above the dialog, so none of that is needed.
+ *
+ * `SelectItem` puts its children inside Radix's `ItemText`, so the glyph shown
+ * in the list is the same node echoed in the closed trigger — one definition,
+ * not two.
+ */
 export function PriorityField({
   value,
   labels,
@@ -31,61 +48,29 @@ export function PriorityField({
   onChange(next: EditorPriority): void
 }) {
   const [open, setOpen] = React.useState(false)
-  const close = React.useCallback(() => setOpen(false), [])
-  const rootRef = useDropdownDismiss(open, close)
-  const selected = PRIORITY_META[value]
-  const SelectedIcon = selected.Icon
+  useCloseOnEditorScroll(setOpen)
 
   return (
-    <div
-      ref={rootRef}
-      className="relative w-full"
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false)
-      }}
+    <Select
+      value={value}
+      onValueChange={(next) => onChange(next as EditorPriority)}
+      open={open}
+      onOpenChange={setOpen}
     >
-      <Button
-        type="button"
-        variant="outline"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={ariaLabel}
-        onClick={() => setOpen((previous) => !previous)}
-        className={cn('h-9 w-full justify-between bg-surface px-3 font-normal shadow-none', CONTROL_BORDER)}
-      >
-        <span className="flex min-w-0 items-center gap-2">
-          <SelectedIcon aria-hidden className={cn('size-4 shrink-0', selected.color)} />
-          <span className="truncate text-sm text-foreground">{labels[value]}</span>
-        </span>
-        <ChevronDown aria-hidden className="size-4 shrink-0 opacity-60" />
-      </Button>
-      {open ? (
-        <div role="listbox" aria-label={ariaLabel} className={DROPDOWN_PANEL_CLASS}>
-          {PRIORITY_ORDER.map((priority) => {
-            const meta = PRIORITY_META[priority]
-            const Icon = meta.Icon
-            const active = priority === value
-            return (
-              <Button
-                key={priority}
-                type="button"
-                variant="ghost"
-                role="option"
-                aria-selected={active}
-                onClick={() => {
-                  onChange(priority)
-                  setOpen(false)
-                }}
-                className={cn('h-auto w-full justify-start gap-2 px-2 py-1.5 text-left text-sm font-normal', menuRowStateClass({ selected: active }))}
-              >
-                <Icon aria-hidden className={cn('size-4 shrink-0', meta.color)} />
-                <span className="min-w-0 flex-1 truncate text-foreground">{labels[priority]}</span>
-                <Check aria-hidden className={cn('size-4 shrink-0', active ? 'opacity-100' : 'opacity-0')} />
-              </Button>
-            )
-          })}
-        </div>
-      ) : null}
-    </div>
+      <SelectTrigger aria-label={ariaLabel}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {PRIORITY_ORDER.map((priority) => {
+          const { Icon, color } = PRIORITY_META[priority]
+          return (
+            <SelectItem key={priority} value={priority}>
+              <Icon aria-hidden className={cn('size-4 shrink-0', color)} />
+              <span className="min-w-0 truncate">{labels[priority]}</span>
+            </SelectItem>
+          )
+        })}
+      </SelectContent>
+    </Select>
   )
 }

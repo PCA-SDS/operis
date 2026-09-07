@@ -221,7 +221,7 @@ export function DatePicker({
           disabled={disabled}
           className={cn(
             'w-full inline-flex items-center gap-2 rounded-md border border-input bg-input-bg shadow-xs transition-colors text-left',
-            'focus-visible:outline-none focus-visible:shadow-focus focus-visible:border-foreground',
+            'focus-visible:outline-none focus-visible:shadow-focus',
             'hover:bg-muted/40',
             'disabled:bg-bg-disabled disabled:border-border-disabled disabled:shadow-none disabled:hover:bg-bg-disabled disabled:cursor-not-allowed',
             'aria-invalid:border-destructive',

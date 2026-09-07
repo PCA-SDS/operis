@@ -13,6 +13,7 @@ import { raiseCrudError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { Button } from '@open-mercato/ui/primitives/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -222,25 +223,23 @@ export function ChangeLotStatusDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : closeDialog())}>
       <DialogContent
-        className="max-w-md gap-0 overflow-hidden p-0"
+        className="max-w-md overflow-hidden"
         onKeyDown={handleKeyDown}
       >
-        <div className="border-b px-6 py-4 pr-12">
-          <DialogHeader className="space-y-1 text-left">
-            <DialogTitle>
-              {t('wms.backend.lot.changeStatus.dialog.title', 'Change lot status')}
-            </DialogTitle>
-            <DialogDescription>
-              {t(
-                'wms.backend.lot.changeStatus.dialog.description',
-                'Update the quality/hold state for this lot. The change is recorded immediately.',
-              )}
-            </DialogDescription>
-          </DialogHeader>
-        </div>
+        <DialogHeader className="space-y-1 text-left">
+          <DialogTitle>
+            {t('wms.backend.lot.changeStatus.dialog.title', 'Change lot status')}
+          </DialogTitle>
+          <DialogDescription>
+            {t(
+              'wms.backend.lot.changeStatus.dialog.description',
+              'Update the quality/hold state for this lot. The change is recorded immediately.',
+            )}
+          </DialogDescription>
+        </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-          <div className="flex flex-col gap-5 px-6 py-6">
+          <DialogBody className="flex flex-col gap-5">
             <FormField
               label={t('wms.backend.lot.changeStatus.form.status', 'New status')}
               required
@@ -285,9 +284,9 @@ export function ChangeLotStatusDialog({
                 disabled={submitting}
               />
             </FormField>
-          </div>
+          </DialogBody>
 
-          <DialogFooter bordered={false} className="flex-row items-center justify-between border-t px-6 py-4">
+          <DialogFooter className="flex-row items-center justify-between">
             <p className="hidden text-xs text-muted-foreground sm:inline-flex sm:items-center sm:gap-1.5">
               <KbdShortcut keys={['⌘', 'Enter']} />
               <span>/</span>

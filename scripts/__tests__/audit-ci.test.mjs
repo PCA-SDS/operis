@@ -158,9 +158,9 @@ test('partitionAllowlisted suppresses only advisories matched by GHSA id', () =>
   assert.equal(suppressed[0].reason, 'archived, unpatched, build-time only')
 })
 
-test('the change-triggered audit job has a hard workflow timeout', () => {
+test('the scheduled audit job has a hard workflow timeout', () => {
   const repoRoot = path.resolve(import.meta.dirname, '..', '..')
-  const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf8')
+  const workflow = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'audit.yml'), 'utf8')
   assert.match(
     workflow,
     /^\s{2}audit:\n(?:^(?!\s{2}\S)[^\n]*\n)*?\s{4}timeout-minutes:\s+15$/m,

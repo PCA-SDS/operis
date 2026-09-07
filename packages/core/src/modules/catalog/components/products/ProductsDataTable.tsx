@@ -181,7 +181,7 @@ export default function ProductsDataTable({
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'title', desc: false }])
   const [search, setSearch] = React.useState('')
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
-  const [isLoading, setIsLoading] = React.useState(false)
+  const [isLoading, setIsLoading] = React.useState(true)
   const [reloadToken, setReloadToken] = React.useState(0)
   // Step 5.18 (spec §10 line 836, D18 demo): refresh the list when a
   // catalog.product.* event arrives via the DOM event bridge. Confirmed
@@ -327,7 +327,7 @@ export default function ProductsDataTable({
   const productTypeOptions = React.useMemo<FilterOption[]>(() => [
     { value: 'simple', label: t('catalog.products.types.simple', 'Simple') },
     { value: 'configurable', label: t('catalog.products.types.configurable', 'Configurable') },
-    { value: 'virtual', label: t('catalog.products.types.virtual', 'Virtual') },
+    { value: 'service', label: t('catalog.products.types.service', 'Service') },
     { value: 'downloadable', label: t('catalog.products.types.downloadable', 'Downloadable') },
     {
       value: 'bundle',
@@ -574,6 +574,7 @@ export default function ProductsDataTable({
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setCacheStatus(null)
@@ -581,7 +582,7 @@ export default function ProductsDataTable({
         const fallback: ProductsResponse = { items: [], total: 0, totalPages: 1 }
         const call = await apiCall<ProductsResponse>(
           `/api/catalog/products?${queryParams}`,
-          undefined,
+          { signal: controller.signal },
           { fallback },
         )
         if (!call.ok) {
@@ -614,6 +615,7 @@ export default function ProductsDataTable({
     load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [queryParams, reloadToken, scopeVersion, t])
 

@@ -1,7 +1,8 @@
 # Multi-Tenancy — The Canonical Model
 
 > **Status:** baseline as inherited from the Open Mercato fork point, verified
-> against the code on 2026-08-23. This is the authoritative description of how
+> against the code on 2026-08-23; §3.1's direct-ORM measurement re-verified and
+> corrected on 2026-08-31. This is the authoritative description of how
 > tenancy works in Operis. Where a claim below cites a file, that file is the
 > source of truth; if they diverge, the code wins and this document is the bug.
 
@@ -85,10 +86,25 @@ This is the load-bearing control, and it is **fail-closed**:
   resolved organization scope.
 - Joined tables are scoped too, not just the base table.
 
-Measured at the fork point: **112** call sites go through the query engine in
-`packages/core`, and **zero** direct `em.find` / `em.findOne` / `getRepository`
-calls exist in core outside tests. Scoping is therefore centralized in practice,
-not merely by convention.
+Re-measured 2026-08-31: the engine is fail-closed as described above, but the
+claim previously made here — that **zero** direct ORM calls exist in core outside
+tests — is wrong, and the conclusion drawn from it ("scoping is centralized in
+practice, not merely by convention") does not hold. `packages/core/src` contains
+**1,131** direct `em.find` / `em.findOne` / `getRepository` calls across **335**
+non-test files; **240** of them are in module `api/` request paths across 119 files.
+
+Of those 240 api-layer call sites, **125** carry a `tenantId` / `organizationId`
+predicate in the call itself and **115** do not. The 115 are *not* known leaks — the
+sampled ones are lookups by an already-validated id (`Tenant`, `Organization`),
+junction rows that inherit tenancy through a scoped parent (`UserRole`,
+`MessageRecipient` — see `INV-TENANT-007`), or genuinely instance-global tables.
+But nothing mechanically distinguishes those from a forgotten predicate.
+
+Read this correctly: **the query engine is centralized and fail-closed; direct ORM
+access in core is neither.** Where a handler talks to the `EntityManager` directly,
+tenant scoping is a per-call-site convention that no guard enforces. Treat the
+unscoped api-layer call sites as the standing audit target — reproduce the count
+with `graft grep "em.findOne" --in packages/core/`.
 
 ### 3.2 The silent non-coverage — tables with no `tenant_id` column
 
@@ -129,6 +145,38 @@ None is an obvious leak: junctions and session rows inherit tenancy through thei
 foreign keys. But it means **their isolation is inherited, not enforced** — a query
 that joins a junction table without scoping the parent gets no protection from the
 engine. Treat these tables as requiring the parent to be scoped explicitly.
+
+### 3.2a Modules that scope outside the query engine
+
+§3.1 describes the engine's automatic `tenant_id` predicate, and it is easy to read
+that as "every module is covered." It is not — a module that talks to the
+`EntityManager` or to Kysely directly never reaches the engine, so its isolation is
+whatever its own code does.
+
+`chat` is the clearest current example, and it is deliberate: a conversation list and
+a message transcript are read at keystroke frequency, so they use direct ORM reads and
+one Kysely aggregate rather than the engine.
+
+| Table | `tenant_id` | `organization_id` | Scope enforced by |
+|---|---|---|---|
+| `chat_conversations` | yes | yes | every read predicate in `services/chatService.ts`, plus `requireParticipant` |
+| `chat_participants` | yes | yes | same; membership *is* the authorization check |
+| `chat_messages` | yes | yes | same, plus the `INNER JOIN chat_participants` in the unread aggregate |
+
+The scope pair itself is never reachable from request input: it is built once per
+request in `chat/api/shared.ts` from `auth.tenantId` and `resolveActiveOrganizationId(auth)`.
+A module-contract test greps every chat route for `body.tenantId` / `body.organizationId`
+and fails if one appears.
+
+Two consequences worth knowing:
+
+- Chat pins to a **single** organization rather than expanding `Organization.descendantIds`
+  the way `resolveOrganizationScopeFilter` does. That is stricter than the platform
+  default, not looser — but it means a manager whose scope spans child organizations
+  cannot message people in them. See the chat spec's Known limitations.
+- `messages`, `notifications` and `inbox_ops` also read through Kysely for aggregates.
+  The same rule applies to them: read the module's own predicates, not §3.1, to know
+  what its isolation is.
 
 ### 3.3 The documented bypass
 
@@ -226,13 +274,30 @@ tenant. Any code reading `user.tenantId` must handle null rather than assume it.
 
 ### The known sharp edge
 
-`loadAcl()` returns a feature snapshot. Authorizing by reading
-`loadAcl().features` directly applies **neither** the enabled-module filter **nor**
-the organization allow-list that `userHasAllFeatures` / `getGrantedFeatures` apply.
+`loadAcl()` returns a feature snapshot. Matching that snapshot **by hand** — with
+`.features.includes(...)`, or the low-level matchers in
+`@open-mercato/shared/security/features` / `lib/auth/featureMatch` — applies
+**neither** the enabled-module filter **nor** the organization allow-list that
+`userHasAllFeatures` / `getGrantedFeatures` apply. That is the violation
+`INV-AUTHZ-001` exists to catch.
+
+Verified 2026-08-31 — one important refinement. Passing the snapshot to
+`authorizeFeatures` (`@open-mercato/shared/security/featurePolicy`) is **not** that
+violation, and the guard deliberately permits it. `authorizeFeatures` applies the
+removed-feature check, the enabled-module filter (`filterGrantsByEnabledModules`)
+and the correct policy ordering — scope denial, then disabled features, then
+super-admin, then wildcards. 27 files use this sanctioned path, `rbacService.ts`
+among them. Its one gap is the organization allow-list, which the caller supplies
+through the optional `scopeAllowed` field; a caller that omits `scopeAllowed`
+performs no org-scope check of its own and must therefore sit behind a route whose
+`requireFeatures` metadata already made the dispatcher run `userHasAllFeatures`
+(the ai-assistant routes are in exactly that position).
 
 **Rule: ask the service a question; do not read its answer sheet.** Prefer
-`userHasAllFeatures` / `getGrantedFeatures`. A surface that accepts a feature list
-*as a value* is the shape to be suspicious of; grep does not reliably enumerate these.
+`userHasAllFeatures` / `getGrantedFeatures`; where a feature list must be passed
+*as a value*, route it through `authorizeFeatures` rather than matching it
+yourself. A surface that hand-matches a feature list is the shape to be suspicious
+of; grep does not reliably enumerate these.
 
 ## 5. Tenant-aware infrastructure
 
@@ -325,6 +390,29 @@ Attack matrix run 2026-08-23 from a genuinely tenant-scoped principal
 | `PUT /api/auth/users` with A's user id | **404** |
 | `DELETE /api/auth/users?id=<A user>` | **404** |
 
+### Chat module, 2026-09-03
+
+Run against a real application and database, from three users: A and B in one
+organization, C in a second organization under a **different tenant**.
+
+| Attempt (as C) | Result |
+|---|---|
+| `GET /api/chat/directory?q=…` for A or B | absent from results |
+| `POST /api/chat/conversations` naming A's user id | 400/403/404 — refused |
+| `GET /api/chat/conversations/<A+B's id>` | **404** |
+| `GET /api/chat/conversations/<id>/messages` | **404** |
+| `POST /api/chat/conversations/<id>/messages` | **404** |
+| `POST /api/chat/conversations/<id>/read` | **404** |
+| `GET /api/chat/conversations` | own conversations only |
+| `GET /api/chat/unread-count` | 0 |
+| `POST /api/chat/conversations` with forged `organizationId` + `tenantId` in the body | refused; body scope ignored entirely |
+| `GET /api/chat/conversations/<random uuid>` | **404**, identical body to the foreign-id case |
+| any chat endpoint unauthenticated | 401 |
+
+A conversation the caller is not a participant of returns the **same 404, with the
+same body**, as one that does not exist — so the endpoint is not an existence oracle
+for conversation ids. Covered by `TC-CHAT-002-tenant-isolation.spec.ts`.
+
 Tenant A's rows were confirmed unchanged afterwards. Note the deliberate asymmetry:
 a foreign **tenant** id is rejected outright (403), whereas a foreign **organization**
 id is silently narrowed to the caller's own scope rather than echoed back — both
@@ -368,3 +456,8 @@ Honest gaps at the fork point:
   APIs, files, search, cache, jobs, and exports — does not exist yet. Isolation is
   enforced in code and covered indirectly; it is not adversarially tested.
 - **The `global` cache bucket** is a fail-open fallback (§5).
+- **Direct `EntityManager` access in core is unguarded.** 240 api-layer call sites
+  scope by hand (§3.1); 115 carry no tenant/org predicate in the call. No test or
+  lint rule distinguishes a deliberate global lookup from a forgotten predicate,
+  so this is the widest remaining gap between the documented model and a
+  mechanically enforced one.

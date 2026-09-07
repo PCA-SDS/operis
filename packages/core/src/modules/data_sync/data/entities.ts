@@ -1,5 +1,5 @@
 import { OptionalProps } from '@mikro-orm/core'
-import { Entity, Index, PrimaryKey, Property } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, PrimaryKey, Property } from '@open-mercato/shared/lib/db/decorators'
 
 @Entity({ tableName: 'sync_runs' })
 @Index({ properties: ['integrationId', 'entityType', 'status', 'organizationId', 'tenantId'] })

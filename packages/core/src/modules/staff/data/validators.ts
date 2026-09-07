@@ -150,6 +150,36 @@ export const staffTeamMemberCommentUpdateSchema = z
   })
   .merge(staffTeamMemberCommentCreateSchema.partial())
 
+const employeeProfileFields = {
+  memberId: z.string().uuid(),
+  employeeNumber: z.string().trim().max(64).optional().nullable(),
+  jobTitle: z.string().trim().max(120).optional().nullable(),
+  employmentType: z.enum(['full_time', 'part_time', 'contract', 'intern', 'temporary']).optional().nullable(),
+  // Calendar dates, not instants — a start date is the same day everywhere.
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  workPhone: z.string().trim().max(32).optional().nullable(),
+  personalPhone: z.string().trim().max(32).optional().nullable(),
+  personalEmail: z.string().trim().email().max(254).optional().nullable(),
+  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  notes: z.string().max(8000).optional().nullable(),
+}
+
+/** Employment cannot end before it starts; both are optional on their own. */
+const endsAfterItStarts = <T extends { startDate?: string | null; endDate?: string | null }>(value: T) =>
+  !value.startDate || !value.endDate || value.endDate >= value.startDate
+
+const ENDS_AFTER_MESSAGE = { message: 'staff.hrProfile.errors.endBeforeStart', path: ['endDate'] }
+
+export const staffEmployeeProfileCreateSchema = z
+  .object({ ...scopedCreateFields, ...employeeProfileFields })
+  .refine(endsAfterItStarts, ENDS_AFTER_MESSAGE)
+
+export const staffEmployeeProfileUpdateSchema = z
+  .object({ id: z.string().uuid(), ...employeeProfileFields })
+  .partial({ memberId: true })
+  .refine(endsAfterItStarts, ENDS_AFTER_MESSAGE)
+
 export const staffTeamMemberAddressCreateSchema = z.object({
   ...scopedCreateFields,
   entityId: z.string().uuid(),
@@ -247,6 +277,8 @@ export type StaffTeamMemberActivityCreateInput = z.infer<typeof staffTeamMemberA
 export type StaffTeamMemberActivityUpdateInput = z.infer<typeof staffTeamMemberActivityUpdateSchema>
 export type StaffTeamMemberJobHistoryCreateInput = z.infer<typeof staffTeamMemberJobHistoryCreateSchema>
 export type StaffTeamMemberJobHistoryUpdateInput = z.infer<typeof staffTeamMemberJobHistoryUpdateSchema>
+export type StaffEmployeeProfileCreateInput = z.infer<typeof staffEmployeeProfileCreateSchema>
+export type StaffEmployeeProfileUpdateInput = z.infer<typeof staffEmployeeProfileUpdateSchema>
 export type StaffTeamMemberCommentCreateInput = z.infer<typeof staffTeamMemberCommentCreateSchema>
 export type StaffTeamMemberCommentUpdateInput = z.infer<typeof staffTeamMemberCommentUpdateSchema>
 export type StaffTeamMemberAddressCreateInput = z.infer<typeof staffTeamMemberAddressCreateSchema>

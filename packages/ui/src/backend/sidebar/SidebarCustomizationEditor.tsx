@@ -1,11 +1,29 @@
 'use client'
 import * as React from 'react'
-import { ChevronUp, ChevronDown, GripVertical, RotateCcw, Trash2, Plus, Search, AlertTriangle } from 'lucide-react'
+import { ChevronUp, ChevronDown, GripVertical, RotateCcw, Trash2, Plus, AlertTriangle } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import Image from 'next/image'
 import { resolveInjectedIcon } from '../injection/resolveInjectedIcon'
+import { SearchInput } from '../../primitives/search-input'
+import {
+  SIDEBAR_BRAND_LABEL,
+  SIDEBAR_GROUP_DIVIDER,
+  SIDEBAR_GROUP_LABEL,
+  SIDEBAR_GUTTER,
+  SIDEBAR_ICON_BOX,
+  SIDEBAR_ITEM_BASE,
+  SIDEBAR_ITEM_BOX,
+  SIDEBAR_ITEM_LABEL,
+  SIDEBAR_SEARCH_SIZE,
+  SIDEBAR_SEARCH_TONE,
+  ShellBrandLogo,
+  SidebarDefaultIcon,
+  shouldBypassLogoOptimization,
+  sidebarItemStateClass,
+  usesBuiltInWordmark,
+  type ShellLogo,
+} from './chrome'
 import { useT, useLocale } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '../../primitives/button'
 import { IconButton } from '../../primitives/icon-button'
@@ -46,6 +64,9 @@ import {
   type SidebarItem,
 } from './customization-helpers'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+
+/** The preview's search field is inert; the primitive still requires a handler. */
+const NOOP_CHANGE = () => {}
 
 const logger = createLogger('ui').child({ component: 'SidebarCustomizationEditor' })
 
@@ -1316,7 +1337,8 @@ export function SidebarCustomizationEditor({
                 </span>
                 <SidebarPreview
                   groups={previewGroups}
-                  productName={t('appShell.productName', 'Operis')}
+                  productName={chromePayload?.brand?.name ?? t('appShell.productName', 'Operis')}
+                  brandLogo={chromePayload?.brand?.logo ?? undefined}
                   pickFirstActive
                 />
               </div>
@@ -1546,21 +1568,30 @@ function SidebarPreviewIcon({ item }: { item: SidebarItem }) {
   if (item.iconMarkup) {
     return <span aria-hidden="true" dangerouslySetInnerHTML={{ __html: item.iconMarkup }} />
   }
-  // Fallback default icon — same shape as AppShell's DefaultIcon
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  )
+  return SidebarDefaultIcon
 }
 
+/**
+ * The live preview of the user's draft.
+ *
+ * It renders the rail's OWN chrome — the row box, the icon box, the label, the
+ * overline, the active pill, the gutter, the search field — imported from
+ * `./chrome` rather than restated here. Restated is what it used to be, and the
+ * copy had drifted into a different component: a light card ground under a navy
+ * rail, `gap-2` rows with no fixed height, unboxed icons that each took their
+ * own intrinsic size, an overline at the wrong weight, an active-state marker
+ * bar the rail had already dropped, and a divider that bled 12px left and 16px
+ * right. A preview that does not match cannot be used to make a decision.
+ */
 function SidebarPreview({
   groups,
   productName,
+  brandLogo,
   pickFirstActive,
 }: {
   groups: SidebarGroup[]
   productName: string
+  brandLogo?: ShellLogo
   pickFirstActive: boolean
 }) {
   const t = useT()
@@ -1577,44 +1608,60 @@ function SidebarPreview({
     return null
   }, [groups, pickFirstActive])
 
+  const visibleGroups = React.useMemo(
+    () => groups.filter((group) => group.items.some((item) => item.hidden !== true)),
+    [groups],
+  )
+
   return (
-    <div className="relative w-[240px] overflow-hidden rounded-xl border bg-surface shadow-sm">
-      {/* Match AppShell's outer aside: border-r, py-4, px-3 — minus border-r since the
-          card border already serves that purpose, plus rounded so it reads as a preview tile. */}
-      <div className="flex flex-col gap-3 px-3 py-4">
-        {/* Brand block — same classes as AppShell brand tile */}
-        <div className="mb-2">
-          <div className="flex items-center gap-3 rounded-xl p-3">
-            <Image
-              src="/operis.svg"
-              alt={productName}
-              width={40}
-              height={40}
-              className="rounded-full shrink-0"
-            />
-            <span className="text-sm font-medium text-foreground truncate">{productName}</span>
-          </div>
+    <div
+      className={`relative w-[var(--sidebar-width,304px)] overflow-hidden rounded-xl border border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm ${SIDEBAR_GUTTER} pb-4`}
+    >
+      {/* The rail's own column: same gutter, same 12px stack rhythm. `border-r`
+          is the card's border here, and the corners are rounded so the tile
+          reads as a preview rather than as a second sidebar on the page. */}
+      <div className="flex flex-col gap-3">
+        {/* Brand row — the rail's own `h-16 px-3 gap-3` box, rendering the rail's
+            own `ShellBrandLogo` against the tenant's configured logo. It used to
+            hardcode `<Image src="/operis.svg">`, so a whitelabel install previewed
+            somebody else's brand, and the built-in mark was drawn beside a second
+            copy of the name the wordmark already spells. */}
+        <div className="flex h-16 shrink-0 items-center gap-3 px-3">
+          <ShellBrandLogo
+            logo={brandLogo}
+            brandName={productName}
+            unoptimized={shouldBypassLogoOptimization(brandLogo?.src)}
+          />
+          {!usesBuiltInWordmark(brandLogo, productName) && (
+            <span className={SIDEBAR_BRAND_LABEL}>{productName}</span>
+          )}
         </div>
-        {/* Search input mock — same container styling as the real sidebar */}
-        <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-surface pl-2.5 pr-2 py-2 shadow-sm">
-          <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-          <span className="min-w-0 flex-1 text-sm text-muted-foreground/70 truncate">
-            {t('appShell.sidebarCustomizationPreviewSearchPlaceholder', 'Search...')}
-          </span>
-        </div>
-        {groups.length === 0 ? (
-          <p className="px-2 text-sm text-muted-foreground">
+        {/* The real field, inert. Rendering the primitive rather than a mock of
+            it is what keeps the preview's search box on the rail's grid when
+            the primitive changes. */}
+        <SearchInput
+          value=""
+          onChange={NOOP_CHANGE}
+          size={SIDEBAR_SEARCH_SIZE}
+          tone={SIDEBAR_SEARCH_TONE}
+          placeholder={t('appShell.sidebarCustomizationPreviewSearchPlaceholder', 'Search...')}
+          className="shrink-0"
+          disabled
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+        {visibleGroups.length === 0 ? (
+          <p className="px-3 text-sm text-sidebar-muted-foreground">
             {t('appShell.sidebarCustomizationPreviewEmpty', 'No groups to preview.')}
           </p>
         ) : (
-          <nav className="flex flex-col gap-2">
-            {groups.map((group, gi) => {
+          <nav className="flex flex-col gap-3">
+            {visibleGroups.map((group, groupIndex) => {
               const visibleItems = group.items.filter((item) => item.hidden !== true)
-              if (visibleItems.length === 0) return null
               return (
                 <div key={resolveGroupKey(group)}>
-                  <div className="w-full px-1 justify-between flex text-xs font-medium uppercase tracking-wider text-muted-foreground/70 py-1">
-                    <span>{group.name}</span>
+                  <div className={SIDEBAR_GROUP_LABEL}>
+                    <span className="min-w-0 truncate">{group.name}</span>
                   </div>
                   <div className="flex flex-col gap-1">
                     {visibleItems.map((item) => {
@@ -1623,25 +1670,17 @@ function SidebarPreview({
                       return (
                         <div
                           key={itemKey}
-                          className={`relative text-sm font-medium rounded-lg inline-flex items-center w-full px-3 py-2 gap-2 ${
-                            isActive ? 'bg-muted text-foreground' : 'text-muted-foreground'
-                          }`}
+                          className={`${SIDEBAR_ITEM_BASE} ${SIDEBAR_ITEM_BOX} ${sidebarItemStateClass(isActive)}`}
                         >
-                          {isActive ? (
-                            <span
-                              aria-hidden
-                              className="absolute left-[-12px] top-2 w-1 h-5 rounded-r bg-primary"
-                            />
-                          ) : null}
-                          <span className="flex items-center justify-center shrink-0">
+                          <span className={SIDEBAR_ICON_BOX}>
                             <SidebarPreviewIcon item={item} />
                           </span>
-                          <span className="truncate">{item.title}</span>
+                          <span className={SIDEBAR_ITEM_LABEL}>{item.title}</span>
                         </div>
                       )
                     })}
                   </div>
-                  {gi < groups.length - 1 ? <div className="my-2 border-t -ml-3 -mr-4" /> : null}
+                  {groupIndex < visibleGroups.length - 1 ? <div className={SIDEBAR_GROUP_DIVIDER} /> : null}
                 </div>
               )
             })}

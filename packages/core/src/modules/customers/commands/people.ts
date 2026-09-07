@@ -56,7 +56,7 @@ import type { CrudIndexerConfig, CrudEventsConfig } from '@open-mercato/shared/l
 import { E } from '#generated/entities.ids.generated'
 import { findWithDecryption, findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { deriveDisplayName, isDerivedDisplayName } from '../lib/displayName'
-import { resolvePhoneIdentity } from '../lib/phoneIdentity'
+import { computeEmailLookupHash, resolvePhoneIdentity } from '../lib/contactIdentity'
 import {
   loadPersonCompanyLinks,
   summarizePersonCompanies,
@@ -144,8 +144,10 @@ type PersonSnapshot = {
     description: string | null
     ownerUserId: string | null
     primaryEmail: string | null
+    primaryEmailHash: string | null
     primaryPhone: string | null
-    phoneCountryCode: string | null
+    primaryPhoneHash: string | null
+  phoneCountryCode: string | null
     phoneCountry: string | null
     status: string | null
     lifecycleStage: string | null
@@ -285,7 +287,9 @@ function serializePersonSnapshot(
       description: entity.description ?? null,
       ownerUserId: entity.ownerUserId ?? null,
       primaryEmail: entity.primaryEmail ?? null,
+      primaryEmailHash: entity.primaryEmailHash ?? null,
       primaryPhone: entity.primaryPhone ?? null,
+      primaryPhoneHash: entity.primaryPhoneHash ?? null,
       phoneCountryCode: entity.phoneCountryCode ?? null,
       phoneCountry: entity.phoneCountry ?? null,
       status: entity.status ?? null,
@@ -543,7 +547,9 @@ type PersonGraphValues = {
   description: string | null
   ownerUserId: string | null
   primaryEmail: string | null
+  primaryEmailHash: string | null
   primaryPhone: string | null
+  primaryPhoneHash: string | null
   phoneCountryCode: string | null
   phoneCountry: string | null
   status: string | null
@@ -585,7 +591,9 @@ function buildPersonGraph(
     description: values.description,
     ownerUserId: values.ownerUserId,
     primaryEmail: values.primaryEmail,
+    primaryEmailHash: values.primaryEmailHash,
     primaryPhone: values.primaryPhone,
+    primaryPhoneHash: values.primaryPhoneHash,
     phoneCountryCode: values.phoneCountryCode,
     phoneCountry: values.phoneCountry,
     status: values.status,
@@ -632,12 +640,14 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
     const lastName = parsed.lastName?.trim() ?? ''
     const description = normalizeOptionalString(parsed.description)
     const primaryEmail = normalizeEmail(parsed.primaryEmail)
+    const primaryEmailHash = computeEmailLookupHash(primaryEmail)
     const phoneIdentity = resolvePhoneIdentity({
       primaryPhone: parsed.primaryPhone,
       phoneCountryCode: parsed.phoneCountryCode,
       phoneCountry: parsed.phoneCountry,
     })
     const primaryPhone = phoneIdentity.primaryPhone
+    const primaryPhoneHash = phoneIdentity.primaryPhoneHash
     const phoneCountryCode = phoneIdentity.phoneCountryCode
     const phoneCountry = phoneIdentity.phoneCountry
     const salutation = normalizeOptionalString(parsed.salutation)
@@ -677,7 +687,9 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
           description,
           ownerUserId: parsed.ownerUserId ?? null,
           primaryEmail,
+          primaryEmailHash,
           primaryPhone,
+          primaryPhoneHash,
           phoneCountryCode,
           phoneCountry,
           status,
@@ -849,7 +861,9 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
             description: after.entity.description,
             ownerUserId: after.entity.ownerUserId,
             primaryEmail: after.entity.primaryEmail,
+            primaryEmailHash: after.entity.primaryEmailHash,
             primaryPhone: after.entity.primaryPhone,
+            primaryPhoneHash: after.entity.primaryPhoneHash,
             phoneCountryCode: after.entity.phoneCountryCode,
             phoneCountry: after.entity.phoneCountry,
             status: after.entity.status,
@@ -898,7 +912,9 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
           survivingEntity.description = after.entity.description
           survivingEntity.ownerUserId = after.entity.ownerUserId
           survivingEntity.primaryEmail = after.entity.primaryEmail
+          survivingEntity.primaryEmailHash = after.entity.primaryEmailHash
           survivingEntity.primaryPhone = after.entity.primaryPhone
+          survivingEntity.primaryPhoneHash = after.entity.primaryPhoneHash
           survivingEntity.phoneCountryCode = after.entity.phoneCountryCode
           survivingEntity.phoneCountry = after.entity.phoneCountry
           survivingEntity.status = after.entity.status
@@ -992,6 +1008,10 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
         if (parsed.description !== undefined) record.description = normalizeOptionalString(parsed.description)
         if (parsed.ownerUserId !== undefined) record.ownerUserId = parsed.ownerUserId ?? null
         if (parsed.primaryEmail !== undefined) record.primaryEmail = normalizeEmail(parsed.primaryEmail)
+        if (parsed.primaryEmail !== undefined) {
+          record.primaryEmail = normalizeEmail(parsed.primaryEmail)
+          record.primaryEmailHash = computeEmailLookupHash(record.primaryEmail)
+        }
         if (
           parsed.primaryPhone !== undefined
           || parsed.phoneCountryCode !== undefined
@@ -1003,6 +1023,7 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
             phoneCountry: parsed.phoneCountry !== undefined ? parsed.phoneCountry : record.phoneCountry,
           })
           record.primaryPhone = phoneIdentity.primaryPhone
+          record.primaryPhoneHash = phoneIdentity.primaryPhoneHash
           record.phoneCountryCode = phoneIdentity.phoneCountryCode
           record.phoneCountry = phoneIdentity.phoneCountry
         }
@@ -1176,8 +1197,10 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
             description: before.entity.description,
             ownerUserId: before.entity.ownerUserId,
             primaryEmail: before.entity.primaryEmail,
+            primaryEmailHash: before.entity.primaryEmailHash,
             primaryPhone: before.entity.primaryPhone,
-            phoneCountryCode: before.entity.phoneCountryCode,
+            primaryPhoneHash: before.entity.primaryPhoneHash,
+          phoneCountryCode: before.entity.phoneCountryCode,
             phoneCountry: before.entity.phoneCountry,
             status: before.entity.status,
             lifecycleStage: before.entity.lifecycleStage,
@@ -1218,8 +1241,10 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
           entity.description = before.entity.description
           entity.ownerUserId = before.entity.ownerUserId
           entity.primaryEmail = before.entity.primaryEmail
+          entity.primaryEmailHash = before.entity.primaryEmailHash
           entity.primaryPhone = before.entity.primaryPhone
-          entity.phoneCountryCode = before.entity.phoneCountryCode
+          entity.primaryPhoneHash = before.entity.primaryPhoneHash
+      entity.phoneCountryCode = before.entity.phoneCountryCode
           entity.phoneCountry = before.entity.phoneCountry
           entity.status = before.entity.status
           entity.lifecycleStage = before.entity.lifecycleStage
@@ -1464,7 +1489,9 @@ const deletePersonCommand: CommandHandler<{ body?: Record<string, unknown>; quer
           description: before.entity.description,
           ownerUserId: before.entity.ownerUserId,
           primaryEmail: before.entity.primaryEmail,
+          primaryEmailHash: before.entity.primaryEmailHash,
           primaryPhone: before.entity.primaryPhone,
+          primaryPhoneHash: before.entity.primaryPhoneHash,
           phoneCountryCode: before.entity.phoneCountryCode,
           phoneCountry: before.entity.phoneCountry,
           status: before.entity.status,
@@ -1484,7 +1511,9 @@ const deletePersonCommand: CommandHandler<{ body?: Record<string, unknown>; quer
       entity.description = before.entity.description
       entity.ownerUserId = before.entity.ownerUserId
       entity.primaryEmail = before.entity.primaryEmail
+      entity.primaryEmailHash = before.entity.primaryEmailHash
       entity.primaryPhone = before.entity.primaryPhone
+      entity.primaryPhoneHash = before.entity.primaryPhoneHash
       entity.phoneCountryCode = before.entity.phoneCountryCode
       entity.phoneCountry = before.entity.phoneCountry
       entity.status = before.entity.status

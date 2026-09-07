@@ -293,6 +293,7 @@ export function ChannelOfferForm({ channelId: lockedChannelId, offerId, mode }: 
     if (mode !== 'edit' || !offerId) return
     const offerKey = offerId
     let cancelled = false
+    const controller = new AbortController()
     async function loadOffer() {
       setLoading(true)
       setError(null)
@@ -300,7 +301,7 @@ export function ChannelOfferForm({ channelId: lockedChannelId, offerId, mode }: 
       try {
         const payload = await readApiResultOrThrow<OfferResponse>(
           `/api/catalog/offers?id=${encodeURIComponent(offerKey)}&pageSize=1`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('sales.channels.offers.errors.loadOffer', 'Failed to load offer.') },
         )
         const offer = Array.isArray(payload.items) ? payload.items[0] : null
@@ -311,7 +312,7 @@ export function ChannelOfferForm({ channelId: lockedChannelId, offerId, mode }: 
         const values = mapOfferToFormValues(offer, lockedChannelId)
         const pricePayload = await readApiResultOrThrow<PriceResponse>(
           `/api/catalog/prices?offerId=${encodeURIComponent(offer.id as string)}&pageSize=${MAX_LIST_PAGE_SIZE}`,
-          undefined,
+          { signal: controller.signal },
           { fallback: { items: [] } },
         )
         const priceItems = Array.isArray(pricePayload.items) ? pricePayload.items : []
@@ -360,7 +361,7 @@ export function ChannelOfferForm({ channelId: lockedChannelId, offerId, mode }: 
       }
     }
     void loadOffer()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [
     attachmentCache,
     lockedChannelId,

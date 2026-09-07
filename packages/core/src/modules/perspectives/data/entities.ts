@@ -1,4 +1,4 @@
-import { Entity, Index, PrimaryKey, Property } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, PrimaryKey, Property } from '@open-mercato/shared/lib/db/decorators'
 
 @Entity({ tableName: 'perspectives' })
 @Index({ name: 'perspectives_user_scope_idx', properties: ['userId', 'tenantId', 'organizationId', 'tableId'] })

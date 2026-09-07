@@ -1,5 +1,6 @@
 import { addMinutes } from 'date-fns/addMinutes'
 import type {
+  CalendarInteractionItem,
   CalendarInteractionPayload,
   CalendarItem,
   CalendarItemStatus,
@@ -78,7 +79,7 @@ function mapParticipants(payload: CalendarInteractionPayload): CalendarParticipa
 export function mapInteractionToCalendarItem(
   payload: CalendarInteractionPayload,
   typeColorByType: Record<string, string | null>,
-): CalendarItem | null {
+): CalendarInteractionItem | null {
   const effectiveStartRaw = payload.occurredAt ?? payload.scheduledAt ?? null
   if (!effectiveStartRaw) return null
   const parsedStart = new Date(effectiveStartRaw)
@@ -102,6 +103,7 @@ export function mapInteractionToCalendarItem(
   const platform = detectPlatform(location)
 
   return {
+    source: 'interaction',
     id: payload.id,
     title: payload.title ?? '',
     interactionType: payload.interactionType,

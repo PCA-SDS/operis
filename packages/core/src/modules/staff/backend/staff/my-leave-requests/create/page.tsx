@@ -27,13 +27,14 @@ export default function StaffMyLeaveRequestCreatePage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setError(null)
       try {
         const payload = await readApiResultOrThrow<SelfMemberResponse>(
           '/api/staff/team-members/self',
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('staff.leaveRequests.errors.profileLoad', 'Failed to load your profile.') },
         )
         const entry = payload.member
@@ -52,7 +53,7 @@ export default function StaffMyLeaveRequestCreatePage() {
       }
     }
     void load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [t])
 
   const handleSubmit = React.useCallback(async (values: LeaveRequestFormValues) => {

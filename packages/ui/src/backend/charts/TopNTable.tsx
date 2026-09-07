@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
+import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 
 export type TopNTableColumn<T = Record<string, unknown>> = {
@@ -83,7 +84,7 @@ export function TopNTable<T extends Record<string, unknown>>({
       <div className={`rounded-xl border border-border bg-surface shadow-sm p-4 ${className}`}>
         {title && <h3 className="mb-4 text-base font-medium text-card-foreground">{title}</h3>}
         <div className="flex h-48 items-center justify-center">
-          <p className="text-sm text-muted-foreground">{emptyMessage}</p>
+          <EmptyState variant="subtle" title={emptyMessage} />
         </div>
       </div>
     )

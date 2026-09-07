@@ -1,8 +1,6 @@
 "use client"
 
 import * as React from 'react'
-import { Calendar, X } from 'lucide-react'
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
 import { apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { extractOptimisticLockConflict } from '@open-mercato/ui/backend/utils/optimisticLock'
@@ -13,8 +11,14 @@ import { CrudForm, type CrudFormGroup, type CrudFormGroupComponentProps } from '
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
 import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives/alert'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Dialog, DialogContent, DialogTitle } from '@open-mercato/ui/primitives/dialog'
-import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@open-mercato/ui/primitives/dialog'
 import {
   SegmentedControl,
   SegmentedControlItem,
@@ -40,7 +44,7 @@ import {
 import type { ConflictScope } from '../../lib/calendar/preferences'
 import { renderDictionaryIcon } from '@open-mercato/core/modules/dictionaries/components/dictionaryAppearance'
 import { normalizeCustomFieldSubmitValue } from '../detail/customFieldUtils'
-import type { CalendarItem } from './types'
+import type { CalendarInteractionItem } from './types'
 import { EDITOR_SCROLL_EVENT, Field } from './editor/inputs'
 import { PriorityField } from './editor/PriorityField'
 import { RelatedToField } from './editor/RelatedToField'
@@ -54,7 +58,7 @@ import { useConflictProbe, useEditorLabelResolution } from './editor/hooks'
 export interface CalendarEventEditorProps {
   open: boolean
   mode: 'create' | 'edit'
-  item?: CalendarItem | null
+  item?: CalendarInteractionItem | null
   defaultDate?: Date
   defaultRange?: { start: Date; end: Date } | null
   typeLabels: Record<string, string>
@@ -82,7 +86,7 @@ function formStateOfValues(values: Record<string, unknown>): EditorFormState {
   return values as unknown as EditorFormState
 }
 
-function customFieldInitialValues(item: CalendarItem): Record<string, unknown> {
+function customFieldInitialValues(item: CalendarInteractionItem): Record<string, unknown> {
   const customValues = (item.raw as Record<string, unknown>).customValues
   if (!customValues || typeof customValues !== 'object' || Array.isArray(customValues)) return {}
   return Object.fromEntries(
@@ -94,7 +98,7 @@ type EditorBodyProps = {
   ctx: CrudFormGroupComponentProps
   open: boolean
   isEdit: boolean
-  item?: CalendarItem | null
+  item?: CalendarInteractionItem | null
   typeLabels: Record<string, string>
   typeIcons: Record<string, string | null>
   conflictScope: ConflictScope
@@ -198,8 +202,15 @@ function EditorBody({
         </Alert>
       ) : null}
       <div className="w-full lg:col-span-2">
+        {/* The track hugs its labels, like every other toggle in the product and
+            like the reference's own filter toggle. `fullWidth` is for a
+            field-like row of fixed choices (the repeat "Ends" control); this is
+            a filter across the top of the form, and stretching it read as a row
+            of buttons rather than one control with a chosen segment.
+            `max-w-full` with a scroll keeps a tenant whose activity-type
+            dictionary runs long from widening the dialog. */}
         <SegmentedControl
-          fullWidth
+          className="max-w-full overflow-x-auto"
           aria-label={t('customers.calendar.editor.typeSwitcher', 'Event type')}
           value={selectedType}
           onValueChange={(type) => update({ kind: editorKindOfInteractionType(type), category: type })}
@@ -219,7 +230,6 @@ function EditorBody({
           placeholder={t('customers.calendar.editor.titlePlaceholder', 'Add a title…')}
           aria-label={titleLabel}
           autoFocus
-          size="lg"
         />
       </Field>
       <div className="flex w-full flex-col gap-4">
@@ -512,27 +522,33 @@ export function CalendarEventEditor({
           }
         }}
         aria-describedby={undefined}
-        dismissible={false}
-        className="flex h-dvh max-h-dvh w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-surface p-0 shadow-xl sm:h-auto sm:max-h-[calc(100dvh-4rem)] sm:w-full sm:max-w-lg sm:rounded-2xl sm:border-0 lg:max-w-3xl"
+        closeAriaLabel={t('customers.calendar.editor.close', 'Close')}
+        // `size` rather than a width class: the reference modal takes its width
+        // from a prop with a `max-w-3xl` default, and the DS exposes the same
+        // idea as a variant. `xl` is `max-w-4xl` — one step past the reference,
+        // which this form earns because it lays out in two columns.
+        //
+        // Everything else the old override spelled out (the mobile sheet, the
+        // 2xl radius, the surface fill, the shadow) is already the DS default;
+        // the override was forcing a full-screen phone layout the reference
+        // does not use — it slides a bottom sheet up instead.
+        size="xl"
+        className="flex max-h-[92dvh] flex-col overflow-hidden sm:max-h-[calc(100dvh-4rem)]"
       >
-        <VisuallyHidden>
+        {/* No leading icon and no rule under the header. The reference modal
+            (`CreateUserDialog`) is a plain `px-5 py-4 sm:px-6` band holding the
+            title and the close button, with nothing drawn beneath it — which is
+            exactly what the DS `DialogHeader` already renders. */}
+        <DialogHeader>
           <DialogTitle>{dialogTitle}</DialogTitle>
-        </VisuallyHidden>
-        <div className="flex shrink-0 items-center gap-3 border-b border-border bg-surface py-4 pl-5 pr-4">
-          <Calendar aria-hidden className="size-6 shrink-0 text-foreground" strokeWidth={1.75} />
-          <p className="min-w-0 flex-1 text-sm font-medium leading-5 text-foreground">{dialogTitle}</p>
-          <IconButton
-            variant="ghost"
-            size="sm"
-            onClick={() => onOpenChange(false)}
-            aria-label={t('customers.calendar.editor.close', 'Close')}
-            className="shrink-0 text-muted-foreground"
-          >
-            <X aria-hidden className="size-5" />
-          </IconButton>
-        </div>
-        <div
-          className="flex-1 overflow-y-auto"
+        </DialogHeader>
+        <DialogBody
+          // Scopes the `[data-dialog-form]` rule in `globals.css`, which strips
+          // the border off every DS control in here and gives it the muted
+          // fill — the reference's field treatment, applied once for all
+          // control families rather than per control.
+          data-dialog-form="true"
+          className="min-h-0 flex-1 overflow-y-auto"
           onScroll={() => {
             // Tell the DS date/time fields to close their (controlled) popover
             // so a portalled popover doesn't float over the form or drift away
@@ -541,22 +557,22 @@ export function CalendarEventEditor({
             document.dispatchEvent(new CustomEvent(EDITOR_SCROLL_EVENT))
           }}
         >
-          <div className="px-4 py-4 sm:px-6 sm:py-5">
-            <CrudForm<Record<string, unknown>>
-              key={formKey}
-              formId={FORM_ID}
-              embedded
-              hideFooterActions
-              customFieldsManageMode="page"
-              fields={[]}
-              groups={groups}
-              initialValues={initialValues}
-              entityIds={INTERACTION_ENTITY_IDS}
-              onSubmit={handleSubmit}
-            />
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center justify-end gap-3 border-t border-border bg-surface px-5 py-4">
+          <CrudForm<Record<string, unknown>>
+            key={formKey}
+            formId={FORM_ID}
+            embedded
+            hideFooterActions
+            customFieldsManageMode="page"
+            fields={[]}
+            groups={groups}
+            initialValues={initialValues}
+            entityIds={INTERACTION_ENTITY_IDS}
+            onSubmit={handleSubmit}
+          />
+        </DialogBody>
+        {/* Unruled and unfilled, like the reference: the actions sit close
+            under the body, right-aligned. */}
+        <DialogFooter>
           <Button
             type="button"
             variant="outline"
@@ -571,7 +587,7 @@ export function CalendarEventEditor({
           >
             {saving ? t('customers.calendar.editor.saving', 'Saving…') : t('customers.calendar.editor.save', 'Save event')}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

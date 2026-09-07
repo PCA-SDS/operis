@@ -38,7 +38,18 @@ function isSameRect(a: DOMRect, b: DOMRect): boolean {
   return a.top === b.top && a.left === b.left && a.bottom === b.bottom && a.right === b.right
 }
 
-export function RowActions({ items = [] }: { items?: RowActionItem[] }) {
+export type RowActionsProps = {
+  items?: RowActionItem[]
+  /**
+   * Trigger size. Defaults to the table-row affordance every existing call site
+   * gets; pass a smaller one where the menu hangs off something denser than a
+   * table row — the chat transcript floats it above a message bubble, where a
+   * 32px control outweighs the line it acts on.
+   */
+  size?: 'xs' | 'sm' | 'default' | 'lg'
+}
+
+export function RowActions({ items = [], size = 'default' }: RowActionsProps) {
   const t = useT()
   const [open, setOpen] = React.useState(false)
   const btnRef = React.useRef<HTMLButtonElement>(null)
@@ -144,6 +155,7 @@ export function RowActions({ items = [] }: { items?: RowActionItem[] }) {
         ref={btnRef}
         type="button"
         variant="ghost"
+        size={size}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={(e) => { e.stopPropagation(); setOpen(true); requestAnimationFrame(updatePosition) }}

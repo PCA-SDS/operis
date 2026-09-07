@@ -12,17 +12,21 @@ import { loadAppEnv } from '../load-env'
 describe('loadAppEnv', () => {
   const TEST_KEY = 'OM_LOAD_ENV_TEST_BACKEND'
   let tmpDir: string
-  let cwd: string
+  let cwdSpy: jest.SpyInstance
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'load-env-'))
-    cwd = process.cwd()
-    process.chdir(tmpDir)
+    // Stub process.cwd() rather than chdir()-ing into the fixture: chdir mutates
+    // state shared by every other suite in this worker. createResolver()'s
+    // default argument calls process.cwd(), so the stub reaches the code under
+    // test. (It would NOT reach path.resolve('.') — that reads the working
+    // directory through an internal binding the spy cannot intercept.)
+    cwdSpy = jest.spyOn(process, 'cwd').mockReturnValue(tmpDir)
     delete process.env[TEST_KEY]
   })
 
   afterEach(() => {
-    process.chdir(cwd)
+    cwdSpy.mockRestore()
     delete process.env[TEST_KEY]
     fs.rmSync(tmpDir, { recursive: true, force: true })
   })

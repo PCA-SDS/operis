@@ -140,7 +140,7 @@ function UpcomingCardItem({
           <PopoverTrigger asChild>
             <IconButton
               variant="outline"
-              size="xs"
+              size="lg"
               fullRadius
               aria-label={t('customers.calendar.cards.menu.label', 'Event actions')}
             >
@@ -152,7 +152,6 @@ function UpcomingCardItem({
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
                 className="w-full justify-start"
                 onClick={() => onOpen(item)}
               >
@@ -164,7 +163,6 @@ function UpcomingCardItem({
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
                   className="w-full justify-start"
                   onClick={() => onEdit(item)}
                 >
@@ -177,7 +175,6 @@ function UpcomingCardItem({
                 <Button
                   type="button"
                   variant="destructive-ghost"
-                  size="sm"
                   className="w-full justify-start"
                   onClick={() => onCancel(item)}
                 >

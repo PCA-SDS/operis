@@ -39,13 +39,14 @@ export default function DeviceAdminEditPage({ params }: { params?: { id?: string
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setError(null)
       setNotFound(false)
       const call = await apiCall<{ item?: DeviceDetail }>(
         `/api/devices/admin/devices/${encodeURIComponent(id)}`,
-        undefined,
+        { signal: controller.signal },
         { fallback: null },
       )
       if (cancelled) return
@@ -59,7 +60,7 @@ export default function DeviceAdminEditPage({ params }: { params?: { id?: string
       setIsLoading(false)
     }
     if (id) load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [id, t])
 
   // Resolve the owner's display name for a link to their profile. Devices admins may not hold
@@ -68,10 +69,11 @@ export default function DeviceAdminEditPage({ params }: { params?: { id?: string
     const userId = device?.user_id
     if (!userId) return
     let cancelled = false
+    const controller = new AbortController()
     void (async () => {
       const call = await apiCall<{ items?: { id: string; name?: string | null; email?: string | null }[] }>(
         `/api/auth/users?id=${encodeURIComponent(userId)}`,
-        { headers: { 'x-om-forbidden-redirect': '0' } },
+        { signal: controller.signal, headers: { 'x-om-forbidden-redirect': '0' } },
         { fallback: null },
       ).catch(() => null)
       if (cancelled || !call || !call.ok) return
@@ -79,7 +81,7 @@ export default function DeviceAdminEditPage({ params }: { params?: { id?: string
       const label = found?.name?.trim() || found?.email?.trim() || null
       if (label) setUserLabel(label)
     })()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [device?.user_id])
 
   const fields = React.useMemo<CrudField[]>(() => [

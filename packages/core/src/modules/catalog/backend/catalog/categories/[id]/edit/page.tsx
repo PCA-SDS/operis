@@ -93,6 +93,7 @@ export default function EditCatalogCategoryPage({ params }: { params?: { id?: st
   React.useEffect(() => {
     if (!categoryId) return
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setLoading(true)
       setError(null)
@@ -100,7 +101,7 @@ export default function EditCatalogCategoryPage({ params }: { params?: { id?: st
       try {
         const { ok, status, result } = await apiCall<CategoryResponse>(
           `/api/catalog/categories?view=manage&ids=${encodeURIComponent(categoryId)}&status=all&page=1&pageSize=1`,
-        )
+        { signal: controller.signal })
         if (!ok) {
           if (status === 404) {
             if (!cancelled) setIsNotFound(true)
@@ -139,6 +140,7 @@ export default function EditCatalogCategoryPage({ params }: { params?: { id?: st
     load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [categoryId, t])
 

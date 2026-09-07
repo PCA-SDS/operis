@@ -25,6 +25,8 @@
 
 import * as React from 'react'
 import { AiIcon } from '@open-mercato/ui/ai/AiIcon'
+import { AiProviderSetupPanel } from '@open-mercato/ui/ai/AiProviderSetupPanel'
+import { useAiConfigured } from '@open-mercato/ui/ai/useAiConfigured'
 import { AiChat } from '@open-mercato/ui/ai/AiChat'
 import { Button } from '@open-mercato/ui/primitives/button'
 import {
@@ -141,6 +143,7 @@ export default function AiDealDetailTriggerWidget({ context, data }: AiDealDetai
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
+        disableBodyWrap
           className={cn(
             'sm:max-w-xl sm:top-0 sm:bottom-0 sm:right-0 sm:left-auto sm:translate-x-0 sm:translate-y-0',
             'sm:h-screen sm:max-h-screen sm:rounded-none sm:rounded-l-2xl',
@@ -173,19 +176,36 @@ export default function AiDealDetailTriggerWidget({ context, data }: AiDealDetai
               )}
             </DialogDescription>
           </DialogHeader>
-          <div className="min-h-0 flex-1" data-ai-customers-deal-chat-container="">
-            <AiChat
-              agent={CUSTOMERS_AI_DEAL_DETAIL_AGENT_ID}
-              pageContext={pageContext as unknown as Record<string, unknown>}
-              className="h-full"
-              placeholder={t(
-                'customers.ai_assistant.dealDetail.sheet.composerPlaceholder',
-                'Ask about this deal, the stage, pipeline...',
-              )}
-            />
-          </div>
+          <DealDetailChatBody pageContext={pageContext} />
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+interface DealDetailChatBodyProps {
+  pageContext: CustomersAiDealDetailPageContext
+}
+
+function DealDetailChatBody({ pageContext }: DealDetailChatBodyProps) {
+  const t = useT()
+  const { isUnconfigured } = useAiConfigured()
+
+  if (isUnconfigured) {
+    return <AiProviderSetupPanel variant="fill" />
+  }
+
+  return (
+    <div className="min-h-0 flex-1" data-ai-customers-deal-chat-container="">
+      <AiChat
+        agent={CUSTOMERS_AI_DEAL_DETAIL_AGENT_ID}
+        pageContext={pageContext as unknown as Record<string, unknown>}
+        className="h-full"
+        placeholder={t(
+          'customers.ai_assistant.dealDetail.sheet.composerPlaceholder',
+          'Ask about this deal, the stage, pipeline...',
+        )}
+      />
+    </div>
   )
 }

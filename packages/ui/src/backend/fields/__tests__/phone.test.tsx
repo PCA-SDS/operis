@@ -32,23 +32,26 @@ jest.mock('../../inputs/PhoneNumberField', () => ({
     { iso2: 'US', dialCode: '+1', label: 'United States', flag: '🇺🇸' },
     { iso2: 'PL', dialCode: '+48', label: 'Poland', flag: '🇵🇱' },
   ],
+  buildPhoneCountryOptions: (countries: Array<{ iso2: string; label: string }>) =>
+    countries.map((c) => ({ value: c.iso2, label: c.label })),
 }))
 
-jest.mock('../../../primitives/select', () => {
-  const Passthrough = ({ children }: { children?: React.ReactNode }) => <>{children}</>
-  return {
-    Select: ({ value, onValueChange, children }: any) => (
-      <select data-testid="country-select" value={value} onChange={(event) => onValueChange(event.target.value)}>
-        {children}
-      </select>
-    ),
-    SelectContent: Passthrough,
-    SelectItem: ({ value }: any) => <option value={value} />,
-    SelectItemLeading: Passthrough,
-    SelectTrigger: () => null,
-    SelectValue: () => null,
-  }
-})
+jest.mock('../../../primitives/dropdown', () => ({
+  Dropdown: ({ value, onChange, options, resetLabel }: any) => (
+    <select
+      data-testid="country-select"
+      value={value ?? ''}
+      onChange={(event) => onChange(event.target.value === '' ? null : event.target.value)}
+    >
+      {resetLabel ? <option value="">{resetLabel}</option> : null}
+      {options.map((option: { value: string; label: string }) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  ),
+}))
 
 describe('phone custom field', () => {
   it('registers an input and a definition editor under the "phone" kind', () => {
@@ -94,7 +97,7 @@ describe('phone custom field', () => {
     render(<>{defEditor({ def: { configJson: { defaultCountryIso2: 'PL' } }, onChange })}</>)
 
     const select = screen.getByTestId('country-select') as HTMLSelectElement
-    fireEvent.change(select, { target: { value: '__om_phone_auto__' } })
+    fireEvent.change(select, { target: { value: '' } })
     expect(onChange).toHaveBeenCalledWith({ defaultCountryIso2: undefined })
   })
 })

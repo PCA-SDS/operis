@@ -8,13 +8,17 @@ import { Avatar, AvatarStack } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { formatTimeLabel, formatTimeRangeLabel } from '../../lib/calendar/format'
 import type { ResizeEdge } from '../../lib/calendar/grid'
+import { resolveEventTone } from '../../lib/calendar/tone'
 import type { CalendarItem, CalendarPlatform } from './types'
 
-// Height tiers. At ~48px/hour a 30-minute event is 24px tall, so the card has
-// to shed content as it shrinks rather than overflow its box.
-const SHOW_TIME_MIN_HEIGHT_PX = 30
-const SHOW_META_MIN_HEIGHT_PX = 72
-const WRAP_TITLE_MIN_HEIGHT_PX = 96
+/**
+ * Height tiers. At 48px/hour a 30-minute event is 24px tall, so a card sheds
+ * content as it shrinks — title and time share one line, then the time drops to
+ * its own line, then meta appears — rather than overflowing its box.
+ */
+const ONE_LINE_MAX_HEIGHT_PX = 27
+const SHOW_META_MIN_HEIGHT_PX = 74
+const WRAP_TITLE_MIN_HEIGHT_PX = 92
 const MAX_VISIBLE_AVATARS = 3
 const KEYBOARD_NUDGE_MINUTES = 15
 
@@ -25,50 +29,8 @@ const PLATFORM_LABELS: Record<CalendarPlatform, { key: string; fallback: string 
   teams: { key: 'customers.calendar.platform.teams', fallback: 'Teams' },
 }
 
-export type EventTone = {
-  surfaceClassName: string
-  titleClassName: string
-  subClassName: string
-  style?: React.CSSProperties
-}
-
-function softTintStyle(color: string): React.CSSProperties {
-  if (/^#[0-9a-fA-F]{6}$/.test(color)) return { backgroundColor: `${color}1A`, borderInlineStartColor: color }
-  return {
-    backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)`,
-    borderInlineStartColor: color,
-  }
-}
-
-export function resolveEventTone(item: CalendarItem, nowMs: number): EventTone {
-  if (item.status === 'canceled') {
-    return {
-      surfaceClassName: 'bg-muted/60 border-s-muted-foreground/40',
-      titleClassName: 'text-muted-foreground line-through',
-      subClassName: 'text-muted-foreground/70',
-    }
-  }
-  if (item.status === 'done' || item.end.getTime() < nowMs) {
-    return {
-      surfaceClassName: 'bg-muted border-s-muted-foreground/40',
-      titleClassName: 'text-muted-foreground',
-      subClassName: 'text-muted-foreground',
-    }
-  }
-  if (item.color) {
-    return {
-      surfaceClassName: '',
-      titleClassName: 'text-foreground',
-      subClassName: 'text-muted-foreground',
-      style: softTintStyle(item.color),
-    }
-  }
-  return {
-    surfaceClassName: 'bg-muted/60 border-s-primary',
-    titleClassName: 'text-foreground',
-    subClassName: 'text-muted-foreground',
-  }
-}
+export { resolveEventTone }
+export type { EventTone } from '../../lib/calendar/tone'
 
 export function formatTimeRange(locale: string, start: Date, end: Date): string {
   return formatTimeRangeLabel(locale, start, end)
@@ -81,35 +43,28 @@ function participantLabel(participant: CalendarItem['participants'][number]): st
 type LocationMetaProps = {
   item: CalendarItem
   subClassName: string
-  accentColor: string | null
 }
 
-function LocationMeta({ item, subClassName, accentColor }: LocationMetaProps) {
+function LocationMeta({ item, subClassName }: LocationMetaProps) {
   const t = useT()
   if (!item.location || !item.locationKind) return null
-  const iconStyle = accentColor ? { color: accentColor } : undefined
   if (item.locationKind === 'platform' && item.platform) {
     const platform = PLATFORM_LABELS[item.platform]
     return (
-      <span className={cn('truncate text-xs', subClassName)}>
+      <span className={cn('truncate text-xs font-normal', subClassName)}>
         {t('customers.calendar.grid.onPlatform', 'on {platform}', { platform: t(platform.key, platform.fallback) })}
       </span>
     )
   }
-  if (item.locationKind === 'url') {
-    return (
-      <>
-        <Globe className={cn('size-3.5 shrink-0', !accentColor && subClassName)} style={iconStyle} aria-hidden />
-        <span className="truncate text-xs text-foreground">{item.location}</span>
-      </>
-    )
-  }
+  const Icon = item.locationKind === 'url' ? Globe : MapPin
+  const label =
+    item.locationKind === 'url'
+      ? item.location
+      : t('customers.calendar.grid.venue', 'Venue: {name}', { name: item.location })
   return (
     <>
-      <MapPin className={cn('size-3.5 shrink-0', !accentColor && subClassName)} style={iconStyle} aria-hidden />
-      <span className="truncate text-xs text-foreground">
-        {t('customers.calendar.grid.venue', 'Venue: {name}', { name: item.location })}
-      </span>
+      <Icon className={cn('size-3 shrink-0', subClassName)} aria-hidden />
+      <span className={cn('truncate text-xs font-normal', subClassName)}>{label}</span>
     </>
   )
 }
@@ -137,7 +92,7 @@ function ResizeHandle({ edge, label, onResizeStart }: ResizeHandleProps) {
         edge === 'start' ? 'top-0' : 'bottom-0',
       )}
     >
-      <span className="block h-0.5 w-6 rounded-full bg-foreground/50" />
+      <span className="block h-0.5 w-6 rounded-full bg-current opacity-70" />
     </span>
   )
 }
@@ -148,6 +103,8 @@ export type EventBlockProps = {
   height: number
   insetInlineStart: string
   width: string
+  /** Position within its overlap cluster; later cards paint above earlier ones. */
+  stackIndex?: number
   conflicted: boolean
   highlighted: boolean
   selected?: boolean
@@ -170,6 +127,7 @@ export const EventBlock = React.forwardRef<HTMLButtonElement, EventBlockProps>(f
     height,
     insetInlineStart,
     width,
+    stackIndex = 0,
     conflicted,
     highlighted,
     selected,
@@ -191,13 +149,12 @@ export const EventBlock = React.forwardRef<HTMLButtonElement, EventBlockProps>(f
   const tone = resolveEventTone(item, nowMs)
   const title = item.title || t('customers.calendar.grid.untitled', 'Untitled')
   const timeRange = formatTimeRange(locale, item.start, item.end)
-  const showTime = height >= SHOW_TIME_MIN_HEIGHT_PX
+  const oneLine = height <= ONE_LINE_MAX_HEIGHT_PX
   const wrapTitle = height >= WRAP_TITLE_MIN_HEIGHT_PX
   const hasMetaContent = item.participants.length > 0 || (item.location !== null && item.locationKind !== null)
   const showMeta = height >= SHOW_META_MIN_HEIGHT_PX && hasMetaContent
   const visibleParticipants = item.participants.slice(0, MAX_VISIBLE_AVATARS)
   const overflowCount = item.participants.length - visibleParticipants.length
-  const compact = !showTime
 
   // Arrow keys move the event, Shift+Arrow resizes it, so every pointer gesture
   // has a keyboard equivalent.
@@ -212,6 +169,12 @@ export const EventBlock = React.forwardRef<HTMLButtonElement, EventBlockProps>(f
     [item, onNudge],
   )
 
+  // Later columns paint above earlier ones, so the 2px gutter between two
+  // concurrent cards never lets the earlier one clip the later one's edge.
+  // Selection and conflict still outrank position.
+  const stackZ = 10 + Math.min(stackIndex, 8)
+  const raisedZ = conflicted || highlighted || selected ? 30 : stackZ
+
   return (
     <Button
       ref={ref}
@@ -220,65 +183,65 @@ export const EventBlock = React.forwardRef<HTMLButtonElement, EventBlockProps>(f
       aria-label={`${title}, ${timeRange}`}
       onKeyDown={onKeyDown}
       className={cn(
-          'group pointer-events-auto absolute h-auto flex-col items-start justify-start gap-0.5 overflow-hidden whitespace-normal border-s-2 text-start outline-none',
-          'transition-[filter,box-shadow] duration-150 hover:brightness-95',
-          draggable && (dragging ? 'cursor-grabbing' : 'cursor-grab'),
-          compact ? 'flex-row items-center gap-1 px-1 py-0' : 'px-1.5 py-0.5',
-          continuesBefore ? 'rounded-t-none' : 'rounded-t-md',
-          continuesAfter ? 'rounded-b-none' : 'rounded-b-md',
-          tone.surfaceClassName,
-          conflicted && 'ring-1 ring-status-warning-icon',
-          selected && 'shadow-md ring-2 ring-foreground',
-          highlighted && 'motion-safe:animate-pulse',
-          dragging && 'opacity-50',
-          conflicted || highlighted || selected ? 'z-30' : 'z-10',
-          'focus-visible:z-30 focus-visible:ring-2 focus-visible:ring-ring',
-          className,
-        )}
-      style={{ top, height, insetInlineStart, width, ...tone.style }}
+        'group pointer-events-auto absolute h-auto items-start justify-start overflow-hidden whitespace-normal text-start outline-none',
+        'transition-[box-shadow,filter] duration-100 hover:brightness-95 hover:shadow-sm',
+        draggable && (dragging ? 'cursor-grabbing' : 'cursor-grab'),
+        oneLine ? 'flex-row items-center gap-1 px-1.5 py-0' : 'flex-col gap-px px-1.5 py-0.5',
+        continuesBefore ? 'rounded-t-none' : 'rounded-t',
+        continuesAfter ? 'rounded-b-none' : 'rounded-b',
+        tone.surfaceClassName,
+        conflicted && 'ring-1 ring-status-warning-icon',
+        selected && 'shadow-md ring-2 ring-foreground',
+        highlighted && 'motion-safe:animate-pulse',
+        dragging && 'opacity-50',
+        'focus-visible:z-30 focus-visible:ring-2 focus-visible:ring-ring',
+        className,
+      )}
+      style={{ top, height, insetInlineStart, width, zIndex: raisedZ, ...tone.style }}
       {...buttonProps}
     >
-        <span
-          className={cn(
-            'min-w-0 text-xs font-medium leading-tight',
-            compact ? 'flex-1 truncate' : 'w-full',
-            !compact && (wrapTitle ? 'line-clamp-2' : 'truncate'),
-            tone.titleClassName,
-          )}
-        >
-          {continuesBefore ? <span aria-hidden>‹ </span> : null}
-          {title}
+      <span
+        className={cn(
+          'min-w-0 text-xs font-medium leading-tight',
+          oneLine ? 'shrink truncate' : 'w-full',
+          !oneLine && (wrapTitle ? 'line-clamp-2' : 'truncate'),
+          tone.titleClassName,
+        )}
+      >
+        {continuesBefore ? <span aria-hidden>‹ </span> : null}
+        {title}
+      </span>
+      {/* A short event keeps its start time on the title's line, which is how a
+          calendar keeps a 30-minute slot readable. */}
+      {oneLine ? (
+        <span className={cn('shrink-0 truncate text-xs font-normal leading-tight tabular-nums', tone.subClassName)}>
+          {formatTimeLabel(locale, item.start)}
         </span>
-        {compact ? (
-          <span className={cn('shrink-0 text-overline tabular-nums', tone.subClassName)}>
-            {formatTimeLabel(locale, item.start)}
+      ) : (
+        <span className={cn('w-full truncate text-xs font-normal leading-tight tabular-nums', tone.subClassName)}>
+          {timeRange}
+          {continuesAfter ? <span aria-hidden> ›</span> : null}
+        </span>
+      )}
+      {showMeta ? (
+        <span className="mt-auto flex w-full min-w-0 items-center gap-1.5">
+          {visibleParticipants.length > 0 ? (
+            <>
+              <AvatarStack size="xs" max={MAX_VISIBLE_AVATARS} className="shrink-0 gap-px [&>*:not(:first-child)]:-ml-1">
+                {visibleParticipants.map((participant) => (
+                  <Avatar key={participant.userId} size="xs" label={participantLabel(participant)} />
+                ))}
+              </AvatarStack>
+              {overflowCount > 0 ? (
+                <span className={cn('shrink-0 text-xs font-normal', tone.subClassName)}>+{overflowCount}</span>
+              ) : null}
+            </>
+          ) : null}
+          <span className="ms-auto flex min-w-0 items-center gap-1">
+            <LocationMeta item={item} subClassName={tone.subClassName} />
           </span>
-        ) : null}
-        {showTime && !compact ? (
-          <span className={cn('w-full truncate text-overline uppercase tracking-wide', tone.subClassName)}>
-            {timeRange}
-            {continuesAfter ? <span aria-hidden> ›</span> : null}
-          </span>
-        ) : null}
-        {showMeta ? (
-          <span className="mt-auto flex w-full min-w-0 items-center gap-1.5">
-            {visibleParticipants.length > 0 ? (
-              <>
-                <AvatarStack size="xs" max={MAX_VISIBLE_AVATARS} className="shrink-0 gap-px [&>*:not(:first-child)]:-ml-1">
-                  {visibleParticipants.map((participant) => (
-                    <Avatar key={participant.userId} size="xs" label={participantLabel(participant)} />
-                  ))}
-                </AvatarStack>
-                {overflowCount > 0 ? (
-                  <span className={cn('shrink-0 text-xs', tone.subClassName)}>+{overflowCount}</span>
-                ) : null}
-              </>
-            ) : null}
-            <span className="ms-auto flex min-w-0 items-center gap-1.5">
-              <LocationMeta item={item} subClassName={tone.subClassName} accentColor={item.color} />
-            </span>
-          </span>
-        ) : null}
+        </span>
+      ) : null}
       {resizable && onResizeStart ? (
         <>
           {!continuesBefore ? (

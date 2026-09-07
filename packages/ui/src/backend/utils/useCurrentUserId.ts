@@ -20,9 +20,11 @@ export function useCurrentUserId(): string {
   const [userId, setUserId] = React.useState<string>('')
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     void (async () => {
       try {
         const res = await apiCall<FeatureCheckResponse>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ features: [] }),
@@ -34,7 +36,7 @@ export function useCurrentUserId(): string {
         if (!cancelled) setUserId('')
       }
     })()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [])
   return userId
 }

@@ -77,7 +77,14 @@ test.describe('TC-CAL-002: Calendar page load & week grid hydration', () => {
       // -- Toolbar: Today button, range preset select, search input ----------
       await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeVisible();
       await expect(page.getByRole('combobox', { name: 'Date range preset' })).toBeVisible();
-      await expect(page.locator('[data-calendar-search]')).toBeVisible();
+      // By role, not by the `[data-calendar-search]` attribute: during the
+      // login → calendar route transition the App Router briefly keeps the
+      // outgoing page mounted, so a raw CSS locator matches two inputs and
+      // trips strict mode. The outgoing subtree is inert and therefore absent
+      // from the accessibility tree, which is also why every other assertion
+      // here is role-based. This is the stronger check anyway — it pins the
+      // role and the accessible name, not just a test attribute.
+      await expect(page.getByRole('searchbox', { name: 'Search events…' })).toBeVisible();
 
       // -- Category filter and view switcher (Week is the default) ------------
       const categoryFilter = page.getByRole('radiogroup', { name: 'Calendar category' });

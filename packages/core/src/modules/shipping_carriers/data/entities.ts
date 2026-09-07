@@ -1,5 +1,5 @@
 import { OptionalProps } from '@mikro-orm/core'
-import { Entity, Index, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 
 @Entity({ tableName: 'carrier_shipments' })
 @Index({ properties: ['orderId', 'organizationId', 'tenantId'] })

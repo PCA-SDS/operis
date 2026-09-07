@@ -5,8 +5,8 @@ export const metadata = {
   pageTitleKey: 'tasks.nav.team',
   pageGroup: 'Tasks',
   pageGroupKey: 'tasks.nav.group',
-  pageOrder: 30,
-  pagePriority: 10,
+  pageOrder: 16,
+  pagePriority: 16,
   icon: 'users',
   breadcrumb: [{ label: 'Team', labelKey: 'tasks.nav.team' }],
 }

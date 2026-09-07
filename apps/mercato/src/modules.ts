@@ -98,6 +98,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'catalog', from: '@open-mercato/core' },
   { id: 'appointments', from: '@open-mercato/core' },
   { id: 'sales', from: '@open-mercato/core' },
+  { id: 'invoice', from: '@open-mercato/core' },
   { id: 'warranty_claims', from: '@open-mercato/core' },
   { id: 'wms', from: '@open-mercato/core' },
   { id: 'api_keys', from: '@open-mercato/core' },
@@ -127,6 +128,10 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'data_sync', from: '@open-mercato/core' },
   { id: 'sync_excel', from: '@open-mercato/core' },
   { id: 'messages', from: '@open-mercato/core' },
+  // Internal 1:1 chat between people in the same organization. Private direct
+  // messaging only — the external channel bridge is `communication_channels` and
+  // the email-shaped inbox is `messages`; this is neither.
+  { id: 'chat', from: '@open-mercato/core' },
   // Communication channels hub (SPEC-045d) — bridges external chat/email channels
   // (Slack, WhatsApp, Email) to the unified Messages inbox. Provider packages
   // (channel-slack, channel-whatsapp, future email providers) register adapters here.
@@ -156,7 +161,11 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'channel_apns', from: '@open-mercato/channel-apns' },
   { id: 'channel_expo', from: '@open-mercato/channel-expo' },
   { id: 'channel_fcm', from: '@open-mercato/channel-fcm' },
+  { id: 'translate_ctranslate2', from: '@open-mercato/translate-ctranslate2' },
   { id: 'sync_akeneo', from: '@open-mercato/sync-akeneo' },
+  // One-shot TPS catalog importer. CLI only — no routes, no entities. Client
+  // menu data lives in the package so core carries no single customer's catalogue.
+  { id: 'migrate_tps', from: '@open-mercato/migrate-tps' },
   { id: 'shipping_carriers', from: '@open-mercato/core' },
   { id: 'eudr', from: '@open-mercato/core' },
   { id: 'webhooks', from: '@open-mercato/webhooks' },

@@ -357,6 +357,29 @@ function buildServerProcessEnvironment(environment: NodeJS.ProcessEnv): NodeJS.P
   return runtimeEnv
 }
 
+/**
+ * The environment for the `next dev` child of `server dev`.
+ *
+ * `buildServerProcessEnvironment` normalizes NODE_ENV to `production`, which is
+ * right for `server start` and for the workers and scheduler `server dev`
+ * spawns from that same env. It is wrong for `next dev`: Turbopack serves a
+ * development build either way, so forcing `production` only makes everything
+ * that reads NODE_ENV disagree with what is actually running.
+ *
+ * `apps/mercato/next.config.ts` is where that showed. Its security headers key
+ * off NODE_ENV, so a dev server was answering with the production policy:
+ * `script-src` without `'unsafe-eval'`, which React's dev runtime needs to
+ * reconstruct callstacks (the browser console reported every attempt), plus
+ * `Strict-Transport-Security` over plain HTTP and an empty `allowedDevOrigins`.
+ *
+ * Only the Next child moves; workers and the scheduler keep the inherited
+ * production-style env. See
+ * `.ai/specs/2026-04-23-cli-optional-module-orchestration.md` section 5.
+ */
+function buildNextDevProcessEnvironment(serverEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return { ...serverEnv, NODE_ENV: 'development' }
+}
+
 type ManagedProcessExitResult = {
   label: string
   code: number | null
@@ -2303,7 +2326,7 @@ export async function run(argv = process.argv) {
                 && resolveLazySpawnMode(process.env) === 'shared'
                 && autoSpawnSchedulerMode !== 'off'
                 && schedulerStartStatus === 'ok'
-              const nextRuntime = startNextDev(runtimeEnv)
+              const nextRuntime = startNextDev(buildNextDevProcessEnvironment(runtimeEnv))
               const restartPromise = waitForDevRestart()
               const backgroundStartAbort = new AbortController()
               const cancelBackgroundStart = () => backgroundStartAbort.abort()

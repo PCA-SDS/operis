@@ -19,6 +19,10 @@ export type VariantPriceDraft = {
   displayMode: 'including-tax' | 'excluding-tax'
   /** The price row's version, for the per-price optimistic-lock header (#2055). */
   updatedAt?: string | null
+  priceType?: 'exact' | 'starting_at' | 'range' | null
+  priceMin?: string | null
+  priceMax?: string | null
+  priceRangeEnabled?: boolean
 }
 
 export type VariantFormValues = {
@@ -39,6 +43,10 @@ export type VariantFormValues = {
   prices: Record<string, VariantPriceDraft>
   taxRateId: string | null
   customFieldsetCode?: string | null
+  durationValue?: string
+  durationUnit?: string
+  durationMin?: string
+  durationMax?: string
   updatedAt?: string | null
 }
 
@@ -59,6 +67,10 @@ export const VARIANT_BASE_VALUES: VariantFormValues = {
   prices: {},
   taxRateId: null,
   customFieldsetCode: null,
+  durationValue: '',
+  durationUnit: 'min',
+  durationMin: '',
+  durationMax: '',
 }
 
 export const createVariantInitialValues = (): VariantFormValues => ({
@@ -155,6 +167,30 @@ export function mapPriceItemToDraft(
           ? item.currencyCode
           : null,
     displayMode: kindMode,
+    priceType:
+      typeof item.price_type === 'string'
+        ? (item.price_type as any)
+        : typeof item.priceType === 'string'
+          ? item.priceType
+          : null,
+    priceMin:
+      typeof item.price_min === 'string'
+        ? item.price_min
+        : typeof item.priceMin === 'string'
+          ? item.priceMin
+          : null,
+    priceMax:
+      typeof item.price_max === 'string'
+        ? item.price_max
+        : typeof item.priceMax === 'string'
+          ? item.priceMax
+          : null,
+    priceRangeEnabled:
+      typeof item.price_range_enabled === 'boolean'
+        ? item.price_range_enabled
+        : typeof item.priceRangeEnabled === 'boolean'
+          ? item.priceRangeEnabled
+          : false,
     updatedAt:
       typeof item.updatedAt === 'string'
         ? item.updatedAt

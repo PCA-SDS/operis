@@ -83,31 +83,23 @@ jest.mock('../useDealPipelines', () => ({
   }),
 }))
 
-jest.mock('../DealDetailsFields', () => {
-  const ReactForMock = require('react') as typeof React
-  return {
-    DealDetailsFields: ({
-      values,
-      errors,
-      patch,
-    }: {
-      values: { title: string }
-      errors: Record<string, string>
-      patch: (partial: { title: string }) => void
-    }) =>
-      ReactForMock.createElement(
-        'label',
-        null,
-        'Deal title',
-        ReactForMock.createElement('input', {
-          value: values.title,
-          'aria-invalid': errors.title ? true : undefined,
-          onChange: (event: React.ChangeEvent<HTMLInputElement>) => patch({ title: event.target.value }),
-        }),
-        errors.title ? ReactForMock.createElement('span', null, errors.title) : null,
-      ),
-  }
-})
+// The form now hosts its fields on CrudForm, so the title input under test is
+// the real one. Only the leaf controls that need their own providers are stubbed.
+jest.mock('../../../formConfig', () => ({
+  DictionarySelectField: () => null,
+}))
+
+jest.mock('../PipelineSelect', () => ({
+  PipelineSelect: () => null,
+}))
+
+jest.mock('../PipelineStageSelect', () => ({
+  PipelineStageSelect: () => null,
+}))
+
+jest.mock('../DealCurrencyField', () => ({
+  DealCurrencyField: () => null,
+}))
 
 jest.mock('../DealAssociationsField', () => ({
   DealAssociationsField: () => null,
@@ -177,7 +169,7 @@ describe('CreateDealForm', () => {
   it('starts with the existing empty values when initialValues is omitted', () => {
     render(<CreateDealForm returnTo="/backend/customers/deals" />)
 
-    expect(screen.getByLabelText('Deal title')).toHaveValue('')
+    expect(screen.getByLabelText(/Deal title/)).toHaveValue('')
   })
 
   it('prefills initialValues and includes them in the create payload', async () => {
@@ -193,7 +185,7 @@ describe('CreateDealForm', () => {
       />,
     )
 
-    expect(screen.getByLabelText('Deal title')).toHaveValue('Copperleaf renewal')
+    expect(screen.getByLabelText(/Deal title/)).toHaveValue('Copperleaf renewal')
     fireEvent.click(screen.getAllByRole('button', { name: 'Create deal' })[0])
 
     await waitFor(() => expect(mockCreateCrud).toHaveBeenCalled())
@@ -240,7 +232,7 @@ describe('CreateDealForm', () => {
     const customInput = await screen.findByLabelText('Temperature')
     await waitFor(() => expect(customInput).toHaveValue('Warm'))
 
-    fireEvent.change(screen.getByLabelText('Deal title'), { target: { value: 'Copperleaf renewal' } })
+    fireEvent.change(screen.getByLabelText(/Deal title/), { target: { value: 'Copperleaf renewal' } })
     fireEvent.click(screen.getAllByRole('button', { name: 'Create deal' })[0])
 
     await waitFor(() => expect(mockCreateCrud).toHaveBeenCalled())
@@ -250,6 +242,18 @@ describe('CreateDealForm', () => {
     })
     expect(mockCreateCrud).toHaveBeenCalledWith('customers/deals', expectedPayload, expect.any(Object))
     expect(mockRunMutation).toHaveBeenCalledWith(expect.objectContaining({ mutationPayload: expectedPayload }))
+  })
+
+  /**
+   * The form was hand-built for a long time, which silently cost it the
+   * extension surface every other create form has —
+   * `.ai/specs/2026-07-02-deal-create-initial-values.md` was written to work
+   * around exactly that. Pin both so the capability cannot rot away again.
+   */
+  it('exposes the crud-form extension surface for the deal entity', () => {
+    const { container } = render(<CreateDealForm returnTo="/backend/customers/deals" />)
+
+    expect(container.querySelector('[data-component-handle="crud-form:customers.customer_deal"]')).not.toBeNull()
   })
 
   it('blocks submit when a required custom field is empty', async () => {
@@ -265,7 +269,7 @@ describe('CreateDealForm', () => {
     render(<CreateDealForm returnTo="/backend/customers/deals" />)
 
     await screen.findByLabelText('Priority')
-    fireEvent.change(screen.getByLabelText('Deal title'), { target: { value: 'Copperleaf renewal' } })
+    fireEvent.change(screen.getByLabelText(/Deal title/), { target: { value: 'Copperleaf renewal' } })
     fireEvent.click(screen.getAllByRole('button', { name: 'Create deal' })[0])
 
     expect(await screen.findByText('Required')).toBeInTheDocument()

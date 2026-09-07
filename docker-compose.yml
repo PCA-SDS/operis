@@ -130,6 +130,31 @@ services:
     networks:
       - mercato-network
 
+  translation:
+    build:
+      context: ./services/translation
+    container_name: mercato-translation
+    restart: unless-stopped
+    environment:
+      TRANSLATION_DEVICE: ${TRANSLATION_DEVICE:-cpu}
+      TRANSLATION_COMPUTE_TYPE: ${TRANSLATION_COMPUTE_TYPE:-int8}
+    ports:
+      # Loopback only. The service has no authentication by design — production
+      # reaches it over the internal network and never publishes it — so the
+      # default `0.0.0.0` binding here offered a free translation engine to
+      # everything on the developer's network.
+      - "127.0.0.1:${TRANSLATION_PORT:-8088}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/ready"]
+      interval: 30s
+      timeout: 10s
+      # The first start loads ~2GB of weights; a shorter window reports a
+      # healthy service as unhealthy while it is merely still opening.
+      start_period: 90s
+      retries: 3
+    networks:
+      - mercato-network
+
 volumes:
   postgres_data:
     name: mercato-postgres-data

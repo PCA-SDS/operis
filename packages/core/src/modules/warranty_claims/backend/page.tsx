@@ -493,11 +493,12 @@ export default function WarrantyClaimsPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadClaims() {
       setLoading(true)
       try {
         const fallback: ClaimsResponse = { items: [], total: 0, totalPages: 1 }
-        const call = await apiCall<ClaimsResponse>(`/api/warranty_claims?${queryString}`, undefined, { fallback })
+        const call = await apiCall<ClaimsResponse>(`/api/warranty_claims?${queryString}`, { signal: controller.signal }, { fallback })
         if (!call.ok) {
           const message = call.result?.error ?? t('warranty_claims.list.error.load')
           flash(message, 'error')
@@ -520,6 +521,7 @@ export default function WarrantyClaimsPage() {
     void loadClaims()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [queryString, reloadToken, scopeVersion, t])
 

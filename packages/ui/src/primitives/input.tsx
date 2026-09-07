@@ -7,7 +7,7 @@ import { cn } from '@open-mercato/shared/lib/utils'
    quiet halo — the two together mean an engaged field is obvious without a
    heavy ring. Radius is `lg` to match the default control height (h-9). */
 const inputWrapperVariants = cva(
-  'inline-flex w-full items-center gap-2 rounded-lg border border-input bg-input-bg transition-colors focus-within:outline-none focus-within:shadow-focus focus-within:border-input-border-focus focus-within:bg-modal-muted hover:bg-modal-muted has-[input:disabled]:bg-input-disabled-bg has-[input:disabled]:border-border-disabled has-[input:disabled]:shadow-none has-[input:disabled]:hover:bg-input-disabled-bg has-[input[aria-invalid=true]]:border-destructive has-[input[aria-invalid=true]]:focus-within:border-destructive',
+  'inline-flex w-full items-center gap-2 rounded-lg border border-input bg-input-bg transition-colors focus-within:outline-none focus-within:shadow-focus focus-within:border-input-border-focus focus-within:bg-modal-muted hover:bg-modal-muted has-[input:disabled]:bg-input-disabled-bg has-[input:disabled]:border-border-disabled has-[input:disabled]:shadow-none has-[input:disabled]:hover:bg-input-disabled-bg has-[input[aria-invalid=true]]:border-destructive',
   {
     variants: {
       size: {

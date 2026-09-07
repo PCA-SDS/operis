@@ -47,6 +47,7 @@ export default function EditChannelPage({ params }: { params?: { channelId?: str
   React.useEffect(() => {
     if (!channelId) return
     let cancelled = false
+    const controller = new AbortController()
     async function loadChannel() {
       setLoading(true)
       setError(null)
@@ -54,7 +55,7 @@ export default function EditChannelPage({ params }: { params?: { channelId?: str
       try {
         const payload = await readApiResultOrThrow<ChannelApiResponse>(
           `/api/sales/channels?id=${encodeURIComponent(channelId)}&pageSize=1`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('sales.channels.form.errors.load', 'Failed to load channel.') },
         )
         const item = Array.isArray(payload.items) ? payload.items[0] : null
@@ -79,7 +80,7 @@ export default function EditChannelPage({ params }: { params?: { channelId?: str
       }
     }
     void loadChannel()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [channelId, t])
 
   const handleSubmit = React.useCallback(async (values: ChannelFormValues) => {

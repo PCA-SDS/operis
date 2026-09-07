@@ -6,6 +6,14 @@ const variantPageSource = readFileSync(
   join(__dirname, '..', '..', '[productId]', 'variants', '[variantId]', 'page.tsx'),
   'utf8',
 )
+const optionTreePageSource = readFileSync(
+  join(__dirname, '..', 'options', 'page.tsx'),
+  'utf8',
+)
+const optionTreeEditorSource = readFileSync(
+  join(__dirname, '..', '..', '..', '..', '..', 'components', 'products', 'OptionTreeEditor.tsx'),
+  'utf8',
+)
 
 describe('catalog edit pages — optimistic-lock single header source', () => {
   it('product UPDATE is single-sourced (bare updateCrud; CrudForm auto-derives from initialValues.updatedAt)', () => {
@@ -44,5 +52,23 @@ describe('catalog edit pages — optimistic-lock single header source', () => {
   it('variant edit page still feeds CrudForm an initialValues.updatedAt for the auto-derive', () => {
     expect(variantPageSource).toContain('updatedAt:')
     expect(variantPageSource).toContain('initialValues={initialValues ?? undefined}')
+  })
+
+  it('option-tree save wraps the custom PUT in the product aggregate lock header and keeps conflict UI', () => {
+    expect(optionTreePageSource).toContain('buildOptimisticLockHeader(treeUpdatedAt)')
+    expect(optionTreePageSource).toContain('withScopedApiRequestHeaders')
+    expect(optionTreePageSource).toContain('surfaceRecordConflict(err, t')
+  })
+
+  it('option-tree page uses shared formatting helpers and DS-safe warning tokens', () => {
+    // formatCurrency lives in OptionTreeEditor component
+    expect(optionTreeEditorSource).toContain('formatCurrency')
+    expect(optionTreeEditorSource).not.toContain("toLocaleString('vi-VN')")
+    expect(optionTreeEditorSource).not.toContain('text-yellow-600')
+    expect(optionTreeEditorSource).not.toContain('dark:text-yellow-500')
+    expect(optionTreeEditorSource).not.toContain('text-[10px]')
+    expect(optionTreeEditorSource).not.toContain('bg-background shadow-sm text-foreground')
+    // warning token lives in the page shell
+    expect(optionTreePageSource).toContain('text-status-warning-text')
   })
 })

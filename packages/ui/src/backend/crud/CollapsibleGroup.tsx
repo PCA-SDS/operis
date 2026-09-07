@@ -140,15 +140,24 @@ export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, Collaps
             </Button>
           </div>
         )}
+        {/* Animating the ROW TRACK, not a max-height: `max-h-0 -> max-h-[5000px]`
+            spends the transition crossing 5000px, so a 300px group snapped open
+            in ~12ms and then sat still for the rest — and collapsing looked like
+            nothing happened until it slammed shut. `0fr -> 1fr` interpolates to
+            the content's real height, so the duration is the duration.
+            Matches AppShell and TasksListTab. */}
         <div
           id={contentId}
           className={cn(
-            'motion-safe:transition-all motion-safe:duration-200 overflow-hidden',
-            expanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
+            'grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out',
+            expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
           )}
+          inert={!expanded}
         >
-          <div className="px-4 py-3">
-            {children}
+          <div className="overflow-hidden">
+            <div className="px-4 py-3">
+              {children}
+            </div>
           </div>
         </div>
       </div>

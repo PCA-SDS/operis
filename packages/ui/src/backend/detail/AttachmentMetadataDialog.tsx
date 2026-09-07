@@ -330,6 +330,7 @@ export function AttachmentMetadataDialog({ open, onOpenChange, item, availableTa
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     setLoading(true)
     setLoadError(null)
     setSizeWidth('')
@@ -343,7 +344,7 @@ export function AttachmentMetadataDialog({ open, onOpenChange, item, availableTa
     setExtractedContent(item.content && item.content.trim() ? item.content : null)
     const loadDetails = async () => {
       try {
-        const call = await apiCall<AttachmentMetadataResponse>(`/api/attachments/library/${encodeURIComponent(item.id)}`)
+        const call = await apiCall<AttachmentMetadataResponse>(`/api/attachments/library/${encodeURIComponent(item.id)}`, { signal: controller.signal })
         if (!call.ok || !call.result?.item) {
           const message = call.result?.error || t('attachments.library.metadata.error', 'Failed to update metadata.')
           throw new Error(message)
@@ -373,6 +374,7 @@ export function AttachmentMetadataDialog({ open, onOpenChange, item, availableTa
     void loadDetails()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [item, open, t])
 

@@ -33,6 +33,7 @@ import {
   CustomerTag,
 } from './data/entities'
 import { ensureDictionaryEntry } from './commands/shared'
+import { backfillContactHashes } from './lib/backfillContactHashes'
 import { recomputeNextInteraction } from './lib/interactionProjection'
 import {
   CUSTOMER_INTERACTION_ACTIVITY_ADAPTER_SOURCE,
@@ -3290,7 +3291,35 @@ const interactionsBackfill: ModuleCli = {
   },
 }
 
-const customersCliCommands = [seedDictionaries, seedExamples, seedStressTest, interactionsBackfill]
+const peopleBackfillContactHashes: ModuleCli = {
+  command: 'people:backfill-contact-hashes',
+  async run(rest) {
+    const args = parseArgs(rest)
+    const tenantId = String(args.tenantId ?? args.tenant ?? '')
+    if (!tenantId) {
+      console.error('Usage: mercato customers people:backfill-contact-hashes --tenant <tenantId>')
+      return
+    }
+
+    const container = await createRequestContainer()
+    const em = container.resolve('em') as EntityManager
+
+    console.log(`[backfill] Computing contact lookup hashes for tenant=${tenantId}`)
+    const result = await backfillContactHashes(em, { tenantId })
+
+    console.log('[backfill] Complete.')
+    console.log(`  People scanned: ${result.scanned}`)
+    console.log(`  People updated: ${result.updated}`)
+    if (result.phoneConflicts.length) {
+      console.warn(`  Phone numbers shared by more than one person: ${result.phoneConflicts.length}`)
+      for (const group of result.phoneConflicts) {
+        console.warn(`    left unhashed (resolve manually): ${group.join(', ')}`)
+      }
+    }
+  },
+}
+
+const customersCliCommands = [seedDictionaries, seedExamples, seedStressTest, interactionsBackfill, peopleBackfillContactHashes]
 
 export default customersCliCommands
 export async function ensureCustomerCustomFieldDefinitions(

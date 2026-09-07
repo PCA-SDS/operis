@@ -1,4 +1,4 @@
-import { Entity, Index, ManyToOne, PrimaryKey, Property, Unique } from '@mikro-orm/decorators/legacy'
+import { Entity, Index, ManyToOne, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 import { OptionalProps } from '@mikro-orm/core'
 import type { DictionaryEntrySortMode } from '../lib/entrySort'
 

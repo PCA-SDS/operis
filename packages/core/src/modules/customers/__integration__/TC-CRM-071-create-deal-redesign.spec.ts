@@ -7,6 +7,7 @@ import {
 } from '@open-mercato/core/modules/core/__integration__/helpers/crmFixtures';
 import { apiRequest, getAuthToken } from '@open-mercato/core/modules/core/__integration__/helpers/api';
 import { login } from '@open-mercato/core/modules/core/__integration__/helpers/auth';
+import { tableRowByText } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom';
 
 const DEAL_ENTITY_ID = 'customers:customer_deal';
 
@@ -167,7 +168,7 @@ test.describe('TC-CRM-071: Create deal (UX redesign)', () => {
       const searchByTitle = page.getByPlaceholder(/Search by title/i);
       await expect(searchByTitle).toBeVisible({ timeout: 30_000 });
       await searchByTitle.fill(dealTitle);
-      const dealRow = page.locator('tr').filter({ hasText: dealTitle }).first();
+      const dealRow = tableRowByText(page, dealTitle);
       await expect(dealRow).toBeVisible({ timeout: 10_000 });
 
       // Verify via API too, and capture the id for cleanup.

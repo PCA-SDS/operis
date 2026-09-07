@@ -30,11 +30,12 @@ import { cn } from '@open-mercato/shared/lib/utils'
  * roving tabindex) for free. No new dependency — Radix RadioGroup is
  * already installed via the `Radio` primitive.
  *
- * **Geometry.** The track owns the height and a uniform `p-0.5` inset; items
- * stretch to the track's content box rather than carrying their own height. That
- * is what makes the selected pill sit exactly 2px from the rail on all four
- * sides — a fixed item height would leave a different gap vertically than
- * horizontally, which is visible as soon as the pill is a filled colour.
+ * **Geometry.** The track owns the height and the inset; items stretch to the
+ * track's content box rather than carrying their own height. That is what makes
+ * the selected pill sit an equal distance from the rail on all four sides — a
+ * fixed item height would leave a different gap vertically than horizontally,
+ * which is visible as soon as the pill is a filled colour. The inset is 4px at
+ * `default` and 2px at `sm`, matching the reference toggle.
  *
  * **Motion.** The selected fill is a single shared element that slides
  * between segments rather than a class that blinks on and off, so the
@@ -94,15 +95,19 @@ const trackVariants = cva(
   // as one control with a chosen segment.
   //
   // `items-stretch` is load-bearing: items derive their height from the track's
-  // content box, so the pill's inset is the track's `p-0.5` on every side.
-  //   default → h-9 (36px) − 2px border − 4px padding = 30px item, 2px all round
+  // content box, so the pill's inset is the track's padding on every side. That
+  // padding IS the gap between the selected pill and the rail wrapping it, and
+  // it belongs to the size rather than to the base — the reference gives its
+  // roomy size twice the inset of its dense one, and a single value made the
+  // default read tight against its rail.
+  //   default → h-9 (36px) − 2px border − 8px padding = 26px item, 4px all round
   //   sm      → h-8 (32px) − 2px border − 4px padding = 26px item, 2px all round
-  'items-stretch gap-0 rounded-lg border border-border bg-surface p-0.5 transition-colors',
+  'items-stretch gap-0 rounded-lg border border-border bg-surface transition-colors',
   {
     variants: {
       size: {
-        sm: 'h-8',
-        default: 'h-9',
+        sm: 'h-8 p-0.5',
+        default: 'h-9 p-1',
       },
       // Display lives in the variant rather than the base so the two cases never
       // depend on which `display` utility Tailwind happens to emit last.
@@ -144,7 +149,7 @@ const itemVariants = cva(
   {
     variants: {
       size: {
-        sm: 'gap-1.5 px-2.5 text-xs',
+        sm: 'gap-1.5 px-2 text-xs',
         default: 'gap-2 px-3 text-sm',
       },
       fullWidth: {

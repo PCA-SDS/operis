@@ -4,7 +4,7 @@ import {
   Index,
   PrimaryKey,
   Property,
-} from '@mikro-orm/decorators/legacy'
+} from '@open-mercato/shared/lib/db/decorators'
 import type {
   AiPendingActionExecutionResult,
   AiPendingActionFailedRecord,

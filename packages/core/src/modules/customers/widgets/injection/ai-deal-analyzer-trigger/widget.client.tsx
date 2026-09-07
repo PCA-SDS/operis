@@ -8,6 +8,8 @@ import * as React from 'react'
 import { Handshake, PanelRightOpen, TrendingDown } from 'lucide-react'
 import { AiChat, type AiChatSuggestion, type AiChatContextItem } from '@open-mercato/ui/ai/AiChat'
 import { AiIcon } from '@open-mercato/ui/ai/AiIcon'
+import { AiProviderSetupPanel } from '@open-mercato/ui/ai/AiProviderSetupPanel'
+import { useAiConfigured } from '@open-mercato/ui/ai/useAiConfigured'
 import { useAiDock } from '@open-mercato/ui/ai/AiDock'
 import { useAiChatSessions } from '@open-mercato/ui/ai/AiChatSessions'
 import { ChatPaneTabs } from '@open-mercato/ui/ai/ChatPaneTabs'
@@ -235,6 +237,7 @@ export default function DealAnalyzerTriggerWidget({ context }: DealAnalyzerTrigg
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
+        disableBodyWrap
           className={cn(
             'top-0 left-0 right-0 bottom-0 translate-x-0 translate-y-0 max-w-none w-screen h-svh max-h-svh rounded-none',
             'sm:top-0 sm:bottom-0 sm:right-0 sm:left-auto sm:translate-x-0 sm:translate-y-0',
@@ -317,9 +320,16 @@ function DealAnalyzerChatBody({
   const sessions = useAiChatSessions()
   const session = sessions.getActiveSession(DEAL_ANALYZER_AGENT_ID)
 
+  const { isUnconfigured } = useAiConfigured()
+
   React.useEffect(() => {
+    if (isUnconfigured) return
     if (!session) sessions.ensureSession(DEAL_ANALYZER_AGENT_ID)
-  }, [session, sessions])
+  }, [isUnconfigured, session, sessions])
+
+  if (isUnconfigured) {
+    return <AiProviderSetupPanel variant="fill" />
+  }
 
   return (
     <>

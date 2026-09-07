@@ -1,7 +1,10 @@
-import type { CalendarItem } from '../types'
+import type { CalendarInteractionItem } from '../types'
 
-export function buildCalendarItem(overrides: Partial<CalendarItem> = {}): CalendarItem {
+export function buildCalendarItem(
+  overrides: Partial<CalendarInteractionItem> = {},
+): CalendarInteractionItem {
   return {
+    source: 'interaction',
     id: 'item-1',
     title: 'Quarterly review',
     interactionType: 'meeting',

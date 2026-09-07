@@ -84,11 +84,22 @@ test.describe('TC-CAL-003: Calendar view switching & navigation', () => {
       await page.locator('[data-calendar-search]').blur();
       await expect(page.getByRole('button', { name: gridBlockName(meetingTitle) })).toBeVisible();
 
-      // -- Switcher click: Day — long weekday header + block -------------------
+      // -- Switcher click: Day — single dated column + block -------------------
       await dayRadio.click();
       await expect(dayRadio).toBeChecked();
-      const dayHeader = `${new Intl.DateTimeFormat('en', { weekday: 'long' }).format(now).toUpperCase()} · ${String(now.getDate()).padStart(2, '0')}`;
-      await expect(page.getByText(dayHeader, { exact: true })).toBeVisible();
+      // Day view uses the same stacked weekday/numeral header as the week grid,
+      // so the assertion is on the column itself: exactly one, named by its
+      // whole date. That is stricter than matching the header's visible text —
+      // it also pins that Day renders one column and not seven.
+      const dayGrid = page.getByRole('grid');
+      const dayColumnLabel = new Intl.DateTimeFormat('en', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(now);
+      await expect(dayGrid.getByRole('columnheader')).toHaveCount(1);
+      await expect(dayGrid.getByRole('columnheader', { name: dayColumnLabel })).toBeVisible();
       await expect(page.getByRole('button', { name: gridBlockName(meetingTitle) })).toBeVisible();
 
       // -- Switcher click: Month — weekday header row + month pill -------------

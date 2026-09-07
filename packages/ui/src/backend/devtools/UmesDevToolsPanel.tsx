@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { useUmesDevTools } from './useUmesDevTools'
 import { ExtensionPointList } from './components/ExtensionPointList'
 import { ConflictWarnings } from './components/ConflictWarnings'
@@ -72,15 +72,7 @@ export function UmesDevToolsPanel() {
           >
             Refresh
           </Button>
-          <IconButton
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={() => setIsOpen(false)}
-            aria-label="Close DevTools"
-          >
-            <span className="text-lg leading-none">&times;</span>
-          </IconButton>
+          <CloseButton onClick={() => setIsOpen(false)} aria-label="Close DevTools" />
         </div>
       </div>
 

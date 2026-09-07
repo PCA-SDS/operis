@@ -63,7 +63,7 @@ export function NotificationBell({ className, t, customRenderers }: Notification
     <>
       <IconButton
         variant="ghost"
-        size="sm"
+        size="lg"
         type="button"
         className={cn('relative', className)}
         onClick={() => setPanelOpen(true)}

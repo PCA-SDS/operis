@@ -217,10 +217,11 @@ export default function StaffTeamRolesPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadFilters() {
       try {
         const params = new URLSearchParams({ page: '1', pageSize: '100' })
-        const response = await apiCall<TeamsResponse>(`/api/staff/teams?${params.toString()}`)
+        const response = await apiCall<TeamsResponse>(`/api/staff/teams?${params.toString()}`, { signal: controller.signal })
         const teamItems = Array.isArray(response.result?.items) ? response.result.items : []
         const teams = teamItems
           .map((team) => {
@@ -236,7 +237,7 @@ export default function StaffTeamRolesPage() {
       }
     }
     loadFilters()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
 
   const filters = React.useMemo<FilterDef[]>(() => [

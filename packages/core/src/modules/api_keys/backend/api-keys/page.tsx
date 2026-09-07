@@ -63,6 +63,7 @@ export default function ApiKeysListPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       try {
@@ -73,7 +74,7 @@ export default function ApiKeysListPage() {
         const fallback: ResponsePayload = { items: [], total: 0, page, totalPages: 1 }
         const call = await apiCall<ResponsePayload>(
           `/api/api_keys/keys?${params.toString()}`,
-          undefined,
+          { signal: controller.signal },
           { fallback },
         )
         if (!call.ok) {
@@ -98,7 +99,7 @@ export default function ApiKeysListPage() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [page, search, reloadToken, scopeVersion, t])
 
   const handleDelete = React.useCallback(async (row: Row) => {

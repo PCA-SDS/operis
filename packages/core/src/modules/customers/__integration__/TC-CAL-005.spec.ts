@@ -76,9 +76,10 @@ test.describe('TC-CAL-005: Create event via calendar editor', () => {
       await typeSwitcher.getByRole('radio', { name: 'Task', exact: true }).click();
       await expect(typeSwitcher.getByRole('radio', { name: 'Task', exact: true })).toBeChecked();
       await expect(dialog.getByText('Due', { exact: true })).toBeVisible();
-      // Priority is a Jira-style dropdown (trigger button labelled "Priority",
-      // showing the current value); it defaults to Medium (#3552).
-      const priorityTrigger = dialog.getByRole('button', { name: 'Priority', exact: true });
+      // Priority is a Jira-style dropdown labelled "Priority" that shows the
+      // current value; it defaults to Medium (#3552). It is a DS `Select`, so
+      // its trigger carries the ARIA combobox role rather than plain `button`.
+      const priorityTrigger = dialog.getByRole('combobox', { name: 'Priority', exact: true });
       await expect(priorityTrigger).toBeVisible();
       await expect(priorityTrigger).toContainText('Medium');
       await expect(dialog.getByText('Assignee', { exact: true })).toBeVisible();
@@ -98,9 +99,13 @@ test.describe('TC-CAL-005: Create event via calendar editor', () => {
       // -- Title + Related-to person picker --------------------------------------
       await dialog.getByRole('textbox', { name: 'Title', exact: true }).fill(eventTitle);
       await dialog.getByRole('button', { name: 'Related to', exact: true }).click();
-      const relatedSearch = dialog.getByRole('textbox', { name: 'Search people or companies…' });
+      // The picker's list is a DS Popover, which portals to the body so it can
+      // paint above the dialog. It is therefore OUTSIDE the dialog subtree and
+      // has to be queried from the page; the selection it produces is still
+      // asserted inside the dialog, where the chip renders.
+      const relatedSearch = page.getByRole('textbox', { name: 'Search people or companies…' });
       await relatedSearch.fill(personName);
-      await dialog.getByRole('option', { name: new RegExp(escapeRegExp(personName)) }).first().click();
+      await page.getByRole('option', { name: new RegExp(escapeRegExp(personName)) }).first().click();
       await expect(dialog.getByText(personName).first()).toBeVisible();
       // Refocus a neutral field so the related-to dropdown closes before saving.
       await dialog.getByRole('textbox', { name: 'Title', exact: true }).click();

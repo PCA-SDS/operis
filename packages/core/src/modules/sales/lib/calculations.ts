@@ -80,10 +80,14 @@ function resolveAdjustmentAmounts(
 function buildBaseLineResult(line: SalesLineSnapshot): SalesLineCalculationResult {
   const quantity = Math.max(toNumber(line.quantity, 0), 0)
   const taxRate = toNumber(line.taxRate, 0) / 100
+  // Clamped like the tax computation below. The API validator pins taxRate to
+  // 0..100, but a rate written straight to the DB is not clamped, and -100 would
+  // divide by zero here while the tax line three lines down already guards it.
+  const grossToNetDivisor = 1 + Math.max(taxRate, 0)
   const unitNet =
     line.unitPriceNet ??
     (line.unitPriceGross !== null && line.unitPriceGross !== undefined
-      ? toNumber(line.unitPriceGross) / (1 + taxRate)
+      ? toNumber(line.unitPriceGross) / grossToNetDivisor
       : 0)
   const discountPerUnit =
     line.discountAmount ??

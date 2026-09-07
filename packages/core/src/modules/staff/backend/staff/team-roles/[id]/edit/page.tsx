@@ -56,6 +56,7 @@ export default function StaffTeamRoleEditPage({ params }: { params?: { id?: stri
     if (!roleId) return
     const roleIdValue = roleId
     let cancelled = false
+    const controller = new AbortController()
     async function loadRole() {
       if (!cancelled) {
         setError(null)
@@ -65,7 +66,7 @@ export default function StaffTeamRoleEditPage({ params }: { params?: { id?: stri
         const params = new URLSearchParams({ page: '1', pageSize: '1', ids: roleIdValue })
         const payload = await readApiResultOrThrow<TeamRoleResponse>(
           `/api/staff/team-roles?${params.toString()}`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('staff.teamRoles.errors.load', 'Failed to load team role.') },
         )
         const record = Array.isArray(payload.items) ? payload.items[0] : null
@@ -123,15 +124,16 @@ export default function StaffTeamRoleEditPage({ params }: { params?: { id?: stri
       }
     }
     loadRole()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [roleId, t])
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadTeams() {
       try {
         const params = new URLSearchParams({ page: '1', pageSize: '100' })
-        const call = await apiCall<TeamsResponse>(`/api/staff/teams?${params.toString()}`)
+        const call = await apiCall<TeamsResponse>(`/api/staff/teams?${params.toString()}`, { signal: controller.signal })
         const items = Array.isArray(call.result?.items) ? call.result.items : []
         const options = items
           .map((team) => {
@@ -154,7 +156,7 @@ export default function StaffTeamRoleEditPage({ params }: { params?: { id?: stri
       }
     }
     loadTeams()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
 
   React.useEffect(() => {
@@ -162,11 +164,12 @@ export default function StaffTeamRoleEditPage({ params }: { params?: { id?: stri
     if (teams.some((team) => team.id === selectedTeamId)) return
     const lookupId = selectedTeamId
     let cancelled = false
+    const controller = new AbortController()
     async function loadSelectedTeam() {
       try {
         const call = await apiCall<TeamsResponse>(
           `/api/staff/teams?ids=${encodeURIComponent(lookupId)}&pageSize=1`,
-        )
+        { signal: controller.signal })
         const entry = Array.isArray(call.result?.items) ? call.result.items[0] : null
         const id = typeof entry?.id === 'string' ? entry.id : null
         const name = typeof entry?.name === 'string' ? entry.name : null
@@ -182,7 +185,7 @@ export default function StaffTeamRoleEditPage({ params }: { params?: { id?: stri
       }
     }
     loadSelectedTeam()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [selectedTeamId, teams])
 
   const handleSubmit = React.useCallback(async (values: TeamRoleFormValues) => {

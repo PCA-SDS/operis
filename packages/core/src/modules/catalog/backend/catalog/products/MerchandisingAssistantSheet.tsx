@@ -34,6 +34,7 @@ import * as React from 'react'
 import { Boxes, ChevronDown, FileText, Package, PanelRightOpen, PenLine, Tags, TrendingUp } from 'lucide-react'
 import { AiChat, type AiChatSuggestion, type AiChatContextItem } from '@open-mercato/ui/ai/AiChat'
 import { AiIcon } from '@open-mercato/ui/ai/AiIcon'
+import { AiProviderSetupPanel } from '@open-mercato/ui/ai/AiProviderSetupPanel'
 import { useAiDock } from '@open-mercato/ui/ai/AiDock'
 import { useAiChatSessions } from '@open-mercato/ui/ai/AiChatSessions'
 import { ChatPaneTabs } from '@open-mercato/ui/ai/ChatPaneTabs'
@@ -229,16 +230,20 @@ interface AgentsResponse {
   agents?: Array<{
     id?: string | null
   }>
+  aiConfigured?: boolean
 }
 
 interface MerchandisingAgentsState {
   agents: MerchandisingAgentDescriptor[]
   loaded: boolean
+  /** `false` once the endpoint reports no provider key; `null` while unknown. */
+  aiConfigured: boolean | null
 }
 
 function useMerchandisingAgents(): MerchandisingAgentsState {
   const t = useT()
   const [accessibleAgentIds, setAccessibleAgentIds] = React.useState<Set<string> | null>(null)
+  const [aiConfigured, setAiConfigured] = React.useState<boolean | null>(null)
   const declaredAgents = React.useMemo(
     () => [
       {
@@ -259,7 +264,9 @@ function useMerchandisingAgents(): MerchandisingAgentsState {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     apiCall<AgentsResponse>('/api/ai_assistant/ai/agents', {
+      signal: controller.signal,
       credentials: 'same-origin',
       headers: { 'x-om-forbidden-redirect': '0', 'x-om-unauthorized-redirect': '0' },
     })
@@ -276,12 +283,16 @@ function useMerchandisingAgents(): MerchandisingAgentsState {
               .filter((id): id is string => typeof id === 'string' && id.length > 0),
           ),
         )
+        if (typeof call.result.aiConfigured === 'boolean') {
+          setAiConfigured(call.result.aiConfigured)
+        }
       })
       .catch(() => {
         if (!cancelled) setAccessibleAgentIds(new Set())
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [])
 
@@ -292,8 +303,9 @@ function useMerchandisingAgents(): MerchandisingAgentsState {
           ? []
           : declaredAgents.filter((agent) => accessibleAgentIds.has(agent.id)),
       loaded: accessibleAgentIds !== null,
+      aiConfigured,
     }),
-    [accessibleAgentIds, declaredAgents],
+    [accessibleAgentIds, aiConfigured, declaredAgents],
   )
 }
 
@@ -313,7 +325,7 @@ export function MerchandisingAssistantSheet({
   const hasSelection = selectedCount > 0
   const suggestions = useMerchandisingSuggestions(hasSelection, selectedCount)
   const contextItems = useContextItems(pageContext)
-  const { agents, loaded: agentsLoaded } = useMerchandisingAgents()
+  const { agents, loaded: agentsLoaded, aiConfigured } = useMerchandisingAgents()
 
   if (!enabled || !agentsLoaded || agents.length === 0) return null
 
@@ -454,6 +466,7 @@ export function MerchandisingAssistantSheet({
       </ButtonGroup>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
+        disableBodyWrap
           className={cn(
             // Mobile: full-screen sheet. Desktop (≥sm): right-anchored side sheet.
             // The Dialog primitive applies a centering transform at the
@@ -515,6 +528,7 @@ export function MerchandisingAssistantSheet({
             </DialogDescription>
           </DialogHeader>
           <MerchandisingChatBody
+            aiConfigured={aiConfigured}
             activeAgent={activeAgent}
             pageContext={pageContext}
             suggestions={suggestions}
@@ -529,6 +543,7 @@ export function MerchandisingAssistantSheet({
 }
 
 interface MerchandisingChatBodyProps {
+  aiConfigured: boolean | null
   activeAgent: string
   pageContext: MerchandisingPageContext
   suggestions: AiChatSuggestion[]
@@ -538,6 +553,7 @@ interface MerchandisingChatBodyProps {
 }
 
 function MerchandisingChatBody({
+  aiConfigured,
   activeAgent,
   pageContext,
   suggestions,
@@ -549,9 +565,16 @@ function MerchandisingChatBody({
   const sessions = useAiChatSessions()
   const session = sessions.getActiveSession(activeAgent)
 
+  const unconfigured = aiConfigured === false
+
   React.useEffect(() => {
+    if (unconfigured) return
     if (!session) sessions.ensureSession(activeAgent)
-  }, [activeAgent, session, sessions])
+  }, [activeAgent, session, sessions, unconfigured])
+
+  if (unconfigured) {
+    return <AiProviderSetupPanel variant="fill" />
+  }
 
   return (
     <>

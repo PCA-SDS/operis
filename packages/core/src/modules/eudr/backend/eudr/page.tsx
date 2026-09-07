@@ -144,11 +144,12 @@ function AnnualReportCard({ scopeVersion }: { scopeVersion: number }) {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadReport() {
       setLoading(true)
       setError(null)
       try {
-        const call = await apiCall<AnnualReport>(`/api/eudr/reports/annual?year=${year}`)
+        const call = await apiCall<AnnualReport>(`/api/eudr/reports/annual?year=${year}`, { signal: controller.signal })
         if (cancelled) return
         if (!call.ok || !call.result) {
           setReport(null)
@@ -168,6 +169,7 @@ function AnnualReportCard({ scopeVersion }: { scopeVersion: number }) {
     void loadReport()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [scopeVersion, translate, year])
 
@@ -281,11 +283,12 @@ export default function EudrOverviewPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadOverview() {
       setLoading(true)
       setError(null)
       try {
-        const call = await apiCall<ComplianceOverview>('/api/eudr/dashboard/widgets/compliance-overview')
+        const call = await apiCall<ComplianceOverview>('/api/eudr/dashboard/widgets/compliance-overview', { signal: controller.signal })
         if (cancelled) return
         if (!call.ok || !call.result) {
           setError(translate('eudr.overview.loadError'))
@@ -301,6 +304,7 @@ export default function EudrOverviewPage() {
     void loadOverview()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [scopeVersion, translate])
 

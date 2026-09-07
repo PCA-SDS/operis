@@ -144,10 +144,11 @@ export function TeamMemberForm(props: TeamMemberFormProps) {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadRoles() {
       try {
         const params = new URLSearchParams({ page: '1', pageSize: String(DEFAULT_PAGE_SIZE) })
-        const call = await apiCall<TeamRolesResponse>(`/api/staff/team-roles?${params.toString()}`)
+        const call = await apiCall<TeamRolesResponse>(`/api/staff/team-roles?${params.toString()}`, { signal: controller.signal })
         const items = Array.isArray(call.result?.items) ? call.result.items : []
         const nextRoles = items
           .map(mapTeamRole)
@@ -158,15 +159,16 @@ export function TeamMemberForm(props: TeamMemberFormProps) {
       }
     }
     loadRoles()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadTeams() {
       try {
         const params = new URLSearchParams({ page: '1', pageSize: '100' })
-        const call = await apiCall<TeamsResponse>(`/api/staff/teams?${params.toString()}`)
+        const call = await apiCall<TeamsResponse>(`/api/staff/teams?${params.toString()}`, { signal: controller.signal })
         const items = Array.isArray(call.result?.items) ? call.result.items : []
         const options = items
           .map((team) => {
@@ -182,7 +184,7 @@ export function TeamMemberForm(props: TeamMemberFormProps) {
       }
     }
     loadTeams()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [scopeVersion])
 
   React.useEffect(() => {
@@ -190,9 +192,10 @@ export function TeamMemberForm(props: TeamMemberFormProps) {
     if (teamOptions.some((option) => option.value === resolvedTeamId)) return
     const selectedTeamId = resolvedTeamId
     let cancelled = false
+    const controller = new AbortController()
     async function loadSelectedTeam() {
       try {
-        const call = await apiCall<TeamsResponse>(`/api/staff/teams?ids=${encodeURIComponent(selectedTeamId)}&pageSize=1`)
+        const call = await apiCall<TeamsResponse>(`/api/staff/teams?ids=${encodeURIComponent(selectedTeamId)}&pageSize=1`, { signal: controller.signal })
         const entry = Array.isArray(call.result?.items) ? call.result.items[0] : null
         const entryId = typeof entry?.id === 'string' ? entry.id : null
         const entryName = typeof entry?.name === 'string' ? entry.name : null
@@ -208,7 +211,7 @@ export function TeamMemberForm(props: TeamMemberFormProps) {
       }
     }
     loadSelectedTeam()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [resolvedTeamId, teamOptions])
 
   React.useEffect(() => {
@@ -216,9 +219,10 @@ export function TeamMemberForm(props: TeamMemberFormProps) {
     const userId = resolvedUserId
     if (userOptions.some((option) => option.id === resolvedUserId)) return
     let cancelled = false
+    const controller = new AbortController()
     async function loadSelectedUser() {
       try {
-        const call = await apiCall<UsersResponse>(`/api/auth/users?id=${encodeURIComponent(userId)}`)
+        const call = await apiCall<UsersResponse>(`/api/auth/users?id=${encodeURIComponent(userId)}`, { signal: controller.signal })
         const entry = Array.isArray(call.result?.items) ? call.result.items[0] : null
         const entryId = typeof entry?.id === 'string' ? entry.id : null
         const entryEmail = typeof entry?.email === 'string' ? entry.email : null
@@ -234,7 +238,7 @@ export function TeamMemberForm(props: TeamMemberFormProps) {
       }
     }
     loadSelectedUser()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [resolvedUserId, userOptions])
 
   const filteredRoles = React.useMemo(

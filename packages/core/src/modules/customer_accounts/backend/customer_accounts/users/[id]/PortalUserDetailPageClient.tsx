@@ -200,6 +200,7 @@ export function PortalUserDetailPageClient({ params, portalOrigin }: PortalUserD
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setError(null)
@@ -207,7 +208,7 @@ export function PortalUserDetailPageClient({ params, portalOrigin }: PortalUserD
       try {
         const payload = await readApiResultOrThrow<UserDetail>(
           `/api/customer_accounts/admin/users/${encodeURIComponent(id!)}`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('customer_accounts.admin.detail.error.load', 'Failed to load user') },
         )
         if (cancelled) return
@@ -230,16 +231,17 @@ export function PortalUserDetailPageClient({ params, portalOrigin }: PortalUserD
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [id, t])
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadRoles() {
       try {
         const call = await apiCall<{ items?: Array<{ id: string; name: string }> }>(
           '/api/customer_accounts/admin/roles?pageSize=100',
-        )
+        { signal: controller.signal })
         if (cancelled || !call.ok) return
         const items = Array.isArray(call.result?.items) ? call.result!.items : []
         setAvailableRoles(
@@ -250,16 +252,17 @@ export function PortalUserDetailPageClient({ params, portalOrigin }: PortalUserD
       }
     }
     loadRoles()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [])
 
   React.useEffect(() => {
     if (!data) return
     let cancelled = false
+    const controller = new AbortController()
     async function loadPersonName() {
       if (!data!.personEntityId) return
       try {
-        const call = await apiCall<{ id?: string; firstName?: string; lastName?: string }>(`/api/customers/people/${encodeURIComponent(data!.personEntityId)}`)
+        const call = await apiCall<{ id?: string; firstName?: string; lastName?: string }>(`/api/customers/people/${encodeURIComponent(data!.personEntityId)}`, { signal: controller.signal })
         if (!cancelled && call.ok && call.result) {
           setPersonName([call.result.firstName, call.result.lastName].filter(Boolean).join(' ') || call.result.id || null)
         }
@@ -268,14 +271,14 @@ export function PortalUserDetailPageClient({ params, portalOrigin }: PortalUserD
     async function loadCompanyName() {
       if (!data!.customerEntityId) return
       try {
-        const call = await apiCall<{ id?: string; name?: string }>(`/api/customers/${encodeURIComponent(data!.customerEntityId)}`)
+        const call = await apiCall<{ id?: string; name?: string }>(`/api/customers/${encodeURIComponent(data!.customerEntityId)}`, { signal: controller.signal })
         if (!cancelled && call.ok && call.result) {
           setCompanyName(call.result.name || call.result.id || null)
         }
       } catch { /* ignore */ }
     }
     void Promise.all([loadPersonName(), loadCompanyName()])
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [data])
 
   const handleSearchPeople = React.useCallback(async (query: string) => {

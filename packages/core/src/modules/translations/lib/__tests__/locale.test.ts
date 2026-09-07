@@ -88,7 +88,7 @@ describe('resolveLocaleFromRequest', () => {
     })
 
     it('returns null when Accept-Language has no matching locale', () => {
-      const req = makeRequest('https://example.com/api/products', { 'accept-language': 'ja,zh;q=0.9' })
+      const req = makeRequest('https://example.com/api/products', { 'accept-language': 'ja,ru;q=0.9' })
       expect(resolveLocaleFromRequest(req)).toBeNull()
     })
   })

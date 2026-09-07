@@ -99,13 +99,14 @@ export function StatementRiskSection({
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadHistory() {
       setHistoryLoading(true)
       setHistoryError(null)
       try {
         const call = await apiCall<RiskHistoryResponse>(
           `/api/eudr/risk-assessments?statementId=${encodeURIComponent(statementId)}&pageSize=5&sortField=assessedAt&sortDir=desc`,
-          undefined,
+          { signal: controller.signal },
           { fallback: { items: [] } },
         )
         if (!call.ok) {
@@ -123,6 +124,7 @@ export function StatementRiskSection({
     loadHistory()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [statementId, translate])
 

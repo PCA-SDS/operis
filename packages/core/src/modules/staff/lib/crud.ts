@@ -5,6 +5,7 @@ import type {
   StaffTeamMember,
   StaffTeamMemberActivity,
   StaffTeamMemberAddress,
+  StaffEmployeeProfile,
   StaffTeamMemberComment,
   StaffTeamMemberJobHistory,
   StaffTeamRole,
@@ -34,6 +35,7 @@ export const staffTeamMemberAddressCrudEvents = buildCrudEvents<StaffTeamMemberA
 export const staffTeamMemberCommentCrudEvents = buildCrudEvents<StaffTeamMemberComment>('comment')
 export const staffTeamMemberActivityCrudEvents = buildCrudEvents<StaffTeamMemberActivity>('activity')
 export const staffTeamMemberJobHistoryCrudEvents = buildCrudEvents<StaffTeamMemberJobHistory>('job_history')
+export const staffEmployeeProfileCrudEvents = buildCrudEvents<StaffEmployeeProfile>('employee_profile')
 
 // Timesheets
 /**

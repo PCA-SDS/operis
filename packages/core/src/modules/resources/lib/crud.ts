@@ -2,6 +2,8 @@ import type { CrudEventsConfig } from '@open-mercato/shared/lib/crud/types'
 import type {
   ResourcesResource,
   ResourcesResourceActivity,
+  ResourcesResourceArea,
+  ResourcesResourceAreaType,
   ResourcesResourceComment,
   ResourcesResourceTagAssignment,
   ResourcesResourceType,
@@ -25,3 +27,5 @@ export const resourcesResourceTypeCrudEvents = buildCrudEvents<ResourcesResource
 export const resourcesResourceCommentCrudEvents = buildCrudEvents<ResourcesResourceComment>('comment')
 export const resourcesResourceActivityCrudEvents = buildCrudEvents<ResourcesResourceActivity>('activity')
 export const resourcesResourceTagAssignmentCrudEvents = buildCrudEvents<ResourcesResourceTagAssignment>('resource_tag_assignment')
+export const resourcesResourceAreaCrudEvents = buildCrudEvents<ResourcesResourceArea>('resource_area')
+export const resourcesResourceAreaTypeCrudEvents = buildCrudEvents<ResourcesResourceAreaType>('area_type')

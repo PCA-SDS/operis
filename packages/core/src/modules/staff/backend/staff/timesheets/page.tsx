@@ -197,9 +197,11 @@ export default function MyTimesheetsPage() {
   // --- Feature check ---
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     void (async () => {
       try {
         const res = await apiCall<{ ok: boolean; granted: string[] }>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ features: ['staff.timesheets.projects.manage'] }),
@@ -211,7 +213,7 @@ export default function MyTimesheetsPage() {
         // default: no manage access
       }
     })()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [])
 
   // --- Computed days for current view ---

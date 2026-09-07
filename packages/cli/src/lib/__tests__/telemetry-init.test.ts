@@ -83,21 +83,22 @@ async function handleRequest(method: string, req: NextRequest): Promise<Response
 `
 
 describe('mercato telemetry init', () => {
+  // The fixture directory is passed to runTelemetryInit explicitly rather than
+  // entered with process.chdir(), which mutates state shared by every other
+  // suite in this worker. Stubbing process.cwd() would not work here:
+  // runTelemetryInit resolves with path.resolve('.'), which reads the working
+  // directory through an internal binding a jest spy cannot intercept.
   let tmpDir: string
-  let cwd: string
   let logSpy: jest.SpyInstance
   let errorSpy: jest.SpyInstance
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'telemetry-init-'))
-    cwd = process.cwd()
-    process.chdir(tmpDir)
     logSpy = jest.spyOn(console, 'log').mockImplementation(() => {})
     errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
-    process.chdir(cwd)
     logSpy.mockRestore()
     errorSpy.mockRestore()
     fs.rmSync(tmpDir, { recursive: true, force: true })
@@ -107,7 +108,7 @@ describe('mercato telemetry init', () => {
   const dispatcherPath = 'src/app/api/[...slug]/route.ts'
 
   it('rejects a directory that is not an Open Mercato app', async () => {
-    const code = await runTelemetryInit([])
+    const code = await runTelemetryInit([], tmpDir)
     expect(code).toBe(1)
     expect(errorSpy).toHaveBeenCalled()
   })
@@ -115,7 +116,7 @@ describe('mercato telemetry init', () => {
   it('wires all files in a pre-telemetry app', async () => {
     baseFixture(tmpDir)
     fs.writeFileSync(path.join(tmpDir, dispatcherPath), SIMPLE_DISPATCHER)
-    const code = await runTelemetryInit([])
+    const code = await runTelemetryInit([], tmpDir)
     expect(code).toBe(0)
 
     const pkg = JSON.parse(read('package.json'))
@@ -137,7 +138,7 @@ describe('mercato telemetry init', () => {
   it('every patched file is syntactically valid TypeScript', async () => {
     baseFixture(tmpDir)
     fs.writeFileSync(path.join(tmpDir, dispatcherPath), SIMPLE_DISPATCHER)
-    await runTelemetryInit([])
+    await runTelemetryInit([], tmpDir)
     assertParses(read('next.config.ts'), 'next.config')
     assertParses(read('src/instrumentation.ts'), 'instrumentation')
     assertParses(read(dispatcherPath), 'dispatcher')
@@ -153,7 +154,7 @@ describe('mercato telemetry init', () => {
     assertParses(preTelemetry, 'stripped-template')
     fs.writeFileSync(path.join(tmpDir, dispatcherPath), preTelemetry)
 
-    await runTelemetryInit([])
+    await runTelemetryInit([], tmpDir)
 
     const patched = read(dispatcherPath)
     assertParses(patched, 'patched-template')
@@ -173,7 +174,7 @@ describe('mercato telemetry init', () => {
       nextConfig: read('next.config.ts'),
       instrumentation: read('src/instrumentation.ts'),
     }
-    await runTelemetryInit([])
+    await runTelemetryInit([], tmpDir)
     expect(read(dispatcherPath)).toBe(before.route)
     expect(read('next.config.ts')).toBe(before.nextConfig)
     expect(read('src/instrumentation.ts')).toBe(before.instrumentation)
@@ -187,7 +188,7 @@ describe('mercato telemetry init', () => {
     ).replace('const match = { route: { path: \'/api/thing\' } }', 'const match = { route: { path: \'/api/thing\' } }\n  auditLog(method)')
     fs.writeFileSync(path.join(tmpDir, dispatcherPath), modified)
 
-    await runTelemetryInit([])
+    await runTelemetryInit([], tmpDir)
     const patched = read(dispatcherPath)
     assertParses(patched, 'modified-dispatcher')
     for (const line of TELEMETRY_DISPATCHER_LINES) expect(patched).toContain(line)
@@ -197,7 +198,7 @@ describe('mercato telemetry init', () => {
   it('leaves an unrecognizable dispatcher untouched and prints the manual snippet', async () => {
     baseFixture(tmpDir)
     fs.writeFileSync(path.join(tmpDir, dispatcherPath), `export async function GET() { return new Response('custom') }\n`)
-    await runTelemetryInit([])
+    await runTelemetryInit([], tmpDir)
     const route = read(dispatcherPath)
     expect(route).not.toContain('@open-mercato/telemetry')
     expect(route).toBe(`export async function GET() { return new Response('custom') }\n`)
@@ -212,7 +213,7 @@ describe('mercato telemetry init', () => {
       path.join(tmpDir, 'next.config.ts'),
       `import type { NextConfig } from 'next'\nconst nextConfig: NextConfig = { serverExternalPackages: ['esbuild'] }\nexport default nextConfig\n`,
     )
-    await runTelemetryInit([])
+    await runTelemetryInit([], tmpDir)
     const nextConfig = read('next.config.ts')
     assertParses(nextConfig, 'single-line-next-config')
     expect(nextConfig).toContain('...telemetryServerExternalPackages')
@@ -227,7 +228,7 @@ describe('mercato telemetry init', () => {
       `import type { NextConfig } from 'next'\nimport { telemetryServerExternalPackages } from '@open-mercato/telemetry/nextjs'\nconst nextConfig: NextConfig = { serverExternalPackages: ['esbuild', 'bullmq'] }\nexport default nextConfig\n`,
     )
 
-    await runTelemetryInit([])
+    await runTelemetryInit([], tmpDir)
 
     const nextConfig = read('next.config.ts')
     assertParses(nextConfig, 'legacy-next-config')
@@ -243,7 +244,7 @@ describe('mercato telemetry init', () => {
       path.join(tmpDir, 'next.config.ts'),
       `import type { NextConfig } from 'next'\nconst nextConfig: NextConfig = { distDir: '.next' }\nexport default nextConfig\n`,
     )
-    await runTelemetryInit([])
+    await runTelemetryInit([], tmpDir)
     expect(read('next.config.ts')).not.toContain('telemetryServerExternalPackages')
     const printed = logSpy.mock.calls.flat().join('\n')
     expect(printed).toContain('manual step for next.config.ts')
@@ -256,7 +257,7 @@ describe('mercato telemetry init', () => {
       path.join(tmpDir, 'src', 'instrumentation.ts'),
       `export async function register(): Promise<void> {\n  console.log('custom warmup')\n}\n`,
     )
-    await runTelemetryInit([])
+    await runTelemetryInit([], tmpDir)
     const instrumentation = read('src/instrumentation.ts')
     assertParses(instrumentation, 'custom-instrumentation')
     expect(instrumentation).toContain('registerTelemetryForNextjs')
@@ -266,7 +267,7 @@ describe('mercato telemetry init', () => {
   it('is idempotent — a second run changes nothing and does not double-insert', async () => {
     baseFixture(tmpDir)
     fs.writeFileSync(path.join(tmpDir, dispatcherPath), SIMPLE_DISPATCHER)
-    await runTelemetryInit([])
+    await runTelemetryInit([], tmpDir)
     const after1 = {
       pkg: read('package.json'),
       env: read('.env.example'),
@@ -275,7 +276,7 @@ describe('mercato telemetry init', () => {
       route: read(dispatcherPath),
     }
 
-    await runTelemetryInit([])
+    await runTelemetryInit([], tmpDir)
     expect(read('package.json')).toBe(after1.pkg)
     expect(read('.env.example')).toBe(after1.env)
     expect(read('src/instrumentation.ts')).toBe(after1.instrumentation)
@@ -291,7 +292,7 @@ describe('mercato telemetry init', () => {
     baseFixture(tmpDir)
     fs.writeFileSync(path.join(tmpDir, dispatcherPath), SIMPLE_DISPATCHER)
     const before = read('next.config.ts')
-    await runTelemetryInit(['--dry-run'])
+    await runTelemetryInit(['--dry-run'], tmpDir)
     expect(read('next.config.ts')).toBe(before)
     expect(fs.existsSync(path.join(tmpDir, 'src', 'instrumentation.ts'))).toBe(false)
     expect(JSON.parse(read('package.json')).dependencies['@open-mercato/telemetry']).toBeUndefined()

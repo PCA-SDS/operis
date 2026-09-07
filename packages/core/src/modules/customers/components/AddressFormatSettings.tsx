@@ -57,10 +57,11 @@ export function AddressFormatSettings() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       try {
         setLoading(true)
-        const call = await apiCall<{ addressFormat?: string; error?: string }>('/api/customers/settings/address-format')
+        const call = await apiCall<{ addressFormat?: string; error?: string }>('/api/customers/settings/address-format', { signal: controller.signal })
         const payload = (call.result ?? {}) as Record<string, unknown>
         if (!call.ok) {
           const message =
@@ -90,6 +91,7 @@ export function AddressFormatSettings() {
     load().catch(() => {})
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [t])
 

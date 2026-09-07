@@ -30,9 +30,8 @@ import {
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { apiCall, apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
-import { PhoneNumberField } from '@open-mercato/ui/backend/inputs/PhoneNumberField'
+import { PhoneNumberField, type PhoneCountry } from '@open-mercato/ui/backend/inputs/PhoneNumberField'
 import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
-import { resolvePhoneIdentity } from '../lib/phoneIdentity'
 import type {
   CrudCustomFieldRenderProps,
   CrudField,
@@ -442,8 +441,18 @@ const createPrimaryPhoneField = (t: Translator, defaultCountryIso2?: string): Cr
   label: t('customers.people.form.primaryPhone'),
   type: 'custom',
   rendersOwnError: true,
-  component: function PrimaryPhoneField({ value, setValue, error, autoFocus, disabled, recordId }: CrudCustomFieldRenderProps) {
+  component: function PrimaryPhoneField({ value, setValue, setFormValue, error, autoFocus, disabled, recordId }: CrudCustomFieldRenderProps) {
     const currentRecordId = React.useMemo(() => (typeof recordId === 'string' ? recordId : null), [recordId])
+
+    // The composed phone string cannot identify countries sharing a dial code,
+    // so the picker's own selection is what gets persisted.
+    const handleCountryChange = React.useCallback(
+      (country: PhoneCountry) => {
+        setFormValue?.('phoneCountryCode', country.dialCode)
+        setFormValue?.('phoneCountry', country.iso2)
+      },
+      [setFormValue]
+    )
 
     const duplicateLookup = React.useCallback(
       async (digits: string) => {
@@ -467,6 +476,7 @@ const createPrimaryPhoneField = (t: Translator, defaultCountryIso2?: string): Cr
         invalidLabel={t('customers.people.form.primaryPhone.invalid', 'Enter a valid phone number with country code (e.g. +1 212 555 1234)')}
         minDigits={7}
         onDuplicateLookup={!disabled && !error ? duplicateLookup : undefined}
+        onCountryChange={handleCountryChange}
         defaultCountryIso2={defaultCountryIso2}
       />
     )
@@ -1163,13 +1173,8 @@ export function buildPersonPayload(
   assign('jobTitle', typeof values.jobTitle === 'string' ? values.jobTitle : undefined)
   assign('primaryEmail', typeof values.primaryEmail === 'string' ? values.primaryEmail : undefined)
   assign('primaryPhone', typeof values.primaryPhone === 'string' ? values.primaryPhone : undefined)
-  const phoneIdentity = resolvePhoneIdentity({
-    primaryPhone: typeof values.primaryPhone === 'string' ? values.primaryPhone : null,
-    phoneCountryCode: typeof values.phoneCountryCode === 'string' ? values.phoneCountryCode : null,
-    phoneCountry: typeof values.phoneCountry === 'string' ? values.phoneCountry : null,
-  })
-  assign('phoneCountryCode', phoneIdentity.phoneCountryCode)
-  assign('phoneCountry', phoneIdentity.phoneCountry)
+  assign('phoneCountryCode', typeof values.phoneCountryCode === 'string' ? values.phoneCountryCode : undefined)
+  assign('phoneCountry', typeof values.phoneCountry === 'string' ? values.phoneCountry : undefined)
   assign('salutation', typeof values.salutation === 'string' ? values.salutation : undefined)
   assign('status', typeof values.status === 'string' ? values.status : undefined)
   assign('lifecycleStage', typeof values.lifecycleStage === 'string' ? values.lifecycleStage : undefined)
@@ -2389,6 +2394,8 @@ export function mapPersonOverviewToFormValues(overview: PersonOverview): Partial
     salutation: overview.profile?.salutation ?? '',
     primaryEmail: overview.person.primaryEmail ?? '',
     primaryPhone: phoneValue,
+    phoneCountryCode: overview.person.phoneCountryCode ?? '',
+    phoneCountry: overview.person.phoneCountry ?? '',
     companyEntityId: overview.profile?.companyEntityId ?? '',
     jobTitle: overview.profile?.jobTitle ?? '',
     status: overview.person.status ?? '',

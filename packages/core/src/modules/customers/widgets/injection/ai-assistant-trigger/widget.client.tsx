@@ -20,6 +20,8 @@ import * as React from 'react'
 import { Building2, ChevronDown, Handshake, PanelRightOpen, Search, Users } from 'lucide-react'
 import { AiChat, type AiChatSuggestion, type AiChatContextItem } from '@open-mercato/ui/ai/AiChat'
 import { AiIcon } from '@open-mercato/ui/ai/AiIcon'
+import { AiProviderSetupPanel } from '@open-mercato/ui/ai/AiProviderSetupPanel'
+import { useAiConfigured } from '@open-mercato/ui/ai/useAiConfigured'
 import { useAiDock } from '@open-mercato/ui/ai/AiDock'
 import { useAiChatSessions } from '@open-mercato/ui/ai/AiChatSessions'
 import { ChatPaneTabs } from '@open-mercato/ui/ai/ChatPaneTabs'
@@ -591,6 +593,7 @@ export default function AiAssistantTriggerWidget({ context }: AiAssistantTrigger
       </ButtonGroup>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
+        disableBodyWrap
           className={cn(
             // Mobile: full-screen sheet (no rounded corners, fills the
             // viewport). Desktop (≥sm): right-anchored side sheet.
@@ -688,14 +691,21 @@ function CustomersChatBody({
   const sessions = useAiChatSessions()
   const session = sessions.getActiveSession(activeAgent)
 
+  const { isUnconfigured } = useAiConfigured()
+
   // Lazily ensure an open session exists. Running `ensureSession` inside an
   // effect (not inline during render) keeps the provider's setState calls
   // outside of the render phase. The first frame may render without a
   // session — that's fine, we render the tab strip alone until the next
   // tick when the new session is committed and `getActiveSession` returns it.
   React.useEffect(() => {
+    if (isUnconfigured) return
     if (!session) sessions.ensureSession(activeAgent)
-  }, [activeAgent, session, sessions])
+  }, [activeAgent, isUnconfigured, session, sessions])
+
+  if (isUnconfigured) {
+    return <AiProviderSetupPanel variant="fill" />
+  }
 
   return (
     <>

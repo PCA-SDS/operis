@@ -3,8 +3,8 @@
 import * as React from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { X } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { CloseButton } from './close-button'
 
 const Sheet = DialogPrimitive.Root
 
@@ -20,7 +20,7 @@ const SheetOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     className={cn(
-      'fixed inset-x-0 bottom-0 top-[var(--topbar-height,0px)] z-overlay bg-black/40 backdrop-blur-sm',
+      'fixed inset-x-0 bottom-0 top-[var(--topbar-height,0px)] z-overlay bg-foreground/40',
       'data-[state=open]:animate-in data-[state=closed]:animate-out',
       'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
       className,
@@ -92,11 +92,8 @@ const SheetContent = React.forwardRef<
     <DialogPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
       {children}
       {!hideClose ? (
-        <DialogPrimitive.Close
-          className="absolute right-4 top-4 inline-flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-surface-strong hover:text-foreground focus:outline-none focus-visible:shadow-focus"
-          aria-label={closeLabel}
-        >
-          <X className="size-4" aria-hidden="true" />
+        <DialogPrimitive.Close asChild>
+          <CloseButton className="absolute right-4 top-4 z-10" aria-label={closeLabel} />
         </DialogPrimitive.Close>
       ) : null}
     </DialogPrimitive.Content>
@@ -108,7 +105,7 @@ const SheetHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('flex flex-col gap-1.5 border-b px-4 py-3 pr-12 text-left', className)}
+      className={cn('flex flex-col gap-0.5 px-5 py-4 pr-12 text-left sm:px-6', className)}
       {...props}
     />
   ),
@@ -119,7 +116,7 @@ const SheetFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('flex flex-col-reverse gap-2 border-t px-4 py-3 sm:flex-row sm:justify-end', className)}
+      className={cn('flex flex-col-reverse gap-2 px-5 pt-1.5 pb-4 sm:flex-row sm:justify-end sm:px-6', className)}
       {...props}
     />
   ),
@@ -132,7 +129,7 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn('text-base font-semibold text-foreground', className)}
+    className={cn('text-xl font-semibold tracking-tight text-foreground', className)}
     {...props}
   />
 ))

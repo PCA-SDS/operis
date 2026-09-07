@@ -74,6 +74,9 @@ jest.mock('@open-mercato/ui/backend/inputs/DateTimePicker', () => ({
 // markup instead so the suite focuses on the wizard's own state/callback
 // wiring rather than Radix's focus-trap behavior.
 jest.mock('@open-mercato/ui/primitives/dialog', () => ({
+  DialogBody: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-slot="dialog-body" className={className}>{children}</div>
+  ),
   Dialog: ({ open, children }: { open: boolean; children: React.ReactNode }) =>
     open ? <div>{children}</div> : null,
   DialogContent: ({ children, onKeyDown }: { children: React.ReactNode; onKeyDown?: (event: React.KeyboardEvent) => void }) => (

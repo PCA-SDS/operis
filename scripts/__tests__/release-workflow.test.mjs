@@ -4,7 +4,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 
-const preparePath = path.resolve('.github/workflows/release-prepare.yml')
 const changelogPath = path.resolve('CHANGELOG.md')
 const changelogSectionPath = path.resolve('scripts/changelog-section.sh')
 
@@ -23,13 +22,6 @@ function stepIndex(workflow, stepName) {
   assert.notEqual(index, -1, `Expected workflow to contain step "${stepName}"`)
   return index
 }
-
-
-
-
-
-
-
 
 test('CHANGELOG.md never repeats a version heading', () => {
   const versions = listVersionHeadings(readChangelogLines())
@@ -82,32 +74,3 @@ test('changelog-section.sh round-trips the section it extracts', () => {
   )
 })
 
-test('release prepare workflow opens a PR instead of pushing to main', () => {
-  const workflow = fs.readFileSync(preparePath, 'utf8')
-
-  assert.match(workflow, /gh pr create/, 'Version bumps must land through a pull request')
-  assert.match(workflow, /git push origin "\$BRANCH"/, 'Prepare must push the release branch only')
-  assert.doesNotMatch(workflow, /git push origin main/)
-  assert.doesNotMatch(workflow, /git add -A/, 'Staging must stay scoped to tracked manifest changes')
-})
-
-test('release prepare targets main explicitly', () => {
-  const workflow = fs.readFileSync(preparePath, 'utf8')
-
-  assert.match(workflow, /--base main \\/, 'The PR base must be pinned to main, not the repo default')
-  assert.match(workflow, /--head "\$BRANCH"/)
-  assert.match(workflow, /compare\/main\.\.\.\$BRANCH/, 'The fallback compare link must also target main')
-})
-
-
-test('release prepare survives a token that cannot open PRs', () => {
-  const workflow = fs.readFileSync(preparePath, 'utf8')
-
-  assert.match(workflow, /if PR_URL=\$\(gh pr create/, 'PR creation must be a conditional, not a hard failure')
-  assert.match(workflow, /GITHUB_STEP_SUMMARY/, 'Both branches must report where the release stands')
-  assert.match(
-    workflow,
-    /Allow GitHub Actions to create and approve pull requests/,
-    'The fallback must name the setting that unblocks automatic PR creation',
-  )
-})

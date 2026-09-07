@@ -68,11 +68,12 @@ function DeviceField({ value, setValue, setFormValue, values, onState }: CrudCus
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     setLoading(true)
     const params = new URLSearchParams({ userId, pageSize: '50' })
     apiCall<{ items?: Array<{ id: string; device_id: string; platform: string; push_provider?: string | null }> }>(
       `/api/devices/admin/devices?${params.toString()}`,
-      { headers: { 'x-om-forbidden-redirect': '0' } },
+      { signal: controller.signal, headers: { 'x-om-forbidden-redirect': '0' } },
       { fallback: null },
     )
       .catch(() => null)
@@ -87,7 +88,7 @@ function DeviceField({ value, setValue, setFormValue, values, onState }: CrudCus
         if (selected && !opts.some((o) => o.id === selected)) setValue('')
       })
       .finally(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
     // Reload only when the recipient changes; `selected`/`setValue` are handled inside.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])

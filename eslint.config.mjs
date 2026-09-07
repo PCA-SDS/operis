@@ -50,8 +50,44 @@ const ruleOverrides = {
   'react-hooks/static-components': 'off',
 }
 
+// Entity decorators come from `@open-mercato/shared/lib/db/decorators` and nowhere else.
+// The shim pins the TC39 (Stage-3) flavour — which is what lets both Next minifiers stay on
+// (apps/mercato/next.config.ts) — and patches two upstream defects in
+// `@mikro-orm/decorators@7`: a subclass's `@Index`/`@Unique` mutating the PARENT entity's
+// metadata, and an explicit column `name:` being dropped so the column silently takes the
+// property's name instead. Both fail quietly, as schema drift rather than as an error, so
+// importing upstream directly is worth catching at the keystroke.
+//
+// `turbo run lint` only runs in apps/mercato, so in CI this covers that workspace alone;
+// editors resolve this config for `packages/**` too. The gate that covers every entity file
+// is packages/shared/src/lib/db/__tests__/entity-decorator-boundary.test.ts, which runs under
+// `yarn test`.
+const entityDecoratorImports = {
+  name: 'project/entity-decorator-shim',
+  rules: {
+    'no-restricted-imports': ['error', {
+      patterns: [{
+        group: ['@mikro-orm/decorators', '@mikro-orm/decorators/*'],
+        message:
+          'Import entity decorators from @open-mercato/shared/lib/db/decorators. Importing '
+          + '@mikro-orm/decorators directly skips the TC39 pin and the @Index/@Unique + column-name '
+          + 'fixes, which fail silently as schema drift.',
+      }],
+    }],
+  },
+}
+
+// The shim is the one place allowed to reach upstream — it is what re-exports it.
+const entityDecoratorShimItself = {
+  name: 'project/entity-decorator-shim-allowlist',
+  files: ['packages/shared/src/lib/db/decorators.ts'],
+  rules: { 'no-restricted-imports': 'off' },
+}
+
 export default [
   ...nextCoreWebVitals,
   { ignores },
   { name: 'project/rule-overrides', rules: ruleOverrides },
+  entityDecoratorImports,
+  entityDecoratorShimItself,
 ]

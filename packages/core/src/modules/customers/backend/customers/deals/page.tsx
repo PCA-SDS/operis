@@ -312,9 +312,10 @@ export default function CustomersDealsPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadPipelines() {
       try {
-        const call = await apiCall<{ items?: Array<{ id: string; name: string }> }>('/api/customers/pipelines')
+        const call = await apiCall<{ items?: Array<{ id: string; name: string }> }>('/api/customers/pipelines', { signal: controller.signal })
         if (cancelled || !call.ok) return
         const items = Array.isArray(call.result?.items) ? call.result.items : []
         const map: Record<string, string> = {}
@@ -327,7 +328,7 @@ export default function CustomersDealsPage() {
     loadPipelines().catch((err) => {
       logger.warn('loadPipelines threw', { component: 'deals.list', err })
     })
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [reloadToken, scopeVersion])
 
   const handleSearchChange = React.useCallback((value: string) => {
@@ -372,12 +373,13 @@ export default function CustomersDealsPage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setCacheStatus(null)
       try {
         const fallback: DealsResponse = { items: [], total: 0, totalPages: 1 }
-        const call = await apiCall<DealsResponse>(`/api/customers/deals?${queryParams}`, undefined, { fallback })
+        const call = await apiCall<DealsResponse>(`/api/customers/deals?${queryParams}`, { signal: controller.signal }, { fallback })
         if (!call.ok) {
           const message =
             typeof (call.result as { error?: string } | undefined)?.error === 'string'
@@ -408,7 +410,7 @@ export default function CustomersDealsPage() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [queryParams, reloadToken, scopeVersion, t])
 
   React.useEffect(() => {

@@ -31,6 +31,7 @@ import {
   VariantBasicsSection,
   VariantOptionValuesSection,
   VariantDimensionsSection,
+  VariantDurationSection,
   VariantMetadataSection,
   VariantPricesSection,
   VariantMediaSection,
@@ -134,6 +135,7 @@ export default function CreateVariantPage({ params }: { params?: { productId?: s
   React.useEffect(() => {
     if (!productId) return
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setLoading(true)
       setError(null)
@@ -141,7 +143,7 @@ export default function CreateVariantPage({ params }: { params?: { productId?: s
       try {
         const res = await apiCall<ProductResponse>(
           `/api/catalog/products?id=${encodeURIComponent(productId!)}&page=1&pageSize=1`,
-        )
+        { signal: controller.signal })
         if (!res.ok) throw new Error(t('catalog.variants.form.errors.load', 'Failed to load product context.'))
         const record = Array.isArray(res.result?.items) ? res.result?.items?.[0] : undefined
         if (!record) {
@@ -204,7 +206,7 @@ export default function CreateVariantPage({ params }: { params?: { productId?: s
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [productId, t])
 
   const groups = React.useMemo<CrudFormGroup[]>(() => {
@@ -267,6 +269,15 @@ export default function CreateVariantPage({ params }: { params?: { productId?: s
         ),
       })
     }
+
+    list.push({
+      id: 'duration',
+      column: 2,
+      title: t('catalog.variants.form.duration', 'Duration'),
+      component: ({ values, setValue }) => (
+        <VariantDurationSection values={values as VariantFormValues} setValue={setValue} showHeading={false} />
+      ),
+    })
 
     list.push({
       id: 'dimensions',
@@ -381,6 +392,10 @@ export default function CreateVariantPage({ params }: { params?: { productId?: s
               customFieldsetCode: values.customFieldsetCode?.trim().length ? values.customFieldsetCode : undefined,
               taxRateId: resolvedTaxRateId,
               taxRate: resolvedTaxRateValue,
+              durationValue: typeof values.durationValue === 'string' && values.durationValue.trim().length ? parseInt(values.durationValue, 10) : undefined,
+              durationUnit: values.durationUnit ?? undefined,
+              durationMin: typeof values.durationMin === 'string' && values.durationMin.trim().length ? parseInt(values.durationMin, 10) : undefined,
+              durationMax: typeof values.durationMax === 'string' && values.durationMax.trim().length ? parseInt(values.durationMax, 10) : undefined,
             }
             // CrudForm injects a sentinel `id` ("create") while the record is new; never send it to the API.
             Reflect.deleteProperty(payload, 'id')
@@ -484,6 +499,10 @@ async function syncVariantPrices({
       variantId,
       priceKindId: kind.id,
       currencyCode: kind.currencyCode ?? undefined,
+      priceType: draft?.priceType ?? null,
+      priceMin: typeof draft?.priceMin === 'string' && draft.priceMin.trim().length ? draft.priceMin : null,
+      priceMax: typeof draft?.priceMax === 'string' && draft.priceMax.trim().length ? draft.priceMax : null,
+      priceRangeEnabled: draft?.priceRangeEnabled ?? false,
     }
     if (resolvedTaxRateId) {
       payload.taxRateId = resolvedTaxRateId

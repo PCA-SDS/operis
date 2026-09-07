@@ -65,7 +65,7 @@ The app is a stateless Next.js container (port `3000`, started with `yarn start`
    ┌──────────────────────────────────────────────────────────┐
    │  ECS Fargate — Migration ONE-OFF task                     │
    │  yarn mercato init (bootstrap) / yarn db:migrate (deploy) │
-   │  CREATE EXTENSION vector, pgcrypto  (Aurora master role)  │
+   │  CREATE EXTENSION vector, pgcrypto, pg_trgm (Aurora master)  │
    │  triggered on app_image_tag change                        │
    └──────────────────────────────────────────────────────────┘
 
@@ -565,6 +565,7 @@ Extensions are created **once, by the migration/bootstrap task** (Section "Migra
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 ```
 
 The app's runtime `CREATE EXTENSION` calls (search/pgvector driver) become **no-ops** because the extensions already exist — and the app DB role does not need superuser/extension privileges. `gen_random_uuid()` is core in PG13+, so no extra work there.

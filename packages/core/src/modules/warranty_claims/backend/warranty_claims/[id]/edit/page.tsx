@@ -228,6 +228,7 @@ export default function EditWarrantyClaimPage({ params }: { params?: { id?: stri
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setLoading(true)
       setError(null)
@@ -235,7 +236,7 @@ export default function EditWarrantyClaimPage({ params }: { params?: { id?: stri
       try {
         const payload = await readApiResultOrThrow<{ items?: unknown[] }>(
           `/api/warranty_claims?ids=${encodeURIComponent(id)}&page=1&pageSize=1`,
-          undefined,
+          { signal: controller.signal },
           { fallback: { items: [] }, errorMessage: t('warranty_claims.edit.error.load') },
         )
         if (cancelled) return
@@ -255,6 +256,7 @@ export default function EditWarrantyClaimPage({ params }: { params?: { id?: stri
     if (id) void load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [id, t])
 

@@ -9,6 +9,7 @@ import { createCrudFormError } from '@open-mercato/ui/backend/utils/serverErrors
 import { E } from '#generated/entities.ids.generated'
 import { TenantSelect } from '@open-mercato/core/modules/directory/components/TenantSelect'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { ParentRoleSelect } from '@open-mercato/core/modules/auth/components/ParentRoleSelect'
 
 type CreateRoleFormValues = {
   name: string
@@ -21,24 +22,37 @@ export default function CreateRolePage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadActor() {
       try {
         const { ok, result } = await apiCall<{ isSuperAdmin?: boolean }>(
           '/api/auth/roles?page=1&pageSize=1',
-        )
+        { signal: controller.signal })
         if (!cancelled && ok) setActorIsSuperAdmin(Boolean(result?.isSuperAdmin))
       } catch {
         if (!cancelled) setActorIsSuperAdmin(false)
       }
     }
     loadActor()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [])
 
   const fields = React.useMemo<CrudField[]>(() => {
     const list: CrudField[] = [
       { id: 'name', label: t('auth.roles.form.field.name', 'Name'), type: 'text', required: true },
     ]
+    list.push({
+      id: 'parentRoleId',
+      label: t('auth.roles.form.field.parentRole', 'Reports to'),
+      type: 'custom',
+      component: ({ value, setValue }) => (
+        <ParentRoleSelect
+          id="parentRoleId"
+          value={typeof value === 'string' ? value : null}
+          onChange={(next) => setValue(next)}
+        />
+      ),
+    })
     if (actorIsSuperAdmin) {
       list.push({
         id: 'tenantId',
@@ -63,7 +77,7 @@ export default function CreateRolePage() {
   }, [actorIsSuperAdmin, t])
 
   const detailFieldIds = React.useMemo(() => {
-    const base = ['name']
+    const base = ['name', 'parentRoleId']
     if (actorIsSuperAdmin) base.push('tenantId')
     return base
   }, [actorIsSuperAdmin])

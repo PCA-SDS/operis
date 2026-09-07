@@ -180,6 +180,7 @@ export default function StaffTeamEditPage({ params }: { params?: { id?: string }
     if (!teamId) return
     const teamIdValue = teamId
     let cancelled = false
+    const controller = new AbortController()
     async function loadTeam() {
       if (!cancelled) {
         setError(null)
@@ -189,7 +190,7 @@ export default function StaffTeamEditPage({ params }: { params?: { id?: string }
         const params = new URLSearchParams({ page: '1', pageSize: '1', ids: teamIdValue })
         const payload = await readApiResultOrThrow<TeamResponse>(
           `/api/staff/teams?${params.toString()}`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: t('staff.teams.errors.load', 'Failed to load team.') },
         )
         const record = Array.isArray(payload.items) ? payload.items[0] : null
@@ -229,7 +230,7 @@ export default function StaffTeamEditPage({ params }: { params?: { id?: string }
       }
     }
     loadTeam()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [teamId, t])
 
   React.useEffect(() => {

@@ -39,6 +39,7 @@ import {
   VariantBasicsSection,
   VariantOptionValuesSection,
   VariantDimensionsSection,
+  VariantDurationSection,
   VariantMetadataSection,
   VariantPricesSection,
   VariantMediaSection,
@@ -212,6 +213,7 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
   React.useEffect(() => {
     if (!variantId || isCreateSentinel || priceKinds.length === 0) return
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setLoading(true)
       setError(null)
@@ -219,7 +221,7 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
       try {
         const variantRes = await apiCall<VariantResponse>(
           `/api/catalog/variants?id=${encodeURIComponent(variantId!)}&page=1&pageSize=1`,
-        )
+        { signal: controller.signal })
         if (!variantRes.ok) {
           if (variantRes.status === 404) {
             if (!cancelled) setIsNotFound(true)
@@ -246,7 +248,7 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
           resolvedProductId
             ? apiCall<ProductResponse>(
                 `/api/catalog/products?id=${encodeURIComponent(resolvedProductId)}&page=1&pageSize=1`,
-              )
+              { signal: controller.signal })
             : Promise.resolve(null),
         ])
         const priceIdMap: Record<string, string> = {}
@@ -398,7 +400,7 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [variantId, t, currentProductId, priceKinds])
 
   const groups = React.useMemo<CrudFormGroup[]>(() => {
@@ -461,6 +463,15 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
         ),
       })
     }
+
+    list.push({
+      id: 'duration',
+      column: 2,
+      title: t('catalog.variants.form.duration', 'Duration'),
+      component: ({ values, setValue }) => (
+        <VariantDurationSection values={values as VariantFormValues} setValue={setValue} showHeading={false} />
+      ),
+    })
 
     list.push({
       id: 'dimensions',
@@ -642,6 +653,10 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
               customFieldsetCode: values.customFieldsetCode?.trim().length ? values.customFieldsetCode : undefined,
               taxRateId: resolvedTaxRateId,
               taxRate: resolvedTaxRateValue,
+              durationValue: typeof values.durationValue === 'string' && values.durationValue.trim().length ? parseInt(values.durationValue, 10) : undefined,
+              durationUnit: values.durationUnit ?? undefined,
+              durationMin: typeof values.durationMin === 'string' && values.durationMin.trim().length ? parseInt(values.durationMin, 10) : undefined,
+              durationMax: typeof values.durationMax === 'string' && values.durationMax.trim().length ? parseInt(values.durationMax, 10) : undefined,
             }
             const customFields = collectCustomFieldValues(values)
             if (Object.keys(customFields).length) payload.customFields = customFields
@@ -834,6 +849,10 @@ async function syncVariantPricesUpdate({
       variantId,
       priceKindId: kind.id,
       currencyCode: kind.currencyCode ?? undefined,
+      priceType: draft?.priceType ?? null,
+      priceMin: typeof draft?.priceMin === 'string' && draft.priceMin.trim().length ? draft.priceMin : null,
+      priceMax: typeof draft?.priceMax === 'string' && draft.priceMax.trim().length ? draft.priceMax : null,
+      priceRangeEnabled: draft?.priceRangeEnabled ?? false,
     }
     if (resolvedTaxRateId) payload.taxRateId = resolvedTaxRateId
     else if (typeof resolvedTaxRateValue === 'number' && Number.isFinite(resolvedTaxRateValue)) payload.taxRate = resolvedTaxRateValue

@@ -14,6 +14,7 @@ export function QuickAddDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent
+        disableBodyWrap
         dismissible={false}
         className="top-16 max-w-xl translate-y-0 gap-0 border-0 bg-transparent p-0 shadow-none"
       >

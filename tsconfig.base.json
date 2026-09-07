@@ -12,8 +12,21 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
+    // TC39 (Stage-3) decorators, not the legacy TypeScript ones. MikroORM's legacy
+    // decorators keyed entity metadata off `target.constructor.name`, which a minifier
+    // mangles — two entity classes collapsing to the same short identifier merged their
+    // metadata buckets and threw `Multiple property decorators used on 'I.comments'`. That
+    // is why both Next minifiers had to be disabled, shipping ~62 MB of unminified client
+    // JS. The Stage-3 decorators in `@mikro-orm/decorators/es` receive the class name as a
+    // compile-time string literal and attach metadata per class, so mangling is harmless.
+    // `emitDecoratorMetadata` only works with the legacy transform and is no longer read:
+    // every entity property declares its `type` explicitly, so nothing is inferred from
+    // design-time types (see packages/shared/src/lib/db/mikro.ts).
+    "experimentalDecorators": false,
+    "emitDecoratorMetadata": false,
+    // Deliberately left false. Standard decorators do not require the `define` semantics,
+    // and flipping this would change class-field initialization for EVERY class in the
+    // monorepo, not just entities — a far wider blast radius than this migration needs.
     "useDefineForClassFields": false,
     "typeRoots": ["./node_modules/@types"]
   }

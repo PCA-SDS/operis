@@ -55,13 +55,14 @@ export function DictionarySelectControl({
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function evaluateInlineCreate() {
       if (!allowInlineCreate) {
         setInlineCreateEnabled(false)
         return
       }
       try {
-        const call = await apiCall<{ isInherited?: boolean }>(`/api/dictionaries/${dictionaryId}`)
+        const call = await apiCall<{ isInherited?: boolean }>(`/api/dictionaries/${dictionaryId}`, { signal: controller.signal })
         if (cancelled) return
         if (call.ok && call.result && call.result.isInherited === true) {
           setInlineCreateEnabled(false)
@@ -78,6 +79,7 @@ export function DictionarySelectControl({
     evaluateInlineCreate().catch(() => {})
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [allowInlineCreate, dictionaryId, scopeVersion])
 

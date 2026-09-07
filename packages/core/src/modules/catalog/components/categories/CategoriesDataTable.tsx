@@ -62,9 +62,11 @@ export default function CategoriesDataTable() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       try {
         const call = await apiCall<{ granted?: string[]; ok?: boolean }>('/api/auth/feature-check', {
+          signal: controller.signal,
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ features: ['catalog.categories.manage'] }),
@@ -80,6 +82,7 @@ export default function CategoriesDataTable() {
     load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [])
 

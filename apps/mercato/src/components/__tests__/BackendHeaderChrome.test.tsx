@@ -9,9 +9,12 @@ import { BackendHeaderChrome } from '../BackendHeaderChrome'
 jest.mock('next/dynamic', () => (loader: () => Promise<unknown>) => {
   const source = loader.toString()
   const isOrganizationSwitcher = source.includes('OrganizationSwitcher')
+  const isChatIcon = source.includes('ChatUnreadIcon')
   const Lazy = () =>
     isOrganizationSwitcher ? (
       <div data-testid="lazy-organization-switcher" />
+    ) : isChatIcon ? (
+      <div data-testid="lazy-chat-icon" />
     ) : (
       <div data-testid="lazy-other" />
     )
@@ -23,8 +26,13 @@ jest.mock('@open-mercato/shared/lib/i18n/context', () => ({
   useLocale: () => 'en',
 }))
 
+let chromeGroups: Array<{ items?: Array<{ href: string }> }> = []
+
 jest.mock('@open-mercato/ui/backend/BackendChromeProvider', () => ({
-  useBackendChrome: () => ({ payload: { groups: [], grantedFeatures: [] }, isReady: true }),
+  useBackendChrome: () => ({
+    payload: { groups: chromeGroups, grantedFeatures: [] },
+    isReady: true,
+  }),
 }))
 
 jest.mock('@open-mercato/ui/backend/IntegrationsButton', () => ({
@@ -46,6 +54,29 @@ jest.mock('@open-mercato/ui/backend/AuthSessionGuard', () => ({
 jest.mock('@/components/AiAssistantShellIntegration', () => ({
   AiAssistantShellIntegration: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
+
+beforeEach(() => {
+  chromeGroups = []
+})
+
+/**
+ * The chat icon is gated on the same signal as Messages: whether the nav actually
+ * resolves `/backend/chat` for this viewer. That covers both the module
+ * entitlement and the `chat.view` feature, so a tenant without chat must never be
+ * shown a topbar entry — nor load the chunk behind it.
+ */
+describe('BackendHeaderChrome chat entry', () => {
+  it('hides the chat icon when /backend/chat is not reachable', () => {
+    render(<BackendHeaderChrome userId="u1" tenantId="t1" organizationId="o1" />)
+    expect(screen.queryByTestId('lazy-chat-icon')).toBeNull()
+  })
+
+  it('shows the chat icon once /backend/chat is in the nav', () => {
+    chromeGroups = [{ items: [{ href: '/backend/chat' }] }]
+    render(<BackendHeaderChrome userId="u1" tenantId="t1" organizationId="o1" />)
+    expect(screen.getByTestId('lazy-chat-icon')).toBeInTheDocument()
+  })
+})
 
 describe('BackendHeaderChrome', () => {
   it('renders the organization switcher in the topbar without a viewport-gated wrapper', () => {

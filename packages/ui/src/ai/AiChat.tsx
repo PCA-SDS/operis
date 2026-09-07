@@ -133,11 +133,12 @@ function useAgentModels(agent: string): {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     const modelsUrl = `/api/ai_assistant/ai/agents/${encodeURIComponent(agent)}/models`
     setStatus('loading')
     setDefaultLabel(null)
     setDegraded(false)
-    apiCall<ModelsApiResponse>(modelsUrl)
+    apiCall<ModelsApiResponse>(modelsUrl, { signal: controller.signal })
       .then((result) => {
         if (cancelled) return
         if (!result.ok || !result.result) {
@@ -172,6 +173,7 @@ function useAgentModels(agent: string): {
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [agent])
 
@@ -788,8 +790,8 @@ function MessageFileAttachment({ file }: { file: AiChatMessageFile }) {
       </div>
 
       <Dialog open={zoomOpen} onOpenChange={setZoomOpen}>
-        <DialogContent className="gap-3 p-4 sm:max-w-[min(96vw,960px)]">
-          <DialogHeader className="min-w-0 pr-16">
+        <DialogContent className="sm:max-w-[min(96vw,960px)]">
+          <DialogHeader className="min-w-0">
             <DialogTitle className="truncate text-sm">{file.name}</DialogTitle>
             <DialogDescription className="sr-only">
               {t('ai_assistant.chat.imagePreviewDialogDescription', 'Image preview')}

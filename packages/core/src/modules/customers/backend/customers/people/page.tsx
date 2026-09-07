@@ -415,12 +415,13 @@ export default function CustomersPeoplePage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       setIsLoading(true)
       setCacheStatus(null)
       try {
         const fallback: PeopleResponse = { items: [], total: 0, totalPages: 1 }
-        const call = await apiCall<PeopleResponse>(`/api/customers/people?${queryParams}`, undefined, { fallback })
+        const call = await apiCall<PeopleResponse>(`/api/customers/people?${queryParams}`, { signal: controller.signal }, { fallback })
         if (!call.ok) {
           const errorPayload = call.result as { error?: string } | undefined
           const message = typeof errorPayload?.error === 'string' ? errorPayload.error : t('customers.people.list.error.load')
@@ -446,7 +447,7 @@ export default function CustomersPeoplePage() {
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => { cancelled = true; controller.abort() }
   }, [queryParams, reloadToken, scopeVersion, t])
 
   const handleRefresh = React.useCallback(() => {

@@ -99,11 +99,12 @@ export function EntitlementLookupBadge({ claim, lines }: EntitlementLookupBadgeP
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     setLoading(true)
     setError(null)
     apiCall<EntitlementResult>(
       `/api/warranty_claims/entitlement?${debouncedQuery}`,
-      undefined,
+      { signal: controller.signal },
       { fallback: { warrantyStatus: 'unknown' } },
     )
       .then((call) => {
@@ -125,6 +126,7 @@ export function EntitlementLookupBadge({ claim, lines }: EntitlementLookupBadgeP
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [debouncedQuery, t])
 

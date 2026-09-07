@@ -24,6 +24,63 @@ most of the patterns listed below in a user's codebase.
 
 ## 0.6.7 → 0.7.0 (2026-08-26)
 
+### TPS catalog importer moved to its own package
+
+The one-shot TPS catalog importer moved out of `@open-mercato/core` into a new
+workspace package, `@open-mercato/migrate-tps`, so the core package no longer
+carries a single customer's service menu (3,115 lines of it). The module is
+CLI-only — no routes, no entities, no migrations.
+
+**Action for operators:** the commands moved namespace and dropped their
+redundant prefix.
+
+| Before | After |
+| --- | --- |
+| `yarn mercato catalog migrate-tps-categories <tenantId> <organizationId>` | `yarn mercato migrate_tps categories <tenantId> <organizationId>` |
+| `yarn mercato catalog migrate-tps-products <tenantId> <organizationId>` | `yarn mercato migrate_tps products <tenantId> <organizationId>` |
+
+Flags are unchanged, including `--replace`. Apps enable it through the usual
+`enabledModules` entry (`{ id: 'migrate_tps', from: '@open-mercato/migrate-tps' }`);
+removing that line removes the commands.
+
+### WMS sales-order warehouse assignment gains its missing foreign key
+
+`SalesOrderWarehouseAssignment.warehouse` has always been a required
+`@ManyToOne`, but no migration ever created the foreign key — the table shipped
+with only a primary key, so `warehouse_id` could reference a warehouse that does
+not exist. The module snapshot recorded a constraint that was never created,
+which is why `yarn db:generate` kept emitting drift for `wms`.
+
+The constraint is added `NOT VALID`, so the migration cannot fail on a
+deployment that already carries orphaned assignments: Postgres enforces it on
+every new row and update without scanning the existing table.
+
+**Action for operators:** reconcile any assignment rows pointing at a missing
+warehouse, then promote the constraint:
+
+```sql
+ALTER TABLE "wms_sales_order_warehouse_assignments"
+  VALIDATE CONSTRAINT "wms_sales_order_warehouse_assignments_warehouse_id_foreign";
+```
+
+### Catalog option tree replaces the legacy product-option table
+
+The catalog option-tree rollout reuses the physical table name
+`catalog_product_options` for the new nested option-node model. The migration
+therefore drops the legacy `catalog_product_options` table before creating the
+new schema (`catalog_product_option_groups` plus the replacement
+`catalog_product_options` table keyed by `group_id` instead of `product_id`).
+This is a database-schema compatibility break under
+[`BACKWARD_COMPATIBILITY.md`](BACKWARD_COMPATIBILITY.md): rows stored in the old
+shape are not auto-mapped into the new tree model.
+
+**Action for operators:** treat the upgrade as a one-way schema transition for
+catalog product options. Export or migrate any production data still stored in
+the legacy `catalog_product_options` table before applying the migration. The
+paired legacy tables `catalog_product_option_values` and
+`catalog_product_variant_option_values` are no longer dropped by this release;
+they remain intact for follow-up migration work.
+
 ### Passkey MFA verification requires a real WebAuthn assertion (#3852)
 
 `PasskeyProvider.verify()` used to accept a second payload shape — `{ credentialId, challenge }` — beside the genuine `{ response }` assertion, and approved it by string comparison. Both compared values are public: `prepareChallenge()` returns the credential id and the challenge to the caller, and `GET /api/security/mfa/methods` discloses `providerMetadata.credentialId`. A third shape needed even less: with no prepared challenge at all, only the disclosed credential id was compared. Anyone who could reach the verify step for a session therefore passed the passkey second factor with no authenticator private key and no signature, in both login-time MFA and passkey-as-sudo step-up.

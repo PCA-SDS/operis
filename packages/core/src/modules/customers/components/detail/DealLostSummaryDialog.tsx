@@ -1,11 +1,16 @@
 "use client"
 
 import * as React from 'react'
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { CircleOff, Clock3, FileWarning, Radar } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Dialog, DialogContent, DialogTitle } from '@open-mercato/ui/primitives/dialog'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogFooter,
+  DialogTitle,
+} from '@open-mercato/ui/primitives/dialog'
 
 type DealStatsPayload = {
   dealValue: number | null
@@ -72,22 +77,17 @@ export function DealLostSummaryDialog({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }}>
-      <DialogContent className="overflow-hidden p-0 sm:max-w-[420px]">
-        <VisuallyHidden>
-          <DialogTitle>{t('customers.deals.detail.lost.popupTitle', 'Not this round')}</DialogTitle>
-        </VisuallyHidden>
-        <div className="overflow-hidden rounded-2xl bg-card">
-          <div className="px-6 pb-5 pt-6">
-            <div className="flex h-[200px] items-center justify-center rounded-2xl bg-muted/30 text-foreground">
-              <CircleOff className="size-24" strokeWidth={1.5} />
-            </div>
+      <DialogContent className="overflow-hidden sm:max-w-[420px]">
+        <DialogBody className="min-h-0 flex-1 space-y-5 overflow-y-auto pt-6 text-center">
+          <div className="flex h-[200px] items-center justify-center rounded-2xl bg-muted/30 text-foreground">
+            <CircleOff className="size-24" strokeWidth={1.5} />
           </div>
 
-          <div className="space-y-5 px-7 pb-7 text-center">
+          <div className="space-y-5">
             <div className="space-y-2">
-              <h2 className="text-2xl font-bold leading-tight text-foreground">
+              <DialogTitle className="text-2xl font-bold leading-tight">
                 {t('customers.deals.detail.lost.popupTitle', 'Not this round')}
-              </h2>
+              </DialogTitle>
               <p className="text-sm font-medium text-muted-foreground">
                 {t('customers.deals.detail.lost.popupSubtitle', 'Even great teams miss a shot sometimes')}
               </p>
@@ -134,22 +134,22 @@ export function DealLostSummaryDialog({
               </div>
             ) : null}
 
-            <div className="space-y-2">
-              <Button
-                type="button"
-                className="w-full"
-                onClick={onBackToPipeline ?? onClose}
-              >
-                {t('customers.deals.detail.lost.primaryAction', 'Back to pipeline')}
-              </Button>
-              {onScheduleFollowUp ? (
-                <Button type="button" variant="outline" className="w-full" onClick={onScheduleFollowUp}>
-                  {t('customers.deals.detail.lost.secondaryAction', 'Set reminder for Q3')}
-                </Button>
-              ) : null}
-            </div>
           </div>
-        </div>
+        </DialogBody>
+        <DialogFooter className="flex-col gap-2">
+          <Button
+            type="button"
+            className="w-full"
+            onClick={onBackToPipeline ?? onClose}
+          >
+            {t('customers.deals.detail.lost.primaryAction', 'Back to pipeline')}
+          </Button>
+          {onScheduleFollowUp ? (
+            <Button type="button" variant="outline" className="w-full" onClick={onScheduleFollowUp}>
+              {t('customers.deals.detail.lost.secondaryAction', 'Set reminder for Q3')}
+            </Button>
+          ) : null}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

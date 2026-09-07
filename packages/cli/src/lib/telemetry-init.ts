@@ -402,8 +402,13 @@ function findCatchAfter(
   return null
 }
 
-export async function runTelemetryInit(args: string[]): Promise<number> {
-  const appDir = resolve('.')
+export async function runTelemetryInit(args: string[], appDirOverride?: string): Promise<number> {
+  // The override exists so tests can target a fixture directory without calling
+  // process.chdir(), which mutates state shared by every other suite running in
+  // the same worker. Stubbing process.cwd() is not a substitute: path.resolve()
+  // reads the working directory through an internal binding rather than the JS
+  // process.cwd property, so a jest spy on it has no effect here (verified).
+  const appDir = appDirOverride ?? resolve('.')
   const options = parseArgs(args)
 
   if (!existsSync(join(appDir, 'src', 'modules.ts'))) {

@@ -8,14 +8,28 @@ const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url))
 const workflowPath = `${repositoryRoot}.github/workflows/mutation-tests.yml`
 const workflow = parse(fs.readFileSync(workflowPath, 'utf8'))
 
-test('is a standalone workflow, separate from ci.yml', () => {
+test('is a standalone workflow — no other workflow references mutation testing', () => {
   assert.ok(fs.existsSync(workflowPath))
   assert.equal(workflow.name, 'Mutation tests')
 
-  const ciWorkflow = fs.readFileSync(`${repositoryRoot}.github/workflows/ci.yml`, 'utf8')
-  assert.ok(
-    !ciWorkflow.includes('mutation'),
-    'ci.yml must not reference mutation testing — rollback is deleting one file',
+  // Was pinned to ci.yml, which #237 deleted as a workflow this fork cannot run.
+  // Scanning every sibling instead keeps the original guarantee — rollback is
+  // deleting one file — without depending on any particular workflow filename.
+  const workflowDir = `${repositoryRoot}.github/workflows`
+  const siblings = fs
+    .readdirSync(workflowDir)
+    .filter((file) => /\.ya?ml$/.test(file) && file !== 'mutation-tests.yml')
+
+  assert.ok(siblings.length > 0, 'expected sibling workflows to scan')
+
+  const offenders = siblings.filter((file) =>
+    fs.readFileSync(`${workflowDir}/${file}`, 'utf8').includes('mutation'),
+  )
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `mutation testing must live only in mutation-tests.yml so rollback is deleting one file. Offending workflows: ${offenders.join(', ')}`,
   )
 })
 

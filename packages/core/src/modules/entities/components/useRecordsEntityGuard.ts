@@ -23,8 +23,9 @@ export function useRecordsEntityGuard(entityId: string): RecordsEntityGuardState
       return
     }
     let cancelled = false
+    const controller = new AbortController()
     setState('checking')
-    apiCall<{ code?: string }>(`/api/entities/records?entityId=${encodeURIComponent(entityId)}&page=1&pageSize=1`)
+    apiCall<{ code?: string }>(`/api/entities/records?entityId=${encodeURIComponent(entityId)}&page=1&pageSize=1`, { signal: controller.signal })
       .then((res) => {
         if (cancelled) return
         const blocked = res.status === 400 && res.result?.code === SYSTEM_ENTITY_RECORDS_BLOCKED_CODE
@@ -35,6 +36,7 @@ export function useRecordsEntityGuard(entityId: string): RecordsEntityGuardState
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [entityId])
   return state

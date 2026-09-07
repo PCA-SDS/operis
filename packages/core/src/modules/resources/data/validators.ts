@@ -12,6 +12,21 @@ const scopedUpdateFields = {
   id: z.string().uuid(),
 }
 
+const reorderMoveSchema = z
+  .object({
+    ...scopedCreateFields,
+    id: z.string().uuid(),
+    targetId: z.string().uuid().optional(),
+    direction: z.enum(['up', 'down']).optional(),
+    position: z.enum(['top', 'bottom', 'before', 'after']).optional(),
+  })
+  .refine((value) => value.targetId || value.direction || value.position === 'top' || value.position === 'bottom', {
+    message: 'Reorder target or direction is required.',
+  })
+  .refine((value) => !value.position || value.position === 'top' || value.position === 'bottom' || Boolean(value.targetId), {
+    message: 'Reorder target is required for relative moves.',
+  })
+
 export const resourcesResourceTypeCreateSchema = z.object({
   ...scopedCreateFields,
   name: z.string().min(1),
@@ -38,6 +53,34 @@ export const resourcesResourceTypeUpdateSchema = z.object({
     .nullable(),
 })
 
+export const resourcesResourceAreaTypeCreateSchema = z.object({
+  ...scopedCreateFields,
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  appearanceIcon: z.string().trim().max(100).optional().nullable(),
+  appearanceColor: z
+    .string()
+    .trim()
+    .regex(/^#([0-9a-fA-F]{6})$/)
+    .optional()
+    .nullable(),
+  isActive: z.boolean().optional(),
+})
+
+export const resourcesResourceAreaTypeUpdateSchema = z.object({
+  ...scopedUpdateFields,
+  name: z.string().min(1).optional(),
+  description: z.string().optional().nullable(),
+  appearanceIcon: z.string().trim().max(100).optional().nullable(),
+  appearanceColor: z
+    .string()
+    .trim()
+    .regex(/^#([0-9a-fA-F]{6})$/)
+    .optional()
+    .nullable(),
+  isActive: z.boolean().optional(),
+})
+
 export const resourcesResourceCreateSchema = z.object({
   ...scopedCreateFields,
   name: z.string().min(1),
@@ -54,6 +97,8 @@ export const resourcesResourceCreateSchema = z.object({
     .optional()
     .nullable(),
   isActive: z.boolean().optional(),
+  areaId: z.string().uuid().optional().nullable(),
+  sortOrder: z.coerce.number().int().default(0),
   availabilityRuleSetId: z.string().uuid().optional().nullable(),
   customFieldsetCode: customFieldsetCodeSchema.optional().nullable(),
 })
@@ -74,9 +119,13 @@ export const resourcesResourceUpdateSchema = z.object({
     .optional()
     .nullable(),
   isActive: z.boolean().optional(),
+  areaId: z.string().uuid().optional().nullable(),
+  sortOrder: z.coerce.number().int().optional(),
   availabilityRuleSetId: z.string().uuid().optional().nullable(),
   customFieldsetCode: customFieldsetCodeSchema.optional().nullable(),
 })
+
+export const resourcesResourceReorderSchema = reorderMoveSchema
 
 export const resourcesResourceTagCreateSchema = z.object({
   ...scopedCreateFields,
@@ -143,10 +192,49 @@ export const resourcesResourceActivityUpdateSchema = z
   })
   .merge(resourcesResourceActivityCreateSchema.partial())
 
+export const resourcesResourceAreaCreateSchema = z.object({
+  ...scopedCreateFields,
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  areaTypeId: z.string().uuid().optional().nullable(),
+  parentAreaId: z.string().uuid().optional().nullable(),
+  sortOrder: z.coerce.number().int().default(0),
+  appearanceIcon: z.string().trim().max(100).optional().nullable(),
+  appearanceColor: z
+    .string()
+    .trim()
+    .regex(/^#([0-9a-fA-F]{6})$/)
+    .optional()
+    .nullable(),
+  isActive: z.boolean().optional(),
+})
+
+export const resourcesResourceAreaUpdateSchema = z.object({
+  ...scopedUpdateFields,
+  name: z.string().min(1).optional(),
+  description: z.string().optional().nullable(),
+  areaTypeId: z.string().uuid().optional().nullable(),
+  parentAreaId: z.string().uuid().optional().nullable(),
+  sortOrder: z.coerce.number().int().optional(),
+  appearanceIcon: z.string().trim().max(100).optional().nullable(),
+  appearanceColor: z
+    .string()
+    .trim()
+    .regex(/^#([0-9a-fA-F]{6})$/)
+    .optional()
+    .nullable(),
+  isActive: z.boolean().optional(),
+})
+
+export const resourcesResourceAreaReorderSchema = reorderMoveSchema
+
 export type ResourcesResourceTypeCreateInput = z.infer<typeof resourcesResourceTypeCreateSchema>
 export type ResourcesResourceTypeUpdateInput = z.infer<typeof resourcesResourceTypeUpdateSchema>
+export type ResourcesResourceAreaTypeCreateInput = z.infer<typeof resourcesResourceAreaTypeCreateSchema>
+export type ResourcesResourceAreaTypeUpdateInput = z.infer<typeof resourcesResourceAreaTypeUpdateSchema>
 export type ResourcesResourceCreateInput = z.infer<typeof resourcesResourceCreateSchema>
 export type ResourcesResourceUpdateInput = z.infer<typeof resourcesResourceUpdateSchema>
+export type ResourcesResourceReorderInput = z.infer<typeof resourcesResourceReorderSchema>
 export type ResourcesResourceTagCreateInput = z.infer<typeof resourcesResourceTagCreateSchema>
 export type ResourcesResourceTagUpdateInput = z.infer<typeof resourcesResourceTagUpdateSchema>
 export type ResourcesResourceTagAssignmentInput = z.infer<typeof resourcesResourceTagAssignmentSchema>
@@ -154,3 +242,6 @@ export type ResourcesResourceCommentCreateInput = z.infer<typeof resourcesResour
 export type ResourcesResourceCommentUpdateInput = z.infer<typeof resourcesResourceCommentUpdateSchema>
 export type ResourcesResourceActivityCreateInput = z.infer<typeof resourcesResourceActivityCreateSchema>
 export type ResourcesResourceActivityUpdateInput = z.infer<typeof resourcesResourceActivityUpdateSchema>
+export type ResourcesResourceAreaCreateInput = z.infer<typeof resourcesResourceAreaCreateSchema>
+export type ResourcesResourceAreaUpdateInput = z.infer<typeof resourcesResourceAreaUpdateSchema>
+export type ResourcesResourceAreaReorderInput = z.infer<typeof resourcesResourceAreaReorderSchema>

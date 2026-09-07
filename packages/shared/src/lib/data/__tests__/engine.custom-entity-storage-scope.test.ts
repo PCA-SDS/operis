@@ -35,11 +35,16 @@ function buildDb(options: { rejectFirstInsert?: boolean } = {}) {
         return chain
       },
       executeTakeFirst: async () => {
-        if (operation === 'table-check') return { present: 1 }
         if (operation === 'select') return { doc: { id: RECORD_ID, before: true } }
         return { numUpdatedRows: 1n }
       },
       execute: async () => {
+        // The storage-table guard now asks the shared schema-presence cache, which reads
+        // `information_schema.columns` a table at a time — one row per column — instead of a
+        // one-row `information_schema.tables` existence probe.
+        if (operation === 'table-check') {
+          return [{ table_name: 'custom_entities_storage', column_name: 'id', data_type: 'uuid' }]
+        }
         if (operation === 'insert' && rejectFirstInsert) {
           rejectFirstInsert = false
           throw new Error('[internal] force create fallback')
@@ -54,7 +59,7 @@ function buildDb(options: { rejectFirstInsert?: boolean } = {}) {
   return {
     queries,
     db: {
-      selectFrom: (table: string) => buildQuery(table === 'information_schema.tables' ? 'table-check' : 'select'),
+      selectFrom: (table: string) => buildQuery(table.startsWith('information_schema.') ? 'table-check' : 'select'),
       insertInto: (_table: string) => buildQuery('insert'),
       updateTable: (_table: string) => buildQuery('update'),
       deleteFrom: (_table: string) => buildQuery('delete'),

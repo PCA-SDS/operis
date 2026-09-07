@@ -103,13 +103,47 @@ function buildScopedRoleFilter(roleId: string, scope: ResolvedActorScope): Filte
 const createSchema = z.object({
   name: z.string().min(2).max(100),
   tenantId: z.string().uuid().optional(),
+  /** Reporting line for the organisation chart. Descriptive only — a child
+   *  role inherits no permissions from its parent. */
+  parentRoleId: z.string().uuid().nullable().optional(),
 })
 
 const updateSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(2).max(100).optional(),
   tenantId: z.string().uuid().optional(),
+  parentRoleId: z.string().uuid().nullable().optional(),
 })
+
+/**
+ * Refuses a parent that would close a loop in the reporting tree.
+ *
+ * The chart survives a cycle, but only by breaking the branch and showing the
+ * roles at the top level — which looks like a bug to whoever made the edit. It
+ * is cheaper to say no here than to explain that later.
+ */
+async function assertParentRoleIsAcyclic(
+  em: EntityManager,
+  roleId: string,
+  parentRoleId: string | null,
+  tenantId: string | null,
+): Promise<void> {
+  if (!parentRoleId) return
+  if (parentRoleId === roleId) {
+    throw new CrudHttpError(400, { error: 'A role cannot report to itself' })
+  }
+  const seen = new Set<string>([roleId])
+  let current: string | null = parentRoleId
+  while (current) {
+    if (seen.has(current)) {
+      throw new CrudHttpError(400, { error: 'That parent role would create a reporting loop' })
+    }
+    seen.add(current)
+    const ancestor: Role | null = await em.findOne(Role, { id: current, tenantId, deletedAt: null })
+    if (!ancestor) break
+    current = ancestor.parentRoleId ?? null
+  }
+}
 
 export const roleCrudEvents: CrudEventsConfig = {
   module: 'auth',
@@ -161,6 +195,7 @@ const createRoleCommand: CommandHandler<Record<string, unknown>, Role> = {
       data: {
         name: parsed.name,
         tenantId: resolvedTenantId,
+        parentRoleId: parsed.parentRoleId ?? null,
       },
     })
 
@@ -332,6 +367,15 @@ const updateRoleCommand: CommandHandler<Record<string, unknown>, Role> = {
         }
       }
     }
+    if (parsed.parentRoleId !== undefined) {
+      await assertParentRoleIsAcyclic(
+        em,
+        parsed.id,
+        parsed.parentRoleId ?? null,
+        current.tenantId ? String(current.tenantId) : null,
+      )
+    }
+
     const wantsTenantChange = parsed.tenantId !== undefined && parsed.tenantId !== current.tenantId
     if (wantsTenantChange) {
       if (!scope.isSuperAdmin) {
@@ -350,6 +394,7 @@ const updateRoleCommand: CommandHandler<Record<string, unknown>, Role> = {
       apply: (entity) => {
         if (parsed.name !== undefined) entity.name = parsed.name
         if (parsed.tenantId !== undefined && scope.isSuperAdmin) entity.tenantId = parsed.tenantId
+        if (parsed.parentRoleId !== undefined) entity.parentRoleId = parsed.parentRoleId ?? null
       },
     })
     if (!role) throw new CrudHttpError(404, { error: 'Role not found' })

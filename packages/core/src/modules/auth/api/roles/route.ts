@@ -63,12 +63,14 @@ const querySchema = z.object({
 const roleCreateSchema = z.object({
   name: z.string().min(2).max(100),
   tenantId: z.string().uuid().optional(),
+  parentRoleId: z.string().uuid().nullable().optional(),
 })
 
 const roleUpdateSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(2).max(100).optional(),
   tenantId: z.string().uuid().optional(),
+  parentRoleId: z.string().uuid().nullable().optional(),
 })
 
 const roleListItemSchema = z.object({
@@ -78,6 +80,7 @@ const roleListItemSchema = z.object({
   tenantId: z.string().uuid().nullable(),
   tenantIds: z.array(z.string().uuid()).optional(),
   tenantName: z.string().nullable(),
+  parentRoleId: z.string().uuid().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
 })
 
@@ -287,6 +290,7 @@ export async function GET(req: Request) {
       tenantId: tenantId ?? null,
       tenantIds: exposeTenant && tenantId ? [tenantId] : [],
       tenantName: exposeTenant ? tenantName : null,
+      parentRoleId: typeof r.parentRoleId === 'string' ? r.parentRoleId : null,
       updatedAt: r.updatedAt instanceof Date ? r.updatedAt.toISOString() : null,
       ...(cfByRole[idStr] || {}),
     }
