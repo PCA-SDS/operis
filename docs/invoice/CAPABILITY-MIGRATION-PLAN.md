@@ -413,6 +413,15 @@ Definition of done:
 
 - Dashboard/list/detail/create/edit/send/tracking parity is proven by unit and browser scenarios.
 
+Progress:
+
+- Implemented the first CAP-001 read-only slice: scoped `invoiceService.listInvoices`,
+  `invoiceService.getInvoiceDetail`, QueryEngine-backed list filters/sort/page,
+  safe DTO mappers, and `GET /api/invoice/invoices` plus
+  `GET /api/invoice/invoices/[id]` with `invoice.view` metadata.
+- Create/update/delete, summary, forecast, due-date, settlement, installment,
+  send/tracking, payment confirmation, and UI parity remain pending.
+
 ## M7 CAP-005 Payment Confirmations
 
 Dependencies:

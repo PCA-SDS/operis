@@ -365,4 +365,9 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   `invoice.settings.manage` and `invoice.manage` ACL gating, route mutation
   guards, and command execution. Settings UI and sync worker call sites remain
   pending.
-
+- 2026-09-08: Implemented the CAP-001 read-only invoice list/detail slice:
+  `invoiceService`, safe DTO mappers, QueryEngine-backed scoped list filters
+  and deterministic sort, `GET /api/invoice/invoices`, and
+  `GET /api/invoice/invoices/[id]` under `invoice.view`. Write actions,
+  summary/forecast, email/tracking, payment confirmations, and UI remain
+  pending.

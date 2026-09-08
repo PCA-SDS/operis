@@ -26,6 +26,7 @@ import type { InvoiceCompanyEmailsService } from '../services/company-emails-ser
 import type { InvoiceExchangeRatesService } from '../services/exchange-rates-service'
 import type { InvoiceCompanyLookupService } from '../services/company-lookup-service'
 import type { InvoiceAutoPaidService } from '../services/auto-paid-service'
+import type { InvoiceService } from '../services/invoice-service'
 
 const MODULE_ROOT = join(__dirname, '..')
 const MIGRATION_SOURCE = readFileSync(
@@ -67,7 +68,10 @@ function createTestContainer(): AppContainer {
     find: jest.fn(),
     create: jest.fn(),
   } as unknown as EntityManager
-  container.register({ em: asValue(em) })
+  const queryEngine = {
+    query: jest.fn(),
+  }
+  container.register({ em: asValue(em), queryEngine: asValue(queryEngine) })
   register(container)
   return container
 }
@@ -95,11 +99,16 @@ describe('invoice module foundation', () => {
       join('api', 'partners', 'match', 'route.ts'),
       join('api', 'partners', '[id]', 'route.ts'),
       join('api', 'exchange-rates', 'route.ts'),
+      join('api', 'invoices', 'route.ts'),
+      join('api', 'invoices', '[id]', 'route.ts'),
       join('data', 'entities.ts'),
+      join('data', 'mappers.ts'),
+      join('data', 'queries.ts'),
       join('data', 'validators.ts'),
       join('services', 'auto-paid-service.ts'),
       join('services', 'company-lookup-service.ts'),
       join('services', 'exchange-rates-service.ts'),
+      join('services', 'invoice-service.ts'),
     ]) {
       expect(existsSync(join(MODULE_ROOT, relativePath))).toBe(true)
     }
@@ -159,6 +168,10 @@ describe('invoice module foundation', () => {
     expect(typeof autoPaidService.removeRule).toBe('function')
     expect(typeof autoPaidService.applyAll).toBe('function')
     expect(typeof autoPaidService.reverseInvoice).toBe('function')
+
+    const invoiceService = container.resolve<InvoiceService>('invoiceService')
+    expect(typeof invoiceService.listInvoices).toBe('function')
+    expect(typeof invoiceService.getInvoiceDetail).toBe('function')
 
     for (const [token, entity] of Object.entries(ENTITY_EXPORTS)) {
       expect(container.resolve(token)).toBe(entity)

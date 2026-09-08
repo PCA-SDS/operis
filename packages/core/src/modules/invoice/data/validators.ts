@@ -73,6 +73,16 @@ export const invoiceCurrencyCodeSchema = z.enum(INVOICE_CURRENCY_CODES)
 export const invoiceSettlementFilterSchema = z.enum(['settled', 'unsettled'])
 export const invoiceRecoverabilityFilterSchema = z.enum(['all', 'recoverable', 'nonRecoverable'])
 export const invoiceSortDirectionSchema = z.enum(['asc', 'desc'])
+export const invoiceSortFieldSchema = z.enum([
+  'invoiceDate',
+  'dueDate',
+  'invoiceNumber',
+  'grossAmount',
+  'settlementStatus',
+  'invoiceStatus',
+  'createdAt',
+  'updatedAt',
+])
 
 export const invoiceIdSchema = uuid()
 export const invoiceCompanyIdSchema = uuid()
@@ -153,6 +163,20 @@ export const invoicePartnerListQuerySchema = z.object({
   page: invoicePageSchema,
   pageSize: invoicePartnerPageSizeSchema,
   search: invoiceSearchSchema,
+})
+export const invoiceListQuerySchema = z.object({
+  page: invoicePageSchema,
+  pageSize: invoicePageSizeSchema,
+  direction: invoiceDirectionSchema.optional(),
+  status: invoiceStatusSchema.optional(),
+  settlement: invoiceSettlementFilterSchema.optional(),
+  recoverability: invoiceRecoverabilityFilterSchema.default('all'),
+  partnerId: invoiceCompanyIdSchema.optional(),
+  fromDate: invoiceDateSchema.optional(),
+  toDate: invoiceDateSchema.optional(),
+  search: invoiceSearchSchema,
+  sortField: invoiceSortFieldSchema.default('invoiceDate'),
+  sortDir: invoiceSortDirectionSchema.default('desc'),
 })
 export const invoicePartnerMatchQuerySchema = z.object({
   taxCode: optionalTrimmedString(invoiceTaxCodeSchema),
@@ -241,3 +265,4 @@ export type InvoiceCompanyLookupProviderKey = z.infer<typeof invoiceCompanyLooku
 export type InvoiceCompanyLookupCompany = z.infer<typeof invoiceCompanyLookupCompanySchema>
 export type InvoiceCompanyLookupResult = z.infer<typeof invoiceCompanyLookupResultSchema>
 export type InvoiceCompanyLookupCachePayload = z.infer<typeof invoiceCompanyLookupCachePayloadSchema>
+export type InvoiceListQuery = z.infer<typeof invoiceListQuerySchema>
