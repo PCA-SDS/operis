@@ -44,8 +44,8 @@ const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(100).default(50),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(50),
     subjectType: z.enum(['member', 'resource', 'ruleset']).optional(),
     subjectIds: z.string().optional(),
     sortField: z.string().optional(),

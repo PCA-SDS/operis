@@ -14,8 +14,10 @@ import {
 const rawBodySchema = z.object({}).passthrough()
 const listQuerySchema = z
   .object({
-    page: z.coerce.number().min(1).default(1).describe('Page number for pagination'),
-    pageSize: z.coerce.number().min(1).max(200).default(50).describe('Number of items per page (max 200)'),
+    page: z.coerce.number().int().min(1).default(1).describe('Page number for pagination'),
+    // Deliberately above the shared default: the settings UI and the
+    // feature-toggle integration specs fetch the full list with pageSize=200.
+    pageSize: z.coerce.number().int().min(1).max(200).default(50).describe('Number of items per page (max 200)'),
     search: z.string().optional().describe('Case-insensitive search across identifier, name, description, and category'),
     type: toggleTypeSchema.optional().describe('Filter by toggle type (boolean, string, number, json)'),
     category: z.string().optional().describe('Filter by category (case-insensitive partial match)'),

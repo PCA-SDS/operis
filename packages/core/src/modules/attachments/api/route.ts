@@ -59,8 +59,8 @@ export const metadata = {
 const attachmentQuerySchema = z.object({
   entityId: z.string().min(1).describe('Entity identifier that owns the attachments'),
   recordId: z.string().min(1).describe('Record identifier within the entity'),
-  page: z.coerce.number().min(1).optional(),
-  pageSize: z.coerce.number().min(1).max(100).optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
 })
 
 const attachmentAssignmentSchema = z.object({

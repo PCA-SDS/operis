@@ -22,6 +22,7 @@ import { serializeWorkflowDefinition, serializeCodeWorkflowDefinition } from './
 import { invalidateTriggerCache } from '../../lib/event-trigger-service'
 import { getAllCodeWorkflows } from '../../lib/code-registry'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { MAX_PAGE_SIZE } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('workflows')
 
@@ -295,7 +296,7 @@ export const openApi = {
       query: createWorkflowDefinitionInputSchema.pick({ workflowId: true }).extend({
         enabled: z.boolean().optional(),
         search: z.string().optional(),
-        limit: z.number().int().positive().default(50).optional(),
+        limit: z.number().int().positive().max(MAX_PAGE_SIZE).default(50).optional(),
         offset: z.number().int().min(0).default(0).optional(),
       }),
       responses: [
