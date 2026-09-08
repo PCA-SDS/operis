@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import React from 'react'
 import type { Module, ModuleRoute, PageMetadata } from '@open-mercato/shared/modules/registry'
 import { hasAllFeatures as checkFeatures } from '@open-mercato/shared/security/features'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 /** Route with optional page-metadata aliases that may be merged during generation. */
 type NavRoute = ModuleRoute & Partial<Pick<PageMetadata, 'pageTitleKey' | 'pageGroupKey'>>
@@ -69,7 +70,7 @@ async function fetchFeatureGrants(requestFeatures: string[]): Promise<Set<string
       body: JSON.stringify({ features: requestFeatures }),
     } as any)
     if (res.ok) {
-      const data = await res.json().catch(() => ({ granted: [] }))
+      const data = await readJsonSafe<{ granted?: string[] }>(res, { granted: [] })
       if (Array.isArray(data?.granted)) {
         data.granted.forEach((f: string) => granted.add(f))
       }
