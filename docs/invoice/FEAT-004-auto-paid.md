@@ -25,6 +25,11 @@ Bypass flow "Paid?" email confirmation cho các supplier mà payment luôn đư�
   - `AutoPaidService.applyAll` after sync.
 
 ## Main implementations
+- Operis target:
+  - `packages/core/src/modules/invoice/services/auto-paid-service.ts`
+  - `packages/core/src/modules/invoice/commands/auto-paid.ts`
+  - `packages/core/src/modules/invoice/services/__tests__/auto-paid-service.test.ts`
+  - `packages/core/src/modules/invoice/commands/__tests__/auto-paid.test.ts`
 - Backend:
   - `apps/backend/src/modules/invoice/features/auto-paid/auto-paid.controller.ts`
   - `apps/backend/src/modules/invoice/features/auto-paid/auto-paid.service.ts`
@@ -54,6 +59,19 @@ Bypass flow "Paid?" email confirmation cho các supplier mà payment luôn đư�
 - Adding rule upserts tax code and settles matching AP invoices where not settled and not excluded.
 - Removing rule deletes row and reverts invoices where `autoSettled = true`.
 - Manual reverse sets invoice back to unpaid and stamps `autoPayExcluded = true`.
+
+## Operis M5 progress
+- Implemented reusable `invoiceAutoPaidService` in Invoice DI.
+- Implemented scoped rule listing, tax-code lookup, rule upsert, rule remove, scoped `applyAll`, and reverse behavior.
+- Implemented command handlers for user-triggered add, remove, apply-all, and reverse operations.
+- Bulk settlement and revert logic is kept in the service and uses trusted tenant/organization scope.
+- API routes, settings UI, manual invoice create integration, and sync-worker integration remain pending.
+
+## Operis M5 decisions
+- Rule matching uses scoped AP invoice `sellerTaxCode`.
+- Remove rule reverts invoices by scoped current `sellerTaxCode` plus `autoSettled = true`, because invoice rows do not store the rule id that settled them.
+- Reverse sets `autoPayExcluded = true`, so future add/apply calls skip the invoice.
+- Repeated add/apply uses convergent state updates. Repeated remove returns not found after the rule is deleted. Repeated reverse returns bad request after the invoice is no longer auto-settled.
 
 ## Failure behavior
 - Empty tax code rejected.

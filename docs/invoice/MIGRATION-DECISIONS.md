@@ -427,3 +427,22 @@ Reason:
 This preserves old business behavior and gives summary, forecast, and form
 preview a single VND normalization service. Other provider shapes or shared
 cache backends are separate design changes.
+
+## DEC-034 Auto-Paid Rule Revert Ownership
+
+Decision:
+
+When an Auto-Paid rule is removed, revert only scoped live AP invoices whose
+current `seller_tax_code` matches the removed rule and whose `auto_settled`
+flag is true.
+
+Reason:
+
+Invoice rows do not store the rule id that settled them. The tax code plus
+trusted tenant/organization scope is the rule ownership boundary, and the
+`auto_settled` flag protects manually settled or otherwise paid invoices.
+
+Implementation note:
+
+Manual reverse sets `auto_pay_excluded = true`, so future add/apply passes skip
+that invoice even if the tax code rule is added again.

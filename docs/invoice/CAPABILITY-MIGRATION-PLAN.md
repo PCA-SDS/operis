@@ -324,8 +324,8 @@ Dependencies:
 
 Target files:
 
-- `services/auto-paid-service.ts`
-- `commands/auto-paid.ts`
+- `services/auto-paid-service.ts` - implemented for domain behavior.
+- `commands/auto-paid.ts` - implemented for user-triggered mutations.
 - `api/auto-paid/route.ts`
 - settings UI
 
@@ -352,6 +352,12 @@ Expected tests:
 Definition of done:
 
 - Manual AP create and sync completion can call auto-paid logic.
+
+Progress:
+
+- Service, DI registration, validators, command handlers, and focused tests are implemented.
+- API routes, settings UI, manual AP create call site, and sync completion call site are still pending.
+- Removal reverts by scoped current `sellerTaxCode` and `autoSettled = true`; this is the stable target rule because invoices do not persist the source rule id.
 
 ## M6 CAP-001 Invoice Core
 

@@ -168,6 +168,16 @@ export const invoiceCompanyEmailRecordSchema = z.object({
 export const invoiceCompanyEmailDeleteQuerySchema = z.object({
   companyId: invoiceCompanyIdSchema,
 })
+export const invoiceAutoPaidTaxCodeIdSchema = uuid()
+export const invoiceAutoPaidRuleUpsertSchema = z.object({
+  taxCode: invoiceTaxCodeSchema,
+}).strict()
+export const invoiceAutoPaidRuleRemoveSchema = z.object({
+  id: invoiceAutoPaidTaxCodeIdSchema,
+}).strict()
+export const invoiceAutoPaidReverseSchema = z.object({
+  invoiceId: invoiceIdSchema,
+}).strict()
 export const invoiceLineNumberSchema = z.coerce.number().int().min(1).max(INVOICE_LINE_ITEMS_MAX)
 export const invoiceInstallmentCountSchema = z.coerce
   .number()

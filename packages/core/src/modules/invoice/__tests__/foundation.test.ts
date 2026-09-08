@@ -25,6 +25,7 @@ import type { InvoicePartnerTermsService } from '../services/partner-terms-servi
 import type { InvoiceCompanyEmailsService } from '../services/company-emails-service'
 import type { InvoiceExchangeRatesService } from '../services/exchange-rates-service'
 import type { InvoiceCompanyLookupService } from '../services/company-lookup-service'
+import type { InvoiceAutoPaidService } from '../services/auto-paid-service'
 
 const MODULE_ROOT = join(__dirname, '..')
 const MIGRATION_SOURCE = readFileSync(
@@ -87,6 +88,7 @@ describe('invoice module foundation', () => {
       'events.ts',
       'search.ts',
       'encryption.ts',
+      join('commands', 'auto-paid.ts'),
       join('api', 'openapi.ts'),
       join('api', 'company-lookup', '[identifier]', 'route.ts'),
       join('api', 'partners', 'route.ts'),
@@ -95,6 +97,7 @@ describe('invoice module foundation', () => {
       join('api', 'exchange-rates', 'route.ts'),
       join('data', 'entities.ts'),
       join('data', 'validators.ts'),
+      join('services', 'auto-paid-service.ts'),
       join('services', 'company-lookup-service.ts'),
       join('services', 'exchange-rates-service.ts'),
     ]) {
@@ -147,6 +150,15 @@ describe('invoice module foundation', () => {
 
     const companyLookupService = container.resolve<InvoiceCompanyLookupService>('invoiceCompanyLookupService')
     expect(typeof companyLookupService.lookup).toBe('function')
+
+    const autoPaidService = container.resolve<InvoiceAutoPaidService>('invoiceAutoPaidService')
+    expect(typeof autoPaidService.listRules).toBe('function')
+    expect(typeof autoPaidService.findRuleByTaxCode).toBe('function')
+    expect(typeof autoPaidService.isAutoPaidTaxCode).toBe('function')
+    expect(typeof autoPaidService.upsertRule).toBe('function')
+    expect(typeof autoPaidService.removeRule).toBe('function')
+    expect(typeof autoPaidService.applyAll).toBe('function')
+    expect(typeof autoPaidService.reverseInvoice).toBe('function')
 
     for (const [token, entity] of Object.entries(ENTITY_EXPORTS)) {
       expect(container.resolve(token)).toBe(entity)

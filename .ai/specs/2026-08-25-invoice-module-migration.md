@@ -354,3 +354,7 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   encrypted `invoice_company_registry.payload`, decrypted scoped cache reads,
   30-day freshness, provider-stale fallback, and authenticated lookup API
   contract for Vietnam MST and Singapore UEN.
+- 2026-09-08: Implemented CAP-004 Auto-Paid domain service, DI registration,
+  user-triggered mutation commands, focused service/command tests, and docs for
+  M5 progress plus rule-revert ownership. API/UI and sync/manual-invoice call
+  sites remain pending.
