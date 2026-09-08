@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { UniqueConstraintViolationException } from '@mikro-orm/core'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
@@ -17,6 +16,7 @@ import {
   type ResolveResult,
 } from '@open-mercato/core/modules/customer_accounts/services/domainMappingService'
 import { DomainMapping } from '@open-mercato/core/modules/customer_accounts/data/entities'
+import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
 
 const FEATURE = 'customer_accounts.domain.manage'
 
@@ -24,16 +24,6 @@ export const metadata = {
   GET: { requireAuth: true, requireFeatures: [FEATURE] },
   POST: { requireAuth: true, requireFeatures: [FEATURE] },
   DELETE: { requireAuth: true, requireFeatures: [FEATURE] },
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  if (error instanceof UniqueConstraintViolationException) return true
-  if (!error || typeof error !== 'object') return false
-  const code = (error as { code?: string }).code
-  if (code === '23505') return true
-  const messageRaw = (error as { message?: string }).message
-  const message = typeof messageRaw === 'string' ? messageRaw : ''
-  return message.toLowerCase().includes('duplicate key')
 }
 
 function serializeRecord(record: DomainMapping) {

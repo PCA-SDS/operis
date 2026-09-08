@@ -3,6 +3,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { sql } from 'kysely'
 import { AttachmentQuotaReservation } from '../data/entities'
 import { resolveAttachmentTenantQuotaBytes } from './upload-limits'
+import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
 
 const DEFAULT_RESERVATION_TTL_MS = 15 * 60 * 1000
 
@@ -86,10 +87,6 @@ function parseUsage(value: unknown): number {
     if (Number.isFinite(parsed) && parsed >= 0) return parsed
   }
   throw new AttachmentQuotaError('quota_accounting_unavailable', 'Storage quota accounting returned an invalid value.')
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  return Boolean(error && typeof error === 'object' && 'code' in error && error.code === '23505')
 }
 
 function changedRow(result: unknown): boolean {
