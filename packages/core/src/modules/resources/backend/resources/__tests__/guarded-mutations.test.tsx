@@ -4,6 +4,7 @@
 import * as React from 'react'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ResourcesResourceAreasPage from '../areas/page'
+import ResourcesResourceAreaEditPage from '../areas/[id]/edit/page'
 import ResourcesResourceTypesPage from '../resource-types/page'
 import ResourcesResourcesPage from '../resources/page'
 import ResourcesResourceDetailPage from '../resources/[id]/page'
@@ -24,6 +25,18 @@ const mockRunMutation = jest.fn(async ({ operation }: { operation: () => Promise
 const mockRetryLastMutation = jest.fn(async () => false)
 const mockResolveFieldsetCode = jest.fn(() => 'resources_resource_default')
 const mockTranslate = (_key: string, fallback?: string) => fallback ?? _key
+
+beforeAll(() => {
+  class ResizeObserverMock {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    configurable: true,
+    value: ResizeObserverMock,
+  })
+})
 
 jest.mock('next/navigation', () => ({
   usePathname: () => '/backend/resources/resources',
@@ -51,6 +64,7 @@ jest.mock('#generated/entities.ids.generated', () => ({
   E: {
     resources: {
       resources_resource: 'resources:resources_resource',
+      resources_resource_area: 'resources:resources_resource_area',
       resources_resource_activity: 'resources:resources_resource_activity',
     },
   },
@@ -69,6 +83,18 @@ jest.mock('@open-mercato/ui/primitives/button', () => ({
   Button: ({ children, asChild: _asChild, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) => (
     <button {...props}>{children}</button>
   ),
+}))
+
+jest.mock('@open-mercato/ui/primitives/icon-button', () => ({
+  IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props}>{children}</button>
+  ),
+}))
+
+jest.mock('@open-mercato/ui/primitives/popover', () => ({
+  Popover: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  PopoverTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  PopoverContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
 jest.mock('@open-mercato/ui/primitives/select', () => ({
@@ -219,6 +245,10 @@ jest.mock('@open-mercato/core/modules/resources/components/detail/dictionaries',
     ...input,
   })),
   loadResourceDictionary: jest.fn(async () => ({ dictionary: { id: 'activity-types' }, entries: [] })),
+}))
+
+jest.mock('@open-mercato/core/modules/dictionaries/components/AppearanceSelector', () => ({
+  AppearanceSelector: () => <div data-testid="appearance-selector" />,
 }))
 
 jest.mock('@open-mercato/core/modules/planner/components/AvailabilityRulesEditor', () => ({
@@ -877,6 +907,126 @@ it('loads resource area children when a parent row is expanded', async () => {
   expect(screen.getByText('Child areas')).toBeInTheDocument()
   expect(screen.getByTestId('row-area-root')).toHaveTextContent('1')
   expect(screen.getByTestId('row-area-child')).toHaveTextContent('0')
+})
+
+it('loads parent area edit options through the lazy tree API', async () => {
+  mockReadApiResultOrThrow.mockImplementation(async (url: string) => {
+    if (url.startsWith('/api/resources/area-types')) {
+      return { items: [], total: 0, totalPages: 1 }
+    }
+    if (url.startsWith('/api/resources/areas?')) {
+      const query = new URL(`http://localhost${url}`).searchParams
+      if (query.get('ids') === 'area-edit') {
+        return {
+          items: [{
+            id: 'area-edit',
+            name: 'Floor 2',
+            description: null,
+            area_type_id: null,
+            parent_area_id: 'area-parent',
+            sort_order: 0,
+            appearance_icon: null,
+            appearance_color: null,
+            is_active: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          }],
+          total: 1,
+          totalPages: 1,
+        }
+      }
+      if (query.get('ids') === 'area-parent') {
+        return {
+          items: [{
+            id: 'area-parent',
+            name: 'Building A',
+            parent_area_id: 'area-root',
+            depth: 1,
+            child_count: 1,
+            path_label: 'Head Office / Building A',
+            ancestor_ids: ['area-root'],
+          }],
+          total: 1,
+          totalPages: 1,
+        }
+      }
+      if (query.get('ids') === 'area-root') {
+        return {
+          items: [{
+            id: 'area-root',
+            name: 'Head Office',
+            parent_area_id: null,
+            depth: 0,
+            child_count: 1,
+            path_label: 'Head Office',
+            ancestor_ids: [],
+          }],
+          total: 1,
+          totalPages: 1,
+        }
+      }
+      if (query.get('parentAreaId') === 'null') {
+        return {
+          items: [{
+            id: 'area-root',
+            name: 'Head Office',
+            parent_area_id: null,
+            depth: 0,
+            child_count: 1,
+            path_label: 'Head Office',
+          }],
+          total: 1,
+          totalPages: 1,
+        }
+      }
+      if (query.get('parentAreaId') === 'area-root') {
+        return {
+          items: [{
+            id: 'area-parent',
+            name: 'Building A',
+            parent_area_id: 'area-root',
+            depth: 1,
+            child_count: 0,
+            path_label: 'Head Office / Building A',
+          }],
+          total: 1,
+          totalPages: 1,
+        }
+      }
+    }
+    return { items: [], total: 0, totalPages: 1 }
+  })
+
+  render(<ResourcesResourceAreaEditPage params={{ id: 'area-edit' }} />)
+
+  await waitFor(() => {
+    expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+      expect.stringContaining('ids=area-edit'),
+      expect.any(Object),
+      expect.any(Object),
+    )
+  })
+  await waitFor(() => {
+    expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+      expect.stringContaining('parentAreaId=null'),
+      undefined,
+      expect.any(Object),
+    )
+  })
+  expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+    expect.stringContaining('excludeSubtreeOf=area-edit'),
+    undefined,
+    expect.any(Object),
+  )
+  expect(await screen.findByText('Head Office / Building A')).toBeInTheDocument()
+  expect(await screen.findByText('Building A')).toBeInTheDocument()
+
+  await waitFor(() => {
+    expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+      expect.stringContaining('parentAreaId=area-root'),
+      undefined,
+      expect.any(Object),
+    )
+  })
 })
 
 it('wraps resource area reorder actions in the guarded mutation path', async () => {

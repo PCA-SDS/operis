@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { NextResponse } from 'next/server'
+import type { FilterQuery } from '@mikro-orm/core'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
@@ -13,6 +14,7 @@ import { parseScopedCommandInput } from '@open-mercato/shared/lib/api/scoped'
 import { ResourcesResourceArea } from '../data/entities'
 import { resourcesResourceAreaCreateSchema, resourcesResourceAreaUpdateSchema } from '../data/validators'
 import { createResourcesCrudOpenApi, createPagedListResponseSchema, defaultOkResponseSchema } from './openapi'
+import { computeHierarchyForAreas } from '../lib/areaHierarchy'
 
 const rawBodySchema = z.object({}).passthrough()
 const createInputSchema = resourcesResourceAreaCreateSchema
@@ -118,6 +120,7 @@ const viewSchema = z
     ids: z.string().optional(),
     id: z.string().optional(),
     parentAreaId: z.string().optional(),
+    excludeSubtreeOf: z.string().optional(),
   })
   .passthrough()
 
@@ -126,6 +129,163 @@ type QueryShape = z.infer<typeof viewSchema>
 function sanitizeSearch(term?: string | null): string {
   if (!term) return ''
   return term.trim().toLowerCase()
+}
+
+function parseIdList(value?: string | null): string[] {
+  if (!value) return []
+  return Array.from(new Set(value.split(',').map((id) => id.trim()).filter(Boolean)))
+}
+
+function isDirectScopedAreaLookup(query: QueryShape): boolean {
+  return query.view !== 'tree' &&
+    query.sortField !== 'child_count' &&
+    Boolean(query.id || query.ids || typeof query.parentAreaId === 'string')
+}
+
+function buildDirectAreaOrderBy(sortField?: string, sortDir?: 'asc' | 'desc'): Record<string, unknown> {
+  const direction = sortDir === 'desc' ? 'DESC' : 'ASC'
+  switch (sortField) {
+    case 'updatedAt':
+      return { updatedAt: direction }
+    case 'name':
+      return { name: direction }
+    case 'area_type_id':
+      return { areaType: { id: direction }, name: 'ASC' }
+    case 'sort_order':
+    default:
+      return { sortOrder: direction, name: 'ASC' }
+  }
+}
+
+async function collectResourceAreaSubtreeIds(
+  em: EntityManager,
+  params: {
+    rootId?: string | null
+    tenantId: string
+    orgWhere: Record<string, unknown>
+  },
+): Promise<string[]> {
+  const rootId = params.rootId?.trim()
+  if (!rootId) return []
+  const excluded = new Set<string>([rootId])
+  let frontier = [rootId]
+
+  while (frontier.length > 0) {
+    const children = await em.find(
+      ResourcesResourceArea,
+      {
+        ...params.orgWhere,
+        tenantId: params.tenantId,
+        deletedAt: null,
+        parentAreaId: frontier.length === 1 ? frontier[0] : { $in: frontier },
+      } as FilterQuery<ResourcesResourceArea>,
+      { fields: ['id'] },
+    )
+    frontier = children
+      .map((child) => String(child.id))
+      .filter((id) => {
+        if (excluded.has(id)) return false
+        excluded.add(id)
+        return true
+      })
+  }
+
+  return Array.from(excluded)
+}
+
+async function loadAncestorAreasForPath(
+  em: EntityManager,
+  areas: ResourcesResourceArea[],
+  params: { tenantId: string; orgWhere: Record<string, unknown> },
+): Promise<ResourcesResourceArea[]> {
+  const loaded = new Map<string, ResourcesResourceArea>()
+  for (const area of areas) loaded.set(String(area.id), area)
+
+  let parentIds = Array.from(new Set(
+    areas
+      .map((area) => area.parentAreaId)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0 && !loaded.has(id)),
+  ))
+
+  while (parentIds.length > 0) {
+    const parents = await em.find(
+      ResourcesResourceArea,
+      {
+        ...params.orgWhere,
+        tenantId: params.tenantId,
+        deletedAt: null,
+        id: parentIds.length === 1 ? parentIds[0] : { $in: parentIds },
+      } as FilterQuery<ResourcesResourceArea>,
+      { populate: ['areaType'] },
+    )
+    const nextParentIds: string[] = []
+    for (const parent of parents) {
+      const id = String(parent.id)
+      if (loaded.has(id)) continue
+      loaded.set(id, parent)
+      if (parent.parentAreaId && !loaded.has(parent.parentAreaId)) {
+        nextParentIds.push(parent.parentAreaId)
+      }
+    }
+    parentIds = Array.from(new Set(nextParentIds))
+  }
+
+  return Array.from(loaded.values())
+}
+
+async function countChildrenByParentId(
+  em: EntityManager,
+  rows: ResourcesResourceArea[],
+  params: { tenantId: string; orgWhere: Record<string, unknown>; excludedIds?: string[] },
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>()
+  await Promise.all(rows.map(async (row) => {
+    const where: Record<string, unknown> = {
+      ...params.orgWhere,
+      tenantId: params.tenantId,
+      deletedAt: null,
+      parentAreaId: row.id,
+    }
+    if (params.excludedIds && params.excludedIds.length > 0) {
+      where.id = { $nin: params.excludedIds }
+    }
+    counts.set(String(row.id), await em.count(ResourcesResourceArea, where as FilterQuery<ResourcesResourceArea>))
+  }))
+  return counts
+}
+
+function mapAreaResponseItems(
+  rows: ResourcesResourceArea[],
+  hierarchyAreas: ResourcesResourceArea[],
+  childCounts: Map<string, number>,
+  tenantId: string,
+): Array<Record<string, unknown>> {
+  const hierarchy = computeHierarchyForAreas(hierarchyAreas)
+  return rows.map((area) => {
+    const node = hierarchy.map.get(String(area.id))
+    const parentName = node?.parentId ? hierarchy.map.get(node.parentId)?.name ?? null : null
+    return {
+      id: area.id,
+      name: area.name,
+      description: area.description ?? null,
+      area_type_id: area.areaType?.id ?? null,
+      area_type_name: area.areaType?.name ?? null,
+      parent_area_id: area.parentAreaId ?? null,
+      parent_name: parentName,
+      sort_order: area.sortOrder,
+      appearance_icon: area.appearanceIcon ?? null,
+      appearance_color: area.appearanceColor ?? null,
+      is_active: area.isActive,
+      organization_id: area.organizationId ?? null,
+      tenant_id: tenantId,
+      depth: node?.depth ?? 0,
+      path_label: node?.pathLabel ?? area.name,
+      ancestor_ids: node?.ancestorIds ?? [],
+      child_count: childCounts.get(String(area.id)) ?? node?.childIds.length ?? 0,
+      descendant_count: node?.descendantIds.length ?? 0,
+      updatedAt: area.updatedAt ? new Date(area.updatedAt).toISOString() : null,
+    }
+  })
 }
 
 export async function GET(req: Request) {
@@ -143,6 +303,7 @@ export async function GET(req: Request) {
     ids: url.searchParams.get('ids') ?? undefined,
     id: url.searchParams.get('id') ?? undefined,
     parentAreaId: url.searchParams.get('parentAreaId') ?? undefined,
+    excludeSubtreeOf: url.searchParams.get('excludeSubtreeOf') ?? undefined,
   })
   if (!parsed.success) {
     return NextResponse.json({ items: [], error: 'Invalid query' }, { status: 400 })
@@ -166,6 +327,85 @@ export async function GET(req: Request) {
     const orgFilter = resolveOrganizationScopeFilter(scope, auth)
     const responseOrganizationId = orgFilter.rbacOrganizationId ?? null
 
+    if (isDirectScopedAreaLookup(query)) {
+      const excludedIds = await collectResourceAreaSubtreeIds(em, {
+        rootId: query.excludeSubtreeOf,
+        tenantId,
+        orgWhere: orgFilter.where,
+      })
+      const where: Record<string, unknown> = {
+        ...orgFilter.where,
+        tenantId,
+        deletedAt: null,
+      }
+      const ids = parseIdList(query.ids)
+      if (query.id) {
+        where.id = query.id
+      } else if (ids.length > 0) {
+        where.id = ids.length === 1 ? ids[0] : { $in: ids }
+      } else if (typeof query.parentAreaId === 'string') {
+        const parentAreaId = query.parentAreaId.trim()
+        where.parentAreaId = parentAreaId === 'null' ? null : parentAreaId
+      }
+      if (excludedIds.length > 0) {
+        const existingIdFilter = where.id
+        if (typeof existingIdFilter === 'string') {
+          if (excludedIds.includes(existingIdFilter)) {
+            return NextResponse.json({
+              items: [],
+              total: 0,
+              page: query.page,
+              pageSize: query.pageSize,
+              totalPages: 1,
+              organizationId: responseOrganizationId,
+              tenantId,
+            })
+          }
+        } else if (existingIdFilter && typeof existingIdFilter === 'object' && '$in' in existingIdFilter) {
+          const idFilter = existingIdFilter as { $in?: unknown[] }
+          const nextIds = (idFilter.$in ?? []).filter((id: unknown) => !excludedIds.includes(String(id)))
+          where.id = nextIds.length === 1 ? String(nextIds[0]) : { $in: nextIds.map(String) }
+        } else {
+          where.id = { $nin: excludedIds }
+        }
+      }
+      const status = query.status ?? 'all'
+      if (status === 'active') where.isActive = true
+      if (status === 'inactive') where.isActive = false
+      const areaTypeId = typeof query.areaTypeId === 'string' ? query.areaTypeId.trim() : ''
+      if (areaTypeId) where.areaType = { id: areaTypeId }
+      const search = sanitizeSearch(query.search ?? null)
+      if (search) {
+        const pattern = `%${escapeLikePattern(search)}%`
+        where.name = { $ilike: pattern }
+      }
+
+      const filter = where as FilterQuery<ResourcesResourceArea>
+      const total = await em.count(ResourcesResourceArea, filter)
+      const pageSize = query.pageSize
+      const page = query.page
+      const directSortField = typeof query.sortField === 'string' ? query.sortField : undefined
+      const directSortDir = query.sortDir === 'desc' || query.sortDir === 'asc' ? query.sortDir : undefined
+      const rows = await em.find(ResourcesResourceArea, filter, {
+        orderBy: buildDirectAreaOrderBy(directSortField, directSortDir),
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+        populate: ['areaType'],
+      })
+      const hierarchyAreas = await loadAncestorAreasForPath(em, rows, { tenantId, orgWhere: orgFilter.where })
+      const childCounts = await countChildrenByParentId(em, rows, { tenantId, orgWhere: orgFilter.where, excludedIds })
+      const totalPages = Math.max(1, Math.ceil(total / pageSize))
+      return NextResponse.json({
+        items: mapAreaResponseItems(rows, hierarchyAreas, childCounts, tenantId),
+        total,
+        page,
+        pageSize,
+        totalPages,
+        organizationId: responseOrganizationId,
+        tenantId,
+      })
+    }
+
     const areas = await em.find(
       ResourcesResourceArea,
       { ...orgFilter.where, tenantId, deletedAt: null },
@@ -173,8 +413,6 @@ export async function GET(req: Request) {
     )
     const areaMap = new Map(areas.map((area) => [String(area.id), area]))
     
-    // Lazy load the compute logic so we don't circular depend or error if not found
-    const { computeHierarchyForAreas } = await import('../lib/areaHierarchy')
     const hierarchy = computeHierarchyForAreas(areas)
 
     if (query.view === 'tree') {
@@ -250,6 +488,7 @@ export async function GET(req: Request) {
         tenant_id: tenantId,
         depth: node.depth,
         path_label: node.pathLabel,
+        ancestor_ids: node.ancestorIds,
         child_count: node.childIds.length,
         descendant_count: node.descendantIds.length,
         updatedAt: area?.updatedAt ? new Date(area.updatedAt).toISOString() : null,
@@ -312,6 +551,7 @@ const areaListItemSchema = z.object({
   tenant_id: z.string().uuid().nullable().optional(),
   depth: z.number().optional(),
   path_label: z.string().nullable().optional(),
+  ancestor_ids: z.array(z.string().uuid()).optional(),
   child_count: z.number().optional(),
   descendant_count: z.number().optional(),
 })
