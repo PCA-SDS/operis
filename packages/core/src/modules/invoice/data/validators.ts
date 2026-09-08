@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
+import { emailSchema, moneyDecimalStringSchema } from '@open-mercato/shared/lib/validation'
 
 import {
   INVOICE_CURRENCY_CODES,
@@ -109,14 +110,9 @@ export const invoiceDateRangeSchema = z.object({
   toDate: invoiceDateSchema,
 })
 
-export const invoiceMoneySchema = z
-  .string()
-  .trim()
-  .regex(/^-?\d{1,14}(\.\d{1,4})?$/)
-export const invoicePositiveMoneySchema = z
-  .string()
-  .trim()
-  .regex(/^\d{1,14}(\.\d{1,4})?$/)
+/** Amounts stay decimal strings so the 4-dp arithmetic never round-trips through a JS number. */
+export const invoiceMoneySchema = moneyDecimalStringSchema({ signed: true })
+export const invoicePositiveMoneySchema = moneyDecimalStringSchema()
 export const invoicePercentSchema = z.coerce
   .number()
   .min(INVOICE_INSTALLMENT_INTEREST_RATE_MIN)
@@ -135,7 +131,7 @@ export const invoiceCodeSchema = nullableTrimmedString(120)
 export const invoiceSourceInvoiceIdSchema = z.string().trim().min(1).max(191)
 export const invoiceProviderSchema = z.string().trim().min(1).max(80)
 export const invoiceIdempotencyKeySchema = z.string().trim().min(1).max(191)
-export const invoiceEmailSchema = z.string().trim().email().max(320)
+export const invoiceEmailSchema = emailSchema()
 
 export const invoiceDueDaysSchema = z.coerce.number().int().min(0).max(INVOICE_MAX_DUE_DAYS)
 export const invoiceClearableDueDaysSchema = invoiceDueDaysSchema.nullable()
