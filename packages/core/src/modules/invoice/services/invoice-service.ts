@@ -1,8 +1,11 @@
+import { randomUUID } from 'node:crypto'
+import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import type { QueryEngine } from '@open-mercato/shared/lib/query/types'
-import { notFound } from '@open-mercato/shared/lib/crud/errors'
+import { badRequest, conflict, notFound } from '@open-mercato/shared/lib/crud/errors'
 import { E } from '#generated/entities.ids.generated'
+import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 
-import { Invoice } from '../data/entities'
+import { Invoice, InvoiceCompany, InvoiceInstallment, InvoiceLineItem, InvoicePaymentConfirmation } from '../data/entities'
 import {
   mapInvoiceEntityToDetailDto,
   mapInvoiceQueryRowToListDto,
@@ -14,7 +17,16 @@ import {
   parseInvoiceListQuery,
 } from '../data/queries'
 import type { InvoiceScope } from '../data/scope'
-import type { InvoiceScopedPersistenceService } from './scoped-persistence-service'
+import {
+  INVOICE_PARTNER_DEFAULT_DUE_DAYS,
+  invoiceManualCreateSchema,
+  invoiceManualUpdateSchema,
+  type InvoiceManualWriteInput,
+} from '../data/validators'
+import { InvoiceScopedPersistenceService } from './scoped-persistence-service'
+import { createInvoiceAutoPaidService } from './auto-paid-service'
+import type { InvoicePartnerTermsService } from './partner-terms-service'
+import { createInvoicePartnerTermsService } from './partner-terms-service'
 
 export type InvoiceListResult = {
   items: InvoiceListDto[]
@@ -25,9 +37,130 @@ export type InvoiceListResult = {
 }
 
 export type InvoiceListInput = Record<string, unknown>
+export type InvoiceManualCreateInput = Record<string, unknown>
+export type InvoiceManualUpdateInput = Record<string, unknown>
+export type InvoiceManualMutationResult = {
+  invoice: InvoiceDetailDto
+}
+export type InvoiceManualDeleteResult = {
+  invoiceId: string
+  deleted: true
+}
+
+type ManualLineItem = InvoiceManualWriteInput['lineItems'][number]
+type PartnerIdentity = {
+  company: InvoiceCompany
+  sellerName: string
+  sellerTaxCode: string
+}
+type CalculatedLineItem = {
+  lineNumber: number
+  name: string
+  unit: string | null
+  quantity: string
+  unitPrice: string
+  discountAmount: string | null
+  discountPercent: string | null
+  vatRate: string | null
+  vatAmount: string
+  lineTotal: string
+}
+type CalculatedTotals = {
+  lineItems: CalculatedLineItem[]
+  netAmount: string
+  vatAmount: string
+  grossAmount: string
+}
+
+const MONEY_SCALE = 4
+const SYNTHETIC_TAX_CODE_PREFIX = 'auto:'
+
+function money(value: string | number | null | undefined): number {
+  if (value == null) return 0
+  const parsed = typeof value === 'number' ? value : Number.parseFloat(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function moneyString(value: number): string {
+  return value.toFixed(MONEY_SCALE)
+}
+
+function normalizedSymbol(value: string | null | undefined): string | null {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
+}
+
+function buildInvoiceSearchText(input: {
+  invoiceNumber: string
+  invoiceSymbol?: string | null
+  invoiceCode?: string | null
+  buyerName: string
+  sellerName: string
+  sellerTaxCode?: string | null
+}): string {
+  return [
+    input.invoiceNumber,
+    input.invoiceSymbol,
+    input.invoiceCode,
+    input.buyerName,
+    input.sellerName,
+    input.sellerTaxCode?.startsWith(SYNTHETIC_TAX_CODE_PREFIX) ? null : input.sellerTaxCode,
+  ].filter((part): part is string => typeof part === 'string' && part.trim().length > 0).join(' ')
+}
+
+function buildCompanySearchText(company: { name: string; taxCode: string; countryCode: string }): string {
+  return [
+    company.name,
+    company.taxCode.startsWith(SYNTHETIC_TAX_CODE_PREFIX) ? null : company.taxCode,
+    company.countryCode,
+  ].filter((part): part is string => typeof part === 'string' && part.trim().length > 0).join(' ')
+}
+
+function calculateTotals(lines: ManualLineItem[]): CalculatedTotals {
+  let netAmount = 0
+  let vatAmount = 0
+  let grossAmount = 0
+  const lineItems = lines.map((line, index) => {
+    const quantity = money(line.quantity)
+    const unitPrice = money(line.unitPrice)
+    const baseAmount = quantity * unitPrice
+    const discountAmount = line.discountPercent !== undefined
+      ? baseAmount * (line.discountPercent / 100)
+      : money(line.discountAmount)
+    if (discountAmount > baseAmount) throw badRequest('[internal] Invoice line discount exceeds line amount')
+    const netLineAmount = baseAmount - discountAmount
+    const vatRate = line.vatRate ?? 0
+    const vatLineAmount = netLineAmount * (vatRate / 100)
+    const lineTotal = netLineAmount + vatLineAmount
+    netAmount += netLineAmount
+    vatAmount += vatLineAmount
+    grossAmount += lineTotal
+
+    return {
+      lineNumber: index + 1,
+      name: line.name,
+      unit: line.unit ?? null,
+      quantity: moneyString(quantity),
+      unitPrice: moneyString(unitPrice),
+      discountAmount: discountAmount > 0 ? moneyString(discountAmount) : null,
+      discountPercent: line.discountPercent !== undefined ? moneyString(line.discountPercent) : null,
+      vatRate: vatRate > 0 ? moneyString(vatRate) : null,
+      vatAmount: moneyString(vatLineAmount),
+      lineTotal: moneyString(lineTotal),
+    }
+  })
+
+  return {
+    lineItems,
+    netAmount: moneyString(netAmount),
+    vatAmount: moneyString(vatAmount),
+    grossAmount: moneyString(grossAmount),
+  }
+}
 
 export class InvoiceService {
   constructor(
+    private readonly em: EntityManager,
     private readonly queryEngine: QueryEngine,
     private readonly scopedPersistence: InvoiceScopedPersistenceService,
   ) {}
@@ -62,11 +195,263 @@ export class InvoiceService {
 
     return mapInvoiceEntityToDetailDto(invoice)
   }
+
+  async createManualInvoice(scope: InvoiceScope, input: InvoiceManualCreateInput): Promise<InvoiceManualMutationResult> {
+    const parsed = invoiceManualCreateSchema.parse(input)
+
+    return this.em.transactional(async (tx) => {
+      const txScopedPersistence = new InvoiceScopedPersistenceService(tx)
+      const txPartnerTermsService = createInvoicePartnerTermsService(tx, txScopedPersistence)
+      const txAutoPaidService = createInvoiceAutoPaidService(tx, txScopedPersistence)
+      const organization = await this.loadOrganization(tx, scope)
+      const partner = await this.resolvePartner(scope, txScopedPersistence, txPartnerTermsService, parsed)
+      const dueDate = await txPartnerTermsService.resolveDefaultDueDate(scope, {
+        taxCode: partner.sellerTaxCode,
+        name: partner.sellerName,
+        invoiceDate: parsed.invoiceDate,
+        dueDate: parsed.dueDate ?? null,
+      })
+      await this.assertNoDuplicate(scope, txScopedPersistence, partner.sellerTaxCode, parsed.invoiceSymbol, parsed.invoiceNumber)
+
+      const totals = calculateTotals(parsed.lineItems)
+      const autoSettled = await txAutoPaidService.isAutoPaidTaxCode(scope, partner.sellerTaxCode)
+      const invoice = txScopedPersistence.createScoped(Invoice, scope, {
+        sourceInvoiceId: `manual:${randomUUID()}`,
+        origin: 'MANUAL',
+        direction: 'AP',
+        company: partner.company,
+        sellerTaxCode: partner.sellerTaxCode,
+        sellerName: partner.sellerName,
+        buyerTaxCode: null,
+        buyerName: organization.name,
+        invoiceSymbol: normalizedSymbol(parsed.invoiceSymbol),
+        invoiceNumber: parsed.invoiceNumber,
+        invoiceCode: normalizedSymbol(parsed.invoiceCode),
+        invoiceDate: parsed.invoiceDate,
+        dueDate,
+        dueDateSource: parsed.dueDate ? 'explicit' : dueDate ? 'partner_terms' : null,
+        currencyCode: parsed.currencyCode,
+        invoiceStatus: 'ACTIVE',
+        netAmount: totals.netAmount,
+        vatAmount: totals.vatAmount,
+        grossAmount: totals.grossAmount,
+        hasReceived: false,
+        hasPaid: autoSettled,
+        settlementStatus: autoSettled ? 'SETTLED' : 'UNSETTLED',
+        paidAmount: autoSettled ? totals.grossAmount : '0',
+        outstandingAmount: autoSettled ? '0' : totals.grossAmount,
+        nextDueDate: autoSettled ? null : dueDate,
+        hasInstallmentPlan: false,
+        nonRecoverable: false,
+        nonRecoverableNote: null,
+        nonRecoverableAt: null,
+        lastSentAt: null,
+        emailTrackingTokenHash: null,
+        openedAt: null,
+        autoSettled,
+        autoPayExcluded: false,
+        searchText: buildInvoiceSearchText({
+          invoiceNumber: parsed.invoiceNumber,
+          invoiceSymbol: parsed.invoiceSymbol,
+          invoiceCode: parsed.invoiceCode,
+          buyerName: organization.name,
+          sellerName: partner.sellerName,
+          sellerTaxCode: partner.sellerTaxCode,
+        }),
+      })
+      this.replaceLineItems(tx, scope, invoice, totals.lineItems)
+      await tx.flush()
+
+      return { invoice: mapInvoiceEntityToDetailDto(invoice) }
+    })
+  }
+
+  async updateManualInvoice(
+    scope: InvoiceScope,
+    id: string,
+    input: InvoiceManualUpdateInput,
+  ): Promise<InvoiceManualMutationResult> {
+    const parsed = invoiceManualUpdateSchema.parse(input)
+
+    return this.em.transactional(async (tx) => {
+      const txScopedPersistence = new InvoiceScopedPersistenceService(tx)
+      const txPartnerTermsService = createInvoicePartnerTermsService(tx, txScopedPersistence)
+      const txAutoPaidService = createInvoiceAutoPaidService(tx, txScopedPersistence)
+      const invoice = await txScopedPersistence.findById(Invoice, scope, id, {
+        populate: ['lineItems', 'installments', 'paymentConfirmations'],
+      })
+      if (!invoice) throw notFound('[internal] Invoice not found')
+      this.assertManualInvoice(invoice)
+
+      const organization = await this.loadOrganization(tx, scope)
+      const partner = await this.resolvePartner(scope, txScopedPersistence, txPartnerTermsService, parsed)
+      const dueDate = await txPartnerTermsService.resolveDefaultDueDate(scope, {
+        taxCode: partner.sellerTaxCode,
+        name: partner.sellerName,
+        invoiceDate: parsed.invoiceDate,
+        dueDate: parsed.dueDate ?? null,
+      })
+      await this.assertNoDuplicate(scope, txScopedPersistence, partner.sellerTaxCode, parsed.invoiceSymbol, parsed.invoiceNumber, id)
+
+      const totals = calculateTotals(parsed.lineItems)
+      const autoSettled = await txAutoPaidService.isAutoPaidTaxCode(scope, partner.sellerTaxCode)
+      invoice.company = partner.company
+      invoice.sellerTaxCode = partner.sellerTaxCode
+      invoice.sellerName = partner.sellerName
+      invoice.buyerTaxCode = null
+      invoice.buyerName = organization.name
+      invoice.invoiceSymbol = normalizedSymbol(parsed.invoiceSymbol)
+      invoice.invoiceNumber = parsed.invoiceNumber
+      invoice.invoiceCode = normalizedSymbol(parsed.invoiceCode)
+      invoice.invoiceDate = parsed.invoiceDate
+      invoice.dueDate = dueDate
+      invoice.dueDateSource = parsed.dueDate ? 'explicit' : dueDate ? 'partner_terms' : null
+      invoice.currencyCode = parsed.currencyCode
+      invoice.invoiceStatus = 'ACTIVE'
+      invoice.netAmount = totals.netAmount
+      invoice.vatAmount = totals.vatAmount
+      invoice.grossAmount = totals.grossAmount
+      invoice.hasReceived = false
+      invoice.hasPaid = autoSettled
+      invoice.settlementStatus = autoSettled ? 'SETTLED' : 'UNSETTLED'
+      invoice.paidAmount = autoSettled ? totals.grossAmount : '0'
+      invoice.outstandingAmount = autoSettled ? '0' : totals.grossAmount
+      invoice.nextDueDate = autoSettled ? null : dueDate
+      invoice.hasInstallmentPlan = false
+      invoice.nonRecoverable = false
+      invoice.nonRecoverableNote = null
+      invoice.nonRecoverableAt = null
+      invoice.lastSentAt = null
+      invoice.emailTrackingTokenHash = null
+      invoice.openedAt = null
+      invoice.autoSettled = autoSettled
+      invoice.autoPayExcluded = false
+      invoice.searchText = buildInvoiceSearchText({
+        invoiceNumber: parsed.invoiceNumber,
+        invoiceSymbol: parsed.invoiceSymbol,
+        invoiceCode: parsed.invoiceCode,
+        buyerName: organization.name,
+        sellerName: partner.sellerName,
+        sellerTaxCode: partner.sellerTaxCode,
+      })
+      await tx.nativeDelete(InvoiceLineItem, { invoice })
+      await tx.nativeDelete(InvoiceInstallment, { invoice })
+      await tx.nativeDelete(InvoicePaymentConfirmation, { invoice })
+      invoice.lineItems?.removeAll?.()
+      invoice.installments?.removeAll?.()
+      invoice.paymentConfirmations?.removeAll?.()
+      this.replaceLineItems(tx, scope, invoice, totals.lineItems)
+      await tx.flush()
+
+      return { invoice: mapInvoiceEntityToDetailDto(invoice) }
+    })
+  }
+
+  async deleteManualInvoice(scope: InvoiceScope, id: string): Promise<InvoiceManualDeleteResult> {
+    const invoice = await this.scopedPersistence.findById(Invoice, scope, id)
+    if (!invoice) throw notFound('[internal] Invoice not found')
+    this.assertManualInvoice(invoice)
+    invoice.deletedAt = new Date()
+    await this.em.flush()
+
+    return { invoiceId: id, deleted: true }
+  }
+
+  private async loadOrganization(tx: EntityManager, scope: InvoiceScope): Promise<Organization> {
+    const organization = await tx.findOne(Organization, {
+      id: scope.organizationId,
+      deletedAt: null,
+    } as FilterQuery<Organization>)
+    if (!organization) throw badRequest('[internal] Invoice organization scope is invalid')
+    return organization
+  }
+
+  private async resolvePartner(
+    scope: InvoiceScope,
+    scopedPersistence: InvoiceScopedPersistenceService,
+    partnerTermsService: InvoicePartnerTermsService,
+    input: InvoiceManualWriteInput,
+  ): Promise<PartnerIdentity> {
+    const matched = await partnerTermsService.matchPartner(scope, {
+      taxCode: input.partnerTaxCode,
+      name: input.partnerName,
+    })
+    if (matched) {
+      return {
+        company: matched,
+        sellerName: input.partnerName,
+        sellerTaxCode: input.partnerTaxCode ?? matched.taxCode,
+      }
+    }
+
+    const sellerTaxCode = input.partnerTaxCode ?? `${SYNTHETIC_TAX_CODE_PREFIX}${randomUUID()}`
+    const company = scopedPersistence.createScoped(InvoiceCompany, scope, {
+      taxCode: sellerTaxCode,
+      countryCode: input.partnerCountryCode,
+      name: input.partnerName,
+      defaultDueDays: INVOICE_PARTNER_DEFAULT_DUE_DAYS,
+      searchText: buildCompanySearchText({
+        name: input.partnerName,
+        taxCode: sellerTaxCode,
+        countryCode: input.partnerCountryCode,
+      }),
+    })
+
+    return {
+      company,
+      sellerName: input.partnerName,
+      sellerTaxCode,
+    }
+  }
+
+  private async assertNoDuplicate(
+    scope: InvoiceScope,
+    scopedPersistence: InvoiceScopedPersistenceService,
+    sellerTaxCode: string,
+    invoiceSymbol: string | null | undefined,
+    invoiceNumber: string,
+    excludeInvoiceId?: string,
+  ): Promise<void> {
+    const where: FilterQuery<Invoice> = {
+      direction: 'AP',
+      sellerTaxCode,
+      invoiceSymbol: normalizedSymbol(invoiceSymbol),
+      invoiceNumber,
+    }
+    if (excludeInvoiceId) {
+      where.id = { $ne: excludeInvoiceId } as FilterQuery<Invoice>['id']
+    }
+    const duplicate = await scopedPersistence.findOne(Invoice, scope, where)
+    if (duplicate) throw conflict('[internal] Duplicate manual invoice')
+  }
+
+  private replaceLineItems(
+    em: EntityManager,
+    scope: InvoiceScope,
+    invoice: Invoice,
+    lineItems: CalculatedLineItem[],
+  ): void {
+    for (const lineItem of lineItems) {
+      const created = em.create(InvoiceLineItem, {
+        organizationId: scope.organizationId,
+        tenantId: scope.tenantId,
+        invoice,
+        ...lineItem,
+      })
+      invoice.lineItems?.add?.(created)
+    }
+  }
+
+  private assertManualInvoice(invoice: Invoice): void {
+    if (invoice.origin !== 'MANUAL') throw badRequest('[internal] Imported invoice cannot be changed')
+    if (invoice.direction !== 'AP') throw badRequest('[internal] Only manual AP invoices can be changed')
+  }
 }
 
 export function createInvoiceService(
+  em: EntityManager,
   queryEngine: QueryEngine,
   scopedPersistence: InvoiceScopedPersistenceService,
 ): InvoiceService {
-  return new InvoiceService(queryEngine, scopedPersistence)
+  return new InvoiceService(em, queryEngine, scopedPersistence)
 }

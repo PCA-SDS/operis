@@ -371,3 +371,11 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   `GET /api/invoice/invoices/[id]` under `invoice.view`. Write actions,
   summary/forecast, email/tracking, payment confirmations, and UI remain
   pending.
+- 2026-09-08: Implemented the CAP-001 manual AP lifecycle slice:
+  `POST /api/invoice/invoices`, `PUT /api/invoice/invoices/[id]`, and
+  `DELETE /api/invoice/invoices/[id]` through manual invoice commands,
+  route mutation guards, trusted Invoice scope, server-owned totals, partner
+  persistence, duplicate protection, CAP-003 due-date defaults, M5 Auto-Paid
+  initial settlement, and edit/delete optimistic locking. Summary/forecast,
+  dedicated due-date updates, AR settlement, installments, send/tracking,
+  payment confirmations, and UI remain pending.

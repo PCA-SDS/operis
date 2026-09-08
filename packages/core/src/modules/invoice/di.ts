@@ -34,8 +34,12 @@ export function register(container: AppContainer) {
     invoiceAutoPaidService: asFunction(({ em, invoiceScopedPersistenceService }) =>
       createInvoiceAutoPaidService(em, invoiceScopedPersistenceService),
     ).scoped().proxy(),
-    invoiceService: asFunction(({ queryEngine, invoiceScopedPersistenceService }) =>
-      createInvoiceService(queryEngine, invoiceScopedPersistenceService),
+    invoiceService: asFunction(({ em, queryEngine, invoiceScopedPersistenceService }) =>
+      createInvoiceService(
+        em,
+        queryEngine,
+        invoiceScopedPersistenceService,
+      ),
     ).scoped().proxy(),
     Invoice: asValue(Invoice),
     InvoiceAutoPaidTaxCode: asValue(InvoiceAutoPaidTaxCode),

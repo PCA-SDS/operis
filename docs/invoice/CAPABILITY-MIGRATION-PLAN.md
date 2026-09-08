@@ -419,7 +419,12 @@ Progress:
   `invoiceService.getInvoiceDetail`, QueryEngine-backed list filters/sort/page,
   safe DTO mappers, and `GET /api/invoice/invoices` plus
   `GET /api/invoice/invoices/[id]` with `invoice.view` metadata.
-- Create/update/delete, summary, forecast, due-date, settlement, installment,
+- Implemented the CAP-001 manual AP lifecycle slice: manual invoice
+  create/update/delete service methods, command handlers, route writes,
+  server-side line/totals calculation, partner create/reuse, duplicate guard,
+  due-date defaults through CAP-003, Auto-Paid integration through M5, and
+  optimistic locking for edit/delete.
+- Summary, forecast, dedicated due-date endpoint, AR settlement, installment,
   send/tracking, payment confirmation, and UI parity remain pending.
 
 ## M7 CAP-005 Payment Confirmations

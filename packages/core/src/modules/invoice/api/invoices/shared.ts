@@ -5,10 +5,12 @@ import { z } from 'zod'
 import { getAuthFromRequest, type AuthContext } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import type { OpenApiResponseDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 
 import { requireInvoiceScope, type InvoiceScope } from '../../data/scope'
 import { invoiceIdSchema } from '../../data/validators'
@@ -20,6 +22,10 @@ export const INVOICE_INVOICE_RESOURCE_KIND = 'invoice.invoice'
 export const invoiceInvoiceRouteMetadata = {
   requireAuth: true,
   requireFeatures: ['invoice.view'],
+} as const
+export const invoiceInvoiceManageRouteMetadata = {
+  requireAuth: true,
+  requireFeatures: ['invoice.manage'],
 } as const
 
 export const invoiceInvoiceParamSchema = z.object({
@@ -113,6 +119,15 @@ export const invoiceDetailResponseSchema = invoiceListItemDtoSchema.extend({
   lineItems: z.array(invoiceLineItemDtoSchema),
   installments: z.array(invoiceInstallmentDtoSchema),
 })
+export const invoiceManualMutationResponseSchema = z.object({
+  ok: z.literal(true),
+  invoice: invoiceDetailResponseSchema,
+})
+export const invoiceManualDeleteResponseSchema = z.object({
+  ok: z.literal(true),
+  invoiceId: z.string().uuid(),
+  deleted: z.literal(true),
+})
 
 export const invoiceInvoiceRouteErrors: OpenApiResponseDoc[] = [...invoiceCommonErrors]
 export { invoiceInvoicesTag }
@@ -122,8 +137,31 @@ export type InvoiceInvoiceRouteContext = {
   auth: AuthContext
   userId: string
   scope: InvoiceScope
+  organizationScope: { selectedId?: string | null } | null
   em: EntityManager
   translate: (key: string, fallback?: string) => string
+}
+
+export function toRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
+
+export async function readRequestRecord(req: Request): Promise<Record<string, unknown>> {
+  return toRecord(await readJsonSafe(req, {}))
+}
+
+export function buildInvoiceCommandContext(
+  context: InvoiceInvoiceRouteContext,
+  req: Request,
+): CommandRuntimeContext {
+  return {
+    container: context.container,
+    auth: context.auth,
+    organizationScope: context.organizationScope,
+    selectedOrganizationId: context.scope.organizationId,
+    organizationIds: [context.scope.organizationId],
+    request: req,
+  }
 }
 
 export async function resolveInvoiceInvoiceRouteContext(req: Request): Promise<InvoiceInvoiceRouteContext> {
@@ -147,6 +185,7 @@ export async function resolveInvoiceInvoiceRouteContext(req: Request): Promise<I
     auth,
     userId: auth.sub,
     scope,
+    organizationScope: organizationScope ? { selectedId: organizationScope.selectedId ?? null } : null,
     em: container.resolve('em') as EntityManager,
     translate,
   }

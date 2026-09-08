@@ -93,6 +93,7 @@ describe('invoice module foundation', () => {
       'search.ts',
       'encryption.ts',
       join('commands', 'auto-paid.ts'),
+      join('commands', 'invoices.ts'),
       join('api', 'openapi.ts'),
       join('api', 'company-lookup', '[identifier]', 'route.ts'),
       join('api', 'partners', 'route.ts'),
@@ -172,6 +173,9 @@ describe('invoice module foundation', () => {
     const invoiceService = container.resolve<InvoiceService>('invoiceService')
     expect(typeof invoiceService.listInvoices).toBe('function')
     expect(typeof invoiceService.getInvoiceDetail).toBe('function')
+    expect(typeof invoiceService.createManualInvoice).toBe('function')
+    expect(typeof invoiceService.updateManualInvoice).toBe('function')
+    expect(typeof invoiceService.deleteManualInvoice).toBe('function')
 
     for (const [token, entity] of Object.entries(ENTITY_EXPORTS)) {
       expect(container.resolve(token)).toBe(entity)

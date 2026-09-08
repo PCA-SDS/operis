@@ -5,6 +5,7 @@ const mockGetAuthFromRequest = jest.fn()
 const mockCreateRequestContainer = jest.fn()
 const mockResolveTranslations = jest.fn()
 const mockResolveOrganizationScopeForRequest = jest.fn()
+const mockRunRouteMutationGuards = jest.fn()
 
 jest.mock('@open-mercato/shared/lib/auth/server', () => ({
   getAuthFromRequest: (...args: unknown[]) => mockGetAuthFromRequest(...args),
@@ -20,6 +21,10 @@ jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
 
 jest.mock('@open-mercato/core/modules/directory/utils/organizationScope', () => ({
   resolveOrganizationScopeForRequest: (...args: unknown[]) => mockResolveOrganizationScopeForRequest(...args),
+}))
+
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => mockRunRouteMutationGuards(...args),
 }))
 
 import * as listRoute from '../route'
@@ -81,14 +86,19 @@ function invoiceDto(overrides: Record<string, unknown> = {}) {
 function createRouteHarness(overrides: {
   listInvoices?: jest.Mock
   getInvoiceDetail?: jest.Mock
+  commandExecute?: jest.Mock
 } = {}) {
   const service = {
     listInvoices: overrides.listInvoices ?? jest.fn(),
     getInvoiceDetail: overrides.getInvoiceDetail ?? jest.fn(),
   }
+  const commandBus = {
+    execute: overrides.commandExecute ?? jest.fn(),
+  }
   const container = {
     resolve: jest.fn((token: string) => {
       if (token === 'invoiceService') return service
+      if (token === 'commandBus') return commandBus
       if (token === 'em') return {}
       throw new Error(`Unknown token ${token}`)
     }),
@@ -103,8 +113,13 @@ function createRouteHarness(overrides: {
   mockResolveTranslations.mockResolvedValue({
     translate: (_key: string, fallback?: string) => fallback ?? _key,
   })
+  mockRunRouteMutationGuards.mockResolvedValue({
+    ok: true,
+    modifiedPayload: null,
+    runAfterSuccess: jest.fn(),
+  })
 
-  return { container, service }
+  return { commandBus, container, service }
 }
 
 async function readJson(response: Response): Promise<Record<string, unknown>> {
@@ -119,11 +134,17 @@ describe('invoice invoices API routes', () => {
   it('declares auth and invoice view ACL metadata', () => {
     expect(listRoute.metadata.GET).toEqual({ requireAuth: true, requireFeatures: ['invoice.view'] })
     expect(detailRoute.metadata.GET).toEqual({ requireAuth: true, requireFeatures: ['invoice.view'] })
+    expect(listRoute.metadata.POST).toEqual({ requireAuth: true, requireFeatures: ['invoice.manage'] })
+    expect(detailRoute.metadata.PUT).toEqual({ requireAuth: true, requireFeatures: ['invoice.manage'] })
+    expect(detailRoute.metadata.DELETE).toEqual({ requireAuth: true, requireFeatures: ['invoice.manage'] })
   })
 
   it('exports OpenAPI operation ids', () => {
     expect(listRoute.openApi.methods.GET?.operationId).toBe('invoice.invoices.list')
     expect(detailRoute.openApi.methods.GET?.operationId).toBe('invoice.invoices.detail')
+    expect(listRoute.openApi.methods.POST?.operationId).toBe('invoice.invoices.create')
+    expect(detailRoute.openApi.methods.PUT?.operationId).toBe('invoice.invoices.update')
+    expect(detailRoute.openApi.methods.DELETE?.operationId).toBe('invoice.invoices.delete')
   })
 
   it('lists invoices through the service using trusted scope and ignores forged params', async () => {
@@ -211,5 +232,87 @@ describe('invoice invoices API routes', () => {
       params: { id: invoiceId },
     })
     expect(missing.status).toBe(404)
+  })
+
+  it('creates manual invoices through guards and command bus with trusted scope', async () => {
+    const commandExecute = jest.fn().mockResolvedValue({ result: { invoiceId, invoice: invoiceDto({ origin: 'MANUAL' }) } })
+    createRouteHarness({ commandExecute })
+
+    const response = await listRoute.POST(new Request('https://example.test/api/invoice/invoices?tenantId=forged', {
+      method: 'POST',
+      body: JSON.stringify({
+        tenantId: 'forged',
+        organizationId: 'forged',
+        buyerName: 'Forged Buyer',
+        grossAmount: '999',
+        partnerName: 'Foreign Seller',
+        partnerCountryCode: 'SG',
+        partnerTaxCode: 'SG-123',
+        invoiceNumber: 'INV-2',
+        invoiceDate: '2026-01-10',
+        lineItems: [{ name: 'Line', quantity: '1', unitPrice: '100' }],
+      }),
+    }))
+
+    expect(response.status).toBe(201)
+    expect(mockRunRouteMutationGuards).toHaveBeenCalledWith(expect.objectContaining({
+      auth: expect.objectContaining({
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+      }),
+      input: expect.objectContaining({
+        resourceKind: 'invoice.invoice',
+        operation: 'create',
+      }),
+    }))
+    expect(commandExecute).toHaveBeenCalledWith('invoice.invoices.create', expect.objectContaining({
+      input: expect.not.objectContaining({
+        tenantId: 'forged',
+        organizationId: 'forged',
+        buyerName: 'Forged Buyer',
+        grossAmount: '999',
+      }),
+    }))
+  })
+
+  it('updates and deletes manual invoices through command bus', async () => {
+    const commandExecute = jest.fn()
+      .mockResolvedValueOnce({ result: { invoiceId, invoice: invoiceDto({ origin: 'MANUAL' }) } })
+      .mockResolvedValueOnce({ result: { invoiceId, deleted: true } })
+    createRouteHarness({ commandExecute })
+    const requestBody = {
+      partnerName: 'Foreign Seller',
+      partnerCountryCode: 'SG',
+      partnerTaxCode: 'SG-123',
+      invoiceNumber: 'INV-3',
+      invoiceDate: '2026-01-10',
+      lineItems: [{ name: 'Line', quantity: '1', unitPrice: '100' }],
+    }
+
+    const update = await detailRoute.PUT(new Request(`https://example.test/api/invoice/invoices/${invoiceId}`, {
+      method: 'PUT',
+      body: JSON.stringify(requestBody),
+    }), { params: { id: invoiceId } })
+    const remove = await detailRoute.DELETE(new Request(`https://example.test/api/invoice/invoices/${invoiceId}`, {
+      method: 'DELETE',
+    }), { params: { id: invoiceId } })
+
+    expect(update.status).toBe(200)
+    expect(remove.status).toBe(200)
+    expect(commandExecute).toHaveBeenNthCalledWith(1, 'invoice.invoices.update', expect.objectContaining({
+      input: {
+        id: invoiceId,
+        input: expect.objectContaining({
+          partnerName: requestBody.partnerName,
+          partnerCountryCode: requestBody.partnerCountryCode,
+          partnerTaxCode: requestBody.partnerTaxCode,
+          invoiceNumber: requestBody.invoiceNumber,
+          lineItems: requestBody.lineItems,
+        }),
+      },
+    }))
+    expect(commandExecute).toHaveBeenNthCalledWith(2, 'invoice.invoices.delete', expect.objectContaining({
+      input: { id: invoiceId },
+    }))
   })
 })

@@ -2,7 +2,7 @@ import { SortDir, type QueryEngine } from '@open-mercato/shared/lib/query/types'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { E } from '#generated/entities.ids.generated'
 
-import { Invoice, InvoiceInstallment, InvoiceLineItem } from '../../data/entities'
+import { Invoice, InvoiceCompany, InvoiceInstallment, InvoiceLineItem } from '../../data/entities'
 import type { InvoiceScope } from '../../data/scope'
 import { InvoiceScopedPersistenceService } from '../scoped-persistence-service'
 import { InvoiceService } from '../invoice-service'
@@ -123,9 +123,17 @@ function createService() {
   } as unknown as QueryEngine
   const em = {
     findOne: jest.fn(),
+    transactional: jest.fn(),
+    create: jest.fn(),
+    flush: jest.fn(),
+    nativeDelete: jest.fn(),
   }
   const scopedPersistence = new InvoiceScopedPersistenceService(em as unknown as EntityManager)
-  const service = new InvoiceService(queryEngine, scopedPersistence)
+  const service = new InvoiceService(
+    em as unknown as EntityManager,
+    queryEngine,
+    scopedPersistence,
+  )
 
   return { em, queryEngine, service }
 }
@@ -225,5 +233,93 @@ describe('InvoiceService', () => {
     jest.mocked(em.findOne).mockResolvedValue(null)
 
     await expect(service.getInvoiceDetail(scope, invoiceId)).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('rejects Vietnamese partners for manual create before writing', async () => {
+    const { em, service } = createService()
+
+    await expect(service.createManualInvoice(scope, {
+      partnerName: 'VN Seller',
+      partnerCountryCode: 'VN',
+      partnerTaxCode: '0100109106',
+      invoiceNumber: 'INV-2',
+      invoiceDate: '2026-01-10',
+      lineItems: [{ name: 'Line', quantity: '1', unitPrice: '100' }],
+    })).rejects.toMatchObject({ name: 'ZodError' })
+    expect(em.transactional).not.toHaveBeenCalled()
+  })
+
+  it('guards manual duplicate invoices by scoped AP seller identity and symbol/number', async () => {
+    const { em, service } = createService()
+    jest.mocked(em.transactional).mockImplementation(async (work) => work(em as unknown as EntityManager))
+    jest.mocked(em.findOne)
+      .mockResolvedValueOnce({ id: scope.organizationId, name: 'Host Org' })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(invoice())
+
+    await expect(service.createManualInvoice(scope, {
+      partnerName: 'Foreign Seller',
+      partnerCountryCode: 'SG',
+      partnerTaxCode: 'SG-123',
+      invoiceSymbol: 'AA',
+      invoiceNumber: 'INV-2',
+      invoiceDate: '2026-01-10',
+      lineItems: [{ name: 'Line', quantity: '1', unitPrice: '100' }],
+    })).rejects.toMatchObject({ status: 409 })
+  })
+
+  it('creates manual AP invoice with server totals and auto-paid state', async () => {
+    const { em, service } = createService()
+    const seller = { id: companyId, taxCode: 'SG-123', name: 'Foreign Seller', countryCode: 'SG' } as InvoiceCompany
+    jest.mocked(em.transactional).mockImplementation(async (work) => work(em as unknown as EntityManager))
+    jest.mocked(em.findOne)
+      .mockResolvedValueOnce({ id: scope.organizationId, name: 'Host Org' })
+      .mockResolvedValueOnce(seller)
+      .mockResolvedValueOnce(seller)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'rule-1' })
+    jest.mocked(em.create).mockImplementation((_entity, payload) => payload)
+
+    const result = await service.createManualInvoice(scope, {
+      partnerName: 'Foreign Seller',
+      partnerCountryCode: 'SG',
+      partnerTaxCode: 'SG-123',
+      invoiceNumber: 'INV-3',
+      invoiceDate: '2026-01-10',
+      grossAmount: '999999',
+      paidAmount: '999999',
+      lineItems: [{ name: 'Line', quantity: '2', unitPrice: '100', discountPercent: 10, vatRate: 10 }],
+    })
+
+    expect(result.invoice).toMatchObject({
+      direction: 'AP',
+      origin: 'MANUAL',
+      buyerName: 'Host Org',
+      buyerTaxCode: null,
+      sellerName: 'Foreign Seller',
+      grossAmount: '198.0000',
+      paidAmount: '198.0000',
+      outstandingAmount: '0',
+      settlementStatus: 'SETTLED',
+      autoSettled: true,
+    })
+    expect(JSON.stringify(result.invoice)).not.toContain('999999')
+  })
+
+  it('rejects update and delete for imported invoices', async () => {
+    const { em, service } = createService()
+    jest.mocked(em.transactional).mockImplementation(async (work) => work(em as unknown as EntityManager))
+    jest.mocked(em.findOne).mockResolvedValue(invoice({ origin: 'GOVERNMENT_PORTAL' }))
+
+    await expect(service.updateManualInvoice(scope, invoiceId, {
+      partnerName: 'Foreign Seller',
+      partnerCountryCode: 'SG',
+      partnerTaxCode: 'SG-123',
+      invoiceNumber: 'INV-4',
+      invoiceDate: '2026-01-10',
+      lineItems: [{ name: 'Line', quantity: '1', unitPrice: '100' }],
+    })).rejects.toMatchObject({ status: 400 })
+    await expect(service.deleteManualInvoice(scope, invoiceId)).rejects.toMatchObject({ status: 400 })
   })
 })

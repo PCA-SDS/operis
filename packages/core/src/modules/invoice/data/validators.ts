@@ -130,6 +130,10 @@ export const invoicePositiveMoneySchema = z
   .string()
   .trim()
   .regex(/^\d{1,14}(\.\d{1,4})?$/)
+export const invoiceNonNegativeMoneySchema = z
+  .string()
+  .trim()
+  .regex(/^\d{1,14}(\.\d{1,4})?$/)
 export const invoicePercentSchema = z.coerce
   .number()
   .min(INVOICE_INSTALLMENT_INTEREST_RATE_MIN)
@@ -178,6 +182,56 @@ export const invoiceListQuerySchema = z.object({
   sortField: invoiceSortFieldSchema.default('invoiceDate'),
   sortDir: invoiceSortDirectionSchema.default('desc'),
 })
+const invoiceManualOptionalMoneySchema = z.preprocess((value) => {
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}, invoiceNonNegativeMoneySchema.optional())
+const invoiceManualNullableDateSchema = z.preprocess((value) => {
+  if (value === null) return null
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}, invoiceDateSchema.nullable().optional())
+export const invoiceManualLineItemInputSchema = z.object({
+  name: z.string().trim().min(1).max(500),
+  unit: nullableTrimmedString(80),
+  quantity: invoiceNonNegativeMoneySchema,
+  unitPrice: invoiceNonNegativeMoneySchema,
+  discountAmount: invoiceManualOptionalMoneySchema,
+  discountPercent: invoicePercentSchema.optional(),
+  vatRate: invoicePercentSchema.optional(),
+}).strict().superRefine((item, ctx) => {
+  if (item.discountAmount !== undefined && item.discountPercent !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['discountPercent'],
+      message: 'Use discount amount or discount percent, not both',
+    })
+  }
+})
+export const invoiceManualWriteSchema = z.object({
+  partnerName: invoiceCompanyNameSchema,
+  partnerCountryCode: invoiceCountryCodeSchema,
+  partnerTaxCode: optionalTrimmedString(invoiceTaxCodeSchema),
+  invoiceSymbol: invoiceSymbolSchema,
+  invoiceNumber: invoiceNumberSchema,
+  invoiceCode: invoiceCodeSchema,
+  invoiceDate: invoiceDateSchema,
+  dueDate: invoiceManualNullableDateSchema,
+  currencyCode: invoiceCurrencyCodeSchema.default('VND'),
+  lineItems: z.array(invoiceManualLineItemInputSchema).min(1).max(INVOICE_LINE_ITEMS_MAX),
+}).strip().superRefine((input, ctx) => {
+  if (input.partnerCountryCode === 'VN') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['partnerCountryCode'],
+      message: 'Vietnamese partners are not supported for manual invoices',
+    })
+  }
+})
+export const invoiceManualCreateSchema = invoiceManualWriteSchema
+export const invoiceManualUpdateSchema = invoiceManualWriteSchema
 export const invoicePartnerMatchQuerySchema = z.object({
   taxCode: optionalTrimmedString(invoiceTaxCodeSchema),
   name: optionalTrimmedString(invoiceCompanyNameSchema),
@@ -266,3 +320,5 @@ export type InvoiceCompanyLookupCompany = z.infer<typeof invoiceCompanyLookupCom
 export type InvoiceCompanyLookupResult = z.infer<typeof invoiceCompanyLookupResultSchema>
 export type InvoiceCompanyLookupCachePayload = z.infer<typeof invoiceCompanyLookupCachePayloadSchema>
 export type InvoiceListQuery = z.infer<typeof invoiceListQuerySchema>
+export type InvoiceManualWriteInput = z.infer<typeof invoiceManualWriteSchema>
+export type InvoiceManualLineItemInput = z.infer<typeof invoiceManualLineItemInputSchema>
