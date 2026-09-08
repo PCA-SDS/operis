@@ -7,6 +7,7 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { ORGANIZATION_SCOPE_REQUIRED_ERROR_CODE } from '@open-mercato/shared/lib/auth/organizationScope'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import {
   runCrudMutationGuardAfterSuccess,
@@ -78,8 +79,17 @@ async function resolveCommandContext(request: Request): Promise<CommandRuntimeCo
 function resolveScope(ctx: CommandRuntimeContext) {
   const organizationId = ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null
   const tenantId = ctx.auth?.tenantId ?? null
-  if (!organizationId || !tenantId) {
+  if (!tenantId) {
     throw new CrudHttpError(401, { error: 'Unauthorized' })
+  }
+  // An authenticated caller whose organization scope cannot be resolved gets a
+  // 400, not a 401 — see `shared/lib/auth/organizationScope`: `apiFetch` reads
+  // 401 as an expired session and loops through the refresh endpoint forever.
+  if (!organizationId) {
+    throw new CrudHttpError(400, {
+      error: 'Select an organization to access this resource',
+      code: ORGANIZATION_SCOPE_REQUIRED_ERROR_CODE,
+    })
   }
   return { organizationId, tenantId }
 }
