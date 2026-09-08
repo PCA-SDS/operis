@@ -196,13 +196,13 @@ async function seedAreaTypeAndGetFloorId(
   now: Date,
 ): Promise<string> {
   const defaultTypes = [
-    { name: 'Campus', description: 'A campus location.', appearanceIcon: '\u{1F3DB}' },
-    { name: 'Building', description: 'A building within a campus.', appearanceIcon: '\u{1F3E2}' },
-    { name: 'Floor', description: 'A floor within a building.', appearanceIcon: '\u{1F4A6}' },
-    { name: 'Zone', description: 'A zone within a floor or area.', appearanceIcon: '\u{1F4CD}' },
-    { name: 'Room', description: 'A room within a building or zone.', appearanceIcon: '\u{1F6AA}' },
-    { name: 'Section', description: 'A section within a room or area.', appearanceIcon: '\u{1F4CB}' },
-    { name: 'Other', description: 'Other area type.', appearanceIcon: '\u{1F4E6}' },
+    { name: 'Campus', description: 'A campus location.', appearanceIcon: 'lucide:map' },
+    { name: 'Building', description: 'A building within a campus.', appearanceIcon: 'lucide:building' },
+    { name: 'Floor', description: 'A floor within a building.', appearanceIcon: 'lucide:layers' },
+    { name: 'Zone', description: 'A zone within a floor or area.', appearanceIcon: 'lucide:map-pin' },
+    { name: 'Room', description: 'A room within a building or zone.', appearanceIcon: 'lucide:door-closed' },
+    { name: 'Section', description: 'A section within a room or area.', appearanceIcon: 'lucide:layout-grid' },
+    { name: 'Other', description: 'Other area type.', appearanceIcon: 'lucide:package' },
   ]
 
   const existing = await em.find(
@@ -214,8 +214,16 @@ async function seedAreaTypeAndGetFloorId(
   for (const seed of defaultTypes) {
     const existingType = existingByName.get(seed.name)
     if (existingType) {
+      let changed = false
       if (!existingType.description?.trim() && seed.description) {
         existingType.description = seed.description
+        changed = true
+      }
+      if (existingType.appearanceIcon !== seed.appearanceIcon) {
+        existingType.appearanceIcon = seed.appearanceIcon
+        changed = true
+      }
+      if (changed) {
         existingType.updatedAt = now
         em.persist(existingType)
       }
@@ -414,9 +422,15 @@ export const migrateTpsResourcesCommand: ModuleCli = {
             createdAt: now,
             updatedAt: now,
           })
+          let icon = 'lucide:package'
+          if (tpsType.code === 'lash') icon = 'lucide:wand'
+          if (tpsType.code === 'nail') icon = 'lucide:palette'
+          if (tpsType.code === 'shampoo') icon = 'lucide:cloud'
+          if (tpsType.code === 'spa') icon = 'lucide:sparkles'
+          
           entity.description = null
           entity.appearanceColor = tpsType.color_hex || null
-          entity.appearanceIcon = tpsType.icon || 'Box'
+          entity.appearanceIcon = tpsType.icon ? `lucide:${tpsType.icon.toLowerCase()}` : icon
           em.persist(entity)
           tpsTypeIdMap[tpsType.id] = newTypeId
           logger.info(`  SeatType "${tpsType.code}" -> ResourceType`)
