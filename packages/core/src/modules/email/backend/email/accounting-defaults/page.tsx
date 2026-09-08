@@ -34,6 +34,11 @@ const emptyForm: DefaultsForm = {
   updatedAt: null,
 }
 
+type KeyValueRow = {
+  key: string
+  value: string
+}
+
 const pcaStarterDefaults = {
   defaultSenderName: 'PCA Accounting',
   defaultReplyTo: '',
@@ -65,6 +70,27 @@ const pcaStarterDefaults = {
   }, null, 2),
 }
 
+function objectToRows(value: string): KeyValueRow[] {
+  try {
+    return Object.entries(parseJsonObject(value, 'Values')).map(([key, item]) => ({
+      key,
+      value: String(item ?? ''),
+    }))
+  } catch {
+    return []
+  }
+}
+
+function rowsToJson(rows: KeyValueRow[]): string {
+  return JSON.stringify(
+    Object.fromEntries(rows
+      .map((row) => [row.key.trim(), row.value] as const)
+      .filter(([key]) => key.length > 0)),
+    null,
+    2,
+  )
+}
+
 function parseJsonObject(value: string, label: string): Record<string, unknown> {
   const parsed = JSON.parse(value || '{}') as unknown
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -94,6 +120,11 @@ export default function EmailAccountingDefaultsPage() {
   const setField = <K extends keyof DefaultsForm>(key: K, value: DefaultsForm[K]) => {
     setForm((current) => ({ ...current, [key]: value }))
   }
+
+  const placeholderRows = React.useMemo(() => objectToRows(form.placeholders), [form.placeholders])
+  const linkPlaceholderRows = React.useMemo(() => objectToRows(form.linkPlaceholders), [form.linkPlaceholders])
+  const setPlaceholderRows = (rows: KeyValueRow[]) => setField('placeholders', rowsToJson(rows))
+  const setLinkPlaceholderRows = (rows: KeyValueRow[]) => setField('linkPlaceholders', rowsToJson(rows))
 
   React.useEffect(() => {
     const controller = new AbortController()
@@ -189,8 +220,58 @@ export default function EmailAccountingDefaultsPage() {
               <label className="block text-sm font-medium">Default sender name<input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={form.defaultSenderName} onChange={(event) => setField('defaultSenderName', event.target.value)} /></label>
               <label className="block text-sm font-medium">Default reply-to<input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={form.defaultReplyTo} onChange={(event) => setField('defaultReplyTo', event.target.value)} placeholder="accounting@example.com" /></label>
             </div>
-            <label className="block text-sm font-medium">Common placeholders JSON<textarea className="mt-1 min-h-36 w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm" value={form.placeholders} onChange={(event) => setField('placeholders', event.target.value)} /></label>
-            <label className="block text-sm font-medium">Sample link placeholders JSON<textarea className="mt-1 min-h-36 w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm" value={form.linkPlaceholders} onChange={(event) => setField('linkPlaceholders', event.target.value)} /></label>
+            <section className="space-y-3 rounded-md border bg-background p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-medium">Common accounting placeholders</h2>
+                  <p className="text-xs text-muted-foreground">Default sample values available to templates, such as periods and filing deadlines.</p>
+                </div>
+                <Button type="button" size="sm" variant="secondary" onClick={() => setPlaceholderRows([...placeholderRows, { key: '', value: '' }])}>Add placeholder</Button>
+              </div>
+              <div className="space-y-2">
+                {placeholderRows.map((row, index) => (
+                  <div key={`${row.key}-${index}`} className="grid gap-2 md:grid-cols-[minmax(160px,1fr)_minmax(180px,1fr)_auto]">
+                    <input className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={row.key} onChange={(event) => {
+                      const next = [...placeholderRows]
+                      next[index] = { ...row, key: event.target.value }
+                      setPlaceholderRows(next)
+                    }} placeholder="quarterPeriod" />
+                    <input className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={row.value} onChange={(event) => {
+                      const next = [...placeholderRows]
+                      next[index] = { ...row, value: event.target.value }
+                      setPlaceholderRows(next)
+                    }} placeholder="Quarter 1 2026" />
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setPlaceholderRows(placeholderRows.filter((_, rowIndex) => rowIndex !== index))}>Remove</Button>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section className="space-y-3 rounded-md border bg-background p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-medium">Sample link placeholders</h2>
+                  <p className="text-xs text-muted-foreground">Safe placeholder URLs only. Do not paste real customer Google Drive or Sheets links here.</p>
+                </div>
+                <Button type="button" size="sm" variant="secondary" onClick={() => setLinkPlaceholderRows([...linkPlaceholderRows, { key: '', value: 'https://example.com/' }])}>Add link</Button>
+              </div>
+              <div className="space-y-2">
+                {linkPlaceholderRows.map((row, index) => (
+                  <div key={`${row.key}-${index}`} className="grid gap-2 md:grid-cols-[minmax(160px,1fr)_minmax(180px,1fr)_auto]">
+                    <input className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={row.key} onChange={(event) => {
+                      const next = [...linkPlaceholderRows]
+                      next[index] = { ...row, key: event.target.value }
+                      setLinkPlaceholderRows(next)
+                    }} placeholder="vatPitReportsLink" />
+                    <input className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={row.value} onChange={(event) => {
+                      const next = [...linkPlaceholderRows]
+                      next[index] = { ...row, value: event.target.value }
+                      setLinkPlaceholderRows(next)
+                    }} placeholder="https://example.com/vat-pit-reports-folder" />
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setLinkPlaceholderRows(linkPlaceholderRows.filter((_, rowIndex) => rowIndex !== index))}>Remove</Button>
+                  </div>
+                ))}
+              </div>
+            </section>
             <label className="block text-sm font-medium">Workflow rules JSON<textarea className="mt-1 min-h-36 w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm" value={form.rules} onChange={(event) => setField('rules', event.target.value)} /></label>
             <div className="flex justify-end gap-2"><Button type="button" variant="secondary" asChild><Link href="/backend/email/templates">Cancel</Link></Button><Button type="submit" disabled={isSaving}>{isSaving ? 'Saving…' : 'Save Defaults'}</Button></div>
           </form>
