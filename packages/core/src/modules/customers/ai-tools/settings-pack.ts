@@ -5,7 +5,6 @@
  * pipeline stages, dictionaries, and address-format settings. All reads are
  * tenant + organization scoped through the existing encryption helpers.
  */
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { z } from 'zod'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import {
@@ -14,15 +13,8 @@ import {
   CustomerPipelineStage,
   CustomerSettings,
 } from '../data/entities'
-import { assertTenantScope, type CustomersAiToolDefinition, type CustomersToolContext } from './types'
-
-function resolveEm(ctx: CustomersToolContext): EntityManager {
-  return ctx.container.resolve<EntityManager>('em')
-}
-
-function buildScope(ctx: CustomersToolContext, tenantId: string) {
-  return { tenantId, organizationId: ctx.organizationId }
-}
+import { assertTenantScope, type CustomersAiToolDefinition } from './types'
+import { buildScope, resolveEm } from './_shared'
 
 const getSettingsInput = z.object({}).passthrough()
 
