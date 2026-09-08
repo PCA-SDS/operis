@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import * as React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import ResourcesResourceAreasPage from '../areas/page'
 import ResourcesResourceTypesPage from '../resource-types/page'
 import ResourcesResourcesPage from '../resources/page'
@@ -445,6 +445,44 @@ beforeEach(() => {
   })
 })
 
+function mockPointerTarget(target: Element): jest.SpyInstance<Element | null, [x: number, y: number]> {
+  if (typeof document.elementFromPoint !== 'function') {
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: jest.fn(),
+    })
+  }
+  return jest.spyOn(document, 'elementFromPoint').mockReturnValue(target)
+}
+
+async function dragRowOntoTarget(sourceRow: HTMLElement, targetRow: HTMLElement, options: { loseTargetBeforeDrop?: boolean } = {}) {
+  const dragHandle = sourceRow.querySelector('button[aria-label="Drag to reorder"]')
+  const target = targetRow.querySelector('[data-resource-reorder-id], [data-area-reorder-id]')
+  expect(dragHandle).toBeInstanceOf(HTMLElement)
+  expect(target).toBeInstanceOf(Element)
+  const elementFromPoint = mockPointerTarget(target as Element)
+  await act(async () => {
+    fireEvent.pointerDown(dragHandle as HTMLElement, { clientX: 8, clientY: 8, pointerId: 1 })
+  })
+  await act(async () => {
+    fireEvent.pointerMove(window, { clientX: 8, clientY: 80, pointerId: 1 })
+  })
+  if (options.loseTargetBeforeDrop) {
+    elementFromPoint.mockReturnValue(null)
+    await act(async () => {
+      fireEvent.pointerMove(window, { clientX: 8, clientY: 120, pointerId: 1 })
+    })
+  }
+  return {
+    drop: async () => {
+      await act(async () => {
+        fireEvent.pointerUp(window, { clientX: 8, clientY: 80, pointerId: 1 })
+      })
+      elementFromPoint.mockRestore()
+    },
+  }
+}
+
 it('wraps resource list deletes in the guarded mutation path', async () => {
   render(<ResourcesResourcesPage />)
 
@@ -616,6 +654,155 @@ it('wraps resource reorder actions in the guarded mutation path', async () => {
   }))
 })
 
+it('drops dragged resources after lower sibling rows', async () => {
+  mockApiCall.mockImplementation(async (url: string) => {
+    if (url === '/api/auth/feature-check') {
+      return apiResult({ ok: true, granted: ['resources.manage_resources'] })
+    }
+    if (url.startsWith('/api/resources/resource-types')) {
+      return apiResult({ items: [], total: 0, page: 1, totalPages: 1 })
+    }
+    if (url.startsWith('/api/resources/resources')) {
+      return apiResult({
+        items: [
+          {
+            id: 'resource-low',
+            name: 'Room 1',
+            resourceTypeId: null,
+            areaId: 'area-1',
+            sort_order: 1,
+            capacity: 1,
+            tags: [],
+            isActive: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          },
+          {
+            id: 'resource-high',
+            name: 'Room 2',
+            resourceTypeId: null,
+            areaId: 'area-1',
+            sort_order: 2,
+            capacity: 1,
+            tags: [],
+            isActive: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          },
+        ],
+        total: 2,
+        page: 1,
+        totalPages: 1,
+      })
+    }
+    if (url.startsWith('/api/resources/areas')) {
+      return apiResult({
+        items: [{
+          id: 'area-1',
+          name: 'Head Office',
+          parent_area_id: null,
+          sort_order: 0,
+          depth: 0,
+        }],
+        total: 1,
+        totalPages: 1,
+      })
+    }
+    return apiResult({ items: [] })
+  })
+
+  render(<ResourcesResourcesPage />)
+
+  fireEvent.click(await screen.findByTestId('select-option-area'))
+  const firstResource = await screen.findByTestId('row-resource-low')
+  const secondResource = screen.getByTestId('row-resource-high')
+  expect(firstResource.compareDocumentPosition(secondResource)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  const drag = await dragRowOntoTarget(firstResource, secondResource, { loseTargetBeforeDrop: true })
+  await waitFor(() => {
+    expect(secondResource.compareDocumentPosition(firstResource)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+  await drag.drop()
+
+  await waitFor(() => {
+    expect(mockApiCallOrThrow).toHaveBeenCalledWith(
+      '/api/resources/resources/reorder',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ id: 'resource-low', targetId: 'resource-high', position: 'after' }),
+      }),
+      expect.any(Object),
+    )
+  })
+})
+
+it('shows invalid drop feedback when resources are dragged across areas', async () => {
+  mockApiCall.mockImplementation(async (url: string) => {
+    if (url === '/api/auth/feature-check') {
+      return apiResult({ ok: true, granted: ['resources.manage_resources'] })
+    }
+    if (url.startsWith('/api/resources/resource-types')) {
+      return apiResult({ items: [], total: 0, page: 1, totalPages: 1 })
+    }
+    if (url.startsWith('/api/resources/resources')) {
+      return apiResult({
+        items: [
+          {
+            id: 'resource-area-a',
+            name: 'Room A',
+            resourceTypeId: null,
+            areaId: 'area-a',
+            sort_order: 1,
+            capacity: 1,
+            tags: [],
+            isActive: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          },
+          {
+            id: 'resource-area-b',
+            name: 'Room B',
+            resourceTypeId: null,
+            areaId: 'area-b',
+            sort_order: 1,
+            capacity: 1,
+            tags: [],
+            isActive: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          },
+        ],
+        total: 2,
+        page: 1,
+        totalPages: 1,
+      })
+    }
+    if (url.startsWith('/api/resources/areas')) {
+      return apiResult({
+        items: [
+          { id: 'area-a', name: 'Area A', parent_area_id: null, sort_order: 0, depth: 0 },
+          { id: 'area-b', name: 'Area B', parent_area_id: null, sort_order: 1, depth: 0 },
+        ],
+        total: 2,
+        totalPages: 1,
+      })
+    }
+    return apiResult({ items: [] })
+  })
+
+  render(<ResourcesResourcesPage />)
+
+  fireEvent.click(await screen.findByTestId('select-option-area'))
+  const sourceResource = await screen.findByTestId('row-resource-area-a')
+  const targetResource = screen.getByTestId('row-resource-area-b')
+  mockApiCallOrThrow.mockClear()
+  const drag = await dragRowOntoTarget(sourceResource, targetResource)
+  const targetCell = targetResource.querySelector('[data-resource-reorder-id]')
+  expect(targetCell).not.toHaveClass('bg-status-error-bg')
+  await drag.drop()
+
+  expect(mockApiCallOrThrow).not.toHaveBeenCalledWith(
+    '/api/resources/resources/reorder',
+    expect.anything(),
+    expect.anything(),
+  )
+})
+
 it('loads resource area children when a parent row is expanded', async () => {
   mockReadApiResultOrThrow.mockImplementation(async (url: string) => {
     if (url.startsWith('/api/resources/areas?')) {
@@ -754,6 +941,70 @@ it('wraps resource area reorder actions in the guarded mutation path', async () 
       direction: 'down',
     }),
   }))
+})
+
+it('drops dragged resource areas after lower sibling rows', async () => {
+  mockReadApiResultOrThrow.mockImplementation(async (url: string) => {
+    if (url.startsWith('/api/resources/areas?')) {
+      return {
+        items: [
+          {
+            id: 'area-low',
+            name: 'Head Office',
+            description: null,
+            area_type: 'building',
+            parent_area_id: null,
+            sort_order: 0,
+            appearance_icon: null,
+            appearance_color: null,
+            is_active: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+            depth: 0,
+            child_count: 0,
+          },
+          {
+            id: 'area-high',
+            name: 'Warehouse',
+            description: null,
+            area_type: 'building',
+            parent_area_id: null,
+            sort_order: 1,
+            appearance_icon: null,
+            appearance_color: null,
+            is_active: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+            depth: 0,
+            child_count: 0,
+          },
+        ],
+        total: 2,
+        totalPages: 1,
+      }
+    }
+    return { items: [], total: 0, totalPages: 1 }
+  })
+
+  render(<ResourcesResourceAreasPage />)
+
+  const firstArea = await screen.findByTestId('row-area-low')
+  const secondArea = screen.getByTestId('row-area-high')
+  expect(firstArea.compareDocumentPosition(secondArea)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  const drag = await dragRowOntoTarget(firstArea, secondArea)
+  await waitFor(() => {
+    expect(secondArea.compareDocumentPosition(firstArea)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+  await drag.drop()
+
+  await waitFor(() => {
+    expect(mockApiCallOrThrow).toHaveBeenCalledWith(
+      '/api/resources/areas/reorder',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ id: 'area-low', targetId: 'area-high', position: 'after' }),
+      }),
+      expect.any(Object),
+    )
+  })
 })
 
 it('wraps resource type list deletes in the guarded mutation path', async () => {
