@@ -17,6 +17,7 @@ import type { CustomerAddressFormat } from '../../../data/entities'
 import { withScopedPayload } from '../../utils'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('customers')
 
@@ -88,7 +89,7 @@ export async function GET(req: Request) {
 export async function PUT(req: Request) {
   try {
     const { ctx, tenantId, organizationId, translate } = await resolveSettingsContext(req)
-    const payload = await req.json().catch(() => ({}))
+    const payload = await readJsonSafe(req, {})
     const scoped = withScopedPayload(payload, ctx, translate)
     const input = customerSettingsUpsertSchema.parse(scoped)
 

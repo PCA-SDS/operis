@@ -11,6 +11,7 @@ import { RoleAcl, Role } from '@open-mercato/core/modules/auth/data/entities'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { resolveIsSuperAdmin } from '@open-mercato/core/modules/auth/lib/tenantAccess'
 import { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import {
   assertActorCanGrantAcl,
   assertActorCanModifySuperAdminRoleTarget,
@@ -126,7 +127,7 @@ export async function GET(req: Request) {
 export async function PUT(req: Request) {
   const auth = await getAuthFromRequest(req)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const body = await req.json().catch(() => ({}))
+  const body = await readJsonSafe(req, {})
   const parsed = putSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
   const container = await createRequestContainer()

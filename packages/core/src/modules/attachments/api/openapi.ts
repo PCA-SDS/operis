@@ -27,8 +27,8 @@ export const attachmentListItemSchema = z.object({
 export const attachmentSchema = attachmentListItemSchema
 
 export const attachmentListQuerySchema = z.object({
-  page: z.coerce.number().min(1).default(1).describe('Page number for pagination'),
-  pageSize: z.coerce.number().min(1).max(100).default(25).describe('Number of items per page (max 100)'),
+  page: z.coerce.number().int().min(1).default(1).describe('Page number for pagination'),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25).describe('Number of items per page (max 100)'),
   search: z.string().optional().describe('Search by file name (case-insensitive)'),
   partition: z.string().optional().describe('Filter by partition code'),
   tags: z.string().optional().describe('Filter by tags (comma-separated)'),

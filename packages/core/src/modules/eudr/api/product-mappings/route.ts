@@ -10,6 +10,7 @@ import { withScopedPayload } from '@open-mercato/shared/lib/api/scoped'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { E } from '#generated/entities.ids.generated'
 import { EudrProductMapping } from '../../data/entities'
+import { toIsoOrEcho as toIsoString } from '@open-mercato/shared/lib/date/normalize'
 import {
   EUDR_COMMODITIES,
   productMappingCreateSchema,
@@ -26,8 +27,8 @@ type TranslateFn = (key: string, fallback?: string) => string
 const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z.object({
-  page: z.coerce.number().min(1).default(1),
-  pageSize: z.coerce.number().min(1).max(100).default(50),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
   search: z.string().optional(),
   commodity: z.enum(EUDR_COMMODITIES).optional(),
   productId: z.string().optional(),
@@ -48,13 +49,6 @@ const routeMetadata = {
 }
 
 export const metadata = routeMetadata
-
-function toIsoString(value: unknown): string | null {
-  if (value instanceof Date) return value.toISOString()
-  if (typeof value !== 'string' || value.length === 0) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toISOString()
-}
 
 function asStringOrNull(value: unknown): string | null {
   return typeof value === 'string' ? value : null

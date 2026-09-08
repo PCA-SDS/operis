@@ -82,15 +82,26 @@ export async function apiCall<TReturn = Record<string, unknown>>(
     const source = typeof (response as Response & { clone?: () => Response }).clone === 'function'
       ? response.clone()
       : response
-    if (parser) result = await parser(source)
-    else result = await readJsonSafe<TReturn>(source, fallback)
+    if (parser) {
+      result = await parser(source)
+    } else {
+      // A body read that fails for any reason — including the abort that
+      // cancels it mid-flight — resolves to the caller's fallback. That is the
+      // contract callers rely on when they pass one, so it is handled here
+      // rather than inside `readJsonSafe`, which reports the failure honestly.
+      try {
+        result = await readJsonSafe<TReturn>(source, fallback)
+      } catch {
+        result = fallback
+      }
+    }
   } catch (err) {
     if (isAbortError(err)) throw err
     result = fallback
   }
-  // `readJsonSafe` swallows the abort that cancels an in-flight body read, so a
-  // request aborted after its response headers arrived would otherwise look like
-  // a successful call that returned an empty payload.
+  // With no fallback to fall back to, an abort that landed after the response
+  // headers arrived would otherwise look like a successful call that returned
+  // an empty payload.
   if (result == null && resolveAbortSignal(input, init)?.aborted) {
     throw createAbortError()
   }

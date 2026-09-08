@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { currencyCodeSchema as currencyCodeSchema_ } from '@open-mercato/shared/lib/validation'
 
 /**
  * Truncates a Date object to minute precision (zeroing seconds and milliseconds).
@@ -12,11 +13,7 @@ export function truncateToMinute(date: Date): Date {
 }
 
 // Currency Code validation (ISO 4217 format)
-const currencyCodeSchema = z
-  .string()
-  .trim()
-  .toUpperCase()
-  .regex(/^[A-Z]{3}$/, 'Currency code must be a three-letter ISO code (e.g., USD, EUR)')
+const currencyCodeSchema = currencyCodeSchema_({ message: 'Currency code must be a three-letter ISO code (e.g., USD, EUR)' })
 
 // Source validation schema
 const sourceSchema = z

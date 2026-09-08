@@ -1,8 +1,14 @@
 import { fetchCustomFieldDefs, normalizeEntityIds } from '../customFieldDefs'
 
+/**
+ * A real `Response` exposes `text()` as well as `json()`, and the code under test
+ * reads the body through the shared `readJsonSafe`. The stub used to provide
+ * only `json()`, so it was asserting against a shape `fetch` never returns.
+ */
 const createFetchStub = (payload: unknown) => {
   const json = jest.fn().mockResolvedValue(payload)
-  return Object.assign(jest.fn().mockResolvedValue({ json }), { json })
+  const text = jest.fn().mockResolvedValue(JSON.stringify(payload))
+  return Object.assign(jest.fn().mockResolvedValue({ json, text }), { json, text })
 }
 
 describe('customFieldDefs utilities', () => {

@@ -79,6 +79,17 @@ interface StatusDictionaryRouteConfig {
   kind: SalesDictionaryKind
   entityId: string
   fieldConstants: Record<string, string>
+  /**
+   * ACL features per method. Defaults to `sales.settings.manage` for all four,
+   * which is what the status dictionaries use. `adjustment-kinds` overrides the
+   * read gate because its picker is reachable from the order screens.
+   */
+  features?: {
+    view?: string
+    manage?: string
+  }
+  /** Query-index entity type. Omit to leave writes unindexed, as before. */
+  indexer?: { entityType: string }
   openApi: {
     resourceName: string
     pluralName: string
@@ -94,8 +105,8 @@ export function makeStatusDictionaryRoute(config: StatusDictionaryRouteConfig) {
 
   const listSchema = z
     .object({
-      page: z.coerce.number().min(1).default(1),
-      pageSize: z.coerce.number().min(1).max(100).default(50),
+      page: z.coerce.number().int().min(1).default(1),
+      pageSize: z.coerce.number().int().min(1).max(100).default(50),
       id: z.string().uuid().optional(),
       search: z.string().optional(),
       sortField: z.string().optional(),
@@ -103,11 +114,13 @@ export function makeStatusDictionaryRoute(config: StatusDictionaryRouteConfig) {
     })
     .passthrough()
 
+  const manageFeature = config.features?.manage ?? 'sales.settings.manage'
+  const viewFeature = config.features?.view ?? manageFeature
   const metadata = {
-    GET: { requireAuth: true, requireFeatures: ['sales.settings.manage'] },
-    POST: { requireAuth: true, requireFeatures: ['sales.settings.manage'] },
-    PUT: { requireAuth: true, requireFeatures: ['sales.settings.manage'] },
-    DELETE: { requireAuth: true, requireFeatures: ['sales.settings.manage'] },
+    GET: { requireAuth: true, requireFeatures: [viewFeature] },
+    POST: { requireAuth: true, requireFeatures: [manageFeature] },
+    PUT: { requireAuth: true, requireFeatures: [manageFeature] },
+    DELETE: { requireAuth: true, requireFeatures: [manageFeature] },
   }
 
   const dictionaryItemSchema = z.object({
@@ -180,6 +193,7 @@ export function makeStatusDictionaryRoute(config: StatusDictionaryRouteConfig) {
 
   const crud = makeCrudRoute({
     metadata,
+    ...(config.indexer ? { indexer: config.indexer } : {}),
     orm: {
       entity: DictionaryEntry,
       idField: 'id',

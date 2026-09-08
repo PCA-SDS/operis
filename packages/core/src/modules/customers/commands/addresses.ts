@@ -63,8 +63,43 @@ type AddressUndoPayload = {
   after?: AddressSnapshot | null
 }
 
-async function loadAddressSnapshot(em: EntityManager, id: string): Promise<AddressSnapshot | null> {
-  const address = await em.findOne(CustomerAddress, { id }, { populate: ['entity'] })
+type AddressSnapshotScope = { tenantId?: string | null }
+
+/** Tenant of the acting user, or `null` for a context without one (CLI/system). */
+function snapshotScopeFromContext(ctx: { auth?: { tenantId?: string | null } | null }): AddressSnapshotScope | null {
+  const tenantId = ctx.auth?.tenantId ?? null
+  return tenantId ? { tenantId } : null
+}
+
+/** Tenant recorded on a snapshot, used when undo/redo reloads the row it wrote. */
+function snapshotScopeFromSnapshot(source: { tenantId?: string | null } | null | undefined): AddressSnapshotScope | null {
+  return source?.tenantId ? { tenantId: source.tenantId } : null
+}
+
+function scopedAddressWhere(id: string, scope?: AddressSnapshotScope | null): { id: string; tenantId?: string } {
+  const where: { id: string; tenantId?: string } = { id }
+  if (scope?.tenantId) where.tenantId = scope.tenantId
+  return where
+}
+
+/**
+ * Scoped by tenant — matching the staff address commands.
+ *
+ * This runs inside `prepare()`, i.e. BEFORE `ensureTenantScope` rejects the
+ * write, and whatever it returns is written into the audit log as
+ * `snapshotBefore`. Unscoped, a foreign-tenant address id would have its full
+ * contents copied into this tenant's audit trail on the way to the 403.
+ *
+ * Deliberately tenant-only, not organization: an actor legitimately holding
+ * several organizations must still capture a before-snapshot for a row in any
+ * of them, and the tenant is the isolation boundary that matters here.
+ */
+async function loadAddressSnapshot(
+  em: EntityManager,
+  id: string,
+  scope?: AddressSnapshotScope | null,
+): Promise<AddressSnapshot | null> {
+  const address = await em.findOne(CustomerAddress, scopedAddressWhere(id, scope), { populate: ['entity'] })
   if (!address) return null
   const entityRef = address.entity
   const entityKind = (typeof entityRef === 'object' && entityRef !== null && 'kind' in entityRef)
@@ -161,7 +196,7 @@ const createAddressCommand: CommandHandler<AddressCreateInput, { addressId: stri
   },
   captureAfter: async (_input, result, ctx) => {
     const em = (ctx.container.resolve('em') as EntityManager).fork()
-    return await loadAddressSnapshot(em, result.addressId)
+    return await loadAddressSnapshot(em, result.addressId, snapshotScopeFromContext(ctx))
   },
   buildLog: async ({ result, snapshots }) => {
     const { translate } = await resolveTranslations()
@@ -183,10 +218,14 @@ const createAddressCommand: CommandHandler<AddressCreateInput, { addressId: stri
     }
   },
   undo: async ({ logEntry, ctx }) => {
-    const addressId = logEntry?.resourceId ?? null
+    const payload = extractUndoPayload<AddressUndoPayload>(logEntry)
+    const after = payload?.after ?? null
+    // Prefer the snapshot's own id, as the staff twin does — a log entry with no
+    // `resourceId` used to make this undo a silent no-op.
+    const addressId = after?.id ?? logEntry?.resourceId ?? null
     if (!addressId) return
     const em = (ctx.container.resolve('em') as EntityManager).fork()
-    const address = await em.findOne(CustomerAddress, { id: addressId })
+    const address = await em.findOne(CustomerAddress, scopedAddressWhere(addressId, snapshotScopeFromSnapshot(after)))
     if (address) {
       em.remove(address)
       await em.flush()
@@ -281,7 +320,7 @@ const updateAddressCommand: CommandHandler<AddressUpdateInput, { addressId: stri
   async prepare(rawInput, ctx) {
     const parsed = addressUpdateSchema.parse(rawInput)
     const em = (ctx.container.resolve('em') as EntityManager)
-    const snapshot = await loadAddressSnapshot(em, parsed.id)
+    const snapshot = await loadAddressSnapshot(em, parsed.id, snapshotScopeFromContext(ctx))
     return snapshot ? { before: snapshot } : {}
   },
   async execute(rawInput, ctx) {
@@ -340,7 +379,7 @@ const updateAddressCommand: CommandHandler<AddressUpdateInput, { addressId: stri
   },
   captureAfter: async (_input, result, ctx) => {
     const em = (ctx.container.resolve('em') as EntityManager).fork()
-    return await loadAddressSnapshot(em, result.addressId)
+    return await loadAddressSnapshot(em, result.addressId, snapshotScopeFromContext(ctx))
   },
   buildLog: async ({ snapshots }) => {
     const { translate } = await resolveTranslations()
@@ -395,7 +434,7 @@ const updateAddressCommand: CommandHandler<AddressUpdateInput, { addressId: stri
     const before = payload?.before
     if (!before) return
     const em = (ctx.container.resolve('em') as EntityManager).fork()
-    let address = await em.findOne(CustomerAddress, { id: before.id })
+    let address = await em.findOne(CustomerAddress, scopedAddressWhere(before.id, snapshotScopeFromSnapshot(before)))
     const entity = await requireCustomerEntity(em, before.entityId, { tenantId: before.tenantId, organizationId: before.organizationId }, undefined, 'Customer not found')
     if (!address) {
       address = em.create(CustomerAddress, {
@@ -470,7 +509,7 @@ const deleteAddressCommand: CommandHandler<{ body?: Record<string, unknown>; que
     async prepare(input, ctx) {
       const id = requireId(input, 'Address id required')
       const em = (ctx.container.resolve('em') as EntityManager)
-      const snapshot = await loadAddressSnapshot(em, id)
+      const snapshot = await loadAddressSnapshot(em, id, snapshotScopeFromContext(ctx))
       return snapshot ? { before: snapshot } : {}
     },
     async execute(input, ctx) {
@@ -524,7 +563,7 @@ const deleteAddressCommand: CommandHandler<{ body?: Record<string, unknown>; que
       if (!before) return
       const em = (ctx.container.resolve('em') as EntityManager).fork()
       const entity = await requireCustomerEntity(em, before.entityId, { tenantId: before.tenantId, organizationId: before.organizationId }, undefined, 'Customer not found')
-      let address = await em.findOne(CustomerAddress, { id: before.id })
+      let address = await em.findOne(CustomerAddress, scopedAddressWhere(before.id, snapshotScopeFromSnapshot(before)))
       if (!address) {
         address = em.create(CustomerAddress, {
           id: before.id,
@@ -553,6 +592,7 @@ const deleteAddressCommand: CommandHandler<{ body?: Record<string, unknown>; que
         address.entity = entity
         address.name = before.name
         address.purpose = before.purpose
+        address.companyName = before.companyName
         address.addressLine1 = before.addressLine1
         address.addressLine2 = before.addressLine2
         address.buildingNumber = before.buildingNumber

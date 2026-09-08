@@ -4,21 +4,13 @@
  * Read-only category tools scoped by tenant + organization. `parentId: null`
  * returns root nodes; any concrete UUID restricts to direct children.
  */
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { z } from 'zod'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { loadCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields'
 import { E } from '#generated/entities.ids.generated'
 import { CatalogProductCategory } from '../data/entities'
-import { assertTenantScope, type CatalogAiToolDefinition, type CatalogToolContext } from './types'
-
-function resolveEm(ctx: CatalogToolContext): EntityManager {
-  return ctx.container.resolve<EntityManager>('em')
-}
-
-function buildScope(ctx: CatalogToolContext, tenantId: string) {
-  return { tenantId, organizationId: ctx.organizationId }
-}
+import { assertTenantScope, type CatalogAiToolDefinition } from './types'
+import { buildScope, resolveEm } from './_shared'
 
 const listCategoriesInput = z
   .object({

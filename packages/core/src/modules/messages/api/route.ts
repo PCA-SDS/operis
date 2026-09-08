@@ -23,9 +23,10 @@ import { validateMessageObjectsForType } from '../lib/object-validation'
 import { attachOperationMetadataHeader } from '../lib/operationMetadata'
 import { canUseMessageEmailFeature, resolveMessageContext } from '../lib/routeHelpers'
 import { applyMessageParticipantScope } from '../lib/participantScope'
-import { resolveUserFeatures, runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from './guards'
+import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from './guards'
 import { findMessageIdsBySearchTokens } from '../lib/searchLookup'
 import { MessageCommandExecuteResult } from '../commands/shared'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import {
   composeMessageSchema as composeSchema,
   composeResponseSchema,
@@ -444,7 +445,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const { ctx, scope } = await resolveMessageContext(req)
   const commandBus = ctx.container.resolve('commandBus') as CommandBus
-  const body = await req.json().catch(() => ({}))
+  const body = await readJsonSafe(req, {})
   const input = composeMessageSchema.parse(body)
 
   const isPublicVisibility = input.visibility === 'public'
@@ -473,7 +474,6 @@ export async function POST(req: Request) {
       requestHeaders: req.headers,
       mutationPayload: input as Record<string, unknown>,
     },
-    resolveUserFeatures(ctx.auth),
   )
   if (!guardResult.ok) {
     return Response.json(

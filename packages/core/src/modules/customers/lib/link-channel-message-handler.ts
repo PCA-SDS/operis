@@ -4,6 +4,7 @@ import { CustomerEntity, CustomerInteraction } from '../data/entities'
 import { findPeopleByAddresses, normalizeAddresses } from './findPeopleByAddresses'
 import { emitCustomersEvent } from '../events'
 import { INTERACTION_STATUS_COMPLETED } from './interactionStatus'
+import { POSTGRES_UNIQUE_VIOLATION } from '@open-mercato/shared/lib/db/pg-errors'
 
 /**
  * Shared implementation for the link-channel-message subscribers.
@@ -42,7 +43,6 @@ type SubscriberContext = {
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
-const POSTGRES_UNIQUE_VIOLATION = '23505'
 
 // ── Main handler ──────────────────────────────────────────────────────────
 

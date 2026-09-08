@@ -10,6 +10,7 @@ import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { GlobalSearchSection } from './sections/GlobalSearchSection'
 import { FulltextSearchSection } from './sections/FulltextSearchSection'
 import { VectorSearchSection } from './sections/VectorSearchSection'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 // Types
 type StrategyStatus = {
@@ -380,7 +381,7 @@ export function SearchSettingsPageClient() {
       })
 
       if (!response.ok) {
-        const body = await response.json().catch(() => ({})) as { error?: string }
+        const body = await readJsonSafe(response, {}) as { error?: string }
         throw new Error(body.error || t('search.settings.globalSearch.saveError', 'Failed to save settings'))
       }
 

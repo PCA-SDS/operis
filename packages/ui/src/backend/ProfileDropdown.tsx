@@ -15,6 +15,7 @@ import { mergeMenuItems, type MergedMenuItem } from './injection/mergeMenuItems'
 import { resolveInjectedIcon } from './injection/resolveInjectedIcon'
 import { InjectionSpot } from './injection/InjectionSpot'
 import { BACKEND_TOPBAR_PROFILE_MENU_INJECTION_SPOT_ID } from './injection/spotIds'
+import { persistLocalePreference } from '@open-mercato/shared/lib/i18n/persistLocale'
 
 export type ProfileDropdownProps = {
   email?: string
@@ -124,11 +125,7 @@ export function ProfileDropdown({
 
   const handleLocaleChange = async (locale: Locale) => {
     try {
-      await fetch('/api/auth/locale', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ locale }),
-      })
+      await persistLocalePreference(locale)
       window.location.reload()
     } catch {}
   }

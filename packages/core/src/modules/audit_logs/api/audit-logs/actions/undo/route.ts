@@ -12,6 +12,7 @@ import type { AwilixContainer } from 'awilix'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('audit_logs').child({ component: 'undo' })
 
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
   const auth = await getAuthFromRequest(req)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = (await req.json().catch(() => null)) as UndoRequestBody | null
+  const body = (await readJsonSafe(req)) as UndoRequestBody | null
   const undoToken = body?.undoToken?.trim()
   if (!undoToken) return NextResponse.json({ error: 'Invalid undo token' }, { status: 400 })
 

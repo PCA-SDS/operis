@@ -5,7 +5,6 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getIntegration } from '@open-mercato/shared/modules/integrations/types'
 import type { IntegrationHealthService } from '../../../lib/health-service'
 import {
-  resolveUserFeatures,
   runIntegrationMutationGuardAfterSuccess,
   runIntegrationMutationGuards,
 } from '../../guards'
@@ -60,7 +59,6 @@ export async function POST(req: Request, ctx: { params?: Promise<{ id?: string }
       requestHeaders: req.headers,
       mutationPayload: { integrationId: integration.id },
     },
-    resolveUserFeatures(auth),
   )
   if (!guardResult.ok) {
     return NextResponse.json(guardResult.errorBody ?? { error: 'Operation blocked by guard' }, { status: guardResult.errorStatus ?? 422 })

@@ -40,8 +40,8 @@ export function stripPlaceholderId(source: Record<string, unknown>): void {
 
 const listSchema = z
   .object({
-    page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(100).default(50),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(50),
     id: z.string().uuid().optional(),
     search: z.string().optional(),
     productId: z.string().uuid().optional(),

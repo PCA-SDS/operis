@@ -12,6 +12,7 @@ import { documentNumberRequestSchema } from '../../data/validators'
 import { withScopedPayload } from '../utils'
 import { SalesDocumentNumberGenerator } from '../../services/salesDocumentNumberGenerator'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('sales')
 
@@ -85,7 +86,7 @@ async function ensureKindPermission(
 export async function POST(req: Request) {
   try {
     const { ctx, translate } = await resolveRequestContext(req)
-    const payload = await req.json().catch(() => ({}))
+    const payload = await readJsonSafe(req, {})
     const scoped = withScopedPayload(payload, ctx, translate)
     const input = documentNumberRequestSchema.parse(scoped)
     await ensureKindPermission(ctx, input.kind, translate)

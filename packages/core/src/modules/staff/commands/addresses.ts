@@ -30,6 +30,7 @@ import { resolveRedoSnapshot } from '@open-mercato/shared/lib/commands/redo'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import type { CrudIndexerConfig } from '@open-mercato/shared/lib/crud/types'
 import { E } from '#generated/entities.ids.generated'
+import { withAtomicFlush } from '@open-mercato/shared/lib/commands/flush'
 
 const addressCrudIndexer: CrudIndexerConfig<StaffTeamMemberAddress> = {
   entityType: E.staff.staff_team_member_address,
@@ -134,12 +135,14 @@ const createAddressCommand: CommandHandler<StaffTeamMemberAddressCreateInput, { 
       updatedAt: new Date(),
     })
     em.persist(address)
-    await em.flush()
-
-    if (address.isPrimary) {
-      await enforcePrimaryAddress(em, member.id, address.id)
-      await em.flush()
-    }
+    await withAtomicFlush(em, [
+      async () => {
+        await em.flush()
+        if (address.isPrimary) {
+          await enforcePrimaryAddress(em, member.id, address.id)
+        }
+      },
+    ], { transaction: true })
 
     const de = (ctx.container.resolve('dataEngine') as DataEngine)
     await emitCrudSideEffects({
@@ -247,11 +250,14 @@ const createAddressCommand: CommandHandler<StaffTeamMemberAddressCreateInput, { 
       address.longitude = after.longitude
       address.isPrimary = after.isPrimary
     }
-    await em.flush()
-    if (after.isPrimary) {
-      await enforcePrimaryAddress(em, after.memberId, after.id)
-      await em.flush()
-    }
+    await withAtomicFlush(em, [
+      async () => {
+        await em.flush()
+        if (after.isPrimary) {
+          await enforcePrimaryAddress(em, after.memberId, after.id)
+        }
+      },
+    ], { transaction: true })
 
     const de = (ctx.container.resolve('dataEngine') as DataEngine)
     await emitCrudSideEffects({
@@ -312,12 +318,14 @@ const updateAddressCommand: CommandHandler<StaffTeamMemberAddressUpdateInput, { 
     if (parsed.longitude !== undefined) address.longitude = parsed.longitude ?? null
     if (parsed.isPrimary !== undefined) address.isPrimary = parsed.isPrimary
 
-    await em.flush()
-
-    if (address.isPrimary) {
-      await enforcePrimaryAddress(em, typeof address.member === 'string' ? address.member : address.member.id, address.id)
-      await em.flush()
-    }
+    await withAtomicFlush(em, [
+      async () => {
+        await em.flush()
+        if (address.isPrimary) {
+          await enforcePrimaryAddress(em, typeof address.member === 'string' ? address.member : address.member.id, address.id)
+        }
+      },
+    ], { transaction: true })
 
     const de = (ctx.container.resolve('dataEngine') as DataEngine)
     await emitCrudSideEffects({
@@ -442,11 +450,14 @@ const updateAddressCommand: CommandHandler<StaffTeamMemberAddressUpdateInput, { 
       address.longitude = before.longitude
       address.isPrimary = before.isPrimary
     }
-    await em.flush()
-    if (before.isPrimary) {
-      await enforcePrimaryAddress(em, before.memberId, before.id)
-      await em.flush()
-    }
+    await withAtomicFlush(em, [
+      async () => {
+        await em.flush()
+        if (before.isPrimary) {
+          await enforcePrimaryAddress(em, before.memberId, before.id)
+        }
+      },
+    ], { transaction: true })
 
     const de = (ctx.container.resolve('dataEngine') as DataEngine)
     await emitCrudUndoSideEffects({
@@ -576,11 +587,14 @@ const deleteAddressCommand: CommandHandler<{ body?: Record<string, unknown>; que
         address.longitude = before.longitude
         address.isPrimary = before.isPrimary
       }
-      await em.flush()
-      if (before.isPrimary) {
-        await enforcePrimaryAddress(em, before.memberId, before.id)
-        await em.flush()
-      }
+      await withAtomicFlush(em, [
+        async () => {
+          await em.flush()
+          if (before.isPrimary) {
+            await enforcePrimaryAddress(em, before.memberId, before.id)
+          }
+        },
+      ], { transaction: true })
 
       const de = (ctx.container.resolve('dataEngine') as DataEngine)
       await emitCrudUndoSideEffects({
