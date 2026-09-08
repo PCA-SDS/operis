@@ -16,6 +16,7 @@ import {
 } from '../../../../components/utils/typeUiRegistry'
 import { getMessageObjectType } from '../../../../lib/message-objects-registry'
 import { getMessageTypeOrDefault } from '../../../../lib/message-types-registry'
+import { toErrorMessage } from '@open-mercato/shared/lib/http/errorMessage'
 
 type TokenMessageObject = {
   id: string
@@ -69,29 +70,6 @@ type MessageTokenResponse = MessageTokenDetailResponse | MessageTokenPreflightRe
 
 function isProtectedPreflight(data: MessageTokenResponse): data is MessageTokenPreflightResponse {
   return data.requiresAuth && !('id' in data)
-}
-
-function toErrorMessage(payload: unknown): string | null {
-  if (!payload) return null
-  if (typeof payload === 'string') return payload
-  if (Array.isArray(payload)) {
-    for (const entry of payload) {
-      const nested = toErrorMessage(entry)
-      if (nested) return nested
-    }
-    return null
-  }
-  if (typeof payload === 'object') {
-    const record = payload as Record<string, unknown>
-    return (
-      toErrorMessage(record.error)
-      ?? toErrorMessage(record.message)
-      ?? toErrorMessage(record.detail)
-      ?? toErrorMessage(record.details)
-      ?? null
-    )
-  }
-  return null
 }
 
 function formatDateTime(value: string | null | undefined): string {
