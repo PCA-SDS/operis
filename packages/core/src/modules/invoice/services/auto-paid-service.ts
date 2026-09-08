@@ -44,6 +44,13 @@ export type InvoiceAutoPaidReverseResult = {
   invoice: Invoice
 }
 
+export type InvoiceAutoPaidCandidate = {
+  taxCode: string
+  invoiceCount: number
+}
+
+export type InvoiceAutoPaidCandidateDto = InvoiceAutoPaidCandidate
+
 export class InvoiceAutoPaidService {
   constructor(
     private readonly em: EntityManager,
@@ -54,6 +61,36 @@ export class InvoiceAutoPaidService {
     return this.scopedPersistence.findMany(InvoiceAutoPaidTaxCode, scope, {}, {
       orderBy: { taxCode: 'asc' },
     })
+  }
+
+  async listCandidates(scope: InvoiceScope): Promise<InvoiceAutoPaidCandidate[]> {
+    const rules = await this.listRules(scope)
+    const configuredTaxCodes = new Set(rules.map((r) => r.taxCode.trim().toLowerCase()))
+
+    const invoices = await this.scopedPersistence.findMany(
+      Invoice,
+      scope,
+      {
+        direction: 'AP',
+        sellerTaxCode: { $ne: null },
+      },
+      {
+        fields: ['sellerTaxCode'] as unknown as (keyof Invoice)[],
+      },
+    )
+
+    const countByCode = new Map<string, number>()
+    for (const inv of invoices) {
+      const code = inv.sellerTaxCode?.trim()
+      if (!code) continue
+      if (code.toLowerCase().startsWith('auto:')) continue
+      if (configuredTaxCodes.has(code.toLowerCase())) continue
+      countByCode.set(code, (countByCode.get(code) ?? 0) + 1)
+    }
+
+    return Array.from(countByCode.entries())
+      .map(([taxCode, invoiceCount]) => ({ taxCode, invoiceCount }))
+      .sort((a, b) => a.taxCode.localeCompare(b.taxCode))
   }
 
   findRuleByTaxCode(scope: InvoiceScope, taxCode: string): Promise<InvoiceAutoPaidTaxCode | null> {

@@ -446,3 +446,24 @@ Implementation note:
 
 Manual reverse sets `auto_pay_excluded = true`, so future add/apply passes skip
 that invoice even if the tax code rule is added again.
+
+## DEC-035 Auto-Paid Candidate And Route Contract
+
+Decision:
+
+Auto-Paid candidate listing queries scoped AP invoices directly by `seller_tax_code`,
+excludes synthetic `auto:%` codes, empty codes, and tax codes already in
+`invoice_auto_paid_tax_codes`. The candidate service method `listCandidates` is
+called directly for reads and future sync without commands or mutation guards.
+Auto-Paid rule management and candidate routes require `invoice.settings.manage`,
+while reverse auto-paid settlement on an invoice requires `invoice.manage`.
+All route mutations execute through the command bus (`invoice.auto_paid.add`,
+`invoice.auto_paid.remove`, `invoice.auto_paid.reverse`) after mutation guards.
+
+Reason:
+
+This provides a clean separation of concerns: read operations and internal sync
+call sites can reuse the service contract directly, while all HTTP write routes
+run through platform mutation guards and audit-logged command execution with
+payload-blind trusted scope.
+

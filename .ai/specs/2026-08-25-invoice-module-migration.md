@@ -358,3 +358,11 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   user-triggered mutation commands, focused service/command tests, and docs for
   M5 progress plus rule-revert ownership. API/UI and sync/manual-invoice call
   sites remain pending.
+- 2026-09-08: Exposed CAP-004 Auto-Paid API routes and candidates contract
+  (`GET /api/invoice/auto-paid`, `GET /api/invoice/auto-paid/candidates`,
+  `POST /api/invoice/auto-paid`, `DELETE /api/invoice/auto-paid/[id]`,
+  `PATCH /api/invoice/invoices/[id]/reverse-auto-paid`) with OpenAPI metadata,
+  `invoice.settings.manage` and `invoice.manage` ACL gating, route mutation
+  guards, and command execution. Settings UI and sync worker call sites remain
+  pending.
+

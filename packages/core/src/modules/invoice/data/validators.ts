@@ -178,6 +178,10 @@ export const invoiceAutoPaidRuleRemoveSchema = z.object({
 export const invoiceAutoPaidReverseSchema = z.object({
   invoiceId: invoiceIdSchema,
 }).strict()
+export const invoiceAutoPaidCandidateDtoSchema = z.object({
+  taxCode: invoiceTaxCodeSchema,
+  invoiceCount: z.number().int().nonnegative(),
+}).strict()
 export const invoiceLineNumberSchema = z.coerce.number().int().min(1).max(INVOICE_LINE_ITEMS_MAX)
 export const invoiceInstallmentCountSchema = z.coerce
   .number()

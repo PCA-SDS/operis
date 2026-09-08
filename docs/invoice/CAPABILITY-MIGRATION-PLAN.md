@@ -357,6 +357,9 @@ Progress:
 
 - Service, DI registration, validators, command handlers, and focused tests are implemented.
 - API routes, settings UI, manual AP create call site, and sync completion call site are still pending.
+- Authenticated API routes (`GET /api/invoice/auto-paid`, `GET /api/invoice/auto-paid/candidates`, `POST /api/invoice/auto-paid`, `DELETE /api/invoice/auto-paid/[id]`, and `PATCH /api/invoice/invoices/[id]/reverse-auto-paid`) are implemented with OpenAPI metadata, mutation guards, and command bus writes.
+- Candidate listing contract (`listCandidates`) is exposed directly on `invoiceAutoPaidService` and tested.
+- Settings UI, manual AP create call site, and sync completion call site are still pending.
 - Removal reverts by scoped current `sellerTaxCode` and `autoSettled = true`; this is the stable target rule because invoices do not persist the source rule id.
 
 ## M6 CAP-001 Invoice Core

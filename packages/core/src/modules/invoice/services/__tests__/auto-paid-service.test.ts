@@ -236,4 +236,34 @@ describe('InvoiceAutoPaidService', () => {
 
     await expect(service.reverseInvoice(scope, { invoiceId })).rejects.toMatchObject({ status: 400 })
   })
+
+  it('lists candidates excluding configured rules, synthetic auto: codes, and empty codes', async () => {
+    const { em, service } = createService()
+    jest.mocked(em.find).mockImplementation((entity: unknown) => {
+      if (entity === InvoiceAutoPaidTaxCode) {
+        return Promise.resolve([rule({ taxCode: '0100109106' })]) as any
+      }
+      if (entity === Invoice) {
+        return Promise.resolve([
+          invoice({ id: 'inv-1', sellerTaxCode: '0100109106' }),
+          invoice({ id: 'inv-2', sellerTaxCode: '0301448888' }),
+          invoice({ id: 'inv-3', sellerTaxCode: '0301448888' }),
+          invoice({ id: 'inv-4', sellerTaxCode: 'auto:supplier-9' }),
+          invoice({ id: 'inv-5', sellerTaxCode: 'AUTO:supplier-10' }),
+          invoice({ id: 'inv-6', sellerTaxCode: '   ' }),
+          invoice({ id: 'inv-7', sellerTaxCode: null }),
+          invoice({ id: 'inv-8', sellerTaxCode: '0105678999' }),
+        ]) as any
+      }
+      return Promise.resolve([]) as any
+    })
+
+    const candidates = await service.listCandidates(scope)
+
+    expect(candidates).toEqual([
+      { taxCode: '0105678999', invoiceCount: 1 },
+      { taxCode: '0301448888', invoiceCount: 2 },
+    ])
+  })
 })
+
