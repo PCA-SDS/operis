@@ -30,6 +30,7 @@ import {
 import { attachAssigneeOrganizationId, decorateItemsWithAssigneeNames } from '../lib/assigneeNames'
 import { resolveEffectiveWarrantyClaimSettings } from '../lib/settings'
 import { applyIdsFilter } from '../lib/apiIdsFilter'
+import { toIsoOrEcho as toIso } from '@open-mercato/shared/lib/date/normalize'
 import {
   createPagedListResponseSchema,
   createWarrantyClaimsCrudOpenApi,
@@ -125,15 +126,6 @@ function readString(record: Record<string, unknown>, snakeKey: string, camelKey:
 function readBool(record: Record<string, unknown>, snakeKey: string, camelKey: string): boolean {
   const value = record[snakeKey] ?? record[camelKey]
   return value === true
-}
-
-function toIso(value: unknown): string | null {
-  if (value instanceof Date) return value.toISOString()
-  if (typeof value === 'string') {
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? value : date.toISOString()
-  }
-  return null
 }
 
 type ClaimLineSearchDb = {
