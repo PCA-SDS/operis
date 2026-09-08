@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from 'react'
-import { Ellipsis } from 'lucide-react'
+import { Ellipsis, Upload, Loader2 } from 'lucide-react'
+import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { ColorPicker } from '@open-mercato/ui/primitives/color-picker'
 import { Input } from '@open-mercato/ui/primitives/input'
@@ -63,6 +64,43 @@ export function AppearanceSelector({
   const [iconSearch, setIconSearch] = React.useState('')
   const pickerContainerRef = React.useRef<HTMLDivElement | null>(null)
   const searchInputRef = React.useRef<HTMLInputElement | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null)
+  const [isUploading, setIsUploading] = React.useState(false)
+
+  const handleUploadClick = React.useCallback(() => {
+    fileInputRef.current?.click()
+  }, [])
+
+  const handleFileChange = React.useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file) return
+      setIsUploading(true)
+      try {
+        const fd = new FormData()
+        fd.set('entityId', 'attachments:library')
+        fd.set('recordId', 'icon') // Just a placeholder so API accepts it
+        fd.set('file', file)
+        const call = await apiCall<{ ok?: boolean; item?: { url?: string }; error?: string }>(
+          '/api/attachments',
+          { method: 'POST', body: fd },
+          { fallback: null },
+        )
+        if (call.ok && call.result?.item?.url) {
+          onIconChange(call.result.item.url)
+        }
+      } catch (err) {
+        // Silently fail or use a toast
+        console.error('Failed to upload icon', err)
+      } finally {
+        setIsUploading(false)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+      }
+    },
+    [onIconChange],
+  )
 
   const closePicker = React.useCallback(() => {
     setPickerOpen(false)
@@ -157,7 +195,25 @@ export function AppearanceSelector({
               onChange={(event) => onIconChange(event.target.value)}
               placeholder={labels.iconPlaceholder}
               className="flex-1"
-              disabled={disabled}
+              disabled={disabled || isUploading}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={handleUploadClick}
+              aria-label="Upload custom icon"
+              title="Upload custom icon"
+              disabled={disabled || isUploading}
+            >
+              {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            </Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
             />
             <Button
               type="button"
@@ -167,7 +223,7 @@ export function AppearanceSelector({
               aria-label={labels.iconPickerTriggerLabel}
               aria-expanded={pickerOpen}
               aria-haspopup="dialog"
-              disabled={disabled}
+              disabled={disabled || isUploading}
             >
               <Ellipsis className="h-4 w-4" />
             </Button>
