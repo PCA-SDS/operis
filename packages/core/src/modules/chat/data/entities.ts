@@ -612,12 +612,13 @@ export class ChatMessageTranslation {
 /**
  * The language a person reads chat in.
  *
- * Deliberately NOT the UI locale. The interface ships in five languages
- * (`en`, `pl`, `es`, `de`, `ko`); the languages colleagues actually write to
- * each other in are not limited to those. A Vietnamese speaker runs the
- * interface in English because there is no Vietnamese interface — deriving
- * their reading language from that would hand them English, which is the one
- * language they did not need translating.
+ * Deliberately NOT the UI locale. `locales` is a short list of languages the
+ * interface is offered in, and only `en`, `pl`, `es`, `de` and `ko` have real
+ * copy behind them; the languages colleagues actually write to each other in
+ * are not limited to either set. A Vietnamese speaker reads an English
+ * interface whether they select `en` or the English-placeholder `vi` — so
+ * deriving their reading language from the UI locale would hand them English,
+ * which is the one language they did not need translating.
  *
  * One row per user per organization: the same person in two organizations may
  * reasonably read in two languages.

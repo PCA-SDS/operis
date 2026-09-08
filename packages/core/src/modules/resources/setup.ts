@@ -1,10 +1,11 @@
 import type { ModuleSetupConfig } from '@open-mercato/shared/modules/setup'
-import { seedResourcesAddressTypes, seedResourcesCapacityUnits, seedResourcesResourceExamples } from './lib/seeds'
+import { seedResourcesAddressTypes, seedResourcesAreaTypes, seedResourcesCapacityUnits, seedResourcesResourceExamples } from './lib/seeds'
 
 export const setup: ModuleSetupConfig = {
   seedDefaults: async (ctx) => {
     const scope = { tenantId: ctx.tenantId, organizationId: ctx.organizationId }
     await seedResourcesAddressTypes(ctx.em, scope)
+    await seedResourcesAreaTypes(ctx.em, scope)
   },
 
   seedExamples: async (ctx) => {
@@ -15,6 +16,11 @@ export const setup: ModuleSetupConfig = {
 
   defaultRoleFeatures: {
     admin: ['resources.*'],
+    employee: [
+      'resources.view',
+      'resources.areas.view',
+      'resources.area_types.manage',
+    ],
   },
 }
 
