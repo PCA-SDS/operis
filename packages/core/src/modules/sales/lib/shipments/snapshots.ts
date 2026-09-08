@@ -3,11 +3,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { SalesOrderLine, SalesShipment, SalesShipmentItem } from '../../data/entities'
 import type { ShipmentItemSnapshot } from './types'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
-
-const cloneJson = <T>(value: T): T => {
-  if (value === null || value === undefined) return value
-  return JSON.parse(JSON.stringify(value)) as T
-}
+import { cloneJson } from '@open-mercato/shared/lib/json/cloneJson'
 
 export const coerceShipmentQuantity = (value: unknown): number => {
   if (typeof value === 'number' && Number.isFinite(value)) return value
