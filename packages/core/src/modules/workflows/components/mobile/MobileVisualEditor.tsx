@@ -172,11 +172,12 @@ export function MobileVisualEditor({
             </button>
             <button
               onClick={() => { onTest(); setShowMoreActions(false) }}
-              disabled={isSaving}
+              disabled
+              title={t('common.comingSoon', 'Coming soon')}
               className="flex w-full items-center gap-3 rounded-lg border p-3 text-left text-sm hover:bg-muted active:bg-muted disabled:opacity-50"
             >
               <Play className="h-4 w-4" />
-              {t('workflows.mobile.runTest', 'Run Test')}
+              {`${t('workflows.mobile.runTest', 'Run Test')} (${t('common.comingSoon', 'Coming soon')})`}
             </button>
             <button
               onClick={() => { onClear(); setShowMoreActions(false) }}
