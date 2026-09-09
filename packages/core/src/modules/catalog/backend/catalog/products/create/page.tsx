@@ -29,6 +29,11 @@ import {
 } from "@open-mercato/ui/primitives/select";
 import { cn } from "@open-mercato/shared/lib/utils";
 import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from "@open-mercato/ui/primitives/segmented-control";
+import { AmountInput } from "@open-mercato/ui/primitives/amount-input";
+import {
   Plus,
   Trash2,
   FileText,
@@ -1156,6 +1161,29 @@ function DefaultVariantBuilder({
     [isService, setValue, values.cf_service_duration_minutes, variant.durationValue],
   );
 
+  // Derive initial price/duration mode from existing data
+  const initialPriceModes = React.useMemo(() => {
+    const map: Record<string, "fixed" | "range"> = {};
+    for (const k of priceKinds) {
+      map[k.id] = (variant.prices?.[k.id]?.priceMin || variant.prices?.[k.id]?.priceMax)
+        ? "range"
+        : "fixed";
+    }
+    return map;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally stable — only init once
+
+  const hasRangeDuration = !!(variant.durationMin || variant.durationMax);
+
+  const [priceModes, setPriceModes] = React.useState<Record<string, "fixed" | "range">>(initialPriceModes);
+  const [durationMode, setDurationMode] = React.useState<"fixed" | "range">(
+    hasRangeDuration ? "range" : "fixed",
+  );
+
+  const setPriceMode = React.useCallback((kindId: string, mode: "fixed" | "range") => {
+    setPriceModes((prev) => ({ ...prev, [kindId]: mode }));
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="space-y-1 border-b pb-4">
@@ -1171,273 +1199,297 @@ function DefaultVariantBuilder({
         </h3>
       </div>
 
-        <div className="grid gap-6">
-          <div className={cn("grid grid-cols-1 gap-4", isService ? "md:grid-cols-2" : "md:grid-cols-3")}>
+      <div className="grid gap-6">
+        {/* Offering name + Tax class */}
+        <div className={cn("grid grid-cols-1 gap-4", isService ? "md:grid-cols-2" : "md:grid-cols-3")}>
+          <div className="space-y-2">
+            <Label>
+              {isService
+                ? t("catalog.products.create.serviceOffering.name", "Offering name")
+                : t("catalog.products.form.variants", "Variant title")}
+            </Label>
+            <Input
+              value={variant.title || ""}
+              onChange={(event) =>
+                setVariantField(variantId, "title", event.target.value)
+              }
+              placeholder={t(
+                "catalog.products.create.variantsBuilder.titlePlaceholder",
+                "Variant title",
+              )}
+            />
+          </div>
+          {isService ? null : (
             <div className="space-y-2">
-              <Label>
-                {isService
-                  ? t("catalog.products.create.serviceOffering.name", "Offering name")
-                  : t("catalog.products.form.variants", "Variant title")}
-              </Label>
+              <Label>{t("catalog.products.create.variantsBuilder.sku", "SKU")}</Label>
               <Input
-                value={variant.title || ""}
+                value={variant.sku || ""}
                 onChange={(event) =>
-                  setVariantField(
-                    variantId,
-                    "title",
-                    event.target.value,
-                  )
+                  setVariantField(variantId, "sku", event.target.value)
                 }
-                placeholder={t(
-                  "catalog.products.create.variantsBuilder.titlePlaceholder",
-                  "Variant title",
-                )}
+                placeholder={t("catalog.products.create.variantsBuilder.skuPlaceholder", "SKU")}
               />
             </div>
-            {isService ? null : (
-              <div className="space-y-2">
-                <Label>{t("catalog.products.create.variantsBuilder.sku", "SKU")}</Label>
-                <Input
-                  value={variant.sku || ""}
-                  onChange={(event) =>
-                    setVariantField(
-                      variantId,
-                      "sku",
-                      event.target.value,
-                    )
+          )}
+          <div className="space-y-2">
+            <Label>{t("catalog.products.create.variantsBuilder.vatColumn", "Tax class")}</Label>
+            <Select
+              value={variant.taxRateId || undefined}
+              onValueChange={(value) =>
+                setVariantField(variantId, "taxRateId", value || null)
+              }
+              disabled={!taxRates.length}
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={
+                    defaultTaxRateLabel
+                      ? t(
+                          "catalog.products.create.variantsBuilder.vatOptionDefault",
+                          "Use product tax class ({{label}})",
+                        ).replace("{{label}}", defaultTaxRateLabel)
+                      : t(
+                          "catalog.products.create.variantsBuilder.vatOptionNone",
+                          "No tax class",
+                        )
                   }
-                  placeholder={t("catalog.products.create.variantsBuilder.skuPlaceholder", "SKU")}
                 />
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label>{t("catalog.products.create.variantsBuilder.vatColumn", "Tax class")}</Label>
-              <Select
-                value={variant.taxRateId || undefined}
-                onValueChange={(value) =>
-                  setVariantField(variantId, "taxRateId", value || null)
-                }
-                disabled={!taxRates.length}
-              >
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={
-                      defaultTaxRateLabel
-                        ? t(
-                            "catalog.products.create.variantsBuilder.vatOptionDefault",
-                            "Use product tax class ({{label}})",
-                          ).replace("{{label}}", defaultTaxRateLabel)
-                        : t(
-                            "catalog.products.create.variantsBuilder.vatOptionNone",
-                            "No tax class",
-                          )
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {taxRates.map((rate) => (
-                    <SelectItem key={rate.id} value={rate.id}>
-                      {formatTaxRateLabel(rate)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              </SelectTrigger>
+              <SelectContent>
+                {taxRates.map((rate) => (
+                  <SelectItem key={rate.id} value={rate.id}>
+                    {formatTaxRateLabel(rate)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+        </div>
 
-          <div className="space-y-4">
-            <h4 className="text-xs font-semibold uppercase text-muted-foreground">
-              {t("catalog.variants.form.pricesLabel", "Prices")}
-            </h4>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {priceKinds.map((kind) => {
-                const val = variant.prices?.[kind.id]?.amount ?? "";
-                const minVal = variant.prices?.[kind.id]?.priceMin ?? "";
-                const maxVal = variant.prices?.[kind.id]?.priceMax ?? "";
-                return (
-                  <div key={kind.id} className="space-y-3 rounded-md border bg-surface p-4">
-                    <Label className="flex items-center justify-between text-xs font-semibold uppercase text-muted-foreground">
-                      <span>
-                        {t(
-                          "catalog.products.create.variantsBuilder.priceColumn",
-                          "Price {{title}}",
-                        ).replace("{{title}}", kind.title)}
-                      </span>
-                    </Label>
-                    
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">
-                        {t("catalog.products.create.variantsBuilder.fixedPrice", "Fixed Price")}
-                      </Label>
-                      <div className="relative">
-                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                          <span className="text-sm font-medium text-muted-foreground">
-                            {kind.currencyCode?.toUpperCase()}
-                          </span>
-                        </div>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="any"
-                          className="pl-14 font-mono text-sm w-full"
-                          value={val}
-                          onChange={(event) =>
-                            setVariantPrice(variantId, kind.id, "amount", event.target.value)
-                          }
-                        />
-                      </div>
-                    </div>
+        {/* Pricing section */}
+        <div className="space-y-3">
+          <h4 className="text-xs font-semibold uppercase text-muted-foreground">
+            {t("catalog.variants.form.pricesLabel", "Pricing")}
+          </h4>
 
-                    {values.productType === "service" ? (
-                      <div className="space-y-1.5 pt-2 border-t">
-                        <Label className="text-xs text-muted-foreground">
-                          {t("catalog.products.create.variantsBuilder.priceRange", "Price Range")}
-                        </Label>
-                        <div className="flex items-center gap-2">
-                          <div className="relative flex-1 min-w-0">
-                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
-                              <span className="text-xs font-medium text-muted-foreground">
-                                {kind.currencyCode?.toUpperCase()}
-                              </span>
-                            </div>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="any"
-                              placeholder="Min"
-                              className="pl-9 w-full font-mono text-xs"
-                              value={minVal}
-                              onChange={(event) =>
-                                setVariantPrice(variantId, kind.id, "priceMin", event.target.value)
-                              }
-                            />
-                          </div>
-                          <span className="text-muted-foreground">-</span>
-                          <div className="relative flex-1 min-w-0">
-                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2">
-                              <span className="text-xs font-medium text-muted-foreground">
-                                {kind.currencyCode?.toUpperCase()}
-                              </span>
-                            </div>
-                            <Input
-                              type="number"
-                              min="0"
-                              step="any"
-                              placeholder="Max"
-                              className="pl-9 w-full font-mono text-xs"
-                              value={maxVal}
-                              onChange={(event) =>
-                                setVariantPrice(variantId, kind.id, "priceMax", event.target.value)
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ) : null}
+          <div className="grid grid-cols-1 gap-4">
+            {priceKinds.map((kind: any) => {
+              const val = variant.prices?.[kind.id]?.amount ?? "";
+              const minVal = variant.prices?.[kind.id]?.priceMin ?? "";
+              const maxVal = variant.prices?.[kind.id]?.priceMax ?? "";
+              const currencySymbol = kind.currencyCode?.toUpperCase() ?? "";
+              const kindPriceMode = priceModes[kind.id] ?? "fixed";
+
+              return (
+                <div key={kind.id} className="space-y-2">
+                  {/* Per-kind header with toggle */}
+                  <div className="flex items-center justify-between">
+                    {priceKinds.length > 1 ? (
+                      <p className="text-xs font-medium text-muted-foreground">{kind.title}</p>
+                    ) : (
+                      <span />
+                    )}
+                    {isService && (
+                      <SegmentedControl
+                        value={kindPriceMode}
+                        onValueChange={(v) => setPriceMode(kind.id, v as "fixed" | "range")}
+                        aria-label={`Price mode for ${kind.title}`}
+                        size="sm"
+                      >
+                        <SegmentedControlItem value="fixed">
+                          {t("catalog.products.create.variantsBuilder.fixedPrice", "Fixed")}
+                        </SegmentedControlItem>
+                        <SegmentedControlItem value="range">
+                          {t("catalog.products.create.variantsBuilder.priceRange", "Range")}
+                        </SegmentedControlItem>
+                      </SegmentedControl>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {values.productType === "service" ? (
-            <div className="space-y-4">
+                  {/* Fixed price input */}
+                  {(!isService || kindPriceMode === "fixed") && (
+                    <div className="relative">
+                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                        <span className="text-sm font-medium text-muted-foreground select-none">
+                          {currencySymbol}
+                        </span>
+                      </div>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="any"
+                        className="pl-14 font-mono w-full"
+                        placeholder="0"
+                        value={val}
+                        onChange={(event) =>
+                          setVariantPrice(variantId, kind.id, "amount", event.target.value)
+                        }
+                      />
+                    </div>
+                  )}
+
+                  {/* Price range inputs (service only) */}
+                  {isService && kindPriceMode === "range" && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1 min-w-0">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <span className="text-xs font-medium text-muted-foreground select-none">
+                              {currencySymbol}
+                            </span>
+                          </div>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="any"
+                            placeholder={t("catalog.products.create.serviceOffering.priceMin", "Min")}
+                            className="pl-10 w-full font-mono"
+                            value={minVal}
+                            onChange={(event) =>
+                              setVariantPrice(variantId, kind.id, "priceMin", event.target.value)
+                            }
+                          />
+                        </div>
+                        <span className="text-muted-foreground shrink-0">–</span>
+                        <div className="relative flex-1 min-w-0">
+                          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <span className="text-xs font-medium text-muted-foreground select-none">
+                              {currencySymbol}
+                            </span>
+                          </div>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="any"
+                            placeholder={t("catalog.products.create.serviceOffering.priceMax", "Max")}
+                            className="pl-10 w-full font-mono"
+                            value={maxVal}
+                            onChange={(event) =>
+                              setVariantPrice(variantId, kind.id, "priceMax", event.target.value)
+                            }
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {t("catalog.products.create.serviceOffering.priceRangeHint", "Leave max empty for open-ended pricing.")}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Duration section (service only) */}
+        {isService ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
               <h4 className="text-xs font-semibold uppercase text-muted-foreground">
                 {t("catalog.variants.form.durationLabel", "Duration")}
               </h4>
-              
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2 rounded-md border bg-surface p-4">
-                  <Label className="text-xs text-muted-foreground">
-                    {t("catalog.variants.form.durationFixed", "Fixed Duration")}
-                  </Label>
-                  <div className="flex gap-2">
-                    <Input
-                      type="number"
-                      min="0"
-                      className="flex-1"
-                      placeholder="e.g. 60"
-                      value={variant.durationValue || ""}
-                      onChange={(e) => {
-                        syncServiceDurationSummary(e.target.value);
-                        setVariantField(
-                          variantId,
-                          "durationValue",
-                          e.target.value,
-                        );
-                      }}
-                    />
-                    <Select
-                      value={variant.durationUnit || "minute"}
-                      onValueChange={(val) =>
-                        setVariantField(
-                          variantId,
-                          "durationUnit",
-                          val
-                        )
-                      }
-                    >
-                      <SelectTrigger className="w-28">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="minute">
-                          {t("catalog.variants.form.durationUnit.minute", "Minutes")}
-                        </SelectItem>
-                        <SelectItem value="hour">
-                          {t("catalog.variants.form.durationUnit.hour", "Hours")}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+              <SegmentedControl
+                value={durationMode}
+                onValueChange={(v) => setDurationMode(v as "fixed" | "range")}
+                aria-label="Duration mode"
+                size="sm"
+              >
+                <SegmentedControlItem value="fixed">
+                  {t("catalog.variants.form.durationFixed", "Fixed")}
+                </SegmentedControlItem>
+                <SegmentedControlItem value="range">
+                  {t("catalog.variants.form.durationRange", "Range")}
+                </SegmentedControlItem>
+              </SegmentedControl>
+            </div>
 
-                <div className="space-y-2 rounded-md border bg-surface p-4">
-                  <Label className="text-xs text-muted-foreground">
-                    {t("catalog.variants.form.durationRange", "Duration Range")}
+            {durationMode === "fixed" && (
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  min="0"
+                  className="flex-1"
+                  placeholder="e.g. 60"
+                  value={variant.durationValue || ""}
+                  onChange={(e) => {
+                    syncServiceDurationSummary(e.target.value);
+                    setVariantField(variantId, "durationValue", e.target.value);
+                  }}
+                />
+                <Select
+                  value={variant.durationUnit || "minute"}
+                  onValueChange={(val) => setVariantField(variantId, "durationUnit", val)}
+                >
+                  <SelectTrigger className="w-28">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="minute">
+                      {t("catalog.variants.form.durationUnit.minute", "Minutes")}
+                    </SelectItem>
+                    <SelectItem value="hour">
+                      {t("catalog.variants.form.durationUnit.hour", "Hours")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {durationMode === "range" && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label className="w-8 shrink-0 text-xs text-muted-foreground">
+                    {t("catalog.products.create.serviceOffering.priceMin", "Min")}
                   </Label>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 min-w-0">
-                      <Input
-                        type="number"
-                        min="0"
-                        placeholder="Min"
-                        className="w-full"
-                        value={variant.durationMin || ""}
-                        onChange={(e) =>
-                          setVariantField(
-                            variantId,
-                            "durationMin",
-                            e.target.value
-                          )
-                        }
-                      />
-                    </div>
-                    <span className="text-muted-foreground">-</span>
-                    <div className="flex-1 min-w-0">
-                      <Input
-                        type="number"
-                        min="0"
-                        placeholder="Max"
-                        className="w-full"
-                        value={variant.durationMax || ""}
-                        onChange={(e) =>
-                          setVariantField(
-                            variantId,
-                            "durationMax",
-                            e.target.value
-                          )
-                        }
-                      />
-                    </div>
-                  </div>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="45"
+                    className="flex-1 font-mono"
+                    value={variant.durationMin || ""}
+                    onChange={(e) => setVariantField(variantId, "durationMin", e.target.value)}
+                  />
+                  <Select
+                    value={variant.durationUnit || "minute"}
+                    onValueChange={(val) => setVariantField(variantId, "durationUnit", val)}
+                  >
+                    <SelectTrigger className="w-28">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="minute">
+                        {t("catalog.variants.form.durationUnit.minute", "Minutes")}
+                      </SelectItem>
+                      <SelectItem value="hour">
+                        {t("catalog.variants.form.durationUnit.hour", "Hours")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label className="w-8 shrink-0 text-xs text-muted-foreground">
+                    {t("catalog.products.create.serviceOffering.priceMax", "Max")}
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="90"
+                    className="flex-1 font-mono"
+                    value={variant.durationMax || ""}
+                    onChange={(e) => setVariantField(variantId, "durationMax", e.target.value)}
+                  />
+                  <div className="w-28" />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {t("catalog.variants.form.durationHint", "Fill out min and max if the duration varies.")}
-              </p>
-            </div>
-          ) : (
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              {durationMode === "range"
+                ? t("catalog.products.create.serviceOffering.durationRangeHint", "Customer sees the estimated time range.")
+                : t("catalog.variants.form.durationHint", "Fill out min and max if the duration varies.")}
+            </p>
+          </div>
+        ) : (
             <div className="space-y-4">
               <h4 className="text-xs font-semibold uppercase text-muted-foreground">
                 {t("catalog.variants.form.inventory", "Inventory")}

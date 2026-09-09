@@ -13,6 +13,10 @@ import {
   SelectValue,
 } from '@open-mercato/ui/primitives/select'
 import { Switch } from '@open-mercato/ui/primitives/switch'
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from '@open-mercato/ui/primitives/segmented-control'
 import { ProductMediaManager } from './ProductMediaManager'
 import { MetadataEditor } from './MetadataEditor'
 import type { PriceKindSummary, TaxRateSummary } from './productForm'
@@ -243,52 +247,123 @@ export function VariantOptionValuesSection({
 export function VariantDurationSection({ values, setValue, showHeading = true }: VariantDurationSectionProps) {
   const t = useT()
 
+  const hasRangeDuration = !!(values.durationMin || values.durationMax)
+  const [durationMode, setDurationMode] = React.useState<'fixed' | 'range'>(
+    hasRangeDuration ? 'range' : 'fixed',
+  )
+
   return (
-    <div className="space-y-4">
-      {showHeading ? <h3 className="text-sm font-semibold">{t('catalog.variants.form.duration', 'Duration')}</h3> : null}
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label>{t('catalog.variants.form.durationValue', 'Duration Value')}</Label>
+    <div className="space-y-3">
+      {showHeading ? (
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-semibold uppercase text-muted-foreground">
+            {t('catalog.variants.form.duration', 'Duration')}
+          </h3>
+          <SegmentedControl
+            value={durationMode}
+            onValueChange={(v) => setDurationMode(v as 'fixed' | 'range')}
+            aria-label="Duration mode"
+            size="sm"
+          >
+            <SegmentedControlItem value="fixed">
+              {t('catalog.variants.form.durationFixed', 'Fixed')}
+            </SegmentedControlItem>
+            <SegmentedControlItem value="range">
+              {t('catalog.variants.form.durationRange', 'Range')}
+            </SegmentedControlItem>
+          </SegmentedControl>
+        </div>
+      ) : (
+        <SegmentedControl
+          value={durationMode}
+          onValueChange={(v) => setDurationMode(v as 'fixed' | 'range')}
+          aria-label="Duration mode"
+          size="sm"
+          fullWidth
+        >
+          <SegmentedControlItem value="fixed">
+            {t('catalog.variants.form.durationFixed', 'Fixed')}
+          </SegmentedControlItem>
+          <SegmentedControlItem value="range">
+            {t('catalog.variants.form.durationRange', 'Range')}
+          </SegmentedControlItem>
+        </SegmentedControl>
+      )}
+
+      {durationMode === 'fixed' && (
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <Input
             type="number"
+            min="0"
+            className="w-full font-mono"
+            placeholder="e.g. 60"
             value={values.durationValue ?? ''}
             onChange={(e) => setValue('durationValue', e.target.value)}
           />
-        </div>
-        <div className="space-y-2">
-          <Label>{t('catalog.variants.form.durationUnit', 'Duration Unit')}</Label>
-          <Select value={values.durationUnit ?? 'min'} onValueChange={(value) => setValue('durationUnit', value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Unit" />
+          <Select
+            value={values.durationUnit ?? 'min'}
+            onValueChange={(val) => setValue('durationUnit', val)}
+          >
+            <SelectTrigger className="w-28 shrink-0">
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="min">{t('catalog.duration.min', 'Minutes')}</SelectItem>
-              <SelectItem value="hour">{t('catalog.duration.hour', 'Hours')}</SelectItem>
+              <SelectItem value="min">{t('catalog.variants.form.durationUnit.minute', 'Minutes')}</SelectItem>
+              <SelectItem value="hour">{t('catalog.variants.form.durationUnit.hour', 'Hours')}</SelectItem>
               <SelectItem value="day">{t('catalog.duration.day', 'Days')}</SelectItem>
               <SelectItem value="month">{t('catalog.duration.month', 'Months')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
+      )}
+
+      {durationMode === 'range' && (
         <div className="space-y-2">
-          <Label>{t('catalog.variants.form.durationMin', 'Minimum Duration')}</Label>
-          <Input
-            type="number"
-            value={values.durationMin ?? ''}
-            onChange={(e) => setValue('durationMin', e.target.value)}
-          />
+          <Select
+            value={values.durationUnit ?? 'min'}
+            onValueChange={(val) => setValue('durationUnit', val)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="min">{t('catalog.variants.form.durationUnit.minute', 'Minutes')}</SelectItem>
+              <SelectItem value="hour">{t('catalog.variants.form.durationUnit.hour', 'Hours')}</SelectItem>
+              <SelectItem value="day">{t('catalog.duration.day', 'Days')}</SelectItem>
+              <SelectItem value="month">{t('catalog.duration.month', 'Months')}</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+            <Input
+              type="number"
+              min="0"
+              placeholder={t('catalog.products.create.serviceOffering.priceMin', 'Min')}
+              className="w-full font-mono"
+              value={values.durationMin ?? ''}
+              onChange={(e) => setValue('durationMin', e.target.value)}
+            />
+            <span className="text-muted-foreground shrink-0">–</span>
+            <Input
+              type="number"
+              min="0"
+              placeholder={t('catalog.products.create.serviceOffering.priceMax', 'Max')}
+              className="w-full font-mono"
+              value={values.durationMax ?? ''}
+              onChange={(e) => setValue('durationMax', e.target.value)}
+            />
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label>{t('catalog.variants.form.durationMax', 'Maximum Duration')}</Label>
-          <Input
-            type="number"
-            value={values.durationMax ?? ''}
-            onChange={(e) => setValue('durationMax', e.target.value)}
-          />
-        </div>
-      </div>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        {durationMode === 'range'
+          ? t('catalog.products.create.serviceOffering.durationRangeHint', 'Customer sees the estimated time range.')
+          : t('catalog.variants.form.durationHint', 'Fill out min and max if the duration varies.')}
+      </p>
     </div>
   )
 }
+
 
 export function VariantDimensionsSection({ values, setValue, showHeading = true }: VariantDimensionsSectionProps) {
   const t = useT()
@@ -400,156 +475,175 @@ export function VariantPricesSection({
     [setValue],
   )
 
-  const containerClass = embedded ? 'space-y-4' : 'space-y-4 rounded-lg border p-4'
+  // Per-kind price mode: 'fixed' | 'range' | 'starting_at'
+  const initialPriceModes = React.useMemo(() => {
+    const map: Record<string, 'fixed' | 'range' | 'starting_at'> = {}
+    for (const kind of priceKinds) {
+      const draft = values.prices?.[kind.id]
+      if (draft?.priceType === 'starting_at') map[kind.id] = 'starting_at'
+      else if (draft?.priceType === 'range' || draft?.priceMin || draft?.priceMax) map[kind.id] = 'range'
+      else map[kind.id] = 'fixed'
+    }
+    return map
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // stable init only
+
+  const [priceModes, setPriceModes] = React.useState<Record<string, 'fixed' | 'range' | 'starting_at'>>(initialPriceModes)
+  const setPriceMode = React.useCallback((kindId: string, mode: 'fixed' | 'range' | 'starting_at') => {
+    setPriceModes((prev) => ({ ...prev, [kindId]: mode }))
+    // sync priceType into draft so it persists on save
+    updatePrice(kindId, { priceType: mode === 'fixed' ? 'exact' : mode })
+  }, [updatePrice])
+
   const selectedTaxRate = values.taxRateId
     ? taxRates.find((rate) => rate.id === values.taxRateId) ?? null
     : null
   const fallbackSelectedTaxRate =
     values.taxRateId && !selectedTaxRate
-      ? {
-          id: values.taxRateId,
-          name: values.taxRateId,
-          code: null,
-          rate: null,
-          isDefault: false,
-        }
+      ? { id: values.taxRateId, name: values.taxRateId, code: null, rate: null, isDefault: false }
       : null
   const displayedSelectedTaxRate = selectedTaxRate ?? fallbackSelectedTaxRate
-  const displayedTaxRates = fallbackSelectedTaxRate
-    ? [fallbackSelectedTaxRate, ...taxRates]
-    : taxRates
+  const displayedTaxRates = fallbackSelectedTaxRate ? [fallbackSelectedTaxRate, ...taxRates] : taxRates
   const taxRateOptionsKey = displayedTaxRates.map((rate) => `${rate.id}:${formatTaxRateLabel(rate)}`).join('\0')
   const taxRateSelectKey = `variant-tax-rate:${values.taxRateId ?? ''}:${taxRateOptionsKey}`
 
+  const TaxRateSelect = (
+    <Select
+      key={taxRateSelectKey}
+      value={values.taxRateId || undefined}
+      onValueChange={(value) => { if (value) setValue('taxRateId', value) }}
+    >
+      <SelectTrigger className="w-auto">
+        <SelectValue placeholder={t('catalog.variants.form.pricesTaxNone', 'No tax override')}>
+          {displayedSelectedTaxRate ? formatTaxRateLabel(displayedSelectedTaxRate) : undefined}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {displayedTaxRates.map((rate) => (
+          <SelectItem key={rate.id} value={rate.id}>{formatTaxRateLabel(rate)}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+
   return (
-    <div className={containerClass}>
-      {showHeader ? (
+    <div className={embedded ? 'space-y-4' : 'space-y-4'}>
+      {showHeader && (
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h3 className="text-sm font-semibold">{t('catalog.variants.form.pricesLabel', 'Prices')}</h3>
+            <h3 className="text-xs font-semibold uppercase text-muted-foreground">
+              {t('catalog.variants.form.pricesLabel', 'Pricing')}
+            </h3>
             <p className="text-xs text-muted-foreground">
               {t('catalog.variants.form.pricesHint', 'Populate list prices per price kind.')}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Select
-              key={taxRateSelectKey}
-              value={values.taxRateId || undefined}
-              onValueChange={(value) => {
-                if (value) setValue('taxRateId', value)
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t('catalog.variants.form.pricesTaxNone', 'No tax override')}>
-                  {displayedSelectedTaxRate ? formatTaxRateLabel(displayedSelectedTaxRate) : undefined}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {displayedTaxRates.map((rate) => (
-                  <SelectItem key={rate.id} value={rate.id}>
-                    {formatTaxRateLabel(rate)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      ) : (
-        <div className="flex justify-end">
-          <Select
-            key={taxRateSelectKey}
-            value={values.taxRateId || undefined}
-            onValueChange={(value) => {
-              if (value) setValue('taxRateId', value)
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={t('catalog.variants.form.pricesTaxNone', 'No tax override')}>
-                {displayedSelectedTaxRate ? formatTaxRateLabel(displayedSelectedTaxRate) : undefined}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {displayedTaxRates.map((rate) => (
-                <SelectItem key={rate.id} value={rate.id}>
-                  {formatTaxRateLabel(rate)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {TaxRateSelect}
         </div>
       )}
-      <div className="space-y-3">
+      {!showHeader && (
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-xs font-semibold uppercase text-muted-foreground">
+            {t('catalog.variants.form.pricesLabel', 'Pricing')}
+          </h3>
+          {TaxRateSelect}
+        </div>
+      )}
+
+      <div className="space-y-4">
         {priceKinds.length ? (
           priceKinds.map((kind) => {
             const draft = values.prices?.[kind.id]
+            const currencyCode = kind.currencyCode?.toUpperCase() ?? ''
+            const kindMode = priceModes[kind.id] ?? 'fixed'
+
             return (
-              <div key={kind.id} className="rounded bg-muted/50 p-3">
-                <div className="flex items-center justify-between">
+              <div key={kind.id} className="space-y-2">
+                {/* Per-kind header: currency info + toggle */}
+                <div className="flex items-center justify-between gap-2">
                   <div>
-                    <p className="text-sm font-semibold">{kind.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {kind.currencyCode
-                        ? `${kind.currencyCode.toUpperCase()} • ${kind.displayMode === 'including-tax' ? t('catalog.priceKinds.form.displayMode.include', 'Including tax') : t('catalog.priceKinds.form.displayMode.exclude', 'Excluding tax')}`
-                        : t('catalog.variants.form.priceMissingCurrency', 'No currency configured')}
-                    </p>
+                    <p className="text-sm font-medium">{kind.title}</p>
+                    {kind.currencyCode && (
+                      <p className="text-xs text-muted-foreground">
+                        {`${currencyCode} • ${kind.displayMode === 'including-tax'
+                          ? t('catalog.priceKinds.form.displayMode.include', 'Including tax')
+                          : t('catalog.priceKinds.form.displayMode.exclude', 'Excluding tax')}`}
+                      </p>
+                    )}
                   </div>
+                  <SegmentedControl
+                    value={kindMode}
+                    onValueChange={(v) => setPriceMode(kind.id, v as 'fixed' | 'range' | 'starting_at')}
+                    aria-label={`Price mode for ${kind.title}`}
+                    size="sm"
+                  >
+                    <SegmentedControlItem value="fixed">
+                      {t('catalog.products.create.variantsBuilder.fixedPrice', 'Fixed')}
+                    </SegmentedControlItem>
+                    <SegmentedControlItem value="range">
+                      {t('catalog.products.create.variantsBuilder.priceRange', 'Range')}
+                    </SegmentedControlItem>
+                  </SegmentedControl>
                 </div>
-                <div className="mt-4 space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">{t('catalog.variants.form.priceType', 'Price Type')}</Label>
-                      <Select
-                        value={draft?.priceType ?? 'exact'}
-                        onValueChange={(val) => updatePrice(kind.id, { priceType: val as any })}
-                      >
-                        <SelectTrigger><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="exact">{t('catalog.variants.form.priceExact', 'Exact')}</SelectItem>
-                          <SelectItem value="starting_at">{t('catalog.variants.form.priceStartingAt', 'Starting At')}</SelectItem>
-                          <SelectItem value="range">{t('catalog.variants.form.priceRangeType', 'Range')}</SelectItem>
-                        </SelectContent>
-                      </Select>
+
+                {/* Fixed: single amount input */}
+                {kindMode === 'fixed' && (
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                      <span className="text-sm font-medium text-muted-foreground select-none">{currencyCode}</span>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">{t('catalog.variants.form.priceAmount', 'Default Amount')}</Label>
-                      <Input
-                        value={draft?.amount ?? ''}
-                        onInput={(event) => updatePrice(kind.id, { amount: event.currentTarget.value })}
-                        onChange={(event) => updatePrice(kind.id, { amount: event.target.value })}
-                        placeholder="0.00"
-                      />
-                    </div>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="any"
+                      className="pl-14 font-mono w-full"
+                      placeholder="0.00"
+                      value={draft?.amount ?? ''}
+                      onInput={(event) => updatePrice(kind.id, { amount: event.currentTarget.value })}
+                      onChange={(event) => updatePrice(kind.id, { amount: event.target.value })}
+                    />
                   </div>
-                  
-                  {draft?.priceType === 'range' && (
-                    <div className="grid gap-4 md:grid-cols-2 border-t pt-4 border-border/50">
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">{t('catalog.variants.form.priceMin', 'Min Amount')}</Label>
+                )}
+
+                {/* Range: min – max inputs */}
+                {kindMode === 'range' && (
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1 min-w-0">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                          <span className="text-xs font-medium text-muted-foreground select-none">{currencyCode}</span>
+                        </div>
                         <Input
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder={t('catalog.products.create.serviceOffering.priceMin', 'Min')}
+                          className="pl-10 w-full font-mono"
                           value={draft?.priceMin ?? ''}
                           onChange={(event) => updatePrice(kind.id, { priceMin: event.target.value })}
-                          placeholder="0.00"
                         />
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">{t('catalog.variants.form.priceMax', 'Max Amount')}</Label>
+                      <span className="text-muted-foreground shrink-0">–</span>
+                      <div className="relative flex-1 min-w-0">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                          <span className="text-xs font-medium text-muted-foreground select-none">{currencyCode}</span>
+                        </div>
                         <Input
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder={t('catalog.products.create.serviceOffering.priceMax', 'Max')}
+                          className="pl-10 w-full font-mono"
                           value={draft?.priceMax ?? ''}
                           onChange={(event) => updatePrice(kind.id, { priceMax: event.target.value })}
-                          placeholder="0.00"
                         />
                       </div>
                     </div>
-                  )}
-                  
-                  <label className="flex items-center gap-2 mt-2">
-                    <Switch
-                      checked={draft?.priceRangeEnabled ?? false}
-                      onCheckedChange={(val) => updatePrice(kind.id, { priceRangeEnabled: val })}
-                    />
-                    <span className="text-sm font-medium">{t('catalog.variants.form.priceRangeEnabled', 'Enable custom price selection')}</span>
-                  </label>
-                </div>
+                    <p className="text-xs text-muted-foreground">
+                      {t('catalog.products.create.serviceOffering.priceRangeHint', 'Leave max empty for open-ended pricing.')}
+                    </p>
+                  </div>
+                )}
               </div>
             )
           })
@@ -557,6 +651,7 @@ export function VariantPricesSection({
           <p className="text-xs text-muted-foreground">{t('catalog.variants.form.pricesEmpty', 'No price kinds configured yet.')}</p>
         )}
       </div>
+
     </div>
   )
 }
