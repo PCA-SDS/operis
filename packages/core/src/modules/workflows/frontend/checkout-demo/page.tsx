@@ -21,6 +21,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { deriveCurrentStep } from './deriveCurrentStep'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('workflows')
 
@@ -150,7 +151,7 @@ export default function CheckoutDemoPage() {
       )
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
+        const errorData = await readJsonSafe<{ error?: string }>(response, {})
         logger.error('User tasks request failed', { component: 'UserTasks', errorData })
         throw new Error(errorData.error || `HTTP ${response.status}`)
       }

@@ -40,7 +40,7 @@ const sortFieldMap: Record<(typeof mapSortFields)[number], string> = {
 }
 
 const querySchema = dealListQuerySchema.extend({
-  pageSize: z.coerce.number().min(1).max(100).default(100),
+  pageSize: z.coerce.number().int().min(1).max(100).default(100),
   sortField: z.enum(mapSortFields).optional(),
 })
 

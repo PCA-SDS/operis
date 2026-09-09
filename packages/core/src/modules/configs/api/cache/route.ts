@@ -19,6 +19,7 @@ import {
   configErrorSchema,
 } from '../openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { resolveGrantedFeatures } from '@open-mercato/shared/lib/auth/grantedFeatures'
 
 const logger = createLogger('configs')
 
@@ -26,11 +27,6 @@ export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['configs.cache.view'] },
   POST: { requireAuth: true, requireFeatures: ['configs.cache.manage'] },
 } as const
-
-function resolveUserFeatures(auth: unknown): string[] {
-  const features = (auth as { features?: unknown } | null)?.features
-  return Array.isArray(features) ? features.filter((value): value is string => typeof value === 'string') : []
-}
 
 export async function GET(req: Request) {
   const auth = await getAuthFromRequest(req)
@@ -122,7 +118,7 @@ export async function POST(req: Request) {
     let afterSuccessCallbacks: Awaited<ReturnType<typeof runMutationGuards>>['afterSuccessCallbacks'] = []
     if (guard) {
       const guardResult = await runMutationGuards([guard], guardInput, {
-        userFeatures: resolveUserFeatures(auth),
+        userFeatures: await resolveGrantedFeatures(container, auth, guardInput.organizationId),
       })
       if (!guardResult.ok) {
         return NextResponse.json(

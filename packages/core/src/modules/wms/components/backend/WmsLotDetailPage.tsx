@@ -44,6 +44,7 @@ import { AdjustInventoryDialog } from './AdjustInventoryDialog'
 import { ChangeLotStatusDialog } from './ChangeLotStatusDialog'
 import { CycleCountWizardDialog } from './CycleCountWizardDialog'
 import { useWmsInventoryMutationAccess } from './useWmsInventoryMutationAccess'
+import { downloadCsvExport } from '../../lib/downloadCsvExport'
 
 const lotIdSchema = z.string().uuid()
 
@@ -141,23 +142,6 @@ const NON_SELLABLE_LOCATION_TYPES = new Set(['staging', 'dock'])
 const PICKING_LOCATION_TYPES = new Set(['staging', 'bin', 'slot'])
 const NEAR_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000
 const MS_PER_DAY = 24 * 60 * 60 * 1000
-
-function escapeCsvCell(value: string | number): string {
-  const str = String(value ?? '')
-  if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`
-  return str
-}
-
-function downloadCsvFile(filename: string, rows: string[][]) {
-  const csv = rows.map((row) => row.map(escapeCsvCell).join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
 
 function toNumber(value: string | number | null | undefined): number {
   const parsed = Number(value ?? 0)
@@ -813,27 +797,29 @@ export default function WmsLotDetailPage({ lotId }: WmsLotDetailPageProps) {
   }, [pagedBalances, selectedBalanceIds])
 
   const handleExportDistributionCsv = React.useCallback(() => {
-    const headers = [
-      t('wms.backend.lot.distribution.columns.warehouse', 'Warehouse'),
-      t('wms.backend.lot.distribution.columns.location', 'Location'),
-      t('wms.backend.lot.distribution.columns.lastMove', 'Last move'),
-      t('wms.backend.lot.distribution.columns.onHand', 'On hand'),
-      t('wms.backend.lot.distribution.columns.reserved', 'Reserved'),
-      t('wms.backend.lot.distribution.columns.status', 'Status'),
+    const columns = [
+      { field: 'warehouse', header: t('wms.backend.lot.distribution.columns.warehouse', 'Warehouse') },
+      { field: 'location', header: t('wms.backend.lot.distribution.columns.location', 'Location') },
+      { field: 'lastMove', header: t('wms.backend.lot.distribution.columns.lastMove', 'Last move') },
+      { field: 'onHand', header: t('wms.backend.lot.distribution.columns.onHand', 'On hand') },
+      { field: 'reserved', header: t('wms.backend.lot.distribution.columns.reserved', 'Reserved') },
+      { field: 'status', header: t('wms.backend.lot.distribution.columns.status', 'Status') },
     ]
     const rows = filteredBalances.map((row) => {
       const status = resolveBalanceStatus(row, lotData, reorderPoint, nowMs)
-      return [
-        formatWarehouseLabel(row),
-        formatLocationLabel(row.location_code, row.location_id),
-        formatLastMoveLabel(lastMoveByLocation.get(balanceLocationKey(row)), locale, t),
-        String(toNumber(row.quantity_on_hand)),
-        String(toNumber(row.quantity_reserved)),
-        t(status.labelKey, status.labelFallback),
-      ]
+      return {
+        warehouse: formatWarehouseLabel(row),
+        location: formatLocationLabel(row.location_code, row.location_id),
+        lastMove: formatLastMoveLabel(lastMoveByLocation.get(balanceLocationKey(row)), locale, t),
+        // Raw numbers, not strings: the serializer exempts `number` from formula
+        // neutralization, so a stringified negative would export as `'-7`.
+        onHand: toNumber(row.quantity_on_hand),
+        reserved: toNumber(row.quantity_reserved),
+        status: t(status.labelKey, status.labelFallback),
+      }
     })
     const safeLot = pageTitle.replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'lot'
-    downloadCsvFile(`${safeLot}-locations.csv`, [headers, ...rows])
+    downloadCsvExport(`${safeLot}-locations.csv`, columns, rows)
   }, [filteredBalances, lastMoveByLocation, locale, lotData, nowMs, pageTitle, reorderPoint, t])
 
   const selectedWarehouse = warehousesQuery.data?.find((warehouse) => warehouse.id === warehouseId)
@@ -1250,7 +1236,15 @@ export default function WmsLotDetailPage({ lotId }: WmsLotDetailPageProps) {
             </section>
 
             <DataTable<InventoryMovementRow>
-              title={t('wms.backend.lot.activity.title', 'Recent activity')}
+              // A mid-page section heading, not a page title: a bare string here
+              // takes DataTable's standalone `h1 text-2xl` treatment and reads as a
+              // second page title under the real one. This matches the `embedded`
+              // distribution table in the section above.
+              title={(
+                <h2 className="text-sm font-semibold leading-tight text-foreground">
+                  {t('wms.backend.lot.activity.title', 'Recent activity')}
+                </h2>
+              )}
               columns={activityColumns}
               data={movementsQuery.data ?? []}
               disableRowClick

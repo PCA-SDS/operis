@@ -27,6 +27,7 @@ import { emitEudrLifecycleEvent } from './lifecycle-events'
 import { E } from '#generated/entities.ids.generated'
 import { sql } from 'kysely'
 import { z } from 'zod'
+import { toDateOrNull as toDate } from '@open-mercato/shared/lib/date/normalize'
 import {
   EudrDueDiligenceStatement,
   EudrEvidenceSubmission,
@@ -125,10 +126,6 @@ function parseScopedCommandInput(input: unknown): ScopedCommandInput {
 
 function toNumericString(value: number | null | undefined): string | null {
   return value == null ? null : String(value)
-}
-
-function toDate(value: string | null): Date | null {
-  return value ? new Date(value) : null
 }
 
 function statementSeedFromSnapshot(snapshot: StatementSnapshot): RequiredEntityData<EudrDueDiligenceStatement> {

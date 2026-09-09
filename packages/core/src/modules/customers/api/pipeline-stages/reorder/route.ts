@@ -14,6 +14,7 @@ import {
 } from '@open-mercato/shared/lib/crud/mutation-guard'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('customers')
 
@@ -44,7 +45,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: translate('customers.errors.context_required', 'Organization and tenant context required') }, { status: 400 })
     }
 
-    const body = await req.json().catch(() => ({}))
+    const body = await readJsonSafe(req, {})
     const scoped = withScopedPayload(body, ctx, translate)
     const input = pipelineStageReorderSchema.parse(scoped)
 

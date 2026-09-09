@@ -28,6 +28,7 @@ import { E } from '#generated/entities.ids.generated'
 import { randomUUID } from 'crypto'
 import { z } from 'zod'
 import { EudrMitigationAction, EudrRiskAssessment } from '../data/entities'
+import { toDateOrNull as toDate } from '@open-mercato/shared/lib/date/normalize'
 import {
   mitigationActionCreateSchema,
   mitigationActionUpdateSchema,
@@ -96,10 +97,6 @@ const mitigationActionCrudEvents: CrudEventsConfig<EudrMitigationAction> = {
 
 function parseScopedCommandInput(input: unknown): ScopedCommandInput {
   return scopedCommandInputSchema.parse(input)
-}
-
-function toDate(value: string | null): Date | null {
-  return value ? new Date(value) : null
 }
 
 async function requireRiskAssessmentInScope(

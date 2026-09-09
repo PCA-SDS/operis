@@ -114,7 +114,7 @@ function StepFieldsRenderer({
             formData={data}
           />
           {fieldErrors[field.id] && (
-            <p className="mt-1 text-sm text-destructive">{fieldErrors[field.id]}</p>
+            <p className="mt-1 text-sm text-status-error-text">{fieldErrors[field.id]}</p>
           )}
         </div>
       ))}
@@ -267,7 +267,7 @@ export function InjectionWizard({ widget, context, onClose }: InjectionWizardPro
         )}
 
         {errorMessage && (
-          <p className="text-sm text-destructive" role="alert">{errorMessage}</p>
+          <p className="text-sm text-status-error-text" role="alert">{errorMessage}</p>
         )}
       </div>
 

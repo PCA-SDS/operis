@@ -228,7 +228,8 @@ export function TaxRatesSettings() {
       await loadEntries()
     } catch (err) {
       logger.error('sales.tax-rates.save failed', { err })
-      flash(translations.errors.save, 'error')
+      const message = err instanceof Error ? err.message : translations.errors.save
+      flash(message, 'error')
     }
   }, [dialog, translations.errors.save, translations.messages.saved, closeDialog, loadEntries])
 
@@ -255,7 +256,8 @@ export function TaxRatesSettings() {
       await loadEntries()
     } catch (err) {
       logger.error('sales.tax-rates.delete failed', { err })
-      flash(translations.errors.delete, 'error')
+      const message = err instanceof Error ? err.message : translations.errors.delete
+      flash(message, 'error')
     }
   }, [confirm, translations.actions.deleteConfirm, translations.errors.delete, translations.messages.deleted, loadEntries])
 

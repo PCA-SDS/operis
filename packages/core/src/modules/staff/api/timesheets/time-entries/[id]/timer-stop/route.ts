@@ -12,7 +12,6 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { StaffTimeEntry, StaffTimeEntrySegment } from '../../../../../data/entities'
 import { getStaffMemberByUserId } from '../../../../../lib/staffMemberResolver'
 import {
-  resolveUserFeatures,
   runStaffMutationGuardAfterSuccess,
   runStaffMutationGuards,
 } from '../../../../guards'
@@ -87,7 +86,6 @@ export async function POST(req: Request) {
         requestMethod: req.method,
         requestHeaders: req.headers,
       },
-      resolveUserFeatures(auth),
     )
     if (!guardResult.ok) {
       return NextResponse.json(

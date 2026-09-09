@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 const uuid = () => z.string().uuid()
 
@@ -13,8 +14,18 @@ const clearableString = (max: number) =>
 const appointmentCustomerSchema = z.object({
   firstName: z.string().trim().min(1).max(120),
   lastName: z.string().trim().min(1).max(120),
+  // Deliberately format-free: `phoneCountryCode` is carried separately, so this
+  // holds a national number without a `+` and would fail an E.164 check.
   phone: z.string().trim().min(1).max(50),
-  email: clearableString(255),
+  // This is an unauthenticated booking endpoint and had no format check at all.
+  email: z.preprocess(
+    (value) => {
+      if (typeof value !== 'string') return value
+      const trimmed = value.trim()
+      return trimmed.length ? trimmed : null
+    },
+    emailSchema({ maxLength: 255 }).nullable().optional(),
+  ),
   salutation: clearableString(150),
   source: clearableString(150),
   phoneCountryCode: clearableString(8),

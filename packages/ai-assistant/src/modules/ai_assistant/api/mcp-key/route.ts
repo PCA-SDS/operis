@@ -7,6 +7,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createApiKey } from '@open-mercato/core/modules/api_keys/services/apiKeyService'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { getUserRoleIds } from '../../lib/user-role-ids'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('ai_assistant')
 
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const raw = await req.json().catch(() => ({}))
+    const raw = await readJsonSafe(req, {})
     const body = bodySchema.parse(raw ?? {})
 
     const container = await createRequestContainer()

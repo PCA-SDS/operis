@@ -33,6 +33,7 @@
   "feature_toggles.form.groups.type": "Konfiguracja typu",
   "feature_toggles.form.loading": "Ładowanie…",
   "feature_toggles.form.title.edit": "Edytuj przełącznik funkcji",
+  "feature_toggles.global.form.title.create": "Create Feature Toggle",
   "feature_toggles.global.help.title": "Przełączniki funkcji",
   "feature_toggles.list.confirmDelete": "Usunąć przełącznik funkcji \"{identifier}\"?",
   "feature_toggles.list.error.load": "Nie udało się załadować przełączników funkcji",

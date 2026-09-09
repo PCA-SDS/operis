@@ -52,7 +52,8 @@ export default function DealsMapPage(): React.ReactElement {
           </Breadcrumb>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="text-xl font-semibold leading-tight text-foreground sm:text-2xl">
+            {/* Same treatment as the deals list and kanban views — see Page.tsx PageHeader. */}
+            <h1 className="text-2xl font-normal leading-tight text-foreground sm:text-3xl">
               {translateWithFallback(t, 'customers.nav.deals.map', 'Deals Map')}
             </h1>
             <SearchInput

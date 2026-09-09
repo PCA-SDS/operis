@@ -9,7 +9,6 @@ import {
 } from '@open-mercato/shared/lib/crud/optimistic-lock-headers'
 import { emitIntegrationsEvent } from '../../events'
 import {
-  resolveUserFeatures,
   runIntegrationMutationGuardAfterSuccess,
   runIntegrationMutationGuards,
 } from '../guards'
@@ -35,7 +34,6 @@ jest.mock('../../events', () => ({
 }))
 
 jest.mock('../guards', () => ({
-  resolveUserFeatures: jest.fn(() => []),
   runIntegrationMutationGuards: jest.fn(),
   runIntegrationMutationGuardAfterSuccess: jest.fn(),
 }))

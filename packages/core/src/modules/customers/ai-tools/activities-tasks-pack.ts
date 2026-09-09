@@ -23,20 +23,13 @@ import {
   CustomerInteraction,
   CustomerTodoLink,
 } from '../data/entities'
+import { buildScope, resolveEm } from './_shared'
 import {
   assertTenantScope,
   type CustomersAiToolDefinition,
   type CustomersToolContext,
   type CustomersToolLoadBeforeSingleRecord,
 } from './types'
-
-function resolveEm(ctx: CustomersToolContext | AiToolExecutionContext): EntityManager {
-  return ctx.container.resolve<EntityManager>('em')
-}
-
-function buildScope(ctx: CustomersToolContext | AiToolExecutionContext, tenantId: string) {
-  return { tenantId, organizationId: ctx.organizationId }
-}
 
 function recordVersionFromUpdatedAt(updatedAt: Date | null | undefined): string | null {
   if (!updatedAt) return null

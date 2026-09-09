@@ -71,13 +71,16 @@ describe('file sizes as people read them', () => {
     [512, '512 B'],
     [2048, '2.0 KB'],
     [1024 * 1024 * 3.5, '3.5 MB'],
-    [1024 * 1024 * 200, '200 MB'],
+    [1024 * 1024 * 200, '200.0 MB'],
   ])('renders %i bytes as %s', (bytes, expected) => {
     expect(formatFileSize(bytes)).toBe(expected)
   })
 
-  it('says nothing rather than something wrong for a nonsense size', () => {
-    expect(formatFileSize(Number.NaN)).toBe('')
-    expect(formatFileSize(-1)).toBe('')
+  it('says nothing useful rather than something wrong for a nonsense size', () => {
+    // Chat now shares `@open-mercato/shared/lib/units/fileSize` with the four
+    // other call sites, so a nonsense size renders the em dash the rest of the
+    // product uses rather than an empty string.
+    expect(formatFileSize(Number.NaN)).toBe('—')
+    expect(formatFileSize(-1)).toBe('0 B')
   })
 })

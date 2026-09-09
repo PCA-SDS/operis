@@ -3,13 +3,14 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi/types'
 import { replyMessageSchema } from '../../../data/validators'
 import { attachOperationMetadataHeader } from '../../../lib/operationMetadata'
 import { canUseMessageEmailFeature, resolveMessageContext } from '../../../lib/routeHelpers'
-import { resolveUserFeatures, runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../guards'
+import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../guards'
 import {
   errorResponseSchema,
   forwardResponseSchema,
   replyMessageSchema as replyOpenApiSchema,
 } from '../../openapi'
 import { MessageCommandExecuteResult } from '../../../commands/shared'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['messages.compose'] },
@@ -18,7 +19,7 @@ export const metadata = {
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const { ctx, scope } = await resolveMessageContext(req)
   const commandBus = ctx.container.resolve('commandBus') as CommandBus
-  const body = await req.json().catch(() => ({}))
+  const body = await readJsonSafe(req, {})
   const input = replyMessageSchema.parse(body)
   if (input.sendViaEmail && !(await canUseMessageEmailFeature(ctx, scope))) {
     return Response.json({ error: 'Missing feature: messages.email' }, { status: 403 })
@@ -37,7 +38,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       requestHeaders: req.headers,
       mutationPayload: input as Record<string, unknown>,
     },
-    resolveUserFeatures(ctx.auth),
   )
   if (!guardResult.ok) {
     return Response.json(

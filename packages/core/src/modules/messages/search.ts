@@ -6,32 +6,7 @@ import type {
 } from '@open-mercato/shared/modules/search'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-
-function appendLine(lines: string[], label: string, value: unknown) {
-  if (value === null || value === undefined) return
-  const text = Array.isArray(value)
-    ? value.map((item) => (item === null || item === undefined ? '' : String(item))).filter(Boolean).join(', ')
-    : (typeof value === 'object' ? JSON.stringify(value) : String(value))
-  if (!text.trim()) return
-  lines.push(`${label}: ${text}`)
-}
-
-function pickString(...candidates: Array<unknown>): string | null {
-  for (const candidate of candidates) {
-    if (typeof candidate !== 'string') continue
-    const trimmed = candidate.trim()
-    if (trimmed.length > 0) return trimmed
-  }
-  return null
-}
-
-function snippet(value: unknown, max = 140): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const trimmed = value.trim()
-  if (!trimmed.length) return undefined
-  if (trimmed.length <= max) return trimmed
-  return `${trimmed.slice(0, max - 3)}...`
-}
+import { appendLine, pickString, snippet } from '@open-mercato/shared/modules/search/descriptorHelpers'
 
 function buildMessagePresenter(translate: TranslateFn, record: Record<string, unknown>): SearchResultPresenter {
   const title = pickString(record.subject) ?? translate('messages.search.fallback.title', 'Message')

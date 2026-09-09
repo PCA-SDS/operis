@@ -4,8 +4,8 @@ import { z } from 'zod'
 // list routes. push_token is a secret and is never part of the exposed field set.
 export const deviceListSchema = z
   .object({
-    page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(100).default(50),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(50),
     platform: z.enum(['ios', 'android', 'web']).optional(),
     userId: z.string().uuid().optional(),
     sortField: z.string().optional(),

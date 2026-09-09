@@ -22,10 +22,7 @@ export function ensureSameTenant(entity: Pick<{ tenantId: string }, 'tenantId'>,
 
 export { assertFound } from '@open-mercato/shared/lib/crud/errors'
 
-export function cloneJson<T>(value: T): T {
-  if (value === null || value === undefined) return value
-  return JSON.parse(JSON.stringify(value)) as T
-}
+export { cloneJson } from '@open-mercato/shared/lib/json/cloneJson'
 
 const OPTION_SCHEMA_CODE_MAX_LENGTH = 150
 
@@ -81,6 +78,12 @@ export type RequireScope = {
 // Derives the actor's effective tenant/org scope for entry-point lookups, mirroring
 // the bypass semantics of ensureTenantScope/ensureOrganizationScope: tenant is always
 // strict, organization is left unrestricted for super-admins and global-org actors.
+//
+// NOT the same contract as `resolveCommandActorScope` in
+// `@open-mercato/shared/lib/commands/scope`, despite the matching name: this
+// returns a two-field scope with no require flags, so a null organization here
+// means "match any", where the shared one would pin the column to NULL. Catalog
+// entry points depend on that widening — do not swap one for the other.
 export function commandActorScope(ctx: CommandRuntimeContext): RequireScope {
   const orgUnrestricted = ctx.auth?.isSuperAdmin === true || ctx.organizationScope?.allowedIds === null
   return {

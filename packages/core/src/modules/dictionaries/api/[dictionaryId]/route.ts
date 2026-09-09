@@ -23,6 +23,7 @@ import {
 } from '../openapi'
 import { dictionaryKeySchema } from '@open-mercato/core/modules/dictionaries/data/validators'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('dictionaries').child({ component: 'api' })
 
@@ -115,7 +116,7 @@ export async function PATCH(req: Request, ctx: { params?: { dictionaryId?: strin
   try {
     const context = await resolveDictionariesRouteContext(req)
     const { dictionaryId } = paramsSchema.parse({ dictionaryId: ctx.params?.dictionaryId })
-    const payload = updateSchema.parse(await req.json().catch(() => ({})))
+    const payload = updateSchema.parse(await readJsonSafe(req, {}))
     const dictionary = await loadDictionary(context, dictionaryId)
 
     await enforceCommandOptimisticLockWithGuards(context.container, {

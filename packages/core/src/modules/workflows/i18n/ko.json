@@ -1193,6 +1193,7 @@
   "workflows.visualEditor.howToUse": "사용 방법:",
   "workflows.visualEditor.loadExample": "예제 불러오기",
   "workflows.visualEditor.loadExampleWorkflow": "예제 워크플로우 불러오기",
+  "workflows.visualEditor.loading": "Loading workflow definition…",
   "workflows.visualEditor.readOnly": "읽기 전용",
   "workflows.visualEditor.runTest": "테스트 실행",
   "workflows.visualEditor.showMetadata": "메타데이터 표시",

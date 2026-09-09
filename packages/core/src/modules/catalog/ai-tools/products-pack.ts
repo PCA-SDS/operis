@@ -9,12 +9,10 @@
  * `GET /api/catalog/products`. Tool name, schema, requiredFeatures, and
  * output shape are unchanged.
  */
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { z } from 'zod'
 import { defineApiBackedAiTool } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/api-backed-tool'
 import type {
   AiApiOperationRequest,
-  AiToolExecutionContext,
 } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/ai-api-operation-runner'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { loadCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields'
@@ -30,14 +28,7 @@ import {
   CatalogProductUnitConversion,
 } from '../data/entities'
 import { assertTenantScope, type CatalogAiToolDefinition, type CatalogToolContext } from './types'
-
-function resolveEm(ctx: CatalogToolContext | AiToolExecutionContext): EntityManager {
-  return ctx.container.resolve<EntityManager>('em')
-}
-
-function buildScope(ctx: CatalogToolContext | AiToolExecutionContext, tenantId: string) {
-  return { tenantId, organizationId: ctx.organizationId }
-}
+import { buildScope, resolveEm } from './_shared'
 
 const listProductsInput = z
   .object({

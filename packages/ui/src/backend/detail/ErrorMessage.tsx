@@ -31,12 +31,12 @@ export function ErrorMessage({ label, description, action, className, iconClassN
   return (
     <div
       className={cn(
-        'flex items-start gap-3 rounded border border-destructive/50 bg-destructive/5 px-3 py-2 text-sm text-destructive',
+        'flex items-start gap-3 rounded border border-status-error-border bg-status-error-bg px-3 py-2 text-sm text-status-error-text',
         className
       )}
       role="alert"
     >
-      <AlertCircle className={cn('h-4 w-4 flex-none', iconClassName)} aria-hidden />
+      <AlertCircle className={cn('h-4 w-4 flex-none text-status-error-icon', iconClassName)} aria-hidden />
       <div className="space-y-1">
         <p className="leading-tight">{displayLabel}</p>
         {displayDescription ? <p className="text-muted-foreground">{displayDescription}</p> : null}

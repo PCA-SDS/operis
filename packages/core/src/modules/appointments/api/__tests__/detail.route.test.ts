@@ -16,6 +16,7 @@ const mockResolveTranslations = jest.fn()
 const mockCreateRequestContainer = jest.fn()
 const mockGetAuthFromRequest = jest.fn()
 const mockEmitAppointmentEvent = jest.fn()
+const mockResolveOrganizationScopeForRequest = jest.fn()
 
 class Appointment {}
 class AppointmentStatus {}
@@ -43,8 +44,18 @@ jest.mock('@open-mercato/shared/lib/auth/server', () => ({
   getAuthFromRequest: (...args: unknown[]) => mockGetAuthFromRequest(...args),
 }))
 
+// The route resolves the caller's organization allow-list before loading the
+// record, so the appointment is scoped by organization as well as tenant. The
+// scope resolver needs a real container/RBAC pair, which this suite does not
+// build — stub it and assert the resulting predicate reaches `findOne` instead.
+jest.mock('@open-mercato/core/modules/directory/utils/organizationScope', () => ({
+  resolveOrganizationScopeForRequest: (...args: unknown[]) =>
+    mockResolveOrganizationScopeForRequest(...args),
+}))
+
 const TENANT_ID = '11111111-1111-4111-8111-111111111111'
 const APPOINTMENT_ID = '22222222-2222-4222-8222-222222222222'
+const ORGANIZATION_ID = '33333333-3333-4333-8333-333333333333'
 const STORED_UPDATED_AT = '2026-09-07T10:00:00.000Z'
 const STALE_UPDATED_AT = '2026-09-07T09:00:00.000Z'
 
@@ -52,7 +63,7 @@ function buildAppointment() {
   return Object.assign(new Appointment(), {
     id: APPOINTMENT_ID,
     tenantId: TENANT_ID,
-    organizationId: '33333333-3333-4333-8333-333333333333',
+    organizationId: ORGANIZATION_ID,
     customerEntityId: '44444444-4444-4444-8444-444444444444',
     customerName: 'Ada Lovelace',
     customerSalutation: null,
@@ -100,7 +111,13 @@ describe('appointments detail route — optimistic locking', () => {
     mockResolveTranslations.mockResolvedValue({
       translate: (_key: string, fallback?: string) => fallback ?? _key,
     })
-    mockGetAuthFromRequest.mockResolvedValue({ tenantId: TENANT_ID, sub: 'user-1' })
+    mockGetAuthFromRequest.mockResolvedValue({ tenantId: TENANT_ID, sub: 'user-1', orgId: ORGANIZATION_ID })
+    mockResolveOrganizationScopeForRequest.mockResolvedValue({
+      selectedId: ORGANIZATION_ID,
+      filterIds: [ORGANIZATION_ID],
+      allowedIds: [ORGANIZATION_ID],
+      tenantId: TENANT_ID,
+    })
     mockCreateRequestContainer.mockResolvedValue({
       resolve: () => ({ fork: () => em }),
     })
@@ -137,5 +154,37 @@ describe('appointments detail route — optimistic locking', () => {
     expect(response.status).toBe(200)
     expect(appointment.statusCode).toBe('confirmed')
     expect(em.flush).toHaveBeenCalledTimes(1)
+  })
+  it('scopes the lookup by organization, not tenant alone', async () => {
+    // Organization is an authorization boundary, not just a filter: without the
+    // predicate any holder of `appointments.view` in one branch could read and
+    // re-status another branch's appointment — and the rows carry customer name,
+    // phone, email and notes.
+    await patch({ [OPTIMISTIC_LOCK_HEADER_NAME]: STORED_UPDATED_AT })
+
+    const appointmentLookup = em.findOne.mock.calls.find((call) => call[0] === Appointment)
+    expect(appointmentLookup).toBeDefined()
+    expect(appointmentLookup![1]).toMatchObject({
+      id: APPOINTMENT_ID,
+      tenantId: TENANT_ID,
+      organizationId: { $in: [ORGANIZATION_ID] },
+    })
+  })
+
+  it('applies no organization predicate for a genuinely unrestricted principal', async () => {
+    // `filterIds: null` is the tenant-wide case. It must stay unnarrowed rather
+    // than collapsing to the caller's own org, which would hide rows they may see.
+    mockResolveOrganizationScopeForRequest.mockResolvedValue({
+      selectedId: null,
+      filterIds: null,
+      allowedIds: null,
+      tenantId: TENANT_ID,
+    })
+    mockGetAuthFromRequest.mockResolvedValue({ tenantId: TENANT_ID, sub: 'user-1' })
+
+    await patch({ [OPTIMISTIC_LOCK_HEADER_NAME]: STORED_UPDATED_AT })
+
+    const appointmentLookup = em.findOne.mock.calls.find((call) => call[0] === Appointment)
+    expect(appointmentLookup![1]).not.toHaveProperty('organizationId')
   })
 })

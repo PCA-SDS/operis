@@ -13,6 +13,7 @@ import type { ActionLog } from '@open-mercato/core/modules/audit_logs/data/entit
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('audit_logs').child({ component: 'redo' })
 
@@ -42,7 +43,7 @@ export async function POST(req: Request) {
   const auth = await getAuthFromRequest(req)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = (await req.json().catch(() => null)) as RedoRequestBody | null
+  const body = (await readJsonSafe(req)) as RedoRequestBody | null
   const logId = typeof body?.logId === 'string' ? body.logId.trim() : ''
   if (!logId) return NextResponse.json({ error: 'Invalid log id' }, { status: 400 })
 

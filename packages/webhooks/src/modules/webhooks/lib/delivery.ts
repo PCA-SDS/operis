@@ -6,6 +6,7 @@ import { emitWebhooksEvent } from '../events'
 import { enqueueWebhookDelivery } from './queue'
 import { isWebhookIntegrationEnabled, WEBHOOK_INTEGRATION_DISABLED_MESSAGE } from './integration-state'
 import { sanitizeWebhookCustomHeaders } from './custom-headers'
+import { calculateBackoffDelayMs } from '@open-mercato/shared/lib/delivery/retry'
 import {
   assertSafeWebhookDeliveryUrl,
   safeWebhookFetch,
@@ -407,9 +408,7 @@ function shouldRetryStatus(status: number): boolean {
   return status >= 500
 }
 
+/** Schedules the next attempt on the platform's shared exponential-backoff curve. */
 function calculateNextRetry(attemptNumber: number): Date {
-  const baseDelayMs = 1000
-  const jitterMs = Math.floor(Math.random() * 1000)
-  const delayMs = baseDelayMs * Math.pow(2, Math.max(attemptNumber - 1, 0)) + jitterMs
-  return new Date(Date.now() + delayMs)
+  return new Date(Date.now() + calculateBackoffDelayMs(attemptNumber))
 }

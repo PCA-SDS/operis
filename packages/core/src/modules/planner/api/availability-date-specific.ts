@@ -19,6 +19,7 @@ import { PlannerAvailabilityRule } from '../data/entities'
 import { parseAvailabilityRuleWindow } from '../lib/availabilitySchedule'
 import { assertAvailabilityWriteAccess, resolveAvailabilityActorId } from './access'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('planner').child({ component: 'availability' })
 
@@ -63,7 +64,7 @@ export async function POST(req: Request) {
   try {
     const { ctx } = await resolveRequestContext(req)
     const { translate } = await resolveTranslations()
-    const payload = await req.json().catch(() => ({}))
+    const payload = await readJsonSafe(req, {})
     const normalized = normalizeDateSpecificPayload(payload)
     const input = parseScopedCommandInput(plannerAvailabilityDateSpecificReplaceSchema, normalized, ctx, translate)
     const isUnavailability = input.kind === 'unavailability' || input.isAvailable === false

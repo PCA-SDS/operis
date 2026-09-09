@@ -4835,7 +4835,7 @@ const FieldControl = React.memo(function FieldControlImpl({
         </div>
       ) : null}
       {error && !(field.type === 'custom' && field.rendersOwnError) ? (
-        <div id={errorDomId} role="alert" className="mt-1.5 text-xs font-medium text-destructive">{error}</div>
+        <div id={errorDomId} role="alert" className="mt-1.5 text-xs font-medium text-status-error-text">{error}</div>
       ) : null}
     </div>
   )

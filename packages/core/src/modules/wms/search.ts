@@ -7,19 +7,11 @@ import type {
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { E } from '#generated/entities.ids.generated'
+import { pickString } from '@open-mercato/shared/modules/search/descriptorHelpers'
 
 const WMS_ROOT_URL = '/backend/wms'
 const WMS_INVENTORY_URL = '/backend/wms/inventory'
 const WMS_CONFIG_URL = '/backend/config/wms'
-
-function pickString(...candidates: Array<unknown>): string | null {
-  for (const candidate of candidates) {
-    if (typeof candidate !== 'string') continue
-    const trimmed = candidate.trim()
-    if (trimmed.length > 0) return trimmed
-  }
-  return null
-}
 
 function appendLine(lines: string[], label: string, value: unknown) {
   if (value === null || value === undefined) return

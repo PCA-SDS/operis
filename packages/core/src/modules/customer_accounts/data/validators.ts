@@ -1,8 +1,17 @@
 import { z } from 'zod'
+import { buildPasswordSchema } from '@open-mercato/shared/lib/auth/passwordPolicy'
 import { normalizeHostname } from '@open-mercato/core/modules/customer_accounts/lib/hostname'
 
 const emailField = z.string().email().max(255)
-const passwordField = z.string().min(8).max(128)
+/**
+ * The platform password policy, not a portal-local rule.
+ *
+ * This was `z.string().min(8).max(128)` — a longer minimum than the backend but
+ * with **no complexity requirement at all**, and completely deaf to the
+ * `OM_PASSWORD_*` environment knobs that govern every other password in the
+ * product. Operators tightening the policy silently had no effect on the portal.
+ */
+const passwordField = buildPasswordSchema({ maxLength: 128 })
 const displayNameField = z.string().min(1).max(255)
 
 export const signupSchema = z.object({

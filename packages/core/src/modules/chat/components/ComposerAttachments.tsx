@@ -23,19 +23,10 @@ export type ComposerAttachmentsProps = {
 }
 
 /** Bytes as something a person reads, not as a number of bytes. */
-export function formatFileSize(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) return ''
-  if (bytes < 1024) return `${bytes} B`
-  const units = ['KB', 'MB', 'GB']
-  let value = bytes / 1024
-  let unit = 0
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024
-    unit += 1
-  }
-  // One decimal below 10 so "1.4 MB" stays useful and "234 KB" stays short.
-  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${units[unit]}`
-}
+import { formatFileSize } from '@open-mercato/shared/lib/units/fileSize'
+
+// Re-exported because SharedResourcesList and MessageAttachments import it from here.
+export { formatFileSize }
 
 export function ComposerAttachments({ items, onRemove, onRetry }: ComposerAttachmentsProps) {
   const t = useT()

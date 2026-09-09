@@ -32,6 +32,10 @@
       "types": "./src/lib/testing/index.ts",
       "default": "./dist/lib/testing/index.js"
     },
+    "./lib/validation": {
+      "types": "./src/lib/validation/index.ts",
+      "default": "./dist/lib/validation/index.js"
+    },
     "./lib/bootstrap": {
       "types": "./src/lib/bootstrap/index.ts",
       "default": "./dist/lib/bootstrap/index.js"
