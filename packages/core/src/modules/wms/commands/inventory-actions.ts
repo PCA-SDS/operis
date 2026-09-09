@@ -88,6 +88,7 @@ import {
   WMS_INVENTORY_MOVEMENT_RESOURCE,
   WMS_INVENTORY_RESERVATION_RESOURCE,
 } from './shared'
+import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
 
 type Scope = { tenantId: string; organizationId: string }
 type AllocationBucket = {
@@ -225,12 +226,11 @@ function toNumber(value: unknown): number {
   return 0
 }
 
+// Delegates to the shared walker, which additionally unwraps
+// `cause`/`previous`/`driverError` — the local copy only inspected the top-level
+// error, so an ORM-wrapped violation fell through and surfaced as a 500.
 function isUniqueConstraintError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-  const code = (error as { code?: string }).code
-  if (code === '23505') return true
-  const name = (error as { name?: string }).name
-  return name === 'UniqueConstraintViolationException'
+  return isUniqueViolation(error)
 }
 
 async function findExistingMovementByIdempotencyKey(

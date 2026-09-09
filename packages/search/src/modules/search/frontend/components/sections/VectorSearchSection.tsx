@@ -4,7 +4,6 @@ import * as React from 'react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
@@ -18,6 +17,7 @@ import {
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@open-mercato/ui/primitives/tabs'
 import { Check, Plus } from 'lucide-react'
+import { isVectorActivityLog, useIndexActivityLogs } from '../useIndexActivityLogs'
 
 // Types
 type EmbeddingProviderId = 'openai' | 'google' | 'mistral' | 'cohere' | 'bedrock' | 'ollama'
@@ -95,18 +95,6 @@ type ReindexLock = {
   action: string
   startedAt: string
   elapsedMinutes: number
-}
-
-type ActivityLog = {
-  id: string
-  source: string
-  handler: string
-  level: 'info' | 'error' | 'warn'
-  entityType: string | null
-  recordId: string | null
-  message: string
-  details: unknown
-  occurredAt: string
 }
 
 const EMBEDDING_PROVIDERS: Record<EmbeddingProviderId, EmbeddingProviderInfo> = {
@@ -209,56 +197,7 @@ export function VectorSearchSection({
   const [showVectorReindexDialog, setShowVectorReindexDialog] = React.useState(false)
 
   // Activity logs state
-  const [activityLogs, setActivityLogs] = React.useState<ActivityLog[]>([])
-  const [activityLoading, setActivityLoading] = React.useState(true)
-
-  // Fetch activity logs
-  const fetchActivityLogs = React.useCallback(async () => {
-    setActivityLoading(true)
-    try {
-      const response = await fetch('/api/query_index/status')
-      if (response.ok) {
-        const body = await response.json() as { logs?: ActivityLog[]; errors?: ActivityLog[] }
-        const allLogs: ActivityLog[] = []
-        if (body.logs) {
-          allLogs.push(...body.logs)
-        }
-        if (body.errors) {
-          allLogs.push(...body.errors.map(err => ({ ...err, level: 'error' as const })))
-        }
-        // Filter for vector-related logs
-        const vectorLogs = allLogs.filter(log => {
-          const lowerSource = log.source?.toLowerCase() ?? ''
-          const lowerMessage = log.message?.toLowerCase() ?? ''
-          const lowerHandler = log.handler?.toLowerCase() ?? ''
-          return lowerSource.includes('vector') || lowerMessage.includes('vector') ||
-            lowerMessage.includes('embedding') || lowerHandler.includes('vector')
-        })
-        vectorLogs.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
-        setActivityLogs(vectorLogs.slice(0, 50))
-      }
-    } catch {
-      // Silently fail
-    } finally {
-      setActivityLoading(false)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    fetchActivityLogs()
-  }, [fetchActivityLogs])
-
-  useAppEvent('progress.job.updated', () => {
-    void fetchActivityLogs()
-  }, [fetchActivityLogs])
-
-  useAppEvent('progress.job.completed', () => {
-    void fetchActivityLogs()
-  }, [fetchActivityLogs])
-
-  useAppEvent('om:bridge:reconnected', () => {
-    void fetchActivityLogs()
-  }, [fetchActivityLogs])
+  const { activityLogs, activityLoading, fetchActivityLogs } = useIndexActivityLogs(isVectorActivityLog)
 
   // Update auto-indexing
   const updateAutoIndexing = React.useCallback(async (nextValue: boolean) => {

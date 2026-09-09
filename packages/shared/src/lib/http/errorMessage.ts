@@ -2,7 +2,7 @@
  * Pull a human-readable message out of an API error payload.
  *
  * Servers in this repo report failures under several keys depending on the
- * layer — `error`, `message`, `detail`, `details` — and nest them inside arrays
+ * layer — `error`, `message`, `detail`, `details`, `description` — and nest them inside arrays
  * or objects. This walks all of those in a fixed order so a caller gets the
  * first real message rather than rendering `[object Object]` or nothing.
  *
@@ -27,6 +27,7 @@ export function toErrorMessage(payload: unknown): string | null {
       ?? toErrorMessage(record.message)
       ?? toErrorMessage(record.detail)
       ?? toErrorMessage(record.details)
+      ?? toErrorMessage(record.description)
       ?? null
     )
   }
