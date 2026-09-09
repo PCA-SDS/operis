@@ -1,9 +1,25 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { getTpsDataDir, parseTpsCsv, parseTpsCsvLine } from '../lib'
+import { TPS_LOCATION_MAPPING, getTpsDataDir, parseTpsCsv, parseTpsCsvLine } from '../lib'
+import { assignSeatSortOrders, type TpsSeat } from '../resources'
 
 describe('TPS CSV fallback parsing', () => {
+  describe('getTpsDataDir', () => {
+    const previousDataDir = process.env.TPS_DATA_DIR
+
+    afterEach(() => {
+      if (previousDataDir === undefined) delete process.env.TPS_DATA_DIR
+      else process.env.TPS_DATA_DIR = previousDataDir
+    })
+
+    it('defaults to the package data directory when TPS_DATA_DIR is unset', () => {
+      delete process.env.TPS_DATA_DIR
+
+      expect(getTpsDataDir()).toBe(path.resolve(__dirname, '..', '..', '..', '..', 'data'))
+    })
+  })
+
   describe('parseTpsCsvLine', () => {
     it('splits a plain record', () => {
       expect(parseTpsCsvLine('a,b,c')).toEqual(['a', 'b', 'c'])
@@ -64,5 +80,65 @@ describe('TPS CSV fallback parsing', () => {
     it('honours TPS_DATA_DIR over the packaged data directory', () => {
       expect(getTpsDataDir()).toBe(tempDir)
     })
+  })
+
+  describe('assignSeatSortOrders', () => {
+    it('derives natural sort order per floor when CSV seats do not include sort_order', () => {
+      const rows: TpsSeat[] = [
+        seat({ id: 'seat-10', floor_id: 'floor-1', code: 'S10' }),
+        seat({ id: 'seat-2', floor_id: 'floor-1', code: 'S2' }),
+        seat({ id: 'seat-1', floor_id: 'floor-1', code: 'S1' }),
+        seat({ id: 'room-1', floor_id: 'floor-2', code: 'R1' }),
+      ]
+
+      expect(assignSeatSortOrders(rows).map(row => [row.id, row.sort_order])).toEqual([
+        ['seat-10', 2],
+        ['seat-2', 1],
+        ['seat-1', 0],
+        ['room-1', 0],
+      ])
+    })
+  })
+})
+
+function seat(overrides: Partial<TpsSeat>): TpsSeat {
+  return {
+    id: 'seat',
+    floor_id: 'floor',
+    seat_type_id: 'type',
+    code: 'S1',
+    name: null,
+    sort_order: '',
+    status: 'available',
+    is_active: 't',
+    deleted_at: null,
+    created_at: '2026-03-20 14:51:26.918+07',
+    ...overrides,
+  }
+}
+
+describe('TPS_LOCATION_MAPPING', () => {
+  /**
+   * `branches.ts` creates one organization per entry and `all.ts` matches child
+   * organizations back to a `--location` flag by slug. A location present in the
+   * export but absent here never gets an organization, and its seats are dropped
+   * from the migration without an error.
+   */
+  it('covers every location the shipped floors export contains', () => {
+    const locations = new Set(
+      parseTpsCsv<{ location?: string }>('tps_floors.csv')
+        .map((floor) => floor.location?.trim())
+        .filter((location): location is string => Boolean(location)),
+    )
+    const mapped = new Set(TPS_LOCATION_MAPPING.map((entry) => entry.tpsKey))
+
+    expect([...locations].filter((location) => !mapped.has(location))).toEqual([])
+  })
+
+  it('keeps tpsKey and slug unique so the slug lookup cannot collide', () => {
+    const keys = TPS_LOCATION_MAPPING.map((entry) => entry.tpsKey)
+    const slugs = TPS_LOCATION_MAPPING.map((entry) => entry.slug)
+    expect(new Set(keys).size).toBe(keys.length)
+    expect(new Set(slugs).size).toBe(slugs.length)
   })
 })

@@ -86,6 +86,47 @@ type ResourceAreasMutationContext = {
   retryLastMutation: () => Promise<boolean>
 }
 
+type AreaPointerDrag = {
+  id: string
+  x: number
+  y: number
+  overId: string | null
+  lastValidOverId: string | null
+  invalidOverId: string | null
+}
+
+function moveArrayItem<T>(items: T[], from: number, to: number): T[] {
+  const next = [...items]
+  const [item] = next.splice(from, 1)
+  if (!item) return items
+  next.splice(to, 0, item)
+  return next
+}
+
+function previewAreaListMove(rows: ResourceAreaRow[], activeId: string, overId: string): ResourceAreaRow[] {
+  if (activeId === overId) return rows
+  const from = rows.findIndex((row) => row.id === activeId)
+  const to = rows.findIndex((row) => row.id === overId)
+  if (from < 0 || to < 0 || from === to) return rows
+  return moveArrayItem(rows, from, to)
+}
+
+function canDropAreaOnTarget(rowsById: Map<string, ResourceAreaRow>, activeId: string, targetId: string | null): boolean {
+  if (!targetId || activeId === targetId) return false
+  const active = rowsById.get(activeId) ?? null
+  const target = rowsById.get(targetId) ?? null
+  return Boolean(active && target && active.parent_area_id === target.parent_area_id)
+}
+
+function resolveAreaPointerTargetId(activeId: string, x: number, y: number): string | null {
+  if (typeof document === 'undefined') return null
+  const element = document.elementFromPoint(x, y)
+  const target = element?.closest('[data-area-reorder-id]')
+  if (!(target instanceof HTMLElement)) return null
+  const overId = target.dataset.areaReorderId ?? null
+  return overId && overId !== activeId ? overId : null
+}
+
 export default function ResourcesResourceAreasPage() {
   const translate = useT()
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
@@ -104,7 +145,10 @@ export default function ResourcesResourceAreasPage() {
   const [childRowsByParentId, setChildRowsByParentId] = React.useState<Map<string, ResourceAreaRow[]>>(new Map())
   const [childPageByParentId, setChildPageByParentId] = React.useState<Map<string, ChildPageState>>(new Map())
   const [loadingChildrenIds, setLoadingChildrenIds] = React.useState<Set<string>>(new Set())
-  const [draggingAreaId, setDraggingAreaId] = React.useState<string | null>(null)
+  const [areaPointerDrag, setAreaPointerDrag] = React.useState<AreaPointerDrag | null>(null)
+  const [areaDragPreviewRows, setAreaDragPreviewRows] = React.useState<ResourceAreaRow[] | null>(null)
+  const [areaDragPreviewChildRowsByParentId, setAreaDragPreviewChildRowsByParentId] = React.useState<Map<string, ResourceAreaRow[]> | null>(null)
+  const areaPointerDragRef = React.useRef<AreaPointerDrag | null>(null)
   const [moveDialog, setMoveDialog] = React.useState<ResourceAreaMoveDialogState | null>(null)
   const [moveDialogSearch, setMoveDialogSearch] = React.useState('')
   const [moveDialogOptions, setMoveDialogOptions] = React.useState<ResourceAreaRow[]>([])
@@ -349,7 +393,14 @@ export default function ResourcesResourceAreasPage() {
     setReloadToken((token) => token + 1)
   }, [])
 
+  const visibleAreaRows = areaDragPreviewRows ?? rows
+  const visibleChildRowsByParentId = areaDragPreviewChildRowsByParentId ?? childRowsByParentId
+
   const getAreaSiblingRows = React.useCallback((parentAreaId: string | null): ResourceAreaRow[] => {
+    return parentAreaId ? visibleChildRowsByParentId.get(parentAreaId) ?? [] : visibleAreaRows
+  }, [visibleAreaRows, visibleChildRowsByParentId])
+
+  const getOriginalAreaSiblingRows = React.useCallback((parentAreaId: string | null): ResourceAreaRow[] => {
     return parentAreaId ? childRowsByParentId.get(parentAreaId) ?? [] : rows
   }, [childRowsByParentId, rows])
 
@@ -357,9 +408,18 @@ export default function ResourcesResourceAreasPage() {
     area: ResourceAreaRow,
     movement: { direction?: 'up' | 'down'; targetId?: string; position?: 'top' | 'bottom' | 'before' | 'after' },
   ) => {
-    if (!canReorderAreas) return
+    if (!canReorderAreas) {
+      logger.info('resource areas drag reorder skipped: disabled', {
+        id: area.id,
+        sorting,
+        filterValues,
+        search,
+      })
+      return
+    }
     try {
       const payload = { id: area.id, ...movement }
+      logger.info('resource areas drag reorder api start', { payload })
       await runResourceAreaMutation(
         () => apiCallOrThrow('/api/resources/areas/reorder', {
           method: 'POST',
@@ -369,6 +429,7 @@ export default function ResourcesResourceAreasPage() {
         { operation: 'reorderResourceArea', ...payload },
         area.id,
       )
+      logger.info('resource areas drag reorder api success', { payload })
       if (area.parent_area_id) {
         await loadChildren(area.parent_area_id)
       } else {
@@ -376,9 +437,10 @@ export default function ResourcesResourceAreasPage() {
       }
     } catch (error) {
       logger.error('Failed to reorder resource area', { err: error, areaId: area.id })
+      logger.error('resource areas drag reorder api failed', { err: error, id: area.id, movement })
       flash(translations.errors.reorder, 'error')
     }
-  }, [canReorderAreas, handleRefresh, loadChildren, runResourceAreaMutation, translations.errors.reorder])
+  }, [canReorderAreas, filterValues, handleRefresh, loadChildren, runResourceAreaMutation, search, sorting, translations.errors.reorder])
 
   const handleMoveDialogSelect = React.useCallback(async (targetId: string) => {
     if (!moveDialog) return
@@ -386,20 +448,12 @@ export default function ResourcesResourceAreasPage() {
     setMoveDialog(null)
   }, [handleReorderArea, moveDialog])
 
-  const handleAreaDrop = React.useCallback((target: ResourceAreaRow) => {
-    if (!draggingAreaId || draggingAreaId === target.id || !canReorderAreas) return
-    const siblings = getAreaSiblingRows(target.parent_area_id)
-    const dragged = siblings.find((area) => area.id === draggingAreaId)
-    if (!dragged || dragged.parent_area_id !== target.parent_area_id) return
-    void handleReorderArea(dragged, { targetId: target.id })
-  }, [canReorderAreas, draggingAreaId, getAreaSiblingRows, handleReorderArea])
-
   const tableRows = React.useMemo<ResourceAreaTableRow[]>(() => {
     const output: ResourceAreaTableRow[] = []
     const appendArea = (area: ResourceAreaRow) => {
       output.push({ ...area, rowKind: 'area' })
       if (!expandedAreaIds.has(area.id)) return
-      const children = childRowsByParentId.get(area.id) ?? []
+      const children = visibleChildRowsByParentId.get(area.id) ?? []
       for (const child of children) appendArea(child)
       const childPage = childPageByParentId.get(area.id)
       if (childPage && childPage.page < childPage.totalPages) {
@@ -413,9 +467,209 @@ export default function ResourcesResourceAreasPage() {
         })
       }
     }
-    for (const row of rows) appendArea(row)
+    for (const row of visibleAreaRows) appendArea(row)
     return output
-  }, [childPageByParentId, childRowsByParentId, expandedAreaIds, rows])
+  }, [childPageByParentId, expandedAreaIds, visibleAreaRows, visibleChildRowsByParentId])
+
+  const loadedAreasById = React.useMemo(() => {
+    const byId = new Map<string, ResourceAreaRow>()
+    for (const row of visibleAreaRows) byId.set(row.id, row)
+    for (const childRows of visibleChildRowsByParentId.values()) {
+      for (const row of childRows) byId.set(row.id, row)
+    }
+    return byId
+  }, [visibleChildRowsByParentId, visibleAreaRows])
+  const originalAreasById = React.useMemo(() => {
+    const byId = new Map<string, ResourceAreaRow>()
+    for (const row of rows) byId.set(row.id, row)
+    for (const childRows of childRowsByParentId.values()) {
+      for (const row of childRows) byId.set(row.id, row)
+    }
+    return byId
+  }, [childRowsByParentId, rows])
+  const activeDragArea = areaPointerDrag ? loadedAreasById.get(areaPointerDrag.id) ?? originalAreasById.get(areaPointerDrag.id) ?? null : null
+
+  const previewAreaPointerMove = React.useCallback((activeId: string, overId: string | null) => {
+    if (!overId || activeId === overId || !canReorderAreas) return
+    const active = loadedAreasById.get(activeId) ?? null
+    const over = loadedAreasById.get(overId) ?? null
+    if (!active || !over || active.parent_area_id !== over.parent_area_id) return
+    if (active.parent_area_id) {
+      setAreaDragPreviewChildRowsByParentId((current) => {
+        const source = current ?? visibleChildRowsByParentId
+        const next = new Map(source)
+        const parentId = active.parent_area_id as string
+        next.set(parentId, previewAreaListMove(source.get(parentId) ?? [], activeId, overId))
+        return next
+      })
+      return
+    }
+    setAreaDragPreviewRows((current) => previewAreaListMove(current ?? rows, activeId, overId))
+  }, [canReorderAreas, loadedAreasById, rows, visibleChildRowsByParentId])
+
+  const handleAreaPointerStart = React.useCallback((event: React.PointerEvent<HTMLButtonElement>, area: ResourceAreaRow) => {
+    if (!canReorderAreas) return
+    event.preventDefault()
+    event.stopPropagation()
+    if (typeof event.currentTarget.setPointerCapture === 'function') {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    }
+    const nextDrag = {
+      id: area.id,
+      x: event.clientX,
+      y: event.clientY,
+      overId: null,
+      lastValidOverId: null,
+      invalidOverId: null,
+    }
+    logger.info('resource areas drag pointer start', {
+      id: area.id,
+      parentAreaId: area.parent_area_id,
+      x: event.clientX,
+      y: event.clientY,
+    })
+    areaPointerDragRef.current = nextDrag
+    setAreaPointerDrag(nextDrag)
+    if (area.parent_area_id) {
+      setAreaDragPreviewChildRowsByParentId(new Map(visibleChildRowsByParentId))
+    } else {
+      setAreaDragPreviewRows(rows)
+    }
+  }, [canReorderAreas, rows, visibleChildRowsByParentId])
+
+  React.useEffect(() => {
+    if (!areaPointerDrag) return
+    const activeId = areaPointerDrag.id
+    const previousUserSelect = document.body.style.userSelect
+    const previousCursor = document.body.style.cursor
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'grabbing'
+
+    const handlePointerMove = (event: PointerEvent) => {
+      event.preventDefault()
+      const targetId = resolveAreaPointerTargetId(activeId, event.clientX, event.clientY)
+      const overId = canDropAreaOnTarget(loadedAreasById, activeId, targetId) ? targetId : null
+      const invalidOverId = targetId && !overId ? targetId : null
+      const previousOverId = areaPointerDragRef.current?.overId ?? null
+      const previousInvalidOverId = areaPointerDragRef.current?.invalidOverId ?? null
+      const lastValidOverId = overId ?? areaPointerDragRef.current?.lastValidOverId ?? null
+      const nextDrag = { id: activeId, x: event.clientX, y: event.clientY, overId, lastValidOverId, invalidOverId }
+      areaPointerDragRef.current = nextDrag
+      setAreaPointerDrag(nextDrag)
+      if (overId && overId !== previousOverId) {
+        logger.info('resource areas drag pointer over', { activeId, overId })
+      } else if (invalidOverId && invalidOverId !== previousInvalidOverId) {
+        const active = loadedAreasById.get(activeId) ?? null
+        const target = loadedAreasById.get(invalidOverId) ?? null
+        logger.info('resource areas drag pointer invalid target', {
+          activeId,
+          overId: invalidOverId,
+          activeParentAreaId: active?.parent_area_id ?? null,
+          targetParentAreaId: target?.parent_area_id ?? null,
+        })
+      }
+      previewAreaPointerMove(activeId, overId)
+    }
+
+    const handlePointerEnd = (event: PointerEvent) => {
+      const currentDrag = areaPointerDragRef.current
+      const invalidOverId = currentDrag?.invalidOverId ?? null
+      const overId = invalidOverId ? null : currentDrag?.lastValidOverId
+        ?? currentDrag?.overId
+        ?? resolveAreaPointerTargetId(activeId, event.clientX, event.clientY)
+      logger.info('resource areas drag pointer up', {
+        activeId,
+        overId,
+        currentOverId: currentDrag?.overId ?? null,
+        lastValidOverId: currentDrag?.lastValidOverId ?? null,
+        invalidOverId,
+        x: event.clientX,
+        y: event.clientY,
+      })
+      areaPointerDragRef.current = null
+      setAreaPointerDrag(null)
+      setAreaDragPreviewRows(null)
+      setAreaDragPreviewChildRowsByParentId(null)
+      if (invalidOverId) {
+        logger.info('resource areas drag reorder skipped: invalid target', { activeId, overId: invalidOverId })
+        return
+      }
+      if (!overId) {
+        logger.info('resource areas drag reorder skipped: no target', { activeId })
+        return
+      }
+      if (activeId === overId) {
+        logger.info('resource areas drag reorder skipped: same target', { activeId, overId })
+        return
+      }
+      if (!canReorderAreas) {
+        logger.info('resource areas drag reorder skipped: disabled on drop', { activeId, overId, sorting, filterValues, search })
+        return
+      }
+      const dragged = originalAreasById.get(activeId) ?? null
+      const target = originalAreasById.get(overId) ?? null
+      if (!dragged || !target) {
+        logger.info('resource areas drag reorder skipped: row not found', {
+          activeId,
+          overId,
+          foundDragged: Boolean(dragged),
+          foundTarget: Boolean(target),
+        })
+        return
+      }
+      if (dragged.parent_area_id !== target.parent_area_id) {
+        logger.info('resource areas drag reorder skipped: different parent', {
+          activeId,
+          overId,
+          activeParentAreaId: dragged.parent_area_id,
+          targetParentAreaId: target.parent_area_id,
+        })
+        return
+      }
+      const siblings = getOriginalAreaSiblingRows(target.parent_area_id)
+      const from = siblings.findIndex((row) => row.id === activeId)
+      const to = siblings.findIndex((row) => row.id === overId)
+      if (from < 0 || to < 0 || from === to) {
+        logger.info('resource areas drag reorder skipped: invalid sibling indexes', { activeId, overId, from, to })
+        return
+      }
+      const movement = {
+        targetId: target.id,
+        position: from < to ? 'after' as const : 'before' as const,
+      }
+      logger.info('resource areas drag reorder commit', { activeId, overId, from, to, movement })
+      void handleReorderArea(dragged, {
+        targetId: movement.targetId,
+        position: movement.position,
+      })
+    }
+
+    const handlePointerCancel = () => {
+      logger.info('resource areas drag pointer cancel', { activeId })
+      areaPointerDragRef.current = null
+      setAreaPointerDrag(null)
+      setAreaDragPreviewRows(null)
+      setAreaDragPreviewChildRowsByParentId(null)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerEnd)
+    window.addEventListener('pointercancel', handlePointerCancel)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerEnd)
+      window.removeEventListener('pointercancel', handlePointerCancel)
+      document.body.style.userSelect = previousUserSelect
+      document.body.style.cursor = previousCursor
+    }
+  }, [
+    areaPointerDrag?.id,
+    canReorderAreas,
+    getOriginalAreaSiblingRows,
+    handleReorderArea,
+    originalAreasById,
+    previewAreaPointerMove,
+  ])
 
   const columns = React.useMemo<ColumnDef<ResourceAreaTableRow>[]>(() => [
     {
@@ -452,41 +706,16 @@ export default function ResourcesResourceAreasPage() {
         const expanded = expandedAreaIds.has(area.id)
         const childrenLoading = loadingChildrenIds.has(area.id)
         return (
-          <div
-            className="flex flex-col gap-1"
-            style={{ paddingLeft }}
-            onDragOver={(event) => {
-              if (!canReorderAreas || !draggingAreaId) return
-              event.preventDefault()
-            }}
-            onDrop={(event) => {
-              event.preventDefault()
-              handleAreaDrop(area)
-            }}
+          <AreaPointerNameCell
+            area={area}
+            canReorder={canReorderAreas}
+            paddingLeft={paddingLeft}
+            dragLabel={translations.actions.dragToReorder}
+            disabledDragLabel={translations.table.reorderDisabled}
+            isDragging={areaPointerDrag?.id === area.id}
+            onPointerStart={handleAreaPointerStart}
           >
             <div className="flex min-w-0 items-center gap-2">
-              <div className="flex items-center gap-1" data-actions-cell>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-7 shrink-0 cursor-grab"
-                  disabled={!canReorderAreas}
-                  draggable={canReorderAreas}
-                  title={canReorderAreas ? translations.actions.dragToReorder : translations.table.reorderDisabled}
-                  aria-label={translations.actions.dragToReorder}
-                  onClick={(event) => event.stopPropagation()}
-                  onDragStart={(event) => {
-                    event.stopPropagation()
-                    setDraggingAreaId(area.id)
-                    event.dataTransfer.effectAllowed = 'move'
-                    event.dataTransfer.setData('text/plain', area.id)
-                  }}
-                  onDragEnd={() => setDraggingAreaId(null)}
-                >
-                    <GripVertical className="size-4" aria-hidden />
-                  </Button>
-              </div>
               <Button
                 type="button"
                 variant="ghost"
@@ -515,7 +744,7 @@ export default function ResourcesResourceAreasPage() {
                 {markdownToPlainText(area.description)}
               </span>
             ) : null}
-          </div>
+          </AreaPointerNameCell>
         )
       },
     },
@@ -570,9 +799,9 @@ export default function ResourcesResourceAreasPage() {
     },
   ], [
     canReorderAreas,
-    draggingAreaId,
+    areaPointerDrag?.id,
     expandedAreaIds,
-    handleAreaDrop,
+    handleAreaPointerStart,
     loadMoreChildren,
     loadingChildrenIds,
     toggleAreaExpanded,
@@ -742,6 +971,14 @@ export default function ResourcesResourceAreasPage() {
           }}
           perspective={{ tableId: extensionPoints.hosts.resourceAreasTable.tableId }}
         />
+        {activeDragArea && areaPointerDrag ? (
+          <AreaDragPreview
+            area={activeDragArea}
+            x={areaPointerDrag.x}
+            y={areaPointerDrag.y}
+            invalid={Boolean(areaPointerDrag.invalidOverId)}
+          />
+        ) : null}
       </PageBody>
       <Dialog open={Boolean(moveDialog)} onOpenChange={(open) => { if (!open) setMoveDialog(null) }}>
         <DialogContent size="default">
@@ -791,6 +1028,75 @@ export default function ResourcesResourceAreasPage() {
       </Dialog>
       {ConfirmDialogElement}
     </Page>
+  )
+}
+
+function AreaDragPreview({ area, x, y, invalid }: { area: ResourceAreaRow; x: number; y: number; invalid: boolean }) {
+  return (
+    <div
+      className={[
+        'pointer-events-none fixed z-popover flex min-w-64 items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium shadow-lg',
+        invalid
+          ? 'border-status-error-border bg-status-error-bg text-status-error-text'
+          : 'border-primary bg-surface text-foreground',
+      ].join(' ')}
+      style={{ left: x, top: y, transform: 'translate(12px, 12px)' }}
+    >
+      <GripVertical className="size-4 text-muted-foreground" aria-hidden />
+      <span className="min-w-0 truncate">{area.name}</span>
+    </div>
+  )
+}
+
+function AreaPointerNameCell({
+  area,
+  canReorder,
+  paddingLeft,
+  dragLabel,
+  disabledDragLabel,
+  isDragging,
+  onPointerStart,
+  children,
+}: {
+  area: ResourceAreaRow
+  canReorder: boolean
+  paddingLeft: string
+  dragLabel: string
+  disabledDragLabel: string
+  isDragging: boolean
+  onPointerStart: (event: React.PointerEvent<HTMLButtonElement>, area: ResourceAreaRow) => void
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      data-area-reorder-id={area.id}
+      style={{ paddingLeft }}
+      className={[
+        'relative flex flex-col gap-1 rounded-md transition-colors',
+        isDragging ? 'opacity-40' : '',
+      ].filter(Boolean).join(' ')}
+    >
+      <div className="flex min-w-0 items-start gap-1">
+        <div data-actions-cell>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-9 shrink-0 cursor-grab touch-none active:cursor-grabbing"
+            disabled={!canReorder}
+            title={canReorder ? dragLabel : disabledDragLabel}
+            aria-label={dragLabel}
+            onClick={(event) => event.stopPropagation()}
+            onPointerDown={(event) => onPointerStart(event, area)}
+          >
+            <GripVertical className="size-4" aria-hidden />
+          </Button>
+        </div>
+        <div className="min-w-0 flex-1">
+          {children}
+        </div>
+      </div>
+    </div>
   )
 }
 
