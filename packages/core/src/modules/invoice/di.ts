@@ -19,6 +19,7 @@ import { createInvoiceExchangeRatesService } from './services/exchange-rates-ser
 import { createInvoiceCompanyLookupService } from './services/company-lookup-service'
 import { createInvoiceAutoPaidService } from './services/auto-paid-service'
 import { createInvoiceService } from './services/invoice-service'
+import { createInvoiceTrackingService } from './services/invoice-tracking-service'
 
 export function register(container: AppContainer) {
   container.register({
@@ -34,12 +35,14 @@ export function register(container: AppContainer) {
     invoiceAutoPaidService: asFunction(({ em, invoiceScopedPersistenceService }) =>
       createInvoiceAutoPaidService(em, invoiceScopedPersistenceService),
     ).scoped().proxy(),
-    invoiceService: asFunction(({ em, queryEngine, invoiceScopedPersistenceService, invoiceExchangeRatesService }) =>
+    invoiceTrackingService: asFunction(({ em }) => createInvoiceTrackingService(em)).scoped().proxy(),
+    invoiceService: asFunction(({ em, queryEngine, invoiceScopedPersistenceService, invoiceExchangeRatesService, invoiceCompanyEmailsService }) =>
       createInvoiceService(
         em,
         queryEngine,
         invoiceScopedPersistenceService,
         invoiceExchangeRatesService,
+        invoiceCompanyEmailsService,
       ),
     ).scoped().proxy(),
     Invoice: asValue(Invoice),

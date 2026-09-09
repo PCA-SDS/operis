@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import type { QueryEngine } from '@open-mercato/shared/lib/query/types'
 import { badRequest, conflict, notFound } from '@open-mercato/shared/lib/crud/errors'
+import { sendEmail } from '@open-mercato/shared/lib/email/send'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+import { detectLocale, resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { E } from '#generated/entities.ids.generated'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 
@@ -30,12 +33,17 @@ import {
   invoiceSettlementUpdateSchema,
   invoiceNonRecoverableUpdateSchema,
   invoiceForecastQuerySchema,
+  invoiceSendSchema,
   type InvoiceDueDateUpdateInput,
   type InvoiceForecastQueryInput,
   type InvoiceNonRecoverableUpdateInput,
   type InvoiceSettlementUpdateInput,
   type InvoiceManualWriteInput,
+  type InvoiceSendInput,
 } from '../data/validators'
+import { emitInvoiceEvent } from '../events'
+import { createInvoiceEmail, generateInvoiceTrackingToken } from './invoice-email'
+import type { InvoiceCompanyEmailsService } from './company-emails-service'
 import { InvoiceScopedPersistenceService } from './scoped-persistence-service'
 import { createInvoiceAutoPaidService } from './auto-paid-service'
 import type { InvoicePartnerTermsService } from './partner-terms-service'
@@ -96,6 +104,7 @@ type CalculatedTotals = {
 
 const MONEY_SCALE = 4
 const SYNTHETIC_TAX_CODE_PREFIX = 'auto:'
+const logger = createLogger('invoice').child({ component: 'invoice-service' })
 
 function money(value: string | number | null | undefined): number {
   if (value == null) return 0
@@ -262,6 +271,7 @@ export class InvoiceService {
     private readonly queryEngine: QueryEngine,
     private readonly scopedPersistence: InvoiceScopedPersistenceService,
     private readonly exchangeRatesService: InvoiceExchangeRatesService = createInvoiceExchangeRatesService(),
+    private readonly companyEmailsService?: InvoiceCompanyEmailsService,
   ) {}
 
   async getSummary(scope: InvoiceScope): Promise<InvoiceSummaryDto> {
@@ -504,6 +514,77 @@ export class InvoiceService {
     if (!invoice) throw notFound('[internal] Invoice not found')
 
     return mapInvoiceEntityToDetailDto(invoice)
+  }
+
+  async sendInvoice(scope: InvoiceScope, id: string, rawInput: InvoiceSendInput): Promise<InvoiceManualMutationResult> {
+    const input = invoiceSendSchema.parse(rawInput)
+    const invoice = await this.scopedPersistence.findById(Invoice, scope, id, {
+      populate: ['company', 'lineItems', 'installments'] as never[],
+      orderBy: {
+        lineItems: { lineNumber: 'asc' },
+        installments: { sequence: 'asc' },
+      },
+    })
+    if (!invoice) throw notFound('[internal] Invoice not found')
+    if (invoice.direction !== 'AR') throw badRequest('[internal] Only AR invoices can be sent')
+
+    const { rawToken, tokenHash } = generateInvoiceTrackingToken()
+    const { translate } = await resolveTranslations()
+    const locale = await detectLocale()
+    const email = createInvoiceEmail({
+      invoice,
+      rawToken,
+      locale,
+      translate,
+    })
+
+    try {
+      await sendEmail({ to: input.email, subject: email.subject, react: email.react })
+    } catch (err) {
+      logger.error('Invoice email delivery failed', {
+        invoiceId: invoice.id,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+        err,
+      })
+      throw badRequest('[internal] Invoice email delivery failed')
+    }
+
+    invoice.lastSentAt = new Date()
+    invoice.emailTrackingTokenHash = tokenHash
+    invoice.openedAt = null
+    try {
+      await this.em.flush()
+    } catch (err) {
+      logger.error('Invoice send state persistence failed', {
+        invoiceId: invoice.id,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+        err,
+      })
+      throw badRequest('[internal] Invoice send state could not be saved')
+    }
+
+    if (this.companyEmailsService) {
+      try {
+        await this.companyEmailsService.record(scope, { companyId: invoice.company.id, email: input.email })
+      } catch (err) {
+        logger.error('Invoice recipient memory failed', {
+          invoiceId: invoice.id,
+          companyId: invoice.company.id,
+          tenantId: scope.tenantId,
+          organizationId: scope.organizationId,
+          err,
+        })
+      }
+    }
+
+    await emitInvoiceEvent('invoice.invoice.sent', {
+      id: invoice.id,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+    })
+    return { invoice: mapInvoiceEntityToDetailDto(invoice) }
   }
 
   async createManualInvoice(scope: InvoiceScope, input: InvoiceManualCreateInput): Promise<InvoiceManualMutationResult> {

@@ -7,6 +7,15 @@
   "invoice.errors.request_failed": "Failed to process invoice request",
   "invoice.errors.tenant_required": "Tenant context is required.",
   "invoice.errors.unauthorized": "Unauthorized",
+  "invoice.email.customer": "Customer",
+  "invoice.email.date": "Date",
+  "invoice.email.dueDate": "Due date",
+  "invoice.email.heading": "Invoice {invoiceNumber}",
+  "invoice.email.invoiceDate": "Invoice date",
+  "invoice.email.items": "Line items",
+  "invoice.email.subject": "Invoice {invoiceNumber}",
+  "invoice.email.to": "To",
+  "invoice.email.total": "Total",
   "invoice.search.badge.company": "Invoice company",
   "invoice.search.badge.invoice": "Invoice"
 }

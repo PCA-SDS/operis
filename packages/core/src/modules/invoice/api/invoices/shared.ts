@@ -123,6 +123,7 @@ export const invoiceManualMutationResponseSchema = z.object({
   ok: z.literal(true),
   invoice: invoiceDetailResponseSchema,
 })
+export const invoiceSendResponseSchema = invoiceManualMutationResponseSchema
 export const invoiceManualDeleteResponseSchema = z.object({
   ok: z.literal(true),
   invoiceId: z.string().uuid(),

@@ -11,6 +11,7 @@ import {
   invoiceDueDateUpdateSchema,
   invoiceSettlementUpdateSchema,
   invoiceNonRecoverableUpdateSchema,
+  invoiceSendSchema,
 } from '../data/validators'
 import type {
   InvoiceManualDeleteResult,
@@ -172,6 +173,10 @@ export type InvoiceNonRecoverableUpdateCommandResult = {
   invoiceId: string
   invoice: InvoiceNonRecoverableUpdateResult['invoice']
 }
+export type InvoiceSendCommandResult = {
+  invoiceId: string
+  invoice: InvoiceManualMutationResult['invoice']
+}
 
 async function enforceInvoiceCommandOptimisticLock(
   ctx: CommandRuntimeContext,
@@ -302,3 +307,31 @@ export const updateInvoiceNonRecoverableCommand: CommandHandler<unknown, Invoice
 
 registerCommand(updateInvoiceSettlementCommand)
 registerCommand(updateInvoiceNonRecoverableCommand)
+
+export const sendInvoiceCommand: CommandHandler<unknown, InvoiceSendCommandResult> = {
+  id: 'invoice.invoices.send',
+  isUndoable: false,
+  async execute(rawInput, ctx) {
+    const record = rawInput && typeof rawInput === 'object' ? rawInput as Record<string, unknown> : {}
+    const id = invoiceIdSchema.parse(record.id)
+    const input = invoiceSendSchema.parse(record.input ?? record)
+    const scope = requireInvoiceScope(ctx)
+    await enforceInvoiceCommandOptimisticLock(ctx, id)
+    const result = await serviceFrom(ctx).sendInvoice(scope, id, input)
+
+    return { invoiceId: result.invoice.id, invoice: result.invoice }
+  },
+  buildLog({ result, ctx }) {
+    const scope = requireInvoiceScope(ctx)
+    return {
+      actionLabel: 'Send invoice',
+      resourceKind: INVOICE_INVOICE_RESOURCE_KIND,
+      resourceId: result.invoiceId,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+      context: { direction: result.invoice.direction, invoiceNumber: result.invoice.invoiceNumber },
+    }
+  },
+}
+
+registerCommand(sendInvoiceCommand)

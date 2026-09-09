@@ -35,6 +35,7 @@ export const INVOICE_MANUAL_ISSUE_DATE_MIN = '2000-01-01'
 export const INVOICE_MANUAL_FORM_DEFAULT_DUE_DAYS = 45
 export const INVOICE_PARTNER_DEFAULT_DUE_DAYS = 30
 export const INVOICE_PAYMENT_CONFIRMATION_TOKEN_BYTES = 32
+export const INVOICE_EMAIL_TRACKING_TOKEN_BYTES = 32
 export const INVOICE_PAYMENT_CONFIRMATION_TTL_DAYS = 14
 export const INVOICE_INSTALLMENT_COUNT_MIN = 2
 export const INVOICE_INSTALLMENT_COUNT_MAX = 60
@@ -127,6 +128,7 @@ export const invoiceDateRangeSchema = z.object({
 /** Amounts stay decimal strings so the 4-dp arithmetic never round-trips through a JS number. */
 export const invoiceMoneySchema = moneyDecimalStringSchema({ signed: true })
 export const invoicePositiveMoneySchema = moneyDecimalStringSchema()
+export const invoiceNonNegativeMoneySchema = invoicePositiveMoneySchema
 export const invoicePercentSchema = z.coerce
   .number()
   .min(INVOICE_INSTALLMENT_INTEREST_RATE_MIN)
@@ -146,6 +148,10 @@ export const invoiceSourceInvoiceIdSchema = z.string().trim().min(1).max(191)
 export const invoiceProviderSchema = z.string().trim().min(1).max(80)
 export const invoiceIdempotencyKeySchema = z.string().trim().min(1).max(191)
 export const invoiceEmailSchema = emailSchema()
+export const invoiceSendSchema = z.object({
+  email: invoiceEmailSchema,
+}).strict()
+export type InvoiceSendInput = z.infer<typeof invoiceSendSchema>
 export const invoiceCompanyLookupCountrySchema = invoiceCountryCodeSchema
 export const invoiceCompanyLookupIdentifierSchema = z.string().trim().min(1).max(80)
 

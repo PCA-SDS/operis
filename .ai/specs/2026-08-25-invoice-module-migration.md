@@ -18,6 +18,10 @@ Phase 3 implementation can start from M0 in
 `docs/invoice/CAPABILITY-MIGRATION-PLAN.md`. No Phase 2documentation blocker is
 currently open.
 
+Current implementation status: the AR invoice email send and privacy-safe
+email-open tracking slice is implemented. Remaining invoice capabilities are
+tracked separately in the milestone documents.
+
 Phase 1 source evidence lives in:
 
 - `docs/invoice/FEAT-001-invoices.md`
@@ -234,6 +238,7 @@ Private route groups:
 - `/api/invoice/company-emails`
 - `/api/invoice/exchange-rates`
 - `/api/invoice/company-lookup`
+- `/api/invoice/invoices/[id]/send`
 - `/api/invoice/sync`
 - `/api/invoice/sync/authenticate`
 - `/api/invoice/sync/[jobId]`
@@ -258,6 +263,16 @@ Implemented CAP route notes:
   memory and uses `invoice.manage`.
 - `/api/invoice/exchange-rates` is available for VND conversion hints and uses
   `invoice.view`.
+- `POST /api/invoice/invoices/[id]/send` sends AR invoices only, requires
+  `invoice.manage`, validates the recipient, sends mail before persisting send
+  state, stores only a SHA-256 tracking-token hash, resets `openedAt`, and
+  records recipient memory best-effort.
+- `GET /api/invoice/track/[token]/pixel.gif` is anonymous and always returns a
+  transparent GIF. It hashes the supplied token, records only the first open
+  through a scoped conditional update, and never returns invoice data.
+- Tracking pixels are included only when `EMAIL_ASSET_BASE_URL` is a valid
+  HTTP(S) URL. Raw tracking tokens are not persisted, returned in DTOs, or
+  written to logs.
 
 ## Risks & Impact Review
 
@@ -288,6 +303,18 @@ Minimum parity scenarios:
 7. Mark AR invoice non-recoverable and exclude it from summary/forecast.
 8. View USD summary/forecast with rate provider unavailable with and without cache.
 9. Lookup company identifier in invoice form without creating partner row before save.
+
+Implemented focused coverage for the email/tracking slice:
+
+10. AR send success, AP rejection, recipient validation, mail-before-flush
+    ordering, token-hash-only persistence, invalid pixel base URL, resend
+    replacement, and non-blocking recipient-memory failure.
+11. Tracking hash lookup, scoped conditional first-open update, repeated-open
+    behavior, concurrent update miss behavior, invalid public token handling,
+    public GIF response headers, and swallowed tracking failures.
+12. Send command registration, optimistic-lock checking, route ACL metadata,
+    OpenAPI operation metadata, mutation guards, and successful/invalid send
+    route contracts.
 
 Validation commands by implementation phase:
 
@@ -403,3 +430,9 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   invoice due dates. Exposed `GET /api/invoice/summary` and
   `GET /api/invoice/forecast` under `invoice.view` with OpenAPI schemas and
   explicit 503 handling when FX rates are unavailable.
+- 2026-09-09: Implemented AR invoice email sending and privacy-safe open
+  tracking. Added `POST /api/invoice/invoices/[id]/send`, secure per-send
+  tracking tokens with hash-only persistence, localized invoice email markup,
+  optional HTTP(S)-validated tracking pixels, best-effort recipient memory,
+  anonymous transparent-GIF tracking, atomic first-open recording, DI/command
+  wiring, OpenAPI metadata, and focused service/command/route tests.

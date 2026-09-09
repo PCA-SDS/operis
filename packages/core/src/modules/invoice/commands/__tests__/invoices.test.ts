@@ -53,6 +53,7 @@ describe('invoice manual invoice commands', () => {
     expect(commandRegistry.has('invoice.invoices.update')).toBe(true)
     expect(commandRegistry.has('invoice.invoices.delete')).toBe(true)
     expect(commandRegistry.has('invoice.invoices.update-due-date')).toBe(true)
+    expect(commandRegistry.has('invoice.invoices.send')).toBe(true)
   })
 
   it('creates manual invoices through trusted command scope', async () => {
@@ -222,5 +223,23 @@ describe('invoice manual invoice commands', () => {
         body: { code: OPTIMISTIC_LOCK_CONFLICT_CODE },
       })
     expect(service.updateDueDate).not.toHaveBeenCalled()
+  })
+
+  it('sends invoices after checking the current optimistic-lock version', async () => {
+    const invoice = { id: invoiceId, direction: 'AR', invoiceNumber: 'AR-1' }
+    const service = {
+      sendInvoice: jest.fn(async () => ({ invoice })),
+    }
+    const em = {
+      findOne: jest.fn(async () => ({ id: invoiceId, updatedAt: new Date('2026-01-01T00:00:00.000Z') })),
+    }
+    const ctx = createContext(service, em)
+    const handler = commandRegistry.get('invoice.invoices.send')
+
+    await expect(handler?.execute({ id: invoiceId, input: { email: 'customer@example.com' } }, ctx)).resolves.toEqual({
+      invoiceId,
+      invoice,
+    })
+    expect(service.sendInvoice).toHaveBeenCalledWith(scope, invoiceId, { email: 'customer@example.com' })
   })
 })
