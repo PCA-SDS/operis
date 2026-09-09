@@ -43,6 +43,18 @@ type PublicQuoteResponse = {
     currencyCode: string
     totalGrossAmount: string
   }>
+  // The route already serializes these (api/quotes/public/[token]/route.ts) and
+  // the totals engine folds shipping/surcharge/custom kinds straight into
+  // subtotalGross, so omitting them here showed the customer a Total that the
+  // rows above it did not add up to. Optional because `apiCallOrThrow` does not
+  // validate the payload — an older cached response must not crash the render.
+  adjustments?: Array<{
+    kind: string | null
+    label: string | null
+    rate: string | null
+    amountNet: string | null
+    amountGross: string | null
+  }>
   isExpired: boolean
 }
 
@@ -210,6 +222,23 @@ export default function QuotePublicPage({ params }: { params: { token: string } 
             {data.quote.taxTotalAmount} {data.quote.currencyCode}
           </span>
         </div>
+        {(data.adjustments ?? []).map((adjustment, index) => {
+          const amount = adjustment.amountGross ?? adjustment.amountNet
+          if (amount == null) return null
+          const base = (adjustment.label ?? '').trim()
+          const label = base.length
+            ? base
+            : t(`sales.documents.adjustments.kindLabels.${adjustment.kind}`, adjustment.kind ?? '')
+          const suffix = adjustment.rate != null ? ` (${adjustment.rate}%)` : ''
+          return (
+            <div key={`adjustment-${index}`} className="flex items-center justify-between text-sm">
+              <span>{`${label}${suffix}`}</span>
+              <span>
+                {amount} {data.quote.currencyCode}
+              </span>
+            </div>
+          )
+        })}
         <div className="flex items-center justify-between font-medium">
           <span>{t('sales.quotes.public.total')}</span>
           <span>

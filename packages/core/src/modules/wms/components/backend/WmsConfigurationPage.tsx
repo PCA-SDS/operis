@@ -131,15 +131,31 @@ type DialogMode<T> =
   | { mode: 'create' }
   | { mode: 'edit'; row: T }
 
-const warehouseFormSchema = z.object({
-  name: z.string().trim().min(1),
-  code: z.string().trim().min(1),
-  city: z.string().trim().optional(),
-  country: z.string().trim().optional(),
-  timezone: z.string().trim().optional(),
-  isActive: z.boolean().default(true),
-  isPrimary: z.boolean().default(false),
-})
+/**
+ * Mirrors the server's `enforcePrimaryRequiresActiveWarehouse`
+ * (wms/data/validators.ts) so the rule surfaces as an inline field error rather
+ * than a round-trip rejection — the same shape `buildInventoryProfileFormSchema`
+ * below uses for its own cross-field rule.
+ */
+function buildWarehouseFormSchema(primaryRequiresActiveMsg: string) {
+  return z.object({
+    name: z.string().trim().min(1),
+    code: z.string().trim().min(1),
+    city: z.string().trim().optional(),
+    country: z.string().trim().optional(),
+    timezone: z.string().trim().optional(),
+    isActive: z.boolean().default(true),
+    isPrimary: z.boolean().default(false),
+  }).superRefine((payload, ctx) => {
+    if (payload.isPrimary === true && payload.isActive === false) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['isPrimary'],
+        message: primaryRequiresActiveMsg,
+      })
+    }
+  })
+}
 
 const zoneFormSchema = z.object({
   warehouseId: z.string().uuid(),
@@ -284,6 +300,10 @@ export function WarehouseSection({ viewAllHref }: ConfigSectionOptions = {}) {
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'updatedAt', desc: true }])
   const [submitting, setSubmitting] = React.useState(false)
   const [dialog, setDialog] = React.useState<DialogMode<WarehouseRow> | null>(null)
+  const warehouseFormSchema = React.useMemo(
+    () => buildWarehouseFormSchema(t('wms.backend.config.warehouses.validation.primaryRequiresActive', 'Inactive warehouses cannot be marked as primary.')),
+    [t],
+  )
 
   const handleSortingChange = React.useCallback((nextSorting: SortingState) => {
     setSorting(nextSorting)

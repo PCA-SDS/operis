@@ -198,7 +198,7 @@ Security-sensitive. ACL grant saves are version-checked + transactional; `User`/
 | LOCK-M-RES-02 | Resource-type edit `/backend/resources/resource-types/<id>/edit` | A edit+Save → B edit+Save | B → bar |
 | LOCK-M-RES-03 | Resource **stale delete** | A edits+Save → B deletes | B → bar |
 | LOCK-M-PLN-01 | Planner availability ruleset `/backend/planner/availability-rulesets/<id>` (`AvailabilityRuleSetForm`) | A edit+Save → B edit+Save | B → bar |
-| LOCK-M-PLN-02 | Planner **availability schedule** (`AvailabilitySchedule`) per-rule edit | A edits a rule → B edits stale | B → bar (note: coexists with selective-delete #2325) |
+| LOCK-M-PLN-02 | Planner **availability rules** (`AvailabilityRulesEditor`) per-rule edit | A edits a rule → B edits stale | B → bar (note: coexists with selective-delete #2325) |
 
 ---
 

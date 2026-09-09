@@ -532,14 +532,14 @@ function AiChatTaskRow({ task }: { task: AiAgentTaskSnapshot }) {
     'size-3.5 shrink-0',
     task.state === 'running' && 'animate-spin text-muted-foreground',
     task.state === 'done' && 'text-status-success-icon',
-    task.state === 'failed' && 'text-destructive',
+    task.state === 'failed' && 'text-status-error-icon',
     task.state === 'skipped' && 'text-muted-foreground',
     task.state === 'pending' && 'text-muted-foreground',
   )
   const statusBadgeClassName = cn(
     'ml-auto text-overline uppercase tracking-wide',
     task.state === 'done' && 'text-status-success-text',
-    task.state === 'failed' && 'text-destructive',
+    task.state === 'failed' && 'text-status-error-text',
     task.state !== 'done' && task.state !== 'failed' && 'text-muted-foreground',
   )
   return (
@@ -612,7 +612,7 @@ function ToolCallList({ toolCalls }: { toolCalls: AiChatToolCallSnapshot[] }) {
                 <Wrench
                   className={cn(
                     'size-3.5',
-                    isError ? 'text-destructive' : 'text-muted-foreground',
+                    isError ? 'text-status-error-icon' : 'text-muted-foreground',
                   )}
                   aria-hidden
                 />
@@ -624,7 +624,7 @@ function ToolCallList({ toolCalls }: { toolCalls: AiChatToolCallSnapshot[] }) {
                 className={cn(
                   'ml-auto text-overline uppercase tracking-wide',
                   isError
-                    ? 'text-destructive'
+                    ? 'text-status-error-text'
                     : isComplete
                       ? 'text-status-success-text'
                       : 'text-muted-foreground',
@@ -656,7 +656,7 @@ function ToolCallList({ toolCalls }: { toolCalls: AiChatToolCallSnapshot[] }) {
                   </div>
                 ) : null}
                 {call.errorMessage ? (
-                  <div className="text-destructive">{call.errorMessage}</div>
+                  <div className="text-status-error-text">{call.errorMessage}</div>
                 ) : null}
               </div>
             ) : null}

@@ -207,7 +207,7 @@ export function CascadingCombobox({
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          'flex w-full items-center justify-between gap-2 rounded-md border bg-background px-3 py-2 text-sm text-left',
+          'flex w-full items-center justify-between gap-2 rounded-md border bg-input-bg px-3 py-2 text-sm text-left',
           'hover:bg-muted/50 transition-colors',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           open && 'ring-2 ring-ring ring-offset-1 outline-none',

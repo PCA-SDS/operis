@@ -3777,7 +3777,7 @@ export function DataTable<T extends RowData>({
                   className="p-0"
                 >
                   <div
-                    className={cn('sticky left-0 flex items-center justify-center h-24 text-center text-destructive', emptyStateViewportWidth ? '' : 'w-full')}
+                    className={cn('sticky left-0 flex items-center justify-center h-24 text-center text-status-error-text', emptyStateViewportWidth ? '' : 'w-full')}
                     style={emptyStateViewportWidth ? { width: emptyStateViewportWidth } : undefined}
                   >
                     {error}

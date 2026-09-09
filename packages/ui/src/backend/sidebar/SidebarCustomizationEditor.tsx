@@ -970,7 +970,7 @@ export function SidebarCustomizationEditor({
               <p
                 id="sidebar-add-variant-error"
                 role="alert"
-                className="text-xs text-destructive"
+                className="text-xs text-status-error-text"
               >
                 {addDialogError}
               </p>
@@ -1012,7 +1012,7 @@ export function SidebarCustomizationEditor({
         </header>
 
         {error ? (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <div className="rounded-lg border border-status-error-border bg-status-error-bg px-4 py-3 text-sm text-status-error-text">
             {error}
           </div>
         ) : null}

@@ -240,6 +240,16 @@
   "business_rules.rules.form.ruleName": "Nazwa Reguły",
   "business_rules.rules.form.ruleType": "Typ Reguły",
   "business_rules.rules.form.update": "Zaktualizuj Regułę",
+  "business_rules.rules.form.validation.categoryMax": "Category must be 50 characters or less",
+  "business_rules.rules.form.validation.descriptionMax": "Description must be 5000 characters or less",
+  "business_rules.rules.form.validation.effectiveDateRange": "Effective To must be later than Effective From",
+  "business_rules.rules.form.validation.entityTypeMax": "Entity type must be 50 characters or less",
+  "business_rules.rules.form.validation.entityTypeRequired": "Entity type is required",
+  "business_rules.rules.form.validation.eventTypeMax": "Event type must be 50 characters or less",
+  "business_rules.rules.form.validation.ruleIdMax": "Rule ID must be 50 characters or less",
+  "business_rules.rules.form.validation.ruleIdRequired": "Rule ID is required",
+  "business_rules.rules.form.validation.ruleNameMax": "Rule name must be 200 characters or less",
+  "business_rules.rules.form.validation.ruleNameRequired": "Rule name is required",
   "business_rules.rules.form.version": "Wersja",
   "business_rules.rules.list.create": "Utwórz Regułę",
   "business_rules.rules.list.description": "Zarządzaj swoimi regułami biznesowymi i logiką automatyzacji",
@@ -393,5 +403,5 @@
   "common.retry": "Ponów",
   "common.unknown": "Nieznany",
   "common.yes": "Tak",
-  "notifications.categories.business_rules": "Regu\u0142y biznesowe"
+  "notifications.categories.business_rules": "Reguły biznesowe"
 }

@@ -48,7 +48,7 @@ export const WaitForTimerNode = memo(function WaitForTimerNode({ data, isConnect
         position={Position.Top}
         id="target"
         isConnectable={isConnectable}
-        className="!w-3 !h-3 !bg-[#0080FE] !border-2 !border-white"
+        className="!w-3 !h-3 !bg-primary !border-2 !border-background"
       />
 
       <WorkflowNodeCard
@@ -64,7 +64,7 @@ export const WaitForTimerNode = memo(function WaitForTimerNode({ data, isConnect
         position={Position.Bottom}
         id="source"
         isConnectable={isConnectable}
-        className="!w-3 !h-3 !bg-[#0080FE] !border-2 !border-white"
+        className="!w-3 !h-3 !bg-primary !border-2 !border-background"
       />
     </div>
   )

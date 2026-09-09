@@ -2,12 +2,14 @@
 
 import * as React from 'react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCall, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@open-mercato/ui/primitives/tabs'
+import { isVectorActivityLog, useIndexActivityLogs, type ActivityLog } from '../useIndexActivityLogs'
+
+const isFulltextActivityLog = (log: ActivityLog): boolean => !isVectorActivityLog(log)
 
 // Types
 type FulltextStats = {
@@ -63,18 +65,6 @@ type ReindexResponse = {
 
 type ReindexAction = 'clear' | 'recreate' | 'reindex'
 
-type ActivityLog = {
-  id: string
-  source: string
-  handler: string
-  level: 'info' | 'error' | 'warn'
-  entityType: string | null
-  recordId: string | null
-  message: string
-  details: unknown
-  occurredAt: string
-}
-
 export type FulltextSearchSectionProps = {
   fulltextConfig: FulltextConfigResponse | null
   fulltextConfigLoading: boolean
@@ -103,59 +93,7 @@ export function FulltextSearchSection({
   const t = useT()
   const [reindexing, setReindexing] = React.useState<ReindexAction | null>(null)
   const [showReindexDialog, setShowReindexDialog] = React.useState<ReindexAction | null>(null)
-  const [activityLogs, setActivityLogs] = React.useState<ActivityLog[]>([])
-  const [activityLoading, setActivityLoading] = React.useState(true)
-
-  // Fetch activity logs
-  const fetchActivityLogs = React.useCallback(async () => {
-    setActivityLoading(true)
-    try {
-      const response = await fetch('/api/query_index/status')
-      if (response.ok) {
-        const body = await response.json() as { logs?: ActivityLog[]; errors?: ActivityLog[] }
-        // Combine logs and errors
-        const allLogs: ActivityLog[] = []
-        if (body.logs) {
-          allLogs.push(...body.logs)
-        }
-        if (body.errors) {
-          allLogs.push(...body.errors.map(err => ({ ...err, level: 'error' as const })))
-        }
-        // Filter for fulltext-related logs (exclude vector/embedding related)
-        const fulltextLogs = allLogs.filter(log => {
-          const lowerSource = log.source?.toLowerCase() ?? ''
-          const lowerMessage = log.message?.toLowerCase() ?? ''
-          const lowerHandler = log.handler?.toLowerCase() ?? ''
-          const isVector = lowerSource.includes('vector') || lowerMessage.includes('vector') ||
-            lowerMessage.includes('embedding') || lowerHandler.includes('vector')
-          return !isVector
-        })
-        // Sort by occurredAt descending
-        fulltextLogs.sort((a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime())
-        setActivityLogs(fulltextLogs.slice(0, 50))
-      }
-    } catch {
-      // Silently fail
-    } finally {
-      setActivityLoading(false)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    fetchActivityLogs()
-  }, [fetchActivityLogs])
-
-  useAppEvent('progress.job.updated', () => {
-    void fetchActivityLogs()
-  }, [fetchActivityLogs])
-
-  useAppEvent('progress.job.completed', () => {
-    void fetchActivityLogs()
-  }, [fetchActivityLogs])
-
-  useAppEvent('om:bridge:reconnected', () => {
-    void fetchActivityLogs()
-  }, [fetchActivityLogs])
+  const { activityLogs, activityLoading, fetchActivityLogs } = useIndexActivityLogs(isFulltextActivityLog)
 
   const handleReindexClick = (action: ReindexAction) => {
     setShowReindexDialog(action)
@@ -173,16 +111,17 @@ export function FulltextSearchSection({
     setReindexing(action)
 
     try {
-      const response = await fetch('/api/search/reindex', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, useQueue: action === 'reindex' }),
-      })
+      const { ok, result: body } = await apiCall<ReindexResponse>(
+        '/api/search/reindex',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, useQueue: action === 'reindex' }),
+        },
+      )
 
-      const body = await response.json() as ReindexResponse
-
-      if (!response.ok || body.error) {
-        throw new Error(body.error || t('search.settings.reindexErrorLabel', 'Failed to reindex'))
+      if (!ok || !body || body.error) {
+        throw new Error(body?.error || t('search.settings.reindexErrorLabel', 'Failed to reindex'))
       }
 
       if (body.stats) {

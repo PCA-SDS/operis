@@ -33,6 +33,7 @@
   "feature_toggles.form.groups.type": "Type Configuration",
   "feature_toggles.form.loading": "Loading…",
   "feature_toggles.form.title.edit": "Edit Feature Toggle",
+  "feature_toggles.global.form.title.create": "Create Feature Toggle",
   "feature_toggles.global.help.title": "Feature Toggles",
   "feature_toggles.list.confirmDelete": "Delete feature toggle \"{identifier}\"?",
   "feature_toggles.list.error.load": "Failed to load feature toggles",

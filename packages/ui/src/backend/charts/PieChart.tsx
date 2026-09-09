@@ -67,7 +67,7 @@ export function PieChart({
       <div className={wrapperClass}>
         {title && <h3 className="mb-4 text-base font-medium text-card-foreground">{title}</h3>}
         <div className="flex h-48 items-center justify-center">
-          <p className="text-sm text-destructive">{error}</p>
+          <p className="text-sm text-status-error-text">{error}</p>
         </div>
       </div>
     )

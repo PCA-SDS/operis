@@ -124,7 +124,7 @@ export function NextStepCallout({
               <p className="mt-2 text-xs text-muted-foreground">{status.progressDescription}</p>
             ) : null}
             {status.errorMessage ? (
-              <p className="mt-2 text-xs text-destructive">{status.errorMessage}</p>
+              <p className="mt-2 text-xs text-status-error-text">{status.errorMessage}</p>
             ) : null}
           </div>
         ) : null}

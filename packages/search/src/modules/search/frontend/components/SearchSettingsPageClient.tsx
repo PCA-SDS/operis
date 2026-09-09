@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCall, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
@@ -10,7 +10,6 @@ import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { GlobalSearchSection } from './sections/GlobalSearchSection'
 import { FulltextSearchSection } from './sections/FulltextSearchSection'
 import { VectorSearchSection } from './sections/VectorSearchSection'
-import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 // Types
 type StrategyStatus = {
@@ -297,9 +296,8 @@ export function SearchSettingsPageClient() {
   const fetchGlobalSearchSettings = React.useCallback(async () => {
     setGlobalSearchLoading(true)
     try {
-      const response = await fetch('/api/search/settings/global-search')
-      if (response.ok) {
-        const body = await response.json() as { enabledStrategies?: string[] }
+      const { ok, result: body } = await apiCall<{ enabledStrategies?: string[] }>('/api/search/settings/global-search')
+      if (ok && body) {
         if (body.enabledStrategies && Array.isArray(body.enabledStrategies) && body.enabledStrategies.length > 0) {
           const strategies = new Set(body.enabledStrategies)
           setGlobalSearchStrategies(strategies)
@@ -321,9 +319,8 @@ export function SearchSettingsPageClient() {
   const fetchFulltextConfig = React.useCallback(async () => {
     setFulltextConfigLoading(true)
     try {
-      const response = await fetch('/api/search/settings/fulltext')
-      if (response.ok) {
-        const body = await response.json() as FulltextConfigResponse
+      const { ok, result: body } = await apiCall<FulltextConfigResponse>('/api/search/settings/fulltext')
+      if (ok && body) {
         setFulltextConfig(body)
       }
     } catch {
@@ -341,9 +338,8 @@ export function SearchSettingsPageClient() {
   const fetchVectorStoreConfig = React.useCallback(async () => {
     setVectorStoreConfigLoading(true)
     try {
-      const response = await fetch('/api/search/settings/vector-store')
-      if (response.ok) {
-        const body = await response.json() as VectorStoreConfigResponse
+      const { ok, result: body } = await apiCall<VectorStoreConfigResponse>('/api/search/settings/vector-store')
+      if (ok && body) {
         setVectorStoreConfig(body)
       }
     } catch {
@@ -374,15 +370,18 @@ export function SearchSettingsPageClient() {
     setGlobalSearchSaving(true)
 
     try {
-      const response = await fetch('/api/search/settings/global-search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ enabledStrategies: Array.from(newStrategies) }),
-      })
+      const { ok, result: body } = await apiCall<{ error?: string }>(
+        '/api/search/settings/global-search',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabledStrategies: Array.from(newStrategies) }),
+        },
+        { fallback: {} },
+      )
 
-      if (!response.ok) {
-        const body = await readJsonSafe(response, {}) as { error?: string }
-        throw new Error(body.error || t('search.settings.globalSearch.saveError', 'Failed to save settings'))
+      if (!ok) {
+        throw new Error(body?.error || t('search.settings.globalSearch.saveError', 'Failed to save settings'))
       }
 
       setGlobalSearchInitial(new Set(newStrategies))
