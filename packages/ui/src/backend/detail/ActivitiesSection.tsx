@@ -18,7 +18,7 @@ import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customF
 import { DictionaryEntrySelect, type DictionarySelectLabels } from '@open-mercato/core/modules/dictionaries/components/DictionaryEntrySelect'
 import type { AppearanceSelectorLabels } from '@open-mercato/core/modules/dictionaries/components/AppearanceSelector'
 import { formatRelativeTime, formatDateTime } from '@open-mercato/shared/lib/time'
-import { LoadingMessage, TabEmptyState } from './'
+import { ErrorMessage, LoadingMessage, TabEmptyState } from './'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { createTranslatorWithFallback } from '@open-mercato/shared/lib/i18n/translate'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
@@ -1094,9 +1094,7 @@ function ActivitiesSectionImpl<C = unknown>({
   return (
     <div className="mt-3 space-y-4">
       {loadError ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          {loadError}
-        </div>
+        <ErrorMessage label={loadError} />
       ) : null}
       <div className="space-y-4">
         {isLoading && activities.length === 0 ? (

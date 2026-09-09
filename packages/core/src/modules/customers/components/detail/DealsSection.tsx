@@ -10,7 +10,7 @@ import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { createCrud, updateCrud } from '@open-mercato/ui/backend/utils/crud'
 import { LinkEntityDialog } from '../linking/LinkEntityDialog'
 import { createDealLinkAdapter } from '../linking/adapters/dealAdapter'
-import { LoadingMessage, TabEmptyState } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage, LoadingMessage, TabEmptyState } from '@open-mercato/ui/backend/detail'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { hasMoreFromPage } from '@open-mercato/shared/lib/pagination/load-more'
@@ -918,9 +918,7 @@ export function DealsSection({
   return (
     <div className="mt-4 space-y-4">
       {loadError ? (
-        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-          {loadError}
-        </div>
+        <ErrorMessage label={loadError} />
       ) : null}
       <div className="flex flex-wrap items-center justify-end gap-2">
         <Button
