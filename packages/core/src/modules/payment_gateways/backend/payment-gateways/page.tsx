@@ -4,7 +4,7 @@ import { extensionPoints } from '@open-mercato/core/modules/payment_gateways/ext
 import { useSearchParams } from 'next/navigation'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
-import { Page, PageHeader, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
 import { JsonDisplay } from '@open-mercato/ui/backend/JsonDisplay'
 import { LoadingMessage, ErrorMessage } from '@open-mercato/ui/backend/detail'
@@ -457,13 +457,19 @@ export default function PaymentTransactionsPage() {
 
   return (
     <Page>
-      <PageHeader
-        title={t('payment_gateways.transactions.title', 'Payment Transactions')}
-        description={t('payment_gateways.transactions.description', 'Track all payment-gateway transactions, inspect webhook activity, and review provider logs from one place.')}
-      />
       <PageBody className="space-y-6">
         <DataTable
-          title={t('payment_gateways.transactions.tableTitle', 'Transactions')}
+          // A list view lets DataTable own the page header — a PageHeader above it
+          // stacked a second page-title-sized h1. Matches the reference module
+          // (customers/people) and the subtitle idiom from sales/channels.
+          title={(
+            <div className="flex flex-col">
+              <span>{t('payment_gateways.transactions.title', 'Payment Transactions')}</span>
+              <span className="text-sm font-normal text-muted-foreground">
+                {t('payment_gateways.transactions.description', 'Track all payment-gateway transactions, inspect webhook activity, and review provider logs from one place.')}
+              </span>
+            </div>
+          )}
           columns={columns}
           data={rows}
           filters={filters}
