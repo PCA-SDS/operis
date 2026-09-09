@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { restoreNotificationSchema } from '../../../data/validators'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import {
   NOTIFICATION_RESOURCE_KIND,
   notificationValidationErrorResponse,
@@ -15,7 +16,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const { id } = await params
   const { service, scope, ctx } = await resolveNotificationContext(req)
 
-  const body = await req.json().catch(() => ({}))
+  const body = await readJsonSafe(req, {})
   const parsed = restoreNotificationSchema.safeParse(body)
   if (!parsed.success) {
     return notificationValidationErrorResponse(parsed.error)

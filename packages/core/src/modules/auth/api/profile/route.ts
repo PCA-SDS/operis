@@ -13,6 +13,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { buildPasswordSchema } from '@open-mercato/shared/lib/auth/passwordPolicy'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('auth').child({ component: 'profile' })
 
@@ -126,7 +127,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: translate('api.errors.unauthorized', 'Unauthorized') }, { status: 401 })
   }
   try {
-    const body = await req.json().catch(() => ({}))
+    const body = await readJsonSafe(req, {})
     const parsed = buildUpdateSchema(translate).safeParse(body)
     if (!parsed.success) {
       return NextResponse.json(

@@ -91,3 +91,24 @@ export function parseTpsCsv<T>(filename: string): T[] {
   }
   return rows
 }
+
+// ---------------------------------------------------------------------------
+// TPS branch locations
+// ---------------------------------------------------------------------------
+
+/**
+ * The four TPS locations and the organizations they become.
+ *
+ * `branches.ts` creates the organizations from this, and `all.ts` matches the
+ * child organizations back to a `--location` flag by slug. Keeping one copy
+ * matters: when the two drifted, a slug that no longer matched simply dropped
+ * out of the resources step with no error.
+ */
+export type TpsLocationMapping = { tpsKey: string; orgName: string; slug: string }
+
+export const TPS_LOCATION_MAPPING: TpsLocationMapping[] = [
+  { tpsKey: 'benThanh',   orgName: 'Bến Thành',   slug: 'ben-thanh' },
+  { tpsKey: 'thaoDien',   orgName: 'Thảo Điền',   slug: 'thao-dien' },
+  { tpsKey: 'phuMyHung',  orgName: 'Phú Mỹ Hưng', slug: 'phu-my-hung' },
+  { tpsKey: 'hoanKiem',   orgName: 'Hoàn Kiếm',   slug: 'hoan-kiem' },
+]

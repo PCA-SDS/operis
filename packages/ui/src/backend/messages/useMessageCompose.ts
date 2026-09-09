@@ -13,6 +13,7 @@ import type {
 } from './message-composer.types'
 import type { MessagePriority } from './message-priority'
 import type { TagsInputOption } from '../inputs/TagsInput'
+import { toErrorMessage } from '@open-mercato/shared/lib/http/errorMessage'
 import {
   useComposeDraftOperation,
   useComposeSendOperation,
@@ -21,29 +22,6 @@ import {
   useSendDraftOperation,
   useUpdateDraftOperation,
 } from './useMessageComposeOperations'
-
-function toErrorMessage(payload: unknown): string | null {
-  if (!payload) return null
-  if (typeof payload === 'string') return payload
-  if (Array.isArray(payload)) {
-    for (const item of payload) {
-      const nested = toErrorMessage(item)
-      if (nested) return nested
-    }
-    return null
-  }
-  if (typeof payload === 'object') {
-    const record = payload as Record<string, unknown>
-    return (
-      toErrorMessage(record.error)
-      ?? toErrorMessage(record.message)
-      ?? toErrorMessage(record.detail)
-      ?? toErrorMessage(record.details)
-      ?? null
-    )
-  }
-  return null
-}
 
 function createTemporaryAttachmentRecordId(): string {
   const randomPart =

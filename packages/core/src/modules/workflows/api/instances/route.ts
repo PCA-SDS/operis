@@ -25,6 +25,7 @@ import {
 } from '../openapi'
 import * as workflowExecutor from '../../lib/workflow-executor'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { MAX_PAGE_SIZE } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('workflows')
 
@@ -296,7 +297,7 @@ export const openApi = {
         correlationKey: z.string().optional(),
         entityType: z.string().optional(),
         entityId: z.string().optional(),
-        limit: z.number().int().positive().default(50).optional(),
+        limit: z.number().int().positive().max(MAX_PAGE_SIZE).default(50).optional(),
         offset: z.number().int().min(0).default(0).optional(),
       }),
       responses: [

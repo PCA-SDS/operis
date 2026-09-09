@@ -35,6 +35,7 @@ import {
   type EvidenceSubmissionUpdateInput,
 } from '../data/validators'
 import { computeSubmissionCompleteness, type CompletenessContext } from '../lib/completeness'
+import { toDateOrNull as toDate } from '@open-mercato/shared/lib/date/normalize'
 
 const EVIDENCE_SUBMISSION_ENTITY_ID = 'eudr:eudr_evidence_submission'
 
@@ -124,10 +125,6 @@ function parseScopedCommandInput(input: unknown): ScopedCommandInput {
 
 function toNumericString(value: number | null | undefined): string | null {
   return value == null ? null : String(value)
-}
-
-function toDate(value: string | null): Date | null {
-  return value ? new Date(value) : null
 }
 
 function evidenceSubmissionSeedFromSnapshot(snapshot: EvidenceSubmissionSnapshot): RequiredEntityData<EudrEvidenceSubmission> {

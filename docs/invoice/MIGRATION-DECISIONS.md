@@ -192,27 +192,45 @@ new module, the pixel route can hash the raw path token and query
 
 Decision:
 
-Use process-local cache first to preserve old behavior.
+Use process-local cache first to preserve old behavior. The invoice exchange
+rate service uses a 24-hour fresh TTL. If the provider fails after the snapshot
+expires, it returns the stale process-local snapshot. If no usable snapshot
+exists, it returns service unavailable.
 
 Reason:
 
 Old repo used process-local cache. A shared cache can be added later only as an
 explicit design change.
 
+Implementation note:
+
+The CAP-007 service is read-only, has no `EntityManager` dependency, does not
+write Invoice tables, uses `EXCHANGE_RATE_API_URL` only as an upstream override,
+and rejects malformed or incomplete provider responses before caching.
+
 ## DEC-018 Company Lookup Cache
 
 Decision:
 
 Keep `invoice_company_registry` separate from `invoice_companies`.
-M0 creates the table but defers raw provider payload writes to M4. Before M4
-writes provider responses, the implementation must add payload encryption or
-document a stricter provider response shape that proves encryption is not
-needed.
+Provider responses are persisted only through the encrypted
+`invoice_company_registry.payload` contract. The module declares
+`invoice:invoice_company_registry.payload` in `encryption.ts`, reads cache rows
+through `findOneWithDecryption`, and exposes only the normalized
+`CompanyLookupResult` contract to callers.
 
 Reason:
 
 Lookup cache is provider/reference data. It must not create business partner
-records until the user saves/imports an invoice.
+records until the user saves/imports an invoice. Provider payloads can include
+names, addresses, registry status, and future provider fields, so encrypting the
+payload is safer than proving every provider shape is always non-sensitive.
+
+Implementation note:
+
+CAP-008 uses a 30-day tenant/organization-scoped cache TTL based on
+`fetched_at`. Provider payloads are excluded from invoice search text and logs
+must never include raw provider responses.
 
 ## DEC-019 API Shape
 
@@ -379,3 +397,33 @@ Reason:
 
 Future M9 invoice UI work should be checked by the same design-system rules as
 other backend module surfaces from the first UI file.
+
+## DEC-032 Company Email Memory Ownership
+
+Decision:
+
+Company email memory belongs to the invoice module and is scoped by both the
+invoice company and trusted tenant/organization scope. Recording a recipient
+email is an idempotent upsert. Removing an email must require the scoped company
+context and must not delete rows from another tenant or organization.
+
+Reason:
+
+The feature is a convenience memory for invoice send and payment confirmation
+flows, not a global contact directory. It should be safe to call best-effort from
+later CAP-001 and CAP-005 flows without changing partner identity data.
+
+## DEC-033 Invoice Exchange Rate Provider Contract
+
+Decision:
+
+The CAP-007 provider contract is an open.er-api style USD-based payload with a
+`rates` object. Supported invoice currencies are fixed to the invoice currency
+contract. VND per unit is derived as `rates.VND / rates[currency]`, while VND is
+always exactly `1`.
+
+Reason:
+
+This preserves old business behavior and gives summary, forecast, and form
+preview a single VND normalization service. Other provider shapes or shared
+cache backends are separate design changes.

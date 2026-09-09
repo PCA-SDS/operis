@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { getTpsDataDir, parseTpsCsv, parseTpsCsvLine } from '../lib'
+import { TPS_LOCATION_MAPPING, getTpsDataDir, parseTpsCsv, parseTpsCsvLine } from '../lib'
 import { assignSeatSortOrders, type TpsSeat } from '../resources'
 
 describe('TPS CSV fallback parsing', () => {
@@ -116,3 +116,29 @@ function seat(overrides: Partial<TpsSeat>): TpsSeat {
     ...overrides,
   }
 }
+
+describe('TPS_LOCATION_MAPPING', () => {
+  /**
+   * `branches.ts` creates one organization per entry and `all.ts` matches child
+   * organizations back to a `--location` flag by slug. A location present in the
+   * export but absent here never gets an organization, and its seats are dropped
+   * from the migration without an error.
+   */
+  it('covers every location the shipped floors export contains', () => {
+    const locations = new Set(
+      parseTpsCsv<{ location?: string }>('tps_floors.csv')
+        .map((floor) => floor.location?.trim())
+        .filter((location): location is string => Boolean(location)),
+    )
+    const mapped = new Set(TPS_LOCATION_MAPPING.map((entry) => entry.tpsKey))
+
+    expect([...locations].filter((location) => !mapped.has(location))).toEqual([])
+  })
+
+  it('keeps tpsKey and slug unique so the slug lookup cannot collide', () => {
+    const keys = TPS_LOCATION_MAPPING.map((entry) => entry.tpsKey)
+    const slugs = TPS_LOCATION_MAPPING.map((entry) => entry.slug)
+    expect(new Set(keys).size).toBe(keys.length)
+    expect(new Set(slugs).size).toBe(slugs.length)
+  })
+})

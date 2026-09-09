@@ -260,7 +260,7 @@ describe('RichEditor — content area + onChange', () => {
       <RichEditor value="<p>hello world</p>" onChange={jest.fn()} variant="minimal" maxLength={5} />,
     )
     const counter = container.querySelector('[data-slot="rich-editor-counter"]')!
-    expect(counter.className).toContain('text-destructive')
+    expect(counter.className).toContain('text-status-error-text')
     expect(counter.textContent).toBe('11/5')
   })
 })

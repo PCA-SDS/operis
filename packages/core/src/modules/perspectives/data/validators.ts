@@ -13,6 +13,8 @@ export const perspectiveSettingsSchema: z.ZodType<PerspectiveSettings> = z.objec
     .array(z.object({ id: z.string().min(1), desc: z.boolean().optional() }))
     .max(20)
     .optional(),
+  // A stored per-user table preference, not a request bound: perspectives
+  // already persisted with pageSize up to 500 and must stay saveable.
   pageSize: z.number().int().positive().max(500).optional(),
   searchValue: z.string().max(200).optional(),
 })

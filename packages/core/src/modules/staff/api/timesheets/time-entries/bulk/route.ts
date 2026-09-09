@@ -16,7 +16,6 @@ import { staffTimeEntryBulkSaveSchema } from '../../../../data/validators'
 import { staffTimeEntryCrudEvents } from '../../../../lib/crud'
 import { invalidateStaffTimeEntryCache } from '../../../../lib/timesheets/timeEntryCacheInvalidation'
 import {
-  resolveUserFeatures,
   runStaffMutationGuardAfterSuccess,
   runStaffMutationGuards,
 } from '../../../guards'
@@ -112,7 +111,7 @@ export async function POST(req: Request) {
       requestHeaders: req.headers,
       mutationPayload: parsed.data as unknown as Record<string, unknown>,
     }
-    const guardResult = await runStaffMutationGuards(container, guardInput, resolveUserFeatures(auth))
+    const guardResult = await runStaffMutationGuards(container, guardInput)
     if (!guardResult.ok) {
       return NextResponse.json(
         guardResult.errorBody ?? { error: 'Operation blocked by guard' },

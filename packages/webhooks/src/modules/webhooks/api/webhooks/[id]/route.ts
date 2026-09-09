@@ -6,6 +6,7 @@ import { findScopedWebhook, json, resolveWebhookRequestScope, serializeWebhookDe
 import { webhookUpdateSchema } from '../../../data/validators'
 import { enforceCommandOptimisticLockWithGuards } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['webhooks.view'] },
@@ -83,7 +84,7 @@ export async function PUT(request: Request, context: RouteContext): Promise<Resp
     throw err
   }
 
-  const parsed = webhookUpdateSchema.safeParse(await request.json().catch(() => null))
+  const parsed = webhookUpdateSchema.safeParse(await readJsonSafe(request))
   if (!parsed.success) {
     return json({ error: 'Invalid request payload' }, { status: 400 })
   }

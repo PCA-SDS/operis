@@ -30,6 +30,7 @@ import {
 } from '@open-mercato/shared/lib/crud/custom-fields'
 import { E } from '#generated/entities.ids.generated'
 import { Attachment } from '@open-mercato/core/modules/attachments/data/entities'
+import type { AiToolExecutionContext } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/ai-api-operation-runner'
 import {
   CatalogPriceKind,
   CatalogProduct,
@@ -77,11 +78,16 @@ export type ListPriceKindsCoreResult = {
   offset: number
 }
 
-export function resolveEm(ctx: CatalogToolContext): EntityManager {
+/**
+ * Accepts the generic AI execution context as well as the catalog one: the tool
+ * packs are reachable both through the catalog agent and through the generic
+ * tool runner, and both contexts carry `container` + `organizationId`.
+ */
+export function resolveEm(ctx: CatalogToolContext | AiToolExecutionContext): EntityManager {
   return ctx.container.resolve<EntityManager>('em')
 }
 
-export function buildScope(ctx: CatalogToolContext, tenantId: string) {
+export function buildScope(ctx: CatalogToolContext | AiToolExecutionContext, tenantId: string) {
   return { tenantId, organizationId: ctx.organizationId }
 }
 

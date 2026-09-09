@@ -11,6 +11,7 @@ import { parseScopedCommandInput } from '@open-mercato/shared/lib/api/scoped'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { staffTimeEntryStartTimerSchema, type StaffTimeEntryStartTimerInput } from '../../../../data/validators'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('staff')
 
@@ -40,7 +41,7 @@ async function buildContext(
 export async function POST(req: Request) {
   try {
     const { ctx, translate } = await buildContext(req)
-    const body = await req.json().catch(() => ({}))
+    const body = await readJsonSafe(req, {})
     const input = parseScopedCommandInput(staffTimeEntryStartTimerSchema, body, ctx, translate)
     const commandBus = (ctx.container.resolve('commandBus') as CommandBus)
     const { result, logEntry } = await commandBus.execute<StaffTimeEntryStartTimerInput, { timeEntryId: string }>(

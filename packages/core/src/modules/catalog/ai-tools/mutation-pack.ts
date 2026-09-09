@@ -64,6 +64,7 @@ import {
 } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/ai-api-operation-runner'
 import { CatalogProduct, CatalogProductPrice } from '../data/entities'
 import { Attachment } from '@open-mercato/core/modules/attachments/data/entities'
+import { buildScope, resolveEm } from './_shared'
 import {
   assertTenantScope,
   type CatalogAiToolDefinition,
@@ -71,14 +72,6 @@ import {
   type CatalogToolLoadBeforeRecord,
   type CatalogToolLoadBeforeSingleRecord,
 } from './types'
-
-function resolveEm(ctx: CatalogToolContext): EntityManager {
-  return ctx.container.resolve<EntityManager>('em')
-}
-
-function buildScope(ctx: CatalogToolContext, tenantId: string) {
-  return { tenantId, organizationId: ctx.organizationId }
-}
 
 function recordVersionFromUpdatedAt(updatedAt: Date | null | undefined): string | null {
   if (!updatedAt) return null

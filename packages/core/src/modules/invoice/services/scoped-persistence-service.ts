@@ -108,6 +108,20 @@ export class InvoiceScopedPersistenceService {
     return this.em.find(entity, scopedWhere, findOptions(options))
   }
 
+  countMany<TEntity extends InvoiceEntity>(
+    entity: InvoiceEntityClass<TEntity>,
+    scope: InvoiceScope,
+    where: FilterQuery<TEntity> = {} as FilterQuery<TEntity>,
+    options?: { includeDeleted?: boolean },
+  ): Promise<number> {
+    const scopedWhere = invoiceScopeWhere(
+      scope,
+      readWhere(entity, where, options?.includeDeleted) as Record<string, unknown>,
+    ) as FilterQuery<TEntity>
+
+    return this.em.count(entity, scopedWhere)
+  }
+
   createScoped<TEntity extends InvoiceEntity>(
     entity: InvoiceEntityClass<TEntity>,
     scope: InvoiceScope,

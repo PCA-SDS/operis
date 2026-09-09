@@ -1,20 +1,12 @@
 /**
  * `customers.list_addresses` + `customers.list_tags` (Phase 1 WS-C, Step 3.9).
  */
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { z } from 'zod'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern'
 import { CustomerAddress, CustomerTag } from '../data/entities'
-import { assertTenantScope, type CustomersAiToolDefinition, type CustomersToolContext } from './types'
-
-function resolveEm(ctx: CustomersToolContext): EntityManager {
-  return ctx.container.resolve<EntityManager>('em')
-}
-
-function buildScope(ctx: CustomersToolContext, tenantId: string) {
-  return { tenantId, organizationId: ctx.organizationId }
-}
+import { assertTenantScope, type CustomersAiToolDefinition } from './types'
+import { buildScope, resolveEm } from './_shared'
 
 const listAddressesInput = z.object({
   entityType: z.enum(['person', 'company']).describe('Parent entity kind.'),

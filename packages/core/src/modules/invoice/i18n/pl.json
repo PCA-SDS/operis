@@ -1,6 +1,12 @@
 {
+  "invoice.errors.company_lookup_unavailable": "Wyszukiwanie firmy jest chwilowo niedostępne",
+  "invoice.errors.exchange_rates_unavailable": "Exchange rates are temporarily unavailable",
+  "invoice.errors.invalid_input": "Nieprawidłowe dane wejściowe",
   "invoice.errors.organization_required": "Wymagany jest kontekst organizacji.",
+  "invoice.errors.partner_not_found": "Partner not found",
+  "invoice.errors.request_failed": "Nie udało się przetworzyć żądania faktury",
   "invoice.errors.tenant_required": "Wymagany jest kontekst dzierżawy.",
+  "invoice.errors.unauthorized": "Brak autoryzacji",
   "invoice.search.badge.company": "Firma na fakturze",
   "invoice.search.badge.invoice": "Faktura"
 }

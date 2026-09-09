@@ -97,9 +97,8 @@ Data requirements:
 - Add optimistic locking to every user-editable entity.
 - Add search configuration with `invoice.view` ACL gating, allowlisted text
   fields, tax-code hash-only fields, and token/hash exclusions.
-- Keep `invoice_company_registry.payload` unencrypted in M0 only because M0 does
-  not call lookup providers or write raw provider responses. M4 must revisit
-  payload encryption before provider writes.
+- `invoice_company_registry.payload` is encrypted before CAP-008 provider
+  writes are enabled.
 
 Optimistic locking decisions:
 
@@ -131,6 +130,15 @@ Definition of done:
   this explicitly in the PR body.
 
 ## M1 CAP-003 Partner Payment Terms
+
+Progress:
+
+- Task 4.1 implemented the domain service, DI registration, partner validators,
+  and focused unit coverage for list/search, matching, updates, and due-date
+  default resolution.
+- The partner list, match, and payment-term update API routes are implemented
+  as thin boundaries over `invoicePartnerTermsService`.
+- The UI settings page remains for a later CAP-003 task.
 
 Dependencies:
 
@@ -168,6 +176,15 @@ Definition of done:
 
 ## M2 CAP-006 Company Email Memory
 
+Progress:
+
+- Task 4.2 implemented `invoiceCompanyEmailsService`, DI registration, route
+  handlers for list/record/remove, OpenAPI metadata, and focused tests.
+- The service lists by scoped company, upserts normalized email by company, and
+  removes only scoped company email rows.
+- Recipient picker UI remains for M9. CAP-001 and CAP-005 can call the service
+  now for best-effort recipient memory.
+
 Dependencies:
 
 - M0 table `invoice_company_emails`.
@@ -203,6 +220,17 @@ Definition of done:
 
 ## M3 CAP-007 Exchange Rates
 
+Progress:
+
+- Task 4.3 implemented `invoiceExchangeRatesService`, DI registration, the
+  read API route, OpenAPI metadata, and focused provider/mock route tests.
+- The service is process-local and read-only. It does not depend on
+  `EntityManager` and does not write invoice rows.
+- Cache freshness is 24 hours. Expired snapshots remain available only as stale
+  fallback when the provider fails.
+- Summary, forecast, and form preview consumers are still future work in CAP-001
+  and M9.
+
 Dependencies:
 
 - M0 DI and config access.
@@ -215,12 +243,18 @@ Target files:
 Data read/write:
 
 - No invoice table writes.
-- Optional process-local snapshot cache.
+- Process-local snapshot cache only.
 
 Implementation type:
 
 - Preserve old process-local cache by default.
 - Adapt provider HTTP/config access to Operis.
+- Default upstream is `https://open.er-api.com/v6/latest/USD`, overridden by
+  `EXCHANGE_RATE_API_URL`.
+- VND conversion uses `rates.VND / rates[currency]`; VND itself is exactly 1.
+- Invalid, missing, zero, negative, or non-finite upstream rates are rejected and
+  are not cached.
+- No automatic retry loop.
 
 Expected tests:
 
@@ -230,12 +264,22 @@ Expected tests:
 - Stale cache is used when upstream fails.
 - No cache plus upstream failure returns service unavailable.
 - Invalid upstream response is rejected.
+- Route requires auth and `invoice.view`.
+- No Invoice database rows are written.
 
 Definition of done:
 
 - Summary, forecast, and form preview can request rates.
 
 ## M4 CAP-008 Company Lookup
+
+Progress:
+
+- Task 4.5 finalized the provider cache security contract by encrypting
+  `invoice_company_registry.payload` and requiring decrypted scoped reads.
+- Task 4.6 implemented the invoice company lookup service/API boundary for
+  Vietnam MST and Singapore UEN, with 30-day cache freshness, stale fallback,
+  and no `invoice_companies` writes.
 
 Dependencies:
 
@@ -252,9 +296,8 @@ Data read/write:
 
 - Reads/writes `invoice_company_registry`.
 - Does not create `invoice_companies`.
-- Before writing provider payloads, either add payload encryption for
-  `invoice_company_registry.payload` or document a stricter provider response
-  shape that proves encryption is not required.
+- Provider payload writes use encrypted `invoice_company_registry.payload` and
+  decrypted scoped cache reads.
 
 Implementation type:
 

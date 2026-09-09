@@ -4,6 +4,7 @@ import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { WarrantyClaim, WarrantyClaimLine } from '../data/entities'
 import { evaluateClaimRisk, type ClaimRiskAssessment } from './risk'
 import { addWarrantyMonths } from './warrantyPreview'
+import { toDateOnlyIso, toIsoOrNull as toIso } from '@open-mercato/shared/lib/date/normalize'
 import type {
   WarrantyClaimDisposition,
   WarrantyClaimPriority,
@@ -72,17 +73,6 @@ export type WarrantyClaimTriageSuggestion = {
   lines: WarrantyClaimLineTriageSuggestion[]
   risk: ClaimRiskAssessment
   generatedAt: string
-}
-
-function toIso(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  const date = value instanceof Date ? value : new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date.toISOString()
-}
-
-function toDateOnlyIso(value: Date | string | null | undefined): string | null {
-  const iso = toIso(value)
-  return iso ? iso.slice(0, 10) : null
 }
 
 

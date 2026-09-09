@@ -88,7 +88,7 @@ export function MessageObjectRecordPicker({
       ) : null}
 
       {error ? (
-        <div className="space-y-2 rounded border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive">
+        <div className="space-y-2 rounded border border-status-error-border bg-status-error-bg p-2 text-xs text-status-error-text">
           <p>{error}</p>
           <Button type="button" size="sm" variant="outline" onClick={onRetry}>
             {t('common.retry', 'Retry')}
@@ -135,6 +135,7 @@ export function MessageObjectRecordPicker({
                     subtitle: item.subtitle || undefined,
                   }}
                   icon={objectType?.icon}
+                  fallbackTitleKey={objectType?.labelKey}
                 />
               ) : (
                 <div className="text-sm">

@@ -2581,13 +2581,14 @@ export default function DealsKanbanPage(): React.ReactElement {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-1">
               {/*
-                Heading typography mirrors DS PageHeader (text-xl sm:text-2xl font-semibold
-                leading-tight) so the kanban title matches /backend/customers/people and
-                other backoffice pages. We don't use the PageHeader component itself because
-                it can't host the rich board-summary content (LaneCurrencyBreakdown popover)
-                that lives directly under the title.
+                Heading typography mirrors DS PageHeader (text-2xl sm:text-3xl font-normal
+                leading-tight — the title is large and LIGHT, see Page.tsx) so the kanban
+                title matches the deals list view, which gets the same treatment from
+                DataTable. We don't use the PageHeader component itself because it can't
+                host the rich board-summary content (LaneCurrencyBreakdown popover) that
+                lives directly under the title.
               */}
-              <h1 className="text-xl font-semibold leading-tight text-foreground sm:text-2xl">
+              <h1 className="text-2xl font-normal leading-tight text-foreground sm:text-3xl">
                 {translateWithFallback(t, 'customers.deals.kanban.pageTitle', 'Deals')}
               </h1>
               {boardSummary && boardSummary.rows.length > 0 ? (

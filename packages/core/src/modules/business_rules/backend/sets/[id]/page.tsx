@@ -19,17 +19,9 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
-import { z } from 'zod'
+import { createRuleSetFormSchema, type RuleSetFormValues } from '@open-mercato/core/modules/business_rules/components/formConfig'
 import { RuleSetMembers } from '@open-mercato/core/modules/business_rules/components/RuleSetMembers'
 
-const ruleSetFormSchema = z.object({
-  setId: z.string().min(1).max(50),
-  setName: z.string().min(1).max(200),
-  description: z.string().max(5000).optional().nullable(),
-  enabled: z.boolean().optional(),
-})
-
-type RuleSetFormValues = z.infer<typeof ruleSetFormSchema>
 
 type RuleSetDetail = {
   id: string
@@ -83,6 +75,8 @@ export default function EditRuleSetPage() {
     },
     enabled: !!setId,
   })
+
+  const ruleSetFormSchema = React.useMemo(() => createRuleSetFormSchema(t), [t])
 
   const handleSubmit = async (values: RuleSetFormValues) => {
     const payload = {

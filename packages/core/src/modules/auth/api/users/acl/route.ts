@@ -17,6 +17,7 @@ import {
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const getSchema = z.object({ userId: z.string().uuid() })
 const putSchema = z.object({
@@ -119,7 +120,7 @@ export async function GET(req: Request) {
 export async function PUT(req: Request) {
   const auth = await getAuthFromRequest(req)
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const body = await req.json().catch(() => ({}))
+  const body = await readJsonSafe(req, {})
   const parsed = putSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: 'Invalid input' }, { status: 400 })
   const container = await createRequestContainer()

@@ -16,6 +16,7 @@ import {
   type LabelUpdateInput,
 } from '../data/validators'
 import { loadTasksMessages } from '../lib/messages'
+import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
 import {
   ensureOrganizationScope,
   ensureTenantScope,
@@ -47,10 +48,6 @@ async function loadSnapshot(em: EntityManager, id: string): Promise<LabelSnapsho
     name: label.name,
     color: label.color,
   }
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  return (error as { code?: string })?.code === '23505'
 }
 
 const createLabelCommand: CommandHandler<LabelCreateInput, { labelId: string }> = {

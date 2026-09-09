@@ -101,6 +101,7 @@
   "wms.backend.config.warehouses.primary.yes": "Primary",
   "wms.backend.config.warehouses.search": "Search warehouses",
   "wms.backend.config.warehouses.title": "Warehouses",
+  "wms.backend.config.warehouses.validation.primaryRequiresActive": "Inactive warehouses cannot be marked as primary.",
   "wms.backend.config.zones.columns.code": "Code",
   "wms.backend.config.zones.columns.name": "Zone",
   "wms.backend.config.zones.columns.priority": "Priority",

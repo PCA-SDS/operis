@@ -8,6 +8,7 @@ import {
   runGuardedNotificationWrite,
 } from '../../../lib/routeHelpers'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 export const metadata = {
   POST: { requireAuth: true },
@@ -17,7 +18,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params
   const { service, scope, ctx } = await resolveNotificationContext(req)
 
-  const body = await req.json().catch(() => ({}))
+  const body = await readJsonSafe(req, {})
   const parsed = executeActionSchema.safeParse(body)
   if (!parsed.success) {
     return notificationValidationErrorResponse(parsed.error)

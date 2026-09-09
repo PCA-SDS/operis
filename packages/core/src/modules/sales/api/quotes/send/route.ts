@@ -24,6 +24,8 @@ import { sendEmail } from '@open-mercato/shared/lib/email/send'
 import { resolveStatusEntryIdByValue } from '../../../lib/statusHelpers'
 import { QuoteSentEmail } from '../../../emails/QuoteSentEmail'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { resolveGrantedFeatures } from '@open-mercato/shared/lib/auth/grantedFeatures'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('sales')
 
@@ -33,12 +35,6 @@ export const metadata = {
 
 type RequestContext = {
   ctx: CommandRuntimeContext
-}
-
-function resolveUserFeatures(auth: unknown): string[] {
-  const features = (auth as { features?: unknown })?.features
-  if (!Array.isArray(features)) return []
-  return features.filter((value): value is string => typeof value === 'string')
 }
 
 async function runGuards(
@@ -56,7 +52,7 @@ async function runGuards(
   }
 
   return runMutationGuards([legacyGuard], input, {
-    userFeatures: resolveUserFeatures(ctx.auth),
+    userFeatures: await resolveGrantedFeatures(ctx.container, ctx.auth, input.organizationId),
   })
 }
 
@@ -130,7 +126,7 @@ export async function POST(req: Request) {
   try {
     const { ctx } = await resolveRequestContext(req)
     const { translate } = await resolveTranslations()
-    const payload = await req.json().catch(() => ({}))
+    const payload = await readJsonSafe(req, {})
     const scoped = withScopedPayload(payload ?? {}, ctx, translate)
     const input = quoteSendSchema.parse(scoped)
     const guardResult = await runGuards(ctx, {

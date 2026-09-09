@@ -20,8 +20,10 @@ export const metadata = routeMetadata
 const querySchema = z
   .object({
     search: z.string().optional(),
-    page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(200).default(50),
+    page: z.coerce.number().int().min(1).default(1),
+    // Deliberately above the shared default: the tag pickers load the whole list in one request,
+    // and lowering this ceiling would 400 those existing callers.
+    pageSize: z.coerce.number().int().min(1).max(200).default(50),
   })
   .passthrough()
 

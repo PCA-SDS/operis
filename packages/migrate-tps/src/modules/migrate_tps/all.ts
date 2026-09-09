@@ -4,16 +4,9 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { spawn } from 'node:child_process'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import { TPS_LOCATION_MAPPING } from './lib'
 
 const logger = createLogger('migrate_tps')
-
-// TPS locations that can be created as branches
-const TPS_LOCATIONS = [
-  { location: 'benThanh', slug: 'ben-thanh' },
-  { location: 'thaoDien', slug: 'thao-dien' },
-  { location: 'phuMyHung', slug: 'phu-my-hung' },
-  { location: 'hoanKiem', slug: 'hoan-kiem' },
-]
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -144,13 +137,21 @@ export const migrateTpsAllCommand: ModuleCli = {
         logger.info('Querying child organizations from database...')
         const childOrgs = await queryChildOrgs(tenantId, rootOrgId)
 
-        // Filter to only TPS location slugs and keep the source location key.
-        const tpsOrgs = childOrgs
-          .map((org) => {
-            const location = TPS_LOCATIONS.find((entry) => entry.slug === org.slug)
-            return location ? { ...org, location: location.location } : null
-          })
-          .filter((org): org is { id: string; name: string; slug: string; location: string } => org !== null)
+        // Match child organizations back to the TPS location that created them,
+        // using the same mapping branches.ts wrote them with.
+        const orgBySlug = new Map(childOrgs.map((org) => [org.slug, org]))
+        const tpsOrgs: Array<{ id: string; name: string; slug: string; location: string }> = []
+        for (const mapping of TPS_LOCATION_MAPPING) {
+          const org = orgBySlug.get(mapping.slug)
+          if (!org) {
+            // Report per location: only the all-missing case used to warn, so a
+            // single unresolved branch was skipped silently and the run still
+            // finished by declaring every migration successful.
+            logger.warn(`No organization found for TPS location "${mapping.tpsKey}" (slug "${mapping.slug}") — its resources are not migrated.`)
+            continue
+          }
+          tpsOrgs.push({ ...org, location: mapping.tpsKey })
+        }
 
         if (tpsOrgs.length === 0) {
           logger.warn('No TPS child organizations found in database. Skipping resources migration.')

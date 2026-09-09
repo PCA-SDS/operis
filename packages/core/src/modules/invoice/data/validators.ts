@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
+import { emailSchema, moneyDecimalStringSchema } from '@open-mercato/shared/lib/validation'
 
 import {
   INVOICE_CURRENCY_CODES,
@@ -48,9 +49,17 @@ export const INVOICE_SYNC_GDT_TOKEN_TTL_CAP_SECONDS = 82800
 export const INVOICE_COMPANY_LOOKUP_CACHE_TTL_DAYS = 30
 export const INVOICE_TRACKING_PIXEL_RATE_LIMIT_REQUESTS = 120
 export const INVOICE_TRACKING_PIXEL_RATE_LIMIT_WINDOW_SECONDS = 60
+export const INVOICE_COMPANY_LOOKUP_RATE_LIMIT_REQUESTS = 60
+export const INVOICE_COMPANY_LOOKUP_RATE_LIMIT_WINDOW_SECONDS = 60
 
 const uuid = () => z.string().uuid()
 const nullableTrimmedString = (max: number) => z.string().trim().max(max).nullable().optional()
+const optionalTrimmedString = (schema: z.ZodString) =>
+  z.preprocess((value) => {
+    if (typeof value !== 'string') return value
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : undefined
+  }, schema.optional())
 
 export const invoiceDirectionSchema = z.enum(INVOICE_DIRECTIONS)
 export const invoiceStatusSchema = z.enum(INVOICE_STATUSES)
@@ -68,6 +77,7 @@ export const invoiceSortDirectionSchema = z.enum(['asc', 'desc'])
 
 export const invoiceIdSchema = uuid()
 export const invoiceCompanyIdSchema = uuid()
+export const invoiceCompanyEmailIdSchema = uuid()
 export const invoiceLineItemIdSchema = uuid()
 export const invoiceInstallmentIdSchema = uuid()
 export const invoicePaymentConfirmationIdSchema = uuid()
@@ -103,14 +113,9 @@ export const invoiceDateRangeSchema = z.object({
   toDate: invoiceDateSchema,
 })
 
-export const invoiceMoneySchema = z
-  .string()
-  .trim()
-  .regex(/^-?\d{1,14}(\.\d{1,4})?$/)
-export const invoicePositiveMoneySchema = z
-  .string()
-  .trim()
-  .regex(/^\d{1,14}(\.\d{1,4})?$/)
+/** Amounts stay decimal strings so the 4-dp arithmetic never round-trips through a JS number. */
+export const invoiceMoneySchema = moneyDecimalStringSchema({ signed: true })
+export const invoicePositiveMoneySchema = moneyDecimalStringSchema()
 export const invoicePercentSchema = z.coerce
   .number()
   .min(INVOICE_INSTALLMENT_INTEREST_RATE_MIN)
@@ -129,10 +134,36 @@ export const invoiceCodeSchema = nullableTrimmedString(120)
 export const invoiceSourceInvoiceIdSchema = z.string().trim().min(1).max(191)
 export const invoiceProviderSchema = z.string().trim().min(1).max(80)
 export const invoiceIdempotencyKeySchema = z.string().trim().min(1).max(191)
-export const invoiceEmailSchema = z.string().trim().email().max(320)
+export const invoiceEmailSchema = emailSchema()
+export const invoiceCompanyLookupCountrySchema = invoiceCountryCodeSchema
+export const invoiceCompanyLookupIdentifierSchema = z.string().trim().min(1).max(80)
 
 export const invoiceDueDaysSchema = z.coerce.number().int().min(0).max(INVOICE_MAX_DUE_DAYS)
 export const invoiceClearableDueDaysSchema = invoiceDueDaysSchema.nullable()
+export const invoicePartnerDefaultDueDaysSchema = z.coerce.number().int().min(1).max(INVOICE_MAX_DUE_DAYS)
+export const invoiceClearablePartnerDefaultDueDaysSchema = invoicePartnerDefaultDueDaysSchema.nullable()
+export const invoicePartnerTermsUpdateSchema = z.object({
+  defaultDueDays: invoiceClearablePartnerDefaultDueDaysSchema,
+}).strict()
+export const invoicePartnerListQuerySchema = z.object({
+  page: invoicePageSchema,
+  pageSize: invoicePartnerPageSizeSchema,
+  search: invoiceSearchSchema,
+})
+export const invoicePartnerMatchQuerySchema = z.object({
+  taxCode: optionalTrimmedString(invoiceTaxCodeSchema),
+  name: optionalTrimmedString(invoiceCompanyNameSchema),
+})
+export const invoiceCompanyEmailListQuerySchema = z.object({
+  companyId: invoiceCompanyIdSchema,
+})
+export const invoiceCompanyEmailRecordSchema = z.object({
+  companyId: invoiceCompanyIdSchema,
+  email: invoiceEmailSchema,
+}).strict()
+export const invoiceCompanyEmailDeleteQuerySchema = z.object({
+  companyId: invoiceCompanyIdSchema,
+})
 export const invoiceLineNumberSchema = z.coerce.number().int().min(1).max(INVOICE_LINE_ITEMS_MAX)
 export const invoiceInstallmentCountSchema = z.coerce
   .number()
@@ -159,3 +190,36 @@ export function hashInvoicePublicToken(token: InvoicePublicToken): InvoiceTokenH
 
 export const invoiceScopeTaxCodesSchema = z.array(invoiceTaxCodeSchema).max(100)
 export const invoiceJsonRecordSchema = z.record(z.string(), z.unknown())
+
+export const invoiceCompanyLookupProviderSchema = z.enum(['vietqr', 'data_gov_sg'])
+export const invoiceCompanyLookupCompanySchema = z.object({
+  name: invoiceCompanyNameSchema,
+  registrationNumber: invoiceCompanyLookupIdentifierSchema,
+  taxCode: invoiceTaxCodeSchema.nullable(),
+  address: z.string().trim().max(1000).nullable(),
+  status: z.string().trim().max(120).nullable(),
+  sourceUpdatedAt: z.string().datetime().nullable(),
+}).strict()
+export const invoiceCompanyLookupResultSchema = z.object({
+  mode: z.enum(['registry', 'manual']),
+  countryCode: invoiceCompanyLookupCountrySchema,
+  identifier: invoiceCompanyLookupIdentifierSchema,
+  provider: invoiceCompanyLookupProviderSchema.nullable(),
+  fetchedAt: z.string().datetime().nullable(),
+  stale: z.boolean(),
+  company: invoiceCompanyLookupCompanySchema.nullable(),
+}).strict()
+export const invoiceCompanyLookupCachePayloadSchema = z.object({
+  version: z.literal(1),
+  normalized: invoiceCompanyLookupCompanySchema,
+  rawProviderResponse: z.unknown(),
+  providerFetchedAt: z.string().datetime(),
+}).strict()
+export const invoiceCompanyLookupRouteQuerySchema = z.object({
+  country: invoiceCompanyLookupCountrySchema.default('VN'),
+}).strict()
+
+export type InvoiceCompanyLookupProviderKey = z.infer<typeof invoiceCompanyLookupProviderSchema>
+export type InvoiceCompanyLookupCompany = z.infer<typeof invoiceCompanyLookupCompanySchema>
+export type InvoiceCompanyLookupResult = z.infer<typeof invoiceCompanyLookupResultSchema>
+export type InvoiceCompanyLookupCachePayload = z.infer<typeof invoiceCompanyLookupCachePayloadSchema>

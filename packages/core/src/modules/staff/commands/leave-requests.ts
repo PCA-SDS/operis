@@ -91,6 +91,13 @@ function resolveAuthUserId(ctx: { auth?: { sub?: string | null; isApiKey?: boole
   return parseUuidCandidate(ctx.auth.sub ?? null)
 }
 
+/**
+ * Deliberately UTC, unlike the same-named local-time helpers in `planner` and
+ * the staff timesheets page. It is only ever fed dates that `listDateKeysInRange`
+ * built with `Date.UTC` and walks with `setUTCDate`, and `buildFullDayRrule`
+ * parses the key back through `Date.UTC` — reading it in local time would shift
+ * the day for anyone east or west of UTC. Do not "align" it with the others.
+ */
 function formatDateKey(value: Date): string {
   const year = value.getUTCFullYear()
   const month = String(value.getUTCMonth() + 1).padStart(2, '0')

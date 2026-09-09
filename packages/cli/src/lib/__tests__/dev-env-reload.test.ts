@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { createDevEnvReloader, resolveDevEnvFilePaths, watchDevRuntimeFiles } from '../dev-env-reload'
-import { normalizeTestPath } from './path-helpers'
+import { normalizeTestPath } from '@open-mercato/shared/lib/testing/pathAssertions'
 
 describe('dev env reload helpers', () => {
   let appDir: string

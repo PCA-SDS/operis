@@ -26,7 +26,7 @@ export default function CreateFeatureTogglePage() {
     <Page>
       <PageBody>
         <CrudForm
-          title="Create Feature Toggle"
+          title={t('feature_toggles.global.form.title.create', 'Create Feature Toggle')}
           backHref="/backend/feature-toggles/global"
           fields={fields}
           groups={formGroups}

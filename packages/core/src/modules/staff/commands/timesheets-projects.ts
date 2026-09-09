@@ -1,7 +1,6 @@
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { UniqueConstraintViolationException } from '@mikro-orm/core'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
@@ -27,6 +26,7 @@ import {
   type StaffTimeProjectMemberUpdateInput,
 } from '../data/validators'
 import { staffTimeProjectCrudEvents, staffTimeProjectMemberCrudEvents } from '../lib/crud'
+import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
 import {
   applyScopeToWhere,
   commandActorScope,
@@ -41,15 +41,6 @@ import {
   staffSnapshotScopeFromSnapshot,
   type StaffSnapshotScope,
 } from './shared'
-
-function isUniqueViolation(error: unknown): boolean {
-  if (error instanceof UniqueConstraintViolationException) return true
-  if (!error || typeof error !== 'object') return false
-  const code = (error as { code?: string }).code
-  if (code === '23505') return true
-  const message = (error as { message?: string }).message
-  return typeof message === 'string' && message.toLowerCase().includes('duplicate key')
-}
 
 type TimeProjectSnapshot = {
   id: string

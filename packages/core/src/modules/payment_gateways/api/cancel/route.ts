@@ -7,7 +7,6 @@ import { cancelSchema } from '../../data/validators'
 import type { PaymentGatewayService } from '../../lib/gateway-service'
 import { paymentGatewaysTag } from '../openapi'
 import {
-  resolveUserFeatures,
   runPaymentGatewayMutationGuardAfterSuccess,
   runPaymentGatewayMutationGuards,
 } from '../guards'
@@ -45,7 +44,6 @@ export async function POST(req: Request) {
       requestHeaders: req.headers,
       mutationPayload: parsed.data as Record<string, unknown>,
     },
-    resolveUserFeatures(auth),
   )
   if (!guardResult.ok) {
     return NextResponse.json(

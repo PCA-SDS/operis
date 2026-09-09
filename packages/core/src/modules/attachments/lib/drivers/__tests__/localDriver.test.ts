@@ -1,6 +1,6 @@
 /** @jest-environment node */
 import path from 'path'
-import { pathIncludes } from './path-helpers'
+import { pathIncludes } from '@open-mercato/shared/lib/testing/pathAssertions'
 
 const mockMkdir = jest.fn().mockResolvedValue(undefined)
 const mockWriteFile = jest.fn().mockResolvedValue(undefined)

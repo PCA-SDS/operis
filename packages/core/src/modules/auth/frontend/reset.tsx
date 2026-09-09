@@ -6,6 +6,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { EmailInput } from '@open-mercato/ui/primitives/email-input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 export default function ResetPage() {
   const t = useT()
@@ -23,7 +24,7 @@ export default function ResetPage() {
       const form = new FormData(e.currentTarget)
       const res = await fetch('/api/auth/reset', { method: 'POST', body: form })
       if (!res.ok) {
-        const data = await res.json().catch(() => null)
+        const data = await readJsonSafe<{ error?: string; fieldErrors?: { email?: string[] } }>(res)
         if (data?.fieldErrors?.email?.length) {
           setFieldError(t('auth.reset.errors.emailInvalid', 'Please enter a valid email address.'))
           return

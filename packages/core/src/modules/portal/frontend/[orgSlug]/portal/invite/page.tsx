@@ -17,6 +17,11 @@ import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
 import { PortalInjectionSpots } from '@open-mercato/ui/backend/injection/spotIds'
 import { navigateWithPageReload } from '@open-mercato/core/modules/portal/lib/navigation'
 import { FORM_FIELD_LABEL } from '@open-mercato/ui/backend/forms/formChrome'
+import {
+  formatPasswordRequirements,
+  getPasswordPolicy,
+  validatePassword,
+} from '@open-mercato/shared/lib/auth/passwordPolicy'
 
 type Props = { params: { orgSlug: string } }
 
@@ -62,8 +67,11 @@ export default function PortalInvitePage({ params }: Props) {
         return
       }
 
-      if (password.length < 8) {
-        setError(t('portal.invite.error.passwordTooShort', 'Password must be at least 8 characters long.'))
+      // The same policy the server enforces, so the client cannot accept a
+      // password the API will reject (it used to hardcode 8 with no complexity
+      // rule, while the server ignored `OM_PASSWORD_*` entirely).
+      if (!validatePassword(password).ok) {
+        setError(formatPasswordRequirements(getPasswordPolicy(), t))
         return
       }
 
