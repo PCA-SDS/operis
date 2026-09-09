@@ -432,8 +432,10 @@ Progress:
   support for manual and imported invoices, invoice-date/max-range validation,
   installment-authoritative `nextDueDate` behavior, route mutation guards, and
   command-level optimistic locking.
-- Summary, forecast, AR settlement, installment, send/tracking, payment
-  confirmation, and UI parity remain pending.
+- Summary, forecast, send/tracking, payment confirmation, and UI parity remain
+  pending. AR settlement and non-recoverable state transitions are implemented
+  through dedicated scoped commands and routes, including installment-aware
+  rollups and optimistic locking.
 
 ## M7 CAP-005 Payment Confirmations
 

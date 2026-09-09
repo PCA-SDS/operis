@@ -23,7 +23,11 @@ import {
   invoiceManualCreateSchema,
   invoiceManualUpdateSchema,
   invoiceDueDateUpdateSchema,
+  invoiceSettlementUpdateSchema,
+  invoiceNonRecoverableUpdateSchema,
   type InvoiceDueDateUpdateInput,
+  type InvoiceNonRecoverableUpdateInput,
+  type InvoiceSettlementUpdateInput,
   type InvoiceManualWriteInput,
 } from '../data/validators'
 import { InvoiceScopedPersistenceService } from './scoped-persistence-service'
@@ -50,6 +54,8 @@ export type InvoiceManualDeleteResult = {
   deleted: true
 }
 export type InvoiceDueDateUpdateResult = InvoiceManualMutationResult
+export type InvoiceSettlementUpdateResult = InvoiceManualMutationResult
+export type InvoiceNonRecoverableUpdateResult = InvoiceManualMutationResult
 
 type ManualLineItem = InvoiceManualWriteInput['lineItems'][number]
 type PartnerIdentity = {
@@ -178,6 +184,64 @@ function invoiceHasInstallmentSchedule(invoice: Invoice): boolean {
     }
   }
   return invoice.hasInstallmentPlan
+}
+
+function invoiceInstallmentItems(invoice: Invoice): InvoiceInstallment[] {
+  const installments = invoice.installments as unknown
+  if (Array.isArray(installments)) return installments
+  if (installments && typeof installments === 'object') {
+    const collection = installments as {
+      getItems?: () => unknown[]
+      isInitialized?: () => boolean
+    }
+    if (typeof collection.getItems === 'function') {
+      if (typeof collection.isInitialized === 'function' && !collection.isInitialized()) return []
+      return collection.getItems() as InvoiceInstallment[]
+    }
+  }
+  return []
+}
+
+export function recomputeInvoiceSettlementRollup(invoice: Invoice): void {
+  const installments = invoiceInstallmentItems(invoice)
+  invoice.hasInstallmentPlan = installments.length > 0
+
+  if (installments.length === 0) {
+    if (invoice.settlementStatus === 'SETTLED') {
+      invoice.paidAmount = moneyString(money(invoice.grossAmount))
+      invoice.outstandingAmount = moneyString(0)
+      invoice.nextDueDate = null
+    } else {
+      invoice.settlementStatus = 'UNSETTLED'
+      invoice.paidAmount = moneyString(0)
+      invoice.outstandingAmount = moneyString(money(invoice.grossAmount))
+      invoice.nextDueDate = invoice.dueDate ?? null
+    }
+  } else {
+    const paidAmount = installments
+      .filter((installment) => installment.status === 'PAID')
+      .reduce((total, installment) => total + money(installment.totalAmount), 0)
+    const outstandingAmount = installments
+      .filter((installment) => installment.status !== 'PAID')
+      .reduce((total, installment) => total + money(installment.totalAmount), 0)
+    const nextPending = installments
+      .filter((installment) => installment.status !== 'PAID')
+      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())[0]
+
+    invoice.paidAmount = moneyString(paidAmount)
+    invoice.outstandingAmount = moneyString(outstandingAmount)
+    invoice.nextDueDate = nextPending?.dueDate ?? null
+    if (outstandingAmount <= 0) {
+      invoice.settlementStatus = 'SETTLED'
+    } else if (paidAmount > 0) {
+      invoice.settlementStatus = 'PARTIALLY_PAID'
+    } else {
+      invoice.settlementStatus = 'UNSETTLED'
+    }
+  }
+
+  invoice.hasReceived = invoice.direction === 'AR' && invoice.settlementStatus === 'SETTLED'
+  invoice.hasPaid = invoice.direction === 'AP' && invoice.settlementStatus === 'SETTLED'
 }
 
 export class InvoiceService {
@@ -411,6 +475,72 @@ export class InvoiceService {
       invoice.nextDueDate = invoice.settlementStatus === 'SETTLED' ? null : (input.dueDate ?? null)
     }
 
+    await this.em.flush()
+
+    return { invoice: mapInvoiceEntityToDetailDto(invoice) }
+  }
+
+  async updateReceivableSettlement(
+    scope: InvoiceScope,
+    id: string,
+    rawInput: InvoiceSettlementUpdateInput,
+  ): Promise<InvoiceSettlementUpdateResult> {
+    const input = invoiceSettlementUpdateSchema.parse(rawInput)
+    const invoice = await this.scopedPersistence.findById(Invoice, scope, id, {
+      populate: ['lineItems', 'installments'] as never[],
+      orderBy: {
+        lineItems: { lineNumber: 'asc' },
+        installments: { sequence: 'asc' },
+      },
+    })
+    if (!invoice) throw notFound('[internal] Invoice not found')
+    if (invoice.direction !== 'AR') throw badRequest('[internal] Direct settlement is allowed only for AR invoices')
+
+    const installments = invoiceInstallmentItems(invoice)
+    const now = new Date()
+    if (installments.length === 0) {
+      invoice.settlementStatus = input.settled ? 'SETTLED' : 'UNSETTLED'
+    } else {
+      for (const installment of installments) {
+        installment.status = input.settled ? 'PAID' : 'PENDING'
+        installment.paidAt = input.settled ? (installment.paidAt ?? now) : null
+      }
+    }
+    recomputeInvoiceSettlementRollup(invoice)
+
+    if (input.settled) {
+      invoice.nonRecoverable = false
+      invoice.nonRecoverableNote = null
+      invoice.nonRecoverableAt = null
+    }
+
+    await this.em.flush()
+
+    return { invoice: mapInvoiceEntityToDetailDto(invoice) }
+  }
+
+  async updateNonRecoverable(
+    scope: InvoiceScope,
+    id: string,
+    rawInput: InvoiceNonRecoverableUpdateInput,
+  ): Promise<InvoiceNonRecoverableUpdateResult> {
+    const input = invoiceNonRecoverableUpdateSchema.parse(rawInput)
+    const invoice = await this.scopedPersistence.findById(Invoice, scope, id, {
+      populate: ['lineItems', 'installments'] as never[],
+      orderBy: {
+        lineItems: { lineNumber: 'asc' },
+        installments: { sequence: 'asc' },
+      },
+    })
+    if (!invoice) throw notFound('[internal] Invoice not found')
+    if (invoice.direction !== 'AR') throw badRequest('[internal] Non-recoverable state is allowed only for AR invoices')
+    if (input.nonRecoverable && invoice.settlementStatus === 'SETTLED') {
+      throw badRequest('[internal] Settled invoice cannot be marked non-recoverable')
+    }
+
+    invoice.nonRecoverable = input.nonRecoverable
+    invoice.nonRecoverableNote = input.nonRecoverable ? input.note?.trim() ?? null : null
+    invoice.nonRecoverableAt = input.nonRecoverable ? new Date() : null
     await this.em.flush()
 
     return { invoice: mapInvoiceEntityToDetailDto(invoice) }

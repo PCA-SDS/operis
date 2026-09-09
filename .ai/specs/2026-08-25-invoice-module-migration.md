@@ -388,3 +388,10 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   max-range validation, installment-authoritative scheduling behavior, and
   command-level optimistic locking. Summary/forecast, AR settlement,
   installments, send/tracking, payment confirmations, and UI remain pending.
+- 2026-09-09: Implemented authoritative AR settlement and non-recoverable
+  operations through Invoice Core. Added AR-only settle/unsettle commands,
+  installment-aware payment rollup recomputation, settlement clearing of
+  non-recoverable state, audited write-off notes, dedicated authenticated API
+  routes, mutation guards, command optimistic locking, and focused state and
+  route contracts. Payment Confirmation can reuse the exported rollup helper;
+  AP payment-confirmation orchestration remains out of scope.

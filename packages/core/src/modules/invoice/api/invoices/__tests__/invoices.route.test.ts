@@ -30,6 +30,8 @@ jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
 import * as listRoute from '../route'
 import * as detailRoute from '../[id]/route'
 import * as dueDateRoute from '../[id]/due-date/route'
+import * as settlementRoute from '../[id]/settlement/route'
+import * as nonRecoverableRoute from '../[id]/non-recoverable/route'
 
 const scope = { tenantId: 'tenant-1', organizationId: 'org-selected' }
 const auth = {
@@ -146,6 +148,44 @@ describe('invoice invoices API routes', () => {
     expect(listRoute.openApi.methods.POST?.operationId).toBe('invoice.invoices.create')
     expect(detailRoute.openApi.methods.PUT?.operationId).toBe('invoice.invoices.update')
     expect(detailRoute.openApi.methods.DELETE?.operationId).toBe('invoice.invoices.delete')
+    expect(settlementRoute.openApi.methods.PATCH?.operationId).toBe('invoice.invoices.settlement.update')
+    expect(nonRecoverableRoute.openApi.methods.PATCH?.operationId).toBe('invoice.invoices.non-recoverable.update')
+  })
+
+  it('routes settlement and non-recoverable writes through guarded commands', async () => {
+    const invoice = invoiceDto({ direction: 'AR' })
+    const commandExecute = jest.fn().mockResolvedValue({ result: { invoice } })
+    createRouteHarness({ commandExecute })
+
+    const settlementResponse = await settlementRoute.PATCH(
+      new Request('https://example.test/api/invoice/invoices/11111111-1111-4111-8111-111111111111/settlement', {
+        method: 'PATCH',
+        body: JSON.stringify({ settled: true }),
+        headers: { 'content-type': 'application/json' },
+      }),
+      { params: { id: invoiceId } },
+    )
+    const writeOffResponse = await nonRecoverableRoute.PATCH(
+      new Request('https://example.test/api/invoice/invoices/11111111-1111-4111-8111-111111111111/non-recoverable', {
+        method: 'PATCH',
+        body: JSON.stringify({ nonRecoverable: true, note: 'Bad debt' }),
+        headers: { 'content-type': 'application/json' },
+      }),
+      { params: { id: invoiceId } },
+    )
+
+    expect(settlementResponse.status).toBe(200)
+    expect(writeOffResponse.status).toBe(200)
+    expect(commandExecute).toHaveBeenNthCalledWith(
+      1,
+      'invoice.invoices.update-settlement',
+      expect.objectContaining({ input: { id: invoiceId, input: { settled: true } } }),
+    )
+    expect(commandExecute).toHaveBeenNthCalledWith(
+      2,
+      'invoice.invoices.update-non-recoverable',
+      expect.objectContaining({ input: { id: invoiceId, input: { nonRecoverable: true, note: 'Bad debt' } } }),
+    )
   })
 
   it('lists invoices through the service using trusted scope and ignores forged params', async () => {

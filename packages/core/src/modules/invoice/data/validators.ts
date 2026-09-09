@@ -38,6 +38,7 @@ export const INVOICE_PAYMENT_CONFIRMATION_TTL_DAYS = 14
 export const INVOICE_INSTALLMENT_COUNT_MIN = 2
 export const INVOICE_INSTALLMENT_COUNT_MAX = 60
 export const INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH = 1000
+export const invoiceNonRecoverableNoteSchema = z.string().trim().max(INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH)
 export const INVOICE_SYNC_MAX_WINDOW_DAYS = 1825
 export const INVOICE_SYNC_COOLDOWN_SECONDS = 300
 export const INVOICE_SYNC_FAILED_AUTH_BACKOFF_SECONDS = 900
@@ -238,6 +239,23 @@ export const invoiceDueDateUpdateSchema = z.object({
   dueDate: invoiceManualNullableDateSchema,
 }).strict()
 export type InvoiceDueDateUpdateInput = z.infer<typeof invoiceDueDateUpdateSchema>
+export const invoiceSettlementUpdateSchema = z.object({
+  settled: z.boolean(),
+}).strict()
+export type InvoiceSettlementUpdateInput = z.infer<typeof invoiceSettlementUpdateSchema>
+export const invoiceNonRecoverableUpdateSchema = z.object({
+  nonRecoverable: z.boolean(),
+  note: invoiceNonRecoverableNoteSchema.nullable().optional(),
+}).strict().superRefine((input, ctx) => {
+  if (input.nonRecoverable && !input.note?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['note'],
+      message: 'Non-recoverable note is required',
+    })
+  }
+})
+export type InvoiceNonRecoverableUpdateInput = z.infer<typeof invoiceNonRecoverableUpdateSchema>
 export const invoicePartnerMatchQuerySchema = z.object({
   taxCode: optionalTrimmedString(invoiceTaxCodeSchema),
   name: optionalTrimmedString(invoiceCompanyNameSchema),
@@ -273,7 +291,6 @@ export const invoiceInstallmentCountSchema = z.coerce
   .min(INVOICE_INSTALLMENT_COUNT_MIN)
   .max(INVOICE_INSTALLMENT_COUNT_MAX)
 export const invoiceProgressSchema = z.coerce.number().int().min(0).max(100)
-export const invoiceNonRecoverableNoteSchema = z.string().trim().max(INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH)
 export const invoiceNullableNoteSchema = nullableTrimmedString(INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH)
 
 const invoiceHex64Schema = () =>
