@@ -232,7 +232,10 @@ export async function GET(
 
   // Fetch constraints for this product
   const constraints = await em.find(CatalogProductConstraint, {
-    sourceProduct: productId,
+    $or: [
+      { sourceProduct: productId },
+      { sourceOption: { group: { product: productId } } },
+    ],
     tenantId,
     organizationId,
   })

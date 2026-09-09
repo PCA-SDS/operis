@@ -12,6 +12,7 @@ import {
 } from "@open-mercato/ui/backend/CrudForm";
 import { createCrud } from "@open-mercato/ui/backend/utils/crud";
 import { createCrudFormError } from "@open-mercato/ui/backend/utils/serverErrors";
+import { collectCustomFieldValues } from "@open-mercato/ui/backend/utils/customFieldValues";
 import { flash } from "@open-mercato/ui/backend/FlashMessages";
 import { TagsInput } from "@open-mercato/ui/backend/inputs/TagsInput";
 import MarkdownField from "@open-mercato/ui/backend/inputs/MarkdownField";
@@ -106,6 +107,9 @@ const logger = createLogger('catalog')
 
 const productFormTypedSchema =
   productFormSchema as unknown as ZodType<ProductFormValues>;
+
+const SERVICE_FIELDSET_CODE = "service_schedule";
+const SERVICE_UNIT_CODE = "service";
 
 type VariantPriceRequest = {
   variantDraftId: string;
@@ -377,6 +381,12 @@ export default function CreateCatalogProductPage() {
           />
         ),
       },
+      {
+        id: "custom-fields",
+        column: 2,
+        title: t("catalog.products.edit.custom.title", "Custom attributes"),
+        kind: "customFields",
+      },
     ],
     [priceKinds, taxRates, t],
   );
@@ -390,6 +400,10 @@ export default function CreateCatalogProductPage() {
           fields={[]}
           groups={groups}
           injectionSpotId={extensionPoints.hosts.productForm.spotId}
+          entityId={E.catalog.catalog_product}
+          customFieldsetBindings={{
+            [E.catalog.catalog_product]: { valueKey: "customFieldsetCode" },
+          }}
           initialValues={
             initialValuesRef.current ?? createInitialProductFormValues()
           }
@@ -583,6 +597,9 @@ export default function CreateCatalogProductPage() {
                 ? unitPriceBaseQuantity
                 : undefined,
               ...buildComplianceProductPayload(formValues),
+              customFieldsetCode: formValues.customFieldsetCode?.trim().length
+                ? formValues.customFieldsetCode
+                : undefined,
             };
             if (optionSchemaDefinition) {
               productPayload.optionSchema = optionSchemaDefinition;
@@ -620,6 +637,10 @@ export default function CreateCatalogProductPage() {
                 defaultMediaId: defaultMediaId ?? undefined,
                 defaultMediaUrl: defaultMediaUrl ?? undefined,
               }));
+            }
+            const customFields = collectCustomFieldValues(formValues);
+            if (Object.keys(customFields).length) {
+              productPayload.customFields = customFields;
             }
 
             const variantDrafts =
@@ -786,6 +807,10 @@ export default function CreateCatalogProductPage() {
                   durationUnit: variant.durationUnit || undefined,
                   durationMin: variant.durationMin ? parseInt(variant.durationMin, 10) : undefined,
                   durationMax: variant.durationMax ? parseInt(variant.durationMax, 10) : undefined,
+                  customFieldsetCode:
+                    formValues.productType === "service"
+                      ? SERVICE_FIELDSET_CODE
+                      : undefined,
                 };
                 const { result: variantResult } = await createCrud<{
                   id?: string;
@@ -1092,6 +1117,7 @@ function ProductDimensionsFields({
 
 function DefaultVariantBuilder({
   values,
+  setValue,
   setVariantField,
   setVariantPrice,
   priceKinds,
@@ -1101,6 +1127,7 @@ function DefaultVariantBuilder({
   t,
 }: {
   values: any;
+  setValue: (field: string, value: unknown) => void;
   setVariantField: (id: string, field: any, value: any) => void;
   setVariantPrice: (id: string, priceKindId: string, field: "amount" | "priceMin" | "priceMax", value: string) => void;
   priceKinds: any[];
@@ -1109,22 +1136,54 @@ function DefaultVariantBuilder({
   inventoryDisabledHint?: string;
   t: any;
 }) {
+  const isService = values.productType === "service";
+  const variant = values.variants?.[0] || {};
+  const variantId = variant.id || "";
+  const syncServiceDurationSummary = React.useCallback(
+    (nextValue: string) => {
+      if (!isService) return;
+      const currentSummary = values.cf_service_duration_minutes;
+      const previousValue = variant.durationValue || "";
+      if (
+        currentSummary === undefined ||
+        currentSummary === null ||
+        currentSummary === "" ||
+        String(currentSummary) === String(previousValue)
+      ) {
+        setValue("cf_service_duration_minutes", nextValue);
+      }
+    },
+    [isService, setValue, values.cf_service_duration_minutes, variant.durationValue],
+  );
+
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border p-6 bg-muted/20">
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          {t("catalog.products.create.variantsBuilder.defaultVariantLabel", "Default Variant")}
+      <div className="space-y-1 border-b pb-4">
+        <p className="text-xs font-semibold uppercase text-muted-foreground">
+          {isService
+            ? t("catalog.products.create.serviceOffering.label", "Service offering")
+            : t("catalog.products.create.variantsBuilder.defaultVariantLabel", "Default variant")}
+        </p>
+        <h3 className="text-base font-semibold text-foreground">
+          {isService
+            ? t("catalog.products.create.serviceOffering.title", "Price & duration")
+            : t("catalog.products.create.variantsBuilder.defaultVariantLabel", "Default variant")}
         </h3>
-        
+      </div>
+
         <div className="grid gap-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className={cn("grid grid-cols-1 gap-4", isService ? "md:grid-cols-2" : "md:grid-cols-3")}>
             <div className="space-y-2">
-              <Label>{t("catalog.products.form.variants", "Variant title")}</Label>
+              <Label>
+                {isService
+                  ? t("catalog.products.create.serviceOffering.name", "Offering name")
+                  : t("catalog.products.form.variants", "Variant title")}
+              </Label>
               <Input
-                value={(values.variants?.[0] || {}).title || ""}
+                value={variant.title || ""}
                 onChange={(event) =>
                   setVariantField(
-                    (values.variants?.[0] || {}).id || "",
+                    variantId,
                     "title",
                     event.target.value,
                   )
@@ -1135,26 +1194,28 @@ function DefaultVariantBuilder({
                 )}
               />
             </div>
-            <div className="space-y-2">
-              <Label>{t("catalog.products.create.variantsBuilder.sku", "SKU")}</Label>
-              <Input
-                value={(values.variants?.[0] || {}).sku || ""}
-                onChange={(event) =>
-                  setVariantField(
-                    (values.variants?.[0] || {}).id || "",
-                    "sku",
-                    event.target.value,
-                  )
-                }
-                placeholder={t("catalog.products.create.variantsBuilder.skuPlaceholder", "SKU")}
-              />
-            </div>
+            {isService ? null : (
+              <div className="space-y-2">
+                <Label>{t("catalog.products.create.variantsBuilder.sku", "SKU")}</Label>
+                <Input
+                  value={variant.sku || ""}
+                  onChange={(event) =>
+                    setVariantField(
+                      variantId,
+                      "sku",
+                      event.target.value,
+                    )
+                  }
+                  placeholder={t("catalog.products.create.variantsBuilder.skuPlaceholder", "SKU")}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label>{t("catalog.products.create.variantsBuilder.vatColumn", "Tax class")}</Label>
               <Select
-                value={(values.variants?.[0] || {}).taxRateId || undefined}
+                value={variant.taxRateId || undefined}
                 onValueChange={(value) =>
-                  setVariantField((values.variants?.[0] || {}).id || "", "taxRateId", value || null)
+                  setVariantField(variantId, "taxRateId", value || null)
                 }
                 disabled={!taxRates.length}
               >
@@ -1188,15 +1249,14 @@ function DefaultVariantBuilder({
             <h4 className="text-xs font-semibold uppercase text-muted-foreground">
               {t("catalog.variants.form.pricesLabel", "Prices")}
             </h4>
-            <div className="flex flex-wrap gap-6">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {priceKinds.map((kind) => {
-                const variantId = (values.variants?.[0] || {}).id || "";
-                const val = (values.variants?.[0] || {}).prices?.[kind.id]?.amount ?? "";
-                const minVal = (values.variants?.[0] || {}).prices?.[kind.id]?.priceMin ?? "";
-                const maxVal = (values.variants?.[0] || {}).prices?.[kind.id]?.priceMax ?? "";
+                const val = variant.prices?.[kind.id]?.amount ?? "";
+                const minVal = variant.prices?.[kind.id]?.priceMin ?? "";
+                const maxVal = variant.prices?.[kind.id]?.priceMax ?? "";
                 return (
-                  <div key={kind.id} className="flex-1 basis-72 min-w-72 space-y-3 rounded-lg border bg-surface p-4 shadow-sm">
-                    <Label className="flex items-center justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <div key={kind.id} className="space-y-3 rounded-md border bg-surface p-4">
+                    <Label className="flex items-center justify-between text-xs font-semibold uppercase text-muted-foreground">
                       <span>
                         {t(
                           "catalog.products.create.variantsBuilder.priceColumn",
@@ -1286,8 +1346,8 @@ function DefaultVariantBuilder({
                 {t("catalog.variants.form.durationLabel", "Duration")}
               </h4>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2 rounded-md border bg-surface p-4">
                   <Label className="text-xs text-muted-foreground">
                     {t("catalog.variants.form.durationFixed", "Fixed Duration")}
                   </Label>
@@ -1297,20 +1357,21 @@ function DefaultVariantBuilder({
                       min="0"
                       className="flex-1"
                       placeholder="e.g. 60"
-                      value={(values.variants?.[0] || {}).durationValue || ""}
-                      onChange={(e) =>
+                      value={variant.durationValue || ""}
+                      onChange={(e) => {
+                        syncServiceDurationSummary(e.target.value);
                         setVariantField(
-                          (values.variants?.[0] || {}).id || "",
+                          variantId,
                           "durationValue",
-                          e.target.value
-                        )
-                      }
+                          e.target.value,
+                        );
+                      }}
                     />
                     <Select
-                      value={(values.variants?.[0] || {}).durationUnit || "minute"}
+                      value={variant.durationUnit || "minute"}
                       onValueChange={(val) =>
                         setVariantField(
-                          (values.variants?.[0] || {}).id || "",
+                          variantId,
                           "durationUnit",
                           val
                         )
@@ -1331,7 +1392,7 @@ function DefaultVariantBuilder({
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 rounded-md border bg-surface p-4">
                   <Label className="text-xs text-muted-foreground">
                     {t("catalog.variants.form.durationRange", "Duration Range")}
                   </Label>
@@ -1342,10 +1403,10 @@ function DefaultVariantBuilder({
                         min="0"
                         placeholder="Min"
                         className="w-full"
-                        value={(values.variants?.[0] || {}).durationMin || ""}
+                        value={variant.durationMin || ""}
                         onChange={(e) =>
                           setVariantField(
-                            (values.variants?.[0] || {}).id || "",
+                            variantId,
                             "durationMin",
                             e.target.value
                           )
@@ -1359,10 +1420,10 @@ function DefaultVariantBuilder({
                         min="0"
                         placeholder="Max"
                         className="w-full"
-                        value={(values.variants?.[0] || {}).durationMax || ""}
+                        value={variant.durationMax || ""}
                         onChange={(e) =>
                           setVariantField(
-                            (values.variants?.[0] || {}).id || "",
+                            variantId,
                             "durationMax",
                             e.target.value
                           )
@@ -1446,7 +1507,6 @@ function DefaultVariantBuilder({
             </div>
           )}
         </div>
-      </div>
     </div>
   );
 }
@@ -1741,7 +1801,9 @@ function ProductBuilder({
                 ? t("catalog.options.title", "Option Tree")
                 : t("catalog.products.form.options", "Options"))}
             {step === "variants" &&
-              t("catalog.products.create.steps.variants", "Variants")}
+              (values.productType === "service"
+                ? t("catalog.products.create.steps.serviceOffering", "Price & duration")
+                : t("catalog.products.create.steps.variants", "Variants"))}
             {(stepErrors[step]?.length ?? 0) > 0 ? (
               <span
                 className="absolute -right-2 top-0 h-2 w-2 rounded-full bg-destructive"
@@ -1890,6 +1952,7 @@ function ProductBuilder({
 
       {currentStepKey === "variants" ? (
         <div className="space-y-6">
+          {values.productType === "service" ? null : (
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-2 text-sm font-medium">
               <input
@@ -1915,9 +1978,11 @@ function ProductBuilder({
 
             </label>
           </div>
+          )}
 
           <DefaultVariantBuilder 
             values={values} 
+            setValue={setValue}
             setVariantField={setVariantField} 
             setVariantPrice={setVariantPrice} 
             priceKinds={priceKinds} 
@@ -2083,6 +2148,12 @@ function ProductMetaSection({
             const nextType = value;
             setValue("productType", nextType);
             const nextIsConfigurable = isConfigurableProductType(nextType);
+            if (nextType === "service") {
+              setValue("customFieldsetCode", SERVICE_FIELDSET_CODE);
+              if (!values.defaultUnit) setValue("defaultUnit", SERVICE_UNIT_CODE);
+              if (!values.defaultSalesUnit) setValue("defaultSalesUnit", SERVICE_UNIT_CODE);
+              setValue("requiresShipping", false);
+            }
             if (nextIsConfigurable && !values.hasVariants) {
               setValue("hasVariants", true);
             } else if (!nextIsConfigurable && values.hasVariants) {
