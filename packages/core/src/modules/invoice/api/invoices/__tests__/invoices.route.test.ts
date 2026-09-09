@@ -29,6 +29,7 @@ jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
 
 import * as listRoute from '../route'
 import * as detailRoute from '../[id]/route'
+import * as dueDateRoute from '../[id]/due-date/route'
 
 const scope = { tenantId: 'tenant-1', organizationId: 'org-selected' }
 const auth = {
@@ -314,5 +315,99 @@ describe('invoice invoices API routes', () => {
     expect(commandExecute).toHaveBeenNthCalledWith(2, 'invoice.invoices.delete', expect.objectContaining({
       input: { id: invoiceId },
     }))
+  })
+
+  describe('due-date PATCH sub-route', () => {
+    it('declares auth and invoice.manage ACL metadata', () => {
+      expect(dueDateRoute.metadata.PATCH).toEqual({ requireAuth: true, requireFeatures: ['invoice.manage'] })
+    })
+
+    it('exports the correct OpenAPI operation id', () => {
+      expect(dueDateRoute.openApi.methods.PATCH?.operationId).toBe('invoice.invoices.due-date.update')
+    })
+
+    it('routes a valid PATCH to the command bus with trusted scope and correct command id', async () => {
+      const commandExecute = jest.fn().mockResolvedValue({
+        result: { invoiceId, invoice: invoiceDto({ dueDate: '2026-02-10T00:00:00.000Z' }) },
+      })
+      createRouteHarness({ commandExecute })
+
+      const response = await dueDateRoute.PATCH(
+        new Request(`https://example.test/api/invoice/invoices/${invoiceId}/due-date`, {
+          method: 'PATCH',
+          body: JSON.stringify({ dueDate: '2026-02-10' }),
+        }),
+        { params: { id: invoiceId } },
+      )
+
+      expect(response.status).toBe(200)
+      expect(commandExecute).toHaveBeenCalledWith(
+        'invoice.invoices.update-due-date',
+        expect.objectContaining({
+          input: expect.objectContaining({ id: invoiceId }),
+        }),
+      )
+      expect(mockRunRouteMutationGuards).toHaveBeenCalledWith(expect.objectContaining({
+        auth: expect.objectContaining({
+          tenantId: scope.tenantId,
+          organizationId: scope.organizationId,
+        }),
+        input: expect.objectContaining({
+          resourceKind: 'invoice.invoice',
+          operation: 'update',
+        }),
+      }))
+    })
+
+    it('ignores forged tenantId and organizationId in URL — uses auth-derived scope', async () => {
+      const commandExecute = jest.fn().mockResolvedValue({
+        result: { invoiceId, invoice: invoiceDto() },
+      })
+      createRouteHarness({ commandExecute })
+
+      const response = await dueDateRoute.PATCH(
+        new Request(
+          `https://example.test/api/invoice/invoices/${invoiceId}/due-date?tenantId=forged&organizationId=forged`,
+          { method: 'PATCH', body: JSON.stringify({ dueDate: '2026-02-10' }) },
+        ),
+        { params: { id: invoiceId } },
+      )
+
+      expect(response.status).toBe(200)
+      // Scope comes from auth, never from URL params
+      expect(mockRunRouteMutationGuards).toHaveBeenCalledWith(expect.objectContaining({
+        auth: expect.objectContaining({ tenantId: 'tenant-1', organizationId: 'org-selected' }),
+      }))
+    })
+
+    it('returns 400 for an invalid body (non-date string) without calling the command bus', async () => {
+      const commandExecute = jest.fn()
+      createRouteHarness({ commandExecute })
+
+      const response = await dueDateRoute.PATCH(
+        new Request(`https://example.test/api/invoice/invoices/${invoiceId}/due-date`, {
+          method: 'PATCH',
+          body: JSON.stringify({ dueDate: 'not-a-date' }),
+        }),
+        { params: { id: invoiceId } },
+      )
+
+      expect(response.status).toBe(400)
+      expect(commandExecute).not.toHaveBeenCalled()
+    })
+
+    it('returns 400 for an invalid invoice id param', async () => {
+      createRouteHarness()
+
+      const response = await dueDateRoute.PATCH(
+        new Request('https://example.test/api/invoice/invoices/not-a-uuid/due-date', {
+          method: 'PATCH',
+          body: JSON.stringify({ dueDate: '2026-02-10' }),
+        }),
+        { params: { id: 'not-a-uuid' } },
+      )
+
+      expect(response.status).toBe(400)
+    })
   })
 })

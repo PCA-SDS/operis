@@ -467,3 +467,17 @@ call sites can reuse the service contract directly, while all HTTP write routes
 run through platform mutation guards and audit-logged command execution with
 payload-blind trusted scope.
 
+## DEC-036 Manual Invoice Buyer Stamping
+
+Decision:
+
+Manual AP invoice create/update stamps the host company from trusted
+organization scope. Use the scoped `Organization.name` as `buyer_name` and set
+`buyer_tax_code = null`. Request body buyer fields are ignored.
+
+Reason:
+
+The current Organization model has a trusted name but no scoped legal tax
+identifier. Using request body buyer identity would make manual invoices trust
+client-owned ownership data. Setting buyer tax code to null keeps the snapshot
+honest until a trusted organization tax identity exists.

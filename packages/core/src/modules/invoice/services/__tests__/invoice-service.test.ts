@@ -322,4 +322,143 @@ describe('InvoiceService', () => {
     })).rejects.toMatchObject({ status: 400 })
     await expect(service.deleteManualInvoice(scope, invoiceId)).rejects.toMatchObject({ status: 400 })
   })
+
+  describe('updateDueDate', () => {
+    it('sets a valid future due date on an unsettled invoice without an installment plan', async () => {
+      const { em, service } = createService()
+      const inv = invoice({
+        invoiceDate: new Date('2026-01-10T00:00:00.000Z'),
+        dueDate: null,
+        settlementStatus: 'UNSETTLED',
+        hasInstallmentPlan: false,
+      })
+      jest.mocked(em.findOne).mockResolvedValue(inv)
+      jest.mocked(em.flush).mockResolvedValue(undefined)
+
+      const result = await service.updateDueDate(scope, invoiceId, { dueDate: '2026-02-10' })
+
+      expect(inv.dueDate).toEqual(new Date('2026-02-10T00:00:00.000Z'))
+      expect(inv.dueDateSource).toBe('explicit')
+      expect(inv.nextDueDate).toEqual(new Date('2026-02-10T00:00:00.000Z'))
+      expect(result.invoice.dueDate).toBeTruthy()
+      expect(em.flush).toHaveBeenCalled()
+    })
+
+    it('clears due date and nextDueDate when dueDate is null', async () => {
+      const { em, service } = createService()
+      const inv = invoice({
+        invoiceDate: new Date('2026-01-10T00:00:00.000Z'),
+        dueDate: new Date('2026-02-10T00:00:00.000Z'),
+        nextDueDate: new Date('2026-02-10T00:00:00.000Z'),
+        dueDateSource: 'explicit',
+        settlementStatus: 'UNSETTLED',
+        hasInstallmentPlan: false,
+      })
+      jest.mocked(em.findOne).mockResolvedValue(inv)
+      jest.mocked(em.flush).mockResolvedValue(undefined)
+
+      const result = await service.updateDueDate(scope, invoiceId, { dueDate: null })
+
+      expect(inv.dueDate).toBeNull()
+      expect(inv.dueDateSource).toBeNull()
+      expect(inv.nextDueDate).toBeNull()
+      expect(result.invoice.dueDate).toBeNull()
+    })
+
+    it('rejects a due date before invoice date with 400', async () => {
+      const { em, service } = createService()
+      jest.mocked(em.findOne).mockResolvedValue(invoice({
+        invoiceDate: new Date('2026-01-10T00:00:00.000Z'),
+        settlementStatus: 'UNSETTLED',
+        hasInstallmentPlan: false,
+      }))
+
+      await expect(service.updateDueDate(scope, invoiceId, { dueDate: '2026-01-09' }))
+        .rejects.toMatchObject({ status: 400 })
+      expect(em.flush).not.toHaveBeenCalled()
+    })
+
+    it('rejects a due date beyond INVOICE_MAX_DUE_DAYS after invoice date with 400', async () => {
+      const { em, service } = createService()
+      jest.mocked(em.findOne).mockResolvedValue(invoice({
+        invoiceDate: new Date('2026-01-10T00:00:00.000Z'),
+        settlementStatus: 'UNSETTLED',
+        hasInstallmentPlan: false,
+      }))
+      // INVOICE_MAX_DUE_DAYS = 3650; add 3651 days
+      const tooFar = new Date('2026-01-10T00:00:00.000Z')
+      tooFar.setDate(tooFar.getDate() + 3651)
+      const tooFarStr = tooFar.toISOString().slice(0, 10)
+
+      await expect(service.updateDueDate(scope, invoiceId, { dueDate: tooFarStr }))
+        .rejects.toMatchObject({ status: 400 })
+      expect(em.flush).not.toHaveBeenCalled()
+    })
+
+    it('does not update nextDueDate when invoice has an installment plan', async () => {
+      const { em, service } = createService()
+      const originalNextDueDate = new Date('2026-03-01T00:00:00.000Z')
+      const inv = invoice({
+        invoiceDate: new Date('2026-01-10T00:00:00.000Z'),
+        dueDate: null,
+        nextDueDate: originalNextDueDate,
+        settlementStatus: 'UNSETTLED',
+        hasInstallmentPlan: true,
+      })
+      jest.mocked(em.findOne).mockResolvedValue(inv)
+      jest.mocked(em.flush).mockResolvedValue(undefined)
+
+      await service.updateDueDate(scope, invoiceId, { dueDate: '2026-02-10' })
+
+      expect(inv.nextDueDate).toEqual(originalNextDueDate)
+    })
+
+    it('sets nextDueDate to null for a settled invoice regardless of new due date', async () => {
+      const { em, service } = createService()
+      const inv = invoice({
+        invoiceDate: new Date('2026-01-10T00:00:00.000Z'),
+        dueDate: null,
+        nextDueDate: null,
+        settlementStatus: 'SETTLED',
+        hasInstallmentPlan: false,
+      })
+      jest.mocked(em.findOne).mockResolvedValue(inv)
+      jest.mocked(em.flush).mockResolvedValue(undefined)
+
+      await service.updateDueDate(scope, invoiceId, { dueDate: '2026-02-10' })
+
+      expect(inv.nextDueDate).toBeNull()
+    })
+
+    it('returns 404 for a missing or foreign-scope invoice', async () => {
+      const { em, service } = createService()
+      jest.mocked(em.findOne).mockResolvedValue(null)
+
+      await expect(service.updateDueDate(scope, invoiceId, { dueDate: '2026-02-10' }))
+        .rejects.toMatchObject({ status: 404 })
+    })
+
+    it('allows due-date update on imported (GOVERNMENT_PORTAL) invoices without touching tax data', async () => {
+      const { em, service } = createService()
+      const inv = invoice({
+        origin: 'GOVERNMENT_PORTAL',
+        invoiceDate: new Date('2026-01-10T00:00:00.000Z'),
+        dueDate: null,
+        settlementStatus: 'UNSETTLED',
+        hasInstallmentPlan: false,
+        sellerTaxCode: '0100109106',
+        sellerName: 'Imported Seller',
+      })
+      jest.mocked(em.findOne).mockResolvedValue(inv)
+      jest.mocked(em.flush).mockResolvedValue(undefined)
+
+      await service.updateDueDate(scope, invoiceId, { dueDate: '2026-02-10' })
+
+      expect(inv.dueDate).toEqual(new Date('2026-02-10T00:00:00.000Z'))
+      // tax data unchanged
+      expect(inv.sellerTaxCode).toBe('0100109106')
+      expect(inv.sellerName).toBe('Imported Seller')
+      expect(inv.origin).toBe('GOVERNMENT_PORTAL')
+    })
+  })
 })

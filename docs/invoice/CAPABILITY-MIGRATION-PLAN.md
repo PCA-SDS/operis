@@ -423,7 +423,9 @@ Progress:
   create/update/delete service methods, command handlers, route writes,
   server-side line/totals calculation, partner create/reuse, duplicate guard,
   due-date defaults through CAP-003, Auto-Paid integration through M5, and
-  optimistic locking for edit/delete.
+  optimistic locking for edit/delete. Buyer stamping follows DEC-036:
+  `buyer_name` is the trusted scoped `Organization.name` and `buyer_tax_code`
+  is `null`.
 - Summary, forecast, dedicated due-date endpoint, AR settlement, installment,
   send/tracking, payment confirmation, and UI parity remain pending.
 

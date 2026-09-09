@@ -232,6 +232,12 @@ export const invoiceManualWriteSchema = z.object({
 })
 export const invoiceManualCreateSchema = invoiceManualWriteSchema
 export const invoiceManualUpdateSchema = invoiceManualWriteSchema
+export const invoiceDueDateUpdateSchema = z.object({
+  // null clears the due date; ISO date string sets it.
+  // Range/order validation requires the invoice row and happens in the service.
+  dueDate: invoiceManualNullableDateSchema,
+}).strict()
+export type InvoiceDueDateUpdateInput = z.infer<typeof invoiceDueDateUpdateSchema>
 export const invoicePartnerMatchQuerySchema = z.object({
   taxCode: optionalTrimmedString(invoiceTaxCodeSchema),
   name: optionalTrimmedString(invoiceCompanyNameSchema),

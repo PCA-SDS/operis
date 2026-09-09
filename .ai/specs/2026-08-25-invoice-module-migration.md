@@ -376,6 +376,8 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   `DELETE /api/invoice/invoices/[id]` through manual invoice commands,
   route mutation guards, trusted Invoice scope, server-owned totals, partner
   persistence, duplicate protection, CAP-003 due-date defaults, M5 Auto-Paid
-  initial settlement, and edit/delete optimistic locking. Summary/forecast,
-  dedicated due-date updates, AR settlement, installments, send/tracking,
-  payment confirmations, and UI remain pending.
+  initial settlement, and edit/delete optimistic locking. Buyer stamping is
+  locked in DEC-036: use trusted scoped `Organization.name` as `buyer_name`
+  and store `buyer_tax_code = null`. Summary/forecast, dedicated due-date
+  updates, AR settlement, installments, send/tracking, payment confirmations,
+  and UI remain pending.

@@ -7,7 +7,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { resolveOrganizationScopeForRequest, type OrganizationScope } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import type { OpenApiResponseDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
@@ -137,7 +137,7 @@ export type InvoiceInvoiceRouteContext = {
   auth: AuthContext
   userId: string
   scope: InvoiceScope
-  organizationScope: { selectedId?: string | null } | null
+  organizationScope: OrganizationScope | null
   em: EntityManager
   translate: (key: string, fallback?: string) => string
 }
@@ -185,7 +185,7 @@ export async function resolveInvoiceInvoiceRouteContext(req: Request): Promise<I
     auth,
     userId: auth.sub,
     scope,
-    organizationScope: organizationScope ? { selectedId: organizationScope.selectedId ?? null } : null,
+    organizationScope: organizationScope ?? null,
     em: container.resolve('em') as EntityManager,
     translate,
   }

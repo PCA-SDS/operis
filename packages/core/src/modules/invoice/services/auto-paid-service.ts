@@ -75,7 +75,7 @@ export class InvoiceAutoPaidService {
         sellerTaxCode: { $ne: null },
       },
       {
-        fields: ['sellerTaxCode'] as unknown as (keyof Invoice)[],
+        fields: ['sellerTaxCode'] as never[],
       },
     )
 
@@ -211,10 +211,10 @@ export class InvoiceAutoPaidService {
 
   private buildInvoiceWhere(scope: InvoiceScope, where: FilterQuery<Invoice>): FilterQuery<Invoice> {
     return {
-      ...where,
+      ...(where as Record<string, unknown>),
       tenantId: scope.tenantId,
       organizationId: scope.organizationId,
-    }
+    } as FilterQuery<Invoice>
   }
 }
 

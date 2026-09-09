@@ -4,10 +4,11 @@ import { enforceCommandOptimisticLockWithGuards, enforceRecordGoneIsConflict } f
 
 import { Invoice } from '../data/entities'
 import { requireInvoiceScope } from '../data/scope'
-import { invoiceIdSchema, invoiceManualCreateSchema, invoiceManualUpdateSchema } from '../data/validators'
+import { invoiceIdSchema, invoiceManualCreateSchema, invoiceManualUpdateSchema, invoiceDueDateUpdateSchema } from '../data/validators'
 import type {
   InvoiceManualDeleteResult,
   InvoiceManualMutationResult,
+  InvoiceDueDateUpdateResult,
   InvoiceService,
 } from '../services/invoice-service'
 
@@ -149,3 +150,59 @@ export const deleteManualInvoiceCommand: CommandHandler<unknown, InvoiceManualDe
 registerCommand(createManualInvoiceCommand)
 registerCommand(updateManualInvoiceCommand)
 registerCommand(deleteManualInvoiceCommand)
+
+export type InvoiceDueDateUpdateCommandResult = {
+  invoiceId: string
+  invoice: InvoiceDueDateUpdateResult['invoice']
+}
+
+export const updateInvoiceDueDateCommand: CommandHandler<unknown, InvoiceDueDateUpdateCommandResult> = {
+  id: 'invoice.invoices.update-due-date',
+  isUndoable: false,
+  async execute(rawInput, ctx) {
+    const record = rawInput && typeof rawInput === 'object' ? rawInput as Record<string, unknown> : {}
+    const id = invoiceIdSchema.parse(record.id)
+    const input = invoiceDueDateUpdateSchema.parse(record.input ?? record)
+    const scope = requireInvoiceScope(ctx)
+    const em = ctx.container.resolve('em') as { findOne: (entity: typeof Invoice, where: Record<string, unknown>) => Promise<Invoice | null> }
+    const current = await em.findOne(Invoice, {
+      id,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+      deletedAt: null,
+    })
+    if (!current) {
+      enforceRecordGoneIsConflict({ resourceKind: INVOICE_INVOICE_RESOURCE_KIND, resourceId: id, request: ctx.request })
+    } else {
+      await enforceCommandOptimisticLockWithGuards(ctx.container, {
+        resourceKind: INVOICE_INVOICE_RESOURCE_KIND,
+        resourceId: id,
+        current: current.updatedAt,
+        request: ctx.request,
+      })
+    }
+    const result = await serviceFrom(ctx).updateDueDate(scope, id, input)
+
+    return {
+      invoiceId: result.invoice.id,
+      invoice: result.invoice,
+    }
+  },
+  buildLog({ result, ctx }) {
+    const scope = requireInvoiceScope(ctx)
+
+    return {
+      actionLabel: 'Update invoice due date',
+      resourceKind: INVOICE_INVOICE_RESOURCE_KIND,
+      resourceId: result.invoiceId,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+      context: {
+        dueDate: result.invoice.dueDate ?? null,
+        cleared: result.invoice.dueDate == null,
+      },
+    }
+  },
+}
+
+registerCommand(updateInvoiceDueDateCommand)

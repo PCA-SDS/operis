@@ -18,9 +18,12 @@ import {
 } from '../data/queries'
 import type { InvoiceScope } from '../data/scope'
 import {
+  INVOICE_MAX_DUE_DAYS,
   INVOICE_PARTNER_DEFAULT_DUE_DAYS,
   invoiceManualCreateSchema,
   invoiceManualUpdateSchema,
+  invoiceDueDateUpdateSchema,
+  type InvoiceDueDateUpdateInput,
   type InvoiceManualWriteInput,
 } from '../data/validators'
 import { InvoiceScopedPersistenceService } from './scoped-persistence-service'
@@ -46,6 +49,7 @@ export type InvoiceManualDeleteResult = {
   invoiceId: string
   deleted: true
 }
+export type InvoiceDueDateUpdateResult = InvoiceManualMutationResult
 
 type ManualLineItem = InvoiceManualWriteInput['lineItems'][number]
 type PartnerIdentity = {
@@ -185,7 +189,7 @@ export class InvoiceService {
 
   async getInvoiceDetail(scope: InvoiceScope, id: string): Promise<InvoiceDetailDto> {
     const invoice = await this.scopedPersistence.findById(Invoice, scope, id, {
-      populate: ['company', 'lineItems', 'installments'],
+      populate: ['company', 'lineItems', 'installments'] as never[],
       orderBy: {
         lineItems: { lineNumber: 'asc' },
         installments: { sequence: 'asc' },
@@ -278,7 +282,7 @@ export class InvoiceService {
       const txPartnerTermsService = createInvoicePartnerTermsService(tx, txScopedPersistence)
       const txAutoPaidService = createInvoiceAutoPaidService(tx, txScopedPersistence)
       const invoice = await txScopedPersistence.findById(Invoice, scope, id, {
-        populate: ['lineItems', 'installments', 'paymentConfirmations'],
+        populate: ['lineItems', 'installments', 'paymentConfirmations'] as never[],
       })
       if (!invoice) throw notFound('[internal] Invoice not found')
       this.assertManualInvoice(invoice)
@@ -345,6 +349,53 @@ export class InvoiceService {
 
       return { invoice: mapInvoiceEntityToDetailDto(invoice) }
     })
+  }
+
+  async updateDueDate(
+    scope: InvoiceScope,
+    id: string,
+    rawInput: InvoiceDueDateUpdateInput,
+  ): Promise<InvoiceDueDateUpdateResult> {
+    const input = invoiceDueDateUpdateSchema.parse(rawInput)
+    const invoice = await this.scopedPersistence.findById(Invoice, scope, id, {
+      populate: ['lineItems', 'installments'] as never[],
+      orderBy: {
+        lineItems: { lineNumber: 'asc' },
+        installments: { sequence: 'asc' },
+      },
+    })
+    if (!invoice) throw notFound('[internal] Invoice not found')
+
+    if (input.dueDate != null) {
+      const invoiceDate = invoice.invoiceDate instanceof Date
+        ? invoice.invoiceDate
+        : new Date(invoice.invoiceDate)
+
+      if (input.dueDate < invoiceDate) {
+        throw badRequest('[internal] Due date cannot be before invoice date')
+      }
+
+      const maxDate = new Date(invoiceDate)
+      maxDate.setDate(maxDate.getDate() + INVOICE_MAX_DUE_DAYS)
+      if (input.dueDate > maxDate) {
+        throw badRequest(`[internal] Due date cannot be more than ${INVOICE_MAX_DUE_DAYS} days after invoice date`)
+      }
+    }
+
+    invoice.dueDate = input.dueDate ?? null
+    invoice.dueDateSource = input.dueDate != null ? 'explicit' : null
+
+    // nextDueDate scheduling rule:
+    //   - installment plan is authoritative → leave nextDueDate alone
+    //   - settled invoice → nextDueDate is always null
+    //   - otherwise → mirror the new dueDate
+    if (!invoice.hasInstallmentPlan) {
+      invoice.nextDueDate = invoice.settlementStatus === 'SETTLED' ? null : (input.dueDate ?? null)
+    }
+
+    await this.em.flush()
+
+    return { invoice: mapInvoiceEntityToDetailDto(invoice) }
   }
 
   async deleteManualInvoice(scope: InvoiceScope, id: string): Promise<InvoiceManualDeleteResult> {
@@ -419,7 +470,7 @@ export class InvoiceService {
       invoiceNumber,
     }
     if (excludeInvoiceId) {
-      where.id = { $ne: excludeInvoiceId } as FilterQuery<Invoice>['id']
+      ;(where as Record<string, unknown>).id = { $ne: excludeInvoiceId }
     }
     const duplicate = await scopedPersistence.findOne(Invoice, scope, where)
     if (duplicate) throw conflict('[internal] Duplicate manual invoice')
@@ -436,6 +487,8 @@ export class InvoiceService {
         organizationId: scope.organizationId,
         tenantId: scope.tenantId,
         invoice,
+        createdAt: new Date(),
+        updatedAt: new Date(),
         ...lineItem,
       })
       invoice.lineItems?.add?.(created)
