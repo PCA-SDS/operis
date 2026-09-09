@@ -82,7 +82,7 @@ function buildOptionSummaries(
       currentGroupId = childOf.get(currentGroupId)
     }
 
-    const path = pathParts.join(' > ')
+    const path = [...pathParts, o.name].join(' > ')
     result.push({ 
       id: o.id, 
       name: o.name, 
@@ -143,15 +143,20 @@ export default function ProductConstraintsPage({ params }: { params?: { id?: str
 
       // Load products — as cascading tree items
       try {
-        const productsResult = await readApiResultOrThrow<{ items: { id: string; title?: string; name?: string }[] }>(
-          `/api/catalog/products?limit=100`
+        const productsResult = await readApiResultOrThrow<{ items: { id: string; title?: string; name?: string; sku?: string | null; handle?: string | null }[] }>(
+          `/api/catalog/products?page=1&pageSize=100`
         )
         const opts: CascadingItemDef[] = (productsResult.items ?? [])
           .filter((p) => p.id !== productId) // exclude current product
-          .map((p) => ({
-            id: p.id,
-            label: (p as { title?: string; name?: string }).title ?? (p as { name?: string }).name ?? p.id,
-          }))
+          .map((p) => {
+            const sku = p.sku ? t('catalog.constraints.productContext.sku', 'SKU {sku}').replace('{sku}', p.sku) : null
+            const handle = p.handle ? t('catalog.constraints.productContext.handle', 'Handle {handle}').replace('{handle}', p.handle) : null
+            return {
+              id: p.id,
+              label: p.title ?? p.name ?? p.id,
+              description: [sku, handle].filter(Boolean).join(' · ') || t('catalog.constraints.productContext.id', 'ID {id}').replace('{id}', p.id.slice(0, 8)),
+            }
+          })
         setProductSeedOptions(opts)
       } catch {
         // non-critical

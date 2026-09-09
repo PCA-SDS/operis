@@ -1,8 +1,12 @@
 "use client"
 
 import * as React from 'react'
-import { ChevronRight, ChevronDown, Search, X, Check } from 'lucide-react'
+import { ChevronRight, ChevronDown, X, Check } from 'lucide-react'
+import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { Button } from '@open-mercato/ui/primitives/button'
+import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 
 // ─────────────────────────────────────────────────────────────────
@@ -41,6 +45,13 @@ export type CascadingComboboxProps = {
 }
 
 type FlatItem = (CascadingItemDef & { depth: number; isExcluded?: boolean })
+type DropdownPosition = {
+  top?: number
+  bottom?: number
+  left: number
+  width: number
+  maxHeight: number
+}
 
 // ─────────────────────────────────────────────────────────────────
 // Helpers
@@ -63,6 +74,42 @@ function buildFlat(
   return result
 }
 
+function collectExpandableIds(items: CascadingItemDef[], ids = new Set<string>()): Set<string> {
+  for (const item of items) {
+    if (item.children?.length) {
+      ids.add(item.id)
+      collectExpandableIds(item.children, ids)
+    }
+  }
+  return ids
+}
+
+function filterTreeForSearch(items: CascadingItemDef[], query: string): CascadingItemDef[] {
+  const q = query.toLowerCase()
+  const matches = (item: CascadingItemDef): boolean =>
+    item.label.toLowerCase().includes(q) ||
+    item.description?.toLowerCase().includes(q) === true
+
+  const visit = (item: CascadingItemDef): CascadingItemDef | null => {
+    const children = item.children
+      ?.map((child) => visit(child))
+      .filter((child): child is CascadingItemDef => child !== null)
+
+    if (matches(item) || (children && children.length > 0)) {
+      return {
+        ...item,
+        children: children && children.length > 0 ? children : undefined,
+      }
+    }
+
+    return null
+  }
+
+  return items
+    .map((item) => visit(item))
+    .filter((item): item is CascadingItemDef => item !== null)
+}
+
 // ─────────────────────────────────────────────────────────────────
 // CascadingCombobox
 // ─────────────────────────────────────────────────────────────────
@@ -77,11 +124,19 @@ export function CascadingCombobox({
   excludeIds = [],
   loading = false,
 }: CascadingComboboxProps) {
+  const t = useT()
   const [open, setOpen] = React.useState(false)
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
   const [search, setSearch] = React.useState('')
   const containerRef = React.useRef<HTMLDivElement>(null)
+  const triggerRef = React.useRef<HTMLDivElement>(null)
   const searchInputRef = React.useRef<HTMLInputElement>(null)
+  const [dropdownPosition, setDropdownPosition] = React.useState<DropdownPosition>({
+    top: 0,
+    left: 0,
+    width: 280,
+    maxHeight: 256,
+  })
 
   // Selected label
   const selectedItem = React.useMemo(() => {
@@ -107,28 +162,8 @@ export function CascadingCombobox({
 
     if (!search.trim()) return buildFlat(items, expanded, 0, excludeSet)
 
-    const q = search.toLowerCase()
-    const match = (item: CascadingItemDef): boolean =>
-      item.label.toLowerCase().includes(q) ||
-      item.description?.toLowerCase().includes(q) ||
-      (item.children?.some(match) ?? false)
-
-    const searchFiltered = items.reduce<CascadingItemDef[]>((acc, item) => {
-      if (!match(item)) return acc
-      const filtered: CascadingItemDef = { ...item }
-      if (item.children) {
-        const childFiltered = item.children.reduce<CascadingItemDef[]>((a, c) => {
-          if (match(c)) a.push(c)
-          return a
-        }, [])
-        if (childFiltered.length) filtered.children = childFiltered
-        else delete filtered.children
-      }
-      acc.push(filtered)
-      return acc
-    }, [])
-
-    return buildFlat(searchFiltered, expanded, 0, excludeSet)
+    const searchFiltered = filterTreeForSearch(items, search.trim())
+    return buildFlat(searchFiltered, collectExpandableIds(searchFiltered), 0, excludeSet)
   }, [search, items, expanded, excludeIds])
 
   const handleToggle = (item: CascadingItemDef) => {
@@ -153,22 +188,64 @@ export function CascadingCombobox({
     }
   }
 
-  // Close on outside click
-  React.useEffect(() => {
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+    if (!nextOpen) setSearch('')
+  }
+
+  const updateDropdownPosition = React.useCallback(() => {
+    const trigger = triggerRef.current
+    if (!trigger || typeof window === 'undefined') return
+
+    const rect = trigger.getBoundingClientRect()
+    const viewportPadding = 12
+    const sideOffset = 4
+    const preferredMaxHeight = 256
+    const spaceBelow = window.innerHeight - rect.bottom - viewportPadding - sideOffset
+    const spaceAbove = rect.top - viewportPadding - sideOffset
+    const openBelow = spaceBelow >= 180 || spaceBelow >= spaceAbove
+    const availableHeight = Math.max(140, openBelow ? spaceBelow : spaceAbove)
+    const width = Math.max(280, rect.width)
+    const left = Math.max(
+      viewportPadding,
+      Math.min(rect.left, window.innerWidth - width - viewportPadding),
+    )
+
+    setDropdownPosition({
+      top: openBelow ? rect.bottom + sideOffset : undefined,
+      bottom: openBelow ? undefined : window.innerHeight - rect.top + sideOffset,
+      left,
+      width,
+      maxHeight: Math.min(preferredMaxHeight, availableHeight),
+    })
+  }, [])
+
+  React.useLayoutEffect(() => {
     if (!open) return
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-        setSearch('')
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
+    updateDropdownPosition()
+    searchInputRef.current?.focus()
+  }, [open, updateDropdownPosition])
 
   React.useEffect(() => {
-    if (open) searchInputRef.current?.focus()
-  }, [open])
+    if (!open) return
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        handleOpenChange(false)
+      }
+    }
+    const handleReposition = () => updateDropdownPosition()
+
+    document.addEventListener('mousedown', handlePointerDown)
+    window.addEventListener('resize', handleReposition)
+    window.addEventListener('scroll', handleReposition, true)
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      window.removeEventListener('resize', handleReposition)
+      window.removeEventListener('scroll', handleReposition, true)
+    }
+  }, [open, updateDropdownPosition])
 
   // Auto-expand path to selected value; also expand all groups on open
   React.useEffect(() => {
@@ -201,63 +278,77 @@ export function CascadingCombobox({
 
   return (
     <div ref={containerRef} className={cn('relative', className)}>
-      {/* Trigger */}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-        className={cn(
-          'flex w-full items-center justify-between gap-2 rounded-md border bg-background px-3 py-2 text-sm text-left',
-          'hover:bg-muted/50 transition-colors',
-          'disabled:opacity-50 disabled:cursor-not-allowed',
-          open && 'ring-2 ring-ring ring-offset-1 outline-none',
-        )}
-      >
-        <span className={cn('truncate flex-1', !selectedItem && 'text-muted-foreground')}>
-          {selectedItem?.label || placeholder}
-        </span>
-        <div className="flex items-center gap-1 shrink-0">
-          {clearable && value && (
-            <span
-              role="button"
-              tabIndex={-1}
-              onClick={(e) => { e.stopPropagation(); onChange(''); setExpanded(new Set()) }}
-              className="p-0.5 rounded hover:bg-muted"
-            >
-              <X className="w-3.5 h-3.5 text-muted-foreground" />
-            </span>
+      <div ref={triggerRef} className="relative">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={disabled}
+          onClick={() => handleOpenChange(!open)}
+          className={cn(
+            'h-auto min-h-9 w-full justify-between bg-input-bg py-2 text-left font-normal hover:bg-modal-muted',
+            clearable && value && !disabled ? 'pr-16' : 'pr-3',
+            open && 'shadow-focus border-input-border-focus bg-modal-muted',
           )}
-          <svg className={cn('w-4 h-4 text-muted-foreground transition-transform', open && 'rotate-180')} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </button>
+          aria-expanded={open}
+          aria-haspopup="listbox"
+        >
+          <span className="min-w-0 flex-1">
+            <span className={cn('block truncate', !selectedItem && 'text-muted-foreground')}>
+              {selectedItem?.label || placeholder}
+            </span>
+            {selectedItem?.description ? (
+              <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                {selectedItem.description}
+              </span>
+            ) : null}
+          </span>
+          <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} />
+        </Button>
+        {clearable && value && !disabled ? (
+          <IconButton
+            type="button"
+            variant="ghost"
+            size="xs"
+            aria-label={t('catalog.constraints.combobox.clearSelection', 'Clear selection')}
+            className="absolute right-8 top-1/2 z-10 -translate-y-1/2"
+            onClick={(event) => {
+              event.stopPropagation()
+              onChange('')
+              setExpanded(new Set())
+            }}
+          >
+            <X className="size-3.5" />
+          </IconButton>
+        ) : null}
+      </div>
 
-      {/* Dropdown */}
-      {open && (
-        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg overflow-hidden">
+      {open ? (
+        <div
+          className="fixed z-popover overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-lg"
+          style={{
+            top: dropdownPosition.top,
+            bottom: dropdownPosition.bottom,
+            left: dropdownPosition.left,
+            width: dropdownPosition.width,
+          }}
+        >
           {/* Search */}
           {hasItems && (
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
-              <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              <input
+            <div className="border-b border-border px-3 py-2">
+              <SearchInput
                 ref={searchInputRef}
-                type="text"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={setSearch}
+                onClear={() => setSearch('')}
                 placeholder={placeholder}
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                clearLabel={t('catalog.constraints.combobox.clearSearch', 'Clear search')}
+                tone="plain"
               />
-              {search && (
-                <span role="button" tabIndex={-1} onClick={() => setSearch('')} className="p-0.5 rounded hover:bg-muted">
-                  <X className="w-3.5 h-3.5 text-muted-foreground" />
-                </span>
-              )}
             </div>
           )}
 
           {/* List */}
-          <div className="max-h-64 overflow-y-auto py-1">
+          <div className="overflow-y-auto py-1 overscroll-contain" style={{ maxHeight: dropdownPosition.maxHeight }}>
             {loading ? (
               <div className="px-3 py-3 space-y-2">
                 {[1, 2, 3].map((i) => (
@@ -269,89 +360,103 @@ export function CascadingCombobox({
               </div>
             ) : filteredList.length === 0 ? (
               <div className="px-3 py-6 text-center text-xs text-muted-foreground">
-                No items found
+                {t('catalog.constraints.combobox.empty', 'No items found')}
               </div>
             ) : (
               <>
+                {filteredList.map((item) => {
+                  const hasChildren = Boolean(item.children?.length)
+                  const isExpanded = expanded.has(item.id)
+                  const isSelected = item.id === value
+                  const isExcluded = Boolean(item.isExcluded)
+                  const indent = item.depth * 16
+                  const childCount = item.children?.length ?? 0
 
-            {filteredList.map((item) => {
-              const hasChildren = Boolean(item.children?.length)
-              const isExpanded = expanded.has(item.id)
-              const isSelected = item.id === value
-              const isExcluded = Boolean(item.isExcluded)
-              const indent = item.depth * 16
-
-              return (
-                <div
-                  key={item.id}
-                  className={cn(
-                    'flex w-full items-center gap-1.5 text-sm text-left transition-colors rounded-sm',
-                    isExcluded ? 'opacity-40' : 'hover:bg-muted/40',
-                  )}
-                  style={{ paddingLeft: `${12 + indent}px`, paddingRight: '12px', paddingTop: '2px', paddingBottom: '2px' }}
-                >
-                  {hasChildren ? (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); handleToggle(item); }}
-                      className="p-1 -ml-1 rounded hover:bg-background shrink-0 text-muted-foreground cursor-pointer"
-                    >
-                      {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                    </button>
-                  ) : (
-                    <span className="w-5 shrink-0" />
-                  )}
-
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      if (isExcluded) return;
-                      if (hasChildren && !item.selectable) {
-                        handleToggle(item);
-                      } else {
-                        handleSelect(item, true);
-                      }
-                    }}
-                    className={cn(
-                      'flex-1 min-w-0 flex items-center gap-2 py-1.5',
-                      (!hasChildren || item.selectable) && !isExcluded ? 'cursor-pointer' : 'cursor-default'
-                    )}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className={cn(
-                          'truncate',
-                          isSelected ? 'font-medium text-foreground' : 'text-foreground',
-                          isExcluded && 'line-through',
-                        )}>
-                          {item.label}
-                        </span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
-                        {isExcluded && !isSelected && (
-                          <span className="text-xs text-muted-foreground shrink-0">Already selected</span>
-                        )}
-                      </div>
-                      {item.description && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          {item.description}
-                        </div>
+                  return (
+                    <div
+                      key={item.id}
+                      className={cn(
+                        'flex w-full items-center gap-1.5 text-sm text-left transition-colors rounded-sm',
+                        isExcluded ? 'opacity-40' : 'hover:bg-muted/40',
                       )}
+                      style={{ paddingLeft: `${12 + indent}px`, paddingRight: '12px', paddingTop: '2px', paddingBottom: '2px' }}
+                    >
+                      {hasChildren ? (
+                        <IconButton
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleToggle(item)
+                          }}
+                          aria-label={isExpanded
+                            ? t('catalog.constraints.combobox.collapse', 'Collapse')
+                            : t('catalog.constraints.combobox.expand', 'Expand')}
+                          className="-ml-1 shrink-0 text-muted-foreground"
+                        >
+                          {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                        </IconButton>
+                      ) : (
+                        <span className="w-5 shrink-0" />
+                      )}
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={isExcluded}
+                        onClick={() => {
+                          if (isExcluded) return
+                          if (hasChildren && !item.selectable) {
+                            handleToggle(item)
+                          } else {
+                            handleSelect(item, true)
+                          }
+                        }}
+                        className={cn(
+                          'h-auto min-w-0 flex-1 justify-start gap-2 px-0 py-1.5 text-left hover:bg-transparent',
+                          hasChildren && !item.selectable && 'cursor-default',
+                        )}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              'truncate',
+                              isSelected ? 'font-medium text-foreground' : 'text-foreground',
+                              isExcluded && 'line-through',
+                            )}>
+                              {item.label}
+                            </span>
+                            {isSelected && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
+                            {isExcluded && !isSelected && (
+                              <span className="text-xs text-muted-foreground shrink-0">
+                                {t('catalog.constraints.combobox.alreadySelected', 'Already selected')}
+                              </span>
+                            )}
+                          </div>
+                          {item.description && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              {item.description}
+                            </div>
+                          )}
+                        </div>
+                        {hasChildren && !isExpanded && (
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            {childCount === 1
+                              ? t('catalog.constraints.combobox.childCount.one', '1 item')
+                              : t('catalog.constraints.combobox.childCount.many', '{count} items').replace('{count}', String(childCount))}
+                          </span>
+                        )}
+                      </Button>
                     </div>
-                    {hasChildren && !isExpanded && (
-                      <span className="text-xs text-muted-foreground shrink-0">
-                        {item.children!.length} item{item.children!.length !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+                  )
+                })}
               </>
             )}
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
