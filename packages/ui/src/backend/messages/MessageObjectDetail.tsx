@@ -29,6 +29,7 @@ export function MessageObjectDetail(props: ObjectDetailProps) {
       actionType={props.actionType}
       actionLabel={props.actionLabel}
       icon={props.icon}
+      fallbackTitleKey={props.fallbackTitleKey}
     />
   )
 

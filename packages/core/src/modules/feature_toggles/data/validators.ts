@@ -69,8 +69,8 @@ export const overrideListQuerySchema = z
     identifier: z.string().optional(),
     sortField: z.enum(['identifier', 'name', 'category']).optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
-    page: z.coerce.number().min(1).optional().default(1),
-    pageSize: z.coerce.number().min(1).max(100).optional().default(25),
+    page: z.coerce.number().int().min(1).optional().default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).optional().default(25),
   })
   .passthrough()
 

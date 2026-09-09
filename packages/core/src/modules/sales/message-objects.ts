@@ -1,7 +1,5 @@
 import type { MessageObjectTypeDefinition } from '@open-mercato/shared/modules/messages/types'
 import { MessageObjectDetail, MessageObjectPreview } from '@open-mercato/ui/backend/messages'
-import { SalesDocumentMessageDetail } from './widgets/messages/SalesDocumentMessageDetail'
-import { SalesDocumentMessagePreview } from './widgets/messages/SalesDocumentMessagePreview'
 
 const objectMessageTypes = ['default', 'messages.defaultWithObjects']
 
@@ -15,8 +13,8 @@ export const messageObjectTypes: MessageObjectTypeDefinition[] = [
     optionSubtitleField: 'status',
     labelKey: 'sales.documents.detail.order',
     icon: 'receipt-text',
-    PreviewComponent: SalesDocumentMessagePreview,
-    DetailComponent: SalesDocumentMessageDetail,
+    PreviewComponent: MessageObjectPreview,
+    DetailComponent: MessageObjectDetail,
     actions: [
       {
         id: 'view',
@@ -45,8 +43,8 @@ export const messageObjectTypes: MessageObjectTypeDefinition[] = [
     optionSubtitleField: 'status',
     labelKey: 'sales.documents.detail.quote',
     icon: 'file-text',
-    PreviewComponent: SalesDocumentMessagePreview,
-    DetailComponent: SalesDocumentMessageDetail,
+    PreviewComponent: MessageObjectPreview,
+    DetailComponent: MessageObjectDetail,
     actions: [
       {
         id: 'view',

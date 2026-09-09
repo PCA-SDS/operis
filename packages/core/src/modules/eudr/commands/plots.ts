@@ -34,6 +34,7 @@ import {
   type PlotUpdateInput,
 } from '../data/validators'
 import { POINT_MAX_AREA_HA, validatePlotGeometry } from '../lib/geometry'
+import { toDateOrNull as toDate } from '@open-mercato/shared/lib/date/normalize'
 
 const PLOT_ENTITY_ID = 'eudr:eudr_plot'
 
@@ -121,10 +122,6 @@ function numericStringToNumber(value: string | null | undefined): number | null 
   if (value == null) return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
-}
-
-function toDate(value: string | null): Date | null {
-  return value ? new Date(value) : null
 }
 
 function normalizeFeature(feature: { type: string; properties: Record<string, unknown>; geometry: unknown }): Record<string, unknown> {

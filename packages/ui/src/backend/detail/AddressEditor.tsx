@@ -299,7 +299,7 @@ export function AddressEditor<C = unknown>({
                     disabled={disabled}
                     aria-invalid={typeFormError ? 'true' : undefined}
                   />
-                  {typeFormError ? <p className="text-sm text-destructive">{typeFormError}</p> : null}
+                  {typeFormError ? <p className="text-sm text-status-error-text">{typeFormError}</p> : null}
                   <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setTypeDialogOpen(false)} disabled={disabled}>
                       {label('types.cancel', 'Cancel')}
@@ -330,8 +330,8 @@ export function AddressEditor<C = unknown>({
           </Button>
         </div>
       </div>
-      {errors.purpose ? <p className="text-xs text-destructive">{errors.purpose}</p> : null}
-      {addressTypeError ? <p className="text-xs text-destructive">{addressTypeError}</p> : null}
+      {errors.purpose ? <p className="text-xs text-status-error-text">{errors.purpose}</p> : null}
+      {addressTypeError ? <p className="text-xs text-status-error-text">{addressTypeError}</p> : null}
       <Input
         className={inputClass('companyName')}
         placeholder={label('fields.companyName', 'Company name')}
@@ -502,8 +502,8 @@ export function AddressEditor<C = unknown>({
               aria-invalid={errors.longitude ? 'true' : undefined}
             />
           </div>
-          {errors.latitude ? <p className="text-xs text-destructive">{errors.latitude}</p> : null}
-          {errors.longitude ? <p className="text-xs text-destructive">{errors.longitude}</p> : null}
+          {errors.latitude ? <p className="text-xs text-status-error-text">{errors.latitude}</p> : null}
+          {errors.longitude ? <p className="text-xs text-status-error-text">{errors.longitude}</p> : null}
         </>
       ) : null}
 

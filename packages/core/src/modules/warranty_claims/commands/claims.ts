@@ -60,6 +60,7 @@ import { resolveEffectiveWarrantyClaimSettings, type WarrantyClaimEffectiveSetti
 import { evaluateClaimRisk } from '../lib/risk'
 import type { WarrantyAdjudicationEvaluator } from '../services/adjudicationEvaluator'
 import type { WarrantyEntitlementInput, WarrantyEntitlementResolver } from '../services/entitlementResolver'
+import { toDateOnlyIso, toIsoOrNull as toIso } from '@open-mercato/shared/lib/date/normalize'
 import {
   WARRANTY_CLAIM_RESOURCE_KIND,
   appendClaimEvent,
@@ -277,21 +278,10 @@ function resolveScope(ctx: CommandRuntimeContext, input: ScopeInput): WarrantyCl
   return { tenantId, organizationId }
 }
 
-function toIso(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  const date = value instanceof Date ? value : new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date.toISOString()
-}
-
 function toDate(value: string | null): Date | null {
   if (!value) return null
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? null : date
-}
-
-function toDateOnlyIso(value: Date | string | null | undefined): string | null {
-  const iso = toIso(value)
-  return iso ? iso.slice(0, 10) : null
 }
 
 function toDateOnly(value: string | null): Date | null {

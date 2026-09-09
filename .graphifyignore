@@ -4,10 +4,10 @@
 #
 # See .ai/docs/code-navigation.md.
 
-# The scaffolder template mirrors apps/mercato/src/app byte-for-byte (kept in sync by
-# `yarn template:sync:fix`), so indexing both sides doubles the node count and makes every
-# hit ambiguous. Neither path exists in the working tree right now — the create-app → cli
-# rename is mid-flight — so both are listed and the entries are inert until one returns.
+# Upstream, the scaffolder template mirrors apps/mercato/src/app byte-for-byte, so indexing
+# both sides doubles the node count and makes every hit ambiguous. This fork carries no
+# template and no sync script (there is no `yarn template:sync:fix`) — neither path exists
+# in the working tree, so both are listed defensively and the entries are inert.
 packages/create-app/template/
 packages/cli/template/
 

@@ -13,6 +13,7 @@ import { Notification } from '../data/entities'
 import { listNotificationsSchema, createNotificationSchema } from '../data/validators'
 import { toNotificationDto } from '../lib/notificationMapper'
 import { inAppVisibleFilter } from '../lib/notificationVisibility'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import {
   buildNotificationReadScopeWhere,
   getNotificationReadScopeTagOrganizationIds,
@@ -211,7 +212,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const { service, scope, ctx } = await resolveNotificationContext(req)
 
-  const body = await req.json().catch(() => ({}))
+  const body = await readJsonSafe(req, {})
   const parsed = createNotificationSchema.safeParse(body)
   if (!parsed.success) {
     return notificationValidationErrorResponse(parsed.error)

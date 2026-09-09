@@ -21,6 +21,7 @@ import { metadata } from '../index'
 import searchConfig from '../search'
 import setup from '../setup'
 import type { InvoiceScopedPersistenceService } from '../services/scoped-persistence-service'
+import type { InvoicePartnerTermsService } from '../services/partner-terms-service'
 
 const MODULE_ROOT = join(__dirname, '..')
 const MIGRATION_SOURCE = readFileSync(
@@ -83,6 +84,9 @@ describe('invoice module foundation', () => {
       'events.ts',
       'search.ts',
       join('api', 'openapi.ts'),
+      join('api', 'partners', 'route.ts'),
+      join('api', 'partners', 'match', 'route.ts'),
+      join('api', 'partners', '[id]', 'route.ts'),
       join('data', 'entities.ts'),
       join('data', 'validators.ts'),
     ]) {
@@ -115,8 +119,15 @@ describe('invoice module foundation', () => {
     const service = container.resolve<InvoiceScopedPersistenceService>('invoiceScopedPersistenceService')
     expect(typeof service.findOne).toBe('function')
     expect(typeof service.findMany).toBe('function')
+    expect(typeof service.countMany).toBe('function')
     expect(typeof service.findById).toBe('function')
     expect(typeof service.createScoped).toBe('function')
+
+    const partnerTermsService = container.resolve<InvoicePartnerTermsService>('invoicePartnerTermsService')
+    expect(typeof partnerTermsService.listPartners).toBe('function')
+    expect(typeof partnerTermsService.matchPartner).toBe('function')
+    expect(typeof partnerTermsService.updateDefaultDueDays).toBe('function')
+    expect(typeof partnerTermsService.resolveDefaultDueDate).toBe('function')
 
     for (const [token, entity] of Object.entries(ENTITY_EXPORTS)) {
       expect(container.resolve(token)).toBe(entity)

@@ -14,6 +14,8 @@ import { Eye, EyeOff, X } from 'lucide-react'
 import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
 import { useRegisteredComponent } from '@open-mercato/ui/backend/injection/useRegisteredComponent'
 import type { AuthOverride, LoginFormWidgetContext } from './login-injection'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { toErrorMessage } from '@open-mercato/shared/lib/http/errorMessage'
 
 // Hero photograph. Matches the reference sign-in; override with
 // NEXT_PUBLIC_OM_LOGIN_HERO_URL (e.g. a self-hosted asset) without a code change.
@@ -42,33 +44,6 @@ function setTenantCookie(value: string) {
 function clearTenantCookie() {
   if (typeof document === 'undefined') return
   document.cookie = `${loginTenantKey}=; path=/; max-age=0; samesite=lax`
-}
-
-function extractErrorMessage(payload: unknown): string | null {
-  if (!payload) return null
-  if (typeof payload === 'string') return payload
-  if (Array.isArray(payload)) {
-    for (const entry of payload) {
-      const resolved = extractErrorMessage(entry)
-      if (resolved) return resolved
-    }
-    return null
-  }
-  if (typeof payload === 'object') {
-    const record = payload as Record<string, unknown>
-    const candidates: unknown[] = [
-      record.error,
-      record.message,
-      record.detail,
-      record.details,
-      record.description,
-    ]
-    for (const candidate of candidates) {
-      const resolved = extractErrorMessage(candidate)
-      if (resolved) return resolved
-    }
-  }
-  return null
 }
 
 function looksLikeJsonString(value: string): boolean {
@@ -294,7 +269,7 @@ export default function LoginPage() {
         if (contentType.includes('application/json')) {
           try {
             const data = await res.json()
-            errorMessage = extractErrorMessage(data) || ''
+            errorMessage = toErrorMessage(data) || ''
           } catch {
             try {
               const text = await cloned.text()
@@ -321,7 +296,7 @@ export default function LoginPage() {
         return
       }
       // In case API returns 200 with JSON
-      const data = await res.json().catch(() => null) as LoginResponseEventDetail
+      const data = await readJsonSafe(res) as LoginResponseEventDetail
       emitLoginResponseEvent(data)
       clearAllOperations()
       clearAllPerspectiveState()

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 const uuid = () => z.string().uuid()
 const coerceNumericString = z.preprocess(
@@ -24,7 +25,7 @@ const addressSchema = z.object({
 export const orderPayloadSchema = z.object({
   customerEntityId: uuid().optional(),
   customerName: z.string().trim().min(1).max(300),
-  customerEmail: z.string().trim().email().max(320).optional(),
+  customerEmail: emailSchema().optional(),
   channelId: uuid().optional(),
   currencyCode: z.string().trim().length(3),
   taxRateId: uuid().optional(),
@@ -92,7 +93,7 @@ const lowercaseContactType = z.preprocess(
 export const createContactPayloadSchema = z.object({
   type: lowercaseContactType,
   name: z.string().trim().min(1).max(300),
-  email: z.string().trim().email().max(320).optional(),
+  email: emailSchema().optional(),
   phone: z.string().trim().max(50).optional(),
   companyName: z.string().trim().max(300).optional(),
   role: z.string().trim().max(150).optional(),
@@ -100,7 +101,7 @@ export const createContactPayloadSchema = z.object({
 })
 
 export const linkContactPayloadSchema = z.object({
-  emailAddress: z.string().trim().email().max(320),
+  emailAddress: emailSchema(),
   contactId: uuid(),
   contactType: lowercaseContactType,
   contactName: z.string().trim().min(1).max(300),
@@ -125,9 +126,9 @@ export const logActivityPayloadSchema = z.object({
 })
 
 export const draftReplyPayloadSchema = z.object({
-  to: z.string().trim().email().max(320),
+  to: emailSchema(),
   toName: z.string().trim().max(300).optional().nullable(),
-  replyTo: z.string().trim().email().max(320).optional().nullable(),
+  replyTo: emailSchema().optional().nullable(),
   subject: z.string().trim().min(1).max(500),
   body: z.string().trim().min(1).max(10000),
   inReplyToMessageId: z.string().trim().max(500).optional().nullable(),

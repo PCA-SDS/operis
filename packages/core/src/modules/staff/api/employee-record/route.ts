@@ -17,6 +17,8 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { ScopedAttachmentUploadService } from '@open-mercato/core/modules/attachments/lib/scoped-upload-service'
 import { E } from '#generated/entities.ids.generated'
 import { StaffEmployeeProfile, StaffTeam, StaffTeamMember, StaffTeamRole } from '../../data/entities'
+import { resolveGrantedFeatures } from '@open-mercato/shared/lib/auth/grantedFeatures'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import {
   employeeRecordFileName,
   renderEmployeeRecordMarkdown,
@@ -46,12 +48,6 @@ const responseSchema = z.object({
   fileName: z.string(),
 })
 
-function resolveUserFeatures(auth: unknown): string[] {
-  const features = (auth as { features?: unknown })?.features
-  if (!Array.isArray(features)) return []
-  return features.filter((value): value is string => typeof value === 'string')
-}
-
 export async function POST(req: Request) {
   try {
     const container = await createRequestContainer()
@@ -71,7 +67,7 @@ export async function POST(req: Request) {
       })
     }
 
-    const parsed = bodySchema.safeParse(await req.json().catch(() => null))
+    const parsed = bodySchema.safeParse(await readJsonSafe(req))
     if (!parsed.success) {
       throw new CrudHttpError(400, { error: translate('staff.errors.invalidInput', 'Invalid input.') })
     }
@@ -102,7 +98,9 @@ export async function POST(req: Request) {
       mutationPayload: parsed.data,
     }
     const guardResult = legacyGuard
-      ? await runMutationGuards([legacyGuard], guardInput, { userFeatures: resolveUserFeatures(auth) })
+      ? await runMutationGuards([legacyGuard], guardInput, {
+          userFeatures: await resolveGrantedFeatures(container, auth, guardInput.organizationId),
+        })
       : { ok: true, afterSuccessCallbacks: [] as Array<{ guard: MutationGuard; metadata: Record<string, unknown> | null }> }
     if (!guardResult.ok) {
       return NextResponse.json(guardResult.errorBody ?? {}, { status: guardResult.errorStatus ?? 403 })

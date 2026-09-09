@@ -5,6 +5,7 @@ import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib
 import { queryIndexTag, queryIndexErrorSchema, queryIndexOkSchema, queryIndexReindexRequestSchema } from './openapi'
 import { recordIndexerLog } from '@open-mercato/shared/lib/indexers/status-log'
 import { isValidEntityIdShape } from '@open-mercato/shared/lib/query/engine'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import {
   runCrudMutationGuardAfterSuccess,
   validateCrudMutationGuard,
@@ -17,7 +18,7 @@ export const metadata = {
 export async function POST(req: Request) {
   const auth = await getAuthFromRequest(req)
   if (!auth || !auth.tenantId || !auth.orgId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const body = await req.json().catch(() => ({})) as any
+  const body = await readJsonSafe(req, {}) as any
   const entityType = String(body?.entityType || '')
   if (!entityType) return NextResponse.json({ error: 'Missing entityType' }, { status: 400 })
   if (!isValidEntityIdShape(entityType)) {

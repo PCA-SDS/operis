@@ -28,6 +28,7 @@ import { join } from 'node:path'
  */
 
 const moduleEntities: Record<string, string[]> = {
+  appointments: ['Appointment'],
   auth: ['User', 'Role'],
   catalog: [
     'CatalogProduct',
@@ -194,7 +195,9 @@ const makeCrudRouteByEntity: Record<string, string[]> = {
   ResourcesResource: ['resources/api/resources.ts'],
   ResourcesResourceType: ['resources/api/resource-types.ts'],
   // Dictionary / BusinessRule / RuleSet — command-layer guard (case c).
-  DictionaryEntry: ['sales/api/adjustment-kinds/route.ts', 'sales/lib/makeStatusDictionaryRoute.ts'],
+  // `sales/api/adjustment-kinds/route.ts` is no longer listed: it delegates to
+  // `makeStatusDictionaryRoute`, so the factory below is the single write surface.
+  DictionaryEntry: ['sales/lib/makeStatusDictionaryRoute.ts'],
   Currency: ['currencies/api/currencies/route.ts'],
   FeatureToggle: ['feature_toggles/api/global/route.ts'],
   WorkflowDefinition: ['workflows/api/definitions/[id]/route.ts'],

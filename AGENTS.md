@@ -184,7 +184,7 @@ All packages use the `@open-mercato/<package>` naming convention: **shared** (cr
 - Put shared utilities and types in `packages/shared/src/lib/` or `packages/shared/src/modules/`
 - Put UI components in `packages/ui/src/`
 - Put user/app-specific modules in `apps/mercato/src/modules/<module>/`
-- MUST NOT add code directly in `apps/mercato/src/` — it's a boilerplate for user apps. Narrow exception: committed, typed *generated registries* (`*.generated.ts`) that must survive `yarn clean-generated` and travel with the repo — see [Generated Files: versioned vs ephemeral](.ai/docs/module-development.md#generated-files-versioned-vs-ephemeral).
+- MUST NOT add code directly in `apps/mercato/src/` — it's a boilerplate for user apps. Narrow exception: committed, typed *generated registries* (`*.generated.ts`) that must survive `yarn clean:generated` and travel with the repo — see [Generated Files: versioned vs ephemeral](.ai/docs/module-development.md#generated-files-versioned-vs-ephemeral).
 
 ### `external/official-modules/` (git submodule)
 
@@ -291,7 +291,7 @@ These are critical project-wide rules. The top-level `Always`, `Ask First`, and 
 
 ```bash
 yarn dev                  # Compact dev runtime; press `d` for raw logs (`:verbose`, `:app`, `:greenfield` variants)
-yarn dev:reset            # Clear .mercato/next/dev plus legacy .next caches when Turbopack serves stale chunks
+yarn workspace @open-mercato/app dev:reset   # Clear .mercato/next/dev plus legacy .next caches when Turbopack serves stale chunks (app-scoped script)
 yarn build                # Build everything (`build:packages` / `build:app` for one side)
 yarn lint                 # Lint all packages
 yarn test                 # Run unit tests (`test:integration` for Playwright, headless)

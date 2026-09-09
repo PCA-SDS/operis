@@ -22,6 +22,7 @@ import {
   updateDictionaryEntrySchema as updateEntryDocSchema,
 } from '../../../openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('dictionaries').child({ component: 'entries-api' })
 const paramsSchema = z.object({
@@ -85,7 +86,7 @@ export async function PATCH(req: Request, ctx: { params?: { dictionaryId?: strin
       current: entry.updatedAt ?? null,
       request: req,
     })
-    const rawBody = await req.json().catch(() => ({}))
+    const rawBody = await readJsonSafe(req, {})
     const payload = updateDictionaryEntrySchema.parse(rawBody)
     const guardUserId = resolveDictionaryActorId(context.auth)
     const guardResult = await validateCrudMutationGuard(context.container, {

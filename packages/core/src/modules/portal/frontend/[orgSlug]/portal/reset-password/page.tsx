@@ -15,6 +15,11 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { usePortalContext } from '@open-mercato/ui/portal/PortalContext'
 import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
 import { FORM_FIELD_LABEL } from '@open-mercato/ui/backend/forms/formChrome'
+import {
+  formatPasswordRequirements,
+  getPasswordPolicy,
+  validatePassword,
+} from '@open-mercato/shared/lib/auth/passwordPolicy'
 
 type Props = { params: { orgSlug: string } }
 
@@ -55,8 +60,9 @@ export default function PortalResetPasswordPage({ params }: Props) {
         return
       }
 
-      if (password.length < 8) {
-        setError(t('portal.resetPassword.error.passwordTooShort', 'Password must be at least 8 characters long.'))
+      // Mirrors the server policy — see the invite page.
+      if (!validatePassword(password).ok) {
+        setError(formatPasswordRequirements(getPasswordPolicy(), t))
         return
       }
 

@@ -19,6 +19,7 @@ import {
   CUSTOM_SEND_NO_DEVICES_WARNING,
 } from '../../data/validators'
 import type { PushNotificationService } from '../../lib/send-custom-push'
+import { resolveGrantedFeatures } from '@open-mercato/shared/lib/auth/grantedFeatures'
 
 const logger = createLogger('push_notifications')
 
@@ -28,12 +29,6 @@ const errorResponseSchema = z.object({ error: z.string() })
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['push_notifications.send_custom'] },
-}
-
-function resolveUserFeatures(auth: unknown): string[] {
-  const features = (auth as { features?: unknown })?.features
-  if (!Array.isArray(features)) return []
-  return features.filter((value): value is string => typeof value === 'string')
 }
 
 async function runGuards(
@@ -80,7 +75,11 @@ export async function POST(req: Request) {
       requestHeaders: req.headers,
       mutationPayload: body,
     }
-    const guardResult = await runGuards(container, resolveUserFeatures(auth), guardInput)
+    const guardResult = await runGuards(
+      container,
+      await resolveGrantedFeatures(container, auth, guardInput.organizationId),
+      guardInput,
+    )
     if (!guardResult.ok) {
       return NextResponse.json(
         guardResult.errorBody ?? { error: translate('push_notifications.errors.send_failed', 'Operation blocked') },

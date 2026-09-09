@@ -23,6 +23,7 @@ import {
 } from '../../lib/settings'
 import { WARRANTY_CLAIM_SETTINGS_RESOURCE_KIND, type SaveWarrantyClaimSettingsResult } from '../../commands/settings'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toIsoOrNull as toIso } from '@open-mercato/shared/lib/date/normalize'
 
 const logger = createLogger('warranty_claims')
 
@@ -47,12 +48,6 @@ type SettingsResponseResult = WarrantyClaimEffectiveSettings & {
 
 function toRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
-function toIso(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  const date = value instanceof Date ? value : new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
 
 async function resolveSettingsContext(req: Request): Promise<SettingsRouteContext> {

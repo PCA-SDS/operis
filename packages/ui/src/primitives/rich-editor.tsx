@@ -558,7 +558,7 @@ export const RichEditor = React.memo(function RichEditor({
                     <span
                       className={cn(
                         'pointer-events-none absolute bottom-2 right-3 select-none text-xs leading-4 text-muted-foreground',
-                        plaintextLength > maxLength && 'text-destructive',
+                        plaintextLength > maxLength && 'text-status-error-text',
                       )}
                       data-slot="rich-editor-counter"
                       aria-live="polite"

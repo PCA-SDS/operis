@@ -45,7 +45,9 @@ const PLATFORM_MODULE_IDS = new Set([
  */
 const EXPECTED_DEFAULT_ENABLED_MODULE_IDS = [
   'ai_assistant',
+  'appointments',
   'business_rules',
+  'catalog',
   'channel_gmail',
   'channel_imap',
   'chat',

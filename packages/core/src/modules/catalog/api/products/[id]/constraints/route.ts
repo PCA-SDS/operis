@@ -8,7 +8,6 @@ import { CatalogProduct, CatalogProductConstraint } from '../../../../data/entit
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import {
-  resolveUserFeatures,
   runCatalogMutationGuardAfterSuccess,
   runCatalogMutationGuards,
 } from '../../../guards'
@@ -279,7 +278,6 @@ export async function PUT(
   const guardResult = await runCatalogMutationGuards(
     ctx.container,
     guardInput,
-    resolveUserFeatures(ctx.auth),
   )
   if (!guardResult.ok) {
     throw new CrudHttpError(guardResult.errorStatus ?? 422, guardResult.errorBody ?? { error: 'Operation blocked by guard' })
