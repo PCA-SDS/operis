@@ -74,7 +74,15 @@ Bypass flow "Paid?" email confirmation cho các supplier mà payment luôn đư�
 - Bulk settlement and revert logic is kept in the service and uses trusted tenant/organization scope.
 - API routes, settings UI, manual invoice create integration, and sync-worker integration remain pending.
 - Implemented authenticated API routes with OpenAPI metadata, mutation guards, and command execution: `GET /api/invoice/auto-paid`, `GET /api/invoice/auto-paid/candidates`, `POST /api/invoice/auto-paid`, `DELETE /api/invoice/auto-paid/:id`, and `PATCH /api/invoice/invoices/:id/reverse-auto-paid`.
-- Settings UI, manual invoice create integration, and sync-worker integration remain pending.
+- Manual AP creation consumes partner terms and Auto-Paid through Invoice Core.
+- Future sync can call `invoiceAutoPaidService.applyAll(scope)` without copying rules.
+- Settings UI remains M9; sync-worker orchestration remains M8.
+
+## Phase 5 parity gate
+
+M5 is backend-contract complete. Rule application is scoped by trusted tenant and
+organization, converges on repeated apply, and respects manual reversal through
+`autoPayExcluded`. No later capability should update Invoice payment columns directly.
 
 ## Operis M5 decisions
 - Rule matching uses scoped AP invoice `sellerTaxCode`.

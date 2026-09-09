@@ -141,4 +141,51 @@ describe('Invoice settlement and non-recoverable operations', () => {
     expect(invoice.outstandingAmount).toBe('60.0000')
     expect(invoice.nextDueDate).toEqual(new Date('2026-03-01T00:00:00.000Z'))
   })
+
+  it('applies a whole-invoice payment through the M7 service seam', async () => {
+    const { em, service } = makeService()
+    const invoice = makeInvoice()
+    jest.mocked(em.findOne).mockResolvedValue(invoice)
+
+    await service.applyInvoicePayment(scope, invoice.id)
+
+    expect(invoice.settlementStatus).toBe('SETTLED')
+    expect(invoice.paidAmount).toBe('120.0000')
+    expect(invoice.outstandingAmount).toBe('0.0000')
+    expect(invoice.hasReceived).toBe(true)
+    expect(em.flush).toHaveBeenCalledTimes(1)
+  })
+
+  it('applies one installment and keeps the remaining balance', async () => {
+    const { em, service } = makeService()
+    const first = makeInstallment()
+    const second = makeInstallment({ sequence: 2, dueDate: new Date('2026-03-01T00:00:00.000Z') })
+    const invoice = makeInvoice({ hasInstallmentPlan: true, installments: [first, second] })
+    jest.mocked(em.findOne).mockResolvedValue(invoice)
+
+    await service.applyInvoicePayment(scope, invoice.id, { installmentId: first.id })
+
+    expect(first.status).toBe('PAID')
+    expect(second.status).toBe('PENDING')
+    expect(invoice.settlementStatus).toBe('PARTIALLY_PAID')
+    expect(invoice.paidAmount).toBe('60.0000')
+    expect(invoice.outstandingAmount).toBe('60.0000')
+    expect(invoice.nextDueDate).toEqual(new Date('2026-03-01T00:00:00.000Z'))
+  })
+
+  it('is repeat-safe and rejects missing or foreign payment targets', async () => {
+    const { em, service } = makeService()
+    const installment = makeInstallment({ status: 'PAID', paidAt: new Date('2026-01-02T00:00:00.000Z') })
+    const invoice = makeInvoice({ hasInstallmentPlan: true, installments: [installment] })
+    jest.mocked(em.findOne).mockResolvedValue(invoice)
+
+    await service.applyInvoicePayment(scope, invoice.id, { installmentId: installment.id })
+    expect(installment.paidAt).toEqual(new Date('2026-01-02T00:00:00.000Z'))
+
+    await expect(service.applyInvoicePayment(scope, invoice.id, { installmentId: 'foreign-installment' }))
+      .rejects.toMatchObject({ status: 404 })
+
+    jest.mocked(em.findOne).mockResolvedValue(null)
+    await expect(service.applyInvoicePayment(scope, 'foreign-invoice')).rejects.toMatchObject({ status: 404 })
+  })
 })

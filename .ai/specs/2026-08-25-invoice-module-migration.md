@@ -22,6 +22,10 @@ Current implementation status: the AR invoice email send and privacy-safe
 email-open tracking slice is implemented. Remaining invoice capabilities are
 tracked separately in the milestone documents.
 
+As of 2026-09-09, M5 Auto-Paid and M6 Invoice Core pass the Phase 5 domain
+contract gate at the backend boundary. The remaining milestones are M7 payment
+confirmation, M8 GDT sync, and M9 UI parity.
+
 Phase 1 source evidence lives in:
 
 - `docs/invoice/FEAT-001-invoices.md`

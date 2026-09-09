@@ -30,6 +30,24 @@ Locked decisions:
 | M9 | UI parity | Backend pages and browser flows. |
 | M10 | AI helper | Optional read-only invoice assistant. |
 
+## Phase 5 Domain Parity Gate (2026-09-09)
+
+M5 Auto-Paid and M6 Invoice Core are backend-contract complete. Manual AP
+creation now consumes partner terms and Auto-Paid through Invoice Core. AR
+summary and forecast use exchange-rate services, and AR send uses company email
+memory as a best-effort side effect.
+
+Invoice Core exposes `applyInvoicePayment(scope, invoiceId, input)` for trusted
+future payment workflows. It owns scoped loading, installment payment, and
+settlement rollup recomputation. M7 must use this seam and must not write the
+Invoice table directly. Future M8 sync can call `invoiceAutoPaidService.applyAll(scope)`.
+
+Generic invoice writes do not accept or trust derived payment rollups. All
+mutations require trusted tenant and organization scope.
+
+Remaining work is intentionally separate: M7 payment confirmation, M8 GDT
+sync, and M9 UI parity. See `.ai/specs/2026-09-09-invoice-phase-5-domain-parity-gate.md`.
+
 ## Phase 3 Start Packet
 
 Phase 3 can start with M0. Do not implement UI or GDT provider details before

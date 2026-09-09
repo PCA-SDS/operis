@@ -76,6 +76,9 @@ export type InvoiceManualDeleteResult = {
 export type InvoiceDueDateUpdateResult = InvoiceManualMutationResult
 export type InvoiceSettlementUpdateResult = InvoiceManualMutationResult
 export type InvoiceNonRecoverableUpdateResult = InvoiceManualMutationResult
+export type InvoicePaymentApplicationInput = {
+  installmentId?: string
+}
 
 type ManualLineItem = InvoiceManualWriteInput['lineItems'][number]
 type PartnerIdentity = {
@@ -819,6 +822,43 @@ export class InvoiceService {
       invoice.nonRecoverableAt = null
     }
 
+    await this.em.flush()
+
+    return { invoice: mapInvoiceEntityToDetailDto(invoice) }
+  }
+
+  async applyInvoicePayment(
+    scope: InvoiceScope,
+    id: string,
+    input: InvoicePaymentApplicationInput = {},
+  ): Promise<InvoiceSettlementUpdateResult> {
+    const invoice = await this.scopedPersistence.findById(Invoice, scope, id, {
+      populate: ['lineItems', 'installments'] as never[],
+      orderBy: {
+        lineItems: { lineNumber: 'asc' },
+        installments: { sequence: 'asc' },
+      },
+    })
+    if (!invoice) throw notFound('[internal] Invoice not found')
+
+    const installments = invoiceInstallmentItems(invoice)
+    const now = new Date()
+
+    if (input.installmentId) {
+      const installment = installments.find((item) => item.id === input.installmentId)
+      if (!installment) throw notFound('[internal] Invoice installment not found')
+      installment.status = 'PAID'
+      installment.paidAt = installment.paidAt ?? now
+    } else if (installments.length > 0) {
+      for (const installment of installments) {
+        installment.status = 'PAID'
+        installment.paidAt = installment.paidAt ?? now
+      }
+    } else {
+      invoice.settlementStatus = 'SETTLED'
+    }
+
+    recomputeInvoiceSettlementRollup(invoice)
     await this.em.flush()
 
     return { invoice: mapInvoiceEntityToDetailDto(invoice) }
