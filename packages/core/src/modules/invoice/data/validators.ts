@@ -345,3 +345,8 @@ export type InvoiceCompanyLookupCachePayload = z.infer<typeof invoiceCompanyLook
 export type InvoiceListQuery = z.infer<typeof invoiceListQuerySchema>
 export type InvoiceManualWriteInput = z.infer<typeof invoiceManualWriteSchema>
 export type InvoiceManualLineItemInput = z.infer<typeof invoiceManualLineItemInputSchema>
+
+export const invoiceForecastQuerySchema = z.object({
+  throughDate: z.string().trim().optional(),
+}).strict()
+export type InvoiceForecastQueryInput = z.infer<typeof invoiceForecastQuerySchema>

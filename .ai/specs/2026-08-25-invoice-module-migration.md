@@ -395,3 +395,11 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   routes, mutation guards, command optimistic locking, and focused state and
   route contracts. Payment Confirmation can reuse the exported rollup helper;
   AP payment-confirmation orchestration remains out of scope.
+- 2026-09-09: Implemented CAP-001 / FLOW-001 Invoice Summary and Forecast. Added
+  scoped `getSummary` and `getForecast` methods to `InvoiceService`, consuming
+  `InvoiceExchangeRatesService` (CAP-007) for VND normalization. Excluded
+  non-recoverable AR from collectable summary totals and forecast. Excluded
+  settled amounts from future forecast, prioritizing pending installments over
+  invoice due dates. Exposed `GET /api/invoice/summary` and
+  `GET /api/invoice/forecast` under `invoice.view` with OpenAPI schemas and
+  explicit 503 handling when FX rates are unavailable.

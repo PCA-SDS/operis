@@ -6,6 +6,11 @@ import { Invoice, InvoiceCompany, InvoiceInstallment, InvoiceLineItem } from '..
 import type { InvoiceScope } from '../../data/scope'
 import { InvoiceScopedPersistenceService } from '../scoped-persistence-service'
 import { InvoiceService } from '../invoice-service'
+import {
+  InvoiceExchangeRatesService,
+  InvoiceExchangeRatesUnavailableError,
+  type InvoiceExchangeRatesDto,
+} from '../exchange-rates-service'
 
 const scope: InvoiceScope = { tenantId: 'tenant-1', organizationId: 'org-1' }
 const invoiceId = '11111111-1111-4111-8111-111111111111'
@@ -117,11 +122,12 @@ function invoice(overrides: Partial<Invoice> = {}): Invoice {
   } as unknown as Invoice
 }
 
-function createService() {
+function createService(exchangeRatesService?: InvoiceExchangeRatesService) {
   const queryEngine = {
     query: jest.fn(),
   } as unknown as QueryEngine
   const em = {
+    find: jest.fn(),
     findOne: jest.fn(),
     transactional: jest.fn(),
     create: jest.fn(),
@@ -133,6 +139,7 @@ function createService() {
     em as unknown as EntityManager,
     queryEngine,
     scopedPersistence,
+    exchangeRatesService,
   )
 
   return { em, queryEngine, service }
@@ -501,6 +508,276 @@ describe('InvoiceService', () => {
       expect(inv.sellerTaxCode).toBe('0100109106')
       expect(inv.sellerName).toBe('Imported Seller')
       expect(inv.origin).toBe('GOVERNMENT_PORTAL')
+    })
+  })
+
+  describe('getSummary', () => {
+    it('aggregates AP and AR independently in VND and treats VND rate as 1 without calling FX service', async () => {
+      const mockFx = { getRates: jest.fn() } as unknown as InvoiceExchangeRatesService
+      const { em, service } = createService(mockFx)
+
+      const ar1 = invoice({
+        id: 'ar-1',
+        direction: 'AR',
+        currencyCode: 'VND',
+        settlementStatus: 'UNSETTLED',
+        paidAmount: '0.0000',
+        outstandingAmount: '1000000.0000',
+        nonRecoverable: false,
+      })
+      const ar2 = invoice({
+        id: 'ar-2',
+        direction: 'AR',
+        currencyCode: 'VND',
+        settlementStatus: 'SETTLED',
+        paidAmount: '500000.0000',
+        outstandingAmount: '0.0000',
+        nonRecoverable: false,
+      })
+      const ap1 = invoice({
+        id: 'ap-1',
+        direction: 'AP',
+        currencyCode: 'VND',
+        settlementStatus: 'UNSETTLED',
+        paidAmount: '0.0000',
+        outstandingAmount: '400000.0000',
+      })
+
+      jest.mocked(em.find).mockResolvedValue([ar1, ar2, ap1])
+
+      const summary = await service.getSummary(scope)
+
+      expect(mockFx.getRates).not.toHaveBeenCalled()
+      expect(summary.currency).toBe('VND')
+      expect(summary.ratesStale).toBe(false)
+      expect(summary.ar.outstanding).toBe('1000000.0000')
+      expect(summary.ar.settled).toBe('500000.0000')
+      expect(summary.ap.outstanding).toBe('400000.0000')
+      expect(summary.ap.settled).toBe('0.0000')
+      expect(summary.netPosition).toBe('600000.0000') // 1000000 - 400000
+    })
+
+    it('excludes non-recoverable AR from collectable totals and reports nonRecoverableAmount', async () => {
+      const { em, service } = createService()
+
+      const arActive = invoice({
+        id: 'ar-1',
+        direction: 'AR',
+        currencyCode: 'VND',
+        settlementStatus: 'UNSETTLED',
+        paidAmount: '0.0000',
+        outstandingAmount: '1000.0000',
+        nonRecoverable: false,
+      })
+      const arWrittenOff = invoice({
+        id: 'ar-2',
+        direction: 'AR',
+        currencyCode: 'VND',
+        settlementStatus: 'UNSETTLED',
+        paidAmount: '0.0000',
+        outstandingAmount: '2000.0000',
+        nonRecoverable: true,
+      })
+
+      jest.mocked(em.find).mockResolvedValue([arActive, arWrittenOff])
+
+      const summary = await service.getSummary(scope)
+
+      expect(summary.ar.outstanding).toBe('1000.0000')
+      expect(summary.ar.nonRecoverableAmount).toBe('2000.0000')
+      expect(summary.netPosition).toBe('1000.0000')
+    })
+
+    it('normalizes foreign currencies to VND using exchangeRatesService', async () => {
+      const mockFx = {
+        getRates: jest.fn().mockResolvedValue({
+          baseCurrency: 'VND',
+          fetchedAt: '2026-09-09T00:00:00.000Z',
+          stale: false,
+          rates: {
+            USD: { currencyCode: 'USD', vndPerUnit: 25000 },
+            VND: { currencyCode: 'VND', vndPerUnit: 1 },
+          },
+        }),
+      } as unknown as InvoiceExchangeRatesService
+      const { em, service } = createService(mockFx)
+
+      const arUsd = invoice({
+        id: 'ar-usd',
+        direction: 'AR',
+        currencyCode: 'USD',
+        settlementStatus: 'UNSETTLED',
+        paidAmount: '0.0000',
+        outstandingAmount: '100.0000',
+        nonRecoverable: false,
+      })
+
+      jest.mocked(em.find).mockResolvedValue([arUsd])
+
+      const summary = await service.getSummary(scope)
+
+      expect(mockFx.getRates).toHaveBeenCalledTimes(1)
+      expect(summary.ar.outstanding).toBe('2500000.0000') // 100 * 25000
+      expect(summary.netPosition).toBe('2500000.0000')
+    })
+
+    it('fails with InvoiceExchangeRatesUnavailableError when FX provider fails and no cache exists', async () => {
+      const mockFx = {
+        getRates: jest.fn().mockRejectedValue(new InvoiceExchangeRatesUnavailableError('Provider down')),
+      } as unknown as InvoiceExchangeRatesService
+      const { em, service } = createService(mockFx)
+
+      const arUsd = invoice({
+        id: 'ar-usd',
+        direction: 'AR',
+        currencyCode: 'USD',
+        outstandingAmount: '100.0000',
+      })
+
+      jest.mocked(em.find).mockResolvedValue([arUsd])
+
+      await expect(service.getSummary(scope)).rejects.toThrow(InvoiceExchangeRatesUnavailableError)
+    })
+  })
+
+  describe('getForecast', () => {
+    it('forecasts using installments when plan exists and uses invoice dueDate when no plan', async () => {
+      const { em, service } = createService()
+
+      const invWithPlan = invoice({
+        id: 'inv-plan',
+        direction: 'AR',
+        currencyCode: 'VND',
+        settlementStatus: 'PARTIALLY_PAID',
+        hasInstallmentPlan: true,
+        dueDate: new Date('2026-05-01T00:00:00.000Z'),
+        installments: [
+          installment({
+            id: 'inst-1',
+            sequence: 1,
+            totalAmount: '300.0000',
+            dueDate: new Date('2026-03-15T00:00:00.000Z'),
+            status: 'PAID', // should be excluded
+          }),
+          installment({
+            id: 'inst-2',
+            sequence: 2,
+            totalAmount: '700.0000',
+            dueDate: new Date('2026-04-15T00:00:00.000Z'),
+            status: 'PENDING', // included
+          }),
+        ],
+      })
+
+      const invNoPlan = invoice({
+        id: 'inv-no-plan',
+        direction: 'AP',
+        currencyCode: 'VND',
+        settlementStatus: 'UNSETTLED',
+        hasInstallmentPlan: false,
+        installments: [],
+        dueDate: new Date('2026-04-20T00:00:00.000Z'),
+        outstandingAmount: '500.0000',
+      })
+
+      jest.mocked(em.find).mockResolvedValue([invWithPlan, invNoPlan])
+
+      const forecast = await service.getForecast(scope, { throughDate: '2026-12-31' })
+
+      expect(forecast.currency).toBe('VND')
+      expect(forecast.entries).toHaveLength(2)
+      // First entry: pending installment on 2026-04-15
+      expect(forecast.entries[0]).toEqual(expect.objectContaining({
+        date: '2026-04-15',
+        direction: 'AR',
+        amountVnd: '700.0000',
+        invoiceId: 'inv-plan',
+        installmentId: 'inst-2',
+      }))
+      // Second entry: invoice due date on 2026-04-20
+      expect(forecast.entries[1]).toEqual(expect.objectContaining({
+        date: '2026-04-20',
+        direction: 'AP',
+        amountVnd: '500.0000',
+        invoiceId: 'inv-no-plan',
+        installmentId: null,
+      }))
+      expect(forecast.totals).toEqual({
+        arAmount: '700.0000',
+        apAmount: '500.0000',
+        netAmount: '200.0000',
+      })
+    })
+
+    it('excludes settled invoices, non-recoverable AR, and entries beyond throughDate', async () => {
+      const { em, service } = createService()
+
+      const settledInv = invoice({
+        id: 'settled-1',
+        direction: 'AR',
+        settlementStatus: 'SETTLED',
+        hasInstallmentPlan: false,
+        installments: [],
+        dueDate: new Date('2026-03-01T00:00:00.000Z'),
+        outstandingAmount: '0.0000',
+      })
+      const nonRecAr = invoice({
+        id: 'non-rec-1',
+        direction: 'AR',
+        nonRecoverable: true,
+        settlementStatus: 'UNSETTLED',
+        hasInstallmentPlan: false,
+        installments: [],
+        dueDate: new Date('2026-03-01T00:00:00.000Z'),
+        outstandingAmount: '1000.0000',
+      })
+      const futureInv = invoice({
+        id: 'future-1',
+        direction: 'AP',
+        settlementStatus: 'UNSETTLED',
+        hasInstallmentPlan: false,
+        installments: [],
+        dueDate: new Date('2027-01-01T00:00:00.000Z'),
+        outstandingAmount: '500.0000',
+      })
+      const validInv = invoice({
+        id: 'valid-1',
+        direction: 'AP',
+        settlementStatus: 'UNSETTLED',
+        hasInstallmentPlan: false,
+        installments: [],
+        dueDate: new Date('2026-06-01T00:00:00.000Z'),
+        outstandingAmount: '200.0000',
+      })
+
+      jest.mocked(em.find).mockResolvedValue([settledInv, nonRecAr, futureInv, validInv])
+
+      const forecast = await service.getForecast(scope, { throughDate: '2026-10-01' })
+
+      expect(forecast.entries).toHaveLength(1)
+      expect(forecast.entries[0].invoiceId).toBe('valid-1')
+    })
+
+    it('converts foreign currencies in forecast and fails when FX is unavailable', async () => {
+      const mockFx = {
+        getRates: jest.fn().mockRejectedValue(new InvoiceExchangeRatesUnavailableError('Provider down')),
+      } as unknown as InvoiceExchangeRatesService
+      const { em, service } = createService(mockFx)
+
+      const usdInv = invoice({
+        id: 'usd-1',
+        direction: 'AR',
+        currencyCode: 'USD',
+        settlementStatus: 'UNSETTLED',
+        hasInstallmentPlan: false,
+        installments: [],
+        dueDate: new Date('2026-04-01T00:00:00.000Z'),
+        outstandingAmount: '100.0000',
+      })
+
+      jest.mocked(em.find).mockResolvedValue([usdInv])
+
+      await expect(service.getForecast(scope)).rejects.toThrow(InvoiceExchangeRatesUnavailableError)
     })
   })
 })

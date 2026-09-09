@@ -286,3 +286,53 @@ export function mapInvoiceEntityToDetailDto(invoice: Invoice): InvoiceDetailDto 
     installments,
   }
 }
+
+export type InvoiceDirectionSummaryDto = {
+  outstanding: string
+  settled: string
+  net: string
+  total: string
+  outstandingAmount: string
+  settledAmount: string
+  totalAmount: string
+  nonRecoverableAmount?: string
+}
+
+export type InvoiceSummaryDto = {
+  currency: 'VND'
+  ar: InvoiceDirectionSummaryDto
+  ap: InvoiceDirectionSummaryDto
+  netPosition: string
+  net: string
+  netOutstanding: string
+  ratesStale: boolean
+}
+
+export type InvoiceForecastEntryDto = {
+  date: string
+  direction: InvoiceDirection
+  amountVnd: string
+  invoiceId: string
+  installmentId: string | null
+  invoiceNumber: string | null
+  partnerName: string | null
+}
+
+export type InvoiceForecastSeriesPointDto = {
+  date: string
+  arAmount: string
+  apAmount: string
+  netAmount: string
+}
+
+export type InvoiceForecastDto = {
+  currency: 'VND'
+  ratesStale: boolean
+  entries: InvoiceForecastEntryDto[]
+  series: InvoiceForecastSeriesPointDto[]
+  totals: {
+    arAmount: string
+    apAmount: string
+    netAmount: string
+  }
+}

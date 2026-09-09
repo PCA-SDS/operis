@@ -10,7 +10,11 @@ import {
   mapInvoiceEntityToDetailDto,
   mapInvoiceQueryRowToListDto,
   type InvoiceDetailDto,
+  type InvoiceForecastDto,
+  type InvoiceForecastEntryDto,
+  type InvoiceForecastSeriesPointDto,
   type InvoiceListDto,
+  type InvoiceSummaryDto,
 } from '../data/mappers'
 import {
   buildInvoiceListQueryOptions,
@@ -25,7 +29,9 @@ import {
   invoiceDueDateUpdateSchema,
   invoiceSettlementUpdateSchema,
   invoiceNonRecoverableUpdateSchema,
+  invoiceForecastQuerySchema,
   type InvoiceDueDateUpdateInput,
+  type InvoiceForecastQueryInput,
   type InvoiceNonRecoverableUpdateInput,
   type InvoiceSettlementUpdateInput,
   type InvoiceManualWriteInput,
@@ -34,6 +40,12 @@ import { InvoiceScopedPersistenceService } from './scoped-persistence-service'
 import { createInvoiceAutoPaidService } from './auto-paid-service'
 import type { InvoicePartnerTermsService } from './partner-terms-service'
 import { createInvoicePartnerTermsService } from './partner-terms-service'
+import {
+  createInvoiceExchangeRatesService,
+  InvoiceExchangeRatesService,
+  InvoiceExchangeRatesUnavailableError,
+  type InvoiceExchangeRatesDto,
+} from './exchange-rates-service'
 
 export type InvoiceListResult = {
   items: InvoiceListDto[]
@@ -249,7 +261,219 @@ export class InvoiceService {
     private readonly em: EntityManager,
     private readonly queryEngine: QueryEngine,
     private readonly scopedPersistence: InvoiceScopedPersistenceService,
+    private readonly exchangeRatesService: InvoiceExchangeRatesService = createInvoiceExchangeRatesService(),
   ) {}
+
+  async getSummary(scope: InvoiceScope): Promise<InvoiceSummaryDto> {
+    const invoices = await this.scopedPersistence.findMany(Invoice, scope, {
+      invoiceStatus: 'ACTIVE',
+    })
+
+    const hasForeignCurrency = invoices.some((inv) => inv.currencyCode !== 'VND')
+    let ratesDto: InvoiceExchangeRatesDto | null = null
+    if (hasForeignCurrency) {
+      ratesDto = await this.exchangeRatesService.getRates()
+    }
+
+    const resolveVndRate = (currencyCode: string): number => {
+      if (currencyCode === 'VND') return 1
+      const rateItem = ratesDto?.rates[currencyCode as keyof typeof ratesDto.rates]
+      if (!rateItem || typeof rateItem.vndPerUnit !== 'number' || rateItem.vndPerUnit <= 0) {
+        throw new InvoiceExchangeRatesUnavailableError(
+          `[internal] exchange rate for ${currencyCode} is unavailable`,
+        )
+      }
+      return rateItem.vndPerUnit
+    }
+
+    let arOutstanding = 0
+    let arSettled = 0
+    let arNonRecoverable = 0
+    let apOutstanding = 0
+    let apSettled = 0
+
+    for (const inv of invoices) {
+      const rate = resolveVndRate(inv.currencyCode)
+      const paidVnd = money(inv.paidAmount) * rate
+      const outstandingVnd = money(inv.outstandingAmount) * rate
+
+      if (inv.direction === 'AR') {
+        arSettled += paidVnd
+        if (inv.nonRecoverable) {
+          arNonRecoverable += outstandingVnd
+        } else {
+          arOutstanding += outstandingVnd
+        }
+      } else if (inv.direction === 'AP') {
+        apSettled += paidVnd
+        apOutstanding += outstandingVnd
+      }
+    }
+
+    const netPosition = arOutstanding - apOutstanding
+
+    return {
+      currency: 'VND',
+      ar: {
+        outstanding: moneyString(arOutstanding),
+        settled: moneyString(arSettled),
+        net: moneyString(arOutstanding),
+        total: moneyString(arOutstanding + arSettled),
+        outstandingAmount: moneyString(arOutstanding),
+        settledAmount: moneyString(arSettled),
+        totalAmount: moneyString(arOutstanding + arSettled),
+        nonRecoverableAmount: moneyString(arNonRecoverable),
+      },
+      ap: {
+        outstanding: moneyString(apOutstanding),
+        settled: moneyString(apSettled),
+        net: moneyString(apOutstanding),
+        total: moneyString(apOutstanding + apSettled),
+        outstandingAmount: moneyString(apOutstanding),
+        settledAmount: moneyString(apSettled),
+        totalAmount: moneyString(apOutstanding + apSettled),
+      },
+      netPosition: moneyString(netPosition),
+      net: moneyString(netPosition),
+      netOutstanding: moneyString(netPosition),
+      ratesStale: ratesDto?.stale ?? false,
+    }
+  }
+
+  async getForecast(scope: InvoiceScope, rawInput: InvoiceForecastQueryInput = {}): Promise<InvoiceForecastDto> {
+    const input = invoiceForecastQuerySchema.parse(rawInput)
+    let effectiveThroughDateString: string
+    if (input.throughDate) {
+      const parsedDate = new Date(input.throughDate)
+      if (Number.isNaN(parsedDate.getTime())) {
+        throw badRequest('[internal] Invalid throughDate')
+      }
+      effectiveThroughDateString = parsedDate.toISOString().slice(0, 10)
+    } else {
+      const defaultDate = new Date()
+      defaultDate.setFullYear(defaultDate.getFullYear() + 1)
+      effectiveThroughDateString = defaultDate.toISOString().slice(0, 10)
+    }
+
+    const invoices = await this.scopedPersistence.findMany(Invoice, scope, {
+      invoiceStatus: 'ACTIVE',
+      settlementStatus: { $ne: 'SETTLED' },
+    }, {
+      populate: ['installments'] as never[],
+      orderBy: { dueDate: 'asc' },
+    })
+
+    const eligibleInvoices = invoices.filter((inv) => {
+      if (inv.direction === 'AR' && inv.nonRecoverable) return false
+      if (inv.settlementStatus === 'SETTLED') return false
+      return true
+    })
+
+    const hasForeignCurrency = eligibleInvoices.some((inv) => inv.currencyCode !== 'VND')
+    let ratesDto: InvoiceExchangeRatesDto | null = null
+    if (hasForeignCurrency) {
+      ratesDto = await this.exchangeRatesService.getRates()
+    }
+
+    const resolveVndRate = (currencyCode: string): number => {
+      if (currencyCode === 'VND') return 1
+      const rateItem = ratesDto?.rates[currencyCode as keyof typeof ratesDto.rates]
+      if (!rateItem || typeof rateItem.vndPerUnit !== 'number' || rateItem.vndPerUnit <= 0) {
+        throw new InvoiceExchangeRatesUnavailableError(
+          `[internal] exchange rate for ${currencyCode} is unavailable`,
+        )
+      }
+      return rateItem.vndPerUnit
+    }
+
+    const entries: InvoiceForecastEntryDto[] = []
+
+    for (const inv of eligibleInvoices) {
+      const rate = resolveVndRate(inv.currencyCode)
+
+      if (inv.hasInstallmentPlan) {
+        const installments = invoiceInstallmentItems(inv)
+        for (const inst of installments) {
+          if (inst.status === 'PAID') continue
+          const instDueDate = inst.dueDate instanceof Date ? inst.dueDate : new Date(inst.dueDate)
+          if (Number.isNaN(instDueDate.getTime())) continue
+          const dateStr = instDueDate.toISOString().slice(0, 10)
+          if (dateStr > effectiveThroughDateString) continue
+
+          const amountVnd = money(inst.totalAmount) * rate
+          entries.push({
+            date: dateStr,
+            direction: inv.direction,
+            amountVnd: moneyString(amountVnd),
+            invoiceId: inv.id,
+            installmentId: inst.id,
+            invoiceNumber: inv.invoiceNumber ?? null,
+            partnerName: inv.direction === 'AR' ? (inv.buyerName ?? null) : (inv.sellerName ?? null),
+          })
+        }
+      } else if (inv.dueDate) {
+        const dueDate = inv.dueDate instanceof Date ? inv.dueDate : new Date(inv.dueDate)
+        if (!Number.isNaN(dueDate.getTime())) {
+          const dateStr = dueDate.toISOString().slice(0, 10)
+          if (dateStr <= effectiveThroughDateString) {
+            const outstanding = money(inv.outstandingAmount)
+            if (outstanding > 0) {
+              const amountVnd = outstanding * rate
+              entries.push({
+                date: dateStr,
+                direction: inv.direction,
+                amountVnd: moneyString(amountVnd),
+                invoiceId: inv.id,
+                installmentId: null,
+                invoiceNumber: inv.invoiceNumber ?? null,
+                partnerName: inv.direction === 'AR' ? (inv.buyerName ?? null) : (inv.sellerName ?? null),
+              })
+            }
+          }
+        }
+      }
+    }
+
+    entries.sort((a, b) => a.date.localeCompare(b.date) || a.invoiceId.localeCompare(b.invoiceId))
+
+    const seriesMap = new Map<string, { ar: number; ap: number }>()
+    let totalAr = 0
+    let totalAp = 0
+
+    for (const entry of entries) {
+      const current = seriesMap.get(entry.date) ?? { ar: 0, ap: 0 }
+      const amount = money(entry.amountVnd)
+      if (entry.direction === 'AR') {
+        current.ar += amount
+        totalAr += amount
+      } else {
+        current.ap += amount
+        totalAp += amount
+      }
+      seriesMap.set(entry.date, current)
+    }
+
+    const series: InvoiceForecastSeriesPointDto[] = Array.from(seriesMap.entries())
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .map(([date, amounts]) => ({
+        date,
+        arAmount: moneyString(amounts.ar),
+        apAmount: moneyString(amounts.ap),
+        netAmount: moneyString(amounts.ar - amounts.ap),
+      }))
+
+    return {
+      currency: 'VND',
+      ratesStale: ratesDto?.stale ?? false,
+      entries,
+      series,
+      totals: {
+        arAmount: moneyString(totalAr),
+        apAmount: moneyString(totalAp),
+        netAmount: moneyString(totalAr - totalAp),
+      },
+    }
+  }
 
   async listInvoices(scope: InvoiceScope, query: InvoiceListInput = {}): Promise<InvoiceListResult> {
     const parsed = parseInvoiceListQuery(query)
@@ -653,6 +877,7 @@ export function createInvoiceService(
   em: EntityManager,
   queryEngine: QueryEngine,
   scopedPersistence: InvoiceScopedPersistenceService,
+  exchangeRatesService: InvoiceExchangeRatesService = createInvoiceExchangeRatesService(),
 ): InvoiceService {
-  return new InvoiceService(em, queryEngine, scopedPersistence)
+  return new InvoiceService(em, queryEngine, scopedPersistence, exchangeRatesService)
 }
