@@ -1,5 +1,6 @@
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { ObjectPreviewData } from '@open-mercato/shared/modules/messages/types'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { InboxEmail } from '../data/entities'
@@ -15,8 +16,10 @@ async function resolveEm() {
 }
 
 export async function loadInboxEmailPreview(entityId: string, ctx: PreviewContext): Promise<ObjectPreviewData> {
+  const { t } = await resolveTranslations()
+  const fallbackTitle = t('inbox_ops.preview.email.title', 'Inbox Email')
   if (!ctx.organizationId) {
-    return { title: 'Inbox Email', subtitle: entityId }
+    return { title: fallbackTitle, subtitle: entityId }
   }
 
   try {
@@ -35,7 +38,12 @@ export async function loadInboxEmailPreview(entityId: string, ctx: PreviewContex
     )
 
     if (!email) {
-      return { title: 'Inbox Email', subtitle: entityId, status: 'Not found', statusColor: 'gray' }
+      return {
+        title: fallbackTitle,
+        subtitle: entityId,
+        status: t('inbox_ops.preview.email.notFound', 'Not found'),
+        statusColor: 'gray',
+      }
     }
 
     const statusColorMap: Record<string, string> = {
@@ -47,7 +55,7 @@ export async function loadInboxEmailPreview(entityId: string, ctx: PreviewContex
     }
 
     return {
-      title: email.subject || 'Inbox Email',
+      title: email.subject || fallbackTitle,
       subtitle: email.forwardedByName || email.forwardedByAddress || undefined,
       status: email.status,
       statusColor: statusColorMap[email.status] || 'gray',
@@ -56,6 +64,6 @@ export async function loadInboxEmailPreview(entityId: string, ctx: PreviewContex
       },
     }
   } catch {
-    return { title: 'Inbox Email', subtitle: entityId }
+    return { title: fallbackTitle, subtitle: entityId }
   }
 }

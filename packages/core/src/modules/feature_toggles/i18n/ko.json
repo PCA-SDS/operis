@@ -33,6 +33,7 @@
   "feature_toggles.form.groups.type": "유형 구성",
   "feature_toggles.form.loading": "불러오는 중…",
   "feature_toggles.form.title.edit": "기능 토글 편집",
+  "feature_toggles.global.form.title.create": "Create Feature Toggle",
   "feature_toggles.global.help.title": "기능 토글",
   "feature_toggles.list.confirmDelete": "기능 토글 \"{identifier}\"을(를) 삭제하시겠습니까?",
   "feature_toggles.list.error.load": "기능 토글을 불러오지 못했습니다",

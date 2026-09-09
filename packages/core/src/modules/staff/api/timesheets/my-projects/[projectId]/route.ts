@@ -12,7 +12,6 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { StaffTimeProjectMember, StaffTeamMember } from '../../../../data/entities'
 import { staffMyProjectVisibilityUpdateSchema } from '../../../../data/validators'
 import {
-  resolveUserFeatures,
   runStaffMutationGuardAfterSuccess,
   runStaffMutationGuards,
 } from '../../../guards'
@@ -127,7 +126,6 @@ export async function PATCH(req: Request) {
         requestHeaders: req.headers,
         mutationPayload: parsed.data as unknown as Record<string, unknown>,
       },
-      resolveUserFeatures(auth),
     )
     if (!guardResult.ok) {
       return NextResponse.json(

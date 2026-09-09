@@ -6,6 +6,7 @@ import {
 import { getPaymentProvider, getShippingProvider } from '../lib/providers'
 import { REFERENCE_UNIT_CODES } from '@open-mercato/shared/lib/units/unitCodes'
 import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
+import { emailSchema, moneyAmountSchema } from '@open-mercato/shared/lib/validation'
 
 export const SALES_PHONE_INVALID_MESSAGE_KEY = 'customers.people.form.primaryPhone.invalid'
 
@@ -55,12 +56,53 @@ const currencyCode = z
   .trim()
   .regex(/^[A-Z]{3}$/, 'currency code must be a three-letter ISO code')
 
+/**
+ * Generic numeric field. NOT for money — see {@link money}.
+ *
+ * Kept deliberately precision-free because its non-money callers have their own
+ * scales: `latitude`/`longitude` are `numeric(10,6)` and `exchange_rate` is
+ * `numeric(18,8)`, so a money-shaped guard here would silently truncate
+ * coordinates and FX rates.
+ */
 const decimal = (opts?: { min?: number; max?: number; message?: string }) => {
   let schema = z.coerce.number()
   if (typeof opts?.min === 'number') schema = schema.min(opts.min)
   if (typeof opts?.max === 'number') schema = schema.max(opts.max, opts.message)
   return schema
 }
+
+/** Largest value the 14 integer digits of a `numeric(18,4)` sales money column hold. */
+const SALES_MONEY_MAX = 99_999_999_999_999
+
+/**
+ * A monetary amount on a sales document.
+ *
+ * The bound is the `numeric(18,4)` column's own capacity rather than the
+ * platform default, because sales totals in high-denomination currencies
+ * legitimately exceed it.
+ *
+ * Deliberately carries NO scale guard. Line-item prices arrive as unrounded
+ * quotients — `LineItemDialog` derives net from gross as
+ * `unitPrice / (1 + taxRate / 100)`, which for a 7% rate yields
+ * `93.45794392523365` — and Postgres has always rounded those to the column's
+ * four decimals on write. Rejecting them instead would fail an ordinary
+ * line-item save.
+ */
+const money = (opts?: { min?: number; message?: string }) =>
+  moneyAmountSchema({
+    min: opts?.min ?? 0,
+    max: SALES_MONEY_MAX,
+    message: opts?.message,
+  })
+
+/**
+ * A money amount that may be negative.
+ *
+ * Adjustment amounts and a document's outstanding balance legitimately go below
+ * zero (a return or a discount line, an over-payment), so these must not pick up
+ * the `min: 0` the other money fields carry.
+ */
+const signedMoney = () => money({ min: -SALES_MONEY_MAX })
 
 const MAX_QUANTITY = 999_999_999
 
@@ -111,7 +153,7 @@ export const channelCreateSchema = scoped.extend({
   description: z.string().trim().max(2000).optional(),
   statusEntryId: uuid().optional(),
   websiteUrl: z.string().trim().url().max(300).optional(),
-  contactEmail: z.string().trim().email().max(320).optional(),
+  contactEmail: emailSchema().optional(),
   contactPhone: optionalPhoneField(),
   addressLine1: z.string().trim().max(255).optional(),
   addressLine2: z.string().trim().max(255).optional(),
@@ -146,8 +188,8 @@ const shippingMethodBaseSchema = scoped.extend({
   providerKey: z.string().trim().max(120).optional(),
   serviceLevel: z.string().trim().max(120).optional(),
   estimatedTransitDays: z.coerce.number().int().min(0).max(365).optional(),
-  baseRateNet: decimal({ min: 0 }).optional(),
-  baseRateGross: decimal({ min: 0 }).optional(),
+  baseRateNet: money().optional(),
+  baseRateGross: money().optional(),
   currencyCode: currencyCode.optional(),
   isActive: z.boolean().optional(),
   providerSettings,
@@ -334,17 +376,17 @@ const linePricingSchema = z.object({
   quantityUnit: z.string().trim().max(25).optional(),
   normalizedQuantity: decimal({ min: 0, max: MAX_QUANTITY, message: 'Quantity is too large.' }).optional(),
   normalizedUnit: z.string().trim().max(25).nullable().optional(),
-  unitPriceNet: decimal({ min: 0 }).optional(),
-  unitPriceGross: decimal({ min: 0 }).optional(),
+  unitPriceNet: money().optional(),
+  unitPriceGross: money().optional(),
   priceId: uuid().optional(),
   priceMode: z.enum(['net', 'gross']).optional(),
   taxRateId: uuid().optional(),
-  discountAmount: decimal({ min: 0 }).optional(),
+  discountAmount: money().optional(),
   discountPercent: percentage().optional(),
   taxRate: percentage().optional(),
-  taxAmount: decimal({ min: 0 }).optional(),
-  totalNetAmount: decimal({ min: 0 }).optional(),
-  totalGrossAmount: decimal({ min: 0 }).optional(),
+  taxAmount: money().optional(),
+  totalNetAmount: money().optional(),
+  totalGrossAmount: money().optional(),
 })
 
 const uomSnapshotSchema = z.object({
@@ -586,8 +628,8 @@ export const orderAdjustmentCreateSchema = scoped.extend({
   calculatorKey: z.string().trim().max(120).optional(),
   promotionId: uuid().optional(),
   rate: percentage().optional(),
-  amountNet: decimal().optional(),
-  amountGross: decimal().optional(),
+  amountNet: signedMoney().optional(),
+  amountGross: signedMoney().optional(),
   currencyCode: currencyCode.optional(),
   metadata,
   customFields: z.record(z.string(), z.unknown()).optional(),
@@ -610,8 +652,8 @@ export const quoteAdjustmentCreateSchema = scoped.extend({
   calculatorKey: z.string().trim().max(120).optional(),
   promotionId: uuid().optional(),
   rate: percentage().optional(),
-  amountNet: decimal().optional(),
-  amountGross: decimal().optional(),
+  amountNet: signedMoney().optional(),
+  amountGross: signedMoney().optional(),
   currencyCode: currencyCode.optional(),
   metadata,
   customFields: z.record(z.string(), z.unknown()).optional(),
@@ -649,33 +691,33 @@ export function resolveSuppliedOrderPaymentLedgerFields(value: unknown): OrderPa
 
 const orderPaymentLedgerShape = {
   /** @deprecated Derived from recorded payments. Use sales.payments.create or POST /api/sales/payments. */
-  paidTotalAmount: decimal({ min: 0 }).optional(),
+  paidTotalAmount: money().optional(),
   /** @deprecated Derived from recorded payments. Use sales.payments.create or POST /api/sales/payments. */
-  refundedTotalAmount: decimal({ min: 0 }).optional(),
+  refundedTotalAmount: money().optional(),
   /** @deprecated Derived from recorded payments. Use sales.payments.create or POST /api/sales/payments. */
-  outstandingAmount: decimal().optional(),
+  outstandingAmount: signedMoney().optional(),
 }
 
 const orderTotalsSchema = z.object({
-  subtotalNetAmount: decimal({ min: 0 }).optional(),
-  subtotalGrossAmount: decimal({ min: 0 }).optional(),
-  discountTotalAmount: decimal({ min: 0 }).optional(),
-  taxTotalAmount: decimal({ min: 0 }).optional(),
-  shippingNetAmount: decimal({ min: 0 }).optional(),
-  shippingGrossAmount: decimal({ min: 0 }).optional(),
-  surchargeTotalAmount: decimal({ min: 0 }).optional(),
-  grandTotalNetAmount: decimal({ min: 0 }).optional(),
-  grandTotalGrossAmount: decimal({ min: 0 }).optional(),
+  subtotalNetAmount: money().optional(),
+  subtotalGrossAmount: money().optional(),
+  discountTotalAmount: money().optional(),
+  taxTotalAmount: money().optional(),
+  shippingNetAmount: money().optional(),
+  shippingGrossAmount: money().optional(),
+  surchargeTotalAmount: money().optional(),
+  grandTotalNetAmount: money().optional(),
+  grandTotalGrossAmount: money().optional(),
   lineItemCount: z.coerce.number().int().min(0).optional(),
 })
 
 const quoteTotalsSchema = z.object({
-  subtotalNetAmount: decimal({ min: 0 }).optional(),
-  subtotalGrossAmount: decimal({ min: 0 }).optional(),
-  discountTotalAmount: decimal({ min: 0 }).optional(),
-  taxTotalAmount: decimal({ min: 0 }).optional(),
-  grandTotalNetAmount: decimal({ min: 0 }).optional(),
-  grandTotalGrossAmount: decimal({ min: 0 }).optional(),
+  subtotalNetAmount: money().optional(),
+  subtotalGrossAmount: money().optional(),
+  discountTotalAmount: money().optional(),
+  taxTotalAmount: money().optional(),
+  grandTotalNetAmount: money().optional(),
+  grandTotalGrossAmount: money().optional(),
   lineItemCount: z.coerce.number().int().min(0).optional(),
 })
 
@@ -826,8 +868,8 @@ export const shipmentCreateSchema = scoped.extend({
   deliveredAt: z.coerce.date().optional(),
   weightValue: decimal({ min: 0 }).optional(),
   weightUnit: z.string().trim().max(25).optional(),
-  declaredValueNet: decimal({ min: 0 }).optional(),
-  declaredValueGross: decimal({ min: 0 }).optional(),
+  declaredValueNet: money().optional(),
+  declaredValueGross: money().optional(),
   currencyCode: currencyCode.optional(),
   notes: z.string().trim().max(4000).optional(),
   metadata,
@@ -920,26 +962,26 @@ export const invoiceCreateSchema = scoped.extend({
         normalizedUnit: z.string().trim().max(25).nullable().optional(),
         uomSnapshot: uomSnapshotSchema,
         currencyCode,
-        unitPriceNet: decimal({ min: 0 }).optional(),
-        unitPriceGross: decimal({ min: 0 }).optional(),
-        discountAmount: decimal({ min: 0 }).optional(),
+        unitPriceNet: money().optional(),
+        unitPriceGross: money().optional(),
+        discountAmount: money().optional(),
         discountPercent: percentage().optional(),
         taxRate: percentage().optional(),
-        taxAmount: decimal({ min: 0 }).optional(),
-        totalNetAmount: decimal({ min: 0 }).optional(),
-        totalGrossAmount: decimal({ min: 0 }).optional(),
+        taxAmount: money().optional(),
+        totalNetAmount: money().optional(),
+        totalGrossAmount: money().optional(),
         metadata,
       })
     )
     .optional(),
-  subtotalNetAmount: decimal({ min: 0 }).optional(),
-  subtotalGrossAmount: decimal({ min: 0 }).optional(),
-  discountTotalAmount: decimal({ min: 0 }).optional(),
-  taxTotalAmount: decimal({ min: 0 }).optional(),
-  grandTotalNetAmount: decimal({ min: 0 }).optional(),
-  grandTotalGrossAmount: decimal({ min: 0 }).optional(),
-  paidTotalAmount: decimal({ min: 0 }).optional(),
-  outstandingAmount: decimal().optional(),
+  subtotalNetAmount: money().optional(),
+  subtotalGrossAmount: money().optional(),
+  discountTotalAmount: money().optional(),
+  taxTotalAmount: money().optional(),
+  grandTotalNetAmount: money().optional(),
+  grandTotalGrossAmount: money().optional(),
+  paidTotalAmount: money().optional(),
+  outstandingAmount: signedMoney().optional(),
 })
 
 export const invoiceUpdateSchema = z
@@ -972,21 +1014,21 @@ export const creditMemoCreateSchema = scoped.extend({
         normalizedUnit: z.string().trim().max(25).nullable().optional(),
         uomSnapshot: uomSnapshotSchema,
         currencyCode,
-        unitPriceNet: decimal({ min: 0 }).optional(),
-        unitPriceGross: decimal({ min: 0 }).optional(),
+        unitPriceNet: money().optional(),
+        unitPriceGross: money().optional(),
         taxRate: percentage().optional(),
-        taxAmount: decimal({ min: 0 }).optional(),
-        totalNetAmount: decimal({ min: 0 }).optional(),
-        totalGrossAmount: decimal({ min: 0 }).optional(),
+        taxAmount: money().optional(),
+        totalNetAmount: money().optional(),
+        totalGrossAmount: money().optional(),
         metadata,
       })
     )
     .optional(),
-  subtotalNetAmount: decimal({ min: 0 }).optional(),
-  subtotalGrossAmount: decimal({ min: 0 }).optional(),
-  taxTotalAmount: decimal({ min: 0 }).optional(),
-  grandTotalNetAmount: decimal({ min: 0 }).optional(),
-  grandTotalGrossAmount: decimal({ min: 0 }).optional(),
+  subtotalNetAmount: money().optional(),
+  subtotalGrossAmount: money().optional(),
+  taxTotalAmount: money().optional(),
+  grandTotalNetAmount: money().optional(),
+  grandTotalGrossAmount: money().optional(),
 })
 
 export const creditMemoUpdateSchema = z
@@ -1002,10 +1044,10 @@ export const paymentCreateSchema = scoped.extend({
   statusEntryId: uuid().optional(),
   documentStatusEntryId: uuid().optional(),
   lineStatusEntryId: uuid().optional(),
-  amount: decimal({ min: 0 }),
+  amount: money(),
   currencyCode,
-  capturedAmount: decimal({ min: 0 }).optional(),
-  refundedAmount: decimal({ min: 0 }).optional(),
+  capturedAmount: money().optional(),
+  refundedAmount: money().optional(),
   receivedAt: z.coerce.date().optional(),
   capturedAt: z.coerce.date().optional(),
   metadata,
@@ -1016,7 +1058,7 @@ export const paymentCreateSchema = scoped.extend({
       z.object({
         orderId: uuid().optional(),
         invoiceId: uuid().optional(),
-        amount: decimal({ min: 0 }),
+        amount: money(),
         currencyCode,
         metadata,
       })

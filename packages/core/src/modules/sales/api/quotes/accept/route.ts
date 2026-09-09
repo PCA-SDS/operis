@@ -21,6 +21,7 @@ import { resolveStatusEntryIdByValue } from '../../../lib/statusHelpers'
 import { resolveEffectiveTenantId } from '../../../lib/publicQuoteTenantScope'
 import { QuoteAcceptedAdminEmail } from '../../../emails/QuoteAcceptedAdminEmail'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('sales')
 
@@ -63,7 +64,7 @@ export async function POST(req: Request) {
       if (rateLimitResponse) return rateLimitResponse
     }
 
-    const { token } = quoteAcceptSchema.parse(await req.json().catch(() => ({})))
+    const { token } = quoteAcceptSchema.parse(await readJsonSafe(req, {}))
     const auth = await getAuthFromRequest(req)
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()

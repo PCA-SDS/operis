@@ -50,6 +50,8 @@ export const actionLogListSchema = z.object({
   limit: z.number().int().positive().max(1000).optional(),
   offset: z.number().int().min(0).optional(),
   page: z.number().int().positive().default(1),
+  // The audit-log routes clamp pageSize to 200 before calling the service;
+  // a lower ceiling here rejects the value the route itself produced.
   pageSize: z.number().int().positive().max(200).default(50),
   before: z.date().optional(),
   after: z.date().optional(),
@@ -71,6 +73,8 @@ export const accessLogListSchema = z.object({
   accessType: z.string().optional(),
   limit: z.number().int().positive().max(200).optional(),
   page: z.number().int().positive().default(1),
+  // The audit-log routes clamp pageSize to 200 before calling the service;
+  // a lower ceiling here rejects the value the route itself produced.
   pageSize: z.number().int().positive().max(200).default(50),
   before: z.date().optional(),
   after: z.date().optional(),

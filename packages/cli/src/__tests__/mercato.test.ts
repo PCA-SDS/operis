@@ -6,7 +6,7 @@ import {
   padByCodePointWidth,
   run,
 } from '../mercato'
-import { pathIncludes } from '../lib/__tests__/path-helpers'
+import { pathIncludes } from '@open-mercato/shared/lib/testing/pathAssertions'
 
 type MockChildAutoExit = { code: number | null; signal?: NodeJS.Signals | null } | undefined
 type MockChildSpawnRouter = (args: string[]) => MockChildAutoExit

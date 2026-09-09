@@ -15,6 +15,7 @@ import { WarrantyClaimEvent } from '../../data/entities'
 import { commentClaimInputSchema, type CommentClaimInput } from '../../data/validators'
 import { requireScopedClaim, WARRANTY_CLAIM_RESOURCE_KIND, type WarrantyClaimScope } from '../../commands/shared'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toIsoOrEcho as toIso } from '@open-mercato/shared/lib/date/normalize'
 
 const logger = createLogger('warranty_claims')
 
@@ -44,15 +45,6 @@ function relationId(value: unknown): string | null {
   if (typeof value === 'string') return value
   const record = toRecord(value)
   return typeof record.id === 'string' ? record.id : null
-}
-
-function toIso(value: unknown): string | null {
-  if (value instanceof Date) return value.toISOString()
-  if (typeof value === 'string') {
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? value : date.toISOString()
-  }
-  return null
 }
 
 function serializeEvent(event: WarrantyClaimEvent) {

@@ -14,6 +14,7 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 import type { InvoiceCompany } from '../../data/entities'
 import { requireInvoiceScope, type InvoiceScope } from '../../data/scope'
 import { invoiceCompanyIdSchema } from '../../data/validators'
+import { toIsoOrNull as toIso } from '@open-mercato/shared/lib/date/normalize'
 import {
   invoiceCommonErrors,
   invoicePartnersTag,
@@ -68,12 +69,6 @@ export type InvoicePartnerRouteContext = {
   scope: InvoiceScope
   em: EntityManager
   translate: (key: string, fallback?: string) => string
-}
-
-function toIso(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  const date = value instanceof Date ? value : new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
 
 export function toInvoicePartnerDto(company: InvoiceCompany): z.infer<typeof invoicePartnerDtoSchema> {

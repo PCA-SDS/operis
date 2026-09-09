@@ -14,6 +14,7 @@ import { resolveOrganizationScopeFilter } from '@open-mercato/core/modules/direc
 import { WorkflowInstance, WorkflowEvent } from '../../../../data/entities'
 import { workflowEventRowSchema, paginationSchema } from '../../../openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { MAX_PAGE_SIZE } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('workflows')
 
@@ -127,7 +128,7 @@ export const openApi = {
       }),
       query: z.object({
         eventType: z.string().optional(),
-        limit: z.number().int().positive().default(100).optional(),
+        limit: z.number().int().positive().max(MAX_PAGE_SIZE).default(100).optional(),
         offset: z.number().int().min(0).default(0).optional(),
       }),
       responses: [

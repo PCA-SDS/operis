@@ -8,6 +8,8 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { enforceCommandOptimisticLockWithGuards } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
+import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { resolveOrganizationScopeFilter } from '@open-mercato/core/modules/directory/utils/organizationScopeFilter'
 import { Appointment, AppointmentLine, AppointmentStatus } from '../../data/entities'
 import { appointmentStatusUpdateSchema } from '../../data/validators'
 import { emitAppointmentEvent } from '../../events'
@@ -56,14 +58,21 @@ function mapAppointment(row: Appointment, lines: AppointmentLine[]) {
   }
 }
 
+// Tenant alone is not the boundary here: organization is an authorization
+// decision carried by the principal's allow-list (docs/architecture/multi-tenancy.md
+// §2, §3.4). `orgWhere` is empty for a genuinely unrestricted principal and an
+// `organizationId $in` predicate otherwise, so a caller scoped to one branch gets
+// the existing 404 for another branch's appointment on both read and write.
 async function loadScopedAppointment(
   em: EntityManager,
   tenantId: string,
   id: string,
+  orgWhere: Record<string, unknown>,
 ): Promise<Appointment | null> {
   return em.findOne(Appointment, {
     id,
     tenantId,
+    ...orgWhere,
     deletedAt: null,
   })
 }
@@ -84,7 +93,9 @@ export async function GET(req: Request, ctx: RouteContext) {
     }
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
-    const appointment = await loadScopedAppointment(em, auth.tenantId, id)
+    const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
+    const orgFilter = resolveOrganizationScopeFilter(scope, auth)
+    const appointment = await loadScopedAppointment(em, auth.tenantId, id, orgFilter.where)
     if (!appointment) {
       return NextResponse.json(
         { error: translate('appointments.detail.notFound', 'Appointment not found.'), code: 'NOT_FOUND' },
@@ -123,7 +134,9 @@ export async function PATCH(req: Request, ctx: RouteContext) {
     const body = appointmentStatusUpdateSchema.parse(await req.json())
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
-    const appointment = await loadScopedAppointment(em, auth.tenantId, id)
+    const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
+    const orgFilter = resolveOrganizationScopeFilter(scope, auth)
+    const appointment = await loadScopedAppointment(em, auth.tenantId, id, orgFilter.where)
     if (!appointment) {
       return NextResponse.json(
         { error: translate('appointments.detail.notFound', 'Appointment not found.'), code: 'NOT_FOUND' },

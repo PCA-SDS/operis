@@ -12,6 +12,7 @@ import {
   requireAdminContext,
 } from '../../helpers'
 import { checkoutTag } from '../../openapi'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 export const metadata = {
   path: '/checkout/links/[id]',
@@ -53,7 +54,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const { auth, container, commandBus } = await requireAdminContext(req)
     const resolvedParams = await params
-    const body = await req.json().catch(() => ({}))
+    const body = await readJsonSafe(req, {})
     const { result, logEntry } = await commandBus.execute<Record<string, unknown>, { ok: true; slug: string }>('checkout.link.update', {
       input: { ...body, id: resolvedParams.id },
       ctx: buildCommandRuntimeContext(req, container, auth),

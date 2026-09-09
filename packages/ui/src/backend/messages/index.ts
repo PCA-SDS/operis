@@ -20,7 +20,7 @@ export { useMessagesPoll } from './useMessagesPoll'
 export { useMessagesSse } from './useMessagesSse'
 export type { MessagePollItem, UseMessagesPollResult } from './useMessagesPoll'
 
-export { MessageObjectPreview } from './MessageObjectPreview'
+export { MessageObjectPreview, STATUS_TONE_CLASSES } from './MessageObjectPreview'
 export { MessageObjectDetail } from './MessageObjectDetail'
 
 export { EmailThreadsPanel } from './EmailThreadsPanel'

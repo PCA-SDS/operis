@@ -10,6 +10,7 @@ import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { CUSTOMER_INTERACTION_TASK_SOURCE, EXAMPLE_TODO_SOURCE } from './lib/interactionCompatibility'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { appendLine } from '@open-mercato/shared/modules/search/descriptorHelpers'
 
 const logger = createLogger('customers')
 
@@ -455,15 +456,6 @@ function snippet(text: unknown, max = 140): string | undefined {
   if (!trimmed.length) return undefined
   if (trimmed.length <= max) return trimmed
   return `${trimmed.slice(0, max - 3)}...`
-}
-
-function appendLine(lines: string[], label: string, value: unknown) {
-  if (value === null || value === undefined) return
-  const text = Array.isArray(value)
-    ? value.map((item) => (item === null || item === undefined ? '' : String(item))).filter(Boolean).join(', ')
-    : (typeof value === 'object' ? JSON.stringify(value) : String(value))
-  if (!text.trim()) return
-  lines.push(`${label}: ${text}`)
 }
 
 function friendlyLabel(input: string): string {

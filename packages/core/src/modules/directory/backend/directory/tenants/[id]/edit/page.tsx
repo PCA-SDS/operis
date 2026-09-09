@@ -143,7 +143,7 @@ export default function EditTenantPage({ params }: { params?: { id?: string } })
           loadingMessage={t('directory.tenants.form.loading', 'Loading tenant…')}
           submitLabel={t('common.save', 'Save')}
           cancelHref="/backend/directory/tenants"
-          successRedirect="/backend/directory/tenants?flash=Tenant%20updated&type=success"
+          successRedirect={`/backend/directory/tenants?flash=${encodeURIComponent(t('directory.tenants.flash.updated', 'Tenant updated'))}&type=success`}
           onSubmit={async (values) => {
             const customFields = collectCustomFieldValues(values)
             const payload: {
@@ -173,7 +173,7 @@ export default function EditTenantPage({ params }: { params?: { id?: string } })
               await raiseCrudError(call.response, t('directory.tenants.form.errors.delete', 'Failed to delete tenant'))
             }
           }}
-          deleteRedirect="/backend/directory/tenants?flash=Tenant%20deleted&type=success"
+          deleteRedirect={`/backend/directory/tenants?flash=${encodeURIComponent(t('directory.tenants.flash.deleted', 'Tenant deleted'))}&type=success`}
         />
       </PageBody>
     </Page>

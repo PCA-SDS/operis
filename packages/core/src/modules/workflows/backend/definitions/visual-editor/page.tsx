@@ -529,8 +529,10 @@ export default function VisualEditorPage() {
       return
     }
 
-    // TODO: Implement test logic (create instance, run first step)
-    flash('Test functionality will be implemented next', 'info')
+    // Not wired up yet. The button is disabled, so this is unreachable from the
+    // UI; it stays as the single place to implement against once the handler
+    // lands (POST /api/workflows/instances already exists).
+    flash('[internal] workflow visual-editor test run is not implemented', 'info')
   }, [nodes, edges])
 
   // Load example workflow
@@ -660,7 +662,7 @@ export default function VisualEditorPage() {
   if (isLoading) {
     return (
       <Page className="flex items-center justify-center min-h-[50vh]">
-        <LoadingMessage label="Loading workflow definition..." />
+        <LoadingMessage label={t('workflows.visualEditor.loading', 'Loading workflow definition…')} />
       </Page>
     )
   }
@@ -798,11 +800,12 @@ export default function VisualEditorPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleTest}
-                  disabled={isSaving}
+                  disabled
+                  title={t('common.comingSoon', 'Coming soon')}
                   className="h-8 text-xs"
                 >
                   <Play className="mr-1.5 h-4 w-4" />
-                  {t('workflows.visualEditor.runTest')}
+                  {`${t('workflows.visualEditor.runTest')} (${t('common.comingSoon', 'Coming soon')})`}
                 </Button>
               )}
               {isCodeOverride && (

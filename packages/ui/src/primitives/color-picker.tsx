@@ -545,7 +545,7 @@ export const ColorPicker = React.forwardRef<HTMLButtonElement, ColorPickerProps>
                     className={cn(
                       'h-full min-w-0 flex-1 bg-transparent font-mono text-sm uppercase tracking-tight outline-none',
                       'placeholder:text-muted-foreground',
-                      hexError && 'text-destructive',
+                      hexError && 'text-status-error-text',
                     )}
                   />
                   {showOpacity ? (

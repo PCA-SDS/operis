@@ -10,6 +10,7 @@ import {
 } from './types'
 import { isValidGtin, normalizeGtinValue } from '../lib/gtin'
 import { REFERENCE_UNIT_CODES } from '../lib/unitCodes'
+import { currencyCodeSchema as currencyCodeSchema_, moneyDecimalStringSchema } from '@open-mercato/shared/lib/validation'
 import {
   getCatalogPriceAmountValidationMessage,
   validateCatalogPriceAmountInput,
@@ -26,10 +27,14 @@ const tenantScoped = z.object({
   tenantId: uuid(),
 })
 
-const currencyCodeSchema = z
-  .string()
-  .trim()
-  .regex(/^[A-Z]{3}$/, 'currency code must be a three-letter ISO code')
+/**
+ * Prices carried as decimal strings, matching the `numeric(15,2)` columns behind
+ * them. They were plain `z.string()`, so `"abc"` reached the column and blew up
+ * at insert time instead of failing validation with a field error.
+ */
+const catalogPriceString = () => moneyDecimalStringSchema({ integerDigits: 13, scale: 2 })
+
+const currencyCodeSchema = currencyCodeSchema_({ message: 'currency code must be a three-letter ISO code', normalizeCase: false })
 
 const metadataSchema = z.record(z.string(), z.unknown()).nullable().optional()
 
@@ -563,9 +568,9 @@ export const catalogProductOptionCreateSchema = scoped.extend({
   description: z.string().trim().nullable().optional(),
   note: z.string().trim().max(100).nullable().optional(),
   unit: z.string().trim().max(50).nullable().optional(),
-  priceFlat: z.string().nullable().optional(), // numeric string
-  priceMin: z.string().nullable().optional(), // numeric string
-  priceMax: z.string().nullable().optional(), // numeric string
+  priceFlat: catalogPriceString().nullable().optional(),
+  priceMin: catalogPriceString().nullable().optional(),
+  priceMax: catalogPriceString().nullable().optional(),
   durationValue: z.coerce.number().int().min(0).nullable().optional(),
   durationUnit: z.string().trim().max(50).nullable().optional(),
   durationMin: z.coerce.number().int().min(0).nullable().optional(),
@@ -654,9 +659,9 @@ export const catalogProductOptionTreeSyncSchema = scoped.extend({
       description: z.string().trim().nullable().optional(),
       note: z.string().trim().max(100).nullable().optional(),
       unit: z.string().trim().max(50).nullable().optional(),
-      priceFlat: z.string().nullable().optional(),
-      priceMin: z.string().nullable().optional(),
-      priceMax: z.string().nullable().optional(),
+      priceFlat: catalogPriceString().nullable().optional(),
+      priceMin: catalogPriceString().nullable().optional(),
+      priceMax: catalogPriceString().nullable().optional(),
       durationValue: z.coerce.number().int().min(0).nullable().optional(),
       durationUnit: z.string().trim().max(50).nullable().optional(),
       durationMin: z.coerce.number().int().min(0).nullable().optional(),

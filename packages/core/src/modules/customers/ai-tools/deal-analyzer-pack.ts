@@ -12,7 +12,6 @@
  * list can reference both under a single pack. The tool itself is NOT
  * redeclared here.
  */
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { z } from 'zod'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import {
@@ -21,11 +20,8 @@ import {
   CustomerDealPersonLink,
   CustomerEntity,
 } from '../data/entities'
-import {
-  assertTenantScope,
-  type CustomersAiToolDefinition,
-  type CustomersToolContext,
-} from './types'
+import { resolveEm } from './_shared'
+import { assertTenantScope, type CustomersAiToolDefinition } from './types'
 
 function refIdOf(ref: unknown): string | undefined {
   if (!ref) return undefined
@@ -34,10 +30,6 @@ function refIdOf(ref: unknown): string | undefined {
     return (ref as { id: string }).id
   }
   return undefined
-}
-
-function resolveEm(ctx: CustomersToolContext): EntityManager {
-  return ctx.container.resolve<EntityManager>('em')
 }
 
 function clamp(value: number, min: number, max: number): number {

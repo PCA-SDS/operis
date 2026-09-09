@@ -8,9 +8,7 @@ import type { ChatScope } from '../lib/scope'
 
 export { ensureOrganizationScope, ensureTenantScope } from '@open-mercato/shared/lib/commands/scope'
 
-export function forkEm(ctx: CommandRuntimeContext): EntityManager {
-  return (ctx.container.resolve('em') as EntityManager).fork()
-}
+export { forkEm } from '@open-mercato/shared/lib/commands/helpers'
 
 /**
  * The acting user, taken from the session rather than the payload.

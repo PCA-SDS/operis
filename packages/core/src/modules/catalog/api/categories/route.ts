@@ -34,8 +34,10 @@ const rawBodySchema = z.object({}).passthrough()
 const viewSchema = z
   .object({
     view: z.enum(['manage', 'tree']).default('manage'),
-    page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(200).default(50),
+    page: z.coerce.number().int().min(1).default(1),
+    // Deliberately above the shared default: the category tree pickers load the whole list in one request,
+    // and lowering this ceiling would 400 those existing callers.
+    pageSize: z.coerce.number().int().min(1).max(200).default(50),
     search: z.string().optional(),
     status: z.enum(['all', 'active', 'inactive']).optional(),
     ids: z.string().optional(),

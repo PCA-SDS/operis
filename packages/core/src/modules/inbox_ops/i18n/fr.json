@@ -147,6 +147,8 @@
   "inbox_ops.possibly_incomplete": "This thread appears to be a partial forward",
   "inbox_ops.preview.customer": "Customer",
   "inbox_ops.preview.delivery": "Delivery",
+  "inbox_ops.preview.email.notFound": "Not found",
+  "inbox_ops.preview.email.title": "Inbox Email",
   "inbox_ops.preview.notes": "Notes",
   "inbox_ops.preview.price": "Price",
   "inbox_ops.preview.product": "Product",
