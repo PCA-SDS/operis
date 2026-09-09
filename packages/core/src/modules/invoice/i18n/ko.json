@@ -1,10 +1,12 @@
 {
-  "invoice.errors.invalid_input": "Invalid input",
+  "invoice.errors.company_lookup_unavailable": "회사 조회를 일시적으로 사용할 수 없습니다",
+  "invoice.errors.exchange_rates_unavailable": "Exchange rates are temporarily unavailable",
+  "invoice.errors.invalid_input": "잘못된 입력값입니다",
   "invoice.errors.organization_required": "조직 컨텍스트가 필요합니다.",
   "invoice.errors.partner_not_found": "Partner not found",
-  "invoice.errors.request_failed": "Failed to process invoice request",
+  "invoice.errors.request_failed": "청구서 요청을 처리하지 못했습니다",
   "invoice.errors.tenant_required": "테넌트 컨텍스트가 필요합니다.",
-  "invoice.errors.unauthorized": "Unauthorized",
+  "invoice.errors.unauthorized": "권한이 없습니다",
   "invoice.search.badge.company": "청구서 회사",
   "invoice.search.badge.invoice": "청구서"
 }

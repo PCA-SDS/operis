@@ -1,10 +1,12 @@
 {
-  "invoice.errors.invalid_input": "Invalid input",
+  "invoice.errors.company_lookup_unavailable": "Unternehmenssuche ist vorübergehend nicht verfügbar",
+  "invoice.errors.exchange_rates_unavailable": "Exchange rates are temporarily unavailable",
+  "invoice.errors.invalid_input": "Ungültige Eingabe",
   "invoice.errors.organization_required": "Organisationskontext ist erforderlich.",
   "invoice.errors.partner_not_found": "Partner not found",
-  "invoice.errors.request_failed": "Failed to process invoice request",
+  "invoice.errors.request_failed": "Fehler beim Verarbeiten der Rechnungsanfrage",
   "invoice.errors.tenant_required": "Mandantenkontext ist erforderlich.",
-  "invoice.errors.unauthorized": "Unauthorized",
+  "invoice.errors.unauthorized": "Nicht autorisiert",
   "invoice.search.badge.company": "Rechnungsunternehmen",
   "invoice.search.badge.invoice": "Rechnung"
 }

@@ -181,6 +181,13 @@ Parity requirements:
 - Remove saved email tenant-scoped.
 - Duplicate email should not create duplicate rows.
 
+Current new-repo progress:
+
+- `invoiceCompanyEmailsService` is implemented and registered in DI.
+- `/api/invoice/company-emails` list and record routes are implemented.
+- `/api/invoice/company-emails/[id]` remove route is implemented.
+- Route OpenAPI metadata and focused service/API tests are present.
+
 Evidence:
 
 - `apps/backend/src/modules/invoice/features/company-emails/company-emails.service.ts`
@@ -190,8 +197,9 @@ Evidence:
 
 Gaps to prove in new repo:
 
-- Direct service/API test for list/remove/upsert and tenant scoping.
 - UI recipient picker scenario.
+- Best-effort recording from CAP-001 send invoice and CAP-005 payment
+  confirmation request.
 
 Migration blocker:
 
@@ -208,6 +216,15 @@ Parity requirements:
 - No snapshot plus upstream failure returns service unavailable.
 - Invalid upstream response is rejected.
 
+Current new-repo progress:
+
+- `invoiceExchangeRatesService` is implemented and registered in DI.
+- `/api/invoice/exchange-rates` read route is implemented with `invoice.view`.
+- The service uses a 24-hour process-local fresh cache and stale fallback.
+- The service rejects invalid provider data before caching and has no DB write
+  dependency.
+- Provider/mock contract tests and route tests are present.
+
 Evidence:
 
 - `apps/backend/src/modules/invoice/features/exchange-rates/exchange-rates.service.spec.ts`
@@ -216,8 +233,8 @@ Evidence:
 
 Gaps to prove in new repo:
 
-- Contract test against chosen rate provider/mock.
 - Multi-replica cache decision. Old repo uses process-local cache, not Redis.
+- CAP-001 summary/forecast consumption and M9 form preview consumption.
 
 Migration blocker:
 

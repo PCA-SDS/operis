@@ -1,4 +1,6 @@
 {
+  "invoice.errors.company_lookup_unavailable": "Company lookup is temporarily unavailable",
+  "invoice.errors.exchange_rates_unavailable": "Exchange rates are temporarily unavailable",
   "invoice.errors.invalid_input": "Invalid input",
   "invoice.errors.organization_required": "Organization context is required.",
   "invoice.errors.partner_not_found": "Partner not found",

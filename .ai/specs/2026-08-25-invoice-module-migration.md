@@ -122,6 +122,11 @@ Source questions resolved before Phase 3:
   180-second captcha TTL, and 82800-second GDT token TTL cap.
 - Due-date fallback is locked: explicit due date, then partner default due
   days, then null.
+- Company email memory is implemented as invoice-local, scoped recipient memory:
+  list by company, idempotent upsert, and scoped delete.
+- Exchange rates are implemented as an invoice-local read service with a
+  24-hour process-local cache, stale fallback, no database writes, and
+  open.er-api style provider validation.
 
 ## Architecture
 
@@ -214,9 +219,8 @@ Important invariants:
 - Manual invoice totals are server-computed.
 - Generic invoice update cannot write derived settlement rollups.
 - Raw GDT secrets and raw payment-confirmation tokens are not stored.
-- `invoice_company_registry.payload` is created in M0 but provider payload use
-  is deferred to M4. Payload encryption must be decided and implemented before
-  M4 writes raw provider responses.
+- `invoice_company_registry.payload` stores provider lookup payloads through the
+  invoice encryption map and decrypted scoped read helpers.
 
 ## API Contracts
 
@@ -248,6 +252,13 @@ Detailed route ownership is in
 `docs/invoice/TARGET-INVOICE-ARCHITECTURE.md` and milestone order is in
 `docs/invoice/CAPABILITY-MIGRATION-PLAN.md`.
 
+Implemented CAP route notes:
+
+- `/api/invoice/company-emails` is available for company-scoped recipient email
+  memory and uses `invoice.manage`.
+- `/api/invoice/exchange-rates` is available for VND conversion hints and uses
+  `invoice.view`.
+
 ## Risks & Impact Review
 
 | Risk | Severity | Affected area | Mitigation | Residual risk |
@@ -255,7 +266,7 @@ Detailed route ownership is in
 | Mixing old Invoice with `sales_invoices` changes business semantics. | High | Data model, UI, payments | Keep separate `invoice` module and record DEC-002. | Later integration may still need explicit bridge design. |
 | GDT re-sync overwrites tenant payment metadata. | High | Sync, settlement | Use ownership rules from data mapping and regression tests. | Requires careful persistence tests. |
 | Public token leak through logs. | High | Payment confirmations, tracking | Store hashes, structured safe logs only. | Pixel token hashing needs source confirmation. |
-| Company registry payload may contain PII once provider lookup is implemented. | High | Company lookup cache | M0 does not call providers; M4 must add encryption or record a stricter payload contract before writing provider responses. | Schema exists before encrypted writes are implemented. |
+| Company registry payload may contain PII once provider lookup is implemented. | High | Company lookup cache | CAP-008 encrypts `invoice_company_registry.payload`, reads cache rows with decrypted scoped helpers, and returns only normalized lookup DTOs. | Existing tenants must seed the new encryption map before provider writes are enabled. |
 | Worker retry duplicates imported invoices. | High | Sync | Natural source key and idempotent worker. | Provider edge cases still need mock tests. |
 | Exchange-rate cache semantics change in multi-replica deploy. | Medium | Summary, forecast | Preserve process-local cache first. | Different replicas can have different stale snapshots. |
 | Feature parity missed in UI. | Medium | Backend pages | Use `PARITY-MATRIX.md` cross-capability scenarios. | Browser tests may need staged implementation. |
@@ -333,3 +344,13 @@ This is a pre-implementation spec. Compliance requirements for implementation:
 - 2026-09-05: Exposed CAP-003 partner list, partner match, and partner payment
   terms update API routes with OpenAPI metadata, scope handling, optimistic
   locking, and mutation guards.
+- 2026-09-07: Documented CAP-006 company email memory service/API progress,
+  ownership decision, remaining UI/consumer gaps, and direct service/API
+  coverage.
+- 2026-09-07: Documented CAP-007 exchange rates service/API progress,
+  24-hour process-local cache decision, stale fallback behavior, provider
+  validation, no-DB-write boundary, and remaining consumer gaps.
+- 2026-09-07: Implemented CAP-008 company lookup cache security decision with
+  encrypted `invoice_company_registry.payload`, decrypted scoped cache reads,
+  30-day freshness, provider-stale fallback, and authenticated lookup API
+  contract for Vietnam MST and Singapore UEN.
