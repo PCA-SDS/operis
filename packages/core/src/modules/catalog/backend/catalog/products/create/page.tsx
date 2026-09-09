@@ -88,6 +88,11 @@ import {
   isConfigurableProductType,
   buildComplianceProductPayload,
 } from "@open-mercato/core/modules/catalog/components/products/productForm";
+import { buildVariantDurationPayload } from "@open-mercato/core/modules/catalog/components/products/variantForm";
+import {
+  CATALOG_DURATION_UNIT_OPTIONS,
+  DEFAULT_CATALOG_DURATION_UNIT,
+} from "@open-mercato/core/modules/catalog/lib/durationUnits";
 import { CATALOG_PRODUCT_TYPES } from "@open-mercato/core/modules/catalog/data/types";
 import {
   buildAttachmentImageUrl,
@@ -808,10 +813,7 @@ export default function CreateCatalogProductPage() {
                     : undefined,
                   taxRateId: resolvedVariantTaxRateId ?? null,
                   taxRate: resolvedVariantTaxRate ?? null,
-                  durationValue: variant.durationValue ? parseInt(variant.durationValue, 10) : undefined,
-                  durationUnit: variant.durationUnit || undefined,
-                  durationMin: variant.durationMin ? parseInt(variant.durationMin, 10) : undefined,
-                  durationMax: variant.durationMax ? parseInt(variant.durationMax, 10) : undefined,
+                  ...buildVariantDurationPayload(variant),
                   customFieldsetCode:
                     formValues.productType === "service"
                       ? SERVICE_FIELDSET_CODE
@@ -1417,19 +1419,18 @@ function DefaultVariantBuilder({
                   }}
                 />
                 <Select
-                  value={variant.durationUnit || "minute"}
+                  value={variant.durationUnit || DEFAULT_CATALOG_DURATION_UNIT}
                   onValueChange={(val) => setVariantField(variantId, "durationUnit", val)}
                 >
                   <SelectTrigger className="w-28">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="minute">
-                      {t("catalog.variants.form.durationUnit.minute", "Minutes")}
-                    </SelectItem>
-                    <SelectItem value="hour">
-                      {t("catalog.variants.form.durationUnit.hour", "Hours")}
-                    </SelectItem>
+                    {CATALOG_DURATION_UNIT_OPTIONS.map((unit) => (
+                      <SelectItem key={unit.value} value={unit.value}>
+                        {t(unit.labelKey, unit.labelFallback)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1450,19 +1451,18 @@ function DefaultVariantBuilder({
                     onChange={(e) => setVariantField(variantId, "durationMin", e.target.value)}
                   />
                   <Select
-                    value={variant.durationUnit || "minute"}
+                    value={variant.durationUnit || DEFAULT_CATALOG_DURATION_UNIT}
                     onValueChange={(val) => setVariantField(variantId, "durationUnit", val)}
                   >
                     <SelectTrigger className="w-28">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="minute">
-                        {t("catalog.variants.form.durationUnit.minute", "Minutes")}
-                      </SelectItem>
-                      <SelectItem value="hour">
-                        {t("catalog.variants.form.durationUnit.hour", "Hours")}
-                      </SelectItem>
+                      {CATALOG_DURATION_UNIT_OPTIONS.map((unit) => (
+                        <SelectItem key={unit.value} value={unit.value}>
+                          {t(unit.labelKey, unit.labelFallback)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

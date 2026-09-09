@@ -3,6 +3,11 @@
 import type { ProductMediaItem } from './ProductMediaManager'
 import { createLocalId, type PriceKindSummary } from './productForm'
 import { isCatalogPriceAmountInputValid } from '../../lib/priceValidation'
+import {
+  DEFAULT_CATALOG_DURATION_UNIT,
+  normalizeCatalogDurationUnit,
+  type CatalogDurationUnit,
+} from '../../lib/durationUnits'
 
 export type OptionDefinition = {
   id: string
@@ -44,7 +49,7 @@ export type VariantFormValues = {
   taxRateId: string | null
   customFieldsetCode?: string | null
   durationValue?: string
-  durationUnit?: string
+  durationUnit?: CatalogDurationUnit | string
   durationMin?: string
   durationMax?: string
   updatedAt?: string | null
@@ -68,7 +73,7 @@ export const VARIANT_BASE_VALUES: VariantFormValues = {
   taxRateId: null,
   customFieldsetCode: null,
   durationValue: '',
-  durationUnit: 'min',
+  durationUnit: DEFAULT_CATALOG_DURATION_UNIT,
   durationMin: '',
   durationMax: '',
 }
@@ -77,6 +82,45 @@ export const createVariantInitialValues = (): VariantFormValues => ({
   ...VARIANT_BASE_VALUES,
   mediaDraftId: createLocalId(),
 })
+
+type VariantDurationDraft = {
+  durationValue?: string | number | null
+  durationUnit?: CatalogDurationUnit | string | null
+  durationMin?: string | number | null
+  durationMax?: string | number | null
+}
+
+function parseDurationInteger(value: string | number | null | undefined): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed.length) return null
+  const parsed = Number.parseInt(trimmed, 10)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export function normalizeVariantDurationUnit(value: string | null | undefined): CatalogDurationUnit {
+  return normalizeCatalogDurationUnit(value, DEFAULT_CATALOG_DURATION_UNIT) ?? DEFAULT_CATALOG_DURATION_UNIT
+}
+
+export function buildVariantDurationPayload(values: VariantDurationDraft): {
+  durationValue: number | null
+  durationUnit: string | null
+  durationMin: number | null
+  durationMax: number | null
+} {
+  const durationValue = parseDurationInteger(values.durationValue)
+  const durationMin = parseDurationInteger(values.durationMin)
+  const durationMax = parseDurationInteger(values.durationMax)
+  const hasDuration = durationValue !== null || durationMin !== null || durationMax !== null
+
+  return {
+    durationValue,
+    durationUnit: hasDuration ? normalizeVariantDurationUnit(values.durationUnit ?? null) : null,
+    durationMin,
+    durationMax,
+  }
+}
 
 export function normalizeOptionSchema(raw: unknown): OptionDefinition[] {
   if (!Array.isArray(raw)) return []

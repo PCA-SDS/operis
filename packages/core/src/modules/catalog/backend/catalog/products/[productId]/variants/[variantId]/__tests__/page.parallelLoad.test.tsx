@@ -82,6 +82,10 @@ describe('EditVariantPage — parallel form loaders (#3180)', () => {
                 id: 'v-1',
                 product_id: 'prod-1',
                 name: 'Variant 1',
+                duration_value: 60,
+                duration_unit: 'minute',
+                duration_min: null,
+                duration_max: null,
                 option_values: {},
                 updated_at: '2026-01-01T00:00:00.000Z',
               },
@@ -112,5 +116,22 @@ describe('EditVariantPage — parallel form loaders (#3180)', () => {
     await waitFor(() => expect(callsTo('/api/attachments')).toBe(1))
     expect(callsTo('/api/catalog/prices?variantId=')).toBe(1)
     expect(callsTo('/api/catalog/products?id=')).toBe(1)
+  })
+
+  it('hydrates variant duration fields into the edit form', async () => {
+    render(<EditVariantPage params={{ productId: 'prod-1', variantId: 'v-1' }} />)
+
+    await waitFor(() => expect(callsTo('/api/attachments')).toBe(1))
+    attachments.resolve({ ok: true, result: { items: [] } })
+    prices.resolve({ ok: true, result: { items: [] } })
+    product.resolve({ ok: true, result: { items: [{ id: 'prod-1', title: 'Yoga Facial', metadata: {} }] } })
+
+    await waitFor(() => {
+      const initialValues = latestCrudFormProps?.initialValues as Record<string, unknown> | undefined
+      expect(initialValues?.durationValue).toBe('60')
+      expect(initialValues?.durationUnit).toBe('minute')
+      expect(initialValues?.durationMin).toBe('')
+      expect(initialValues?.durationMax).toBe('')
+    })
   })
 })

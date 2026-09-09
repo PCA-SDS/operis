@@ -7,6 +7,7 @@ import {
   type CatalogProductOptionSchema,
   type CatalogProductType,
 } from "../../data/types";
+import { DEFAULT_CATALOG_DURATION_UNIT } from "../../lib/durationUnits";
 import type { ProductMediaItem } from "./ProductMediaManager";
 
 export { slugify };
@@ -603,7 +604,7 @@ export const createVariantDraft = (
   optionValues: {},
   prices: {},
   durationValue: "",
-  durationUnit: "minute",
+  durationUnit: DEFAULT_CATALOG_DURATION_UNIT,
   durationMin: "",
   durationMax: "",
   ...overrides,

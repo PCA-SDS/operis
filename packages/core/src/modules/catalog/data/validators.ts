@@ -10,6 +10,7 @@ import {
 } from './types'
 import { isValidGtin, normalizeGtinValue } from '../lib/gtin'
 import { REFERENCE_UNIT_CODES } from '../lib/unitCodes'
+import { CATALOG_DURATION_UNITS, normalizeCatalogDurationUnit } from '../lib/durationUnits'
 import {
   getCatalogPriceAmountValidationMessage,
   validateCatalogPriceAmountInput,
@@ -32,6 +33,12 @@ const currencyCodeSchema = z
   .regex(/^[A-Z]{3}$/, 'currency code must be a three-letter ISO code')
 
 const metadataSchema = z.record(z.string(), z.unknown()).nullable().optional()
+
+const durationUnitSchema = z.preprocess((value) => {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  return normalizeCatalogDurationUnit(value, null) ?? value
+}, z.enum(CATALOG_DURATION_UNITS).nullable().optional())
 
 const slugSchema = z
   .string()
@@ -362,6 +369,10 @@ const variantBaseSchema = scoped.extend({
   weightUnit: z.string().trim().max(25).optional(),
   taxRateId: uuid().nullable().optional(),
   taxRate: z.coerce.number().min(0).max(100).optional().nullable(),
+  durationValue: z.coerce.number().int().min(0).nullable().optional(),
+  durationUnit: durationUnitSchema,
+  durationMin: z.coerce.number().int().min(0).nullable().optional(),
+  durationMax: z.coerce.number().int().min(0).nullable().optional(),
   dimensions: z
     .object({
       width: z.coerce.number().min(0).optional(),
@@ -567,7 +578,7 @@ export const catalogProductOptionCreateSchema = scoped.extend({
   priceMin: z.string().nullable().optional(), // numeric string
   priceMax: z.string().nullable().optional(), // numeric string
   durationValue: z.coerce.number().int().min(0).nullable().optional(),
-  durationUnit: z.string().trim().max(50).nullable().optional(),
+  durationUnit: durationUnitSchema,
   durationMin: z.coerce.number().int().min(0).nullable().optional(),
   durationMax: z.coerce.number().int().min(0).nullable().optional(),
   isAddon: z.boolean().optional(),
@@ -658,7 +669,7 @@ export const catalogProductOptionTreeSyncSchema = scoped.extend({
       priceMin: z.string().nullable().optional(),
       priceMax: z.string().nullable().optional(),
       durationValue: z.coerce.number().int().min(0).nullable().optional(),
-      durationUnit: z.string().trim().max(50).nullable().optional(),
+      durationUnit: durationUnitSchema,
       durationMin: z.coerce.number().int().min(0).nullable().optional(),
       durationMax: z.coerce.number().int().min(0).nullable().optional(),
       isAddon: z.boolean().optional(),

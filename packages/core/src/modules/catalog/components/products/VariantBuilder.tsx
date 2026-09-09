@@ -24,6 +24,7 @@ import { formatTaxRateLabel } from './productForm'
 import type { OptionDefinition, VariantFormValues, VariantPriceDraft } from './variantForm'
 import { CATALOG_GTIN_TYPES } from '../../data/types'
 import { E } from '#generated/entities.ids.generated'
+import { CATALOG_DURATION_UNIT_OPTIONS, DEFAULT_CATALOG_DURATION_UNIT } from '../../lib/durationUnits'
 
 type VariantBuilderProps = {
   values: VariantFormValues
@@ -301,17 +302,18 @@ export function VariantDurationSection({ values, setValue, showHeading = true }:
             onChange={(e) => setValue('durationValue', e.target.value)}
           />
           <Select
-            value={values.durationUnit ?? 'min'}
+            value={values.durationUnit ?? DEFAULT_CATALOG_DURATION_UNIT}
             onValueChange={(val) => setValue('durationUnit', val)}
           >
             <SelectTrigger className="w-28 shrink-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="min">{t('catalog.variants.form.durationUnit.minute', 'Minutes')}</SelectItem>
-              <SelectItem value="hour">{t('catalog.variants.form.durationUnit.hour', 'Hours')}</SelectItem>
-              <SelectItem value="day">{t('catalog.duration.day', 'Days')}</SelectItem>
-              <SelectItem value="month">{t('catalog.duration.month', 'Months')}</SelectItem>
+              {CATALOG_DURATION_UNIT_OPTIONS.map((unit) => (
+                <SelectItem key={unit.value} value={unit.value}>
+                  {t(unit.labelKey, unit.labelFallback)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -320,17 +322,18 @@ export function VariantDurationSection({ values, setValue, showHeading = true }:
       {durationMode === 'range' && (
         <div className="space-y-2">
           <Select
-            value={values.durationUnit ?? 'min'}
+            value={values.durationUnit ?? DEFAULT_CATALOG_DURATION_UNIT}
             onValueChange={(val) => setValue('durationUnit', val)}
           >
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="min">{t('catalog.variants.form.durationUnit.minute', 'Minutes')}</SelectItem>
-              <SelectItem value="hour">{t('catalog.variants.form.durationUnit.hour', 'Hours')}</SelectItem>
-              <SelectItem value="day">{t('catalog.duration.day', 'Days')}</SelectItem>
-              <SelectItem value="month">{t('catalog.duration.month', 'Months')}</SelectItem>
+              {CATALOG_DURATION_UNIT_OPTIONS.map((unit) => (
+                <SelectItem key={unit.value} value={unit.value}>
+                  {t(unit.labelKey, unit.labelFallback)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
