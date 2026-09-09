@@ -9,10 +9,7 @@ import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { ORGANIZATION_SCOPE_REQUIRED_ERROR_CODE } from '@open-mercato/shared/lib/auth/organizationScope'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { runCustomRouteAfterInterceptors } from '@open-mercato/shared/lib/crud/custom-route-interceptor'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { salesOrderWarehouseAssignBodySchema } from '../../../../data/validators'
@@ -184,19 +181,28 @@ export async function DELETE(
       resourceKind: 'wms.sales_order_warehouse_assignment',
       resourceId: parsedParams.salesOrderId,
     }
-    const guardResult = await validateCrudMutationGuard(ctx.container, {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: ctx.auth?.sub ?? '',
-      resourceKind: resource.resourceKind,
-      resourceId: resource.resourceId,
-      operation: 'custom',
-      requestMethod: request.method,
-      requestHeaders: request.headers,
-      mutationPayload: { salesOrderId: parsedParams.salesOrderId },
+    // Unassigning goes through the same registry the assign direction uses via
+    // `executeWmsCustomPostRoute`. The deprecated `validateCrudMutationGuard`
+    // this replaced resolved only the single DI guard service, so in a default
+    // container it returned null and this route ran with no guard at all — a
+    // lock or approval guard could block reassignment but not unassignment.
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req: request,
+      auth: {
+        userId: ctx.auth?.sub ?? '',
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+      },
+      input: {
+        resourceKind: resource.resourceKind,
+        resourceId: resource.resourceId,
+        operation: 'custom',
+        mutationPayload: { salesOrderId: parsedParams.salesOrderId },
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return guardResult.response
     }
 
     const commandBus = ctx.container.resolve('commandBus') as CommandBus
@@ -209,19 +215,7 @@ export async function DELETE(
       ctx,
     })
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(ctx.container, {
-        tenantId: scope.tenantId,
-        organizationId: scope.organizationId,
-        userId: ctx.auth?.sub ?? '',
-        resourceKind: resource.resourceKind,
-        resourceId: resource.resourceId,
-        operation: 'custom',
-        requestMethod: request.method,
-        requestHeaders: request.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     const responseBody = { ok: true as const }
     const intercepted = await runCustomRouteAfterInterceptors({
