@@ -426,8 +426,14 @@ Progress:
   optimistic locking for edit/delete. Buyer stamping follows DEC-036:
   `buyer_name` is the trusted scoped `Organization.name` and `buyer_tax_code`
   is `null`.
-- Summary, forecast, dedicated due-date endpoint, AR settlement, installment,
-  send/tracking, payment confirmation, and UI parity remain pending.
+- Implemented the CAP-001 dedicated due-date slice:
+  `PATCH /api/invoice/invoices/[id]/due-date`,
+  `invoice.invoices.update-due-date`, scoped service mutation, set/clear
+  support for manual and imported invoices, invoice-date/max-range validation,
+  installment-authoritative `nextDueDate` behavior, route mutation guards, and
+  command-level optimistic locking.
+- Summary, forecast, AR settlement, installment, send/tracking, payment
+  confirmation, and UI parity remain pending.
 
 ## M7 CAP-005 Payment Confirmations
 

@@ -381,3 +381,10 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   and store `buyer_tax_code = null`. Summary/forecast, dedicated due-date
   updates, AR settlement, installments, send/tracking, payment confirmations,
   and UI remain pending.
+- 2026-09-09: Implemented the CAP-001 dedicated due-date operation:
+  `PATCH /api/invoice/invoices/[id]/due-date` through
+  `invoice.invoices.update-due-date`, route mutation guards, trusted Invoice
+  scope, set/clear support for manual and imported invoices, invoice-date and
+  max-range validation, installment-authoritative scheduling behavior, and
+  command-level optimistic locking. Summary/forecast, AR settlement,
+  installments, send/tracking, payment confirmations, and UI remain pending.

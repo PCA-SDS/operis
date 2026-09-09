@@ -347,6 +347,9 @@ describe('invoice invoices API routes', () => {
           input: expect.objectContaining({ id: invoiceId }),
         }),
       )
+      expect(commandExecute.mock.calls[0]?.[1]?.input.input).toEqual({
+        dueDate: new Date('2026-02-10T00:00:00.000Z'),
+      })
       expect(mockRunRouteMutationGuards).toHaveBeenCalledWith(expect.objectContaining({
         auth: expect.objectContaining({
           tenantId: scope.tenantId,
@@ -380,6 +383,40 @@ describe('invoice invoices API routes', () => {
       }))
     })
 
+    it('routes a clear PATCH to the command bus', async () => {
+      const commandExecute = jest.fn().mockResolvedValue({
+        result: { invoiceId, invoice: invoiceDto({ dueDate: null, nextDueDate: null }) },
+      })
+      createRouteHarness({ commandExecute })
+
+      const response = await dueDateRoute.PATCH(
+        new Request(`https://example.test/api/invoice/invoices/${invoiceId}/due-date`, {
+          method: 'PATCH',
+          body: JSON.stringify({ dueDate: null }),
+        }),
+        { params: { id: invoiceId } },
+      )
+
+      expect(response.status).toBe(200)
+      expect(commandExecute).toHaveBeenCalledWith(
+        'invoice.invoices.update-due-date',
+        expect.objectContaining({
+          input: {
+            id: invoiceId,
+            input: { dueDate: null },
+          },
+        }),
+      )
+      expect(await readJson(response)).toMatchObject({
+        ok: true,
+        invoice: {
+          id: invoiceId,
+          dueDate: null,
+          nextDueDate: null,
+        },
+      })
+    })
+
     it('returns 400 for an invalid body (non-date string) without calling the command bus', async () => {
       const commandExecute = jest.fn()
       createRouteHarness({ commandExecute })
@@ -393,6 +430,26 @@ describe('invoice invoices API routes', () => {
       )
 
       expect(response.status).toBe(400)
+      expect(commandExecute).not.toHaveBeenCalled()
+    })
+
+    it('returns mutation guard response without executing the command bus', async () => {
+      const commandExecute = jest.fn()
+      createRouteHarness({ commandExecute })
+      mockRunRouteMutationGuards.mockResolvedValueOnce({
+        ok: false,
+        response: new Response(JSON.stringify({ error: 'blocked' }), { status: 403 }),
+      })
+
+      const response = await dueDateRoute.PATCH(
+        new Request(`https://example.test/api/invoice/invoices/${invoiceId}/due-date`, {
+          method: 'PATCH',
+          body: JSON.stringify({ dueDate: '2026-02-10' }),
+        }),
+        { params: { id: invoiceId } },
+      )
+
+      expect(response.status).toBe(403)
       expect(commandExecute).not.toHaveBeenCalled()
     })
 

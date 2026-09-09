@@ -162,6 +162,24 @@ function calculateTotals(lines: ManualLineItem[]): CalculatedTotals {
   }
 }
 
+function invoiceHasInstallmentSchedule(invoice: Invoice): boolean {
+  const installments = invoice.installments as unknown
+  if (Array.isArray(installments)) return installments.length > 0 || invoice.hasInstallmentPlan
+  if (installments && typeof installments === 'object') {
+    const collection = installments as {
+      getItems?: () => unknown[]
+      isInitialized?: () => boolean
+    }
+    if (typeof collection.getItems === 'function') {
+      if (typeof collection.isInitialized === 'function' && !collection.isInitialized()) {
+        return invoice.hasInstallmentPlan
+      }
+      return collection.getItems().length > 0 || invoice.hasInstallmentPlan
+    }
+  }
+  return invoice.hasInstallmentPlan
+}
+
 export class InvoiceService {
   constructor(
     private readonly em: EntityManager,
@@ -389,7 +407,7 @@ export class InvoiceService {
     //   - installment plan is authoritative → leave nextDueDate alone
     //   - settled invoice → nextDueDate is always null
     //   - otherwise → mirror the new dueDate
-    if (!invoice.hasInstallmentPlan) {
+    if (!invoiceHasInstallmentSchedule(invoice)) {
       invoice.nextDueDate = invoice.settlementStatus === 'SETTLED' ? null : (input.dueDate ?? null)
     }
 

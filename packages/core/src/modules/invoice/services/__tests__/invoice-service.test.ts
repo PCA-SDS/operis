@@ -331,6 +331,7 @@ describe('InvoiceService', () => {
         dueDate: null,
         settlementStatus: 'UNSETTLED',
         hasInstallmentPlan: false,
+        installments: [] as unknown as Invoice['installments'],
       })
       jest.mocked(em.findOne).mockResolvedValue(inv)
       jest.mocked(em.flush).mockResolvedValue(undefined)
@@ -344,6 +345,26 @@ describe('InvoiceService', () => {
       expect(em.flush).toHaveBeenCalled()
     })
 
+    it('allows due-date update on manual invoices', async () => {
+      const { em, service } = createService()
+      const inv = invoice({
+        origin: 'MANUAL',
+        invoiceDate: new Date('2026-01-10T00:00:00.000Z'),
+        dueDate: null,
+        settlementStatus: 'UNSETTLED',
+        hasInstallmentPlan: false,
+        installments: [] as unknown as Invoice['installments'],
+      })
+      jest.mocked(em.findOne).mockResolvedValue(inv)
+      jest.mocked(em.flush).mockResolvedValue(undefined)
+
+      await service.updateDueDate(scope, invoiceId, { dueDate: '2026-02-10' })
+
+      expect(inv.origin).toBe('MANUAL')
+      expect(inv.dueDate).toEqual(new Date('2026-02-10T00:00:00.000Z'))
+      expect(inv.nextDueDate).toEqual(new Date('2026-02-10T00:00:00.000Z'))
+    })
+
     it('clears due date and nextDueDate when dueDate is null', async () => {
       const { em, service } = createService()
       const inv = invoice({
@@ -353,6 +374,7 @@ describe('InvoiceService', () => {
         dueDateSource: 'explicit',
         settlementStatus: 'UNSETTLED',
         hasInstallmentPlan: false,
+        installments: [] as unknown as Invoice['installments'],
       })
       jest.mocked(em.findOne).mockResolvedValue(inv)
       jest.mocked(em.flush).mockResolvedValue(undefined)
@@ -410,6 +432,26 @@ describe('InvoiceService', () => {
 
       await service.updateDueDate(scope, invoiceId, { dueDate: '2026-02-10' })
 
+      expect(inv.nextDueDate).toEqual(originalNextDueDate)
+    })
+
+    it('does not update nextDueDate when installment rows exist even if the flag is stale', async () => {
+      const { em, service } = createService()
+      const originalNextDueDate = new Date('2026-03-01T00:00:00.000Z')
+      const inv = invoice({
+        invoiceDate: new Date('2026-01-10T00:00:00.000Z'),
+        dueDate: null,
+        nextDueDate: originalNextDueDate,
+        settlementStatus: 'UNSETTLED',
+        hasInstallmentPlan: false,
+        installments: [installment()] as unknown as Invoice['installments'],
+      })
+      jest.mocked(em.findOne).mockResolvedValue(inv)
+      jest.mocked(em.flush).mockResolvedValue(undefined)
+
+      await service.updateDueDate(scope, invoiceId, { dueDate: '2026-02-10' })
+
+      expect(inv.dueDate).toEqual(new Date('2026-02-10T00:00:00.000Z'))
       expect(inv.nextDueDate).toEqual(originalNextDueDate)
     })
 
