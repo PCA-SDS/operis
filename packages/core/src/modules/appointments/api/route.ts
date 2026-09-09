@@ -7,6 +7,7 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { Appointment } from '../data/entities'
 import { appointmentStaffCreateSchema } from '../data/validators'
 import { createAppointmentFromPublicIntake } from '../lib/intake'
@@ -45,10 +46,22 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const url = new URL(req.url)
-    const organizationId = url.searchParams.get('organizationId') ?? auth.orgId ?? null
     const statusCode = url.searchParams.get('statusCode')?.trim() || null
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
+
+    // `?organizationId=` is caller input, so it goes through the allow-list
+    // rather than into the query. `resolveOrganizationScopeForRequest` honors a
+    // selection only when the principal may act on it and otherwise falls back
+    // to their own accessible scope, so a restricted caller asking for another
+    // branch reads their own rows instead of that branch's.
+    const scope = await resolveOrganizationScopeForRequest({
+      container,
+      auth,
+      request: req,
+      selectedId: url.searchParams.get('organizationId') ?? undefined,
+    })
+    const organizationId = scope?.selectedId ?? auth.orgId ?? null
 
     const where: Record<string, unknown> = {
       tenantId: auth.tenantId,
