@@ -7,6 +7,15 @@
   "invoice.errors.request_failed": "Nie udało się przetworzyć żądania faktury",
   "invoice.errors.tenant_required": "Wymagany jest kontekst dzierżawy.",
   "invoice.errors.unauthorized": "Brak autoryzacji",
+  "invoice.paymentConfirmation.email.action": "Sprawdź prośbę o płatność",
+  "invoice.paymentConfirmation.email.amount": "Kwota: {amount} {currency}",
+  "invoice.paymentConfirmation.email.expiry": "Ta prośba wygasa {expiryDate}.",
+  "invoice.paymentConfirmation.email.heading": "Potwierdź płatność",
+  "invoice.paymentConfirmation.email.installment": "Rata {sequence}",
+  "invoice.paymentConfirmation.email.intro": "{payer} prosi {payee} o potwierdzenie płatności za fakturę {invoiceLabel}.",
+  "invoice.paymentConfirmation.email.payeeFallback": "Dostawca",
+  "invoice.paymentConfirmation.email.payerFallback": "Kupujący",
+  "invoice.paymentConfirmation.email.subject": "Potwierdzenie płatności za fakturę {invoiceLabel}",
   "invoice.search.badge.company": "Firma na fakturze",
   "invoice.search.badge.invoice": "Faktura"
 }

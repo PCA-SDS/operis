@@ -7,6 +7,15 @@
   "invoice.errors.request_failed": "Fehler beim Verarbeiten der Rechnungsanfrage",
   "invoice.errors.tenant_required": "Mandantenkontext ist erforderlich.",
   "invoice.errors.unauthorized": "Nicht autorisiert",
+  "invoice.paymentConfirmation.email.action": "Zahlungsanfrage prüfen",
+  "invoice.paymentConfirmation.email.amount": "Betrag: {amount} {currency}",
+  "invoice.paymentConfirmation.email.expiry": "Diese Anfrage läuft am {expiryDate} ab.",
+  "invoice.paymentConfirmation.email.heading": "Bitte bestätigen Sie die Zahlung",
+  "invoice.paymentConfirmation.email.installment": "Rate {sequence}",
+  "invoice.paymentConfirmation.email.intro": "{payer} bittet {payee}, die Zahlung für Rechnung {invoiceLabel} zu bestätigen.",
+  "invoice.paymentConfirmation.email.payeeFallback": "Lieferant",
+  "invoice.paymentConfirmation.email.payerFallback": "Käufer",
+  "invoice.paymentConfirmation.email.subject": "Zahlungsbestätigung für Rechnung {invoiceLabel}",
   "invoice.search.badge.company": "Rechnungsunternehmen",
   "invoice.search.badge.invoice": "Rechnung"
 }

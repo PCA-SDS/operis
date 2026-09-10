@@ -152,6 +152,12 @@ export const invoiceSendSchema = z.object({
   email: invoiceEmailSchema,
 }).strict()
 export type InvoiceSendInput = z.infer<typeof invoiceSendSchema>
+export const invoicePaymentConfirmationRequestSchema = z.object({
+  invoiceId: invoiceIdSchema,
+  recipientEmail: invoiceEmailSchema,
+  installmentId: invoiceInstallmentIdSchema.optional(),
+}).strict()
+export type InvoicePaymentConfirmationRequestInput = z.infer<typeof invoicePaymentConfirmationRequestSchema>
 export const invoiceCompanyLookupCountrySchema = invoiceCountryCodeSchema
 export const invoiceCompanyLookupIdentifierSchema = z.string().trim().min(1).max(80)
 

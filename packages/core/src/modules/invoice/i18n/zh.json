@@ -7,6 +7,15 @@
   "invoice.errors.request_failed": "Failed to process invoice request",
   "invoice.errors.tenant_required": "Tenant context is required.",
   "invoice.errors.unauthorized": "Unauthorized",
+  "invoice.paymentConfirmation.email.action": "查看付款请求",
+  "invoice.paymentConfirmation.email.amount": "金额：{amount} {currency}",
+  "invoice.paymentConfirmation.email.expiry": "此请求将于 {expiryDate} 到期。",
+  "invoice.paymentConfirmation.email.heading": "请确认付款",
+  "invoice.paymentConfirmation.email.installment": "分期付款 {sequence}",
+  "invoice.paymentConfirmation.email.intro": "{payer} 请求 {payee} 确认发票 {invoiceLabel} 的付款。",
+  "invoice.paymentConfirmation.email.payeeFallback": "供应商",
+  "invoice.paymentConfirmation.email.payerFallback": "买方",
+  "invoice.paymentConfirmation.email.subject": "发票 {invoiceLabel} 的付款确认",
   "invoice.search.badge.company": "Invoice company",
   "invoice.search.badge.invoice": "Invoice"
 }

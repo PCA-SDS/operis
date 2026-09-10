@@ -20,6 +20,7 @@ import { createInvoiceCompanyLookupService } from './services/company-lookup-ser
 import { createInvoiceAutoPaidService } from './services/auto-paid-service'
 import { createInvoiceService } from './services/invoice-service'
 import { createInvoiceTrackingService } from './services/invoice-tracking-service'
+import { createInvoicePaymentConfirmationsService } from './services/payment-confirmations-service'
 
 export function register(container: AppContainer) {
   container.register({
@@ -36,6 +37,9 @@ export function register(container: AppContainer) {
       createInvoiceAutoPaidService(em, invoiceScopedPersistenceService),
     ).scoped().proxy(),
     invoiceTrackingService: asFunction(({ em }) => createInvoiceTrackingService(em)).scoped().proxy(),
+    invoicePaymentConfirmationsService: asFunction(({ em, invoiceCompanyEmailsService }) =>
+      createInvoicePaymentConfirmationsService(em, invoiceCompanyEmailsService),
+    ).scoped().proxy(),
     invoiceService: asFunction(({ em, queryEngine, invoiceScopedPersistenceService, invoiceExchangeRatesService }) =>
       createInvoiceService(
         em,

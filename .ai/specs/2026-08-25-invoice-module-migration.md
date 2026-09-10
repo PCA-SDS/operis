@@ -18,9 +18,10 @@ Phase 3 implementation can start from M0 in
 `docs/invoice/CAPABILITY-MIGRATION-PLAN.md`. No Phase 2documentation blocker is
 currently open.
 
-Current implementation status: the AR invoice email send and privacy-safe
-email-open tracking slice is implemented. Remaining invoice capabilities are
-tracked separately in the milestone documents.
+Current implementation status: the AR invoice email send, privacy-safe
+email-open tracking, and authenticated AP payment-confirmation request service
+and command are implemented. Remaining invoice capabilities are tracked
+separately in the milestone documents.
 
 As of 2026-09-09, M5 Auto-Paid and M6 Invoice Core pass the Phase 5 domain
 contract gate at the backend boundary. The remaining milestones are M7 payment
@@ -351,6 +352,12 @@ This is a pre-implementation spec. Compliance requirements for implementation:
 - New backend pages use Operis UI primitives and guarded mutations.
 
 ## Changelog
+
+- 2026-09-10: Implemented the authenticated CAP-005 payment-confirmation
+  request service and command with payload-blind scope, AP and installment
+  validation, hash-only 32-byte tokens, transactional mail rollback,
+  exact-target resend superseding, and best-effort recipient memory. Public
+  token actions, incoming AR actions, API routing, and UI remain pending.
 
 - 2026-08-25: Created migration spec and Phase 2implementation-ready design pack references.
 - 2026-08-25: Added Phase 3 readiness summary and resolved source-code

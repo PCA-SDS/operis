@@ -457,6 +457,15 @@ Progress:
 
 ## M7 CAP-005 Payment Confirmations
 
+Progress:
+
+- Phase 6.1 implements the authenticated request service, DI registration,
+  strict request validator, command boundary, secure token generation,
+  transactional mail rollback, exact-target resend superseding, recipient
+  memory, structured logging, and focused unit coverage.
+- Private HTTP routing, public preview/confirm/reject, incoming AR actions, and
+  payment-confirmation UI remain pending M7 work.
+
 Dependencies:
 
 - CAP-001 invoice settlement/installment helpers.

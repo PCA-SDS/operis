@@ -7,6 +7,15 @@
   "invoice.errors.request_failed": "No se pudo procesar la solicitud de factura",
   "invoice.errors.tenant_required": "Se requiere el contexto del inquilino.",
   "invoice.errors.unauthorized": "No autorizado",
+  "invoice.paymentConfirmation.email.action": "Revisar solicitud de pago",
+  "invoice.paymentConfirmation.email.amount": "Importe: {amount} {currency}",
+  "invoice.paymentConfirmation.email.expiry": "Esta solicitud vence el {expiryDate}.",
+  "invoice.paymentConfirmation.email.heading": "Confirme el pago",
+  "invoice.paymentConfirmation.email.installment": "Cuota {sequence}",
+  "invoice.paymentConfirmation.email.intro": "{payer} solicita a {payee} que confirme el pago de la factura {invoiceLabel}.",
+  "invoice.paymentConfirmation.email.payeeFallback": "Proveedor",
+  "invoice.paymentConfirmation.email.payerFallback": "Comprador",
+  "invoice.paymentConfirmation.email.subject": "Confirmación de pago de la factura {invoiceLabel}",
   "invoice.search.badge.company": "Empresa de factura",
   "invoice.search.badge.invoice": "Factura"
 }

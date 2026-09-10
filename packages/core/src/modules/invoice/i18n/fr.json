@@ -7,6 +7,15 @@
   "invoice.errors.request_failed": "Failed to process invoice request",
   "invoice.errors.tenant_required": "Tenant context is required.",
   "invoice.errors.unauthorized": "Unauthorized",
+  "invoice.paymentConfirmation.email.action": "Vérifier la demande de paiement",
+  "invoice.paymentConfirmation.email.amount": "Montant : {amount} {currency}",
+  "invoice.paymentConfirmation.email.expiry": "Cette demande expire le {expiryDate}.",
+  "invoice.paymentConfirmation.email.heading": "Veuillez confirmer le paiement",
+  "invoice.paymentConfirmation.email.installment": "Échéance {sequence}",
+  "invoice.paymentConfirmation.email.intro": "{payer} demande à {payee} de confirmer le paiement de la facture {invoiceLabel}.",
+  "invoice.paymentConfirmation.email.payeeFallback": "Fournisseur",
+  "invoice.paymentConfirmation.email.payerFallback": "Acheteur",
+  "invoice.paymentConfirmation.email.subject": "Confirmation de paiement pour la facture {invoiceLabel}",
   "invoice.search.badge.company": "Invoice company",
   "invoice.search.badge.invoice": "Invoice"
 }

@@ -16,6 +16,15 @@
   "invoice.email.subject": "Invoice {invoiceNumber}",
   "invoice.email.to": "To",
   "invoice.email.total": "Total",
+  "invoice.paymentConfirmation.email.action": "Review payment request",
+  "invoice.paymentConfirmation.email.amount": "Amount: {amount} {currency}",
+  "invoice.paymentConfirmation.email.expiry": "This request expires on {expiryDate}.",
+  "invoice.paymentConfirmation.email.heading": "Please confirm payment",
+  "invoice.paymentConfirmation.email.installment": "Installment {sequence}",
+  "invoice.paymentConfirmation.email.intro": "{payer} asks {payee} to confirm payment for invoice {invoiceLabel}.",
+  "invoice.paymentConfirmation.email.payeeFallback": "Supplier",
+  "invoice.paymentConfirmation.email.payerFallback": "Buyer",
+  "invoice.paymentConfirmation.email.subject": "Payment confirmation for invoice {invoiceLabel}",
   "invoice.search.badge.company": "Invoice company",
   "invoice.search.badge.invoice": "Invoice"
 }

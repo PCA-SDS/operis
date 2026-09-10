@@ -7,6 +7,15 @@
   "invoice.errors.request_failed": "Failed to process invoice request",
   "invoice.errors.tenant_required": "Tenant context is required.",
   "invoice.errors.unauthorized": "Unauthorized",
+  "invoice.paymentConfirmation.email.action": "Xem yêu cầu thanh toán",
+  "invoice.paymentConfirmation.email.amount": "Số tiền: {amount} {currency}",
+  "invoice.paymentConfirmation.email.expiry": "Yêu cầu này hết hạn vào {expiryDate}.",
+  "invoice.paymentConfirmation.email.heading": "Vui lòng xác nhận thanh toán",
+  "invoice.paymentConfirmation.email.installment": "Đợt thanh toán {sequence}",
+  "invoice.paymentConfirmation.email.intro": "{payer} yêu cầu {payee} xác nhận thanh toán cho hóa đơn {invoiceLabel}.",
+  "invoice.paymentConfirmation.email.payeeFallback": "Nhà cung cấp",
+  "invoice.paymentConfirmation.email.payerFallback": "Bên mua",
+  "invoice.paymentConfirmation.email.subject": "Xác nhận thanh toán cho hóa đơn {invoiceLabel}",
   "invoice.search.badge.company": "Invoice company",
   "invoice.search.badge.invoice": "Invoice"
 }
