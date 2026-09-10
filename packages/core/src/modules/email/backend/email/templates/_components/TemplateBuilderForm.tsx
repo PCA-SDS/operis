@@ -388,6 +388,16 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
   Object.assign(sampleValues, customTemplateValues(parseDefaultValues(value.defaultValues)))
   const previewSubject = renderWithSamples(value.subject || 'Untitled subject', sampleValues)
   const previewHtml = renderHtmlPreviewWithSamples(blocksToHtml(value.blocks), sampleValues, parsedVariableTypes)
+  const copyPreviewSubject = async () => {
+    await copyText(previewSubject)
+    setCopied('subject')
+    window.setTimeout(() => setCopied(null), 1500)
+  }
+  const copyPreviewBody = async () => {
+    await copyHtml(previewHtml)
+    setCopied('body')
+    window.setTimeout(() => setCopied(null), 1500)
+  }
 
   return (
     <>

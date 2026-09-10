@@ -164,7 +164,7 @@ function buildPayload(form: EditTemplateForm, id: string) {
   }
 }
 
-function templateFromResponse(response: EmailTemplateDetailResponse | undefined): EmailTemplateRecord | null {
+function templateFromResponse(response: EmailTemplateDetailResponse | null | undefined): EmailTemplateRecord | null {
   if (!response) return null
   if (response.item) return response.item
   if (response.data) return response.data
