@@ -24,8 +24,11 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { renderDictionaryColor, renderDictionaryIcon } from '@open-mercato/core/modules/dictionaries/components/dictionaryAppearance'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { createLogger } from '@open-mercato/shared/lib/logger'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { GripVertical, Pencil } from 'lucide-react'
+
+const logger = createLogger('resources').child({ component: 'resources-page' })
 
 const PAGE_SIZE = 20
 const RESOURCE_LIST_MUTATION_CONTEXT_ID = 'resources.resources.list'
@@ -101,6 +104,15 @@ type ResourceListMutationContext = {
   retryLastMutation: () => Promise<boolean>
 }
 
+type ResourcePointerDrag = {
+  id: string
+  x: number
+  y: number
+  overId: string | null
+  lastValidOverId: string | null
+  invalidOverId: string | null
+}
+
 function formatResourceAreaName(area: { name?: string; id?: string; depth?: number }): string | null {
   const name = typeof area.name === 'string' && area.name.length ? area.name : area.id
   if (!name) return null
@@ -118,6 +130,47 @@ function sortResourcesForAreaLayout(resources: ResourceRow[]): ResourceRow[] {
   })
 }
 
+function moveArrayItem<T>(items: T[], from: number, to: number): T[] {
+  const next = [...items]
+  const [item] = next.splice(from, 1)
+  if (!item) return items
+  next.splice(to, 0, item)
+  return next
+}
+
+function previewResourceRowsMove(rows: ResourceRow[], activeId: string, overId: string): ResourceRow[] {
+  if (activeId === overId) return rows
+  const active = rows.find((row) => row.id === activeId)
+  const over = rows.find((row) => row.id === overId)
+  if (!active || !over || active.areaId !== over.areaId) return rows
+  const siblings = sortResourcesForAreaLayout(rows.filter((row) => row.areaId === active.areaId))
+  const from = siblings.findIndex((row) => row.id === activeId)
+  const to = siblings.findIndex((row) => row.id === overId)
+  if (from < 0 || to < 0 || from === to) return rows
+  const moved = moveArrayItem(siblings, from, to)
+  const previewOrder = new Map(moved.map((row, index) => [row.id, index]))
+  return rows.map((row) => {
+    const sortOrder = previewOrder.get(row.id)
+    return sortOrder === undefined ? row : { ...row, sortOrder }
+  })
+}
+
+function canDropResourceOnTarget(rows: ResourceRow[], activeId: string, targetId: string | null): boolean {
+  if (!targetId || activeId === targetId) return false
+  const active = rows.find((row) => row.id === activeId)
+  const target = rows.find((row) => row.id === targetId)
+  return Boolean(active && target && active.areaId === target.areaId)
+}
+
+function resolveResourcePointerTargetId(activeId: string, x: number, y: number): string | null {
+  if (typeof document === 'undefined') return null
+  const element = document.elementFromPoint(x, y)
+  const target = element?.closest('[data-resource-reorder-id]')
+  if (!(target instanceof HTMLElement)) return null
+  const overId = target.dataset.resourceReorderId ?? null
+  return overId && overId !== activeId ? overId : null
+}
+
 export default function ResourcesResourcesPage() {
   const [rows, setRows] = React.useState<ResourceRow[]>([])
   const [page, setPage] = React.useState(1)
@@ -128,7 +181,9 @@ export default function ResourcesResourcesPage() {
   const [groupBy, setGroupBy] = React.useState<ResourceGroupBy>('resourceType')
   const [isLoading, setIsLoading] = React.useState(true)
   const [reloadToken, setReloadToken] = React.useState(0)
-  const [draggingResourceId, setDraggingResourceId] = React.useState<string | null>(null)
+  const [resourcePointerDrag, setResourcePointerDrag] = React.useState<ResourcePointerDrag | null>(null)
+  const [resourceDragPreviewRows, setResourceDragPreviewRows] = React.useState<ResourceRow[] | null>(null)
+  const resourcePointerDragRef = React.useRef<ResourcePointerDrag | null>(null)
   const [moveDialog, setMoveDialog] = React.useState<ResourceMoveDialogState | null>(null)
   const [moveDialogSearch, setMoveDialogSearch] = React.useState('')
   const [moveDialogOptions, setMoveDialogOptions] = React.useState<ResourceRow[]>([])
@@ -449,9 +504,17 @@ export default function ResourcesResourcesPage() {
     resource: ResourceRow,
     movement: { direction?: 'up' | 'down'; targetId?: string; position?: 'top' | 'bottom' | 'before' | 'after' },
   ) => {
-    if (!canReorderResources) return
+    if (!canReorderResources) {
+      logger.info('resources drag reorder skipped: disabled', {
+        id: resource.id,
+        groupBy,
+        canManage,
+      })
+      return
+    }
     try {
       const payload = { id: resource.id, ...movement }
+      logger.info('resources drag reorder api start', { payload })
       await runResourceMutation(
         () => apiCallOrThrow('/api/resources/resources/reorder', {
           method: 'POST',
@@ -461,14 +524,16 @@ export default function ResourcesResourcesPage() {
         { operation: 'reorderResource', ...payload },
         resource.id,
       )
+      logger.info('resources drag reorder api success', { payload })
       handleRefresh()
     } catch (error) {
+      logger.error('resources drag reorder api failed', { err: error, id: resource.id, movement })
       const message = error instanceof Error
         ? error.message
         : t('resources.resources.list.error.reorder', 'Failed to reorder resources.')
       flash(message, 'error')
     }
-  }, [canReorderResources, handleRefresh, runResourceMutation, t])
+  }, [canManage, canReorderResources, groupBy, handleRefresh, runResourceMutation, t])
 
   const handleMoveDialogSelect = React.useCallback(async (targetId: string) => {
     if (!moveDialog) return
@@ -476,20 +541,15 @@ export default function ResourcesResourcesPage() {
     setMoveDialog(null)
   }, [handleReorderResource, moveDialog])
 
-  const handleResourceDrop = React.useCallback((target: ResourceRow) => {
-    if (!draggingResourceId || draggingResourceId === target.id || !canReorderResources) return
-    const dragged = rows.find((row) => row.id === draggingResourceId)
-    if (!dragged || dragged.areaId !== target.areaId) return
-    void handleReorderResource(dragged, { targetId: target.id })
-  }, [canReorderResources, draggingResourceId, handleReorderResource, rows])
+  const visibleRows = resourceDragPreviewRows ?? rows
 
   const groupedRows = React.useMemo(() => {
     const grouped: ResourceTableRow[] = []
-    if (!rows.length) return grouped
+    if (!visibleRows.length) return grouped
     if (groupBy === 'area') {
       const byArea = new Map<string, ResourceRow[]>()
       const unassigned: ResourceRow[] = []
-      rows.forEach((row) => {
+      visibleRows.forEach((row) => {
         if (!row.areaId) {
           unassigned.push(row)
           return
@@ -548,7 +608,7 @@ export default function ResourcesResourcesPage() {
 
     const byType = new Map<string, ResourceRow[]>()
     const unassigned: ResourceRow[] = []
-    rows.forEach((row) => {
+    visibleRows.forEach((row) => {
       if (!row.resourceTypeId) {
         unassigned.push(row)
         return
@@ -604,7 +664,162 @@ export default function ResourcesResourcesPage() {
       })
     }
     return grouped
-  }, [groupBy, resourceAreas, resourceTypes, rows, t])
+  }, [groupBy, resourceAreas, resourceTypes, t, visibleRows])
+
+  const activeDragResource = resourcePointerDrag ? rows.find((row) => row.id === resourcePointerDrag.id) ?? null : null
+
+  const handleResourcePointerStart = React.useCallback((event: React.PointerEvent<HTMLButtonElement>, resource: ResourceRow) => {
+    if (!canReorderResources) return
+    event.preventDefault()
+    event.stopPropagation()
+    if (typeof event.currentTarget.setPointerCapture === 'function') {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    }
+    const nextDrag = {
+      id: resource.id,
+      x: event.clientX,
+      y: event.clientY,
+      overId: null,
+      lastValidOverId: null,
+      invalidOverId: null,
+    }
+    logger.info('resources drag pointer start', {
+      id: resource.id,
+      areaId: resource.areaId,
+      x: event.clientX,
+      y: event.clientY,
+    })
+    resourcePointerDragRef.current = nextDrag
+    setResourcePointerDrag(nextDrag)
+    setResourceDragPreviewRows(rows)
+  }, [canReorderResources, rows])
+
+  React.useEffect(() => {
+    if (!resourcePointerDrag) return
+    const activeId = resourcePointerDrag.id
+    const previousUserSelect = document.body.style.userSelect
+    const previousCursor = document.body.style.cursor
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = 'grabbing'
+
+    const handlePointerMove = (event: PointerEvent) => {
+      event.preventDefault()
+      const targetId = resolveResourcePointerTargetId(activeId, event.clientX, event.clientY)
+      const overId = canDropResourceOnTarget(rows, activeId, targetId) ? targetId : null
+      const invalidOverId = targetId && !overId ? targetId : null
+      const previousOverId = resourcePointerDragRef.current?.overId ?? null
+      const previousInvalidOverId = resourcePointerDragRef.current?.invalidOverId ?? null
+      const lastValidOverId = overId ?? resourcePointerDragRef.current?.lastValidOverId ?? null
+      const nextDrag = { id: activeId, x: event.clientX, y: event.clientY, overId, lastValidOverId, invalidOverId }
+      resourcePointerDragRef.current = nextDrag
+      setResourcePointerDrag(nextDrag)
+      if (overId && canReorderResources) {
+        if (overId !== previousOverId) {
+          logger.info('resources drag pointer over', { activeId, overId })
+        }
+        setResourceDragPreviewRows((current) => previewResourceRowsMove(current ?? rows, activeId, overId))
+      } else if (invalidOverId && invalidOverId !== previousInvalidOverId) {
+        const active = rows.find((row) => row.id === activeId)
+        const target = rows.find((row) => row.id === invalidOverId)
+        logger.info('resources drag pointer invalid target', {
+          activeId,
+          overId: invalidOverId,
+          activeAreaId: active?.areaId ?? null,
+          targetAreaId: target?.areaId ?? null,
+        })
+      }
+    }
+
+    const handlePointerEnd = (event: PointerEvent) => {
+      const currentDrag = resourcePointerDragRef.current
+      const invalidOverId = currentDrag?.invalidOverId ?? null
+      const overId = invalidOverId ? null : currentDrag?.lastValidOverId
+        ?? currentDrag?.overId
+        ?? resolveResourcePointerTargetId(activeId, event.clientX, event.clientY)
+      logger.info('resources drag pointer up', {
+        activeId,
+        overId,
+        currentOverId: currentDrag?.overId ?? null,
+        lastValidOverId: currentDrag?.lastValidOverId ?? null,
+        invalidOverId,
+        x: event.clientX,
+        y: event.clientY,
+      })
+      resourcePointerDragRef.current = null
+      setResourcePointerDrag(null)
+      setResourceDragPreviewRows(null)
+      if (invalidOverId) {
+        logger.info('resources drag reorder skipped: invalid target', { activeId, overId: invalidOverId })
+        return
+      }
+      if (!overId) {
+        logger.info('resources drag reorder skipped: no target', { activeId })
+        return
+      }
+      if (activeId === overId) {
+        logger.info('resources drag reorder skipped: same target', { activeId, overId })
+        return
+      }
+      if (!canReorderResources) {
+        logger.info('resources drag reorder skipped: disabled on drop', { activeId, overId, groupBy, canManage })
+        return
+      }
+      const dragged = rows.find((row) => row.id === activeId)
+      const target = rows.find((row) => row.id === overId)
+      if (!dragged || !target) {
+        logger.info('resources drag reorder skipped: row not found', {
+          activeId,
+          overId,
+          foundDragged: Boolean(dragged),
+          foundTarget: Boolean(target),
+        })
+        return
+      }
+      if (dragged.areaId !== target.areaId) {
+        logger.info('resources drag reorder skipped: different area', {
+          activeId,
+          overId,
+          activeAreaId: dragged.areaId,
+          targetAreaId: target.areaId,
+        })
+        return
+      }
+      const siblings = sortResourcesForAreaLayout(rows.filter((row) => row.areaId === target.areaId))
+      const from = siblings.findIndex((row) => row.id === activeId)
+      const to = siblings.findIndex((row) => row.id === overId)
+      if (from < 0 || to < 0 || from === to) {
+        logger.info('resources drag reorder skipped: invalid sibling indexes', { activeId, overId, from, to })
+        return
+      }
+      const movement = {
+        targetId: target.id,
+        position: from < to ? 'after' as const : 'before' as const,
+      }
+      logger.info('resources drag reorder commit', { activeId, overId, from, to, movement })
+      void handleReorderResource(dragged, {
+        targetId: movement.targetId,
+        position: movement.position,
+      })
+    }
+
+    const handlePointerCancel = () => {
+      logger.info('resources drag pointer cancel', { activeId })
+      resourcePointerDragRef.current = null
+      setResourcePointerDrag(null)
+      setResourceDragPreviewRows(null)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerEnd)
+    window.addEventListener('pointercancel', handlePointerCancel)
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerEnd)
+      window.removeEventListener('pointercancel', handlePointerCancel)
+      document.body.style.userSelect = previousUserSelect
+      document.body.style.cursor = previousCursor
+    }
+  }, [canReorderResources, handleReorderResource, resourcePointerDrag?.id, rows])
 
   React.useEffect(() => {
     let cancelled = false
@@ -700,44 +915,23 @@ export default function ResourcesResourcesPage() {
           && canManage
           && groupRow.groupBy === 'resourceType'
           && groupRow.resourceTypeId
+        if (resourceRow) {
+          return (
+            <ResourcePointerNameCell
+              resource={resourceRow}
+              canReorder={canReorderResources}
+              indent={indent}
+              dragLabel={t('resources.resources.list.actions.dragToReorder', 'Drag to reorder')}
+              isDragging={resourcePointerDrag?.id === resourceRow.id}
+              onPointerStart={handleResourcePointerStart}
+            />
+          )
+        }
         return (
           <div
             className={groupRow ? 'flex items-center justify-between gap-3' : 'flex items-center gap-2'}
-            onDragOver={(event) => {
-              if (!resourceRow || !canReorderResources || !draggingResourceId) return
-              event.preventDefault()
-            }}
-            onDrop={(event) => {
-              if (!resourceRow) return
-              event.preventDefault()
-              handleResourceDrop(resourceRow)
-            }}
           >
             <div className="flex min-w-0 items-center gap-2" style={{ marginLeft: indent }}>
-              {resourceRow && canManage && groupBy === 'area' ? (
-                <div className="flex items-center gap-1" data-actions-cell>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="size-7 shrink-0 cursor-grab"
-                    disabled={!canReorderResources}
-                    draggable={canReorderResources}
-                    title={t('resources.resources.list.actions.dragToReorder', 'Drag to reorder')}
-                    aria-label={t('resources.resources.list.actions.dragToReorder', 'Drag to reorder')}
-                    onClick={(event) => event.stopPropagation()}
-                    onDragStart={(event) => {
-                      event.stopPropagation()
-                      setDraggingResourceId(resourceRow.id)
-                      event.dataTransfer.effectAllowed = 'move'
-                      event.dataTransfer.setData('text/plain', resourceRow.id)
-                    }}
-                    onDragEnd={() => setDraggingResourceId(null)}
-                  >
-                    <GripVertical className="size-4" aria-hidden />
-                  </Button>
-                </div>
-              ) : null}
               <span className={groupRow ? 'text-sm font-semibold text-foreground' : 'min-w-0 truncate text-sm font-medium text-foreground'}>
                 {row.original.name}
               </span>
@@ -847,10 +1041,8 @@ export default function ResourcesResourcesPage() {
   ], [
     canManage,
     canReorderResources,
-    draggingResourceId,
-    groupBy,
-    handleReorderResource,
-    handleResourceDrop,
+    handleResourcePointerStart,
+    resourcePointerDrag?.id,
     resourceTypes,
     resourceAreas,
     t,
@@ -943,6 +1135,14 @@ export default function ResourcesResourcesPage() {
           pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
           isLoading={isLoading}
         />
+        {activeDragResource && resourcePointerDrag ? (
+          <ResourceDragPreview
+            resource={activeDragResource}
+            x={resourcePointerDrag.x}
+            y={resourcePointerDrag.y}
+            invalid={Boolean(resourcePointerDrag.invalidOverId)}
+          />
+        ) : null}
       </PageBody>
       <Dialog open={Boolean(moveDialog)} onOpenChange={(open) => { if (!open) setMoveDialog(null) }}>
         <DialogContent size="default">
@@ -994,6 +1194,71 @@ export default function ResourcesResourcesPage() {
       </Dialog>
       {ConfirmDialogElement}
     </Page>
+  )
+}
+
+function ResourceDragPreview({ resource, x, y, invalid }: { resource: ResourceRow; x: number; y: number; invalid: boolean }) {
+  return (
+    <div
+      className={[
+        'pointer-events-none fixed z-popover flex min-w-64 items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium shadow-lg',
+        invalid
+          ? 'border-status-error-border bg-status-error-bg text-status-error-text'
+          : 'border-primary bg-surface text-foreground',
+      ].join(' ')}
+      style={{ left: x, top: y, transform: 'translate(12px, 12px)' }}
+    >
+      <GripVertical className="size-4 text-muted-foreground" aria-hidden />
+      <span className="min-w-0 truncate">{resource.name}</span>
+    </div>
+  )
+}
+
+function ResourcePointerNameCell({
+  resource,
+  canReorder,
+  indent,
+  dragLabel,
+  isDragging,
+  onPointerStart,
+}: {
+  resource: ResourceRow
+  canReorder: boolean
+  indent: number
+  dragLabel: string
+  isDragging: boolean
+  onPointerStart: (event: React.PointerEvent<HTMLButtonElement>, resource: ResourceRow) => void
+}) {
+  return (
+    <div
+      data-resource-reorder-id={resource.id}
+      className={[
+        'relative flex items-center gap-2 rounded-md transition-colors',
+        isDragging ? 'opacity-40' : '',
+      ].filter(Boolean).join(' ')}
+    >
+      <div className="flex min-w-0 items-center gap-2" style={{ marginLeft: indent }}>
+        {canReorder ? (
+          <div className="flex items-center gap-1" data-actions-cell>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-9 shrink-0 cursor-grab touch-none active:cursor-grabbing"
+              title={dragLabel}
+              aria-label={dragLabel}
+              onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => onPointerStart(event, resource)}
+            >
+              <GripVertical className="size-4" aria-hidden />
+            </Button>
+          </div>
+        ) : null}
+        <span className="min-w-0 truncate text-sm font-medium text-foreground">
+          {resource.name}
+        </span>
+      </div>
+    </div>
   )
 }
 

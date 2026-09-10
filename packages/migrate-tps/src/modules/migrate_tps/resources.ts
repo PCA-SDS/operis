@@ -11,6 +11,10 @@ import {
   ResourcesResourceAreaType,
   ResourcesResourceType,
 } from '@open-mercato/core/modules/resources/data/entities'
+import {
+  PlannerAvailabilityRuleSet,
+  PlannerAvailabilityRule,
+} from '@open-mercato/core/modules/planner/data/entities'
 
 type Client = InstanceType<typeof pg.Client>
 
@@ -20,11 +24,13 @@ const logger = createLogger('migrate_tps')
 // TPS Source types
 // ---------------------------------------------------------------------------
 
+type TpsSortOrder = number | string | null | undefined
+
 interface TpsFloor {
   id: string
   location: string
   name: string
-  sort_order: number
+  sort_order: TpsSortOrder
   is_active: string
   deleted_at: string | null
 }
@@ -39,16 +45,17 @@ interface TpsSeatTypeConfig {
   deleted_at: string | null
 }
 
-interface TpsSeat {
+export interface TpsSeat {
   id: string
   floor_id: string
   seat_type_id: string
   code: string
   name: string | null
-  sort_order: number
+  sort_order: TpsSortOrder
   status: string | null
   is_active: string
   deleted_at: string | null
+  created_at?: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -89,6 +96,64 @@ const seatSortOrderExpression = `
   )::int as sort_order
 `
 
+function parseSortOrder(value: TpsSortOrder, fallback = 0): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : fallback
+  if (typeof value !== 'string' || value.trim() === '') return fallback
+  const parsed = Number.parseInt(value, 10)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function compareNullableNumber(left: number | null, right: number | null): number {
+  if (left === right) return 0
+  if (left === null) return 1
+  if (right === null) return -1
+  return left - right
+}
+
+function compareText(left: string | null | undefined, right: string | null | undefined): number {
+  return (left ?? '').localeCompare(right ?? '')
+}
+
+function seatSortPrefix(code: string): string {
+  return code.replace(/\d+/g, '')
+}
+
+function seatSortNumber(code: string): number | null {
+  const digits = code.replace(/\D/g, '')
+  if (!digits) return null
+  const parsed = Number.parseInt(digits, 10)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export function assignSeatSortOrders(rows: TpsSeat[]): TpsSeat[] {
+  const byFloor = new Map<string, TpsSeat[]>()
+  for (const row of rows) {
+    const floorRows = byFloor.get(row.floor_id) ?? []
+    floorRows.push(row)
+    byFloor.set(row.floor_id, floorRows)
+  }
+
+  const sortedById = new Map<string, number>()
+  for (const floorRows of byFloor.values()) {
+    floorRows
+      .slice()
+      .sort((left, right) => (
+        compareText(seatSortPrefix(left.code), seatSortPrefix(right.code))
+        || compareNullableNumber(seatSortNumber(left.code), seatSortNumber(right.code))
+        || compareText(left.code, right.code)
+        || compareText(left.name, right.name)
+        || compareText(left.created_at, right.created_at)
+        || compareText(left.id, right.id)
+      ))
+      .forEach((row, index) => sortedById.set(row.id, index))
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    sort_order: sortedById.get(row.id) ?? parseSortOrder(row.sort_order),
+  }))
+}
+
 // ---------------------------------------------------------------------------
 // CSV Fallback helpers
 // ---------------------------------------------------------------------------
@@ -113,10 +178,10 @@ function loadTpsSeatsFromCsv(locationFilter?: string | null): { rows: TpsSeat[];
   if (locationFilter) {
     const floors = loadTpsFloorsFromCsv(locationFilter).rows
     const floorIds = new Set(floors.map(f => f.id))
-    const filtered = seats.filter(s => !s.deleted_at && floorIds.has(s.floor_id))
+    const filtered = assignSeatSortOrders(seats.filter(s => !s.deleted_at && floorIds.has(s.floor_id)))
     return { rows: filtered, rowCount: filtered.length }
   }
-  const filtered = seats.filter(s => !s.deleted_at)
+  const filtered = assignSeatSortOrders(seats.filter(s => !s.deleted_at))
   return { rows: filtered, rowCount: filtered.length }
 }
 
@@ -131,13 +196,13 @@ async function seedAreaTypeAndGetFloorId(
   now: Date,
 ): Promise<string> {
   const defaultTypes = [
-    { name: 'Campus', description: 'A campus location.', appearanceIcon: '\u{1F3DB}' },
-    { name: 'Building', description: 'A building within a campus.', appearanceIcon: '\u{1F3E2}' },
-    { name: 'Floor', description: 'A floor within a building.', appearanceIcon: '\u{1F4A6}' },
-    { name: 'Zone', description: 'A zone within a floor or area.', appearanceIcon: '\u{1F4CD}' },
-    { name: 'Room', description: 'A room within a building or zone.', appearanceIcon: '\u{1F6AA}' },
-    { name: 'Section', description: 'A section within a room or area.', appearanceIcon: '\u{1F4CB}' },
-    { name: 'Other', description: 'Other area type.', appearanceIcon: '\u{1F4E6}' },
+    { name: 'Campus', description: 'A campus location.', appearanceIcon: 'lucide:map' },
+    { name: 'Building', description: 'A building within a campus.', appearanceIcon: 'lucide:building' },
+    { name: 'Floor', description: 'A floor within a building.', appearanceIcon: 'lucide:layers' },
+    { name: 'Zone', description: 'A zone within a floor or area.', appearanceIcon: 'lucide:map-pin' },
+    { name: 'Room', description: 'A room within a building or zone.', appearanceIcon: 'lucide:door-closed' },
+    { name: 'Section', description: 'A section within a room or area.', appearanceIcon: 'lucide:layout-grid' },
+    { name: 'Other', description: 'Other area type.', appearanceIcon: 'lucide:package' },
   ]
 
   const existing = await em.find(
@@ -149,8 +214,16 @@ async function seedAreaTypeAndGetFloorId(
   for (const seed of defaultTypes) {
     const existingType = existingByName.get(seed.name)
     if (existingType) {
+      let changed = false
       if (!existingType.description?.trim() && seed.description) {
         existingType.description = seed.description
+        changed = true
+      }
+      if (existingType.appearanceIcon !== seed.appearanceIcon) {
+        existingType.appearanceIcon = seed.appearanceIcon
+        changed = true
+      }
+      if (changed) {
         existingType.updatedAt = now
         em.persist(existingType)
       }
@@ -280,11 +353,61 @@ export const migrateTpsResourcesCommand: ModuleCli = {
           await em.nativeDelete(ResourcesResource, { tenantId, organizationId })
           await em.nativeDelete(ResourcesResourceArea, { tenantId, organizationId })
           await em.nativeDelete(ResourcesResourceType, { tenantId, organizationId })
+          // Also cleanup old availability rule sets created by previous migrations
+          await em.nativeDelete(PlannerAvailabilityRule, { tenantId, organizationId })
+          await em.nativeDelete(PlannerAvailabilityRuleSet, { tenantId, organizationId })
           logger.info('Cleanup complete.')
         }
 
         // Seed default area types and get the "floor" type ID
         const floorAreaTypeId = await seedAreaTypeAndGetFloorId(em, tenantId, organizationId, now)
+
+        // Find or create AvailabilityRuleSet for Standard Business Hours (9:00-10:00)
+        // This is idempotent: reuse existing ruleset if already created by a previous run
+        let standardHoursRuleSet = await em.findOne(PlannerAvailabilityRuleSet, {
+          tenantId,
+          organizationId,
+          name: 'Standard Business Hours',
+          deletedAt: null,
+        })
+
+        if (!standardHoursRuleSet) {
+          standardHoursRuleSet = em.create(PlannerAvailabilityRuleSet, {
+            tenantId,
+            organizationId,
+            name: 'Standard Business Hours',
+            description: 'Open daily 9:00 AM - 10:00 PM',
+            timezone: 'Asia/Ho_Chi_Minh',
+            createdAt: now,
+            updatedAt: now,
+          })
+          em.persist(standardHoursRuleSet)
+          await em.flush() // Flush to get the ID assigned
+
+          // Create AvailabilityRule for the ruleset (daily 9:00-22:00)
+          // RRULE format: DTSTART (UTC) + DURATION + FREQ
+          // Asia/Ho_Chi_Minh = UTC+7
+          // 9:00 AM local = 2:00 UTC
+          // 10:00 PM local (22:00) = 15:00 UTC
+          // Duration = 13 hours
+          const standardHoursRule = em.create(PlannerAvailabilityRule, {
+            tenantId,
+            organizationId,
+            subjectType: 'ruleset',
+            subjectId: standardHoursRuleSet.id,
+            timezone: 'Asia/Ho_Chi_Minh',
+            kind: 'availability',
+            rrule: 'DTSTART:20240101T020000Z\nDURATION:PT13H\nRRULE:FREQ=DAILY',
+            exdates: [],
+            createdAt: now,
+            updatedAt: now,
+          })
+          em.persist(standardHoursRule)
+          await em.flush()
+          logger.info('Created AvailabilityRuleSet "Standard Business Hours" with daily 9:00 AM - 10:00 PM rule.')
+        } else {
+          logger.info(`Reusing existing AvailabilityRuleSet "Standard Business Hours" (${standardHoursRuleSet.id})`)
+        }
 
         // Migrate: SeatTypeConfig -> ResourcesResourceType
         const tpsTypeIdMap: Record<string, string> = {}
@@ -299,9 +422,15 @@ export const migrateTpsResourcesCommand: ModuleCli = {
             createdAt: now,
             updatedAt: now,
           })
+          let icon = 'lucide:package'
+          if (tpsType.code === 'lash') icon = 'lucide:wand'
+          if (tpsType.code === 'nail') icon = 'lucide:palette'
+          if (tpsType.code === 'shampoo') icon = 'lucide:cloud'
+          if (tpsType.code === 'spa') icon = 'lucide:sparkles'
+          
           entity.description = null
           entity.appearanceColor = tpsType.color_hex || null
-          entity.appearanceIcon = tpsType.icon || 'Box'
+          entity.appearanceIcon = tpsType.icon ? `lucide:${tpsType.icon.toLowerCase()}` : icon
           em.persist(entity)
           tpsTypeIdMap[tpsType.id] = newTypeId
           logger.info(`  SeatType "${tpsType.code}" -> ResourceType`)
@@ -319,7 +448,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
             tenantId,
             organizationId,
             name: floor.name,
-            sortOrder: floor.sort_order ?? 0,
+            sortOrder: parseSortOrder(floor.sort_order),
             isActive: floor.is_active === 'true' || floor.is_active === 't',
             createdAt: now,
             updatedAt: now,
@@ -329,7 +458,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
             ? (em.getReference(ResourcesResourceAreaType, floorAreaTypeId) as unknown as ResourcesResourceAreaType)
             : undefined
           entity.parentAreaId = null
-          entity.sortOrder = floor.sort_order ?? 0
+          entity.sortOrder = parseSortOrder(floor.sort_order)
           entity.isActive = floor.is_active === 'true' || floor.is_active === 't'
           entity.appearanceIcon = null
           entity.appearanceColor = null
@@ -361,7 +490,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
             tenantId,
             organizationId,
             name: seat.name?.trim() || seat.code,
-            sortOrder: seat.sort_order ?? 0,
+            sortOrder: parseSortOrder(seat.sort_order),
             isActive: seat.is_active === 'true' || seat.is_active === 't',
             createdAt: now,
             updatedAt: now,
@@ -370,7 +499,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
           entity.description = null
           entity.resourceTypeId = mappedTypeId
           entity.areaId = mappedAreaId
-          entity.sortOrder = seat.sort_order ?? 0
+          entity.sortOrder = parseSortOrder(seat.sort_order)
           entity.capacity = 1
           entity.capacityUnitValue = null
           entity.capacityUnitName = null
@@ -379,7 +508,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
           entity.appearanceIcon = null
           entity.appearanceColor = null
           entity.isActive = seat.is_active === 'true' || seat.is_active === 't'
-          entity.availabilityRuleSetId = null
+          entity.availabilityRuleSetId = standardHoursRuleSet.id
           entity.customFieldsetCode = null
           em.persist(entity)
           migratedResources++

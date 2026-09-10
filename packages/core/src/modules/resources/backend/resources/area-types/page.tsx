@@ -1,25 +1,35 @@
 "use client"
 
 import * as React from 'react'
+import { extensionPoints } from '@open-mercato/core/modules/resources/extension-points'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import type { SortingState } from '@tanstack/react-table'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { DataTable } from '@open-mercato/ui/backend/DataTable'
+import { markdownToPlainText } from '@open-mercato/ui/backend/markdown/markdownToPlainText'
+import { DataTable, withDataTableNamespaces } from '@open-mercato/ui/backend/DataTable'
+import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterOverlay'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { readApiResultOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { deleteCrud } from '@open-mercato/ui/backend/utils/crud'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
+import { renderDictionaryColor, renderDictionaryIcon } from '@open-mercato/core/modules/dictionaries/components/dictionaryAppearance'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { formatDateTime } from '@open-mercato/shared/lib/time'
-import { Plus } from 'lucide-react'
-import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
-import { withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+
+const logger = createLogger('resources').child({ component: 'area-types-page' })
 
 const PAGE_SIZE = 50
+const DESCRIPTION_CLASSNAME = 'line-clamp-3 whitespace-pre-line text-sm text-foreground'
+const SUBTEXT_CLASSNAME = 'line-clamp-2 text-xs text-muted-foreground'
+const AREA_TYPES_MUTATION_CONTEXT_ID = 'resources.area-types.list'
 
 type AreaTypeRow = {
   id: string
@@ -38,8 +48,16 @@ type AreaTypesResponse = {
   totalPages?: number
 }
 
+type AreaTypesMutationContext = {
+  formId: string
+  resourceKind: string
+  resourceId?: string
+  retryLastMutation: () => Promise<boolean>
+}
+
 export default function ResourcesAreaTypesPage() {
   const translate = useT()
+  const { confirm, ConfirmDialogElement } = useConfirmDialog()
   const router = useRouter()
   const scopeVersion = useOrganizationScopeVersion()
   const [rows, setRows] = React.useState<AreaTypeRow[]>([])
@@ -48,9 +66,30 @@ export default function ResourcesAreaTypesPage() {
   const [totalPages, setTotalPages] = React.useState(1)
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'name', desc: false }])
   const [search, setSearch] = React.useState('')
+  const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [isLoading, setIsLoading] = React.useState(true)
   const [reloadToken, setReloadToken] = React.useState(0)
-  const { confirm } = useConfirmDialog()
+  const { runMutation, retryLastMutation } = useGuardedMutation<AreaTypesMutationContext>({
+    contextId: AREA_TYPES_MUTATION_CONTEXT_ID,
+    blockedMessage: translate('ui.forms.flash.saveBlocked', 'Save blocked by validation'),
+  })
+  const runAreaTypeMutation = React.useCallback(
+    async <T,>(
+      operation: () => Promise<T>,
+      mutationPayload: Record<string, unknown>,
+      resourceId?: string,
+    ): Promise<T> => runMutation({
+      operation,
+      mutationPayload,
+      context: {
+        formId: AREA_TYPES_MUTATION_CONTEXT_ID,
+        resourceKind: 'resources.areaType',
+        resourceId,
+        retryLastMutation,
+      },
+    }),
+    [retryLastMutation, runMutation],
+  )
 
   const translations = React.useMemo(() => ({
     title: translate('resources.areaTypes.page.title', 'Area Types'),
@@ -58,200 +97,288 @@ export default function ResourcesAreaTypesPage() {
     table: {
       name: translate('resources.areaTypes.table.name', 'Name'),
       description: translate('resources.areaTypes.table.description', 'Description'),
+      appearance: translate('resources.areaTypes.table.appearance', 'Appearance'),
       areas: translate('resources.areaTypes.table.areas', 'Areas'),
       updatedAt: translate('resources.areaTypes.table.updatedAt', 'Updated'),
       empty: translate('resources.areaTypes.table.empty', 'No area types yet.'),
       search: translate('resources.areaTypes.table.search', 'Search area types…'),
     },
+    filters: {
+      status: translate('resources.areaTypes.filters.status', 'Status'),
+      active: translate('resources.areaTypes.filters.active', 'Active'),
+      inactive: translate('resources.areaTypes.filters.inactive', 'Inactive'),
+    },
     actions: {
       add: translate('resources.areaTypes.actions.add', 'Add area type'),
       edit: translate('resources.areaTypes.actions.edit', 'Edit'),
       delete: translate('resources.areaTypes.actions.delete', 'Delete'),
+      deleteConfirm: translate('resources.areaTypes.actions.deleteConfirm', 'Delete area type "{{name}}"?'),
+      refresh: translate('resources.areaTypes.actions.refresh', 'Refresh'),
     },
     messages: {
       deleted: translate('resources.areaTypes.messages.deleted', 'Area type deleted.'),
     },
     errors: {
       delete: translate('resources.areaTypes.errors.delete', 'Failed to delete area type.'),
+      deleteAssigned: translate('resources.areaTypes.errors.deleteAssigned', 'Area type has assigned areas.'),
       load: translate('resources.areaTypes.errors.load', 'Failed to load area types.'),
-    },
-    confirm: {
-      deleteTitle: translate('resources.areaTypes.confirm.delete.title', 'Delete area type?'),
-      deleteMessage: translate('resources.areaTypes.confirm.delete.message', 'This action cannot be undone.'),
     },
   }), [translate])
 
-  const load = React.useCallback(async () => {
+  const filters = React.useMemo<FilterDef[]>(() => [
+    {
+      id: 'status',
+      label: translations.filters.status,
+      type: 'select',
+      options: [
+        { value: 'active', label: translations.filters.active },
+        { value: 'inactive', label: translations.filters.inactive },
+      ],
+    },
+  ], [translations.filters.active, translations.filters.inactive, translations.filters.status])
+
+  const loadAreaTypes = React.useCallback(async () => {
     setIsLoading(true)
     try {
-      const sortField = sorting[0]?.id ?? 'name'
-      const sortDir = sorting[0]?.desc ? 'desc' : 'asc'
       const params = new URLSearchParams({
         page: String(page),
         pageSize: String(PAGE_SIZE),
-        sortField,
-        sortDir,
         withAreaCounts: 'true',
       })
+      const sort = sorting[0]
+      if (sort?.id) {
+        params.set('sortField', sort.id)
+        params.set('sortDir', sort.desc ? 'desc' : 'asc')
+      }
+      const status = typeof filterValues.status === 'string' ? filterValues.status : ''
+      if (status === 'active' || status === 'inactive') params.set('status', status)
       if (search.trim()) params.set('search', search.trim())
-      const payload = await readApiResultOrThrow<AreaTypesResponse>(`/api/resources/area-types?${params.toString()}`)
+      const payload = await readApiResultOrThrow<AreaTypesResponse>(
+        `/api/resources/area-types?${params.toString()}`,
+        undefined,
+        { errorMessage: translations.errors.load, fallback: { items: [], total: 0, totalPages: 1 } },
+      )
       const items = Array.isArray(payload.items) ? payload.items : []
       setRows(items.map(mapAreaTypeRow))
-      setTotal(payload.total ?? 0)
-      setTotalPages(payload.totalPages ?? 1)
-    } catch {
+      setTotal(typeof payload.total === 'number' ? payload.total : items.length)
+      setTotalPages(typeof payload.totalPages === 'number' ? payload.totalPages : Math.max(1, Math.ceil(items.length / PAGE_SIZE)))
+    } catch (error) {
+      logger.error('Failed to list area types', { err: error })
       flash(translations.errors.load, 'error')
     } finally {
       setIsLoading(false)
     }
-  }, [page, sorting, search, scopeVersion, reloadToken, translations.errors.load])
+  }, [filterValues.status, page, search, sorting, translations.errors.load])
 
-  React.useEffect(() => { void load() }, [load])
+  React.useEffect(() => {
+    void loadAreaTypes()
+  }, [loadAreaTypes, scopeVersion, reloadToken])
 
-  const handleDelete = React.useCallback(async (id: string, updatedAt: string | null) => {
+  const handleSearchChange = React.useCallback((value: string) => {
+    setSearch(value)
+    setPage(1)
+  }, [])
+
+  const handleFiltersApply = React.useCallback((values: FilterValues) => {
+    setFilterValues(values)
+    setPage(1)
+  }, [])
+
+  const handleFiltersClear = React.useCallback(() => {
+    setFilterValues({})
+    setPage(1)
+  }, [])
+
+  const handleRefresh = React.useCallback(() => {
+    setReloadToken((token) => token + 1)
+  }, [])
+
+  const handleDelete = React.useCallback(async (entry: AreaTypeRow) => {
+    if (entry.areaCount > 0) {
+      flash(translations.errors.deleteAssigned, 'error')
+      return
+    }
+    const message = translations.actions.deleteConfirm.replace('{{name}}', entry.name)
     const confirmed = await confirm({
-      title: translations.confirm.deleteTitle,
-      description: translations.confirm.deleteMessage,
-      confirmText: translations.actions.delete,
+      title: message,
       variant: 'destructive',
     })
     if (!confirmed) return
     try {
-      const headers = buildOptimisticLockHeader(updatedAt)
-      await withScopedApiRequestHeaders(headers, () =>
-        deleteCrud('resources/area-types', id, {
-          errorMessage: translations.errors.delete,
-        }),
+      const headers = buildOptimisticLockHeader(entry.updatedAt)
+      await runAreaTypeMutation(
+        () => withScopedApiRequestHeaders(headers, () => (
+          deleteCrud('resources/area-types', entry.id, { errorMessage: translations.errors.delete })
+        )),
+        { operation: 'deleteAreaType', id: entry.id, updatedAt: entry.updatedAt ?? null },
+        entry.id,
       )
       flash(translations.messages.deleted, 'success')
-      setReloadToken((t) => t + 1)
-    } catch {
+      handleRefresh()
+    } catch (error) {
+      logger.error('Failed to delete area type', { err: error })
       flash(translations.errors.delete, 'error')
     }
-  }, [confirm, translations])
+  }, [confirm, handleRefresh, runAreaTypeMutation, translations.actions.deleteConfirm, translations.errors.delete, translations.errors.deleteAssigned, translations.messages.deleted])
 
   const columns = React.useMemo<ColumnDef<AreaTypeRow>[]>(() => [
     {
       accessorKey: 'name',
       header: translations.table.name,
+      meta: { priority: 1, sticky: true },
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          {row.original.appearanceIcon && (
-            <span className="text-lg">{row.original.appearanceIcon}</span>
-          )}
-          <div>
-            <div className="font-medium text-sm">{row.original.name}</div>
-          </div>
+        <div className="flex flex-col">
+          <span className="font-medium">{row.original.name}</span>
+          {row.original.description ? (
+            <span className={SUBTEXT_CLASSNAME}>
+              {markdownToPlainText(row.original.description)}
+            </span>
+          ) : null}
         </div>
+      ),
+    },
+    {
+      accessorKey: 'appearance',
+      header: translations.table.appearance,
+      meta: { priority: 2 },
+      cell: ({ row }) => {
+        const icon = row.original.appearanceIcon
+        const color = row.original.appearanceColor
+        if (!icon && !color) {
+          return <span className="text-xs text-muted-foreground">—</span>
+        }
+        return (
+          <div className="flex items-center gap-2">
+            {color ? renderDictionaryColor(color) : null}
+            {icon ? renderDictionaryIcon(icon) : null}
+          </div>
+        )
+      },
+    },
+    {
+      accessorKey: 'areaCount',
+      header: translations.table.areas,
+      meta: { priority: 3 },
+      cell: ({ row }) => (
+        <span className="text-sm tabular-nums text-muted-foreground">{row.original.areaCount}</span>
       ),
     },
     {
       accessorKey: 'description',
       header: translations.table.description,
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground line-clamp-2">
-          {row.original.description ?? '—'}
+      meta: { priority: 5 },
+      cell: ({ row }) => row.original.description ? (
+        <span className={DESCRIPTION_CLASSNAME}>
+          {markdownToPlainText(row.original.description)}
         </span>
-      ),
-    },
-    {
-      accessorKey: 'areaCount',
-      header: translations.table.areas,
-      cell: ({ row }) => (
-        <span className="text-sm">{row.original.areaCount}</span>
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
       ),
     },
     {
       accessorKey: 'updatedAt',
       header: translations.table.updatedAt,
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {row.original.updatedAt ? formatDateTime(row.original.updatedAt) : '—'}
-        </span>
-      ),
+      meta: { priority: 4 },
+      cell: ({ row }) => row.original.updatedAt
+        ? <span className="text-xs text-muted-foreground">{formatDateTime(row.original.updatedAt)}</span>
+        : <span className="text-xs text-muted-foreground">—</span>,
     },
-    {
-      id: 'actions',
-      cell: ({ row }) => (
-        <RowActions
-          items={[
-            {
-              id: `edit-${row.original.id}`,
-              label: translations.actions.edit,
-              href: `/backend/resources/area-types/${row.original.id}/edit`,
-            },
-            {
-              id: `delete-${row.original.id}`,
-              label: translations.actions.delete,
-              onSelect: () => handleDelete(row.original.id, row.original.updatedAt),
-            },
-          ]}
-        />
-      ),
-    },
-  ], [translations, handleDelete])
+  ], [
+    translations.table.appearance,
+    translations.table.areas,
+    translations.table.description,
+    translations.table.name,
+    translations.table.updatedAt,
+  ])
 
   return (
     <Page>
       <PageBody>
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold">{translations.title}</h1>
-              <p className="text-sm text-muted-foreground">{translations.description}</p>
-            </div>
-            <Button
-              onClick={() => router.push('/backend/resources/area-types/create')}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              {translations.actions.add}
+        <DataTable<AreaTypeRow>
+          title={translations.title}
+          data={rows}
+          columns={columns}
+          isLoading={isLoading}
+          searchValue={search}
+          onSearchChange={handleSearchChange}
+          searchPlaceholder={translations.table.search}
+          filters={filters}
+          filterValues={filterValues}
+          onFiltersApply={handleFiltersApply}
+          onFiltersClear={handleFiltersClear}
+          emptyState={<p className="py-8 text-center text-sm text-muted-foreground">{translations.table.empty}</p>}
+          actions={(
+            <Button asChild size="sm">
+              <Link href="/backend/resources/area-types/create">
+                {translations.actions.add}
+              </Link>
             </Button>
-          </div>
-
-          <DataTable<AreaTypeRow>
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            searchValue={search}
-            onSearchChange={setSearch}
-            searchPlaceholder={translations.table.search}
-            emptyState={<p className="py-8 text-center text-sm text-muted-foreground">{translations.table.empty}</p>}
-            sortable
-            sorting={sorting}
-            onSortingChange={setSorting}
-            pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
-          />
-        </div>
+          )}
+          refreshButton={{
+            label: translations.actions.refresh,
+            onRefresh: handleRefresh,
+            isRefreshing: isLoading,
+          }}
+          sortable
+          sorting={sorting}
+          onSortingChange={setSorting}
+          pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
+          rowActions={(row) => (
+            <RowActions
+              items={[
+                { id: 'edit', label: translations.actions.edit, href: `/backend/resources/area-types/${row.id}/edit` },
+                ...(row.areaCount > 0
+                  ? []
+                  : [{ id: 'delete', label: translations.actions.delete, destructive: true, onSelect: () => handleDelete(row) }]),
+              ]}
+            />
+          )}
+          onRowClick={(row) => router.push(`/backend/resources/area-types/${row.id}/edit`)}
+          perspective={{ tableId: extensionPoints.hosts.areaTypesTable.tableId }}
+        />
       </PageBody>
+      {ConfirmDialogElement}
     </Page>
   )
 }
 
 function mapAreaTypeRow(item: Record<string, unknown>): AreaTypeRow {
-  return {
-    id: typeof item.id === 'string' ? item.id : '',
-    name: typeof item.name === 'string' ? item.name : '',
-    description: typeof item.description === 'string' ? item.description : null,
-    appearanceIcon: typeof item.appearanceIcon === 'string'
-      ? item.appearanceIcon
-      : typeof item.appearance_icon === 'string'
-        ? item.appearance_icon
-        : null,
-    appearanceColor: typeof item.appearanceColor === 'string'
-      ? item.appearanceColor
-      : typeof item.appearance_color === 'string'
-        ? item.appearance_color
-        : null,
-    isActive: item.isActive !== false,
-    updatedAt: typeof item.updatedAt === 'string'
-      ? item.updatedAt
-      : typeof item.updated_at === 'string'
-        ? item.updated_at
-        : null,
-    areaCount: typeof item.areaCount === 'number'
-      ? item.areaCount
-      : typeof item.area_count === 'number'
-        ? item.area_count
-        : 0,
-  }
+  const id = typeof item.id === 'string' ? item.id : ''
+  const name = typeof item.name === 'string' && item.name.length ? item.name : id
+  const description = typeof item.description === 'string' && item.description.length
+    ? item.description
+    : typeof item.description === 'string'
+      ? item.description
+      : null
+  const appearanceIcon = typeof item.appearanceIcon === 'string'
+    ? item.appearanceIcon
+    : typeof item.appearance_icon === 'string'
+      ? item.appearance_icon
+      : null
+  const appearanceColor = typeof item.appearanceColor === 'string'
+    ? item.appearanceColor
+    : typeof item.appearance_color === 'string'
+      ? item.appearance_color
+      : null
+  const isActive = item.isActive !== false
+  const updatedAt = typeof item.updatedAt === 'string'
+    ? item.updatedAt
+    : typeof item.updated_at === 'string'
+      ? item.updated_at
+      : null
+  const areaCount = typeof item.areaCount === 'number'
+    ? item.areaCount
+    : typeof item.area_count === 'number'
+      ? item.area_count
+      : 0
+  return withDataTableNamespaces({
+    id,
+    name,
+    description,
+    appearanceIcon,
+    appearanceColor,
+    isActive,
+    updatedAt,
+    areaCount,
+  }, item)
 }

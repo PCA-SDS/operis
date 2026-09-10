@@ -315,13 +315,13 @@ export async function seedResourcesAddressTypes(
 }
 
 const RESOURCES_AREA_TYPE_DEFAULTS: ResourcesResourceTypeSeed[] = [
-  { key: 'campus', name: 'Campus', description: 'A campus or main location.', appearanceIcon: '🏛️' },
-  { key: 'building', name: 'Building', description: 'A building within a campus.', appearanceIcon: '🏢' },
-  { key: 'floor', name: 'Floor', description: 'A floor within a building.', appearanceIcon: '📶' },
-  { key: 'zone', name: 'Zone', description: 'A zone within a floor or area.', appearanceIcon: '📍' },
-  { key: 'room', name: 'Room', description: 'A room within a building or zone.', appearanceIcon: '🚪' },
-  { key: 'section', name: 'Section', description: 'A section within a room or area.', appearanceIcon: '📋' },
-  { key: 'other', name: 'Other', description: 'Other area type.', appearanceIcon: '📦' },
+  { key: 'campus', name: 'Campus', description: 'A campus or main location.', appearanceIcon: 'lucide:map' },
+  { key: 'building', name: 'Building', description: 'A building within a campus.', appearanceIcon: 'lucide:building' },
+  { key: 'floor', name: 'Floor', description: 'A floor within a building.', appearanceIcon: 'lucide:layers' },
+  { key: 'zone', name: 'Zone', description: 'A zone within a floor or area.', appearanceIcon: 'lucide:map-pin' },
+  { key: 'room', name: 'Room', description: 'A room within a building or zone.', appearanceIcon: 'lucide:door-closed' },
+  { key: 'section', name: 'Section', description: 'A section within a room or area.', appearanceIcon: 'lucide:layout-grid' },
+  { key: 'other', name: 'Other', description: 'Other area type.', appearanceIcon: 'lucide:package' },
 ]
 
 export async function seedResourcesAreaTypes(

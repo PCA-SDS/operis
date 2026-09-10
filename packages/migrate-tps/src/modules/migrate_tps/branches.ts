@@ -3,19 +3,12 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import * as pg from 'pg'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { parseTpsMigrateFlags, parseTpsCsv } from './lib'
+import { parseTpsMigrateFlags, parseTpsCsv, TPS_LOCATION_MAPPING } from './lib'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 
 type Client = InstanceType<typeof pg.Client>
 
 const logger = createLogger('migrate_tps')
-
-const LOCATION_MAPPING: Array<{ tpsKey: string; orgName: string; slug: string }> = [
-  { tpsKey: 'benThanh',   orgName: 'Bến Thành',   slug: 'ben-thanh' },
-  { tpsKey: 'thaoDien',   orgName: 'Thảo Điền',   slug: 'thao-dien' },
-  { tpsKey: 'phuMyHung',  orgName: 'Phú Mỹ Hưng', slug: 'phu-my-hung' },
-  { tpsKey: 'hoanKiem',   orgName: 'Hoàn Kiếm',   slug: 'hoan-kiem' },
-]
 
 async function connectTps(url: string): Promise<Client> {
   const isLocalhost = url.includes('localhost') || url.includes('127.0.0.1')
@@ -95,7 +88,7 @@ export const migrateTpsBranchesCommand: ModuleCli = {
         let created = 0
         let skipped = 0
 
-        for (const mapping of LOCATION_MAPPING) {
+        for (const mapping of TPS_LOCATION_MAPPING) {
           const hasFloors = tpsLocations.some(r => r.location === mapping.tpsKey)
           if (!hasFloors) {
             logger.info(`  Skipping "${mapping.orgName}" — no floors in TPS`)
