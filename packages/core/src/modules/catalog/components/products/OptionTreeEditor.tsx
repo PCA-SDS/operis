@@ -74,6 +74,8 @@ export interface OptionTreeEditorProps {
   currencyCode?: string;
   productId?: string;
   headerActions?: React.ReactNode;
+  showSummary?: boolean;
+  showAddGroupLabelOnMobile?: boolean;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -289,7 +291,7 @@ function GroupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <div 
           onKeyDown={(e) => { 
             if (e.key === 'Enter' && form.name.trim()) { 
@@ -447,7 +449,7 @@ function OptionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <div 
           onKeyDown={(e) => { 
             if (e.key === 'Enter' && form.name.trim()) { 
@@ -1278,6 +1280,8 @@ export function OptionTreeEditor({
   currencyCode = 'USD',
   productId = '',
   headerActions,
+  showSummary = true,
+  showAddGroupLabelOnMobile = false,
 }: OptionTreeEditorProps) {
   const t = useT()
   const [addGroupOpen, setAddGroupOpen] = useState(false)
@@ -1335,18 +1339,20 @@ export function OptionTreeEditor({
 
           {/* Header */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-xs leading-5 text-muted-foreground sm:text-sm">
-                {rootGroups.length > 0
-                  ? `${rootGroups.length} ${t('catalog.options.rootGroups', 'root groups')} · ${localOptions.length} ${t('catalog.options.totalOptions', 'total options')}`
-                  : t('catalog.options.emptyHint', 'Add groups to build the option tree for this product.')}
-              </p>
-            </div>
+            {showSummary ? (
+              <div className="min-w-0">
+                <p className="text-xs leading-5 text-muted-foreground sm:text-sm">
+                  {rootGroups.length > 0
+                    ? `${rootGroups.length} ${t('catalog.options.rootGroups', 'root groups')} · ${localOptions.length} ${t('catalog.options.totalOptions', 'total options')}`
+                    : t('catalog.options.emptyHint', 'Add groups to build the option tree for this product.')}
+                </p>
+              </div>
+            ) : null}
             <div className="flex flex-wrap items-center gap-2">
               {headerActions}
               <Button type="button" onClick={() => setAddGroupOpen(true)} variant="outline" className="gap-2">
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">
+                <span className={showAddGroupLabelOnMobile ? 'inline' : 'hidden sm:inline'}>
                   {t('catalog.options.addGroup', 'Add Group')}
                 </span>
               </Button>

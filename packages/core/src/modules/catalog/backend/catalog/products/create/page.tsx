@@ -1994,6 +1994,8 @@ function ProductBuilder({
             options={values.optionTreeOptions || []}
             onChangeGroups={(groups) => setValue("optionTreeGroups", groups)}
             onChangeOptions={(opts) => setValue("optionTreeOptions", opts)}
+            showSummary={false}
+            showAddGroupLabelOnMobile
           />
         ) : (
           <OptionDraftBuilder
