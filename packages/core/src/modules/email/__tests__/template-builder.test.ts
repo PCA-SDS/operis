@@ -1,6 +1,7 @@
 import {
   customTemplateValues,
   customTemplateVariables,
+  renderHtmlPreviewWithSamples,
   renderWithSamples,
 } from '../backend/email/templates/_components/TemplateBuilderForm'
 
@@ -29,5 +30,13 @@ describe('email template builder helpers', () => {
       companyName: 'Harborview Analytics',
       quarterPeriod: 'Quarter 1 2026',
     })).toBe('Hello Harborview Analytics for Quarter 1 2026 / {{missingValue}}')
+  })
+
+  it('renders link variables as hyperlinks labelled by variable key', () => {
+    expect(renderHtmlPreviewWithSamples('Upload here: {{uploadFolderUrl}}', {
+      uploadFolderUrl: 'https://example.com/company-folder',
+    }, {
+      uploadFolderUrl: 'link',
+    })).toBe('Upload here: <a href="https://example.com/company-folder" target="_blank" rel="noopener noreferrer">uploadFolderUrl</a>')
   })
 })

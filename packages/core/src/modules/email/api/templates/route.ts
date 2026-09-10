@@ -56,6 +56,31 @@ type EmailTemplateRow = {
   updated_at: Date | string
 }
 
+const listFields = [
+  'id',
+  'template_key',
+  'name',
+  'description',
+  'category',
+  'status',
+  'subject',
+  'preheader',
+  'tenant_id',
+  'organization_id',
+  'created_by_user_id',
+  'updated_by_user_id',
+  'created_at',
+  'updated_at',
+]
+
+const detailFields = [
+  ...listFields,
+  'design',
+  'blocks',
+  'variables',
+  'accounting_metadata',
+]
+
 function toIso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString()
 }
@@ -79,26 +104,7 @@ export const { metadata, GET, POST, PUT, DELETE } = makeCrudRoute({
   list: {
     schema: emailTemplateQuerySchema,
     entityId: ENTITY_ID,
-    fields: [
-      'id',
-      'template_key',
-      'name',
-      'description',
-      'category',
-      'status',
-      'subject',
-      'preheader',
-      'design',
-      'blocks',
-      'variables',
-      'accounting_metadata',
-      'tenant_id',
-      'organization_id',
-      'created_by_user_id',
-      'updated_by_user_id',
-      'created_at',
-      'updated_at',
-    ],
+    fields: (query) => query.id || query.ids || query.activeOnly ? detailFields : listFields,
     sortFieldMap: {
       name: 'name',
       category: 'category',
@@ -114,9 +120,17 @@ export const { metadata, GET, POST, PUT, DELETE } = makeCrudRoute({
         const ids = query.ids.split(',').map((value) => value.trim()).filter(Boolean)
         if (ids.length) filters.id = { $in: ids }
       }
-      if (query.search) filters.name = { $ilike: `%${escapeLikePattern(query.search)}%` }
+      if (query.search) {
+        const pattern = `%${escapeLikePattern(query.search)}%`
+        filters.$or = [
+          { name: { $ilike: pattern } },
+          { template_key: { $ilike: pattern } },
+          { description: { $ilike: pattern } },
+        ]
+      }
       if (query.category) filters.category = query.category
       if (query.status) filters.status = query.status
+      if (query.activeOnly) filters.status = 'published'
       return filters
     },
     transformItem: (item: EmailTemplateRow) => ({
@@ -128,9 +142,9 @@ export const { metadata, GET, POST, PUT, DELETE } = makeCrudRoute({
       status: item.status,
       subject: item.subject,
       preheader: item.preheader ?? null,
-      design: item.design,
-      blocks: item.blocks,
-      variables: item.variables,
+      design: item.design ?? {},
+      blocks: item.blocks ?? [],
+      variables: item.variables ?? [],
       accounting_metadata: item.accounting_metadata ?? null,
       tenant_id: item.tenant_id,
       organization_id: item.organization_id,
@@ -139,6 +153,16 @@ export const { metadata, GET, POST, PUT, DELETE } = makeCrudRoute({
       createdAt: toIso(item.created_at),
       updatedAt: toIso(item.updated_at),
     }),
+  },
+  hooks: {
+    afterList: (payload, ctx) => {
+      if (!ctx.query.activeOnly || !Array.isArray(payload.items)) return
+      payload.items = payload.items.filter((item: { accounting_metadata?: { isActive?: unknown } | null }) => item.accounting_metadata?.isActive !== false)
+      payload.total = payload.items.length
+      if (typeof payload.totalPages === 'number' && typeof payload.pageSize === 'number') {
+        payload.totalPages = Math.ceil(payload.total / payload.pageSize)
+      }
+    },
   },
   actions: {
     create: {

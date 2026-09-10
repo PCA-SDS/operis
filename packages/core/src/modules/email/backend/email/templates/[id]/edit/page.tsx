@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
+import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
@@ -38,6 +39,7 @@ type EmailTemplateRecord = {
     workflowKey?: string
     fields?: string[]
     defaultValues?: Record<string, string>
+    variableTypes?: Record<string, string>
     rules?: Record<string, unknown>
     sortOrder?: number
     isActive?: boolean
@@ -46,6 +48,7 @@ type EmailTemplateRecord = {
 }
 
 type EmailTemplateListResponse = { items?: EmailTemplateRecord[] }
+type EmailTemplateDetailResponse = EmailTemplateListResponse & { item?: EmailTemplateRecord; data?: EmailTemplateRecord }
 
 type EditTemplateForm = TemplateBuilderFormValue & { updatedAt: string }
 
@@ -60,6 +63,7 @@ const emptyForm: EditTemplateForm = {
   variables: '',
   fields: '',
   defaultValues: '{}',
+  variableTypes: '{}',
   rules: '{}',
   workflowKey: '',
   sortOrder: '0',
@@ -98,6 +102,7 @@ function toForm(record: EmailTemplateRecord): EditTemplateForm {
   const metadata = record.accounting_metadata ?? {}
   const fields = Array.isArray(metadata.fields) ? metadata.fields : []
   const defaultValues = metadata.defaultValues && typeof metadata.defaultValues === 'object' ? metadata.defaultValues : {}
+  const variableTypes = metadata.variableTypes && typeof metadata.variableTypes === 'object' ? metadata.variableTypes : {}
   const rules = metadata.rules && typeof metadata.rules === 'object' && !Array.isArray(metadata.rules) ? metadata.rules : {}
   const variables = Array.isArray(record.variables) ? record.variables.filter((value): value is string => typeof value === 'string') : []
 
@@ -112,6 +117,7 @@ function toForm(record: EmailTemplateRecord): EditTemplateForm {
     variables: customTemplateVariables(variables.join(', ')).join(', '),
     fields: fields.join(', '),
     defaultValues: JSON.stringify(defaultValues, null, 2),
+    variableTypes: JSON.stringify(variableTypes, null, 2),
     rules: JSON.stringify(rules, null, 2),
     workflowKey: metadata.workflowKey ?? '',
     sortOrder: String(typeof metadata.sortOrder === 'number' ? metadata.sortOrder : 0),
@@ -125,6 +131,7 @@ function buildPayload(form: EditTemplateForm, id: string) {
   const variables = customTemplateVariables(form.variables)
   const fields = splitCsv(form.fields)
   const defaultValues = parseJsonObject(form.defaultValues, 'Default values')
+  const variableTypes = parseJsonObject(form.variableTypes, 'Variable types')
   const rules = parseJsonObject(form.rules, 'Rules')
   const html = blocksToHtml(form.blocks)
   const sortOrder = Number.parseInt(form.sortOrder, 10)
@@ -145,10 +152,11 @@ function buildPayload(form: EditTemplateForm, id: string) {
     accounting_metadata: {
       workflowKey: form.workflowKey.trim() || undefined,
       ruleKeys: Object.entries(rules).map(([key, value]) => `${key}:${String(value)}`),
-      migratedFrom: 'pca-accounting',
-      sourceTemplateId: form.templateKey.trim() || null,
+      migratedFrom: null,
+      sourceTemplateId: null,
       fields,
       defaultValues: customTemplateValues(defaultValues),
+      variableTypes,
       rules,
       sortOrder: Number.isFinite(sortOrder) && sortOrder >= 0 ? sortOrder : 0,
       isActive: form.isActive && form.status !== 'archived',
@@ -156,7 +164,16 @@ function buildPayload(form: EditTemplateForm, id: string) {
   }
 }
 
+function templateFromResponse(response: EmailTemplateDetailResponse | undefined): EmailTemplateRecord | null {
+  if (!response) return null
+  if (response.item) return response.item
+  if (response.data) return response.data
+  if (Array.isArray(response.items)) return response.items[0] ?? null
+  return null
+}
+
 export default function EditEmailTemplatePage() {
+  const t = useT()
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const id = params.id
@@ -171,17 +188,20 @@ export default function EditEmailTemplatePage() {
     async function load() {
       setIsLoading(true)
       setError(null)
-      const response = await apiCall<EmailTemplateListResponse>(`/api/email/templates?id=${encodeURIComponent(id)}`, { signal: controller.signal })
+      const response = await apiCall<EmailTemplateDetailResponse>(`/api/email/templates?id=${encodeURIComponent(id)}`, { signal: controller.signal })
       if (cancelled) return
-      if (!response.ok) throw new Error('Failed to load email template')
-      const record = response.result?.items?.[0]
-      if (!record) throw new Error('Email template not found')
+      if (!response.ok) {
+        const body = response.result as { error?: string; message?: string } | undefined
+        throw new Error(body?.error ?? body?.message ?? t('email.templates.errors.loadOne', 'Failed to load email template'))
+      }
+      const record = templateFromResponse(response.result)
+      if (!record) throw new Error('[internal] Email template not found')
       setForm(toForm(record))
       setIsLoading(false)
     }
     void load().catch((err: unknown) => {
       if (!cancelled) {
-        setError(err instanceof Error ? err.message : 'Failed to load email template')
+        setError(err instanceof Error ? err.message.replace(/^\[internal]\s*/, '') : t('email.templates.errors.loadOne', 'Failed to load email template'))
         setIsLoading(false)
       }
     })
@@ -206,18 +226,18 @@ export default function EditEmailTemplatePage() {
       )
       if (!response.ok) {
         const body = response.result as { error?: string; message?: string } | undefined
-        throw new Error(body?.error ?? body?.message ?? 'Failed to update email template')
+        throw new Error(body?.error ?? body?.message ?? t('email.templates.errors.update', 'Failed to update email template'))
       }
       router.push('/backend/email/templates')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update email template')
+      setError(err instanceof Error ? err.message.replace(/^\[internal]\s*/, '') : t('email.templates.errors.update', 'Failed to update email template'))
     } finally {
       setIsSaving(false)
     }
   }
 
   async function deleteTemplate() {
-    if (!window.confirm('Delete this email template?')) return
+    if (!window.confirm(t('email.templates.deleteConfirm', 'Delete this email template?'))) return
     setError(null)
     setIsSaving(true)
     try {
@@ -231,11 +251,11 @@ export default function EditEmailTemplatePage() {
       )
       if (!response.ok) {
         const body = response.result as { error?: string; message?: string } | undefined
-        throw new Error(body?.error ?? body?.message ?? 'Failed to delete email template')
+        throw new Error(body?.error ?? body?.message ?? t('email.templates.errors.delete', 'Failed to delete email template'))
       }
       router.push('/backend/email/templates')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete email template')
+      setError(err instanceof Error ? err.message.replace(/^\[internal]\s*/, '') : t('email.templates.errors.delete', 'Failed to delete email template'))
     } finally {
       setIsSaving(false)
     }
@@ -247,7 +267,7 @@ export default function EditEmailTemplatePage() {
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Edit Email Template</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Update PCA accounting template content, rules, placeholders, preview, and visual-builder blocks.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Update tenant-owned template content, rules, placeholders, preview, and visual-builder blocks.</p>
           </div>
           <Button variant="secondary" asChild><Link href="/backend/email/templates">Back</Link></Button>
         </div>

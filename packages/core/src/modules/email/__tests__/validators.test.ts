@@ -1,6 +1,7 @@
 import {
   createEmailTemplateSchema,
   emailAccountingDefaultsSchema,
+  emailTemplateQuerySchema,
   updateEmailTemplateSchema,
 } from '../data/validators'
 
@@ -33,6 +34,9 @@ const baseTemplate = {
       quarterPeriod: 'Quarter 1 2026',
       vatPitReportsLink: 'https://example.com/vat-pit-reports-folder',
     },
+    variableTypes: {
+      vatPitReportsLink: 'link',
+    },
     rules: { type: 'tax_report', hasTaxPayable: true, hasCit: false },
     sortOrder: 2,
     isActive: true,
@@ -50,6 +54,9 @@ describe('email validators', () => {
         rules: { type: 'tax_report', hasTaxPayable: true, hasCit: false },
         defaultValues: {
           vatPitReportsLink: 'https://example.com/vat-pit-reports-folder',
+        },
+        variableTypes: {
+          vatPitReportsLink: 'link',
         },
       },
     })
@@ -72,6 +79,10 @@ describe('email validators', () => {
       expected_updated_at: '2026-09-04T00:00:00.000Z',
       subject: 'Updated {{quarterPeriod}}',
     })
+  })
+
+  it('accepts the legacy PCA activeOnly list filter', () => {
+    expect(emailTemplateQuerySchema.parse({ activeOnly: 'true' })).toMatchObject({ activeOnly: true })
   })
 
   it('stores tenant-owned accounting defaults with placeholder links only', () => {

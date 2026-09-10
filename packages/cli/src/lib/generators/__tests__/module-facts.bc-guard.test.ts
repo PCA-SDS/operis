@@ -169,7 +169,11 @@ describe('module-facts BC resolve guard (T2)', () => {
     // the delta assertion below: complete-minus-legacy is 27,657 bytes against
     // a 1,800,000 cap. The extraction SHAPE is unchanged; there is simply one
     // more module in the repo.
-    expect(Buffer.byteLength(completeJson)).toBeLessThan(4_100_000)
+    //
+    // JSON cap raised by the `email` module: tenant-owned templates, accounting
+    // defaults, ACL, routes, backend pages and search add ordinary linear module
+    // metadata. The extension delta remains far below its blow-up guard.
+    expect(Buffer.byteLength(completeJson)).toBeLessThan(4_125_000)
     expect(Buffer.byteLength(completeJson) - Buffer.byteLength(legacyJson)).toBeLessThan(1_800_000)
     // Markdown cap raised with the source-link contract: entities, events, ACL
     // features, DI tokens, search entities, notifications, UMES hosts and UMES

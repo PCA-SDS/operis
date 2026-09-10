@@ -119,6 +119,12 @@ const deleteTemplateCommand: CommandHandler<Record<string, unknown>, { ok: true 
       deletedAt: null,
     } as FilterQuery<EmailTemplate>)
     if (!existing) throw new CrudHttpError(404, { error: 'Email template not found' })
+    assertOptimisticLock({
+      resourceKind: 'email.template',
+      resourceId: existing.id,
+      expected: parsed.expected_updated_at,
+      current: existing.updatedAt,
+    })
     existing.deletedAt = new Date()
     await em.flush()
     return { ok: true }

@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
@@ -11,7 +12,7 @@ import {
   type TemplateBuilderFormValue,
   blocksToHtml,
   buildTemplateBlocks,
-  createBlock,
+  createStaticBlock,
   customTemplateValues,
   customTemplateVariables,
   parseJsonObject,
@@ -29,17 +30,26 @@ const initialForm: TemplateBuilderFormValue = {
   variables: '',
   fields: '',
   defaultValues: '{}',
+  variableTypes: '{}',
   rules: '{}',
   workflowKey: '',
   sortOrder: '0',
   isActive: true,
-  blocks: [createBlock('paragraph', 'Hello {{companyName}},\n\nWrite your email body here.')],
+  blocks: [createStaticBlock('initial-body', 'rich-text-html', '<p>Hello {{companyName}},</p><p>Write your email body here.</p>')],
+}
+
+function createInitialForm(bodyText: string): TemplateBuilderFormValue {
+  return {
+    ...initialForm,
+    blocks: [createStaticBlock('initial-body', 'rich-text-html', `<p>Hello {{companyName}},</p><p>${bodyText}</p>`)],
+  }
 }
 
 function buildPayload(form: TemplateBuilderFormValue) {
   const variables = customTemplateVariables(form.variables)
   const fields = splitCsv(form.fields)
   const defaultValues = parseJsonObject(form.defaultValues, 'Default values')
+  const variableTypes = parseJsonObject(form.variableTypes, 'Variable types')
   const rules = parseJsonObject(form.rules, 'Rules')
   const html = blocksToHtml(form.blocks)
   const sortOrder = Number.parseInt(form.sortOrder, 10)
@@ -62,10 +72,11 @@ function buildPayload(form: TemplateBuilderFormValue) {
     accounting_metadata: {
       workflowKey: form.workflowKey.trim() || undefined,
       ruleKeys: Object.entries(rules).map(([key, value]) => `${key}:${String(value)}`),
-      migratedFrom: 'pca-accounting',
-      sourceTemplateId: form.templateKey.trim() || null,
+      migratedFrom: null,
+      sourceTemplateId: null,
       fields,
       defaultValues: customTemplateValues(defaultValues),
+      variableTypes,
       rules,
       sortOrder: Number.isFinite(sortOrder) && sortOrder >= 0 ? sortOrder : 0,
       isActive: form.isActive && form.status !== 'archived',
@@ -74,8 +85,9 @@ function buildPayload(form: TemplateBuilderFormValue) {
 }
 
 export default function CreateEmailTemplatePage() {
+  const t = useT()
   const router = useRouter()
-  const [form, setForm] = React.useState<TemplateBuilderFormValue>(initialForm)
+  const [form, setForm] = React.useState<TemplateBuilderFormValue>(() => createInitialForm(t('email.templates.form.initialBody', 'Write your email body here.')))
   const [error, setError] = React.useState<string | null>(null)
   const [isSaving, setIsSaving] = React.useState(false)
 
@@ -91,11 +103,11 @@ export default function CreateEmailTemplatePage() {
       })
       if (!response.ok) {
         const body = response.result as { error?: string; message?: string } | undefined
-        throw new Error(body?.error ?? body?.message ?? 'Failed to create email template')
+        throw new Error(body?.error ?? body?.message ?? t('email.templates.errors.create', 'Failed to create email template'))
       }
       router.push('/backend/email/templates')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create email template')
+      setError(err instanceof Error ? err.message : t('email.templates.errors.create', 'Failed to create email template'))
     } finally {
       setIsSaving(false)
     }
@@ -107,7 +119,7 @@ export default function CreateEmailTemplatePage() {
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Create Email Template</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Tenant-owned templates with PCA accounting defaults, rules, variables, live preview, and visual-builder blocks.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Tenant-owned templates with workflow rules, typed variables, live preview, and visual-builder blocks.</p>
           </div>
           <Button variant="secondary" asChild><Link href="/backend/email/templates">Back</Link></Button>
         </div>

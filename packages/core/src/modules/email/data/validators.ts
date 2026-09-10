@@ -41,6 +41,10 @@ export const accountingTemplateMetadataSchema = z
     migratedFrom: z.string().trim().max(160).optional().nullable(),
     fields: z.array(z.string().trim().min(1).max(120)).max(200).default([]).optional(),
     defaultValues: z.record(z.string(), z.string()).default({}).optional(),
+    variableTypes: z
+      .record(z.string(), z.enum(['text', 'link', 'date', 'number', 'money', 'email']))
+      .default({})
+      .optional(),
     rules: jsonObjectSchema.default({}).optional(),
     sortOrder: z.number().int().min(0).optional(),
     isActive: z.boolean().optional(),
@@ -98,6 +102,7 @@ export const emailTemplateQuerySchema = z
     search: z.string().trim().max(200).optional(),
     category: z.string().trim().max(100).optional(),
     status: emailTemplateStatusSchema.optional(),
+    activeOnly: z.coerce.boolean().optional(),
     page: z.coerce.number().int().min(1).optional(),
     pageSize: z.coerce.number().int().min(1).max(200).optional(),
     sort: z.string().trim().max(100).optional(),

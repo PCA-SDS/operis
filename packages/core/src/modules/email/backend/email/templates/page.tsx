@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
+import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -32,6 +33,7 @@ function statusVariant(status: EmailTemplateRow['status']): 'success' | 'warning
 }
 
 export default function EmailTemplatesPage() {
+  const t = useT()
   const [rows, setRows] = React.useState<EmailTemplateRow[]>([])
   const [page, setPage] = React.useState(1)
   const [total, setTotal] = React.useState(0)
@@ -53,14 +55,14 @@ export default function EmailTemplatesPage() {
       if (query.trim()) params.set('search', query.trim())
       const response = await apiCall<EmailTemplateListResponse>(`/api/email/templates?${params}`, {
         signal: controller.signal,
-      }).catch((err: unknown) => ({ ok: false as const, result: { error: err instanceof Error ? err.message : 'Failed to load email templates' } }))
+      }).catch((err: unknown) => ({ ok: false as const, result: { error: err instanceof Error ? err.message : t('email.templates.errors.load', 'Failed to load email templates') } }))
       if (cancelled) return
       if (!response.ok) {
         const body = response.result as { error?: string } | undefined
         setRows([])
         setTotal(0)
         setTotalPages(1)
-        setError(body?.error ?? 'Failed to load email templates')
+        setError(body?.error ?? t('email.templates.errors.load', 'Failed to load email templates'))
       } else {
         const body = response.result ?? {}
         setRows(Array.isArray(body.items) ? body.items : [])
@@ -79,31 +81,31 @@ export default function EmailTemplatesPage() {
 
   const columns = React.useMemo<ColumnDef<EmailTemplateRow>[]>(
     () => [
-      { header: 'Name', accessorKey: 'name' },
-      { header: 'Key', accessorKey: 'template_key', meta: { truncate: true, maxWidth: 220 } },
-      { header: 'Category', accessorKey: 'category' },
-      { header: 'Subject', accessorKey: 'subject', meta: { truncate: true, maxWidth: 360 } },
+      { header: t('email.templates.table.name', 'Name'), accessorKey: 'name' },
+      { header: t('email.templates.table.key', 'Key'), accessorKey: 'template_key', meta: { truncate: true, maxWidth: 220 } },
+      { header: t('email.templates.table.category', 'Category'), accessorKey: 'category' },
+      { header: t('email.templates.table.subject', 'Subject'), accessorKey: 'subject', meta: { truncate: true, maxWidth: 360 } },
       {
-        header: 'Status',
+        header: t('email.templates.table.status', 'Status'),
         accessorKey: 'status',
         cell: ({ row }) => <Tag variant={statusVariant(row.original.status)}>{row.original.status}</Tag>,
       },
       {
-        header: 'Updated',
+        header: t('email.templates.table.updated', 'Updated'),
         accessorKey: 'updatedAt',
         cell: ({ row }) => new Date(row.original.updatedAt).toLocaleString(),
       },
       {
-        header: 'Actions',
+        header: t('email.templates.table.actions', 'Actions'),
         id: 'actions',
         cell: ({ row }) => (
           <Button size="sm" variant="secondary" asChild>
-            <Link href={`/backend/email/templates/${row.original.id}/edit`}>Edit</Link>
+            <Link href={`/backend/email/templates/${row.original.id}/edit`}>{t('email.common.edit', 'Edit')}</Link>
           </Button>
         ),
       },
     ],
-    [],
+    [t],
   )
 
   return (
@@ -141,7 +143,7 @@ export default function EmailTemplatesPage() {
           data={rows}
           isLoading={isLoading}
           error={error}
-          emptyState="No saved email templates yet. Create one from a built-in preset or start blank."
+          emptyState="No saved email templates yet. Create a tenant-owned template from scratch."
           pagination={{ page, pageSize, total, totalPages, onPageChange: setPage }}
         />
       </PageBody>
