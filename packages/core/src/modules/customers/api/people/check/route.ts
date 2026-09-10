@@ -3,6 +3,15 @@ import { z } from 'zod'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { getCachedRateLimiterService } from '@open-mercato/core/bootstrap'
+import { readEndpointRateLimitConfig } from '@open-mercato/shared/lib/ratelimit/config'
+import {
+  checkRateLimit,
+  getClientIp,
+  RATE_LIMIT_FALLBACK_KEY,
+  rateLimitErrorSchema,
+} from '@open-mercato/shared/lib/ratelimit/helpers'
+import { createLogger } from '@open-mercato/shared/lib/logger'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { personCheckSchema } from '../../../data/validators'
@@ -11,6 +20,15 @@ import { checkPersonIdentity } from '../../../lib/personLookup'
 export const metadata = {
   POST: { requireAuth: false },
 }
+
+const logger = createLogger('customers')
+
+const personCheckRateLimitConfig = readEndpointRateLimitConfig('CUSTOMERS_PEOPLE_CHECK', {
+  points: 10,
+  duration: 60,
+  blockDuration: 300,
+  keyPrefix: 'customers_people_check',
+})
 
 const successSchema = z.object({
   exists: z.boolean(),
@@ -34,6 +52,20 @@ const successSchema = z.object({
 export async function POST(req: Request) {
   const { translate } = await resolveTranslations()
   try {
+    const rateLimiterService = getCachedRateLimiterService()
+    if (rateLimiterService) {
+      const clientIp = getClientIp(req, rateLimiterService.trustProxyDepth)
+      const rateLimitResponse = await checkRateLimit(
+        rateLimiterService,
+        personCheckRateLimitConfig,
+        clientIp ?? RATE_LIMIT_FALLBACK_KEY,
+        translate('api.errors.rateLimit', 'Too many requests. Please try again later.'),
+      )
+      if (rateLimitResponse) return rateLimitResponse
+    } else {
+      logger.error('Rate limiter service is not registered — check RATE_LIMIT_* configuration; people check is not rate limited')
+    }
+
     const body = personCheckSchema.parse(await req.json())
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
@@ -78,6 +110,7 @@ export const openApi: OpenApiRouteDoc = {
         { status: 200, description: 'Lookup result', schema: successSchema },
         { status: 400, description: 'Invalid input' },
         { status: 409, description: 'Phone and email match different people' },
+        { status: 429, description: 'Too many requests', schema: rateLimitErrorSchema },
       ],
     },
   },

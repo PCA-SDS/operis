@@ -93,25 +93,32 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
       setIsLoading(true)
       setError(null)
       setNotFound(false)
-      const [detailCall, statusCall] = await Promise.all([
-        apiCall<Detail>(`/api/appointments/${encodeURIComponent(id)}`, { signal: controller.signal }, { fallback: null }),
-        apiCall<{ items?: StatusOption[] }>('/api/appointments/statuses', { signal: controller.signal }, {
-          fallback: { items: [] },
-        }),
-      ])
-      if (cancelled) return
-      if (statusCall.ok) {
-        setStatuses(statusCall.result?.items ?? [])
+      try {
+        const [detailCall, statusCall] = await Promise.all([
+          apiCall<Detail>(`/api/appointments/${encodeURIComponent(id)}`, { signal: controller.signal }, { fallback: null }),
+          apiCall<{ items?: StatusOption[] }>('/api/appointments/statuses', { signal: controller.signal }, {
+            fallback: { items: [] },
+          }),
+        ])
+        if (cancelled) return
+        if (statusCall.ok) {
+          setStatuses(statusCall.result?.items ?? [])
+        }
+        if (detailCall.ok && detailCall.result?.id) {
+          setDetail(detailCall.result)
+          setStatusCode(detailCall.result.statusCode)
+        } else if (detailCall.status === 404) {
+          setNotFound(true)
+        } else {
+          setError(t('appointments.detail.error.loadFailed'))
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(t('appointments.detail.error.loadFailed'))
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
       }
-      if (detailCall.ok && detailCall.result?.id) {
-        setDetail(detailCall.result)
-        setStatusCode(detailCall.result.statusCode)
-      } else if (detailCall.status === 404) {
-        setNotFound(true)
-      } else {
-        setError(t('appointments.detail.error.loadFailed'))
-      }
-      setIsLoading(false)
     }
     void load()
     return () => {

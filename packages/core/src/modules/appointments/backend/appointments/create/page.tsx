@@ -215,28 +215,32 @@ export default function AppointmentCreatePage() {
     const controller = new AbortController()
     async function loadLocations() {
       setLocationsLoading(true)
-      const call = await apiCall<{
-        items?: OrgSwitcherNode[]
-        selectedId?: string | null
-      }>('/api/directory/organization-switcher', { signal: controller.signal }, { fallback: null })
-      if (cancelled) return
-      if (!call.ok || !call.result) {
-        setLocationOptions([])
-        setLocationsLoading(false)
-        return
+      try {
+        const call = await apiCall<{
+          items?: OrgSwitcherNode[]
+          selectedId?: string | null
+        }>('/api/directory/organization-switcher', { signal: controller.signal }, { fallback: null })
+        if (cancelled) return
+        if (!call.ok || !call.result) {
+          setLocationOptions([])
+          return
+        }
+        const options = flattenSelectableOrganizations(call.result.items)
+        setLocationOptions(options)
+        const optionIds = new Set(options.map((option) => option.value))
+        const preferred =
+          (scopeOrganizationId && optionIds.has(scopeOrganizationId) ? scopeOrganizationId : null) ||
+          (typeof call.result.selectedId === 'string' && optionIds.has(call.result.selectedId)
+            ? call.result.selectedId
+            : null) ||
+          options[0]?.value ||
+          null
+        setLocationId(preferred)
+      } catch (err) {
+        if (!cancelled) console.error(err)
+      } finally {
+        if (!cancelled) setLocationsLoading(false)
       }
-      const options = flattenSelectableOrganizations(call.result.items)
-      setLocationOptions(options)
-      const optionIds = new Set(options.map((option) => option.value))
-      const preferred =
-        (scopeOrganizationId && optionIds.has(scopeOrganizationId) ? scopeOrganizationId : null) ||
-        (typeof call.result.selectedId === 'string' && optionIds.has(call.result.selectedId)
-          ? call.result.selectedId
-          : null) ||
-        options[0]?.value ||
-        null
-      setLocationId(preferred)
-      setLocationsLoading(false)
     }
     void loadLocations()
     return () => {
@@ -257,28 +261,35 @@ export default function AppointmentCreatePage() {
       }
       setServicesLoading(true)
       setServicesError(null)
-      const params = new URLSearchParams({
-        tenantId,
-        organizationId: locationId,
-      })
-      const call = await apiCall<{ items?: BookableService[]; error?: string }>(
-        `/api/catalog/bookable-services?${params.toString()}`,
-        { signal: controller.signal },
-        { fallback: null },
-      )
-      if (cancelled) return
-      if (!call.ok) {
-        setServices([])
-        setServicesError(
-          typeof call.result?.error === 'string'
-            ? call.result.error
-            : t('appointments.create.services.error'),
+      try {
+        const params = new URLSearchParams({
+          tenantId,
+          organizationId: locationId,
+        })
+        const call = await apiCall<{ items?: BookableService[]; error?: string }>(
+          `/api/catalog/bookable-services?${params.toString()}`,
+          { signal: controller.signal },
+          { fallback: null },
         )
-      } else {
-        setServices(Array.isArray(call.result?.items) ? call.result.items : [])
-        setServicesError(null)
+        if (cancelled) return
+        if (!call.ok) {
+          setServices([])
+          setServicesError(
+            typeof call.result?.error === 'string'
+              ? call.result.error
+              : t('appointments.create.services.error'),
+          )
+        } else {
+          setServices(Array.isArray(call.result?.items) ? call.result.items : [])
+          setServicesError(null)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setServicesError(t('appointments.create.services.error'))
+        }
+      } finally {
+        if (!cancelled) setServicesLoading(false)
       }
-      setServicesLoading(false)
     }
     void loadServices()
     return () => {

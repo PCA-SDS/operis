@@ -115,18 +115,24 @@ export default function AppointmentsListPage() {
     let cancelled = false
     const controller = new AbortController()
     async function loadStatuses() {
-      const call = await apiCall<{ items?: StatusOption[] }>(
-        '/api/appointments/statuses',
-        { signal: controller.signal },
-        { fallback: { items: [] } },
-      )
-      if (cancelled || !call.ok) return
-      setStatusOptions(
-        (call.result?.items ?? []).map((item) => ({
-          code: item.code,
-          label: item.label,
-        })),
-      )
+      try {
+        const call = await apiCall<{ items?: StatusOption[] }>(
+          '/api/appointments/statuses',
+          { signal: controller.signal },
+          { fallback: { items: [] } },
+        )
+        if (cancelled || !call.ok) return
+        setStatusOptions(
+          (call.result?.items ?? []).map((item) => ({
+            code: item.code,
+            label: item.label,
+          })),
+        )
+      } catch (err) {
+        if (!cancelled) {
+          console.error(err)
+        }
+      }
     }
     void loadStatuses()
     return () => {
