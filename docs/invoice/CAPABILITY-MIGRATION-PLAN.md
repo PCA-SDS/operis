@@ -45,8 +45,8 @@ Invoice table directly. Future M8 sync can call `invoiceAutoPaidService.applyAll
 Generic invoice writes do not accept or trust derived payment rollups. All
 mutations require trusted tenant and organization scope.
 
-Remaining work is intentionally separate: M7 payment confirmation, M8 GDT
-sync, and M9 UI parity. See `.ai/specs/2026-09-09-invoice-phase-5-domain-parity-gate.md`.
+M7 payment-confirmation backend work is complete. Remaining work is M8 GDT sync
+and M9 UI parity. See `.ai/specs/2026-09-09-invoice-phase-5-domain-parity-gate.md`.
 
 ## Phase 3 Start Packet
 
@@ -459,7 +459,9 @@ Progress:
 
 Progress:
 
-- Phase 6.1 implements the authenticated request service, DI registration,
+- Backend milestone complete on 2026-09-10 across commits `f5e38145`,
+  `8d8a8d81`, and `b8b9c238`.
+- The authenticated request flow includes service and DI registration,
   strict request validator, command boundary, secure token generation,
   transactional mail rollback, exact-target resend superseding, recipient
   memory, structured logging, and focused unit coverage.
@@ -468,7 +470,8 @@ Progress:
   mutation-guard boundaries. Whole-invoice matching uses preserved invoice
   identity, rejects expired, installment, missing, and ambiguous claims, and
   atomically settles payer AP plus receiver AR through InvoiceService.
-- Payment-confirmation UI remains pending M7 work.
+- Payment-confirmation UI remains M9 work and does not block the M7 backend
+  milestone.
 
 Dependencies:
 
@@ -508,7 +511,9 @@ Expected tests:
 
 Definition of done:
 
-- Email link flow and incoming confirmation flow work end to end.
+- Backend request, public-link, and incoming-confirmation flows are implemented
+  with focused service, command, route, concurrency, and integration coverage.
+- Browser end-to-end coverage remains part of M9 UI parity.
 
 ## M8 CAP-002 Tax Portal Sync
 

@@ -19,13 +19,14 @@ Phase 3 implementation can start from M0 in
 currently open.
 
 Current implementation status: the AR invoice email send, privacy-safe
-email-open tracking, and authenticated AP payment-confirmation request service
-and command are implemented. Remaining invoice capabilities are tracked
-separately in the milestone documents.
+email-open tracking, and full CAP-005 payment-confirmation backend contract are
+implemented. CAP-005 includes authenticated requests, anonymous public
+preview/confirm/reject, and authenticated incoming AR accept/reject. Remaining
+invoice capabilities are tracked separately in the milestone documents.
 
-As of 2026-09-09, M5 Auto-Paid and M6 Invoice Core pass the Phase 5 domain
-contract gate at the backend boundary. The remaining milestones are M7 payment
-confirmation, M8 GDT sync, and M9 UI parity.
+As of 2026-09-10, M5 Auto-Paid, M6 Invoice Core, and M7 Payment Confirmations
+pass their backend contract gates. The remaining milestones are M8 GDT sync,
+M9 UI parity, and optional M10 AI helper.
 
 Phase 1 source evidence lives in:
 
@@ -353,6 +354,10 @@ This is a pre-implementation spec. Compliance requirements for implementation:
 
 ## Changelog
 
+- 2026-09-10: Reconciled CAP-005 documentation with its three implementation
+  commits. The M7 backend contract is complete; payment-confirmation browser UI
+  and browser acceptance remain M9 work. Recorded DEC-037 for exact unique
+  incoming matching and atomic two-sided settlement.
 - 2026-09-10: Completed the M7 authenticated CAP-005 backend flow. Added the
   private request route and incoming AR accept/reject commands and APIs,
   unexpired whole-invoice identity matching, ambiguity conflicts, conditional
