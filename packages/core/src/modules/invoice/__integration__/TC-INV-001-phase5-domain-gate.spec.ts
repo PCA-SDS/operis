@@ -38,7 +38,7 @@ test.describe('TC-INV-001: Phase 5 AP domain parity', () => {
       })
       expect(createResponse.ok(), `manual AP create should succeed: ${createResponse.status()}`).toBe(true)
       const created = (await createResponse.json()) as { invoice?: Record<string, unknown>; id?: string }
-      const invoice = created.invoice ?? created
+      const invoice = (created.invoice ?? created) as Record<string, unknown>
       invoiceId = typeof invoice.id === 'string' ? invoice.id : null
 
       expect(invoice.direction).toBe('AP')

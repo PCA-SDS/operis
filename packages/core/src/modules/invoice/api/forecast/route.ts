@@ -127,15 +127,7 @@ export const openApi: OpenApiRouteDoc = {
       operationId: createInvoiceOperationId('forecast', 'get'),
       summary: 'Get invoice cash-flow forecast',
       description: 'Returns VND-normalized cash-flow forecast entries, daily series, and totals.',
-      parameters: [
-        {
-          name: 'throughDate',
-          in: 'query',
-          description: 'Optional forecast horizon limit (ISO date, default 12 months ahead).',
-          required: false,
-          schema: { type: 'string', format: 'date' },
-        },
-      ],
+      query: invoiceForecastQuerySchema,
       responses: [
         { status: 200, description: 'Invoice cash-flow forecast', schema: invoiceForecastResponseSchema },
       ],
@@ -143,4 +135,3 @@ export const openApi: OpenApiRouteDoc = {
     },
   },
 }
-

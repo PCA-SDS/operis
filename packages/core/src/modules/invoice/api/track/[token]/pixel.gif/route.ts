@@ -35,7 +35,9 @@ const gifHeaders = {
 type RouteContext = { params?: Promise<{ token?: string }> | { token?: string } }
 
 function gifResponse(): NextResponse {
-  return new NextResponse(transparentInvoiceTrackingGif(), { status: 200, headers: gifHeaders })
+  const gif = transparentInvoiceTrackingGif()
+  const body = new Uint8Array(gif).slice().buffer as ArrayBuffer
+  return new NextResponse(body, { status: 200, headers: gifHeaders })
 }
 
 export async function GET(req: Request, routeContext: RouteContext = {}) {
