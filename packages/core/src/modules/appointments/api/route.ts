@@ -7,6 +7,7 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import type { CatalogPricingService } from '@open-mercato/core/modules/catalog/services/catalogPricingService'
 import { Appointment } from '../data/entities'
 import { appointmentStaffCreateSchema } from '../data/validators'
 import { createAppointmentFromPublicIntake } from '../lib/intake'
@@ -127,12 +128,17 @@ export async function POST(req: Request) {
     }
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
+    const pricingService = container.resolve<CatalogPricingService>('catalogPricingService')
     const { organizationId: _ignoredOrganizationId, ...intakeBody } = body
-    const result = await createAppointmentFromPublicIntake(em, {
-      ...intakeBody,
-      tenantId: auth.tenantId,
-      organizationId,
-    })
+    const result = await createAppointmentFromPublicIntake(
+      em,
+      {
+        ...intakeBody,
+        tenantId: auth.tenantId,
+        organizationId,
+      },
+      { pricingService },
+    )
     try {
       await emitAppointmentEvent('appointments.appointment.created', {
         id: result.id,

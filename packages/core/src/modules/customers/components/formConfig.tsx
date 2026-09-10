@@ -32,7 +32,7 @@ import { apiCall, apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
 import { PhoneNumberField } from '@open-mercato/ui/backend/inputs/PhoneNumberField'
 import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
-import { resolvePhoneIdentity } from '../lib/phoneIdentity'
+import { resolvePhoneIdentity } from '../lib/contactIdentity'
 import { CUSTOMER_ORIGIN_OPTIONS } from '../data/constants'
 import type {
   CrudCustomFieldRenderProps,

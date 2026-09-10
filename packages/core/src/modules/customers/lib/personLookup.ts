@@ -3,7 +3,7 @@ import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
 import { CustomerEntity, CustomerPersonProfile } from '../data/entities'
-import { resolvePhoneIdentity } from './phoneIdentity'
+import { resolvePhoneIdentity } from './contactIdentity'
 
 export type PersonCheckCustomer = {
   id: string

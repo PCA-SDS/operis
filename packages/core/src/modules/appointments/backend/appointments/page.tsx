@@ -67,13 +67,10 @@ function formatBookingTime(value: string, emptyLabel: string) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-const BOOKING_TYPE_LABELS = new Map(
-  APPOINTMENT_BOOKING_TYPE_OPTIONS.map((option) => [option.value, option.label]),
-)
-
 function formatBookingType(value: string | null | undefined, emptyLabel: string) {
   if (!value) return emptyLabel
-  return BOOKING_TYPE_LABELS.get(value) ?? value
+  const label = APPOINTMENT_BOOKING_TYPE_OPTIONS.find((option) => option.value === value)?.label
+  return label ?? value
 }
 
 function matchesSearch(row: Row, query: string, statusLabel: string | undefined): boolean {

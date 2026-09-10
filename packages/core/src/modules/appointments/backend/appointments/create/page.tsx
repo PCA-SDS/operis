@@ -31,7 +31,7 @@ import {
 } from '@open-mercato/core/modules/appointments/data/constants'
 import { splitCustomerName } from '@open-mercato/core/modules/appointments/lib/customerName'
 import { formatOrganizationTreeLabel } from '@open-mercato/core/modules/directory/lib/tree'
-import { resolvePhoneIdentity } from '@open-mercato/core/modules/customers/lib/phoneIdentity'
+import { resolvePhoneIdentity } from '@open-mercato/core/modules/customers/lib/contactIdentity'
 import { DictionarySelectField } from '@open-mercato/core/modules/customers/components/formConfig'
 
 type BookableService = {

@@ -1,4 +1,4 @@
-import { normalizeDialCode } from '@open-mercato/core/modules/customers/lib/phoneIdentity'
+import { normalizeDialCode } from '@open-mercato/core/modules/customers/lib/contactIdentity'
 
 export type AppointmentPhoneSnapshot = {
   /** National / local number only (Privé `customerPhone`). */

@@ -6,6 +6,9 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { enforceCommandOptimisticLockWithGuards } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
+import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { resolveOrganizationScopeFilter } from '@open-mercato/core/modules/directory/utils/organizationScopeFilter'
 import { Appointment, AppointmentLine, AppointmentStatus } from '../../data/entities'
 import { appointmentStatusUpdateSchema } from '../../data/validators'
 import { emitAppointmentEvent } from '../../events'
@@ -89,14 +92,18 @@ async function loadCustomerSource(
   return entity?.source ?? null
 }
 
+export const APPOINTMENT_RESOURCE_KIND = 'appointments.appointment'
+
 async function loadScopedAppointment(
   em: EntityManager,
   tenantId: string,
   id: string,
+  orgWhere: Record<string, unknown>,
 ): Promise<Appointment | null> {
   return em.findOne(Appointment, {
     id,
     tenantId,
+    ...orgWhere,
     deletedAt: null,
   })
 }
@@ -117,7 +124,9 @@ export async function GET(req: Request, ctx: RouteContext) {
     }
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
-    const appointment = await loadScopedAppointment(em, auth.tenantId, id)
+    const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
+    const orgFilter = resolveOrganizationScopeFilter(scope, auth)
+    const appointment = await loadScopedAppointment(em, auth.tenantId, id, orgFilter.where)
     if (!appointment) {
       return NextResponse.json(
         { error: translate('appointments.detail.notFound', 'Appointment not found.'), code: 'NOT_FOUND' },
@@ -159,13 +168,22 @@ export async function PATCH(req: Request, ctx: RouteContext) {
     const body = appointmentStatusUpdateSchema.parse(await req.json())
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
-    const appointment = await loadScopedAppointment(em, auth.tenantId, id)
+    const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
+    const orgFilter = resolveOrganizationScopeFilter(scope, auth)
+    const appointment = await loadScopedAppointment(em, auth.tenantId, id, orgFilter.where)
     if (!appointment) {
       return NextResponse.json(
         { error: translate('appointments.detail.notFound', 'Appointment not found.'), code: 'NOT_FOUND' },
         { status: 404 },
       )
     }
+    await enforceCommandOptimisticLockWithGuards(container, {
+      resourceKind: APPOINTMENT_RESOURCE_KIND,
+      resourceId: appointment.id,
+      current: appointment.updatedAt ?? null,
+      request: req,
+    })
+
     const status = await em.findOne(AppointmentStatus, {
       tenantId: auth.tenantId,
       code: body.statusCode,
