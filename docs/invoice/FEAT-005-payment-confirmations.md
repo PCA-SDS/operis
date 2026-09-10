@@ -1,5 +1,18 @@
 # FEAT-005 - Payment Confirmations
 
+## Operis implementation status
+
+- Authenticated request is exposed at `POST /api/invoice/payment-confirmations`.
+- Authenticated incoming AR accept/reject actions are exposed below the scoped
+  invoice route and use `invoice.payment_confirmations.manage`.
+- Incoming matching uses the exact seller tax code, buyer tax code, invoice
+  symbol, invoice number, and invoice date. It excludes installment and expired
+  claims and rejects ambiguous matches.
+- Incoming accept coordinates the confirmation transition, payer AP payment,
+  and receiver AR settlement in one transaction through Invoice-owned services.
+- Public token preview/confirm/reject is implemented. Payment-confirmation UI
+  remains pending.
+
 ## Description
 AP payment settlement qua magic link. Tenant buyer bấm "Paid?", nhập email supplier/payee. Supplier mở public link để confirm/reject đã nhận tiền. Với AR tương ứng, tenant seller có thể accept/reject incoming payment claim trong app.
 

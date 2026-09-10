@@ -160,6 +160,10 @@ export const invoicePaymentConfirmationRequestSchema = z.object({
   installmentId: invoiceInstallmentIdSchema.optional(),
 }).strict()
 export type InvoicePaymentConfirmationRequestInput = z.infer<typeof invoicePaymentConfirmationRequestSchema>
+export const invoiceIncomingPaymentConfirmationSchema = z.object({
+  invoiceId: invoiceIdSchema,
+}).strict()
+export type InvoiceIncomingPaymentConfirmationInput = z.infer<typeof invoiceIncomingPaymentConfirmationSchema>
 export const invoicePaymentConfirmationPublicPreviewSchema = z.object({
   status: invoicePaymentConfirmationStatusSchema,
   expiresAt: z.string().datetime(),

@@ -33,6 +33,37 @@ function createContext(service: Record<string, jest.Mock>): CommandRuntimeContex
 describe('invoice payment confirmation commands', () => {
   it('registers the request command at import time', () => {
     expect(commandRegistry.has('invoice.payment_confirmations.request')).toBe(true)
+    expect(commandRegistry.has('invoice.payment_confirmations.accept-incoming')).toBe(true)
+    expect(commandRegistry.has('invoice.payment_confirmations.reject-incoming')).toBe(true)
+  })
+
+  it.each([
+    ['accept', 'invoice.payment_confirmations.accept-incoming', 'acceptIncoming', 'CONFIRMED'],
+    ['reject', 'invoice.payment_confirmations.reject-incoming', 'rejectIncoming', 'REJECTED'],
+  ])('routes incoming %s through trusted command scope', async (_label, commandId, method, status) => {
+    const result = {
+      confirmationId,
+      status,
+      invoice: { id: invoiceId },
+    }
+    const serviceMethod = jest.fn(async () => result)
+    const service: Record<string, jest.Mock> = { [method]: serviceMethod }
+    const handler = commandRegistry.get(commandId)
+
+    await expect(handler?.execute({ invoiceId }, createContext(service))).resolves.toEqual(result)
+    expect(serviceMethod).toHaveBeenCalledWith(scope, invoiceId)
+  })
+
+  it('rejects forged scope on incoming actions', async () => {
+    const service = { acceptIncoming: jest.fn() }
+    const handler = commandRegistry.get('invoice.payment_confirmations.accept-incoming')
+
+    await expect(handler?.execute({
+      invoiceId,
+      tenantId: 'forged-tenant',
+      organizationId: 'forged-organization',
+    }, createContext(service))).rejects.toBeDefined()
+    expect(service.acceptIncoming).not.toHaveBeenCalled()
   })
 
   it('requests confirmation using trusted command scope', async () => {

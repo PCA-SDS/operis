@@ -52,6 +52,9 @@ function buildInvoice(overrides: Partial<Invoice> = {}): Invoice {
     settlementStatus: 'UNSETTLED',
     invoiceSymbol: 'AA/26E',
     invoiceNumber: '1001',
+    invoiceDate: new Date('2026-09-01T00:00:00.000Z'),
+    sellerTaxCode: 'SELLER-TAX',
+    buyerTaxCode: 'BUYER-TAX',
     buyerName: 'Buyer Company',
     sellerName: 'Supplier Company',
     currencyCode: 'USD',
@@ -243,5 +246,145 @@ describe('InvoicePaymentConfirmationsService.request', () => {
       recipientEmail: 'supplier@example.com',
     })).resolves.toMatchObject({ confirmationId, status: 'PENDING' })
     expect(emitInvoiceEvent).toHaveBeenCalled()
+  })
+})
+
+function buildIncomingHarness(options: {
+  receiver?: Invoice | null
+  confirmations?: Array<Record<string, unknown>>
+  changed?: number
+} = {}) {
+  const receiver = options.receiver === undefined
+    ? buildInvoice({ direction: 'AR', lineItems: [] as never, installments: [] as never })
+    : options.receiver
+  const payerInvoice = buildInvoice({
+    id: '55555555-5555-4555-8555-555555555555',
+    tenantId: 'payer-tenant',
+    organizationId: 'payer-organization',
+  })
+  const confirmations = options.confirmations ?? [{
+    id: confirmationId,
+    tenantId: payerInvoice.tenantId,
+    organizationId: payerInvoice.organizationId,
+    status: 'PENDING',
+    expiresAt: new Date(Date.now() + 60_000),
+    installment: null,
+    invoice: payerInvoice,
+  }]
+  const applyInvoicePayment = jest.fn(async () => undefined)
+  const updateReceivableSettlement = jest.fn(async () => ({
+    invoice: {
+      id: receiver?.id,
+      direction: 'AR',
+      settlementStatus: 'SETTLED',
+    },
+  }))
+  const transactionInvoiceService = { applyInvoicePayment, updateReceivableSettlement }
+  const invoiceService = {
+    forTransaction: jest.fn(() => transactionInvoiceService),
+  }
+  const tx = {
+    findOne: jest.fn(async () => receiver),
+    find: jest.fn(async () => confirmations),
+    nativeUpdate: jest.fn(async () => options.changed ?? 1),
+  }
+  const em = {
+    transactional: jest.fn(async (work: (manager: typeof tx) => Promise<unknown>) => work(tx)),
+  }
+  const service = new InvoicePaymentConfirmationsService(em as never, {} as never, invoiceService as never)
+
+  return {
+    service,
+    tx,
+    invoiceService,
+    applyInvoicePayment,
+    updateReceivableSettlement,
+    payerInvoice,
+    receiver,
+  }
+}
+
+describe('InvoicePaymentConfirmationsService incoming actions', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('accepts one matching whole-invoice claim and settles both invoice sides through InvoiceService', async () => {
+    const harness = buildIncomingHarness()
+
+    await expect(harness.service.acceptIncoming(scope, invoiceId)).resolves.toMatchObject({
+      confirmationId,
+      status: 'CONFIRMED',
+      invoice: { id: invoiceId, direction: 'AR', settlementStatus: 'SETTLED' },
+    })
+    expect(harness.tx.findOne).toHaveBeenCalledWith(expect.any(Function), {
+      id: invoiceId,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+      deletedAt: null,
+    }, expect.any(Object))
+    expect(harness.tx.find).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({
+      status: 'PENDING',
+      expiresAt: { $gt: expect.any(Date) },
+      installment: null,
+      invoice: expect.objectContaining({
+        direction: 'AP',
+        deletedAt: null,
+        sellerTaxCode: 'SELLER-TAX',
+        buyerTaxCode: 'BUYER-TAX',
+        invoiceSymbol: 'AA/26E',
+        invoiceNumber: '1001',
+        invoiceDate: new Date('2026-09-01T00:00:00.000Z'),
+      }),
+    }), expect.objectContaining({ limit: 2 }))
+    expect(harness.tx.nativeUpdate).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({
+      id: confirmationId,
+      status: 'PENDING',
+      expiresAt: { $gt: expect.any(Date) },
+    }), expect.objectContaining({ status: 'CONFIRMED' }))
+    expect(harness.invoiceService.forTransaction).toHaveBeenCalledWith(harness.tx)
+    expect(harness.applyInvoicePayment).toHaveBeenCalledWith({
+      tenantId: 'payer-tenant',
+      organizationId: 'payer-organization',
+    }, harness.payerInvoice.id)
+    expect(harness.updateReceivableSettlement).toHaveBeenCalledWith(scope, invoiceId, { settled: true })
+  })
+
+  it('rejects a matching claim without changing either invoice', async () => {
+    const harness = buildIncomingHarness()
+
+    await expect(harness.service.rejectIncoming(scope, invoiceId)).resolves.toMatchObject({
+      confirmationId,
+      status: 'REJECTED',
+      invoice: { id: invoiceId, direction: 'AR' },
+    })
+    expect(harness.tx.nativeUpdate).toHaveBeenCalledWith(expect.any(Function), expect.any(Object), expect.objectContaining({
+      status: 'REJECTED',
+    }))
+    expect(harness.invoiceService.forTransaction).not.toHaveBeenCalled()
+  })
+
+  it('rejects an AP receiver before searching for an incoming claim', async () => {
+    const harness = buildIncomingHarness({ receiver: buildInvoice() })
+
+    await expect(harness.service.acceptIncoming(scope, invoiceId)).rejects.toMatchObject({ status: 400 })
+    expect(harness.tx.find).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['no match', []],
+    ['ambiguous matches', [{ id: 'one' }, { id: 'two' }]],
+  ])('returns conflict for %s', async (_label, confirmations) => {
+    const harness = buildIncomingHarness({ confirmations })
+
+    await expect(harness.service.acceptIncoming(scope, invoiceId)).rejects.toMatchObject({ status: 409 })
+    expect(harness.tx.nativeUpdate).not.toHaveBeenCalled()
+    expect(harness.applyInvoicePayment).not.toHaveBeenCalled()
+  })
+
+  it('returns conflict when a concurrent action wins the pending transition', async () => {
+    const harness = buildIncomingHarness({ changed: 0 })
+
+    await expect(harness.service.acceptIncoming(scope, invoiceId)).rejects.toMatchObject({ status: 409 })
+    expect(harness.applyInvoicePayment).not.toHaveBeenCalled()
+    expect(harness.updateReceivableSettlement).not.toHaveBeenCalled()
   })
 })

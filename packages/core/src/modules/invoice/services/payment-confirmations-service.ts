@@ -8,6 +8,7 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 import { getSecurityEmailBaseUrl } from '@open-mercato/shared/lib/url'
 
 import { Invoice, InvoiceInstallment, InvoicePaymentConfirmation } from '../data/entities'
+import { mapInvoiceEntityToDetailDto, type InvoiceDetailDto } from '../data/mappers'
 import type { InvoiceScope } from '../data/scope'
 import {
   hashInvoicePublicToken,
@@ -42,6 +43,17 @@ export type InvoicePaymentConfirmationRequestResult = {
   installmentId: string | null
   status: 'PENDING'
   expiresAt: string
+}
+
+export type InvoiceIncomingPaymentConfirmationResult = {
+  confirmationId: string
+  status: 'CONFIRMED' | 'REJECTED'
+  invoice: InvoiceDetailDto
+}
+
+type IncomingPaymentConfirmationMatch = {
+  receiverInvoice: Invoice
+  confirmation: InvoicePaymentConfirmation
 }
 
 const publicConfirmationNotFound = () => notFound('[internal] Payment confirmation not found')
@@ -247,6 +259,150 @@ export class InvoicePaymentConfirmationsService {
 
   async rejectPublic(rawToken: string): Promise<InvoicePaymentConfirmationPublicTransition> {
     return this.transitionPublic(rawToken, 'REJECTED')
+  }
+
+  private async findIncoming(
+    tx: EntityManager,
+    scope: InvoiceScope,
+    receiverInvoiceId: string,
+    now: Date,
+  ): Promise<IncomingPaymentConfirmationMatch> {
+    const scopedPersistence = new InvoiceScopedPersistenceService(tx)
+    const receiverInvoice = await scopedPersistence.findById(Invoice, scope, receiverInvoiceId, {
+      populate: ['lineItems', 'installments'] as never[],
+      orderBy: {
+        lineItems: { lineNumber: 'asc' },
+        installments: { sequence: 'asc' },
+      },
+    })
+    if (!receiverInvoice) throw notFound('[internal] Invoice not found')
+    if (receiverInvoice.direction !== 'AR') {
+      throw badRequest('[internal] Incoming payment confirmation is allowed only for AR invoices')
+    }
+
+    const confirmations = await tx.find(InvoicePaymentConfirmation, {
+      status: 'PENDING',
+      expiresAt: { $gt: now },
+      installment: null,
+      invoice: {
+        direction: 'AP',
+        deletedAt: null,
+        sellerTaxCode: receiverInvoice.sellerTaxCode ?? null,
+        buyerTaxCode: receiverInvoice.buyerTaxCode ?? null,
+        invoiceSymbol: receiverInvoice.invoiceSymbol ?? null,
+        invoiceNumber: receiverInvoice.invoiceNumber,
+        invoiceDate: receiverInvoice.invoiceDate,
+      },
+    }, {
+      populate: ['invoice'] as never[],
+      orderBy: { createdAt: 'desc' },
+      limit: 2,
+    })
+
+    if (confirmations.length !== 1) {
+      throw conflict('[internal] No unique pending incoming payment confirmation exists')
+    }
+
+    const confirmation = confirmations[0]
+    if (
+      confirmation.invoice.tenantId !== confirmation.tenantId
+      || confirmation.invoice.organizationId !== confirmation.organizationId
+    ) {
+      throw conflict('[internal] Incoming payment confirmation scope is inconsistent')
+    }
+
+    return { receiverInvoice, confirmation }
+  }
+
+  private async transitionIncoming(
+    scope: InvoiceScope,
+    receiverInvoiceId: string,
+    target: 'CONFIRMED' | 'REJECTED',
+  ): Promise<InvoiceIncomingPaymentConfirmationResult> {
+    const now = new Date()
+    const result = await this.em.transactional(async (tx) => {
+      const { receiverInvoice, confirmation } = await this.findIncoming(
+        tx,
+        scope,
+        receiverInvoiceId,
+        now,
+      )
+      const changed = await tx.nativeUpdate(
+        InvoicePaymentConfirmation,
+        { id: confirmation.id, status: 'PENDING', expiresAt: { $gt: now } },
+        target === 'CONFIRMED'
+          ? { status: target, confirmedAt: now, updatedAt: now }
+          : { status: target, rejectedAt: now, updatedAt: now },
+      )
+      if (changed !== 1) {
+        throw conflict('[internal] Incoming payment confirmation transition conflicted')
+      }
+
+      let invoice = mapInvoiceEntityToDetailDto(receiverInvoice)
+      if (target === 'CONFIRMED') {
+        if (!this.invoiceService) throw new Error('[internal] Invoice payment service is not configured')
+        const transactionInvoiceService = this.invoiceService.forTransaction(tx)
+        await transactionInvoiceService.applyInvoicePayment(
+          { tenantId: confirmation.tenantId, organizationId: confirmation.organizationId },
+          confirmation.invoice.id,
+        )
+        const receiverResult = await transactionInvoiceService.updateReceivableSettlement(
+          scope,
+          receiverInvoice.id,
+          { settled: true },
+        )
+        invoice = receiverResult.invoice
+      }
+
+      return {
+        confirmationId: confirmation.id,
+        payerInvoiceId: confirmation.invoice.id,
+        payerTenantId: confirmation.tenantId,
+        payerOrganizationId: confirmation.organizationId,
+        status: target,
+        invoice,
+      }
+    })
+
+    logger.info(`Incoming payment confirmation ${target.toLowerCase()}`, {
+      confirmationId: result.confirmationId,
+      payerInvoiceId: result.payerInvoiceId,
+      receiverInvoiceId,
+      payerTenantId: result.payerTenantId,
+      payerOrganizationId: result.payerOrganizationId,
+      receiverTenantId: scope.tenantId,
+      receiverOrganizationId: scope.organizationId,
+    })
+    await emitInvoiceEvent(
+      `invoice.payment_confirmation.${target.toLowerCase()}` as
+        | 'invoice.payment_confirmation.confirmed'
+        | 'invoice.payment_confirmation.rejected',
+      {
+        id: result.confirmationId,
+        tenantId: result.payerTenantId,
+        organizationId: result.payerOrganizationId,
+      },
+    )
+
+    return {
+      confirmationId: result.confirmationId,
+      status: result.status,
+      invoice: result.invoice,
+    }
+  }
+
+  async acceptIncoming(
+    scope: InvoiceScope,
+    receiverInvoiceId: string,
+  ): Promise<InvoiceIncomingPaymentConfirmationResult> {
+    return this.transitionIncoming(scope, receiverInvoiceId, 'CONFIRMED')
+  }
+
+  async rejectIncoming(
+    scope: InvoiceScope,
+    receiverInvoiceId: string,
+  ): Promise<InvoiceIncomingPaymentConfirmationResult> {
+    return this.transitionIncoming(scope, receiverInvoiceId, 'REJECTED')
   }
 
   async request(

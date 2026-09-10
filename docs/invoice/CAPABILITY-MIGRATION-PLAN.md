@@ -463,8 +463,12 @@ Progress:
   strict request validator, command boundary, secure token generation,
   transactional mail rollback, exact-target resend superseding, recipient
   memory, structured logging, and focused unit coverage.
-- Private HTTP routing, public preview/confirm/reject, incoming AR actions, and
-  payment-confirmation UI remain pending M7 work.
+- Private request routing and public preview/confirm/reject are implemented.
+- Incoming AR accept/reject is implemented through authenticated command and
+  mutation-guard boundaries. Whole-invoice matching uses preserved invoice
+  identity, rejects expired, installment, missing, and ambiguous claims, and
+  atomically settles payer AP plus receiver AR through InvoiceService.
+- Payment-confirmation UI remains pending M7 work.
 
 Dependencies:
 

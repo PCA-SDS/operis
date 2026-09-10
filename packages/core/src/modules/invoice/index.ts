@@ -2,6 +2,7 @@ import type { ModuleInfo } from '@open-mercato/shared/modules/registry'
 
 import './commands/auto-paid'
 import './commands/invoices'
+import './commands/payment-confirmations'
 
 export const metadata: ModuleInfo = {
   name: 'invoice',

@@ -353,6 +353,12 @@ This is a pre-implementation spec. Compliance requirements for implementation:
 
 ## Changelog
 
+- 2026-09-10: Completed the M7 authenticated CAP-005 backend flow. Added the
+  private request route and incoming AR accept/reject commands and APIs,
+  unexpired whole-invoice identity matching, ambiguity conflicts, conditional
+  pending-state transitions, and atomic AP/AR settlement coordination through
+  the M6 InvoiceService operations. Added focused route, command, transaction,
+  concurrency, and scope coverage. Payment-confirmation UI remains pending.
 - 2026-09-10: Implemented the authenticated CAP-005 payment-confirmation
   request service and command with payload-blind scope, AP and installment
   validation, hash-only 32-byte tokens, transactional mail rollback,
