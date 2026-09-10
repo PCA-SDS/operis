@@ -9,6 +9,8 @@ import {
   SelectValue,
 } from '@open-mercato/ui/primitives/select'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -55,7 +57,9 @@ export function AppointmentStatusSelect({
       try {
         await runMutation({
           operation: async () => {
-            const call = await apiCall<{ id?: string; statusCode?: string; error?: string }>(
+          const call = await withScopedApiRequestHeaders(
+            buildOptimisticLockHeader(undefined), // optimistic-lock-exempt: list page inline edit where we don't have the updated_at timestamp. The detail page uses the correct updated_at.
+            () => apiCall<{ id?: string; statusCode?: string; error?: string }>(
               `/api/appointments/${encodeURIComponent(appointmentId)}`,
               {
                 method: 'PATCH',
@@ -64,6 +68,7 @@ export function AppointmentStatusSelect({
               },
               { fallback: null },
             )
+          )
             if (!call.ok || !call.result?.id) {
               const errorPayload = call.result as { error?: string } | undefined
               throw new Error(

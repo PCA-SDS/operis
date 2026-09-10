@@ -6,6 +6,8 @@ import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { CrudForm, type CrudField, type CrudFormGroup } from '@open-mercato/ui/backend/CrudForm'
 import { createCrudFormError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
@@ -17,6 +19,8 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
+import { withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import {
   Select,
   SelectContent,
@@ -695,7 +699,7 @@ export default function AppointmentCreatePage() {
               values.salutation && values.salutation !== 'None' ? values.salutation.trim() : null
             const result = await runMutation({
               operation: async () => {
-                const call = await apiCall<{ id: string; error?: string }>(
+                const call = await withScopedApiRequestHeaders(buildOptimisticLockHeader(undefined), () => apiCall<{ id: string; error?: string }>(
                   '/api/appointments',
                   {
                     method: 'POST',
@@ -721,7 +725,7 @@ export default function AppointmentCreatePage() {
                     }),
                   },
                   { fallback: null },
-                )
+                ))
                 if (!call.ok) {
                   const errorPayload = call.result as { error?: string } | undefined
                   throw createCrudFormError(

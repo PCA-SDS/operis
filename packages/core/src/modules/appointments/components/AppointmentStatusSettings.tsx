@@ -13,6 +13,8 @@ import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { apiCall, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -134,10 +136,10 @@ export function AppointmentStatusSettings() {
       try {
         await runMutation({
           operation: async () => {
-            const call = await apiCall(
+            const call = await withScopedApiRequestHeaders(buildOptimisticLockHeader(status.updatedAt), () => apiCall(
               `/api/appointments/statuses/${encodeURIComponent(status.id)}`,
               { method: 'DELETE' },
-            )
+            ))
             if (!call.ok) {
               await raiseCrudError(
                 call.response,
@@ -218,7 +220,7 @@ export function AppointmentStatusSettings() {
           const status = dialog.status
           await runMutation({
             operation: async () => {
-              const call = await apiCall(
+              const call = await withScopedApiRequestHeaders(buildOptimisticLockHeader(status.updatedAt), () => apiCall(
                 `/api/appointments/statuses/${encodeURIComponent(status.id)}`,
                 {
                   method: 'PATCH',
@@ -229,7 +231,7 @@ export function AppointmentStatusSettings() {
                     sortOrder: Number.isFinite(sortOrder) ? sortOrder : status.sortOrder,
                   }),
                 },
-              )
+              ))
               if (!call.ok) {
                 await raiseCrudError(
                   call.response,

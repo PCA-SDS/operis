@@ -12,6 +12,8 @@ import {
   SelectValue,
 } from '@open-mercato/ui/primitives/select'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { LoadingMessage, ErrorMessage, RecordNotFoundState } from '@open-mercato/ui/backend/detail'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -120,7 +122,7 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
     try {
       const updated = await runMutation({
         operation: async () => {
-          const call = await apiCall<Detail>(
+          const call = await withScopedApiRequestHeaders(buildOptimisticLockHeader(detail.updatedAt), () => apiCall<Detail>(
             `/api/appointments/${encodeURIComponent(id)}`,
             {
               method: 'PATCH',
@@ -128,7 +130,7 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
               body: JSON.stringify({ statusCode }),
             },
             { fallback: null },
-          )
+          ))
           if (!call.ok || !call.result?.id) {
             const errorPayload = call.result as { error?: string } | undefined
             throw new Error(
