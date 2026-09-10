@@ -164,7 +164,7 @@ const crud = makeCrudRoute({
       return filters
     },
     decorateCustomFields: { entityIds: [E.catalog.catalog_product_variant] },
-    transformItem: (item: any) => {
+    transformItem: (item: Record<string, unknown>) => {
       if (!item) return item
       const normalized = { ...item }
       const cfEntries = extractAllCustomFieldEntries(item)

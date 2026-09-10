@@ -6,6 +6,7 @@ import {
   CATALOG_CONFIGURABLE_PRODUCT_TYPES,
   type CatalogProductOptionSchema,
   type CatalogProductType,
+  type CatalogOptionTreeData,
 } from "../../data/types";
 import { DEFAULT_CATALOG_DURATION_UNIT } from "../../lib/durationUnits";
 import type { ProductMediaItem } from "./ProductMediaManager";
@@ -236,11 +237,11 @@ export const productFormSchema = z
     taxRateId: z.string().uuid().nullable().optional(),
     hasVariants: z.boolean().optional(),
     mediaDraftId: z.string().optional(),
-    mediaItems: z.any().optional(),
+    mediaItems: z.record(z.string(), z.unknown()).optional(),
     defaultMediaId: z.string().uuid().nullable().optional(),
     defaultMediaUrl: z.string().trim().max(500).nullable().optional(),
-    options: z.any().optional(),
-    variants: z.any().optional(),
+    options: z.record(z.string(), z.unknown()).optional(),
+    variants: z.record(z.string(), z.unknown()).optional(),
     // Use a permissive schema to avoid zod classic `_zod` runtime crashes on records in edge builds.
     metadata: z
       .custom<Record<string, unknown>>(() => true)
@@ -285,8 +286,8 @@ export const productFormSchema = z
     categoryIds: z.array(z.string().uuid()).optional(),
     channelIds: z.array(z.string().uuid()).optional(),
     tags: z.array(z.string().trim().min(1).max(100)).optional(),
-    optionTreeGroups: z.any().optional(),
-    optionTreeOptions: z.any().optional(),
+    optionTreeGroups: z.custom<CatalogOptionTreeData['groups']>(() => true).optional(),
+    optionTreeOptions: z.custom<CatalogOptionTreeData['options']>(() => true).optional(),
     optionSchemaId: z.string().uuid().nullable().optional(),
     countryOfOriginCode: z
       .string()

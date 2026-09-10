@@ -129,24 +129,37 @@ export function normalizeOptionSchema(raw: unknown): OptionDefinition[] {
     .filter((entry): entry is OptionDefinition => !!entry)
 }
 
+type RawOptionEntry = {
+  id?: unknown
+  code?: unknown
+  label?: unknown
+  values?: unknown
+}
+
+type RawOptionValue = {
+  id?: unknown
+  label?: unknown
+}
+
 function normalizeOptionDefinition(entry: unknown): OptionDefinition | null {
   if (!entry || typeof entry !== 'object') return null
-  const code = extractString((entry as any).code) || createLocalId()
-  const label = extractString((entry as any).label) || code
-  const values = Array.isArray((entry as any).values)
-    ? (entry as any).values
-        .map((value: any) => {
+  const raw = entry as RawOptionEntry
+  const code = extractString(raw.code) || createLocalId()
+  const label = extractString(raw.label) || code
+  const values = Array.isArray(raw.values)
+    ? (raw.values as RawOptionValue[])
+        .map((value) => {
           const id = extractString(value?.id) || createLocalId()
           const valueLabel = extractString(value?.label) || id
           return { id, label: valueLabel }
         })
         .filter(
-          (value: { id: string; label: string }): value is { id: string; label: string } =>
+          (value): value is { id: string; label: string } =>
             value.label.length > 0,
         )
     : []
   return {
-    id: extractString((entry as any).id) || createLocalId(),
+    id: extractString(raw.id) || createLocalId(),
     code,
     label,
     values,
