@@ -2362,6 +2362,8 @@
   "customers.people.form.lifecycleStage.placeholder": "Select a lifecycle stage",
   "customers.people.form.linkedInUrl": "LinkedIn",
   "customers.people.form.linkedInUrl.placeholder": "https://www.linkedin.com/in/example",
+  "customers.people.form.origin": "Origin",
+  "customers.people.form.origin.placeholder": "Select an origin",
   "customers.people.form.phoneChecking": "Checking for matching phone numbers…",
   "customers.people.form.phoneDuplicateLink": "Open record",
   "customers.people.form.phoneDuplicateNotice": "This phone number is already assigned to {{name}}.",
