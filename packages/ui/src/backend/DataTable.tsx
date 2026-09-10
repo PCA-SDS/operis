@@ -2836,7 +2836,7 @@ export function DataTable<T extends RowData>({
             `${size} ${t('ui.dataTable.pagination.perPage', 'per page')}`
           }
           aria-label={t('ui.dataTable.pagination.navAriaLabel', 'Table pagination')}
-          className="flex-1"
+          className="flex-1 justify-center sm:justify-between"
         />
       </div>
     )
