@@ -158,12 +158,12 @@ describe('email module foundation', () => {
     ]) {
       expect(TEMPLATE_BUILDER_SOURCE).not.toContain(hiddenLabel)
     }
-    expect(TEMPLATE_BUILDER_SOURCE).toContain('Copy subject')
-    expect(TEMPLATE_BUILDER_SOURCE).toContain('Copy body')
+    expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.preview.copySubject')
+    expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.preview.copyBody')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('lg:sticky')
-    expect(TEMPLATE_BUILDER_SOURCE).toContain('Insert variable:')
-    expect(TEMPLATE_BUILDER_SOURCE).toContain('When to use this template')
-    expect(TEMPLATE_BUILDER_SOURCE).toContain('Selection priority')
+    expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.insertVariable')
+    expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.whenToUse.label')
+    expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.priority.label')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.subject.help')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.variableKey.help')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.variableType.help')
@@ -190,29 +190,74 @@ describe('email module foundation', () => {
     expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).not.toContain('key={`${row.key}-${index}`}')
   })
 
-  it('keeps compose preview read-only and feature gated', () => {
+  it('keeps compose preview non-sending and feature gated', () => {
     expect(COMPOSE_META_SOURCE).toContain("requireFeatures: ['email.templates.view']")
     expect(COMPOSE_PAGE_SOURCE).toContain('This does not send email')
     expect(COMPOSE_PAGE_SOURCE).toContain('Accounting values')
     expect(COMPOSE_PAGE_SOURCE).not.toContain('Accounting values JSON')
     expect(COMPOSE_PAGE_SOURCE).toContain('activeOnly=true')
     expect(COMPOSE_PAGE_SOURCE).toContain('/api/customers/companies?page=1&pageSize=50')
-    expect(COMPOSE_PAGE_SOURCE).toContain('include=people')
+    expect(COMPOSE_PAGE_SOURCE).toContain('/people?pageSize=100&sort=name-asc')
+    expect(COMPOSE_PAGE_SOURCE).not.toContain('include=people')
+    expect(COMPOSE_PAGE_SOURCE).toContain('readCompanyCode')
     expect(COMPOSE_PAGE_SOURCE).toContain("'text/html'")
     expect(COMPOSE_PAGE_SOURCE).toContain('new Blob([html]')
+    expect(COMPOSE_PAGE_SOURCE).toContain('/api/messages')
+    expect(COMPOSE_PAGE_SOURCE).toContain('isDraft: true')
+    expect(COMPOSE_PAGE_SOURCE).toContain('sendViaEmail: false')
+    expect(COMPOSE_PAGE_SOURCE).toContain('useBackendChrome')
+    expect(COMPOSE_PAGE_SOURCE).toContain("hasFeature(backendChromePayload?.grantedFeatures, 'messages.compose')")
     expect(COMPOSE_PAGE_SOURCE).toContain('key={`accounting-value-${index}`}')
     expect(COMPOSE_PAGE_SOURCE).not.toContain('key={`${row.key}-${index}`}')
     expect(COMPOSE_PAGE_SOURCE).not.toContain('/send')
-    expect(COMPOSE_PAGE_SOURCE).not.toContain("method: 'POST'")
   })
 
   it('documents company and linked-people variable ownership', () => {
     expect(README_SOURCE).toContain('Company values represent the business customer selected from Operis Customers/Companies.')
     expect(README_SOURCE).toContain('People values represent linked contacts/recipients for that company.')
     expect(README_SOURCE).toContain('If no people are linked yet, company variables still render')
+    expect(README_SOURCE).toContain('the user has `messages.compose`')
+  })
+
+  it('preserves PCA source template variables while moving company fields to system variables', () => {
+    const byKey = new Map(pcaAccountingSourceTemplates.map((template) => [template.templateKey, template]))
+
+    expect([...byKey.keys()].sort()).toEqual([
+      'q3-cit',
+      'q4-cit',
+      'quarterly-info',
+      'quarterly-tax-no-activity',
+      'quarterly-tax-with-activity',
+    ])
+
+    expect(byKey.get('quarterly-info')?.fields).toEqual([
+      'accountingPeriod',
+      'quarterShort',
+      'bankStatementPeriod',
+      'uploadLink',
+      'submissionDeadline',
+    ])
+    expect(TEMPLATE_BUILDER_SOURCE).toContain("{ key: 'companyCode'")
+    expect(TEMPLATE_BUILDER_SOURCE).toContain("{ key: 'companyName'")
+
+    for (const template of pcaAccountingSourceTemplates) {
+      expect(template.bodyHtml).not.toContain('drive.google.com')
+      expect(template.bodyHtml).not.toContain('docs.google.com')
+    }
   })
 
   it('documents PCA parity without making PCA global behavior', () => {
+    for (const sourcePath of [
+      'docs/stories/2026-07-24-1435-email-template-management.md',
+      'docs/stories/2026-07-21-1644-client-email-workspace.md',
+      'fe/src/types/email-template.ts',
+      'fe/src/apiRequest/email-templates.ts',
+      'be/src/shared/email-templates/default-email-templates.ts',
+      'be/initialScript/create-email-templates.ts',
+    ]) {
+      expect(README_SOURCE).toContain(sourcePath)
+    }
+
     for (const capability of [
       'Template list/detail/create/update/delete APIs',
       'Template list search and active-only loading',

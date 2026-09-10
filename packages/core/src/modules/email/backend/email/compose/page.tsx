@@ -5,7 +5,9 @@ import Link from 'next/link'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { hasFeature } from '@open-mercato/shared/security/features'
 import {
   blocksToHtml,
   parseVariableTypes,
@@ -40,11 +42,6 @@ type ListResponse = {
   items?: EmailTemplateRow[]
 }
 
-type DetailResponse = {
-  item?: EmailTemplateRow
-  data?: EmailTemplateRow
-} & Partial<EmailTemplateRow>
-
 type EmailDraftPart = 'recipients' | 'subject' | 'body'
 
 type ClipboardItemConstructor = new (items: Record<string, Blob>) => ClipboardItem
@@ -77,7 +74,14 @@ type CompanyDetailResponse = {
     primaryEmail?: string | null
     primary_email?: string | null
   } | null
-  people?: CompanyPerson[]
+  profile?: {
+    taxCode?: string | null
+    tax_code?: string | null
+  } | null
+}
+
+type CompanyPeopleResponse = {
+  items?: CompanyPerson[]
 }
 
 function blocksFromStored(blocks: TemplateBlock[] | undefined): TemplateBlockFormValue[] {
@@ -99,6 +103,10 @@ function readPrimaryEmail(value: { primaryEmail?: string | null; primary_email?:
   return (value.primaryEmail ?? value.primary_email ?? '').trim()
 }
 
+function readCompanyCode(value: CompanyDetailResponse): string {
+  return (value.profile?.taxCode ?? value.profile?.tax_code ?? value.company?.id ?? '').trim()
+}
+
 function greetingFromPeople(people: CompanyPerson[]) {
   const names = people.map(readDisplayName).filter(Boolean)
   if (names.length === 0) return 'Dear Sir/Madam,'
@@ -107,13 +115,6 @@ function greetingFromPeople(people: CompanyPerson[]) {
 
 function rowsToRecord(rows: KeyValueRow[]): Record<string, string> {
   return Object.fromEntries(rows.map((row) => [row.key.trim(), row.value] as const).filter(([key]) => key.length > 0))
-}
-
-function templateFromResponse(response: DetailResponse | null | undefined): EmailTemplateRow | null {
-  if (!response) return null
-  if (response.item) return response.item
-  if (response.data) return response.data
-  return typeof response.id === 'string' ? response as EmailTemplateRow : null
 }
 
 function HelpLabel({ children, help }: { children: React.ReactNode; help: string }) {
@@ -157,6 +158,11 @@ export default function EmailComposePreviewPage() {
     { key: 'declarationDeadline', value: 'April 29, 2026' },
   ])
   const [copiedPart, setCopiedPart] = React.useState<EmailDraftPart | null>(null)
+  const [draftMessage, setDraftMessage] = React.useState<string | null>(null)
+  const [draftError, setDraftError] = React.useState<string | null>(null)
+  const [isCreatingDraft, setIsCreatingDraft] = React.useState(false)
+  const { payload: backendChromePayload, isReady: backendChromeReady } = useBackendChrome()
+  const canCreateMessageDraft = backendChromeReady && hasFeature(backendChromePayload?.grantedFeatures, 'messages.compose')
 
   React.useEffect(() => {
     const controller = new AbortController()
@@ -213,18 +219,23 @@ export default function EmailComposePreviewPage() {
     const controller = new AbortController()
     let cancelled = false
     async function loadCompanyDetail() {
-      const response = await apiCall<CompanyDetailResponse>(`/api/customers/companies/${encodeURIComponent(selectedCompanyId)}?include=people`, {
-        signal: controller.signal,
-      }).catch((err: unknown) => ({ ok: false as const, result: { error: err instanceof Error ? err.message : t('email.compose.errors.loadCompanyDetails', 'Failed to load company details') } }))
-      if (cancelled || !response.ok) return
-      const detail = response.result
+      const [detailResponse, peopleResponse] = await Promise.all([
+        apiCall<CompanyDetailResponse>(`/api/customers/companies/${encodeURIComponent(selectedCompanyId)}`, {
+          signal: controller.signal,
+        }).catch((err: unknown) => ({ ok: false as const, result: { error: err instanceof Error ? err.message : t('email.compose.errors.loadCompanyDetails', 'Failed to load company details') } })),
+        apiCall<CompanyPeopleResponse>(`/api/customers/companies/${encodeURIComponent(selectedCompanyId)}/people?pageSize=100&sort=name-asc`, {
+          signal: controller.signal,
+        }).catch((err: unknown) => ({ ok: false as const, result: { error: err instanceof Error ? err.message : t('email.compose.errors.loadCompanyDetails', 'Failed to load company details') } })),
+      ])
+      if (cancelled || !detailResponse.ok) return
+      const detail = detailResponse.result
       const company = detail?.company
-      const people = Array.isArray(detail?.people) ? detail.people : []
+      const people = peopleResponse.ok && Array.isArray(peopleResponse.result?.items) ? peopleResponse.result.items : []
       if (company) {
         const nextCompanyName = readDisplayName(company)
         const nextCompanyEmail = readPrimaryEmail(company)
         setCompanyName((current) => nextCompanyName || current)
-        setCompanyCode((current) => nextCompanyName || current)
+        setCompanyCode((current) => readCompanyCode(detail) || current)
         setCompanyEmail((current) => nextCompanyEmail || current)
       }
       setContactNames(people.map(readDisplayName).filter(Boolean).join(', '))
@@ -246,7 +257,7 @@ export default function EmailComposePreviewPage() {
     const controller = new AbortController()
     let cancelled = false
     async function loadTemplate() {
-      const response = await apiCall<DetailResponse>(`/api/email/templates/${encodeURIComponent(selectedId)}`, {
+      const response = await apiCall<ListResponse>(`/api/email/templates?id=${encodeURIComponent(selectedId)}`, {
         signal: controller.signal,
       }).catch((err: unknown) => ({ ok: false as const, result: { error: err instanceof Error ? err.message : t('email.compose.errors.loadTemplateDetails', 'Failed to load template details') } }))
       if (cancelled) return
@@ -255,7 +266,7 @@ export default function EmailComposePreviewPage() {
         setError((response.result as { error?: string } | undefined)?.error ?? t('email.compose.errors.loadTemplateDetails', 'Failed to load template details'))
         return
       }
-      setSelectedTemplate(templateFromResponse(response.result))
+      setSelectedTemplate(response.result?.items?.[0] ?? null)
     }
     void loadTemplate()
     return () => {
@@ -300,6 +311,41 @@ export default function EmailComposePreviewPage() {
     }
     setCopiedPart(part)
     window.setTimeout(() => setCopiedPart(null), 1800)
+  }
+  const createOperisDraft = async () => {
+    setDraftMessage(null)
+    setDraftError(null)
+    setIsCreatingDraft(true)
+    try {
+      const response = await apiCall<{ id?: string; threadId?: string }>('/api/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          type: 'email.template_preview',
+          visibility: 'public',
+          sourceEntityType: 'email.email_template',
+          sourceEntityId: selectedTemplate?.id,
+          externalEmail: recipientEmails.split(',').map((email) => email.trim()).filter(Boolean)[0] || companyEmail || 'preview@example.com',
+          externalName: companyName || selectedTemplate?.name || 'Email template preview',
+          recipients: [],
+          subject: previewSubject,
+          body: htmlToPlainText(previewHtml),
+          bodyFormat: 'text',
+          priority: 'normal',
+          sendViaEmail: false,
+          isDraft: true,
+        }),
+      })
+      if (!response.ok) {
+        const body = response.result as { error?: string; message?: string } | undefined
+        throw new Error(body?.error ?? body?.message ?? t('email.compose.errors.createDraft', 'Failed to create Operis draft'))
+      }
+      setDraftMessage(t('email.compose.draft.created', 'Operis draft created in Messages. It was not sent.'))
+    } catch (err) {
+      setDraftError(err instanceof Error ? err.message : t('email.compose.errors.createDraft', 'Failed to create Operis draft'))
+    } finally {
+      setIsCreatingDraft(false)
+    }
   }
 
   return (
@@ -362,7 +408,18 @@ export default function EmailComposePreviewPage() {
             </section>
           </section>
           <aside className="space-y-4 rounded-lg border bg-card p-4">
-            <div><h2 className="font-semibold">{t('email.compose.preview.title', 'Live preview')}</h2><p className="text-sm text-muted-foreground">{t('email.compose.preview.description', 'System variables come from the selected company/people in the future compose integration; this page lets users verify output now.')}</p></div>
+            <div><h2 className="font-semibold"><HelpLabel help={t('email.compose.preview.help', 'Shows the email output using the selected template, company, linked people, and accounting values.')}>{t('email.compose.preview.title', 'Live preview')}</HelpLabel></h2><p className="text-sm text-muted-foreground">{t('email.compose.preview.description', 'System variables come from the selected company and linked people; this page lets users verify output before sending exists.')}</p></div>
+            {canCreateMessageDraft ? <section className="rounded-md border bg-background p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-medium">{t('email.compose.draft.title', 'Operis draft')}</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">{t('email.compose.draft.description', 'Creates an internal Messages draft from this preview. It does not send email or create a Gmail draft yet.')}</p>
+                </div>
+                <Button type="button" size="sm" disabled={!selectedTemplate || isCreatingDraft} onClick={() => void createOperisDraft()}>{isCreatingDraft ? t('email.compose.draft.creating', 'Creating…') : t('email.compose.draft.create', 'Create draft')}</Button>
+              </div>
+              {draftMessage ? <p className="mt-2 text-xs text-emerald-600">{draftMessage}</p> : null}
+              {draftError ? <p className="mt-2 text-xs text-destructive">{draftError}</p> : null}
+            </section> : null}
             <DraftPartCard copied={copiedPart === 'recipients'} copiedLabel={t('email.common.copied', 'Copied')} copyLabel={t('email.common.copy', 'Copy')} label={t('email.compose.preview.to', 'To')} onCopy={() => void copyDraftPart('recipients')}>
               <div className="mt-1 font-medium">{recipientEmails || t('email.compose.preview.noRecipients', 'No recipients selected')}</div>
             </DraftPartCard>

@@ -88,7 +88,7 @@ export default function EmailTemplatesPage() {
       {
         header: t('email.templates.table.status', 'Status'),
         accessorKey: 'status',
-        cell: ({ row }) => <Tag variant={statusVariant(row.original.status)}>{row.original.status}</Tag>,
+        cell: ({ row }) => <Tag variant={statusVariant(row.original.status)}>{t(`email.templates.status.${row.original.status}`, row.original.status)}</Tag>,
       },
       {
         header: t('email.templates.table.updated', 'Updated'),
@@ -124,26 +124,26 @@ export default function EmailTemplatesPage() {
               className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search templates by name"
+              placeholder={t('email.templates.searchPlaceholder', 'Search templates by name')}
             />
-            <Button type="submit" variant="secondary">Search</Button>
+            <Button type="submit" variant="secondary">{t('email.common.search', 'Search')}</Button>
           </form>
           <div className="flex gap-2">
             <Button variant="secondary" asChild>
-              <Link href="/backend/email/accounting-defaults">Accounting Defaults</Link>
+              <Link href="/backend/email/accounting-defaults">{t('email.templates.accountingDefaults', 'Accounting Defaults')}</Link>
             </Button>
             <Button asChild>
-              <Link href="/backend/email/templates/create">New Template</Link>
+              <Link href="/backend/email/templates/create">{t('email.templates.newTemplate', 'New Template')}</Link>
             </Button>
           </div>
         </div>
         <DataTable<EmailTemplateRow>
-          title="Email Templates"
+          title={t('email.templates.title', 'Email Templates')}
           columns={columns}
           data={rows}
           isLoading={isLoading}
           error={error}
-          emptyState="No saved email templates yet. Create a tenant-owned template from scratch."
+          emptyState={t('email.templates.empty', 'No saved email templates yet. Create a tenant-owned template from scratch.')}
           pagination={{ page, pageSize, total, totalPages, onPageChange: setPage }}
         />
       </PageBody>

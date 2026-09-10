@@ -35,7 +35,7 @@ const initialForm: TemplateBuilderFormValue = {
   workflowKey: '',
   sortOrder: '0',
   isActive: true,
-  blocks: [createStaticBlock('initial-body', 'rich-text-html', '<p>Hello {{companyName}},</p><p>Write your email body here.</p>')],
+  blocks: [],
 }
 
 function createInitialForm(bodyText: string): TemplateBuilderFormValue {
@@ -118,10 +118,10 @@ export default function CreateEmailTemplatePage() {
       <PageBody>
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Create Email Template</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Tenant-owned templates with workflow rules, typed variables, live preview, and visual-builder blocks.</p>
+            <h1 className="text-2xl font-semibold tracking-tight">{t('email.templates.create.title', 'Create Email Template')}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{t('email.templates.create.description', 'Tenant-owned templates with workflow rules, typed variables, live preview, and visual-builder blocks.')}</p>
           </div>
-          <Button variant="secondary" asChild><Link href="/backend/email/templates">Back</Link></Button>
+          <Button variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.back', 'Back')}</Link></Button>
         </div>
         <TemplateBuilderForm mode="create" value={form} error={error} isSaving={isSaving} onChange={setForm} onSubmit={submit} />
       </PageBody>

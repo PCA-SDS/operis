@@ -266,13 +266,13 @@ export default function EditEmailTemplatePage() {
       <PageBody>
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Edit Email Template</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Update tenant-owned template content, rules, placeholders, preview, and visual-builder blocks.</p>
+            <h1 className="text-2xl font-semibold tracking-tight">{t('email.templates.edit.title', 'Edit Email Template')}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{t('email.templates.edit.description', 'Update tenant-owned template content, rules, placeholders, preview, and visual-builder blocks.')}</p>
           </div>
-          <Button variant="secondary" asChild><Link href="/backend/email/templates">Back</Link></Button>
+          <Button variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.back', 'Back')}</Link></Button>
         </div>
         {isLoading ? (
-          <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">Loading email template…</div>
+          <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">{t('email.templates.loadingOne', 'Loading email template…')}</div>
         ) : (
           <TemplateBuilderForm mode="edit" value={form} error={error} isSaving={isSaving} onChange={(next) => setForm({ ...next, updatedAt: form.updatedAt })} onSubmit={submit} onDelete={deleteTemplate} />
         )}

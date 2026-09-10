@@ -136,7 +136,7 @@ export const enabledModules: ModuleEntry[] = [
   // (Slack, WhatsApp, Email) to the unified Messages inbox. Provider packages
   // (channel-slack, channel-whatsapp, future email providers) register adapters here.
   { id: 'communication_channels', from: '@open-mercato/core' },
-  // Tenant-owned template builder for accounting email defaults and starter presets.
+  // Tenant-owned template builder for accounting email defaults.
   { id: 'email', from: '@open-mercato/core' },
   // Push notification rails — `push` delivery strategy + delivery log + send-push worker.
   // Fans out to `devices` tokens and sends through the `communication_channels` hub.

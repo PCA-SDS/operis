@@ -9,7 +9,16 @@ The first migration target is the old `pca_accounting` template workflow:
 - Store reusable accounting email templates with subject, body blocks, variables, default values, and rule metadata.
 - Preserve the five PCA source templates as tenant-owned migration/source data for PCA, not as global defaults for every Operis customer.
 - Replace hard-coded customer Google Drive and Sheets links with safe `https://example.com/...` placeholders.
-- Keep company/contact data outside the template record. Operis companies are business customers; linked people provide recipients and greeting/contact variables during future compose.
+- Keep company/contact data outside the template record. Operis companies are business customers; linked people provide recipients and greeting/contact variables during compose preview and later send workflows.
+
+Parity was checked against these legacy sources in `PCA-SDS/pca_accounting`:
+
+- `docs/stories/2026-07-24-1435-email-template-management.md`
+- `docs/stories/2026-07-21-1644-client-email-workspace.md`
+- `fe/src/types/email-template.ts`
+- `fe/src/apiRequest/email-templates.ts`
+- `be/src/shared/email-templates/default-email-templates.ts`
+- `be/initialScript/create-email-templates.ts`
 
 Legacy PCA fields map into Operis as follows:
 
@@ -47,7 +56,7 @@ Parity status from the old PCA stories:
 | Template label/key/category/subject/body fields | Implemented as `name`, `template_key`, `category`, `subject`, and builder `blocks`. |
 | Template variables/default values/rules/sort order | Implemented in `variables` and `accounting_metadata`. |
 | Client/company compose workspace | Implemented as preview-only `/backend/email/compose` using scoped Customers APIs. |
-| Copy-ready generated draft | Implemented for recipients, subject, and rendered HTML body with plain-text fallback. |
+| Copy-ready generated draft | Implemented for recipients, subject, and rendered HTML body with plain-text fallback. Compose can also create an internal Operis Messages draft without sending email. |
 | Per-user Gmail connection / Gmail draft creation | Not implemented in this module yet. Operis communication-channel send-as-user currently creates an outbound message and enqueues real delivery; `channel-gmail` sends via `gmail.users.messages.send`. PCA-style Gmail Drafts need a future communication-channel draft bridge instead of a direct Gmail call from this module. |
 | Seed five PCA templates for all tenants | Intentionally not implemented; PCA templates are source data for the PCA tenant only. |
 | Real email sending | Intentionally deferred to Gmail/IMAP/SMTP channel integrations. |
@@ -59,14 +68,14 @@ Parity status from the old PCA stories:
 - `blocks` store the visual-builder payload.
 - `design` stores generated render metadata and HTML snapshots.
 - `variables` stores custom accounting variables only.
-- `accounting_metadata` stores workflow keys, rule keys, default values, sort order, and whether a template should appear in a future accounting generator.
+- `accounting_metadata` stores workflow keys, rule keys, default values, sort order, and whether a template should appear in accounting compose/generator surfaces.
 - `EmailAccountingDefaults` stores tenant-owned sender defaults, common placeholder samples, safe link placeholder samples, and rule-selection notes.
 
 ## Variable Ownership
 
 Template variables are split into two groups:
 
-- System variables are read-only in the builder and will be filled from Operis data later: `companyName`, `companyCode`, `companyEmail`, `contactNames`, `recipientEmails`, and `greeting`.
+- System variables are read-only in the builder and are filled from Operis company/contact data in compose preview: `companyName`, `companyCode`, `companyEmail`, `contactNames`, `recipientEmails`, and `greeting`.
 - Custom accounting variables are edited by users: examples include `quarterPeriod`, `declarationDeadline`, `vatPitReportsLink`, `taxTrackingLink`, `vatPayable`, and `citPayable`.
 - Rule metadata is edited through non-technical controls such as email purpose, quarter, activity, CIT, and selection priority; raw JSON stays hidden from tenant users.
 
@@ -74,13 +83,13 @@ This prevents users from retyping company/contact facts already stored in the Cu
 
 ## Compose Preview
 
-`/backend/email/compose` provides a preview-only compose surface for published tenant templates. It lets users test selected template output with an Operis company, linked people, and accounting values before the later email-sending workflow exists.
+`/backend/email/compose` provides a compose-preview surface for published tenant templates. It lets users test selected template output with an Operis company, linked people, and accounting values before the later email-sending workflow exists.
 
 - Company values represent the business customer selected from Operis Customers/Companies.
 - People values represent linked contacts/recipients for that company.
 - If no people are linked yet, company variables still render, while contact/recipient variables stay empty or must be entered manually in preview.
 - Company and people values are loaded through existing scoped Customers APIs instead of direct cross-module imports or relationships.
-- The page never sends email, never creates Gmail drafts, and does not persist recipient data.
+- When the Messages module is enabled and the user has `messages.compose`, the page can create an internal Operis Messages draft through `/api/messages` with `isDraft: true`; it never sends email and never creates Gmail drafts.
 - Future compose integration should reuse this scoped lookup path when adding draft/send actions. Gmail Drafts must be added through the communication-channel boundary because the existing send-as-user facade is a real-send path, not a draft path.
 
 ## Rules And Workflow Selection
