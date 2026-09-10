@@ -47,6 +47,7 @@ type Detail = {
   notes: string | null
   externalNotes: string | null
   lines: Line[]
+  updatedAt: string
 }
 
 type StatusOption = { code: string; label: string }
@@ -124,7 +125,7 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
     try {
       const updated = await runMutation({
         operation: async () => {
-          const call = await withScopedApiRequestHeaders(buildOptimisticLockHeader(detail.updatedAt), () => apiCall<Detail>(
+          const call = await withScopedApiRequestHeaders(buildOptimisticLockHeader(detail?.updatedAt), () => apiCall<Detail>(
             `/api/appointments/${encodeURIComponent(id)}`,
             {
               method: 'PATCH',

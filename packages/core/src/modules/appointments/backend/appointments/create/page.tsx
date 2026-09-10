@@ -19,8 +19,6 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
-import { withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
-import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import {
   Select,
   SelectContent,
