@@ -37,8 +37,8 @@ export function register(container: AppContainer) {
       createInvoiceAutoPaidService(em, invoiceScopedPersistenceService),
     ).scoped().proxy(),
     invoiceTrackingService: asFunction(({ em }) => createInvoiceTrackingService(em)).scoped().proxy(),
-    invoicePaymentConfirmationsService: asFunction(({ em, invoiceCompanyEmailsService }) =>
-      createInvoicePaymentConfirmationsService(em, invoiceCompanyEmailsService),
+    invoicePaymentConfirmationsService: asFunction(({ em, invoiceCompanyEmailsService, invoiceService }) =>
+      createInvoicePaymentConfirmationsService(em, invoiceCompanyEmailsService, invoiceService),
     ).scoped().proxy(),
     invoiceService: asFunction(({ em, queryEngine, invoiceScopedPersistenceService, invoiceExchangeRatesService }) =>
       createInvoiceService(

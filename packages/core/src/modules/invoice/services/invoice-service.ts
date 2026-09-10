@@ -277,6 +277,16 @@ export class InvoiceService {
     private readonly companyEmailsService?: InvoiceCompanyEmailsService,
   ) {}
 
+  forTransaction(em: EntityManager): InvoiceService {
+    return new InvoiceService(
+      em,
+      this.queryEngine,
+      new InvoiceScopedPersistenceService(em),
+      this.exchangeRatesService,
+      this.companyEmailsService,
+    )
+  }
+
   async getSummary(scope: InvoiceScope): Promise<InvoiceSummaryDto> {
     const invoices = await this.scopedPersistence.findMany(Invoice, scope, {
       invoiceStatus: 'ACTIVE',

@@ -53,6 +53,8 @@ export const INVOICE_TRACKING_PIXEL_RATE_LIMIT_REQUESTS = 120
 export const INVOICE_TRACKING_PIXEL_RATE_LIMIT_WINDOW_SECONDS = 60
 export const INVOICE_COMPANY_LOOKUP_RATE_LIMIT_REQUESTS = 60
 export const INVOICE_COMPANY_LOOKUP_RATE_LIMIT_WINDOW_SECONDS = 60
+export const INVOICE_PAYMENT_CONFIRMATION_PUBLIC_RATE_LIMIT_REQUESTS = 60
+export const INVOICE_PAYMENT_CONFIRMATION_PUBLIC_RATE_LIMIT_WINDOW_SECONDS = 60
 
 const uuid = () => z.string().uuid()
 const nullableTrimmedString = (max: number) => z.string().trim().max(max).nullable().optional()
@@ -158,6 +160,28 @@ export const invoicePaymentConfirmationRequestSchema = z.object({
   installmentId: invoiceInstallmentIdSchema.optional(),
 }).strict()
 export type InvoicePaymentConfirmationRequestInput = z.infer<typeof invoicePaymentConfirmationRequestSchema>
+export const invoicePaymentConfirmationPublicPreviewSchema = z.object({
+  status: invoicePaymentConfirmationStatusSchema,
+  expiresAt: z.string().datetime(),
+  payerName: z.string().nullable(),
+  payeeName: z.string().nullable(),
+  invoice: z.object({
+    symbol: z.string().nullable(),
+    number: invoiceNumberSchema,
+    amount: invoiceMoneySchema,
+    currencyCode: invoiceCurrencyCodeSchema,
+  }).strict(),
+  installment: z.object({
+    sequence: z.number().int(),
+    amount: invoiceMoneySchema,
+    dueDate: z.string().datetime(),
+  }).strict().nullable(),
+}).strict()
+export type InvoicePaymentConfirmationPublicPreview = z.infer<typeof invoicePaymentConfirmationPublicPreviewSchema>
+export const invoicePaymentConfirmationPublicTransitionSchema = z.object({
+  status: invoicePaymentConfirmationStatusSchema,
+}).strict()
+export type InvoicePaymentConfirmationPublicTransition = z.infer<typeof invoicePaymentConfirmationPublicTransitionSchema>
 export const invoiceCompanyLookupCountrySchema = invoiceCountryCodeSchema
 export const invoiceCompanyLookupIdentifierSchema = z.string().trim().min(1).max(80)
 

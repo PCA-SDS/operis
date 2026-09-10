@@ -1,7 +1,7 @@
 import React from 'react'
 import { randomBytes } from 'node:crypto'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
-import { badRequest, notFound } from '@open-mercato/shared/lib/crud/errors'
+import { badRequest, conflict, notFound, CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { sendEmail } from '@open-mercato/shared/lib/email/send'
 import { detectLocale, resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
@@ -14,14 +14,19 @@ import {
   INVOICE_PAYMENT_CONFIRMATION_TOKEN_BYTES,
   INVOICE_PAYMENT_CONFIRMATION_TTL_DAYS,
   invoicePaymentConfirmationRequestSchema,
+  invoicePaymentConfirmationPublicPreviewSchema,
+  invoicePaymentConfirmationPublicTransitionSchema,
   invoicePublicTokenSchema,
   type InvoicePaymentConfirmationRequestInput,
   type InvoicePublicToken,
   type InvoiceTokenHash,
+  type InvoicePaymentConfirmationPublicPreview,
+  type InvoicePaymentConfirmationPublicTransition,
 } from '../data/validators'
 import { emitInvoiceEvent } from '../events'
 import type { InvoiceCompanyEmailsService } from './company-emails-service'
 import { InvoiceScopedPersistenceService } from './scoped-persistence-service'
+import type { InvoiceService } from './invoice-service'
 
 const logger = createLogger('invoice').child({ component: 'payment-confirmations-service' })
 
@@ -38,6 +43,8 @@ export type InvoicePaymentConfirmationRequestResult = {
   status: 'PENDING'
   expiresAt: string
 }
+
+const publicConfirmationNotFound = () => notFound('[internal] Payment confirmation not found')
 
 export function generateInvoicePaymentConfirmationToken(): {
   rawToken: InvoicePublicToken
@@ -131,7 +138,116 @@ export class InvoicePaymentConfirmationsService {
   constructor(
     private readonly em: EntityManager,
     private readonly companyEmailsService: InvoiceCompanyEmailsService,
+    private readonly invoiceService?: InvoiceService,
   ) {}
+
+  private async findByPublicToken(rawToken: string) {
+    const token = invoicePublicTokenSchema.safeParse(rawToken)
+    if (!token.success) throw publicConfirmationNotFound()
+    const confirmation = await this.em.findOne(
+      InvoicePaymentConfirmation,
+      { tokenHash: hashInvoicePublicToken(token.data) },
+      { populate: ['invoice', 'invoice.company', 'installment'] as never[] },
+    )
+    if (!confirmation) throw publicConfirmationNotFound()
+    return confirmation
+  }
+
+  private publicPreview(confirmation: InvoicePaymentConfirmation): InvoicePaymentConfirmationPublicPreview {
+    const invoice = confirmation.invoice
+    const installment = confirmation.installment ?? null
+    return invoicePaymentConfirmationPublicPreviewSchema.parse({
+      status: confirmation.status,
+      expiresAt: confirmation.expiresAt.toISOString(),
+      payerName: invoice.buyerName ?? null,
+      payeeName: invoice.sellerName ?? invoice.company?.name ?? null,
+      invoice: {
+        symbol: invoice.invoiceSymbol ?? null,
+        number: invoice.invoiceNumber,
+        amount: installment?.totalAmount ?? invoice.outstandingAmount,
+        currencyCode: invoice.currencyCode,
+      },
+      installment: installment
+        ? {
+            sequence: installment.sequence,
+            amount: installment.totalAmount,
+            dueDate: installment.dueDate.toISOString(),
+          }
+        : null,
+    })
+  }
+
+  async getPublicPreview(rawToken: string): Promise<InvoicePaymentConfirmationPublicPreview> {
+    return this.publicPreview(await this.findByPublicToken(rawToken))
+  }
+
+  private async transitionPublic(rawToken: string, target: 'CONFIRMED' | 'REJECTED'):
+    Promise<InvoicePaymentConfirmationPublicTransition> {
+    const result = await this.em.transactional(async (tx) => {
+      const token = invoicePublicTokenSchema.safeParse(rawToken)
+      if (!token.success) throw publicConfirmationNotFound()
+      const tokenHash = hashInvoicePublicToken(token.data)
+      const confirmation = await tx.findOne(
+        InvoicePaymentConfirmation,
+        { tokenHash },
+        { populate: ['invoice', 'invoice.company', 'installment'] as never[] },
+      )
+      if (!confirmation) throw publicConfirmationNotFound()
+
+      if (confirmation.status === target) {
+        return { status: target }
+      }
+      if (confirmation.status !== 'PENDING') {
+        throw conflict('[internal] Payment confirmation is already in the opposite terminal state')
+      }
+      if (confirmation.expiresAt.getTime() <= Date.now()) {
+        throw new CrudHttpError(410, { error: '[internal] Payment confirmation has expired' })
+      }
+
+      const now = new Date()
+      const update = target === 'CONFIRMED'
+        ? { status: target, confirmedAt: now, updatedAt: now }
+        : { status: target, rejectedAt: now, updatedAt: now }
+      const changed = await tx.nativeUpdate(
+        InvoicePaymentConfirmation,
+        { tokenHash, status: 'PENDING' },
+        update,
+      )
+      if (changed !== 1) {
+        const current = await tx.findOne(InvoicePaymentConfirmation, { tokenHash })
+        if (current?.status === target) return { status: target }
+        throw conflict('[internal] Payment confirmation transition conflicted')
+      }
+
+      if (target === 'CONFIRMED') {
+        if (!this.invoiceService) throw new Error('[internal] Invoice payment service is not configured')
+        await this.invoiceService.forTransaction(tx).applyInvoicePayment(
+          { tenantId: confirmation.tenantId, organizationId: confirmation.organizationId },
+          confirmation.invoice.id,
+          { installmentId: confirmation.installment?.id ?? undefined },
+        )
+      }
+
+      return { status: target, confirmationId: confirmation.id, tenantId: confirmation.tenantId, organizationId: confirmation.organizationId }
+    })
+
+    if ('confirmationId' in result) {
+      await emitInvoiceEvent(`invoice.payment_confirmation.${target.toLowerCase()}` as 'invoice.payment_confirmation.confirmed' | 'invoice.payment_confirmation.rejected', {
+        id: result.confirmationId,
+        tenantId: result.tenantId,
+        organizationId: result.organizationId,
+      })
+    }
+    return invoicePaymentConfirmationPublicTransitionSchema.parse({ status: result.status })
+  }
+
+  async confirmPublic(rawToken: string): Promise<InvoicePaymentConfirmationPublicTransition> {
+    return this.transitionPublic(rawToken, 'CONFIRMED')
+  }
+
+  async rejectPublic(rawToken: string): Promise<InvoicePaymentConfirmationPublicTransition> {
+    return this.transitionPublic(rawToken, 'REJECTED')
+  }
 
   async request(
     scope: InvoiceScope,
@@ -261,6 +377,7 @@ export class InvoicePaymentConfirmationsService {
 export function createInvoicePaymentConfirmationsService(
   em: EntityManager,
   companyEmailsService: InvoiceCompanyEmailsService,
+  invoiceService?: InvoiceService,
 ): InvoicePaymentConfirmationsService {
-  return new InvoicePaymentConfirmationsService(em, companyEmailsService)
+  return new InvoicePaymentConfirmationsService(em, companyEmailsService, invoiceService)
 }
