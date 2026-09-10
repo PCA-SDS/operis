@@ -214,12 +214,13 @@ export default function AppointmentCreatePage() {
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadLocations() {
       setLocationsLoading(true)
       const call = await apiCall<{
         items?: OrgSwitcherNode[]
         selectedId?: string | null
-      }>('/api/directory/organization-switcher', undefined, { fallback: null })
+      }>('/api/directory/organization-switcher', { signal: controller.signal }, { fallback: null })
       if (cancelled) return
       if (!call.ok || !call.result) {
         setLocationOptions([])
@@ -242,11 +243,13 @@ export default function AppointmentCreatePage() {
     void loadLocations()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [scopeOrganizationId, tenantId])
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadServices() {
       if (!tenantId || !locationId) {
         setServices([])
@@ -262,7 +265,7 @@ export default function AppointmentCreatePage() {
       })
       const call = await apiCall<{ items?: BookableService[]; error?: string }>(
         `/api/catalog/bookable-services?${params.toString()}`,
-        undefined,
+        { signal: controller.signal },
         { fallback: null },
       )
       if (cancelled) return
@@ -282,6 +285,7 @@ export default function AppointmentCreatePage() {
     void loadServices()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [tenantId, locationId, t])
 

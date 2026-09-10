@@ -86,14 +86,15 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function load() {
       if (!id) return
       setIsLoading(true)
       setError(null)
       setNotFound(false)
       const [detailCall, statusCall] = await Promise.all([
-        apiCall<Detail>(`/api/appointments/${encodeURIComponent(id)}`, undefined, { fallback: null }),
-        apiCall<{ items?: StatusOption[] }>('/api/appointments/statuses', undefined, {
+        apiCall<Detail>(`/api/appointments/${encodeURIComponent(id)}`, { signal: controller.signal }, { fallback: null }),
+        apiCall<{ items?: StatusOption[] }>('/api/appointments/statuses', { signal: controller.signal }, {
           fallback: { items: [] },
         }),
       ])
@@ -114,6 +115,7 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
     void load()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [id, t])
 
