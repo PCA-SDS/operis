@@ -256,14 +256,14 @@ export default function ProductConstraintsPage({ params }: { params?: { id?: str
               headerActions={
                 <>
                   {isDirty && (
-                    <span className="text-sm font-medium text-status-warning-text mr-2">
+                    <span className="text-sm font-medium text-status-warning-text sm:mr-2">
                       {t('catalog.options.unsavedChanges', 'You have unsaved changes.')}
                     </span>
                   )}
                   <Button
                     onClick={handleSave}
                     disabled={!isDirty || saving || !loadSucceeded}
-                    className="gap-2"
+                    className="w-full gap-2 sm:w-auto"
                   >
                     {saving ? <Spinner className="w-4 h-4 mr-1" /> : <Save className="h-4 w-4" />}
                     {t('catalog.actions.saveChanges', 'Save Changes')}

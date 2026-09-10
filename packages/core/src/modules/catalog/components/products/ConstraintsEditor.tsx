@@ -16,6 +16,13 @@ import {
   DrawerTitle,
   DrawerFooter,
 } from '@open-mercato/ui/primitives/drawer'
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@open-mercato/ui/primitives/select'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { Tag } from '@open-mercato/ui/primitives/tag'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
@@ -241,7 +248,7 @@ function OptionBadge({ id, options }: OptionBadgeProps) {
   const opt = options.find((o) => o.id === id)
   if (!opt) {
     return (
-      <Tag variant="brand" shape="square" className="max-w-48">
+      <Tag variant="brand" shape="square" className="w-full max-w-full sm:w-auto sm:max-w-48">
         <span className="truncate text-xs">{id || '—'}</span>
       </Tag>
     )
@@ -251,7 +258,7 @@ function OptionBadge({ id, options }: OptionBadgeProps) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Tag variant="brand" shape="square" className="max-w-64 cursor-default">
+          <Tag variant="brand" shape="square" className="w-full max-w-full cursor-default sm:w-auto sm:max-w-64">
             <span className="truncate text-xs font-medium">{opt.path}</span>
           </Tag>
         </TooltipTrigger>
@@ -288,13 +295,13 @@ function IncomingConstraintBadge({ constraint }: { constraint: CatalogConstraint
     t('catalog.constraints.unknownSource', 'Unknown source')
 
   return (
-    <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-status-warning-bg/50 bg-status-warning-bg/10">
+    <div className="flex flex-col gap-2 rounded-lg border border-status-warning-bg/50 bg-status-warning-bg/10 p-3 sm:flex-row sm:flex-wrap sm:items-center">
       <Tag variant={color.variant} dot={color.dot} className="text-xs font-medium shrink-0">
         {label}
       </Tag>
-      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <span className="text-xs font-medium text-foreground/80">{sourceLabel}</span>
-        <ArrowRight className="w-3 h-3 shrink-0" />
+      <div className="flex min-w-0 flex-col gap-1.5 text-sm text-muted-foreground sm:flex-row sm:items-center">
+        <span className="truncate text-xs font-medium text-foreground/80">{sourceLabel}</span>
+        <ArrowRight className="ml-1 w-3 h-3 rotate-90 shrink-0 sm:ml-0 sm:rotate-0" />
         <span>{t('catalog.constraints.thisProduct', 'this product')}</span>
       </div>
       {constraint.locked && (
@@ -332,60 +339,64 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
 
   return (
     <div className={cn(
-      'flex flex-wrap items-center gap-2 p-3 rounded-lg border bg-card transition-colors',
+      'flex flex-col gap-2 rounded-lg border bg-card p-3 transition-colors sm:flex-row sm:flex-wrap sm:items-center',
       draft.locked ? 'opacity-75' : 'hover:border-border/80',
     )}>
-      <Tag variant={color.variant} dot={color.dot} className="text-xs font-medium shrink-0">
-        {getConstraintTypeLabel(draft.constraintType, t)}
-      </Tag>
-
-      {draft.sourceKind === 'option' ? (
-        <OptionBadge id={draft.sourceId} options={localOptions} />
-      ) : (
-        <Tag variant="neutral" shape="square" className="max-w-40">
-          <span className="flex items-center gap-1.5 truncate text-xs">
-            <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
-            <span className="truncate">{productName}</span>
-          </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <Tag variant={color.variant} dot={color.dot} className="text-xs font-medium shrink-0">
+          {getConstraintTypeLabel(draft.constraintType, t)}
         </Tag>
-      )}
 
-      <ArrowRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+          {draft.sourceKind === 'option' ? (
+            <OptionBadge id={draft.sourceId} options={localOptions} />
+          ) : (
+            <Tag variant="neutral" shape="square" className="w-full max-w-full sm:w-auto sm:max-w-40">
+              <span className="flex items-center gap-1.5 truncate text-xs">
+                <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
+                <span className="truncate">{productName}</span>
+              </span>
+            </Tag>
+          )}
 
-      {draft.targetKind === 'option' ? (
-        isExternal ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Tag variant="neutral" shape="square" className="max-w-72">
-                  <span className="flex items-center gap-1.5 truncate text-xs">
-                    <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
-                    <span className="truncate font-medium">
-                      {draft.targetOptionName || draft.targetId}
-                    </span>
-                  </span>
-                </Tag>
-              </TooltipTrigger>
-              <TooltipContent>
-                {draft.targetOptionName || draft.targetId}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : (
-          <OptionBadge id={draft.targetId} options={localOptions} />
-        )
-      ) : (
-        <Tag variant="neutral" shape="square" className="max-w-40">
-          <span className="flex items-center gap-1.5 truncate text-xs">
-            <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
-            <span className="truncate">
-              {productSeedOptions?.find((p) => p.id === draft.targetId)?.label ?? draft.targetProductName ?? draft.targetId}
-            </span>
-          </span>
-        </Tag>
-      )}
+          <ArrowRight className="ml-1 w-3.5 h-3.5 rotate-90 text-muted-foreground shrink-0 sm:ml-0 sm:rotate-0" />
 
-      <div className="ml-auto flex items-center gap-1 shrink-0">
+          {draft.targetKind === 'option' ? (
+            isExternal ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Tag variant="neutral" shape="square" className="w-full max-w-full sm:w-auto sm:max-w-72">
+                      <span className="flex items-center gap-1.5 truncate text-xs">
+                        <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
+                        <span className="truncate font-medium">
+                          {draft.targetOptionName || draft.targetId}
+                        </span>
+                      </span>
+                    </Tag>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {draft.targetOptionName || draft.targetId}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <OptionBadge id={draft.targetId} options={localOptions} />
+            )
+          ) : (
+            <Tag variant="neutral" shape="square" className="w-full max-w-full sm:w-auto sm:max-w-40">
+              <span className="flex items-center gap-1.5 truncate text-xs">
+                <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
+                <span className="truncate">
+                  {productSeedOptions?.find((p) => p.id === draft.targetId)?.label ?? draft.targetProductName ?? draft.targetId}
+                </span>
+              </span>
+            </Tag>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-1 shrink-0 sm:ml-auto">
         {isExternal && (
           <Tag variant="neutral" shape="square" className="text-xs">
             <span className="flex items-center gap-1">
@@ -399,39 +410,39 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
             {t('catalog.constraints.option', 'Option')}
           </Tag>
         )}
+
+        {draft.locked ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled
+                  aria-label={t('catalog.constraints.locked', 'Locked by migration')}
+                  className="shrink-0 text-status-warning-icon"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                </IconButton>
+              </TooltipTrigger>
+              <TooltipContent>{t('catalog.constraints.locked', 'Locked by migration')}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : null}
+
+        <IconButton
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleDelete}
+          disabled={draft.locked}
+          aria-label={t('common.delete', 'Delete')}
+          className="text-destructive hover:text-destructive shrink-0"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </IconButton>
       </div>
-
-      {draft.locked ? (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <IconButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled
-                aria-label={t('catalog.constraints.locked', 'Locked by migration')}
-                className="shrink-0 text-status-warning-icon"
-              >
-                <Lock className="w-3.5 h-3.5" />
-              </IconButton>
-            </TooltipTrigger>
-            <TooltipContent>{t('catalog.constraints.locked', 'Locked by migration')}</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      ) : null}
-
-      <IconButton
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={handleDelete}
-        disabled={draft.locked}
-        aria-label={t('common.delete', 'Delete')}
-        className="text-destructive hover:text-destructive shrink-0"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </IconButton>
     </div>
   )
 }
@@ -598,7 +609,7 @@ function AddConstraintDrawer({
         <DrawerHeader>
           <DrawerTitle>{t('catalog.constraints.addConstraint', 'Add Constraint')}</DrawerTitle>
         </DrawerHeader>
-        <DrawerBody className="flex flex-col gap-6">
+        <DrawerBody className="flex flex-col gap-5 sm:gap-6">
 
           {/* Source */}
           <div className="flex flex-col gap-2">
@@ -671,21 +682,46 @@ function AddConstraintDrawer({
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 rounded-lg border border-border/50 bg-muted/10 p-3 mt-1">
-              <SegmentedControl
+            <div className="flex flex-col gap-3 rounded-lg border border-border/50 bg-surface-muted p-3 mt-1">
+              {/* Mobile: Select dropdown */}
+              <Select
                 value={targetMode}
                 onValueChange={(v) => handleTargetModeChange(v as TargetMode)}
               >
-              <SegmentedControlItem value="local_option">
-                {t('catalog.constraints.target.localOption', "This product's option")}
-              </SegmentedControlItem>
-              <SegmentedControlItem value="external_product">
-                {t('catalog.constraints.target.externalProduct', 'Other product')}
-              </SegmentedControlItem>
-              <SegmentedControlItem value="external_option">
-                {t('catalog.constraints.target.externalOption', 'Other product option')}
-              </SegmentedControlItem>
-            </SegmentedControl>
+                <SelectTrigger className="w-full sm:hidden">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="local_option">
+                    {t('catalog.constraints.target.localOption', "This product's option")}
+                  </SelectItem>
+                  <SelectItem value="external_product">
+                    {t('catalog.constraints.target.externalProduct', 'Other product')}
+                  </SelectItem>
+                  <SelectItem value="external_option">
+                    {t('catalog.constraints.target.externalOption', 'Other product option')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Desktop: SegmentedControl */}
+              <SegmentedControl
+                value={targetMode}
+                onValueChange={(v) => handleTargetModeChange(v as TargetMode)}
+                fullWidth
+                size="sm"
+                className="hidden sm:flex"
+              >
+                <SegmentedControlItem value="local_option">
+                  {t('catalog.constraints.target.localOption', "This product's option")}
+                </SegmentedControlItem>
+                <SegmentedControlItem value="external_product">
+                  {t('catalog.constraints.target.externalProduct', 'Other product')}
+                </SegmentedControlItem>
+                <SegmentedControlItem value="external_option">
+                  {t('catalog.constraints.target.externalOption', 'Other product option')}
+                </SegmentedControlItem>
+              </SegmentedControl>
 
             {targetMode === 'local_option' && (
               <CascadingCombobox
@@ -763,16 +799,16 @@ function AddConstraintDrawer({
           </div>
 
         </DrawerBody>
-        <DrawerFooter className="flex-row items-center justify-between gap-3">
-          <span className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
+        <DrawerFooter className="flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="hidden text-xs text-muted-foreground sm:inline-flex sm:items-center sm:gap-1.5">
             <KbdShortcut keys={['⌘', '↵']} />
             <span>{t('catalog.constraints.shortcut.toSave', 'to save')}</span>
           </span>
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" onClick={handleClose}>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={handleClose}>
               {t('ui.actions.cancel', 'Cancel')}
             </Button>
-            <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
+            <Button type="button" className="w-full sm:w-auto" onClick={handleSubmit} disabled={!canSubmit}>
               {t('catalog.constraints.addConstraint', 'Add Constraint')}
             </Button>
           </div>
@@ -892,8 +928,8 @@ export function ConstraintsEditor({
   return (
     <div className="flex flex-col gap-4">
       {/* Header */}
-      <div className="flex items-start justify-between shrink-0">
-        <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-3 shrink-0 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-0.5">
           <h3 className="text-sm font-semibold text-foreground">
             {t('catalog.constraints.heading', 'Constraints')}
           </h3>
@@ -901,9 +937,9 @@ export function ConstraintsEditor({
             {t('catalog.constraints.description', 'Define what this product or its options require, conflict with, or include.')}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
           {headerActions}
-          <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => setShowAddDrawer(true)}>
+          <Button type="button" variant="outline" size="sm" className="w-full gap-2 sm:w-auto" onClick={() => setShowAddDrawer(true)}>
             <Plus className="w-3.5 h-3.5" />
             {t('catalog.constraints.addConstraint', 'Add Constraint')}
           </Button>
@@ -938,7 +974,7 @@ export function ConstraintsEditor({
       {/* Incoming Constraints (read-only) */}
       {incomingConstraints && incomingConstraints.length > 0 && (
         <div className="flex flex-col gap-3 pt-4 border-t mt-4">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-status-warning-bg" />
               <span className="text-sm font-medium text-foreground">
