@@ -295,27 +295,61 @@ function IncomingConstraintBadge({ constraint }: { constraint: CatalogConstraint
     t('catalog.constraints.unknownSource', 'Unknown source')
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-status-warning-bg/50 bg-status-warning-bg/10 p-3 sm:flex-row sm:flex-wrap sm:items-center">
-      <Tag variant={color.variant} dot={color.dot} className="text-xs font-medium shrink-0">
-        {label}
-      </Tag>
-      <div className="flex min-w-0 flex-col gap-1.5 text-sm text-muted-foreground sm:flex-row sm:items-center">
-        <span className="truncate text-xs font-medium text-foreground/80">{sourceLabel}</span>
-        <ArrowRight className="ml-1 w-3 h-3 rotate-90 shrink-0 sm:ml-0 sm:rotate-0" />
-        <span>{t('catalog.constraints.thisProduct', 'this product')}</span>
+    <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 transition-colors sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <Tag variant={color.variant} dot={color.dot} className="self-start text-xs font-medium shrink-0 sm:self-auto">
+          {label}
+        </Tag>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+          <Tag variant="neutral" shape="square" className="w-full max-w-full sm:w-auto sm:max-w-72">
+            <span className="flex items-center gap-1.5 truncate text-xs">
+              <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
+              <span className="truncate font-medium">{sourceLabel}</span>
+            </span>
+          </Tag>
+
+          <ArrowRight className="ml-1 w-3.5 h-3.5 rotate-90 text-muted-foreground shrink-0 sm:ml-0 sm:rotate-0" />
+
+          <Tag variant="neutral" shape="square" className="w-full max-w-full sm:w-auto sm:max-w-40">
+            <span className="flex items-center gap-1.5 truncate text-xs">
+              <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
+              <span className="truncate">{t('catalog.constraints.thisProduct', 'This product')}</span>
+            </span>
+          </Tag>
+        </div>
       </div>
-      {constraint.locked && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Lock className="w-3.5 h-3.5 text-status-warning-icon shrink-0" />
-            </TooltipTrigger>
-            <TooltipContent>
-              {t('catalog.constraints.locked', 'Locked by migration')}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )}
+
+      <div className="flex items-center justify-end gap-1 shrink-0 sm:ml-auto">
+        <Tag variant="neutral" shape="square" className="text-xs">
+          <span className="flex items-center gap-1">
+            <Inbox className="w-2.5 h-2.5" />
+            {t('catalog.constraints.incomingBadge', 'Incoming')}
+          </span>
+        </Tag>
+
+        {constraint.locked && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled
+                  aria-label={t('catalog.constraints.locked', 'Locked by migration')}
+                  className="shrink-0 text-status-warning-icon"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                </IconButton>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t('catalog.constraints.locked', 'Locked by migration')}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
     </div>
   )
 }
@@ -343,7 +377,7 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
       draft.locked ? 'opacity-75' : 'hover:border-border/80',
     )}>
       <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <Tag variant={color.variant} dot={color.dot} className="text-xs font-medium shrink-0">
+        <Tag variant={color.variant} dot={color.dot} className="self-start text-xs font-medium shrink-0 sm:self-auto">
           {getConstraintTypeLabel(draft.constraintType, t)}
         </Tag>
 
