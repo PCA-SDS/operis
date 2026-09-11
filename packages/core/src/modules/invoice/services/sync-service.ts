@@ -82,6 +82,12 @@ export function createInvoiceSyncService(
     return status(job)
   }
   return {
+    async getCachedToken(scope: InvoiceScope) {
+      const cachedToken = await cache.get(key(scope, 'token')) as Record<string, unknown> | null
+      if (!cachedToken) return null
+      const token = await reveal(scope, cachedToken)
+      return typeof token.token === 'string' && token.token.length > 0 ? token.token : null
+    },
     async availability(scope: InvoiceScope) {
       const job = await latest(scope)
       let mst: string | null = null
@@ -95,11 +101,7 @@ export function createInvoiceSyncService(
       const normalized = { ...input, scopeTaxCodes: normalizeScope(input.scopeTaxCodes) }
       const existing = await em.findOne(InvoiceSyncJob, { tenantId: scope.tenantId, organizationId: scope.organizationId, idempotencyKey: input.idempotencyKey })
       if (existing) return { state: 'queued', job: status(existing), idempotent: true }
-      const cachedToken = await cache.get(key(scope, 'token')) as Record<string, unknown> | null
-      if (cachedToken) {
-        const token = await reveal(scope, cachedToken)
-        if (typeof token.token === 'string') return { state: 'queued', job: await enqueue(scope, userId, normalized) }
-      }
+      if (await this.getCachedToken(scope)) return { state: 'queued', job: await enqueue(scope, userId, normalized) }
       const captcha = await gdtClient.fetchCaptcha()
       const transactionId = crypto.randomUUID()
       await cache.set(key(scope, `captcha:${transactionId}`), await protect(scope, { ...normalized, userId, captchaKey: captcha.key }), { ttl: INVOICE_SYNC_CAPTCHA_TTL_SECONDS * 1000 })

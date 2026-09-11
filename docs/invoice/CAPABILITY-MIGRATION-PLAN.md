@@ -568,6 +568,13 @@ Expected tests:
 - Auto-paid apply runs after sync and failure is best-effort.
 - Progress reaches terminal completed or failed.
 
+Implementation status (2026-09-11): the Operis `invoice-sync` worker now reloads
+and verifies the scoped sync job, reads the cached GDT token without persisting
+it, fetches both `sold` and `purchased` streams, persists batches through the
+sync persistence service, updates ProgressJob, and emits sync lifecycle events.
+Duplicate terminal deliveries are ignored. Phase 5 Auto-Paid runs after a
+successful import as a best-effort operation and does not invalidate the sync.
+
 Definition of done:
 
 - Start/auth/enqueue/worker/status lifecycle works with local queue and async queue strategy.

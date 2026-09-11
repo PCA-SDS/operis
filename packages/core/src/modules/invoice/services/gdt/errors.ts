@@ -18,7 +18,7 @@ export function classifyGdtError(error: unknown): InvoiceSyncJobFailureCategory 
   if (error instanceof GdtProviderError) {
     if (error.kind === 'auth') return 'AUTH_FAILED'
     if (error.kind === 'account_locked') return 'ACCOUNT_LOCKED'
-    if (error.kind === 'network') return 'PORTAL_UNREACHABLE'
+    if (error.kind === 'network' || error.kind === 'provider' || error.kind === 'invalid_response') return 'PORTAL_UNREACHABLE'
   }
   return 'INTERNAL_ERROR'
 }
