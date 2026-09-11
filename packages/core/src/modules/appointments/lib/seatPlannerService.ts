@@ -7,6 +7,8 @@
 
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { ResourceAssignmentService, type AssignmentDTO } from '@open-mercato/core/modules/resources/lib/resourceAssignmentService'
+import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
+import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { Appointment, AppointmentLine } from '../data/entities'
 
 export interface SeatPlannerLine {
@@ -34,12 +36,30 @@ export interface SeatPlannerWorkspace {
     statusCode: string
   }
   lines: SeatPlannerLine[]
+  allocations: Array<{
+    id: string
+    appointmentId: string
+    lineId: string
+    resourceId: string
+    resourceName?: string | null
+    serviceName: string
+    customerName: string
+    startsAt: string
+    endsAt: string
+    state: 'draft' | 'confirmed'
+    assignedMemberId?: string | null
+    assignedMemberName?: string | null
+  }>
   resources: Array<{
     id: string
     name: string
     code?: string | null
+    appearanceIcon?: string | null
+    capacityUnitIcon?: string | null
+    capacityUnitColor?: string | null
     areaName?: string | null
     typeName?: string | null
+    typeIcon?: string | null
     typeColor?: string | null
   }>
 }
@@ -68,6 +88,15 @@ export class AppointmentSeatPlannerService {
 
   constructor(private readonly em: EntityManager) {
     this.assignmentService = new ResourceAssignmentService(em)
+  }
+
+  private async getResourceOrganizationIds(tenantId: string, organizationId: string): Promise<string[]> {
+    const organization = await this.em.findOne(Organization, {
+      id: organizationId,
+      tenant: tenantId,
+      deletedAt: null,
+    })
+    return Array.from(new Set([organizationId, ...(organization?.ancestorIds ?? [])]))
   }
 
   /**
@@ -101,15 +130,71 @@ export class AppointmentSeatPlannerService {
       },
       { orderBy: { sortOrder: 'asc' } },
     )
+    const plannerLines = lines.map((line) => ({
+      line,
+      durationMinutes: line.durationMinutes ?? 60,
+    }))
+    const effectiveEndAt = appointment.requestedEndAt
+      ?? new Date(appointment.requestedStartAt.getTime() + plannerLines.reduce((total, entry) => total + entry.durationMinutes, 0) * 60_000)
 
-    // Load resources (seats available for this org)
+    const resourceOrganizationIds = await this.getResourceOrganizationIds(params.tenantId, appointment.organizationId)
+
+    // Resources are maintained at the parent organization, while bookings may
+    // belong to a child organization. Include the booking org and its ancestors.
     const resources = await this.assignmentService.getWorkspace({
       tenantId: params.tenantId,
       organizationId: params.organizationId,
       sourceModule: 'appointment',
       sourceEntityType: 'appointment_line',
       sourceEntityId: null,
+      organizationIds: resourceOrganizationIds,
     })
+
+    const dayStart = new Date(appointment.requestedStartAt)
+    dayStart.setHours(0, 0, 0, 0)
+    const dayEnd = new Date(dayStart)
+    dayEnd.setDate(dayEnd.getDate() + 1)
+    const dayAssignments = await this.em.find(ResourcesAssignment, {
+      tenantId: params.tenantId,
+      organizationId: { $in: resourceOrganizationIds },
+      sourceModule: 'appointment',
+      sourceEntityType: 'appointment_line',
+      startsAt: { $lt: dayEnd },
+      endsAt: { $gt: dayStart },
+      cancelledAt: null,
+    }, { orderBy: { startsAt: 'asc' } })
+
+    const assignmentLineIds = Array.from(new Set(dayAssignments.map((assignment) => assignment.sourceEntityId)))
+    const allocationLines = assignmentLineIds.length > 0
+      ? await this.em.find(AppointmentLine, { id: { $in: assignmentLineIds }, tenantId: params.tenantId, deletedAt: null })
+      : []
+    const allocationLineById = new Map(allocationLines.map((line) => [line.id, line]))
+    const allocationAppointmentIds = Array.from(new Set(allocationLines.map((line) => line.appointment.id)))
+    const allocationAppointments = allocationAppointmentIds.length > 0
+      ? await this.em.find(Appointment, { id: { $in: allocationAppointmentIds }, tenantId: params.tenantId, deletedAt: null })
+      : []
+    const allocationAppointmentById = new Map(allocationAppointments.map((entry) => [entry.id, entry]))
+    const resourceById = new Map(resources.resources.map((resource) => [resource.id, resource]))
+    const allocations = dayAssignments.flatMap((assignment) => {
+      const line = allocationLineById.get(assignment.sourceEntityId)
+      if (!line) return []
+      const sourceAppointment = allocationAppointmentById.get(line.appointment.id)
+      const resource = resourceById.get(assignment.resource?.id ?? '')
+      return [{
+        id: assignment.id,
+        appointmentId: sourceAppointment?.id ?? line.appointment.id,
+        lineId: line.id,
+        resourceId: assignment.resource?.id ?? '',
+        resourceName: resource?.name ?? null,
+        serviceName: line.productTitle,
+        customerName: sourceAppointment?.customerName ?? '',
+        startsAt: assignment.startsAt.toISOString(),
+        endsAt: assignment.endsAt.toISOString(),
+        state: assignment.state,
+        assignedMemberId: assignment.assignedMemberId ?? null,
+        assignedMemberName: null,
+      }]
+    }).filter((allocation) => allocation.resourceId.length > 0)
 
     // Load assignments for each line
     const linesWithAssignments: SeatPlannerLine[] = await Promise.all(
@@ -135,7 +220,7 @@ export class AppointmentSeatPlannerService {
         return {
           id: line.id,
           productTitle: line.productTitle,
-          durationMinutes: line.durationMinutes ?? null,
+          durationMinutes: line.durationMinutes ?? 60,
           currentAssignment: assignment
             ? {
                 id: assignment.id,
@@ -157,10 +242,11 @@ export class AppointmentSeatPlannerService {
         id: appointment.id,
         customerName: appointment.customerName,
         requestedStartAt: appointment.requestedStartAt.toISOString(),
-        requestedEndAt: appointment.requestedEndAt?.toISOString() ?? null,
+        requestedEndAt: effectiveEndAt.toISOString(),
         statusCode: appointment.statusCode,
       },
       lines: linesWithAssignments,
+      allocations,
       resources: resources.resources,
     }
   }
@@ -189,6 +275,8 @@ export class AppointmentSeatPlannerService {
       throw error
     }
 
+    const resourceOrganizationIds = await this.getResourceOrganizationIds(params.tenantId, line.organizationId)
+
     // Use the assignment service
     return this.assignmentService.upsertDraft({
       tenantId: params.tenantId,
@@ -202,6 +290,7 @@ export class AppointmentSeatPlannerService {
       assignedMemberId: params.assignedMemberId,
       title: line.productTitle ?? undefined,
       userId: params.userId,
+      organizationIds: resourceOrganizationIds,
     })
   }
 

@@ -13,7 +13,12 @@
 
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { assign } from '@mikro-orm/core'
-import { ResourcesAssignment, ResourcesResource } from '../data/entities'
+import {
+  ResourcesAssignment,
+  ResourcesResource,
+  ResourcesResourceArea,
+  ResourcesResourceType,
+} from '../data/entities'
 import { AssignmentConflictService } from './assignmentConflict'
 
 export interface AssignmentUpsertParams {
@@ -30,6 +35,7 @@ export interface AssignmentUpsertParams {
   endsAt: Date
   assignedMemberId?: string | null
   title?: string
+  organizationIds?: string[]
 
   // Audit
   userId?: string | null
@@ -57,8 +63,12 @@ export interface AssignmentWorkspace {
     id: string
     name: string
     code?: string | null
+    appearanceIcon?: string | null
+    capacityUnitIcon?: string | null
+    capacityUnitColor?: string | null
     areaName?: string | null
     typeName?: string | null
+    typeIcon?: string | null
     typeColor?: string | null
   }>
   assignments: AssignmentDTO[]
@@ -103,11 +113,13 @@ export class ResourceAssignmentService {
     sourceEntityType: string
     sourceEntityId?: string | null
     resourceIds?: string[]
+    organizationIds?: string[]
   }): Promise<AssignmentWorkspace> {
     // Get available resources
+    const organizationIds = params.organizationIds?.length ? params.organizationIds : [params.organizationId]
     const resourceWhere: Record<string, unknown> = {
       tenantId: params.tenantId,
-      organizationId: params.organizationId,
+      organizationId: { $in: organizationIds },
       isActive: true,
     }
 
@@ -117,6 +129,33 @@ export class ResourceAssignmentService {
 
     const resources = await this.em.find(ResourcesResource, resourceWhere, {
       orderBy: { sortOrder: 'asc', name: 'asc' },
+    })
+
+    const areaIds = Array.from(new Set(resources.map((resource) => resource.areaId).filter((id): id is string => Boolean(id))))
+    const typeIds = Array.from(new Set(resources.map((resource) => resource.resourceTypeId).filter((id): id is string => Boolean(id))))
+    const [areas, types] = await Promise.all([
+      areaIds.length > 0
+        ? this.em.find(ResourcesResourceArea, { id: { $in: areaIds }, tenantId: params.tenantId, deletedAt: null })
+        : [],
+      typeIds.length > 0
+        ? this.em.find(ResourcesResourceType, { id: { $in: typeIds }, tenantId: params.tenantId, deletedAt: null })
+        : [],
+    ])
+    const areaById = new Map(areas.map((area) => [area.id, area]))
+    const typeById = new Map(types.map((type) => [type.id, type]))
+    const orderedResources = [...resources].sort((left, right) => {
+      const leftArea = left.areaId ? areaById.get(left.areaId) : undefined
+      const rightArea = right.areaId ? areaById.get(right.areaId) : undefined
+      const leftAreaOrder = leftArea ? leftArea.sortOrder : Number.MAX_SAFE_INTEGER
+      const rightAreaOrder = rightArea ? rightArea.sortOrder : Number.MAX_SAFE_INTEGER
+      if (leftAreaOrder !== rightAreaOrder) return leftAreaOrder - rightAreaOrder
+
+      const leftAreaName = leftArea?.name ?? ''
+      const rightAreaName = rightArea?.name ?? ''
+      const areaNameComparison = leftAreaName.localeCompare(rightAreaName)
+      if (areaNameComparison !== 0) return areaNameComparison
+      if (left.sortOrder !== right.sortOrder) return left.sortOrder - right.sortOrder
+      return left.name.localeCompare(right.name)
     })
 
     // Get existing assignments for this source entity
@@ -132,13 +171,17 @@ export class ResourceAssignmentService {
       : []
 
     return {
-      resources: resources.map((r) => ({
+      resources: orderedResources.map((r) => ({
         id: r.id,
         name: r.name,
         code: r.capacityUnitValue,
-        areaName: null, // Will be enriched if needed
-        typeName: null,
-        typeColor: r.appearanceColor,
+        appearanceIcon: r.appearanceIcon,
+        capacityUnitIcon: r.capacityUnitIcon,
+        capacityUnitColor: r.capacityUnitColor,
+        areaName: r.areaId ? areaById.get(r.areaId)?.name ?? null : null,
+        typeName: r.resourceTypeId ? typeById.get(r.resourceTypeId)?.name ?? null : null,
+        typeIcon: r.resourceTypeId ? typeById.get(r.resourceTypeId)?.appearanceIcon ?? null : null,
+        typeColor: r.resourceTypeId ? typeById.get(r.resourceTypeId)?.appearanceColor ?? r.appearanceColor : r.appearanceColor,
       })),
       assignments: assignments.map((a) => this.toDTO(a)),
     }
@@ -230,6 +273,7 @@ export class ResourceAssignmentService {
       resourceId: params.resourceId,
       startsAt: params.startsAt,
       endsAt: params.endsAt,
+      organizationIds: params.organizationIds,
       excludeSourceEntityIds: [params.sourceEntityId], // Allow chaining with self
     })
 

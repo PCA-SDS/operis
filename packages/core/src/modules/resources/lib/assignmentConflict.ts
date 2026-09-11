@@ -52,15 +52,29 @@ export class AssignmentConflictService {
     endsAt: Date
     excludeAssignmentId?: string
     excludeSourceEntityIds?: string[]
+    organizationIds?: string[]
   }): Promise<ValidationResult> {
     // 1. Check resource exists & is active
-    const resourceCheck = await this.checkResource(params.tenantId, params.organizationId, params.resourceId)
-    if (!resourceCheck.valid) {
-      return resourceCheck
+    const scopedOrganizationIds = params.organizationIds?.length ? params.organizationIds : [params.organizationId]
+    const resource = await this.em.findOne(ResourcesResource, {
+      id: params.resourceId,
+      tenantId: params.tenantId,
+      organizationId: { $in: scopedOrganizationIds },
+    })
+    if (!resource) {
+      return this.checkResource(params.tenantId, params.organizationId, params.resourceId)
+    }
+    if (!resource.isActive) {
+      return {
+        valid: false,
+        error: { code: 'RESOURCE_INACTIVE', message: 'Resource is not active' },
+      }
     }
 
+    const resourceOrganizationId = resource?.organizationId ?? params.organizationId
+
     // 2. Check blocks
-    const blockCheck = await this.checkNoBlocks(params.tenantId, params.organizationId, params.resourceId, params.startsAt, params.endsAt)
+    const blockCheck = await this.checkNoBlocks(params.tenantId, resourceOrganizationId, params.resourceId, params.startsAt, params.endsAt)
     if (!blockCheck.valid) {
       return blockCheck
     }
@@ -69,7 +83,7 @@ export class AssignmentConflictService {
     const availabilityCheck = await this.checkWithinAvailability(
       params.resourceId,
       params.tenantId,
-      params.organizationId,
+      resourceOrganizationId,
       params.startsAt,
       params.endsAt,
     )
@@ -81,7 +95,7 @@ export class AssignmentConflictService {
     const conflictCheck = await this.checkNoConfirmedConflicts(
       params.resourceId,
       params.tenantId,
-      params.organizationId,
+      undefined,
       params.startsAt,
       params.endsAt,
       { excludeAssignmentId: params.excludeAssignmentId, excludeSourceEntityIds: params.excludeSourceEntityIds },
@@ -234,20 +248,21 @@ export class AssignmentConflictService {
   async checkNoConfirmedConflicts(
     resourceId: string,
     tenantId: string,
-    organizationId: string,
+    organizationId: string | undefined,
     startsAt: Date,
     endsAt: Date,
     options?: ConflictCheckOptions,
   ): Promise<ValidationResult> {
     const where: Record<string, unknown> = {
       tenantId,
-      organizationId,
       resource: resourceId,
       state: 'confirmed',
       cancelledAt: null,
       startsAt: { $lt: endsAt },
       endsAt: { $gt: startsAt },
     }
+
+    if (organizationId) where.organizationId = organizationId
 
     if (options?.excludeAssignmentId) {
       where.id = { $ne: options.excludeAssignmentId }

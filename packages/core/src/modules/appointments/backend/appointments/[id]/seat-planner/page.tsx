@@ -27,6 +27,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { LoadingMessage, ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { AppointmentStatusBadge } from '@open-mercato/core/modules/appointments/components/AppointmentStatusBadge'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { resolveRegisteredLucideIconNode } from '@open-mercato/ui/backend/icons/lucideRegistry'
 
 const START_HOUR = 8
 const END_HOUR = 22
@@ -58,8 +59,12 @@ type Resource = {
   id: string
   name: string
   code?: string | null
+  appearanceIcon?: string | null
+  capacityUnitIcon?: string | null
+  capacityUnitColor?: string | null
   areaName?: string | null
   typeName?: string | null
+  typeIcon?: string | null
   typeColor?: string | null
 }
 
@@ -72,6 +77,7 @@ type SeatPlannerWorkspace = {
     statusCode: string
   }
   lines: SeatPlannerLine[]
+  allocations: PlannerAllocation[]
   resources: Resource[]
 }
 
@@ -187,6 +193,14 @@ function groupResources(resources: Resource[]): Array<Resource & { floorName: st
   )
 }
 
+function ResourceIcon({ resource }: { resource: Resource }) {
+  const iconName = resource.appearanceIcon ?? resource.capacityUnitIcon ?? resource.typeIcon ?? null
+  const iconNode = resolveRegisteredLucideIconNode(iconName ?? undefined, 'size-4')
+  if (iconNode) return iconNode
+  if (iconName) return <span className="text-sm leading-none" aria-hidden="true">{iconName}</span>
+  return <span className="text-xs font-semibold text-muted-foreground" aria-hidden="true">{(resource.code || resource.name).slice(0, 2).toUpperCase()}</span>
+}
+
 function computeLanes(allocations: PlannerAllocation[]): PlannerAllocation[] {
   const sorted = [...allocations].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
   const laneEnds: number[] = []
@@ -200,33 +214,6 @@ function computeLanes(allocations: PlannerAllocation[]): PlannerAllocation[] {
   })
   const lanesCount = Math.max(1, laneEnds.length)
   return result.map((allocation) => ({ ...allocation, lanesCount }))
-}
-
-function buildMockAllocations(workspace: SeatPlannerWorkspace): PlannerAllocation[] {
-  const base = workspace.appointment.requestedStartAt
-  const usedResourceIds = new Set(workspace.lines.map((line) => line.currentAssignment?.resourceId).filter(Boolean))
-  return workspace.resources
-    .filter((resource) => !usedResourceIds.has(resource.id))
-    .slice(0, 2)
-    .map((resource, index) => {
-      const startsAt = addMinutes(base, 90 + index * 120)
-      return {
-        id: `mock-existing-${resource.id}`,
-        appointmentId: 'mock-existing-appointment',
-        lineId: `mock-existing-line-${index}`,
-        resourceId: resource.id,
-        resourceName: resource.name,
-        serviceName: index === 0 ? 'Existing booking' : 'Reserved slot',
-        customerName: index === 0 ? 'Walk-in guest' : 'Regular customer',
-        startsAt,
-        endsAt: addMinutes(startsAt, index === 0 ? 60 : 45),
-        state: 'confirmed',
-        assignedMemberId: mockStaff[index]?.id ?? null,
-        assignedMemberName: mockStaff[index]?.displayName ?? null,
-        laneIndex: 0,
-        lanesCount: 1,
-      }
-    })
 }
 
 function blockTone(isOwn: boolean, isActive: boolean, state: 'draft' | 'confirmed'): string {
@@ -665,7 +652,10 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const allAllocations = React.useMemo(() => {
     if (!workspace) return []
     const bySeat = new Map<string, PlannerAllocation[]>()
-    for (const allocation of [...buildMockAllocations(workspace), ...ownAllocations]) bySeat.set(allocation.resourceId, [...(bySeat.get(allocation.resourceId) ?? []), allocation])
+    const allocations = new Map<string, PlannerAllocation>()
+    for (const allocation of workspace.allocations) allocations.set(allocation.id, allocation)
+    for (const allocation of ownAllocations) allocations.set(allocation.id, allocation)
+    for (const allocation of allocations.values()) bySeat.set(allocation.resourceId, [...(bySeat.get(allocation.resourceId) ?? []), allocation])
     return [...bySeat.values()].flatMap(computeLanes)
   }, [ownAllocations, workspace])
   const allocationsBySeat = React.useMemo(() => {
@@ -877,7 +867,9 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                           <div key={seat.id} className={`flex flex-col justify-center gap-2 overflow-hidden border-r border-border bg-surface px-3 py-2 ${seat.isFirstInFloor ? 'border-l' : ''}`} style={{ height: HEADER_HEIGHT }}>
                             <span className="truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground">{seat.floorName}</span>
                             <div className="flex min-w-0 items-center gap-2">
-                              <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-semibold text-muted-foreground">{(seat.code || seat.name).slice(0, 2).toUpperCase()}</span>
+                              <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted" style={{ color: seat.typeColor ?? seat.capacityUnitColor ?? undefined }}>
+                                <ResourceIcon resource={seat} />
+                              </span>
                               <div className="min-w-0">
                                 <p className="truncate text-sm font-semibold">{seat.code || seat.name}</p>
                                 <p className="truncate text-xs text-muted-foreground">{seat.name}</p>
