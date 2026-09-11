@@ -16,3 +16,16 @@ export const metadata: ModuleInfo = {
 }
 
 export { features } from './acl'
+export { createGdtClient } from './services/gdt'
+export { createInvoiceSyncPersistenceService } from './services/sync-persistence-service'
+export {
+  buildGdtSourceInvoiceId,
+  classifyGdtError,
+  fetchGdtRecords,
+  GdtProviderError,
+  iterateGdtWindows,
+  MalformedGdtInvoiceError,
+  normalizeGdtInvoice,
+} from './services/gdt/index'
+export type { GdtClient, GdtAuthResult } from './services/gdt'
+export type { NormalizedInvoiceLine, NormalizedInvoiceSource } from './services/gdt/index'

@@ -23,10 +23,14 @@ import { createInvoiceTrackingService } from './services/invoice-tracking-servic
 import { createInvoicePaymentConfirmationsService } from './services/payment-confirmations-service'
 import { createInvoiceSyncService } from './services/sync-service'
 import { createGdtClient } from './services/gdt'
+import { createInvoiceSyncPersistenceService } from './services/sync-persistence-service'
+import { createGdtFetcherService, InvoiceNormalizer } from './services/gdt/index'
 
 export function register(container: AppContainer) {
   container.register({
     gdtClient: asFunction(() => createGdtClient()).singleton(),
+    gdtFetcherService: asFunction(({ gdtClient }) => createGdtFetcherService(gdtClient)).scoped().proxy(),
+    invoiceNormalizer: asFunction(() => new InvoiceNormalizer()).singleton(),
     invoiceScopedPersistenceService: asFunction(({ em }) => createInvoiceScopedPersistenceService(em)).scoped().proxy(),
     invoicePartnerTermsService: asFunction(({ em, invoiceScopedPersistenceService }) =>
       createInvoicePartnerTermsService(em, invoiceScopedPersistenceService),
@@ -53,6 +57,9 @@ export function register(container: AppContainer) {
     ).scoped().proxy(),
     invoiceSyncService: asFunction(({ em, cache, progressService, gdtClient, tenantEncryptionService }) =>
       createInvoiceSyncService(em, cache, progressService, gdtClient, tenantEncryptionService),
+    ).scoped().proxy(),
+    invoiceSyncPersistenceService: asFunction(({ em, invoiceScopedPersistenceService, invoicePartnerTermsService }) =>
+      createInvoiceSyncPersistenceService(em, invoiceScopedPersistenceService, invoicePartnerTermsService),
     ).scoped().proxy(),
     Invoice: asValue(Invoice),
     InvoiceAutoPaidTaxCode: asValue(InvoiceAutoPaidTaxCode),
