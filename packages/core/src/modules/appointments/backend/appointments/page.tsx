@@ -422,8 +422,10 @@ export default function AppointmentsListPage() {
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.clone', 'Clone Booking')} onClick={() => void handleClone(row.original)}>
               <Copy className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.planner', 'Open Seat Planner')} disabled>
-              <LayoutPanelTop className="h-3.5 w-3.5" />
+            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.planner', 'Open Seat Planner')}>
+              <Link href={`/backend/appointments/${row.original.id}/seat-planner`}>
+                <LayoutPanelTop className="h-3.5 w-3.5" />
+              </Link>
             </Button>
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" title={t('appointments.list.actions.delete', 'Delete Booking')} onClick={() => void handleDelete(row.original)}>
               <Trash2 className="h-3.5 w-3.5" />

@@ -253,7 +253,7 @@ export default function AppointmentCreatePage() {
     let cancelled = false
     const controller = new AbortController()
     async function loadServices() {
-      if (!tenantId) {
+      if (!tenantId || !locationId) {
         setServices([])
         setServicesError(null)
         setServicesLoading(false)
@@ -264,6 +264,7 @@ export default function AppointmentCreatePage() {
       try {
         const params = new URLSearchParams({
           tenantId,
+          organizationId: locationId,
         })
         const call = await apiCall<{ items?: BookableService[]; error?: string }>(
           `/api/catalog/bookable-services?${params.toString()}`,
@@ -295,7 +296,7 @@ export default function AppointmentCreatePage() {
       cancelled = true
       controller.abort()
     }
-  }, [tenantId, t])
+  }, [locationId, tenantId, t])
 
   const lookupCustomer = React.useCallback(
     async (

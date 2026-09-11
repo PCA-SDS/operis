@@ -127,6 +127,23 @@
           "enumItems": [],
           "mappedType": "uuid"
         },
+        "product_category": {
+          "name": "product_category",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
         "product_handle": {
           "name": "product_handle",
           "type": "text",
@@ -177,6 +194,23 @@
           "collation": null,
           "enumItems": [],
           "mappedType": "text"
+        },
+        "selected_options": {
+          "name": "selected_options",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "json"
         },
         "sort_order": {
           "name": "sort_order",

@@ -12,6 +12,8 @@ export const setup: ModuleSetupConfig = {
       'appointments.create',
       'appointments.manage',
       'appointments.settings.manage',
+      'appointments.seat_planner.view',
+      'appointments.seat_planner.manage',
     ],
   },
   async seedDefaults({ em, tenantId }: { em: EntityManager; tenantId: string }) {

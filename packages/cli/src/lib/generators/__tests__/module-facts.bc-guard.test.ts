@@ -169,7 +169,13 @@ describe('module-facts BC resolve guard (T2)', () => {
     // the delta assertion below: complete-minus-legacy is 27,657 bytes against
     // a 1,800,000 cap. The extraction SHAPE is unchanged; there is simply one
     // more module in the repo.
-    expect(Buffer.byteLength(completeJson)).toBeLessThan(4_100_000)
+    //
+    // JSON cap raised narrowly by the seat-planner/resource-assignment API
+    // surface: the extractor now sees the new appointment draft/confirm routes,
+    // resource assignment route, ACL features, and entity facts. The observed
+    // overage was 548 bytes over the previous cap, while the delta assertion
+    // below remains far under its ceiling.
+    expect(Buffer.byteLength(completeJson)).toBeLessThan(4_125_000)
     expect(Buffer.byteLength(completeJson) - Buffer.byteLength(legacyJson)).toBeLessThan(1_800_000)
     // Markdown cap raised with the source-link contract: entities, events, ACL
     // features, DI tokens, search entities, notifications, UMES hosts and UMES
