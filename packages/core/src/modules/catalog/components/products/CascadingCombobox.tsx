@@ -451,8 +451,8 @@ export function CascadingCombobox({
       </div>
 
       {isMobile ? (
-        <Drawer open={open} onOpenChange={handleOpenChange} side="bottom">
-          <DrawerContent className="flex flex-col gap-0 px-0 outline-none">
+        <Drawer open={open} onOpenChange={handleOpenChange}>
+          <DrawerContent side="bottom" className="flex flex-col gap-0 px-0 outline-none">
             <DrawerHeader className="pl-4 pr-12 pt-4 pb-3">
               <DrawerTitle className="text-lg">{placeholder}</DrawerTitle>
             </DrawerHeader>
