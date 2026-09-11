@@ -1149,8 +1149,11 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
 }
 
 [data-app-shell-column]:has([data-slot='page'][data-fill='true']) > main {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   overflow-y: auto;
+  padding-bottom: 0 !important;
 }
 
 @media (min-width: 40rem) {
@@ -1160,8 +1163,11 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
   }
 
   [data-app-shell-column]:has([data-slot='page'][data-fill='sm']) > main {
+    display: flex;
+    flex-direction: column;
     min-height: 0;
     overflow-y: auto;
+    padding-bottom: 0 !important;
   }
 }
 
@@ -1172,8 +1178,11 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
   }
 
   [data-app-shell-column]:has([data-slot='page'][data-fill='md']) > main {
+    display: flex;
+    flex-direction: column;
     min-height: 0;
     overflow-y: auto;
+    padding-bottom: 0 !important;
   }
 }
 
@@ -1184,8 +1193,11 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
   }
 
   [data-app-shell-column]:has([data-slot='page'][data-fill='lg']) > main {
+    display: flex;
+    flex-direction: column;
     min-height: 0;
     overflow-y: auto;
+    padding-bottom: 0 !important;
   }
 }
 

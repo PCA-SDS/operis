@@ -4,11 +4,14 @@ import * as React from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft,
+  Calendar,
   Check,
   Clock,
   Menu,
+  MapPin,
   Minus,
   PanelLeftClose,
+  Phone,
   Plus,
   Search,
   Trash2,
@@ -43,6 +46,7 @@ type SeatPlannerLine = {
   id: string
   productTitle: string
   durationMinutes: number | null
+  options: Array<{ groupName: string | null; name: string }>
   currentAssignment?: {
     id: string
     state: 'draft' | 'confirmed'
@@ -72,6 +76,12 @@ type SeatPlannerWorkspace = {
   appointment: {
     id: string
     customerName: string
+    customerSalutation: string | null
+    customerPhone: string | null
+    customerEmail: string | null
+    customerOrigin: string | null
+    bookingType: string | null
+    organizationName: string | null
     requestedStartAt: string
     requestedEndAt: string | null
     statusCode: string
@@ -223,30 +233,6 @@ function blockTone(isOwn: boolean, isActive: boolean, state: 'draft' | 'confirme
   return 'border-status-info-border bg-status-info-bg text-status-info-text'
 }
 
-function LegendBar({ earliestTime }: { earliestTime: string }) {
-  const t = useT()
-  return (
-    <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs text-muted-foreground">
-      <span className="inline-flex items-center gap-1.5 font-medium text-status-warning-text">
-        <span className="h-0.5 w-4 bg-status-warning-icon" />
-        {t('appointments.seatPlanner.earliest', 'Earliest')}: {earliestTime}
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-2.5 w-4 rounded-sm bg-muted" />
-        {t('appointments.seatPlanner.beforeEarliest', 'Before earliest')}
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-        {t('appointments.seatPlanner.yourBooking', 'Your booking')}
-      </span>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-status-neutral-icon" />
-        {t('appointments.seatPlanner.existingBooking', 'Existing booking')}
-      </span>
-    </div>
-  )
-}
-
 function PlannerBlock(props: {
   allocation: PlannerAllocation
   line: SeatPlannerLine | null
@@ -329,24 +315,45 @@ function BookingSidebar(props: {
   const { workspace, activeLineId, canManage, isSaving, onSelectLine, onClearLine, onPreviewAction } = props
   const t = useT()
   const assigned = workspace.lines.filter((line) => line.currentAssignment).length
+  const customerInitials = workspace.appointment.customerName
+    .split(/\s+/)
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+  const displayName = [workspace.appointment.customerSalutation, workspace.appointment.customerName].filter(Boolean).join(' ')
+  const formatLabel = (value: string | null) => value
+    ? value.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase())
+    : null
   return (
     <div className="flex h-full flex-col bg-surface">
-      <div className="shrink-0 border-b border-border p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-base font-semibold">{workspace.appointment.customerName}</p>
-            <p className="mt-1 text-sm text-muted-foreground">{formatDate(workspace.appointment.requestedStartAt)}</p>
+      <div className="shrink-0 border-b border-border p-3 lg:p-4">
+        <div className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-foreground text-sm font-semibold text-background">
+            {customerInitials || '?'}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <p className="truncate text-base font-semibold">{displayName}</p>
+              <AppointmentStatusBadge statusCode={workspace.appointment.statusCode} />
+            </div>
+            {workspace.appointment.customerPhone ? (
+              <p className="mt-1 flex items-center gap-1.5 truncate text-xs text-muted-foreground"><Phone className="size-3.5 shrink-0" />{workspace.appointment.customerPhone}</p>
+            ) : null}
+            {workspace.appointment.customerEmail ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{workspace.appointment.customerEmail}</p> : null}
           </div>
-          <AppointmentStatusBadge statusCode={workspace.appointment.statusCode} />
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-          <div className="rounded-md border border-border bg-muted/30 p-3">
-            <p className="text-xs font-medium text-muted-foreground">{t('appointments.seatPlanner.services', 'Services')}</p>
-            <p className="mt-1 font-semibold">{workspace.lines.length}</p>
+        {workspace.appointment.customerOrigin || workspace.appointment.bookingType ? (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {[workspace.appointment.customerOrigin, workspace.appointment.bookingType].filter(Boolean).map((value) => <Tag key={value} variant="neutral">{formatLabel(value)}</Tag>)}
           </div>
-          <div className="rounded-md border border-border bg-muted/30 p-3">
-            <p className="text-xs font-medium text-muted-foreground">{t('appointments.seatPlanner.assigned', 'Assigned')}</p>
-            <p className="mt-1 font-semibold">{assigned}</p>
+        ) : null}
+        <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
+          <div className="space-y-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2"><MapPin className="size-3.5 shrink-0" /><span className="truncate font-medium text-foreground">{workspace.appointment.organizationName ?? t('appointments.seatPlanner.locationUnavailable', 'Location unavailable')}</span></div>
+            <div className="flex items-center gap-2"><Calendar className="size-3.5 shrink-0" /><span className="truncate">{formatDate(workspace.appointment.requestedStartAt)}</span></div>
+            <div className="flex items-center gap-2"><Clock className="size-3.5 shrink-0" /><span className="truncate">{formatTime(workspace.appointment.requestedStartAt)} - {formatTime(workspace.appointment.requestedEndAt ?? addMinutes(workspace.appointment.requestedStartAt, 60))}</span></div>
           </div>
         </div>
         <div className="mt-4 flex gap-2">
@@ -358,8 +365,8 @@ function BookingSidebar(props: {
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <div>
-            <p className="text-sm font-semibold">{t('appointments.seatPlanner.serviceQueue', 'Service queue')}</p>
-            <p className="text-xs text-muted-foreground">{t('appointments.seatPlanner.selectServiceHint', 'Select a service, then click a seat slot.')}</p>
+            <p className="text-sm font-semibold">{t('appointments.seatPlanner.serviceQueue', 'Services to schedule')}</p>
+            <p className="text-xs text-muted-foreground">{assigned}/{workspace.lines.length} {t('appointments.seatPlanner.readyToConfirm', 'ready to confirm')}</p>
           </div>
           <IconButton type="button" size="sm" variant="outline" aria-label={t('appointments.seatPlanner.addService', 'Add service')} onClick={onPreviewAction}>
             <Plus className="size-4" />
@@ -381,15 +388,15 @@ function BookingSidebar(props: {
                     if (event.key === 'Enter' || event.key === ' ') onSelectLine(line.id)
                   }}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">{index + 1}</span>
+                  <div className="flex items-start gap-2">
+                    <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">{index + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
                         <p className="line-clamp-2 text-sm font-semibold">{line.productTitle}</p>
+                        {line.currentAssignment ? <Check className="size-3.5 shrink-0 text-status-success-icon" /> : null}
                       </div>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {lineDuration(line)} min{line.currentAssignment?.resourceName ? `, ${line.currentAssignment.resourceName}` : ''}
-                      </p>
+                      {line.options.length > 0 ? <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">{line.options.map((option) => <p key={`${option.groupName ?? 'option'}-${option.name}`} className="truncate">{option.groupName ? `${option.groupName}: ` : ''}<span className="font-medium text-foreground">{option.name}</span></p>)}</div> : null}
+                      <Tag className="mt-2" variant="neutral">{lineDuration(line)} {t('appointments.seatPlanner.minutesShort', 'min')}</Tag>
                     </div>
                     <Tag variant={line.currentAssignment ? (line.currentAssignment.state === 'confirmed' ? 'success' : 'info') : 'neutral'}>
                       {line.currentAssignment ? line.currentAssignment.state : t('appointments.seatPlanner.unassigned', 'Unassigned')}
@@ -397,7 +404,11 @@ function BookingSidebar(props: {
                   </div>
                   {line.currentAssignment ? (
                     <div className="mt-3 flex items-center justify-between gap-2 rounded-md bg-muted/40 px-3 py-2 text-xs">
-                      <span className="truncate">{formatTime(line.currentAssignment.startsAt)} - {formatTime(line.currentAssignment.endsAt)}</span>
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="truncate"><Clock className="mr-1 inline size-3" />{formatTime(line.currentAssignment.startsAt)} - {formatTime(line.currentAssignment.endsAt)}</p>
+                        <p className="truncate text-muted-foreground">{t('appointments.seatPlanner.seat', 'Seat')}: <span className="font-medium text-foreground">{line.currentAssignment.resourceName ?? t('appointments.seatPlanner.notSelected', 'Not selected')}</span></p>
+                        <p className="truncate text-muted-foreground">{t('appointments.seatPlanner.staff', 'Staff')}: <span className="font-medium text-foreground">{line.currentAssignment.assignedMemberName ?? t('appointments.seatPlanner.notSelected', 'Not selected')}</span></p>
+                      </div>
                       {canManage && line.currentAssignment.state === 'draft' ? (
                         <IconButton
                           type="button"
@@ -588,6 +599,10 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const appointmentId = typeof params?.id === 'string' ? params.id : ''
   const slots = React.useMemo(buildSlots, [])
   const timeMarkers = React.useMemo(buildTimeMarkers, [])
+  const slotGridMarkers = React.useMemo(
+    () => slots.filter((time) => timeToMinutes(time) % 60 !== 0),
+    [slots],
+  )
   const [workspace, setWorkspace] = React.useState<SeatPlannerWorkspace | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -664,7 +679,6 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     return map
   }, [allAllocations])
   const activeLine = React.useMemo(() => workspace?.lines.find((line) => line.id === activeLineId) ?? null, [activeLineId, workspace?.lines])
-  const earliestTime = workspace ? formatTime(workspace.appointment.requestedStartAt) : minutesToTime(START_HOUR * 60)
   const earliestDate = workspace ? new Date(workspace.appointment.requestedStartAt) : null
   const earliestMinutes = earliestDate ? earliestDate.getHours() * 60 + earliestDate.getMinutes() : START_HOUR * 60
   const bodyHeight = ((END_HOUR - START_HOUR) * 60 / SLOT_MINUTES) * slotHeight()
@@ -773,16 +787,14 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   }, [ownAllocations, seatColumns])
 
   if (isLoading) {
-    return (
-      <Page><PageBody><div className="flex h-64 items-center justify-center"><LoadingMessage label={t('common.loading', 'Loading...')} /></div></PageBody></Page>
-    )
+    return <Page fill className="!gap-0 !space-y-0"><PageBody fill><div className="flex h-full items-center justify-center"><LoadingMessage label={t('common.loading', 'Loading...')} /></div></PageBody></Page>
   }
 
   if (error || !workspace) {
     return (
-      <Page>
-        <PageBody>
-          <div className="flex h-64 flex-col items-center justify-center gap-4">
+      <Page fill className="!gap-0 !space-y-0">
+        <PageBody fill>
+          <div className="flex h-full flex-col items-center justify-center gap-4">
             <ErrorMessage label={error ?? t('appointments.seatPlanner.loadError', 'Failed to load seat planner.')} />
             <Button type="button" variant="outline" onClick={() => void loadWorkspace()}>{t('common.retry', 'Retry')}</Button>
           </div>
@@ -792,9 +804,9 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   }
 
   return (
-    <Page>
-      <PageBody className="p-0">
-        <div className="flex min-h-0 flex-col overflow-hidden bg-surface" style={{ height: 'calc(100vh - 4rem)' }}>
+    <Page fill className="!gap-0 !space-y-0 -mx-4 -mb-1 -mt-4 overflow-hidden sm:-mx-6 lg:-mx-8 lg:-mt-5">
+      <PageBody fill className="!space-y-0 overflow-hidden p-0">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden bg-surface">
           <header className="shrink-0 border-b border-border bg-surface">
             <div className="flex items-center justify-between gap-3 px-4 py-3">
               <div className="flex min-w-0 items-center gap-2">
@@ -809,7 +821,6 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                     <h1 className="truncate text-base font-semibold">{t('appointments.seatPlanner.title', 'Seat Planner')}</h1>
                     {activeLine ? <Tag variant="info">{activeLine.productTitle}</Tag> : null}
                   </div>
-                  <div className="hidden md:block"><LegendBar earliestTime={earliestTime} /></div>
                 </div>
               </div>
               <Button type="button" disabled={!canConfirm} onClick={() => void handleConfirmAll()}>
@@ -817,7 +828,6 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                 <span className="hidden sm:inline">{t('appointments.seatPlanner.confirmSchedule', 'Confirm schedule')}</span>
               </Button>
             </div>
-            <div className="border-t border-border px-4 py-2 md:hidden"><LegendBar earliestTime={earliestTime} /></div>
           </header>
 
           <div className="flex min-h-0 flex-1">
@@ -880,18 +890,22 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                       </div>
 
                       <div className="absolute inset-x-0 bottom-0 grid" style={{ top: HEADER_HEIGHT, gridTemplateColumns }}>
+                        <div className="pointer-events-none absolute inset-x-0 z-30 border-t-2 border-status-warning-border" style={{ top: Math.max(0, ((earliestMinutes - START_HOUR * 60) / SLOT_MINUTES) * slotHeight()) }} />
                         <div className="sticky left-0 z-20 border-r border-border bg-surface">
+                          {slotGridMarkers.map((time) => (
+                            <div key={`time-slot-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time) }} />
+                          ))}
                           {timeMarkers.map((time) => (
                             <div key={time} className="absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time) }}>
-                              <span className="absolute left-3 top-1 text-xs text-muted-foreground">{time}</span>
+                              <span className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-surface px-1 text-xs text-muted-foreground ${time === timeMarkers[0] ? 'top-2' : time === timeMarkers[timeMarkers.length - 1] ? '-mt-1 -translate-y-full' : '-translate-y-1/2'}`}>{time}</span>
                             </div>
                           ))}
-                          <div className="pointer-events-none absolute left-0 right-0 z-30 border-t-2 border-status-warning-border" style={{ top: Math.max(0, ((earliestMinutes - START_HOUR * 60) / SLOT_MINUTES) * slotHeight()) }} />
                         </div>
 
                         {seatColumns.map((seat) => (
                           <div key={seat.id} className={`relative border-r border-border bg-surface ${seat.isFirstInFloor ? 'border-l' : ''}`}>
                             <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-muted/60" style={{ height: Math.max(0, ((earliestMinutes - START_HOUR * 60) / SLOT_MINUTES) * slotHeight()) }} />
+                            {slotGridMarkers.map((time) => <div key={`${seat.id}-${time}-slot-grid`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time) }} />)}
                             {timeMarkers.map((time) => <div key={`${seat.id}-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time) }} />)}
                             {slots.map((time) => {
                               const minutes = timeToMinutes(time)

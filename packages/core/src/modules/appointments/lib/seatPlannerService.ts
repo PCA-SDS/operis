@@ -15,6 +15,7 @@ export interface SeatPlannerLine {
   id: string
   productTitle: string
   durationMinutes: number | null
+  options: Array<{ groupName: string | null; name: string }>
   currentAssignment?: {
     id: string
     state: 'draft' | 'confirmed'
@@ -31,6 +32,12 @@ export interface SeatPlannerWorkspace {
   appointment: {
     id: string
     customerName: string
+    customerSalutation: string | null
+    customerPhone: string | null
+    customerEmail: string | null
+    customerOrigin: string | null
+    bookingType: string | null
+    organizationName: string | null
     requestedStartAt: string
     requestedEndAt: string | null
     statusCode: string
@@ -62,6 +69,24 @@ export interface SeatPlannerWorkspace {
     typeIcon?: string | null
     typeColor?: string | null
   }>
+}
+
+function normalizeLineOptions(value: Record<string, unknown>[] | null | undefined): Array<{ groupName: string | null; name: string }> {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((option) => {
+    const name = typeof option.name === 'string'
+      ? option.name
+      : typeof option.label === 'string'
+        ? option.label
+        : typeof option.value === 'string'
+          ? option.value
+          : null
+    if (!name) return []
+    return [{
+      groupName: typeof option.groupName === 'string' ? option.groupName : null,
+      name,
+    }]
+  })
 }
 
 export interface UpsertDraftParams {
@@ -118,6 +143,12 @@ export class AppointmentSeatPlannerService {
     if (!appointment) {
       throw new Error('Appointment not found')
     }
+
+    const appointmentOrganization = await this.em.findOne(Organization, {
+      id: appointment.organizationId,
+      tenant: params.tenantId,
+      deletedAt: null,
+    })
 
     // Load lines
     const lines = await this.em.find(
@@ -221,6 +252,7 @@ export class AppointmentSeatPlannerService {
           id: line.id,
           productTitle: line.productTitle,
           durationMinutes: line.durationMinutes ?? 60,
+          options: normalizeLineOptions(line.selectedOptions),
           currentAssignment: assignment
             ? {
                 id: assignment.id,
@@ -241,6 +273,14 @@ export class AppointmentSeatPlannerService {
       appointment: {
         id: appointment.id,
         customerName: appointment.customerName,
+        customerSalutation: appointment.customerSalutation ?? null,
+        customerPhone: appointment.customerPhone
+          ? [appointment.customerPhoneCountryCode, appointment.customerPhone].filter(Boolean).join(' ')
+          : null,
+        customerEmail: appointment.customerEmail ?? null,
+        customerOrigin: appointment.customerOrigin ?? null,
+        bookingType: appointment.bookingType ?? null,
+        organizationName: appointmentOrganization?.name ?? null,
         requestedStartAt: appointment.requestedStartAt.toISOString(),
         requestedEndAt: effectiveEndAt.toISOString(),
         statusCode: appointment.statusCode,

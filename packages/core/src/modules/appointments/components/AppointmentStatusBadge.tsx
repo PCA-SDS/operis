@@ -6,6 +6,7 @@ import {
   APPOINTMENT_SYSTEM_STATUS_CODES,
   type AppointmentSystemStatusCode,
 } from '../data/constants'
+import { useT } from '@open-mercato/shared/lib/i18n/context'
 
 export const APPOINTMENT_STATUS_BADGE_VARIANTS: StatusMap<AppointmentSystemStatusCode> = {
   new_request: 'info',
@@ -35,13 +36,24 @@ export function AppointmentStatusBadge({
   dot?: boolean
   className?: string
 }) {
+  const t = useT()
+  const defaultLabel = statusCode === 'new_request'
+    ? t('appointments.status.newRequest', 'New request')
+    : statusCode === 'in_progress'
+      ? t('appointments.status.inProgress', 'In progress')
+      : statusCode === 'booked'
+        ? t('appointments.status.booked', 'Booked')
+        : statusCode === 'cancelled'
+          ? t('appointments.status.cancelled', 'Cancelled')
+          : null
+
   return (
     <StatusBadge
       variant={getAppointmentStatusBadgeVariant(statusCode)}
       dot={dot}
       className={className}
     >
-      {label?.trim() || statusCode}
+      {label?.trim() || defaultLabel || statusCode}
     </StatusBadge>
   )
 }
