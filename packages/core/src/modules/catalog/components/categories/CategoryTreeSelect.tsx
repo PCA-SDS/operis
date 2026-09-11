@@ -121,13 +121,14 @@ export function CategoryTreeSelect({
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     async function loadCategories() {
       setLoading(true)
       try {
         const params = new URLSearchParams({ view: 'tree', status: 'all' })
         const payload = await readApiResultOrThrow<CategoryTreeResponse>(
           `/api/catalog/categories?${params.toString()}`,
-          undefined,
+          { signal: controller.signal },
           { errorMessage: errorLabel, allowNullResult: true },
         )
         if (cancelled) return
@@ -145,6 +146,7 @@ export function CategoryTreeSelect({
     void loadCategories()
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [errorLabel, scopeVersion, selectedValue])
 
