@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { DEFAULT_CATALOG_DURATION_UNIT } from '@open-mercato/core/modules/catalog/lib/durationUnits'
 import type { OptionGroup, Option, Price, ServiceItem } from './data/types'
 
 /**
@@ -127,7 +128,7 @@ export function parseTpsDurationForEntity(durationString: string | undefined): {
   const max = match[2] ? parseInt(match[2], 10) : undefined
 
   return {
-    durationUnit: 'minute',
+    durationUnit: DEFAULT_CATALOG_DURATION_UNIT,
     durationMin: max ? min : undefined,
     durationMax: max ? max : undefined,
     durationValue: max ? undefined : min

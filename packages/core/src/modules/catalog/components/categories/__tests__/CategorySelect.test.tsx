@@ -5,6 +5,12 @@ import * as React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { CategorySelect } from '../CategorySelect'
 
+if (typeof window !== 'undefined') {
+  if (!Element.prototype.hasPointerCapture) Element.prototype.hasPointerCapture = () => false
+  if (!Element.prototype.releasePointerCapture) Element.prototype.releasePointerCapture = () => undefined
+  if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = () => undefined
+}
+
 const mockReadApiResultOrThrow = jest.fn()
 jest.mock('@open-mercato/ui/backend/utils/apiCall', () => ({
   readApiResultOrThrow: (...args: unknown[]) => mockReadApiResultOrThrow(...args),
@@ -17,12 +23,90 @@ jest.mock('@open-mercato/shared/lib/i18n/context', () => {
   }
   return { useT: () => translate }
 })
+jest.mock('@open-mercato/ui/primitives/select', () => {
+  const React2 = require('react') as typeof import('react')
+  type SelectContextValue = {
+    value?: string
+    onValueChange?: (value: string) => void
+    disabled?: boolean
+    required?: boolean
+    labels: Record<string, string>
+    register: (value: string, label: string) => void
+  }
+  const SelectContext = React2.createContext<SelectContextValue>({
+    labels: {},
+    register: () => undefined,
+  })
+  return {
+    Select: ({ children, value, onValueChange, disabled, required, name }: {
+      children: React.ReactNode
+      value?: string
+      onValueChange?: (value: string) => void
+      disabled?: boolean
+      required?: boolean
+      name?: string
+    }) => {
+      const [labels, setLabels] = React2.useState<Record<string, string>>({})
+      const register = React2.useCallback((nextValue: string, label: string) => {
+        setLabels((current) => current[nextValue] === label ? current : { ...current, [nextValue]: label })
+      }, [])
+      return (
+        <SelectContext.Provider value={{ value, onValueChange, disabled, required, labels, register }}>
+          <div data-name={name}>{children}</div>
+        </SelectContext.Provider>
+      )
+    },
+    SelectTrigger: React2.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(
+      ({ children, ...props }, ref) => {
+        const context = React2.useContext(SelectContext)
+        return (
+          <button
+            ref={ref}
+            type="button"
+            role="combobox"
+            disabled={context.disabled}
+            aria-required={context.required || undefined}
+            {...props}
+          >
+            {children}
+          </button>
+        )
+      },
+    ),
+    SelectValue: ({ children, placeholder }: { children?: React.ReactNode; placeholder?: string }) => {
+      const context = React2.useContext(SelectContext)
+      const selectedLabel = context.value ? context.labels[context.value] : undefined
+      return <span>{children ?? selectedLabel ?? placeholder}</span>
+    },
+    SelectContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    SelectItem: ({ children, value, disabled }: {
+      children: React.ReactNode
+      value: string
+      disabled?: boolean
+    }) => {
+      const context = React2.useContext(SelectContext)
+      const label = typeof children === 'string' ? children : ''
+      React2.useEffect(() => {
+        context.register(value, label)
+      }, [context.register, label, value])
+      return (
+        <button type="button" role="option" disabled={disabled} onClick={() => context.onValueChange?.(value)}>
+          {children}
+        </button>
+      )
+    },
+  }
+})
 
 const sampleNodes = [
   { id: 'cat-1', name: 'Electronics', isActive: true },
   { id: 'cat-2', name: 'Books', isActive: true },
   { id: 'cat-3', name: 'Archived', isActive: false },
 ]
+
+function openSelect() {
+  fireEvent.pointerDown(screen.getByRole('combobox'), { button: 0, ctrlKey: false, pointerType: 'mouse' })
+}
 
 describe('CategorySelect', () => {
   beforeEach(() => {
@@ -33,6 +117,7 @@ describe('CategorySelect', () => {
     render(<CategorySelect nodes={sampleNodes} fetchOnMount={false} />)
     const select = screen.getByRole('combobox')
     expect(select).toBeInTheDocument()
+    openSelect()
     expect(screen.getByText('Electronics')).toBeInTheDocument()
     expect(screen.getByText('Books')).toBeInTheDocument()
   })
@@ -45,7 +130,7 @@ describe('CategorySelect', () => {
         emptyOptionLabel="-- Pick a category --"
       />,
     )
-    expect(screen.getByText('-- Pick a category --')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: '-- Pick a category --' })).toBeInTheDocument()
   })
 
   it('omits the empty option when includeEmptyOption is false', () => {
@@ -56,7 +141,8 @@ describe('CategorySelect', () => {
         includeEmptyOption={false}
       />,
     )
-    expect(screen.queryByText('Root level')).not.toBeInTheDocument()
+    openSelect()
+    expect(screen.queryByRole('option', { name: 'Root level' })).not.toBeInTheDocument()
   })
 
   it('fires onChange with selected value', () => {
@@ -64,8 +150,8 @@ describe('CategorySelect', () => {
     render(
       <CategorySelect nodes={sampleNodes} fetchOnMount={false} onChange={handleChange} />,
     )
-    const select = screen.getByRole('combobox')
-    fireEvent.change(select, { target: { value: 'cat-2' } })
+    openSelect()
+    fireEvent.click(screen.getByRole('option', { name: 'Books' }))
     expect(handleChange).toHaveBeenCalledWith('cat-2')
   })
 
@@ -79,8 +165,8 @@ describe('CategorySelect', () => {
         value="cat-1"
       />,
     )
-    const select = screen.getByRole('combobox')
-    fireEvent.change(select, { target: { value: '' } })
+    openSelect()
+    fireEvent.click(screen.getByRole('option', { name: 'Root level' }))
     expect(handleChange).toHaveBeenCalledWith(null)
   })
 
@@ -88,9 +174,19 @@ describe('CategorySelect', () => {
     mockReadApiResultOrThrow.mockResolvedValue({ items: sampleNodes })
     render(<CategorySelect fetchOnMount={true} />)
     await waitFor(() => {
-      expect(screen.getByText('Electronics')).toBeInTheDocument()
+      expect(screen.getByRole('combobox')).not.toBeDisabled()
     })
+    openSelect()
+    expect(screen.getByText('Electronics')).toBeInTheDocument()
     expect(mockReadApiResultOrThrow).toHaveBeenCalled()
+  })
+
+  it('shows the selected parent label after async options load', async () => {
+    mockReadApiResultOrThrow.mockResolvedValue({ items: sampleNodes })
+    render(<CategorySelect value="cat-2" fetchOnMount={true} />)
+    await waitFor(() => {
+      expect(screen.getByRole('combobox')).toHaveTextContent('Books')
+    })
   })
 
   it('shows loading state during fetch', () => {
@@ -105,7 +201,7 @@ describe('CategorySelect', () => {
     render(<CategorySelect fetchOnMount={true} />)
     await waitFor(() => {
       const select = screen.getByRole('combobox')
-      expect(select).toBeDisabled()
+      expect(select).toHaveTextContent('Failed to load categories')
     })
   })
 
@@ -117,8 +213,7 @@ describe('CategorySelect', () => {
 
   it('reflects the pre-selected value', () => {
     render(<CategorySelect nodes={sampleNodes} fetchOnMount={false} value="cat-2" />)
-    const select = screen.getByRole('combobox') as HTMLSelectElement
-    expect(select.value).toBe('cat-2')
+    expect(screen.getByRole('combobox')).toHaveTextContent('Books')
   })
 
   it('sets required attribute when required prop is true', () => {

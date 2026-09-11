@@ -20,12 +20,12 @@ test.describe('TC-CAT-008: Create Nested Category Hierarchy', () => {
     };
 
     const selectParent = async (): Promise<void> => {
-      const select = page.locator('select#parentId');
+      const select = page.locator('button#parentId');
       await expect(select).toBeVisible({ timeout: 10_000 });
       // Wait for CategorySelect to finish loading options from API
-      await expect(select.locator(`option[value="${parentCategoryId}"]`))
-        .toBeAttached({ timeout: 10_000 });
-      await select.selectOption(parentCategoryId!);
+      await select.click();
+      await page.getByRole('option', { name: new RegExp(parentName) }).click();
+      await expect(select).toContainText(parentName);
     };
 
     try {
@@ -59,10 +59,10 @@ test.describe('TC-CAT-008: Create Nested Category Hierarchy', () => {
       await expect(page).toHaveURL(/\/backend\/catalog\/categories\/[0-9a-f-]{36}\/edit$/i);
       childCategoryId = page.url().match(/\/backend\/catalog\/categories\/([0-9a-f-]{36})\/edit$/i)?.[1] ?? null;
       if (parentCategoryId) {
-        const select = page.locator('select#parentId');
+        const select = page.locator('button#parentId');
         await expect(select).toBeVisible({ timeout: 10_000 });
         // Wait for CategorySelect to load and reflect the saved parent value
-        await expect(select).toHaveValue(parentCategoryId, { timeout: 10_000 });
+        await expect(select).toContainText(parentName, { timeout: 10_000 });
       }
     } finally {
       if (token && childCategoryId) {

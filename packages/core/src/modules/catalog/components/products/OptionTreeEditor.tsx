@@ -5,6 +5,7 @@ import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import {
@@ -55,6 +56,13 @@ import type { CatalogOptionTreeData } from '@open-mercato/core/modules/catalog/d
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
+import {
+  CATALOG_DURATION_UNIT_OPTIONS,
+  DEFAULT_CATALOG_DURATION_UNIT,
+  normalizeCatalogDurationUnit,
+  type CatalogDurationUnit,
+} from '../../lib/durationUnits'
+import { cn } from '@open-mercato/shared/lib/utils'
 
 const logger = createLogger('catalog')
 
@@ -66,13 +74,14 @@ export interface OptionTreeEditorProps {
   currencyCode?: string;
   productId?: string;
   headerActions?: React.ReactNode;
+  showSummary?: boolean;
+  showAddGroupLabelOnMobile?: boolean;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type GroupItem = CatalogOptionTreeData['groups'][number]
 type OptionItem = CatalogOptionTreeData['options'][number]
-type OptionDurationUnit = 'minute' | 'hour'
 type OptionPriceType = 'fixed' | 'range'
 
 type GroupFormValues = {
@@ -92,7 +101,7 @@ type OptionFormValues = {
   duration_value: string
   duration_min: string
   duration_max: string
-  duration_unit: OptionDurationUnit
+  duration_unit: CatalogDurationUnit
   is_addon: boolean
 }
 
@@ -106,12 +115,12 @@ const EMPTY_OPTION_FORM: OptionFormValues = {
   duration_value: '',
   duration_min: '',
   duration_max: '',
-  duration_unit: 'minute',
+  duration_unit: DEFAULT_CATALOG_DURATION_UNIT,
   is_addon: false,
 }
 
-function normalizeDurationUnit(value: string | null | undefined): OptionDurationUnit {
-  return value === 'hour' ? 'hour' : 'minute'
+function normalizeOptionDurationUnit(value: string | null | undefined): CatalogDurationUnit {
+  return normalizeCatalogDurationUnit(value, DEFAULT_CATALOG_DURATION_UNIT) ?? DEFAULT_CATALOG_DURATION_UNIT
 }
 
 function formatOptionPriceLabel(option: OptionItem, t: ReturnType<typeof useT>, currencyCode?: string): string | null {
@@ -127,8 +136,11 @@ function formatOptionPriceLabel(option: OptionItem, t: ReturnType<typeof useT>, 
 }
 
 function formatOptionDurationLabel(option: OptionItem, t: ReturnType<typeof useT>): string | null {
-  const unitLabel = normalizeDurationUnit(option.duration_unit) === 'hour'
-    ? t('catalog.options.durationUnitHourShort', 'hr')
+  const unit = CATALOG_DURATION_UNIT_OPTIONS.find(
+    (entry) => entry.value === normalizeOptionDurationUnit(option.duration_unit),
+  )
+  const unitLabel = unit
+    ? t(unit.shortLabelKey, unit.shortLabelFallback)
     : t('catalog.options.durationUnitMinuteShort', 'min')
 
   const min = option.duration_min
@@ -162,7 +174,7 @@ function toOptionFormValues(option: OptionItem): OptionFormValues {
     duration_max: option.duration_max === null || option.duration_max === undefined
       ? ''
       : String(option.duration_max),
-    duration_unit: normalizeDurationUnit(option.duration_unit),
+    duration_unit: normalizeOptionDurationUnit(option.duration_unit),
     is_addon: option.is_addon ?? false,
   }
 }
@@ -279,7 +291,7 @@ function GroupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <div 
           onKeyDown={(e) => { 
             if (e.key === 'Enter' && form.name.trim()) { 
@@ -437,7 +449,7 @@ function OptionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <div 
           onKeyDown={(e) => { 
             if (e.key === 'Enter' && form.name.trim()) { 
@@ -593,14 +605,17 @@ function OptionDialog({
                 <div className="w-32 shrink-0">
                   <Select
                     value={form.duration_unit}
-                    onValueChange={(value) => setForm((f) => ({ ...f, duration_unit: normalizeDurationUnit(value) }))}
+                    onValueChange={(value) => setForm((f) => ({ ...f, duration_unit: normalizeOptionDurationUnit(value) }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="minute">{t('catalog.options.durationUnitMinute', 'Minutes')}</SelectItem>
-                      <SelectItem value="hour">{t('catalog.options.durationUnitHour', 'Hours')}</SelectItem>
+                      {CATALOG_DURATION_UNIT_OPTIONS.map((unit) => (
+                        <SelectItem key={unit.value} value={unit.value}>
+                          {t(unit.labelKey, unit.labelFallback)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -714,89 +729,192 @@ function OptionRow({
 
   return (
     <div ref={setNodeRef} style={style} className="group/opt">
-      <div className="flex items-center gap-2 py-2 px-3 rounded-md hover:bg-muted/40 transition-colors">
-        <button type="button" className="cursor-grab hover:bg-muted rounded p-0.5" {...attributes} {...listeners}>
+      <div className="rounded-md border border-border/60 bg-card p-2 sm:hidden">
+        <div className="flex items-start gap-2">
+          {hasSubGroups ? (
+            <IconButton
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={() => setExpanded((v) => !v)}
+              aria-label={expanded
+                ? t('catalog.options.collapseOption', 'Collapse option')
+                : t('catalog.options.expandOption', 'Expand option')}
+            >
+              {expanded
+                ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+            </IconButton>
+          ) : (
+            <div className="w-6 shrink-0" />
+          )}
+
+          <div className="min-w-0 flex-1">
+            {isEditingName ? (
+              <Input
+                autoFocus
+                value={editNameValue}
+                onChange={e => setEditNameValue(e.target.value)}
+                onBlur={handleRenameConfirm}
+                onKeyDown={handleRenameKeyDown}
+                className="h-7 min-w-0 py-1 text-sm"
+              />
+            ) : (
+              <span
+                className="block cursor-pointer break-words text-sm font-medium leading-5 underline-offset-4 decoration-primary/50 hover:underline"
+                onClick={() => setIsEditingName(true)}
+              >
+                {opt.name}
+              </span>
+            )}
+          </div>
+
+          <div className="ml-auto flex shrink-0 gap-1">
+            <IconButton
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={() => onAddSubGroup(opt.id)}
+              aria-label={t('catalog.options.addSubGroup', 'Add sub-group after this option')}
+            >
+              <FolderTree className="h-3.5 w-3.5" />
+            </IconButton>
+            <IconButton
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={() => onEdit(opt)}
+              aria-label={t('catalog.options.editOption', 'Edit option')}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </IconButton>
+            <IconButton
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={() => onDelete(opt.id)}
+              aria-label={t('catalog.options.deleteOption', 'Delete option')}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </IconButton>
+          </div>
+        </div>
+
+        {(priceLabel || durationLabel) ? (
+          <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1 pl-8">
+            {priceLabel ? (
+              <Badge variant="secondary" className="max-w-full gap-1 break-words text-xs">
+                <Banknote className="h-2.5 w-2.5 shrink-0" />
+                {priceLabel}
+              </Badge>
+            ) : null}
+            {durationLabel ? (
+              <Badge variant="secondary" className="max-w-full gap-1 break-words text-xs">
+                <Clock className="h-2.5 w-2.5 shrink-0" />
+                {durationLabel}
+              </Badge>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="hidden items-center gap-2 rounded-md px-2 py-2 transition-colors hover:bg-muted/40 sm:flex md:px-3">
+        <button type="button" className="cursor-grab rounded p-0.5 hover:bg-muted" {...attributes} {...listeners}>
           <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
         </button>
 
         {hasSubGroups ? (
-          <button
+          <IconButton
             type="button"
+            variant="ghost"
+            size="xs"
             onClick={() => setExpanded((v) => !v)}
-            className="p-0.5 rounded hover:bg-muted shrink-0"
+            aria-label={expanded
+              ? t('catalog.options.collapseOption', 'Collapse option')
+              : t('catalog.options.expandOption', 'Expand option')}
           >
             {expanded
               ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
-          </button>
+          </IconButton>
         ) : (
           <div className="w-5 shrink-0" />
         )}
 
-        {isEditingName ? (
-          <Input
-            autoFocus
-            value={editNameValue}
-            onChange={e => setEditNameValue(e.target.value)}
-            onBlur={handleRenameConfirm}
-            onKeyDown={handleRenameKeyDown}
-            className="h-7 text-sm py-1 flex-1 min-w-0"
-          />
-        ) : (
-          <span
-            className="font-medium text-sm flex-1 cursor-pointer hover:underline underline-offset-4 decoration-primary/50"
-            onClick={() => setIsEditingName(true)}
-          >
-            {opt.name}
-          </span>
-        )}
+        <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center">
+          {isEditingName ? (
+            <Input
+              autoFocus
+              value={editNameValue}
+              onChange={e => setEditNameValue(e.target.value)}
+              onBlur={handleRenameConfirm}
+              onKeyDown={handleRenameKeyDown}
+              className="h-7 min-w-0 flex-1 py-1 text-sm"
+            />
+          ) : (
+            <span
+              className="min-w-0 cursor-pointer break-words text-sm font-medium underline-offset-4 decoration-primary/50 hover:underline sm:flex-1 sm:truncate"
+              onClick={() => setIsEditingName(true)}
+            >
+              {opt.name}
+            </span>
+          )}
 
-        {opt.code && (
-          <Badge variant="outline" className="text-xs font-mono hidden group-hover/opt:inline-flex">
-            {opt.code}
-          </Badge>
-        )}
-        {priceLabel ? (
-          <Badge variant="secondary" className="text-xs gap-1">
-            <Banknote className="h-2.5 w-2.5" />
-            {priceLabel}
-          </Badge>
-        ) : null}
-        {durationLabel ? (
-          <Badge variant="secondary" className="text-xs gap-1">
-            <Clock className="h-2.5 w-2.5" />
-            {durationLabel}
-          </Badge>
-        ) : null}
+          <div className="flex min-w-0 flex-wrap items-center gap-1 lg:flex-nowrap">
+            {opt.code && (
+              <Badge variant="outline" className="hidden max-w-full break-all font-mono text-xs group-hover/opt:inline-flex xl:flex">
+                {opt.code}
+              </Badge>
+            )}
+            {priceLabel ? (
+              <Badge variant="secondary" className="max-w-full gap-1 break-words text-xs xl:whitespace-nowrap">
+                <Banknote className="h-2.5 w-2.5 shrink-0" />
+                {priceLabel}
+              </Badge>
+            ) : null}
+            {durationLabel ? (
+              <Badge variant="secondary" className="max-w-full gap-1 break-words text-xs xl:whitespace-nowrap">
+                <Clock className="h-2.5 w-2.5 shrink-0" />
+                {durationLabel}
+              </Badge>
+            ) : null}
+          </div>
+        </div>
 
-        <div className="flex gap-1 opacity-0 group-hover/opt:opacity-100 transition-opacity">
-          <button
+        <div className="ml-auto flex w-0 shrink-0 gap-1 overflow-hidden opacity-0 transition-all sm:group-hover/opt:w-24 sm:group-hover/opt:opacity-100">
+          <IconButton
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => onAddSubGroup(opt.id)}
-            className="p-1.5 rounded hover:bg-primary/10 hover:text-primary text-muted-foreground transition-colors"
             title={t('catalog.options.addSubGroup', 'Add sub-group after this option')}
+            aria-label={t('catalog.options.addSubGroup', 'Add sub-group after this option')}
           >
             <FolderTree className="h-3.5 w-3.5" />
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => onEdit(opt)}
-            className="p-1.5 rounded hover:bg-muted text-muted-foreground transition-colors"
+            aria-label={t('catalog.options.editOption', 'Edit option')}
           >
             <Pencil className="h-3.5 w-3.5" />
-          </button>
-          <button
+          </IconButton>
+          <IconButton
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => onDelete(opt.id)}
-            className="p-1.5 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors"
+            aria-label={t('catalog.options.deleteOption', 'Delete option')}
           >
             <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          </IconButton>
         </div>
       </div>
 
       {hasSubGroups && expanded && (
-        <div className="ml-8 mt-1 space-y-2 border-l-2 border-primary/20 pl-3">
+        <div className="mt-2 space-y-2 border-l-2 border-primary/20 pl-2 sm:ml-6 sm:mt-1 sm:pl-2 md:ml-8 md:pl-3">
           {subGroups.map((sg: GroupItem) => (
             <GroupCard
               key={sg.id}
@@ -915,28 +1033,33 @@ function GroupCard({
     onDeleteOption(optId)
   }
 
-  const requirementColor = group.requirement === 'required' ? 'destructive' : 'secondary'
+  const requirementColor = group.requirement === 'required' ? 'error' : 'secondary'
 
   return (
-    <div className={`rounded-lg border bg-card shadow-sm transition-all ${depth === 0 ? 'border-border' : 'border-dashed border-primary/30 bg-primary/[0.02]'}`}>
+    <div
+      className={cn(
+        'rounded-lg border bg-card shadow-sm transition-all',
+        depth === 0 ? 'border-border' : 'border-dashed border-primary/30',
+      )}
+    >
       {/* Group header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50">
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="p-0.5 rounded hover:bg-muted shrink-0"
-        >
-          {expanded
-            ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
-            : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-        </button>
+      <div className="border-b border-border/50 px-3 py-3 sm:hidden">
+        <div className="flex items-start gap-2">
+          <IconButton
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={() => setExpanded((v) => !v)}
+            aria-label={expanded
+              ? t('catalog.options.collapseGroup', 'Collapse group')
+              : t('catalog.options.expandGroup', 'Expand group')}
+          >
+            {expanded
+              ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+          </IconButton>
 
-        {depth === 0
-          ? <Layers className="h-4 w-4 text-primary shrink-0" />
-          : <FolderTree className="h-4 w-4 text-primary/60 shrink-0" />}
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="min-w-0 flex-1">
             {isEditingName ? (
               <Input
                 autoFocus
@@ -944,23 +1067,100 @@ function GroupCard({
                 onChange={e => setEditNameValue(e.target.value)}
                 onBlur={handleRenameConfirm}
                 onKeyDown={handleRenameKeyDown}
-                className="h-7 text-sm py-1 w-48"
+                className="h-7 min-w-0 py-1 text-sm"
               />
             ) : (
               <span
-                className="font-semibold text-sm cursor-pointer hover:underline underline-offset-4 decoration-primary/50"
+                className="block cursor-pointer break-words text-sm font-semibold leading-5 underline-offset-4 decoration-primary/50 hover:underline"
                 onClick={() => setIsEditingName(true)}
               >
                 {group.name}
               </span>
             )}
-            <Badge variant={requirementColor} className="text-xs capitalize">
+          </div>
+
+          <div className="ml-auto flex shrink-0 gap-1">
+            <IconButton
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={() => setAddOptionOpen(true)}
+              aria-label={t('catalog.options.addOption', 'Add option')}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </IconButton>
+            <IconButton
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={handleDeleteGroup}
+              aria-label={t('catalog.options.deleteGroup', 'Delete group')}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </IconButton>
+          </div>
+        </div>
+
+        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1 pl-8">
+          <Badge variant={requirementColor} size="sm" className="capitalize">
+            {group.requirement}
+          </Badge>
+          <Badge variant="outline" size="sm" className="capitalize">
+            {group.select_mode}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            {groupOptions.length} {groupOptions.length === 1
+              ? t('catalog.options.optionSingular', 'option')
+              : t('catalog.options.optionPlural', 'options')}
+          </span>
+        </div>
+      </div>
+
+      <div className="hidden items-center gap-2 border-b border-border/50 px-3 py-2.5 sm:flex md:gap-3 md:px-4 md:py-3">
+        <IconButton
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setExpanded((v) => !v)}
+          aria-label={expanded
+            ? t('catalog.options.collapseGroup', 'Collapse group')
+            : t('catalog.options.expandGroup', 'Expand group')}
+        >
+          {expanded
+            ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+        </IconButton>
+
+        {depth === 0
+          ? <Layers className="hidden h-4 w-4 shrink-0 text-primary md:block" />
+          : <FolderTree className="hidden h-4 w-4 shrink-0 text-primary/60 md:block" />}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5 md:gap-2">
+            {isEditingName ? (
+              <Input
+                autoFocus
+                value={editNameValue}
+                onChange={e => setEditNameValue(e.target.value)}
+                onBlur={handleRenameConfirm}
+                onKeyDown={handleRenameKeyDown}
+                className="h-7 min-w-0 py-1 text-sm sm:w-40 md:w-48"
+              />
+            ) : (
+              <span
+                className="min-w-0 cursor-pointer truncate text-sm font-semibold underline-offset-4 decoration-primary/50 hover:underline"
+                onClick={() => setIsEditingName(true)}
+              >
+                {group.name}
+              </span>
+            )}
+            <Badge variant={requirementColor} size="sm" className="capitalize">
               {group.requirement}
             </Badge>
-            <Badge variant="outline" className="text-xs capitalize">
+            <Badge variant="outline" size="sm" className="capitalize">
               {group.select_mode}
             </Badge>
-            <span className="text-xs text-muted-foreground">
+            <span className="hidden text-xs text-muted-foreground lg:inline">
               {groupOptions.length} {groupOptions.length === 1
                 ? t('catalog.options.optionSingular', 'option')
                 : t('catalog.options.optionPlural', 'options')}
@@ -968,7 +1168,7 @@ function GroupCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="ml-auto flex shrink-0 items-center justify-end gap-1">
           <Button
             type="button"
             variant="ghost"
@@ -977,21 +1177,25 @@ function GroupCard({
             className="h-7 gap-1 text-xs"
           >
             <Plus className="h-3.5 w-3.5" />
-            {t('catalog.options.addOption', 'Add option')}
+            <span className="hidden md:inline">
+              {t('catalog.options.addOption', 'Add option')}
+            </span>
           </Button>
-          <button
+          <IconButton
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={handleDeleteGroup}
-            className="p-1.5 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors"
+            aria-label={t('catalog.options.deleteGroup', 'Delete group')}
           >
             <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          </IconButton>
         </div>
       </div>
 
       {/* Options list */}
       {expanded && (
-        <div className="p-2">
+        <div className="p-1.5 sm:p-2">
           {groupOptions.length === 0 ? (
             <div className="py-3 text-center text-xs text-muted-foreground">
               {t('catalog.options.noOptions', 'No options yet.')}
@@ -1004,7 +1208,7 @@ function GroupCard({
               </button>
             </div>
           ) : (
-            <div className="space-y-0.5">
+            <div className="space-y-1 sm:space-y-0.5">
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={groupOptions.map(o => o.id)} strategy={verticalListSortingStrategy}>
                   {groupOptions.map((opt: OptionItem) => (
@@ -1076,6 +1280,8 @@ export function OptionTreeEditor({
   currencyCode = 'USD',
   productId = '',
   headerActions,
+  showSummary = true,
+  showAddGroupLabelOnMobile = false,
 }: OptionTreeEditorProps) {
   const t = useT()
   const [addGroupOpen, setAddGroupOpen] = useState(false)
@@ -1132,19 +1338,23 @@ export function OptionTreeEditor({
         <div className="flex flex-col gap-4">
 
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                {rootGroups.length > 0
-                  ? `${rootGroups.length} ${t('catalog.options.rootGroups', 'root groups')} · ${localOptions.length} ${t('catalog.options.totalOptions', 'total options')}`
-                  : t('catalog.options.emptyHint', 'Add groups to build the option tree for this product.')}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            {showSummary ? (
+              <div className="min-w-0">
+                <p className="text-xs leading-5 text-muted-foreground sm:text-sm">
+                  {rootGroups.length > 0
+                    ? `${rootGroups.length} ${t('catalog.options.rootGroups', 'root groups')} · ${localOptions.length} ${t('catalog.options.totalOptions', 'total options')}`
+                    : t('catalog.options.emptyHint', 'Add groups to build the option tree for this product.')}
+                </p>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-2">
               {headerActions}
               <Button type="button" onClick={() => setAddGroupOpen(true)} variant="outline" className="gap-2">
                 <Plus className="h-4 w-4" />
-                {t('catalog.options.addGroup', 'Add Group')}
+                <span className={showAddGroupLabelOnMobile ? 'inline' : 'hidden sm:inline'}>
+                  {t('catalog.options.addGroup', 'Add Group')}
+                </span>
               </Button>
             </div>
           </div>
@@ -1165,7 +1375,7 @@ export function OptionTreeEditor({
               </Button>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {rootGroups.map((group: GroupItem) => (
                 <GroupCard
                   key={group.id}

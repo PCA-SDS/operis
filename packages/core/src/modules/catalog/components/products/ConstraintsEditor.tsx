@@ -2,12 +2,12 @@
 
 import * as React from 'react'
 import { useState, useCallback, useMemo } from 'react'
-import { Plus, Trash2, Lock, Unlock, ArrowRight, Package, ChevronRight, Inbox, Info } from 'lucide-react'
+import { Plus, Trash2, Lock, ArrowRight, Package, Inbox } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { KbdShortcut } from '@open-mercato/ui/primitives/kbd'
 import { ListEmptyState } from '@open-mercato/ui/backend/filters/ListEmptyState'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
+import { Radio, RadioGroup } from '@open-mercato/ui/primitives/radio'
 import {
   Drawer,
   DrawerBody,
@@ -16,6 +16,13 @@ import {
   DrawerTitle,
   DrawerFooter,
 } from '@open-mercato/ui/primitives/drawer'
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@open-mercato/ui/primitives/select'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { Tag } from '@open-mercato/ui/primitives/tag'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
@@ -33,6 +40,39 @@ export const CONSTRAINT_TYPE_LABELS: Record<ConstraintType, string> = {
   requires_item: 'Requires',
   mutually_exclusive_item: 'Mutually exclusive with',
   includes_item: 'Includes',
+}
+
+const CONSTRAINT_TYPE_LABEL_KEYS: Record<ConstraintType, string> = {
+  conflicts_with_item: 'catalog.constraints.types.conflictsWith',
+  requires_item: 'catalog.constraints.types.requires',
+  mutually_exclusive_item: 'catalog.constraints.types.mutuallyExclusive',
+  includes_item: 'catalog.constraints.types.includes',
+}
+
+const CONSTRAINT_TYPE_DESCRIPTION_KEYS: Record<ConstraintType, { key: string; fallback: string }> = {
+  conflicts_with_item: {
+    key: 'catalog.constraints.types.conflictsWith.description',
+    fallback: 'Source cannot be selected together with target.',
+  },
+  requires_item: {
+    key: 'catalog.constraints.types.requires.description',
+    fallback: 'Selecting source also requires target.',
+  },
+  mutually_exclusive_item: {
+    key: 'catalog.constraints.types.mutuallyExclusive.description',
+    fallback: 'Only one side of this relationship can be selected.',
+  },
+  includes_item: {
+    key: 'catalog.constraints.types.includes.description',
+    fallback: 'Selecting source includes target automatically.',
+  },
+}
+
+function getConstraintTypeLabel(
+  type: ConstraintType,
+  t: (key: string, fallback?: string) => string,
+): string {
+  return t(CONSTRAINT_TYPE_LABEL_KEYS[type], CONSTRAINT_TYPE_LABELS[type])
 }
 
 export const CONSTRAINT_TYPE_COLORS: Record<ConstraintType, { variant: 'error' | 'info' | 'success' | 'warning'; dot: boolean }> = {
@@ -89,7 +129,7 @@ function draftFromItem(item: CatalogConstraintItem): ConstraintDraft {
     targetId: (item.target_option_id ?? item.target_product_id) || '',
     targetProductId: (item.target_product_id && item.target_option_id) ? item.target_product_id : '',
     targetProductName: item.target_product_name ?? undefined,
-    targetOptionName: item.target_option_name ?? undefined,
+    targetOptionName: item.target_option_path ?? item.target_option_name ?? undefined,
     locked: item.locked,
   }
 }
@@ -114,7 +154,7 @@ function draftToPayload(draft: ConstraintDraft): Omit<CatalogConstraintItem, 'cr
 type GroupFlat = { id: string; name: string; parent_option_id: string | null }
 type OptionFlat = { id: string; name: string; group_id: string }
 
-function buildOptionTree(groups: GroupFlat[], options: OptionFlat[]): CascadingItemDef[] {
+function buildOptionTree(groups: GroupFlat[], options: OptionFlat[], productName?: string): CascadingItemDef[] {
   // Group → options
   const groupOptions = new Map<string, OptionFlat[]>()
   for (const o of options) {
@@ -124,8 +164,9 @@ function buildOptionTree(groups: GroupFlat[], options: OptionFlat[]): CascadingI
 
   const rootGroupIds = groups.filter((g) => g.parent_option_id === null).map((g) => g.id)
 
-  function buildNode(groupId: string): CascadingItemDef {
+  function buildNode(groupId: string, parentPath: string[] = []): CascadingItemDef {
     const group = groups.find((g) => g.id === groupId)!
+    const groupPath = [...parentPath, group.name]
     const children: CascadingItemDef[] = []
 
     // Options in this group
@@ -138,12 +179,13 @@ function buildOptionTree(groups: GroupFlat[], options: OptionFlat[]): CascadingI
 
       const optionChildren: CascadingItemDef[] = []
       for (const cgId of childGroupIds) {
-        optionChildren.push(buildNode(cgId))
+        optionChildren.push(buildNode(cgId, [...groupPath, o.name]))
       }
 
       children.push({
         id: o.id,
         label: o.name,
+        description: productName ? [productName, ...groupPath].join(' > ') : groupPath.join(' > '),
         selectable: true,
         children: optionChildren.length > 0 ? optionChildren : undefined,
       })
@@ -157,7 +199,41 @@ function buildOptionTree(groups: GroupFlat[], options: OptionFlat[]): CascadingI
     }
   }
 
-  return rootGroupIds.map(buildNode)
+  return rootGroupIds.map((groupId) => buildNode(groupId))
+}
+
+function findItemLabel(items: CascadingItemDef[], id: string): string | undefined {
+  for (const item of items) {
+    if (item.id === id) return item.label
+    if (item.children) {
+      const child = findItemLabel(item.children, id)
+      if (child) return child
+    }
+  }
+  return undefined
+}
+
+function findItemDisplayLabel(items: CascadingItemDef[], id: string): string | undefined {
+  for (const item of items) {
+    if (item.id === id) return item.description ? `${item.label} (${item.description})` : item.label
+    if (item.children) {
+      const child = findItemDisplayLabel(item.children, id)
+      if (child) return child
+    }
+  }
+  return undefined
+}
+
+function findItemPath(items: CascadingItemDef[], id: string, currentPath: string[] = []): string | undefined {
+  for (const item of items) {
+    const nextPath = [...currentPath, item.label]
+    if (item.id === id) return nextPath.join(' > ')
+    if (item.children) {
+      const child = findItemPath(item.children, id, nextPath)
+      if (child) return child
+    }
+  }
+  return undefined
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -172,28 +248,18 @@ function OptionBadge({ id, options }: OptionBadgeProps) {
   const opt = options.find((o) => o.id === id)
   if (!opt) {
     return (
-      <Tag variant="brand" shape="square" className="max-w-48">
+      <Tag variant="brand" shape="square" className="w-full max-w-full sm:w-auto sm:max-w-48">
         <span className="truncate text-xs">{id || '—'}</span>
       </Tag>
     )
   }
 
-  const pathSegments = opt.path.split(' > ')
-
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Tag variant="brand" shape="square" className="max-w-72 h-auto py-1.5 flex flex-col items-start gap-1 cursor-default">
-            <span className="flex flex-wrap items-center text-xs opacity-75 leading-none mt-0.5">
-              {pathSegments.map((seg, i) => (
-                <React.Fragment key={i}>
-                  <span className="truncate max-w-32">{seg}</span>
-                  {i < pathSegments.length - 1 && <ChevronRight className="w-2.5 h-2.5 mx-0.5 shrink-0" />}
-                </React.Fragment>
-              ))}
-            </span>
-            <span className="truncate font-medium text-sm leading-tight">{opt.name}</span>
+          <Tag variant="brand" shape="square" className="w-full max-w-full cursor-default sm:w-auto sm:max-w-64">
+            <span className="truncate text-xs font-medium">{opt.path}</span>
           </Tag>
         </TooltipTrigger>
         <TooltipContent>{opt.path}</TooltipContent>
@@ -211,7 +277,6 @@ type ConstraintRowProps = {
   productSeedOptions?: CascadingItemDef[]
   productId: string
   productName: string
-  onChange: (updated: ConstraintDraft) => void
   onDelete: () => void
 }
 
@@ -219,43 +284,79 @@ type ConstraintRowProps = {
 // IncomingConstraintBadge — read-only badge for incoming constraints
 // ─────────────────────────────────────────────────────────────────
 
-function IncomingConstraintBadge({ constraint, sourceLabel }: { constraint: CatalogConstraintItem; sourceLabel: string }) {
+function IncomingConstraintBadge({ constraint }: { constraint: CatalogConstraintItem }) {
   const t = useT()
   const color = CONSTRAINT_TYPE_COLORS[constraint.constraint_type]
-  const label = CONSTRAINT_TYPE_LABELS[constraint.constraint_type]
+  const label = getConstraintTypeLabel(constraint.constraint_type, t)
+  const sourceLabel =
+    constraint.source_option_path ??
+    constraint.source_product_name ??
+    constraint.source_option_name ??
+    t('catalog.constraints.unknownSource', 'Unknown source')
 
   return (
-    <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-status-warning-bg/50 bg-status-warning-bg/10">
-      <Tag variant={color.variant} dot={color.dot} className="text-xs font-medium shrink-0">
-        {label}
-      </Tag>
-      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <span className="text-xs font-medium text-foreground/80">{sourceLabel}</span>
-        <ArrowRight className="w-3 h-3 shrink-0" />
-        <span>{t('catalog.constraints.thisProduct', 'this product')}</span>
+    <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 transition-colors sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <Tag variant={color.variant} dot={color.dot} className="self-start text-xs font-medium shrink-0 sm:self-auto">
+          {label}
+        </Tag>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+          <Tag variant="neutral" shape="square" className="w-full max-w-full sm:w-auto sm:max-w-72">
+            <span className="flex items-center gap-1.5 truncate text-xs">
+              <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
+              <span className="truncate font-medium">{sourceLabel}</span>
+            </span>
+          </Tag>
+
+          <ArrowRight className="ml-1 w-3.5 h-3.5 rotate-90 text-muted-foreground shrink-0 sm:ml-0 sm:rotate-0" />
+
+          <Tag variant="neutral" shape="square" className="w-full max-w-full sm:w-auto sm:max-w-40">
+            <span className="flex items-center gap-1.5 truncate text-xs">
+              <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
+              <span className="truncate">{t('catalog.constraints.thisProduct', 'This product')}</span>
+            </span>
+          </Tag>
+        </div>
       </div>
-      {constraint.locked && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Lock className="w-3.5 h-3.5 text-status-warning-icon shrink-0" />
-            </TooltipTrigger>
-            <TooltipContent>
-              {t('catalog.constraints.locked', 'Locked by migration')}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )}
+
+      <div className="flex items-center justify-end gap-1 shrink-0 sm:ml-auto">
+        <Tag variant="neutral" shape="square" className="text-xs">
+          <span className="flex items-center gap-1">
+            <Inbox className="w-2.5 h-2.5" />
+            {t('catalog.constraints.incomingBadge', 'Incoming')}
+          </span>
+        </Tag>
+
+        {constraint.locked && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled
+                  aria-label={t('catalog.constraints.locked', 'Locked by migration')}
+                  className="shrink-0 text-status-warning-icon"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                </IconButton>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t('catalog.constraints.locked', 'Locked by migration')}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
     </div>
   )
 }
 
-function ConstraintRow({ draft, localOptions, productSeedOptions, productId, productName, onChange, onDelete }: ConstraintRowProps) {
+function ConstraintRow({ draft, localOptions, productSeedOptions, productId, productName, onDelete }: ConstraintRowProps) {
   const t = useT()
   const { confirm } = useConfirmDialog()
-
-  const set = <K extends keyof ConstraintDraft>(key: K, val: ConstraintDraft[K]) =>
-    onChange({ ...draft, [key]: val })
 
   const handleDelete = () => {
     if (draft.locked) return
@@ -272,111 +373,110 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
 
   return (
     <div className={cn(
-      'flex flex-wrap items-center gap-2 p-3 rounded-lg border bg-card transition-colors',
+      'flex flex-col gap-2 rounded-lg border bg-card p-3 transition-colors sm:flex-row sm:flex-wrap sm:items-center',
       draft.locked ? 'opacity-75' : 'hover:border-border/80',
     )}>
-      <Tag variant={color.variant} dot={color.dot} className="text-xs font-medium shrink-0">
-        {CONSTRAINT_TYPE_LABELS[draft.constraintType]}
-      </Tag>
-
-      {draft.sourceKind === 'option' ? (
-        <OptionBadge id={draft.sourceId} options={localOptions} />
-      ) : (
-        <Tag variant="neutral" shape="square" className="max-w-40">
-          <span className="flex items-center gap-1.5 truncate text-xs">
-            <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
-            <span className="truncate">{productName}</span>
-          </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <Tag variant={color.variant} dot={color.dot} className="self-start text-xs font-medium shrink-0 sm:self-auto">
+          {getConstraintTypeLabel(draft.constraintType, t)}
         </Tag>
-      )}
 
-      <ArrowRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+          {draft.sourceKind === 'option' ? (
+            <OptionBadge id={draft.sourceId} options={localOptions} />
+          ) : (
+            <Tag variant="neutral" shape="square" className="w-full max-w-full sm:w-auto sm:max-w-40">
+              <span className="flex items-center gap-1.5 truncate text-xs">
+                <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
+                <span className="truncate">{productName}</span>
+              </span>
+            </Tag>
+          )}
 
-      {draft.targetKind === 'option' ? (
-        isExternal ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Tag variant="neutral" shape="square" className="max-w-72 h-auto py-1.5 flex flex-col items-start gap-1 cursor-default">
-                  <span className="flex flex-wrap items-center text-xs opacity-75 leading-none mt-0.5">
-                    <Package className="w-2.5 h-2.5 mr-1 shrink-0" />
-                    <span className="truncate max-w-32">{draft.targetProductName || draft.targetProductId || 'External Product'}</span>
-                  </span>
-                  {draft.targetOptionName ? (
-                    <span className="truncate font-medium text-sm leading-tight">
-                      {draft.targetOptionName}
-                    </span>
-                  ) : (
-                    <span className="truncate font-medium text-sm leading-tight">{draft.targetId}</span>
-                  )}
-                </Tag>
-              </TooltipTrigger>
-              <TooltipContent>
-                {(() => {
-                  const parts: string[] = []
-                  if (draft.targetProductName || draft.targetProductId) {
-                    parts.push(draft.targetProductName || draft.targetProductId || '')
-                  }
-                  if (draft.targetOptionName) parts.push(draft.targetOptionName)
-                  else parts.push(draft.targetId)
-                  return parts.join(' > ')
-                })()}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : (
-          <OptionBadge id={draft.targetId} options={localOptions} />
-        )
-      ) : (
-        <Tag variant="neutral" shape="square" className="max-w-40">
-          <span className="flex items-center gap-1.5 truncate text-xs">
-            <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
-            <span className="truncate">
-              {productSeedOptions?.find((p) => p.id === draft.targetId)?.label ?? draft.targetProductName ?? draft.targetId}
-            </span>
-          </span>
-        </Tag>
-      )}
+          <ArrowRight className="ml-1 w-3.5 h-3.5 rotate-90 text-muted-foreground shrink-0 sm:ml-0 sm:rotate-0" />
 
-      <div className="ml-auto flex items-center gap-1 shrink-0">
+          {draft.targetKind === 'option' ? (
+            isExternal ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Tag variant="neutral" shape="square" className="w-full max-w-full sm:w-auto sm:max-w-72">
+                      <span className="flex items-center gap-1.5 truncate text-xs">
+                        <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
+                        <span className="truncate font-medium">
+                          {draft.targetOptionName || draft.targetId}
+                        </span>
+                      </span>
+                    </Tag>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {draft.targetOptionName || draft.targetId}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              <OptionBadge id={draft.targetId} options={localOptions} />
+            )
+          ) : (
+            <Tag variant="neutral" shape="square" className="w-full max-w-full sm:w-auto sm:max-w-40">
+              <span className="flex items-center gap-1.5 truncate text-xs">
+                <Package className="w-3 h-3 shrink-0 text-muted-foreground" />
+                <span className="truncate">
+                  {productSeedOptions?.find((p) => p.id === draft.targetId)?.label ?? draft.targetProductName ?? draft.targetId}
+                </span>
+              </span>
+            </Tag>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-1 shrink-0 sm:ml-auto">
         {isExternal && (
           <Tag variant="neutral" shape="square" className="text-xs">
             <span className="flex items-center gap-1">
               <Package className="w-2.5 h-2.5" />
-              External
+              {t('catalog.constraints.external', 'External')}
             </span>
           </Tag>
         )}
         {draft.targetKind === 'option' && !isExternal && (
-          <Tag variant="brand" shape="square" className="text-xs">Option</Tag>
+          <Tag variant="brand" shape="square" className="text-xs">
+            {t('catalog.constraints.option', 'Option')}
+          </Tag>
         )}
+
+        {draft.locked ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled
+                  aria-label={t('catalog.constraints.locked', 'Locked by migration')}
+                  className="shrink-0 text-status-warning-icon"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                </IconButton>
+              </TooltipTrigger>
+              <TooltipContent>{t('catalog.constraints.locked', 'Locked by migration')}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : null}
+
+        <IconButton
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={handleDelete}
+          disabled={draft.locked}
+          aria-label={t('common.delete', 'Delete')}
+          className="text-destructive hover:text-destructive shrink-0"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </IconButton>
       </div>
-
-      <IconButton
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={() => set('locked', !draft.locked)}
-        aria-label={draft.locked ? t('catalog.constraints.unlock', 'Unlock') : t('catalog.constraints.lock', 'Lock')}
-        className={cn(
-          'shrink-0',
-          draft.locked && 'text-status-warning-icon hover:text-status-warning-text',
-        )}
-      >
-        {draft.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
-      </IconButton>
-
-      <IconButton
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={handleDelete}
-        disabled={draft.locked}
-        aria-label={t('common.delete', 'Delete')}
-        className="text-destructive hover:text-destructive shrink-0"
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </IconButton>
     </div>
   )
 }
@@ -407,9 +507,9 @@ function AddConstraintDrawer({
 
   const [sourceMode, setSourceMode] = useState<'product' | 'option'>('product')
   const [sourceId, setSourceId] = useState('__product__')
-  const [constraintType, setConstraintType] = useState<ConstraintType>('requires_item')
+  const [constraintType, setConstraintType] = useState<ConstraintType>('conflicts_with_item')
 
-  type TargetMode = 'local_option' | 'external_product'
+  type TargetMode = 'local_option' | 'external_product' | 'external_option'
   const [targetMode, setTargetMode] = useState<TargetMode>('local_option')
   const [targetId, setTargetId] = useState('')
   const [externalProductId, setExternalProductId] = useState('')
@@ -418,16 +518,33 @@ function AddConstraintDrawer({
   const [loadingExternal, setLoadingExternal] = useState(false)
 
   // Source tree: [product name] + localGroups
-  const sourceTree: CascadingItemDef[] = [
-    { 
-      id: '__product__', 
-      label: productName,
-      selectable: true,
-      children: localGroups.length > 0 ? localGroups : undefined,
-    },
-  ]
+  const sourceTree = useMemo<CascadingItemDef[]>(
+    () => [
+      {
+        id: '__product__',
+        label: productName,
+        selectable: true,
+        children: localGroups.length > 0 ? localGroups : undefined,
+      },
+    ],
+    [localGroups, productName],
+  )
 
-  const canSubmit = (sourceId.trim().length > 0) && (targetId.trim().length > 0)
+  const selectedSourceLabel = useMemo(
+    () => findItemDisplayLabel(sourceTree, sourceId) ?? productName,
+    [sourceId, sourceTree, productName],
+  )
+  const selectedTargetLabel = useMemo(() => {
+    if (targetMode === 'local_option') return findItemDisplayLabel(localGroups, targetId)
+    if (targetMode === 'external_product') return externalProductName || findItemLabel(productSeedOptions, externalProductId)
+    return findItemDisplayLabel(externalTree, targetId)
+  }, [externalProductId, externalProductName, externalTree, localGroups, productSeedOptions, targetId, targetMode])
+
+  const canSubmit =
+    sourceId.trim().length > 0 &&
+    (targetMode === 'external_product'
+      ? externalProductId.trim().length > 0
+      : targetId.trim().length > 0)
 
   const handleExternalProductSelect = async (productId: string) => {
     if (!productId) {
@@ -441,7 +558,7 @@ function AddConstraintDrawer({
         groups: { id: string; parent_option_id: string | null; name: string }[]
         options: { id: string; group_id: string; name: string }[]
       }>(`/api/catalog/products/${currentProductId}/external-options?externalProductId=${productId}`)
-      const tree = buildOptionTree(result.groups, result.options)
+      const tree = buildOptionTree(result.groups, result.options, result.productName)
       setExternalTree(tree)
       if (result.productName) setExternalProductName(result.productName)
     } catch {
@@ -463,32 +580,15 @@ function AddConstraintDrawer({
       finalTargetKind = 'option'
       finalTargetProductId = currentProductId
     } else if (targetMode === 'external_product') {
-      if (targetId.trim() !== externalProductId.trim()) {
-        // User selected an option from the external product
-        finalTargetKind = 'option'
-        finalTargetProductId = externalProductId.trim()
-        finalTargetProductName = externalProductName
-
-        const findPath = (list: CascadingItemDef[], currentPath: string[] = []): string | undefined => {
-          for (const item of list) {
-            if (item.id === finalTargetId) {
-              return currentPath.length > 0 ? `${currentPath.join(' > ')} > ${item.label}` : item.label
-            }
-            if (item.children) {
-              const res = findPath(item.children, [...currentPath, item.label])
-              if (res) return res
-            }
-          }
-          return undefined
-        }
-        finalTargetOptionName = findPath(externalTree)
-      } else {
-        // User only selected the external product itself
-        finalTargetKind = 'product'
-        finalTargetId = externalProductId.trim()
-        finalTargetProductId = ''
-        finalTargetProductName = externalProductName
-      }
+      finalTargetKind = 'product'
+      finalTargetId = externalProductId.trim()
+      finalTargetProductId = ''
+      finalTargetProductName = externalProductName || findItemLabel(productSeedOptions, externalProductId)
+    } else if (targetMode === 'external_option') {
+      finalTargetKind = 'option'
+      finalTargetProductId = externalProductId.trim()
+      finalTargetProductName = externalProductName || findItemLabel(productSeedOptions, externalProductId)
+      finalTargetOptionName = findItemPath(externalTree, finalTargetId)
     }
 
     onAdd({
@@ -508,7 +608,7 @@ function AddConstraintDrawer({
   const resetForm = () => {
     setSourceMode('product')
     setSourceId('__product__')
-    setConstraintType('requires_item')
+    setConstraintType('conflicts_with_item')
     setTargetMode('local_option')
     setTargetId('')
     setExternalProductId('')
@@ -521,20 +621,29 @@ function AddConstraintDrawer({
   const handleTargetModeChange = (v: TargetMode) => {
     setTargetMode(v)
     setTargetId('')
-    if (v === 'external_product') {
-      setExternalProductId('')
-      setExternalTree([])
-      setExternalProductName('')
+    setExternalProductId('')
+    setExternalTree([])
+    setExternalProductName('')
+  }
+
+  const handleExternalProductChange = (productId: string, loadOptions: boolean) => {
+    setExternalProductId(productId)
+    setTargetId('')
+    setExternalTree([])
+    const name = productSeedOptions.find((p) => p.id === productId)?.label || productId
+    setExternalProductName(productId ? name : '')
+    if (productId && loadOptions) {
+      void handleExternalProductSelect(productId)
     }
   }
 
   return (
     <Drawer open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DrawerContent className="sm:max-w-md">
+      <DrawerContent className="sm:max-w-2xl">
         <DrawerHeader>
           <DrawerTitle>{t('catalog.constraints.addConstraint', 'Add Constraint')}</DrawerTitle>
         </DrawerHeader>
-        <DrawerBody className="flex flex-col gap-6">
+        <DrawerBody className="flex flex-col gap-5 sm:gap-6">
 
           {/* Source */}
           <div className="flex flex-col gap-2">
@@ -564,19 +673,39 @@ function AddConstraintDrawer({
             <label className="text-sm font-medium text-foreground">
               {t('catalog.constraints.relationship', 'Relationship')}
             </label>
-            <Select value={constraintType} onValueChange={(v) => setConstraintType(v as ConstraintType)}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.entries(CONSTRAINT_TYPE_LABELS) as [ConstraintType, string][]).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <RadioGroup
+              value={constraintType}
+              onValueChange={(value) => setConstraintType(value as ConstraintType)}
+              className="grid gap-2 sm:grid-cols-2"
+            >
+              {(Object.keys(CONSTRAINT_TYPE_LABELS) as ConstraintType[]).map((value) => {
+                const color = CONSTRAINT_TYPE_COLORS[value]
+                const selected = constraintType === value
+                const description = CONSTRAINT_TYPE_DESCRIPTION_KEYS[value]
+                return (
+                  <label
+                    key={value}
+                    className={cn(
+                      'flex cursor-pointer gap-3 rounded-md border bg-surface p-3 text-left transition-colors',
+                      selected ? 'border-primary shadow-focus' : 'hover:border-border/80 hover:bg-surface-muted',
+                    )}
+                  >
+                    <Radio value={value} className="mt-0.5" />
+                    <span className="min-w-0 flex-1">
+                      <Tag variant={color.variant} dot={color.dot} className="mb-2 text-xs font-medium">
+                        {getConstraintTypeLabel(value, t)}
+                      </Tag>
+                      <span className="block text-xs text-muted-foreground">
+                        {t(description.key, description.fallback)}
+                      </span>
+                    </span>
+                  </label>
+                )
+              })}
+            </RadioGroup>
           </div>
 
-          {/* Target — 2 tabs */}
+          {/* Target */}
           <div className="flex flex-col gap-2 mt-2">
             <div>
               <label className="text-sm font-medium text-foreground">
@@ -587,18 +716,46 @@ function AddConstraintDrawer({
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 rounded-lg border border-border/50 bg-muted/10 p-3 mt-1">
-              <SegmentedControl
+            <div className="flex flex-col gap-3 rounded-lg border border-border/50 bg-surface-muted p-3 mt-1">
+              {/* Mobile: Select dropdown */}
+              <Select
                 value={targetMode}
                 onValueChange={(v) => handleTargetModeChange(v as TargetMode)}
               >
-              <SegmentedControlItem value="local_option">
-                {t('catalog.constraints.target.localOption', "This product's option")}
-              </SegmentedControlItem>
-              <SegmentedControlItem value="external_product">
-                {t('catalog.constraints.target.externalProduct', 'Other product')}
-              </SegmentedControlItem>
-            </SegmentedControl>
+                <SelectTrigger className="w-full sm:hidden">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="local_option">
+                    {t('catalog.constraints.target.localOption', "This product's option")}
+                  </SelectItem>
+                  <SelectItem value="external_product">
+                    {t('catalog.constraints.target.externalProduct', 'Other product')}
+                  </SelectItem>
+                  <SelectItem value="external_option">
+                    {t('catalog.constraints.target.externalOption', 'Other product option')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Desktop: SegmentedControl */}
+              <SegmentedControl
+                value={targetMode}
+                onValueChange={(v) => handleTargetModeChange(v as TargetMode)}
+                fullWidth
+                size="sm"
+                className="hidden sm:flex"
+              >
+                <SegmentedControlItem value="local_option">
+                  {t('catalog.constraints.target.localOption', "This product's option")}
+                </SegmentedControlItem>
+                <SegmentedControlItem value="external_product">
+                  {t('catalog.constraints.target.externalProduct', 'Other product')}
+                </SegmentedControlItem>
+                <SegmentedControlItem value="external_option">
+                  {t('catalog.constraints.target.externalOption', 'Other product option')}
+                </SegmentedControlItem>
+              </SegmentedControl>
 
             {targetMode === 'local_option' && (
               <CascadingCombobox
@@ -613,55 +770,79 @@ function AddConstraintDrawer({
 
             {targetMode === 'external_product' && (
               <CascadingCombobox
-                value={targetId}
+                value={externalProductId}
                 onChange={(id) => {
                   if (id === '') {
-                    setExternalProductId('')
-                    setTargetId('')
-                    setExternalTree([])
-                  } else if (!externalProductId) {
-                    setExternalProductId(id)
-                    setTargetId(id)
-                    const name = productSeedOptions.find(p => p.id === id)?.label || id
-                    setExternalProductName(name)
-                    handleExternalProductSelect(id)
+                    handleExternalProductChange('', false)
                   } else {
-                    setTargetId(id)
+                    handleExternalProductChange(id, false)
                   }
                 }}
-                items={
-                  !externalProductId
-                    ? productSeedOptions.map(p => ({ ...p, keepOpenOnSelect: true }))
-                    : [
-                        {
-                          id: externalProductId,
-                          label: externalProductName || externalProductId,
-                          selectable: true,
-                          children: loadingExternal
-                            ? [{ id: '__loading__', label: t('common.loading', 'Loading options...'), selectable: false }]
-                            : (externalTree.length > 0 ? externalTree : undefined),
-                        },
-                      ]
-                }
+                items={productSeedOptions}
                 placeholder={t('catalog.constraints.selectOtherProduct', 'Select a product...')}
-                loading={loadingExternal}
                 clearable
               />
+            )}
+
+            {targetMode === 'external_option' && (
+              <div className="grid gap-3">
+                <CascadingCombobox
+                  value={externalProductId}
+                  onChange={(id) => {
+                    if (id === '') {
+                      handleExternalProductChange('', true)
+                    } else {
+                      handleExternalProductChange(id, true)
+                    }
+                  }}
+                  items={productSeedOptions}
+                  placeholder={t('catalog.constraints.selectOtherProduct', 'Select a product...')}
+                  clearable
+                />
+                <CascadingCombobox
+                  value={targetId}
+                  onChange={setTargetId}
+                  items={externalTree}
+                  placeholder={
+                    externalProductId
+                      ? t('catalog.constraints.selectExternalOption', 'Select an option from that product...')
+                      : t('catalog.constraints.selectProductFirst', 'Select a product first...')
+                  }
+                  loading={loadingExternal}
+                  disabled={!externalProductId}
+                  clearable
+                />
+              </div>
             )}
             </div>
           </div>
 
+          <div className="rounded-md border bg-surface p-3">
+            <p className="text-xs font-medium text-muted-foreground">
+              {t('catalog.constraints.preview', 'Preview')}
+            </p>
+            <p className="mt-1 text-sm text-foreground">
+              <span className="font-medium">{selectedSourceLabel}</span>
+              {' '}
+              <span>{getConstraintTypeLabel(constraintType, t).toLowerCase()}</span>
+              {' '}
+              <span className="font-medium">
+                {selectedTargetLabel ?? t('catalog.constraints.preview.targetPlaceholder', 'selected target')}
+              </span>
+            </p>
+          </div>
+
         </DrawerBody>
-        <DrawerFooter className="flex-row items-center justify-between gap-3">
-          <span className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
+        <DrawerFooter className="flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <span className="hidden text-xs text-muted-foreground sm:inline-flex sm:items-center sm:gap-1.5">
             <KbdShortcut keys={['⌘', '↵']} />
             <span>{t('catalog.constraints.shortcut.toSave', 'to save')}</span>
           </span>
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" onClick={handleClose}>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={handleClose}>
               {t('ui.actions.cancel', 'Cancel')}
             </Button>
-            <Button type="button" onClick={handleSubmit} disabled={!canSubmit}>
+            <Button type="button" className="w-full sm:w-auto" onClick={handleSubmit} disabled={!canSubmit}>
               {t('catalog.constraints.addConstraint', 'Add Constraint')}
             </Button>
           </div>
@@ -712,10 +893,10 @@ export function ConstraintsEditor({
       }
     }
 
-    const groupOptions = new Map<string, { id: string; name: string }[]>()
+    const groupOptions = new Map<string, { id: string; name: string; path: string }[]>()
     for (const opt of options) {
       if (!groupOptions.has(opt.groupId)) groupOptions.set(opt.groupId, [])
-      groupOptions.get(opt.groupId)!.push({ id: opt.id, name: opt.name })
+      groupOptions.get(opt.groupId)!.push({ id: opt.id, name: opt.name, path: opt.path })
     }
 
     const rootGroupIds = [...groupMap.entries()]
@@ -741,6 +922,7 @@ export function ConstraintsEditor({
         children.push({
           id: o.id,
           label: o.name,
+          description: [productName, o.path].filter(Boolean).join(' > '),
           selectable: true,
           children: optionChildren.length > 0 ? optionChildren : undefined
         })
@@ -755,7 +937,7 @@ export function ConstraintsEditor({
     }
 
     return rootGroupIds.map(buildNode)
-  }, [options])
+  }, [options, productName])
 
   const draftsRef = React.useRef(drafts)
   draftsRef.current = drafts
@@ -763,12 +945,6 @@ export function ConstraintsEditor({
   const sync = useCallback((next: ConstraintDraft[]) => {
     onChangeRef.current(next.map(draftToPayload))
   }, [])
-
-  const updateDraft = useCallback((id: string, updated: ConstraintDraft) => {
-    const next = draftsRef.current.map((d) => (d.id === id ? updated : d))
-    setDrafts(next)
-    sync(next)
-  }, [sync])
 
   const deleteDraft = useCallback((id: string) => {
     const next = draftsRef.current.filter((d) => d.id !== id)
@@ -786,8 +962,8 @@ export function ConstraintsEditor({
   return (
     <div className="flex flex-col gap-4">
       {/* Header */}
-      <div className="flex items-start justify-between shrink-0">
-        <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-3 shrink-0 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-0.5">
           <h3 className="text-sm font-semibold text-foreground">
             {t('catalog.constraints.heading', 'Constraints')}
           </h3>
@@ -795,9 +971,9 @@ export function ConstraintsEditor({
             {t('catalog.constraints.description', 'Define what this product or its options require, conflict with, or include.')}
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
           {headerActions}
-          <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => setShowAddDrawer(true)}>
+          <Button type="button" variant="outline" size="sm" className="w-full gap-2 sm:w-auto" onClick={() => setShowAddDrawer(true)}>
             <Plus className="w-3.5 h-3.5" />
             {t('catalog.constraints.addConstraint', 'Add Constraint')}
           </Button>
@@ -815,7 +991,6 @@ export function ConstraintsEditor({
               productSeedOptions={productSeedOptions}
               productId={productId}
               productName={productName}
-              onChange={(updated) => updateDraft(draft.id, updated)}
               onDelete={() => deleteDraft(draft.id)}
             />
           ))}
@@ -833,11 +1008,11 @@ export function ConstraintsEditor({
       {/* Incoming Constraints (read-only) */}
       {incomingConstraints && incomingConstraints.length > 0 && (
         <div className="flex flex-col gap-3 pt-4 border-t mt-4">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-status-warning-bg" />
               <span className="text-sm font-medium text-foreground">
-                {t('catalog.constraints.incoming', 'Required by')}
+                {t('catalog.constraints.incoming', 'Incoming constraints')}
               </span>
             </div>
             <span className="text-xs text-muted-foreground">
@@ -846,12 +1021,8 @@ export function ConstraintsEditor({
           </div>
           <div className="flex flex-col gap-2">
             {incomingConstraints.map((c) => {
-              const sourceLabel = c.source_product_name || c.source_option_name || 'Unknown'
-              const sourceBadge = c.source_option_name
-                ? `${c.source_product_name || ''} › ${c.source_option_name}`.trim()
-                : sourceLabel
               return (
-                <IncomingConstraintBadge key={c.id} constraint={c} sourceLabel={sourceBadge} />
+                <IncomingConstraintBadge key={c.id} constraint={c} />
               )
             })}
           </div>
