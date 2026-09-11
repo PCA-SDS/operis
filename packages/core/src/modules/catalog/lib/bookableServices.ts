@@ -23,7 +23,8 @@ export const BOOKABLE_DURATION_FIELD_KEY = 'service_duration_minutes'
 
 export type BookableServiceScope = {
   tenantId: string
-  organizationId: string
+  /** Optional branch scope. Phase 1 public booking can list the tenant-wide service set without this. */
+  organizationId?: string | null
   /** Optional pricing channel, matching the `channelId` the products API accepts. */
   channelId?: string | null
 }
@@ -88,6 +89,8 @@ async function assertBookableServiceScope(
     throw new CrudHttpError(404, { error: 'Tenant not found.', code: 'TENANT_NOT_FOUND' })
   }
 
+  if (!scope.organizationId) return
+
   const organization = await em.findOne(Organization, {
     id: scope.organizationId,
     tenant: scope.tenantId,
@@ -112,6 +115,8 @@ async function resolvePricingChannelId(
   em: EntityManager,
   scope: BookableServiceScope,
 ): Promise<string | null> {
+  if (!scope.organizationId) return null
+
   const where = {
     organizationId: scope.organizationId,
     tenantId: scope.tenantId,
@@ -158,15 +163,19 @@ export async function listBookableServicesForOrganization(
 ): Promise<BookableService[]> {
   await assertBookableServiceScope(em, scope)
 
-  // The channel resolves regardless of how many services exist, so a caller
-  // naming an unknown channel is told rather than handed an empty menu.
+  const scopedWhere = scope.organizationId ? { organizationId: scope.organizationId } : {}
+  const decryptScope = scope.organizationId
+    ? { tenantId: scope.tenantId, organizationId: scope.organizationId }
+    : { tenantId: scope.tenantId }
+
+  // Phase 1 public booking can list the tenant-wide service catalog; organization scoping is optional.
   const [products, channelId] = await Promise.all([
     findWithDecryption(
       em,
       CatalogProduct,
       {
         tenantId: scope.tenantId,
-        organizationId: scope.organizationId,
+        ...scopedWhere,
         isActive: true,
         deletedAt: null,
         $or: [
@@ -175,7 +184,7 @@ export async function listBookableServicesForOrganization(
         ],
       } as Record<string, unknown>,
       { orderBy: { title: 'asc' } },
-      { tenantId: scope.tenantId, organizationId: scope.organizationId },
+      decryptScope,
     ),
     resolvePricingChannelId(em, scope),
   ])
@@ -185,7 +194,7 @@ export async function listBookableServicesForOrganization(
   const productIds = products.map((product) => product.id)
   const categoryScope = {
     tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
+    ...scopedWhere,
   }
   const [prices, customFieldsByProductId, defaultVariants, categories, assignments, optionGroups, options] = await Promise.all([
     findWithDecryption(
@@ -193,18 +202,18 @@ export async function listBookableServicesForOrganization(
       CatalogProductPrice,
       {
         tenantId: scope.tenantId,
-        organizationId: scope.organizationId,
+        ...scopedWhere,
         product: { $in: productIds },
       },
       { orderBy: { createdAt: 'asc' }, populate: ['offer', 'priceKind', 'variant'] as const },
-      { tenantId: scope.tenantId, organizationId: scope.organizationId },
+      decryptScope,
     ),
     loadCustomFieldValues({
       em,
       entityId: E.catalog.catalog_product,
       recordIds: productIds,
       tenantIdByRecord: Object.fromEntries(productIds.map((id) => [id, scope.tenantId])),
-      organizationIdByRecord: Object.fromEntries(productIds.map((id) => [id, scope.organizationId])),
+      organizationIdByRecord: Object.fromEntries(productIds.map((id) => [id, scope.organizationId ?? null])),
       tenantFallbacks: [scope.tenantId],
     }),
     findWithDecryption(
@@ -212,14 +221,14 @@ export async function listBookableServicesForOrganization(
       CatalogProductVariant,
       {
         tenantId: scope.tenantId,
-        organizationId: scope.organizationId,
+        ...scopedWhere,
         product: { $in: productIds },
         isActive: true,
         isDefault: true,
         deletedAt: null,
       },
       { orderBy: { createdAt: 'asc' } },
-      { tenantId: scope.tenantId, organizationId: scope.organizationId },
+      decryptScope,
     ),
     findWithDecryption(em, CatalogProductCategory,
       { ...categoryScope, isActive: true, deletedAt: null },

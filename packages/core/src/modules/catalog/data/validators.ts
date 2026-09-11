@@ -688,8 +688,9 @@ export const catalogProductOptionTreeSyncSchema = scoped.extend({
 
 export type CatalogProductOptionTreeSyncInput = z.infer<typeof catalogProductOptionTreeSyncSchema>
 
-/** Public booking: list bookable services for an organization (branch). */
-export const bookableServicesQuerySchema = scoped.extend({
+/** Public booking: list bookable services for a tenant, optionally scoped to an organization (branch). */
+export const bookableServicesQuerySchema = tenantScoped.extend({
+  organizationId: uuid().optional(),
   channelId: uuid().optional(),
 })
 
