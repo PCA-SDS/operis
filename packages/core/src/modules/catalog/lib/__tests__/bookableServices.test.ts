@@ -5,7 +5,7 @@ import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
 import { CustomFieldDef, CustomFieldValue } from '@open-mercato/core/modules/entities/data/entities'
 import { SalesChannel } from '@open-mercato/core/modules/sales/data/entities'
-import { CatalogProduct, CatalogProductPrice } from '../../data/entities'
+import { CatalogProduct, CatalogProductPrice, CatalogProductCategory, CatalogProductCategoryAssignment } from '../../data/entities'
 import type { CatalogPricingService } from '../../services/catalogPricingService'
 import type { PriceRow } from '../pricing'
 import {
@@ -25,6 +25,8 @@ type Fixture = {
   products?: Array<Partial<CatalogProduct> & { id: string; title: string }>
   prices?: Array<Partial<CatalogProductPrice> & { id: string; product: { id: string } }>
   durations?: Record<string, number>
+  categories?: Array<Partial<CatalogProductCategory> & { id: string; name: string }>
+  assignments?: Array<{ product: { id: string }; category: { id: string }; tenantId: string; organizationId: string }>
 }
 
 /**
@@ -64,7 +66,9 @@ function createEm(fixture: Fixture) {
           matchesScope({ tenantId: TENANT, organizationId: ORG, ...product }, where) &&
           where.isActive === true &&
           where.deletedAt === null &&
-          where.customFieldsetCode === BOOKABLE_SERVICE_FIELDSET,
+          where.$or?.some((filter: Record<string, unknown>) =>
+            filter.customFieldsetCode === (product.customFieldsetCode ?? BOOKABLE_SERVICE_FIELDSET) ||
+            (filter.productType !== undefined && filter.productType === product.productType)),
       )
     }
     if (entity === CatalogProductPrice) {
@@ -74,6 +78,12 @@ function createEm(fixture: Fixture) {
           matchesScope({ tenantId: TENANT, organizationId: ORG, ...price }, where) &&
           wanted.includes(price.product.id),
       )
+    }
+    if (entity === CatalogProductCategory) {
+      return (fixture.categories ?? []).filter((category) => matchesScope(category, where) && category.isActive !== false && !category.deletedAt)
+    }
+    if (entity === CatalogProductCategoryAssignment) {
+      return (fixture.assignments ?? []).filter((assignment) => matchesScope(assignment, where) && where.product.$in.includes(assignment.product.id))
     }
     if (entity === CustomFieldValue) {
       const wanted: string[] = where.recordId?.$in ?? []
@@ -139,6 +149,32 @@ const price = (id: string, productId: string, extra: Record<string, unknown> = {
 }) as Partial<CatalogProductPrice> & { id: string; product: { id: string } }
 
 describe('listBookableServicesForOrganization', () => {
+  it('returns root-first category ancestry and SKU without leaking another organization', async () => {
+    const scoped = { tenantId: TENANT, organizationId: ORG }
+    const { em, queries } = createEm({
+      products: [service('p1', 'Polish', { sku: 'NAIL-01' }), service('p2', 'Other')],
+      categories: [
+        { ...scoped, id: 'root', name: 'Nails' },
+        { ...scoped, id: 'child', name: 'Manicure', parentId: 'root', description: 'Category note' },
+        { ...scoped, organizationId: OTHER_ORG, id: 'foreign', name: 'Private' },
+      ],
+      assignments: [
+        { ...scoped, product: { id: 'p1' }, category: { id: 'child' } },
+        { ...scoped, product: { id: 'p2' }, category: { id: 'foreign' } },
+      ],
+    })
+    const { service: pricingService } = createPricingService()
+    const items = await listBookableServicesForOrganization(em, scoped, { pricingService })
+    expect(items[0]).toMatchObject({ sku: 'NAIL-01', categoryId: 'child', categoryName: 'Manicure', categoryPath: [
+      { id: 'root', name: 'Nails', parentId: null, description: null },
+      { id: 'child', name: 'Manicure', parentId: 'root', description: 'Category note' },
+    ] })
+    expect(items[1]).toMatchObject({ categoryPath: [], categoryId: null, categoryName: null })
+    for (const entity of [CatalogProductCategory, CatalogProductCategoryAssignment]) {
+      expect(queries.find((query) => query.entity === entity)?.where).toMatchObject(scoped)
+    }
+  })
+
   it('rejects an unknown or inactive tenant before reading any catalog data', async () => {
     const { em, queries } = createEm({ tenant: false })
     const { service: pricingService } = createPricingService()
@@ -170,7 +206,7 @@ describe('listBookableServicesForOrganization', () => {
       organizationId: ORG,
       isActive: true,
       deletedAt: null,
-      customFieldsetCode: BOOKABLE_SERVICE_FIELDSET,
+      $or: [{ customFieldsetCode: BOOKABLE_SERVICE_FIELDSET }, { productType: 'service' }],
     })
   })
 
@@ -194,6 +230,10 @@ describe('listBookableServicesForOrganization', () => {
         subtitle: null,
         description: null,
         handle: 'signature-haircut',
+        sku: null,
+        categoryPath: [],
+        categoryId: null,
+        categoryName: null,
         currencyCode: 'USD',
         unitPriceNet: '95.0000',
         unitPriceGross: '95.0000',

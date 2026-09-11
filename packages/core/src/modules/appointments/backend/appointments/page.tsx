@@ -3,13 +3,15 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Settings } from 'lucide-react'
+import { Settings, Eye, Edit, Copy, LayoutPanelTop, Trash2 } from 'lucide-react'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { deleteCrud } from '@open-mercato/ui/backend/utils/crud'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -39,6 +41,7 @@ type Row = {
   notes: string | null
   externalNotes: string | null
   createdAt: string
+  updatedAt: string
 }
 
 type ListPayload = { items: Row[] }
@@ -104,6 +107,7 @@ export default function AppointmentsListPage() {
   const [isLoading, setIsLoading] = React.useState(true)
   const [search, setSearch] = React.useState('')
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
+  const [reloadToken, setReloadToken] = React.useState(0)
   const [statusOptions, setStatusOptions] = React.useState<{ code: string; label: string }[]>([])
 
   const statusesSettingsHref = React.useMemo(
@@ -200,6 +204,8 @@ export default function AppointmentsListPage() {
     }
   }, [scopeVersion, t])
 
+  const { ConfirmDialogElement, confirm } = useConfirmDialog()
+
   const handleRowStatusChange = React.useCallback((appointmentId: string, nextStatusCode: string) => {
     setRows((current) =>
       current.map((row) =>
@@ -207,6 +213,48 @@ export default function AppointmentsListPage() {
       ),
     )
   }, [])
+
+  const handleClone = React.useCallback(async (row: Row) => {
+    try {
+      const call = await apiCall<{ success: boolean; id?: string; error?: string }>(
+        `/api/appointments/${row.id}/clone`,
+        { method: 'POST' },
+        { fallback: { success: false } }
+      )
+      if (!call.ok || call.result?.error) {
+        throw new Error(call.result?.error || t('appointments.clone.failed', 'Unable to clone appointment.'))
+      }
+      flash(t('appointments.clone.success', 'Appointment cloned successfully'), 'success')
+      setReloadToken((prev: number) => prev + 1)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('appointments.clone.failed', 'Unable to clone appointment.')
+      flash(message, 'error')
+    }
+  }, [t])
+
+  const handleDelete = React.useCallback(async (row: Row) => {
+    const confirmed = await confirm({
+      title: t('appointments.list.actions.deleteConfirm', 'Delete this appointment?'),
+      variant: 'destructive',
+    })
+    if (!confirmed) return
+    try {
+      const headers = buildOptimisticLockHeader(row.updatedAt)
+      const call = await apiCall<{ success: boolean; error?: string }>(
+        `/api/appointments/${row.id}`,
+        { method: 'DELETE', headers },
+        { fallback: { success: false } }
+      )
+      if (!call.ok || call.result?.error) {
+        throw new Error(call.result?.error || t('appointments.delete.failed', 'Unable to delete appointment.'))
+      }
+      flash(t('appointments.delete.success', 'Appointment deleted'), 'success')
+      setRows((current) => current.filter((r) => r.id !== row.id))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('appointments.delete.failed', 'Unable to delete appointment.')
+      flash(message, 'error')
+    }
+  }, [confirm, t])
 
   const statusLabelByCode = React.useMemo(() => {
     const map = new Map<string, string>()
@@ -355,8 +403,36 @@ export default function AppointmentsListPage() {
           />
         ),
       },
+      {
+        id: 'actions',
+        header: () => <div className="text-center">{t('appointments.list.columns.actions', 'Actions')}</div>,
+        meta: { truncate: false },
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1.5">
+            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.view', 'View Details')}>
+              <Link href={`/backend/appointments/${row.original.id}`}>
+                <Eye className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.edit', 'Edit Booking')}>
+              <Link href={`/backend/appointments/${row.original.id}/edit`}>
+                <Edit className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.clone', 'Clone Booking')} onClick={() => void handleClone(row.original)}>
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.planner', 'Open Seat Planner')} disabled>
+              <LayoutPanelTop className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" title={t('appointments.list.actions.delete', 'Delete Booking')} onClick={() => void handleDelete(row.original)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ),
+      },
     ],
-    [t, statusOptions, handleRowStatusChange],
+    [t, statusOptions, handleRowStatusChange, handleClone, handleDelete],
   )
 
   return (
@@ -389,19 +465,9 @@ export default function AppointmentsListPage() {
           onSearchChange={setSearch}
           searchPlaceholder={t('appointments.list.search.placeholder', 'Search appointments…')}
           perspective={{ tableId: 'appointments.list.v5' }}
-          rowActions={(row) => (
-            <RowActions
-              items={[
-                {
-                  id: 'view',
-                  label: t('appointments.list.actions.view'),
-                  href: `/backend/appointments/${row.id}`,
-                },
-              ]}
-            />
-          )}
           isLoading={isLoading}
         />
+        {ConfirmDialogElement}
       </PageBody>
     </Page>
   )
