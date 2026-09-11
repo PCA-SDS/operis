@@ -35,6 +35,29 @@ jest.mock('@open-mercato/ui/primitives/radio', () => {
   }
 })
 
+jest.mock('@open-mercato/ui/primitives/select', () => {
+  const React2 = require('react') as typeof import('react')
+  const Ctx = React2.createContext({ onValueChange: (_value: string) => {} })
+  return {
+    Select: ({ children, onValueChange }: { children: React.ReactNode; onValueChange?: (value: string) => void }) => (
+      <Ctx.Provider value={{ onValueChange: onValueChange ?? (() => undefined) }}>
+        <div>{children}</div>
+      </Ctx.Provider>
+    ),
+    SelectTrigger: ({ children }: { children: React.ReactNode }) => <button type="button" role="combobox">{children}</button>,
+    SelectValue: ({ children, placeholder }: { children?: React.ReactNode; placeholder?: string }) => <span>{children ?? placeholder}</span>,
+    SelectContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+    SelectItem: ({ children, value, disabled }: { children: React.ReactNode; value: string; disabled?: boolean }) => {
+      const context = React2.useContext(Ctx)
+      return (
+        <button type="button" role="option" disabled={disabled} onClick={() => context.onValueChange(value)}>
+          {children}
+        </button>
+      )
+    },
+  }
+})
+
 import { PriceKindSettings } from '../PriceKindSettings'
 import CategoriesDataTable from '../categories/CategoriesDataTable'
 import { CategorySelect } from '../categories/CategorySelect'
@@ -264,9 +287,10 @@ describe('catalog module components', () => {
         nodes={nodes}
       />,
     )
+    fireEvent.pointerDown(screen.getByRole('combobox'), { button: 0, ctrlKey: false, pointerType: 'mouse' })
     const option = screen.getByRole('option', { name: /Shoes/i })
     expect(option).toBeInTheDocument()
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'cat-1' } })
+    fireEvent.click(option)
     expect(handleChange).toHaveBeenCalledWith('cat-1')
   })
 

@@ -2,7 +2,7 @@ import { GET, PUT } from '../products/[id]/option-tree/route'
 import { NextRequest } from 'next/server'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveRequestContext } from '@open-mercato/shared/lib/api/context'
-import { CatalogProductOption, CatalogProductOptionGroup, CatalogProduct } from '../../data/entities'
+import { CatalogProductOption, CatalogProductOptionGroup, CatalogProduct, CatalogProductConstraint } from '../../data/entities'
 
 jest.mock('@open-mercato/shared/lib/api/context', () => ({
   resolveRequestContext: jest.fn(),
@@ -238,6 +238,27 @@ describe('GET /products/[id]/option-tree org-scoped isolation', () => {
     expect(mockEm.em.findOne).toHaveBeenCalledWith(
       CatalogProduct,
       expect.not.objectContaining({ organizationId: ORG_B }),
+    )
+  })
+
+  it('loads constraints sourced from the product and from its options', async () => {
+    const req = new NextRequest('http://localhost/api/products/1/option-tree', {
+      method: 'GET',
+      headers: { 'user-agent': 'jest-test' },
+    })
+
+    await GET(req, { params: { id: PRODUCT_ID } })
+
+    expect(mockEm.em.find).toHaveBeenCalledWith(
+      CatalogProductConstraint,
+      {
+        $or: [
+          { sourceProduct: PRODUCT_ID },
+          { sourceOption: { group: { product: PRODUCT_ID } } },
+        ],
+        tenantId: TENANT_ID,
+        organizationId: ORG_A,
+      },
     )
   })
 
