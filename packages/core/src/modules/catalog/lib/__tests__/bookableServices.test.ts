@@ -240,6 +240,7 @@ describe('listBookableServicesForOrganization', () => {
         durationMinutes: 60,
         organizationId: ORG,
         tenantId: TENANT,
+        optionGroups: [],
       },
     ])
     expect(resolvePriceMany).toHaveBeenCalledWith([

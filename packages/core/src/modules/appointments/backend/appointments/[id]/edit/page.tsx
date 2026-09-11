@@ -191,7 +191,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
     let cancelled = false
     const controller = new AbortController()
     async function loadServices() {
-      if (!tenantId || !locationId) {
+      if (!tenantId) {
         setServices([])
         setServicesError(null)
         setServicesLoading(false)
@@ -202,7 +202,6 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
       try {
         const params = new URLSearchParams({
           tenantId,
-          organizationId: locationId,
         })
         const call = await apiCall<{ items?: BookableService[]; error?: string }>(
           `/api/catalog/bookable-services?${params.toString()}`,
@@ -234,7 +233,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
       cancelled = true
       controller.abort()
     }
-  }, [tenantId, locationId, t])
+  }, [tenantId, t])
 
   React.useEffect(() => {
     let cancelled = false
@@ -575,7 +574,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
         description: t('appointments.create.services.hint'),
         component: ({ value, setValue, disabled }) => {
           let emptyLabel = t('appointments.create.services.empty')
-          if (!tenantId || !locationId) {
+          if (!tenantId) {
             emptyLabel = t('appointments.create.error.scope')
           } else if (servicesLoading) {
             emptyLabel = t('appointments.create.services.loading')
