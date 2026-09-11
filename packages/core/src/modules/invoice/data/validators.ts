@@ -340,6 +340,30 @@ export function hashInvoicePublicToken(token: InvoicePublicToken): InvoiceTokenH
 }
 
 export const invoiceScopeTaxCodesSchema = z.array(invoiceTaxCodeSchema).max(100)
+export const invoiceVietnameseTaxCodeSchema = z.string().trim().regex(/^\d{10}(?:-\d{3})?$/)
+export const invoiceSyncAcknowledgementsSchema = z.object({
+  dueDatesRequireConfiguration: z.literal(true),
+  settlementIsManual: z.literal(true),
+}).strict()
+export const invoiceSyncStartSchema = z.object({
+  idempotencyKey: z.string().trim().regex(/^[A-Za-z0-9_-]{8,80}$/),
+  fromDate: invoiceDateStringSchema,
+  toDate: invoiceDateStringSchema,
+  scopeTaxCodes: invoiceScopeTaxCodesSchema.default([]),
+  acknowledgements: invoiceSyncAcknowledgementsSchema,
+}).strict()
+export const invoiceSyncAuthenticateSchema = z.object({
+  transactionId: uuid(),
+  password: z.string().min(1).max(512),
+  captchaSolution: z.string().trim().min(1).max(256),
+}).strict()
+export const invoiceSyncJobStatusSchema = z.object({
+  jobId: uuid(), state: invoiceSyncJobStateSchema, progress: z.number().int().min(0).max(100),
+  fromDate: z.string().datetime(), toDate: z.string().datetime(), scopeTaxCodes: z.array(invoiceTaxCodeSchema),
+  failureCategory: invoiceSyncJobFailureCategorySchema.nullable(), failureMessage: z.string().nullable(),
+  progressJobId: uuid().nullable(), createdAt: z.string().datetime(), updatedAt: z.string().datetime(),
+  startedAt: z.string().datetime().nullable(), finishedAt: z.string().datetime().nullable(),
+}).strict()
 export const invoiceJsonRecordSchema = z.record(z.string(), z.unknown())
 
 export const invoiceCompanyLookupProviderSchema = z.enum(['vietqr', 'data_gov_sg'])

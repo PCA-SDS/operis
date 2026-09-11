@@ -29,7 +29,7 @@ export const openApi: OpenApiRouteDoc = {
       summary: 'Preview a public payment confirmation',
       pathParams: tokenParamsSchema,
       responses: [{ status: 200, description: 'Safe payment confirmation preview', schema: invoicePaymentConfirmationPublicPreviewSchema }],
-      errors: invoicePublicErrors,
+      errors: [...invoicePublicErrors],
     },
   },
 }

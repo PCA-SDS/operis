@@ -2,12 +2,14 @@ import { z } from 'zod'
 
 export const tenantCreateSchema = z.object({
   name: z.string().min(1).max(200),
+  taxCode: z.string().trim().max(80).nullable().optional(),
   isActive: z.boolean().optional(),
 })
 
 export const tenantUpdateSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1).max(200).optional(),
+  taxCode: z.string().trim().max(80).nullable().optional(),
   isActive: z.boolean().optional(),
 })
 
@@ -26,6 +28,7 @@ const logoUrlField = z
 export const organizationCreateSchema = z.object({
   tenantId: z.string().uuid().optional(),
   name: z.string().min(1).max(200),
+  taxCode: z.string().trim().max(80).nullable().optional(),
   slug: slugField,
   logoUrl: logoUrlField,
   logoPreserveAspectRatio: z.boolean().optional(),
@@ -38,6 +41,7 @@ export const organizationUpdateSchema = z.object({
   id: z.string().uuid(),
   tenantId: z.string().uuid().optional(),
   name: z.string().min(1).max(200).optional(),
+  taxCode: z.string().trim().max(80).nullable().optional(),
   slug: slugField,
   logoUrl: logoUrlField,
   logoPreserveAspectRatio: z.boolean().optional(),

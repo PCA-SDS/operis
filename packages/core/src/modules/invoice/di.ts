@@ -21,9 +21,12 @@ import { createInvoiceAutoPaidService } from './services/auto-paid-service'
 import { createInvoiceService } from './services/invoice-service'
 import { createInvoiceTrackingService } from './services/invoice-tracking-service'
 import { createInvoicePaymentConfirmationsService } from './services/payment-confirmations-service'
+import { createInvoiceSyncService } from './services/sync-service'
+import { createGdtClient } from './services/gdt'
 
 export function register(container: AppContainer) {
   container.register({
+    gdtClient: asFunction(() => createGdtClient()).singleton(),
     invoiceScopedPersistenceService: asFunction(({ em }) => createInvoiceScopedPersistenceService(em)).scoped().proxy(),
     invoicePartnerTermsService: asFunction(({ em, invoiceScopedPersistenceService }) =>
       createInvoicePartnerTermsService(em, invoiceScopedPersistenceService),
@@ -47,6 +50,9 @@ export function register(container: AppContainer) {
         invoiceScopedPersistenceService,
         invoiceExchangeRatesService,
       ),
+    ).scoped().proxy(),
+    invoiceSyncService: asFunction(({ em, cache, progressService, gdtClient, tenantEncryptionService }) =>
+      createInvoiceSyncService(em, cache, progressService, gdtClient, tenantEncryptionService),
     ).scoped().proxy(),
     Invoice: asValue(Invoice),
     InvoiceAutoPaidTaxCode: asValue(InvoiceAutoPaidTaxCode),

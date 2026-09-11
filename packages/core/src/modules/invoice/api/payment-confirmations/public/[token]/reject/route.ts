@@ -29,7 +29,7 @@ export const openApi: OpenApiRouteDoc = {
       summary: 'Reject payment through a public link',
       pathParams: tokenParamsSchema,
       responses: [{ status: 200, description: 'Payment confirmation rejected', schema: invoicePaymentConfirmationPublicTransitionSchema }],
-      errors: invoicePublicErrors,
+      errors: [...invoicePublicErrors],
     },
   },
 }
