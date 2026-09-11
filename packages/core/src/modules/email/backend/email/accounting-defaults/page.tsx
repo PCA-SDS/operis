@@ -180,7 +180,7 @@ export default function EmailAccountingDefaultsPage() {
       <PageBody>
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{t('email.accountingDefaults.title', 'Email Accounting Defaults')}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{t('email.accountingDefaults.title', 'Accounting Defaults')}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{t('email.accountingDefaults.description', 'Manage tenant-owned sender defaults, reusable placeholders, sample links, and workflow rules.')}</p>
           </div>
           <Button variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.back', 'Back')}</Link></Button>

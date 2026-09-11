@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['email.templates.manage'],
   pageTitle: 'Edit Email Template',
   pageTitleKey: 'email.nav.editTemplate',
-  pageGroup: 'Communication',
+  pageGroup: 'Email',
   pageGroupKey: 'email.nav.group',
   navHidden: true,
   breadcrumb: [

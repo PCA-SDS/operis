@@ -1,10 +1,11 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['email.accounting_defaults.manage'],
-  pageTitle: 'Email Accounting Defaults',
+  pageTitle: 'Accounting Defaults',
   pageTitleKey: 'email.nav.accountingDefaults',
-  pageGroup: 'Communication',
+  pageGroup: 'Email',
   pageGroupKey: 'email.nav.group',
+  pageOrder: 33,
   navHidden: true,
   breadcrumb: [
     { label: 'Email Templates', labelKey: 'email.nav.templates', href: '/backend/email/templates' },

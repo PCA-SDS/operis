@@ -23,6 +23,7 @@ export type TemplateBuilderFormValue = {
   defaultValues: string
   variableTypes: string
   rules: string
+  ruleNotes: string
   workflowKey: string
   sortOrder: string
   isActive: boolean
@@ -288,6 +289,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
   const variableRows = React.useMemo(() => customTemplateVariables(value.variables), [value.variables])
   const parsedVariableTypes = React.useMemo(() => parseVariableTypes(value.variableTypes), [value.variableTypes])
   const parsedRules = React.useMemo(() => parseRules(value.rules), [value.rules])
+  const canShowInGenerator = value.status === 'published'
   const updateRule = (key: string, ruleValue: RuleValue) => {
     setField('rules', formatRules({ ...parsedRules, [key]: ruleValue }))
   }
@@ -407,7 +409,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
             <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.templateKey.help', 'Unique code used by automation and imports. Use lowercase letters, numbers, dots, dashes, or underscores.')}>{t('email.templates.form.templateKey.label', 'Template key')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.templateKey} onChange={(event) => setField('templateKey', event.target.value)} required /></label>
             <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.name.help', 'Human-friendly name shown to users when choosing a template.')}>{t('email.templates.form.name.label', 'Name')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.name} onChange={(event) => setField('name', event.target.value)} required /></label>
             <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.category.help', 'Groups templates for browsing. Accounting templates usually use accounting.')}>{t('email.templates.form.category.label', 'Category')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.category} onChange={(event) => setField('category', event.target.value)} required /></label>
-            <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.status.help', 'Draft templates are editable, published templates are selectable in compose, archived templates are hidden from normal use.')}>{t('email.templates.form.status.label', 'Status')}</HelpLabel><select className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.status} onChange={(event) => setField('status', event.target.value as TemplateStatus)}><option value="draft">{t('email.templates.status.draft', 'Draft')}</option><option value="published">{t('email.templates.status.published', 'Published')}</option><option value="archived">{t('email.templates.status.archived', 'Archived')}</option></select></label>
+            <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.status.help', 'Draft templates are editable, published templates are selectable in compose, archived templates are hidden from normal use.')}>{t('email.templates.form.status.label', 'Status')}</HelpLabel><select className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.status} onChange={(event) => setField('status', event.target.value as TemplateStatus)}><option value="draft">{t('email.templates.status.draft', 'Draft')}</option><option value="published">{t('email.templates.status.published', 'Published')}</option><option value="archived">{t('email.templates.status.archived', 'Archived')}</option></select><span className="mt-1 block text-xs text-muted-foreground">{value.status === 'published' ? t('email.templates.form.status.publishedHelp', 'Published templates can appear in Compose Email when enabled below.') : value.status === 'archived' ? t('email.templates.form.status.archivedHelp', 'Archived templates stay hidden from Compose Email.') : t('email.templates.form.status.draftHelp', 'Draft templates are saved for editing and stay hidden from Compose Email.')}</span></label>
           </div>
           <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.description.help', 'Short internal note explaining when this template is useful.')}>{t('email.templates.form.description.label', 'Description')}</HelpLabel><textarea className="mt-1 min-h-20 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.description} onChange={(event) => setField('description', event.target.value)} /></label>
           <section className="space-y-3 rounded-md border border-border bg-background p-3">
@@ -422,6 +424,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
               <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" className="size-4" checked={parsedRules.hasCit === true} onChange={(event) => updateRule('hasCit', event.target.checked)} /> <HelpLabel help={t('email.templates.form.hasCit.help', 'Marks this template for Corporate Income Tax messages.')}>{t('email.templates.form.hasCit.label', 'Includes CIT')}</HelpLabel></label>
               <label className="block text-sm font-medium md:col-span-2"><HelpLabel help={t('email.templates.form.priority.help', 'Lower numbers appear first when multiple templates match later.')}>{t('email.templates.form.priority.label', 'Selection priority')}</HelpLabel><input type="number" min="0" className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.sortOrder} onChange={(event) => setField('sortOrder', event.target.value)} /></label>
             </div>
+            <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.ruleNotes.help', 'Plain-language notes for staff, such as when to choose this template or what values to check before copying.')}>{t('email.templates.form.ruleNotes.label', 'Rule notes')}</HelpLabel><textarea className="mt-1 min-h-20 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.ruleNotes} onChange={(event) => setField('ruleNotes', event.target.value)} placeholder={t('email.templates.form.ruleNotes.placeholder', 'Example: Use this for Q4 annual CIT finalization after reports are ready.')} /></label>
           </section>
           <section className="space-y-3 rounded-md border border-border bg-background p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -462,7 +465,17 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
                     {variableTypes.map((type) => <option key={type} value={type}>{variableTypeLabel(t, type)}</option>)}
                   </select>
                   <input aria-label={t('email.templates.form.samplePreviewValue', 'Sample preview value')} className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={String(parseDefaultValues(value.defaultValues)[variableName] ?? '')} onChange={(event) => updateVariableSample(variableName, event.target.value)} placeholder={(parsedVariableTypes[variableName] ?? 'text') === 'link' ? 'https://example.com/folder' : t('email.templates.form.samplePreviewValue', 'Sample preview value')} />
-                  <Button type="button" size="sm" variant="ghost" onClick={() => removeVariable(index)}>{t('email.common.remove', 'Remove')}</Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-9 w-9 shrink-0 px-0 text-destructive hover:text-destructive"
+                    aria-label={t('email.common.remove', 'Remove')}
+                    title={t('email.common.remove', 'Remove')}
+                    onClick={() => removeVariable(index)}
+                  >
+                    ×
+                  </Button>
                   <p className="md:col-span-4 text-xs text-muted-foreground">{variableTypeHelp(t, parsedVariableTypes[variableName] ?? 'text')}</p>
                 </div>
               )) : (
@@ -538,14 +551,14 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
           <input type="hidden" value={value.fields} readOnly />
           <input type="hidden" value={value.sortOrder} readOnly />
           <input type="hidden" value={value.workflowKey} readOnly />
-          <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" className="size-4" checked={value.isActive} onChange={(event) => setField('isActive', event.target.checked)} /> <HelpLabel help={t('email.templates.form.showInGenerator.help', 'Controls whether accounting compose/generator screens can offer this template when status allows it.')}>{t('email.templates.form.showInGenerator.label', 'Show in accounting generator')}</HelpLabel></label>
+          <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" className="size-4" checked={value.isActive && canShowInGenerator} disabled={!canShowInGenerator} onChange={(event) => setField('isActive', event.target.checked)} /> <HelpLabel help={t('email.templates.form.showInGenerator.help', 'Only published templates can appear in Compose Email. Draft and archived templates are hidden even when this is checked.')}>{t('email.templates.form.showInGenerator.label', 'Show in accounting generator')}</HelpLabel></label>
           <div className="flex justify-between gap-2">
             {mode === 'edit' && onDelete ? <Button type="button" variant="destructive" disabled={isSaving} onClick={onDelete}>{t('email.common.delete', 'Delete')}</Button> : <span />}
             <div className="flex gap-2"><Button type="button" variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.cancel', 'Cancel')}</Link></Button><Button type="submit" disabled={isSaving}>{isSaving ? t('email.common.saving', 'Saving…') : mode === 'create' ? t('email.templates.form.createSubmit', 'Create Template') : t('email.templates.form.saveSubmit', 'Save Template')}</Button></div>
           </div>
         </div>
         <aside className="space-y-4 self-start rounded-lg border bg-card p-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-auto">
-          <div><h2 className="font-semibold"><HelpLabel help={t('email.templates.preview.help', 'Shows how the subject and body will look using sample values. Use Compose Preview later to choose a specific company.')}>{t('email.templates.preview.title', 'Live preview')}</HelpLabel></h2><p className="text-sm text-muted-foreground">{t('email.templates.preview.description', 'Preview uses sample/default values only and does not send email.')}</p></div>
+          <div><h2 className="font-semibold"><HelpLabel help={t('email.templates.preview.help', 'Shows how the subject and body will look using sample values. Use Compose Email later to choose a specific company.')}>{t('email.templates.preview.title', 'Live preview')}</HelpLabel></h2><p className="text-sm text-muted-foreground">{t('email.templates.preview.description', 'Preview uses sample/default values only and does not send email.')}</p></div>
           {previewError ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{previewError}</div> : null}
           <div className="rounded-md border bg-background p-3">
             <div className="flex items-center justify-between gap-2"><div className="text-xs uppercase text-muted-foreground">{t('email.templates.form.subject.label', 'Subject')}</div><Button type="button" size="sm" variant="ghost" onClick={copyPreviewSubject}>{copied === 'subject' ? t('email.common.copied', 'Copied') : t('email.templates.preview.copySubject', 'Copy subject')}</Button></div>

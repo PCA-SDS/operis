@@ -81,15 +81,15 @@ Template variables are split into two groups:
 
 This prevents users from retyping company/contact facts already stored in the Customers module.
 
-## Compose Preview
+## Compose Email
 
-`/backend/email/compose` provides a compose-preview surface for published tenant templates. It lets users test selected template output with an Operis company, linked people, and accounting values before the later email-sending workflow exists.
+`/backend/email/compose` provides a compose email surface for published tenant templates. It lets users test selected template output with an Operis company, linked people, and accounting values before the later email-sending workflow exists.
 
 - Company values represent the business customer selected from Operis Customers/Companies.
 - People values represent linked contacts/recipients for that company.
-- If no people are linked yet, company variables still render, while contact/recipient variables stay empty or must be entered manually in preview.
+- If no people are linked yet, company variables still render and the company email is used as the recipient fallback; contact variables stay empty or must be entered manually in preview.
 - Company and people values are loaded through existing scoped Customers APIs instead of direct cross-module imports or relationships.
-- When the Messages module is enabled and the user has `messages.compose`, the page can create an internal Operis Messages draft through `/api/messages` with `isDraft: true`; it never sends email and never creates Gmail drafts.
+- The page is copy-only for now: users copy recipients, subject, and body from the preview. It never sends email and never creates Operis or Gmail drafts.
 - Future compose integration should reuse this scoped lookup path when adding draft/send actions. Gmail Drafts must be added through the communication-channel boundary because the existing send-as-user facade is a real-send path, not a draft path.
 
 ## Rules And Workflow Selection

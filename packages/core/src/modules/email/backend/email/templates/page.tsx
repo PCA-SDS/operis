@@ -129,9 +129,6 @@ export default function EmailTemplatesPage() {
             <Button type="submit" variant="secondary">{t('email.common.search', 'Search')}</Button>
           </form>
           <div className="flex gap-2">
-            <Button variant="secondary" asChild>
-              <Link href="/backend/email/accounting-defaults">{t('email.templates.accountingDefaults', 'Accounting Defaults')}</Link>
-            </Button>
             <Button asChild>
               <Link href="/backend/email/templates/create">{t('email.templates.newTemplate', 'New Template')}</Link>
             </Button>

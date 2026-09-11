@@ -37,6 +37,7 @@ export const accountingTemplateMetadataSchema = z
   .object({
     workflowKey: z.string().trim().max(120).optional(),
     ruleKeys: z.array(z.string().trim().min(1).max(120)).max(50).default([]),
+    ruleNotes: z.string().trim().max(2000).optional(),
     sourceTemplateId: z.string().trim().max(160).optional().nullable(),
     migratedFrom: z.string().trim().max(160).optional().nullable(),
     fields: z.array(z.string().trim().min(1).max(120)).max(200).default([]).optional(),

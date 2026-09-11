@@ -3,7 +3,8 @@ export const metadata = {
   requireFeatures: ['email.templates.view'],
   pageTitle: 'Email Templates',
   pageTitleKey: 'email.nav.templates',
-  pageGroup: 'Communication',
+  pageGroup: 'Email',
   pageGroupKey: 'email.nav.group',
+  pageOrder: 30,
   breadcrumb: [{ label: 'Email Templates', labelKey: 'email.nav.templates' }],
 } as const

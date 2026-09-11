@@ -5,9 +5,7 @@ import Link from 'next/link'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { hasFeature } from '@open-mercato/shared/security/features'
 import {
   blocksToHtml,
   parseVariableTypes,
@@ -85,14 +83,24 @@ type CompanyPeopleResponse = {
 }
 
 function blocksFromStored(blocks: TemplateBlock[] | undefined): TemplateBlockFormValue[] {
-  if (!Array.isArray(blocks)) return []
-  return blocks.map((block, index) => ({
+  const storedBlocks = typeof blocks === 'string' ? (() => {
+    try {
+      return JSON.parse(blocks) as unknown
+    } catch {
+      return blocks
+    }
+  })() : blocks
+  if (!Array.isArray(storedBlocks)) return []
+  return storedBlocks.map((item, index) => {
+    const block = item && typeof item === 'object' && !Array.isArray(item) ? item as TemplateBlock : { id: `stored-${index}`, type: 'paragraph', props: {} }
+    return ({
     id: block.id || `stored-${index}`,
     type: (block.type === 'rich-text-html' || block.type === 'rich_text' ? 'rich-text-html' : block.type === 'heading' || block.type === 'button' || block.type === 'divider' ? block.type : 'paragraph') as BlockType,
     label: block.label || `Block ${index + 1}`,
     content: typeof block.props?.html === 'string' ? block.props.html : typeof block.props?.text === 'string' ? block.props.text : '',
     url: typeof block.props?.href === 'string' ? block.props.href : '',
-  }))
+  })
+  })
 }
 
 function readDisplayName(value: { displayName?: string | null; display_name?: string | null }): string {
@@ -158,11 +166,6 @@ export default function EmailComposePreviewPage() {
     { key: 'declarationDeadline', value: 'April 29, 2026' },
   ])
   const [copiedPart, setCopiedPart] = React.useState<EmailDraftPart | null>(null)
-  const [draftMessage, setDraftMessage] = React.useState<string | null>(null)
-  const [draftError, setDraftError] = React.useState<string | null>(null)
-  const [isCreatingDraft, setIsCreatingDraft] = React.useState(false)
-  const { payload: backendChromePayload, isReady: backendChromeReady } = useBackendChrome()
-  const canCreateMessageDraft = backendChromeReady && hasFeature(backendChromePayload?.grantedFeatures, 'messages.compose')
 
   React.useEffect(() => {
     const controller = new AbortController()
@@ -257,7 +260,7 @@ export default function EmailComposePreviewPage() {
     const controller = new AbortController()
     let cancelled = false
     async function loadTemplate() {
-      const response = await apiCall<ListResponse>(`/api/email/templates?id=${encodeURIComponent(selectedId)}`, {
+      const response = await apiCall<ListResponse & { item?: EmailTemplateRow; data?: EmailTemplateRow }>(`/api/email/templates/${encodeURIComponent(selectedId)}`, {
         signal: controller.signal,
       }).catch((err: unknown) => ({ ok: false as const, result: { error: err instanceof Error ? err.message : t('email.compose.errors.loadTemplateDetails', 'Failed to load template details') } }))
       if (cancelled) return
@@ -266,7 +269,7 @@ export default function EmailComposePreviewPage() {
         setError((response.result as { error?: string } | undefined)?.error ?? t('email.compose.errors.loadTemplateDetails', 'Failed to load template details'))
         return
       }
-      setSelectedTemplate(response.result?.items?.[0] ?? null)
+      setSelectedTemplate(response.result?.item ?? response.result?.data ?? response.result?.items?.[0] ?? null)
     }
     void loadTemplate()
     return () => {
@@ -288,12 +291,13 @@ export default function EmailComposePreviewPage() {
   }, [selectedTemplate])
 
   const templateDefaults = selectedTemplate?.accounting_metadata?.defaultValues ?? {}
+  const effectiveRecipientEmails = recipientEmails.trim() || companyEmail.trim()
   const mergedSamples = {
     companyName,
     companyCode,
     companyEmail,
     contactNames,
-    recipientEmails,
+    recipientEmails: effectiveRecipientEmails,
     greeting,
     ...templateDefaults,
     ...rowsToRecord(accountingRows),
@@ -303,49 +307,16 @@ export default function EmailComposePreviewPage() {
   const previewSubject = selectedTemplate ? renderWithSamples(selectedTemplate.subject, mergedSamples) : t('email.compose.selectPublishedTemplate', 'Select a published template')
   const previewPreheader = selectedTemplate?.preheader ? renderWithSamples(selectedTemplate.preheader, mergedSamples) : ''
   const previewHtml = selectedTemplate ? renderHtmlPreviewWithSamples(blocksToHtml(blocks), mergedSamples, variableTypes) : `<p>${t('email.compose.noTemplateSelected', 'No template selected.')}</p>`
+  const hasTemplates = templates.length > 0
+  const hasCompanies = companies.length > 0
   const copyDraftPart = async (part: EmailDraftPart) => {
     if (part === 'body') {
       await copyHtml(previewHtml)
     } else {
-      await navigator.clipboard.writeText(part === 'recipients' ? recipientEmails : previewSubject)
+      await navigator.clipboard.writeText(part === 'recipients' ? effectiveRecipientEmails : previewSubject)
     }
     setCopiedPart(part)
     window.setTimeout(() => setCopiedPart(null), 1800)
-  }
-  const createOperisDraft = async () => {
-    setDraftMessage(null)
-    setDraftError(null)
-    setIsCreatingDraft(true)
-    try {
-      const response = await apiCall<{ id?: string; threadId?: string }>('/api/messages', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          type: 'email.template_preview',
-          visibility: 'public',
-          sourceEntityType: 'email.email_template',
-          sourceEntityId: selectedTemplate?.id,
-          externalEmail: recipientEmails.split(',').map((email) => email.trim()).filter(Boolean)[0] || companyEmail || 'preview@example.com',
-          externalName: companyName || selectedTemplate?.name || 'Email template preview',
-          recipients: [],
-          subject: previewSubject,
-          body: htmlToPlainText(previewHtml),
-          bodyFormat: 'text',
-          priority: 'normal',
-          sendViaEmail: false,
-          isDraft: true,
-        }),
-      })
-      if (!response.ok) {
-        const body = response.result as { error?: string; message?: string } | undefined
-        throw new Error(body?.error ?? body?.message ?? t('email.compose.errors.createDraft', 'Failed to create Operis draft'))
-      }
-      setDraftMessage(t('email.compose.draft.created', 'Operis draft created in Messages. It was not sent.'))
-    } catch (err) {
-      setDraftError(err instanceof Error ? err.message : t('email.compose.errors.createDraft', 'Failed to create Operis draft'))
-    } finally {
-      setIsCreatingDraft(false)
-    }
   }
 
   return (
@@ -353,12 +324,22 @@ export default function EmailComposePreviewPage() {
       <PageBody>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold">{t('email.compose.title', 'Compose Email Preview')}</h1>
+            <h1 className="text-2xl font-semibold">{t('email.compose.title', 'Compose Email')}</h1>
             <p className="text-sm text-muted-foreground">{t('email.compose.description', 'Preview a published tenant template with selected company/contact and accounting values. This does not send email.')}</p>
           </div>
           <Button variant="secondary" asChild><Link href="/backend/email/templates">{t('email.compose.backToTemplates', 'Back to Templates')}</Link></Button>
         </div>
         {error ? <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div> : null}
+        {!isLoading && !hasTemplates ? (
+          <div className="mb-4 rounded-md border border-dashed bg-card px-4 py-3 text-sm text-muted-foreground">
+            {t('email.compose.empty.templates', 'No published email templates are available. Publish a template before composing email.')}
+          </div>
+        ) : null}
+        {!isLoadingCompanies && !hasCompanies ? (
+          <div className="mb-4 rounded-md border border-dashed bg-card px-4 py-3 text-sm text-muted-foreground">
+            {t('email.compose.empty.companies', 'No companies are available. Create or select a customer company before composing email.')}
+          </div>
+        ) : null}
         <div className="grid gap-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
           <section className="space-y-4 rounded-lg border bg-card p-4">
             <label className="block text-sm font-medium"><HelpLabel help={t('email.compose.template.help', 'Choose a published tenant-owned template. Draft and archived templates are not available here.')}>{t('email.compose.template.label', 'Template')}</HelpLabel>
@@ -377,7 +358,7 @@ export default function EmailComposePreviewPage() {
               <label className="block text-sm font-medium"><HelpLabel help={t('email.compose.companyCode.help', 'Optional company code used by templates such as accounting subjects.')}>{t('email.compose.companyCode', 'Company code')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={companyCode} onChange={(event) => setCompanyCode(event.target.value)} /></label>
               <label className="block text-sm font-medium"><HelpLabel help={t('email.compose.companyEmail.help', 'Company email from the customer record; editable for this preview only.')}>{t('email.compose.companyEmail', 'Company email')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={companyEmail} onChange={(event) => setCompanyEmail(event.target.value)} /></label>
               <label className="block text-sm font-medium"><HelpLabel help={t('email.compose.contactNames.help', 'Names of people linked to the company. If none are linked, this stays empty until the user fills it manually.')}>{t('email.compose.contactNames', 'Contact names')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={contactNames} onChange={(event) => setContactNames(event.target.value)} /></label>
-              <label className="block text-sm font-medium"><HelpLabel help={t('email.compose.recipientEmails.help', 'Recipient email addresses from linked people. Users can type addresses manually if no people are linked.')}>{t('email.compose.recipientEmails', 'Recipient emails')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={recipientEmails} onChange={(event) => setRecipientEmails(event.target.value)} /></label>
+              <label className="block text-sm font-medium"><HelpLabel help={t('email.compose.recipientEmails.help', 'Recipient email addresses from linked people. If empty, the selected company email is used as the fallback.')}>{t('email.compose.recipientEmails', 'Recipient emails')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={recipientEmails} onChange={(event) => setRecipientEmails(event.target.value)} /></label>
               <label className="block text-sm font-medium"><HelpLabel help={t('email.compose.greeting.help', 'Greeting generated from linked people when possible; falls back to a generic greeting if no contacts exist.')}>{t('email.compose.greeting', 'Greeting')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={greeting} onChange={(event) => setGreeting(event.target.value)} /></label>
             </div>
             <section className="space-y-3 rounded-md border bg-background p-3">
@@ -401,7 +382,17 @@ export default function EmailComposePreviewPage() {
                       next[index] = { ...row, value: event.target.value }
                       setAccountingRows(next)
                     }} placeholder={t('email.compose.accountingValues.valuePlaceholder', 'Quarter 1 2026')} />
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setAccountingRows(accountingRows.filter((_, rowIndex) => rowIndex !== index))}>{t('email.common.remove', 'Remove')}</Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-9 w-9 shrink-0 px-0 text-destructive hover:text-destructive"
+                      aria-label={t('email.common.remove', 'Remove')}
+                      title={t('email.common.remove', 'Remove')}
+                      onClick={() => setAccountingRows(accountingRows.filter((_, rowIndex) => rowIndex !== index))}
+                    >
+                      ×
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -409,25 +400,18 @@ export default function EmailComposePreviewPage() {
           </section>
           <aside className="space-y-4 rounded-lg border bg-card p-4">
             <div><h2 className="font-semibold"><HelpLabel help={t('email.compose.preview.help', 'Shows the email output using the selected template, company, linked people, and accounting values.')}>{t('email.compose.preview.title', 'Live preview')}</HelpLabel></h2><p className="text-sm text-muted-foreground">{t('email.compose.preview.description', 'System variables come from the selected company and linked people; this page lets users verify output before sending exists.')}</p></div>
-            {canCreateMessageDraft ? <section className="rounded-md border bg-background p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-sm font-medium">{t('email.compose.draft.title', 'Operis draft')}</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">{t('email.compose.draft.description', 'Creates an internal Messages draft from this preview. It does not send email or create a Gmail draft yet.')}</p>
-                </div>
-                <Button type="button" size="sm" disabled={!selectedTemplate || isCreatingDraft} onClick={() => void createOperisDraft()}>{isCreatingDraft ? t('email.compose.draft.creating', 'Creating…') : t('email.compose.draft.create', 'Create draft')}</Button>
-              </div>
-              {draftMessage ? <p className="mt-2 text-xs text-emerald-600">{draftMessage}</p> : null}
-              {draftError ? <p className="mt-2 text-xs text-destructive">{draftError}</p> : null}
-            </section> : null}
             <DraftPartCard copied={copiedPart === 'recipients'} copiedLabel={t('email.common.copied', 'Copied')} copyLabel={t('email.common.copy', 'Copy')} label={t('email.compose.preview.to', 'To')} onCopy={() => void copyDraftPart('recipients')}>
-              <div className="mt-1 font-medium">{recipientEmails || t('email.compose.preview.noRecipients', 'No recipients selected')}</div>
+              <div className="mt-1 font-medium">{effectiveRecipientEmails || t('email.compose.preview.noRecipients', 'No recipients selected')}</div>
             </DraftPartCard>
             <DraftPartCard copied={copiedPart === 'subject'} copiedLabel={t('email.common.copied', 'Copied')} copyLabel={t('email.common.copy', 'Copy')} label={t('email.templates.form.subject.label', 'Subject')} onCopy={() => void copyDraftPart('subject')}>
               <div className="mt-1 font-medium">{previewSubject}</div>{previewPreheader ? <div className="mt-1 text-sm text-muted-foreground">{previewPreheader}</div> : null}
             </DraftPartCard>
             <DraftPartCard copied={copiedPart === 'body'} copiedLabel={t('email.common.copied', 'Copied')} copyLabel={t('email.common.copy', 'Copy')} label={t('email.templates.preview.emailBody', 'Email body')} onCopy={() => void copyDraftPart('body')}>
-              <iframe className="mt-2 h-[560px] w-full rounded border bg-white" sandbox="" srcDoc={`<!doctype html><html><body style="font-family:Arial,sans-serif;color:#111827;line-height:1.5;padding:16px">${previewHtml}</body></html>`} title={t('email.compose.preview.iframeTitle', 'Email compose preview')} />
+              {selectedTemplate ? (
+                <iframe className="mt-2 h-[560px] w-full rounded border bg-white" sandbox="" srcDoc={`<!doctype html><html><body style="font-family:Arial,sans-serif;color:#111827;line-height:1.5;padding:16px">${previewHtml}</body></html>`} title={t('email.compose.preview.iframeTitle', 'Email compose preview')} />
+              ) : (
+                <div className="mt-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">{t('email.compose.preview.emptyBody', 'Select a published template to preview the email body.')}</div>
+              )}
             </DraftPartCard>
           </aside>
         </div>

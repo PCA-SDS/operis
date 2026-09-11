@@ -13,6 +13,10 @@ const MIGRATION_SOURCE = readFileSync(
   join(MODULE_ROOT, 'migrations', 'Migration20260903142415_email.ts'),
   'utf8',
 )
+const PCA_TEMPLATE_MIGRATION_SOURCE = readFileSync(
+  join(MODULE_ROOT, 'migrations', 'Migration20260911143000_pca_email_templates.ts'),
+  'utf8',
+)
 const ENTITY_SOURCE = readFileSync(join(MODULE_ROOT, 'data', 'entities.ts'), 'utf8')
 const COMMANDS_SOURCE = readFileSync(join(MODULE_ROOT, 'commands', 'templates.ts'), 'utf8')
 const SETUP_SOURCE = readFileSync(join(MODULE_ROOT, 'setup.ts'), 'utf8')
@@ -21,6 +25,17 @@ const ACCOUNTING_DEFAULTS_PAGE_SOURCE = readFileSync(
   'utf8',
 )
 const TEMPLATES_ROUTE_SOURCE = readFileSync(join(MODULE_ROOT, 'api', 'templates', 'route.ts'), 'utf8')
+const TEMPLATE_DETAIL_ROUTE_SOURCE = readFileSync(join(MODULE_ROOT, 'api', 'templates', '[id]', 'route.ts'), 'utf8')
+const ACCOUNTING_DEFAULTS_META_SOURCE = readFileSync(
+  join(MODULE_ROOT, 'backend', 'email', 'accounting-defaults', 'page.meta.ts'),
+  'utf8',
+)
+const TEMPLATE_LIST_META_SOURCE = readFileSync(join(MODULE_ROOT, 'backend', 'email', 'templates', 'page.meta.ts'), 'utf8')
+const TEMPLATE_LIST_PAGE_SOURCE = readFileSync(join(MODULE_ROOT, 'backend', 'email', 'templates', 'page.tsx'), 'utf8')
+const TEMPLATE_CREATE_META_SOURCE = readFileSync(
+  join(MODULE_ROOT, 'backend', 'email', 'templates', 'create', 'page.meta.ts'),
+  'utf8',
+)
 const TEMPLATE_BUILDER_SOURCE = readFileSync(
   join(MODULE_ROOT, 'backend', 'email', 'templates', '_components', 'TemplateBuilderForm.tsx'),
   'utf8',
@@ -32,6 +47,12 @@ const TEMPLATE_EDIT_SOURCE = readFileSync(
 const COMPOSE_PAGE_SOURCE = readFileSync(join(MODULE_ROOT, 'backend', 'email', 'compose', 'page.tsx'), 'utf8')
 const COMPOSE_META_SOURCE = readFileSync(join(MODULE_ROOT, 'backend', 'email', 'compose', 'page.meta.ts'), 'utf8')
 const README_SOURCE = readFileSync(join(MODULE_ROOT, 'README.md'), 'utf8')
+
+const systemTemplateVariables = new Set(['companyName', 'companyCode', 'companyEmail', 'contactNames', 'recipientEmails', 'greeting'])
+
+function extractTemplateVariables(value: string): string[] {
+  return Array.from(value.matchAll(/\{\{\s*([A-Za-z][A-Za-z0-9_]*)\s*\}\}/g), (match) => match[1]!)
+}
 
 describe('email module foundation', () => {
   it('exposes module metadata and auto-discovery convention files', () => {
@@ -65,6 +86,7 @@ describe('email module foundation', () => {
       join('data', 'entities.ts'),
       join('data', 'pca-source-templates.ts'),
       join('data', 'validators.ts'),
+      join('migrations', 'Migration20260911143000_pca_email_templates.ts'),
     ]) {
       expect(existsSync(join(MODULE_ROOT, relativePath))).toBe(true)
     }
@@ -100,6 +122,20 @@ describe('email module foundation', () => {
     expect(SETUP_SOURCE).not.toContain('pcaStarterTemplates')
     expect(SETUP_SOURCE).not.toContain('migratedFrom')
     expect(SETUP_SOURCE).not.toContain('PCA Accounting')
+    expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain('"tenants"."name" ilike')
+    expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain('"organizations"."name" ilike')
+    expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain("'%PCA Company Services%'")
+    expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain('on conflict ("organization_id", "tenant_id", "template_key")')
+    expect(PCA_TEMPLATE_MIGRATION_SOURCE).not.toContain('Acme Corp')
+  })
+
+  it('declares every PCA source placeholder used in subjects and bodies', () => {
+    for (const template of pcaAccountingSourceTemplates) {
+      const declared = new Set([...template.fields, ...Object.keys(template.defaultValues), ...Object.keys(template.variableTypes)])
+      const placeholders = extractTemplateVariables(`${template.subject} ${template.bodyHtml}`)
+        .filter((placeholder) => !systemTemplateVariables.has(placeholder))
+      expect([...new Set(placeholders)].filter((placeholder) => !declared.has(placeholder))).toEqual([])
+    }
   })
 
   it('exports discoverable email entities', () => {
@@ -144,6 +180,9 @@ describe('email module foundation', () => {
     expect(TEMPLATES_ROUTE_SOURCE).toContain('const detailFields')
     expect(TEMPLATES_ROUTE_SOURCE).toContain('fields: (query) => query.id || query.ids || query.activeOnly ? detailFields : listFields')
     expect(TEMPLATES_ROUTE_SOURCE).toContain('item.accounting_metadata?.isActive !== false')
+    expect(TEMPLATES_ROUTE_SOURCE).toContain('item.blocks ?? []')
+    expect(TEMPLATES_ROUTE_SOURCE).toContain('item.accounting_metadata ?? item.accountingMetadata ?? null')
+    expect(TEMPLATES_ROUTE_SOURCE).toContain('item.template_key ?? item.templateKey')
   })
 
   it('keeps the template builder non-technical for tenant users', () => {
@@ -173,10 +212,29 @@ describe('email module foundation', () => {
     expect(TEMPLATE_BUILDER_SOURCE).not.toContain('key={`${variableName}')
   })
 
-  it('loads template edits through the supported scoped collection query', () => {
-    expect(TEMPLATE_EDIT_SOURCE).toContain('/api/email/templates?id=')
+  it('loads template edits through the supported scoped detail route', () => {
+    expect(TEMPLATE_EDIT_SOURCE).toContain('templateIdFromPathname')
+    expect(TEMPLATE_EDIT_SOURCE).toContain('/api/email/templates/${encodeURIComponent(id)}')
+    expect(TEMPLATE_EDIT_SOURCE).toContain('/api/email/templates/${encodeURIComponent(id)}`')
     expect(TEMPLATE_EDIT_SOURCE).toContain('function templateFromResponse')
-    expect(TEMPLATE_EDIT_SOURCE).not.toContain('/api/email/templates/${encodeURIComponent(id)}')
+    expect(TEMPLATE_DETAIL_ROUTE_SOURCE).toContain('GET as listGet')
+    expect(TEMPLATE_DETAIL_ROUTE_SOURCE).toContain("url.searchParams.set('id', params.id)")
+    expect(TEMPLATE_EDIT_SOURCE).not.toContain('/api/email/templates?id=')
+  })
+
+  it('exposes only primary email screens in sidebar navigation', () => {
+    expect(TEMPLATE_LIST_META_SOURCE).toContain("pageGroup: 'Email'")
+    expect(TEMPLATE_CREATE_META_SOURCE).toContain("pageGroup: 'Email'")
+    expect(COMPOSE_META_SOURCE).toContain("pageGroup: 'Email'")
+    expect(ACCOUNTING_DEFAULTS_META_SOURCE).toContain("pageGroup: 'Email'")
+    expect(TEMPLATE_LIST_META_SOURCE).toContain('pageOrder: 30')
+    expect(TEMPLATE_CREATE_META_SOURCE).toContain('pageOrder: 31')
+    expect(COMPOSE_META_SOURCE).toContain('pageOrder: 32')
+    expect(ACCOUNTING_DEFAULTS_META_SOURCE).toContain('pageOrder: 33')
+    expect(TEMPLATE_CREATE_META_SOURCE).toContain('navHidden: true')
+    expect(COMPOSE_META_SOURCE).not.toContain('navHidden: true')
+    expect(ACCOUNTING_DEFAULTS_META_SOURCE).toContain('navHidden: true')
+    expect(TEMPLATE_LIST_PAGE_SOURCE).not.toContain('/backend/email/accounting-defaults')
   })
 
   it('keeps accounting defaults non-technical for tenant users', () => {
@@ -202,11 +260,12 @@ describe('email module foundation', () => {
     expect(COMPOSE_PAGE_SOURCE).toContain('readCompanyCode')
     expect(COMPOSE_PAGE_SOURCE).toContain("'text/html'")
     expect(COMPOSE_PAGE_SOURCE).toContain('new Blob([html]')
-    expect(COMPOSE_PAGE_SOURCE).toContain('/api/messages')
-    expect(COMPOSE_PAGE_SOURCE).toContain('isDraft: true')
-    expect(COMPOSE_PAGE_SOURCE).toContain('sendViaEmail: false')
-    expect(COMPOSE_PAGE_SOURCE).toContain('useBackendChrome')
-    expect(COMPOSE_PAGE_SOURCE).toContain("hasFeature(backendChromePayload?.grantedFeatures, 'messages.compose')")
+    expect(COMPOSE_PAGE_SOURCE).toContain('effectiveRecipientEmails')
+    expect(COMPOSE_PAGE_SOURCE).not.toContain('/api/messages')
+    expect(COMPOSE_PAGE_SOURCE).not.toContain('isDraft: true')
+    expect(COMPOSE_PAGE_SOURCE).not.toContain('sendViaEmail: false')
+    expect(COMPOSE_PAGE_SOURCE).not.toContain('useBackendChrome')
+    expect(COMPOSE_PAGE_SOURCE).not.toContain('messages.compose')
     expect(COMPOSE_PAGE_SOURCE).toContain('key={`accounting-value-${index}`}')
     expect(COMPOSE_PAGE_SOURCE).not.toContain('key={`${row.key}-${index}`}')
     expect(COMPOSE_PAGE_SOURCE).not.toContain('/send')
@@ -216,7 +275,7 @@ describe('email module foundation', () => {
     expect(README_SOURCE).toContain('Company values represent the business customer selected from Operis Customers/Companies.')
     expect(README_SOURCE).toContain('People values represent linked contacts/recipients for that company.')
     expect(README_SOURCE).toContain('If no people are linked yet, company variables still render')
-    expect(README_SOURCE).toContain('the user has `messages.compose`')
+    expect(README_SOURCE).toContain('The page is copy-only for now')
   })
 
   it('preserves PCA source template variables while moving company fields to system variables', () => {

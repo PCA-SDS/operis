@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -41,6 +41,7 @@ type EmailTemplateRecord = {
     defaultValues?: Record<string, string>
     variableTypes?: Record<string, string>
     rules?: Record<string, unknown>
+    ruleNotes?: string
     sortOrder?: number
     isActive?: boolean
   } | null
@@ -65,6 +66,7 @@ const emptyForm: EditTemplateForm = {
   defaultValues: '{}',
   variableTypes: '{}',
   rules: '{}',
+  ruleNotes: '',
   workflowKey: '',
   sortOrder: '0',
   isActive: true,
@@ -76,9 +78,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
+function parseStoredJson(value: unknown): unknown {
+  if (typeof value !== 'string') return value
+  try {
+    return JSON.parse(value) as unknown
+  } catch {
+    return value
+  }
+}
+
 function blocksFromRecord(blocks: unknown, design: unknown): TemplateBlockFormValue[] {
-  if (Array.isArray(blocks) && blocks.length > 0) {
-    return blocks.map((item, index) => {
+  const storedBlocks = parseStoredJson(blocks)
+  const storedDesign = parseStoredJson(design)
+  if (Array.isArray(storedBlocks) && storedBlocks.length > 0) {
+    return storedBlocks.map((item, index) => {
       const record = isRecord(item) ? item : {}
       const props = isRecord(record.props) ? record.props : {}
       const type = typeof record.type === 'string' ? record.type : 'paragraph'
@@ -92,8 +105,8 @@ function blocksFromRecord(blocks: unknown, design: unknown): TemplateBlockFormVa
       }
     })
   }
-  if (isRecord(design) && isRecord(design.body) && typeof design.body.html === 'string') {
-    return [createBlock('rich-text-html', design.body.html)]
+  if (isRecord(storedDesign) && isRecord(storedDesign.body) && typeof storedDesign.body.html === 'string') {
+    return [createBlock('rich-text-html', storedDesign.body.html)]
   }
   return [createBlock('paragraph', '')]
 }
@@ -119,6 +132,7 @@ function toForm(record: EmailTemplateRecord): EditTemplateForm {
     defaultValues: JSON.stringify(defaultValues, null, 2),
     variableTypes: JSON.stringify(variableTypes, null, 2),
     rules: JSON.stringify(rules, null, 2),
+    ruleNotes: metadata.ruleNotes ?? '',
     workflowKey: metadata.workflowKey ?? '',
     sortOrder: String(typeof metadata.sortOrder === 'number' ? metadata.sortOrder : 0),
     isActive: metadata.isActive !== false && record.status !== 'archived',
@@ -158,6 +172,7 @@ function buildPayload(form: EditTemplateForm, id: string) {
       defaultValues: customTemplateValues(defaultValues),
       variableTypes,
       rules,
+      ruleNotes: form.ruleNotes.trim() || undefined,
       sortOrder: Number.isFinite(sortOrder) && sortOrder >= 0 ? sortOrder : 0,
       isActive: form.isActive && form.status !== 'archived',
     },
@@ -172,11 +187,16 @@ function templateFromResponse(response: EmailTemplateDetailResponse | null | und
   return null
 }
 
-export default function EditEmailTemplatePage() {
+function templateIdFromPathname(pathname: string): string {
+  const match = pathname.match(/\/backend\/email\/templates\/([^/]+)\/edit(?:\/)?$/)
+  return match?.[1] ? decodeURIComponent(match[1]) : ''
+}
+
+export default function EditEmailTemplatePage({ params }: { params?: { id?: string } }) {
   const t = useT()
-  const params = useParams<{ id: string }>()
   const router = useRouter()
-  const id = params.id
+  const pathname = usePathname()
+  const id = params?.id ?? templateIdFromPathname(pathname)
   const [form, setForm] = React.useState<EditTemplateForm>(emptyForm)
   const [error, setError] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
@@ -188,7 +208,7 @@ export default function EditEmailTemplatePage() {
     async function load() {
       setIsLoading(true)
       setError(null)
-      const response = await apiCall<EmailTemplateDetailResponse>(`/api/email/templates?id=${encodeURIComponent(id)}`, { signal: controller.signal })
+      const response = await apiCall<EmailTemplateDetailResponse>(`/api/email/templates/${encodeURIComponent(id)}`, { signal: controller.signal })
       if (cancelled) return
       if (!response.ok) {
         const body = response.result as { error?: string; message?: string } | undefined
@@ -243,7 +263,7 @@ export default function EditEmailTemplatePage() {
     try {
       const response = await withScopedApiRequestHeaders(
         buildOptimisticLockHeader(form.updatedAt),
-        () => apiCall('/api/email/templates', {
+        () => apiCall(`/api/email/templates/${encodeURIComponent(id)}`, {
           method: 'DELETE',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ id, expected_updated_at: form.updatedAt }),

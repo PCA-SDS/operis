@@ -11,6 +11,7 @@ type PcaSourceTemplate = {
   defaultValues: Record<string, string>
   variableTypes: Record<string, VariableType>
   rules: Record<string, unknown>
+  ruleNotes: string
   sortOrder: number
   isActive: boolean
 }
@@ -23,6 +24,7 @@ const accountingReportLinks = {
 }
 
 const commonVariableTypes = {
+  taxQuarter: 'text',
   uploadLink: 'link',
   vatPitReportsLink: 'link',
   taxTrackingLink: 'link',
@@ -57,6 +59,7 @@ export const pcaAccountingSourceTemplates: PcaSourceTemplate[] = [
     },
     variableTypes: commonVariableTypes,
     rules: { type: 'request_documents' },
+    ruleNotes: 'Use when requesting quarterly accounting documents from the selected company before preparing tax declarations.',
     sortOrder: 1,
     isActive: true,
     bodyHtml: [
@@ -87,19 +90,21 @@ export const pcaAccountingSourceTemplates: PcaSourceTemplate[] = [
     description: 'PCA source template for quarterly VAT/PIT reports when taxes are payable.',
     category: 'accounting',
     subject: 'Quarterly tax report — with activity',
-    fields: ['quarterPeriod', 'vatPitReportsLink', 'taxTrackingLink', 'declarationDeadline', 'vatPayable', 'pitPayable', 'totalTaxPayable', 'paymentDeadline'],
+    fields: ['quarterPeriod', 'taxQuarter', 'vatPitReportsLink', 'taxTrackingLink', 'declarationDeadline', 'vatPayable', 'pitPayable', 'totalTaxPayable', 'paymentDeadline'],
     defaultValues: {
       ...accountingReportLinks,
       declarationDeadline: 'April 29, 2026',
       paymentDeadline: 'April 29, 2026',
       pitPayable: '344,415,820 VND',
       quarterPeriod: 'Quarter 1 2026',
+      taxQuarter: 'Quarter 1 2026',
       taxPaymentTypes: 'VAT and PIT',
       totalTaxPayable: '671,751,396 VND',
       vatPayable: '327,335,576 VND',
     },
     variableTypes: commonVariableTypes,
     rules: { type: 'tax_report', hasTaxPayable: true, hasCit: false },
+    ruleNotes: 'Use for quarterly VAT/PIT reporting when the company has activity and taxes payable, without CIT content.',
     sortOrder: 2,
     isActive: true,
     bodyHtml: [
@@ -135,6 +140,7 @@ export const pcaAccountingSourceTemplates: PcaSourceTemplate[] = [
     },
     variableTypes: commonVariableTypes,
     rules: { type: 'tax_report', hasTaxPayable: false, hasCit: false },
+    ruleNotes: 'Use for quarterly VAT/PIT reporting when there is no tax payable and no CIT content.',
     sortOrder: 3,
     isActive: true,
     bodyHtml: [
@@ -159,7 +165,7 @@ export const pcaAccountingSourceTemplates: PcaSourceTemplate[] = [
     description: 'PCA source template for Q3 reports with provisional CIT details.',
     category: 'accounting',
     subject: 'Q3 tax report with provisional CIT',
-    fields: ['quarterPeriod', 'vatPitReportsLink', 'taxTrackingLink', 'citReportLink', 'declarationDeadline', 'vatPayable', 'pitPayable', 'totalTaxPayable', 'provisionalCit', 'citYear', 'citFirstPaymentDeadline', 'citRemainingPaymentDeadline', 'paymentDeadline'],
+    fields: ['quarterPeriod', 'taxQuarter', 'vatPitReportsLink', 'taxTrackingLink', 'citReportLink', 'declarationDeadline', 'vatPayable', 'pitPayable', 'totalTaxPayable', 'provisionalCit', 'citYear', 'citFirstPaymentDeadline', 'citRemainingPaymentDeadline', 'paymentDeadline'],
     defaultValues: {
       ...accountingReportLinks,
       citFirstPaymentDeadline: 'January 30, 2026',
@@ -170,12 +176,14 @@ export const pcaAccountingSourceTemplates: PcaSourceTemplate[] = [
       pitPayable: '125,250,337 VND',
       provisionalCit: '667,963,972 VND',
       quarterPeriod: 'Quarter 3 2025',
+      taxQuarter: 'Quarter 3 2025',
       taxPaymentTypes: 'PIT',
       totalTaxPayable: '125,250,337 VND',
       vatPayable: '0 VND',
     },
     variableTypes: commonVariableTypes,
     rules: { type: 'tax_report', hasTaxPayable: true, hasCit: true, quarter: 'Q3' },
+    ruleNotes: 'Use for Q3 reporting when provisional CIT information and first-three-quarter CIT timing must be included.',
     sortOrder: 4,
     isActive: true,
     bodyHtml: [
@@ -206,7 +214,7 @@ export const pcaAccountingSourceTemplates: PcaSourceTemplate[] = [
     description: 'PCA source template for Q4 reports with annual CIT payment details.',
     category: 'accounting',
     subject: 'Q4 tax report with annual CIT',
-    fields: ['quarterPeriod', 'vatPitReportsLink', 'taxTrackingLink', 'citReportLink', 'declarationDeadline', 'vatPayable', 'pitPayable', 'citPayable', 'totalTaxPayable', 'paymentDeadline', 'citPaymentDeadline'],
+    fields: ['quarterPeriod', 'taxQuarter', 'vatPitReportsLink', 'taxTrackingLink', 'citReportLink', 'declarationDeadline', 'vatPayable', 'pitPayable', 'citPayable', 'totalTaxPayable', 'paymentDeadline', 'citPaymentDeadline'],
     defaultValues: {
       ...accountingReportLinks,
       citPayable: '902,428,187 VND',
@@ -216,12 +224,14 @@ export const pcaAccountingSourceTemplates: PcaSourceTemplate[] = [
       paymentDeadline: 'January 31, 2026',
       pitPayable: '274,120,931 VND',
       quarterPeriod: 'Quarter 4 2025',
+      taxQuarter: 'Quarter 4 2025',
       taxPaymentTypes: 'PIT and CIT',
       totalTaxPayable: '1,176,549,118 VND',
       vatPayable: '0 VND',
     },
     variableTypes: commonVariableTypes,
     rules: { type: 'tax_report', hasTaxPayable: true, hasCit: true, quarter: 'Q4' },
+    ruleNotes: 'Use for Q4 annual CIT finalization when PIT/CIT payable amounts and annual CIT payment timing must be included.',
     sortOrder: 5,
     isActive: true,
     bodyHtml: [

@@ -37,7 +37,8 @@ const templateListItemSchema = z.object({
 
 type EmailTemplateRow = {
   id: string
-  template_key: string
+  template_key?: string
+  templateKey?: string
   name: string
   description?: string | null
   category: string
@@ -48,12 +49,19 @@ type EmailTemplateRow = {
   blocks: unknown
   variables: unknown
   accounting_metadata?: unknown | null
-  tenant_id: string
-  organization_id: string
+  accountingMetadata?: unknown | null
+  tenant_id?: string
+  tenantId?: string
+  organization_id?: string
+  organizationId?: string
   created_by_user_id?: string | null
+  createdByUserId?: string | null
   updated_by_user_id?: string | null
-  created_at: Date | string
-  updated_at: Date | string
+  updatedByUserId?: string | null
+  created_at?: Date | string
+  createdAt?: Date | string
+  updated_at?: Date | string
+  updatedAt?: Date | string
 }
 
 const listFields = [
@@ -135,7 +143,7 @@ export const { metadata, GET, POST, PUT, DELETE } = makeCrudRoute({
     },
     transformItem: (item: EmailTemplateRow) => ({
       id: item.id,
-      template_key: item.template_key,
+      template_key: item.template_key ?? item.templateKey ?? '',
       name: item.name,
       description: item.description ?? null,
       category: item.category,
@@ -145,13 +153,13 @@ export const { metadata, GET, POST, PUT, DELETE } = makeCrudRoute({
       design: item.design ?? {},
       blocks: item.blocks ?? [],
       variables: item.variables ?? [],
-      accounting_metadata: item.accounting_metadata ?? null,
-      tenant_id: item.tenant_id,
-      organization_id: item.organization_id,
-      created_by_user_id: item.created_by_user_id ?? null,
-      updated_by_user_id: item.updated_by_user_id ?? null,
-      createdAt: toIso(item.created_at),
-      updatedAt: toIso(item.updated_at),
+      accounting_metadata: item.accounting_metadata ?? item.accountingMetadata ?? null,
+      tenant_id: item.tenant_id ?? item.tenantId ?? '',
+      organization_id: item.organization_id ?? item.organizationId ?? '',
+      created_by_user_id: item.created_by_user_id ?? item.createdByUserId ?? null,
+      updated_by_user_id: item.updated_by_user_id ?? item.updatedByUserId ?? null,
+      createdAt: toIso(item.created_at ?? item.createdAt ?? new Date()),
+      updatedAt: toIso(item.updated_at ?? item.updatedAt ?? new Date()),
     }),
   },
   hooks: {
@@ -180,10 +188,12 @@ export const { metadata, GET, POST, PUT, DELETE } = makeCrudRoute({
     },
     delete: {
       commandId: 'email.templates.delete',
-      schema: deleteEmailTemplateSchema,
+      schema: z.object({ body: deleteEmailTemplateSchema, query: z.record(z.string(), z.unknown()).optional() }),
+      mapInput: ({ parsed }) => parsed.body,
       response: () => ({ ok: true }),
     },
   },
+  del: { idFrom: 'body' },
 })
 
 export const openApi: OpenApiRouteDoc = createEmailCrudOpenApi({
