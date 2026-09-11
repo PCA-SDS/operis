@@ -9,6 +9,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { ResourceAssignmentService, type AssignmentDTO } from '@open-mercato/core/modules/resources/lib/resourceAssignmentService'
 import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import { CatalogProductOption, CatalogProductOptionGroup } from '@open-mercato/core/modules/catalog/data/entities'
 import { Appointment, AppointmentLine } from '../data/entities'
 
 export interface SeatPlannerLine {
@@ -71,19 +72,38 @@ export interface SeatPlannerWorkspace {
   }>
 }
 
-function normalizeLineOptions(value: Record<string, unknown>[] | null | undefined): Array<{ groupName: string | null; name: string }> {
-  if (!Array.isArray(value)) return []
-  return value.flatMap((option) => {
-    const name = typeof option.name === 'string'
-      ? option.name
-      : typeof option.label === 'string'
-        ? option.label
-        : typeof option.value === 'string'
-          ? option.value
+function normalizeLineOptions(
+  value: Record<string, unknown> | Record<string, unknown>[] | null | undefined,
+  groupNames: Map<string, string>,
+  optionNames: Map<string, { groupName: string | null; name: string }>,
+): Array<{ groupName: string | null; name: string }> {
+  const values = Array.isArray(value)
+    ? value
+    : value && typeof value === 'object'
+      ? Object.entries(value).flatMap(([groupId, selected]) => {
+          const selectedValues = Array.isArray(selected) ? selected : [selected]
+          return selectedValues.map((optionId) => ({
+            groupName: groupNames.get(groupId) ?? null,
+            name: typeof optionId === 'string' ? optionNames.get(optionId)?.name ?? optionId : '',
+          }))
+        })
+      : []
+  return values.flatMap((option) => {
+    if (option.name && typeof option.name === 'string') {
+      return [{
+        groupName: typeof option.groupName === 'string' ? option.groupName : null,
+        name: option.name,
+      }]
+    }
+    const record = option as Record<string, unknown>
+    const name = typeof record.label === 'string'
+      ? record.label
+      : typeof record.value === 'string'
+        ? record.value
           : null
     if (!name) return []
     return [{
-      groupName: typeof option.groupName === 'string' ? option.groupName : null,
+      groupName: typeof record.groupName === 'string' ? record.groupName : null,
       name,
     }]
   })
@@ -170,6 +190,32 @@ export class AppointmentSeatPlannerService {
 
     const resourceOrganizationIds = await this.getResourceOrganizationIds(params.tenantId, appointment.organizationId)
 
+    const productIds = lines.map((line) => line.productId)
+    const optionGroups = productIds.length > 0
+      ? await this.em.find(CatalogProductOptionGroup, {
+          tenantId: params.tenantId,
+          organizationId: { $in: resourceOrganizationIds },
+          product: { $in: productIds },
+          isActive: true,
+          deletedAt: null,
+        })
+      : []
+    const optionGroupIds = optionGroups.map((group) => group.id)
+    const options = optionGroupIds.length > 0
+      ? await this.em.find(CatalogProductOption, {
+          tenantId: params.tenantId,
+          organizationId: { $in: resourceOrganizationIds },
+          group: { $in: optionGroupIds },
+          isActive: true,
+          deletedAt: null,
+        })
+      : []
+    const groupNames = new Map(optionGroups.map((group) => [group.id, group.name]))
+    const optionNames = new Map(options.map((option) => [option.id, {
+      groupName: typeof option.group === 'string' ? groupNames.get(option.group) ?? null : option.group.name,
+      name: option.name,
+    }]))
+
     // Resources are maintained at the parent organization, while bookings may
     // belong to a child organization. Include the booking org and its ancestors.
     const resources = await this.assignmentService.getWorkspace({
@@ -252,7 +298,7 @@ export class AppointmentSeatPlannerService {
           id: line.id,
           productTitle: line.productTitle,
           durationMinutes: line.durationMinutes ?? 60,
-          options: normalizeLineOptions(line.selectedOptions),
+          options: normalizeLineOptions(line.selectedOptions, groupNames, optionNames),
           currentAssignment: assignment
             ? {
                 id: assignment.id,

@@ -269,7 +269,7 @@ export class AssignmentConflictService {
     }
 
     if (options?.excludeSourceEntityIds && options.excludeSourceEntityIds.length > 0) {
-      where.sourceEntityId = { $notIn: options.excludeSourceEntityIds }
+      where.sourceEntityId = { $nin: options.excludeSourceEntityIds }
     }
 
     const conflictCount = await this.em.count(ResourcesAssignment, where)
@@ -315,7 +315,7 @@ export class AssignmentConflictService {
     }
 
     if (params.excludeSourceEntityIds && params.excludeSourceEntityIds.length > 0) {
-      where.sourceEntityId = { $notIn: params.excludeSourceEntityIds }
+      where.sourceEntityId = { $nin: params.excludeSourceEntityIds }
     }
 
     return this.em.find(ResourcesAssignment, where, {

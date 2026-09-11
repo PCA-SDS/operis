@@ -179,7 +179,7 @@ export class AppointmentLine {
   productCategory?: string | null
 
   @Property({ name: 'selected_options', type: 'jsonb', nullable: true })
-  selectedOptions?: Record<string, unknown>[] | null
+  selectedOptions?: Record<string, unknown> | Record<string, unknown>[] | null
 
   @Property({ name: 'sort_order', type: 'int', default: 0 })
   sortOrder: number = 0

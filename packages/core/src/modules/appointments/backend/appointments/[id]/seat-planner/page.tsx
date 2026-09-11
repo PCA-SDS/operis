@@ -9,6 +9,7 @@ import {
   Clock,
   Menu,
   MapPin,
+  Mail,
   Minus,
   PanelLeftClose,
   Phone,
@@ -108,6 +109,17 @@ type PlannerAllocation = {
   lanesCount: number
 }
 
+type DraftAssignmentResult = {
+  id: string
+  resourceId: string
+  resourceName?: string | null
+  state: 'draft' | 'confirmed'
+  startsAt: string
+  endsAt: string
+  assignedMemberId?: string | null
+  assignedMemberName?: string | null
+}
+
 type StaffMember = { id: string; displayName: string; roleLabel: string }
 type PopoverState = { allocation: PlannerAllocation; anchor: DOMRect }
 type StaffSheetTarget = { allocation: PlannerAllocation; line: SeatPlannerLine | null }
@@ -115,13 +127,6 @@ type StaffSheetTarget = { allocation: PlannerAllocation; line: SeatPlannerLine |
 interface SeatPlannerPageProps {
   params?: { id?: string }
 }
-
-const mockStaff: StaffMember[] = [
-  { id: 'mock-staff-1', displayName: 'Linh Nguyen', roleLabel: 'Senior stylist' },
-  { id: 'mock-staff-2', displayName: 'Minh Tran', roleLabel: 'Nail artist' },
-  { id: 'mock-staff-3', displayName: 'Anh Pham', roleLabel: 'Technician' },
-  { id: 'mock-staff-4', displayName: 'Vy Hoang', roleLabel: 'Assistant' },
-]
 
 function minutesToTime(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
@@ -341,7 +346,7 @@ function BookingSidebar(props: {
             {workspace.appointment.customerPhone ? (
               <p className="mt-1 flex items-center gap-1.5 truncate text-xs text-muted-foreground"><Phone className="size-3.5 shrink-0" />{workspace.appointment.customerPhone}</p>
             ) : null}
-            {workspace.appointment.customerEmail ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{workspace.appointment.customerEmail}</p> : null}
+            {workspace.appointment.customerEmail ? <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-muted-foreground"><Mail className="size-3.5 shrink-0" />{workspace.appointment.customerEmail}</p> : null}
           </div>
         </div>
         {workspace.appointment.customerOrigin || workspace.appointment.bookingType ? (
@@ -520,13 +525,14 @@ function DraftPopover(props: {
 function StaffSheet(props: {
   target: StaffSheetTarget
   staff: StaffMember[]
+  isLoadingStaff: boolean
   busyStaffIds: Set<string>
   isSaving: boolean
   onClose: () => void
   onAssign: (staffId: string | null) => void
   onDurationChange: (duration: number) => void
 }) {
-  const { target, staff, busyStaffIds, isSaving, onClose, onAssign, onDurationChange } = props
+  const { target, staff, isLoadingStaff, busyStaffIds, isSaving, onClose, onAssign, onDurationChange } = props
   const t = useT()
   const [query, setQuery] = React.useState('')
   const duration = durationMinutes(target.allocation.startsAt, target.allocation.endsAt)
@@ -571,6 +577,8 @@ function StaffSheet(props: {
               <span className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground"><X className="size-4" /></span>
               {t('appointments.seatPlanner.unassignStaff', 'No staff')}
             </Button>
+            {isLoadingStaff ? <p className="p-3 text-sm text-muted-foreground">{t('appointments.seatPlanner.loadingStaff', 'Loading staff...')}</p> : null}
+            {!isLoadingStaff && filteredStaff.length === 0 ? <p className="p-3 text-sm text-muted-foreground">{t('appointments.seatPlanner.noStaff', 'No assignable staff found.')}</p> : null}
             {filteredStaff.map((member) => {
               const busy = busyStaffIds.has(member.id)
               const active = target.allocation.assignedMemberId === member.id
@@ -610,15 +618,50 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
   const [popoverState, setPopoverState] = React.useState<PopoverState | null>(null)
   const [staffSheetTarget, setStaffSheetTarget] = React.useState<StaffSheetTarget | null>(null)
+  const [staffMembers, setStaffMembers] = React.useState<StaffMember[]>([])
+  const [isLoadingStaff, setIsLoadingStaff] = React.useState(false)
   const timelineRef = React.useRef<HTMLDivElement>(null)
+  const workspaceRequestRef = React.useRef(0)
   const guardedMutation = useGuardedMutation({ contextId: appointmentId ? `appointments.seatPlanner:${appointmentId}` : 'appointments.seatPlanner:pending' })
+
+  React.useEffect(() => {
+    if (!staffSheetTarget || staffMembers.length > 0) return
+    let cancelled = false
+    async function loadStaff() {
+      setIsLoadingStaff(true)
+      try {
+        const response = await readApiResultOrThrow<{ items?: Array<{ id: string; displayName: string; teamName?: string | null }> }>('/api/staff/team-members/assignable?pageSize=100')
+        if (cancelled) return
+        setStaffMembers((response.items ?? []).map((member) => ({
+          id: member.id,
+          displayName: member.displayName,
+          roleLabel: member.teamName ?? t('appointments.seatPlanner.staffMember', 'Staff member'),
+        })))
+      } catch {
+        try {
+          const response = await readApiResultOrThrow<{ member?: { id: string; displayName: string } | null }>('/api/staff/team-members/self')
+          if (cancelled) return
+          setStaffMembers(response.member ? [{ id: response.member.id, displayName: response.member.displayName, roleLabel: t('appointments.seatPlanner.staffMember', 'Staff member') }] : [])
+        } catch {
+          if (!cancelled) flash(t('appointments.seatPlanner.staffLoadError', 'Unable to load staff.'), 'error')
+        }
+      } finally {
+        if (!cancelled) setIsLoadingStaff(false)
+      }
+    }
+    void loadStaff()
+    return () => { cancelled = true }
+  }, [staffMembers.length, staffSheetTarget, t])
 
   const loadWorkspace = React.useCallback(async (signal?: AbortSignal) => {
     if (!appointmentId) return
+    const requestId = workspaceRequestRef.current + 1
+    workspaceRequestRef.current = requestId
     setIsLoading(true)
     setError(null)
     try {
       const data = await readApiResultOrThrow<SeatPlannerWorkspace>(`/api/appointments/${encodeURIComponent(appointmentId)}/seat-planner`, { signal }, { allowNullResult: true })
+      if (requestId !== workspaceRequestRef.current) return
       if (!data) {
         setError(t('appointments.detail.notFound', 'Appointment not found.'))
         return
@@ -626,11 +669,12 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       setWorkspace(data)
       setActiveLineId((current) => current && data.lines.some((line) => line.id === current) ? current : data.lines.find((line) => !line.currentAssignment)?.id ?? data.lines[0]?.id ?? null)
     } catch (loadError) {
+      if (requestId !== workspaceRequestRef.current) return
       if ((loadError as { name?: string })?.name !== 'AbortError') {
         setError(loadError instanceof Error ? loadError.message : t('appointments.seatPlanner.loadError', 'Failed to load seat planner.'))
       }
     } finally {
-      setIsLoading(false)
+      if (requestId === workspaceRequestRef.current) setIsLoading(false)
     }
   }, [appointmentId, t])
 
@@ -690,23 +734,67 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const saveDraft = React.useCallback(async (line: SeatPlannerLine, resourceId: string, startsAt: string, duration: number, assignedMemberId?: string | null) => {
     if (!workspace) return
     const body = { resourceId, startsAt, endsAt: addMinutes(startsAt, duration), assignedMemberId: assignedMemberId ?? line.currentAssignment?.assignedMemberId ?? null }
-    await guardedMutation.runMutation({
-      operation: () => readApiResultOrThrow(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/lines/${encodeURIComponent(line.id)}/draft`, { method: 'PUT', body: JSON.stringify(body) }),
-      context: { appointmentId: workspace.appointment.id, lineId: line.id, resourceKind: 'appointments.seatPlannerDraft' },
-      mutationPayload: body,
-    })
-    await loadWorkspace()
-  }, [guardedMutation, loadWorkspace, workspace])
+    const resourceName = seatColumns.find((resource) => resource.id === resourceId)?.name ?? null
+    const optimisticAssignment = {
+      id: line.currentAssignment?.id ?? `optimistic-${line.id}`,
+      state: 'draft' as const,
+      resourceId,
+      resourceName,
+      startsAt,
+      endsAt: body.endsAt,
+      assignedMemberId: body.assignedMemberId,
+      assignedMemberName: line.currentAssignment?.assignedMemberName ?? null,
+    }
+    setWorkspace((current) => current ? {
+      ...current,
+      lines: current.lines.map((entry) => entry.id === line.id ? { ...entry, currentAssignment: optimisticAssignment } : entry),
+    } : current)
+
+    try {
+      const assignment = await guardedMutation.runMutation({
+        operation: () => readApiResultOrThrow<DraftAssignmentResult>(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/lines/${encodeURIComponent(line.id)}/draft`, { method: 'PUT', body: JSON.stringify(body) }),
+        context: { appointmentId: workspace.appointment.id, lineId: line.id, resourceKind: 'appointments.seatPlannerDraft' },
+        mutationPayload: body,
+      })
+      setWorkspace((current) => current ? {
+        ...current,
+        lines: current.lines.map((entry) => entry.id === line.id ? {
+          ...entry,
+          currentAssignment: {
+            id: assignment.id,
+            state: assignment.state,
+            resourceId: assignment.resourceId,
+            resourceName: assignment.resourceName ?? resourceName,
+            startsAt: assignment.startsAt,
+            endsAt: assignment.endsAt,
+            assignedMemberId: assignment.assignedMemberId ?? null,
+            assignedMemberName: assignment.assignedMemberName ?? null,
+          },
+        } : entry),
+      } : current)
+    } catch (error) {
+      await loadWorkspace()
+      throw error
+    }
+  }, [guardedMutation, loadWorkspace, seatColumns, workspace])
 
   const clearDraft = React.useCallback(async (lineId: string) => {
     if (!workspace) return
-    await guardedMutation.runMutation({
-      operation: () => readApiResultOrThrow(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/lines/${encodeURIComponent(lineId)}/draft`, { method: 'DELETE' }),
-      context: { appointmentId: workspace.appointment.id, lineId, resourceKind: 'appointments.seatPlannerDraft' },
-      mutationPayload: { appointmentId: workspace.appointment.id, lineId },
-    })
+    setWorkspace((current) => current ? {
+      ...current,
+      lines: current.lines.map((line) => line.id === lineId ? { ...line, currentAssignment: undefined } : line),
+    } : current)
+    try {
+      await guardedMutation.runMutation({
+        operation: () => readApiResultOrThrow(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/lines/${encodeURIComponent(lineId)}/draft`, { method: 'DELETE' }),
+        context: { appointmentId: workspace.appointment.id, lineId, resourceKind: 'appointments.seatPlannerDraft' },
+        mutationPayload: { appointmentId: workspace.appointment.id, lineId },
+      })
+    } catch (error) {
+      await loadWorkspace()
+      throw error
+    }
     setPopoverState(null)
-    await loadWorkspace()
     flash(t('appointments.seatPlanner.draftCleared', 'Draft cleared'), 'success')
   }, [guardedMutation, loadWorkspace, t, workspace])
 
@@ -860,7 +948,6 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                   <span className="text-xs font-semibold uppercase tracking-wider">{t('appointments.seatPlanner.seatsStations', 'Seats and stations')}</span>
                   <Tag variant="neutral">{seatColumns.length} {t('appointments.seatPlanner.seats', 'seats')}</Tag>
                 </div>
-                {isSaving ? <Tag variant="warning">{t('appointments.seatPlanner.saving', 'Saving')}</Tag> : null}
               </div>
 
               <div ref={timelineRef} className="min-h-0 flex-1 overflow-auto bg-muted/20">
@@ -890,7 +977,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                       </div>
 
                       <div className="absolute inset-x-0 bottom-0 grid" style={{ top: HEADER_HEIGHT, gridTemplateColumns }}>
-                        <div className="pointer-events-none absolute inset-x-0 z-30 border-t-2 border-status-warning-border" style={{ top: Math.max(0, ((earliestMinutes - START_HOUR * 60) / SLOT_MINUTES) * slotHeight()) }} />
+                        <div className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-status-warning-border" style={{ top: Math.max(0, ((earliestMinutes - START_HOUR * 60) / SLOT_MINUTES) * slotHeight()) }} />
                         <div className="sticky left-0 z-20 border-r border-border bg-surface">
                           {slotGridMarkers.map((time) => (
                             <div key={`time-slot-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time) }} />
@@ -923,7 +1010,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                   variant="ghost"
                                   className={`absolute left-0 right-0 rounded-none border-t border-transparent p-0 ${blocked ? 'cursor-not-allowed opacity-40' : 'hover:bg-primary/10'}`}
                                   style={{ top: slotTop(time), height: slotHeight() }}
-                                  disabled={!activeLine || isSaving}
+                                  disabled={!activeLine}
                                   onClick={() => {
                                     if (blocked) {
                                       flash(beforeEarliest ? t('appointments.seatPlanner.beforeEarliestError', 'This booking cannot start before the requested time.') : t('appointments.seatPlanner.resourceBooked', 'That resource is already booked for this time.'), 'error')
@@ -978,7 +1065,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         {staffSheetTarget ? (
           <StaffSheet
             target={staffSheetTarget}
-            staff={mockStaff}
+            staff={staffMembers}
+            isLoadingStaff={isLoadingStaff}
             busyStaffIds={busyStaffIds}
             isSaving={isSaving}
             onClose={() => setStaffSheetTarget(null)}
