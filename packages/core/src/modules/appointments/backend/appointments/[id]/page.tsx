@@ -24,6 +24,7 @@ import { formatCustomerPhone } from '../../../lib/phoneSnapshot'
 type Line = {
   id: string
   productTitle: string
+  productCategory: string | null
   durationMinutes: number | null
   unitPriceGross: string | null
   currencyCode: string | null
@@ -311,7 +312,12 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
           <ul className="divide-y divide-border">
             {detail.lines.map((line) => (
               <li key={line.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
-                <span className="text-sm font-medium text-foreground">{line.productTitle}</span>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-foreground">{line.productTitle}</span>
+                  {line.productCategory && (
+                    <span className="text-xs text-muted-foreground mt-0.5">{line.productCategory}</span>
+                  )}
+                </div>
                 <span className="text-sm text-muted-foreground">
                   {[
                     line.durationMinutes != null ? `${line.durationMinutes} min` : null,

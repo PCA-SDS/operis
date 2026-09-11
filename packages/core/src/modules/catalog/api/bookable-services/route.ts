@@ -40,18 +40,48 @@ const bookableServicesRateLimitConfig = readEndpointRateLimitConfig('CATALOG_BOO
   keyPrefix: 'catalog_bookable_services',
 })
 
+const bookableServiceOptionGroupSchema: z.ZodType<any> = z.lazy(() => z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  requirement: z.enum(['required', 'optional']),
+  selectMode: z.enum(['single', 'multiple']),
+  options: z.array(bookableServiceOptionSchema),
+}))
+
+const bookableServiceOptionSchema: z.ZodType<any> = z.lazy(() => z.object({
+  id: z.string().uuid(),
+  code: z.string().nullable(),
+  name: z.string(),
+  description: z.string().nullable(),
+  priceFlat: z.string().nullable(),
+  durationMinutes: z.number().int().nullable(),
+  isAddon: z.boolean(),
+  nextGroups: z.array(bookableServiceOptionGroupSchema),
+}))
+
 const bookableServiceSchema = z.object({
   id: z.string().uuid(),
   title: z.string(),
   subtitle: z.string().nullable(),
   description: z.string().nullable(),
   handle: z.string().nullable(),
+  sku: z.string().nullable(),
+  categoryPath: z.array(z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    description: z.string().nullable(),
+    parentId: z.string().uuid().nullable(),
+  })),
   currencyCode: z.string().nullable(),
   unitPriceNet: z.string().nullable(),
   unitPriceGross: z.string().nullable(),
   durationMinutes: z.number().int().nullable(),
+  categoryId: z.string().uuid().nullable().optional(),
+  categoryName: z.string().nullable().optional(),
   organizationId: z.string().uuid(),
   tenantId: z.string().uuid(),
+  optionGroups: z.array(bookableServiceOptionGroupSchema),
 })
 
 const successSchema = z.object({

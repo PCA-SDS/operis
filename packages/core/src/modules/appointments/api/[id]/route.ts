@@ -10,14 +10,17 @@ import { enforceCommandOptimisticLockWithGuards } from '@open-mercato/shared/lib
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { resolveOrganizationScopeFilter } from '@open-mercato/core/modules/directory/utils/organizationScopeFilter'
 import { Appointment, AppointmentLine, AppointmentStatus } from '../../data/entities'
-import { appointmentStatusUpdateSchema } from '../../data/validators'
+import { appointmentStatusUpdateSchema, appointmentStaffCreateSchema } from '../../data/validators'
 import { emitAppointmentEvent } from '../../events'
+import { updateAppointmentFromStaffEdit } from '../../lib/intake'
 import { CustomerEntity } from '@open-mercato/core/modules/customers/data/entities'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
   PATCH: { requireAuth: true, requireFeatures: ['appointments.manage'] },
+  PUT: { requireAuth: true, requireFeatures: ['appointments.manage'] },
+  DELETE: { requireAuth: true, requireFeatures: ['appointments.manage'] },
 }
 
 type RouteContext = { params: Promise<{ id: string }> }
@@ -32,6 +35,7 @@ function mapLine(line: AppointmentLine) {
     unitPriceNet: line.unitPriceNet ?? null,
     unitPriceGross: line.unitPriceGross ?? null,
     durationMinutes: line.durationMinutes ?? null,
+    productCategory: line.productCategory ?? null,
     sortOrder: line.sortOrder,
   }
 }
@@ -239,6 +243,160 @@ export async function PATCH(req: Request, ctx: RouteContext) {
         error: translate('appointments.status.failed', 'Unable to update appointment status.'),
         code: 'STATUS_UPDATE_FAILED',
       },
+      { status: 500 },
+    )
+  }
+}
+
+export async function PUT(req: Request, ctx: RouteContext) {
+  const { translate } = await resolveTranslations()
+  try {
+    const auth = await getAuthFromRequest(req)
+    if (!auth?.tenantId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const { id } = await ctx.params
+    if (!z.string().uuid().safeParse(id).success) {
+      return NextResponse.json(
+        { error: translate('appointments.detail.notFound', 'Appointment not found.'), code: 'NOT_FOUND' },
+        { status: 404 },
+      )
+    }
+    const body = appointmentStaffCreateSchema.parse(await req.json())
+    const container = await createRequestContainer()
+    const em = (container.resolve('em') as EntityManager).fork()
+    const pricingService = container.resolve<any>('catalogPricingService')
+
+    const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
+    const orgFilter = resolveOrganizationScopeFilter(scope, auth)
+    const appointment = await loadScopedAppointment(em, auth.tenantId, id, orgFilter.where)
+    
+    if (!appointment) {
+      return NextResponse.json(
+        { error: translate('appointments.detail.notFound', 'Appointment not found.'), code: 'NOT_FOUND' },
+        { status: 404 },
+      )
+    }
+
+    await enforceCommandOptimisticLockWithGuards(container, {
+      resourceKind: APPOINTMENT_RESOURCE_KIND,
+      resourceId: appointment.id,
+      current: appointment.updatedAt ?? null,
+      request: req,
+    })
+
+    const organizationId = body.organizationId ?? appointment.organizationId
+
+    const result = await updateAppointmentFromStaffEdit(
+      em,
+      appointment.id,
+      {
+        ...body,
+        tenantId: auth.tenantId,
+        organizationId,
+      },
+      { pricingService },
+    )
+
+    try {
+      await emitAppointmentEvent('appointments.appointment.updated', {
+        id: result.id,
+        tenantId: auth.tenantId,
+        organizationId: appointment.organizationId,
+        statusCode: result.statusCode,
+      })
+    } catch {
+      /* best-effort */
+    }
+
+    const lines = await em.find(
+      AppointmentLine,
+      { appointment: appointment.id, deletedAt: null },
+      { orderBy: { sortOrder: 'asc' } },
+    )
+    const customerSource = await loadCustomerSource(em, auth.tenantId, result.customerEntityId)
+    const organizationName = await resolveOrganizationName(em, organizationId)
+    return NextResponse.json(
+      mapAppointment(appointment, lines, customerSource, organizationName),
+    )
+  } catch (error) {
+    if (isCrudHttpError(error)) {
+      return NextResponse.json(error.body, { status: error.status })
+    }
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: translate('appointments.update.invalidInput', 'Invalid update payload.'), code: 'INVALID_INPUT' },
+        { status: 400 },
+      )
+    }
+    return NextResponse.json(
+      { error: translate('appointments.update.failed', 'Unable to update appointment.'), code: 'UPDATE_FAILED' },
+      { status: 500 },
+    )
+  }
+}
+
+export async function DELETE(req: Request, ctx: RouteContext) {
+  const { translate } = await resolveTranslations()
+  try {
+    const auth = await getAuthFromRequest(req)
+    if (!auth?.tenantId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const { id } = await ctx.params
+    if (!z.string().uuid().safeParse(id).success) {
+      return NextResponse.json(
+        { error: translate('appointments.detail.notFound', 'Appointment not found.'), code: 'NOT_FOUND' },
+        { status: 404 },
+      )
+    }
+    const container = await createRequestContainer()
+    const em = (container.resolve('em') as EntityManager).fork()
+    const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
+    const orgFilter = resolveOrganizationScopeFilter(scope, auth)
+    const appointment = await loadScopedAppointment(em, auth.tenantId, id, orgFilter.where)
+    
+    if (!appointment) {
+      return NextResponse.json(
+        { error: translate('appointments.detail.notFound', 'Appointment not found.'), code: 'NOT_FOUND' },
+        { status: 404 },
+      )
+    }
+
+    await enforceCommandOptimisticLockWithGuards(container, {
+      resourceKind: APPOINTMENT_RESOURCE_KIND,
+      resourceId: appointment.id,
+      current: appointment.updatedAt ?? null,
+      request: req,
+    })
+
+    const now = new Date()
+    appointment.deletedAt = now
+    
+    const lines = await em.find(AppointmentLine, { appointment: appointment.id, deletedAt: null })
+    for (const line of lines) {
+      line.deletedAt = now
+    }
+
+    await em.flush()
+
+    try {
+      await emitAppointmentEvent('appointments.appointment.deleted', {
+        id: appointment.id,
+        tenantId: auth.tenantId,
+        organizationId: appointment.organizationId,
+      })
+    } catch {
+      /* best-effort */
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    if (isCrudHttpError(error)) {
+      return NextResponse.json(error.body, { status: error.status })
+    }
+    return NextResponse.json(
+      { error: translate('appointments.delete.failed', 'Unable to delete appointment.'), code: 'DELETE_FAILED' },
       { status: 500 },
     )
   }

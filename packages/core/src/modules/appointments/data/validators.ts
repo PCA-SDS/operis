@@ -30,6 +30,7 @@ const appointmentLinesSchema = z
   .array(
     z.object({
       productId: uuid(),
+      selectedOptions: z.record(z.string(), z.any()).optional(),
     }),
   )
   .min(1)

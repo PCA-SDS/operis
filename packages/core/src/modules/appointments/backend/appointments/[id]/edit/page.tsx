@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { CrudForm, type CrudField, type CrudFormGroup } from '@open-mercato/ui/backend/CrudForm'
 import { createCrudFormError } from '@open-mercato/ui/backend/utils/serverErrors'
@@ -34,7 +34,7 @@ import { splitCustomerName } from '@open-mercato/core/modules/appointments/lib/c
 import { formatOrganizationTreeLabel } from '@open-mercato/core/modules/directory/lib/tree'
 import { resolvePhoneIdentity } from '@open-mercato/core/modules/customers/lib/contactIdentity'
 import { DictionarySelectField } from '@open-mercato/core/modules/customers/components/formConfig'
-import { AppointmentServicePicker, type AppointmentBookableService as BookableService } from '../../../components/AppointmentServicePicker'
+import { AppointmentServicePicker, type AppointmentBookableService as BookableService, type AppointmentServiceSelection } from '../../../../components/AppointmentServicePicker'
 
 type FormValues = {
   phone: string
@@ -130,12 +130,13 @@ function normalizeTimeValue(raw: string | null | undefined): string | null {
   return `${match[1]}:${match[2]}`
 }
 
-export default function AppointmentCreatePage() {
+export default function AppointmentEditPage({ params }: { params?: { id?: string | string[] } }) {
+  const appointmentId = typeof params?.id === 'string' ? params.id : (Array.isArray(params?.id) ? params.id[0] : '')
   const t = useT()
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const cloneId = searchParams?.get('cloneId')
   const { organizationId: scopeOrganizationId, tenantId } = useOrganizationScopeDetail()
+  const [initialData, setInitialData] = React.useState<FormValues | null>(null)
+  const [dataLoading, setDataLoading] = React.useState(true)
   const [locationOptions, setLocationOptions] = React.useState<LocationOption[]>([])
   const [locationsLoading, setLocationsLoading] = React.useState(true)
   const [locationId, setLocationId] = React.useState<string | null>(scopeOrganizationId)
@@ -143,72 +144,9 @@ export default function AppointmentCreatePage() {
   const [servicesLoading, setServicesLoading] = React.useState(false)
   const [servicesError, setServicesError] = React.useState<string | null>(null)
   const [lookupLoading, setLookupLoading] = React.useState(false)
-  const [initialData, setInitialData] = React.useState<FormValues | null>(null)
-
   const { runMutation } = useGuardedMutation({
-    contextId: 'appointments.create',
+    contextId: 'appointments.update',
   })
-
-  React.useEffect(() => {
-    if (!cloneId) {
-      setInitialData({
-        phone: '',
-        email: '',
-        salutation: 'None',
-        name: '',
-        origin: '',
-        referral: '',
-        location: locationId ?? '',
-        bookingType: '',
-        date: '',
-        time: '',
-        notes: '',
-        externalNotes: '',
-        serviceSelections: [],
-      })
-      return
-    }
-
-    let cancelled = false
-    const controller = new AbortController()
-    async function loadClone() {
-      try {
-        const call = await apiCall<any>(`/api/appointments/${cloneId}`, { signal: controller.signal }, { fallback: null })
-        if (cancelled) return
-        if (call.ok && call.result) {
-          const data = call.result
-          if (data.organizationId) setLocationId(data.organizationId)
-          
-          setInitialData({
-            phone: composePhoneForField(data.customerPhone, data.customerPhoneCountryCode),
-            email: data.customerEmail || '',
-            salutation: data.customerSalutation || 'None',
-            name: data.customerName || '',
-            origin: data.customerOrigin || '',
-            referral: data.customerSource || '',
-            location: data.organizationId || locationId || '',
-            bookingType: data.bookingType || '',
-            // Do not copy old date/time to avoid creating appointments in the past
-            date: '',
-            time: '',
-            notes: data.notes || '',
-            externalNotes: data.externalNotes || '',
-            serviceSelections: data.lines?.map((line: any) => ({
-              productId: line.productId,
-              selectedOptions: line.selectedOptions || {}
-            })) || [],
-          })
-        }
-      } catch (err) {
-        if (!cancelled) console.error(err)
-      }
-    }
-    void loadClone()
-    return () => {
-      cancelled = true
-      controller.abort()
-    }
-  }, [cloneId, locationId])
 
   React.useEffect(() => {
     let cancelled = false
@@ -298,6 +236,60 @@ export default function AppointmentCreatePage() {
     }
   }, [tenantId, locationId, t])
 
+  React.useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+    async function loadData() {
+      if (!appointmentId) return
+      setDataLoading(true)
+      try {
+        const call = await apiCall<any>(`/api/appointments/${appointmentId}`, { signal: controller.signal }, { fallback: null })
+        if (cancelled) return
+        if (!call.ok || !call.result) {
+          router.push('/backend/appointments')
+          return
+        }
+        const data = call.result
+        const dateObj = new Date(data.requestedStartAt)
+        const year = dateObj.getFullYear()
+        const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+        const day = String(dateObj.getDate()).padStart(2, '0')
+        const hours = String(dateObj.getHours()).padStart(2, '0')
+        const minutes = String(dateObj.getMinutes()).padStart(2, '0')
+        
+        setLocationId(data.organizationId)
+
+        setInitialData({
+          phone: composePhoneForField(data.customerPhone, data.customerPhoneCountryCode),
+          email: data.customerEmail || '',
+          salutation: data.customerSalutation || 'None',
+          name: data.customerName || '',
+          origin: data.customerOrigin || '',
+          referral: data.customerSource || '',
+          location: data.organizationId || '',
+          bookingType: data.bookingType || '',
+          date: `${year}-${month}-${day}`,
+          time: `${hours}:${minutes}`,
+          notes: data.notes || '',
+          externalNotes: data.externalNotes || '',
+          serviceSelections: data.lines?.map((line: any) => ({
+            productId: line.productId,
+            selectedOptions: line.selectedOptions || {}
+          })) || [],
+        })
+      } catch (err) {
+        if (!cancelled) console.error(err)
+      } finally {
+        if (!cancelled) setDataLoading(false)
+      }
+    }
+    void loadData()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [appointmentId, router])
+
   const lookupCustomer = React.useCallback(
     async (
       values: Record<string, unknown> | undefined,
@@ -319,7 +311,7 @@ export default function AppointmentCreatePage() {
         }>(
           '/api/customers/people/check',
           {
-            method: 'POST',
+            method: 'PUT',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
               tenantId,
@@ -597,7 +589,7 @@ export default function AppointmentCreatePage() {
               disabled={disabled}
               emptyLabel={emptyLabel}
               value={Array.isArray(value) ? value : []}
-              onChange={(next) => setValue(next)}
+              onChange={(next: AppointmentServiceSelection[]) => setValue(next)}
             />
           )
         },
@@ -641,7 +633,7 @@ export default function AppointmentCreatePage() {
     [t],
   )
 
-  if (!initialData) {
+  if (dataLoading || !initialData) {
     return (
       <Page>
         <PageBody>
@@ -657,12 +649,12 @@ export default function AppointmentCreatePage() {
     <Page>
       <PageBody>
         <CrudForm<FormValues>
-          title={cloneId ? t('appointments.create.titleClone', 'Clone appointment') : t('appointments.create.title')}
+          title={t('appointments.edit.title', 'Edit appointment')}
           backHref="/backend/appointments"
           fields={fields}
           groups={groups}
           initialValues={initialData}
-          submitLabel={t('common.create')}
+          submitLabel={t('common.save', 'Save')}
           cancelHref="/backend/appointments"
           onSubmit={async (values) => {
             const selectedOrganizationId =
@@ -712,9 +704,9 @@ export default function AppointmentCreatePage() {
             const result = await runMutation({
               operation: async () => {
                 const call = await withScopedApiRequestHeaders(buildOptimisticLockHeader(undefined), () => apiCall<{ id: string; error?: string }>(
-                  '/api/appointments',
+                  `/api/appointments/${appointmentId}`,
                   {
-                    method: 'POST',
+                    method: 'PUT',
                     headers: { 'content-type': 'application/json' },
                     body: JSON.stringify({
                       organizationId: selectedOrganizationId,
@@ -753,7 +745,7 @@ export default function AppointmentCreatePage() {
               },
               context: {},
             })
-            flash(t('appointments.create.success'), 'success')
+            flash(t('appointments.update.success', 'Appointment updated'), 'success')
             if (result?.id) {
               router.push(`/backend/appointments/${result.id}`)
             } else {

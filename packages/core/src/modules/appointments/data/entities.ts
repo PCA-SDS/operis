@@ -175,6 +175,12 @@ export class AppointmentLine {
   @Property({ name: 'duration_minutes', type: 'int', nullable: true })
   durationMinutes?: number | null
 
+  @Property({ name: 'product_category', type: 'text', nullable: true })
+  productCategory?: string | null
+
+  @Property({ name: 'selected_options', type: 'jsonb', nullable: true })
+  selectedOptions?: Record<string, unknown>[] | null
+
   @Property({ name: 'sort_order', type: 'int', default: 0 })
   sortOrder: number = 0
 
