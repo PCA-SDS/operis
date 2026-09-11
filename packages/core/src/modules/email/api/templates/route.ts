@@ -1,0 +1,219 @@
+import { z } from 'zod'
+import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+import { makeCrudRoute } from '@open-mercato/shared/lib/crud/factory'
+import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern'
+import { EmailTemplate } from '../../data/entities'
+import {
+  createEmailTemplateSchema,
+  deleteEmailTemplateSchema,
+  emailTemplateQuerySchema,
+  emailTemplateStatusSchema,
+  updateEmailTemplateSchema,
+} from '../../data/validators'
+import { createEmailCrudOpenApi, createPagedListResponseSchema } from '../openapi'
+
+const ENTITY_ID = 'email:email_template' as const
+
+const templateListItemSchema = z.object({
+  id: z.string().uuid(),
+  template_key: z.string(),
+  name: z.string(),
+  description: z.string().nullable(),
+  category: z.string(),
+  status: emailTemplateStatusSchema,
+  subject: z.string(),
+  preheader: z.string().nullable(),
+  design: z.unknown(),
+  blocks: z.unknown(),
+  variables: z.unknown(),
+  accounting_metadata: z.unknown().nullable(),
+  tenant_id: z.string().uuid(),
+  organization_id: z.string().uuid(),
+  created_by_user_id: z.string().uuid().nullable(),
+  updated_by_user_id: z.string().uuid().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+type EmailTemplateRow = {
+  id: string
+  template_key?: string
+  templateKey?: string
+  name: string
+  description?: string | null
+  category: string
+  status: 'draft' | 'published' | 'archived'
+  subject: string
+  preheader?: string | null
+  design: unknown
+  blocks: unknown
+  variables: unknown
+  accounting_metadata?: unknown | null
+  accountingMetadata?: unknown | null
+  tenant_id?: string
+  tenantId?: string
+  organization_id?: string
+  organizationId?: string
+  created_by_user_id?: string | null
+  createdByUserId?: string | null
+  updated_by_user_id?: string | null
+  updatedByUserId?: string | null
+  created_at?: Date | string
+  createdAt?: Date | string
+  updated_at?: Date | string
+  updatedAt?: Date | string
+}
+
+const listFields = [
+  'id',
+  'template_key',
+  'name',
+  'description',
+  'category',
+  'status',
+  'subject',
+  'preheader',
+  'tenant_id',
+  'organization_id',
+  'created_by_user_id',
+  'updated_by_user_id',
+  'created_at',
+  'updated_at',
+]
+
+const detailFields = [
+  ...listFields,
+  'design',
+  'blocks',
+  'variables',
+  'accounting_metadata',
+]
+
+function toIso(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString()
+}
+
+export const { metadata, GET, POST, PUT, DELETE } = makeCrudRoute({
+  metadata: {
+    GET: { requireAuth: true, requireFeatures: ['email.templates.view'] },
+    POST: { requireAuth: true, requireFeatures: ['email.templates.manage'] },
+    PUT: { requireAuth: true, requireFeatures: ['email.templates.manage'] },
+    DELETE: { requireAuth: true, requireFeatures: ['email.templates.manage'] },
+  },
+  orm: {
+    entity: EmailTemplate,
+    idField: 'id',
+    orgField: 'organizationId',
+    tenantField: 'tenantId',
+    softDeleteField: 'deletedAt',
+  },
+  events: { module: 'email', entity: 'template', persistent: true },
+  indexer: { entityType: ENTITY_ID },
+  list: {
+    schema: emailTemplateQuerySchema,
+    entityId: ENTITY_ID,
+    fields: (query) => query.id || query.ids || query.activeOnly ? detailFields : listFields,
+    sortFieldMap: {
+      name: 'name',
+      category: 'category',
+      status: 'status',
+      createdAt: 'updated_at',
+      updatedAt: 'updated_at',
+      updated_at: 'updated_at',
+    },
+    buildFilters: (query) => {
+      const filters: Record<string, unknown> = {}
+      if (query.id) filters.id = query.id
+      if (query.ids) {
+        const ids = query.ids.split(',').map((value) => value.trim()).filter(Boolean)
+        if (ids.length) filters.id = { $in: ids }
+      }
+      if (query.search) {
+        const pattern = `%${escapeLikePattern(query.search)}%`
+        filters.$or = [
+          { name: { $ilike: pattern } },
+          { template_key: { $ilike: pattern } },
+          { description: { $ilike: pattern } },
+        ]
+      }
+      if (query.category) filters.category = query.category
+      if (query.status) filters.status = query.status
+      if (query.activeOnly) filters.status = 'published'
+      return filters
+    },
+    transformItem: (item: EmailTemplateRow) => ({
+      id: item.id,
+      template_key: item.template_key ?? item.templateKey ?? '',
+      name: item.name,
+      description: item.description ?? null,
+      category: item.category,
+      status: item.status,
+      subject: item.subject,
+      preheader: item.preheader ?? null,
+      design: item.design ?? {},
+      blocks: item.blocks ?? [],
+      variables: item.variables ?? [],
+      accounting_metadata: item.accounting_metadata ?? item.accountingMetadata ?? null,
+      tenant_id: item.tenant_id ?? item.tenantId ?? '',
+      organization_id: item.organization_id ?? item.organizationId ?? '',
+      created_by_user_id: item.created_by_user_id ?? item.createdByUserId ?? null,
+      updated_by_user_id: item.updated_by_user_id ?? item.updatedByUserId ?? null,
+      createdAt: toIso(item.created_at ?? item.createdAt ?? new Date()),
+      updatedAt: toIso(item.updated_at ?? item.updatedAt ?? new Date()),
+    }),
+  },
+  hooks: {
+    afterList: (payload, ctx) => {
+      if (!ctx.query.activeOnly || !Array.isArray(payload.items)) return
+      payload.items = payload.items.filter((item: { accounting_metadata?: { isActive?: unknown } | null }) => item.accounting_metadata?.isActive !== false)
+      payload.total = payload.items.length
+      if (typeof payload.totalPages === 'number' && typeof payload.pageSize === 'number') {
+        payload.totalPages = Math.ceil(payload.total / payload.pageSize)
+      }
+    },
+  },
+  actions: {
+    create: {
+      commandId: 'email.templates.create',
+      schema: createEmailTemplateSchema,
+      mapInput: ({ parsed }) => parsed,
+      response: ({ result }) => ({ id: String((result as { id: string }).id) }),
+      status: 201,
+    },
+    update: {
+      commandId: 'email.templates.update',
+      schema: updateEmailTemplateSchema,
+      mapInput: ({ parsed }) => parsed,
+      response: () => ({ ok: true }),
+    },
+    delete: {
+      commandId: 'email.templates.delete',
+      schema: z.object({ body: deleteEmailTemplateSchema, query: z.record(z.string(), z.unknown()).optional() }),
+      mapInput: ({ parsed }) => parsed.body,
+      response: () => ({ ok: true }),
+    },
+  },
+  del: { idFrom: 'body' },
+})
+
+export const openApi: OpenApiRouteDoc = createEmailCrudOpenApi({
+  resourceName: 'Email template',
+  pluralName: 'Email templates',
+  querySchema: emailTemplateQuerySchema,
+  listResponseSchema: createPagedListResponseSchema(templateListItemSchema),
+  create: {
+    schema: createEmailTemplateSchema,
+    description: 'Creates a tenant-scoped email template.',
+    responseSchema: z.object({ id: z.string().uuid() }),
+  },
+  update: {
+    schema: updateEmailTemplateSchema,
+    description: 'Updates a tenant-scoped email template.',
+    responseSchema: z.object({ ok: z.literal(true) }),
+  },
+  del: {
+    schema: deleteEmailTemplateSchema,
+    description: 'Soft-deletes a tenant-scoped email template.',
+    responseSchema: z.object({ ok: z.literal(true) }),
+  },
+})
