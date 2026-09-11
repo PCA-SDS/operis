@@ -517,6 +517,10 @@ Definition of done:
 
 ## M8 CAP-002 Tax Portal Sync
 
+Manual acceptance coverage for this milestone is maintained in
+[`Invoice-Phase-6-Manual-Acceptance.md`](./Invoice-Phase-6-Manual-Acceptance.md)
+and [`Invoice-Phase-6-Manual-Acceptance.postman_collection.json`](./Invoice-Phase-6-Manual-Acceptance.postman_collection.json).
+
 Dependencies:
 
 - M0 schema.

@@ -22,7 +22,7 @@ import { createInvoiceService } from './services/invoice-service'
 import { createInvoiceTrackingService } from './services/invoice-tracking-service'
 import { createInvoicePaymentConfirmationsService } from './services/payment-confirmations-service'
 import { createInvoiceSyncService } from './services/sync-service'
-import { createGdtClient } from './services/gdt'
+import { createGdtClient } from './services/gdt-client'
 import { createInvoiceSyncPersistenceService } from './services/sync-persistence-service'
 import { createGdtFetcherService, InvoiceNormalizer } from './services/gdt/index'
 

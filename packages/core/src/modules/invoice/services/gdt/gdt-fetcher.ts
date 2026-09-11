@@ -1,4 +1,4 @@
-import type { GdtClient } from '../gdt'
+import type { GdtClient } from '../gdt-client-implementation'
 import type { GdtFetchWindow, GdtStream, GdtWireRecord } from './types'
 
 function isoDate(date: Date): string {

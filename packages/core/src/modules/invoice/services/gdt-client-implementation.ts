@@ -108,3 +108,5 @@ export function createGdtClient(config: Record<string, unknown> = {}): GdtClient
 export async function cacheJson(cache: CacheStrategy, key: string, value: unknown, ttlSeconds: number) {
   await cache.set(key, value, { ttl: ttlSeconds * 1000 })
 }
+
+

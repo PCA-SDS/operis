@@ -1,4 +1,4 @@
-import { createGdtClient } from '../gdt'
+import { createGdtClient } from '../gdt-client-implementation'
 import { GdtProviderError } from '../gdt/errors'
 
 describe('GDT client', () => {

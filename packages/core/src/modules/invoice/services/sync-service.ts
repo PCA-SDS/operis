@@ -12,7 +12,7 @@ import {
   INVOICE_SYNC_MAX_WINDOW_DAYS, invoiceSyncAuthenticateSchema, invoiceSyncStartSchema,
   invoiceVietnameseTaxCodeSchema,
 } from '../data/validators'
-import { createGdtClient, type GdtClient } from './gdt'
+import { createGdtClient, type GdtClient } from './gdt-client'
 
 const ACTIVE_STATES: InvoiceSyncJobState[] = ['QUEUED', 'AUTHENTICATING', 'FETCHING', 'PERSISTING']
 const queue: Queue<Record<string, unknown>> = createModuleQueue('invoice-sync', { concurrency: 1 })
