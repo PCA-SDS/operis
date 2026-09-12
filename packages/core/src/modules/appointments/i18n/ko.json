@@ -177,6 +177,7 @@
   "appointments.seatPlanner.payment": "Payment",
   "appointments.seatPlanner.resource": "Resource / Seat",
   "appointments.seatPlanner.resourceBooked": "That resource is already booked for this time.",
+  "appointments.seatPlanner.resourceUnavailable": "선택한 시간에는 이 리소스를 사용할 수 없습니다.",
   "appointments.seatPlanner.saved": "Assignment saved",
   "appointments.seatPlanner.saving": "Saving",
   "appointments.seatPlanner.searchStaff": "Search staff...",

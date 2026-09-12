@@ -77,6 +77,7 @@ type Resource = {
   typeName?: string | null
   typeIcon?: string | null
   typeColor?: string | null
+  availabilityWindows?: Array<{ startsAt: string; endsAt: string }> | null
 }
 
 type SeatPlannerWorkspace = {
@@ -163,13 +164,13 @@ function slotHeight(): number {
   return HOUR_HEIGHT / (60 / SLOT_MINUTES)
 }
 
-function slotTop(time: string): number {
-  return ((timeToMinutes(time) - START_HOUR * 60) / SLOT_MINUTES) * slotHeight()
+function slotTop(time: string, timelineStartMinutes: number): number {
+  return ((timeToMinutes(time) - timelineStartMinutes) / SLOT_MINUTES) * slotHeight()
 }
 
-function allocationTop(allocation: PlannerAllocation): number {
+function allocationTop(allocation: PlannerAllocation, timelineStartMinutes: number): number {
   const date = new Date(allocation.startsAt)
-  return (((date.getHours() * 60 + date.getMinutes()) - START_HOUR * 60) / SLOT_MINUTES) * slotHeight()
+  return (((date.getHours() * 60 + date.getMinutes()) - timelineStartMinutes) / SLOT_MINUTES) * slotHeight()
 }
 
 function allocationHeight(allocation: PlannerAllocation): number {
@@ -187,19 +188,33 @@ function addMinutes(iso: string, minutes: number): string {
   return new Date(new Date(iso).getTime() + minutes * 60000).toISOString()
 }
 
+function resourceSupportsRange(resource: Resource | undefined, startsAt: string, endsAt: string): boolean {
+  if (!resource || resource.availabilityWindows === null || resource.availabilityWindows === undefined) return true
+  const start = new Date(startsAt).getTime()
+  const end = new Date(endsAt).getTime()
+  return resource.availabilityWindows.some((window) => {
+    const windowStart = new Date(window.startsAt).getTime()
+    const windowEnd = new Date(window.endsAt).getTime()
+    return start >= windowStart && end <= windowEnd
+  })
+}
+
 function snapDuration(value: number): number {
   return Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.round(value / SLOT_MINUTES) * SLOT_MINUTES))
 }
 
-function buildSlots(): string[] {
+function buildSlots(timelineStartMinutes = START_HOUR * 60, timelineEndMinutes = END_HOUR * 60): string[] {
   const slots: string[] = []
-  for (let minutes = START_HOUR * 60; minutes < END_HOUR * 60; minutes += SLOT_MINUTES) slots.push(minutesToTime(minutes))
+  for (let minutes = timelineStartMinutes; minutes < timelineEndMinutes; minutes += SLOT_MINUTES) slots.push(minutesToTime(minutes))
   return slots
 }
 
-function buildTimeMarkers(): string[] {
+function buildTimeMarkers(timelineStartMinutes = START_HOUR * 60, timelineEndMinutes = END_HOUR * 60): string[] {
   const markers: string[] = []
-  for (let hour = START_HOUR; hour <= END_HOUR; hour += 1) markers.push(minutesToTime(hour * 60))
+  const firstHour = Math.ceil(timelineStartMinutes / 60) * 60
+  for (let minutes = firstHour; minutes <= timelineEndMinutes; minutes += 60) markers.push(minutesToTime(minutes))
+  if (markers.length === 0 || timeToMinutes(markers[0]) !== timelineStartMinutes) markers.unshift(minutesToTime(timelineStartMinutes))
+  if (timeToMinutes(markers[markers.length - 1]) !== timelineEndMinutes) markers.push(minutesToTime(timelineEndMinutes))
   return markers
 }
 
@@ -266,12 +281,13 @@ function blockTone(isOwn: boolean, isActive: boolean, state: 'draft' | 'confirme
 function PlannerBlock(props: {
   allocation: PlannerAllocation
   line: SeatPlannerLine | null
+  timelineStartMinutes: number
   isOwn: boolean
   isActive: boolean
   onResizeEnd: (duration: number) => Promise<void>
   onOpen: (event: React.MouseEvent<HTMLDivElement>) => void
 }) {
-  const { allocation, line, isOwn, isActive, onResizeEnd, onOpen } = props
+  const { allocation, line, timelineStartMinutes, isOwn, isActive, onResizeEnd, onOpen } = props
   const [dragDuration, setDragDuration] = React.useState<number | null>(null)
   const currentDuration = durationMinutes(allocation.startsAt, allocation.endsAt)
   const startYRef = React.useRef(0)
@@ -313,7 +329,7 @@ function PlannerBlock(props: {
       className={`absolute flex cursor-pointer flex-col overflow-hidden rounded-md border px-2 py-1 text-xs transition hover:ring-2 hover:ring-primary/40 ${blockTone(isOwn, isActive, allocation.state)}`}
       style={{
         zIndex: dragDuration !== null ? 25 : (isActive ? 21 : 20),
-        top: allocationTop(allocation),
+        top: allocationTop(allocation, timelineStartMinutes),
         height: Math.max((displayDuration / SLOT_MINUTES) * slotHeight(), 24),
         left: `calc(4px + ${allocation.laneIndex * laneWidth}% - ${allocation.laneIndex * laneInset}px)`,
         width: `calc(${laneWidth}% - ${laneInset}px)`,
@@ -819,12 +835,6 @@ function SeatPlannerLoadingSkeleton() {
 export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const t = useT()
   const appointmentId = typeof params?.id === 'string' ? params.id : ''
-  const slots = React.useMemo(buildSlots, [])
-  const timeMarkers = React.useMemo(buildTimeMarkers, [])
-  const slotGridMarkers = React.useMemo(
-    () => slots.filter((time) => timeToMinutes(time) % 60 !== 0),
-    [slots],
-  )
   const [workspace, setWorkspace] = React.useState<SeatPlannerWorkspace | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -970,10 +980,44 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     }
     return widths
   }, [allocationsBySeat, seatColumns])
+  const timelineBounds = React.useMemo(() => {
+    const startCandidates: number[] = []
+    const endCandidates: number[] = []
+    for (const resource of workspace?.resources ?? []) {
+      const windows = resource.availabilityWindows
+      if (windows === null || windows === undefined) {
+        startCandidates.push(START_HOUR * 60)
+        endCandidates.push(END_HOUR * 60)
+        continue
+      }
+      for (const window of windows) {
+        const start = new Date(window.startsAt)
+        const end = new Date(window.endsAt)
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue
+        startCandidates.push(start.getHours() * 60 + start.getMinutes())
+        endCandidates.push(end.getHours() * 60 + end.getMinutes())
+      }
+    }
+    const startMinutes = startCandidates.length > 0 ? Math.min(...startCandidates) : START_HOUR * 60
+    const endMinutes = endCandidates.length > 0 ? Math.max(...endCandidates) : END_HOUR * 60
+    return {
+      startMinutes: Math.floor(startMinutes / SLOT_MINUTES) * SLOT_MINUTES,
+      endMinutes: Math.ceil(endMinutes / SLOT_MINUTES) * SLOT_MINUTES,
+    }
+  }, [workspace?.resources])
+  const slots = React.useMemo(() => buildSlots(timelineBounds.startMinutes, timelineBounds.endMinutes), [timelineBounds])
+  const timeMarkers = React.useMemo(() => buildTimeMarkers(timelineBounds.startMinutes, timelineBounds.endMinutes), [timelineBounds])
+  const slotGridMarkers = React.useMemo(
+    () => slots.filter((time) => timeToMinutes(time) % 60 !== 0),
+    [slots],
+  )
+  const canUseResourceRange = React.useCallback((resourceId: string, startsAt: string, endsAt: string) => {
+    return resourceSupportsRange(workspace?.resources.find((resource) => resource.id === resourceId), startsAt, endsAt)
+  }, [workspace?.resources])
   const activeLine = React.useMemo(() => workspace?.lines.find((line) => line.id === activeLineId) ?? null, [activeLineId, workspace?.lines])
   const earliestDate = workspace ? new Date(workspace.appointment.requestedStartAt) : null
   const earliestMinutes = earliestDate ? earliestDate.getHours() * 60 + earliestDate.getMinutes() : START_HOUR * 60
-  const bodyHeight = ((END_HOUR - START_HOUR) * 60 / SLOT_MINUTES) * slotHeight()
+  const bodyHeight = ((timelineBounds.endMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight()
   const gridTemplateColumns = `${TIME_COLUMN_WIDTH}px ${seatColumns.map((seat) => `${resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH}px`).join(' ')}`
   const boardWidth = TIME_COLUMN_WIDTH + seatColumns.reduce((width, seat) => width + (resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH), 0)
   const isSaving = guardedMutation.isPending
@@ -1069,6 +1113,10 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       if (line.id !== activeLine.id && line.currentAssignment) break
       const duration = lineDuration(line)
       const endsAt = addMinutes(nextStart, duration)
+      if (!canUseResourceRange(resourceId, nextStart, endsAt)) {
+        flash(t('appointments.seatPlanner.resourceUnavailable', 'This resource is unavailable for the selected time.'), 'error')
+        return
+      }
       const overlapping = (allocationsBySeat.get(resourceId) ?? []).some((allocation) => {
         if (allocation.appointmentId === workspace.appointment.id) return false
         return new Date(nextStart).getTime() < new Date(allocation.endsAt).getTime()
@@ -1085,7 +1133,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       await saveDraft(assignment.line, resourceId, assignment.startsAt, assignment.duration)
     }
     flash(t('appointments.seatPlanner.saved', 'Assignment saved'), 'success')
-  }, [activeLine, allocationsBySeat, earliestMinutes, saveDraft, t, workspace])
+  }, [activeLine, allocationsBySeat, canUseResourceRange, earliestMinutes, flash, saveDraft, t, workspace])
 
   const handleConfirmAll = React.useCallback(async () => {
     if (!workspace) return
@@ -1145,8 +1193,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     if (!first) return
     const seatIndex = seatColumns.findIndex((seat) => seat.id === first.resourceId)
     const seatOffset = seatColumns.slice(0, Math.max(0, seatIndex)).reduce((width, seat) => width + (resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH), TIME_COLUMN_WIDTH)
-    timelineRef.current.scrollTo({ top: Math.max(0, allocationTop(first) - 80), left: Math.max(0, seatOffset - 120), behavior: 'smooth' })
-  }, [ownAllocations, resourceColumnWidths, seatColumns])
+    timelineRef.current.scrollTo({ top: Math.max(0, allocationTop(first, timelineBounds.startMinutes) - 80), left: Math.max(0, seatOffset - 120), behavior: 'smooth' })
+  }, [ownAllocations, resourceColumnWidths, seatColumns, timelineBounds.startMinutes])
 
   const scrollServiceIntoView = React.useCallback((lineId: string) => {
     const service = document.querySelector<HTMLElement>(`[data-seat-planner-line-id="${lineId}"]`)
@@ -1298,13 +1346,13 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                       </div>
 
                       <div className="absolute inset-x-0 bottom-0 grid" style={{ top: HEADER_HEIGHT, gridTemplateColumns }}>
-                        <div className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-status-warning-border" style={{ top: Math.max(0, ((earliestMinutes - START_HOUR * 60) / SLOT_MINUTES) * slotHeight()) }} />
+                        <div className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-status-warning-border" style={{ top: Math.max(0, ((earliestMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight()) }} />
                         <div className="sticky left-0 z-30 border-r border-border bg-surface">
                           {slotGridMarkers.map((time) => (
-                            <div key={`time-slot-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time) }} />
+                            <div key={`time-slot-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time, timelineBounds.startMinutes) }} />
                           ))}
                           {timeMarkers.map((time) => (
-                            <div key={time} className="absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time) }}>
+                            <div key={time} className="absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time, timelineBounds.startMinutes) }}>
                               <span className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-surface px-1 text-xs text-muted-foreground ${time === timeMarkers[0] ? 'top-2' : time === timeMarkers[timeMarkers.length - 1] ? '-mt-1 -translate-y-full' : '-translate-y-1/2'}`}>{time}</span>
                             </div>
                           ))}
@@ -1312,13 +1360,16 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
 
                         {seatColumns.map((seat) => (
                           <div key={seat.id} className={`relative border-r border-border bg-surface ${seat.isFirstInFloor ? 'border-l' : ''}`}>
-                            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-muted/60" style={{ height: Math.max(0, ((earliestMinutes - START_HOUR * 60) / SLOT_MINUTES) * slotHeight()) }} />
-                            {slotGridMarkers.map((time) => <div key={`${seat.id}-${time}-slot-grid`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time) }} />)}
-                            {timeMarkers.map((time) => <div key={`${seat.id}-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time) }} />)}
+                            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-muted/60" style={{ height: Math.max(0, ((earliestMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight()) }} />
+                            {slotGridMarkers.map((time) => <div key={`${seat.id}-${time}-slot-grid`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time, timelineBounds.startMinutes) }} />)}
+                            {timeMarkers.map((time) => <div key={`${seat.id}-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time, timelineBounds.startMinutes) }} />)}
                             {slots.map((time) => {
                               const minutes = timeToMinutes(time)
                               const beforeEarliest = minutes < earliestMinutes
-                              const blocked = beforeEarliest || (allocationsBySeat.get(seat.id) ?? []).some((allocation) => {
+                              const slotStartsAt = buildIsoFromSlot(workspace.appointment.requestedStartAt, time)
+                              const slotEndsAt = addMinutes(slotStartsAt, SLOT_MINUTES)
+                              const unavailable = !canUseResourceRange(seat.id, slotStartsAt, slotEndsAt)
+                              const blocked = beforeEarliest || unavailable || (allocationsBySeat.get(seat.id) ?? []).some((allocation) => {
                                 if (allocation.appointmentId === workspace.appointment.id) return false
                                 const start = new Date(allocation.startsAt)
                                 const end = new Date(allocation.endsAt)
@@ -1330,13 +1381,9 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                   type="button"
                                   variant="ghost"
                                   className={`absolute left-0 right-0 rounded-none border-t border-transparent p-0 ${blocked ? 'cursor-not-allowed opacity-40' : 'hover:bg-primary/10'}`}
-                                  style={{ top: slotTop(time), height: slotHeight() }}
-                                  disabled={!activeLine}
+                                  style={{ top: slotTop(time, timelineBounds.startMinutes), height: slotHeight() }}
+                                  disabled={!activeLine || blocked}
                                   onClick={() => {
-                                    if (blocked) {
-                                      flash(beforeEarliest ? t('appointments.seatPlanner.beforeEarliestError', 'This booking cannot start before the requested time.') : t('appointments.seatPlanner.resourceBooked', 'That resource is already booked for this time.'), 'error')
-                                      return
-                                    }
                                     void handleSlotClick(seat.id, time)
                                   }}
                                   aria-label={`${seat.name} ${time}`}
@@ -1350,6 +1397,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                   key={allocation.id}
                                   allocation={{ ...allocation, resourceName: seat.name }}
                                   line={line}
+                                  timelineStartMinutes={timelineBounds.startMinutes}
                                   isOwn={allocation.appointmentId === workspace.appointment.id}
                                   isActive={allocation.lineId === activeLineId}
                                   onResizeEnd={(nextDuration) => handleDurationChange(allocation, nextDuration)}

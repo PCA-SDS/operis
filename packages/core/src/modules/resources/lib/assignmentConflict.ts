@@ -201,14 +201,22 @@ export class AssignmentConflictService {
       subjectId: resourceId,
       deletedAt: null,
     })
+    const ruleSetRules = await this.em.find(PlannerAvailabilityRule, {
+      tenantId,
+      organizationId,
+      subjectType: 'ruleset',
+      subjectId: resource.availabilityRuleSetId,
+      deletedAt: null,
+    })
+    const mergedRules = [...rules, ...ruleSetRules]
 
-    if (rules.length === 0) {
+    if (mergedRules.length === 0) {
       // No rules defined, allow any time
       return { valid: true }
     }
 
     // Convert to AvailabilityRuleLike format
-    const ruleLike: AvailabilityRuleLike[] = rules.map((rule) => ({
+    const ruleLike: AvailabilityRuleLike[] = mergedRules.map((rule) => ({
       id: rule.id,
       rrule: rule.rrule,
       exdates: rule.exdates,

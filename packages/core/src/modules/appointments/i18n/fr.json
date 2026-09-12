@@ -177,6 +177,7 @@
   "appointments.seatPlanner.payment": "Payment",
   "appointments.seatPlanner.resource": "Resource / Seat",
   "appointments.seatPlanner.resourceBooked": "That resource is already booked for this time.",
+  "appointments.seatPlanner.resourceUnavailable": "Cette ressource n'est pas disponible pour l'horaire sélectionné.",
   "appointments.seatPlanner.saved": "Assignment saved",
   "appointments.seatPlanner.saving": "Saving",
   "appointments.seatPlanner.searchStaff": "Search staff...",

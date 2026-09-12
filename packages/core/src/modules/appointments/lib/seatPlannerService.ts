@@ -7,9 +7,11 @@
 
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { ResourceAssignmentService, type AssignmentDTO } from '@open-mercato/core/modules/resources/lib/resourceAssignmentService'
-import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
+import { ResourcesAssignment, ResourcesResource } from '@open-mercato/core/modules/resources/data/entities'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { CatalogProductOption, CatalogProductOptionGroup } from '@open-mercato/core/modules/catalog/data/entities'
+import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
+import { getMergedAvailabilityWindows } from '@open-mercato/core/modules/planner/lib/availabilityMerge'
 import { Appointment, AppointmentLine, AppointmentLineOptionGroup } from '../data/entities'
 import { loadLineOptionSnapshots } from './lineOptionSnapshot'
 
@@ -70,6 +72,7 @@ export interface SeatPlannerWorkspace {
     typeName?: string | null
     typeIcon?: string | null
     typeColor?: string | null
+    availabilityWindows: Array<{ startsAt: string; endsAt: string }> | null
   }>
 }
 
@@ -202,6 +205,74 @@ export class AppointmentSeatPlannerService {
       organizationIds: resourceOrganizationIds,
     })
 
+    const scheduleDayStart = new Date(appointment.requestedStartAt)
+    scheduleDayStart.setHours(0, 0, 0, 0)
+    const scheduleDayEnd = new Date(scheduleDayStart)
+    scheduleDayEnd.setDate(scheduleDayEnd.getDate() + 1)
+    const resourceRecords = resources.resources.length > 0
+      ? await this.em.find(ResourcesResource, {
+          id: { $in: resources.resources.map((resource) => resource.id) },
+          tenantId: params.tenantId,
+          organizationId: { $in: resourceOrganizationIds },
+          deletedAt: null,
+        })
+      : []
+    const resourceRecordById = new Map(resourceRecords.map((resource) => [resource.id, resource]))
+    const resourceIds = resources.resources.map((resource) => resource.id)
+    const resourceRuleSetIds = resourceRecords
+      .map((resource) => resource.availabilityRuleSetId)
+      .filter((ruleSetId): ruleSetId is string => Boolean(ruleSetId))
+    const [resourceAvailabilityRules, ruleSetAvailabilityRules] = resourceIds.length > 0
+      ? await Promise.all([
+          this.em.find(PlannerAvailabilityRule, {
+            tenantId: params.tenantId,
+            organizationId: { $in: resourceOrganizationIds },
+            subjectType: 'resource',
+            subjectId: { $in: resourceIds },
+            deletedAt: null,
+          }),
+          resourceRuleSetIds.length > 0
+            ? this.em.find(PlannerAvailabilityRule, {
+                tenantId: params.tenantId,
+                organizationId: { $in: resourceOrganizationIds },
+                subjectType: 'ruleset',
+                subjectId: { $in: resourceRuleSetIds },
+                deletedAt: null,
+              })
+            : Promise.resolve([]),
+        ])
+      : [[], []]
+    const availabilityRulesByResource = new Map<string, PlannerAvailabilityRule[]>()
+    const rulesBySubjectId = new Map<string, PlannerAvailabilityRule[]>()
+    for (const rule of [...resourceAvailabilityRules, ...ruleSetAvailabilityRules]) {
+      rulesBySubjectId.set(rule.subjectId, [...(rulesBySubjectId.get(rule.subjectId) ?? []), rule])
+    }
+    for (const resource of resourceRecords) {
+      const rules = [
+        ...(rulesBySubjectId.get(resource.id) ?? []),
+        ...(resource.availabilityRuleSetId ? rulesBySubjectId.get(resource.availabilityRuleSetId) ?? [] : []),
+      ]
+      if (rules.length > 0) {
+        availabilityRulesByResource.set(resource.id, rules)
+      }
+    }
+    const resourcesWithAvailability = resources.resources.map((resource) => {
+      const resourceRecord = resourceRecordById.get(resource.id)
+      const rules = availabilityRulesByResource.get(resource.id) ?? []
+      const availabilityWindows = resourceRecord?.availabilityRuleSetId && rules.length > 0
+        ? getMergedAvailabilityWindows({
+            rules: rules.map((rule) => ({
+              id: rule.id,
+              rrule: rule.rrule,
+              exdates: rule.exdates,
+              kind: rule.kind,
+            })),
+            range: { start: scheduleDayStart, end: scheduleDayEnd },
+          }).map((window) => ({ startsAt: window.start.toISOString(), endsAt: window.end.toISOString() }))
+        : null
+      return { ...resource, availabilityWindows }
+    })
+
     // Load option snapshots for all lines (prefer snapshot tables, fallback to catalog)
     const productIds = lines.map((line) => line.productId)
 
@@ -232,17 +303,13 @@ export class AppointmentSeatPlannerService {
     }]))
 
     // Load allocations for the day (other bookings on the calendar)
-    const dayStart = new Date(appointment.requestedStartAt)
-    dayStart.setHours(0, 0, 0, 0)
-    const dayEnd = new Date(dayStart)
-    dayEnd.setDate(dayEnd.getDate() + 1)
     const dayAssignments = await this.em.find(ResourcesAssignment, {
       tenantId: params.tenantId,
       organizationId: { $in: resourceOrganizationIds },
       sourceModule: 'appointment',
       sourceEntityType: 'appointment_line',
-      startsAt: { $lt: dayEnd },
-      endsAt: { $gt: dayStart },
+      startsAt: { $lt: scheduleDayEnd },
+      endsAt: { $gt: scheduleDayStart },
       cancelledAt: null,
     }, { orderBy: { startsAt: 'asc' } })
 
@@ -256,7 +323,7 @@ export class AppointmentSeatPlannerService {
       ? await this.em.find(Appointment, { id: { $in: allocationAppointmentIds }, tenantId: params.tenantId, deletedAt: null })
       : []
     const allocationAppointmentById = new Map(allocationAppointments.map((entry) => [entry.id, entry]))
-    const resourceById = new Map(resources.resources.map((resource) => [resource.id, resource]))
+    const resourceById = new Map(resourcesWithAvailability.map((resource) => [resource.id, resource]))
     const allocations = dayAssignments.flatMap((assignment) => {
       const line = allocationLineById.get(assignment.sourceEntityId)
       if (!line) return []
@@ -296,7 +363,7 @@ export class AppointmentSeatPlannerService {
 
         // Find resource name
         const resource = assignment
-          ? resources.resources.find((r) => r.id === assignment.resourceId)
+          ? resourcesWithAvailability.find((r) => r.id === assignment.resourceId)
           : undefined
 
         // Try to load options from snapshot tables first, fallback to catalog lookup
@@ -359,7 +426,7 @@ export class AppointmentSeatPlannerService {
       },
       lines: linesWithAssignments,
       allocations,
-      resources: resources.resources,
+      resources: resourcesWithAvailability,
     }
   }
 
