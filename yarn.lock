@@ -8353,6 +8353,7 @@ __metadata:
     "@open-mercato/core": "workspace:*"
     "@open-mercato/events": "workspace:*"
     "@open-mercato/gateway-stripe": "workspace:*"
+    "@open-mercato/matrix": "workspace:*"
     "@open-mercato/migrate-tps": "workspace:*"
     "@open-mercato/onboarding": "workspace:*"
     "@open-mercato/queue": "workspace:*"
