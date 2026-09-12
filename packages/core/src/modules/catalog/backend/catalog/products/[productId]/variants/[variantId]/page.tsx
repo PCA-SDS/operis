@@ -25,6 +25,8 @@ import {
   normalizeOptionSchema,
   mapPriceItemToDraft,
   findInvalidVariantPriceKinds,
+  buildVariantDurationPayload,
+  normalizeVariantDurationUnit,
 } from '@open-mercato/core/modules/catalog/components/products/variantForm'
 import {
   type PriceKindSummary,
@@ -100,6 +102,20 @@ function resolveVariantPriceLabel(prices: Record<string, VariantPriceDraft> | un
     return currencyCode ? `${currencyCode} ${amount}` : amount
   }
   return null
+}
+
+function readVariantNumberField(record: Record<string, unknown>, snakeKey: string, camelKey: string): string {
+  const value = record[snakeKey] ?? record[camelKey]
+  return typeof value === 'number' && Number.isFinite(value)
+    ? String(value)
+    : typeof value === 'string' && value.trim().length
+      ? value.trim()
+      : ''
+}
+
+function readVariantDurationUnit(record: Record<string, unknown>): string {
+  const raw = record.duration_unit ?? record.durationUnit
+  return normalizeVariantDurationUnit(typeof raw === 'string' ? raw : null)
 }
 
 export default function EditVariantPage({ params }: { params?: { productId?: string; variantId?: string } }) {
@@ -374,6 +390,10 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
             defaultMediaUrl,
             prices: priceDrafts,
             taxRateId: variantTaxRateId,
+            durationValue: readVariantNumberField(record, 'duration_value', 'durationValue'),
+            durationUnit: readVariantDurationUnit(record),
+            durationMin: readVariantNumberField(record, 'duration_min', 'durationMin'),
+            durationMax: readVariantNumberField(record, 'duration_max', 'durationMax'),
             customFieldsetCode:
               typeof record.custom_fieldset_code === 'string'
                 ? record.custom_fieldset_code
@@ -653,10 +673,7 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
               customFieldsetCode: values.customFieldsetCode?.trim().length ? values.customFieldsetCode : undefined,
               taxRateId: resolvedTaxRateId,
               taxRate: resolvedTaxRateValue,
-              durationValue: typeof values.durationValue === 'string' && values.durationValue.trim().length ? parseInt(values.durationValue, 10) : undefined,
-              durationUnit: values.durationUnit ?? undefined,
-              durationMin: typeof values.durationMin === 'string' && values.durationMin.trim().length ? parseInt(values.durationMin, 10) : undefined,
-              durationMax: typeof values.durationMax === 'string' && values.durationMax.trim().length ? parseInt(values.durationMax, 10) : undefined,
+              ...buildVariantDurationPayload(values),
             }
             const customFields = collectCustomFieldValues(values)
             if (Object.keys(customFields).length) payload.customFields = customFields

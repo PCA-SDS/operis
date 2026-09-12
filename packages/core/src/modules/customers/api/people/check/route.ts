@@ -1,12 +1,9 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import type { EntityManager } from '@mikro-orm/postgresql'
-import { getCachedRateLimiterService } from '@open-mercato/core/bootstrap'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { createLogger } from '@open-mercato/shared/lib/logger'
-import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { getCachedRateLimiterService } from '@open-mercato/core/bootstrap'
 import { readEndpointRateLimitConfig } from '@open-mercato/shared/lib/ratelimit/config'
 import {
   checkRateLimit,
@@ -14,14 +11,17 @@ import {
   RATE_LIMIT_FALLBACK_KEY,
   rateLimitErrorSchema,
 } from '@open-mercato/shared/lib/ratelimit/helpers'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+import type { EntityManager } from '@mikro-orm/postgresql'
+import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { personCheckSchema } from '../../../data/validators'
 import { checkPersonIdentity } from '../../../lib/personLookup'
-
-const logger = createLogger('customers')
 
 export const metadata = {
   POST: { requireAuth: false },
 }
+
+const logger = createLogger('customers')
 
 const personCheckRateLimitConfig = readEndpointRateLimitConfig('CUSTOMERS_PEOPLE_CHECK', {
   points: 10,
@@ -32,16 +32,23 @@ const personCheckRateLimitConfig = readEndpointRateLimitConfig('CUSTOMERS_PEOPLE
 
 const successSchema = z.object({
   exists: z.boolean(),
+  customer: z
+    .object({
+      id: z.string().uuid(),
+      name: z.string(),
+      salutation: z.string().nullable(),
+      email: z.string().nullable(),
+      phone: z.string().nullable(),
+      phoneCountryCode: z.string().nullable(),
+      phoneCountry: z.string().nullable(),
+      source: z.string().nullable(),
+      origin: z.string().nullable(),
+      organizationId: z.string().uuid(),
+    })
+    .nullable(),
+  lastBooking: z.null(),
 })
 
-/**
- * Public "do we already know you?" probe for booking intake.
- *
- * The response is intentionally a bare boolean. An anonymous caller supplies the
- * tenant, so returning customer fields here would hand contact details to anyone
- * who can guess a phone number; a booking flow that wants to prefill must first
- * verify the caller owns the number.
- */
 export async function POST(req: Request) {
   const { translate } = await resolveTranslations()
   try {
@@ -65,7 +72,12 @@ export async function POST(req: Request) {
     const result = await checkPersonIdentity(
       em,
       { tenantId: body.tenantId },
-      { phone: body.phone, email: body.email },
+      {
+        phone: body.phone,
+        email: body.email,
+        phoneCountryCode: body.phoneCountryCode,
+        phoneCountry: body.phoneCountry,
+      },
     )
     return NextResponse.json(result)
   } catch (error) {
@@ -78,7 +90,6 @@ export async function POST(req: Request) {
         { status: 400 },
       )
     }
-    logger.error('people check failed', { component: 'people.check', err: error })
     return NextResponse.json(
       { error: translate('customers.people.check.failed', 'Unable to check customer.'), code: 'CHECK_FAILED' },
       { status: 500 },
@@ -88,12 +99,12 @@ export async function POST(req: Request) {
 
 export const openApi: OpenApiRouteDoc = {
   tag: 'Customers',
-  summary: 'Check whether a person already exists for booking intake',
+  summary: 'Check returning customer for booking intake',
   methods: {
     POST: {
-      summary: 'Report whether a person matches the given phone and/or email within a tenant',
+      summary: 'Find person by phone and/or email within a tenant',
       description:
-        'Public booking helper. Lookup is tenant-wide (customers are shared across organizations/branches) and matches on deterministic contact hashes. Returns existence only — no customer fields are disclosed to unauthenticated callers. Rate limited per client IP.',
+        'Public booking helper. Lookup is tenant-wide (customers are shared across organizations/branches). Requires tenantId. Returns lastBooking as null until appointments module ships.',
       requestBody: { contentType: 'application/json', schema: personCheckSchema },
       responses: [
         { status: 200, description: 'Lookup result', schema: successSchema },

@@ -53,8 +53,8 @@ const crud = makeCrudRoute({
       'id', 'name', 'description', 'area_type_id', 'parent_area_id', 'sort_order',
       'appearance_icon', 'appearance_color', 'is_active', 'organization_id', 'tenant_id'
     ],
-    buildFilters: async (query: any) => {
-      const filters: Record<string, any> = {}
+    buildFilters: async (query) => {
+      const filters: Record<string, unknown> = {}
       if (query.search) {
         const pattern = `%${escapeLikePattern(query.search)}%`
         filters.$or = [

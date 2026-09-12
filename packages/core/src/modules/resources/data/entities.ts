@@ -1,4 +1,4 @@
-import { Collection } from '@mikro-orm/core'
+import { Collection, OptionalProps } from '@mikro-orm/core'
 import { Entity, Index, ManyToOne, OneToMany, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 
 @Entity({ tableName: 'resources_resource_area_types' })
@@ -331,4 +331,117 @@ export class ResourcesResourceArea {
 
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
+}
+
+// =============================================================================
+// Resource Assignments - Generic booking system for any module
+// =============================================================================
+
+@Entity({ tableName: 'resources_assignments' })
+@Index({ name: 'ra_tenant_org_idx', properties: ['tenantId', 'organizationId'] })
+@Index({ name: 'ra_resource_time_idx', properties: ['resource', 'startsAt', 'endsAt'] })
+@Index({ name: 'ra_source_module_idx', properties: ['sourceModule', 'sourceEntityType', 'sourceEntityId'] })
+@Index({ name: 'ra_source_entity_idx', properties: ['sourceEntityId'] })
+@Index({ name: 'ra_state_idx', properties: ['state', 'cancelledAt'] })
+export class ResourcesAssignment {
+  [OptionalProps]?:
+    | 'createdAt'
+    | 'updatedAt'
+    | 'title'
+    | 'assignedMemberId'
+    | 'cancelledAt'
+    | 'createdByUserId'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  // === GENERIC SOURCE IDENTIFICATION ===
+  // sourceModule: 'appointment' | 'wms' | 'tasks' | ...
+  // sourceEntityType: 'appointment_line' | 'shipment' | 'task' | ...
+  // sourceEntityId: UUID of the specific entity
+  @Property({ name: 'source_module', type: 'text' })
+  sourceModule!: string
+
+  @Property({ name: 'source_entity_type', type: 'text' })
+  sourceEntityType!: string
+
+  @Property({ name: 'source_entity_id', type: 'uuid' })
+  sourceEntityId!: string
+
+  // === RESOURCE & TIMING ===
+  @ManyToOne(() => ResourcesResource, { fieldName: 'resource_id', nullable: true })
+  resource?: ResourcesResource | null
+
+  // State: draft (temporary) or confirmed (final)
+  @Property({ name: 'state', type: 'text' })
+  state!: 'draft' | 'confirmed'
+
+  @Property({ name: 'starts_at', type: Date })
+  startsAt!: Date
+
+  @Property({ name: 'ends_at', type: Date })
+  endsAt!: Date
+
+  // === STAFF ASSIGNMENT (generic - references staff module) ===
+  @Property({ name: 'assigned_member_id', type: 'uuid', nullable: true })
+  assignedMemberId?: string | null
+
+  @Property({ type: 'text', nullable: true })
+  title?: string | null
+
+  // === AUDIT ===
+  @Property({ name: 'cancelled_at', type: Date, nullable: true })
+  cancelledAt?: Date | null
+
+  @Property({ name: 'created_by_user_id', type: 'uuid', nullable: true })
+  createdByUserId?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+}
+
+// =============================================================================
+// Resource Blocks - Temporary unavailability periods
+// =============================================================================
+
+@Entity({ tableName: 'resources_blocks' })
+@Index({ name: 'rb_resource_time_idx', properties: ['resource', 'startsAt', 'endsAt'] })
+export class ResourcesBlock {
+  [OptionalProps]?: 'createdAt' | 'reason' | 'createdByUserId'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @ManyToOne(() => ResourcesResource, { fieldName: 'resource_id', nullable: true })
+  resource?: ResourcesResource | null
+
+  @Property({ name: 'starts_at', type: Date })
+  startsAt!: Date
+
+  @Property({ name: 'ends_at', type: Date })
+  endsAt!: Date
+
+  @Property({ type: 'text', nullable: true })
+  reason?: string | null
+
+  @Property({ name: 'created_by_user_id', type: 'uuid', nullable: true })
+  createdByUserId?: string | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
 }

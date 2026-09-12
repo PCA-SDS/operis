@@ -5,7 +5,7 @@ import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
 import { CustomFieldDef, CustomFieldValue } from '@open-mercato/core/modules/entities/data/entities'
 import { SalesChannel } from '@open-mercato/core/modules/sales/data/entities'
-import { CatalogProduct, CatalogProductPrice } from '../../data/entities'
+import { CatalogProduct, CatalogProductPrice, CatalogProductCategory, CatalogProductCategoryAssignment } from '../../data/entities'
 import type { CatalogPricingService } from '../../services/catalogPricingService'
 import type { PriceRow } from '../pricing'
 import {
@@ -17,6 +17,7 @@ import {
 const TENANT = '22222222-2222-4222-8222-222222222222'
 const ORG = '33333333-3333-4333-8333-333333333333'
 const OTHER_ORG = '44444444-4444-4444-8444-444444444444'
+const CHILD_ORG = '55555555-5555-4555-8555-555555555555'
 
 type Fixture = {
   tenant?: boolean
@@ -25,6 +26,8 @@ type Fixture = {
   products?: Array<Partial<CatalogProduct> & { id: string; title: string }>
   prices?: Array<Partial<CatalogProductPrice> & { id: string; product: { id: string } }>
   durations?: Record<string, number>
+  categories?: Array<Partial<CatalogProductCategory> & { id: string; name: string }>
+  assignments?: Array<{ product: { id: string }; category: { id: string }; tenantId: string; organizationId: string }>
 }
 
 /**
@@ -35,9 +38,16 @@ type Fixture = {
 function createEm(fixture: Fixture) {
   const queries: Array<{ entity: unknown; where: Record<string, any> }> = []
 
+  const matchesValue = (rowValue: unknown, whereValue: unknown) => {
+    if (whereValue === undefined) return true
+    if (whereValue && typeof whereValue === 'object' && '$in' in whereValue) {
+      return Array.isArray(whereValue.$in) && whereValue.$in.includes(rowValue)
+    }
+    return rowValue === whereValue
+  }
   const matchesScope = (row: Record<string, any>, where: Record<string, any>) =>
-    (where.tenantId === undefined || row.tenantId === where.tenantId) &&
-    (where.organizationId === undefined || row.organizationId === where.organizationId)
+    matchesValue(row.tenantId, where.tenantId) &&
+    matchesValue(row.organizationId, where.organizationId)
 
   const findOne = jest.fn(async (entity: unknown, where: Record<string, any>) => {
     queries.push({ entity, where })
@@ -46,7 +56,10 @@ function createEm(fixture: Fixture) {
     }
     if (entity === Organization) {
       if (fixture.organization === false) return null
-      return where.id === ORG && where.tenant === TENANT ? { id: where.id } : null
+      if (where.tenant !== TENANT) return null
+      if (where.id === ORG) return { id: where.id, ancestorIds: [] }
+      if (where.id === CHILD_ORG) return { id: where.id, ancestorIds: [ORG] }
+      return null
     }
     if (entity === SalesChannel) {
       if (!matchesScope({ tenantId: TENANT, organizationId: ORG }, where)) return null
@@ -64,7 +77,9 @@ function createEm(fixture: Fixture) {
           matchesScope({ tenantId: TENANT, organizationId: ORG, ...product }, where) &&
           where.isActive === true &&
           where.deletedAt === null &&
-          where.customFieldsetCode === BOOKABLE_SERVICE_FIELDSET,
+          where.$or?.some((filter: Record<string, unknown>) =>
+            filter.customFieldsetCode === (product.customFieldsetCode ?? BOOKABLE_SERVICE_FIELDSET) ||
+            (filter.productType !== undefined && filter.productType === product.productType)),
       )
     }
     if (entity === CatalogProductPrice) {
@@ -74,6 +89,12 @@ function createEm(fixture: Fixture) {
           matchesScope({ tenantId: TENANT, organizationId: ORG, ...price }, where) &&
           wanted.includes(price.product.id),
       )
+    }
+    if (entity === CatalogProductCategory) {
+      return (fixture.categories ?? []).filter((category) => matchesScope(category, where) && category.isActive !== false && !category.deletedAt)
+    }
+    if (entity === CatalogProductCategoryAssignment) {
+      return (fixture.assignments ?? []).filter((assignment) => matchesScope(assignment, where) && where.product.$in.includes(assignment.product.id))
     }
     if (entity === CustomFieldValue) {
       const wanted: string[] = where.recordId?.$in ?? []
@@ -139,6 +160,35 @@ const price = (id: string, productId: string, extra: Record<string, unknown> = {
 }) as Partial<CatalogProductPrice> & { id: string; product: { id: string } }
 
 describe('listBookableServicesForOrganization', () => {
+  it('returns root-first category ancestry and SKU without leaking another organization', async () => {
+    const scoped = { tenantId: TENANT, organizationId: ORG }
+    const { em, queries } = createEm({
+      products: [service('p1', 'Polish', { sku: 'NAIL-01' }), service('p2', 'Other')],
+      categories: [
+        { ...scoped, id: 'root', name: 'Nails' },
+        { ...scoped, id: 'child', name: 'Manicure', parentId: 'root', description: 'Category note' },
+        { ...scoped, organizationId: OTHER_ORG, id: 'foreign', name: 'Private' },
+      ],
+      assignments: [
+        { ...scoped, product: { id: 'p1' }, category: { id: 'child' } },
+        { ...scoped, product: { id: 'p2' }, category: { id: 'foreign' } },
+      ],
+    })
+    const { service: pricingService } = createPricingService()
+    const items = await listBookableServicesForOrganization(em, scoped, { pricingService })
+    expect(items[0]).toMatchObject({ sku: 'NAIL-01', categoryId: 'child', categoryName: 'Manicure', categoryPath: [
+      { id: 'root', name: 'Nails', parentId: null, description: null },
+      { id: 'child', name: 'Manicure', parentId: 'root', description: 'Category note' },
+    ] })
+    expect(items[1]).toMatchObject({ categoryPath: [], categoryId: null, categoryName: null })
+    for (const entity of [CatalogProductCategory, CatalogProductCategoryAssignment]) {
+      expect(queries.find((query) => query.entity === entity)?.where).toMatchObject({
+        tenantId: TENANT,
+        organizationId: { $in: [ORG] },
+      })
+    }
+  })
+
   it('rejects an unknown or inactive tenant before reading any catalog data', async () => {
     const { em, queries } = createEm({ tenant: false })
     const { service: pricingService } = createPricingService()
@@ -167,10 +217,33 @@ describe('listBookableServicesForOrganization', () => {
     const productQuery = queries.find((query) => query.entity === CatalogProduct)
     expect(productQuery?.where).toMatchObject({
       tenantId: TENANT,
-      organizationId: ORG,
+      organizationId: { $in: [ORG] },
       isActive: true,
       deletedAt: null,
-      customFieldsetCode: BOOKABLE_SERVICE_FIELDSET,
+      $or: [{ customFieldsetCode: BOOKABLE_SERVICE_FIELDSET }, { productType: 'service' }],
+    })
+  })
+
+  it('allows a child organization booking to use services stored on an ancestor organization', async () => {
+    const { em } = createEm({
+      products: [service('p1', 'Parent Catalog Service')],
+      prices: [price('price-1', 'p1')],
+      durations: { p1: 45 },
+    })
+    const { service: pricingService } = createPricingService()
+
+    const items = await listBookableServicesForOrganization(
+      em,
+      { tenantId: TENANT, organizationId: CHILD_ORG },
+      { pricingService },
+    )
+
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({
+      id: 'p1',
+      title: 'Parent Catalog Service',
+      organizationId: ORG,
+      durationMinutes: 45,
     })
   })
 
@@ -194,12 +267,17 @@ describe('listBookableServicesForOrganization', () => {
         subtitle: null,
         description: null,
         handle: 'signature-haircut',
+        sku: null,
+        categoryPath: [],
+        categoryId: null,
+        categoryName: null,
         currencyCode: 'USD',
         unitPriceNet: '95.0000',
         unitPriceGross: '95.0000',
         durationMinutes: 60,
         organizationId: ORG,
         tenantId: TENANT,
+        optionGroups: [],
       },
     ])
     expect(resolvePriceMany).toHaveBeenCalledWith([

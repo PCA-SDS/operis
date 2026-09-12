@@ -19,6 +19,7 @@ import {
   createVariantInitialValues,
   normalizeOptionSchema,
   findInvalidVariantPriceKinds,
+  buildVariantDurationPayload,
 } from '@open-mercato/core/modules/catalog/components/products/variantForm'
 import {
   type PriceKindSummary,
@@ -392,10 +393,7 @@ export default function CreateVariantPage({ params }: { params?: { productId?: s
               customFieldsetCode: values.customFieldsetCode?.trim().length ? values.customFieldsetCode : undefined,
               taxRateId: resolvedTaxRateId,
               taxRate: resolvedTaxRateValue,
-              durationValue: typeof values.durationValue === 'string' && values.durationValue.trim().length ? parseInt(values.durationValue, 10) : undefined,
-              durationUnit: values.durationUnit ?? undefined,
-              durationMin: typeof values.durationMin === 'string' && values.durationMin.trim().length ? parseInt(values.durationMin, 10) : undefined,
-              durationMax: typeof values.durationMax === 'string' && values.durationMax.trim().length ? parseInt(values.durationMax, 10) : undefined,
+              ...buildVariantDurationPayload(values),
             }
             // CrudForm injects a sentinel `id` ("create") while the record is new; never send it to the API.
             Reflect.deleteProperty(payload, 'id')
