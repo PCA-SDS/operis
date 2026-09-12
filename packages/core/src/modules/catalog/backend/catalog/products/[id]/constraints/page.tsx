@@ -154,7 +154,7 @@ export default function ProductConstraintsPage({ params }: { params?: { id?: str
             return {
               id: p.id,
               label: p.title ?? p.name ?? p.id,
-              description: [sku, handle].filter(Boolean).join(' · ') || t('catalog.constraints.productContext.id', 'ID {id}').replace('{id}', p.id.slice(0, 8)),
+              description: [sku, handle].filter(Boolean).join(' — ') || t('catalog.constraints.productContext.id', 'ID {id}').replace('{id}', p.id.slice(0, 8)),
             }
           })
         setProductSeedOptions(opts)

@@ -237,11 +237,11 @@ export const productFormSchema = z
     taxRateId: z.string().uuid().nullable().optional(),
     hasVariants: z.boolean().optional(),
     mediaDraftId: z.string().optional(),
-    mediaItems: z.record(z.string(), z.unknown()).optional(),
+    mediaItems: z.custom<ProductMediaItem[]>(() => true).optional(),
     defaultMediaId: z.string().uuid().nullable().optional(),
     defaultMediaUrl: z.string().trim().max(500).nullable().optional(),
-    options: z.record(z.string(), z.unknown()).optional(),
-    variants: z.record(z.string(), z.unknown()).optional(),
+    options: z.custom<ProductOptionInput[]>(() => true).optional(),
+    variants: z.custom<VariantDraft[]>(() => true).optional(),
     // Use a permissive schema to avoid zod classic `_zod` runtime crashes on records in edge builds.
     metadata: z
       .custom<Record<string, unknown>>(() => true)

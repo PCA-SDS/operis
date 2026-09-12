@@ -130,6 +130,7 @@ export function CascadingCombobox({
   const [search, setSearch] = React.useState('')
   const containerRef = React.useRef<HTMLDivElement>(null)
   const triggerRef = React.useRef<HTMLDivElement>(null)
+  const popupId = React.useId()
   const searchInputRef = React.useRef<HTMLInputElement>(null)
   const [dropdownPosition, setDropdownPosition] = React.useState<DropdownPosition>({
     top: 0,
@@ -234,13 +235,21 @@ export function CascadingCombobox({
         handleOpenChange(false)
       }
     }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.stopPropagation()
+      handleOpenChange(false)
+      triggerRef.current?.querySelector('button')?.focus()
+    }
     const handleReposition = () => updateDropdownPosition()
 
+    document.addEventListener('keydown', handleKeyDown, true)
     document.addEventListener('mousedown', handlePointerDown)
     window.addEventListener('resize', handleReposition)
     window.addEventListener('scroll', handleReposition, true)
 
     return () => {
+      document.removeEventListener('keydown', handleKeyDown, true)
       document.removeEventListener('mousedown', handlePointerDown)
       window.removeEventListener('resize', handleReposition)
       window.removeEventListener('scroll', handleReposition, true)
@@ -290,7 +299,8 @@ export function CascadingCombobox({
             open && 'shadow-focus border-input-border-focus bg-modal-muted',
           )}
           aria-expanded={open}
-          aria-haspopup="listbox"
+          aria-haspopup="dialog"
+          aria-controls={open ? popupId : undefined}
         >
           <span className="min-w-0 flex-1">
             <span className={cn('block truncate', !selectedItem && 'text-muted-foreground')}>
@@ -324,6 +334,7 @@ export function CascadingCombobox({
 
       {open ? (
         <div
+          id={popupId}
           className="fixed z-popover overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-lg"
           style={{
             top: dropdownPosition.top,
