@@ -1,0 +1,57 @@
+{
+  "name": "@open-mercato/matrix",
+  "version": "0.7.0",
+  "license": "MIT",
+  "description": "Transport-level Matrix client-server API client for application services",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node watch.mjs",
+    "test": "jest --config jest.config.cjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": [
+        "./src/*.ts"
+      ],
+      "default": "./dist/*.js"
+    },
+    "./*/*": {
+      "types": [
+        "./src/*/*.ts"
+      ],
+      "default": "./dist/*/*.js"
+    }
+  },
+  "keywords": [
+    "matrix",
+    "appservice",
+    "chat",
+    "transport"
+  ],
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "@open-mercato/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@open-mercato/shared": "workspace:*",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^26.1.2",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.12",
+    "typescript": "7.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PCA-SDS/operis",
+    "directory": "packages/matrix"
+  }
+}

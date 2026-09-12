@@ -166,10 +166,26 @@ describe('module-facts BC resolve guard (T2)', () => {
     // module of any real size was going to cross it.
     //
     // What says this is growth and not the blow-up this file exists to catch is
-    // the delta assertion below: complete-minus-legacy is 27,657 bytes against
-    // a 1,800,000 cap. The extraction SHAPE is unchanged; there is simply one
-    // more module in the repo.
-    expect(Buffer.byteLength(completeJson)).toBeLessThan(4_100_000)
+    // the delta assertion below. The extraction SHAPE is unchanged; there is
+    // simply one more module in the repo.
+    //
+    // JSON cap raised a seventh time by `chat_matrix`, the Matrix chat transport
+    // (see docs/architecture/adr/ADR-0006). It is four mapping tables, one ACL
+    // feature, a CLI and a worker — no routes, no pages, no UI — and it took the
+    // total from just under the cap to 4,101,347, i.e. it overran by 1,347 bytes.
+    // The previous cap left barely 1KB of headroom, so any addition at all was
+    // going to cross it. Raised to 4,300,000 for real room rather than a seventh
+    // hairline pass.
+    //
+    // MEASURED 2026-09-10: complete 4,101,347 · legacy 2,326,397 · delta 1,774,950.
+    //
+    // ⚠️ The DELTA cap below is the assertion that actually detects the
+    // multiplicative blow-up this file exists to catch, and it is at 98.6% of its
+    // 1,800,000 limit with 25,050 bytes to spare. That is pre-existing and not
+    // caused by this module — but the next module of any real size will trip it,
+    // and whoever hits it should work out whether the delta is growing linearly
+    // (raise it) or the extraction shape has changed (do not).
+    expect(Buffer.byteLength(completeJson)).toBeLessThan(4_300_000)
     expect(Buffer.byteLength(completeJson) - Buffer.byteLength(legacyJson)).toBeLessThan(1_800_000)
     // Markdown cap raised with the source-link contract: entities, events, ACL
     // features, DI tokens, search entities, notifications, UMES hosts and UMES
