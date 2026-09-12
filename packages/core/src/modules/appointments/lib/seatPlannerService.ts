@@ -10,7 +10,8 @@ import { ResourceAssignmentService, type AssignmentDTO } from '@open-mercato/cor
 import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { CatalogProductOption, CatalogProductOptionGroup } from '@open-mercato/core/modules/catalog/data/entities'
-import { Appointment, AppointmentLine } from '../data/entities'
+import { Appointment, AppointmentLine, AppointmentLineOptionGroup } from '../data/entities'
+import { loadLineOptionSnapshots } from './lineOptionSnapshot'
 
 export interface SeatPlannerLine {
   id: string
@@ -190,32 +191,6 @@ export class AppointmentSeatPlannerService {
 
     const resourceOrganizationIds = await this.getResourceOrganizationIds(params.tenantId, appointment.organizationId)
 
-    const productIds = lines.map((line) => line.productId)
-    const optionGroups = productIds.length > 0
-      ? await this.em.find(CatalogProductOptionGroup, {
-          tenantId: params.tenantId,
-          organizationId: { $in: resourceOrganizationIds },
-          product: { $in: productIds },
-          isActive: true,
-          deletedAt: null,
-        })
-      : []
-    const optionGroupIds = optionGroups.map((group) => group.id)
-    const options = optionGroupIds.length > 0
-      ? await this.em.find(CatalogProductOption, {
-          tenantId: params.tenantId,
-          organizationId: { $in: resourceOrganizationIds },
-          group: { $in: optionGroupIds },
-          isActive: true,
-          deletedAt: null,
-        })
-      : []
-    const groupNames = new Map(optionGroups.map((group) => [group.id, group.name]))
-    const optionNames = new Map(options.map((option) => [option.id, {
-      groupName: typeof option.group === 'string' ? groupNames.get(option.group) ?? null : option.group.name,
-      name: option.name,
-    }]))
-
     // Resources are maintained at the parent organization, while bookings may
     // belong to a child organization. Include the booking org and its ancestors.
     const resources = await this.assignmentService.getWorkspace({
@@ -227,6 +202,36 @@ export class AppointmentSeatPlannerService {
       organizationIds: resourceOrganizationIds,
     })
 
+    // Load option snapshots for all lines (prefer snapshot tables, fallback to catalog)
+    const productIds = lines.map((line) => line.productId)
+
+    // Build catalog lookup maps as fallback for legacy data
+    const catalogGroups = productIds.length > 0
+      ? await this.em.find(CatalogProductOptionGroup, {
+          tenantId: params.tenantId,
+          organizationId: { $in: resourceOrganizationIds },
+          product: { $in: productIds },
+          isActive: true,
+          deletedAt: null,
+        })
+      : []
+    const catalogGroupIds = catalogGroups.map((group) => group.id)
+    const catalogOptions = catalogGroupIds.length > 0
+      ? await this.em.find(CatalogProductOption, {
+          tenantId: params.tenantId,
+          organizationId: { $in: resourceOrganizationIds },
+          group: { $in: catalogGroupIds },
+          isActive: true,
+          deletedAt: null,
+        })
+      : []
+    const catalogGroupNames = new Map(catalogGroups.map((group) => [group.id, group.name]))
+    const catalogOptionNames = new Map(catalogOptions.map((option) => [option.id, {
+      groupName: typeof option.group === 'string' ? catalogGroupNames.get(option.group) ?? null : option.group.name,
+      name: option.name,
+    }]))
+
+    // Load allocations for the day (other bookings on the calendar)
     const dayStart = new Date(appointment.requestedStartAt)
     dayStart.setHours(0, 0, 0, 0)
     const dayEnd = new Date(dayStart)
@@ -294,11 +299,32 @@ export class AppointmentSeatPlannerService {
           ? resources.resources.find((r) => r.id === assignment.resourceId)
           : undefined
 
+        // Try to load options from snapshot tables first, fallback to catalog lookup
+        let options: Array<{ groupName: string | null; name: string }>
+        try {
+          const snapshots = await loadLineOptionSnapshots(this.em, line.id)
+          if (snapshots.groups.length > 0) {
+            // Use snapshot data
+            options = snapshots.groups.flatMap((g) =>
+              g.options.map((o) => ({
+                groupName: g.breadcrumbPath ?? g.groupName,
+                name: o.optionName,
+              })),
+            )
+          } else {
+            // Fallback to catalog lookup for legacy data
+            options = normalizeLineOptions(line.selectedOptions, catalogGroupNames, catalogOptionNames)
+          }
+        } catch {
+          // Fallback to catalog lookup
+          options = normalizeLineOptions(line.selectedOptions, catalogGroupNames, catalogOptionNames)
+        }
+
         return {
           id: line.id,
           productTitle: line.productTitle,
           durationMinutes: line.durationMinutes ?? 60,
-          options: normalizeLineOptions(line.selectedOptions, groupNames, optionNames),
+          options,
           currentAssignment: assignment
             ? {
                 id: assignment.id,

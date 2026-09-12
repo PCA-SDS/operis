@@ -10,6 +10,7 @@ import { DEFAULT_PUBLIC_APPOINTMENT_STATUS_CODE } from '../data/constants'
 import { ensureSystemAppointmentStatuses } from '../setup'
 import type { AppointmentPublicCreateInput } from '../data/validators'
 import { toAppointmentPhoneSnapshot } from './phoneSnapshot'
+import { snapshotLineOptions, deleteLineOptionSnapshots } from './lineOptionSnapshot'
 
 export type CreatedAppointmentResult = {
   id: string
@@ -117,23 +118,25 @@ export async function createAppointmentFromPublicIntake(
   em.persist(appointment)
 
   for (const line of resolvedLines) {
-    em.persist(
-      em.create(AppointmentLine, {
-        appointment,
-        tenantId: input.tenantId,
-        organizationId: input.organizationId,
-        productId: line.service.id,
-        productTitle: line.service.title,
-        productHandle: line.service.handle,
-        currencyCode: line.service.currencyCode,
-        unitPriceNet: line.service.unitPriceNet,
-        unitPriceGross: line.service.unitPriceGross,
-        durationMinutes: line.service.durationMinutes,
-        productCategory: line.service.categoryName,
-        selectedOptions: line.selectedOptions,
-        sortOrder: line.sortOrder,
-      }),
-    )
+    const lineEntity = em.create(AppointmentLine, {
+      appointment,
+      tenantId: input.tenantId,
+      organizationId: input.organizationId,
+      productId: line.service.id,
+      productTitle: line.service.title,
+      productHandle: line.service.handle,
+      currencyCode: line.service.currencyCode,
+      unitPriceNet: line.service.unitPriceNet,
+      unitPriceGross: line.service.unitPriceGross,
+      durationMinutes: line.service.durationMinutes,
+      productCategory: line.service.categoryName,
+      selectedOptions: line.selectedOptions,
+      sortOrder: line.sortOrder,
+    })
+    em.persist(lineEntity)
+
+    // Snapshot options from catalog for analytics and historical accuracy
+    await snapshotLineOptions(em, lineEntity, { selectedOptions: line.selectedOptions })
   }
 
   await em.flush()
@@ -232,28 +235,36 @@ export async function updateAppointmentFromStaffEdit(
 
   // Replace lines
   const oldLines = await em.find(AppointmentLine, { appointment: appointment.id, deletedAt: null })
+
+  // Delete option snapshots for old lines (cascade will handle FK cleanup, but explicit is clearer)
+  for (const line of oldLines) {
+    await deleteLineOptionSnapshots(em, line.id)
+  }
+
   for (const line of oldLines) {
     line.deletedAt = new Date()
   }
 
   for (const line of resolvedLines) {
-    em.persist(
-      em.create(AppointmentLine, {
-        appointment,
-        tenantId: input.tenantId,
-        organizationId: input.organizationId,
-        productId: line.service.id,
-        productTitle: line.service.title,
-        productHandle: line.service.handle,
-        currencyCode: line.service.currencyCode,
-        unitPriceNet: line.service.unitPriceNet,
-        unitPriceGross: line.service.unitPriceGross,
-        durationMinutes: line.service.durationMinutes,
-        productCategory: line.service.categoryName,
-        selectedOptions: line.selectedOptions,
-        sortOrder: line.sortOrder,
-      }),
-    )
+    const lineEntity = em.create(AppointmentLine, {
+      appointment,
+      tenantId: input.tenantId,
+      organizationId: input.organizationId,
+      productId: line.service.id,
+      productTitle: line.service.title,
+      productHandle: line.service.handle,
+      currencyCode: line.service.currencyCode,
+      unitPriceNet: line.service.unitPriceNet,
+      unitPriceGross: line.service.unitPriceGross,
+      durationMinutes: line.service.durationMinutes,
+      productCategory: line.service.categoryName,
+      selectedOptions: line.selectedOptions,
+      sortOrder: line.sortOrder,
+    })
+    em.persist(lineEntity)
+
+    // Snapshot options from catalog for analytics and historical accuracy
+    await snapshotLineOptions(em, lineEntity, { selectedOptions: line.selectedOptions })
   }
 
   await em.flush()
