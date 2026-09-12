@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter, useParams, usePathname } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { CrudForm } from '@open-mercato/ui/backend/CrudForm'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
@@ -35,6 +35,7 @@ import type { WorkflowDefinitionTrigger } from '../../../data/entities'
 
 export default function EditWorkflowDefinitionPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const params = useParams()
   const pathname = usePathname()
   const t = useT()
@@ -47,6 +48,16 @@ export default function EditWorkflowDefinitionPage() {
   } else if (params?.id) {
     definitionId = Array.isArray(params.id) ? params.id[0] : params.id
   }
+
+  // Every write below navigates client-side, so React Query keeps serving the
+  // pre-write list and detail entries. `router.refresh()` only re-runs the
+  // server render — it cannot reach this cache.
+  const invalidateDefinitions = React.useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['workflow-definitions'] }),
+      queryClient.invalidateQueries({ queryKey: ['workflow-definition'] }),
+    ])
+  }, [queryClient])
 
   const { data: definition, isLoading, error } = useQuery({
     queryKey: ['workflow-definition', definitionId],
@@ -137,6 +148,7 @@ export default function EditWorkflowDefinitionPage() {
       },
     })
 
+    await invalidateDefinitions()
     router.push('/backend/definitions')
     router.refresh()
   }
@@ -164,6 +176,7 @@ export default function EditWorkflowDefinitionPage() {
         },
       })
       if (result?.data?.id) {
+        await invalidateDefinitions()
         router.push(`/backend/definitions/${result.data.id}`)
         router.refresh()
       }
@@ -205,6 +218,7 @@ export default function EditWorkflowDefinitionPage() {
       })
       flash(t('workflows.messages.updated'), 'success')
       const codeId = result?.data?.id || `code:${definition?.workflowId}`
+      await invalidateDefinitions()
       router.push(`/backend/definitions/${codeId}`)
       router.refresh()
     } catch {

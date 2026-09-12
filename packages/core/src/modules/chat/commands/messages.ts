@@ -1,13 +1,20 @@
+import { randomUUID } from 'node:crypto'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
-import { badRequest, isUniqueViolation, notFound } from '@open-mercato/shared/lib/crud/errors'
+import {
+  badRequest,
+  forbidden,
+  isUniqueViolation,
+  notFound,
+} from '@open-mercato/shared/lib/crud/errors'
 import {
   ChatConversation,
   ChatMessage,
   ChatMessageLink,
   ChatMessageMention,
   ChatParticipant,
+  ChatPinnedMessage,
 } from '../data/entities'
 import type { Attachment } from '@open-mercato/core/modules/attachments/data/entities'
 import type { ChatAttachmentDto, ChatMessageDto, ChatReplyTargetDto } from '../data/types'
@@ -25,12 +32,19 @@ import { getAttachmentsForMessages } from '../lib/attachments'
 import { loadOrganizationMember, loadOrganizationMembers, type ChatScope } from '../lib/scope'
 import {
   actingUserId,
+  chatTransportFrom,
   conversationAudience,
   emitConversationEvent,
   ensureOrganizationScope,
   ensureTenantScope,
   forkEm,
+  requireMessageInConversation,
 } from './shared'
+import {
+  publishDeletionSafely,
+  publishEditSafely,
+  publishMessageSafely,
+} from '../lib/transport'
 
 export type SendChatMessageInput = {
   tenantId: string
@@ -41,6 +55,25 @@ export type SendChatMessageInput = {
   replyToMessageId?: string
   /** Drafts to carry on this message; validated against the server's own rows. */
   attachmentIds?: string[]
+  /**
+   * Set only by the transport's projector, never by an HTTP caller.
+   *
+   * Marks a message that already exists in the messaging system and is being
+   * replayed into Operis. It suppresses the publish — the event is the reason
+   * this call is happening — and pins the id and timestamp to the ones the
+   * event already carries, so the projection is a faithful copy rather than a
+   * new message that happens to look similar.
+   *
+   * Routing it through this command rather than writing rows directly is what
+   * keeps mention validation, attachment linking, the search document and the
+   * conversation preview applied by the code that owns them. There is still one
+   * send path.
+   */
+  externalOrigin?: {
+    eventId: string
+    messageId: string
+    createdAt: Date
+  }
 }
 
 export type SendChatMessageResult = {
@@ -63,6 +96,9 @@ function toDto(
     kind: message.kind,
     body: message.body,
     createdAt: message.createdAt.toISOString(),
+    // A message cannot have been edited before it exists. A resend that
+    // deduplicates onto an edited message reports the truth, hence the read.
+    editedAt: message.editedAt ? message.editedAt.toISOString() : null,
     clientMessageId: message.clientMessageId ?? null,
     replyTo,
     systemEvent: message.systemEvent ?? null,
@@ -226,6 +262,68 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
     }
     const recipients = [senderUserId, ...counterpartIds.filter((userId) => counterparts.has(userId))]
 
+    const transport = chatTransportFrom(ctx)
+
+    /**
+     * The message id is allocated here rather than by the database.
+     *
+     * When the messaging system is authoritative the message must be published
+     * before the row exists — the homeserver accepting it is what earns the
+     * right to record it — and the publish has to name the message. Allocating
+     * up front means both sides use one id in both modes.
+     */
+    const messageId = input.externalOrigin?.messageId ?? randomUUID()
+
+    /**
+     * Publish first, when the messaging system owns the stream.
+     *
+     * Deliberately NOT wrapped in `publishMessageSafely`: in this mode a failed
+     * publish must fail the send. Committing a row for a message the homeserver
+     * never accepted is exactly the split-brain this ordering exists to prevent,
+     * and the caller would have no idea their message is invisible to every
+     * other client of the stream.
+     *
+     * The cost is real and is the point of the flag: chat now depends on the
+     * homeserver being reachable.
+     */
+    let publishedEventId: string | null = null
+    let preCommitNow: Date | null = null
+    if (transport.mode === 'authoritative' && !input.externalOrigin) {
+      preCommitNow = await dbNow(em)
+      const publishEm = forkEm(ctx)
+      await transport.ensureConversation({ em: publishEm }, scope, {
+        conversationId: conversation.id,
+        kind: conversation.kind,
+        title: conversation.title ?? null,
+        memberUserIds: recipients,
+        ownerUserIds: [],
+      })
+      const published = await transport.publishMessage({ em: publishEm }, scope, {
+        conversationId: conversation.id,
+        conversationKind: conversation.kind,
+        messageId,
+        senderUserId,
+        senderName: sender.name,
+        body: input.body,
+        createdAt: preCommitNow,
+        replyToMessageId: input.replyToMessageId ?? null,
+        clientMessageId: input.clientMessageId ?? null,
+        attachmentIds: input.attachmentIds ?? [],
+        recipientUserIds: recipients,
+      })
+      publishedEventId = published.externalId
+    }
+
+    /**
+     * An event that arrived from the messaging system instead of from a person.
+     *
+     * The projector replays it through this same command so every invariant —
+     * mention validation, attachment linking, the search document, the
+     * conversation preview — is applied exactly once, by the code that owns
+     * them. There is still only one send path.
+     */
+    const externalEventId = input.externalOrigin?.eventId ?? publishedEventId
+
     let stored: { message: ChatMessage; attachments: Attachment[] }
     try {
       // The message and the conversation's denormalized "latest" columns move
@@ -237,7 +335,10 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         // `new Date()` would make each instance's wall clock the authority.
         // Inside the transaction this is the transaction start time, so the
         // message and the conversation's denormalized copy share one instant.
-        const now = await dbNow(tx)
+        // Reuse the instant the publish already used, so the event and the row
+        // it maps to carry the same timestamp rather than two a network round
+        // trip apart.
+        const now = preCommitNow ?? input.externalOrigin?.createdAt ?? (await dbNow(tx))
 
         // Read first, then write, then flush once: a query issued after a
         // pending change on the same EntityManager can discard it.
@@ -257,6 +358,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         if (!target) throw notFound(messages.conversationNotFound)
 
         const message = tx.create(ChatMessage, {
+          id: messageId,
           tenantId: scope.tenantId,
           organizationId: scope.organizationId,
           conversationId: conversation.id,
@@ -357,6 +459,19 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         // rows, unlike `last_message_at` above, which orders the list and so
         // must come from the shared clock.
 
+        // Inside the transaction on purpose: the message row and the record of
+        // which external event it is must commit together. A crash between them
+        // leaves a message the projector cannot recognise as already handled,
+        // and it re-projects a duplicate.
+        if (externalEventId) {
+          await transport.recordPublication({ em: tx }, scope, {
+            conversationId: conversation.id,
+            messageId,
+            externalId: externalEventId,
+            createdAt: now,
+          })
+        }
+
         await tx.flush()
         return { message, attachments }
       })
@@ -381,6 +496,49 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         }
       }
       throw error
+    }
+
+    // Shadow mode: publish AFTER the commit, and never let it fail the send.
+    //
+    // Postgres is the source of truth here, so the message is already durable,
+    // already searchable and already on its way to the recipients. A transport
+    // failure leaves Matrix behind, which the drift check finds and the backfill
+    // repairs — a far better outcome than failing a send that succeeded.
+    //
+    // With the default `local` transport this is three no-ops. In authoritative
+    // mode the publish already happened, before the transaction.
+    if (transport.mode === 'shadow' && !input.externalOrigin) {
+      // A fresh fork: the send transaction has committed, and its manager is a
+      // closed unit of work.
+      const transportEm = forkEm(ctx)
+      await transport.ensureConversation({ em: transportEm }, scope, {
+        conversationId: conversation.id,
+        kind: conversation.kind,
+        title: conversation.title ?? null,
+        memberUserIds: recipients,
+        ownerUserIds: [],
+      })
+      const published = await publishMessageSafely(transport, { em: transportEm }, scope, {
+        conversationId: conversation.id,
+        conversationKind: conversation.kind,
+        messageId: stored.message.id,
+        senderUserId,
+        senderName: sender.name,
+        body: input.body,
+        createdAt: stored.message.createdAt,
+        replyToMessageId: input.replyToMessageId ?? null,
+        clientMessageId: input.clientMessageId ?? null,
+        attachmentIds: stored.attachments.map((attachment) => attachment.id),
+        recipientUserIds: recipients,
+      })
+      if (published.externalId) {
+        await transport.recordPublication({ em: transportEm }, scope, {
+          conversationId: conversation.id,
+          messageId: stored.message.id,
+          externalId: published.externalId,
+          createdAt: stored.message.createdAt,
+        })
+      }
     }
 
     // Body deliberately absent: the bridge caps frames at 4KB and clients
@@ -419,3 +577,405 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
 }
 
 registerCommand(sendChatMessageCommand)
+
+export type EditChatMessageInput = {
+  tenantId: string
+  organizationId: string
+  conversationId: string
+  messageId: string
+  body: string
+}
+
+export type EditChatMessageResult = {
+  messageId: string
+  body: string
+  editedAt: string
+}
+
+export type DeleteChatMessageInput = {
+  tenantId: string
+  organizationId: string
+  conversationId: string
+  messageId: string
+}
+
+export type DeleteChatMessageResult = {
+  messageId: string
+  deletedAt: string
+}
+
+/**
+ * The newest message still visible in a conversation, or null when none is.
+ *
+ * Both edit and delete need this to answer one question: does the conversation
+ * list still say the right thing? The ordering is the transcript's own
+ * (`created_at desc, id desc`), because the row the list previews must be the
+ * row a reader sees at the bottom of the conversation — two different orderings
+ * would let the two disagree about which message is last.
+ *
+ * System rows are included. They set the preview when they are written, so
+ * excluding them here would make a delete promote a user message that is not
+ * actually the latest thing in the conversation.
+ */
+async function latestVisibleMessage(
+  em: EntityManager,
+  scope: ChatScope,
+  conversationId: string,
+): Promise<ChatMessage | null> {
+  return em.findOne(
+    ChatMessage,
+    {
+      conversationId,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+      deletedAt: null,
+    },
+    { orderBy: { createdAt: 'desc', id: 'desc' } },
+  )
+}
+
+/**
+ * Point the conversation's denormalized "latest" columns at whatever is now
+ * newest, or back at its own creation when nothing is left.
+ *
+ * `lastMessageAt` is rolled back with the rest rather than left alone. It orders
+ * the conversation list, and a conversation whose newest visible message is from
+ * last week must not keep sitting at the top claiming activity from a minute
+ * ago — the list would be advertising a message the reader cannot find.
+ */
+function repointConversation(conversation: ChatConversation, latest: ChatMessage | null): void {
+  if (!latest) {
+    conversation.lastMessageAt = conversation.createdAt
+    conversation.lastMessagePreview = null
+    conversation.lastMessageSenderUserId = null
+    return
+  }
+  conversation.lastMessageAt = latest.createdAt
+  conversation.lastMessagePreview = buildMessagePreview(latest.body)
+  conversation.lastMessageSenderUserId = latest.senderUserId
+}
+
+/**
+ * Rewrite the body of a message you wrote.
+ *
+ * Authorship is the whole permission model here, and deliberately narrower than
+ * deletion: a space owner may remove somebody's message as moderation, but
+ * nobody may put words in another person's mouth. Not even an owner, and not in
+ * a direct conversation either.
+ *
+ * An edit is not a small update. Four things are derived from a body and all
+ * four are rebuilt in the same transaction, because a message whose text says
+ * one thing while its search document, its mentions and its links still describe
+ * the previous version is worse than one that was never edited:
+ *
+ * - `search_body`, or the message stays findable by words it no longer contains;
+ * - `chat_message_mentions` and `mentions_everyone`, re-validated against the
+ *   conversation exactly as a send validates them — otherwise editing would be
+ *   the way to mention somebody a send refuses;
+ * - `chat_message_links`, so the Shared panel stops listing a URL that has been
+ *   taken out and starts listing one that has been put in;
+ * - the conversation preview, when this is the message the list is showing.
+ *
+ * Attachments are deliberately untouched: they are separate rows with their own
+ * scan lifecycle, and the validator refuses an empty body precisely so an edit
+ * cannot strand them on a message with nothing left to read.
+ *
+ * The translation cache needs no invalidation. Its rows are keyed by a hash of
+ * the source text, so an edited message simply misses and is translated afresh.
+ */
+const editChatMessageCommand: CommandHandler<EditChatMessageInput, EditChatMessageResult> = {
+  id: 'chat.messages.edit',
+  async execute(input, ctx) {
+    ensureTenantScope(ctx, input.tenantId)
+    ensureOrganizationScope(ctx, input.organizationId)
+
+    const messages = await loadChatMessages()
+    const scope: ChatScope = { tenantId: input.tenantId, organizationId: input.organizationId }
+    const editorUserId = await actingUserId(ctx)
+    const em = forkEm(ctx)
+
+    // The same membership re-check every send makes: a participant row outlives
+    // the organization membership that created it, so someone who has left must
+    // not still be able to rewrite what they said.
+    const editor = await loadOrganizationMember(em, scope, editorUserId)
+    if (!editor) throw badRequest(messages.notOrganizationMember)
+
+    const { conversation, message } = await requireMessageInConversation(
+      em,
+      scope,
+      input.conversationId,
+      input.messageId,
+      editorUserId,
+    )
+
+    if (message.kind !== 'user') throw badRequest(messages.systemMessageNotEditable)
+    if (message.senderUserId !== editorUserId) throw forbidden(messages.notEditPermitted)
+
+    // Mentions are re-validated against the conversation as they are on a send,
+    // and for the same reason: a body is client input whichever verb delivered
+    // it. Skipping the check here would make editing the way to mention a
+    // stranger, address `@everyone` in a direct conversation, or point a
+    // mention row at somebody who has since left.
+    const participantIds = await conversationAudience(em, scope, conversation.id)
+    const mentionedUserIds = extractMentionedUserIds(input.body)
+    const everyone = mentionsEveryone(input.body)
+
+    if (everyone && conversation.kind !== 'space') throw badRequest(messages.everyoneNotAllowed)
+    if (mentionedUserIds.length > 0) {
+      const inConversation = new Set(participantIds)
+      const outsiders = mentionedUserIds.filter((userId) => !inConversation.has(userId))
+      if (outsiders.length > 0) throw badRequest(messages.mentionNotAllowed)
+      const mentioned = await loadOrganizationMembers(em, scope, mentionedUserIds)
+      if (mentioned.size !== mentionedUserIds.length) throw badRequest(messages.mentionNotAllowed)
+    }
+
+    const editedAt = await em.transactional(async (tx) => {
+      const now = await dbNow(tx)
+
+      // Re-read under the full scope inside the transaction, exactly as the send
+      // path does: everything above was checked outside it, and a message
+      // deleted in between must not be quietly resurrected with new text.
+      const target = await tx.findOne(ChatMessage, {
+        id: message.id,
+        conversationId: conversation.id,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+        deletedAt: null,
+      })
+      if (!target) throw notFound(messages.messageNotFound)
+
+      const wasLatest = (await latestVisibleMessage(tx, scope, conversation.id))?.id === target.id
+      const previewTarget = wasLatest
+        ? await tx.findOne(ChatConversation, {
+            id: conversation.id,
+            tenantId: scope.tenantId,
+            organizationId: scope.organizationId,
+            deletedAt: null,
+          })
+        : null
+
+      // Derived rows are replaced wholesale rather than diffed. The set is at
+      // most a handful of rows, and a diff would have to be right about three
+      // things — added, removed, unchanged — to save one statement.
+      await tx.nativeDelete(ChatMessageMention, {
+        messageId: target.id,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+      })
+      await tx.nativeDelete(ChatMessageLink, {
+        messageId: target.id,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+      })
+
+      target.body = input.body
+      target.searchBody = buildSearchDocument(input.body)
+      target.mentionsEveryone = everyone
+      target.editedAt = now
+
+      for (const mentionedUserId of mentionedUserIds) {
+        tx.persist(
+          tx.create(ChatMessageMention, {
+            tenantId: scope.tenantId,
+            organizationId: scope.organizationId,
+            messageId: target.id,
+            conversationId: conversation.id,
+            mentionedUserId,
+            // When the mention row was written, which is this edit rather than
+            // the message's own creation.
+            //
+            // It does NOT make an old message ping somebody newly named in it:
+            // the unread predicate anchors on `chat_messages.created_at`, so a
+            // message the reader has already passed stays read. That is a
+            // property of the unread model, not of this column — see the spec's
+            // "Known limitation".
+            createdAt: now,
+          }),
+        )
+      }
+
+      for (const link of extractLinks(input.body)) {
+        tx.persist(
+          tx.create(ChatMessageLink, {
+            tenantId: scope.tenantId,
+            organizationId: scope.organizationId,
+            messageId: target.id,
+            conversationId: conversation.id,
+            url: link.url,
+            host: link.host,
+            createdAt: now,
+          }),
+        )
+      }
+
+      if (previewTarget) {
+        // Only the text. An edit does not change when the message was written,
+        // so it must not reorder the conversation list.
+        previewTarget.lastMessagePreview = buildMessagePreview(input.body)
+      }
+
+      await tx.flush()
+      return now
+    })
+
+    // Mirrored after the commit and never fatally, in both modes. The row
+    // already carries the new body, so a homeserver that refuses this leaves the
+    // room showing older words — not Operis showing wrong ones.
+    await publishEditSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
+      conversationId: conversation.id,
+      messageId: message.id,
+      senderUserId: editorUserId,
+      senderName: editor.name,
+      body: input.body,
+      editedAt,
+    })
+
+    // No body in the frame, exactly as a send carries none: clients are told
+    // which message changed and refetch it over the authorized route.
+    await emitConversationEvent('chat.message.edited', scope, participantIds, {
+      conversationId: conversation.id,
+      messageId: message.id,
+      editedAt: editedAt.toISOString(),
+    })
+
+    return { messageId: message.id, body: input.body, editedAt: editedAt.toISOString() }
+  },
+}
+
+/**
+ * Take a message out of the conversation.
+ *
+ * A soft delete, not a row removal. Everything anchored to a message id —
+ * replies quoting it, reactions, attachments, its translations — would either
+ * break or have to cascade, and a reply whose parent was hard-deleted loses the
+ * context that made it make sense. `deleted_at` is what every read path in the
+ * module already filters on, so setting it is the whole removal: the transcript
+ * skips it, search skips it, the unread mention predicate skips it, the Shared
+ * panel's join drops its links, and `lib/replies.ts` renders a quote of it as
+ * "Original message unavailable" rather than as nothing.
+ *
+ * The permission is wider than editing on purpose. Rewriting somebody's words is
+ * never acceptable; removing them is moderation, and a space already has owners
+ * who decide what the shared conversation looks like — the same people who may
+ * pin, rename and remove members. A direct conversation has no owner, so there
+ * only the author may delete.
+ *
+ * Two pieces of bookkeeping the soft delete cannot do by itself: pins pointing
+ * at the message are removed (the pinned panel already hides a deleted message,
+ * but the conversation's pin COUNT is a plain count and would go on including
+ * it), and the conversation's preview is repointed when the deleted message was
+ * the one the list is showing.
+ */
+const deleteChatMessageCommand: CommandHandler<DeleteChatMessageInput, DeleteChatMessageResult> = {
+  id: 'chat.messages.delete',
+  async execute(input, ctx) {
+    ensureTenantScope(ctx, input.tenantId)
+    ensureOrganizationScope(ctx, input.organizationId)
+
+    const messages = await loadChatMessages()
+    const scope: ChatScope = { tenantId: input.tenantId, organizationId: input.organizationId }
+    const actorUserId = await actingUserId(ctx)
+    const em = forkEm(ctx)
+
+    const actor = await loadOrganizationMember(em, scope, actorUserId)
+    if (!actor) throw badRequest(messages.notOrganizationMember)
+
+    // `includeDeleted`, because deleting something already deleted must converge
+    // rather than report a failure for the state the caller asked for. The
+    // permission check below still runs on it: converging is not the same as
+    // letting anyone press delete on anything.
+    const { conversation, participant, message } = await requireMessageInConversation(
+      em,
+      scope,
+      input.conversationId,
+      input.messageId,
+      actorUserId,
+      { includeDeleted: true },
+    )
+
+    if (message.kind !== 'user') throw badRequest(messages.systemMessageNotEditable)
+    const isAuthor = message.senderUserId === actorUserId
+    const isSpaceOwner = conversation.kind === 'space' && participant.role === 'owner'
+    if (!isAuthor && !isSpaceOwner) throw forbidden(messages.notDeletePermitted)
+
+    // Already gone before we even opened a transaction — the common shape of a
+    // second delete, rather than the narrow race the transaction below also
+    // handles. Answered from the row we already have.
+    if (message.deletedAt) {
+      return { messageId: message.id, deletedAt: message.deletedAt.toISOString() }
+    }
+
+    const outcome = await em.transactional(async (tx) => {
+      const now = await dbNow(tx)
+
+      const target = await tx.findOne(ChatMessage, {
+        id: message.id,
+        conversationId: conversation.id,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+        deletedAt: null,
+      })
+      // Deleted in the window between the guard above and this transaction —
+      // the genuine race, narrow but real when a space owner and the author
+      // press delete at the same instant. Converging is the same choice
+      // unpinning makes: the caller asked for it to be gone, and it is.
+      if (!target) return { deletedAt: now, changed: false }
+
+      const wasLatest = (await latestVisibleMessage(tx, scope, conversation.id))?.id === target.id
+      const previewTarget = wasLatest
+        ? await tx.findOne(ChatConversation, {
+            id: conversation.id,
+            tenantId: scope.tenantId,
+            organizationId: scope.organizationId,
+            deletedAt: null,
+          })
+        : null
+
+      await tx.nativeDelete(ChatPinnedMessage, {
+        messageId: target.id,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+      })
+
+      target.deletedAt = now
+
+      if (previewTarget) {
+        // Flushed first so the row this reads is the deleted one. Without it
+        // `latestVisibleMessage` would hand back the message being deleted and
+        // the preview would keep pointing at text nobody can see.
+        await tx.flush()
+        repointConversation(
+          previewTarget,
+          await latestVisibleMessage(tx, scope, conversation.id),
+        )
+      }
+
+      await tx.flush()
+      return { deletedAt: now, changed: true }
+    })
+
+    // A message already deleted needs no second mirror and no second event; the
+    // deletion that won did both.
+    if (!outcome.changed) {
+      return { messageId: message.id, deletedAt: outcome.deletedAt.toISOString() }
+    }
+
+    await publishDeletionSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
+      conversationId: conversation.id,
+      messageId: message.id,
+      actorUserId,
+      actorName: actor.name,
+    })
+
+    const recipients = await conversationAudience(forkEm(ctx), scope, conversation.id)
+    await emitConversationEvent('chat.message.deleted', scope, recipients, {
+      conversationId: conversation.id,
+      messageId: message.id,
+    })
+
+    return { messageId: message.id, deletedAt: outcome.deletedAt.toISOString() }
+  },
+}
+
+registerCommand(editChatMessageCommand)
+registerCommand(deleteChatMessageCommand)

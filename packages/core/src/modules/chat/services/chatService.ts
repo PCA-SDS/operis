@@ -142,6 +142,7 @@ function toMessageDto(
     kind: message.kind,
     body: message.body,
     createdAt: message.createdAt.toISOString(),
+    editedAt: message.editedAt ? message.editedAt.toISOString() : null,
     clientMessageId: message.clientMessageId ?? null,
     replyTo,
     systemEvent: message.systemEvent ?? null,

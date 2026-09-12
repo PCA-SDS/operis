@@ -9,6 +9,7 @@ import { EdgeEditDialogCrudForm } from '../../../components/EdgeEditDialogCrudFo
 import type { Node, Edge, Connection } from '@xyflow/react'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { graphToDefinition, definitionToGraph, validateWorkflowGraph, generateStepId, generateTransitionId, appendWorkflowEdge, ValidationError } from '../../../lib/graph-utils'
 import { performDeleteEdgeFlow, performDeleteNodeFlow } from '../../../lib/visual-editor-delete-flow'
 import { humanizeDefinitionIssuePath } from '../../../lib/format-validation-error'
@@ -65,12 +66,23 @@ const logger = createLogger('workflows')
 export default function VisualEditorPage() {
   const t = useT()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const definitionId = searchParams.get('id')
   const isMobile = useIsMobile()
 
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
+
+  // Leaving the editor is a client-side navigation, so the definitions list and
+  // detail entries stay on their pre-save React Query payloads unless they are
+  // invalidated here — `router.refresh()` only re-runs the server render.
+  const invalidateDefinitions = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['workflow-definitions'] }),
+      queryClient.invalidateQueries({ queryKey: ['workflow-definition'] }),
+    ])
+  }, [queryClient])
 
   const [isLoading, setIsLoading] = useState(!!definitionId)
   const [isSaving, setIsSaving] = useState(false)
@@ -451,6 +463,7 @@ export default function VisualEditorPage() {
       const savedDefinition = result.result?.data
 
       flash(`Workflow ${isUpdate ? 'updated' : 'created'} successfully!`, 'success')
+      await invalidateDefinitions()
 
       // Redirect to definition detail page after short delay
       setTimeout(() => {
@@ -463,7 +476,7 @@ export default function VisualEditorPage() {
     } finally {
       setIsSaving(false)
     }
-  }, [nodes, edges, workflowId, workflowName, description, version, enabled, category, tags, icon, effectiveFrom, effectiveTo, triggers, definitionId, updatedAt, router])
+  }, [nodes, edges, workflowId, workflowName, description, version, enabled, category, tags, icon, effectiveFrom, effectiveTo, triggers, definitionId, updatedAt, router, invalidateDefinitions])
 
   // Customize a code-defined workflow → creates an override and reloads the
   // editor pointed at the new UUID. Mirrors the non-visual edit page button.
@@ -481,12 +494,13 @@ export default function VisualEditorPage() {
       }
       const newId = result.result?.data?.id
       if (!newId) return
+      await invalidateDefinitions()
       router.push(`/backend/definitions/visual-editor?id=${encodeURIComponent(newId)}`)
       router.refresh()
     } finally {
       setIsSaving(false)
     }
-  }, [definitionId, router])
+  }, [definitionId, router, invalidateDefinitions])
 
   // Reset a code-override back to its code definition. Mirrors the
   // non-visual edit page action, with the same confirm dialog.
@@ -512,12 +526,13 @@ export default function VisualEditorPage() {
       }
       const codeId = result.result?.data?.id || (workflowId ? `code:${workflowId}` : null)
       if (!codeId) return
+      await invalidateDefinitions()
       router.push(`/backend/definitions/visual-editor?id=${encodeURIComponent(codeId)}`)
       router.refresh()
     } finally {
       setIsSaving(false)
     }
-  }, [definitionId, workflowId, router, confirm, t])
+  }, [definitionId, workflowId, router, confirm, t, invalidateDefinitions])
 
   // Test workflow
   const handleTest = useCallback(() => {

@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { CrudForm } from '@open-mercato/ui/backend/CrudForm'
 import { apiFetch } from '@open-mercato/ui/backend/utils/api'
@@ -23,6 +24,7 @@ import { formatWorkflowValidationError } from '../../../lib/format-validation-er
 
 export default function CreateWorkflowDefinitionPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const t = useT()
 
   const handleSubmit = async (values: WorkflowDefinitionFormValues) => {
@@ -39,6 +41,11 @@ export default function CreateWorkflowDefinitionPage() {
       throw new Error(formatWorkflowValidationError(errorBody, t('workflows.errors.createFailed')))
     }
 
+    // The list lives in a client `useQuery`, and getting back there is a
+    // client-side navigation, so `router.refresh()` alone re-runs the server
+    // render while React Query keeps serving the pre-create page — the new
+    // definition stays invisible until a hard reload.
+    await queryClient.invalidateQueries({ queryKey: ['workflow-definitions'] })
     router.push('/backend/definitions')
     router.refresh()
   }

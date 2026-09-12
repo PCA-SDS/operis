@@ -19,6 +19,8 @@ module.exports = {
     '^@open-mercato/queue/worker$': '<rootDir>/../queue/src/worker/runner.ts',
     '^@open-mercato/queue/(.*)$': '<rootDir>/../queue/src/$1',
     '^@open-mercato/queue$': '<rootDir>/../queue/src/index.ts',
+    '^@open-mercato/matrix$': '<rootDir>/../matrix/src/index.ts',
+    '^@open-mercato/matrix/(.*)$': '<rootDir>/../matrix/src/$1',
     '^@open-mercato/shared/(.*)$': '<rootDir>/../shared/src/$1',
     '^@open-mercato/ui/(.*)$': '<rootDir>/../ui/src/$1',
     '^@open-mercato/ai-assistant/(.*)$': '<rootDir>/../ai-assistant/src/$1',
