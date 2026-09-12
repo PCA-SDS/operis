@@ -4,15 +4,21 @@ Tài liệu này map từng CAP sang bằng chứng hiện có trong old repo v�
 
 ## Parity Summary
 
+Phase 5 gate status: M5 Auto-Paid and M6 Invoice Core are backend-contract
+complete. The cross-capability contract is covered by Invoice service tests,
+route/OpenAPI checks, and integration scenarios for scoped AP/AR behavior.
+Payment confirmation and GDT sync remain Phase 6 work; browser parity remains
+M9 work.
+
 | CAP | Capability | Existing Evidence | Migration Blocker? |
 | --- | --- | --- | --- |
-| CAP-001 | Invoice management | Strong backend unit coverage; limited frontend coverage | No blocker, but needs E2E/UI parity scenarios |
+| CAP-001 | Invoice management | Strong backend and cross-capability contract coverage; limited frontend coverage | No backend blocker; UI parity is M9 |
 | CAP-002 | Tax portal sync | Good validation/persistence/normalizer coverage; weak orchestration coverage | Infra parity blocker until Redis/BullMQ/GDT start-auth scenarios are proven |
 | CAP-003 | Partner payment terms | Focused backend service coverage | No blocker |
-| CAP-004 | Auto-paid | Indirect coverage through invoice create/reverse; weak direct service coverage | Needs DB/integration scenario for bulk SQL parity |
+| CAP-004 | Auto-paid | Scoped service, applyAll reuse, create/reverse and repeat-safe coverage | No M5 backend blocker; settings UI is M9 |
 | CAP-005 | Payment confirmations | Strong backend service coverage | No blocker, but public-route throttle/email scenario should be checked |
-| CAP-006 | Company email memory | Indirect coverage through send/request; weak direct service coverage | Needs direct list/remove/upsert scenario |
-| CAP-007 | Exchange rates | Focused service coverage | No blocker; infra cache decision needed for multi-replica |
+| CAP-006 | Company email memory | Scoped idempotent service and AR send integration coverage | No backend blocker; picker UI is M9 |
+| CAP-007 | Exchange rates | Focused service plus summary/forecast contract coverage | No domain blocker; cache operations remain deployment work |
 | CAP-008 | Company lookup | Shared-service behavior plus throttle policy; invoice wrapper weak | Needs route/autofill scenario |
 
 ## CAP-001 Invoice Management

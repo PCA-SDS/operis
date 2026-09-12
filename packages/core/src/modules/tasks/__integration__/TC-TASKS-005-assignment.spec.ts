@@ -37,9 +37,13 @@ test.describe('TC-TASKS-005: assignees and role targets', () => {
     const response = await apiRequest(request, 'GET', '/api/tasks/assignable-users', { token })
     expect(response.ok()).toBeTruthy()
 
+    // `items`, not `users` — that is the key the route returns and the key its
+    // own OpenAPI schema declares (`z.object({ items: z.array(assignableUserSchema) })`).
+    // Reading `body.users` made this fail as "length of undefined", which reads
+    // like an empty directory rather than a renamed field.
     const body = await response.json()
-    expect(body.users.length).toBeGreaterThan(0)
-    for (const user of body.users as { id: string; name: string }[]) {
+    expect(body.items.length).toBeGreaterThan(0)
+    for (const user of body.items as { id: string; name: string }[]) {
       expect(user.id).toBeTruthy()
       expect(user.name).toBeTruthy()
     }
@@ -57,7 +61,7 @@ test.describe('TC-TASKS-005: assignees and role targets', () => {
       const users = await (
         await apiRequest(request, 'GET', '/api/tasks/assignable-users', { token })
       ).json()
-      const person = users.users[0] as { id: string; name: string }
+      const person = users.items[0] as { id: string; name: string }
 
       const task = await createTask(ctx, project.id, {
         title: 'Named assignee',
@@ -161,7 +165,7 @@ test.describe('TC-TASKS-005: assignees and role targets', () => {
       const users = await (
         await apiRequest(request, 'GET', '/api/tasks/assignable-users', { token })
       ).json()
-      const person = users.users[0] as { id: string }
+      const person = users.items[0] as { id: string }
 
       const task = await createTask(ctx, project.id, { assigneeIds: [person.id] })
 

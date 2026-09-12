@@ -3,6 +3,7 @@ import { apiRequest, getAuthToken } from '@open-mercato/core/modules/core/__inte
 import { createProductFixture, deleteCatalogProductIfExists } from '@open-mercato/core/modules/core/__integration__/helpers/catalogFixtures'
 import { login } from '@open-mercato/core/modules/core/__integration__/helpers/auth'
 import { deleteTranslationIfExists, getLocales, setLocales } from './helpers/translationFixtures'
+import { tableBody } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom'
 
 const ENTITY_TYPE = 'catalog:catalog_product'
 
@@ -21,7 +22,18 @@ async function fillCombobox(
   value: string,
   options?: { waitForEnabledPlaceholder?: string },
 ) {
-  const input = page.getByPlaceholder(placeholder)
+  /**
+   * The VISIBLE picker.
+   *
+   * The translations page renders the entity combobox twice — a live one and an
+   * inert copy inside a `display:none` container (disabled, never focusable).
+   * An unscoped `getByPlaceholder` matches both and Playwright fails the whole
+   * call with a strict-mode violation, which reads like a missing control rather
+   * than a duplicated one. Filtering on visibility names the one the user can
+   * actually reach, and does not depend on which of the two comes first in the
+   * DOM.
+   */
+  const input = page.getByPlaceholder(placeholder).filter({ visible: true })
   await expect(input).toBeEnabled({ timeout: 10_000 })
   await input.click()
   await input.fill(value)
@@ -39,7 +51,9 @@ async function fillCombobox(
   }
   await input.press('Tab')
   if (options?.waitForEnabledPlaceholder) {
-    await expect(page.getByPlaceholder(options.waitForEnabledPlaceholder)).toBeEnabled({ timeout: 10_000 })
+    await expect(
+      page.getByPlaceholder(options.waitForEnabledPlaceholder).filter({ visible: true }),
+    ).toBeEnabled({ timeout: 10_000 })
   }
 }
 
@@ -47,7 +61,7 @@ async function selectEntityForRecordPicker(
   page: import('@playwright/test').Page,
   entityType: string,
 ) {
-  const recordInput = page.getByPlaceholder('Search records...')
+  const recordInput = page.getByPlaceholder('Search records...').filter({ visible: true })
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await fillCombobox(page, 'Select an entity', entityType)
@@ -89,7 +103,18 @@ async function getTranslationField(
     }
   }
 
-  const firstField = managerCard.locator('table').locator('input, textarea').first()
+  /**
+   * `tableBody`, not `locator('table')`.
+   *
+   * `TranslationManager` renders the design-system `<Table>`, which is a CSS grid:
+   * `<div role="table" data-slot="table">` with no native `<table>` anywhere. A
+   * CSS `table` selector therefore matches nothing and the spec fails as "no
+   * translation input available" rather than as a broken selector — the same
+   * grid-rebuild fallout `helpers/tableDom.ts` exists to absorb. Scoping to the
+   * body also excludes any header control, which is what these specs mean by
+   * "the translation fields".
+   */
+  const firstField = tableBody(managerCard).locator('input, textarea').first()
   await expect(firstField).toBeEditable({ timeout: 10_000 })
   return firstField
 }
@@ -170,7 +195,12 @@ test.describe('TC-TRANS-005: Translation Manager Standalone', () => {
       await selectEntityForRecordPicker(page, ENTITY_TYPE)
       await fillCombobox(page, 'Search records...', productId!)
 
-      const managerCard = page.locator('.bg-card').filter({
+      // `.bg-surface`, not `.bg-card`: CrudForm/card containers moved to the
+      // `bg-surface` token in the design-system migration, and the DS now
+      // *mandates* it for a card, so the old class matches nothing on this page
+      // (measured: 0 `.bg-card`, 5 `.bg-surface`). The `filter({ has: … })`
+      // below is what actually identifies the manager; the class is only a net.
+      const managerCard = page.locator('.bg-surface').filter({
         has: page.getByRole('button', { name: 'Save translations' }),
       })
       const deTab = managerCard.getByRole('tab', { name: 'DE' })
@@ -223,7 +253,12 @@ test.describe('TC-TRANS-005: Translation Manager Standalone', () => {
       await selectEntityForRecordPicker(page, ENTITY_TYPE)
       await fillCombobox(page, 'Search records...', productId!)
 
-      const managerCard = page.locator('.bg-card').filter({
+      // `.bg-surface`, not `.bg-card`: CrudForm/card containers moved to the
+      // `bg-surface` token in the design-system migration, and the DS now
+      // *mandates* it for a card, so the old class matches nothing on this page
+      // (measured: 0 `.bg-card`, 5 `.bg-surface`). The `filter({ has: … })`
+      // below is what actually identifies the manager; the class is only a net.
+      const managerCard = page.locator('.bg-surface').filter({
         has: page.getByRole('button', { name: 'Save translations' }),
       })
       const deTab = managerCard.getByRole('tab', { name: 'DE' })

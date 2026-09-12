@@ -367,7 +367,7 @@ const dictionaryColorSchema = z
     new RegExp(`^(#[0-9a-fA-F]{6}|${DICTIONARY_COLOR_TONES.join('|')})$`),
     'Color must be a six-digit hex code (e.g. #3366ff) or a semantic tone identifier',
   )
-const dictionaryIconSchema = z.string().trim().max(48)
+const dictionaryIconSchema = z.string().trim().max(100)
 
 export const customerDictionaryEntryCreateSchema = scopedSchema.extend({
   kind: dictionaryKindEnum,

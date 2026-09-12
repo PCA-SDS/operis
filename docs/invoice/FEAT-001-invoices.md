@@ -3,6 +3,18 @@
 ## Description
 Quản lý hóa đơn từ góc nhìn tenant/host company. `direction = AR` nghĩa là tenant là seller và đang được nợ tiền. `direction = AP` nghĩa là tenant là buyer và đang nợ nhà cung cấp.
 
+## Phase 5 parity gate
+
+M6 Invoice Core is backend-contract complete. Manual AP creation uses partner
+terms and Auto-Paid, summary/forecast use exchange rates, and AR send records
+recipient memory after successful delivery. Derived payment rollups are owned by
+Invoice Core and are ignored as generic client-controlled fields.
+
+Trusted future payment workflows use `InvoiceService.applyInvoicePayment(scope,
+invoiceId, { installmentId? })` for whole-invoice or installment settlement.
+Public installment-plan CRUD and payment confirmation remain M7 work. Final
+browser parity remains M9 work.
+
 ## Purpose
 Cho phép user xem, lọc, tạo hóa đơn thủ công, chỉnh metadata thanh toán, theo dõi paid/outstanding, forecast cash-flow, gửi invoice cho khách hàng, và xử lý installment/non-recoverable.
 

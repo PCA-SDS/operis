@@ -71,6 +71,10 @@ type VariantSnapshot = {
   weightUnit: string | null
   taxRateId: string | null
   taxRate: string | null
+  durationValue: number | null
+  durationUnit: string | null
+  durationMin: number | null
+  durationMax: number | null
   dimensions: Record<string, unknown> | null
   metadata: Record<string, unknown> | null
   optionValues: Record<string, string> | null
@@ -100,6 +104,10 @@ const VARIANT_CHANGE_KEYS = [
   'weightUnit',
   'taxRateId',
   'taxRate',
+  'durationValue',
+  'durationUnit',
+  'durationMin',
+  'durationMax',
   'dimensions',
   'optionValues',
   'customFieldsetCode',
@@ -143,6 +151,10 @@ async function loadVariantSnapshot(
     weightUnit: record.weightUnit ?? null,
     taxRateId: record.taxRateId ?? null,
     taxRate: record.taxRate ?? null,
+    durationValue: record.durationValue ?? null,
+    durationUnit: record.durationUnit ?? null,
+    durationMin: record.durationMin ?? null,
+    durationMax: record.durationMax ?? null,
     dimensions: record.dimensions ? cloneJson(record.dimensions) : null,
     metadata: record.metadata ? cloneJson(record.metadata) : null,
     optionValues: record.optionValues ? cloneJson(record.optionValues) : null,
@@ -172,6 +184,10 @@ function variantSeedFromSnapshot(snapshot: VariantSnapshot): Record<string, unkn
     weightUnit: snapshot.weightUnit ?? null,
     taxRateId: snapshot.taxRateId ?? null,
     taxRate: snapshot.taxRate ?? null,
+    durationValue: snapshot.durationValue ?? null,
+    durationUnit: snapshot.durationUnit ?? null,
+    durationMin: snapshot.durationMin ?? null,
+    durationMax: snapshot.durationMax ?? null,
     dimensions: snapshot.dimensions ? cloneJson(snapshot.dimensions) : null,
     metadata: snapshot.metadata ? cloneJson(snapshot.metadata) : null,
     optionValues: snapshot.optionValues ? cloneJson(snapshot.optionValues) : null,
@@ -196,6 +212,10 @@ function applyVariantSnapshot(record: CatalogProductVariant, snapshot: VariantSn
   record.weightUnit = snapshot.weightUnit ?? null
   record.taxRateId = snapshot.taxRateId ?? null
   record.taxRate = snapshot.taxRate ?? null
+  record.durationValue = snapshot.durationValue ?? null
+  record.durationUnit = snapshot.durationUnit ?? null
+  record.durationMin = snapshot.durationMin ?? null
+  record.durationMax = snapshot.durationMax ?? null
   record.dimensions = snapshot.dimensions ? cloneJson(snapshot.dimensions) : null
   record.metadata = snapshot.metadata ? cloneJson(snapshot.metadata) : null
   record.optionValues = snapshot.optionValues ? cloneJson(snapshot.optionValues) : null
@@ -632,6 +652,10 @@ const createVariantCommand: CommandHandler<VariantCreateInput, { variantId: stri
       weightUnit: parsed.weightUnit ?? null,
       taxRateId,
       taxRate,
+      durationValue: parsed.durationValue ?? null,
+      durationUnit: parsed.durationUnit ?? null,
+      durationMin: parsed.durationMin ?? null,
+      durationMax: parsed.durationMax ?? null,
       dimensions: parsed.dimensions ? cloneJson(parsed.dimensions) : null,
       metadata: metadataSplit.metadata,
       optionValues: resolvedOptionValues ? cloneJson(resolvedOptionValues) : null,
@@ -894,6 +918,10 @@ const updateVariantCommand: CommandHandler<VariantUpdateInput, { variantId: stri
               record.taxRateId = resolvedTaxRate?.taxRateId ?? null
               record.taxRate = resolvedTaxRate?.taxRate ?? null
             }
+            if (parsed.durationValue !== undefined) record.durationValue = parsed.durationValue ?? null
+            if (parsed.durationUnit !== undefined) record.durationUnit = parsed.durationUnit ?? null
+            if (parsed.durationMin !== undefined) record.durationMin = parsed.durationMin ?? null
+            if (parsed.durationMax !== undefined) record.durationMax = parsed.durationMax ?? null
             if (parsed.customFieldsetCode !== undefined) {
               record.customFieldsetCode = parsed.customFieldsetCode ?? null
             }
@@ -999,6 +1027,10 @@ const updateVariantCommand: CommandHandler<VariantUpdateInput, { variantId: stri
         isActive: before.isActive,
         weightValue: before.weightValue ?? null,
         weightUnit: before.weightUnit ?? null,
+        durationValue: before.durationValue ?? null,
+        durationUnit: before.durationUnit ?? null,
+        durationMin: before.durationMin ?? null,
+        durationMax: before.durationMax ?? null,
         dimensions: before.dimensions ? cloneJson(before.dimensions) : null,
         metadata: before.metadata ? cloneJson(before.metadata) : null,
         optionValues: before.optionValues ? cloneJson(before.optionValues) : null,

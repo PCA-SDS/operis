@@ -46,6 +46,12 @@ export type ReplyRequest = {
   body: string
 }
 
+/** What the composer needs to reopen a message for rewriting. */
+export type EditRequest = {
+  messageId: string
+  body: string
+}
+
 type MessageListProps = {
   messages: ChatMessageDto[]
   pending: PendingMessage[]
@@ -64,6 +70,19 @@ type MessageListProps = {
   onToggleReaction?: (messageId: string, emoji: string) => void
   /** Absent where the viewer may not pin: a space member who is not an owner. */
   onTogglePin?: (messageId: string, pinned: boolean) => void
+  /**
+   * Absent for a read-only member. Offered only on the viewer's OWN messages —
+   * the gate is applied here, per row, not by the caller.
+   */
+  onEdit?: (target: EditRequest) => void
+  /**
+   * Absent for a read-only member. Offered on the viewer's own messages, and on
+   * anyone's when `canModerate` — a space owner removing something is
+   * moderation, which is a different decision from rewriting it.
+   */
+  onDelete?: (messageId: string) => void
+  /** Whether the viewer may delete other people's messages here. */
+  canModerate?: boolean
   /**
    * A message to bring into view, set by pin navigation. Cleared through
    * `onJumpHandled` once it has been scrolled to, so re-pinning the same message
@@ -289,6 +308,8 @@ function MessageMenu({
   translationState,
   onTranslate,
   onShowOriginal,
+  onEdit,
+  onDelete,
 }: {
   body: string
   onReply?: () => void
@@ -296,6 +317,10 @@ function MessageMenu({
   translationState?: 'none' | 'pending' | 'showing' | 'original'
   onTranslate?: () => void
   onShowOriginal?: () => void
+  /** Absent unless the viewer wrote this message. Nobody edits somebody else's. */
+  onEdit?: () => void
+  /** Absent unless the viewer wrote it, or owns the space it is in. */
+  onDelete?: () => void
 }) {
   const t = useT()
   return (
@@ -343,6 +368,21 @@ function MessageMenu({
           onSelect: () =>
             navigator.clipboard?.writeText(body).catch(() => undefined),
         },
+        ...(onEdit
+          ? [{ id: 'edit', label: t('chat.messages.edit', 'Edit message'), onSelect: onEdit }]
+          : []),
+        // Last, and marked destructive: it is the only entry here that cannot
+        // be undone, so it sits furthest from the pointer's resting place.
+        ...(onDelete
+          ? [
+              {
+                id: 'delete',
+                label: t('chat.messages.delete', 'Delete message'),
+                onSelect: onDelete,
+                destructive: true,
+              },
+            ]
+          : []),
       ]}
     />
   )
@@ -456,6 +496,9 @@ export function MessageList({
   onReply,
   onToggleReaction,
   onTogglePin,
+  onEdit,
+  onDelete,
+  canModerate = false,
   jumpToMessageId,
   jumpShouldFocus = true,
   jumpShouldFlash = true,
@@ -1433,6 +1476,29 @@ export function MessageList({
                           onOwnBubble={row.message.senderUserId === currentUserId}
                         />
 
+                        {/* A sibling of the body rather than a word appended to
+                            it. Putting it inside `MessageBody` would make it
+                            part of the text the mention parser and the search
+                            highlighter walk, so their character offsets would
+                            shift and both would mark the wrong span.
+
+                            Muted and small, on its own line: it qualifies the
+                            message without competing with it. */}
+                        {row.message.editedAt ? (
+                          <p
+                            className={cn(
+                              'mt-0.5 text-xs',
+                              // The same pair the translation footer below uses:
+                              // the tint under the text differs by side, so the
+                              // label has to follow it rather than assume the
+                              // page ground.
+                              row.mine ? 'text-foreground/65' : 'text-muted-foreground',
+                            )}
+                          >
+                            {t('chat.messages.edited', '(edited)')}
+                          </p>
+                        ) : null}
+
                         {/* Says what happened and offers the way back. Machine
                             translation is wrong often enough that hiding the
                             original is a trust problem, not a UX detail - so the
@@ -1681,6 +1747,24 @@ export function MessageList({
                                         : row.message.senderName,
                                       body: row.message.body,
                                     })
+                                : undefined
+                            }
+                            /* `row.mine` is where "your own messages only"
+                               lives, per row, rather than at the caller: the
+                               caller knows whether the viewer may write here,
+                               and only the row knows who wrote it. */
+                            onEdit={
+                              onEdit && row.mine
+                                ? () =>
+                                    onEdit({
+                                      messageId: row.message.id,
+                                      body: row.message.body,
+                                    })
+                                : undefined
+                            }
+                            onDelete={
+                              onDelete && (row.mine || canModerate)
+                                ? () => onDelete(row.message.id)
                                 : undefined
                             }
                           />

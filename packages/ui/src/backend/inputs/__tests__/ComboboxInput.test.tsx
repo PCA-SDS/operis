@@ -417,3 +417,75 @@ describe('ComboboxInput accessibility', () => {
     expect(input).toHaveAttribute('aria-controls', listbox.id)
   })
 })
+
+describe('ComboboxInput Escape handling', () => {
+  function pressEscape(input: HTMLElement) {
+    act(() => {
+      fireEvent.keyDown(input, { key: 'Escape' })
+    })
+  }
+
+  it('claims Escape before it can reach an overlay listening on the document', () => {
+    const overlayDismiss = jest.fn()
+    const documentCapture = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') overlayDismiss()
+    }
+    document.addEventListener('keydown', documentCapture, true)
+    try {
+      render(<Harness />)
+      const input = screen.getByRole('combobox')
+      fireEvent.focus(input)
+      fireEvent.change(input, { target: { value: 're' } })
+      expect(screen.getByRole('listbox')).toBeInTheDocument()
+
+      pressEscape(input)
+
+      expect(overlayDismiss).not.toHaveBeenCalled()
+      expect(screen.queryByRole('listbox')).toBeNull()
+    } finally {
+      document.removeEventListener('keydown', documentCapture, true)
+    }
+  })
+
+  it('lets Escape through to the overlay once the suggestion list is closed', () => {
+    const overlayDismiss = jest.fn()
+    const documentCapture = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') overlayDismiss()
+    }
+    document.addEventListener('keydown', documentCapture, true)
+    try {
+      render(<Harness />)
+      const input = screen.getByRole('combobox')
+
+      pressEscape(input)
+
+      expect(overlayDismiss).toHaveBeenCalledTimes(1)
+    } finally {
+      document.removeEventListener('keydown', documentCapture, true)
+    }
+  })
+
+  it('commits free text on Escape when custom values are allowed', () => {
+    render(<Harness allowCustomValues />)
+    const input = screen.getByRole('combobox')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'sales.orders.*' } })
+
+    pressEscape(input)
+
+    expect(screen.getByTestId('value')).toHaveTextContent('sales.orders.*')
+    expect((input as HTMLInputElement).value).toBe('sales.orders.*')
+  })
+
+  it('reverts to the selected label on Escape when custom values are disallowed', () => {
+    render(<Harness initialValue="red" allowCustomValues={false} />)
+    const input = screen.getByRole('combobox')
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'sales.orders.*' } })
+
+    pressEscape(input)
+
+    expect(screen.getByTestId('value')).toHaveTextContent('red')
+    expect((input as HTMLInputElement).value).toBe('Red')
+  })
+})

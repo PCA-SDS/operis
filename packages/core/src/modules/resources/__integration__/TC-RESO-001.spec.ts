@@ -39,10 +39,13 @@ test.describe('TC-RESO-001: Resources list page', () => {
         page.getByRole('heading', { name: /^resources$/i }),
       ).toBeVisible();
 
+      // Match the list page's OWN create affordance, by href and inside `main`.
+      // `/create resource/i` was never reaching this button — it was matching
+      // the sidebar's "Create Resource" nav link, and broke into a strict-mode
+      // violation once a sibling "Create Resource Area" entry joined that
+      // sidebar. The href also survives translation; the visible label does not.
       await expect(
-        page.getByRole('link', { name: /create resource/i }).or(
-          page.getByRole('button', { name: /create resource/i }),
-        ),
+        page.getByRole('main').locator('a[href="/backend/resources/resources/create"]'),
       ).toBeVisible();
 
       await expect(page.getByText(resourceName)).toBeVisible();
