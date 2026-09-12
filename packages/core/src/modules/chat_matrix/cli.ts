@@ -2,12 +2,20 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { MatrixClient, matrixConfigFromEnv } from '@open-mercato/matrix'
 import { ChatMatrixSyncState } from './data/entities'
 import { CHAT_MATRIX_QUEUES, DEFAULT_SYNC_STREAM } from './lib/queue'
-import { checkDrift, formatDriftReport, type DriftScope } from './lib/drift'
-import { backfillConversations, type BackfillOptions } from './lib/backfill'
-import syncWorker from './workers/sync'
+import type { DriftScope } from './lib/drift'
+import type { BackfillOptions } from './lib/backfill'
+
+/**
+ * Matrix is reached through `await import` in each command, never a top-level
+ * import, for the same reason `di.ts` defers it: this file is pulled in EAGERLY
+ * by the generated CLI registry, so a static import would put
+ * `@open-mercato/matrix` on the startup path of every `yarn mercato` invocation
+ * — and of anything else that loads the registry — whether or not the Matrix
+ * transport is switched on. Commands are async, so here the ordinary dynamic
+ * import is enough; see `di.ts` for why the registrar cannot use one.
+ */
 
 const logger = createLogger('chat_matrix').child({ component: 'cli' })
 
@@ -50,6 +58,7 @@ function scopeFrom(args: Record<string, string | boolean>): DriftScope {
  * Exits non-zero when unhealthy, so a cron entry can page on it.
  */
 async function drift(rest: string[]): Promise<void> {
+  const { checkDrift, formatDriftReport } = await import('./lib/drift')
   const args = parseArgs(rest)
   const container = await createRequestContainer()
   const em = container.resolve<EntityManager>('em')
@@ -84,6 +93,8 @@ async function drift(rest: string[]): Promise<void> {
  * the same event rather than a duplicate.
  */
 async function backfill(rest: string[]): Promise<void> {
+  const { MatrixClient, matrixConfigFromEnv } = await import('@open-mercato/matrix')
+  const { backfillConversations } = await import('./lib/backfill')
   const args = parseArgs(rest)
   const config = matrixConfigFromEnv()
   if (!config) {
@@ -136,6 +147,7 @@ async function backfill(rest: string[]): Promise<void> {
  * reads, projects what Operis does not already have, and advances the cursor.
  */
 async function sync(): Promise<void> {
+  const { default: syncWorker } = await import('./workers/sync')
   const container = await createRequestContainer()
 
   const transport = container.resolve('chatTransport') as { id: string; mode: string }
