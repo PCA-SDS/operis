@@ -13,7 +13,7 @@ const hexColorSchema = z
   .trim()
   .regex(/^#([0-9a-fA-F]{6})$/, 'Color must be a valid six-digit hex code like #3366ff')
 
-const iconSchema = z.string().trim().min(1).max(64)
+const iconSchema = z.string().trim().min(1).max(100)
 
 export const upsertDictionarySchema = z.object({
   key: dictionaryKeySchema,

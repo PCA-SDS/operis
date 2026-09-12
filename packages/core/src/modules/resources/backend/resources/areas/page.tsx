@@ -720,7 +720,7 @@ export default function ResourcesResourceAreasPage() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="size-7 shrink-0"
+                className="size-7 shrink-0 disabled:bg-transparent"
                 disabled={!hasChildren}
                 aria-label={expanded ? translations.actions.collapse : translations.actions.expand}
                 aria-expanded={hasChildren ? expanded : undefined}
@@ -1076,7 +1076,7 @@ function AreaPointerNameCell({
         isDragging ? 'opacity-40' : '',
       ].filter(Boolean).join(' ')}
     >
-      <div className="flex min-w-0 items-start gap-1">
+      <div className="flex min-w-0 items-center gap-1">
         <div data-actions-cell>
           <Button
             type="button"

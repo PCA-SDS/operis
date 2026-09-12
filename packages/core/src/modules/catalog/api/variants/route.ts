@@ -65,6 +65,35 @@ const routeMetadata = {
 
 export const metadata = routeMetadata
 
+export const VARIANT_LIST_FIELDS: string[] = [
+  FV.id,
+  'product_id',
+  FV.name,
+  FV.sku,
+  FV.barcode,
+  'gtin_type',
+  'hs_code',
+  FV.status_entry_id,
+  FV.is_default,
+  FV.is_active,
+  FV.weight_value,
+  FV.weight_unit,
+  'tax_rate_id',
+  'tax_rate',
+  'duration_value',
+  'duration_unit',
+  'duration_min',
+  'duration_max',
+  FV.dimensions,
+  FV.metadata,
+  FV.option_values,
+  'custom_fieldset_code',
+  'default_media_id',
+  'default_media_url',
+  FV.created_at,
+  FV.updated_at,
+]
+
 export async function buildVariantFilters(
   query: VariantQuery
 ): Promise<Record<string, unknown>> {
@@ -110,30 +139,7 @@ const crud = makeCrudRoute({
   list: {
     schema: listSchema,
     entityId: E.catalog.catalog_product_variant,
-    fields: [
-      FV.id,
-      'product_id',
-      FV.name,
-      FV.sku,
-      FV.barcode,
-      'gtin_type',
-      'hs_code',
-      FV.status_entry_id,
-      FV.is_default,
-      FV.is_active,
-      FV.weight_value,
-      FV.weight_unit,
-      'tax_rate_id',
-      'tax_rate',
-      FV.dimensions,
-      FV.metadata,
-      FV.option_values,
-      'custom_fieldset_code',
-      'default_media_id',
-      'default_media_url',
-      FV.created_at,
-      FV.updated_at,
-    ],
+    fields: VARIANT_LIST_FIELDS,
     sortFieldMap: {
       name: FV.name,
       sku: FV.sku,
@@ -158,7 +164,7 @@ const crud = makeCrudRoute({
       return filters
     },
     decorateCustomFields: { entityIds: [E.catalog.catalog_product_variant] },
-    transformItem: (item: any) => {
+    transformItem: (item: Record<string, unknown>) => {
       if (!item) return item
       const normalized = { ...item }
       const cfEntries = extractAllCustomFieldEntries(item)
@@ -268,6 +274,10 @@ const variantListItemSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).nullable().optional(),
   option_values: z.record(z.string(), z.unknown()).nullable().optional(),
   custom_fieldset_code: z.string().nullable().optional(),
+  duration_value: z.number().nullable().optional(),
+  duration_unit: z.string().nullable().optional(),
+  duration_min: z.number().nullable().optional(),
+  duration_max: z.number().nullable().optional(),
   default_media_id: z.string().uuid().nullable().optional(),
   default_media_url: z.string().nullable().optional(),
   created_at: z.string().nullable().optional(),

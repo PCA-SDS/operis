@@ -55,6 +55,12 @@ import type { CatalogOptionTreeData } from '@open-mercato/core/modules/catalog/d
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
+import {
+  CATALOG_DURATION_UNIT_OPTIONS,
+  DEFAULT_CATALOG_DURATION_UNIT,
+  normalizeCatalogDurationUnit,
+  type CatalogDurationUnit,
+} from '../../lib/durationUnits'
 
 const logger = createLogger('catalog')
 
@@ -72,7 +78,6 @@ export interface OptionTreeEditorProps {
 
 type GroupItem = CatalogOptionTreeData['groups'][number]
 type OptionItem = CatalogOptionTreeData['options'][number]
-type OptionDurationUnit = 'minute' | 'hour'
 type OptionPriceType = 'fixed' | 'range'
 
 type GroupFormValues = {
@@ -92,7 +97,7 @@ type OptionFormValues = {
   duration_value: string
   duration_min: string
   duration_max: string
-  duration_unit: OptionDurationUnit
+  duration_unit: CatalogDurationUnit
   is_addon: boolean
 }
 
@@ -106,12 +111,12 @@ const EMPTY_OPTION_FORM: OptionFormValues = {
   duration_value: '',
   duration_min: '',
   duration_max: '',
-  duration_unit: 'minute',
+  duration_unit: DEFAULT_CATALOG_DURATION_UNIT,
   is_addon: false,
 }
 
-function normalizeDurationUnit(value: string | null | undefined): OptionDurationUnit {
-  return value === 'hour' ? 'hour' : 'minute'
+function normalizeOptionDurationUnit(value: string | null | undefined): CatalogDurationUnit {
+  return normalizeCatalogDurationUnit(value, DEFAULT_CATALOG_DURATION_UNIT) ?? DEFAULT_CATALOG_DURATION_UNIT
 }
 
 function formatOptionPriceLabel(option: OptionItem, t: ReturnType<typeof useT>, currencyCode?: string): string | null {
@@ -127,8 +132,11 @@ function formatOptionPriceLabel(option: OptionItem, t: ReturnType<typeof useT>, 
 }
 
 function formatOptionDurationLabel(option: OptionItem, t: ReturnType<typeof useT>): string | null {
-  const unitLabel = normalizeDurationUnit(option.duration_unit) === 'hour'
-    ? t('catalog.options.durationUnitHourShort', 'hr')
+  const unit = CATALOG_DURATION_UNIT_OPTIONS.find(
+    (entry) => entry.value === normalizeOptionDurationUnit(option.duration_unit),
+  )
+  const unitLabel = unit
+    ? t(unit.shortLabelKey, unit.shortLabelFallback)
     : t('catalog.options.durationUnitMinuteShort', 'min')
 
   const min = option.duration_min
@@ -162,7 +170,7 @@ function toOptionFormValues(option: OptionItem): OptionFormValues {
     duration_max: option.duration_max === null || option.duration_max === undefined
       ? ''
       : String(option.duration_max),
-    duration_unit: normalizeDurationUnit(option.duration_unit),
+    duration_unit: normalizeOptionDurationUnit(option.duration_unit),
     is_addon: option.is_addon ?? false,
   }
 }
@@ -593,14 +601,17 @@ function OptionDialog({
                 <div className="w-32 shrink-0">
                   <Select
                     value={form.duration_unit}
-                    onValueChange={(value) => setForm((f) => ({ ...f, duration_unit: normalizeDurationUnit(value) }))}
+                    onValueChange={(value) => setForm((f) => ({ ...f, duration_unit: normalizeOptionDurationUnit(value) }))}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="minute">{t('catalog.options.durationUnitMinute', 'Minutes')}</SelectItem>
-                      <SelectItem value="hour">{t('catalog.options.durationUnitHour', 'Hours')}</SelectItem>
+                      {CATALOG_DURATION_UNIT_OPTIONS.map((unit) => (
+                        <SelectItem key={unit.value} value={unit.value}>
+                          {t(unit.labelKey, unit.labelFallback)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
