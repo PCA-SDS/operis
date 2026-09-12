@@ -15,9 +15,18 @@ test.describe('TC-CAT-001: Create New Product', () => {
     await page.goto('/backend/catalog/products/create');
 
     await expect(page.getByRole('button', { name: 'Create product' }).last()).toBeVisible();
-    await page.getByRole('button', { name: 'Variants' }).click();
-    await page.getByRole('textbox', { name: 'e.g., SKU-001' }).fill(sku);
-    await page.getByRole('button', { name: 'General data' }).click();
+
+    /**
+     * The product's own SKU, on the General data step.
+     *
+     * This used to reach for the Variants step and fill the first variant's SKU
+     * (`e.g., SKU-001`). A `simple` product — the form's default — no longer has
+     * a Variants step at all: `f872ab6f` filters `options` and `variants` out of
+     * the step list for `simple` and `downloadable`, because neither can carry
+     * them. The product-level SKU has always been here; the old path was
+     * setting a variant SKU on a product that was never going to have variants.
+     */
+    await page.getByRole('textbox', { name: 'e.g., PROD-001' }).fill(sku);
 
     const titleInput = page.getByRole('textbox', { name: 'e.g., Summer sneaker' });
     await titleInput.fill(productName);

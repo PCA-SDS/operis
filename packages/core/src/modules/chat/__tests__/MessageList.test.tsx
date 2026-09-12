@@ -85,6 +85,7 @@ function message(overrides: Partial<ChatMessageDto> = {}): ChatMessageDto {
     kind: 'user',
     body: 'hello',
     createdAt: '2026-09-02T10:00:00.000Z',
+    editedAt: null,
     clientMessageId: null,
     replyTo: null,
     systemEvent: null,
@@ -333,6 +334,87 @@ describe('MessageList', () => {
       fireEvent.click(screen.getByText('Copy message'))
 
       expect(writeText).toHaveBeenCalledWith('the exact text')
+    })
+  })
+
+  /**
+   * Who may do what is decided per row, here, rather than by the caller: the
+   * caller knows whether the viewer may write in this conversation, and only the
+   * row knows who wrote the message.
+   */
+  describe('editing and deleting', () => {
+    function openMenuFor(row: HTMLElement): void {
+      fireEvent.click(
+        row.querySelector('button[aria-haspopup="menu"]') as HTMLElement,
+      )
+    }
+
+    function rowFor(id: string): HTMLElement {
+      return document.querySelector(`li[data-message-id="${id}"]`) as HTMLElement
+    }
+
+    it('offers edit on your own message', () => {
+      renderList([message({ id: 'mine', senderUserId: ME })], [], { onEdit: jest.fn() })
+      openMenuFor(rowFor('mine'))
+      expect(screen.getByText('Edit message')).toBeTruthy()
+    })
+
+    it('never offers edit on somebody else’s, even to a space owner', () => {
+      renderList([message({ id: 'theirs', senderUserId: THEM })], [], {
+        onEdit: jest.fn(),
+        canModerate: true,
+      })
+      openMenuFor(rowFor('theirs'))
+      expect(screen.queryByText('Edit message')).toBeNull()
+    })
+
+    it('hands the current body back so the composer can prefill it', () => {
+      const onEdit = jest.fn()
+      renderList([message({ id: 'mine', senderUserId: ME, body: 'as written' })], [], { onEdit })
+      openMenuFor(rowFor('mine'))
+      fireEvent.click(screen.getByText('Edit message'))
+      expect(onEdit).toHaveBeenCalledWith({ messageId: 'mine', body: 'as written' })
+    })
+
+    it('offers delete on your own message', () => {
+      const onDelete = jest.fn()
+      renderList([message({ id: 'mine', senderUserId: ME })], [], { onDelete })
+      openMenuFor(rowFor('mine'))
+      fireEvent.click(screen.getByText('Delete message'))
+      expect(onDelete).toHaveBeenCalledWith('mine')
+    })
+
+    it('withholds delete on somebody else’s message from an ordinary member', () => {
+      renderList([message({ id: 'theirs', senderUserId: THEM })], [], { onDelete: jest.fn() })
+      openMenuFor(rowFor('theirs'))
+      expect(screen.queryByText('Delete message')).toBeNull()
+    })
+
+    /** Removing a message is moderation, and a space already has owners for it. */
+    it('offers delete on somebody else’s message to a space owner', () => {
+      renderList([message({ id: 'theirs', senderUserId: THEM })], [], {
+        onDelete: jest.fn(),
+        canModerate: true,
+      })
+      openMenuFor(rowFor('theirs'))
+      expect(screen.getByText('Delete message')).toBeTruthy()
+    })
+
+    it('offers neither to a read-only member', () => {
+      renderList([message({ id: 'mine', senderUserId: ME })])
+      openMenuFor(rowFor('mine'))
+      expect(screen.queryByText('Edit message')).toBeNull()
+      expect(screen.queryByText('Delete message')).toBeNull()
+    })
+
+    it('marks an edited message, so the reader knows the words changed', () => {
+      renderList([message({ id: 'm1', editedAt: '2026-09-02T10:04:00.000Z' })])
+      expect(screen.getByText('(edited)')).toBeTruthy()
+    })
+
+    it('says nothing about a message nobody has edited', () => {
+      renderList([message({ id: 'm1' })])
+      expect(screen.queryByText('(edited)')).toBeNull()
     })
   })
 

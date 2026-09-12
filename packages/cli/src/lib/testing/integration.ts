@@ -1979,6 +1979,19 @@ function buildReusableEnvironment(
     // drive real delivery. Production-safe + inert unless a delivery row carries
     // `provider='push_stub'`. Mirrors the fresh-environment app server env below.
     OM_ENABLE_PUSH_STUB_ADAPTER: process.env.OM_ENABLE_PUSH_STUB_ADAPTER ?? '1',
+    // The `mock` / `mock_usd` / `mock_processing` gateways and the `mock_carrier`
+    // provider. They used to arrive with the app's `example` module; that module
+    // left the build in `d108ad27`, and the payment and shipping specs have been
+    // calling providers nothing registered ever since. Both registrations are
+    // no-ops without these flags, so no deployment that omits them can take a
+    // payment or print a label from a fixture.
+    OM_ENABLE_MOCK_PAYMENT_GATEWAY: process.env.OM_ENABLE_MOCK_PAYMENT_GATEWAY ?? '1',
+    OM_ENABLE_MOCK_SHIPPING_CARRIER: process.env.OM_ENABLE_MOCK_SHIPPING_CARRIER ?? '1',
+    // The mock inbound webhook receiver. The outbound delivery specs point
+    // their webhooks at `/api/webhooks/inbound/mock_inbound`, so without it
+    // every delivery 404s, retries and lands as `expired`. Registered only
+    // under this flag, and the secret must match the one the specs sign with.
+    OM_ENABLE_MOCK_INBOUND_WEBHOOK: process.env.OM_ENABLE_MOCK_INBOUND_WEBHOOK ?? '1',
     // Swap the FCM/APNs/Expo SDK clients for network-free fakes so the REAL provider
     // adapters run end-to-end. Unlike `push_stub` (which replaces the whole adapter),
     // this replaces only each SDK client. Mirrors the fresh-environment env below.
@@ -3357,6 +3370,19 @@ export async function startEphemeralEnvironment(options: EphemeralRuntimeOptions
       // push channel + device. Applies to the app server, the Playwright process, and
       // any drain/worker child that inherits this environment.
       OM_ENABLE_PUSH_STUB_ADAPTER: process.env.OM_ENABLE_PUSH_STUB_ADAPTER ?? '1',
+      // The `mock` / `mock_usd` / `mock_processing` gateways and the `mock_carrier`
+      // provider. They used to arrive with the app's `example` module; that module
+      // left the build in `d108ad27`, and the payment and shipping specs have been
+      // calling providers nothing registered ever since. Both registrations are
+      // no-ops without these flags, so no deployment that omits them can take a
+      // payment or print a label from a fixture.
+      OM_ENABLE_MOCK_PAYMENT_GATEWAY: process.env.OM_ENABLE_MOCK_PAYMENT_GATEWAY ?? '1',
+      OM_ENABLE_MOCK_SHIPPING_CARRIER: process.env.OM_ENABLE_MOCK_SHIPPING_CARRIER ?? '1',
+      // The mock inbound webhook receiver. The outbound delivery specs point
+      // their webhooks at `/api/webhooks/inbound/mock_inbound`, so without it
+      // every delivery 404s, retries and lands as `expired`. Registered only
+      // under this flag, and the secret must match the one the specs sign with.
+      OM_ENABLE_MOCK_INBOUND_WEBHOOK: process.env.OM_ENABLE_MOCK_INBOUND_WEBHOOK ?? '1',
       // Swap the FCM/APNs/Expo SDK clients for network-free fakes (TC-CHANNEL-PUSH-005+) so the REAL
       // provider adapters — native message construction, credential parsing, client caching, and every
       // error → `device_unregistered` mapping — run end-to-end without live keys. Unlike

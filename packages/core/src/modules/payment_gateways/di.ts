@@ -9,6 +9,7 @@ import { GatewayTransaction, WebhookProcessedEvent } from './data/entities'
 import { createPaymentGatewayDescriptorService } from './lib/descriptor-service'
 import { createPaymentGatewayService } from './lib/gateway-service'
 import { isPaymentOrderTotalResolver } from './lib/order-amount-reconciliation'
+import { ensureMockGatewayRegistered } from './lib/mock-gateway-registration'
 
 type Cradle = {
   em: EntityManager
@@ -36,6 +37,12 @@ function resolveOrderTotalResolver(container: AppContainer, cradle: Cradle): Pay
 }
 
 export function register(container: AppContainer) {
+  // Test-only: register the network-free `mock` / `mock_usd` / `mock_processing`
+  // providers when `OM_ENABLE_MOCK_PAYMENT_GATEWAY` is set. A no-op otherwise,
+  // and deliberately so — a mock gateway in production would accept payments
+  // that never happened. Mirrors `push_notifications`' stub channel adapter.
+  ensureMockGatewayRegistered()
+
   container.register({
     paymentGatewayService: asFunction((cradle: Cradle) =>
       createPaymentGatewayService({

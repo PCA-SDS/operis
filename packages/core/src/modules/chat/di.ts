@@ -3,12 +3,22 @@ import type { AppContainer } from '@open-mercato/shared/lib/di/container'
 import { registerTranslationProvider } from '@open-mercato/shared/lib/translation/provider'
 import { createFakeTranslationProvider } from '@open-mercato/shared/lib/translation/fake-provider'
 import { DefaultChatService } from './services/chatService'
+import { createLocalChatTransport, resolveChatTransportId } from './lib/transport'
 import './commands'
 
 export function register(container: AppContainer) {
   container.register({
     chatService: asFunction(() => new DefaultChatService()).singleton(),
+    // The default, and for now the only one. `chat_matrix` loads after this
+    // module and re-registers the same token with a homeserver-backed
+    // implementation when one is configured, so chat itself never imports
+    // anything Matrix-shaped.
+    chatTransport: asFunction(() => createLocalChatTransport()).singleton(),
   })
+
+  // Read at startup rather than per send, so an unrecognised value is a failed
+  // boot instead of an error on somebody's first message of the day.
+  resolveChatTransportId()
 
   // Network-free engine for integration tests and offline development, matching
   // how the push channels swap their SDK clients. The real adapter stands down

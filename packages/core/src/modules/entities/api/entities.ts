@@ -73,7 +73,24 @@ export async function GET(req: Request) {
 
   const custom = Array.from(customByEntityId.values())
     .filter((c) => isSystemEntitySelectable(c.entityId))
-    .filter((c) => isEntityModuleReachable(c.entityId, reachableModules))
+    /**
+     * Deliberately NOT narrowed by module reachability.
+     *
+     * `reachableModules` exists for the `generated` list above, which
+     * enumerates every MODULE's entity types and must be cut down to the ones
+     * the caller can reach. A custom entity is a different thing: it is a row
+     * this tenant created, and the part before the `:` is free text the user
+     * typed — `inventory:widget`, `e2e_ent_x:widget` — not a module id. Passing
+     * it through `isEntityModuleReachable` asked "is there an enabled module
+     * called `inventory`?", and for every custom entity not named after a live
+     * module the answer was no, so it vanished from the list that is the only
+     * way to reach it. Measured against a running app: `catalog:probe` listed,
+     * `e2e_ent_…:probe` did not, same tenant, same user, same second.
+     *
+     * Custom entities are already confined by the tenant/organization predicate
+     * in `where` above and by `canReadEntityMetadata` below, which is what
+     * decides who may see one.
+     */
     .map((c) => ({
       entityId: c.entityId,
       source: 'custom' as const,

@@ -418,9 +418,21 @@ const syncOptionTreeCommand: CommandHandler<
 
     const incomingOptionIds = snapshot.options.map((option) => option.id)
     if (incomingOptionIds.length > 0) {
-      const existingOptions = await em.find(CatalogProductOption, { id: { $in: incomingOptionIds } })
+      const existingOptions = await em.find(
+        CatalogProductOption,
+        { id: { $in: incomingOptionIds } },
+        { populate: ['group'] },
+      )
       for (const eo of existingOptions) {
         if (eo.tenantId !== parsed.tenantId || eo.organizationId !== parsed.organizationId) {
+          throw new CrudHttpError(400, { error: `Foreign option ID detected: ${eo.id}` })
+        }
+        // An id already taken by another product is just as foreign as one from
+        // another tenant, and the group branch above already rejects its
+        // counterpart. Without this the sync reaches `em.create` with a primary
+        // key that exists, and the unique violation reaches the caller as a 500
+        // that names nothing instead of a 400 that names the colliding id.
+        if (eo.group.product.id !== parsed.productId) {
           throw new CrudHttpError(400, { error: `Foreign option ID detected: ${eo.id}` })
         }
       }

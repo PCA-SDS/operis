@@ -235,6 +235,30 @@ test.describe('TC-APIKEY-007: DELETE organization-scope enforcement (#4033)', ()
       // override. The selected-tenant cookie then proves the key survived those
       // rejections and preserves the existing superadmin operator workflow.
       foreignTenantId = await createTenantFixture(request, superadminToken, `QA TC-APIKEY-007 Tenant B ${stamp}`)
+
+      /**
+       * Entitle `api_keys` on the tenant this test just made.
+       *
+       * A freshly provisioned tenant receives only the default module plan, and
+       * `api_keys` is not in it. The harness's `sync-tenant-modules --enable-all`
+       * runs once at environment setup and cannot know about a tenant created
+       * mid-test, so without this the cross-tenant key fixture comes back
+       * `403 FEATURE_NOT_AVAILABLE` — which reads as the scope guard under test
+       * firing when it is really the fixture never being creatable.
+       */
+      const foreignTenantEntitlement = await apiRequest(
+        request,
+        'PUT',
+        '/api/directory/tenant-modules',
+        {
+          token: superadminToken,
+          data: { tenantId: foreignTenantId, moduleId: 'api_keys', isEnabled: true },
+        },
+      )
+      expect(
+        foreignTenantEntitlement.ok(),
+        'api_keys should be entitled on the foreign tenant fixture',
+      ).toBeTruthy()
       foreignTenantOrganizationId = await createOrganizationFixture(request, superadminToken, {
         name: `QA TC-APIKEY-007 Tenant B org ${stamp}`,
         tenantId: foreignTenantId,

@@ -8353,6 +8353,7 @@ __metadata:
     "@open-mercato/core": "workspace:*"
     "@open-mercato/events": "workspace:*"
     "@open-mercato/gateway-stripe": "workspace:*"
+    "@open-mercato/matrix": "workspace:*"
     "@open-mercato/migrate-tps": "workspace:*"
     "@open-mercato/onboarding": "workspace:*"
     "@open-mercato/queue": "workspace:*"
@@ -8660,6 +8661,7 @@ __metadata:
     "@mikro-orm/postgresql": "npm:^7.1.8"
     "@modelcontextprotocol/sdk": "npm:^1.30.0"
     "@open-mercato/ai-assistant": "workspace:*"
+    "@open-mercato/matrix": "workspace:*"
     "@open-mercato/shared": "workspace:*"
     "@open-mercato/ui": "workspace:*"
     "@testing-library/dom": "npm:^10.4.1"
@@ -8699,6 +8701,7 @@ __metadata:
     zod: "npm:^4.4.3"
   peerDependencies:
     "@open-mercato/ai-assistant": "workspace:*"
+    "@open-mercato/matrix": "workspace:*"
     "@open-mercato/shared": "workspace:*"
     "@open-mercato/ui": "workspace:*"
     react: ^19.0.0
@@ -8757,6 +8760,22 @@ __metadata:
     "@open-mercato/shared": "workspace:*"
     react: ^19.0.0
     react-dom: ^19.0.0
+  languageName: unknown
+  linkType: soft
+
+"@open-mercato/matrix@workspace:*, @open-mercato/matrix@workspace:packages/matrix":
+  version: 0.0.0-use.local
+  resolution: "@open-mercato/matrix@workspace:packages/matrix"
+  dependencies:
+    "@open-mercato/shared": "workspace:*"
+    "@types/jest": "npm:^30.0.0"
+    "@types/node": "npm:^26.1.2"
+    jest: "npm:^30.4.2"
+    ts-jest: "npm:^29.4.12"
+    typescript: "npm:7.0.2"
+    zod: "npm:^4.4.3"
+  peerDependencies:
+    "@open-mercato/shared": "workspace:*"
   languageName: unknown
   linkType: soft
 

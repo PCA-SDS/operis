@@ -52,11 +52,35 @@ const filteredSpecs =
 
 const filteredSpecPaths = filteredSpecs.map((entry) => entry.path);
 
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// One anchored alternation instead of ~1000 separate glob patterns.
+// Playwright compiles every string in `testMatch` into its own matcher and runs
+// all of them against every file it walks, so the array form costs
+// files x patterns comparisons — roughly a quarter of a billion here, which is
+// minutes of startup before a single test runs. The paths are exact file names,
+// never globs, so a single precompiled RegExp is equivalent and is one test per
+// file.
+const specPathMatcher =
+    filteredSpecPaths.length > 0
+        ? new RegExp(`(?:^|/)(?:${filteredSpecPaths.map((specPath) => escapeRegExp(normalizePath(specPath))).join('|')})$`)
+        : /\.ai\/qa\/tests\/__no_tests__\/[^/]+\.spec\.ts$/;
+
 export default defineConfig({
   testDir: projectRoot,
-  testMatch: filteredSpecPaths.length > 0 ? filteredSpecPaths : ['.ai/qa/tests/__no_tests__/*.spec.ts'],
+  testMatch: specPathMatcher,
   testIgnore: [
     ...STATIC_TEST_IGNORES,
+    '**/node_modules/**',
+    '**/dist/**',
+    '**/.next/**',
+    '**/.mercato/**',
+    '**/.turbo/**',
+    '**/.yarn/**',
+    '**/coverage/**',
+    '**/.git/**',
   ],
   timeout: 20_000,
   expect: {
