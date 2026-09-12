@@ -97,6 +97,31 @@ async function loadCatalogOptions(
   return { groups, options }
 }
 
+function durationToMinutes(value: number | null | undefined, unit: string | null | undefined): number | null {
+  if (!Number.isFinite(value) || !value || value <= 0) return null
+  const normalizedUnit = unit?.toLowerCase()
+  if (normalizedUnit === 'hour' || normalizedUnit === 'hours' || normalizedUnit === 'h') return value * 60
+  return value
+}
+
+export function resolveDurationMinutes(
+  baseDuration: number | null | undefined,
+  options: Array<{ durationValue?: number | null; durationUnit?: string | null; isAddon: boolean }>,
+): number | null {
+  const durations = options
+    .map((option) => ({
+      minutes: durationToMinutes(option.durationValue, option.durationUnit),
+      isAddon: option.isAddon,
+    }))
+    .filter((option): option is { minutes: number; isAddon: boolean } => option.minutes !== null)
+  if (durations.length === 0) return baseDuration ?? null
+
+  const overrides = durations.filter((option) => !option.isAddon).map((option) => option.minutes)
+  const additions = durations.filter((option) => option.isAddon).reduce((sum, option) => sum + option.minutes, 0)
+  const resolvedBase = overrides.length > 0 ? Math.max(...overrides) : (baseDuration ?? 60)
+  return resolvedBase + additions
+}
+
 /**
  * Create snapshots of selected options for an appointment line.
  * Also handles the legacy JSONB format in selectedOptions field.
@@ -160,6 +185,17 @@ export async function snapshotLineOptions(
   }
 
   parseSelectedOptions(input.selectedOptions)
+
+  line.durationMinutes = resolveDurationMinutes(
+    line.durationMinutes,
+    options
+      .filter((option) => selectedOptionIds.has(option.id))
+      .map((option) => ({
+        durationValue: option.durationValue,
+        durationUnit: option.durationUnit,
+        isAddon: option.isAddon,
+      })),
+  )
 
   // Build parent chain for nested groups
   const groupParentChain = new Map<string, string | null>()
@@ -273,8 +309,10 @@ export async function loadLineOptionSnapshots(
       optionName: string
       code: string | null
       note: string | null
-      priceFlat: string | null
-      isAddon: boolean
+        priceFlat: string | null
+        durationValue: number | null
+        durationUnit: string | null
+        isAddon: boolean
     }>
   }>
 }> {
@@ -297,6 +335,8 @@ export async function loadLineOptionSnapshots(
         code: o.code ?? null,
         note: o.note ?? null,
         priceFlat: o.priceFlat ?? null,
+        durationValue: o.durationValue ?? null,
+        durationUnit: o.durationUnit ?? null,
         isAddon: o.isAddon,
       })),
     })),

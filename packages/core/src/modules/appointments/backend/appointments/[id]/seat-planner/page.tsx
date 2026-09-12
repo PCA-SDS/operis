@@ -28,6 +28,8 @@ import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { Tag } from '@open-mercato/ui/primitives/tag'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -36,6 +38,7 @@ import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { AppointmentStatusBadge } from '@open-mercato/core/modules/appointments/components/AppointmentStatusBadge'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { resolveRegisteredLucideIconNode } from '@open-mercato/ui/backend/icons/lucideRegistry'
+import { AppointmentServicePicker, type AppointmentBookableService, type AppointmentServiceSelection } from '@open-mercato/core/modules/appointments/components/AppointmentServicePicker'
 
 const START_HOUR = 8
 const END_HOUR = 22
@@ -51,6 +54,7 @@ const STAFF_PAGE_SIZE = 50
 
 type SeatPlannerLine = {
   id: string
+  productId: string
   productTitle: string
   durationMinutes: number | null
   options: Array<{ groupName: string | null; name: string }>
@@ -83,6 +87,8 @@ type Resource = {
 type SeatPlannerWorkspace = {
   appointment: {
     id: string
+    tenantId: string
+    organizationId: string
     customerName: string
     customerSalutation: string | null
     customerPhone: string | null
@@ -93,6 +99,7 @@ type SeatPlannerWorkspace = {
     requestedStartAt: string
     requestedEndAt: string | null
     statusCode: string
+    updatedAt: string
   }
   lines: SeatPlannerLine[]
   allocations: PlannerAllocation[]
@@ -364,8 +371,9 @@ function BookingSidebar(props: {
   onSelectLine: (lineId: string) => void
   onClearLine: (lineId: string) => void
   onPreviewAction: () => void
+  onAddService: () => void
 }) {
-  const { workspace, activeLineId, canManage, isSaving, onSelectLine, onClearLine, onPreviewAction } = props
+  const { workspace, activeLineId, canManage, isSaving, onSelectLine, onClearLine, onPreviewAction, onAddService } = props
   const t = useT()
   const assigned = workspace.lines.filter((line) => line.currentAssignment).length
   const customerInitials = workspace.appointment.customerName
@@ -421,7 +429,7 @@ function BookingSidebar(props: {
             <p className="text-sm font-semibold">{t('appointments.seatPlanner.serviceQueue', 'Services to schedule')}</p>
             <p className="text-xs text-muted-foreground">{assigned}/{workspace.lines.length} {t('appointments.seatPlanner.readyToConfirm', 'ready to confirm')}</p>
           </div>
-          <IconButton type="button" size="sm" variant="outline" aria-label={t('appointments.seatPlanner.addService', 'Add service')} onClick={onPreviewAction}>
+          <IconButton type="button" size="sm" variant="outline" aria-label={t('appointments.seatPlanner.addService', 'Add service')} disabled={!canManage || isSaving} onClick={onAddService}>
             <Plus className="size-4" />
           </IconButton>
         </div>
@@ -842,6 +850,12 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
   const [popoverState, setPopoverState] = React.useState<PopoverState | null>(null)
   const [staffSheetTarget, setStaffSheetTarget] = React.useState<StaffSheetTarget | null>(null)
+  const [isAddServiceOpen, setIsAddServiceOpen] = React.useState(false)
+  const [bookableServices, setBookableServices] = React.useState<AppointmentBookableService[]>([])
+  const [selectedServices, setSelectedServices] = React.useState<AppointmentServiceSelection[]>([])
+  const [isLoadingServices, setIsLoadingServices] = React.useState(false)
+  const [serviceLoadError, setServiceLoadError] = React.useState<string | null>(null)
+  const [isAddingService, setIsAddingService] = React.useState(false)
   const [staffMembers, setStaffMembers] = React.useState<StaffMember[]>([])
   const [isLoadingStaff, setIsLoadingStaff] = React.useState(false)
   const [isLoadingMoreStaff, setIsLoadingMoreStaff] = React.useState(false)
@@ -903,11 +917,11 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     void loadStaffPage(1)
   }, [loadStaffPage, staffSheetTarget])
 
-  const loadWorkspace = React.useCallback(async (signal?: AbortSignal) => {
+  const loadWorkspace = React.useCallback(async (signal?: AbortSignal, showLoading = true) => {
     if (!appointmentId) return
     const requestId = workspaceRequestRef.current + 1
     workspaceRequestRef.current = requestId
-    setIsLoading(true)
+    if (showLoading) setIsLoading(true)
     setError(null)
     try {
       const data = await readApiResultOrThrow<SeatPlannerWorkspace>(`/api/appointments/${encodeURIComponent(appointmentId)}/seat-planner`, { signal }, { allowNullResult: true })
@@ -924,7 +938,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         setError(loadError instanceof Error ? loadError.message : t('appointments.seatPlanner.loadError', 'Failed to load seat planner.'))
       }
     } finally {
-      if (requestId === workspaceRequestRef.current) setIsLoading(false)
+      if (showLoading && requestId === workspaceRequestRef.current) setIsLoading(false)
     }
   }, [appointmentId, t])
 
@@ -933,6 +947,55 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     void loadWorkspace(controller.signal)
     return () => controller.abort()
   }, [loadWorkspace])
+
+  React.useEffect(() => {
+    if (!isAddServiceOpen || !workspace) return
+    const controller = new AbortController()
+    setIsLoadingServices(true)
+    setServiceLoadError(null)
+    const params = new URLSearchParams({
+      tenantId: workspace.appointment.tenantId,
+      organizationId: workspace.appointment.organizationId,
+    })
+    void readApiResultOrThrow<{ items?: AppointmentBookableService[] }>(`/api/catalog/bookable-services?${params.toString()}`, { signal: controller.signal })
+      .then((response) => setBookableServices(response.items ?? []))
+      .catch((loadError) => {
+        if ((loadError as { name?: string })?.name !== 'AbortError') {
+          setBookableServices([])
+          setServiceLoadError(loadError instanceof Error ? loadError.message : t('appointments.seatPlanner.servicesLoadError', 'Unable to load services.'))
+        }
+      })
+      .finally(() => setIsLoadingServices(false))
+    return () => controller.abort()
+  }, [isAddServiceOpen, t, workspace])
+
+  const handleAddServices = React.useCallback(async () => {
+    if (!workspace || selectedServices.length === 0) return
+    setIsAddingService(true)
+    let updatedAt = workspace.appointment.updatedAt
+    try {
+      for (const selection of selectedServices) {
+        const result = await guardedMutation.runMutation({
+          operation: () => readApiResultOrThrow<{ updatedAt: string }>(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/lines`, {
+            method: 'POST',
+            headers: buildOptimisticLockHeader(updatedAt),
+            body: JSON.stringify(selection),
+          }),
+          context: { appointmentId: workspace.appointment.id, resourceKind: 'appointments.appointmentLine' },
+          mutationPayload: selection,
+        })
+        updatedAt = result.updatedAt
+      }
+      setIsAddServiceOpen(false)
+      setSelectedServices([])
+      await loadWorkspace(undefined, false)
+      flash(t('appointments.seatPlanner.servicesAdded', 'Service added'), 'success')
+    } catch (addError) {
+      flash(addError instanceof Error ? addError.message : t('appointments.seatPlanner.serviceAddError', 'Unable to add service.'), 'error')
+    } finally {
+      setIsAddingService(false)
+    }
+  }, [guardedMutation, loadWorkspace, selectedServices, t, workspace])
 
   const seatColumns = React.useMemo(() => groupResources(workspace?.resources ?? []), [workspace?.resources])
   const ownAllocations = React.useMemo<PlannerAllocation[]>(() => {
@@ -1022,6 +1085,10 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const boardWidth = TIME_COLUMN_WIDTH + seatColumns.reduce((width, seat) => width + (resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH), 0)
   const isSaving = guardedMutation.isPending
   const canConfirm = Boolean(workspace?.lines.length) && Boolean(workspace?.lines.every((line) => Boolean(line.currentAssignment))) && !isSaving
+  const addableServices = React.useMemo(() => {
+    const existingProductIds = new Set((workspace?.lines ?? []).map((line) => line.productId))
+    return bookableServices.filter((service) => !existingProductIds.has(service.id))
+  }, [bookableServices, workspace?.lines])
 
   const saveDraft = React.useCallback(async (line: SeatPlannerLine, resourceId: string, startsAt: string, duration: number, assignedMemberId?: string | null) => {
     if (!workspace) return
@@ -1306,6 +1373,10 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                   onSelectLine={handleLineSelect}
                   onClearLine={(lineId) => void clearDraft(lineId)}
                   onPreviewAction={() => flash(t('appointments.seatPlanner.frontendPreview', 'This action is wired as a frontend preview for now.'), 'info')}
+                  onAddService={() => {
+                    setSelectedServices([])
+                    setIsAddServiceOpen(true)
+                  }}
                 />
               </div>
             </aside>
@@ -1449,6 +1520,44 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             onLoadMore={() => void loadStaffPage(staffPageRef.current + 1)}
           />
         ) : null}
+
+        <Dialog
+          open={isAddServiceOpen}
+          onOpenChange={(open) => {
+            setIsAddServiceOpen(open)
+            if (!open) setSelectedServices([])
+          }}
+        >
+          <DialogContent size="lg" className="max-h-[90dvh] overflow-hidden" disableBodyWrap>
+            <DialogHeader>
+              <DialogTitle>{t('appointments.seatPlanner.addServiceTitle', 'Add service')}</DialogTitle>
+              <p className="text-sm text-muted-foreground">{t('appointments.seatPlanner.addServiceHint', 'Choose one or more services to add to this booking.')}</p>
+            </DialogHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-3 pb-5 sm:px-6">
+              {serviceLoadError ? (
+                <p className="text-sm text-status-error-text">{serviceLoadError}</p>
+              ) : (
+                <AppointmentServicePicker
+                  services={addableServices}
+                  loading={isLoadingServices}
+                  emptyLabel={t('appointments.seatPlanner.servicesLoading', 'Loading services...')}
+                  value={selectedServices}
+                  onChange={setSelectedServices}
+                  disabled={isAddingService}
+                />
+              )}
+            </div>
+            <DialogFooter bordered>
+              <Button type="button" variant="outline" disabled={isAddingService} onClick={() => setIsAddServiceOpen(false)}>
+                {t('common.cancel', 'Cancel')}
+              </Button>
+              <Button type="button" disabled={isAddingService || isLoadingServices || selectedServices.length === 0} onClick={() => void handleAddServices()}>
+                <Plus className="size-4" />
+                {isAddingService ? t('appointments.seatPlanner.addingService', 'Adding...') : t('appointments.seatPlanner.addService', 'Add service')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {ConfirmDialogElement}
       </PageBody>

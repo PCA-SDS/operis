@@ -279,3 +279,78 @@ export async function updateAppointmentFromStaffEdit(
     lineCount: resolvedLines.length,
   }
 }
+
+export async function addServiceToAppointment(
+  em: EntityManager,
+  params: {
+    appointmentId: string
+    tenantId: string
+    organizationId: string
+    productId: string
+    selectedOptions?: Record<string, unknown>
+  },
+  deps: BookableServiceDeps,
+): Promise<AppointmentLine> {
+  const appointment = await em.findOne(Appointment, {
+    id: params.appointmentId,
+    tenantId: params.tenantId,
+    organizationId: params.organizationId,
+    deletedAt: null,
+  })
+  if (!appointment) {
+    throw new CrudHttpError(404, { error: 'Appointment not found.', code: 'NOT_FOUND' })
+  }
+
+  const bookable = await listBookableServicesForOrganization(
+    em,
+    { tenantId: params.tenantId, organizationId: appointment.organizationId },
+    deps,
+  )
+  const service = bookable.find((entry) => entry.id === params.productId)
+  if (!service) {
+    throw new CrudHttpError(400, {
+      error: 'One or more services are not bookable for this organization.',
+      code: 'SERVICE_NOT_BOOKABLE',
+    })
+  }
+
+  const existingLines = await em.find(
+    AppointmentLine,
+    { appointment: appointment.id, deletedAt: null },
+    { orderBy: { sortOrder: 'desc' } },
+  )
+  if (existingLines.some((entry) => entry.productId === service.id)) {
+    throw new CrudHttpError(409, {
+      error: 'This service is already added to the appointment.',
+      code: 'SERVICE_ALREADY_ADDED',
+    })
+  }
+  const line = em.create(AppointmentLine, {
+    appointment,
+    tenantId: params.tenantId,
+    organizationId: appointment.organizationId,
+    productId: service.id,
+    productTitle: service.title,
+    productHandle: service.handle,
+    currencyCode: service.currencyCode,
+    unitPriceNet: service.unitPriceNet,
+    unitPriceGross: service.unitPriceGross,
+    durationMinutes: service.durationMinutes,
+    productCategory: service.categoryName,
+    selectedOptions: params.selectedOptions,
+    sortOrder: (existingLines[0]?.sortOrder ?? -1) + 1,
+  })
+  em.persist(line)
+  await snapshotLineOptions(em, line, { selectedOptions: params.selectedOptions })
+
+  const totalDuration = existingLines.reduce(
+    (sum, entry) => sum + (entry.durationMinutes ?? 0),
+    0,
+  ) + (line.durationMinutes ?? service.durationMinutes ?? 0)
+  appointment.requestedEndAt = totalDuration > 0
+    ? addMinutes(appointment.requestedStartAt, totalDuration)
+    : null
+  appointment.updatedAt = new Date()
+  await em.flush()
+  return line
+}

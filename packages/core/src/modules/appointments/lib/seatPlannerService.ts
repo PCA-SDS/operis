@@ -13,10 +13,11 @@ import { CatalogProductOption, CatalogProductOptionGroup } from '@open-mercato/c
 import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
 import { getMergedAvailabilityWindows } from '@open-mercato/core/modules/planner/lib/availabilityMerge'
 import { Appointment, AppointmentLine, AppointmentLineOptionGroup } from '../data/entities'
-import { loadLineOptionSnapshots } from './lineOptionSnapshot'
+import { loadLineOptionSnapshots, resolveDurationMinutes } from './lineOptionSnapshot'
 
 export interface SeatPlannerLine {
   id: string
+  productId: string
   productTitle: string
   durationMinutes: number | null
   options: Array<{ groupName: string | null; name: string }>
@@ -35,6 +36,8 @@ export interface SeatPlannerLine {
 export interface SeatPlannerWorkspace {
   appointment: {
     id: string
+    tenantId: string
+    organizationId: string
     customerName: string
     customerSalutation: string | null
     customerPhone: string | null
@@ -45,6 +48,7 @@ export interface SeatPlannerWorkspace {
     requestedStartAt: string
     requestedEndAt: string | null
     statusCode: string
+    updatedAt: string
   }
   lines: SeatPlannerLine[]
   allocations: Array<{
@@ -185,13 +189,6 @@ export class AppointmentSeatPlannerService {
       },
       { orderBy: { sortOrder: 'asc' } },
     )
-    const plannerLines = lines.map((line) => ({
-      line,
-      durationMinutes: line.durationMinutes ?? 60,
-    }))
-    const effectiveEndAt = appointment.requestedEndAt
-      ?? new Date(appointment.requestedStartAt.getTime() + plannerLines.reduce((total, entry) => total + entry.durationMinutes, 0) * 60_000)
-
     const resourceOrganizationIds = await this.getResourceOrganizationIds(params.tenantId, appointment.organizationId)
 
     // Resources are maintained at the parent organization, while bookings may
@@ -368,8 +365,10 @@ export class AppointmentSeatPlannerService {
 
         // Try to load options from snapshot tables first, fallback to catalog lookup
         let options: Array<{ groupName: string | null; name: string }>
+        let resolvedDuration = line.durationMinutes
         try {
           const snapshots = await loadLineOptionSnapshots(this.em, line.id)
+          resolvedDuration = resolveDurationMinutes(line.durationMinutes, snapshots.groups.flatMap((group) => group.options))
           if (snapshots.groups.length > 0) {
             // Use snapshot data
             options = snapshots.groups.flatMap((g) =>
@@ -389,8 +388,9 @@ export class AppointmentSeatPlannerService {
 
         return {
           id: line.id,
+          productId: line.productId,
           productTitle: line.productTitle,
-          durationMinutes: line.durationMinutes ?? 60,
+          durationMinutes: resolvedDuration ?? 60,
           options,
           currentAssignment: assignment
             ? {
@@ -407,10 +407,16 @@ export class AppointmentSeatPlannerService {
         }
       }),
     )
+    const effectiveEndAt = new Date(
+      appointment.requestedStartAt.getTime()
+        + linesWithAssignments.reduce((total, line) => total + (line.durationMinutes ?? 60), 0) * 60_000,
+    )
 
     return {
       appointment: {
         id: appointment.id,
+        tenantId: appointment.tenantId,
+        organizationId: appointment.organizationId,
         customerName: appointment.customerName,
         customerSalutation: appointment.customerSalutation ?? null,
         customerPhone: appointment.customerPhone
@@ -423,6 +429,7 @@ export class AppointmentSeatPlannerService {
         requestedStartAt: appointment.requestedStartAt.toISOString(),
         requestedEndAt: effectiveEndAt.toISOString(),
         statusCode: appointment.statusCode,
+        updatedAt: appointment.updatedAt.toISOString(),
       },
       lines: linesWithAssignments,
       allocations,
