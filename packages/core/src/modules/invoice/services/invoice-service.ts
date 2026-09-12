@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import type { QueryEngine } from '@open-mercato/shared/lib/query/types'
-import { badRequest, conflict, notFound } from '@open-mercato/shared/lib/crud/errors'
 import { sendEmail } from '@open-mercato/shared/lib/email/send'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { detectLocale, resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { E } from '#generated/entities.ids.generated'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 
+import { invoiceBadRequest, invoiceConflict, invoiceNotFound } from '../data/errors'
 import { Invoice, InvoiceCompany, InvoiceInstallment, InvoiceLineItem, InvoicePaymentConfirmation } from '../data/entities'
 import {
   mapInvoiceEntityToDetailDto,
@@ -119,6 +119,17 @@ function moneyString(value: number): string {
   return value.toFixed(MONEY_SCALE)
 }
 
+/**
+ * Snap to the 4 decimals the `numeric(18,4)` columns actually hold.
+ *
+ * Totals must be accumulated from these rounded values, not from the raw
+ * products: rounding each line for storage while summing the unrounded ones for
+ * the header left the invoice disagreeing with its own line rows.
+ */
+function roundMoney(value: number): number {
+  return Number(value.toFixed(MONEY_SCALE))
+}
+
 function normalizedSymbol(value: string | null | undefined): string | null {
   const trimmed = value?.trim()
   return trimmed ? trimmed : null
@@ -155,17 +166,17 @@ function calculateTotals(lines: ManualLineItem[]): CalculatedTotals {
   let vatAmount = 0
   let grossAmount = 0
   const lineItems = lines.map((line, index) => {
-    const quantity = money(line.quantity)
-    const unitPrice = money(line.unitPrice)
-    const baseAmount = quantity * unitPrice
-    const discountAmount = line.discountPercent !== undefined
+    const quantity = roundMoney(money(line.quantity))
+    const unitPrice = roundMoney(money(line.unitPrice))
+    const baseAmount = roundMoney(quantity * unitPrice)
+    const discountAmount = roundMoney(line.discountPercent !== undefined
       ? baseAmount * (line.discountPercent / 100)
-      : money(line.discountAmount)
-    if (discountAmount > baseAmount) throw badRequest('[internal] Invoice line discount exceeds line amount')
-    const netLineAmount = baseAmount - discountAmount
+      : money(line.discountAmount))
+    if (discountAmount > baseAmount) throw invoiceBadRequest('invoice.errors.line_discount_exceeds_amount', 'Invoice line discount exceeds line amount')
+    const netLineAmount = roundMoney(baseAmount - discountAmount)
     const vatRate = line.vatRate ?? 0
-    const vatLineAmount = netLineAmount * (vatRate / 100)
-    const lineTotal = netLineAmount + vatLineAmount
+    const vatLineAmount = roundMoney(netLineAmount * (vatRate / 100))
+    const lineTotal = roundMoney(netLineAmount + vatLineAmount)
     netAmount += netLineAmount
     vatAmount += vatLineAmount
     grossAmount += lineTotal
@@ -186,9 +197,9 @@ function calculateTotals(lines: ManualLineItem[]): CalculatedTotals {
 
   return {
     lineItems,
-    netAmount: moneyString(netAmount),
-    vatAmount: moneyString(vatAmount),
-    grossAmount: moneyString(grossAmount),
+    netAmount: moneyString(roundMoney(netAmount)),
+    vatAmount: moneyString(roundMoney(vatAmount)),
+    grossAmount: moneyString(roundMoney(grossAmount)),
   }
 }
 
@@ -359,7 +370,7 @@ export class InvoiceService {
     if (input.throughDate) {
       const parsedDate = new Date(input.throughDate)
       if (Number.isNaN(parsedDate.getTime())) {
-        throw badRequest('[internal] Invalid throughDate')
+        throw invoiceBadRequest('invoice.errors.invalid_through_date', 'Invalid throughDate')
       }
       effectiveThroughDateString = parsedDate.toISOString().slice(0, 10)
     } else {
@@ -514,7 +525,7 @@ export class InvoiceService {
         installments: { sequence: 'asc' },
       },
     })
-    if (!invoice) throw notFound('[internal] Invoice not found')
+    if (!invoice) throw invoiceNotFound('invoice.errors.invoice_not_found', 'Invoice not found')
 
     return mapInvoiceEntityToDetailDto(invoice)
   }
@@ -528,8 +539,8 @@ export class InvoiceService {
         installments: { sequence: 'asc' },
       },
     })
-    if (!invoice) throw notFound('[internal] Invoice not found')
-    if (invoice.direction !== 'AR') throw badRequest('[internal] Only AR invoices can be sent')
+    if (!invoice) throw invoiceNotFound('invoice.errors.invoice_not_found', 'Invoice not found')
+    if (invoice.direction !== 'AR') throw invoiceBadRequest('invoice.errors.send_requires_ar', 'Only AR invoices can be sent')
 
     const { rawToken, tokenHash } = generateInvoiceTrackingToken()
     const { translate } = await resolveTranslations()
@@ -550,7 +561,7 @@ export class InvoiceService {
         organizationId: scope.organizationId,
         err,
       })
-      throw badRequest('[internal] Invoice email delivery failed')
+      throw invoiceBadRequest('invoice.errors.email_delivery_failed', 'Invoice email delivery failed')
     }
 
     invoice.lastSentAt = new Date()
@@ -565,7 +576,7 @@ export class InvoiceService {
         organizationId: scope.organizationId,
         err,
       })
-      throw badRequest('[internal] Invoice send state could not be saved')
+      throw invoiceBadRequest('invoice.errors.send_state_not_saved', 'Invoice send state could not be saved')
     }
 
     if (this.companyEmailsService) {
@@ -674,7 +685,7 @@ export class InvoiceService {
       const invoice = await txScopedPersistence.findById(Invoice, scope, id, {
         populate: ['lineItems', 'installments', 'paymentConfirmations'] as never[],
       })
-      if (!invoice) throw notFound('[internal] Invoice not found')
+      if (!invoice) throw invoiceNotFound('invoice.errors.invoice_not_found', 'Invoice not found')
       this.assertManualInvoice(invoice)
 
       const organization = await this.loadOrganization(tx, scope)
@@ -754,7 +765,7 @@ export class InvoiceService {
         installments: { sequence: 'asc' },
       },
     })
-    if (!invoice) throw notFound('[internal] Invoice not found')
+    if (!invoice) throw invoiceNotFound('invoice.errors.invoice_not_found', 'Invoice not found')
 
     if (input.dueDate != null) {
       const invoiceDate = invoice.invoiceDate instanceof Date
@@ -762,13 +773,17 @@ export class InvoiceService {
         : new Date(invoice.invoiceDate)
 
       if (input.dueDate < invoiceDate) {
-        throw badRequest('[internal] Due date cannot be before invoice date')
+        throw invoiceBadRequest('invoice.errors.due_date_before_invoice_date', 'Due date cannot be before invoice date')
       }
 
       const maxDate = new Date(invoiceDate)
       maxDate.setDate(maxDate.getDate() + INVOICE_MAX_DUE_DAYS)
       if (input.dueDate > maxDate) {
-        throw badRequest(`[internal] Due date cannot be more than ${INVOICE_MAX_DUE_DAYS} days after invoice date`)
+        throw invoiceBadRequest(
+          'invoice.errors.due_date_too_far',
+          `Due date cannot be more than ${INVOICE_MAX_DUE_DAYS} days after invoice date`,
+          { days: INVOICE_MAX_DUE_DAYS },
+        )
       }
     }
 
@@ -801,8 +816,8 @@ export class InvoiceService {
         installments: { sequence: 'asc' },
       },
     })
-    if (!invoice) throw notFound('[internal] Invoice not found')
-    if (invoice.direction !== 'AR') throw badRequest('[internal] Direct settlement is allowed only for AR invoices')
+    if (!invoice) throw invoiceNotFound('invoice.errors.invoice_not_found', 'Invoice not found')
+    if (invoice.direction !== 'AR') throw invoiceBadRequest('invoice.errors.settlement_requires_ar', 'Direct settlement is allowed only for AR invoices')
 
     const installments = invoiceInstallmentItems(invoice)
     const now = new Date()
@@ -839,14 +854,14 @@ export class InvoiceService {
         installments: { sequence: 'asc' },
       },
     })
-    if (!invoice) throw notFound('[internal] Invoice not found')
+    if (!invoice) throw invoiceNotFound('invoice.errors.invoice_not_found', 'Invoice not found')
 
     const installments = invoiceInstallmentItems(invoice)
     const now = new Date()
 
     if (input.installmentId) {
       const installment = installments.find((item) => item.id === input.installmentId)
-      if (!installment) throw notFound('[internal] Invoice installment not found')
+      if (!installment) throw invoiceNotFound('invoice.errors.installment_not_found', 'Invoice installment not found')
       installment.status = 'PAID'
       installment.paidAt = installment.paidAt ?? now
     } else if (installments.length > 0) {
@@ -877,10 +892,10 @@ export class InvoiceService {
         installments: { sequence: 'asc' },
       },
     })
-    if (!invoice) throw notFound('[internal] Invoice not found')
-    if (invoice.direction !== 'AR') throw badRequest('[internal] Non-recoverable state is allowed only for AR invoices')
+    if (!invoice) throw invoiceNotFound('invoice.errors.invoice_not_found', 'Invoice not found')
+    if (invoice.direction !== 'AR') throw invoiceBadRequest('invoice.errors.non_recoverable_requires_ar', 'Non-recoverable state is allowed only for AR invoices')
     if (input.nonRecoverable && invoice.settlementStatus === 'SETTLED') {
-      throw badRequest('[internal] Settled invoice cannot be marked non-recoverable')
+      throw invoiceBadRequest('invoice.errors.settled_cannot_be_non_recoverable', 'Settled invoice cannot be marked non-recoverable')
     }
 
     invoice.nonRecoverable = input.nonRecoverable
@@ -893,7 +908,7 @@ export class InvoiceService {
 
   async deleteManualInvoice(scope: InvoiceScope, id: string): Promise<InvoiceManualDeleteResult> {
     const invoice = await this.scopedPersistence.findById(Invoice, scope, id)
-    if (!invoice) throw notFound('[internal] Invoice not found')
+    if (!invoice) throw invoiceNotFound('invoice.errors.invoice_not_found', 'Invoice not found')
     this.assertManualInvoice(invoice)
     invoice.deletedAt = new Date()
     await this.em.flush()
@@ -904,9 +919,10 @@ export class InvoiceService {
   private async loadOrganization(tx: EntityManager, scope: InvoiceScope): Promise<Organization> {
     const organization = await tx.findOne(Organization, {
       id: scope.organizationId,
+      tenant: scope.tenantId,
       deletedAt: null,
     } as FilterQuery<Organization>)
-    if (!organization) throw badRequest('[internal] Invoice organization scope is invalid')
+    if (!organization) throw invoiceBadRequest('invoice.errors.organization_scope_invalid', 'Invoice organization scope is invalid')
     return organization
   }
 
@@ -966,7 +982,7 @@ export class InvoiceService {
       ;(where as Record<string, unknown>).id = { $ne: excludeInvoiceId }
     }
     const duplicate = await scopedPersistence.findOne(Invoice, scope, where)
-    if (duplicate) throw conflict('[internal] Duplicate manual invoice')
+    if (duplicate) throw invoiceConflict('invoice.errors.duplicate_manual_invoice', 'Duplicate manual invoice')
   }
 
   private replaceLineItems(
@@ -989,8 +1005,8 @@ export class InvoiceService {
   }
 
   private assertManualInvoice(invoice: Invoice): void {
-    if (invoice.origin !== 'MANUAL') throw badRequest('[internal] Imported invoice cannot be changed')
-    if (invoice.direction !== 'AP') throw badRequest('[internal] Only manual AP invoices can be changed')
+    if (invoice.origin !== 'MANUAL') throw invoiceBadRequest('invoice.errors.imported_invoice_immutable', 'Imported invoice cannot be changed')
+    if (invoice.direction !== 'AP') throw invoiceBadRequest('invoice.errors.manual_ap_only', 'Only manual AP invoices can be changed')
   }
 }
 
@@ -999,6 +1015,7 @@ export function createInvoiceService(
   queryEngine: QueryEngine,
   scopedPersistence: InvoiceScopedPersistenceService,
   exchangeRatesService: InvoiceExchangeRatesService = createInvoiceExchangeRatesService(),
+  companyEmailsService?: InvoiceCompanyEmailsService,
 ): InvoiceService {
-  return new InvoiceService(em, queryEngine, scopedPersistence, exchangeRatesService)
+  return new InvoiceService(em, queryEngine, scopedPersistence, exchangeRatesService, companyEmailsService)
 }

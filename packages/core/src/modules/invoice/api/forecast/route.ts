@@ -8,6 +8,7 @@ import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/er
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
+import { translateInvoiceErrorBody } from '../../data/errors'
 import { requireInvoiceScope } from '../../data/scope'
 import type { InvoiceForecastDto } from '../../data/mappers'
 import { invoiceForecastQuerySchema } from '../../data/validators'
@@ -100,9 +101,11 @@ export async function GET(req: Request) {
 
     return NextResponse.json(forecast satisfies InvoiceForecastDto)
   } catch (err) {
-    if (isCrudHttpError(err)) return NextResponse.json(err.body, { status: err.status })
-
     const { translate } = await resolveTranslations()
+    if (isCrudHttpError(err)) {
+      return NextResponse.json(translateInvoiceErrorBody(err.body, translate), { status: err.status })
+    }
+
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: translate('invoice.errors.invalid_input', 'Invalid input') }, { status: 400 })
     }

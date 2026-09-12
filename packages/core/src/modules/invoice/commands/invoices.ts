@@ -1,9 +1,7 @@
 import { registerCommand } from '@open-mercato/shared/lib/commands'
 import type { CommandHandler, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
-import { enforceCommandOptimisticLockWithGuards, enforceRecordGoneIsConflict } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
-
-import { Invoice } from '../data/entities'
 import { requireInvoiceScope } from '../data/scope'
+import { INVOICE_INVOICE_RESOURCE_KIND, enforceInvoiceCommandOptimisticLock } from './shared'
 import {
   invoiceIdSchema,
   invoiceManualCreateSchema,
@@ -21,8 +19,6 @@ import type {
   InvoiceSettlementUpdateResult,
   InvoiceService,
 } from '../services/invoice-service'
-
-const INVOICE_INVOICE_RESOURCE_KIND = 'invoice.invoice'
 
 export type InvoiceManualCreateCommandResult = {
   invoiceId: string
@@ -75,23 +71,7 @@ export const updateManualInvoiceCommand: CommandHandler<unknown, InvoiceManualUp
     const id = invoiceIdSchema.parse(record.id)
     const input = invoiceManualUpdateSchema.parse(record.input ?? record)
     const scope = requireInvoiceScope(ctx)
-    const em = ctx.container.resolve('em') as { findOne: (entity: typeof Invoice, where: Record<string, unknown>) => Promise<Invoice | null> }
-    const current = await em.findOne(Invoice, {
-      id,
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      deletedAt: null,
-    })
-    if (!current) {
-      enforceRecordGoneIsConflict({ resourceKind: INVOICE_INVOICE_RESOURCE_KIND, resourceId: id, request: ctx.request })
-    } else {
-      await enforceCommandOptimisticLockWithGuards(ctx.container, {
-        resourceKind: INVOICE_INVOICE_RESOURCE_KIND,
-        resourceId: id,
-        current: current.updatedAt,
-        request: ctx.request,
-      })
-    }
+    await enforceInvoiceCommandOptimisticLock(ctx, id)
     const result = await serviceFrom(ctx).updateManualInvoice(scope, id, input)
 
     return {
@@ -124,23 +104,7 @@ export const deleteManualInvoiceCommand: CommandHandler<unknown, InvoiceManualDe
     const record = rawInput && typeof rawInput === 'object' ? rawInput as Record<string, unknown> : {}
     const id = invoiceIdSchema.parse(record.id)
     const scope = requireInvoiceScope(ctx)
-    const em = ctx.container.resolve('em') as { findOne: (entity: typeof Invoice, where: Record<string, unknown>) => Promise<Invoice | null> }
-    const current = await em.findOne(Invoice, {
-      id,
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      deletedAt: null,
-    })
-    if (!current) {
-      enforceRecordGoneIsConflict({ resourceKind: INVOICE_INVOICE_RESOURCE_KIND, resourceId: id, request: ctx.request })
-    } else {
-      await enforceCommandOptimisticLockWithGuards(ctx.container, {
-        resourceKind: INVOICE_INVOICE_RESOURCE_KIND,
-        resourceId: id,
-        current: current.updatedAt,
-        request: ctx.request,
-      })
-    }
+    await enforceInvoiceCommandOptimisticLock(ctx, id)
 
     return serviceFrom(ctx).deleteManualInvoice(scope, id)
   },
@@ -176,30 +140,6 @@ export type InvoiceNonRecoverableUpdateCommandResult = {
 export type InvoiceSendCommandResult = {
   invoiceId: string
   invoice: InvoiceManualMutationResult['invoice']
-}
-
-async function enforceInvoiceCommandOptimisticLock(
-  ctx: CommandRuntimeContext,
-  id: string,
-): Promise<void> {
-  const scope = requireInvoiceScope(ctx)
-  const em = ctx.container.resolve('em') as { findOne: (entity: typeof Invoice, where: Record<string, unknown>) => Promise<Invoice | null> }
-  const current = await em.findOne(Invoice, {
-    id,
-    tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
-    deletedAt: null,
-  })
-  if (!current) {
-    enforceRecordGoneIsConflict({ resourceKind: INVOICE_INVOICE_RESOURCE_KIND, resourceId: id, request: ctx.request })
-  } else {
-    await enforceCommandOptimisticLockWithGuards(ctx.container, {
-      resourceKind: INVOICE_INVOICE_RESOURCE_KIND,
-      resourceId: id,
-      current: current.updatedAt,
-      request: ctx.request,
-    })
-  }
 }
 
 export const updateInvoiceDueDateCommand: CommandHandler<unknown, InvoiceDueDateUpdateCommandResult> = {

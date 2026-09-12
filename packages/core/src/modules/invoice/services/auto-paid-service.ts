@@ -1,7 +1,7 @@
 import { raw } from '@mikro-orm/core'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
-import { badRequest, notFound } from '@open-mercato/shared/lib/crud/errors'
 
+import { invoiceBadRequest, invoiceNotFound } from '../data/errors'
 import { Invoice, InvoiceAutoPaidTaxCode } from '../data/entities'
 import type { InvoiceScope } from '../data/scope'
 import {
@@ -128,7 +128,7 @@ export class InvoiceAutoPaidService {
     return this.em.transactional(async (tx) => {
       const scopedPersistence = new InvoiceScopedPersistenceService(tx)
       const rule = await scopedPersistence.findById(InvoiceAutoPaidTaxCode, scope, parsed.id)
-      if (!rule) throw notFound('[internal] Invoice auto-paid rule not found')
+      if (!rule) throw invoiceNotFound('invoice.errors.auto_paid_rule_not_found', 'Invoice auto-paid rule not found')
 
       const taxCode = rule.taxCode
       const txService = new InvoiceAutoPaidService(tx, scopedPersistence)
@@ -154,9 +154,9 @@ export class InvoiceAutoPaidService {
   async reverseInvoice(scope: InvoiceScope, input: InvoiceAutoPaidReverseInput): Promise<InvoiceAutoPaidReverseResult> {
     const parsed = invoiceAutoPaidReverseSchema.parse(input)
     const invoice = await this.scopedPersistence.findById(Invoice, scope, parsed.invoiceId)
-    if (!invoice) throw notFound('[internal] Invoice not found')
-    if (invoice.direction !== 'AP') throw badRequest('[internal] Only AP invoices can reverse auto-paid settlement')
-    if (!invoice.autoSettled) throw badRequest('[internal] Invoice is not auto-settled')
+    if (!invoice) throw invoiceNotFound('invoice.errors.invoice_not_found', 'Invoice not found')
+    if (invoice.direction !== 'AP') throw invoiceBadRequest('invoice.errors.reverse_requires_ap', 'Only AP invoices can reverse auto-paid settlement')
+    if (!invoice.autoSettled) throw invoiceBadRequest('invoice.errors.not_auto_settled', 'Invoice is not auto-settled')
 
     invoice.settlementStatus = 'UNSETTLED'
     invoice.paidAmount = '0'

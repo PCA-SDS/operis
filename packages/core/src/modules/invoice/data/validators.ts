@@ -345,6 +345,9 @@ export type InvoiceManualWriteInput = z.infer<typeof invoiceManualWriteSchema>
 export type InvoiceManualLineItemInput = z.infer<typeof invoiceManualLineItemInputSchema>
 
 export const invoiceForecastQuerySchema = z.object({
-  throughDate: z.string().trim().optional(),
+  // A bare calendar day, not a datetime: the forecast buckets on the UTC date and
+  // a loose `new Date()` parse silently accepted "2026" and "12/31/2026", and
+  // shifted an offset-bearing timestamp into the previous day's bucket.
+  throughDate: invoiceDateStringSchema.optional(),
 }).strict()
 export type InvoiceForecastQueryInput = z.infer<typeof invoiceForecastQuerySchema>

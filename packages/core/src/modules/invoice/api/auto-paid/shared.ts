@@ -20,6 +20,7 @@ import {
   invoiceIdSchema,
 } from '../../data/validators'
 import { invoiceAutoPaidTag, invoiceCommonErrors, invoiceInvoicesTag } from '../openapi'
+import { translateInvoiceErrorBody } from '../../data/errors'
 
 const logger = createLogger('invoice').child({ component: 'auto-paid-api' })
 
@@ -167,8 +168,10 @@ export async function handleInvoiceAutoPaidRouteError(
   err: unknown,
   label: string,
 ): Promise<NextResponse> {
-  if (isCrudHttpError(err)) return NextResponse.json(err.body, { status: err.status })
   const { translate } = await resolveTranslations()
+  if (isCrudHttpError(err)) {
+    return NextResponse.json(translateInvoiceErrorBody(err.body, translate), { status: err.status })
+  }
   if (err instanceof z.ZodError) {
     return NextResponse.json({ error: translate('invoice.errors.invalid_input', 'Invalid input') }, { status: 400 })
   }
