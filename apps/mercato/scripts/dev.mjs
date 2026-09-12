@@ -13,6 +13,7 @@ import {
   resolveUnexpectedExitCode,
 } from './dev-runtime-log-policy.mjs'
 import { getProcessTreeMemorySample } from './dev-memory-monitor.mjs'
+import { applyWarmupReadyFileEnv, resolveWarmupReadyFile } from './dev-warmup-marker.mjs'
 
 function resolveSplashHelpersImport() {
   const candidates = [
@@ -125,8 +126,11 @@ const verbose = !classic && (process.argv.includes('--verbose') || process.env.M
 const rawPassthrough = classic || verbose
 const interactiveLogToggle = !rawPassthrough && process.stdin.isTTY && process.stdout.isTTY && process.env.CI !== 'true'
 const splashChildStateFile = process.env.OM_DEV_SPLASH_CHILD_STATE_FILE?.trim() || null
-const warmupReadyFile = process.env.OM_DEV_WARMUP_READY_FILE?.trim()
-  || (splashChildStateFile ? `${splashChildStateFile}.warmup-ready` : null)
+const warmupReadyFile = resolveWarmupReadyFile({
+  rawPassthrough,
+  envValue: process.env.OM_DEV_WARMUP_READY_FILE,
+  splashChildStateFile,
+})
 const splashMode = process.env.OM_DEV_SPLASH_MODE?.trim() || 'dev'
 const setupSplashMode = splashMode === 'setup'
 const startupSplashPhase = setupSplashMode ? 'Project setup is in progress...' : 'Installation and first compilation is in progress...'
@@ -616,13 +620,12 @@ function spawnMercato(args) {
   const resolvedSpawn = resolveSpawnCommand(command, args)
   const child = spawn(resolvedSpawn.command, resolvedSpawn.args, {
     stdio: rawPassthrough ? 'inherit' : 'pipe',
-    env: {
+    env: applyWarmupReadyFileEnv({
       ...process.env,
       OM_CLI_QUIET: rawPassthrough ? process.env.OM_CLI_QUIET : '1',
       DOTENV_CONFIG_QUIET: rawPassthrough ? process.env.DOTENV_CONFIG_QUIET : 'true',
       ...(!rawPassthrough ? { OM_DEV_SPLASH_RUNTIME_WRAPPER: '1' } : {}),
-      ...(!rawPassthrough && warmupReadyFile ? { OM_DEV_WARMUP_READY_FILE: warmupReadyFile } : {}),
-    },
+    }, warmupReadyFile),
     ...resolvedSpawn.spawnOptions,
   })
 
@@ -1094,6 +1097,7 @@ async function runTargetedRouteWarmup() {
         })
         console.log(formatStatusOutput(`❌ ${detail}`, runtimeProgressCurrent, progressLabel))
         markMemoryTrace('warmup:failure', 'Warmup failed', { reason, attempts: attempt })
+        writeWarmupReadyFile('warmup-failed')
         return
       }
       const retryBaseMessage = runtimeWarmupState.tenantId && looksLikeTenantSelectionError(reason)
