@@ -96,6 +96,30 @@ test.describe('TC-SALES-039: Public quote tenant guard', () => {
         'organization create response should contain an id',
       )
 
+      /**
+       * Entitle `sales` on the tenant this test just made.
+       *
+       * A freshly provisioned tenant gets only the modules in the MVP default
+       * plan, and `sales` is not one of them — the harness's
+       * `sync-tenant-modules --enable-all` runs once at environment setup and
+       * cannot know about a tenant created mid-test. Without this the quote
+       * fixture came back `403 FEATURE_NOT_AVAILABLE`, which reads as the guard
+       * under test firing when it is really the fixture never being creatable.
+       */
+      const entitlementResponse = await apiRequest(
+        request,
+        'PUT',
+        '/api/directory/tenant-modules',
+        {
+          token: superadminToken,
+          data: { tenantId: foreignTenantId, moduleId: 'sales', isEnabled: true },
+        },
+      )
+      expect(
+        entitlementResponse.ok(),
+        'sales should be entitled on the foreign tenant fixture',
+      ).toBeTruthy()
+
       const foreignScopeCookie = scopeCookie(foreignTenantId, foreignOrganizationId)
       const quoteResponse = await scopedRequest(request, 'POST', '/api/sales/quotes', {
         token: superadminToken,

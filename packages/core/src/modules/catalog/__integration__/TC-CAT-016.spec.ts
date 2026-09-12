@@ -31,7 +31,11 @@ test.describe('TC-CAT-016: Category Edit and Delete', () => {
       await login(page, 'admin')
       await page.goto(`/backend/catalog/categories/${categoryId}/edit`, { waitUntil: 'domcontentloaded' })
 
-      const nameField = page.getByRole('textbox', { name: 'e.g., Footwear' })
+      const nameField = // The category form is a CrudForm, so the Name field carries a real <Label> and
+      // its accessible name is "Name" — the `e.g., Footwear` placeholder this used to
+      // match is now only a placeholder. (The hand-rolled product form has no labels,
+      // which is why TC-CAT-003's `e.g., Summer sneaker` still resolves.)
+      page.getByRole('textbox', { name: /^Name$/ })
       await expect(nameField).toBeVisible()
       await nameField.clear()
       await nameField.fill(updatedName)
