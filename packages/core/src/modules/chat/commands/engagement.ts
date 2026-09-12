@@ -1,20 +1,22 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
-import { forbidden, isUniqueViolation, notFound } from '@open-mercato/shared/lib/crud/errors'
-import { ChatMessage, ChatMessageReaction, ChatPinnedMessage } from '../data/entities'
+import { forbidden, isUniqueViolation } from '@open-mercato/shared/lib/crud/errors'
+import { ChatMessageReaction, ChatPinnedMessage } from '../data/entities'
 import { dbNow } from '../lib/clock'
 import { loadChatMessages } from '../lib/messages'
 import type { ChatScope } from '../lib/scope'
-import { loadSpaceContext } from '../lib/spaces'
 import {
   actingUserId,
+  chatTransportFrom,
   conversationAudience,
   emitConversationEvent,
   ensureOrganizationScope,
   ensureTenantScope,
   forkEm,
+  requireMessageInConversation,
 } from './shared'
+import { publishReactionSafely } from '../lib/transport'
 
 export type ToggleReactionInput = {
   tenantId: string
@@ -29,36 +31,6 @@ export type PinMessageInput = {
   organizationId: string
   conversationId: string
   messageId: string
-}
-
-/**
- * The message must live in the conversation the caller named, and the caller
- * must be in that conversation.
- *
- * Both halves matter. `loadSpaceContext` proves membership and answers 404 for a
- * conversation the caller is not in; re-reading the message under the SAME
- * conversation id proves the message belongs there. Without the second check a
- * forged id from another space would be reactable and pinnable by anyone who
- * happened to be in some conversation — the composite foreign keys would refuse
- * to store it, but as a 500 rather than the 404 it actually is.
- */
-async function requireMessageInConversation(
-  em: EntityManager,
-  scope: ChatScope,
-  conversationId: string,
-  messageId: string,
-  userId: string,
-) {
-  const context = await loadSpaceContext(em, scope, conversationId, userId)
-  const message = await em.findOne(ChatMessage, {
-    id: messageId,
-    conversationId,
-    tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
-    deletedAt: null,
-  })
-  if (!message) throw notFound((await loadChatMessages()).messageNotFound)
-  return { ...context, message }
 }
 
 /**
@@ -122,6 +94,20 @@ const toggleReactionCommand: CommandHandler<
       }
       reacted = true
     }
+
+    // Mirror it outward, after the toggle has committed and never fatally.
+    //
+    // Reactions live in `chat_message_reactions` whichever system owns the
+    // message stream, so this is for the benefit of anything else reading the
+    // room — a native client, or later a bridge — and is not something the
+    // user's action depends on. With the default `local` transport it is a no-op.
+    await publishReactionSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
+      conversationId: input.conversationId,
+      messageId: input.messageId,
+      userId,
+      emoji: input.emoji,
+      added: reacted,
+    })
 
     const recipients = await conversationAudience(forkEm(ctx), scope, input.conversationId)
     await emitConversationEvent('chat.message.reacted', scope, recipients, {

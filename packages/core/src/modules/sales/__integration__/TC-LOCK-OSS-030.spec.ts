@@ -8,6 +8,7 @@ import {
   readUpdatedAt,
 } from '@open-mercato/core/modules/core/__integration__/helpers/optimisticLockUi'
 import { fillControlledInput } from '@open-mercato/core/modules/core/__integration__/helpers/ui'
+import { tableRowByText } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom'
 
 /**
  * TC-LOCK-OSS-030 — sales settings dialogs SAL-14 / SAL-15 / SAL-16:
@@ -134,7 +135,15 @@ async function assertStalePutConflicts(
  * unambiguously. Then click its "Open actions" menu → "Edit".
  */
 async function openEditDialogForRow(page: Page, uniqueName: string): Promise<Locator> {
-  const row = page.locator('tr', { hasText: uniqueName }).first()
+  /**
+   * `tableRowByText`, not `page.locator('tr')`.
+   *
+   * `Table` is a CSS grid: rows are `div`s carrying `role`/`data-slot` hooks,
+   * so a native `tr` selector matches nothing and the spec fails as "row not
+   * visible" rather than as a broken selector. This file was a straggler from
+   * the grid rebuild that `helpers/tableDom.ts` exists to absorb.
+   */
+  const row = tableRowByText(page, uniqueName)
   await expect(row, `row "${uniqueName}" should be visible on the config page`).toBeVisible({ timeout: 20_000 })
   await page.keyboard.press('Escape').catch(() => {})
   await row.getByRole('button', { name: /open actions/i }).click()

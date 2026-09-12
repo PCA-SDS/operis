@@ -191,6 +191,18 @@ export const chatApi = {
       jsonInit('POST', { emoji }),
     )).result!,
 
+  editMessage: async (conversationId: string, messageId: string, body: string) =>
+    (await apiCallOrThrow<{ messageId: string; body: string; editedAt: string }>(
+      `${BASE}/conversations/${conversationId}/messages/${messageId}`,
+      jsonInit('PATCH', { body }),
+    )).result!,
+
+  deleteMessage: async (conversationId: string, messageId: string) =>
+    (await apiCallOrThrow<{ messageId: string; deletedAt: string }>(
+      `${BASE}/conversations/${conversationId}/messages/${messageId}`,
+      jsonInit('DELETE'),
+    )).result!,
+
   setPinned: async (conversationId: string, messageId: string, pinned: boolean) =>
     (await apiCallOrThrow<{ pinned: boolean }>(
       `${BASE}/conversations/${conversationId}/messages/${messageId}/pin`,

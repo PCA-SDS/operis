@@ -88,16 +88,22 @@ test.describe('TC-WF-006: Create and delete workflow definition via UI', () => {
       // Submit (two identical buttons — header + footer; click the first)
       await page.getByRole('button', { name: /^create workflow$/i }).first().click()
 
-      // Back to list — entry should be visible
-      await expect(page).toHaveURL(/\/backend\/definitions(\?|$|\/)/, { timeout: 15_000 })
+      // Back to list — entry should be visible.
+      // Anchor the match so a failed submit (which leaves the browser on
+      // /backend/definitions/create) cannot satisfy this assertion.
+      await expect(page).toHaveURL(/\/backend\/definitions(?:\?|$)/, { timeout: 15_000 })
       await expect(page.getByRole('heading', { name: /workflow definitions/i })).toBeVisible()
 
-      const searchBox = page.getByPlaceholder(/search/i).first()
-      if (await searchBox.isVisible().catch(() => false)) {
-        await fillText(page, searchBox, workflowId)
-        // Filter bar submits on Enter or via Apply button; both work in this repo
-        await searchBox.press('Enter').catch(() => undefined)
-      }
+      // This list has no inline search box — its text filter lives inside the
+      // Filters overlay. Narrow the list through that overlay so the assertion
+      // below does not depend on the new row landing on page 1 (the API sorts
+      // by workflow name and pages at 20).
+      await page.getByRole('button', { name: /Filters/i }).first().click()
+      const filterPanel = page.locator('.fixed.inset-0')
+      await expect(filterPanel).toBeVisible()
+      await fillText(page, filterPanel.getByPlaceholder(/search by workflow name or id/i), workflowId)
+      await filterPanel.getByRole('button', { name: /^Apply$/i }).first().click()
+      await expect(filterPanel).toBeHidden()
 
       const row = page.getByRole('row').filter({ hasText: workflowId })
       await expect(row).toBeVisible({ timeout: 10_000 })

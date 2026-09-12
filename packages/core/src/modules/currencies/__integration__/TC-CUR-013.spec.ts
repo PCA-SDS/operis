@@ -64,9 +64,11 @@ test.describe('TC-CUR-013: Currency-fetching provider toggle routes through the 
       await login(page, 'admin');
       await page.goto('/backend/config/currency-fetching');
 
-      // Scope to the NBP provider card (`bg-card` is the DS card container) so we target
-      // only its switch, never the other provider's.
-      const nbpCard = page.locator('.bg-card').filter({
+      // Scope to the NBP provider card so we target only its switch, never the
+      // other provider's. Provider cards are the `rounded-xl` ones — the
+      // surrounding section is also `bg-surface` and also contains the heading,
+      // so matching on the background token alone would select both.
+      const nbpCard = page.locator('div.rounded-xl.bg-surface').filter({
         has: page.getByRole('heading', { name: NBP_HEADING }),
       });
       await expect(nbpCard).toHaveCount(1, { timeout: 15_000 });

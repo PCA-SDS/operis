@@ -3,6 +3,7 @@ import { apiRequest, getAuthToken } from '@open-mercato/core/modules/core/__inte
 import { createCategoryFixture, deleteCatalogCategoryIfExists } from '@open-mercato/core/modules/core/__integration__/helpers/catalogFixtures'
 import { login } from '@open-mercato/core/modules/core/__integration__/helpers/auth'
 import { deleteTranslationIfExists, getLocales, setLocales } from './helpers/translationFixtures'
+import { tableBody } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom'
 
 const ENTITY_TYPE = 'catalog:catalog_product_category'
 
@@ -18,7 +19,18 @@ async function openTranslationsDrawer(page: Page): Promise<Locator> {
 }
 
 async function waitForTranslationField(dialog: Locator, preferredPlaceholder?: string): Promise<Locator> {
-  const firstEditableField = dialog.locator('table').locator('input, textarea').first()
+  /**
+   * `tableBody`, not `locator('table')`.
+   *
+   * `TranslationManager` renders the design-system `<Table>`, which is a CSS grid:
+   * `<div role="table" data-slot="table">` with no native `<table>` anywhere. A
+   * CSS `table` selector therefore matches nothing and the spec fails as "no
+   * translation input available" rather than as a broken selector — the same
+   * grid-rebuild fallout `helpers/tableDom.ts` exists to absorb. Scoping to the
+   * body also excludes any header control, which is what these specs mean by
+   * "the translation fields".
+   */
+  const firstEditableField = tableBody(dialog).locator('input, textarea').first()
   await expect(firstEditableField).toBeVisible()
 
   const normalizedPlaceholder = preferredPlaceholder?.trim()
