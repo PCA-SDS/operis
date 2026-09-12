@@ -389,6 +389,16 @@ export class AppointmentSeatPlannerService {
 
     const resourceOrganizationIds = await this.getResourceOrganizationIds(params.tenantId, line.organizationId)
 
+    // Get all line IDs for this appointment to exclude from conflict checking
+    // (same booking lines CAN stack on the same resource)
+    const appointmentLines = await this.em.find(AppointmentLine, {
+      appointment: params.appointmentId,
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
+      deletedAt: null,
+    })
+    const excludeSourceEntityIds = appointmentLines.map((l) => l.id)
+
     // Use the assignment service
     return this.assignmentService.upsertDraft({
       tenantId: params.tenantId,
@@ -403,6 +413,8 @@ export class AppointmentSeatPlannerService {
       title: line.productTitle ?? undefined,
       userId: params.userId,
       organizationIds: resourceOrganizationIds,
+      excludeSourceEntityIds,
+      includeDraftConflicts: true,
     })
   }
 

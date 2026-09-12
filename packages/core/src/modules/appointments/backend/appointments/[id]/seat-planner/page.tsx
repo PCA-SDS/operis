@@ -805,22 +805,27 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       flash(t('appointments.seatPlanner.beforeEarliestError', 'This booking cannot start before the requested time.'), 'error')
       return
     }
-    const overlapping = (allocationsBySeat.get(resourceId) ?? []).some((allocation) => {
-      if (allocation.appointmentId === workspace.appointment.id) return false
-      const start = new Date(allocation.startsAt)
-      const end = new Date(allocation.endsAt)
-      return startMinutes >= start.getHours() * 60 + start.getMinutes() && startMinutes < end.getHours() * 60 + end.getMinutes()
-    })
-    if (overlapping) {
-      flash(t('appointments.seatPlanner.resourceBooked', 'That resource is already booked for this time.'), 'error')
-      return
-    }
     const activeIndex = workspace.lines.findIndex((line) => line.id === activeLine.id)
     let nextStart = buildIsoFromSlot(workspace.appointment.requestedStartAt, time)
+    const plannedAssignments: Array<{ line: SeatPlannerLine; startsAt: string; duration: number }> = []
     for (const line of workspace.lines.slice(Math.max(0, activeIndex))) {
       if (line.id !== activeLine.id && line.currentAssignment) break
-      await saveDraft(line, resourceId, nextStart, lineDuration(line))
-      nextStart = addMinutes(nextStart, lineDuration(line))
+      const duration = lineDuration(line)
+      const endsAt = addMinutes(nextStart, duration)
+      const overlapping = (allocationsBySeat.get(resourceId) ?? []).some((allocation) => {
+        if (allocation.appointmentId === workspace.appointment.id) return false
+        return new Date(nextStart).getTime() < new Date(allocation.endsAt).getTime()
+          && new Date(allocation.startsAt).getTime() < new Date(endsAt).getTime()
+      })
+      if (overlapping) {
+        flash(t('appointments.seatPlanner.resourceBooked', 'That resource is already booked for this time.'), 'error')
+        return
+      }
+      plannedAssignments.push({ line, startsAt: nextStart, duration })
+      nextStart = endsAt
+    }
+    for (const assignment of plannedAssignments) {
+      await saveDraft(assignment.line, resourceId, assignment.startsAt, assignment.duration)
     }
     flash(t('appointments.seatPlanner.saved', 'Assignment saved'), 'success')
   }, [activeLine, allocationsBySeat, earliestMinutes, saveDraft, t, workspace])
@@ -839,9 +844,19 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const handleDurationChange = React.useCallback(async (allocation: PlannerAllocation, nextDuration: number) => {
     const line = workspace?.lines.find((entry) => entry.id === allocation.lineId)
     if (!line || allocation.appointmentId !== workspace?.appointment.id) return
+    const nextEndsAt = addMinutes(allocation.startsAt, nextDuration)
+    const overlapping = (allocationsBySeat.get(allocation.resourceId) ?? []).some((candidate) => {
+      if (candidate.appointmentId === workspace.appointment.id) return false
+      return new Date(allocation.startsAt).getTime() < new Date(candidate.endsAt).getTime()
+        && new Date(candidate.startsAt).getTime() < new Date(nextEndsAt).getTime()
+    })
+    if (overlapping) {
+      flash(t('appointments.seatPlanner.resourceBooked', 'That resource is already booked for this time.'), 'error')
+      return
+    }
     await saveDraft(line, allocation.resourceId, allocation.startsAt, nextDuration, allocation.assignedMemberId ?? null)
     setPopoverState(null)
-  }, [saveDraft, workspace])
+  }, [allocationsBySeat, flash, saveDraft, t, workspace])
 
   const handleAssignStaff = React.useCallback(async (target: StaffSheetTarget, staffId: string | null) => {
     const line = target.line

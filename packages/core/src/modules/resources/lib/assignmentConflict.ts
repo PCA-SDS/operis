@@ -17,6 +17,8 @@ export interface ConflictCheckOptions {
   excludeAssignmentId?: string
   /** Source entity IDs to exclude (e.g., same booking's other lines for chaining) */
   excludeSourceEntityIds?: string[]
+  /** Include draft assignments when a draft reserves a slot for its module. */
+  includeDrafts?: boolean
 }
 
 export interface ValidationResult {
@@ -53,6 +55,7 @@ export class AssignmentConflictService {
     excludeAssignmentId?: string
     excludeSourceEntityIds?: string[]
     organizationIds?: string[]
+    includeDrafts?: boolean
   }): Promise<ValidationResult> {
     // 1. Check resource exists & is active
     const scopedOrganizationIds = params.organizationIds?.length ? params.organizationIds : [params.organizationId]
@@ -98,7 +101,11 @@ export class AssignmentConflictService {
       undefined,
       params.startsAt,
       params.endsAt,
-      { excludeAssignmentId: params.excludeAssignmentId, excludeSourceEntityIds: params.excludeSourceEntityIds },
+      {
+        excludeAssignmentId: params.excludeAssignmentId,
+        excludeSourceEntityIds: params.excludeSourceEntityIds,
+        includeDrafts: params.includeDrafts,
+      },
     )
     if (!conflictCheck.valid) {
       return conflictCheck
@@ -242,8 +249,8 @@ export class AssignmentConflictService {
   }
 
   /**
-   * Check that there are no conflicting confirmed assignments
-   * Draft assignments do not conflict with each other
+   * Check that there are no conflicting assignments.
+   * Draft conflicts are opt-in because some generic modules use drafts as a preview.
    */
   async checkNoConfirmedConflicts(
     resourceId: string,
@@ -256,13 +263,13 @@ export class AssignmentConflictService {
     const where: Record<string, unknown> = {
       tenantId,
       resource: resourceId,
-      state: 'confirmed',
       cancelledAt: null,
       startsAt: { $lt: endsAt },
       endsAt: { $gt: startsAt },
     }
 
     if (organizationId) where.organizationId = organizationId
+    if (!options?.includeDrafts) where.state = 'confirmed'
 
     if (options?.excludeAssignmentId) {
       where.id = { $ne: options.excludeAssignmentId }

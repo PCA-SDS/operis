@@ -37,6 +37,10 @@ export interface AssignmentUpsertParams {
   title?: string
   organizationIds?: string[]
 
+  // Conflict exclusion (e.g., same booking's other lines can stack)
+  excludeSourceEntityIds?: string[]
+  includeDraftConflicts?: boolean
+
   // Audit
   userId?: string | null
 }
@@ -266,7 +270,12 @@ export class ResourceAssignmentService {
    * - Automatically cancels old confirmed assignment for the same source entity
    */
   async upsertDraft(params: AssignmentUpsertParams): Promise<AssignmentDTO> {
-    // Validate assignment
+    // Validate assignment - exclude source entity IDs from conflict check
+    // (allows same booking lines to stack on same resource)
+    const excludeSourceEntityIds = [
+      params.sourceEntityId,  // Always exclude self
+      ...(params.excludeSourceEntityIds ?? []),  // Plus caller-provided exclusions
+    ]
     const validation = await this.conflictService.validateAssignment({
       tenantId: params.tenantId,
       organizationId: params.organizationId,
@@ -274,7 +283,8 @@ export class ResourceAssignmentService {
       startsAt: params.startsAt,
       endsAt: params.endsAt,
       organizationIds: params.organizationIds,
-      excludeSourceEntityIds: [params.sourceEntityId], // Allow chaining with self
+      includeDrafts: params.includeDraftConflicts,
+      excludeSourceEntityIds,
     })
 
     if (!validation.valid) {
