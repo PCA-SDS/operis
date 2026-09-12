@@ -277,7 +277,12 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
           })) || [],
         })
       } catch (err) {
-        if (!cancelled) console.error(err)
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return
+        // The !ok branch above redirects; a thrown error used to leave the page
+        // on "Loading..." forever, because initialData stays null and nothing
+        // tells the user why.
+        flash(t('appointments.edit.loadFailed', 'Unable to load this appointment.'), 'error')
+        router.push('/backend/appointments')
       } finally {
         if (!cancelled) setDataLoading(false)
       }
@@ -287,7 +292,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
       cancelled = true
       controller.abort()
     }
-  }, [appointmentId, router])
+  }, [appointmentId, router, t])
 
   const lookupCustomer = React.useCallback(
     async (
@@ -310,7 +315,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
         }>(
           '/api/customers/people/check',
           {
-            method: 'PUT',
+            method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
               tenantId,

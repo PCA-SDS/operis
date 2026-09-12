@@ -4,12 +4,18 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { enforceCommandOptimisticLockWithGuards } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { Appointment, AppointmentStatus } from '../../../data/entities'
 import { appointmentStatusCatalogUpdateSchema } from '../../../data/validators'
 import {
   isAppointmentSystemStatusCode,
   mapAppointmentStatusRow,
 } from '../../../lib/statusCatalog'
+
+// AppointmentStatusSettings sends buildOptimisticLockHeader(status.updatedAt)
+// on both edit and delete; without this the header was read by nobody and
+// two admins editing the tenant status catalog silently clobbered each other.
+const APPOINTMENT_STATUS_RESOURCE_KIND = 'appointments.status'
 
 export const metadata = {
   PATCH: { requireAuth: true, requireFeatures: ['appointments.settings.manage'] },
@@ -47,6 +53,14 @@ export async function PATCH(req: Request, context: RouteContext) {
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
     const row = await findActiveStatus(em, auth.tenantId, id)
+    if (row) {
+      await enforceCommandOptimisticLockWithGuards(container, {
+        resourceKind: APPOINTMENT_STATUS_RESOURCE_KIND,
+        resourceId: row.id,
+        current: row.updatedAt ?? null,
+        request: req,
+      })
+    }
     if (!row) {
       return NextResponse.json(
         {
@@ -120,6 +134,14 @@ export async function DELETE(req: Request, context: RouteContext) {
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
     const row = await findActiveStatus(em, auth.tenantId, id)
+    if (row) {
+      await enforceCommandOptimisticLockWithGuards(container, {
+        resourceKind: APPOINTMENT_STATUS_RESOURCE_KIND,
+        resourceId: row.id,
+        current: row.updatedAt ?? null,
+        request: req,
+      })
+    }
     if (!row) {
       return NextResponse.json(
         {
