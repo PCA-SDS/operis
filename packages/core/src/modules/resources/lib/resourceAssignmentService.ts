@@ -267,7 +267,7 @@ export class ResourceAssignmentService {
    * Business rules:
    * - Creates draft assignment for the specified resource
    * - Validates against blocks, availability, and conflicts
-   * - Automatically cancels old confirmed assignment for the same source entity
+ * - Keeps the confirmed assignment as a baseline until the draft is confirmed
    */
   async upsertDraft(params: AssignmentUpsertParams): Promise<AssignmentDTO> {
     // Validate assignment - exclude source entity IDs from conflict check
@@ -293,56 +293,30 @@ export class ResourceAssignmentService {
       throw error
     }
 
-    // Check for existing assignment for this source entity
-    const existing = await this.em.findOne(ResourcesAssignment, {
+    // Keep confirmed assignments as the baseline while editing. There should be
+    // at most one active draft for a source entity; update it when present.
+    const existingDraft = await this.em.findOne(ResourcesAssignment, {
       tenantId: params.tenantId,
       organizationId: params.organizationId,
       sourceModule: params.sourceModule,
       sourceEntityType: params.sourceEntityType,
       sourceEntityId: params.sourceEntityId,
+      state: 'draft',
       cancelledAt: null,
     })
 
     let assignment: ResourcesAssignment
 
-    if (existing) {
-      // If there's a confirmed assignment, cancel it first
-      if (existing.state === 'confirmed') {
-        existing.cancelledAt = new Date()
-        existing.updatedAt = new Date()
-        this.em.persist(existing)
-      }
-
-      // Update existing draft or create new if old one was confirmed
-      if (existing.state === 'draft') {
-        // Use assign() to update ManyToOne relation with raw ID
-        this.em.assign(existing, {
-          resource: params.resourceId,
-          startsAt: params.startsAt,
-          endsAt: params.endsAt,
-          assignedMemberId: params.assignedMemberId ?? null,
-          title: params.title ?? null,
-        })
-        assignment = existing
-      } else {
-        // Create new assignment after cancelling old confirmed
-        assignment = this.em.create(ResourcesAssignment, {
-          tenantId: params.tenantId,
-          organizationId: params.organizationId,
-          sourceModule: params.sourceModule,
-          sourceEntityType: params.sourceEntityType,
-          sourceEntityId: params.sourceEntityId,
-          resource: params.resourceId,
-          state: 'draft',
-          startsAt: params.startsAt,
-          endsAt: params.endsAt,
-          assignedMemberId: params.assignedMemberId ?? null,
-          title: params.title ?? null,
-          createdByUserId: params.userId ?? null,
-        })
-      }
+    if (existingDraft) {
+      this.em.assign(existingDraft, {
+        resource: params.resourceId,
+        startsAt: params.startsAt,
+        endsAt: params.endsAt,
+        assignedMemberId: params.assignedMemberId ?? null,
+        title: params.title ?? null,
+      })
+      assignment = existingDraft
     } else {
-      // Create new draft assignment
       assignment = this.em.create(ResourcesAssignment, {
         tenantId: params.tenantId,
         organizationId: params.organizationId,
@@ -414,6 +388,10 @@ export class ResourceAssignmentService {
       state: 'draft',
       cancelledAt: null,
     })
+
+    if (drafts.length === 0) {
+      return []
+    }
 
     // Find and cancel any existing confirmed assignments
     const confirmed = await this.em.find(ResourcesAssignment, {

@@ -1025,7 +1025,11 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     if (!workspace) return []
     const bySeat = new Map<string, PlannerAllocation[]>()
     const allocations = new Map<string, PlannerAllocation>()
-    for (const allocation of workspace.allocations) allocations.set(allocation.id, allocation)
+    const ownLineIds = new Set(ownAllocations.map((allocation) => allocation.lineId))
+    for (const allocation of workspace.allocations) {
+      if (allocation.appointmentId === workspace.appointment.id && ownLineIds.has(allocation.lineId)) continue
+      allocations.set(allocation.id, allocation)
+    }
     for (const allocation of ownAllocations) allocations.set(allocation.id, allocation)
     for (const allocation of allocations.values()) bySeat.set(allocation.resourceId, [...(bySeat.get(allocation.resourceId) ?? []), allocation])
     return [...bySeat.values()].flatMap(computeLanes)
@@ -1106,6 +1110,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     }
     setWorkspace((current) => current ? {
       ...current,
+      allocations: current.allocations.filter((allocation) => !(allocation.appointmentId === current.appointment.id && allocation.lineId === line.id)),
       lines: current.lines.map((entry) => entry.id === line.id ? { ...entry, currentAssignment: optimisticAssignment } : entry),
     } : current)
 
@@ -1162,6 +1167,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       await loadWorkspace()
       throw error
     }
+    await loadWorkspace(undefined, false)
     setPopoverState(null)
     flash(t('appointments.seatPlanner.draftCleared', 'Draft cleared'), 'success')
   }, [confirm, guardedMutation, loadWorkspace, t, workspace])

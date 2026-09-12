@@ -353,10 +353,9 @@ export class AppointmentSeatPlannerService {
           sourceEntityId: line.id,
         })
 
-        // Find confirmed or draft assignment
-        const assignment = assignments.find(
-          (a) => a.state === 'confirmed' || a.state === 'draft',
-        )
+        // Drafts overlay the confirmed baseline while the booking is being edited.
+        const assignment = assignments.find((a) => a.state === 'draft')
+          ?? assignments.find((a) => a.state === 'confirmed')
 
         // Find resource name
         const resource = assignment
