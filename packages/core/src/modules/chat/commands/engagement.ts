@@ -24,6 +24,19 @@ export type ToggleReactionInput = {
   conversationId: string
   messageId: string
   emoji: string
+  /**
+   * Set only by the transport's projector, never by an HTTP caller.
+   *
+   * A reaction that already exists in the messaging system, replayed inward. It
+   * suppresses the mirror — the annotation is the reason this call is happening
+   * — and, because a Matrix annotation says which state it wants rather than
+   * "the other one", it sets that state instead of toggling. Replaying a toggle
+   * is how a redelivered event takes a reaction back.
+   */
+  externalOrigin?: {
+    eventId: string
+    reacted: boolean
+  }
 }
 
 export type PinMessageInput = {
@@ -67,12 +80,15 @@ const toggleReactionCommand: CommandHandler<
       organizationId: scope.organizationId,
     })
 
+    // An inbound annotation names the state it wants; a person pressing the
+    // control means "the other one".
+    const wanted = input.externalOrigin ? input.externalOrigin.reacted : !existing
     let reacted: boolean
-    if (existing) {
+    if (existing && !wanted) {
       em.remove(existing)
       await em.flush()
       reacted = false
-    } else {
+    } else if (!existing && wanted) {
       try {
         const now = await dbNow(em)
         em.persist(
@@ -93,6 +109,10 @@ const toggleReactionCommand: CommandHandler<
         if (!isUniqueViolation(error)) throw error
       }
       reacted = true
+    } else {
+      // Already in the state the caller asked for. Only reachable from the
+      // projector, where converging is the whole point.
+      reacted = wanted
     }
 
     // Mirror it outward, after the toggle has committed and never fatally.
@@ -101,13 +121,15 @@ const toggleReactionCommand: CommandHandler<
     // message stream, so this is for the benefit of anything else reading the
     // room — a native client, or later a bridge — and is not something the
     // user's action depends on. With the default `local` transport it is a no-op.
-    await publishReactionSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
-      conversationId: input.conversationId,
-      messageId: input.messageId,
-      userId,
-      emoji: input.emoji,
-      added: reacted,
-    })
+    if (!input.externalOrigin) {
+      await publishReactionSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
+        conversationId: input.conversationId,
+        messageId: input.messageId,
+        userId,
+        emoji: input.emoji,
+        added: reacted,
+      })
+    }
 
     const recipients = await conversationAudience(forkEm(ctx), scope, input.conversationId)
     await emitConversationEvent('chat.message.reacted', scope, recipients, {

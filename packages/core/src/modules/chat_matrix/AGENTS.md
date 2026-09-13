@@ -1,10 +1,11 @@
 # Chat Matrix Transport — Agent Guidelines
 
-Maps Operis chat conversations onto Matrix rooms. Five mapping tables and
-nothing else: no pages, no API routes, no UI. It exists so that the `chat`
-module can keep every table, constraint and query it already has while a
-homeserver carries the same messages alongside — and so that a WhatsApp bridge,
-later, delivers into the same conversation without chat learning what WhatsApp is.
+Maps Operis chat conversations onto Matrix rooms. Five mapping tables, no pages,
+no UI, and exactly **one** API route — the homeserver's own. It exists so that
+the `chat` module can keep every table, constraint and query it already has
+while a homeserver carries the same messages alongside — and so that a WhatsApp
+bridge, later, delivers into the same conversation without chat learning what
+WhatsApp is.
 
 Architecture: [`ADR-0006`](../../../../../docs/architecture/adr/ADR-0006-matrix-chat-transport.md).
 Spec: [`.ai/specs/2026-09-10-matrix-chat-foundation.md`](../../../../../.ai/specs/2026-09-10-matrix-chat-foundation.md).
@@ -143,6 +144,43 @@ The cursor advances only after the whole batch is projected. An exception leaves
 it where it was and the next tick re-reads the same events, which is safe exactly
 because projection is idempotent on `event_id`.
 
+## Push mode
+
+`OM_MATRIX_APPSERVICE_URL` turns it on: the registration then carries that base
+address and Synapse PUTs each transaction instead of leaving it to be found on
+the next poll. Unset, there is no inbound endpoint for a homeserver to reach.
+
+**The registration `url` is the appservice's BASE address, not the endpoint.**
+A homeserver appends `/_matrix/app/v1/transactions/{txnId}` to whatever it is
+given, so naming the transactions path there produces a PUT with the segment in
+it twice and a 404 on every push — which is exactly what the first attempt did,
+retried with backoff, and logged as `push_bulk … code=404`. The route therefore
+lives at `api/appservice/_matrix/app/v1/transactions/[txnId]`, which is the spec
+path hanging off `/api/chat_matrix/appservice`.
+
+**The endpoint projects nothing.** It verifies the token, records the
+transaction and returns 200. Synapse blocks on that response and holds every
+later transaction behind it — up to 60s per request — so the work happens in
+`workers/appservice-transaction.ts`, at concurrency 1 because transactions
+arrive in order and a relation whose target is still in the previous job is a
+relation that is lost.
+
+**Push does not replace the poll.** A pushed transaction has no cursor: one lost
+while Operis is down is retried by Synapse for a while and then gone, with
+nothing left to rediscover it with. The `/sync` reader keeps its own cursor and
+finds anything push missed, and because projection is idempotent on `event_id`
+running both costs a parked long-poll. Push buys latency; the poll is what still
+guarantees delivery.
+
+**The `hs_token` is the entire security boundary**, because this is the module's
+only unauthenticated surface. It is compared in constant time, before the body
+is read, and a deployment with no token configured refuses everything rather
+than comparing against an empty string. A bad token, an unconfigured deployment
+and a transport that is not Matrix all return the same `403 M_FORBIDDEN`, so
+nothing tells an unauthenticated caller which it was. A failure to RECORD the
+transaction returns 500 on purpose — acknowledging what was not recorded loses
+it permanently.
+
 ## Operating it
 
 ```bash
@@ -159,26 +197,66 @@ only on the paths that actually bind something — so an unscoped `drift` looks
 fine while `--tenant` fails with "there is no parameter $1". Both were written
 that way and both were caught by running the CLI against a real database.
 
+**Two things conspire to run `local` while every log says `matrix`, and both are
+now guarded.** `di.ts` loads the Matrix half through `createRequire` so the
+module stays inert when switched off — but a bundler resolves a RELATIVE
+specifier against the bundled `di.js`, finds nothing, and hands back an empty
+module instead of throwing. `createMatrixChatTransport` was then `undefined`,
+`register` logged "chat transport bound to Matrix" anyway, and the TypeError
+surfaced only when something resolved the token — where
+`chat/commands/shared.ts` caught it and substituted the local transport. Every
+send returned 200 and the homeserver received nothing. So: load the sibling by
+PACKAGE specifier (the form the generated DI registry already uses), take the
+first specifier that carries the export rather than the first that loads, and
+never swallow a `chatTransport` resolution failure. And the app is started via
+`turbo run start`, which is strict about env — `OM_CHAT_TRANSPORT` and every
+`OM_MATRIX_*` must be listed in `turbo.json`'s `globalPassThroughEnv` or they
+never reach the process that reads them.
+
 Two schedules, both registered only when the transport is Matrix: the drift check
 every 15 minutes per organization, and the `/sync` reader every 5 seconds at
 **system** scope — one appservice, one stream, one cursor. A per-organization
 sync would start N readers racing for it.
 
-## What the projector will not do
+## What the projector does, and what it will not
 
-It skips, never throws, on: an event it already knows, a non-message, a redacted
-message, **an `m.replace`**, a room Operis never created, an empty body, and **a
-sender that is not an Operis identity**.
+Four things arrive: a plain message, an `m.reaction`, an `m.room.redaction` and
+an `m.replace` edit. Each **replays through the command that owns the rule** —
+`chat.messages.send`, `.toggleReaction`, `.delete`, `.edit` — never by writing
+`chat_*` rows here. The actor is resolved from the event's `sender`, so Operis'
+own permissions apply to a Matrix action: an edit by someone who is not the
+author is refused, exactly as it would be over HTTP.
 
-The `m.replace` skip is load-bearing and easy to miss: an edit arrives as an
-ordinary `m.room.message` whose fallback body reads `* corrected text`, so
-without it every edit — ours, an engineer's in Element, a bridge's later —
-becomes a duplicate message in the transcript with an asterisk in front. It is
-checked on `rel_type` alone, so a malformed edit is caught too, and so a rich
-reply (no `rel_type`) still projects. That last one is the bot today and a bridged WhatsApp
-contact tomorrow; attributing someone else's words to an employee would be worse
-than not showing them, and doing it properly needs an external-participant model
-the chat schema does not have.
+**A redaction is two different things wearing one event type.** Matrix has no
+un-react — taking a reaction back is redacting the annotation — so what a
+redaction means depends entirely on whether the mapping row for the redacted
+event carries a `message_id` or a `subject_key`. That table is the only thing
+that knows.
+
+**An inbound reaction's mapping row is written BEFORE the command runs**, and
+both halves of that ordering are load-bearing. It is what makes the outbound
+mirror recognise the reaction as already represented and decline to send it
+straight back — `publishReaction` returns early when a row exists for the
+subject key, so no new suppression mechanism was needed. And it is what makes a
+redelivery a no-op: a reaction replayed through a *toggle* is a reaction taken
+away. If the command then refuses, the claim is given back.
+
+**Edits and deletions carry `externalOrigin` instead**, matching a send.
+`publishEdit` records no mapping of its own — the mapping belongs to the message,
+not to each revision — so an Operis edit echoed back cannot be caught by the
+`already-known` gate and is caught by `om.origin` instead.
+
+It still skips, never throws, on: an event it already knows, a non-message, a
+redacted message, a room Operis never created, an empty body, a relation whose
+target has no mapping (`unmapped-target`), a command refusal (`not-permitted`)
+and **a sender that is not an Operis identity**. That last one is the bot today
+and a bridged WhatsApp contact tomorrow; attributing someone else's words to an
+employee would be worse than not showing them, and doing it properly needs an
+external-participant model the chat schema does not have.
+
+One refused event must never stall the stream: the cursor would stop advancing
+and everything behind it would be stuck too, over a permission decision that
+will never change. So a refusal is logged and skipped, not rethrown.
 
 ## Reactions
 
@@ -244,10 +322,85 @@ That is a retention question rather than a consistency one, and the drift check
 does not see it — its query filters `m.deleted_at is null`. The mapping row is
 left in place so a reconciliation can still find the event.
 
+## Attachments
+
+Carried **both ways**, and the bytes are copied rather than linked in each
+direction. Matrix models a file as a message of its own, so a chat message with
+two pictures is three events in the room.
+
+**Outbound**, each file is uploaded to the media repo as the sender and
+announced as an `m.image`/`m.video`/`m.audio`/`m.file`. Best-effort in both
+modes, like an edit and unlike the message itself: a file lives in Operis' own
+store whichever system owns the stream, so a failed copy leaves the room missing
+a picture rather than Operis missing a message. Idempotent on
+`chat_matrix_events.subject_key` (`attachment:<id>`) — that matters more here
+than anywhere else in the transport, because re-uploading is the one operation
+whose cost is measured in megabytes.
+
+**Only `clean` files leave.** `attachments/lib/access.ts` gates serving on
+exactly that status, so copying an `infected` or `failed` file into a room would
+put bytes somewhere Operis itself refuses to serve them from — and a room has no
+scan gate to catch it later.
+
+**Inbound**, the `mxc://` is downloaded and pushed through the same upload
+service the HTTP route uses, so a bridged file is scanned by the same scanner
+and served by the same authorized route as one a colleague uploaded. **Never
+serve a bridged file straight from Synapse** — that is the one thing chat's
+attachment design refuses to allow. It lands as a DRAFT owned by the sender,
+because that is the only shape `chat.messages.send` can link. A file that cannot
+be brought across degrades to a plain message whose body is the filename, which
+is what an unhandled `m.image` used to produce for everything.
+
+The scan is the subtle part. With no scanner configured the upload service
+settles the row to `clean` inline; with a real one the verdict lands on a
+`setImmediate` and the row is `pending` for a moment — long enough for
+`linkDraftAttachmentsToMessage` to refuse it as `not_ready`. So a terminal
+status is trusted as returned, and only a `pending` one is polled for.
+
+## Typing and read receipts
+
+Ephemeral in the strict sense — nothing is stored on either side — which is what
+makes them safe to send on a keystroke and safe to drop on a failure. Neither
+even logs a warning when it fails: the homeserver reports the CURRENT state of
+each, so the next one corrects whatever the last one failed to say.
+
+**Typing goes out only.** `chat.conversations.setTyping` fans an SSE frame to
+everyone in the conversation except the person typing, then mirrors `m.typing`.
+The reader does **not** ask for `m.typing` on its filter, and that is a
+decision rather than an omission: every Operis user's keystrokes are already
+announced directly, so projecting them would duplicate a frame the recipients
+have — and a typist who is not an Operis identity cannot be attributed to
+anybody until the external-participant model exists. Asking for it would cost a
+notification per keystroke in every joined room and buy nothing.
+
+**Receipts go both ways.** `markRead` resolves the cursor to the newest message
+at or before it and announces `m.read`; the reader projects an inbound one back
+through `markRead`, whose clamped, monotonic UPDATE is what makes a redelivered
+receipt free. The one case it serves is real: a colleague reading in Element
+should not still see the conversation unread in Operis. `m.read.private` is
+deliberately not read — it exists so a client can advance its own marker without
+telling the room.
+
+Both carry `externalOrigin` on the way in, for the same reason an edit does:
+without it a receipt read from Matrix is answered with a receipt sent to Matrix,
+forever.
+
+**The first `/sync` after enabling the transport is the slowest thing here.** It
+returns the tail of every joined room at once and the projector touches the
+database for each event. `FIRST_PASS_TIMELINE_LIMIT` bounds the per-room half;
+the room-count half cannot be bounded, because the appservice is joined to every
+conversation by design. Measured at 2,791 events across 279 rooms, that pass ran
+for minutes. The cursor persists, so it is a one-off — but a large installation
+should expect it.
+
 ## Still not done
 
 Pins and membership changes are not mirrored (membership self-heals on a
-refused send instead). Attachments stay in Operis — copying media into the
-Matrix repo is the phase where a bridge needs to relay it. Mention tokens
-(`<@uuid>`) go out verbatim, because resolving them needs names the transport
-does not carry.
+refused send instead). Mention tokens (`<@uuid>`) go out verbatim, because
+resolving them needs names the transport does not carry. An inbound `m.thread`
+reply projects flat. The backfill publishes text only — it predates the seam and
+calls `publishOne` directly rather than going through the transport.
+
+`yarn matrix:gap-probe` asserts every one of these against a live homeserver, so
+closing one makes a probe fail rather than quietly stay true. The remaining
+phases are [`.ai/specs/2026-09-13-chat-matrix-parity.md`](../../../../../.ai/specs/2026-09-13-chat-matrix-parity.md).

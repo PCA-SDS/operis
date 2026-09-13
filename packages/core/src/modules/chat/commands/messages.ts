@@ -34,6 +34,7 @@ import {
   actingUserId,
   chatTransportFrom,
   conversationAudience,
+  conversationRoster,
   emitConversationEvent,
   ensureOrganizationScope,
   ensureTenantScope,
@@ -224,7 +225,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
      * `@everyone` is refused in a direct conversation, where it would mean the
      * one person already reading it.
      */
-    const participantIds = await conversationAudience(em, scope, conversation.id)
+    const { userIds: participantIds, ownerUserIds } = await conversationRoster(em, scope, conversation.id)
     const mentionedUserIds = extractMentionedUserIds(input.body)
     const everyone = mentionsEveryone(input.body)
 
@@ -261,6 +262,14 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
       throw notFound(messages.recipientNotFound)
     }
     const recipients = [senderUserId, ...counterpartIds.filter((userId) => counterparts.has(userId))]
+    /**
+     * Owners, narrowed to the people who are still here.
+     *
+     * The transport seats these at the room's moderation power level. A departed
+     * owner must not be seated: the room is provisioned from `recipients`, so an
+     * owner missing from that list has no mxid to elevate anyway.
+     */
+    const liveOwnerUserIds = ownerUserIds.filter((userId) => recipients.includes(userId))
 
     const transport = chatTransportFrom(ctx)
 
@@ -291,14 +300,14 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
     if (transport.mode === 'authoritative' && !input.externalOrigin) {
       preCommitNow = await dbNow(em)
       const publishEm = forkEm(ctx)
-      await transport.ensureConversation({ em: publishEm }, scope, {
+      await transport.ensureConversation({ em: publishEm, container: ctx.container }, scope, {
         conversationId: conversation.id,
         kind: conversation.kind,
         title: conversation.title ?? null,
         memberUserIds: recipients,
-        ownerUserIds: [],
+        ownerUserIds: liveOwnerUserIds,
       })
-      const published = await transport.publishMessage({ em: publishEm }, scope, {
+      const published = await transport.publishMessage({ em: publishEm, container: ctx.container }, scope, {
         conversationId: conversation.id,
         conversationKind: conversation.kind,
         messageId,
@@ -511,14 +520,14 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
       // A fresh fork: the send transaction has committed, and its manager is a
       // closed unit of work.
       const transportEm = forkEm(ctx)
-      await transport.ensureConversation({ em: transportEm }, scope, {
+      await transport.ensureConversation({ em: transportEm, container: ctx.container }, scope, {
         conversationId: conversation.id,
         kind: conversation.kind,
         title: conversation.title ?? null,
         memberUserIds: recipients,
-        ownerUserIds: [],
+        ownerUserIds: liveOwnerUserIds,
       })
-      const published = await publishMessageSafely(transport, { em: transportEm }, scope, {
+      const published = await publishMessageSafely(transport, { em: transportEm, container: ctx.container }, scope, {
         conversationId: conversation.id,
         conversationKind: conversation.kind,
         messageId: stored.message.id,
@@ -532,7 +541,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         recipientUserIds: recipients,
       })
       if (published.externalId) {
-        await transport.recordPublication({ em: transportEm }, scope, {
+        await transport.recordPublication({ em: transportEm, container: ctx.container }, scope, {
           conversationId: conversation.id,
           messageId: stored.message.id,
           externalId: published.externalId,
@@ -578,12 +587,25 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
 
 registerCommand(sendChatMessageCommand)
 
+/**
+ * Set only by the transport's projector, never by an HTTP caller.
+ *
+ * An edit or deletion that already happened in the messaging system, replayed
+ * inward. It suppresses the mirror: the event IS the change, and re-publishing
+ * would write a second `m.replace` into the room or redact an already-redacted
+ * event. The permission rule is unchanged — the projector resolves the actor
+ * from the event's sender and the command refuses exactly as it would for a
+ * person.
+ */
+export type ChatExternalChangeOrigin = { eventId: string }
+
 export type EditChatMessageInput = {
   tenantId: string
   organizationId: string
   conversationId: string
   messageId: string
   body: string
+  externalOrigin?: ChatExternalChangeOrigin
 }
 
 export type EditChatMessageResult = {
@@ -597,6 +619,7 @@ export type DeleteChatMessageInput = {
   organizationId: string
   conversationId: string
   messageId: string
+  externalOrigin?: ChatExternalChangeOrigin
 }
 
 export type DeleteChatMessageResult = {
@@ -821,14 +844,16 @@ const editChatMessageCommand: CommandHandler<EditChatMessageInput, EditChatMessa
     // Mirrored after the commit and never fatally, in both modes. The row
     // already carries the new body, so a homeserver that refuses this leaves the
     // room showing older words — not Operis showing wrong ones.
-    await publishEditSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
-      conversationId: conversation.id,
-      messageId: message.id,
-      senderUserId: editorUserId,
-      senderName: editor.name,
-      body: input.body,
-      editedAt,
-    })
+    if (!input.externalOrigin) {
+      await publishEditSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
+        conversationId: conversation.id,
+        messageId: message.id,
+        senderUserId: editorUserId,
+        senderName: editor.name,
+        body: input.body,
+        editedAt,
+      })
+    }
 
     // No body in the frame, exactly as a send carries none: clients are told
     // which message changed and refetch it over the authorized route.
@@ -960,12 +985,14 @@ const deleteChatMessageCommand: CommandHandler<DeleteChatMessageInput, DeleteCha
       return { messageId: message.id, deletedAt: outcome.deletedAt.toISOString() }
     }
 
-    await publishDeletionSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
-      conversationId: conversation.id,
-      messageId: message.id,
-      actorUserId,
-      actorName: actor.name,
-    })
+    if (!input.externalOrigin) {
+      await publishDeletionSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
+        conversationId: conversation.id,
+        messageId: message.id,
+        actorUserId,
+        actorName: actor.name,
+      })
+    }
 
     const recipients = await conversationAudience(forkEm(ctx), scope, conversation.id)
     await emitConversationEvent('chat.message.deleted', scope, recipients, {

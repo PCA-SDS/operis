@@ -77,6 +77,7 @@
     "matrix:verify": "node scripts/matrix-verify.mjs",
     "matrix:verify:transport": "tsx scripts/matrix-transport-check.ts",
     "matrix:verify:drift": "tsx scripts/matrix-drift-check.ts",
+    "matrix:gap-probe": "tsx scripts/matrix-gap-probe.ts",
     "matrix:verify:all": "yarn matrix:verify && yarn matrix:verify:transport && yarn matrix:verify:drift",
     "docs:dev": "turbo run dev --filter=@open-mercato/docs",
     "clean:generated": "./scripts/clean-generated.sh",

@@ -3,13 +3,16 @@ import { sql } from 'kysely'
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
 import { badRequest, isUniqueViolation, notFound } from '@open-mercato/shared/lib/crud/errors'
-import { ChatConversation, ChatParticipant } from '../data/entities'
+import { ChatConversation, ChatMessage, ChatParticipant } from '../data/entities'
 import { dbNow } from '../lib/clock'
 import { buildDirectKey } from '../lib/conversations'
 import { loadChatMessages } from '../lib/messages'
 import { loadOrganizationMember, type ChatScope } from '../lib/scope'
+import { publishReadReceiptSafely, publishTypingSafely } from '../lib/transport'
 import {
   actingUserId,
+  chatTransportFrom,
+  conversationAudience,
   emitConversationEvent,
   ensureOrganizationScope,
   ensureTenantScope,
@@ -27,11 +30,24 @@ export type EnsureDirectConversationResult = {
   created: boolean
 }
 
+/**
+ * Set only by the transport's projector, never by an HTTP caller.
+ *
+ * Marks a change that already happened in the messaging system, so the mirror
+ * that would normally follow is suppressed — without it a receipt arriving from
+ * Matrix is answered with a receipt sent back to Matrix, forever.
+ *
+ * `eventId` is nullable because a typing notification is not an event and has
+ * no id; a receipt does, and carrying it keeps the two shapes the same.
+ */
+export type ChatEphemeralOrigin = { eventId: string | null }
+
 export type MarkConversationReadInput = {
   tenantId: string
   organizationId: string
   conversationId: string
   readAt?: string
+  externalOrigin?: ChatEphemeralOrigin
 }
 
 export type MarkAllConversationsReadInput = {
@@ -212,8 +228,55 @@ const markConversationReadCommand: CommandHandler<MarkConversationReadInput, { l
       lastReadAt,
     })
 
+    /**
+     * Tell the room how far they have read, best-effort.
+     *
+     * Everyone else's view of "seen" is the point — this reader's own unread
+     * count is already correct from the UPDATE above, and nothing about it
+     * depends on the homeserver hearing. With the local transport it is a no-op.
+     */
+    const newest = input.externalOrigin
+      ? null
+      : await newestReadableMessageId(em, scope, input.conversationId, lastReadAt)
+    if (newest) {
+      await publishReadReceiptSafely(chatTransportFrom(ctx), { em: forkEm(ctx), container: ctx.container }, scope, {
+        conversationId: input.conversationId,
+        userId,
+        messageId: newest,
+      })
+    }
+
     return { lastReadAt }
   },
+}
+
+/**
+ * The newest message at or before a read cursor.
+ *
+ * A Matrix receipt points at an EVENT, not at a timestamp, so the cursor has to
+ * be resolved to the message it corresponds to before it can be announced.
+ * Deleted and system rows are excluded for the same reason the unread predicate
+ * excludes them: neither is something a person read.
+ */
+async function newestReadableMessageId(
+  em: EntityManager,
+  scope: ChatScope,
+  conversationId: string,
+  lastReadAt: string,
+): Promise<string | null> {
+  const found = await em.findOne(
+    ChatMessage,
+    {
+      conversationId,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+      kind: 'user',
+      deletedAt: null,
+      createdAt: { $lte: new Date(lastReadAt) },
+    },
+    { orderBy: { createdAt: 'desc', id: 'desc' } },
+  )
+  return found?.id ?? null
 }
 
 /**
@@ -285,3 +348,125 @@ const markAllConversationsReadCommand: CommandHandler<
 registerCommand(ensureDirectConversationCommand)
 registerCommand(markConversationReadCommand)
 registerCommand(markAllConversationsReadCommand)
+
+export type SetTypingInput = {
+  tenantId: string
+  organizationId: string
+  conversationId: string
+  typing: boolean
+  /** Set only by the transport's projector. Suppresses the mirror. */
+  externalOrigin?: ChatEphemeralOrigin
+}
+
+/**
+ * Say that somebody is typing, or has stopped.
+ *
+ * Stores nothing, on either side. The SSE frame is the whole delivery
+ * mechanism, and it goes to everyone in the conversation EXCEPT the person
+ * typing — telling somebody their own keystrokes is noise, and it is also how a
+ * naive client ends up rendering "you are typing" to itself.
+ *
+ * Membership is re-checked rather than assumed, exactly as a send re-checks it:
+ * a typing notification names a person to everyone in a room, so a stale
+ * participant row must not be a way to appear in a conversation you have been
+ * removed from.
+ */
+const setTypingCommand: CommandHandler<SetTypingInput, { typing: boolean }> = {
+  id: 'chat.conversations.setTyping',
+  async execute(input, ctx) {
+    ensureTenantScope(ctx, input.tenantId)
+    ensureOrganizationScope(ctx, input.organizationId)
+
+    const messages = await loadChatMessages()
+    const scope: ChatScope = { tenantId: input.tenantId, organizationId: input.organizationId }
+    const userId = await actingUserId(ctx)
+    const em = forkEm(ctx)
+
+    const participant = await em.findOne(ChatParticipant, {
+      conversationId: input.conversationId,
+      userId,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+    })
+    if (!participant) throw notFound(messages.conversationNotFound)
+
+    const audience = await conversationAudience(em, scope, input.conversationId)
+    const others = audience.filter((candidate) => candidate !== userId)
+    if (others.length > 0) {
+      await emitConversationEvent('chat.conversation.typing', scope, others, {
+        conversationId: input.conversationId,
+        userId,
+        typing: input.typing,
+      })
+    }
+
+    if (!input.externalOrigin) {
+      await publishTypingSafely(chatTransportFrom(ctx), { em: forkEm(ctx), container: ctx.container }, scope, {
+        conversationId: input.conversationId,
+        userId,
+        typing: input.typing,
+      })
+    }
+
+    return { typing: input.typing }
+  },
+}
+
+registerCommand(setTypingCommand)
+
+export type SetConversationMutedInput = {
+  tenantId: string
+  organizationId: string
+  conversationId: string
+  muted: boolean
+}
+
+/**
+ * Silence a conversation, or stop silencing it.
+ *
+ * Only the caller's own participant row moves — there is no recipient
+ * parameter, so this cannot be used to mute somebody else's notifications.
+ *
+ * Muting suppresses notifications and nothing else: the unread count still
+ * moves and the conversation still rises in the list. That separation is the
+ * whole point. A mute that also hid the activity would quietly become a way to
+ * lose things, and six months later nobody remembers which rooms they silenced.
+ */
+const setConversationMutedCommand: CommandHandler<
+  SetConversationMutedInput,
+  { muted: boolean }
+> = {
+  id: 'chat.conversations.setMuted',
+  async execute(input, ctx) {
+    ensureTenantScope(ctx, input.tenantId)
+    ensureOrganizationScope(ctx, input.organizationId)
+
+    const messages = await loadChatMessages()
+    const scope: ChatScope = { tenantId: input.tenantId, organizationId: input.organizationId }
+    const userId = await actingUserId(ctx)
+    const em = forkEm(ctx)
+
+    const participant = await em.findOne(ChatParticipant, {
+      conversationId: input.conversationId,
+      userId,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+    })
+    // 404 rather than 403, as everywhere else in this module: a conversation the
+    // caller is not in must not be distinguishable from one that does not exist.
+    if (!participant) throw notFound(messages.conversationNotFound)
+
+    participant.mutedAt = input.muted ? await dbNow(em) : null
+    await em.flush()
+
+    // The caller's own sessions, so the toggle settles the same way on every
+    // tab. Nobody else's view of the conversation changed.
+    await emitConversationEvent('chat.conversation.updated', scope, [userId], {
+      conversationId: input.conversationId,
+    })
+
+    return { muted: input.muted }
+  },
+}
+
+registerCommand(setConversationMutedCommand)

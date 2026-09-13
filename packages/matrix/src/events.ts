@@ -20,6 +20,9 @@ export const MATRIX_EVENT_TYPES = {
   topic: 'm.room.topic',
   powerLevels: 'm.room.power_levels',
   encrypted: 'm.room.encrypted',
+  /** Ephemeral: current state, not history. See the parsers at the foot of this file. */
+  typing: 'm.typing',
+  receipt: 'm.receipt',
 } as const
 
 export const RELATION_TYPES = {
@@ -214,4 +217,54 @@ export function parseMxcUri(uri: string): { serverName: string; mediaId: string 
   const [serverName, mediaId] = uri.slice('mxc://'.length).split('/')
   if (!serverName || !mediaId) return null
   return { serverName, mediaId }
+}
+
+// ---------------------------------------------------------------------------
+// Ephemeral events
+//
+// Typing notifications and read receipts are not room history: they carry no
+// `event_id` and no `sender`, so `matrixEventSchema` rejects them outright and
+// they need parsing of their own. The homeserver reports the CURRENT state of
+// each rather than a change to it — a typing notification lists everyone
+// currently typing, not who just started — which is why a reader that misses
+// one has missed nothing durable.
+// ---------------------------------------------------------------------------
+
+/** Everyone the homeserver currently considers to be typing in a room. */
+export function parseTypingNotification(raw: unknown): { userIds: string[] } | null {
+  const event = asRecord(raw)
+  if (!event || event.type !== MATRIX_EVENT_TYPES.typing) return null
+  const content = asRecord(event.content)
+  const userIds = Array.isArray(content?.user_ids)
+    ? content.user_ids.filter((value): value is string => typeof value === 'string')
+    : []
+  return { userIds }
+}
+
+export type MatrixReadReceipt = { eventId: string; userId: string; ts: number | null }
+
+/**
+ * Flatten an `m.receipt` into one row per person.
+ *
+ * The wire shape nests three deep — event id, then receipt type, then user —
+ * and only `m.read` is a public receipt. `m.read.private` is deliberately not
+ * read: it exists so a client can advance its own marker without telling the
+ * room, and honouring it here would leak exactly what it is for.
+ */
+export function parseReadReceipts(raw: unknown): MatrixReadReceipt[] {
+  const event = asRecord(raw)
+  if (!event || event.type !== MATRIX_EVENT_TYPES.receipt) return []
+  const content = asRecord(event.content)
+  if (!content) return []
+
+  const receipts: MatrixReadReceipt[] = []
+  for (const [eventId, byType] of Object.entries(content)) {
+    const read = asRecord(asRecord(byType)?.['m.read'])
+    if (!read) continue
+    for (const [userId, detail] of Object.entries(read)) {
+      const ts = asRecord(detail)?.ts
+      receipts.push({ eventId, userId, ts: typeof ts === 'number' ? ts : null })
+    }
+  }
+  return receipts
 }

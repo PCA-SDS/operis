@@ -55,9 +55,11 @@ second messaging engine for groups.
   index that makes direct pairs canonical.
 - Ask before adding an ACL feature. Space access is deliberately **membership,
   not privilege**: no role grant should open a space its holder was not added to.
-- Ask before emitting a notification per space message — the read-cursor unread
-  model is the intended UX, and one row per member per message is the noise the
-  module exists to avoid.
+- Ask before widening notifications beyond what `subscribers/message-notification.ts`
+  already does. A direct message notifies its counterpart; a space notifies only
+  the people a message **names**. Notifying on every space message is the noise
+  the read-cursor unread model exists to avoid — one row per member per message,
+  thousands a day in a busy room.
 
 ## Never
 
@@ -183,6 +185,44 @@ reader cannot find.
 
 The translation cache needs no invalidation either way: its rows are keyed by a
 hash of the source text, so an edited message misses and is translated afresh.
+
+## Notifications and Mute
+
+`subscribers/message-notification.ts`, on `chat.message.sent`. Two types rather
+than one — `chat.direct.received` and `chat.mention.received` — because the
+point of separating them is that a person can silence one and keep the other.
+
+**Who gets told is the whole policy.** A direct notifies its counterpart. A
+space notifies only the people the message names, by mention or `@everyone`.
+Three exclusions on top: the sender, anyone who muted the conversation, and
+anyone whose read cursor is already past the message — that last one is the
+person who had it open as it arrived.
+
+`groupKey` is keyed on the conversation and the reader, **not** the message, so
+a colleague sending five messages while you are away leaves one entry rather
+than five to dismiss.
+
+**Mute is `chat_participants.muted_at`**, beside `last_read_at` — the other
+per-person-per-conversation state. It suppresses notifications and nothing else:
+the unread count still moves and the conversation still rises in the list.
+Conflating the two is how people lose things in rooms they silenced months ago.
+A timestamp rather than a boolean because it answers "since when" for free.
+
+## Typing
+
+`chat.conversations.setTyping` fans an SSE frame to everyone in the conversation
+**except** the person typing, and mirrors `m.typing` when the transport carries
+it. Nothing is stored on either side.
+
+`chat.conversation.typing` is excluded from the live-refresh path in
+`components/hooks.ts` — it invalidates no cache, ever. It is not a change to any
+cached thing and it arrives on a keystroke; letting it fall through would
+invalidate the module's whole key space several times a second while somebody
+composed a sentence.
+
+The client throttles to one notification every few seconds and the indicator
+expires on its own after seven. The expiry, not the stop signal, is what
+guarantees it goes away — a client that crashes mid-sentence sends no stop.
 
 ## Departed Members
 

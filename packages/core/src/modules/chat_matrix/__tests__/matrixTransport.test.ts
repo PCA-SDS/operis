@@ -647,12 +647,29 @@ describe('publishDeletion', () => {
    * message as never published.
    */
   it('keeps the mapping row', async () => {
+    // A reconciliation uses it to check the redaction really landed, and
+    // dropping it would leave the backfill treating the message as never
+    // published.
     const { em, transport } = harness()
     mapped(em)
 
     await transport.publishDeletion({ em: em.asEntityManager() }, scope, deletion)
 
-    expect(em.rows.get(ChatMatrixEvent)).toHaveLength(1)
+    const rows = em.rows.get(ChatMatrixEvent) ?? []
+    expect(rows.filter((row) => row.messageId === deletion.messageId)).toHaveLength(1)
+  })
+
+  it('records the redaction itself, so the reader knows the event is ours', async () => {
+    // A redaction carries no content and so cannot be marked `om.origin` the
+    // way a message is. Without this mapping the next sync pass reads our own
+    // redaction back and deletes an already-deleted message from it.
+    const { em, transport } = harness()
+    mapped(em)
+
+    await transport.publishDeletion({ em: em.asEntityManager() }, scope, deletion)
+
+    const rows = em.rows.get(ChatMatrixEvent) ?? []
+    expect(rows.filter((row) => row.subjectKey === `redaction:${deletion.messageId}`)).toHaveLength(1)
   })
 
   it('does nothing for a message the room never received', async () => {
