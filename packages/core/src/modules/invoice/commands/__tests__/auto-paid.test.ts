@@ -9,12 +9,21 @@ const scope = { tenantId: 'tenant-1', organizationId: 'org-1' }
 const ruleId = '11111111-1111-4111-8111-111111111111'
 const invoiceId = '22222222-2222-4222-8222-222222222222'
 
-function createContext(service: Record<string, jest.Mock>): CommandRuntimeContext {
+const currentUpdatedAt = new Date('2026-06-01T10:00:00.000Z')
+
+function createContext(
+  service: Record<string, jest.Mock>,
+  options: { em?: { findOne: jest.Mock }; request?: Request } = {},
+): CommandRuntimeContext {
   const container = createContainer<Record<string, unknown>>({
     injectionMode: InjectionMode.PROXY,
   }) as unknown as AppContainer
+  const em = options.em ?? {
+    findOne: jest.fn(async () => ({ id: invoiceId, updatedAt: currentUpdatedAt })),
+  }
   container.register({
     invoiceAutoPaidService: asValue(service),
+    em: asValue(em),
   })
 
   return {
@@ -29,6 +38,7 @@ function createContext(service: Record<string, jest.Mock>): CommandRuntimeContex
     selectedOrganizationId: scope.organizationId,
     organizationScope: null,
     organizationIds: [scope.organizationId],
+    request: options.request,
   }
 }
 
@@ -100,6 +110,49 @@ describe('invoice auto-paid commands', () => {
       reversed: true,
     })
     expect(service.reverseInvoice).toHaveBeenCalledWith(scope, { invoiceId })
+  })
+
+  /**
+   * Reverse writes settlement state and the sticky `autoPayExcluded` flag onto
+   * `invoice.invoice`, which the record-locks ledger marks `enabled` — so it has
+   * to honour the same `updated_at` floor as every sibling invoice command.
+   */
+  it('rejects a reverse whose optimistic-lock header is stale', async () => {
+    const service = { reverseInvoice: jest.fn() }
+    const em = { findOne: jest.fn(async () => ({ id: invoiceId, updatedAt: currentUpdatedAt })) }
+    const ctx = createContext(service, {
+      em,
+      request: new Request('http://localhost/api/invoice/invoices/x/reverse-auto-paid', {
+        method: 'PATCH',
+        headers: { 'x-om-ext-optimistic-lock-expected-updated-at': '2026-05-01T08:00:00.000Z' },
+      }),
+    })
+    const handler = commandRegistry.get('invoice.auto_paid.reverse')
+
+    await expect(handler?.execute({ invoiceId }, ctx))
+      .rejects.toMatchObject({ status: 409, body: { code: 'optimistic_lock_conflict' } })
+    expect(service.reverseInvoice).not.toHaveBeenCalled()
+    expect(em.findOne).toHaveBeenCalledWith(expect.anything(), {
+      id: invoiceId,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+      deletedAt: null,
+    })
+  })
+
+  it('allows a reverse whose optimistic-lock header matches', async () => {
+    const service = {
+      reverseInvoice: jest.fn(async () => ({ invoice: { id: invoiceId } })),
+    }
+    const ctx = createContext(service, {
+      request: new Request('http://localhost/api/invoice/invoices/x/reverse-auto-paid', {
+        method: 'PATCH',
+        headers: { 'x-om-ext-optimistic-lock-expected-updated-at': currentUpdatedAt.toISOString() },
+      }),
+    })
+    const handler = commandRegistry.get('invoice.auto_paid.reverse')
+
+    await expect(handler?.execute({ invoiceId }, ctx)).resolves.toEqual({ invoiceId, reversed: true })
   })
 
   it('builds audit metadata with trusted scope and counts', () => {

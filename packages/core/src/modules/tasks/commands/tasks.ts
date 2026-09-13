@@ -5,6 +5,7 @@ import { withAtomicFlush } from '@open-mercato/shared/lib/commands/flush'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { badRequest, notFound } from '@open-mercato/shared/lib/crud/errors'
+import { enforceCommandOptimisticLockWithGuards } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { sanitizeRichTextHtml } from '@open-mercato/shared/lib/html/sanitizeRichText'
 import {
@@ -388,6 +389,23 @@ const updateTaskCommand: CommandHandler<TaskUpdateInput, { taskId: string }> = {
     const em = forkEm(ctx)
 
     const task = await requireTask(em, scope, parsed.id, messages)
+
+    /**
+     * Concurrent-edit guard.
+     *
+     * `TasksTask` carries `updated_at` with the `onUpdate` hook and every read
+     * returns `updatedAt`, so the client half of optimistic locking was already
+     * in place — but nothing compared the stamp, and a stale save silently
+     * overwrote whoever saved first (TC-TASKS-019 measured 200 where the
+     * documented contract is 409). Strictly additive: a no-op when the caller
+     * never sent the expected-version header, which is every plain API consumer.
+     */
+    await enforceCommandOptimisticLockWithGuards(ctx.container, {
+      resourceKind: 'tasks.task',
+      resourceId: task.id,
+      current: task.updatedAt,
+      request: ctx.request ?? null,
+    })
 
     const assigneeIds =
       parsed.assigneeIds !== undefined

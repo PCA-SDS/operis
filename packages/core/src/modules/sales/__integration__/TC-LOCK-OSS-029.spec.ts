@@ -11,6 +11,7 @@ import {
   readUpdatedAt,
 } from '@open-mercato/core/modules/core/__integration__/helpers/optimisticLockUi'
 import { fillControlledInput } from '@open-mercato/core/modules/core/__integration__/helpers/ui'
+import { tableRowByText } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom'
 
 /**
  * TC-LOCK-OSS-029 (browser UI + API fallback) — sales-channel OFFER manual
@@ -227,7 +228,9 @@ test.describe('TC-LOCK-OSS-029: sales channel offer edit + list-delete conflict 
       // created offer can already be visible on page 1 before the debounced
       // search emits a GET, so waiting only for that network request races the
       // UI and can time out even though the target row is ready.
-      const row = page.locator('tr', { hasText: `QA Lock 029 offer del ${stamp}` }).first()
+      // `tableRowByText`, not `locator('tr')` — the DataTable is a CSS grid of
+      // divs with role/data-slot hooks, so a native `tr` selector matches nothing.
+      const row = tableRowByText(page, `QA Lock 029 offer del ${stamp}`)
       await expect(row).toBeVisible({ timeout: 20_000 })
 
       const staleVersion = await readUpdatedAt(page.request, token, OFFERS_API_BASE, offerId)

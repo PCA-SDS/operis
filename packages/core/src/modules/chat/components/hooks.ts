@@ -570,7 +570,39 @@ export function useMessageEngagement(conversationId: string | undefined) {
     onError: () => flashFailure("Couldn't update the pin. Please try again."),
   })
 
-  return { toggleReaction, setPinned }
+  /**
+   * An edit and a delete both take the wide path, not `settled`.
+   *
+   * Reactions and pins are narrowed because they demonstrably cannot move
+   * anything outside the conversation. These can: either one changes the
+   * conversation list's preview when it lands on the latest message, and a
+   * delete additionally rolls back that conversation's position in the list and
+   * can clear an unread mention. That is the same blast radius a send has, which
+   * is why `useSendMessage` invalidates the whole tree too.
+   */
+  const editMessage = useMutation({
+    mutationFn: (input: { messageId: string; body: string }) =>
+      runMutation({
+        operation: () => chatApi.editMessage(conversationId as string, input.messageId, input.body),
+        context: { resourceKind: 'chat.message', resourceId: input.messageId },
+        mutationPayload: input,
+      }),
+    onSuccess: () => invalidateChat(client),
+    onError: () => flashFailure("Couldn't save that edit. Please try again."),
+  })
+
+  const deleteMessage = useMutation({
+    mutationFn: (input: { messageId: string }) =>
+      runMutation({
+        operation: () => chatApi.deleteMessage(conversationId as string, input.messageId),
+        context: { resourceKind: 'chat.message', resourceId: input.messageId },
+        mutationPayload: input,
+      }),
+    onSuccess: () => invalidateChat(client),
+    onError: () => flashFailure("Couldn't delete that message. Please try again."),
+  })
+
+  return { toggleReaction, setPinned, editMessage, deleteMessage }
 }
 
 export function useSendMessage(conversationId: string | undefined) {

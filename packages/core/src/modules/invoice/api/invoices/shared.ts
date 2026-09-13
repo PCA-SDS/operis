@@ -15,6 +15,7 @@ import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { requireInvoiceScope, type InvoiceScope } from '../../data/scope'
 import { invoiceIdSchema } from '../../data/validators'
 import { invoiceCommonErrors, invoiceInvoicesTag } from '../openapi'
+import { translateInvoiceErrorBody } from '../../data/errors'
 
 const logger = createLogger('invoice').child({ component: 'invoices-api' })
 
@@ -26,6 +27,13 @@ export const invoiceInvoiceRouteMetadata = {
 export const invoiceInvoiceManageRouteMetadata = {
   requireAuth: true,
   requireFeatures: ['invoice.manage'],
+} as const
+// `invoice.delete` is declared in acl.ts as a privilege above manage and is
+// deliberately withheld from the seeded employee role, so the delete surface
+// has to ask for it — manage alone would make the grant decorative.
+export const invoiceInvoiceDeleteRouteMetadata = {
+  requireAuth: true,
+  requireFeatures: ['invoice.delete'],
 } as const
 
 export const invoiceInvoiceParamSchema = z.object({
@@ -198,8 +206,10 @@ export async function handleInvoiceInvoiceRouteError(
   scope?: InvoiceScope,
   invoiceId?: string,
 ): Promise<NextResponse> {
-  if (isCrudHttpError(err)) return NextResponse.json(err.body, { status: err.status })
   const { translate } = await resolveTranslations()
+  if (isCrudHttpError(err)) {
+    return NextResponse.json(translateInvoiceErrorBody(err.body, translate), { status: err.status })
+  }
   if (err instanceof z.ZodError) {
     return NextResponse.json({ error: translate('invoice.errors.invalid_input', 'Invalid input') }, { status: 400 })
   }

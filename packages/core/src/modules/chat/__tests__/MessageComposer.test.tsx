@@ -241,3 +241,116 @@ describe('double submit', () => {
     expect(onSend).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('MessageComposer in edit mode', () => {
+  const target = { messageId: 'm1', body: 'the original wording' }
+
+  function editSetup(
+    overrides: Partial<React.ComponentProps<typeof MessageComposer>> = {},
+  ) {
+    const onSubmitEdit = overrides.onSubmitEdit ?? jest.fn()
+    const onCancelEdit = overrides.onCancelEdit ?? jest.fn()
+    const onSend = overrides.onSend ?? jest.fn()
+    const view = render(
+      <MessageComposer
+        onSend={onSend}
+        placeholder="Message Bob"
+        editTarget={target}
+        onSubmitEdit={onSubmitEdit}
+        onCancelEdit={onCancelEdit}
+        {...overrides}
+      />,
+    )
+    return {
+      view,
+      onSend,
+      onSubmitEdit,
+      onCancelEdit,
+      textarea: screen.getByRole('textbox') as HTMLTextAreaElement,
+    }
+  }
+
+  it('prefills the box with the message being rewritten', () => {
+    const { textarea } = editSetup()
+    expect(textarea.value).toBe('the original wording')
+  })
+
+  it('saves rather than sends', () => {
+    const { onSend, onSubmitEdit, textarea } = editSetup()
+    fireEvent.change(textarea, { target: { value: 'the corrected wording' } })
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    expect(onSubmitEdit).toHaveBeenCalledWith('the corrected wording')
+    expect(onSend).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Emptying a message that already exists is a deletion wearing a different
+   * name, and it would strand any attachments on a message with nothing left to
+   * read. The server refuses it; the button refuses it first.
+   */
+  it('refuses to save an empty body', () => {
+    const { onSubmitEdit, textarea } = editSetup()
+    fireEvent.change(textarea, { target: { value: '   ' } })
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    expect(onSubmitEdit).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeDisabled()
+  })
+
+  /**
+   * Saving text identical to what is stored would stamp `edited_at` and mark the
+   * message "(edited)" for a change nobody made.
+   */
+  it('treats an unchanged body as a cancel', () => {
+    const { onSubmitEdit, onCancelEdit, textarea } = editSetup()
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    expect(onSubmitEdit).not.toHaveBeenCalled()
+    expect(onCancelEdit).toHaveBeenCalled()
+  })
+
+  it('abandons the edit on Escape', () => {
+    const { onCancelEdit, textarea } = editSetup()
+    fireEvent.keyDown(textarea, { key: 'Escape' })
+    expect(onCancelEdit).toHaveBeenCalled()
+  })
+
+  /**
+   * Choosing Edit replaces whatever was being typed. Destroying that on a
+   * misclick is the failure this avoids.
+   */
+  it('stashes the draft on the way in and puts it back on the way out', () => {
+    const onSend = jest.fn()
+    const { rerender } = render(
+      <MessageComposer onSend={onSend} placeholder="Message Bob" editTarget={null} />,
+    )
+    const textarea = screen.getByRole('textbox') as HTMLTextAreaElement
+    fireEvent.change(textarea, { target: { value: 'half a sentence' } })
+
+    rerender(
+      <MessageComposer
+        onSend={onSend}
+        placeholder="Message Bob"
+        editTarget={target}
+        onSubmitEdit={jest.fn()}
+      />,
+    )
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('the original wording')
+
+    rerender(<MessageComposer onSend={onSend} placeholder="Message Bob" editTarget={null} />)
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe('half a sentence')
+  })
+
+  /**
+   * Attachments are separate rows with their own scan lifecycle and are not part
+   * of what an edit changes, so the way to add one is out of reach while editing.
+   */
+  it('hides the attach control', () => {
+    editSetup({ onAttachFiles: jest.fn() })
+    expect(screen.queryByRole('button', { name: /attach file/i })).toBeNull()
+  })
+
+  it('offers a way out of edit mode', () => {
+    const { onCancelEdit } = editSetup()
+    fireEvent.click(screen.getByRole('button', { name: /cancel edit/i }))
+    expect(onCancelEdit).toHaveBeenCalled()
+  })
+})

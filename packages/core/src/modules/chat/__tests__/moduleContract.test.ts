@@ -85,6 +85,7 @@ describe('API routes', () => {
       'api/conversations/[id]/members/route.ts',
       'api/conversations/[id]/messages/[messageId]/pin/route.ts',
       'api/conversations/[id]/messages/[messageId]/reactions/route.ts',
+      'api/conversations/[id]/messages/[messageId]/route.ts',
       'api/conversations/[id]/messages/route.ts',
       'api/conversations/[id]/pins/route.ts',
       'api/conversations/[id]/read/route.ts',

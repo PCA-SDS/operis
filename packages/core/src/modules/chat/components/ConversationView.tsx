@@ -15,7 +15,12 @@ import { useTCount } from './plurals'
 import type { ChatMessageDto } from '../data/types'
 import { MessageComposer, type MentionCandidate } from './MessageComposer'
 import { useChatAttachments } from './useChatAttachments'
-import { MessageList, MessageListSkeleton, type PendingMessage } from './MessageList'
+import {
+  MessageList,
+  MessageListSkeleton,
+  type EditRequest,
+  type PendingMessage,
+} from './MessageList'
 import { PinnedMessagesList } from './PinnedMessagesList'
 import { ConversationSearchBar } from './ConversationSearchBar'
 import { highlightPlan, parseSearchQuery } from '../lib/searchQuery'
@@ -29,6 +34,7 @@ import {
 } from './contextPanel'
 import { TranslateControl } from './TranslateControl'
 import { SpaceDetailsDialog } from './SpaceDetailsDialog'
+import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import {
   useCanSendChat,
   useChatLocale,
@@ -132,6 +138,7 @@ export function ConversationView({
 
   const [pending, setPending] = React.useState<PendingMessage[]>([])
   const [replyTarget, setReplyTarget] = React.useState<ReplyTarget | null>(null)
+  const [editTarget, setEditTarget] = React.useState<EditRequest | null>(null)
   const [detailsOpen, setDetailsOpen] = React.useState(false)
   const chatLocale = useChatLocale()
   /**
@@ -315,6 +322,11 @@ export function ConversationView({
   React.useEffect(() => {
     setPending([])
     setReplyTarget(null)
+    // For exactly the reason the reply target is cleared: an edit points at a
+    // message id, and the server refuses one from another conversation. Left
+    // set, the composer would sit in edit mode over a message that is no longer
+    // on screen.
+    setEditTarget(null)
     setDetailsOpen(false)
     // The contextual region is deliberately NOT closed here. It is scoped to
     // whichever conversation is open, not owned by one, so switching re-points
@@ -475,7 +487,62 @@ export function ConversationView({
     [conversationId, deliver, pending],
   )
 
-  const { toggleReaction, setPinned } = useMessageEngagement(conversationId)
+  const { toggleReaction, setPinned, editMessage, deleteMessage } =
+    useMessageEngagement(conversationId)
+  const { confirm, ConfirmDialogElement } = useConfirmDialog()
+
+  /**
+   * Starting an edit clears the reply target.
+   *
+   * A message cannot both be a rewrite of itself and a reply to something else,
+   * and the composer holds one box: leaving the quote up while it filled with an
+   * existing message's text would say the save was going to produce a reply.
+   */
+  const handleStartEdit = React.useCallback((target: EditRequest) => {
+    setReplyTarget(null)
+    setEditTarget(target)
+  }, [])
+
+  const handleSubmitEdit = React.useCallback(
+    (body: string) => {
+      const target = editTarget
+      if (!target) return
+      // Cleared before the request, not after it. The composer returns to the
+      // draft it was holding, and the transcript shows the change once the
+      // refetch lands; a failure surfaces as the mutation's own flash rather
+      // than by trapping the writer in edit mode.
+      setEditTarget(null)
+      editMessage.mutate({ messageId: target.messageId, body })
+    },
+    [editMessage, editTarget],
+  )
+
+  /**
+   * Deleting asks first, and the confirmation holds the request.
+   *
+   * `onConfirm` rather than the confirm-then-mutate two-step: it keeps the
+   * dialog open in a loading state until the delete settles, which makes a
+   * double confirmation impossible on a slow connection.
+   */
+  const handleDelete = React.useCallback(
+    async (messageId: string) => {
+      const confirmed = await confirm({
+        title: t('chat.messages.deleteTitle', 'Delete this message?'),
+        description: t(
+          'chat.messages.deleteDescription',
+          'It disappears for everyone in this conversation. Replies to it stay, marked as unavailable.',
+        ),
+        confirmText: t('chat.messages.deleteConfirm', 'Delete'),
+        variant: 'destructive',
+        onConfirm: () => deleteMessage.mutateAsync({ messageId }),
+      }).catch(() => false)
+      if (!confirmed) return
+      // The message being edited is the message just deleted: leaving edit mode
+      // open over it would offer to save text into something that is gone.
+      setEditTarget((current) => (current?.messageId === messageId ? null : current))
+    },
+    [confirm, deleteMessage, t],
+  )
   const isSpace = conversation?.kind === 'space'
 
   /**
@@ -805,6 +872,13 @@ export function ConversationView({
               ? (messageId, pinned) => setPinned.mutate({ messageId, pinned })
               : undefined
           }
+          onEdit={canSend ? handleStartEdit : undefined}
+          onDelete={canSend ? (messageId) => void handleDelete(messageId) : undefined}
+          /* Deleting somebody else's message is moderation, and a space already
+             has owners who decide what the shared conversation looks like. A
+             direct has no owner, so there only the author may delete — which
+             `MessageList` applies per row. */
+          canModerate={Boolean(isSpace && conversation.viewerRole === 'owner')}
           messages={messages}
           pending={pending}
           currentUserId={currentUserId}
@@ -831,6 +905,9 @@ export function ConversationView({
         onSend={handleSend}
         replyTarget={replyTarget}
         onCancelReply={() => setReplyTarget(null)}
+        editTarget={editTarget}
+        onSubmitEdit={handleSubmitEdit}
+        onCancelEdit={() => setEditTarget(null)}
         mentionCandidates={mentionCandidates}
         onMentionQueryChange={handleMentionQueryChange}
         placeholder={
@@ -855,6 +932,11 @@ export function ConversationView({
             currentUserId={currentUserId}
           />
         ) : null}
+
+        {/* Mounted once here rather than per message row: the menu that raises
+            it is a leaf inside the transcript, and one dialog for the whole view
+            is what keeps its focus handling and its loading state coherent. */}
+        {ConfirmDialogElement}
       </>
     )
   }

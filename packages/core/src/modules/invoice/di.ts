@@ -47,12 +47,19 @@ export function register(container: AppContainer) {
     invoicePaymentConfirmationsService: asFunction(({ em, invoiceCompanyEmailsService, invoiceService }) =>
       createInvoicePaymentConfirmationsService(em, invoiceCompanyEmailsService, invoiceService),
     ).scoped().proxy(),
-    invoiceService: asFunction(({ em, queryEngine, invoiceScopedPersistenceService, invoiceExchangeRatesService }) =>
+    invoiceService: asFunction(({
+      em,
+      queryEngine,
+      invoiceScopedPersistenceService,
+      invoiceExchangeRatesService,
+      invoiceCompanyEmailsService,
+    }) =>
       createInvoiceService(
         em,
         queryEngine,
         invoiceScopedPersistenceService,
         invoiceExchangeRatesService,
+        invoiceCompanyEmailsService,
       ),
     ).scoped().proxy(),
     invoiceSyncService: asFunction(({ em, cache, progressService, gdtClient, tenantEncryptionService }) =>

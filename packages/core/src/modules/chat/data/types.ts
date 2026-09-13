@@ -159,6 +159,14 @@ export type ChatMessageDto = {
   kind: ChatMessageKind
   body: string
   createdAt: string
+  /**
+   * When the author last rewrote the body, or null if they never did.
+   *
+   * Separate from `createdAt` and from the row's `updated_at`: the transcript
+   * marks an edited message so a reader knows the words in front of them are not
+   * the ones that were sent, and only a real edit may make that claim.
+   */
+  editedAt: string | null
   clientMessageId: string | null
   /** The message this replies to, already resolved. Null for a normal message. */
   replyTo: ChatReplyTargetDto | null

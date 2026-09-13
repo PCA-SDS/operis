@@ -312,6 +312,63 @@ describe('InvoiceService', () => {
       autoSettled: true,
     })
     expect(JSON.stringify(result.invoice)).not.toContain('999999')
+    // buyerName is stamped from the Organization row, so that lookup has to carry
+    // the tenant — an id alone would let a super-admin scope resolve another
+    // tenant's organization and write its name onto this invoice.
+    expect(jest.mocked(em.findOne).mock.calls[0][1]).toMatchObject({
+      id: scope.organizationId,
+      tenant: scope.tenantId,
+      deletedAt: null,
+    })
+  })
+
+  /**
+   * Amounts that do not land on 4 decimals used to be rounded per line for
+   * storage but summed unrounded for the header, so the document disagreed with
+   * its own rows. Postgres holds numeric(18,4) and there is no CHECK, so nothing
+   * downstream catches it.
+   */
+  it('keeps the invoice header reconciled with the line rows it stores', async () => {
+    const { em, service } = createService()
+    const seller = { id: companyId, taxCode: 'SG-9', name: 'Odd Cents', countryCode: 'SG' } as InvoiceCompany
+    jest.mocked(em.transactional).mockImplementation(async (work) => work(em as unknown as EntityManager))
+    jest.mocked(em.findOne)
+      .mockResolvedValueOnce({ id: scope.organizationId, name: 'Host Org' })
+      .mockResolvedValueOnce(seller)
+      .mockResolvedValueOnce(seller)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+    const created: Record<string, unknown>[] = []
+    jest.mocked(em.create).mockImplementation((_entity, payload) => {
+      created.push(payload as Record<string, unknown>)
+      return payload
+    })
+
+    const result = await service.createManualInvoice(scope, {
+      partnerName: 'Odd Cents',
+      partnerCountryCode: 'SG',
+      partnerTaxCode: 'SG-9',
+      invoiceNumber: 'INV-ODD',
+      invoiceDate: '2026-01-10',
+      lineItems: [
+        { name: 'A', quantity: '3', unitPrice: '1.0150', vatRate: 8 },
+        { name: 'B', quantity: '7', unitPrice: '1.0150', vatRate: 10 },
+        { name: 'C', quantity: '11', unitPrice: '1.0150', vatRate: 5 },
+      ],
+    })
+
+    const lines = created.filter((row) => typeof row.lineTotal === 'string')
+    expect(lines).toHaveLength(3)
+
+    const invoice = result.invoice as unknown as { netAmount: string; vatAmount: string; grossAmount: string }
+    const sumOf = (values: number[]) => Number(values.reduce((total, value) => total + value, 0).toFixed(4))
+
+    expect(sumOf(lines.map((line) => Number(line.lineTotal)))).toBe(Number(invoice.grossAmount))
+    expect(Number(invoice.netAmount) + Number(invoice.vatAmount)).toBe(Number(invoice.grossAmount))
+    for (const line of lines) {
+      const base = Number(line.quantity) * Number(line.unitPrice) - Number(line.discountAmount ?? 0)
+      expect(Number(base.toFixed(4))).toBe(Number((Number(line.lineTotal) - Number(line.vatAmount)).toFixed(4)))
+    }
   })
 
   it('rejects update and delete for imported invoices', async () => {

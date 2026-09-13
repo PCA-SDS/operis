@@ -3,7 +3,7 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { readEndpointRateLimitConfig } from '@open-mercato/shared/lib/ratelimit/config'
-import { checkRateLimit, RATE_LIMIT_ERROR_FALLBACK } from '@open-mercato/shared/lib/ratelimit/helpers'
+import { checkRateLimit, getClientIp, RATE_LIMIT_ERROR_FALLBACK, RATE_LIMIT_FALLBACK_KEY } from '@open-mercato/shared/lib/ratelimit/helpers'
 import { getCachedRateLimiterService } from '@open-mercato/core/bootstrap'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 
@@ -51,7 +51,7 @@ export async function GET(req: Request, routeContext: RouteContext = {}) {
   try {
     const rateLimiter = getCachedRateLimiterService()
     if (rateLimiter) {
-      const key = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'anonymous'
+      const key = getClientIp(req, rateLimiter.trustProxyDepth) ?? RATE_LIMIT_FALLBACK_KEY
       const limited = await checkRateLimit(rateLimiter, rateLimitConfig, key, RATE_LIMIT_ERROR_FALLBACK, {
         failClosed: false,
         unavailableMessage: RATE_LIMIT_ERROR_FALLBACK,

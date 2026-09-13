@@ -1043,11 +1043,23 @@ export async function addCustomLine(page: Page, options: AddLineOptions): Promis
   await expect(customLineButton).toBeVisible({ timeout: TEST_WAIT_TIMEOUT_MS });
   await customLineButton.click();
 
-  const nameInput = dialog.getByRole('textbox', { name: /Optional line name/i });
+  /**
+   * Targeted by their LABEL, not their placeholder.
+   *
+   * These three fields used to have no associated `<Label>`, so their accessible
+   * name fell back to the placeholder — `Optional line name`, `0.00`, `1` — and
+   * that is what this helper was written against. The dialog has since been
+   * given proper labels, which is what an accessible name is supposed to come
+   * from, and the placeholders moved to `/placeholder` where `getByRole` does
+   * not look. Matching on the label is both correct now and the more stable
+   * query: a placeholder is decoration a designer may drop, a label is the
+   * field's name.
+   */
+  const nameInput = dialog.getByRole('textbox', { name: /^Name$/i });
   await expect(nameInput).toBeVisible({ timeout: TEST_WAIT_TIMEOUT_MS });
   await nameInput.fill(options.name);
-  await dialog.getByRole('textbox', { name: '0.00' }).fill(String(options.unitPriceGross));
-  await dialog.getByRole('textbox', { name: '1' }).fill(String(options.quantity));
+  await dialog.getByRole('textbox', { name: /^Unit price$/i }).fill(String(options.unitPriceGross));
+  await dialog.getByRole('textbox', { name: /^Quantity$/i }).fill(String(options.quantity));
 
   if (options.taxClassName) {
     const taxClassTrigger = dialog.locator('[data-crud-field-id="taxRateId"] [role="combobox"]').first();
@@ -1097,7 +1109,8 @@ export async function updateLineQuantity(page: Page, lineName: string, quantity:
 
   const dialog = page.getByRole('dialog', { name: /Edit line/i });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole('textbox', { name: '1' }).fill(String(quantity));
+  // The label, for the same reason as `addCustomLine` above.
+  await dialog.getByRole('textbox', { name: /^Quantity$/i }).fill(String(quantity));
   await dialog.getByRole('button', { name: /Save changes/i }).click();
 
   await expect(page.getByRole('row', { name: new RegExp(`${escapeRegExp(lineName)}.*\\b${quantity}\\b`, 'i') })).toBeVisible();

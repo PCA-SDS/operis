@@ -184,6 +184,12 @@ describe('invoice module foundation', () => {
       'invoicePaymentConfirmationsService',
     )
     expect(typeof paymentConfirmationsService.request).toBe('function')
+    // sendInvoice records the recipient only `if (this.companyEmailsService)`, so a
+    // factory or DI signature that quietly drops the argument turns Company Email
+    // Memory into a silent no-op that every unit test still passes — the tests
+    // construct InvoiceService directly and inject their own mock.
+    const wiredCompanyEmails = (invoiceService as unknown as { companyEmailsService?: unknown }).companyEmailsService
+    expect(wiredCompanyEmails).toBe(container.resolve('invoiceCompanyEmailsService'))
 
     for (const [token, entity] of Object.entries(ENTITY_EXPORTS)) {
       expect(container.resolve(token)).toBe(entity)

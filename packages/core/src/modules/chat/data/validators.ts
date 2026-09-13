@@ -197,6 +197,21 @@ export const chatSendMessageSchema = z.object({
 )
 
 /**
+ * Editing replaces the body and nothing else.
+ *
+ * The same normalisation and ceiling as a send, because an edit that could store
+ * what a send refuses would be a way around the validator. Attachments are not
+ * editable — they are linked rows with their own scan lifecycle, and swapping
+ * them under an existing message would strand the originals.
+ */
+export const chatEditMessageSchema = z.object({
+  // `min(1)` unlike a send: a send may be attachments alone, but an edit that
+  // emptied the body would be a delete wearing a different name — and would
+  // leave the attachments orphaned on a message with nothing to read.
+  body: sendMessageBodySchema.pipe(z.string().min(1).max(MAX_MESSAGE_LENGTH)),
+})
+
+/**
  * A reaction is a single emoji, and nothing else.
  *
  * Bounded by grapheme count rather than by code points, because one emoji can be

@@ -2,6 +2,7 @@ import { registerCommand } from '@open-mercato/shared/lib/commands'
 import type { CommandHandler, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 
 import { requireInvoiceScope } from '../data/scope'
+import { enforceInvoiceCommandOptimisticLock } from './shared'
 import {
   invoiceAutoPaidReverseSchema,
   invoiceAutoPaidRuleRemoveSchema,
@@ -119,6 +120,7 @@ export const reverseAutoPaidInvoiceCommand: CommandHandler<unknown, InvoiceAutoP
   async execute(rawInput, ctx) {
     const input = invoiceAutoPaidReverseSchema.parse(rawInput)
     const scope = requireInvoiceScope(ctx)
+    await enforceInvoiceCommandOptimisticLock(ctx, input.invoiceId)
     const result = await serviceFrom(ctx).reverseInvoice(scope, input)
 
     return {

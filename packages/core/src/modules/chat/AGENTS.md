@@ -21,6 +21,9 @@ second messaging engine for groups.
   such user" — `messages.memberNotFound`. Distinguishing them is an enumeration
   oracle.
 - Validate a `replyToMessageId` against the conversation being posted to.
+- Re-validate mentions on an **edit** exactly as on a send. A body is client
+  input whichever verb delivered it, and skipping the check would make editing
+  the way to mention a stranger or address `@everyone` in a direct.
 
 ## Translation
 
@@ -59,7 +62,9 @@ second messaging engine for groups.
 ## Never
 
 - Never add a second send path. `chat.messages.send` handles both kinds; the only
-  difference is how a departed counterpart is treated (see below).
+  difference is how a departed counterpart is treated (see below). It also
+  handles a message arriving **from** the transport — see `externalOrigin` below
+  — which is a mode of the one command, not a second one.
 - Never put a message body in an event payload. The bridge truncates over 4KB;
   events are pointers and clients refetch over the authorized route.
 - Never drop `recipientUserIds` from an emit — a private message becomes an
@@ -80,7 +85,7 @@ JWT_SECRET=$(openssl rand -hex 32) yarn test:integration:ephemeral --no-reuse-en
 |---|---|
 | `chat_conversations` | `kind` (`direct`/`space`), `direct_key` (pairs), `title` + `created_by_user_id` (spaces), denormalized last-message columns |
 | `chat_participants` | membership, `role` (`owner`/`member`), `last_read_at` — the entire unread model |
-| `chat_messages` | append-only turns; `kind` (`user`/`system`), `reply_to_message_id`, `system_event` + `system_target_user_id` |
+| `chat_messages` | turns; `kind` (`user`/`system`), `reply_to_message_id`, `system_event` + `system_target_user_id`, `edited_at`, `deleted_at` |
 
 Three constraints carry guarantees the application cannot promise alone:
 
@@ -96,6 +101,88 @@ Three constraints carry guarantees the application cannot promise alone:
   **cannot** target a message in another conversation, space or organization,
   even if every application check were removed. A single-column FK would only
   prove the target exists somewhere.
+
+## The Transport Seam
+
+`chat/lib/transport.ts` is where a message goes besides the database. The default
+`local` transport does nothing, and that is correct rather than a placeholder:
+with no external messaging system, the database write *is* the delivery.
+`chat_matrix` re-registers the `chatTransport` DI token to swap in a
+homeserver-backed one — chat itself imports nothing Matrix-shaped.
+
+Two flags decide the behaviour, and only the second changes what a user
+experiences:
+
+- `OM_CHAT_TRANSPORT` — `local` (default) or `matrix`.
+- `OM_CHAT_MATRIX_MODE` — `shadow` (default) or `authoritative`.
+
+**`shadow`**: commit, then publish, and never let a publish failure fail a send.
+Postgres is the source of truth; a gap is found by `chat_matrix drift`.
+
+**`authoritative`**: publish, then commit — and a failed publish fails the send.
+The ordering is the point: a row must never exist for a message the messaging
+system never accepted. The cost is that chat now depends on the homeserver being
+reachable.
+
+### `externalOrigin`
+
+`SendChatMessageInput.externalOrigin` marks a message that already exists in the
+messaging system and is being replayed in. Set **only** by the transport's
+projector, never by an HTTP caller. It suppresses the publish — the event is the
+reason the call is happening — and pins the id and timestamp to the ones the
+event carries.
+
+It exists so the projector does not write `chat_messages` rows itself. Writing
+them directly would be shorter and would silently skip mention validation,
+attachment linking, the search document, the link index and the conversation
+preview. Routing through the command keeps every invariant in the one place that
+owns it.
+
+Authorship on that path still comes from the server: the projector resolves the
+sender from the event's `sender`, a namespaced identity only the appservice can
+mint. It is never taken from a payload.
+
+## Editing and Deleting
+
+Two commands, `chat.messages.edit` and `chat.messages.delete`, behind
+`PATCH`/`DELETE` on `/api/chat/conversations/{id}/messages/{messageId}`.
+
+**The permissions are deliberately different widths.** Editing is the author and
+nobody else — not a space owner, not the other person in a direct — because
+rewriting somebody's words puts sentences in their mouth. Deleting is the author
+always, plus a space owner, because removing a message is moderation and a space
+already has owners for exactly that class of decision. A direct has no owner, so
+only the author may delete there. System rows are neither editable nor deletable:
+they are the transcript's record of what happened to the conversation.
+
+**An edit is not a small update.** Four things are derived from a body, and all
+four are rebuilt in the same transaction — `search_body`, `chat_message_mentions`
+plus `mentions_everyone`, `chat_message_links`, and the conversation preview when
+this is the message the list is showing. A message whose text says one thing
+while its search document still describes the previous version is worse than one
+that was never edited. Attachments are untouched, and the validator refuses an
+empty body precisely so an edit cannot strand them.
+
+`edited_at` is its own column and **not** `updated_at`: that one's `onUpdate`
+hook fires on every flush touching the row, so it cannot answer "did a person
+change these words".
+
+A second delete **converges** rather than 404ing: the lookup opts into
+`includeDeleted`, which relaxes the liveness filter and nothing else — scope,
+conversation, membership and the author-or-owner check are unchanged. Every other
+caller of `requireMessageInConversation` keeps the strict default.
+
+**A delete is a soft delete**, and the read model already does most of the work —
+every path filters `deleted_at is null`, the Shared panel's join drops the
+message's links, and `lib/replies.ts` renders a quote of it as "Original message
+unavailable" rather than as nothing. Two things it cannot do by itself: pins to
+the message are removed (`listPinned` hides it, but the pin COUNT is a plain
+count), and the conversation's last-message columns are repointed at whatever is
+now newest — `last_message_at` included, so the list cannot advertise activity a
+reader cannot find.
+
+The translation cache needs no invalidation either way: its rows are keyed by a
+hash of the source text, so an edited message misses and is translated afresh.
 
 ## Departed Members
 
@@ -141,6 +228,8 @@ bump `last_message_at`, so the space rises in the list.
 | Reply hydration | `lib/replies.ts` — one batched query per page, reusing names the page already resolved |
 | Organization membership predicate | `lib/scope.ts` |
 | Space writes | `commands/spaces.ts` |
+| Send, edit, delete | `commands/messages.ts` |
+| The message-in-conversation guard | `commands/shared.ts` (`requireMessageInConversation`) |
 | Read model | `services/chatService.ts` |
 | Shared people picker | `components/MemberPicker.tsx` — used by both create and add-people |
 

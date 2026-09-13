@@ -88,5 +88,17 @@ export async function loadChatMessages() {
       'chat.errors.replyTargetNotFound',
       'The message you replied to is no longer available.',
     ),
+    notEditPermitted: t('chat.errors.notEditPermitted', 'You can only edit your own messages.'),
+    notDeletePermitted: t(
+      'chat.errors.notDeletePermitted',
+      'Only the person who wrote a message, or a space owner, can delete it.',
+    ),
+    // Membership events are the transcript's record of what happened to the
+    // conversation, not something anybody typed. Rewriting or removing one
+    // would be editing history rather than editing a message.
+    systemMessageNotEditable: t(
+      'chat.errors.systemMessageNotEditable',
+      "That's a record of a change to the conversation, so it can't be edited or deleted.",
+    ),
   }
 }

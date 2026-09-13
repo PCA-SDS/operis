@@ -17,6 +17,35 @@ import { login } from '@open-mercato/core/modules/core/__integration__/helpers/a
  *    legacy spec continues to pass unchanged and third-party modules can
  *    copy the new pattern confidently.
  */
+/**
+ * Force the `aiConfigured` flag on the agents payload.
+ *
+ * The injected body renders `<AiProviderSetupPanel>` instead of `<AiChat>` when
+ * no LLM provider key is configured, which is exactly the ephemeral test
+ * environment's state — there is no `ANTHROPIC_API_KEY` and there should not be
+ * one. This test is about the injection wiring and the sheet, not about talking
+ * to a model, so the real agent list is kept and only this flag is overridden.
+ * Same helper and same reasoning as
+ * `customers/__integration__/TC-AI-INJECT-009-backend-inject.spec.ts`.
+ */
+async function stubAiConfigured(page: import('@playwright/test').Page): Promise<void> {
+  await page.route('**/api/ai_assistant/ai/agents**', async (route) => {
+    const response = await route.fetch();
+    let body: unknown = null;
+    try {
+      body = await response.json();
+    } catch {
+      await route.fulfill({ response });
+      return;
+    }
+    await route.fulfill({
+      response,
+      contentType: 'application/json',
+      body: JSON.stringify({ ...(body as Record<string, unknown>), aiConfigured: true }),
+    });
+  });
+}
+
 test.describe('TC-AI-INJECT-013: catalog merchandising via injection', () => {
   const MERCHANDISING_AGENT_ID = 'catalog.merchandising_assistant';
 
@@ -35,6 +64,7 @@ test.describe('TC-AI-INJECT-013: catalog merchandising via injection', () => {
     page,
   }) => {
     test.setTimeout(120_000);
+    await stubAiConfigured(page);
     await page.goto('/login', { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('form[data-auth-ready="1"]', { state: 'visible', timeout: 30_000 });
     await login(page, 'superadmin');

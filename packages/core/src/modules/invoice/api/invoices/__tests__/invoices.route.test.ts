@@ -139,7 +139,9 @@ describe('invoice invoices API routes', () => {
     expect(detailRoute.metadata.GET).toEqual({ requireAuth: true, requireFeatures: ['invoice.view'] })
     expect(listRoute.metadata.POST).toEqual({ requireAuth: true, requireFeatures: ['invoice.manage'] })
     expect(detailRoute.metadata.PUT).toEqual({ requireAuth: true, requireFeatures: ['invoice.manage'] })
-    expect(detailRoute.metadata.DELETE).toEqual({ requireAuth: true, requireFeatures: ['invoice.manage'] })
+    // acl.ts declares invoice.delete above invoice.manage and setup.ts withholds it
+    // from the employee role, so manage alone must not carry the delete surface.
+    expect(detailRoute.metadata.DELETE).toEqual({ requireAuth: true, requireFeatures: ['invoice.delete'] })
   })
 
   it('exports OpenAPI operation ids', () => {

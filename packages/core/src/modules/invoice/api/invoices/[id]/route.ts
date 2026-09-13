@@ -18,6 +18,7 @@ import {
   invoiceDetailResponseSchema,
   invoiceInvoiceParamSchema,
   invoiceInvoiceRouteErrors,
+  invoiceInvoiceDeleteRouteMetadata,
   invoiceInvoiceManageRouteMetadata,
   invoiceInvoiceRouteMetadata,
   invoiceInvoicesTag,
@@ -30,7 +31,7 @@ import {
 export const metadata = {
   GET: invoiceInvoiceRouteMetadata,
   PUT: invoiceInvoiceManageRouteMetadata,
-  DELETE: invoiceInvoiceManageRouteMetadata,
+  DELETE: invoiceInvoiceDeleteRouteMetadata,
 }
 
 type RouteContext = {
