@@ -14,8 +14,10 @@ const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(200).default(50),
+    page: z.coerce.number().int().min(1).default(1),
+    // Deliberately above the shared default: the tax-rate pickers in sales and catalog load the whole list in one request,
+    // and lowering this ceiling would 400 those existing callers.
+    pageSize: z.coerce.number().int().min(1).max(200).default(50),
     search: z.string().optional(),
     country: z.string().optional(),
     region: z.string().optional(),

@@ -11,6 +11,7 @@ import {
   toChatErrorResponse,
 } from '../../../shared'
 import { CHAT_TAG, COMMON_ERRORS, markReadResponseSchema, RATE_LIMITED_ERRORS } from '../../../openapi'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['chat.view'] },
@@ -36,7 +37,7 @@ export async function POST(req: Request, context: { params?: Record<string, unkn
     const limited = await enforceChatRateLimit(request, chatReadCursorRateLimit, { failClosed: true })
     if (limited) return limited
 
-    const raw = await req.json().catch(() => ({}))
+    const raw = await readJsonSafe(req, {})
     const body = chatMarkReadSchema.parse(raw ?? {})
     const input: MarkConversationReadInput = {
       tenantId: request.scope.tenantId,

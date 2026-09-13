@@ -51,7 +51,7 @@ describe('PortalResetPasswordPage', () => {
     apiCallMock.mockResolvedValueOnce({ ok: true, status: 200, result: { ok: true } })
 
     const { getByLabelText, getByRole, findByText } = renderWithProviders(<PortalResetPasswordPage params={{ orgSlug: 'acme' }} />)
-    fillForm(getByLabelText, 'pw12345678', 'pw12345678')
+    fillForm(getByLabelText, 'Passw0rd!', 'Passw0rd!')
     await act(async () => {
       fireEvent.click(getByRole('button', { name: 'Reset Password' }))
     })
@@ -61,7 +61,7 @@ describe('PortalResetPasswordPage', () => {
       '/api/customer_accounts/password/reset-confirm',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ token: 'reset-token-123', password: 'pw12345678' }),
+        body: JSON.stringify({ token: 'reset-token-123', password: 'Passw0rd!' }),
       }),
     )
     await findByText(/password reset complete/i)
@@ -71,7 +71,7 @@ describe('PortalResetPasswordPage', () => {
     apiCallMock.mockResolvedValueOnce({ ok: false, status: 400, result: { ok: false, error: 'Invalid or expired token' } })
 
     const { getByLabelText, getByRole, findByText } = renderWithProviders(<PortalResetPasswordPage params={{ orgSlug: 'acme' }} />)
-    fillForm(getByLabelText, 'pw12345678', 'pw12345678')
+    fillForm(getByLabelText, 'Passw0rd!', 'Passw0rd!')
     await act(async () => {
       fireEvent.click(getByRole('button', { name: 'Reset Password' }))
     })
@@ -83,7 +83,7 @@ describe('PortalResetPasswordPage', () => {
     apiCallMock.mockResolvedValueOnce({ ok: false, status: 500, result: { ok: false, error: 'Backend on fire' } })
 
     const { getByLabelText, getByRole, findByText } = renderWithProviders(<PortalResetPasswordPage params={{ orgSlug: 'acme' }} />)
-    fillForm(getByLabelText, 'pw12345678', 'pw12345678')
+    fillForm(getByLabelText, 'Passw0rd!', 'Passw0rd!')
     await act(async () => {
       fireEvent.click(getByRole('button', { name: 'Reset Password' }))
     })
@@ -95,7 +95,7 @@ describe('PortalResetPasswordPage', () => {
     apiCallMock.mockRejectedValueOnce(new Error('network'))
 
     const { getByLabelText, getByRole, findByText } = renderWithProviders(<PortalResetPasswordPage params={{ orgSlug: 'acme' }} />)
-    fillForm(getByLabelText, 'pw12345678', 'pw12345678')
+    fillForm(getByLabelText, 'Passw0rd!', 'Passw0rd!')
     await act(async () => {
       fireEvent.click(getByRole('button', { name: 'Reset Password' }))
     })
@@ -117,7 +117,7 @@ describe('PortalResetPasswordPage', () => {
 
   it('blocks submission and surfaces a mismatch error when passwords do not match', async () => {
     const { getByLabelText, getByRole, findByText } = renderWithProviders(<PortalResetPasswordPage params={{ orgSlug: 'acme' }} />)
-    fillForm(getByLabelText, 'pw12345678', 'different1')
+    fillForm(getByLabelText, 'Passw0rd!', 'different1')
     await act(async () => {
       fireEvent.click(getByRole('button', { name: 'Reset Password' }))
     })
@@ -126,14 +126,16 @@ describe('PortalResetPasswordPage', () => {
     expect(apiCallMock).not.toHaveBeenCalled()
   })
 
-  it('blocks submission when password is shorter than 8 characters', async () => {
+  // The portal now enforces the platform password policy rather than a local
+  // 8-character rule, so the surfaced message lists the policy requirements.
+  it('blocks submission when the password does not meet the platform policy', async () => {
     const { getByLabelText, getByRole, findByText } = renderWithProviders(<PortalResetPasswordPage params={{ orgSlug: 'acme' }} />)
     fillForm(getByLabelText, 'short', 'short')
     await act(async () => {
       fireEvent.click(getByRole('button', { name: 'Reset Password' }))
     })
 
-    await findByText(/at least 8 characters/i)
+    await findByText(/at least \d+ characters/i)
     expect(apiCallMock).not.toHaveBeenCalled()
   })
 })

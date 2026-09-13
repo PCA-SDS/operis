@@ -11,6 +11,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { translateWithFallback } from '@open-mercato/shared/lib/i18n/translate'
 import { ChipButton } from './ChipButton'
+import { formatAmount, formatToday } from './constants'
 
 export type CurrencyFilterRow = {
   currency: string
@@ -280,22 +281,6 @@ function RadioDot({ selected }: { selected: boolean }): React.ReactElement {
       {selected ? <span className="size-2 rounded-full bg-brand-violet" /> : null}
     </span>
   )
-}
-
-function formatAmount(amount: number): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'decimal',
-    maximumFractionDigits: 0,
-    useGrouping: true,
-  }).format(Math.round(amount))
-}
-
-function formatToday(): string {
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-  }).format(new Date())
 }
 
 export default CurrencyFilterPopover

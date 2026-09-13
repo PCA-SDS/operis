@@ -192,27 +192,45 @@ new module, the pixel route can hash the raw path token and query
 
 Decision:
 
-Use process-local cache first to preserve old behavior.
+Use process-local cache first to preserve old behavior. The invoice exchange
+rate service uses a 24-hour fresh TTL. If the provider fails after the snapshot
+expires, it returns the stale process-local snapshot. If no usable snapshot
+exists, it returns service unavailable.
 
 Reason:
 
 Old repo used process-local cache. A shared cache can be added later only as an
 explicit design change.
 
+Implementation note:
+
+The CAP-007 service is read-only, has no `EntityManager` dependency, does not
+write Invoice tables, uses `EXCHANGE_RATE_API_URL` only as an upstream override,
+and rejects malformed or incomplete provider responses before caching.
+
 ## DEC-018 Company Lookup Cache
 
 Decision:
 
 Keep `invoice_company_registry` separate from `invoice_companies`.
-M0 creates the table but defers raw provider payload writes to M4. Before M4
-writes provider responses, the implementation must add payload encryption or
-document a stricter provider response shape that proves encryption is not
-needed.
+Provider responses are persisted only through the encrypted
+`invoice_company_registry.payload` contract. The module declares
+`invoice:invoice_company_registry.payload` in `encryption.ts`, reads cache rows
+through `findOneWithDecryption`, and exposes only the normalized
+`CompanyLookupResult` contract to callers.
 
 Reason:
 
 Lookup cache is provider/reference data. It must not create business partner
-records until the user saves/imports an invoice.
+records until the user saves/imports an invoice. Provider payloads can include
+names, addresses, registry status, and future provider fields, so encrypting the
+payload is safer than proving every provider shape is always non-sensitive.
+
+Implementation note:
+
+CAP-008 uses a 30-day tenant/organization-scoped cache TTL based on
+`fetched_at`. Provider payloads are excluded from invoice search text and logs
+must never include raw provider responses.
 
 ## DEC-019 API Shape
 
@@ -379,3 +397,87 @@ Reason:
 
 Future M9 invoice UI work should be checked by the same design-system rules as
 other backend module surfaces from the first UI file.
+
+## DEC-032 Company Email Memory Ownership
+
+Decision:
+
+Company email memory belongs to the invoice module and is scoped by both the
+invoice company and trusted tenant/organization scope. Recording a recipient
+email is an idempotent upsert. Removing an email must require the scoped company
+context and must not delete rows from another tenant or organization.
+
+Reason:
+
+The feature is a convenience memory for invoice send and payment confirmation
+flows, not a global contact directory. It should be safe to call best-effort from
+later CAP-001 and CAP-005 flows without changing partner identity data.
+
+## DEC-033 Invoice Exchange Rate Provider Contract
+
+Decision:
+
+The CAP-007 provider contract is an open.er-api style USD-based payload with a
+`rates` object. Supported invoice currencies are fixed to the invoice currency
+contract. VND per unit is derived as `rates.VND / rates[currency]`, while VND is
+always exactly `1`.
+
+Reason:
+
+This preserves old business behavior and gives summary, forecast, and form
+preview a single VND normalization service. Other provider shapes or shared
+cache backends are separate design changes.
+
+## DEC-034 Auto-Paid Rule Revert Ownership
+
+Decision:
+
+When an Auto-Paid rule is removed, revert only scoped live AP invoices whose
+current `seller_tax_code` matches the removed rule and whose `auto_settled`
+flag is true.
+
+Reason:
+
+Invoice rows do not store the rule id that settled them. The tax code plus
+trusted tenant/organization scope is the rule ownership boundary, and the
+`auto_settled` flag protects manually settled or otherwise paid invoices.
+
+Implementation note:
+
+Manual reverse sets `auto_pay_excluded = true`, so future add/apply passes skip
+that invoice even if the tax code rule is added again.
+
+## DEC-035 Auto-Paid Candidate And Route Contract
+
+Decision:
+
+Auto-Paid candidate listing queries scoped AP invoices directly by `seller_tax_code`,
+excludes synthetic `auto:%` codes, empty codes, and tax codes already in
+`invoice_auto_paid_tax_codes`. The candidate service method `listCandidates` is
+called directly for reads and future sync without commands or mutation guards.
+Auto-Paid rule management and candidate routes require `invoice.settings.manage`,
+while reverse auto-paid settlement on an invoice requires `invoice.manage`.
+All route mutations execute through the command bus (`invoice.auto_paid.add`,
+`invoice.auto_paid.remove`, `invoice.auto_paid.reverse`) after mutation guards.
+
+Reason:
+
+This provides a clean separation of concerns: read operations and internal sync
+call sites can reuse the service contract directly, while all HTTP write routes
+run through platform mutation guards and audit-logged command execution with
+payload-blind trusted scope.
+
+## DEC-036 Manual Invoice Buyer Stamping
+
+Decision:
+
+Manual AP invoice create/update stamps the host company from trusted
+organization scope. Use the scoped `Organization.name` as `buyer_name` and set
+`buyer_tax_code = null`. Request body buyer fields are ignored.
+
+Reason:
+
+The current Organization model has a trusted name but no scoped legal tax
+identifier. Using request body buyer identity would make manual invoices trust
+client-owned ownership data. Setting buyer tax code to null keeps the snapshot
+honest until a trusted organization tax identity exists.

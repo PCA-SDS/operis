@@ -40,8 +40,8 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 const logger = createLogger('customers')
 
 const querySchema = z.object({
-  page: z.coerce.number().min(1).default(1),
-  pageSize: z.coerce.number().min(1).max(100).default(50),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
   search: z.string().optional(),
   all: z.string().optional(),
   entityId: z.string().uuid().optional(),

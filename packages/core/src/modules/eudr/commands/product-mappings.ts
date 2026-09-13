@@ -25,6 +25,7 @@ import type { CrudEventsConfig, CrudIndexerConfig } from '@open-mercato/shared/l
 import { E } from '#generated/entities.ids.generated'
 import { z } from 'zod'
 import { EudrProductMapping } from '../data/entities'
+import { toDateOrNull as toDate } from '@open-mercato/shared/lib/date/normalize'
 import {
   productMappingCreateSchema,
   productMappingUpdateSchema,
@@ -98,10 +99,6 @@ const productMappingCrudEvents: CrudEventsConfig<EudrProductMapping> = {
 
 function parseScopedCommandInput(input: unknown): ScopedCommandInput {
   return scopedCommandInputSchema.parse(input)
-}
-
-function toDate(value: string | null): Date | null {
-  return value ? new Date(value) : null
 }
 
 function productMappingSeedFromSnapshot(snapshot: ProductMappingSnapshot): RequiredEntityData<EudrProductMapping> {

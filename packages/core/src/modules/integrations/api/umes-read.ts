@@ -5,6 +5,7 @@ import { runApiInterceptorsAfter, runApiInterceptorsBefore, type RunInterceptors
 import { applyResponseEnrichers, applyResponseEnricherToRecord } from '@open-mercato/shared/lib/crud/enricher-runner'
 import type { ApiInterceptorMethod, InterceptorRequest } from '@open-mercato/shared/lib/crud/api-interceptor'
 import { resolveActiveOrganizationId } from '@open-mercato/shared/lib/auth/organizationScope'
+import { resolveGrantedFeatures } from '@open-mercato/shared/lib/auth/grantedFeatures'
 
 export const integrationApiRoutePaths = {
   list: 'integrations',
@@ -25,7 +26,6 @@ type ReadRouteContext = {
     tenantId: string | null
     orgId: string | null
     sub?: string | null
-    features?: unknown
   }
   container: AwilixContainer
 }
@@ -40,11 +40,6 @@ function searchParamsToObject(url: URL): Record<string, string> {
     entries[key] = value
   })
   return entries
-}
-
-function toUserFeatures(features: unknown): string[] {
-  if (!Array.isArray(features)) return []
-  return features.filter((value): value is string => typeof value === 'string')
 }
 
 function mergeAdditiveRecord<T extends Record<string, unknown>>(base: T, candidate: T): T {
@@ -65,14 +60,23 @@ function mergeAdditiveBody(
   return mergeAdditiveRecord(baseBody, candidateBody)
 }
 
-function getEnricherContext(input: ReadRouteContext) {
+/**
+ * `userFeatures` MUST come from `rbacService`. It previously read
+ * `auth.features`, which the JWT never carries, so it was always `[]` — and the
+ * enricher runner treats an empty grant set as "not entitled", so every
+ * feature-gated enricher (e.g. `integrations.external-id-mapping`, gated on
+ * `integrations.view`) was silently skipped on these read routes for every
+ * caller, entitled or not.
+ */
+async function getEnricherContext(input: ReadRouteContext) {
+  const organizationId = resolveActiveOrganizationId(input.auth) as string
   return {
-    organizationId: resolveActiveOrganizationId(input.auth) as string,
+    organizationId,
     tenantId: input.auth.tenantId as string,
     userId: input.auth.sub ?? '',
     em: input.container.resolve('em') as EntityManager,
     container: input.container,
-    userFeatures: toUserFeatures(input.auth.features),
+    userFeatures: await resolveGrantedFeatures(input.container, input.auth, organizationId),
   }
 }
 
@@ -90,14 +94,14 @@ export async function runIntegrationsReadBeforeInterceptors(
       headers: headersToObject(input.request.headers),
       query: searchParamsToObject(url),
     },
-    context: getEnricherContext(input),
+    context: await getEnricherContext(input),
   })
 }
 
 async function applySafeRecordEnrichment(
   record: Record<string, unknown>,
   targetEntity: string,
-  context: ReturnType<typeof getEnricherContext>,
+  context: Awaited<ReturnType<typeof getEnricherContext>>,
 ): Promise<Record<string, unknown>> {
   const enriched = await applyResponseEnricherToRecord(record, targetEntity, context)
   return mergeAdditiveRecord(record, enriched.record)
@@ -106,7 +110,7 @@ async function applySafeRecordEnrichment(
 async function applySafeListEnrichment(
   items: Record<string, unknown>[],
   targetEntity: string,
-  context: ReturnType<typeof getEnricherContext>,
+  context: Awaited<ReturnType<typeof getEnricherContext>>,
 ): Promise<Record<string, unknown>[]> {
   const enriched = await applyResponseEnrichers(items, targetEntity, context)
   return items.map((item, index) => {
@@ -127,7 +131,7 @@ export async function finalizeIntegrationsReadResponse(
 ): Promise<NextResponse> {
   const method = input.method ?? 'GET'
   const baseBody = input.body
-  const context = getEnricherContext(input)
+  const context = await getEnricherContext(input)
 
   const intercepted = await runApiInterceptorsAfter({
     routePath: input.routePath,

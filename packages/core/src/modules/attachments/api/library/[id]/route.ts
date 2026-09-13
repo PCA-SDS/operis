@@ -26,6 +26,7 @@ import {
   attachmentErrorSchema,
 } from '../../openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('attachments').child({ component: 'library' })
 
@@ -166,7 +167,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
   if (!attachmentId) {
     return NextResponse.json({ error: 'Attachment id is required' }, { status: 400 })
   }
-  const rawBody = await req.json().catch(() => null)
+  const rawBody = await readJsonSafe(req)
   const { base, custom } = splitCustomFieldPayload(rawBody)
   const parsed = updateSchema.safeParse(base)
   if (!parsed.success) {

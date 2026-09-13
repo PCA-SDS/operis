@@ -5,7 +5,7 @@ import { Message, MessageRecipient } from '../../../data/entities'
 import { attachOperationMetadataHeader } from '../../../lib/operationMetadata'
 import { hasOrganizationAccess, resolveMessageContext } from '../../../lib/routeHelpers'
 import type { MessageScope } from '../../../lib/routeHelpers'
-import { resolveUserFeatures, runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../guards'
+import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../guards'
 import { errorResponseSchema, okResponseSchema } from '../../openapi'
 
 export const metadata = {
@@ -70,7 +70,6 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       requestHeaders: req.headers,
       mutationPayload: null,
     },
-    resolveUserFeatures(ctx.auth),
   )
   if (!guardResult.ok) {
     return Response.json(
@@ -131,7 +130,6 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       requestHeaders: req.headers,
       mutationPayload: null,
     },
-    resolveUserFeatures(ctx.auth),
   )
   if (!guardResult.ok) {
     return Response.json(

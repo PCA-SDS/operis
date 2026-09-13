@@ -6,6 +6,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import { findAndCountWithDecryption, findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { SyncMapping } from '@open-mercato/core/modules/data_sync/data/entities'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import {
   runCrudMutationGuardAfterSuccess,
   validateCrudMutationGuard,
@@ -105,7 +106,7 @@ export async function POST(req: Request) {
     return organizationScopeRequiredResponse()
   }
 
-  const payload = await req.json().catch(() => null)
+  const payload = await readJsonSafe(req)
   const parsed = createMappingSchema.safeParse(payload)
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid payload', details: parsed.error.flatten() }, { status: 422 })

@@ -1,7 +1,10 @@
 "use client"
 
 import * as React from 'react'
-import { Ellipsis } from 'lucide-react'
+import { Ellipsis, Upload, Loader2 } from 'lucide-react'
+import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { ColorPicker } from '@open-mercato/ui/primitives/color-picker'
 import { Input } from '@open-mercato/ui/primitives/input'
@@ -20,6 +23,8 @@ export type AppearanceSelectorLabels = {
   iconSuggestionsLabel: string
   iconClearLabel: string
   previewEmptyLabel: string
+  iconUploadLabel?: string
+  iconUploadErrorLabel?: string
 }
 
 type AppearanceSelectorProps = {
@@ -63,6 +68,57 @@ export function AppearanceSelector({
   const [iconSearch, setIconSearch] = React.useState('')
   const pickerContainerRef = React.useRef<HTMLDivElement | null>(null)
   const searchInputRef = React.useRef<HTMLInputElement | null>(null)
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null)
+  const [isUploading, setIsUploading] = React.useState(false)
+  const t = useT()
+  const uploadLabel = labels.iconUploadLabel ?? t('dictionaries.appearance.iconUpload', 'Upload custom icon')
+  const uploadErrorMessage = labels.iconUploadErrorLabel ?? t('dictionaries.appearance.iconUploadFailed', 'Failed to upload the icon.')
+
+  const handleUploadClick = React.useCallback(() => {
+    fileInputRef.current?.click()
+  }, [])
+
+  const handleFileChange = React.useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (!file) return
+      setIsUploading(true)
+      try {
+        const fd = new FormData()
+        fd.set('entityId', 'attachments:library')
+        // A fresh id per file, matching AttachmentLibrary. A constant would file
+        // every icon in the organization under one pseudo-record, so the library
+        // listing collapses and nothing can tell them apart.
+        fd.set(
+          'recordId',
+          typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : String(Date.now()),
+        )
+        fd.set('file', file)
+        const call = await apiCall<{ ok?: boolean; item?: { url?: string }; error?: string }>(
+          '/api/attachments',
+          { method: 'POST', body: fd },
+          { fallback: null },
+        )
+        const url = call.ok ? call.result?.item?.url : null
+        if (url) {
+          onIconChange(url)
+          return
+        }
+        // apiCall resolves rather than throws on a non-2xx, so without this the
+        // spinner just stops: an oversize file, a quota rejection or a missing
+        // attachments.manage grant all looked like nothing happened.
+        flash(call.result?.error || uploadErrorMessage, 'error')
+      } catch {
+        flash(uploadErrorMessage, 'error')
+      } finally {
+        setIsUploading(false)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
+      }
+    },
+    [onIconChange, uploadErrorMessage],
+  )
 
   const closePicker = React.useCallback(() => {
     setPickerOpen(false)
@@ -157,7 +213,25 @@ export function AppearanceSelector({
               onChange={(event) => onIconChange(event.target.value)}
               placeholder={labels.iconPlaceholder}
               className="flex-1"
-              disabled={disabled}
+              disabled={disabled || isUploading}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={handleUploadClick}
+              aria-label={uploadLabel}
+              title={uploadLabel}
+              disabled={disabled || isUploading}
+            >
+              {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            </Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
             />
             <Button
               type="button"
@@ -167,7 +241,7 @@ export function AppearanceSelector({
               aria-label={labels.iconPickerTriggerLabel}
               aria-expanded={pickerOpen}
               aria-haspopup="dialog"
-              disabled={disabled}
+              disabled={disabled || isUploading}
             >
               <Ellipsis className="h-4 w-4" />
             </Button>
@@ -182,7 +256,7 @@ export function AppearanceSelector({
                   placeholder={labels.iconSearchPlaceholder}
                   aria-label={labels.iconSearchPlaceholder}
                 />
-                <div className="max-h-64 overflow-y-auto pr-1">
+                <div className="max-h-72 overflow-y-auto pr-1">
                   {filteredIcons.length ? (
                     <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
                       {filteredIcons.map((option) => {
@@ -207,32 +281,32 @@ export function AppearanceSelector({
                   ) : (
                     <p className="text-sm text-muted-foreground">{labels.iconSearchEmptyLabel}</p>
                   )}
-                </div>
-                {iconSuggestions.length ? (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      {labels.iconSuggestionsLabel}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {iconSuggestions.map((suggestion) => {
-                        const isSelected = normalizedIcon === suggestion.value
-                        return (
-                          <Button
-                            key={suggestion.value}
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className={`text-xs ${isSelected ? 'border-primary bg-primary/10 text-primary' : ''}`}
-                            onClick={() => handleIconSelection(suggestion.value)}
-                          >
-                            {renderDictionaryIcon(suggestion.value, 'h-3 w-3')}
-                            {suggestion.label}
-                          </Button>
-                        )
-                      })}
+                  {iconSuggestions.length ? (
+                    <div className="mt-3 space-y-2 border-t border-border pt-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        {labels.iconSuggestionsLabel}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {iconSuggestions.map((suggestion) => {
+                          const isSelected = normalizedIcon === suggestion.value
+                          return (
+                            <Button
+                              key={suggestion.value}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className={`text-xs ${isSelected ? 'border-primary bg-primary/10 text-primary' : ''}`}
+                              onClick={() => handleIconSelection(suggestion.value)}
+                            >
+                              {renderDictionaryIcon(suggestion.value, 'h-3 w-3')}
+                              {suggestion.label}
+                            </Button>
+                          )
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
                 <div className="flex justify-end">
                   <Button type="button" variant="ghost" size="sm" onClick={() => onIconChange(null)}>
                     {labels.iconClearLabel}

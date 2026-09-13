@@ -1,5 +1,6 @@
 import {
   chatCreateConversationSchema,
+  chatEditMessageSchema,
   chatMessageListQuerySchema,
   chatSendMessageSchema,
   MAX_MESSAGE_LENGTH,
@@ -50,6 +51,47 @@ describe('chatSendMessageSchema', () => {
 
   it('carries the idempotency key through when supplied', () => {
     expect(chatSendMessageSchema.parse({ body: 'hi', clientMessageId: 'abc' }).clientMessageId).toBe('abc')
+  })
+})
+
+describe('chatEditMessageSchema', () => {
+  it('accepts a rewritten body', () => {
+    expect(chatEditMessageSchema.parse({ body: 'the corrected wording' })).toEqual({
+      body: 'the corrected wording',
+    })
+  })
+
+  /**
+   * Unlike a send, which may be an attachment on its own. An edit that emptied
+   * the body would be a deletion wearing a different name, and it would strand
+   * the attachments on a message with nothing left to read.
+   */
+  it('rejects an empty body, which a send would allow alongside a file', () => {
+    expect(() => chatEditMessageSchema.parse({ body: '' })).toThrow()
+    expect(() => chatEditMessageSchema.parse({ body: '   ' })).toThrow()
+  })
+
+  it('applies the same normalisation a send does', () => {
+    // Otherwise editing would be a way to store what a send refuses.
+    expect(chatEditMessageSchema.parse({ body: '  line one\r\nline two  ' })).toEqual({
+      body: 'line one\nline two',
+    })
+    expect(chatEditMessageSchema.parse({ body: 'clean\u0007ed' })).toEqual({ body: 'cleaned' })
+  })
+
+  it('applies the same length ceiling', () => {
+    expect(() => chatEditMessageSchema.parse({ body: 'x'.repeat(MAX_MESSAGE_LENGTH + 1) })).toThrow()
+    expect(chatEditMessageSchema.parse({ body: 'x'.repeat(MAX_MESSAGE_LENGTH) }).body).toHaveLength(
+      MAX_MESSAGE_LENGTH,
+    )
+  })
+
+  it('takes nothing but the body — attachments are not editable', () => {
+    const parsed = chatEditMessageSchema.parse({
+      body: 'ok',
+      attachmentIds: ['11111111-1111-4111-8111-111111111111'],
+    })
+    expect(parsed).toEqual({ body: 'ok' })
   })
 })
 

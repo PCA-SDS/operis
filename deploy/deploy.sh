@@ -325,7 +325,7 @@ else
 fi
 
 # Sidecars too, so a compose `up` never stalls on a slow registry mid-restart.
-dc pull --quiet postgres redis meilisearch >>"$LOG_FILE" 2>&1 || true
+dc pull --quiet postgres redis meilisearch translation >>"$LOG_FILE" 2>&1 || true
 
 # ------------------------------------------------------------------------------
 # 2. Back up the database BEFORE the new container gets a chance to migrate it.

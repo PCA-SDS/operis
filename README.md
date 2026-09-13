@@ -202,7 +202,7 @@ Entitlement is fail-closed: a tenant reaches a business module only when a
 | Login fails for every seeded account | The seed has not run, or `TENANT_DATA_ENCRYPTION_FALLBACK_KEY` changed since it did (emails are encrypted with it). Reset the database and re-seed. |
 | A module is missing from the sidebar | The tenant is not entitled to it. Check `yarn mercato directory list-tenant-modules --tenant <id>`. |
 | `Cannot find module '.mercato/generated/...'` | Run `yarn generate` (and `yarn build:packages` first if package sources changed). |
-| Stale chunks after switching branches | `yarn dev:reset` clears the Turbopack/Next cache. |
+| Stale chunks after switching branches | `yarn workspace @open-mercato/app dev:reset` clears the Turbopack/Next cache. |
 | Port 3000 already in use | Stop the other dev server; the app does not auto-select a port. |
 | `DATABASE_URL=… yarn db:migrate` migrated the wrong database | `db:migrate` runs through Turbo, and `turbo.json` declares only `NODE_ENV` in `globalEnv` — every other exported variable is **stripped before the task runs**, so the value in `.env` wins and the command reports success against the wrong database. Edit `apps/mercato/.env`, or bypass Turbo with `yarn workspace @open-mercato/app db:migrate`. |
 

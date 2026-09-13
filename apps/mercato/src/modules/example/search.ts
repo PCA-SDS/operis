@@ -6,17 +6,9 @@ import type {
 } from '@open-mercato/shared/modules/search'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { pickString } from '@open-mercato/shared/modules/search/descriptorHelpers'
 
 const ENTITY_ID = 'example:todo' as const
-
-function pickString(...candidates: Array<unknown>): string | null {
-  for (const candidate of candidates) {
-    if (typeof candidate !== 'string') continue
-    const trimmed = candidate.trim()
-    if (trimmed.length > 0) return trimmed
-  }
-  return null
-}
 
 function appendLine(lines: string[], label: string, value: unknown) {
   if (value === null || value === undefined) return

@@ -79,7 +79,7 @@ The structural invalidation does two things:
 
 The explicit `yarn mercato configs cache structural --all-tenants` command remains the DI-aware operator path. It purges structural caches without touching generated files unless `--touch-generated` is supplied for stale-compiler recovery. Use it when an app overrides the stock cache service through DI; the lightweight automatic path intentionally reads only the backend selected by the standard cache environment variables.
 
-The dev escape hatch is `yarn dev:reset`, which clears the configured Next dev cache (`.mercato/next/dev`) plus legacy `.next` cache directories for the rare case where Turbopack's internal cache stays stuck after a structural purge.
+The dev escape hatch is `yarn workspace @open-mercato/app dev:reset`, which clears the configured Next dev cache (`.mercato/next/dev`) plus legacy `.next` cache directories for the rare case where Turbopack's internal cache stays stuck after a structural purge.
 
 ## Database Migrations
 

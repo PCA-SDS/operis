@@ -33,7 +33,6 @@ module.exports = {
     '^@/\\.mercato/generated/(.*)$': '<rootDir>/apps/mercato/.mercato/generated/$1',
     '^@/generated/(.*)$': '<rootDir>/apps/mercato/.mercato/generated/$1',
     '^@/(.*)$': '<rootDir>/apps/mercato/src/$1',
-    '^@tests/(.*)$': '<rootDir>/tests/$1',
   },
   transform: {
     '^.+\\.(t|j)sx?$': [

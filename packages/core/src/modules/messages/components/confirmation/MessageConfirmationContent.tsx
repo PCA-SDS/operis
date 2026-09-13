@@ -5,41 +5,13 @@ import type { MessageContentProps } from '@open-mercato/shared/modules/messages/
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { MarkdownContent } from '@open-mercato/ui/backend/markdown/MarkdownContent'
+import { formatDateTime, toErrorMessage } from '../message-detail/utils'
 
 type MessageConfirmationResult = {
   messageId: string
   confirmed: boolean
   confirmedAt: string | null
   confirmedByUserId: string | null
-}
-
-function toErrorMessage(payload: unknown): string | null {
-  if (!payload) return null
-  if (typeof payload === 'string') return payload
-  if (Array.isArray(payload)) {
-    for (const item of payload) {
-      const nested = toErrorMessage(item)
-      if (nested) return nested
-    }
-    return null
-  }
-  if (typeof payload === 'object') {
-    const record = payload as Record<string, unknown>
-    return (
-      toErrorMessage(record.error)
-      ?? toErrorMessage(record.message)
-      ?? toErrorMessage(record.detail)
-      ?? null
-    )
-  }
-  return null
-}
-
-function formatDateTime(value: string | null): string {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleString()
 }
 
 export function MessageConfirmationContent({ message }: MessageContentProps) {

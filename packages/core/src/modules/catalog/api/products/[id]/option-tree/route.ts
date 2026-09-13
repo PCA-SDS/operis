@@ -8,11 +8,11 @@ import { CatalogProduct, CatalogProductOptionGroup, CatalogProductOption, Catalo
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import {
-  resolveUserFeatures,
   runCatalogMutationGuardAfterSuccess,
   runCatalogMutationGuards,
 } from '../../../guards'
 import type { CatalogProductOptionTreeSyncInput } from '../../../../data/validators'
+import { CATALOG_DURATION_UNITS, normalizeCatalogDurationUnit } from '../../../../lib/durationUnits'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['catalog.products.view'] },
@@ -70,6 +70,12 @@ const responseSchema = z.object({
   constraints: z.array(constraintSchema).optional(),
 })
 
+const syncDurationUnitSchema = z.preprocess((value) => {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  return normalizeCatalogDurationUnit(value, null) ?? value
+}, z.enum(CATALOG_DURATION_UNITS).nullable().optional())
+
 function latestIso(values: Array<Date | null | undefined>): string | null {
   const candidates = values
     .filter((value): value is Date => value instanceof Date && Number.isFinite(value.getTime()))
@@ -112,8 +118,8 @@ const syncOptionBodySchema = z
     priceMax: z.string().nullable().optional(),
     duration_value: z.coerce.number().int().min(0).nullable().optional(),
     durationValue: z.coerce.number().int().min(0).nullable().optional(),
-    duration_unit: z.string().trim().max(20).nullable().optional(),
-    durationUnit: z.string().trim().max(20).nullable().optional(),
+    duration_unit: syncDurationUnitSchema,
+    durationUnit: syncDurationUnitSchema,
     duration_min: z.coerce.number().int().min(0).nullable().optional(),
     durationMin: z.coerce.number().int().min(0).nullable().optional(),
     duration_max: z.coerce.number().int().min(0).nullable().optional(),
@@ -232,7 +238,10 @@ export async function GET(
 
   // Fetch constraints for this product
   const constraints = await em.find(CatalogProductConstraint, {
-    sourceProduct: productId,
+    $or: [
+      { sourceProduct: productId },
+      { sourceOption: { group: { product: productId } } },
+    ],
     tenantId,
     organizationId,
   })
@@ -396,7 +405,6 @@ export async function PUT(
   const guardResult = await runCatalogMutationGuards(
     ctx.container,
     guardInput,
-    resolveUserFeatures(ctx.auth),
   )
   if (!guardResult.ok) {
     throw new CrudHttpError(guardResult.errorStatus ?? 422, guardResult.errorBody ?? { error: 'Operation blocked by guard' })

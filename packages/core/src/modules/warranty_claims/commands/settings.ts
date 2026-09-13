@@ -1,9 +1,10 @@
-import { UniqueConstraintViolationException } from '@mikro-orm/core'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { registerCommand, type CommandHandler } from '@open-mercato/shared/lib/commands'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { buildOptimisticLockConflictBody } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { WarrantyClaimSettings } from '../data/entities'
+import { toIsoOrNull as toIso } from '@open-mercato/shared/lib/date/normalize'
+import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
 import {
   warrantyClaimSettingsSaveSchema,
   type WarrantyClaimSettingsSaveInput,
@@ -36,14 +37,6 @@ function parseCommandInput(rawInput: unknown): WarrantyClaimSettingsSaveInput {
   return parsed.data
 }
 
-function isUniqueViolation(error: unknown): boolean {
-  if (error instanceof UniqueConstraintViolationException) return true
-  if (!error || typeof error !== 'object') return false
-  if ((error as { code?: string }).code === '23505') return true
-  const message = (error as { message?: string }).message
-  return typeof message === 'string' && message.includes('duplicate key')
-}
-
 function hasOwn(input: object, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(input, key)
 }
@@ -57,12 +50,6 @@ function amountNumber(value: string | number | null | undefined): number | null 
   if (value === null || value === undefined) return null
   const parsed = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(parsed) ? parsed : null
-}
-
-function toIso(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  const date = value instanceof Date ? value : new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
 
 function applySettingsUpdate(settings: WarrantyClaimSettings, input: WarrantyClaimSettingsUpdateInput): void {

@@ -7,7 +7,8 @@ import { attachmentIdsPayloadSchema, unlinkAttachmentPayloadSchema } from '../..
 import { getMessageAttachments, linkAttachmentsToMessage } from '../../../lib/attachments'
 import { attachOperationMetadataHeader } from '../../../lib/operationMetadata'
 import { resolveMessageContext } from '../../../lib/routeHelpers'
-import { resolveUserFeatures, runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../guards'
+import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../guards'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import {
   attachmentIdsPayloadSchema as attachmentIdsOpenApiSchema,
   errorResponseSchema,
@@ -70,7 +71,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   const { ctx, scope } = await resolveMessageContext(req)
   const em = (ctx.container.resolve('em') as EntityManager).fork()
-  const body = await req.json().catch(() => ({}))
+  const body = await readJsonSafe(req, {})
   const input = attachmentIdsPayloadSchema.parse(body)
 
   const message = await em.findOne(Message, {
@@ -109,7 +110,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       requestHeaders: req.headers,
       mutationPayload: input as Record<string, unknown>,
     },
-    resolveUserFeatures(ctx.auth),
   )
   if (!guardResult.ok) {
     return Response.json(
@@ -156,7 +156,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const { ctx, scope } = await resolveMessageContext(req)
   const em = (ctx.container.resolve('em') as EntityManager).fork()
-  const body = await req.json().catch(() => ({}))
+  const body = await readJsonSafe(req, {})
   const input = unlinkAttachmentPayloadSchema.parse(body)
 
   const message = await em.findOne(Message, {
@@ -195,7 +195,6 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       requestHeaders: req.headers,
       mutationPayload: input as Record<string, unknown>,
     },
-    resolveUserFeatures(ctx.auth),
   )
   if (!guardResult.ok) {
     return Response.json(

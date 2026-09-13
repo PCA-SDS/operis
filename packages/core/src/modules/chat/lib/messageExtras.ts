@@ -4,6 +4,9 @@ import { ChatMessage, ChatMessageReaction, ChatPinnedMessage } from '../data/ent
 import type { ChatReactionDto } from '../data/types'
 import { extractMentionedUserIds } from './mentions'
 import { loadOrganizationMembers, type ChatScope } from './scope'
+import { getAttachmentsForMessages } from './attachments'
+import { toChatAttachmentDto } from './attachmentDto'
+import type { ChatAttachmentDto } from '../data/types'
 
 /**
  * How many reactor names travel with a reaction.
@@ -26,6 +29,8 @@ export type MessageExtras = {
   reactionsByMessage: Map<string, ChatReactionDto[]>
   namesByUserId: Map<string, string>
   pinnedMessageIds: Set<string>
+  /** Files per message, loaded for the whole page in one read. */
+  attachmentsByMessage: Map<string, ChatAttachmentDto[]>
 }
 
 export async function loadMessageExtras(
@@ -40,6 +45,7 @@ export async function loadMessageExtras(
     reactionsByMessage: new Map(),
     namesByUserId: new Map(),
     pinnedMessageIds: new Set(),
+    attachmentsByMessage: new Map(),
   }
   if (messages.length === 0) return empty
 
@@ -93,10 +99,21 @@ export async function loadMessageExtras(
     reactionsByMessage.set(reaction.messageId, list)
   }
 
+  // One read for the page's files, alongside the page's reactions and pins.
+  // A transcript renders many messages, and a per-message lookup here is the
+  // query pattern that makes a busy conversation slow in the place people
+  // notice most.
+  const attachmentRows = await getAttachmentsForMessages({ em, scope, messageIds })
+  const attachmentsByMessage = new Map<string, ChatAttachmentDto[]>()
+  for (const [messageId, rows] of attachmentRows) {
+    attachmentsByMessage.set(messageId, rows.map(toChatAttachmentDto))
+  }
+
   return {
     reactionsByMessage,
     namesByUserId,
     pinnedMessageIds: new Set(pinnedRows.map((pin) => pin.messageId)),
+    attachmentsByMessage,
   }
 }
 

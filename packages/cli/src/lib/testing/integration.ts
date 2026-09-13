@@ -169,9 +169,11 @@ const DEFAULT_EPHEMERAL_POSTGRES_IMAGE = 'pgvector/pgvector:pg16'
 // Mirrors docker/postgres-init.sh (default DB + template1 so any future DB inherits them).
 const EPHEMERAL_POSTGRES_INIT_SQL = `CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 \\connect template1
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 `
 
 export function resolveEphemeralPostgresImage(env: NodeJS.ProcessEnv = process.env): string {
@@ -1977,10 +1979,26 @@ function buildReusableEnvironment(
     // drive real delivery. Production-safe + inert unless a delivery row carries
     // `provider='push_stub'`. Mirrors the fresh-environment app server env below.
     OM_ENABLE_PUSH_STUB_ADAPTER: process.env.OM_ENABLE_PUSH_STUB_ADAPTER ?? '1',
+    // The `mock` / `mock_usd` / `mock_processing` gateways and the `mock_carrier`
+    // provider. They used to arrive with the app's `example` module; that module
+    // left the build in `d108ad27`, and the payment and shipping specs have been
+    // calling providers nothing registered ever since. Both registrations are
+    // no-ops without these flags, so no deployment that omits them can take a
+    // payment or print a label from a fixture.
+    OM_ENABLE_MOCK_PAYMENT_GATEWAY: process.env.OM_ENABLE_MOCK_PAYMENT_GATEWAY ?? '1',
+    OM_ENABLE_MOCK_SHIPPING_CARRIER: process.env.OM_ENABLE_MOCK_SHIPPING_CARRIER ?? '1',
+    // The mock inbound webhook receiver. The outbound delivery specs point
+    // their webhooks at `/api/webhooks/inbound/mock_inbound`, so without it
+    // every delivery 404s, retries and lands as `expired`. Registered only
+    // under this flag, and the secret must match the one the specs sign with.
+    OM_ENABLE_MOCK_INBOUND_WEBHOOK: process.env.OM_ENABLE_MOCK_INBOUND_WEBHOOK ?? '1',
     // Swap the FCM/APNs/Expo SDK clients for network-free fakes so the REAL provider
     // adapters run end-to-end. Unlike `push_stub` (which replaces the whole adapter),
     // this replaces only each SDK client. Mirrors the fresh-environment env below.
     OM_PUSH_FAKE_PROVIDERS: process.env.OM_PUSH_FAKE_PROVIDERS ?? '1',
+    // Same reasoning for translation: the real adapter and command run, but
+    // no engine is reachable from a test environment.
+    OM_TRANSLATION_FAKE_PROVIDER: process.env.OM_TRANSLATION_FAKE_PROVIDER ?? '1',
     // Expo's receipt reaper ignores rows younger than 15 minutes by default, which no
     // integration test can wait out. Poll immediately instead.
     OM_PUSH_RECEIPT_MIN_AGE_MINUTES: process.env.OM_PUSH_RECEIPT_MIN_AGE_MINUTES ?? '0',
@@ -3352,6 +3370,19 @@ export async function startEphemeralEnvironment(options: EphemeralRuntimeOptions
       // push channel + device. Applies to the app server, the Playwright process, and
       // any drain/worker child that inherits this environment.
       OM_ENABLE_PUSH_STUB_ADAPTER: process.env.OM_ENABLE_PUSH_STUB_ADAPTER ?? '1',
+      // The `mock` / `mock_usd` / `mock_processing` gateways and the `mock_carrier`
+      // provider. They used to arrive with the app's `example` module; that module
+      // left the build in `d108ad27`, and the payment and shipping specs have been
+      // calling providers nothing registered ever since. Both registrations are
+      // no-ops without these flags, so no deployment that omits them can take a
+      // payment or print a label from a fixture.
+      OM_ENABLE_MOCK_PAYMENT_GATEWAY: process.env.OM_ENABLE_MOCK_PAYMENT_GATEWAY ?? '1',
+      OM_ENABLE_MOCK_SHIPPING_CARRIER: process.env.OM_ENABLE_MOCK_SHIPPING_CARRIER ?? '1',
+      // The mock inbound webhook receiver. The outbound delivery specs point
+      // their webhooks at `/api/webhooks/inbound/mock_inbound`, so without it
+      // every delivery 404s, retries and lands as `expired`. Registered only
+      // under this flag, and the secret must match the one the specs sign with.
+      OM_ENABLE_MOCK_INBOUND_WEBHOOK: process.env.OM_ENABLE_MOCK_INBOUND_WEBHOOK ?? '1',
       // Swap the FCM/APNs/Expo SDK clients for network-free fakes (TC-CHANNEL-PUSH-005+) so the REAL
       // provider adapters — native message construction, credential parsing, client caching, and every
       // error → `device_unregistered` mapping — run end-to-end without live keys. Unlike
@@ -3359,6 +3390,7 @@ export async function startEphemeralEnvironment(options: EphemeralRuntimeOptions
       // registered only under this flag. Applies to the app server, the Playwright process, and any
       // drain/worker child that inherits this environment.
       OM_PUSH_FAKE_PROVIDERS: process.env.OM_PUSH_FAKE_PROVIDERS ?? '1',
+      OM_TRANSLATION_FAKE_PROVIDER: process.env.OM_TRANSLATION_FAKE_PROVIDER ?? '1',
       // Expo's receipt reaper ignores rows younger than 15 minutes by default (it polls a real
       // provider's async receipts). No integration test can wait that out — poll immediately.
       OM_PUSH_RECEIPT_MIN_AGE_MINUTES: process.env.OM_PUSH_RECEIPT_MIN_AGE_MINUTES ?? '0',

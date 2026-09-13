@@ -1,0 +1,11 @@
+ctranslate2==4.8.2
+transformers==4.57.6
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+# NumPy pinned below 2: fasttext-wheel 0.9.2 calls `np.array(probs, copy=False)`,
+# which NumPy 2 turned from a hint into an error. Detection dies at request time
+# with a ValueError while /health still passes, because health never predicts.
+numpy==1.26.4
+fasttext-wheel==0.9.2
+sentencepiece==0.2.0

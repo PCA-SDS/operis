@@ -2,7 +2,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
 import { badRequest, isUniqueViolation, notFound } from '@open-mercato/shared/lib/crud/errors'
-import { ChatConversation, ChatMessage, ChatParticipant } from '../data/entities'
+import { ChatConversation, ChatMessage, ChatMessageTranslation, ChatParticipant } from '../data/entities'
 import type { ChatParticipantRole, ChatSystemEvent } from '../data/entities'
 import { dbNow } from '../lib/clock'
 import { loadChatMessages } from '../lib/messages'
@@ -463,6 +463,16 @@ const removeSpaceMemberCommand: CommandHandler<
         // message rows stay addressable for audit and the transcript is not
         // rewritten by someone walking out of it.
         space.deletedAt = now
+        // The cache does not survive it. A translation is a second, plainer
+        // copy of a message body, and the foreign key's ON DELETE CASCADE only
+        // fires on a hard delete — so without this every translated message in
+        // a closed conversation stays readable text in a table no erasure path
+        // knows about, for messages nobody can reach any more.
+        await tx.nativeDelete(ChatMessageTranslation, {
+          conversationId: space.id,
+          tenantId: scope.tenantId,
+          organizationId: scope.organizationId,
+        })
       } else {
         await appendSystemMessage(tx, scope, {
           conversationId: space.id,

@@ -723,6 +723,10 @@ export default function EditEudrStatementPage({ params }: { params?: { id?: stri
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">{translate('eudr.statements.detail.submissions')}</h2>
           <DataTable<LinkedSubmissionRow>
+            // `embedded` keeps this a section table under the h2 above; without it
+            // DataTable gives its title the standalone page-title treatment and the
+            // detail page renders two page-sized headings.
+            embedded
             title={translate('eudr.statements.detail.submissionsTableTitle')}
             columns={submissionColumns}
             data={submissionRows}

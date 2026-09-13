@@ -63,7 +63,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
               isDisabled
                 ? 'text-text-disabled'
                 : isError
-                  ? 'text-destructive'
+                  ? 'text-status-error-text'
                   : 'text-muted-foreground'
             )}
             aria-live="polite"

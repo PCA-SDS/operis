@@ -3,6 +3,9 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import { getRecipientUserIdsForFeature } from '../../notifications/lib/notificationRecipients'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { User } from '@open-mercato/core/modules/auth/data/entities'
+import { emailHashLookupValues } from '@open-mercato/core/modules/auth/lib/emailHash'
 
 const logger = createLogger('inbox_ops').child({ component: 'messages' })
 
@@ -57,18 +60,33 @@ export async function resolveMessageSenderUserId(
   scope: { tenantId: string; organizationId: string },
 ): Promise<string> {
   try {
-    // users.email is a plaintext login field, not encrypted at field level,
-    // so findOneWithDecryption is unnecessary here.
-    const db = em.getKysely<any>() as any
     const normalizedEmail = forwardedByEmail.trim().toLowerCase()
     if (normalizedEmail) {
-      const row = await db
-        .selectFrom('users')
-        .select('id')
-        .where('email', '=', normalizedEmail)
-        .where('deleted_at', 'is', null)
-        .executeTakeFirst() as { id?: string } | undefined
-      if (row?.id) return row.id
+      // Scoped to the receiving tenant. `users` is UNIQUE (tenant_id, email_hash),
+      // not globally unique (docs/architecture/multi-tenancy.md §3.5), so an
+      // unqualified match could return another tenant's user — whose id then
+      // became `messages.sender_user_id` here, and the messages list resolves
+      // sender identity by id with no tenant filter, rendering that foreign
+      // user's name and email to this tenant's staff.
+      //
+      // Matched by hash as well as plaintext: `email` is encrypted at rest with a
+      // per-row IV, so the plaintext comparison this replaced never matched and
+      // the function always fell through to `recipientUserIds[0]`.
+      const user = await findOneWithDecryption(
+        em,
+        User,
+        {
+          $or: [
+            { email: normalizedEmail },
+            { emailHash: { $in: emailHashLookupValues(normalizedEmail) } },
+          ],
+          tenantId: scope.tenantId,
+          deletedAt: null,
+        } as never,
+        {},
+        { tenantId: scope.tenantId, organizationId: scope.organizationId },
+      )
+      if (user?.id) return String(user.id)
     }
   } catch {
     // User lookup failed — fall through

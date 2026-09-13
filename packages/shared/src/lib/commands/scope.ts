@@ -1,4 +1,5 @@
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import type { FilterQuery } from '@mikro-orm/core'
 import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { isOrganizationAccessAllowed } from '@open-mercato/shared/lib/auth/organizationAccess'
 import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
@@ -170,4 +171,79 @@ export function ensureSameScope(
   if (entity.organizationId !== organizationId || entity.tenantId !== tenantId) {
     throw new CrudHttpError(403, { error: 'Cross-tenant relation forbidden' })
   }
+}
+
+/**
+ * The actor's effective tenant/organization scope for a command, plus whether
+ * each dimension must be enforced.
+ *
+ * `requireTenant` / `requireOrganization` exist because "no organization" is
+ * two different answers: a privileged actor (super-admin or `systemActor`) is
+ * genuinely unrestricted, while an ordinary actor with a null organization must
+ * still be pinned to `organization_id IS NULL` rather than matching every row.
+ * {@link applyActorScopeToWhere} is what turns that distinction into SQL.
+ */
+export type CommandActorScope = {
+  tenantId: string | null
+  organizationId: string | null
+  requireTenant: boolean
+  requireOrganization: boolean
+}
+
+/**
+ * Derive the acting scope from the command context.
+ *
+ * Privileged actors (super-admin, `systemActor`) come back fully unrestricted.
+ * A non-privileged actor whose organization cannot be resolved is treated as
+ * organization-unrestricted only when the tenant is known AND the resolved
+ * scope explicitly allows every organization (`allowedIds === null`); anything
+ * else stays pinned to the resolved organization.
+ */
+export function resolveCommandActorScope(ctx: CommandRuntimeContext): CommandActorScope {
+  const isPrivilegedActor = ctx.auth?.isSuperAdmin === true || ctx.systemActor === true
+  const tenantId = isPrivilegedActor ? null : (ctx.auth?.tenantId ?? ctx.organizationScope?.tenantId ?? null)
+  const organizationId = isPrivilegedActor ? null : (ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null)
+  const organizationUnrestricted =
+    isPrivilegedActor || (organizationId === null && tenantId !== null && ctx.organizationScope?.allowedIds === null)
+  return {
+    tenantId,
+    organizationId: organizationUnrestricted ? null : organizationId,
+    requireTenant: !isPrivilegedActor,
+    requireOrganization: !organizationUnrestricted,
+  }
+}
+
+/** A scope pinned to an explicit tenant/organization pair, enforcing both. */
+export function explicitCommandActorScope(
+  tenantId: string | null,
+  organizationId: string | null,
+): CommandActorScope {
+  return {
+    tenantId,
+    organizationId,
+    requireTenant: true,
+    requireOrganization: true,
+  }
+}
+
+/**
+ * Add the scope columns to a `where` clause. A required dimension is always
+ * written — including as an explicit `null` — so an unscoped actor can never
+ * widen the query by omission.
+ */
+export function applyActorScopeToWhere<TEntity extends object>(
+  where: FilterQuery<TEntity>,
+  scope: CommandActorScope,
+): FilterQuery<TEntity> {
+  const scoped = { ...(where as Record<string, unknown>) }
+  if (scope.requireTenant || scope.tenantId !== null) scoped.tenantId = scope.tenantId
+  if (scope.requireOrganization || scope.organizationId !== null) scoped.organizationId = scope.organizationId
+  return scoped as FilterQuery<TEntity>
+}
+
+/** The subset `findWithDecryption` needs to pick the right encryption keys. */
+export function actorScopeForDecryption(
+  scope: CommandActorScope,
+): { tenantId: string | null; organizationId: string | null } {
+  return { tenantId: scope.tenantId, organizationId: scope.organizationId }
 }

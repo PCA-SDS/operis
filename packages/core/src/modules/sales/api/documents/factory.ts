@@ -86,8 +86,8 @@ const resolveCustomerEmail = (snapshot: Record<string, unknown> | null) => {
 
 const listSchema = z
   .object({
-    page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(100).default(50),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(50),
     search: z.string().optional(),
     id: z.string().uuid().optional(),
     customerId: z.string().uuid().optional(),

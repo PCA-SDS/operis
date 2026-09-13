@@ -40,6 +40,20 @@ const events = [
     clientBroadcast: true,
   },
   {
+    id: 'chat.message.edited',
+    label: 'Chat Message Edited',
+    entity: 'message',
+    category: 'crud',
+    clientBroadcast: true,
+  },
+  {
+    id: 'chat.message.deleted',
+    label: 'Chat Message Deleted',
+    entity: 'message',
+    category: 'crud',
+    clientBroadcast: true,
+  },
+  {
     id: 'chat.conversation.updated',
     label: 'Chat Conversation Updated',
     entity: 'conversation',

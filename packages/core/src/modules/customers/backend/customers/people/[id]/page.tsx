@@ -53,6 +53,8 @@ import { InjectionSpot, useInjectionWidgets } from '@open-mercato/ui/backend/inj
 import { DetailTabsLayout } from '../../../../components/detail/DetailTabsLayout'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { SendObjectMessageDialog } from '@open-mercato/ui/backend/messages'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
+import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
 
 type PersonOverview = {
   person: {
@@ -139,14 +141,16 @@ export default function CustomerPersonDetailPage({ params }: { params?: { id?: s
     setSectionAction(null)
   }, [activeTab])
   const validators = React.useMemo(() => ({
+    // Same rules the server enforces in `customers/data/validators.ts`. These
+    // used to be a loose local regex and a bare `length >= 3`, so the editor
+    // accepted a phone the API then rejected.
     email: (value: string) => {
       if (!value) return null
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      return emailRegex.test(value) ? null : t('customers.people.detail.inline.emailInvalid')
+      return emailSchema().safeParse(value).success ? null : t('customers.people.detail.inline.emailInvalid')
     },
     phone: (value: string) => {
       if (!value) return null
-      return value.length >= 3 ? null : t('customers.people.detail.inline.phoneInvalid')
+      return isValidPhoneNumber(value) ? null : t('customers.people.detail.inline.phoneInvalid')
     },
     displayName: (value: string) => {
       const trimmed = value.trim()

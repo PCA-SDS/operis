@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { ArrowUp, AtSign, Quote, X } from 'lucide-react'
+import { ArrowUp, AtSign, Check, Paperclip, Pencil, Quote, X } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
@@ -10,6 +10,8 @@ import { cn } from '@open-mercato/shared/lib/utils'
 import { MAX_MESSAGE_LENGTH } from '../data/validators'
 import { EVERYONE_TOKEN, userToken } from '../lib/mentions'
 import { applyMention, detectMentionDraft, type MentionDraft } from '../lib/mentionDraft'
+import type { ChatDraftAttachment } from './useChatAttachments'
+import { ComposerAttachments } from './ComposerAttachments'
 
 /**
  * How many colleagues the menu offers at once.
@@ -52,6 +54,14 @@ export type MessageComposerProps = {
   onMentionQueryChange?: (query: string | null) => void
   /** Hands the body to the transcript, which owns delivery and retry from there. */
   onSend: (body: string) => void
+  /**
+   * Files staged for this message, owned by the view so a conversation switch
+   * clears them in one place — the same reason the reply target lives there.
+   */
+  attachments?: ChatDraftAttachment[]
+  onAttachFiles?: (files: File[]) => void
+  onRemoveAttachment?: (key: string) => void
+  onRetryAttachment?: (key: string) => void
   placeholder: string
   /**
    * The message being replied to, owned by the view — so switching conversation
@@ -59,6 +69,18 @@ export type MessageComposerProps = {
    */
   replyTarget?: { authorName: string; body: string } | null
   onCancelReply?: () => void
+  /**
+   * The message being rewritten, owned by the view for the same reason the reply
+   * target is: switching conversation must clear it in one place.
+   *
+   * While it is set the composer is not a composer — it holds that message's
+   * text, Enter saves rather than sends, and attachments are out of reach
+   * because they are separate rows with their own scan lifecycle and are not
+   * part of what an edit changes.
+   */
+  editTarget?: { messageId: string; body: string } | null
+  onSubmitEdit?: (body: string) => void
+  onCancelEdit?: () => void
 }
 
 /**
@@ -79,8 +101,15 @@ export function MessageComposer({
   placeholder,
   replyTarget,
   onCancelReply,
+  editTarget,
+  onSubmitEdit,
+  onCancelEdit,
   mentionCandidates = [],
   onMentionQueryChange,
+  attachments = [],
+  onAttachFiles,
+  onRemoveAttachment,
+  onRetryAttachment,
 }: MessageComposerProps) {
   const t = useT()
   const [value, setValue] = React.useState('')
@@ -99,6 +128,7 @@ export function MessageComposer({
     textareaRef.current?.focus()
   }, [disabled, replyMessageId])
 
+
   /**
    * Grow the box with the message, up to the max height the class sets.
    * Without this a Shift+Enter message scrolls inside a one-line field and the
@@ -113,7 +143,16 @@ export function MessageComposer({
 
   const trimmed = value.trim()
   const tooLong = trimmed.length > MAX_MESSAGE_LENGTH
-  const canSend = trimmed.length > 0 && !tooLong && !disabled
+  const anyUploading = attachments.some((item) => item.status === 'uploading')
+  const anyReady = attachments.some((item) => item.status === 'ready')
+  // A file on its own is a message. Waiting for uploads is deliberate: sending
+  // mid-upload would drop the file without saying so.
+  // An edit must leave text behind. A send may be a file on its own; emptying a
+  // message that already exists is a deletion wearing a different name, and the
+  // server refuses it — so the button refuses it first.
+  const canSend = editTarget
+    ? trimmed.length > 0 && !tooLong && !disabled
+    : (trimmed.length > 0 || anyReady) && !tooLong && !disabled && !anyUploading
   const remaining = MAX_MESSAGE_LENGTH - trimmed.length
   const nearLimit = !tooLong && remaining <= Math.round(MAX_MESSAGE_LENGTH / 10)
 
@@ -133,6 +172,42 @@ export function MessageComposer({
    */
   const pendingValue = React.useRef(value)
   pendingValue.current = value
+
+  /**
+   * The body to prefill, held in a ref so the effect below can depend on the
+   * message id alone. Depending on the object itself would re-run it — and
+   * re-prefill over what has just been typed — on every parent render.
+   */
+  const editTargetBody = React.useRef('')
+  editTargetBody.current = editTarget?.body ?? ''
+
+  /**
+   * Entering and leaving edit mode, and the draft that was in the box.
+   *
+   * Choosing Edit replaces whatever was being typed with the message's own text,
+   * so the half-written line has to go somewhere or a misclick simply destroys
+   * it. It is stashed here and put back when edit mode ends — saved or
+   * abandoned, because either way the writer is returned to the sentence they
+   * were in the middle of.
+   *
+   * Keyed on the message id: choosing Edit on a different message while already
+   * editing re-prefills, and choosing it on the SAME message again does not wipe
+   * out corrections already typed.
+   */
+  const editMessageId = editTarget?.messageId ?? null
+  const stashedDraft = React.useRef<string | null>(null)
+  React.useEffect(() => {
+    if (!editMessageId) {
+      if (stashedDraft.current === null) return
+      const restored = stashedDraft.current
+      stashedDraft.current = null
+      setValue(restored)
+      return
+    }
+    if (stashedDraft.current === null) stashedDraft.current = pendingValue.current
+    setValue(editTargetBody.current)
+    textareaRef.current?.focus()
+  }, [editMessageId])
 
   /**
    * The `@` the caret is inside, and the menu it opens.
@@ -202,12 +277,58 @@ export function MessageComposer({
   const submit = React.useCallback(() => {
     if (disabled) return
     const body = pendingValue.current.trim()
-    if (body.length === 0 || body.length > MAX_MESSAGE_LENGTH) return
+    if (body.length > MAX_MESSAGE_LENGTH) return
+
+    if (editTarget && onSubmitEdit) {
+      if (body.length === 0) return
+      // Saving text that is identical to what is already stored would stamp
+      // `edited_at` and mark the message "(edited)" for a change nobody made.
+      // Treated as a cancel, because that is what it is.
+      if (body === editTarget.body) {
+        onCancelEdit?.()
+        return
+      }
+      // The same synchronous guard the send path uses: `setValue` does not take
+      // effect until the next render, so without it a triple click submits the
+      // same edit three times.
+      pendingValue.current = ''
+      setValue('')
+      onSubmitEdit(body)
+      textareaRef.current?.focus()
+      return
+    }
+
+    // Text alone, files alone, or both — but never nothing, and never while a
+    // file is still on its way, because that send would silently drop it.
+    if (body.length === 0 && !anyReady) return
+    if (anyUploading) return
     pendingValue.current = ''
     onSend(body)
     setValue('')
     textareaRef.current?.focus()
-  }, [disabled, onSend])
+  }, [anyReady, anyUploading, disabled, editTarget, onCancelEdit, onSend, onSubmitEdit])
+
+  /**
+   * Files arriving from the picker, a drop, or a paste.
+   *
+   * One path for all three so they cannot diverge: the same validation, the
+   * same upload, the same rows in the strip below.
+   */
+  const acceptFiles = React.useCallback(
+    (files: FileList | File[] | null | undefined) => {
+      if (!files || disabled) return
+      const list = Array.from(files)
+      if (list.length > 0) onAttachFiles?.(list)
+    },
+    [disabled, onAttachFiles],
+  )
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const [isDropTarget, setIsDropTarget] = React.useState(false)
+  // Counted rather than toggled: dragging over a child fires `dragleave` on the
+  // parent, so a boolean flickers the drop state off while the pointer is still
+  // inside.
+  const dragDepth = React.useRef(0)
 
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -236,6 +357,14 @@ export function MessageComposer({
         }
       }
 
+      // Escape abandons the edit. Ahead of the reply branch because edit mode is
+      // the more committed state of the two, and the draft is not lost: leaving
+      // edit mode puts back whatever was in the box before it started.
+      if (event.key === 'Escape' && editTarget && onCancelEdit) {
+        event.preventDefault()
+        onCancelEdit()
+        return
+      }
       // Escape drops the reply before it drops anything else — the same key that
       // dismisses a dialog dismisses this, and it does not clear the draft, so a
       // mistaken Reply costs nothing that was typed.
@@ -252,12 +381,26 @@ export function MessageComposer({
       event.preventDefault()
       submit()
     },
-    [choose, highlighted, menuOpen, onCancelReply, replyTarget, submit, suggestions],
+    [
+      choose,
+      editTarget,
+      highlighted,
+      menuOpen,
+      onCancelEdit,
+      onCancelReply,
+      replyTarget,
+      submit,
+      suggestions,
+    ],
   )
 
   return (
     <form
-      className="shrink-0 border-t border-border bg-surface px-4 py-3"
+      // No rule above it. The composer and the transcript are the same surface,
+      // so a line between them divided one panel into two; the padding already
+      // separates them. Kept as `py-3` rather than absorbed into the transcript
+      // so the distance is unchanged by the border going away.
+      className="shrink-0 bg-surface px-4 py-3"
       onSubmit={(event) => {
         event.preventDefault()
         submit()
@@ -332,6 +475,39 @@ export function MessageComposer({
       ) : null}
 
       <div
+        // Scoped to the composer rather than the whole page. Dropping a file on
+        // a conversation you are reading is ambiguous — the composer is what
+        // will carry it — and a page-wide handler also has to fight every other
+        // droppable surface for the event.
+        onDragEnter={(event) => {
+          if (!onAttachFiles || disabled) return
+          if (!event.dataTransfer?.types?.includes('Files')) return
+          event.preventDefault()
+          dragDepth.current += 1
+          setIsDropTarget(true)
+        }}
+        onDragOver={(event) => {
+          if (!onAttachFiles || disabled) return
+          if (!event.dataTransfer?.types?.includes('Files')) return
+          // Without this the browser navigates away to the dropped file, which
+          // loses whatever was being written.
+          event.preventDefault()
+          event.dataTransfer.dropEffect = 'copy'
+        }}
+        onDragLeave={() => {
+          if (!onAttachFiles || disabled) return
+          // Counted, not toggled: dragging over a child fires `dragleave` on
+          // the parent, so a boolean flickers off while the pointer is inside.
+          dragDepth.current = Math.max(0, dragDepth.current - 1)
+          if (dragDepth.current === 0) setIsDropTarget(false)
+        }}
+        onDrop={(event) => {
+          if (!onAttachFiles || disabled) return
+          event.preventDefault()
+          dragDepth.current = 0
+          setIsDropTarget(false)
+          acceptFiles(event.dataTransfer?.files)
+        }}
         className={cn(
           // The tint of your own bubbles, and no border.
           //
@@ -344,14 +520,47 @@ export function MessageComposer({
           'rounded-xl bg-primary-soft transition-colors',
           'focus-within:shadow-focus',
           disabled && 'bg-input-disabled-bg',
+          isDropTarget && 'ring-2 ring-primary',
         )}
       >
+        <ComposerAttachments
+          items={attachments}
+          onRemove={onRemoveAttachment}
+          onRetry={onRetryAttachment}
+        />
+
         {/* Inside the box, above the field: the reply is part of the message
             being written, not a banner floating over the composer.
 
             The same card the sent bubble will carry — quote glyph, the author's
             avatar and name, then up to three lines of what they said — so what
             you are about to send looks like what you will have sent. */}
+        {/* Above the reply strip and mutually exclusive with it in practice:
+            the view clears the reply target when an edit starts, because a
+            message cannot both reply to something and be a rewrite of itself. */}
+        {editTarget ? (
+          <div className="px-3 pt-3">
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2.5 py-1.5">
+              <Pencil className="size-3 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
+                {t('chat.messages.editing', 'Editing message')}
+              </span>
+              {onCancelEdit ? (
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="-mr-1 shrink-0"
+                  aria-label={t('chat.messages.cancelEdit', 'Cancel edit')}
+                  onClick={onCancelEdit}
+                >
+                  <X className="size-4" aria-hidden="true" />
+                </IconButton>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
         {replyTarget ? (
           <div className="px-3 pt-3">
             <div className="flex items-start gap-2 rounded-lg border border-border bg-surface px-2.5 py-1.5">
@@ -406,6 +615,15 @@ export function MessageComposer({
           {t('chat.composer.label', 'Message')}
         </label>
         <Textarea
+          onPaste={(event) => {
+            if (!onAttachFiles || disabled) return
+            // Only when the clipboard actually carries a file. Pasting text
+            // that happens to come from a file manager must still paste text.
+            const files = Array.from(event.clipboardData?.files ?? [])
+            if (files.length === 0) return
+            event.preventDefault()
+            acceptFiles(files)
+          }}
           id="chat-composer"
           ref={textareaRef}
           rows={1}
@@ -487,14 +705,63 @@ export function MessageComposer({
                 ? <span className="tabular-nums">{remaining}</span>
                 : null}
           </p>
+          {onAttachFiles && !editTarget ? (
+            <>
+              {/* The input is the control; the button is its label. Clicking the
+                  button opens the picker, and the input stays reachable to a
+                  screen reader rather than being hidden from it entirely. */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="sr-only"
+                tabIndex={-1}
+                onChange={(event) => {
+                  acceptFiles(event.target.files)
+                  // Cleared so choosing the same file twice in a row still
+                  // fires `change` the second time.
+                  event.target.value = ''
+                }}
+              />
+              <IconButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                // The hint beside these takes `flex-1`, so without this the
+                // buttons are the part that gives and both render narrower than
+                // their own icons. They are fixed-size controls, not filler.
+                className="shrink-0"
+                disabled={disabled}
+                onClick={() => fileInputRef.current?.click()}
+                aria-label={t('chat.composer.attach', 'Attach file')}
+                title={t('chat.composer.attach', 'Attach file')}
+              >
+                <Paperclip className="size-4" aria-hidden="true" />
+              </IconButton>
+            </>
+          ) : null}
           <IconButton
             type="submit"
             variant="primary"
             size="sm"
+            className="shrink-0"
             disabled={!canSend}
-            aria-label={t('chat.composer.send', 'Send')}
+            aria-label={
+              editTarget
+                ? t('chat.messages.saveEdit', 'Save changes')
+                : t('chat.composer.send', 'Send')
+            }
+            title={
+              editTarget
+                ? t('chat.messages.saveEdit', 'Save changes')
+                : undefined
+            }
           >
-            <ArrowUp className="size-4" aria-hidden="true" />
+            {editTarget ? (
+              <Check className="size-4" aria-hidden="true" />
+            ) : (
+              <ArrowUp className="size-4" aria-hidden="true" />
+            )}
           </IconButton>
         </div>
       </div>

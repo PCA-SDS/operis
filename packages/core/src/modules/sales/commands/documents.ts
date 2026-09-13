@@ -56,6 +56,7 @@ import {
   type SalesAdjustmentKind,
   type SalesSettings,
 } from "../data/entities";
+import { cloneJson } from '@open-mercato/shared/lib/json/cloneJson'
 import {
   CatalogProduct,
   CatalogProductUnitConversion,
@@ -666,11 +667,6 @@ type DocumentLineCreateInput = QuoteLineCreateInput | OrderLineCreateInput;
 type DocumentAdjustmentCreateInput =
   | QuoteAdjustmentCreateInput
   | OrderAdjustmentCreateInput;
-
-function cloneJson<T>(value: T): T {
-  if (value === null || value === undefined) return value;
-  return JSON.parse(JSON.stringify(value)) as T;
-}
 
 /**
  * Persists document-level custom fields supplied on a create input.

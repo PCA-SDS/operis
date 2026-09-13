@@ -364,24 +364,24 @@ export function AclEditor({
               disabled={!actorIsSuperAdmin}
               onChange={(e) => setIsSuperAdmin(!!e.target.checked)}
             />
-            <label htmlFor="isSuperAdmin" className="text-sm">Super Admin (all features)</label>
+            <label htmlFor="isSuperAdmin" className="text-sm">{t('auth.acl.superAdmin', 'Super Admin (all features)')}</label>
           </div>
           {!actorIsSuperAdmin && (
-            <p className="text-xs text-muted-foreground">Only super administrators can change this option.</p>
+            <p className="text-xs text-muted-foreground">{t('auth.acl.superAdminRestricted', 'Only super administrators can change this option.')}</p>
           )}
       {!isSuperAdmin && (
         <>
           {hasGlobalWildcard && (
             <div className="rounded border border-status-info-border bg-status-info-bg p-3">
-              <div className="text-sm font-medium text-status-info-text">Global wildcard (*) enabled</div>
-              <div className="text-xs text-status-info-text mt-1">This grants access to all features in the system.</div>
+              <div className="text-sm font-medium text-status-info-text">{t('auth.acl.wildcardEnabled', 'Global wildcard (*) enabled')}</div>
+              <div className="text-xs text-status-info-text mt-1">{t('auth.acl.wildcardDescription', 'This grants access to all features in the system.')}</div>
               <Button
                 variant="outline"
                 size="sm"
                 className="mt-2"
                 onClick={() => updateGranted((prev) => prev.filter((x) => x !== '*'))}
               >
-                Remove global wildcard
+                {t('auth.acl.wildcardRemove', 'Remove global wildcard')}
               </Button>
             </div>
           )}
@@ -535,7 +535,7 @@ export function AclEditor({
               <div className="text-sm font-medium mb-2">
                 {t('auth.acl.organizationsScope', 'Organizations scope')}
               </div>
-              <div className="text-xs text-muted-foreground mb-2">Empty = all organizations. Select one or more to restrict.</div>
+              <div className="text-xs text-muted-foreground mb-2">{t('auth.acl.organizationsScopeHint', 'Empty = all organizations. Select one or more to restrict.')}</div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {orgOptions.map((o) => {
                   const checked = organizations == null ? false : (organizations || []).includes(o.id)

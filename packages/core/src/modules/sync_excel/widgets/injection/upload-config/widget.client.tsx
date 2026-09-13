@@ -30,6 +30,7 @@ import {
   type MappingTargetOption,
   type SuggestedMapping,
 } from './target-options'
+import { formatFileSize } from '@open-mercato/shared/lib/units/fileSize'
 
 type SyncExcelIntegrationContext = {
   formId?: string
@@ -218,11 +219,6 @@ function getMatchStrategyLabel(
   return t('sync_excel.widget.matchStrategy.custom', 'Custom matching')
 }
 
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
 
 function readApiErrorMessage(result: Record<string, unknown> | null | undefined, fallback: string): string {
   const value = result?.error

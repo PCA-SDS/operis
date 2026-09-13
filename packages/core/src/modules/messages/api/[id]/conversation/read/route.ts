@@ -2,7 +2,7 @@ import type { CommandBus } from '@open-mercato/shared/lib/commands/command-bus'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi/types'
 import { attachOperationMetadataHeader } from '../../../../lib/operationMetadata'
 import { resolveMessageContext } from '../../../../lib/routeHelpers'
-import { resolveUserFeatures, runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../../guards'
+import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../../guards'
 import {
   conversationMutationResponseSchema,
   errorResponseSchema,
@@ -34,7 +34,6 @@ async function runConversationReadMutation(
       requestHeaders: req.headers,
       mutationPayload: null,
     },
-    resolveUserFeatures(ctx.auth),
   )
   if (!guardResult.ok) {
     return Response.json(

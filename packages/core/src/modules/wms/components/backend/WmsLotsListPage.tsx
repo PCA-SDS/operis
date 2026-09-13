@@ -7,7 +7,6 @@ import { useSearchParams } from 'next/navigation'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import type { SortingState } from '@tanstack/react-table'
 import { useQuery } from '@tanstack/react-query'
-import { Layers } from 'lucide-react'
 import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
 import { EmptyState } from '@open-mercato/ui/backend/EmptyState'
@@ -248,18 +247,8 @@ export default function WmsLotsListPage() {
 
         {lotsQuery.data ? (
           <section className="rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground shadow-sm">
-            <div className="mb-4 flex items-start gap-3">
-              <div className="rounded-md border bg-muted/40 p-2 text-muted-foreground">
-                <Layers className="size-5" />
-              </div>
-              <div className="space-y-1">
-                <h2 className="text-xl font-semibold">{title}</h2>
-                <p className="text-sm text-muted-foreground">{description}</p>
-              </div>
-            </div>
             <DataTable
               embedded
-              title={title}
               columns={columns}
               data={lotsQuery.data.items}
               isLoading={lotsQuery.isFetching}

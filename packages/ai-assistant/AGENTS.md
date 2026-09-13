@@ -512,12 +512,11 @@ packages/ai-assistant/
 │   │   │   ├── mcp-tool-adapter.ts     # Converts MCP tools to AI SDK format
 │   │   │   └── types.ts                # Module-specific types
 │   │   │
-│   │   ├── frontend/components/
-│   │   │   ├── AiAssistantSettingsPageClient.tsx  # Settings page
-│   │   │   └── McpServersSection.tsx              # MCP server management UI
+│   │   ├── components/  # AiAssistantSettingsPageClient, McpConfigDialog,
+│   │   │                # SessionKeyDialog, ConversationShare{Button,Dialog}
 │   │   │
 │   │   └── backend/config/ai-assistant/
-│   │       └── page.tsx            # Settings page route
+│   │       └── page.tsx (redirect) + settings|agents|allowlist|legacy|playground|usage/
 │   │
 │   └── frontend/
 │       ├── index.ts                # Frontend exports

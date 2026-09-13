@@ -21,8 +21,8 @@ import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 
 const listQuerySchema = z.object({
   id: z.string().uuid().optional(),
-  page: z.coerce.number().min(1).default(1),
-  pageSize: z.coerce.number().min(1).max(100).default(50),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
   search: z.string().optional(),
   sortField: z.enum(['name', 'createdAt', 'updatedAt']).optional(),
   sortDir: z.enum(['asc', 'desc']).optional(),

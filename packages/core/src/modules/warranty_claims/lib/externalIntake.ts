@@ -3,6 +3,7 @@ import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import type { TenantDataEncryptionService } from '@open-mercato/shared/lib/encryption/tenantDataEncryptionService'
 import { isPotentialEncryptedPayload } from './decryptionSafety'
 import type { ClaimCreateInput, ExternalClaimIntakeInput } from '../data/validators'
+import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
 
 type Translate = (key: string, fallback?: string) => string
 
@@ -110,10 +111,6 @@ export type ExternalResolutionResult = {
   customerName: string | null
   currencyCode: string | null
   orderPlacedAt: Date | null
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
 function readString(row: Record<string, unknown>, ...keys: string[]): string | null {
@@ -345,18 +342,9 @@ export async function createAndSubmitExternalClaim(input: {
   return { outcome: 'created', claimId }
 }
 
-export function isUniqueViolation(err: unknown): boolean {
-  const visited = new Set<unknown>()
-  const inspect = (value: unknown, depth: number): boolean => {
-    if (depth > 4 || !value || typeof value !== 'object' || visited.has(value)) return false
-    visited.add(value)
-    const record = asRecord(value)
-    if (record.code === '23505' || record.sqlState === '23505') return true
-    return inspect(record.driverError, depth + 1)
-      || inspect(record.cause, depth + 1)
-      || inspect(record.originalError, depth + 1)
-      || inspect(record.original, depth + 1)
-      || inspect(record.parent, depth + 1)
-  }
-  return inspect(err, 0)
-}
+/**
+ * Re-exported for the callers that already import it from here. The recursive
+ * `driverError` walk this used to implement now lives in the shared detector,
+ * alongside the `cause`/`previous`/`sqlState` shapes the other copies handled.
+ */
+export { isUniqueViolation }

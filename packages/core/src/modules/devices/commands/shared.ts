@@ -1,9 +1,9 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { UniqueConstraintViolationException } from '@mikro-orm/core'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import type { CrudEventsConfig, CrudIndexerConfig } from '@open-mercato/shared/lib/crud/types'
 import { E } from '#generated/entities.ids.generated'
 import { UserDevice } from '../data/entities'
+import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
 
 export type DeviceSnapshot = {
   id: string
@@ -105,15 +105,14 @@ export async function loadExistingDevice(
 }
 
 // Postgres SQLSTATE for unique_violation. MikroORM doesn't re-export pg error codes, so name it here.
-const PG_UNIQUE_VIOLATION = '23505'
-
 // A concurrent first-registration of the same (tenant, org, user, device_id) loses the race against the
 // partial unique index. Surface it as a 409 conflict instead of a raw 500 — the endpoint is an
 // idempotent upsert, so the caller can simply re-issue the request to land on the existing row.
+//
+// Delegates to the shared walker, which unwraps `cause`/`previous`/`driverError`
+// and so still catches MikroORM's exception. The message-only fallback this
+// replaced is deliberately NOT carried over: `pg-errors` documents why matching
+// on the message misclassifies unrelated failures as conflicts.
 export function isDeviceUniqueViolation(error: unknown): boolean {
-  if (error instanceof UniqueConstraintViolationException) return true
-  if (!error || typeof error !== 'object') return false
-  if ((error as { code?: string }).code === PG_UNIQUE_VIOLATION) return true
-  const message = (error as { message?: string }).message
-  return typeof message === 'string' && message.toLowerCase().includes('duplicate key')
+  return isUniqueViolation(error)
 }

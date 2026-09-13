@@ -13,6 +13,7 @@ import {
 import { checkoutPasswordRateLimitConfig, enforceCheckoutRateLimit } from '../../../../lib/rateLimiter'
 import { rateLimitErrorSchema } from '@open-mercato/shared/lib/ratelimit/helpers'
 import { checkoutTag } from '../../../openapi'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 export const metadata = {
   path: '/checkout/pay/[slug]/verify-password',
@@ -33,7 +34,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     })
     if (rateLimitResponse) return rateLimitResponse
     const resolvedParams = await params
-    const body = publicPasswordVerifySchema.parse(await req.json().catch(() => ({})))
+    const body = publicPasswordVerifySchema.parse(await readJsonSafe(req, {}))
     const em = container.resolve('em')
     const link = await findOneWithDecryption(em, CheckoutLink, {
       slug: resolvedParams.slug,

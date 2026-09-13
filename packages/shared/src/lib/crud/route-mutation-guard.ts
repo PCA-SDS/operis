@@ -6,6 +6,7 @@ import {
 } from './mutation-guard-registry'
 import { getAllMutationGuardInstances } from './mutation-guard-store'
 import { createLogger } from '../logger'
+import { resolveGrantedFeatures } from '../auth/grantedFeatures'
 
 const logger = createLogger('shared').child({ component: 'crud' })
 
@@ -72,13 +73,6 @@ export type RouteMutationGuardPassed = {
 
 export type RouteMutationGuardResult = RouteMutationGuardBlocked | RouteMutationGuardPassed
 
-type RbacServiceLike = {
-  getGrantedFeatures: (
-    userId: string,
-    opts: { tenantId: string | null; organizationId: string | null },
-  ) => Promise<string[]>
-}
-
 /**
  * Map a route-level operation to the registry operation set. State-changing
  * action endpoints (`'custom'`) and `'update'` both map to `'update'` per the
@@ -96,18 +90,11 @@ async function resolveRouteUserFeatures(
   auth: RouteMutationGuardAuth,
 ): Promise<string[]> {
   if (auth.userFeatures) return auth.userFeatures
-  try {
-    const rbac = container.resolve('rbacService') as RbacServiceLike | undefined
-    if (rbac?.getGrantedFeatures) {
-      return await rbac.getGrantedFeatures(auth.userId, {
-        tenantId: auth.tenantId,
-        organizationId: auth.organizationId ?? null,
-      })
-    }
-  } catch {
-    // rbacService not available — guards without feature requirements still run.
-  }
-  return []
+  return resolveGrantedFeatures(
+    container,
+    { sub: auth.userId, tenantId: auth.tenantId, orgId: auth.organizationId ?? null },
+    auth.organizationId ?? null,
+  )
 }
 
 /**

@@ -377,7 +377,7 @@ function MessageComposeFormBody({ compose }: ComposeProps) {
       {compose.variant === 'forward' ? <ForwardModeFields compose={compose} /> : null}
       <ReplyForwardOptionsRow compose={compose} />
       <EmailDeliverySection compose={compose} />
-      {compose.submitError ? <p className="text-sm text-destructive">{compose.submitError}</p> : null}
+      {compose.submitError ? <p className="text-sm text-status-error-text">{compose.submitError}</p> : null}
     </div>
   )
 }

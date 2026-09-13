@@ -33,6 +33,7 @@ import type { CommandInterceptorContext } from './command-interceptor'
 import { CommandInterceptorError } from './errors'
 import { isReadProjectionAlwaysConsistent } from '@open-mercato/shared/lib/data/consistency'
 import { createLogger } from '../logger'
+import { resolveGrantedFeatures } from '../auth/grantedFeatures'
 
 const logger = createLogger('shared').child({ component: 'commands' })
 
@@ -461,22 +462,13 @@ export class CommandBus {
     }
   }
 
+  /**
+   * `[]` when rbacService is not registered (CLI, tests, bootstrap) — safe,
+   * because interceptors without feature gating still run.
+   */
   private async resolveUserFeaturesForInterceptors(ctx: CommandRuntimeContext): Promise<string[]> {
     if (!ctx.auth) return []
-    try {
-      type RbacLike = { getGrantedFeatures: (userId: string, opts: { tenantId: string | null; organizationId: string | null }) => Promise<string[]> }
-      const rbac = ctx.container.resolve('rbacService') as RbacLike | undefined
-      if (rbac?.getGrantedFeatures) {
-        return await rbac.getGrantedFeatures(ctx.auth.sub, {
-          tenantId: ctx.auth.tenantId,
-          organizationId: ctx.selectedOrganizationId ?? ctx.auth.orgId,
-        })
-      }
-    } catch {
-      // Intentional: rbacService is not registered in all runtime contexts (CLI, tests, bootstrap).
-      // Falling through to return [] is safe — interceptors without feature gating still run.
-    }
-    return []
+    return resolveGrantedFeatures(ctx.container, ctx.auth, ctx.selectedOrganizationId ?? ctx.auth.orgId)
   }
 
   private async resolveHandler<TInput, TResult>(commandId: string): Promise<CommandHandler<TInput, TResult>> {

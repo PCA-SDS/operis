@@ -10,6 +10,8 @@ import {
 } from './types'
 import { isValidGtin, normalizeGtinValue } from '../lib/gtin'
 import { REFERENCE_UNIT_CODES } from '../lib/unitCodes'
+import { CATALOG_DURATION_UNITS, normalizeCatalogDurationUnit } from '../lib/durationUnits'
+import { currencyCodeSchema as currencyCodeSchema_, moneyDecimalStringSchema } from '@open-mercato/shared/lib/validation'
 import {
   getCatalogPriceAmountValidationMessage,
   validateCatalogPriceAmountInput,
@@ -26,12 +28,26 @@ const tenantScoped = z.object({
   tenantId: uuid(),
 })
 
-const currencyCodeSchema = z
-  .string()
-  .trim()
-  .regex(/^[A-Z]{3}$/, 'currency code must be a three-letter ISO code')
+/**
+ * Prices carried as decimal strings, matching the `numeric(15,2)` columns behind
+ * them. They were plain `z.string()`, so `"abc"` reached the column and blew up
+ * at insert time instead of failing validation with a field error.
+ */
+const catalogPriceString = () => moneyDecimalStringSchema({ integerDigits: 13, scale: 2 })
+
+const currencyCodeSchema = currencyCodeSchema_({ message: 'currency code must be a three-letter ISO code', normalizeCase: false })
 
 const metadataSchema = z.record(z.string(), z.unknown()).nullable().optional()
+
+// duration_* are int4 columns. Without a ceiling, an oversized value reaches
+// Postgres and comes back as 22003 "integer out of range" — a 500 where the
+// caller should have seen a 400.
+const CATALOG_DURATION_MAX = 2147483647
+const durationUnitSchema = z.preprocess((value) => {
+  if (value === undefined) return undefined
+  if (value === null) return null
+  return normalizeCatalogDurationUnit(value, null) ?? value
+}, z.enum(CATALOG_DURATION_UNITS).nullable().optional())
 
 const slugSchema = z
   .string()
@@ -362,6 +378,10 @@ const variantBaseSchema = scoped.extend({
   weightUnit: z.string().trim().max(25).optional(),
   taxRateId: uuid().nullable().optional(),
   taxRate: z.coerce.number().min(0).max(100).optional().nullable(),
+  durationValue: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
+  durationUnit: durationUnitSchema,
+  durationMin: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
+  durationMax: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
   dimensions: z
     .object({
       width: z.coerce.number().min(0).optional(),
@@ -563,13 +583,13 @@ export const catalogProductOptionCreateSchema = scoped.extend({
   description: z.string().trim().nullable().optional(),
   note: z.string().trim().max(100).nullable().optional(),
   unit: z.string().trim().max(50).nullable().optional(),
-  priceFlat: z.string().nullable().optional(), // numeric string
-  priceMin: z.string().nullable().optional(), // numeric string
-  priceMax: z.string().nullable().optional(), // numeric string
-  durationValue: z.coerce.number().int().min(0).nullable().optional(),
-  durationUnit: z.string().trim().max(50).nullable().optional(),
-  durationMin: z.coerce.number().int().min(0).nullable().optional(),
-  durationMax: z.coerce.number().int().min(0).nullable().optional(),
+  priceFlat: catalogPriceString().nullable().optional(),
+  priceMin: catalogPriceString().nullable().optional(),
+  priceMax: catalogPriceString().nullable().optional(),
+  durationValue: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
+  durationUnit: durationUnitSchema,
+  durationMin: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
+  durationMax: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
   isAddon: z.boolean().optional(),
   sortOrder: z.coerce.number().int().optional(),
   isActive: z.boolean().optional(),
@@ -654,13 +674,13 @@ export const catalogProductOptionTreeSyncSchema = scoped.extend({
       description: z.string().trim().nullable().optional(),
       note: z.string().trim().max(100).nullable().optional(),
       unit: z.string().trim().max(50).nullable().optional(),
-      priceFlat: z.string().nullable().optional(),
-      priceMin: z.string().nullable().optional(),
-      priceMax: z.string().nullable().optional(),
-      durationValue: z.coerce.number().int().min(0).nullable().optional(),
-      durationUnit: z.string().trim().max(50).nullable().optional(),
-      durationMin: z.coerce.number().int().min(0).nullable().optional(),
-      durationMax: z.coerce.number().int().min(0).nullable().optional(),
+      priceFlat: catalogPriceString().nullable().optional(),
+      priceMin: catalogPriceString().nullable().optional(),
+      priceMax: catalogPriceString().nullable().optional(),
+      durationValue: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
+      durationUnit: durationUnitSchema,
+      durationMin: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
+      durationMax: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
       isAddon: z.boolean().optional(),
       sortOrder: z.coerce.number().int().optional(),
       isActive: z.boolean().optional(),
@@ -672,8 +692,9 @@ export const catalogProductOptionTreeSyncSchema = scoped.extend({
 
 export type CatalogProductOptionTreeSyncInput = z.infer<typeof catalogProductOptionTreeSyncSchema>
 
-/** Public booking: list bookable services for an organization (branch). */
-export const bookableServicesQuerySchema = scoped.extend({
+/** Public booking: list bookable services for a tenant, optionally scoped to an organization (branch). */
+export const bookableServicesQuerySchema = tenantScoped.extend({
+  organizationId: uuid().optional(),
   channelId: uuid().optional(),
 })
 

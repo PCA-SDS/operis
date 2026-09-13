@@ -19,6 +19,7 @@ import {
   type RegistrationUpdateInput,
 } from '../../data/validators'
 import { addWarrantyMonths } from '../../lib/warrantyPreview'
+import { toIsoOrEcho as toIso } from '@open-mercato/shared/lib/date/normalize'
 import {
   createPagedListResponseSchema,
   createWarrantyClaimsCrudOpenApi,
@@ -198,15 +199,6 @@ function readNumber(record: Record<string, unknown>, snakeKey: string, camelKey:
   if (typeof value === 'string') {
     const parsed = Number(value)
     return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
-}
-
-function toIso(value: unknown): string | null {
-  if (value instanceof Date) return value.toISOString()
-  if (typeof value === 'string') {
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? value : date.toISOString()
   }
   return null
 }

@@ -41,6 +41,7 @@ import {
   type InventoryImportRawRow,
 } from '../../lib/inventoryImportCsv'
 import type { useWmsInventoryMutationAccess } from './useWmsInventoryMutationAccess'
+import { formatFileSize } from '@open-mercato/shared/lib/units/fileSize'
 
 const logger = createLogger('wms')
 
@@ -143,12 +144,6 @@ function ImportStepIndicator({ step }: { step: WizardStep }) {
   )
 }
 
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  const kilobytes = bytes / 1024
-  if (kilobytes < 1024) return `${Math.round(kilobytes)} KB`
-  return `${(kilobytes / 1024).toFixed(1)} MB`
-}
 
 function formatRowCount(value: number): string {
   return new Intl.NumberFormat().format(value)

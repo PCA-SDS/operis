@@ -5,6 +5,7 @@ import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import { normalizeCustomFieldValues } from '../custom-fields/normalize'
 export { normalizeCustomFieldValues } from '../custom-fields/normalize'
 import type { CrudEventsConfig, CrudIndexerConfig, CrudEmitContext } from '@open-mercato/shared/lib/crud/types'
+import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import type { CommandLogMetadata } from '@open-mercato/shared/lib/commands'
 import type { BulkImportSuppression } from '@open-mercato/shared/lib/commands'
@@ -191,4 +192,15 @@ export function normalizeAuthorUserId(
   const authSub = auth?.isApiKey ? null : auth?.sub ?? null
   if (!authSub) return null
   return AUTHOR_UUID_REGEX.test(authSub) ? authSub : null
+}
+
+/**
+ * A forked EntityManager for a command handler.
+ *
+ * Commands fork so their identity map and unit of work stay isolated from the
+ * request-scoped manager — a handler that flushes must not also flush whatever
+ * the surrounding route had pending.
+ */
+export function forkEm(ctx: CommandRuntimeContext): EntityManager {
+  return (ctx.container.resolve('em') as EntityManager).fork()
 }

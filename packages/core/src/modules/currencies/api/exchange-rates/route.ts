@@ -69,8 +69,8 @@ const crud = makeCrudRoute<CrudInput, CrudInput, Record<string, unknown>>({
 const listQuerySchema = z
   .object({
     id: z.string().uuid().optional(),
-    page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(100).default(50),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(50),
     sortField: z.enum(['fromCurrencyCode', 'toCurrencyCode', 'date', 'createdAt', 'updatedAt']).optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
     fromCurrencyCode: z.string().optional(),

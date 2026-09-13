@@ -31,7 +31,7 @@ grep, refactoring, and cross-module reasoning, not as vendored/build output.
   `official-modules.json` `available` churn unless you actually intend to change the activation
   set.
 - After activating/deactivating official modules: run
-  `yarn mercato configs cache structural --all-tenants` (and `yarn dev:reset` if Turbopack
+  `yarn mercato configs cache structural --all-tenants` (and `yarn workspace @open-mercato/app dev:reset` if Turbopack
   serves a stale chunk).
 - **Cross-cutting changes** (core API + an official module): two coordinated PRs — core in
   open-mercato first → (prerelease) publish → submodule bumps the peer dep → submodule PR.

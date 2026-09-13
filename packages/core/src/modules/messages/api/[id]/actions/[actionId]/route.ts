@@ -3,9 +3,10 @@ import type { CommandBus } from '@open-mercato/shared/lib/commands/command-bus'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { attachOperationMetadataHeader, type OperationLogEntryLike } from '../../../../lib/operationMetadata'
 import { resolveMessageContext } from '../../../../lib/routeHelpers'
-import { resolveUserFeatures, runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../../guards'
+import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../../guards'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi/types'
 import { actionResultResponseSchema } from '../../../openapi'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['messages.actions'] },
@@ -18,7 +19,7 @@ export async function POST(
   const { ctx, scope } = await resolveMessageContext(req)
   const commandBus = ctx.container.resolve('commandBus') as CommandBus
 
-  const rawBody = await req.json().catch(() => ({}))
+  const rawBody = await readJsonSafe(req, {})
   const body = (typeof rawBody === 'object' && rawBody && !Array.isArray(rawBody)
     ? rawBody
     : {}) as Record<string, unknown>
@@ -36,7 +37,6 @@ export async function POST(
       requestHeaders: req.headers,
       mutationPayload: body,
     },
-    resolveUserFeatures(ctx.auth),
   )
   if (!guardResult.ok) {
     return Response.json(

@@ -9,7 +9,7 @@ import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitive
 import { mapDictionaryColorToTone } from '@open-mercato/shared/lib/query/advanced-filter'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { LoadingMessage, TabEmptyState } from '@open-mercato/ui/backend/detail'
+import { ErrorMessage, LoadingMessage, TabEmptyState } from '@open-mercato/ui/backend/detail'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { InteractionSummary, SectionAction, TabEmptyStateConfig, TodoLinkSummary, Translator } from './types'
@@ -460,9 +460,7 @@ export function TasksSection({
         {!isInitialLoading && hasTasks ? (
           <div className="space-y-4">
             {error ? (
-              <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                {error}
-              </div>
+              <ErrorMessage label={error} />
             ) : null}
             {sortedTasks.map((task) => {
               const todoHref = task.externalHref ?? resolveTodoHref(task.todoSource, task.todoId, enabledModules)

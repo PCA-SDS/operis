@@ -19,6 +19,11 @@ import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { RecordNotFoundState, ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { buildPortalUrlPattern } from '../../../../lib/portalUrl'
+import {
+  formatPasswordRequirements,
+  getPasswordPolicy,
+  validatePassword,
+} from '@open-mercato/shared/lib/auth/passwordPolicy'
 
 type UserDetail = {
   id: string
@@ -66,8 +71,8 @@ function ResetPasswordDialog({
 
   const handleSubmit = React.useCallback(async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!newPassword.trim() || newPassword.length < 8) {
-      flash(t('customer_accounts.admin.detail.resetPassword.error.minLength', 'Password must be at least 8 characters'), 'error')
+    if (!newPassword.trim() || !validatePassword(newPassword).ok) {
+      flash(formatPasswordRequirements(getPasswordPolicy(), t), 'error')
       return
     }
     setIsSubmitting(true)

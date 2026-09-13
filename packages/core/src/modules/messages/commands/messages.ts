@@ -17,6 +17,7 @@ import { MESSAGE_ATTACHMENT_ENTITY_ID, MESSAGE_ENTITY_ID } from '../lib/constant
 import { getMessageTypeOrDefault } from '../lib/message-types-registry'
 import { validateMessageObjectsForType } from '../lib/object-validation'
 import { buildForwardBodyFromLegacyInput, buildForwardPreviewFromThreadSlice, buildForwardThreadSlice } from '../lib/forwarding'
+import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
 import {
   assertOrganizationAccess,
   loadMessageAggregateSnapshot,
@@ -209,14 +210,6 @@ async function requireMessageById(
   if (!message) throw new Error('Message not found')
   assertOrganizationAccess(scope, message)
   return message
-}
-
-function isUniqueViolation(err: unknown): boolean {
-  if (!err || typeof err !== 'object') return false
-  const code = (err as { code?: string }).code
-  if (code === '23505') return true
-  const message = (err as { message?: string }).message
-  return typeof message === 'string' && /duplicate key value|unique constraint/i.test(message)
 }
 
 type ComposeMessageResult = {

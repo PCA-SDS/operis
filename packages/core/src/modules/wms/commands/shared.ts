@@ -27,6 +27,13 @@ export function normalizeOptionalString(value: string | null | undefined): strin
   return trimmed.length > 0 ? trimmed : null
 }
 
+/**
+ * WMS quantities are never absent — an unreadable value means zero on hand, not
+ * "unknown". That is why this returns a `string` with a `'0'` fallback and also
+ * accepts an already-formatted string, unlike the same-named helpers in
+ * `catalog` and `sales`, which return `string | null` for a nullable money
+ * column. The three are not interchangeable.
+ */
 export function toNumericString(value: number | string | null | undefined, fallback = '0'): string {
   if (typeof value === 'string' && value.trim().length > 0) return value.trim()
   if (typeof value === 'number' && Number.isFinite(value)) return String(value)

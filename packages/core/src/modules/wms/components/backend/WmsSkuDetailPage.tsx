@@ -45,6 +45,7 @@ import { AdjustInventoryDialog } from './AdjustInventoryDialog'
 import { CycleCountWizardDialog } from './CycleCountWizardDialog'
 import { ReceiveInventoryDialog } from './ReceiveInventoryDialog'
 import { useWmsInventoryMutationAccess } from './useWmsInventoryMutationAccess'
+import { downloadCsvExport } from '../../lib/downloadCsvExport'
 
 const variantIdSchema = z.string().uuid()
 
@@ -116,22 +117,6 @@ type InventoryMutationPreset = {
   lotId?: string
 }
 
-function escapeCsvCell(value: string | number): string {
-  const str = String(value ?? '')
-  if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`
-  return str
-}
-
-function downloadCsvFile(filename: string, rows: string[][]) {
-  const csv = rows.map((row) => row.map(escapeCsvCell).join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
 type WarehouseOption = {
   id: string
   name?: string | null
@@ -698,28 +683,30 @@ export default function WmsSkuDetailPage({ variantId }: WmsSkuDetailPageProps) {
   }, [pagedBalances, selectedBalanceIds])
 
   const handleExportDistributionCsv = React.useCallback(() => {
-    const headers = [
-      t('wms.backend.sku.distribution.columns.warehouse', 'Warehouse'),
-      t('wms.backend.sku.distribution.columns.location', 'Location'),
-      t('wms.backend.sku.distribution.columns.lot', 'Lot'),
-      t('wms.backend.sku.distribution.columns.onHand', 'On hand'),
-      t('wms.backend.sku.distribution.columns.reserved', 'Reserved'),
-      t('wms.backend.sku.distribution.columns.status', 'Status'),
+    const columns = [
+      { field: 'warehouse', header: t('wms.backend.sku.distribution.columns.warehouse', 'Warehouse') },
+      { field: 'location', header: t('wms.backend.sku.distribution.columns.location', 'Location') },
+      { field: 'lot', header: t('wms.backend.sku.distribution.columns.lot', 'Lot') },
+      { field: 'onHand', header: t('wms.backend.sku.distribution.columns.onHand', 'On hand') },
+      { field: 'reserved', header: t('wms.backend.sku.distribution.columns.reserved', 'Reserved') },
+      { field: 'status', header: t('wms.backend.sku.distribution.columns.status', 'Status') },
     ]
     const rows = filteredBalances.map((row) => {
       const lot = row.lot_id ? lotById.get(row.lot_id) : undefined
       const status = resolveBalanceStatus(row, lot, reorderPoint, nowMs)
-      return [
-        formatWarehouseLabel(row),
-        formatLocationLabel(row.location_code, row.location_id),
-        formatLotLabel(lot, locale),
-        String(toNumber(row.quantity_on_hand)),
-        String(toNumber(row.quantity_reserved)),
-        t(status.labelKey, status.labelFallback),
-      ]
+      return {
+        warehouse: formatWarehouseLabel(row),
+        location: formatLocationLabel(row.location_code, row.location_id),
+        lot: formatLotLabel(lot, locale),
+        // Raw numbers, not strings: the serializer exempts `number` from formula
+        // neutralization, so a stringified negative would export as `'-7`.
+        onHand: toNumber(row.quantity_on_hand),
+        reserved: toNumber(row.quantity_reserved),
+        status: t(status.labelKey, status.labelFallback),
+      }
     })
     const safeSku = pageTitle.replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'sku'
-    downloadCsvFile(`${safeSku}-distribution.csv`, [headers, ...rows])
+    downloadCsvExport(`${safeSku}-distribution.csv`, columns, rows)
   }, [filteredBalances, locale, lotById, nowMs, pageTitle, reorderPoint, t])
 
   const inventoryHref = '/backend/wms/inventory'
@@ -1137,7 +1124,15 @@ export default function WmsSkuDetailPage({ variantId }: WmsSkuDetailPageProps) {
             </section>
 
             <DataTable<InventoryMovementRow>
-              title={t('wms.backend.sku.activity.title', 'Recent activity')}
+              // A mid-page section heading, not a page title: a bare string here
+              // takes DataTable's standalone `h1 text-2xl` treatment and reads as a
+              // second page title under the real one. This matches the `embedded`
+              // distribution table in the section above.
+              title={(
+                <h2 className="text-sm font-semibold leading-tight text-foreground">
+                  {t('wms.backend.sku.activity.title', 'Recent activity')}
+                </h2>
+              )}
               columns={activityColumns}
               data={movementsQuery.data ?? []}
               disableRowClick

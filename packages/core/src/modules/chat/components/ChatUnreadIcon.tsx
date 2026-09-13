@@ -13,7 +13,7 @@ import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { NotificationCountBadge } from '@open-mercato/ui/backend/notifications'
 import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
-import { tCount } from './plurals'
+import { useTCount } from './plurals'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { formatListTimestamp } from './format'
 import { useChatLiveRefresh, useChatUnreadCount, useConversations, useMarkAllRead } from './hooks'
@@ -37,6 +37,7 @@ export type ChatUnreadIconProps = {
  */
 export function ChatUnreadIcon({ className }: ChatUnreadIconProps) {
   const t = useT()
+  const tc = useTCount()
   const locale = useLocale()
   const pathname = usePathname()
   const [open, setOpen] = React.useState(false)
@@ -63,7 +64,7 @@ export function ChatUnreadIcon({ className }: ChatUnreadIconProps) {
 
   const label =
     unreadCount > 0
-      ? tCount(t, 'chat.badge.unread', unreadCount, '{count} unread chat messages')
+      ? tc('chat.badge.unread', unreadCount, '{count} unread chat messages')
       : t('chat.nav.title', 'Chat')
 
   return (
@@ -176,7 +177,7 @@ export function ChatUnreadIcon({ className }: ChatUnreadIconProps) {
                         </span>
                       </span>
                       <span className="sr-only">
-                        {tCount(t, 'chat.list.unreadLabel', conversation.unreadCount, '{count} unread messages')}
+                        {tc('chat.list.unreadLabel', conversation.unreadCount, '{count} unread messages')}
                       </span>
                     </Link>
                   </li>

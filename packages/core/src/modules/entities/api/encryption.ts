@@ -12,6 +12,7 @@ import {
 } from '@open-mercato/shared/lib/crud/mutation-guard'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const ENCRYPTION_MAP_RESOURCE_KIND = 'entities.encryption_map'
 
@@ -70,7 +71,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({}))
+    const body = await readJsonSafe(req, {})
     const parsed = upsertEncryptionMapSchema.safeParse(body)
     if (!parsed.success) {
       return NextResponse.json({ error: 'Invalid payload', details: parsed.error.flatten() }, { status: 400 })

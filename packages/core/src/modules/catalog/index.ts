@@ -10,6 +10,7 @@ export const metadata: ModuleInfo = {
   ejectable: true,
   category: 'Sales',
   aiAssistant: true,
+  defaultEntitlement: 'enabled',
 }
 
 export { features } from './acl'

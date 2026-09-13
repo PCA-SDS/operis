@@ -27,6 +27,7 @@ import {
   workflowErrorSchema,
 } from '../../../openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('workflows')
 
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Parse request body
-    const body = await request.json().catch(() => ({}))
+    const body = await readJsonSafe(request, {})
     const validation = advanceWorkflowSchema.safeParse(body)
 
     if (!validation.success) {

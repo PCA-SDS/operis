@@ -1,6 +1,6 @@
 # Lessons
 
-This catalog indexes 134 focused lessons. Route the task first, then read only records whose modules, areas, or topics match the work.
+This catalog indexes 135 focused lessons. Route the task first, then read only records whose modules, areas, or topics match the work.
 
 ## How to use this catalog
 
@@ -77,6 +77,7 @@ rg -l '"<area>"|"<module>"|"<topic>"' .ai/lessons/*.md
 - [JSON column defaults, twice-parsed command inputs, and scale-padded numerics](lessons/orm-json-defaults-double-parsed-inputs-and-numeric-padding.md) — area:module-data,debugging; module:eudr; topic:database-migrations,command-pattern,generated-files
 - [Organization-scoped routes must resolve request selection and reject invalid explicit writes](lessons/organization-scoped-routes-must-resolve-request-selection.md) — area:module-data,integration,debugging; module:entities,directory,auth; topic:data-scoping,access-control,route-coverage
 - [PostgreSQL partial unique indexes are not constraints](lessons/postgresql-partial-unique-indexes-are-not-constraints.md) — area:module-data,debugging; module:platform; topic:data-integrity,data-scoping,testing
+- [Run lint:ds through its typescript-js hook, not bare eslint](lessons/run-ds-lint-through-its-typescript-js-hook.md) — area:testing,debugging; module:design_system; topic:design-system,lint,typescript
 - [Preserve Turbopack compiler cache during greenfield dev warmup](lessons/preserve-turbopack-compiler-cache-during-greenfield-dev.md) — area:module-data,architecture,debugging; module:cache,auth,create_app; topic:dev-runtime,runtime-startup,template-sync
 - [Projection updates that change indexed parent fields must emit query-index upserts](lessons/projection-updates-that-change-indexed-parent-fields.md) — area:module-data,debugging; module:query_index,customers,events; topic:command-pattern,events,filters
 - [Query-index custom-field cardinality comes from definitions, not row count](lessons/query-index-custom-field-cardinality-comes-from.md) — area:module-data,umes,backend-ui; module:entities,query_index,search; topic:custom-fields,data-scoping,query-index

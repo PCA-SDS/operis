@@ -48,8 +48,8 @@ describe('PortalInvitePage', () => {
   const fillForm = (
     getByLabelText: (matcher: string) => HTMLElement,
     displayName = 'Buyer User',
-    password = 'pw12345678',
-    confirm = 'pw12345678',
+    password = 'Passw0rd!',
+    confirm = 'Passw0rd!',
   ) => {
     fireEvent.change(getByLabelText('Display Name'), { target: { value: displayName } })
     fireEvent.change(getByLabelText('Password'), { target: { value: password } })
@@ -72,7 +72,7 @@ describe('PortalInvitePage', () => {
         method: 'POST',
         body: JSON.stringify({
           token: 'invite-token-123',
-          password: 'pw12345678',
+          password: 'Passw0rd!',
           displayName: 'Buyer User',
         }),
       }),
@@ -106,7 +106,7 @@ describe('PortalInvitePage', () => {
 
   it('blocks submission and surfaces a mismatch error when passwords do not match', async () => {
     const { getByLabelText, getByRole, findByText } = renderWithProviders(<PortalInvitePage params={{ orgSlug: 'acme' }} />)
-    fillForm(getByLabelText, 'Buyer User', 'pw12345678', 'different1')
+    fillForm(getByLabelText, 'Buyer User', 'Passw0rd!', 'different1')
     await act(async () => {
       fireEvent.click(getByRole('button', { name: 'Accept Invitation' }))
     })

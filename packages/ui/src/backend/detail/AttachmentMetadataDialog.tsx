@@ -19,6 +19,7 @@ import { useDialogKeyHandler } from '@open-mercato/ui/hooks/useDialogKeyHandler'
 import { AttachmentContentPreview } from '@open-mercato/core/modules/attachments/components/AttachmentContentPreview'
 import { buildAttachmentFileUrl, buildAttachmentImageUrl, slugifyAttachmentFileName } from '@open-mercato/core/modules/attachments/lib/imageUrls'
 import { E } from '@open-mercato/core/generated-shims/entities.ids.generated'
+import { formatFileSize } from '@open-mercato/shared/lib/units/fileSize'
 
 export type AttachmentAssignment = {
   type: string
@@ -96,18 +97,6 @@ type AttachmentMetadataDialogProps = {
   onSave: (id: string, payload: AttachmentMetadataSavePayload) => Promise<void>
 }
 
-function formatFileSize(value: number): string {
-  if (!Number.isFinite(value)) return '\u2014'
-  if (value <= 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let idx = 0
-  let current = value
-  while (current >= 1024 && idx < units.length - 1) {
-    current /= 1024
-    idx += 1
-  }
-  return `${current.toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`
-}
 
 const ENV_APP_URL = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
 
@@ -654,7 +643,7 @@ export function AttachmentMetadataDialog({ open, onOpenChange, item, availableTa
               </div>
             ) : null}
             {loadError ? (
-              <div className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <div className="rounded border border-status-error-border bg-status-error-bg px-3 py-2 text-xs text-status-error-text">
                 {loadError}
               </div>
             ) : null}

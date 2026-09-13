@@ -3,6 +3,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createWebhookDelivery, processWebhookDeliveryJob } from '../../../../lib/delivery'
 import { isWebhookIntegrationEnabled } from '../../../../lib/integration-state'
 import { findScopedWebhook, json, resolveWebhookRequestScope, serializeDeliveryDetail } from '../../../helpers'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['webhooks.test'] },
@@ -65,7 +66,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     return json({ error: 'Custom Webhooks integration is disabled' }, { status: 409 })
   }
 
-  const parsed = requestBodySchema.safeParse(await request.json().catch(() => ({})))
+  const parsed = requestBodySchema.safeParse(await readJsonSafe(request, {}))
   if (!parsed.success) {
     return json({ error: 'Invalid request payload' }, { status: 400 })
   }

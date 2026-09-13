@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 import { PayPage, type PayLinkPayload } from '../../../components/PayPage'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 function resolveTrustedAppUrl(requestHeaders: Headers): string | null {
   const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL
@@ -44,7 +45,7 @@ async function loadInitialPayload(
       headers: buildInternalRequestHeaders(requestHeaders),
       cache: 'no-store',
     })
-    const payload = await response.json().catch(() => null) as PayLinkPayload | { error?: string } | null
+    const payload = await readJsonSafe(response) as PayLinkPayload | { error?: string } | null
     if (!response.ok) {
       return {
         payload: null,

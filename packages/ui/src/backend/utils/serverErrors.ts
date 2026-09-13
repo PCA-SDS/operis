@@ -309,12 +309,12 @@ export function createCrudFormError(
   return error
 }
 
-export async function readJsonSafe<T>(res: Response, fallback: T | null = null): Promise<T | null> {
-  try {
-    const text = await res.text()
-    if (!text) return fallback
-    return JSON.parse(text) as T
-  } catch {
-    return fallback
-  }
-}
+/**
+ * Re-exported so the backend UI keeps one import surface for response handling.
+ * The implementation is the platform one — this used to be a second copy that
+ * additionally read the body inside its own `try`, so an abort mid-read was
+ * swallowed into the fallback instead of propagating; `apiCall` had to detect
+ * that case after the fact. The shared version reads the body outside the try,
+ * so only a JSON *parse* failure yields the fallback.
+ */
+export { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'

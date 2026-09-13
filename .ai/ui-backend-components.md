@@ -377,7 +377,7 @@ import { ScheduleView, ScheduleToolbar, ScheduleGrid, ScheduleAgenda, type Sched
 2. Map your domain records into `ScheduleItem` (with `metadata` for round-tripping) instead of extending the component.
 3. Item `color` must resolve to a DS token value, not a hardcoded hex.
 
-**Reference call site:** `packages/core/src/modules/planner/components/AvailabilitySchedule.tsx`.
+**Reference call site:** `packages/core/src/modules/planner/components/AvailabilityRulesEditor.tsx` — the file that actually renders `ScheduleView` and is mounted by the live routes.
 
 ---
 

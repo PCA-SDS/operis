@@ -58,7 +58,6 @@ jest.mock('@open-mercato/shared/lib/encryption/find', () => ({
 }))
 
 jest.mock('../guards', () => ({
-  resolveUserFeatures: jest.fn(() => []),
   runMessageMutationGuards: (...args: unknown[]) => runMessageMutationGuardsMock(...args),
   runMessageMutationGuardAfterSuccess: (...args: unknown[]) => runMessageMutationGuardAfterSuccessMock(...args),
 }))
@@ -139,7 +138,6 @@ describe('messages compose route mutation guard wiring', () => {
     expect(runMessageMutationGuardsMock).toHaveBeenCalledWith(
       container,
       expect.objectContaining({ resourceKind: 'messages.message', operation: 'create' }),
-      expect.anything(),
     )
     expect(runMessageMutationGuardAfterSuccessMock).toHaveBeenCalledTimes(1)
     expect(callOrder).toEqual(['guard:validate', 'command', 'guard:after'])
@@ -174,7 +172,6 @@ describe('messages update-draft route mutation guard wiring', () => {
     expect(runMessageMutationGuardsMock).toHaveBeenCalledWith(
       container,
       expect.objectContaining({ resourceKind: 'messages.message', resourceId: messageId, operation: 'update' }),
-      expect.anything(),
     )
     expect(callOrder).toEqual(['guard:validate', 'command', 'guard:after'])
   })
@@ -208,7 +205,6 @@ describe('messages delete route mutation guard wiring', () => {
     expect(runMessageMutationGuardsMock).toHaveBeenCalledWith(
       container,
       expect.objectContaining({ resourceKind: 'messages.message', resourceId: messageId, operation: 'delete' }),
-      expect.anything(),
     )
     expect(callOrder).toEqual(['guard:validate', 'command', 'guard:after'])
   })
@@ -264,7 +260,6 @@ describe('messages mark-read route mutation guard wiring', () => {
     expect(runMessageMutationGuardsMock).toHaveBeenCalledWith(
       container,
       expect.objectContaining({ resourceKind: 'messages.message', resourceId: messageId, operation: 'update' }),
-      expect.anything(),
     )
     expect(callOrder).toEqual(['guard:validate', 'command', 'guard:after'])
   })
@@ -298,7 +293,6 @@ describe('messages reply route mutation guard wiring', () => {
     expect(runMessageMutationGuardsMock).toHaveBeenCalledWith(
       container,
       expect.objectContaining({ resourceKind: 'messages.message', operation: 'create' }),
-      expect.anything(),
     )
     expect(callOrder).toEqual(['guard:validate', 'command', 'guard:after'])
   })
@@ -330,7 +324,6 @@ describe('messages conversation-delete route mutation guard wiring', () => {
     expect(runMessageMutationGuardsMock).toHaveBeenCalledWith(
       container,
       expect.objectContaining({ resourceKind: 'messages.conversation', resourceId: messageId, operation: 'delete' }),
-      expect.anything(),
     )
     expect(callOrder).toEqual(['guard:validate', 'command', 'guard:after'])
   })
@@ -362,7 +355,6 @@ describe('messages action-execute route mutation guard wiring', () => {
     expect(runMessageMutationGuardsMock).toHaveBeenCalledWith(
       container,
       expect.objectContaining({ resourceKind: 'messages.message', resourceId: messageId, operation: 'update' }),
-      expect.anything(),
     )
     expect(callOrder).toEqual(['guard:validate', 'command', 'guard:after'])
   })

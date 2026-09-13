@@ -18,6 +18,14 @@ Phase 3 implementation can start from M0 in
 `docs/invoice/CAPABILITY-MIGRATION-PLAN.md`. No Phase 2documentation blocker is
 currently open.
 
+Current implementation status: the AR invoice email send and privacy-safe
+email-open tracking slice is implemented. Remaining invoice capabilities are
+tracked separately in the milestone documents.
+
+As of 2026-09-09, M5 Auto-Paid and M6 Invoice Core pass the Phase 5 domain
+contract gate at the backend boundary. The remaining milestones are M7 payment
+confirmation, M8 GDT sync, and M9 UI parity.
+
 Phase 1 source evidence lives in:
 
 - `docs/invoice/FEAT-001-invoices.md`
@@ -122,6 +130,11 @@ Source questions resolved before Phase 3:
   180-second captcha TTL, and 82800-second GDT token TTL cap.
 - Due-date fallback is locked: explicit due date, then partner default due
   days, then null.
+- Company email memory is implemented as invoice-local, scoped recipient memory:
+  list by company, idempotent upsert, and scoped delete.
+- Exchange rates are implemented as an invoice-local read service with a
+  24-hour process-local cache, stale fallback, no database writes, and
+  open.er-api style provider validation.
 
 ## Architecture
 
@@ -214,9 +227,8 @@ Important invariants:
 - Manual invoice totals are server-computed.
 - Generic invoice update cannot write derived settlement rollups.
 - Raw GDT secrets and raw payment-confirmation tokens are not stored.
-- `invoice_company_registry.payload` is created in M0 but provider payload use
-  is deferred to M4. Payload encryption must be decided and implemented before
-  M4 writes raw provider responses.
+- `invoice_company_registry.payload` stores provider lookup payloads through the
+  invoice encryption map and decrypted scoped read helpers.
 
 ## API Contracts
 
@@ -230,6 +242,7 @@ Private route groups:
 - `/api/invoice/company-emails`
 - `/api/invoice/exchange-rates`
 - `/api/invoice/company-lookup`
+- `/api/invoice/invoices/[id]/send`
 - `/api/invoice/sync`
 - `/api/invoice/sync/authenticate`
 - `/api/invoice/sync/[jobId]`
@@ -248,6 +261,23 @@ Detailed route ownership is in
 `docs/invoice/TARGET-INVOICE-ARCHITECTURE.md` and milestone order is in
 `docs/invoice/CAPABILITY-MIGRATION-PLAN.md`.
 
+Implemented CAP route notes:
+
+- `/api/invoice/company-emails` is available for company-scoped recipient email
+  memory and uses `invoice.manage`.
+- `/api/invoice/exchange-rates` is available for VND conversion hints and uses
+  `invoice.view`.
+- `POST /api/invoice/invoices/[id]/send` sends AR invoices only, requires
+  `invoice.manage`, validates the recipient, sends mail before persisting send
+  state, stores only a SHA-256 tracking-token hash, resets `openedAt`, and
+  records recipient memory best-effort.
+- `GET /api/invoice/track/[token]/pixel.gif` is anonymous and always returns a
+  transparent GIF. It hashes the supplied token, records only the first open
+  through a scoped conditional update, and never returns invoice data.
+- Tracking pixels are included only when `EMAIL_ASSET_BASE_URL` is a valid
+  HTTP(S) URL. Raw tracking tokens are not persisted, returned in DTOs, or
+  written to logs.
+
 ## Risks & Impact Review
 
 | Risk | Severity | Affected area | Mitigation | Residual risk |
@@ -255,7 +285,7 @@ Detailed route ownership is in
 | Mixing old Invoice with `sales_invoices` changes business semantics. | High | Data model, UI, payments | Keep separate `invoice` module and record DEC-002. | Later integration may still need explicit bridge design. |
 | GDT re-sync overwrites tenant payment metadata. | High | Sync, settlement | Use ownership rules from data mapping and regression tests. | Requires careful persistence tests. |
 | Public token leak through logs. | High | Payment confirmations, tracking | Store hashes, structured safe logs only. | Pixel token hashing needs source confirmation. |
-| Company registry payload may contain PII once provider lookup is implemented. | High | Company lookup cache | M0 does not call providers; M4 must add encryption or record a stricter payload contract before writing provider responses. | Schema exists before encrypted writes are implemented. |
+| Company registry payload may contain PII once provider lookup is implemented. | High | Company lookup cache | CAP-008 encrypts `invoice_company_registry.payload`, reads cache rows with decrypted scoped helpers, and returns only normalized lookup DTOs. | Existing tenants must seed the new encryption map before provider writes are enabled. |
 | Worker retry duplicates imported invoices. | High | Sync | Natural source key and idempotent worker. | Provider edge cases still need mock tests. |
 | Exchange-rate cache semantics change in multi-replica deploy. | Medium | Summary, forecast | Preserve process-local cache first. | Different replicas can have different stale snapshots. |
 | Feature parity missed in UI. | Medium | Backend pages | Use `PARITY-MATRIX.md` cross-capability scenarios. | Browser tests may need staged implementation. |
@@ -277,6 +307,18 @@ Minimum parity scenarios:
 7. Mark AR invoice non-recoverable and exclude it from summary/forecast.
 8. View USD summary/forecast with rate provider unavailable with and without cache.
 9. Lookup company identifier in invoice form without creating partner row before save.
+
+Implemented focused coverage for the email/tracking slice:
+
+10. AR send success, AP rejection, recipient validation, mail-before-flush
+    ordering, token-hash-only persistence, invalid pixel base URL, resend
+    replacement, and non-blocking recipient-memory failure.
+11. Tracking hash lookup, scoped conditional first-open update, repeated-open
+    behavior, concurrent update miss behavior, invalid public token handling,
+    public GIF response headers, and swallowed tracking failures.
+12. Send command registration, optimistic-lock checking, route ACL metadata,
+    OpenAPI operation metadata, mutation guards, and successful/invalid send
+    route contracts.
 
 Validation commands by implementation phase:
 
@@ -328,3 +370,73 @@ This is a pre-implementation spec. Compliance requirements for implementation:
   boundaries, invoice search configuration, deferred company-registry payload
   encryption, reserved AI ACL behavior, soft-deleted company history, and DS
   governance pre-registration.
+- 2026-09-05: Implemented Task 4.1 CAP-003 partner payment terms service,
+  partner-term validators, DI registration, and focused service coverage.
+- 2026-09-05: Exposed CAP-003 partner list, partner match, and partner payment
+  terms update API routes with OpenAPI metadata, scope handling, optimistic
+  locking, and mutation guards.
+- 2026-09-07: Documented CAP-006 company email memory service/API progress,
+  ownership decision, remaining UI/consumer gaps, and direct service/API
+  coverage.
+- 2026-09-07: Documented CAP-007 exchange rates service/API progress,
+  24-hour process-local cache decision, stale fallback behavior, provider
+  validation, no-DB-write boundary, and remaining consumer gaps.
+- 2026-09-07: Implemented CAP-008 company lookup cache security decision with
+  encrypted `invoice_company_registry.payload`, decrypted scoped cache reads,
+  30-day freshness, provider-stale fallback, and authenticated lookup API
+  contract for Vietnam MST and Singapore UEN.
+- 2026-09-08: Implemented CAP-004 Auto-Paid domain service, DI registration,
+  user-triggered mutation commands, focused service/command tests, and docs for
+  M5 progress plus rule-revert ownership. API/UI and sync/manual-invoice call
+  sites remain pending.
+- 2026-09-08: Exposed CAP-004 Auto-Paid API routes and candidates contract
+  (`GET /api/invoice/auto-paid`, `GET /api/invoice/auto-paid/candidates`,
+  `POST /api/invoice/auto-paid`, `DELETE /api/invoice/auto-paid/[id]`,
+  `PATCH /api/invoice/invoices/[id]/reverse-auto-paid`) with OpenAPI metadata,
+  `invoice.settings.manage` and `invoice.manage` ACL gating, route mutation
+  guards, and command execution. Settings UI and sync worker call sites remain
+  pending.
+- 2026-09-08: Implemented the CAP-001 read-only invoice list/detail slice:
+  `invoiceService`, safe DTO mappers, QueryEngine-backed scoped list filters
+  and deterministic sort, `GET /api/invoice/invoices`, and
+  `GET /api/invoice/invoices/[id]` under `invoice.view`. Write actions,
+  summary/forecast, email/tracking, payment confirmations, and UI remain
+  pending.
+- 2026-09-08: Implemented the CAP-001 manual AP lifecycle slice:
+  `POST /api/invoice/invoices`, `PUT /api/invoice/invoices/[id]`, and
+  `DELETE /api/invoice/invoices/[id]` through manual invoice commands,
+  route mutation guards, trusted Invoice scope, server-owned totals, partner
+  persistence, duplicate protection, CAP-003 due-date defaults, M5 Auto-Paid
+  initial settlement, and edit/delete optimistic locking. Buyer stamping is
+  locked in DEC-036: use trusted scoped `Organization.name` as `buyer_name`
+  and store `buyer_tax_code = null`. Summary/forecast, dedicated due-date
+  updates, AR settlement, installments, send/tracking, payment confirmations,
+  and UI remain pending.
+- 2026-09-09: Implemented the CAP-001 dedicated due-date operation:
+  `PATCH /api/invoice/invoices/[id]/due-date` through
+  `invoice.invoices.update-due-date`, route mutation guards, trusted Invoice
+  scope, set/clear support for manual and imported invoices, invoice-date and
+  max-range validation, installment-authoritative scheduling behavior, and
+  command-level optimistic locking. Summary/forecast, AR settlement,
+  installments, send/tracking, payment confirmations, and UI remain pending.
+- 2026-09-09: Implemented authoritative AR settlement and non-recoverable
+  operations through Invoice Core. Added AR-only settle/unsettle commands,
+  installment-aware payment rollup recomputation, settlement clearing of
+  non-recoverable state, audited write-off notes, dedicated authenticated API
+  routes, mutation guards, command optimistic locking, and focused state and
+  route contracts. Payment Confirmation can reuse the exported rollup helper;
+  AP payment-confirmation orchestration remains out of scope.
+- 2026-09-09: Implemented CAP-001 / FLOW-001 Invoice Summary and Forecast. Added
+  scoped `getSummary` and `getForecast` methods to `InvoiceService`, consuming
+  `InvoiceExchangeRatesService` (CAP-007) for VND normalization. Excluded
+  non-recoverable AR from collectable summary totals and forecast. Excluded
+  settled amounts from future forecast, prioritizing pending installments over
+  invoice due dates. Exposed `GET /api/invoice/summary` and
+  `GET /api/invoice/forecast` under `invoice.view` with OpenAPI schemas and
+  explicit 503 handling when FX rates are unavailable.
+- 2026-09-09: Implemented AR invoice email sending and privacy-safe open
+  tracking. Added `POST /api/invoice/invoices/[id]/send`, secure per-send
+  tracking tokens with hash-only persistence, localized invoice email markup,
+  optional HTTP(S)-validated tracking pixels, best-effort recipient memory,
+  anonymous transparent-GIF tracking, atomic first-open recording, DI/command
+  wiring, OpenAPI metadata, and focused service/command/route tests.

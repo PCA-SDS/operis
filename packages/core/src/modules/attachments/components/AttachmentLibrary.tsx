@@ -26,6 +26,7 @@ import { Download, Plus, Upload, Trash2, File, FileText, FileSpreadsheet, FileAr
 import { buildAttachmentFileUrl, buildAttachmentImageUrl, slugifyAttachmentFileName } from '@open-mercato/core/modules/attachments/lib/imageUrls'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { AttachmentDeleteDialog, AttachmentMetadataDialog, type AttachmentItem, type AttachmentMetadataSavePayload, type AssignmentDraft } from '@open-mercato/ui/backend/detail'
+import { formatFileSize } from '@open-mercato/shared/lib/units/fileSize'
 
 type AttachmentAssignment = {
   type: string
@@ -55,18 +56,6 @@ function filterLibraryAssignments(assignments?: AttachmentAssignment[] | null): 
   return (assignments ?? []).filter((assignment) => assignment.type !== LIBRARY_ENTITY_ID)
 }
 
-function formatFileSize(value: number): string {
-  if (!Number.isFinite(value)) return '—'
-  if (value <= 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB', 'TB']
-  let idx = 0
-  let current = value
-  while (current >= 1024 && idx < units.length - 1) {
-    current /= 1024
-    idx += 1
-  }
-  return `${current.toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`
-}
 
 function humanDate(value: string, locale?: string): string {
   const date = new Date(value)

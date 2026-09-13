@@ -3,6 +3,7 @@ import { useId, useTransition } from 'react'
 import { useLocale, useLocaleLocked, useT } from '@open-mercato/shared/lib/i18n/context'
 import { useRouter } from 'next/navigation'
 import { locales, type Locale } from '@open-mercato/shared/lib/i18n/config'
+import { persistLocalePreference } from '@open-mercato/shared/lib/i18n/persistLocale'
 import {
   Select,
   SelectContent,
@@ -25,17 +26,16 @@ export function LanguageSwitcher() {
     es: t('common.languages.spanish', 'Español'),
     de: t('common.languages.german', 'Deutsch'),
     ko: t('common.languages.korean', '한국어'),
+    vi: t('common.languages.vietnamese', 'Tiếng Việt'),
+    fr: t('common.languages.french', 'Français'),
+    zh: t('common.languages.chinese', '中文'),
   }
 
   async function setLocale(locale: Locale) {
     if (locale === current) return
     try {
-      const res = await fetch('/api/auth/locale', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ locale }),
-      })
-      if (!res.ok) return
+      const saved = await persistLocalePreference(locale)
+      if (!saved) return
       startTransition(() => router.refresh())
       try {
         window.dispatchEvent(new Event('om:refresh-sidebar'))

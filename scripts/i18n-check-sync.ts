@@ -20,9 +20,13 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { globSync } from 'glob'
+import { defaultLocale, locales } from '../packages/shared/src/lib/i18n/config'
 
-const REFERENCE_LOCALE = 'en'
-const TARGET_LOCALES = ['pl', 'es', 'de', 'ko']
+// Driven by the shared locale config rather than a hand-kept list: a locale
+// added to `locales` without a dictionary in every module renders raw
+// translation keys, and a hardcoded list here would never notice.
+const REFERENCE_LOCALE = defaultLocale
+const TARGET_LOCALES = locales.filter((locale) => locale !== defaultLocale)
 const MAX_KEYS_TO_SHOW = 10
 
 const __filename_ = typeof __filename !== 'undefined' ? __filename : fileURLToPath(import.meta.url)

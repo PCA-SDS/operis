@@ -22,6 +22,7 @@ import { enqueueInboundDispatch } from '../../../lib/queue'
 import { isWebhookIntegrationEnabled, WEBHOOK_INTEGRATION_DISABLED_MESSAGE } from '../../../lib/integration-state'
 import { json } from '../../helpers'
 import { InboundEndpointConfigEntity, WebhookIngestionEntity, WebhookInboundReceiptEntity } from '../../../data/entities'
+import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
 
 type IntegrationCredentialsService = {
   resolve: (
@@ -298,14 +299,6 @@ function tryResolve<T>(container: { resolve: (name: string) => unknown }, name: 
   } catch {
     return null
   }
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-  const maybeError = error as { code?: string; cause?: unknown }
-  if (maybeError.code === '23505') return true
-  if (!maybeError.cause || typeof maybeError.cause !== 'object') return false
-  return (maybeError.cause as { code?: string }).code === '23505'
 }
 
 function isInboundWebhookTimestampFresh(headers: Record<string, string>): boolean {

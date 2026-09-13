@@ -103,10 +103,11 @@ const baseEntitySchema = {
   primaryEmail: clearableEmailSchema,
   primaryPhone: phoneSchema,
   phoneCountryCode: clearableStringSchema(8),
-  phoneCountry: clearableStringSchema(2),
+  phoneCountry: clearableStringSchema(120),
   status: z.string().trim().max(100).optional(),
   lifecycleStage: z.string().trim().max(100).optional(),
   source: z.string().trim().max(150).optional(),
+  origin: clearableStringSchema(50),
   temperature: z.string().trim().max(100).optional(),
   renewalQuarter: z.string().trim().max(100).optional(),
   isActive: z.boolean().optional(),
@@ -366,7 +367,7 @@ const dictionaryColorSchema = z
     new RegExp(`^(#[0-9a-fA-F]{6}|${DICTIONARY_COLOR_TONES.join('|')})$`),
     'Color must be a six-digit hex code (e.g. #3366ff) or a semantic tone identifier',
   )
-const dictionaryIconSchema = z.string().trim().max(48)
+const dictionaryIconSchema = z.string().trim().max(100)
 
 export const customerDictionaryEntryCreateSchema = scopedSchema.extend({
   kind: dictionaryKindEnum,
@@ -808,6 +809,21 @@ export const personCheckSchema = z.object({
   tenantId: uuid(),
   phone: z.string().trim().max(50).optional(),
   email: clearableEmailSchema,
+  phoneCountryCode: clearableStringSchema(8),
+  phoneCountry: clearableStringSchema(120),
+})
+
+export const personFindOrCreateSchema = scopedSchema.extend({
+  firstName: personFirstNameSchema,
+  lastName: personLastNameSchema,
+  phone: phoneSchema,
+  email: clearableEmailSchema,
+  salutation: clearableStringSchema(150),
+  source: clearableStringSchema(150),
+  origin: clearableStringSchema(50),
+  phoneCountryCode: clearableStringSchema(8),
+  phoneCountry: clearableStringSchema(120),
 })
 
 export type PersonCheckInput = z.infer<typeof personCheckSchema>
+export type PersonFindOrCreateInput = z.infer<typeof personFindOrCreateSchema>

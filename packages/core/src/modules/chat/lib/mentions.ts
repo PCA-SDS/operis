@@ -23,7 +23,7 @@ export const EVERYONE_TOKEN = '<@everyone>'
  * is not a UUID or the literal `everyone` is left alone as ordinary text, so a
  * message that merely contains `<@` reads as what the person typed.
  */
-const MENTION_TOKEN =
+export const MENTION_TOKEN =
   /<@(everyone|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})>/g
 
 export function userToken(userId: string): string {

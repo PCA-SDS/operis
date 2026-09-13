@@ -14,7 +14,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type { ModuleEntry, PackageResolver } from '../../resolver'
-import { normalizeTestPath } from '../../__tests__/path-helpers'
+import { normalizeTestPath } from '@open-mercato/shared/lib/testing/pathAssertions'
 
 describe('db commands security', () => {
   describe('sanitizeModuleId', () => {

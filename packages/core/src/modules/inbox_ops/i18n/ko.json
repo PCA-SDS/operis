@@ -147,6 +147,8 @@
   "inbox_ops.possibly_incomplete": "이 스레드는 일부만 전달된 것으로 보입니다",
   "inbox_ops.preview.customer": "고객",
   "inbox_ops.preview.delivery": "배송",
+  "inbox_ops.preview.email.notFound": "Not found",
+  "inbox_ops.preview.email.title": "Inbox Email",
   "inbox_ops.preview.notes": "메모",
   "inbox_ops.preview.price": "가격",
   "inbox_ops.preview.product": "상품",

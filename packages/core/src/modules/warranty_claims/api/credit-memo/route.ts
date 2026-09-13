@@ -15,6 +15,7 @@ import {
   type ClaimCreateCreditMemoInput,
 } from '../../data/validators'
 import { WARRANTY_CLAIM_RESOURCE_KIND } from '../../commands/shared'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 
 const logger = createLogger('warranty_claims')
 
@@ -58,10 +59,6 @@ export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['warranty_claims.claim.manage', 'sales.credit_memos.manage'] },
 }
 
-function translateKey(key: string): string {
-  return key
-}
-
 function toRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
@@ -69,13 +66,14 @@ function toRecord(value: unknown): Record<string, unknown> {
 async function resolveActionContext(req: Request): Promise<ActionRouteContext> {
   const container = await createRequestContainer()
   const auth = await getAuthFromRequest(req)
+  const { translate } = await resolveTranslations()
   if (!auth || !auth.tenantId) {
-    throw new CrudHttpError(401, { error: 'warranty_claims.errors.unauthorized' })
+    throw new CrudHttpError(401, { error: translate('warranty_claims.errors.unauthorized', 'Unauthorized') })
   }
   const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
   const organizationId = scope?.selectedId ?? auth.orgId ?? null
   if (!organizationId) {
-    throw new CrudHttpError(400, { error: 'warranty_claims.errors.organization_required' })
+    throw new CrudHttpError(400, { error: translate('warranty_claims.errors.organization_required', 'Organization context is required') })
   }
   return {
     ctx: {
@@ -88,7 +86,7 @@ async function resolveActionContext(req: Request): Promise<ActionRouteContext> {
     },
     tenantId: auth.tenantId,
     organizationId,
-    translate: translateKey,
+    translate,
   }
 }
 

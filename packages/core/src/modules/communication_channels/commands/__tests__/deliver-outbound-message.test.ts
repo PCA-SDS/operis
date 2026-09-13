@@ -180,10 +180,14 @@ describe('deliverOutboundMessageCommand — link integrity + reauth', () => {
     return { ctx, em, channel, adapter, created }
   }
 
-  function primeFinds(channel: Record<string, any>, link: Record<string, any> | null) {
+  function primeFinds(
+    channel: Record<string, any>,
+    link: Record<string, any> | null,
+    message: Record<string, any> = { id: 'msg-1', threadId: 'thread-1', body: 'hello', bodyFormat: 'text' },
+  ) {
     mockFindOne.mockReset()
     mockFindOne
-      .mockResolvedValueOnce({ id: 'msg-1', threadId: 'thread-1', body: 'hello', bodyFormat: 'text' } as never)
+      .mockResolvedValueOnce(message as never)
       .mockResolvedValueOnce({
         messageThreadId: 'thread-1',
         channelId: 'ch-1',
@@ -291,5 +295,49 @@ describe('deliverOutboundMessageCommand — link integrity + reauth', () => {
 
     expect(result).toEqual({ status: 'already_delivered', messageId: 'msg-1', channelLinkId: 'winner-link' })
     expect(adapter.sendMessage).not.toHaveBeenCalled()
+  })
+
+  it('renders a markdown body to html before handing it to the adapter', async () => {
+    // The composer's markdown toggle persists bodyFormat: 'markdown', but no mail
+    // client renders markdown — and every email adapter only builds an html part
+    // when bodyFormat === 'html'. Left unrendered, the recipient receives raw
+    // `**source**` in text/plain while the in-app view and the built-in message
+    // email both show it formatted.
+    const link: Record<string, any> = { id: 'link-1', deliveryStatus: 'pending', channelPayload: null, channelMetadata: null }
+    const { ctx, channel, adapter } = makeCtx({ sendResult: { status: 'sent', externalMessageId: 'ext-1' } })
+    primeFinds(channel, link, {
+      id: 'msg-1',
+      threadId: 'thread-1',
+      body: '# Heading\n\nSome **bold** text.',
+      bodyFormat: 'markdown',
+    })
+
+    await deliverOutboundMessageCommand.execute(
+      { messageId: MSG, scope: { tenantId: TENANT, organizationId: ORG } } as never,
+      ctx,
+    )
+
+    expect(adapter.convertOutbound).toHaveBeenCalledTimes(1)
+    const converted = adapter.convertOutbound.mock.calls[0][0] as { body: string; bodyFormat: string }
+    // `html` is the load-bearing assertion: it is the only value for which
+    // convertOutboundForEmail / ForGmail build an html part at all. This package
+    // maps react-markdown to a pass-through mock (packages/core/jest.mocks), so
+    // the rendered markup itself is not asserted here.
+    expect(converted.bodyFormat).toBe('html')
+  })
+
+  it('leaves a plain-text body untouched', async () => {
+    const link: Record<string, any> = { id: 'link-1', deliveryStatus: 'pending', channelPayload: null, channelMetadata: null }
+    const { ctx, channel, adapter } = makeCtx({ sendResult: { status: 'sent', externalMessageId: 'ext-1' } })
+    primeFinds(channel, link)
+
+    await deliverOutboundMessageCommand.execute(
+      { messageId: MSG, scope: { tenantId: TENANT, organizationId: ORG } } as never,
+      ctx,
+    )
+
+    const converted = adapter.convertOutbound.mock.calls[0][0] as { body: string; bodyFormat: string }
+    expect(converted.bodyFormat).toBe('text')
+    expect(converted.body).toContain('hello')
   })
 })

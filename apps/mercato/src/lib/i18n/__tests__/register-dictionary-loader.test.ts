@@ -78,3 +78,32 @@ describe('register-dictionary-loader', () => {
     expect(registerModulesMock).not.toHaveBeenCalled()
   })
 })
+
+/**
+ * The app dictionary switch is the only thing that turns a locale in `locales`
+ * into real copy. PR #267 added `apps/mercato/src/i18n/{vi,fr,zh}.json` without
+ * adding their cases, so all three fell through to `default:` and served the
+ * English dictionary while the files sat unreferenced. This pins the switch to
+ * the shared locale config so the next locale cannot repeat it.
+ */
+describe('app dictionary coverage', () => {
+  it('resolves a distinct dictionary for every configured locale', async () => {
+    const { locales } = await import('@open-mercato/shared/lib/i18n/config')
+
+    for (const locale of locales) {
+      jest.doMock(`../../../i18n/${locale}.json`, () => ({ __esModule: true, default: { __locale: locale } }))
+    }
+    jest.resetModules()
+    jest.doMock('@open-mercato/shared/lib/i18n/server', () => ({ registerAppDictionaryLoader: jest.fn() }))
+    const mod = await import('../register-dictionary-loader')
+
+    const loader = mod.createAppDictionaryLoader({
+      loadLocaleModules: async () => [],
+      registerLocaleModules: jest.fn(),
+    })
+
+    for (const locale of locales) {
+      await expect(loader(locale)).resolves.toEqual({ __locale: locale })
+    }
+  })
+})

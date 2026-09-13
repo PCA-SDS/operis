@@ -1193,6 +1193,7 @@
   "workflows.visualEditor.howToUse": "Cómo usar:",
   "workflows.visualEditor.loadExample": "Cargar ejemplo",
   "workflows.visualEditor.loadExampleWorkflow": "Cargar un flujo de trabajo de ejemplo",
+  "workflows.visualEditor.loading": "Loading workflow definition…",
   "workflows.visualEditor.readOnly": "Solo lectura",
   "workflows.visualEditor.runTest": "Ejecutar prueba",
   "workflows.visualEditor.showMetadata": "Mostrar metadatos",

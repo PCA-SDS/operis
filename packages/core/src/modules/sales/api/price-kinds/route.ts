@@ -15,8 +15,8 @@ export const metadata = routeMetadata
 
 const listSchema = z
   .object({
-    page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(100).default(50),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(50),
     search: z.string().optional(),
     isActive: z.string().optional(),
   })

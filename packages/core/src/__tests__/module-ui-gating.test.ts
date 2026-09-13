@@ -54,6 +54,8 @@ const MODULE_GATE_MARKERS = [
  * inconvenient to fix.
  */
 const ALLOWED_CROSS_MODULE_LINKS: Record<string, string> = {
+  'apps/mercato/src/app/(backend)/backend/loading.tsx':
+    'Not a link. The backend is one catch-all route with one Suspense fallback, and this compares the pathname to pick which placeholder shape it draws. It renders no navigation, imports no module code, and the branch is unreachable without the chat module because nothing serves that path without it.',
   'packages/ui/src/backend/IntegrationsButton.tsx':
     'Rendered only by BackendHeaderChrome, which gates it on hasVisibleRoute(payload.groups, "/backend/integrations").',
   'packages/ui/src/backend/messages/MessagesIcon.tsx':

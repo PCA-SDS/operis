@@ -1,0 +1,1132 @@
+{
+  "common": {
+    "close": "Fermer",
+    "cancel": "Annuler",
+    "continue": "Continuer"
+  },
+  "meta": {
+    "title": "Privé Spa - Réservation",
+    "logoAlt": "Logo Privé Spa"
+  },
+  "landing": {
+    "title": "RÉSERVONS VOTRE VISITE",
+    "description": "Bienvenue chez Privé — nous allons vous aider à réserver votre visite.",
+    "returningDescription": "Bon retour ! Vous pouvez reprendre la même réservation ou découvrir d'autres services.",
+    "bookingForMyself": "Je réserve pour moi-même",
+    "bookingForGroup": "Je réserve pour un groupe",
+    "groupBookingMessage": "Pour les réservations de groupe, veuillez nous appeler directement afin que nous puissions mieux organiser votre visite!",
+    "button1Label": "C'est ma première fois chez Privé",
+    "button2Label": "Je suis un client fidèle satisfait",
+    "returningForm": {
+      "title": "Veuillez saisir vos informations",
+      "checking": "Vérification...",
+      "nextInstruction": "Appuyez sur Suivant ci-dessous pour vérifier vos informations."
+    },
+    "returningOptions": {
+      "explore": "Je veux découvrir de nouveaux services Privé",
+      "repeat": "Je veux réserver la même chose que la dernière fois"
+    },
+    "disclaimer": {
+      "checkboxLabel": "I have read and agreed to the",
+      "linkText": "Spa & Beauty Services Contract",
+      "pleaseAccept": "Please accept the Liability Waiver Agreement to continue",
+      "hint": "Please read and agreed to the Spa & Beauty Services Contract before proceeding.",
+      "title": "Liability Waiver Agreement",
+      "content": "By using our booking services, you acknowledge and agree to the following:\n\n1. ASSUMPTION OF RISK\nYou understand that spa and beauty treatments carry inherent risks, including but not limited to allergic reactions, skin irritation, or other adverse effects.\n\n2. HEALTH DISCLOSURE\nYou confirm that you have disclosed all relevant health conditions, allergies, and medications that may affect your treatment.\n\n3. RELEASE OF LIABILITY\nYou agree to release Privé Spa, its employees, and contractors from any liability for injuries, damages, or losses arising from services provided, except in cases of gross negligence or willful misconduct.\n\n4. CANCELLATION POLICY\nBookings may be subject to our cancellation policy. Please contact us if you need to reschedule or cancel.\n\n5. CONSENT TO TREATMENT\nBy proceeding with this booking, you consent to receive the selected treatments and services.\n\nIf you have any questions or concerns, please contact us before proceeding with your booking.",
+      "closeButton": "I confirm that I have disclosed all relevant health conditions and understand that the Supplier is not responsible for any outcome resulting from incomplete or non-disclosure of such information, to the extent permitted by law."
+    },
+    "privacyNoticePrefix": "Nous ne conservons, ne vendons ni ne traitons vos données conformément à notre",
+    "privacyNoticeSuffix": ".",
+    "privacyPolicy": "Politique de confidentialité des données",
+    "privacyPolicyContent": "PRIVÉ SPA DATA PRIVACY POLICY\n\nLast Updated: January 2026\n\n1. INFORMATION WE COLLECT\nWe collect personal information that you provide to us when booking our services, including:\n- Name and contact details (email, phone number)\n- Service preferences and booking history\n- Health information relevant to treatments\n- Payment information (processed securely by third parties)\n\n2. HOW WE USE YOUR INFORMATION\nWe use your personal information to:\n- Process and manage your bookings\n- Communicate with you about your appointments\n- Improve our services and customer experience\n- Send promotional offers (with your consent)\n- Comply with legal obligations\n\n3. DATA SHARING AND DISCLOSURE\nWe do not sell, rent, or share your personal information with third parties except:\n- Service providers who assist in our operations (payment processors, booking systems)\n- When required by law or legal process\n- To protect our rights and safety\n\n4. DATA SECURITY\nWe implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.\n\n5. YOUR RIGHTS\nYou have the right to:\n- Access your personal data\n- Request correction of inaccurate data\n- Request deletion of your data\n- Withdraw consent for marketing communications\n- Object to processing of your data\n\n6. DATA RETENTION\nWe retain your personal information only as long as necessary for the purposes outlined in this policy or as required by law.\n\n7. COOKIES AND TRACKING\nOur website may use cookies to enhance your browsing experience. You can control cookie settings through your browser.\n\n8. CONTACT US\nFor questions about this privacy policy or to exercise your rights, please contact us at:\nEmail: privacy@theprivespa.com\nWebsite: https://theprivespa.com/group-data-privacy-policy\n\n9. CHANGES TO THIS POLICY\nWe may update this privacy policy from time to time. We will notify you of any significant changes by posting the new policy on our website.\n\nBy using our services, you acknowledge that you have read and understood this Privacy Policy."
+  },
+  "form": {
+    "stepIndicator": "Étape {{current}} de {{total}}",
+    "backButton": "Retour",
+    "nextButton": "Suivant",
+    "submitButton": "Confirmer la réservation",
+    "steps": {
+      "visitDetails": {
+        "title": "Détails de la visite"
+      },
+      "serviceSelection": {
+        "title": "Choisir un service"
+      },
+      "contactInfo": {
+        "title": "Coordonnées"
+      }
+    },
+    "visitDetails": {
+      "branchInstruction": "Veuillez choisir la succursale que vous souhaitez visiter.",
+      "dateTimeInstruction": "Veuillez choisir la date et l'heure de votre visite.",
+      "branches": {
+        "benThanh": "Privé Ben Thanh\n(District 1 - Le Thi Rieng - HCMC)",
+        "thaoDien": "Privé Thao Dien\n(District 2 - Thu Duc - HCMC)",
+        "phuMyHung": "Privé Phu My Hung/Midtown\n(District 7 - HCMC)",
+        "hoanKiem": "Privé Hoan Kiem\n(Hoan Kiem - HANOI)"
+      },
+      "info": {
+        "hours": "Toutes les succursales sont ouvertes de 9h00 à 21h00 (dernier service à 20h00).",
+        "alternateSlot": "Please include any preferred alternative date or time in the notes below."
+      },
+      "labels": {
+        "branch": "Succursale",
+        "date": "Date",
+        "time": "Heure",
+        "altDate": "Date",
+        "altTime": "Heure",
+        "note": "Notes supplémentaires (Optionnel)"
+      },
+      "descriptions": {
+        "note": "Please use this field to share any special requests, preferences, or relevant health information (e.g. allergies, sensitivities, pregnancy, recent treatments, medications, or skin conditions) that may affect the safe provision of our services.\n\nProviding accurate information helps us prepare appropriately and serve you better."
+      },
+      "placeholders": {
+        "note": "Demandes spéciales ou notes concernant votre visite..."
+      },
+      "alternatePrompt": "Veuillez partager un autre créneau disponible (optionnel)."
+    },
+    "serviceSelection": {
+      "instruction": "Veuillez sélectionner nos services",
+      "lastBooking": {
+        "title": "Votre dernière réservation",
+        "serviceLabel": "Services",
+        "branchLabel": "Succursale",
+        "timeLabel": "Horaire",
+        "repeat": "Modifier les services précédents",
+        "chooseNew": "Choisir de nouveaux services"
+      },
+      "returningChoice": {
+        "title": "Bon Retour !",
+        "subtitle": "Souhaitez-vous réserver les mêmes services que la dernière fois, ou explorer nos offres ?",
+        "lastServices": "Vos derniers services :",
+        "quickBook": "Réservation Rapide",
+        "explore": "Explorer de Nouveaux Services",
+        "exploreDesc": "Parcourez notre menu complet et découvrez de nouveaux soins adaptés pour vous.",
+        "browseMenu": "Parcourir le Menu",
+        "helper": "Vous pouvez toujours modifier votre sélection plus tard"
+      },
+      "returningMissingContact": "Informations de contact manquantes, merci de vérifier.",
+      "services": {
+        "basic_nail_care": "Classic mani",
+        "gel_polish_refresh": "Gel polish refresh",
+        "quick_nail_art": "Nail art express",
+        "nail_repair": "Nail repair",
+        "lash_lift": "Lash lift",
+        "lash_extension_refill": "Extension refill",
+        "eyebrow_shaping": "Brow shaping",
+        "eyebrow_tint": "Brow tint",
+        "express_facial": "Express facial",
+        "body_scrub": "Detox body polish",
+        "relaxing_massage": "Relax massage",
+        "hydrotherapy_boost": "Hydrotherapy boost",
+        "eyebrow_wax": "Eyebrow tidy",
+        "full_leg_wax": "Full leg",
+        "brazilian_wax": "Brazilian",
+        "back_wax": "Back waxing"
+      }
+    },
+    "serviceCart": {
+      "title": "Panier de services",
+      "empty": "Aucun service dans le panier.",
+      "emptyHint": "Sélectionnez des services et complétez toutes les options requises pour les ajouter au panier.",
+      "remove": "Supprimer",
+      "subtotal": "Sous-total",
+      "itemCount": "{{count}} service(s)",
+      "bookNow": "Réserver",
+      "priceNote1": "Le prix final sera confirmé avant le service.",
+      "priceNote2": "Tous les prix incluent les taxes et frais de service."
+    },
+    "subtotalNote": "Final price will be confirmed upon booking.",
+    "checkout": {
+      "title": "Vérifiez vos services",
+      "subtitle": "Veuillez vérifier les services que vous avez sélectionnés",
+      "empty": "Vous n'avez pas encore sélectionné de services.",
+      "emptyHint": "Veuillez revenir en arrière et sélectionner au moins un service.",
+      "backToServices": "Retour aux services",
+      "subtotal": "Sous-total",
+      "subtotalNote": "Le prix final peut varier en fonction des services réels.",
+      "proceedButton": "Continuer",
+      "editServices": "Modifier les services"
+    },
+    "summary": {
+      "title": "Confirmer la réservation",
+      "subtitle": "Veuillez vérifier vos informations avant de confirmer",
+      "bookingInfo": "Informations de réservation",
+      "servicesSelected": "Services sélectionnés"
+    },
+    "contactDetails": {
+      "labels": {
+        "name": "Nom",
+        "phone": "Zalo / WhatsApp",
+        "phoneNote": "Please select your country code and do not include it in the phone number",
+        "email": "Adresse e-mail",
+        "origin": "D'où venez-vous ?",
+        "referral": "Comment avez-vous entendu parler de nous ?"
+      },
+      "placeholders": {
+        "name": "Votre nom complet",
+        "phone": "Numéro de téléphone",
+        "email": "vous@exemple.com"
+      },
+      "salutation": {
+        "select": "Salutation",
+        "preferNotToSay": "Prefer not to say",
+        "mx": "Mx.",
+        "mr": "Mr.",
+        "mrs": "Mrs.",
+        "ms": "Ms."
+      },
+      "origin": {
+        "tourist": "Touriste",
+        "expatriate": "Expatrié",
+        "local": "Vietnamien local"
+      },
+      "referrals": {
+        "google": "Google",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "tiktok": "TikTok",
+        "other": "Autre"
+      },
+      "submitting": "Envoi de vos informations..."
+    },
+    "submit": {
+      "errors": {
+        "createCustomerFailed": "Impossible de créer le client",
+        "saveBookingFailed": "Impossible d'enregistrer la réservation",
+        "generic": "Une erreur s'est produite, veuillez réessayer"
+      }
+    },
+    "returning": {
+      "toast": {
+        "welcomeBack": "Bon retour !",
+        "missingInfo": "Veuillez saisir le numéro de téléphone et l'e-mail",
+        "invalidInfo": "Veuillez saisir un numéro de téléphone et un e-mail valides",
+        "notFound": "Nous n'avons pas trouvé vos informations. Merci de vérifier votre téléphone ou e-mail.",
+        "checkError": "Une erreur est survenue lors de la vérification, veuillez réessayer"
+      },
+      "errors": {
+        "phone": "Numéro de téléphone invalide",
+        "email": "Adresse e-mail invalide"
+      }
+    },
+    "success": {
+      "title": "Réservation envoyée !",
+      "message": "Merci d'avoir réservé chez Privé Spa ! Nous vous contacterons bientôt pour confirmer votre rendez-vous.",
+      "summaryTitle": "Détails de la réservation",
+      "summary": {
+        "name": "Nom",
+        "branch": "Succursale",
+        "dateTime": "Date et heure",
+        "email": "Email",
+        "phone": "Téléphone"
+      },
+      "exploreWebsite": "Explorez notre site web"
+    },
+    "confirmation": {
+      "title": "Confirm Your Booking",
+      "message": "This is the final step. Are you ready to submit your booking?",
+      "confirm": "Yes, Submit Now",
+      "cancel": "No, Go Back",
+      "submitting": "Submitting...",
+      "confirmBooking": "Click To Submit Booking"
+    }
+  },
+  "serviceMenu": {
+    "common": {
+      "duration": {
+        "15m": "15 min",
+        "30m": "30 min",
+        "45m": "45 min",
+        "60m": "60 min",
+        "75m": "75 min",
+        "90m": "90 min",
+        "105m": "105 min",
+        "120m": "120 min"
+      },
+      "unit": {
+        "perColor": "par couleur",
+        "perLayer": "par couche",
+        "perNail": "par ongle",
+        "perSet10": "par set (x10)"
+      },
+      "searchPlaceholder": "Rechercher par nom ou code SKU...",
+      "noServices": "Aucun service dans cette catégorie",
+      "detailedInfo": {
+        "toggle": "Détails"
+      },
+      "conflict": {
+        "title": "Conflit de services",
+        "message": "Le service que vous avez sélectionné",
+        "notAvailable": "is not available for this service.",
+        "pleaseChoose": "Please choose",
+        "instead": "instead.",
+        "willRemove": "Ces services seront automatiquement supprimés de votre sélection si vous continuez.",
+        "suggestGelPolish": "Please choose Gel Polish instead.",
+        "gelDependencyTitle": "Gel Polish Requirement",
+        "gelDependencyIntro": "You are removing",
+        "gelDependencyNotAvailable": "will also be removed if you continue.",
+        "gelDependencyPairWillRemove": "Both {{currentService}} and {{dependentService}} will be removed if you continue.",
+        "gelDependencyWillRemove": "Press Continue to remove both services, or Cancel to keep your current selection."
+      },
+      "nailArtPrerequisite": {
+        "title": "Gel Polish Required",
+        "messageManicure": "To choose Nail Art for hands, please select Gel Polish for manicure first.",
+        "messagePedicure": "To choose Nail Art for feet, please select Gel Polish for pedicure first.",
+        "messageNailExtensions": "To choose Nail Extensions, please select Gel Polish for manicure first.",
+        "messageSwitchManicure": "We do not serve Regular Polish for Nail Art, we will switch it to Gel Polish instead.",
+        "messageSwitchPedicure": "We do not serve Regular Polish for Nail Art, we will switch it to Gel Polish instead.",
+        "messageSwitchNailExtensions": "We do not serve Regular Polish for Nail Extensions, we will switch it to Gel Polish instead.",
+        "hint": "Press Continue and we will take you to the right package category.",
+        "hintSwitch": "Press Continue and we will automatically switch your package from Regular Polish to Gel Polish."
+      }
+    },
+    "packages": {
+      "categories": {
+        "lashCombos": {
+          "label": "Lash & Brow Packages"
+        },
+        "lashPackages": {
+          "label": "Lash & Brow Packages"
+        },
+        "manicurePackages": {
+          "label": "Manicure Packages"
+        },
+        "pedicurePackages": {
+          "label": "Pedicure Packages"
+        },
+        "pedicureCombos": {
+          "label": "Pedicure Packages"
+        },
+        "signatureFacials": {
+          "label": "Signature Facials"
+        }
+      },
+      "items": {
+        "packageLashBotox": {
+          "name": "Lash Botox ",
+          "desc": "Lash Lift, Lash Tint"
+        },
+        "packageBrowReshape": {
+          "name": "Brow Reshape Combo",
+          "desc": "Brow Lamination, Brow Tint, Brow Wax, Jelly Mask"
+        },
+        "packageLashBrowReform": {
+          "name": "Lash & Brow Reform Combo",
+          "desc": "Lash Lift, Lash Tint, Brow Lamination, Brow Wax"
+        },
+        "manicureEssential": {
+          "name": "Essential Manicure",
+          "desc": "Dry cuticle clean\nNo Polish\nHand Massage (15 mins). \nGentlemen Friendly"
+        },
+        "manicureRelaxing": {
+          "name": "Relaxing Manicure",
+          "desc": "Dry cuticle clean & Polish\nHand Massage (15 mins)"
+        },
+        "manicureSignature": {
+          "name": "Signature Manicure",
+          "desc": "Dry cuticle clean & Polish\nPrivé Special Premium Hand Mask\nHand Massage (10 mins)"
+        },
+        "manicureLoccitane": {
+          "name": "L'Occitane Manicure (Almond Delicious)",
+          "desc": "Dry cuticle clean & Polish (Clean/Shower Oil & Scrub/Skin Oil & Hand Mask & Almond Hand Cream)"
+        },
+        "manicurePremium": {
+          "name": "Premium Manicure",
+          "desc": "Dry cuticle clean & Polish\nPrivé Special Premium Hand Care\nHand Massage (30 mins)"
+        },
+        "pedicureEssential": {
+          "name": "Essential Pedicure",
+          "desc": "Dry Pedicure\nNo Polish\nHeel Therapy (Skin And Callus Removal). \nGentlemen Friendly"
+        },
+        "pedicureRelaxing": {
+          "name": "Relaxing Pedicure",
+          "desc": "Dry Pedicure & Polish\nFoot Massage (15 mins)"
+        },
+        "pedicureBasic": {
+          "name": "Basic Pedicure",
+          "desc": "Dry Pedicure & Polish\nHeel Therapy (Skin And Callus Removal)"
+        },
+        "pedicureMuscleRelief": {
+          "name": "Muscle & Relief Pedicure",
+          "desc": "Dry Pedicure & Polish\nFoot Massage (30 mins)"
+        },
+        "pedicureDeluxe": {
+          "name": "Deluxe Pedicure",
+          "desc": "Dry Pedicure & Polish\nHeel Therapy (Skin And Callus Removal)\nFoot Massage (15 mins)"
+        },
+        "pedicureSignature": {
+          "name": "Signature Pedicure",
+          "desc": "Dry Pedicure\nHeel Therapy (Skin And Callus Removal)\nPrivé Special Premium Hand Mask\nFoot Massage (15 mins)"
+        },
+        "pedicurePremium": {
+          "name": "Premium Pedicure",
+          "desc": "Dry Pedicure & Polish\nHeel Therapy (Skin And Callus Removal)\nFoot Massage (30 mins)"
+        },
+        "pedicureRoyal": {
+          "name": "Royal Pedicure",
+          "desc": "Dry Pedicure & Polish\nHeel Therapy (Skin And Callus Removal)\nLegs & Foot Care (Foot Bath & Srcubbing On Leg Surface, Mask)\nFoot Massage (15 mins)"
+        },
+        "facialYoga": {
+          "name": "Yoga Facial",
+          "desc": "The advance evolution of our signature treatment. This non-invasive regimen masterfully fuses the ancient art of lifting with premium Guasha stones (Traditional Chinese massage technique) and ice globes (Cold therapy massage) to rejuvenate the skin, delivering both immediate and long-term results.",
+          "details": {
+            "treatment": "The advance evolution of our signature treatment. This non-invasive regimen masterfully fuses the ancient art of lifting with premium Guasha stones (Traditional Chinese massage technique) and ice globes (Cold therapy massage) to rejuvenate the skin.",
+            "effects": "Rejuvenates skin, delivering both immediate and long-term results"
+          }
+        },
+        "facialAqua": {
+          "name": "Aqua Peel",
+          "desc": "Deep cleansing, exfoliation, and hydration for all skin types",
+          "details": {
+            "overview": "Deep Clean – Renew – Balance – Glow\n\nRevitalize your skin with Aqua Peel – remove blackheads, large pores, and welcome a bright, balanced complexion. This technique is effective, gentle, and tailored for each skin type.\n\nIdeal for: Suitable for all skin types, especially oily and combination skin.\n\nIdeal for: Pore care, excess sebum, and concerns about makeup-induced skin damage from oil and clogged pores. Also effective for blackheads.\n\nRevitalize your skin with Aqua Peel – remove blackheads, large pores, and welcome a bright, balanced complexion. This technique is effective, gentle, and tailored for each skin type.\n\nIdeal for: Suitable for all skin types, especially oily and combination skin.\n\nIdeal for: Pore care, excess sebum, and concerns about makeup-induced skin damage from oil and clogged pores. Also effective for blackheads.",
+            "suitableFor": "Suitable for all skin types, especially oily and combination skin.\n\nPore care, excess sebum, and concerns about makeup-induced skin damage from oil and clogged pores. Also effective for blackheads.",
+            "benefits": "Promote skin metabolism\nExfoliate.\nSuppress mites.\nRefreshing and comfortable.\nLong lasting fragrance.\nImprove dullness.\nNourish and moisturize.\nSoothes after sun exposure.\nReplenishing water and whitening.",
+            "results": "Whiten and brighten skin, brighten skin tone, keep skin clean and translucent, improve skin dullness, and clean pores and dirt."
+          }
+        }
+      },
+      "optionGroups": {
+        "polishType": {
+          "label": "Polish Type"
+        }
+      },
+      "options": {
+        "polishRegularType": {
+          "name": "Regular Polish"
+        },
+        "polishGelType": {
+          "name": "Gel Polish"
+        }
+      },
+      "detailedSections": {
+        "treatment": "Treatment",
+        "effects": "Effects",
+        "benefits": "Benefits",
+        "suitableFor": "Suitable For",
+        "overview": "Overview",
+        "results": "Results"
+      }
+    },
+    "nail": {
+      "tabLabel": "Ongles",
+      "categories": {
+        "dryCuticleCare": {
+          "label": "Soins des cuticules sèches",
+          "note": "Gentlemen Friendly"
+        },
+        "nailServices": {
+          "label": "Nail Services",
+          "note": "Included Nail Care - Privé™ Technique"
+        },
+        "nailDesign": {
+          "label": "Nail Design"
+        },
+        "nailArts": {
+          "label": "Nail Arts"
+        },
+        "nailExtensions": {
+          "label": "Extensions d'ongles"
+        },
+        "handFootSpaAddons": {
+          "label": "Hand & Foot Spa Add-ons"
+        }
+      },
+      "items": {
+        "cuticlePriveTechnique": {
+          "name": "Technique Privé",
+          "desc": "Technique standard de soins des cuticules"
+        },
+        "cuticleEfile": {
+          "name": "Technique de cuticule E-File",
+          "desc": "Technique avancée utilisant E-File. Adapté aux hommes"
+        },
+        "builderGel": {
+          "name": "Gelish Structure Gel",
+          "desc": "Pour une forme d'ongle plus pleine et des ongles faibles qui durent plus longtemps"
+        },
+        "polish": {
+          "name": "Nail Polish",
+          "desc": "Regular or Gel polish with nail care included"
+        },
+        "removal": {
+          "name": "Nail Removal",
+          "desc": "Gel or Drill removal service"
+        },
+        "nailArts": {
+          "name": "Nail Arts",
+          "desc": "Professional nail art designs from Level 1 to Level 5"
+        },
+        "artLevel": {
+          "name": "Art Level",
+          "desc": "Professional nail art designs from Level 1 to Level 5"
+        },
+        "extensionType": {
+          "name": "Extension Type",
+          "desc": "Achieve the perfect length with our professional Full Set or Refill services"
+        },
+        "nailExtensions": {
+          "name": "Nail Extensions",
+          "desc": "Achieve the perfect length with our professional Full Set or Refill services"
+        },
+        "handMaskPrive": {
+          "name": "Privé™ Nourishing Hand Mask",
+          "desc": "Hand Mask (20 mins) \n Hand Massage (10 mins)"
+        },
+        "footMaskPrive": {
+          "name": "Privé™ Nourishing Foot Mask",
+          "desc": "Foot Mask (20 mins) \n Foot Massage (10 mins)"
+        },
+        "heelCarePrive": {
+          "name": "Privé™ Heel Therapy",
+          "desc": "Skin Softening Gel \n Skin And Callus Removal \n Treatment Cream"
+        },
+        "armHandCarePrive": {
+          "name": "Privé™ Hand & Arm Care",
+          "desc": "Exfoliating Scrub \n Activate Mask & Soften \n Hydrating Lotion & Massage (10 mins)"
+        },
+        "footCarePrive": {
+          "name": "Privé™ Foot & Leg Care",
+          "desc": "Bathing \n Cleaning \n Exfoliate On Leg And Upper Foot \n Foot Sock Mask \n Hydrating Lotion"
+        },
+        "handCareLoccitane": {
+          "name": "Luxurious L'Occitane Almond Hand Spa",
+          "desc": "Clean/Shower Oil \n Exfoliating Scrub \n Connectrate Mask & Skin Oil \n Hand And Nail Cream"
+        }
+      },
+      "optionGroups": {
+        "serviceScope": {
+          "label": "Portée du service"
+        },
+        "addOns": {
+          "label": "Add-ons"
+        },
+        "brand": {
+          "label": "Marque"
+        },
+        "nailLength": {
+          "label": "Longueur des ongles"
+        },
+        "polishType": {
+          "label": "Type de vernis"
+        },
+        "removalType": {
+          "label": "Removal Type"
+        },
+        "builderType": {
+          "label": "Builder Type"
+        },
+        "artLevel": {
+          "label": "Art Level"
+        },
+        "artLevelSelection": {
+          "label": "Select Level"
+        },
+        "extensionTypeSelection": {
+          "label": "Select Type"
+        },
+        "extensionType": {
+          "label": "Extension Type"
+        },
+        "pricingOption": {
+          "label": "Pricing Option"
+        },
+        "serviceType": {
+          "label": "Type de service"
+        },
+        "cuticleTechnique": {
+          "label": "Cuticle Technique"
+        },
+        "techniqueEfile": {
+          "label": "Upgrade E-File Cuticle Technique"
+        }
+      },
+      "options": {
+        "scopeMani": {
+          "name": "Manucure"
+        },
+        "scopePedi": {
+          "name": "Pédicure"
+        },
+        "scopeBoth": {
+          "name": "Mani + Pedi"
+        },
+        "addonExtraColors": {
+          "name": "Couleurs supplémentaires"
+        },
+        "gelPolishLongNail": {
+          "name": "Gel Polish pour ongles longs"
+        },
+        "addonTopCoat": {
+          "name": "Top Coat supplémentaire",
+          "desc": "Inclut brillant, mat, nacré, pailleté (par couche)"
+        },
+        "brandEstemio": {
+          "name": "Estemio",
+          "desc": "Regular nail polish with a natural finish. Ideal for short-term wear and easy removal."
+        },
+        "brandCnd": {
+          "name": "CND Shellac™",
+          "desc": "Lightweight gel polish with long-lasting shine and chip resistance. Cured under LED/UV."
+        },
+        "brandTgb": {
+          "name": "The Gel Bottle™ Colors",
+          "desc": "Premium gel polish with high pigmentation and a glossy, durable finish."
+        },
+        "brandBiab": {
+          "name": "BIAB™",
+          "desc": "Builder gel with color that strengthens natural nails while providing long-lasting wear."
+        },
+        "lengthShort": {
+          "name": "Court / Moyen"
+        },
+        "lengthLong": {
+          "name": "Long / Extra Long"
+        },
+        "lengthShortFullset": {
+          "name": "Full Set (Court/Moyen)"
+        },
+        "lengthLongFullset": {
+          "name": "Full Set (Long/Extra Long)"
+        },
+        "lengthShortRefill": {
+          "name": "Remplissage (Court/Moyen)"
+        },
+        "lengthLongRefill": {
+          "name": "Remplissage (Long/Extra Long)"
+        },
+        "addonRemoval": {
+          "name": "Service de retrait"
+        },
+        "polishRegularType": {
+          "name": "Régulier"
+        },
+        "polishGelType": {
+          "name": "Gel"
+        },
+        "polishTypeRegular": {
+          "name": "Regular Polish"
+        },
+        "polishTypeGel": {
+          "name": "Gel Polish",
+          "desc": ""
+        },
+        "removalTypeGel": {
+          "name": "Gel Polish Soak-Off Removal"
+        },
+        "removalTypeDrill": {
+          "name": "Hard Gel / Builder Gel Drill Removal"
+        },
+        "addonExtraColor": {
+          "name": "Couleur supplémentaire",
+          "desc": "Par couleur supplémentaire"
+        },
+        "addonBufferShine": {
+          "name": "Éclat de polissage",
+          "desc": "Par set de 10"
+        },
+        "addonIngrown": {
+          "name": "Traitement des ongles incarnés",
+          "desc": "Par ongle"
+        },
+        "efileSingle": {
+          "name": "Manicure / Pedicure"
+        },
+        "efileBoth": {
+          "name": "Mani + Pedi"
+        },
+        "shortMedium": {
+          "name": "Court / Moyen"
+        },
+        "longExtraLong": {
+          "name": "Long / Extra Long"
+        },
+        "servicePlexigel": {
+          "name": "CND™ Plexigel"
+        },
+        "serviceAcrylic": {
+          "name": "Acrylique"
+        },
+        "serviceAcrylicRefill": {
+          "name": "Acrylique"
+        },
+        "serviceHardGel": {
+          "name": "Hard Gel"
+        },
+        "serviceHardGelRefill": {
+          "name": "Hard Gel"
+        },
+        "serviceGelXExpress": {
+          "name": "Gel-X® Express"
+        },
+        "gelishStructure": {
+          "name": "Gelish Structure Gel"
+        },
+        "plexigelOverlay": {
+          "name": "CND™ Plexigel Build Overlay"
+        },
+        "artLevel1": {
+          "name": "Level 1 - Ombré / Cat Eyes / Chrome / French"
+        },
+        "artLevel2": {
+          "name": "Level 2"
+        },
+        "artLevel3": {
+          "name": "Level 3"
+        },
+        "artLevel4": {
+          "name": "Level 4"
+        },
+        "artLevel5": {
+          "name": "Level 5"
+        },
+        "extensionFullSet": {
+          "name": "Full Set"
+        },
+        "extensionRefills": {
+          "name": "Refills"
+        },
+        "level1PerNail": {
+          "name": "Par ongle"
+        },
+        "level1FullSet": {
+          "name": "Full Set (x10)"
+        },
+        "level2PerNail": {
+          "name": "Par ongle"
+        },
+        "level3PerNail": {
+          "name": "Par ongle"
+        },
+        "level4PerNail": {
+          "name": "Par ongle"
+        },
+        "level5PerNail": {
+          "name": "Par ongle"
+        },
+        "techniqueNailsInc": {
+          "name": "Nails Inc"
+        },
+        "techniqueEfile": {
+          "name": "Upgraded E-File Cuticle Technique"
+        },
+        "note": {
+          "includedNailCare": "Included Dry Cuticle Care - Privé™ Technique"
+        }
+      }
+    },
+    "lash": {
+      "tabLabel": "Cils & Sourcils",
+      "categories": {
+        "lashExtensions": {
+          "label": "Extensions de cils",
+          "note": "<strong>Note sur le service de remplissage:</strong><br/>• Nécessite au moins 60% de rétention des cils.<br/>• Recommandé de remplir toutes les 2-3 semaines pour maintenir le volume et prévenir les dommages."
+        },
+        "lashServices": {
+          "label": "Lash Services"
+        },
+        "browServices": {
+          "label": "Brow Services"
+        }
+      },
+      "items": {
+        "lashClassic": {
+          "name": "Classique"
+        },
+        "lashPremium2d": {
+          "name": "Premium 2D"
+        },
+        "lash34d": {
+          "name": "Volume 3–4D"
+        },
+        "lash56d": {
+          "name": "Volume 5–6D"
+        },
+        "lashMega": {
+          "name": "Mega Volume (8–12D)"
+        },
+        "lashHybrid": {
+          "name": "Hybride / Glamour Doux / Anime"
+        },
+        "lashKimk": {
+          "name": "Kim K / Spike Diva"
+        },
+        "lashRemoval": {
+          "name": "Retrait des cils",
+          "desc": "Choix entre retrait des cils supérieurs ou inférieurs"
+        },
+        "colorLash": {
+          "name": "Color Lash",
+          "desc": "Various Colored Lashes to Enhance the Eyes with a Vibrant and Standout Look."
+        },
+        "lowerLash": {
+          "name": "Extensions cils inférieurs",
+          "desc": "Cils inférieurs renforcés pour un regard plus défini et net"
+        },
+        "lashTint": {
+          "name": "Lash Tint",
+          "desc": "Apply a layer of long-lasting/natural dye color to lashes"
+        },
+        "lashLift": {
+          "name": "Rehaussement des cils",
+          "desc": "Les cils naturels sont recourbés et relevés, les faisant paraître plus longs et les yeux plus ouverts"
+        },
+        "browTint": {
+          "name": "Brow Tint",
+          "desc": "Apply a layer of long-lasting/natural dye color to brows"
+        },
+        "browLamination": {
+          "name": "Lamination des sourcils",
+          "desc": "Des sourcils plus fournis qui restent en place lorsqu'ils sont brossés en forme, durant environ 6 semaines"
+        },
+        "lashExtensions": {
+          "name": "Lash Extensions",
+          "desc": "Refill Service Note: Requires at least 60% lash retention for a refill set.\n• Recommended to refill every 2-3 weeks to maintain fullness and prevent damage from natural lash growth."
+        },
+        "browWax": {
+          "name": "Brow Wax"
+        }
+      },
+      "optionGroups": {
+        "setType": {
+          "label": "Type de Set"
+        },
+        "extensionType": {
+          "label": "Extension Type"
+        }
+      },
+      "options": {
+        "setFull": {
+          "name": "Full Set"
+        },
+        "setRefill": {
+          "name": "Remplissage"
+        },
+        "lashClassic": {
+          "name": "Classic"
+        },
+        "lashPremium2d": {
+          "name": "Premium 2D"
+        },
+        "lash34d": {
+          "name": "3–4D Volume"
+        },
+        "lash56d": {
+          "name": "5–6D Volume"
+        },
+        "lashMega": {
+          "name": "Mega Volume (8–12D)"
+        },
+        "lashHybrid": {
+          "name": "Hybrid / Soft Glam / Anime"
+        },
+        "lashKimk": {
+          "name": "Kim K / Spike Diva"
+        }
+      }
+    },
+    "massage": {
+      "tabLabel": "Massage & Corps",
+      "categories": {
+        "handFootMassage": {
+          "label": "Massage mains / pieds"
+        },
+        "upperBodyMassage": {
+          "label": "Massage haut du corps"
+        },
+        "bodyMassage": {
+          "label": "Massage corporel"
+        },
+        "handFootSpaAddons": {
+          "label": "Hand & Foot Spa Add-ons"
+        }
+      },
+      "items": {
+        "massagePriveHand": {
+          "name": "Massage mains Privé",
+          "desc": "Une thérapie douce de massage des mains qui offre une relaxation profonde, restaure l'énergie et apporte une sensation douce et rafraîchie"
+        },
+        "massagePriveFoot": {
+          "name": "Massage pieds Privé",
+          "desc": "Une thérapie douce de massage des pieds qui offre une relaxation profonde, restaure l'énergie et apporte une sensation douce et rafraîchie"
+        },
+        "massageFacial": {
+          "name": "Massage facial relaxant Privé",
+          "desc": "Une thérapie de massage facial raffinée qui aide à réduire les tensions, améliore l'éclat et régénère une apparence jeune de la peau"
+        },
+        "massageNeckBack": {
+          "name": "Privé™ Neck & Back Massage",
+          "desc": "Indulge in Our Release Back & Neck Massage for Expert Care, Tension Relief, and Relaxation. Feel Knots and Stress Dissolve, Leaving You Refreshed and Invigorated."
+        },
+        "massageCoconut": {
+          "name": "Félicité Noix de Coco Privé",
+          "desc": "Massage corporel à l'huile de noix de coco"
+        },
+        "massageAroma": {
+          "name": "Recharge Aromatique Privé",
+          "desc": "Massage thérapeutique aux parfums"
+        },
+        "massageAthlete": {
+          "name": "Récupération Athlète Privé",
+          "desc": "Massage de récupération sportive adapté aux athlètes"
+        },
+        "massageSignature": {
+          "name": "Spa Signature Privé",
+          "desc": "Pochettes aux herbes + Massage pierres chaudes (20min)"
+        },
+        "handMaskPrive": {
+          "name": "Masque Mains Privé™",
+          "desc": "Masque mains (20 min) + Massage mains (10 min)"
+        },
+        "footMaskPrive": {
+          "name": "Masque Pieds Privé™",
+          "desc": "Masque pieds (20 min) + Massage pieds (10 min)"
+        },
+        "heelCarePrive": {
+          "name": "Soin Talons Privé™",
+          "desc": "Gel adoucissant + Nettoyage profond & Élimination des callosités + Crème de traitement"
+        },
+        "armHandCarePrive": {
+          "name": "Soin Bras & Mains Privé™",
+          "desc": "Exfoliation + Masque activateur & adoucissant + Lotion hydratante & Massage (10 min)"
+        },
+        "footCarePrive": {
+          "name": "Soin Pieds & Plante Privé™",
+          "desc": "Nettoyage + Exfoliation pieds + Masque chaussettes pieds + Lotion hydratante"
+        },
+        "handCareLoccitane": {
+          "name": "Soin Mains L'Occitane",
+          "desc": "Huile nettoyante + Exfoliation + Masque intensif + Huile nourrissante + Crème mains & ongles"
+        }
+      },
+      "optionGroups": {
+        "duration": {
+          "label": "Durée"
+        }
+      },
+      "options": {
+        "duration60Hotstone": {
+          "name": "60 min<br>(Inclut 15 min Pierres Chaudes)"
+        }
+      }
+    },
+    "spa": {
+      "tabLabel": "Spa",
+      "tabNote": "Davines hair care products contain gentle formulations, suitable for all hair types. Addressing various hair concerns such as dryness, breakage, or dandruff, Davines products excel in providing deep nourishment and effective treatment, delivering quick and comprehensive results. Davines hair care products are free from harmful ingredients such as sulfates and parabens.",
+      "categories": {
+        "hairWash": {
+          "label": "Hair Wash"
+        },
+        "headSpa": {
+          "label": "Head Spa"
+        },
+        "headSpaAddons": {
+          "label": "Head Spa Add-ons"
+        }
+      },
+      "detailedSections": {
+        "products": "Produits utilisés"
+      },
+      "items": {
+        "hairEssential": {
+          "name": "Essential Hair Wash",
+          "desc": "Lavage rafraîchissant avec massage de la tête ou des mains (10 minutes).",
+          "details": {
+            "products": "<strong>Produits DAVINES</strong><br/><br/>Produits de soins capillaires DAVINES avec une formule douce, adaptée à tous types de cheveux.<br/><br/><strong>Résout les problèmes :</strong><br/>• Cheveux secs<br/>• Cheveux abîmés, cassants<br/>• Pellicules<br/><br/>Hydratation profonde et traitement efficace pour des résultats rapides et complets.<br/><br/><strong>Sans ingrédients nocifs :</strong><br/>• Sans sulfates<br/>• Sans parabènes"
+          }
+        },
+        "hairSignature": {
+          "name": "Signature Head Spa",
+          "desc": "Sélection de traitement adapté à chaque type de cheveux, massage épaules & nuque (20 min), massage des mains (10 min).",
+          "details": {
+            "products": "<strong>Produits DAVINES</strong><br/><br/>Produits de soins capillaires DAVINES avec une formule douce, adaptée à tous types de cheveux.<br/><br/><strong>Résout les problèmes :</strong><br/>• Cheveux secs<br/>• Cheveux abîmés, cassants<br/>• Pellicules<br/><br/>Hydratation profonde et traitement efficace pour des résultats rapides et complets.<br/><br/><strong>Sans ingrédients nocifs :</strong><br/>• Sans sulfates<br/>• Sans parabènes"
+          }
+        },
+        "addonRadiantCleansing": {
+          "name": "Radiant Cleansing",
+          "desc": "Makeup removal and facial cleansing."
+        },
+        "addonNaturalGlow": {
+          "name": "Natural Glow",
+          "desc": "Makeup removal, facial cleansing, face massage and mask application."
+        }
+      },
+      "optionGroups": {
+        "hairLength": {
+          "label": "Longueur des cheveux"
+        }
+      },
+      "options": {
+        "lengthShort": {
+          "name": "Court / Moyen"
+        },
+        "longBelowShoulder": {
+          "name": "Long / Below Shoulder"
+        },
+        "addonRadiantCleansing": {
+          "name": "Radiant Cleansing",
+          "desc": "Démaquillage et nettoyage du visage."
+        },
+        "addonNaturalGlow": {
+          "name": "Natural Glow",
+          "desc": "Démaquillage, nettoyage du visage, massage facial et application de masque."
+        }
+      }
+    },
+    "facial": {
+      "tabLabel": "Soins du visage",
+      "categories": {
+        "comfortZoneFacials": {
+          "label": "Soins Comfort Zone"
+        }
+      },
+      "detailedSections": {
+        "benefits": "Bienfaits",
+        "suitableFor": "Idéal pour",
+        "effects": "Effets",
+        "treatment": "Traitement"
+      },
+      "items": {
+        "facialRemedy": {
+          "name": "Soin Apaisant Remedy",
+          "desc": "Régénère et adoucit la peau, réduit les rougeurs et irritations, hydrate et renforce la barrière cutanée."
+        },
+        "facialRecover": {
+          "name": "Recover Touch",
+          "desc": "Protège la peau contre les facteurs environnementaux, hydrate, restaure, apporte douceur et souplesse."
+        },
+        "facialPureness": {
+          "name": "Active Pureness",
+          "desc": "Réduit la taille des pores dilatés, diminue l'acné et les taches, équilibre les peaux grasses pour un teint plus uniforme."
+        },
+        "facialHydramemory": {
+          "name": "Hydramemory",
+          "desc": "Hydratation profonde et éclat, restaure la fermeté et la luminosité, prévient le vieillissement prématuré."
+        },
+        "facialSublime": {
+          "name": "Sublime Skin Pro",
+          "desc": "Stimule la régénération cutanée, apporte une peau lumineuse et lisse, renforce la fermeté. Formule sans parfum artificiel."
+        }
+      },
+      "optionGroups": {
+        "duration": {
+          "label": "Durée"
+        }
+      },
+      "options": {
+        "durationBasic60": {
+          "name": "Basique – 60 min"
+        },
+        "durationPro90": {
+          "name": "Pro – 90 min"
+        }
+      }
+    },
+    "waxing": {
+      "tabLabel": "Épilation",
+      "categories": {
+        "waxingWomen": {
+          "label": "Épilation (Femmes)",
+          "note": "Cire dure et cire douce GIGI disponibles"
+        },
+        "waxingMen": {
+          "label": "Épilation (Hommes)",
+          "note": "Cire dure et cire douce GIGI disponibles"
+        }
+      },
+      "items": {
+        "waxFace": {
+          "name": "Visage"
+        },
+        "waxArms": {
+          "name": "Bras"
+        },
+        "waxLegs": {
+          "name": "Jambes"
+        },
+        "waxBikini": {
+          "name": "Bikini"
+        },
+        "waxBack": {
+          "name": "Dos"
+        },
+        "waxBelly": {
+          "name": "Ventre"
+        }
+      },
+      "optionGroups": {
+        "area": {
+          "label": "Zone"
+        },
+        "coverage": {
+          "label": "Couverture"
+        }
+      },
+      "options": {
+        "areaLip": {
+          "name": "Lèvre"
+        },
+        "areaHairline": {
+          "name": "Ligne capillaire du visage"
+        },
+        "areaChin": {
+          "name": "Sous le menton"
+        },
+        "areaLipChin": {
+          "name": "Lèvre complète et menton"
+        },
+        "areaEyebrow": {
+          "name": "Sourcils"
+        },
+        "areaNeck": {
+          "name": "Cou"
+        },
+        "coverageHalf": {
+          "name": "Demi"
+        },
+        "coverageFull": {
+          "name": "Complet"
+        },
+        "areaUnderarms": {
+          "name": "Underarms"
+        },
+        "areaHalfArms": {
+          "name": "Half Arms"
+        },
+        "areaFullArms": {
+          "name": "Full Arms"
+        }
+      }
+    }
+  },
+  "contact": {
+    "zalo": "Zalo",
+    "whatsapp": "WhatsApp",
+    "phone": "Téléphone",
+    "email": "Email",
+    "urgentMessage": "Si vous prévoyez de nous rendre visite dans moins de 90 minutes, veuillez nous contacter directement afin que nous puissions organiser au mieux votre visite!"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "languages": {
+      "english": "English",
+      "french": "Français",
+      "chinese": "中文",
+      "vietnamese": "Tiếng Việt"
+    },
+    "actions": {
+      "clearProgress": "Effacer la progression",
+      "clearCancel": "Revenir"
+    },
+    "clearConfirm": {
+      "message": "Votre progression sera effacée et ne peut pas être annulée"
+    }
+  },
+  "nav": {
+    "back": "Retour",
+    "next": "Suivant",
+    "cart": "Panier",
+    "call": "Appeler",
+    "formNavLabel": "Navigation du formulaire"
+  }
+}

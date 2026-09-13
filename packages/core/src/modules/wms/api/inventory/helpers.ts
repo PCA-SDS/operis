@@ -7,10 +7,7 @@ import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { runCustomRouteAfterInterceptors } from '@open-mercato/shared/lib/crud/custom-route-interceptor'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
@@ -56,38 +53,35 @@ export async function executeWmsCustomPostRoute<TInput, TResult>(
     const body = await readJsonSafe<Record<string, unknown>>(options.request, {})
     const parsed = options.inputSchema.parse(body)
     const resource = options.describeResource(parsed)
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId: auth.tenantId,
-      organizationId: ctx.selectedOrganizationId,
-      userId: auth.sub,
-      resourceKind: resource.resourceKind,
-      resourceId: resource.resourceId,
-      operation: 'custom',
-      requestMethod: options.request.method,
-      requestHeaders: options.request.headers,
-      mutationPayload: parsed as Record<string, unknown>,
+    // `runRouteMutationGuards` runs the whole guard registry and resolves the
+    // caller's granted features from `rbacService`. The deprecated
+    // `validateCrudMutationGuard` this replaced resolved only the single DI
+    // guard service and silently skipped every registered guard — for all nine
+    // WMS inventory write routes that share this helper.
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req: options.request,
+      auth: {
+        userId: auth.sub,
+        tenantId: auth.tenantId,
+        organizationId: ctx.selectedOrganizationId,
+      },
+      input: {
+        resourceKind: resource.resourceKind,
+        resourceId: resource.resourceId,
+        operation: 'custom',
+        mutationPayload: parsed as Record<string, unknown>,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return guardResult.response
     }
     const commandBus = container.resolve('commandBus') as CommandBus
     const execution = await commandBus.execute<TInput, TResult>(options.commandId, {
       input: parsed,
       ctx,
     })
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId: ctx.selectedOrganizationId,
-        userId: auth.sub,
-        resourceKind: resource.resourceKind,
-        resourceId: resource.resourceId,
-        operation: 'custom',
-        requestMethod: options.request.method,
-        requestHeaders: options.request.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
     const responseBody = options.mapSuccess(execution.result)
     const intercepted = await runCustomRouteAfterInterceptors({
       routePath: options.routePath,
@@ -111,9 +105,6 @@ export async function executeWmsCustomPostRoute<TInput, TResult>(
         tenantId: auth.tenantId,
       },
     })
-    if (!intercepted.ok) {
-      return NextResponse.json(intercepted.body, { status: intercepted.statusCode })
-    }
     return NextResponse.json(intercepted.body, { status: intercepted.statusCode })
   } catch (error) {
     if (error instanceof CrudHttpError) {

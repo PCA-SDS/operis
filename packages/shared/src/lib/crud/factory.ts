@@ -75,6 +75,7 @@ import { createGenericOptimisticLockReader } from './optimistic-lock'
 import { registerOptimisticLockReaderIfAbsent } from './optimistic-lock-store'
 import { createLogger } from '../logger'
 import { isTransientDbError } from '../db/pg-errors'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 type RbacServiceLike = {
   getGrantedFeatures: (userId: string, opts: { tenantId: string | null; organizationId: string | null }) => Promise<string[]>
@@ -2185,7 +2186,7 @@ export function makeCrudRoute<TCreate = any, TUpdate = any, TList = any>(opts: C
         })
         return json({ error: 'Forbidden' }, { status: 403 })
       }
-      const body = await request.json().catch(() => ({}))
+      const body = await readJsonSafe(request, {})
       let interceptorRequestPayload: InterceptorRequest | null = null
       let interceptorMetadata: Record<string, Record<string, unknown> | undefined> = {}
 
@@ -2499,7 +2500,7 @@ export function makeCrudRoute<TCreate = any, TUpdate = any, TList = any>(opts: C
         })
         return json({ error: 'Forbidden' }, { status: 403 })
       }
-      const body = await request.json().catch(() => ({}))
+      const body = await readJsonSafe(request, {})
       const scopeOrganizationId = ctx.selectedOrganizationId ?? ctx.auth.orgId ?? null
       let interceptorRequestPayload: InterceptorRequest | null = null
       let interceptorMetadata: Record<string, Record<string, unknown> | undefined> = {}
@@ -2843,7 +2844,7 @@ export function makeCrudRoute<TCreate = any, TUpdate = any, TList = any>(opts: C
 
       if (useCommand) {
         const action = opts.actions!.delete!
-        const body = await request.json().catch(() => ({}))
+        const body = await readJsonSafe(request, {})
         const raw = { body, query: Object.fromEntries(url.searchParams.entries()) }
         const parsed = action.schema ? action.schema.parse(raw) : raw
         const interceptorInput =
@@ -2973,7 +2974,7 @@ export function makeCrudRoute<TCreate = any, TUpdate = any, TList = any>(opts: C
       const idFrom = opts.del?.idFrom || 'query'
       const id = idFrom === 'query'
         ? url.searchParams.get('id')
-        : (await request.json().catch(() => ({}))).id
+        : (await readJsonSafe<{ id?: unknown }>(request, {})).id
       if (!isUuid(id)) return json({ error: 'ID is required' }, { status: 400 })
       const beforeInterceptors = await applyInterceptorsBefore({
         ctx,

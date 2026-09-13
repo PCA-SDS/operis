@@ -38,6 +38,7 @@ import {
   validateCheckoutCustomerData,
 } from '../lib/customerDataValidation'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { persistLocalePreference } from '@open-mercato/shared/lib/i18n/persistLocale'
 
 const logger = createLogger('checkout').child({ component: 'PayPage' })
 
@@ -548,15 +549,7 @@ function hasStoredLocalePreference() {
     .some((part) => part.trim().startsWith('locale='))
 }
 
-async function persistLocalePreference(locale: Locale) {
-  const response = await fetch('/api/auth/locale', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ locale }),
-  })
 
-  return response.ok
-}
 
 function buildPanelStyle(themeTokens: PayPageThemeTokens, variant: 'default' | 'muted' | 'hero' | 'accent' = 'default'): React.CSSProperties {
   if (variant === 'hero') {
@@ -1370,6 +1363,9 @@ export function PayPageFooter({ payload, themeTokens }: PayPageFooterProps) {
     es: t('common.languages.spanish', 'Español'),
     de: t('common.languages.german', 'Deutsch'),
     ko: t('common.languages.korean', '한국어'),
+    vi: t('common.languages.vietnamese', 'Tiếng Việt'),
+    fr: t('common.languages.french', 'Français'),
+    zh: t('common.languages.chinese', '中文'),
   }), [t])
 
   const setLocale = React.useCallback(async (nextLocale: Locale) => {

@@ -1,0 +1,15 @@
+{
+  "mcp.consent.approve": "Allow access",
+  "mcp.consent.deny": "Deny",
+  "mcp.consent.errors.failed": "The authorization could not be completed. Start the connection again from your MCP client.",
+  "mcp.consent.errors.invalidRequest": "This authorization request is no longer valid. Start the connection again from your MCP client.",
+  "mcp.consent.errors.missingRequest": "This authorization link is incomplete or has expired.",
+  "mcp.consent.heading": "Connect an MCP client",
+  "mcp.consent.intro": "This application is requesting access to your account:",
+  "mcp.consent.loading": "Loading the authorization request…",
+  "mcp.consent.organization": "Organization",
+  "mcp.consent.organizationHelp": "The connection is locked to one organization. It cannot reach data in any other.",
+  "mcp.consent.permissions": "It will be able to:",
+  "mcp.consent.rbacNote": "It can never do more than you can. Your own permissions still apply to every action.",
+  "mcp.consent.title": "Connect an MCP Client"
+}

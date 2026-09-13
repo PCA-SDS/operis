@@ -21,6 +21,7 @@ import {
 } from './openapi'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('dictionaries').child({ component: 'api' })
 
@@ -78,7 +79,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const context = await resolveDictionariesRouteContext(req)
-    const payload = upsertDictionarySchema.parse(await req.json().catch(() => ({})))
+    const payload = upsertDictionarySchema.parse(await readJsonSafe(req, {}))
     const key = payload.key.trim().toLowerCase()
     if (!context.organizationId) {
       throw new CrudHttpError(400, { error: context.translate('dictionaries.errors.organization_required', 'Organization context is required') })

@@ -21,6 +21,12 @@ import { metadata } from '../index'
 import searchConfig from '../search'
 import setup from '../setup'
 import type { InvoiceScopedPersistenceService } from '../services/scoped-persistence-service'
+import type { InvoicePartnerTermsService } from '../services/partner-terms-service'
+import type { InvoiceCompanyEmailsService } from '../services/company-emails-service'
+import type { InvoiceExchangeRatesService } from '../services/exchange-rates-service'
+import type { InvoiceCompanyLookupService } from '../services/company-lookup-service'
+import type { InvoiceAutoPaidService } from '../services/auto-paid-service'
+import type { InvoiceService } from '../services/invoice-service'
 
 const MODULE_ROOT = join(__dirname, '..')
 const MIGRATION_SOURCE = readFileSync(
@@ -62,7 +68,10 @@ function createTestContainer(): AppContainer {
     find: jest.fn(),
     create: jest.fn(),
   } as unknown as EntityManager
-  container.register({ em: asValue(em) })
+  const queryEngine = {
+    query: jest.fn(),
+  }
+  container.register({ em: asValue(em), queryEngine: asValue(queryEngine) })
   register(container)
   return container
 }
@@ -82,9 +91,25 @@ describe('invoice module foundation', () => {
       'di.ts',
       'events.ts',
       'search.ts',
+      'encryption.ts',
+      join('commands', 'auto-paid.ts'),
+      join('commands', 'invoices.ts'),
       join('api', 'openapi.ts'),
+      join('api', 'company-lookup', '[identifier]', 'route.ts'),
+      join('api', 'partners', 'route.ts'),
+      join('api', 'partners', 'match', 'route.ts'),
+      join('api', 'partners', '[id]', 'route.ts'),
+      join('api', 'exchange-rates', 'route.ts'),
+      join('api', 'invoices', 'route.ts'),
+      join('api', 'invoices', '[id]', 'route.ts'),
       join('data', 'entities.ts'),
+      join('data', 'mappers.ts'),
+      join('data', 'queries.ts'),
       join('data', 'validators.ts'),
+      join('services', 'auto-paid-service.ts'),
+      join('services', 'company-lookup-service.ts'),
+      join('services', 'exchange-rates-service.ts'),
+      join('services', 'invoice-service.ts'),
     ]) {
       expect(existsSync(join(MODULE_ROOT, relativePath))).toBe(true)
     }
@@ -115,8 +140,49 @@ describe('invoice module foundation', () => {
     const service = container.resolve<InvoiceScopedPersistenceService>('invoiceScopedPersistenceService')
     expect(typeof service.findOne).toBe('function')
     expect(typeof service.findMany).toBe('function')
+    expect(typeof service.countMany).toBe('function')
     expect(typeof service.findById).toBe('function')
     expect(typeof service.createScoped).toBe('function')
+
+    const partnerTermsService = container.resolve<InvoicePartnerTermsService>('invoicePartnerTermsService')
+    expect(typeof partnerTermsService.listPartners).toBe('function')
+    expect(typeof partnerTermsService.matchPartner).toBe('function')
+    expect(typeof partnerTermsService.updateDefaultDueDays).toBe('function')
+    expect(typeof partnerTermsService.resolveDefaultDueDate).toBe('function')
+
+    const companyEmailsService = container.resolve<InvoiceCompanyEmailsService>('invoiceCompanyEmailsService')
+    expect(typeof companyEmailsService.listByCompany).toBe('function')
+    expect(typeof companyEmailsService.record).toBe('function')
+    expect(typeof companyEmailsService.remove).toBe('function')
+
+    const exchangeRatesService = container.resolve<InvoiceExchangeRatesService>('invoiceExchangeRatesService')
+    expect(typeof exchangeRatesService.getRates).toBe('function')
+
+    const companyLookupService = container.resolve<InvoiceCompanyLookupService>('invoiceCompanyLookupService')
+    expect(typeof companyLookupService.lookup).toBe('function')
+
+    const autoPaidService = container.resolve<InvoiceAutoPaidService>('invoiceAutoPaidService')
+    expect(typeof autoPaidService.listRules).toBe('function')
+    expect(typeof autoPaidService.findRuleByTaxCode).toBe('function')
+    expect(typeof autoPaidService.isAutoPaidTaxCode).toBe('function')
+    expect(typeof autoPaidService.upsertRule).toBe('function')
+    expect(typeof autoPaidService.removeRule).toBe('function')
+    expect(typeof autoPaidService.applyAll).toBe('function')
+    expect(typeof autoPaidService.reverseInvoice).toBe('function')
+
+    const invoiceService = container.resolve<InvoiceService>('invoiceService')
+    expect(typeof invoiceService.listInvoices).toBe('function')
+    expect(typeof invoiceService.getInvoiceDetail).toBe('function')
+    expect(typeof invoiceService.createManualInvoice).toBe('function')
+    expect(typeof invoiceService.updateManualInvoice).toBe('function')
+    expect(typeof invoiceService.deleteManualInvoice).toBe('function')
+
+    // sendInvoice records the recipient only `if (this.companyEmailsService)`, so a
+    // factory or DI signature that quietly drops the argument turns Company Email
+    // Memory into a silent no-op that every unit test still passes — the tests
+    // construct InvoiceService directly and inject their own mock.
+    const wiredCompanyEmails = (invoiceService as unknown as { companyEmailsService?: unknown }).companyEmailsService
+    expect(wiredCompanyEmails).toBe(container.resolve('invoiceCompanyEmailsService'))
 
     for (const [token, entity] of Object.entries(ENTITY_EXPORTS)) {
       expect(container.resolve(token)).toBe(entity)
@@ -136,6 +202,7 @@ describe('invoice module foundation', () => {
       'invoice:invoice',
       'invoice:invoice_company',
     ])
+    expect(searchConfig.entities.map((entity) => entity.entityId)).not.toContain('invoice:invoice_company_registry')
 
     for (const entity of searchConfig.entities) {
       expect(entity.aclFeatures).toEqual(['invoice.view'])
@@ -152,6 +219,7 @@ describe('invoice module foundation', () => {
     expect(searchConfig.entities.find((entity) => entity.entityId === 'invoice:invoice_company')?.fieldPolicy).toMatchObject({
       hashOnly: ['tax_code'],
     })
+    expect(JSON.stringify(searchConfig)).not.toContain('payload')
   })
 
   it('pins tenant and organization columns on every target migration table', () => {

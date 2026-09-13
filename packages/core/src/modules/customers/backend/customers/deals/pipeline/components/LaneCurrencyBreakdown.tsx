@@ -11,6 +11,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { translateWithFallback } from '@open-mercato/shared/lib/i18n/translate'
 import { CurrencyBreakdownTable, type CurrencyBreakdownRow } from './CurrencyBreakdownTable'
+import { formatAmount, formatToday } from './constants'
 
 type LaneCurrencyBreakdownProps = {
   /** Per-currency breakdown rows (already sorted desc by total in the API response). */
@@ -162,22 +163,6 @@ export function LaneCurrencyBreakdown({
       </PopoverContent>
     </Popover>
   )
-}
-
-function formatAmount(amount: number): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'decimal',
-    maximumFractionDigits: 0,
-    useGrouping: true,
-  }).format(Math.round(amount))
-}
-
-function formatToday(): string {
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-  }).format(new Date())
 }
 
 export default LaneCurrencyBreakdown

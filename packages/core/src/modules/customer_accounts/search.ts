@@ -5,38 +5,13 @@ import type {
   SearchIndexSource,
 } from '@open-mercato/shared/modules/search'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-
-function pickString(...candidates: Array<unknown>): string | null {
-  for (const candidate of candidates) {
-    if (typeof candidate !== 'string') continue
-    const trimmed = candidate.trim()
-    if (trimmed.length > 0) return trimmed
-  }
-  return null
-}
-
-function snippet(value: unknown, max = 140): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const trimmed = value.trim()
-  if (!trimmed.length) return undefined
-  if (trimmed.length <= max) return trimmed
-  return `${trimmed.slice(0, max - 3)}...`
-}
+import { formatSubtitle, pickString, snippet } from '@open-mercato/shared/modules/search/descriptorHelpers'
 
 function appendLine(lines: string[], label: string, value: unknown) {
   if (value === null || value === undefined) return
   const text = typeof value === 'object' ? JSON.stringify(value) : String(value)
   if (!text.trim()) return
   lines.push(`${label}: ${text}`)
-}
-
-function formatSubtitle(...parts: Array<unknown>): string | undefined {
-  const text = parts
-    .map((part) => (part === null || part === undefined ? '' : String(part)))
-    .map((part) => part.trim())
-    .filter(Boolean)
-  if (text.length === 0) return undefined
-  return text.join(' · ')
 }
 
 function buildIndexSource(

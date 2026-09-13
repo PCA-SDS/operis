@@ -23,6 +23,26 @@ export async function loadChatMessages() {
       'chat.errors.notOrganizationMember',
       'You are not a member of the selected organization, so you cannot use chat there.',
     ),
+    tooManyMediaAttachments: t(
+      'chat.errors.tooManyMediaAttachments',
+      'A message can carry up to 20 images or videos.',
+    ),
+    tooManyFileAttachments: t(
+      'chat.errors.tooManyFileAttachments',
+      'A message can carry one file. Send the others separately.',
+    ),
+    attachmentNotAvailable: t(
+      'chat.errors.attachmentNotAvailable',
+      'That attachment is no longer available. Remove it and try again.',
+    ),
+    attachmentNotReady: t(
+      'chat.errors.attachmentNotReady',
+      'That attachment is still being checked. Try again in a moment.',
+    ),
+    attachmentRejected: t(
+      'chat.errors.attachmentRejected',
+      "That attachment didn't pass our security check and can't be sent.",
+    ),
     cannotMessageSelf: t('chat.errors.cannotMessageSelf', 'You cannot start a conversation with yourself.'),
     rateLimited: t('chat.errors.rateLimited', 'You are sending messages too quickly. Please slow down.'),
     rateLimitUnavailable: t(
@@ -67,6 +87,18 @@ export async function loadChatMessages() {
     replyTargetNotFound: t(
       'chat.errors.replyTargetNotFound',
       'The message you replied to is no longer available.',
+    ),
+    notEditPermitted: t('chat.errors.notEditPermitted', 'You can only edit your own messages.'),
+    notDeletePermitted: t(
+      'chat.errors.notDeletePermitted',
+      'Only the person who wrote a message, or a space owner, can delete it.',
+    ),
+    // Membership events are the transcript's record of what happened to the
+    // conversation, not something anybody typed. Rewriting or removing one
+    // would be editing history rather than editing a message.
+    systemMessageNotEditable: t(
+      'chat.errors.systemMessageNotEditable',
+      "That's a record of a change to the conversation, so it can't be edited or deleted.",
     ),
   }
 }

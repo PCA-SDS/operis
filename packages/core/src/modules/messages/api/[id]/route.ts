@@ -13,7 +13,7 @@ import { getMessageObjectType } from '../../lib/message-objects-registry'
 import { getMessageTypeOrDefault } from '../../lib/message-types-registry'
 import { attachOperationMetadataHeader } from '../../lib/operationMetadata'
 import { hasOrganizationAccess, resolveMessageContext } from '../../lib/routeHelpers'
-import { resolveUserFeatures, runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../guards'
+import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../guards'
 import {
   errorResponseSchema,
   messageDetailResponseSchema,
@@ -21,6 +21,7 @@ import {
   updateDraftSchema as updateDraftOpenApiSchema,
 } from '../openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('messages').child({ component: 'api' })
 
@@ -272,7 +273,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const { ctx, scope } = await resolveMessageContext(req)
   const em = (ctx.container.resolve('em') as EntityManager).fork()
   const commandBus = ctx.container.resolve('commandBus') as CommandBus
-  const body = await req.json().catch(() => ({}))
+  const body = await readJsonSafe(req, {})
   const input = updateDraftSchema.parse(body)
 
   const message = await em.findOne(Message, {
@@ -310,7 +311,6 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       requestHeaders: req.headers,
       mutationPayload: input as Record<string, unknown>,
     },
-    resolveUserFeatures(ctx.auth),
   )
   if (!guardResult.ok) {
     return Response.json(
@@ -436,7 +436,6 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       requestHeaders: req.headers,
       mutationPayload: null,
     },
-    resolveUserFeatures(ctx.auth),
   )
   if (!guardResult.ok) {
     return Response.json(

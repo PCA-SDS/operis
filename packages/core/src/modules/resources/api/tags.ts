@@ -16,8 +16,8 @@ const createInputSchema = resourcesResourceTagCreateSchema.extend({
 
 const listSchema = z
   .object({
-    page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(100).default(100),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(100),
     search: z.string().optional(),
     sortField: z.string().optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
@@ -45,8 +45,8 @@ const crud = makeCrudRoute({
   list: {
     schema: listSchema,
     fields: ['id', 'slug', 'label', 'color', 'description', 'organization_id', 'tenant_id'],
-    buildFilters: async (query: any) => {
-      const filters: Record<string, any> = {}
+    buildFilters: async (query) => {
+      const filters: Record<string, unknown> = {}
       if (query.search) {
         const pattern = `%${escapeLikePattern(query.search)}%`
         filters.$or = [

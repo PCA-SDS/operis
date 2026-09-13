@@ -23,6 +23,7 @@ import {
   MessageChannelLink,
 } from '../data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { renderMarkdownEmailBody } from '../../../lib/email/markdownBody'
 
 const moduleLogger = createLogger('communication_channels').child({ component: 'deliver-outbound-message' })
 
@@ -354,9 +355,20 @@ const deliverOutboundMessageCommand: CommandHandler<
       const outboundHtml = typeof outboundPayload.html === 'string' ? outboundPayload.html : null
       const outboundText = typeof outboundPayload.text === 'string' ? outboundPayload.text : null
       let outboundBody = outboundHtml ?? outboundText ?? message.body ?? ''
-      const outboundBodyFormat = outboundHtml
+      let outboundBodyFormat = outboundHtml
         ? 'html'
         : ((message.bodyFormat as 'text' | 'markdown' | 'html') ?? 'text')
+
+      // Markdown is an authoring format, not a wire format — the composer's
+      // markdown toggle, the in-app view and the built-in message email all
+      // render it, but no mail client does. Rendering it here, once, is what
+      // keeps every channel adapter delivering the same thing the author saw;
+      // left as `markdown` it reaches the adapters' non-html branch and goes out
+      // as raw `**source**` in a text/plain part with no html alternative.
+      if (outboundBodyFormat === 'markdown' && outboundBody) {
+        outboundBody = await renderMarkdownEmailBody(outboundBody)
+        outboundBodyFormat = 'html'
+      }
 
       // Pre-existing channelMetadata.references (string[]) so we can extend
       // it with the synthetic thread-token id without disturbing other refs

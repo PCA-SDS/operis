@@ -11,11 +11,11 @@ import { parseScopedCommandInput } from '@open-mercato/shared/lib/api/scoped'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { staffLeaveRequestDecisionSchema, type StaffLeaveRequestDecisionInput } from '../../../data/validators'
 import {
-  resolveUserFeatures,
   runStaffMutationGuardAfterSuccess,
   runStaffMutationGuards,
 } from '../../guards'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('staff')
 
@@ -45,7 +45,7 @@ async function buildContext(
 export async function POST(req: Request) {
   try {
     const { ctx, translate } = await buildContext(req)
-    const body = await req.json().catch(() => ({}))
+    const body = await readJsonSafe(req, {})
     const input = parseScopedCommandInput(staffLeaveRequestDecisionSchema, body, ctx, translate)
 
     const auth = ctx.auth
@@ -64,7 +64,6 @@ export async function POST(req: Request) {
         requestHeaders: req.headers,
         mutationPayload: input,
       },
-      resolveUserFeatures(auth),
     )
     if (!guardResult.ok) {
       return NextResponse.json(

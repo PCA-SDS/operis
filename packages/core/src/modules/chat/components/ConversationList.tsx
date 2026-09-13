@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { CirclePlus, MessageSquarePlus, Users } from 'lucide-react'
+import { CirclePlus, MessageSquarePlus, Search, Users } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Dropdown } from '@open-mercato/ui/primitives/dropdown'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -11,7 +11,7 @@ import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { tCount } from './plurals'
+import { useTCount } from './plurals'
 import { cn } from '@open-mercato/shared/lib/utils'
 import type { ChatConversationDto } from '../data/types'
 import { MAX_CONVERSATION_PAGE_SIZE } from '../data/validators'
@@ -71,6 +71,7 @@ function ConversationRow({
   isActive: boolean
 }) {
   const t = useT()
+  const tc = useTCount()
   // The title is resolved server-side for both kinds, so the row does not have
   // to know whether it is naming a person or a space.
   const name = conversation.title
@@ -111,7 +112,7 @@ function ConversationRow({
         <>
           <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-primary" />
           <span className="sr-only">
-            {tCount(t, 'chat.list.unreadLabel', unread, '{count} unread messages')}
+            {tc('chat.list.unreadLabel', unread, '{count} unread messages')}
           </span>
         </>
       ) : null}
@@ -239,6 +240,23 @@ export function ConversationList({
     // to stop at the last row, which was invisible while the pane was plain but
     // obvious the moment it carried its own background.
     <div className="flex min-h-0 flex-1 flex-col gap-1 rounded-xl bg-surface-muted p-2">
+      {/* Searching every conversation is a peer of starting one: both are ways
+          into a thread that is not on screen, so they sit together at the top
+          of the rail rather than search hiding inside a conversation. */}
+      <Link
+        href="/backend/chat/search"
+        className={cn(
+          PANEL_ROW,
+          'h-auto justify-start gap-2 px-2 py-2 text-muted-foreground',
+          'outline-none transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:shadow-focus',
+        )}
+      >
+        <span className="flex size-7 shrink-0 items-center justify-center" aria-hidden="true">
+          <Search className="size-5" />
+        </span>
+        <span className="truncate text-sm">{t('chat.search.allChats', 'Search all chats')}</span>
+      </Link>
+
       {/* One create control, not two. The rail is 16rem wide and a second
           primary row would compete with the first for the same glance — so the
           two things you can start live behind one action, which is also how a

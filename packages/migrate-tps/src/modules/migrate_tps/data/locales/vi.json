@@ -1,0 +1,1130 @@
+{
+  "common": {
+    "close": "Đóng",
+    "cancel": "Hủy",
+    "continue": "Tiếp tục"
+  },
+  "meta": {
+    "title": "Privé Spa - Đặt lịch",
+    "logoAlt": "Logo Privé Spa"
+  },
+  "landing": {
+    "title": "Hãy để chúng tôi đặt lịch cho bạn",
+    "description": "Chào mừng đến với Privé Spa — chúng tôi sẽ giúp bạn sắp xếp một buổi thư giãn trọn vẹn.",
+    "returningDescription": "Chào mừng bạn quay lại! Bạn có thể đặt lại dịch vụ lần trước hoặc khám phá thêm dịch vụ khác.",
+    "bookingForMyself": "Tôi đặt lịch cho mình",
+    "bookingForGroup": "Tôi đặt lịch cho nhóm",
+    "groupBookingMessage": "Đối với đặt lịch nhóm, vui lòng liên hệ trực tiếp để chúng tôi sắp xếp tốt hơn.",
+    "button1Label": "Đây là lần đầu tôi đến Privé",
+    "button2Label": "Tôi đã từng đến Privé",
+    "returningForm": {
+      "title": "Vui lòng nhập thông tin của bạn",
+      "checking": "Đang kiểm tra...",
+      "nextInstruction": "Nhấn Tiếp tục để xác nhận thông tin."
+    },
+    "returningOptions": {
+      "explore": "Tôi muốn khám phá dịch vụ khác",
+      "repeat": "Tôi muốn đặt lại dịch vụ như lần trước"
+    },
+    "disclaimer": {
+      "checkboxLabel": "Tôi xác nhận đã đọc và đồng ý với",
+      "linkText": "Hợp đồng Sử dụng Dịch vụ Spa",
+      "pleaseAccept": "Vui lòng chấp nhận Thỏa thuận miễn trừ trách nhiệm để tiếp tục",
+      "hint": "Vui lòng đọc và đồng ý với Hợp đồng Dịch vụ Thẩm mỹ & Spa trước khi tiếp tục.",
+      "title": "Thỏa thuận miễn trừ trách nhiệm",
+      "content": "HỢP ĐỒNG SỬ DỤNG DỊCH VỤ SPA\nHợp đồng Sử dụng Dịch vụ Spa này (sau đây gọi là “Hợp đồng”) được ký kết giữa:\n(1) Bên cung cấp dịch vụ:\n HỘ KINH DOANH NEXUS, hoạt động dưới thương hiệu The Privé Spa hoặc The Privé Spa – International Luxury Nail Care & Spa, có địa chỉ đăng ký tại Số 7 Lê Thị Riêng, Phường Bến Thành, TP. Hồ Chí Minh, Việt Nam (sau đây gọi là “Bên cung cấp”); và\n(2) Khách hàng:\n Bất kỳ cá nhân nào đặt lịch, mua hoặc sử dụng bất kỳ dịch vụ nào từ Bên cung cấp (sau đây gọi là “Khách hàng”).\nBên cung cấp và Khách hàng sau đây được gọi chung là “Các Bên”.\n1. Phạm vi dịch vụ, xác nhận sử dụng dịch vụ và quan hệ giữa các bên\n1.1 Phạm vi dịch vụ\nHợp đồng này điều chỉnh tất cả các dịch vụ spa và làm đẹp do Bên cung cấp cung cấp, bao gồm nhưng không giới hạn: dịch vụ làm móng, dịch vụ nối mi, waxing, massage, chăm sóc da mặt, trị liệu cơ thể, các sản phẩm liên quan hoặc dịch vụ bổ sung (sau đây gọi chung là “Dịch vụ”).\n1.2 Xác nhận việc cung cấp dịch vụ\nKhách hàng xác nhận và đồng ý rằng:\na) Bên cung cấp cung cấp Dịch vụ với tư cách đơn vị cung cấp dịch vụ độc lập, tuân theo tiêu chuẩn chuyên môn, quy trình nội bộ và quy định pháp luật hiện hành;\nb) Khách hàng chủ động tham gia vào quá trình thực hiện dịch vụ, bao gồm nhưng không giới hạn: thông báo nhu cầu, xác nhận lựa chọn dịch vụ, và phối hợp với kỹ thuật viên hoặc nhân viên trong quá trình thực hiện.\n1.3 Không phải dịch vụ y tế\nCác Dịch vụ theo Hợp đồng này không phải là dịch vụ y tế, không cấu thành điều trị y khoa và không thay thế cho tư vấn, chẩn đoán hoặc chăm sóc y tế chuyên nghiệp.\n1.4 Mỗi lần sử dụng dịch vụ là một giao dịch riêng\nMỗi lần đặt lịch, khách vãng lai (walk-in) hoặc mua dịch vụ được xem là một giao dịch dịch vụ riêng và đều chịu sự điều chỉnh của Hợp đồng này.\n2. Hình thức chấp nhận Hợp đồng\n2.1 Công bố điều khoản và chấp nhận bằng hành vi\nCác Điều khoản và Điều kiện Dịch vụ này được công khai trên: website của Bên cung cấp, tại cơ sở kinh doanh (bao gồm nhưng không giới hạn qua QR code, thông báo niêm yết, hoặc cung cấp khi Khách hàng yêu cầu) để Khách hàng có thể xem trước khi sử dụng Dịch vụ.\nKhách hàng được xem là đã chấp nhận đầy đủ, vô điều kiện và không thể hủy ngang Hợp đồng này khi thực hiện một trong các hành vi sau:\nđặt lịch qua bất kỳ kênh nào (tin nhắn, điện thoại, website, nền tảng trực tuyến hoặc trực tiếp);\nthanh toán tiền đặt cọc hoặc bất kỳ khoản thanh toán nào liên quan đến Dịch vụ;\ncung cấp giấy tờ tùy thân để giữ lịch đặt, xác nhận đặt lịch hoặc đảm bảo lịch hẹn;\nký xác nhận, chấp thuận hoặc xác nhận bằng lời đối ó hiệu lực ràng buộc.\nViệc chấp nhận theo điều khoản này có giá trị pháp lý tương đương với việc ký kết hợp đồng bằng văn bản.\n2.2 Từ chối chấp nhận\nNếu Khách hàng không đồng ý với bất kỳ điều khoản nào trong Hợp đồng này, Khách hàng phải từ chối sử dụng Dịch vụ trước khi Dịch vụ được bắt đầu.\n3. Quy trình đặt lịch, xác nhận và xác minh danh tính\n3.1 Các kênh đặt lịch\nBên cung cấp tiếp nhận đặt lịch qua:\nMeta (Facebook & Instagram)\nForm đặt lịch trên website\nHotline\nZalo\nWhatsApp\n3.2 Xác nhận đặt lịch\nMột lịch hẹn chỉ được xem là xác nhận khi có: xác nhận bằng văn bản từ Bên cung cấp (tin nhắn hoặc email), hoặc xác nhận rõ ràng về thời gian hẹn và dịch vụ đã chọn.\n3.3 Đặt cọc và các hình thức đảm bảo đặt lịch\na) Trừ khi có thỏa thuận khác, Bên cung cấp có thể yêu cầu đặt cọc để giữ lịch.\nb) Tiền đặt cọc không được hoàn lại, ngoại trừ các trường hợp theo Điều 4.\nc) Trong trường hợp Bên cung cấp đồng ý giữ lịch mà không cần đặt cọc (ví dụ thuận tiện cho khách chuyển khoản quốc tế), Khách hàng cần cung cấp bản sao hộ chiếu hoặc bằng lái xe để xác minh danh tính và đảm bảo lịch hẹn.\nNếu Khách hàng không cung cấp giấy tờ xác minh khi được yêu cầu, Bên cung cấp có quyền không xác nhận hoặc hủy lịch đặt.\n3.4 Đến trễ\nNếu Khách hàng đến trễ, Bên cung cấp có thể giữ lịch tối đa 15 phút, trừ khi có thỏa thuận khác. Sau thời gian này, lịch hẹn có thể được xem là hủy muộn hoặc không đến (no-show) theo Điều 4.\n3.5 Xác nhận chấp nhận Hợp đồng khi đặt lịch\nKhi xác nhận đặt lịch, thanh toán đặt cọc hoặc sử dụng Dịch vụ, Khách hàng xác nhận rằng: đã được cung cấp đầy đủ thông tin, đã đọc và hiểu Hợp đồng Sử dụng Dịch vụ Spa, đồng ý với các điều khoản về đặt lịch, thay đổi, hủy lịch, đồng ý với các điều khoản về trách nhiệm, miễn trừ trách nhiệm và giới hạn trách nhibáo ít nhất 2 giờ trước giờ hẹn, trừ khi có thỏa thuận khác.\n4.2 Thông báo hủy\nViệc hủy lịch phải được thông báo ít nhất 24 giờ trước giờ hẹn.\n4.3 Voucher thay cho hoàn tiền (quy tắc 24 giờ)\nTiền đặt cọc không được hoàn lại.\nNếu Khách hàng hủy lịch trước ít nhất 24 giờ, Khách hàng có thể yêu cầu voucher có giá trị tương đương tiền đặt cọc, theo chính sách phát hành của Bên cung cấp.\n4.4 Hủy muộn và không đến\na) Hủy trong vòng 24 giờ hoặc không đến sẽ mất tiền đặt cọc và có thể bị áp dụng phí hoặc hạn chế đặt lịch trong tương lai.\nb) Nếu việc hủy muộn hoặc không đến lặp lại nhiều lần, Bên cung cấp có thể từ chối nhận đặt lịch trước và chỉ phục vụ khách vãng lai.\n4.5 Bên cung cấp hủy hoặc thay đổi lịch\nBên cung cấp có quyền đổi lịch hoặc hủy lịch trong các ánh hiểu nhầm\n5.1 Xác nhận giá\nBên cung cấp áp dụng chính sách giá minh bạch. Khách hàng sẽ được thông báo tổng chi phí dịch vụ trước khi bắt đầu thực hiện.\n5.2 Giá có tính ràng buộc\nSau khi mức giá được Bên cung cấp xác nhận bằng văn bản hoặc thể hiện trên hóa đơn tạm tính tại cửa hàng, mức giá đó được xem là cuối cùng và có giá trị ràng buộc đối với lịch hẹn hoặc phiên dịch vụ tương ứng, trừ khi Khách hàng yêu cầu thay đổi hoặc bổ sung dịch vụ.\n5.3 Giá tham khảo\nCác mức giá được hiển thị trên website hoặc nền tảng bên thứ ba chỉ mang tính tham khảo. Giá chính thức áp dụng là giá được Bên cung cấp xác nhận bằng văn bản và/hoặc niêm yết tại chi nhánh tại thời điểm sử dụng dịch vụ.\n5.4 Chấp thuận trước khi thực hiện dịch vụ\nDịch vụ chỉ được tiến hành sau kh sinh phụ phí xử lý 5%, phản ánh chi phí xử lý từ bên thứ ba.\nPhụ phí này: sẽ được thông báo trước cho Khách hàng, được cộng vào tổng số tiền thanh toán tại thời điểm thanh toán. Phụ phí không áp dụng đối với thanh toán bằng thẻ hoặc các phương thức không phát sinh phí. Việc Khách hàng tiếp tục lựa chọn phương thức thanh toán sau khi đã được thông báo được xem là đồng ý với khoản phụ phí này.\n6. Nghĩa vụ khai báo tình trạng sức khỏe và quyền từ chối phục vụ\n6.1 Nghĩa vụ khai báo của Khách hàng\nTrước khi sử dụng Dịch vụ, Khách hàng cam kết rằng tại thời điểm sử dụng, Khách hàng không mắc các tình trạng sức khỏe hoặc yếu tố cá nhân có thể ảnh hưởng đến việc thực hiện dịch vụ một cách an toàn, bao gồm nhưng không giới hạn:\ncác tình trạng có thể gây phản ứng bất lch vụ như waxing, nối mi, làm móng, massage, chăm sóc da hoặc chăm sóc cơ thể trở nên không phù hợp hoặc tiềm ẩn rủi ro\n6.2 Không khai báo được xem là đủ điều kiện\nNếu Khách hàng không chủ động cung cấp thông tin về tình trạng sức khỏe, Khách hàng đồng ý rằng Bên cung cấp có quyền dựa vào việc suy đoán hợp lý rằng Khách hàng đủ điều kiện sử dụng dịch vụ.\n6.3 Quyền từ chối, tạm dừng hoặc điều chỉnh dịch vụ\nBên cung cấp có quyền từ chối, tạm dừng hoặc điều chỉnh dịch vụ nếu, theo đánh giá chuyên môn, việc tiếp tục có thể gây rủi ro cho: sức khỏe hoặc an toàn của Khách hàng, nhân viên, các khách hàng khác\n6.4 Khuyến nghị tư vấn y tế\nKhách hàng được khuyến nghị tham khảo ý kiến bác sĩ hoặc chuyên gia y tế trước khi sử dụng dịch vụ nếu có bất kỳ vấn đề sức khỏe tiềm ẩn nào.\n7. Xử lý vấn đề, không hài lòng và khiếu nại\n7.1 Nghĩa vụ phản hồi ngay lập tức\nĐể đảm bảo việc xử lý kịp thời và công bằng, Khách hàng cần thông báo ngay nếu có: khó chịu, không hài lòng, nghi ngờ vấn đề phát sinh trong quá trình sử dụng hoặc ngay sau khi kết thúc dịch vụ, trước khi rời khỏi cơ sở.\n7.2 Ưu tiên xử lý tại chỗ\nKhách hàng hiểu rằng nhiều vấn đề chỉ có thể xử lý hiệu quả trong hoặc ngay sau khi thực hiện dịch vụ. Việc không phản hồi kịp thời có thể hạn chế khả năng xử lý của Bên cung cấp.\n7.3 Kênh tiếp nhận khiếu nại\nKhách hàng có thể liên hệ:\n+84 909091140\nHotline: +84 909095491\n\n\n7.4 Tuân thủ hướng dẫn chăm sóc sau dịch vụ\nTrong trường hợp có hướng dẫn chăm sóc sau dịch vụ, Khách hàng đồng ý tuân thủ đầy đủ. Việc không tuân thủ có thể dẫn đến kết quả không mong muốn và ảnh hưởng đến việc hỗ trợ từ phía Bên cung cấp.\n8. Hành vi của Khách hàng, an toàn và quyền từ chối phục vụ\n8.1 Nghĩa vụ tuân thủ\nKhách hàng phải tuân thủ: nội quy của spa, tiêu chuẩn vệ sinh, hướng dẫn hợp lý từ nhân viên ái pháp luật (bao gồm hành vi mang tính nhạy cảm)\ntrong tình trạng không tỉnh táo do sử dụng chất kích thích\ncó tình trạng sức khỏe hoặc vệ sinh không đảm bảo an toàn\n8.3 Khách dưới 18 tuổi\nKhách hàng dưới 18 tuổi phải có: sự đồng ý trước và sự hiện diện của cha mẹ hoặc người giám hộ hợp pháp trong suốt quá trình sử dụng dịch vụ.\nBên cung cấp có quyền từ chối hoặc chấm dứt dịch vụ nếu không đáp ứng các điều kiện trên hoặc nếu dịch vụ không phù hợp với người chưa thành niên.\n9. Trách nhiệm, miễn trừ trách nhiệm và rủi ro\n9.1 Tiêu chuẩn dịch vụ\nBên cung cấp cam kết cung cấp dịch vụ với mức độ cẩn trọng hợp lý, phù hợp với tiêu chuẩn nghề spa và làm đẹp.\n9.2 Xác nhận rủi ro tự nhiên\nKhách hàng hiểu rằng dịch vụ làm đẹp có thể tiềm ẩn các rủi ro như: đỏ da, kí hàng đồng ý rằng Bên cung cấp không chịu trách nhiệm đối với các kết quả phát sinh từ:\nviệc Khách hàng không khai báo đầy đủ tình trạng sức khỏe\nviệc không tuân thủ hướng dẫn trước hoặc sau dịch vụ\nhành vi của Khách hàng trong hoặc sau khi sử dụng dịch vụ\ncác sự kiện ngoài tầm kiểm soát hợp lý của Bên cung cấp (bất khả kháng)\n9.4 Trách nhiệm bắt buộc\nKhông điều khoản nào trong Hợp đồng này loại trừ các trách nhiệm mà pháp luật không cho phép loại trừ.\n9.5 Thiệt hại do Khách hàng gây ra\nNếu Khách hàng gây thiệt hại cho Bên cung cấp, nhân viên hoặc bên thứ ba, Khách hàng phải bồi thường đầy đủ và kịp thời.\n10. Thanh toán, hóa đơn và thuế\n10.1 Thanh toán\nKhách hàng phải thanh toán đầy đủ các khoản phí đã xác nhận tại thời điểm kết thúc dịch vụ, trừ khi có thỏa thuận khác.\n10.2 Xuất hóa đơn\nNếu yêu cầu xuất hóa đơn, Khách hàng phải cung cấp thông tin chính xác và đầy đủ.\n10.3 Nghĩa vụ thuế\nBên cung cấp thực hiện kê khai và nộp thuế theo quy định pháp luật.\n11. Dữ liệu, camera và hình ảnh\n11.1 Camera (CCTV)\nCamera có thể được sử dụng cho mục đích an ninh và kiểm soát chất lượng, phù hợp với quy định pháp luật.\n11.2 Hình ảnh\nHình ảnh có thể được ghi nhận nhằm mục đích: kiểm soát chất lượng và hỗ trợ sau dịch vụ. Việc sử dụng cho mục đích marketing cần có sự đồng ý của Khách hàng.\n12. Sự kiện bất khả kháng\nBên cung cấp không chịu trách nhiệm đối với việc chậm trễ hoặc không thể thực hiện dịch vụ do các sự kiện ngoài kiểm soát hợp lý như: thiên tai, dịch bệnh, mất điện, quy định của cơ quan nhà nước. Trong các trường hợp này, Bên cung cấp có thể đổi lịch hoặc đưa ra phương án thay thế phù hợp.\n13. Sửa đổi Hợp đồng\nBên cung cấp có quyền sửa đổi Hợp đồng theo từng thời điểm.\nCác điều khoản cập nhật sẽ có hiệu lực từ thời điểm công bố hoặc thông báo và áp dụng cho các lần đặt lịch sau đó.\n14. Luật áp dụng và giải quyết tranh chấp\n14.1 Luật áp dụng\nHợp đồng này được điều chỉnh theo pháp luật Việt Nam.\n14.2 Trách nhiệm giải quyết tranh chấp\nBên cung cấp không tham gia và không chịu trách nhiệm đối với các tranh chấp, khiếu nại, trừ khi pháp luật yêu cầu bắt buộc.\n15. Điều khoản tách biệt và không chuyển nhượng\n15.1 Hiệu lực độc lập\nNếu một điều khoản bị vô hiệu, các điều khoản còn lại vẫn có hiệu lực.\n15.2 Không chuyển nhượng\nKhách hàng không được chuyển nhượng quyền hoặc nghĩa vụ theo Hợp đồng này nếu không có sự đồng ý bằng văn bản của Bên cung cấp.\nNội dung xác nhận khi đặt lịch\n",
+      "closeButton": "Bằng việc nhấn vào nút bên dưới, tôi xác nhận đã cung cấp đầy đủ thông tin về tình trạng sức khỏe liên quan và hiểu rằng Bên cung cấp không chịu trách nhiệm đối với các hậu quả phát sinh từ việc cung cấp thông tin không đầy đủ hoặc không chính xác, trong phạm vi pháp luật cho phép."
+    },
+    "privacyNoticePrefix": "Chúng tôi không lưu trữ, bán hoặc sử dụng dữ liệu của bạn ngoài phạm vi",
+    "privacyNoticeSuffix": ".",
+    "privacyPolicy": "Chính sách Bảo mật Dữ liệu Privé Spa",
+    "privacyPolicyContent": "CHÍNH SÁCH BẢO MẬT DỮ LIỆU\nChào mừng bạn đến với The Privé Spa. Chính sách Bảo mật Dữ liệu này giải thích cách chúng tôi thu thập, sử dụng, tiết lộ và bảo vệ thông tin cá nhân của bạn. Khi bạn đến sử dụng dịch vụ tại spa hoặc salon của chúng tôi, bạn đồng ý với các thực tiễn được mô tả trong chính sách này.\n1. Thông tin chúng tôi thu thập\nChúng tôi có thể thu thập nhiều loại thông tin khác nhau từ bạn, bao gồm nhưng không giới hạn:\n– Thông tin cá nhân (như họ tên, thông tin liên hệ, ngày sinh)\n– Thông tin thanh toán (chi tiết thẻ tín dụng, địa chỉ thanh toán)\n– Thông tin sức khỏe và y tế liên quan đến các liệu trình spa\n– Tùy chọn và sở thích liên lạc\n– Hình ảnh, bao gồm ảnh chụp và video của khách trước, trong và sau khi sử dụng dịch vụ\n2. Cách chúng tôi sử dụng thông tin\nChnghiệm và điều chỉnh dịch vụ theo nhu cầu của bạn\n– Tuân thủ các yêu cầu pháp lý và quy định liên quan\n– Hình ảnh và video của khách có thể được sử dụng cho mục đích đào tạo, kiểm soát chất lượng và đảm bảo an toàn. Các dữ liệu này được lưu trữ nội bộ, trong thời gian giới hạn trên hệ thống của chúng tôi và chỉ được sử dụng cho mục đích marketing khi có sự đồng ý (bằng lời nói hoặc văn bản) của khách hàng.\n3. Chia sẻ và tiết lộ dữ liệu\nChúng tôi không bán, cho thuê hoặc trao đổi thông tin cá nhân của bạn với bên thứ ba. Tuy nhiên, chúng tôi có thể chia sẻ thông tin với các đối tác đáng tin cậy hỗ trợ vận hành hoạt động kinh doanh, như đơn vị xử lý thanh toán hoặc đối tác marketing. Chúng tôi đảm bảo các bên này tuân thủ tiêu chuẩn bảo mật dữ liệu tương đương trữ dữ liệu nào có thể đảm bảo an toàn tuyệt đối.\n5. Quyền của bạn\nBạn có quyền yêu cầu truy cập, chỉnh sửa hoặc xóa thông tin cá nhân mà chúng tôi lưu trữ. Bạn cũng có thể điều chỉnh tùy chọn nhận thông tin hoặc từ chối nhận email quảng cáo. Để thực hiện các quyền này, vui lòng liên hệ với chúng tôi theo thông tin bên dưới.\n6. Quyền riêng tư của trẻ em\nDịch vụ của chúng tôi không dành cho người dưới 16 tuổi. Chúng tôi không cố ý thu thập thông tin cá nhân từ trẻ em. Nếu bạn là phụ huynh hoặc người giám hộ và tin rằng con bạn đã cung cấp thông tin cho chúng tôi, vui lòng liên hệ để chúng tôi xóa dữ liệu đó.\n7. Thay đổi chính sách\nChúng tôi có quyền điều chỉnh Chính sách Bảo mật này bất kỳ lúc nào. Mọi thay đổi sẽ có hiệu lực ngay khi được công bố tại spa. Việc bạn ti�mgmt@theprivespa.com\nKhi đến và sử dụng dịch vụ tại The Privé Spa, bạn xác nhận rằng bạn đã đọc, hiểu và đồng ý với Chính sách Bảo mật Dữ liệu này.\nCảm ơn bạn đã tin chọn The Privé Spa cho hành trình làm đẹp và thư giãn của mình!"
+  },
+  "form": {
+    "stepIndicator": "Bước {{current}} / {{total}}",
+    "backButton": "Quay lại",
+    "nextButton": "Tiếp tục",
+    "submitButton": "Gửi yêu cầu đặt lịch",
+    "steps": {
+      "visitDetails": {
+        "title": "Chi tiết cuộc hẹn"
+      },
+      "serviceSelection": {
+        "title": "Chọn Dịch vụ"
+      },
+      "contactInfo": {
+        "title": "Thông tin liên hệ"
+      }
+    },
+    "visitDetails": {
+      "branchInstruction": "Vui lòng chọn chi nhánh bạn muốn đến.",
+      "dateTimeInstruction": "Vui lòng chọn ngày và giờ bạn muốn đến.",
+      "branches": {
+        "benThanh": "Privé Bến Thành\n(Quận 1 – Lê Thị Riêng – TP.HCM)",
+        "thaoDien": "Privé Thảo Điền\n(Quận 2 – TP. Thủ Đức – TP.HCM)",
+        "phuMyHung": "Privé Phú Mỹ Hưng / Midtown\n(Quận 7 – TP.HCM)",
+        "hoanKiem": "Privé Hoàn Kiếm\n(Hoàn Kiếm – HÀ NỘI)"
+      },
+      "info": {
+        "hours": "Mở cửa 9:00 – 21:00 (nhận khách cuối 20:00).",
+        "alternateSlot": "Nếu có thời gian khác thuận tiện, bạn vui lòng ghi vào phần ghi chú bên dưới để Privé Spa có thể phục vụ bạn tốt nhất."
+      },
+      "labels": {
+        "branch": "Chi nhánh",
+        "date": "Ngày",
+        "time": "Giờ",
+        "altDate": "Ngày khác",
+        "altTime": "Giờ khác",
+        "note": "Ghi chú thêm / Thông tin sức khỏe (Tùy chọn)"
+      },
+      "descriptions": {
+        "note": "Bạn có thể chia sẻ các yêu cầu đặc biệt, sở thích cá nhân hoặc thông tin sức khỏe liên quan (ví dụ: dị ứng, da nhạy cảm, mang thai, vừa điều trị da hoặc đang dùng thuốc) để chúng tôi chuẩn bị và phục vụ bạn tốt hơn.\n\nViệc cung cấp thông tin chính xác giúp chúng tôi chuẩn bị phù hợp và phục vụ bạn tốt hơn."
+      },
+      "placeholders": {
+        "note": "Yêu cầu đặc biệt hoặc thông tin sức khỏe cần lưu ý (ví dụ: dị ứng, da nhạy cảm, mang thai, vừa điều trị da...)"
+      },
+      "alternatePrompt": "Vui lòng chia sẻ một khung giờ khác mà bạn có thể ghé thăm (tùy chọn)."
+    },
+    "serviceSelection": {
+      "instruction": "Vui lòng chọn dịch vụ",
+      "lastBooking": {
+        "title": "Lần đặt gần nhất của bạn",
+        "serviceLabel": "Dịch vụ",
+        "branchLabel": "Chi nhánh",
+        "timeLabel": "Thời gian",
+        "repeat": "Điều chỉnh dịch vụ cũ",
+        "chooseNew": "Chọn dịch vụ mới"
+      },
+      "returningChoice": {
+        "title": "Chào mừng bạn quay lại!",
+        "subtitle": "Bạn muốn đặt lại dịch vụ như lần trước hay khám phá các dịch vụ khác?",
+        "lastServices": "Dịch vụ lần trước của bạn:",
+        "quickBook": "Đặt nhanh",
+        "explore": "Khám phá dịch vụ mới",
+        "exploreDesc": "Xem toàn bộ dịch vụ và tìm thêm liệu trình phù hợp.",
+        "browseMenu": "Xem dịch vụ",
+        "helper": "Bạn có thể thay đổi lựa chọn"
+      },
+      "returningMissingContact": "Thiếu thông tin liên hệ, vui lòng kiểm tra lại.",
+      "services": {
+        "basic_nail_care": "Chăm sóc móng cơ bản",
+        "gel_polish_refresh": "Sơn Gel mới",
+        "quick_nail_art": "Trang trí móng nhanh",
+        "nail_repair": "Sửa móng",
+        "lash_lift": "Uốn mi",
+        "lash_extension_refill": "Dặm mi nối",
+        "eyebrow_shaping": "Tạo dáng chân mày",
+        "eyebrow_tint": "Nhuộm chân mày",
+        "express_facial": "Chăm sóc da mặt nhanh",
+        "body_scrub": "Tẩy tế bào chết toàn thân",
+        "relaxing_massage": "Massage thư giãn",
+        "hydrotherapy_boost": "Trị liệu bằng nước",
+        "eyebrow_wax": "Wax chân mày",
+        "full_leg_wax": "Wax nguyên chân",
+        "brazilian_wax": "Wax Brazilian",
+        "back_wax": "Wax lưng"
+      }
+    },
+    "serviceCart": {
+      "title": "Dịch vụ đã chọn",
+      "empty": "Chưa có dịch vụ nào.",
+      "emptyHint": "Chọn dịch vụ và hoàn tất để thêm vào mục đã chọn.",
+      "remove": "Xóa",
+      "subtotal": "Tổng cộng",
+      "itemCount": "{{count}} dịch vụ",
+      "bookNow": "Đặt lịch ngay",
+      "priceNote1": "Giá cuối cùng sẽ xác nhận trước khi sử dụng dịch vụ.",
+      "priceNote2": "Giá đã bao gồm thuế."
+    },
+    "subtotalNote": "Giá cuối cùng sẽ được xác nhận khi hoàn tất đặt lịch.",
+    "checkout": {
+      "title": "Kiểm tra lại dịch vụ",
+      "subtitle": "Vui lòng xem lại các dịch vụ bạn đã chọn",
+      "empty": "Bạn chưa chọn dịch vụ nào.",
+      "emptyHint": "Vui lòng quay lại và chọn ít nhất một dịch vụ.",
+      "backToServices": "Quay lại chọn dịch vụ",
+      "subtotal": "Tạm tính",
+      "subtotalNote": "Giá cuối có thể thay đổi tùy dịch vụ thực tế.",
+      "proceedButton": "Tiếp tục",
+      "editServices": "Chỉnh sửa dịch vụ"
+    },
+    "summary": {
+      "title": "Sắp đặt hẹn xong rồi!",
+      "subtitle": "Vui lòng kiểm tra thông tin trước khi xác nhận đặt lịch.",
+      "bookingInfo": "Thông tin đặt lịch",
+      "servicesSelected": "Dịch vụ đã chọn"
+    },
+    "contactDetails": {
+      "labels": {
+        "name": "Tên đầy đủ",
+        "phone": "Điện thoại (Zalo / WhatsApp)",
+        "phoneNote": "Vui lòng chọn mã quốc gia và không nhập lại mã đó trong số điện thoại",
+        "email": "Địa chỉ email",
+        "origin": "Bạn đến từ đâu?",
+        "referral": "Bạn biết đến chúng tôi qua đâu?"
+      },
+      "placeholders": {
+        "name": "Tên đầy đủ của bạn",
+        "phone": "Số điện thoại",
+        "email": "ten@vi dụ.com"
+      },
+      "origin": {
+        "tourist": "Khách du lịch",
+        "expatriate": "Khách quốc tế định cư Việt Nam",
+        "local": "Khách địa phương"
+      },
+      "referrals": {
+        "google": "Google",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "tiktok": "TikTok",
+        "other": "Khác"
+      },
+      "submitting": "Đang gửi thông tin của bạn..."
+    },
+    "submit": {
+      "errors": {
+        "createCustomerFailed": "Không thể tạo hồ sơ khách hàng",
+        "saveBookingFailed": "Không thể lưu thông tin đặt lịch",
+        "generic": "Có lỗi xảy ra, vui lòng thử lại"
+      }
+    },
+    "returning": {
+      "toast": {
+        "welcomeBack": "Chào mừng bạn quay lại!",
+        "missingInfo": "Vui lòng nhập cả số điện thoại và email",
+        "invalidInfo": "Vui lòng nhập số điện thoại và email hợp lệ",
+        "notFound": "Chúng tôi không tìm thấy thông tin của bạn. Vui lòng kiểm tra lại.",
+        "checkError": "Có lỗi khi kiểm tra thông tin, vui lòng thử lại"
+      },
+      "errors": {
+        "phone": "Số điện thoại không hợp lệ",
+        "email": "Email không hợp lệ"
+      }
+    },
+    "success": {
+      "title": "Yêu cầu đặt lịch đã được gửi!",
+      "message": "Privé sẽ sớm liên hệ bạn để xác nhận lịch hẹn.",
+      "summaryTitle": "Chi tiết đặt lịch",
+      "summary": {
+        "name": "Tên",
+        "branch": "Chi nhánh",
+        "dateTime": "Ngày & Giờ",
+        "email": "Thư điện tử",
+        "phone": "Số điện thoại"
+      },
+      "exploreWebsite": "Khám phá website của chúng tôi"
+    },
+    "confirmation": {
+      "title": "Xác nhận đặt lịch",
+      "message": "Chỉ còn một bước nữa — bạn muốn gửi yêu cầu đặt lịch ngay không?",
+      "confirm": "Có, gửi ngay",
+      "cancel": "Không, quay lại",
+      "submitting": "Đang gửi...",
+      "confirmBooking": "Nhấn để gửi yêu cầu đặt hẹn"
+    }
+  },
+  "serviceMenu": {
+    "common": {
+      "duration": {
+        "15m": "15 phút",
+        "30m": "30 phút",
+        "45m": "45 phút",
+        "60m": "60 phút",
+        "75m": "75 phút",
+        "90m": "90 phút",
+        "105m": "105 phút",
+        "120m": "120 phút"
+      },
+      "unit": {
+        "perColor": "mỗi màu thêm",
+        "perLayer": "Đã bao gồm Bóng/Lì/Ngọc trai/Nhũ\nmỗi lớp",
+        "perNail": "mỗi móng",
+        "perSet10": "mỗi bộ (10 móng)"
+      },
+      "searchPlaceholder": "Tìm theo tên hoặc mã SKU...",
+      "noServices": "Không có dịch vụ trong danh mục này",
+      "detailedInfo": {
+        "toggle": "Chi tiết"
+      },
+      "conflict": {
+        "title": "Xung đột dịch vụ",
+        "message": "Bạn đã chọn",
+        "notAvailable": "không khả dụng cho dịch vụ này.",
+        "pleaseChoose": "Vui lòng chọn",
+        "instead": "thay vào đó.",
+        "willRemove": "Dịch vụ xung đột sẽ được tự động gỡ khỏi lựa chọn nếu bạn tiếp tục.",
+        "suggestGelPolish": "Vui lòng chọn Sơn gel thay vào đó.",
+        "gelDependencyTitle": "Yêu cầu Sơn gel",
+        "gelDependencyIntro": "Bạn đang gỡ",
+        "gelDependencyNotAvailable": "cũng sẽ bị gỡ nếu bạn tiếp tục.",
+        "gelDependencyPairWillRemove": "Cả {{currentService}} và {{dependentService}} sẽ bị gỡ nếu bạn tiếp tục.",
+        "gelDependencyWillRemove": "Nhấn Tiếp tục để gỡ cả hai dịch vụ, hoặc Hủy để giữ lựa chọn hiện tại."
+      },
+      "nailArtPrerequisite": {
+        "title": "Yêu cầu Sơn gel",
+        "messageManicure": "Để chọn Nail Art cho tay, vui lòng chọn Sơn gel cho gói làm móng tay trước.",
+        "messagePedicure": "Để chọn Nail Art cho chân, vui lòng chọn Sơn gel cho gói làm móng chân trước.",
+        "messageNailExtensions": "Để chọn Nail Extensions, vui lòng chọn Sơn gel cho gói làm móng tay trước.",
+        "messageSwitchManicure": "Tiệm không áp dụng Sơn thường cho Nail Art, chúng tôi sẽ chuyển sang Sơn gel.",
+        "messageSwitchPedicure": "Tiệm không áp dụng Sơn thường cho Nail Art, chúng tôi sẽ chuyển sang Sơn gel.",
+        "messageSwitchNailExtensions": "Tiệm không áp dụng Sơn thường cho Nail Extensions, chúng tôi sẽ chuyển sang Sơn gel.",
+        "hint": "Nhấn Tiếp tục và chúng tôi sẽ đưa bạn đến đúng danh mục gói dịch vụ.",
+        "hintSwitch": "Nhấn Tiếp tục và chúng tôi sẽ tự động chuyển gói của bạn từ Sơn thường sang Sơn gel."
+      }
+    },
+    "packages": {
+      "categories": {
+        "lashCombos": {
+          "label": "GÓI MI & MÀY"
+        },
+        "lashPackages": {
+          "label": "GÓI MI & MÀY"
+        },
+        "manicurePackages": {
+          "label": "GÓI CHĂM SÓC TAY"
+        },
+        "pedicurePackages": {
+          "label": "GÓI CHĂM SÓC CHÂN"
+        },
+        "pedicureCombos": {
+          "label": "Gói Làm móng chân"
+        },
+        "signatureFacials": {
+          "label": "CHĂM SÓC DA MẶT SIGNATURE"
+        }
+      },
+      "items": {
+        "packageLashBotox": {
+          "name": "LASH BOTOX",
+          "desc": "Chân mày trông đầy đặn hơn và giữ nguyên vị trí khi chải vào hình dạng"
+        },
+        "packageBrowReshape": {
+          "name": "BROW RESHAPE COMBO",
+          "desc": "Chân mày trông đầy đặn hơn và giữ nguyên vị trí khi chải vào."
+        },
+        "packageLashBrowReform": {
+          "name": "LASH AND BROW REFORM COMBO",
+          "desc": "Chân mày trông đầy đặn hơn và giữ nguyên vị trí khi chải vào."
+        },
+        "manicureEssential": {
+          "name": "CHĂM SÓC TAY THIẾT YẾU (PHÙ HỢP CHO CẢ NAM GIỚI)",
+          "desc": "Cắt da, làm sạch móng.\nKhông sơn màu.\nMassage tay - 15 phút."
+        },
+        "manicureRelaxing": {
+          "name": "CHĂM SÓC TAY THƯ GIÃN",
+          "desc": "Cắt da, làm sạch móng + sơn màu.\nMassage tay - 15 phút."
+        },
+        "manicureSignature": {
+          "name": "CHĂM SÓC DA TAY ĐỘC QUYỀN",
+          "desc": "Cắt da, làm sạch móng + sơn màu.\nĐắp mặt nạ tay cao cấp Privé dưỡng ẩm chuyên sâu.\nMassage da tay 10 phút."
+        },
+        "manicureLoccitane": {
+          "name": "CHĂM SÓC TAY L'OCCITANE ALMOND DELICIOUS",
+          "desc": "Cắt da, làm sạch móng + sơn màu.\nLàm sạch/dầu tắm + tẩy tế bào chết/ dầu dưỡng da.\nMặt nạ tay + kem tay hạnh nhân."
+        },
+        "manicurePremium": {
+          "name": "CHĂM SÓC TAY CAO CẤP",
+          "desc": "Cắt da, làm sạch móng + sơn màu.\nĐắp mặt nạ chăm sóc tay CND cao cấp.\nMassage tay 30 phút."
+        },
+        "pedicureEssential": {
+          "name": "CHĂM SÓC CHÂN THIẾT YẾU (PHÙ HỢP CHO CẢ NAM GIỚI)",
+          "desc": "Cắt da, làm sạch móng.\nKhông sơn màu.\nTrị liệu gót chân (chà gót và sử dụng kem dưỡng)."
+        },
+        "pedicureRelaxing": {
+          "name": "CHĂM SÓC CHÂN THƯ GIÃN",
+          "desc": "Cắt da, làm sạch móng + sơn màu.\nMassage chân - 15 phút."
+        },
+        "pedicureBasic": {
+          "name": "CHĂM SÓC CHÂN CƠ BẢN",
+          "desc": "Cắt da, làm sạch móng + sơn màu.\nTrị liệu gót chân (chà gót và sử dụng kem dưỡng)."
+        },
+        "pedicureMuscleRelief": {
+          "name": "CHĂM SÓC PHỤC HỒI CHÂN",
+          "desc": "Cắt da, làm sạch móng + sơn màu.\nMassage chân 30 phút."
+        },
+        "pedicureDeluxe": {
+          "name": "CHĂM SÓC CHÂN ĐẶC BIỆT",
+          "desc": "Cắt da, làm sạch móng + sơn màu.\nTrị liệu gót chân (chà gót và sử dụng kem dưỡng).\nMassage chân - 15 phút."
+        },
+        "pedicureSignature": {
+          "name": "CHĂM SÓC DƯỠNG ẨM CHÂN CAO CẤP",
+          "desc": "Cắt da, làm sạch móng + sơn màu.\nTrị liệu gót chân (chà gót và sử dụng kem dưỡng).\nĐắp mặt nạ bàn chân Privé cao cấp.\nMassage chân - 15 phút."
+        },
+        "pedicurePremium": {
+          "name": "CHĂM SÓC CHÂN CAO CẤP",
+          "desc": "Cắt da, làm sạch móng + sơn màu.\nTrị liệu gót chân (chà gót và sử dụng kem dưỡng).\nMassage chân 30 phút."
+        },
+        "pedicureRoyal": {
+          "name": "GÓI CHĂM SÓC CHÂN TOÀN DIỆN",
+          "desc": "Cắt da, làm sạch móng + sơn màu.\nTrị liệu gót chân (chà gót và sử dụng kem dưỡng).\nNgâm rửa chân, tẩy tế bào chết, đắp mặt nạ chân.\nMassage chân - 15 phút."
+        },
+        "facialYoga": {
+          "name": "YOGA FACIAL",
+          "desc": "Massage nâng cơ, trẻ hoá da. Hiệu quả nâng cơ, sáng da và định hình khuôn mặt tức thì chỉ sau một lần thực hiện.",
+          "details": {
+            "treatment": "Phiên bản nâng cấp của liệu trình độc quyền. Sự kết hợp hoàn hảo giữa nghệ thuật Gua Sha truyền thống và liệu pháp massage lạnh ice globes mang đến trải nghiệm trẻ hóa da toàn diện, cho làn da căng mịn, rạng rỡ tức thì và duy trì hiệu quả dài lâu.",
+            "effects": "Một buổi trị liệu - Hiệu quả toàn diện."
+          }
+        },
+        "facialAqua": {
+          "name": "AQUA PEEL",
+          "desc": "Làm sạch sâu, rạng rỡ làn da. Tái tạo và làm mịn da. Nhắm mục tiêu vào tế bào da chết, mụn đầu đen/trắng và lỗ chân lông to. Làm sạch sâu để có làn da sáng hơn cân bằng sản xuất dầu.",
+          "details": {
+            "overview": "Làm sạch sâu – Tái tạo – Cân bằng – Rạng rỡ\n\nPhục hồi làn da của bạn với công nghệ Aqua Peel – Loại bỏ mụn đầu đen, thu nhỏ lỗ chân lông và chào đón một làn da sáng khỏe, cân bằng. Kỹ thuật này hiệu quả, dịu nhẹ và được điều chỉnh phù hợp cho từng loại da.",
+            "suitableFor": "Phù hợp cho: Tất cả mọi loại da, đặc biệt là da dầu và da hỗn hợp thiên dầu.\n\nViệc chăm sóc lỗ chân lông, kiểm soát bã nhờn, và hạn chế tổn thương da do trang điểm gây bí tắc. Đồng thời rất hiệu quả cho vấn đề mụn đầu đen.",
+            "benefits": "Thúc đẩy quá trình chuyển hóa của da\nTẩy tế bào chết\nỨc chế vi khuẩn, ký sinh\nMang lại cảm giác sảng khoái, dễ chịu\nHương thơm lưu lâu\nCải thiện tình trạng xỉn màu\nNuôi dưỡng và giữ ẩm\nLàm dịu sau khi tiếp xúc với nắng\nBổ sung nước và làm sáng da",
+            "results": "Giúp làm trắng sáng da, cải thiện tông màu, giữ da sạch trong suốt, giảm xỉn màu đồng thời làm sạch lỗ chân lông và bụi bẩn."
+          }
+        }
+      },
+      "optionGroups": {
+        "polishType": {
+          "label": "Loại sơn"
+        }
+      },
+      "options": {
+        "polishRegularType": {
+          "name": "Sơn thường"
+        },
+        "polishGelType": {
+          "name": "Sơn gel"
+        }
+      },
+      "detailedSections": {
+        "treatment": "Liệu trình",
+        "effects": "Hiệu quả",
+        "benefits": "Lợi ích",
+        "suitableFor": "Phù hợp với",
+        "overview": "Tổng quan",
+        "results": "Kết quả"
+      }
+    },
+    "nail": {
+      "tabLabel": "Móng",
+      "categories": {
+        "dryCuticleCare": {
+          "label": "CẮT DA TAY",
+          "note": "Phù hợp cho nam giới"
+        },
+        "nailServices": {
+          "label": "LÀM MÓNG",
+          "note": "Bao gồm chăm sóc cắt da chết khô - Kỹ thuật Privé™"
+        },
+        "nailDesign": {
+          "label": "Thiết kế Móng"
+        },
+        "nailArts": {
+          "label": "TRANG TRÍ MÓNG"
+        },
+        "nailExtensions": {
+          "label": "NỐI MÓNG"
+        },
+        "handFootSpaAddons": {
+          "label": "DỊCH VỤ BỔ SUNG CHO SPA"
+        }
+      },
+      "items": {
+        "cuticlePriveTechnique": {
+          "name": "Kỹ thuật Privé™",
+          "desc": "Kỹ thuật chăm sóc da - móng tiêu chuẩn"
+        },
+        "cuticleEfile": {
+          "name": "Kỹ thuật sử dụng máy mài điện",
+          "desc": "Kỹ thuật E-File nâng cao với phương pháp dịu nhẹ, không ngâm nước"
+        },
+        "builderGel": {
+          "name": "GEL TẠO HÌNH",
+          "desc": "Giúp định hình dáng móng đẹp, đồng thời tăng độ cứng và độ bền theo thời gian."
+        },
+        "polish": {
+          "name": "SƠN MÓNG",
+          "desc": "Sơn thường hoặc sơn gel, đã bao gồm chăm sóc móng"
+        },
+        "removal": {
+          "name": "THÁO SƠN",
+          "desc": "Dịch vụ tháo gel hoặc tháo bằng máy"
+        },
+        "nailArts": {
+          "name": "Nail Art",
+          "desc": "Thiết kế nail art chuyên nghiệp từ cấp độ 1 đến 5"
+        },
+        "artLevel": {
+          "name": "CẤP ĐỘ",
+          "desc": "Thiết kế nail art chuyên nghiệp từ cấp độ 1 đến 5"
+        },
+        "extensionType": {
+          "name": "LOẠI NỐI MÓNG",
+          "desc": "Đạt độ dài mong muốn với dịch vụ Full Set hoặc Refill chuyên nghiệp"
+        },
+        "nailExtensions": {
+          "name": "NỐI MÓNG",
+          "desc": "Đạt độ dài mong muốn với dịch vụ TRỌN BỘ hoặc ĐẮP DẶM chuyên nghiệp"
+        },
+        "handMaskPrive": {
+          "name": "PRIVÉ™ MẶT NẠ DƯỠNG DA TAY",
+          "desc": "MẶT NẠ DƯỠNG DA TAY (20 PHÚT)\nMÁT-XA TAY (10 PHÚT)"
+        },
+        "footMaskPrive": {
+          "name": "PRIVÉ™ MẶT NẠ DƯỠNG DA CHÂN",
+          "desc": "MẶT NẠ DƯỠNG DA CHÂN (20 PHÚT)\nMÁT-XA CHÂN (10 PHÚT)"
+        },
+        "heelCarePrive": {
+          "name": "PRIVÉ™ CHĂM SÓC GÓT CHÂN",
+          "desc": "GEL LÀM MỀM DA\nLÀM SẠCH DA & BỚT SỪNG\nKEM ĐIỀU TRỊ"
+        },
+        "armHandCarePrive": {
+          "name": "PRIVÉ™ CHĂM SÓC TAY & CÁNH TAY",
+          "desc": "SẢN PHẨM TẨY TẾ BÀO CHẾT\nMẶT NẠ KÍCH HOẠT & LÀM MỀM\nSỮA DƯỠNG ẨM & MÁT-XA (10 PHÚT)"
+        },
+        "footCarePrive": {
+          "name": "PRIVÉ™ CHĂM SÓC CHÂN & BÀN CHÂN",
+          "desc": "LÀM SẠCH\nTẨY TẾ BÀO CHẾT Ở CHÂN VÀ BÀN CHÂN\nMẶT NẠ TẤT CHÂN\nSỮA DƯỠNG ẨM"
+        },
+        "handCareLoccitane": {
+          "name": "CHĂM SÓC DA TAY L'OCCITANE",
+          "desc": "DẦU TẨY RỬA/SẠCH\nSẢN PHẨM TẨY TẾ BÀO CHẾT\nMẶT NẠ TẬP TRUNG + DẦU DƯỠNG DA\nKEM DƯỠNG DA TAY & MÓNG"
+        }
+      },
+      "optionGroups": {
+        "serviceScope": {
+          "label": "Phạm vi dịch vụ"
+        },
+        "addOns": {
+          "label": "DỊCH VỤ BỔ SUNG CHO MÓNG"
+        },
+        "brand": {
+          "label": "Thương hiệu"
+        },
+        "nailLength": {
+          "label": "Độ dài móng"
+        },
+        "polishType": {
+          "label": "Loại sơn"
+        },
+        "removalType": {
+          "label": "Loại tháo"
+        },
+        "builderType": {
+          "label": "Loại builder"
+        },
+        "artLevel": {
+          "label": "Cấp độ"
+        },
+        "artLevelSelection": {
+          "label": "Chọn cấp độ"
+        },
+        "extensionTypeSelection": {
+          "label": "Chọn loại"
+        },
+        "extensionType": {
+          "label": "Loại nối móng"
+        },
+        "pricingOption": {
+          "label": "Tùy chọn giá"
+        },
+        "serviceType": {
+          "label": "Loại dịch vụ"
+        },
+        "cuticleTechnique": {
+          "label": "Kỹ thuật da móng"
+        },
+        "techniqueEfile": {
+          "label": "Nâng cấp lên kỹ thuật dùng máy mài điện"
+        }
+      },
+      "options": {
+        "scopeMani": {
+          "name": "Móng tay"
+        },
+        "scopePedi": {
+          "name": "Móng chân"
+        },
+        "scopeBoth": {
+          "name": "Tay + Chân"
+        },
+        "addonExtraColors": {
+          "name": "Thêm màu"
+        },
+        "gelPolishLongNail": {
+          "name": "Sơn Gel cho móng siêu dài",
+          "desc": "Cho mỗi bộ x10"
+        },
+        "addonTopCoat": {
+          "name": "Lớp phủ bổ sung",
+          "desc": "Đã bao gồm: Bóng/ Mờ/ Ngọc trai/ Lấp lánh - Cho mỗi lớp"
+        },
+        "brandEstemio": {
+          "name": "ESTEMIO",
+          "desc": "Sơn móng thường với hiệu ứng tự nhiên. Phù hợp sử dụng ngắn hạn và dễ tháo."
+        },
+        "brandCnd": {
+          "name": "CND™ SHELLAC",
+          "desc": "Sơn gel nhẹ móng, bóng bền và chống trầy xước. Làm khô bằng đèn LED/UV."
+        },
+        "brandTgb": {
+          "name": "THE GEL BOTTLE™ COLORS",
+          "desc": "Sơn gel cao cấp, độ lên màu cao, bề mặt bóng và độ bền tốt."
+        },
+        "brandBiab": {
+          "name": "BIAB™ COLORS",
+          "desc": "Builder gel có màu giúp tăng độ chắc cho móng thật và giữ bền lâu."
+        },
+        "lengthShort": {
+          "name": "Ngắn / Vừa"
+        },
+        "lengthLong": {
+          "name": "Dài / Siêu dài"
+        },
+        "lengthShortFullset": {
+          "name": "TRỌN BỘ (Ngắn/Vừa)"
+        },
+        "lengthLongFullset": {
+          "name": "TRỌN BỘ (Dài/Siêu dài)"
+        },
+        "lengthShortRefill": {
+          "name": "ĐẮP DẶM (Ngắn/Vừa)"
+        },
+        "lengthLongRefill": {
+          "name": "ĐẮP DẶM (Dài/Siêu dài)"
+        },
+        "addonRemoval": {
+          "name": "Dịch vụ tháo"
+        },
+        "polishRegularType": {
+          "name": "Sơn bình thường"
+        },
+        "polishGelType": {
+          "name": "Sơn Gel"
+        },
+        "polishTypeRegular": {
+          "name": "Sơn bình thường"
+        },
+        "polishTypeGel": {
+          "name": "Sơn Gel",
+          "desc": ""
+        },
+        "removalTypeGel": {
+          "name": "Shellac™/Gel Polish"
+        },
+        "removalTypeDrill": {
+          "name": "Gỡ bỏ bằng máy mài điện"
+        },
+        "addonExtraColor": {
+          "name": "HƠN 2 MÀU CHO SƠN MÓNG",
+          "desc": "Mỗi màu thêm"
+        },
+        "addonBufferShine": {
+          "name": "Đánh bóng móng",
+          "desc": "Cho mỗi bộ x10"
+        },
+        "addonIngrown": {
+          "name": "Điều trị khoé móng",
+          "desc": "Cho mỗi móng"
+        },
+        "efileSingle": {
+          "name": "Móng tay / Móng chân"
+        },
+        "efileBoth": {
+          "name": "Tay + Chân"
+        },
+        "shortMedium": {
+          "name": "Ngắn / Vừa"
+        },
+        "longExtraLong": {
+          "name": "Dài / Siêu dài"
+        },
+        "servicePlexigel": {
+          "name": "CND™ PLEXIGEL"
+        },
+        "serviceAcrylic": {
+          "name": "ACRYLIC"
+        },
+        "serviceAcrylicRefill": {
+          "name": "ACRYLIC"
+        },
+        "serviceHardGel": {
+          "name": "GEL CỨNG"
+        },
+        "serviceHardGelRefill": {
+          "name": "GEL CỨNG"
+        },
+        "serviceGelXExpress": {
+          "name": "GEL-X® EXPRESS"
+        },
+        "gelishStructure": {
+          "name": "GEL CỨNG MÓNG GELISH"
+        },
+        "plexigelOverlay": {
+          "name": "CND™ PLEXIGEL BUILD OVERLAY"
+        },
+        "artLevel1": {
+          "name": "Cấp 1 - Ombré / Cat Eyes / Chrome / French"
+        },
+        "artLevel2": {
+          "name": "Cấp 2"
+        },
+        "artLevel3": {
+          "name": "Cấp 3"
+        },
+        "artLevel4": {
+          "name": "Cấp 4"
+        },
+        "artLevel5": {
+          "name": "Cấp 5"
+        },
+        "extensionFullSet": {
+          "name": "TRỌN BỘ"
+        },
+        "extensionRefills": {
+          "name": "ĐẮP DẶM"
+        },
+        "level1PerNail": {
+          "name": "Theo mỗi móng"
+        },
+        "level1FullSet": {
+          "name": "Nguyên bộ (x10)"
+        },
+        "level2PerNail": {
+          "name": "Theo mỗi móng"
+        },
+        "level3PerNail": {
+          "name": "Theo mỗi móng"
+        },
+        "level4PerNail": {
+          "name": "Theo mỗi móng"
+        },
+        "level5PerNail": {
+          "name": "Theo mỗi móng"
+        },
+        "techniqueNailsInc": {
+          "name": "NAILS INC"
+        },
+        "techniqueEfile": {
+          "name": "Nâng cấp lên kỹ thuật dùng máy mài điện"
+        },
+        "note": {
+          "includedNailCare": "Bao gồm chăm sóc cắt da chết khô - Kỹ thuật Privé™"
+        }
+      }
+    },
+    "lash": {
+      "tabLabel": "Mi & Mày",
+      "categories": {
+        "lashExtensions": {
+          "label": "NỐI MI",
+          "note": "Lưu ý cho dịch vụ dặm mi:\nYêu cầu còn ít nhất 60% mi nối cho một bộ dặm mi.\nChúng tôi khuyên bạn nên dặm lại sau mỗi 2 đến 3 tuần để duy trì vẻ dày dặn cho bộ mi của bạn và ngăn ngừa những tổn thương do lông mi mọc dày và rũ xuống."
+        },
+        "lashServices": {
+          "label": "DỊCH VỤ MI"
+        },
+        "browServices": {
+          "label": "DỊCH VỤ MÀY"
+        }
+      },
+      "items": {
+        "lashClassic": {
+          "name": "Kiểu: Mi tự nhiên"
+        },
+        "lashPremium2d": {
+          "name": "Kiểu: 2D"
+        },
+        "lash34d": {
+          "name": "Kiểu: 3-4D"
+        },
+        "lash56d": {
+          "name": "Kiểu: 5-6D"
+        },
+        "lashMega": {
+          "name": "Kiểu: Mi siêu dày đậm 8-12D"
+        },
+        "lashHybrid": {
+          "name": "Hybrid / Mi Mascara / Mi mắt ướt"
+        },
+        "lashKimk": {
+          "name": "Kim K / Mi long lanh dày"
+        },
+        "lashRemoval": {
+          "name": "THÁO MI",
+          "desc": "Lựa chọn giữa dịch vụ gỡ bỏ mi trên hoặc dưới để có một quá trình đổi sạch sẽ và không gặp rắc rối."
+        },
+        "colorLash": {
+          "name": "NỐI MI MÀU",
+          "desc": "Sợi mi màu sắc đa dạng để làm nổi bật đôi mắt với vẻ ngoài rực rỡ và nổi bật."
+        },
+        "lowerLash": {
+          "name": "NỐI MI DƯỚI",
+          "desc": "Mi dưới được tăng cường để có vẻ ngoài rõ ràng và sắc hơn."
+        },
+        "lashTint": {
+          "name": "NHUỘM MI/MÀY",
+          "desc": "Áp dụng một lớp màu bột bền màu/màu tự nhiên một cách bán vĩnh viễn để phủ lên sợi mi và chân mày."
+        },
+        "lashLift": {
+          "name": "UỐN MI",
+          "desc": "Các sợi mi tự nhiên được uốn cong và nâng lên, làm cho chúng trở nên dài hơn và mắt mở to hơn."
+        },
+        "browTint": {
+          "name": "NHUỘM MI/MÀY",
+          "desc": "Áp dụng một lớp màu bột bền màu/màu tự nhiên một cách bán vĩnh viễn để phủ lên sợi mi và chân mày."
+        },
+        "browLamination": {
+          "name": "ĐỊNH HÌNH CHÂN MÀY",
+          "desc": "Chân mày trông đầy đặn hơn và giữ nguyên vị trí khi chải vào hình dạng, kéo dài khoảng 6 tuần."
+        },
+        "lashExtensions": {
+          "name": "NỐI MI",
+          "desc": "Lưu ý cho dịch vụ dặm mi:\nYêu cầu còn ít nhất 60% mi nối cho một bộ dặm mi.\nChúng tôi khuyên bạn nên dặm lại sau mỗi 2 đến 3 tuần để duy trì vẻ dày dặn cho bộ mi của bạn và ngăn ngừa những tổn thương do lông mi mọc dày và rũ xuống."
+        },
+        "browWax": {
+          "name": "WAX MÀY"
+        }
+      },
+      "optionGroups": {
+        "setType": {
+          "label": "Loại bộ"
+        },
+        "extensionType": {
+          "label": "Kiểu nối"
+        }
+      },
+      "options": {
+        "setFull": {
+          "name": "Nối mới"
+        },
+        "setRefill": {
+          "name": "Dặm lại"
+        },
+        "lashClassic": {
+          "name": "Kiểu: Mi tự nhiên"
+        },
+        "lashPremium2d": {
+          "name": "Kiểu: 2D"
+        },
+        "lash34d": {
+          "name": "Kiểu: 3-4D"
+        },
+        "lash56d": {
+          "name": "Kiểu: 5-6D"
+        },
+        "lashMega": {
+          "name": "Kiểu: Mi siêu dày đậm 8-12D"
+        },
+        "lashHybrid": {
+          "name": "Hybrid / Mi Mascara / Mi mắt ướt"
+        },
+        "lashKimk": {
+          "name": "Kim K / Mi long lanh dày"
+        }
+      }
+    },
+    "massage": {
+      "tabLabel": "Mát-xa",
+      "categories": {
+        "handFootMassage": {
+          "label": "TAY VÀ CHÂN"
+        },
+        "upperBodyMassage": {
+          "label": "PHẦN THÂN TRÊN"
+        },
+        "bodyMassage": {
+          "label": "TOÀN THÂN"
+        },
+        "handFootSpaAddons": {
+          "label": "Tiện ích Spa tay & chân"
+        }
+      },
+      "items": {
+        "massagePriveHand": {
+          "name": "Privé™ Massage Tay",
+          "desc": "Liệu trình massage tay nhẹ nhàng giúp thư giãn sâu, phục hồi năng lượng và mang đến cảm giác êm ái, tươi mới cho toàn cơ thể."
+        },
+        "massagePriveFoot": {
+          "name": "Privé™ Massage Chân",
+          "desc": "Liệu trình massage chân nhẹ nhàng giúp thư giãn sâu, phục hồi năng lượng và mang đến cảm giác êm ái, tươi mới cho toàn cơ thể."
+        },
+        "massageFacial": {
+          "name": "Privé™ Massage Mặt Thư Giãn",
+          "desc": "Liệu trình massage da mặt tinh tế giúp giải tỏa căng thẳng, cải thiện độ rạng rỡ và tái sinh vẻ tươi trẻ cho làn da."
+        },
+        "massageNeckBack": {
+          "name": "Privé™ Cổ Vai Gáy",
+          "desc": "Liệu trình massage lưng và cổ chuyên sâu giúp giải phóng áp lực, thư giãn cơ sâu, đưa cơ thể trở về trạng thái cân bằng và tràn đầy sinh lực."
+        },
+        "massageCoconut": {
+          "name": "Privé™ Tinh Dầu Dừa",
+          "desc": "Massage toàn thân với dầu dừa, xoa dịu mọi căng thẳng, mang lại cảm giác thư thái với hương thơm chữa lành và dưỡng chất tuyệt vời."
+        },
+        "massageAroma": {
+          "name": "Privé™ Tinh Dầu Hữu Cơ Aroma",
+          "desc": "Hương thơm trị liệu xua tan mệt mỏi, giúp tâm hồn tươi mới và cơ thể tràn đầy sức sống."
+        },
+        "massageAthlete": {
+          "name": "Privé™ Massage Phục Hồi Cho Vận Động Viên",
+          "desc": "Thiết kế chuyên biệt giúp phục hồi hiệu quả, tối ưu hóa khả năng vận động và củng cố nền tảng thể lực."
+        },
+        "massageSignature": {
+          "name": "Privé™ Signature Massage",
+          "desc": "120 phút tận hưởng kết hợp túi chườm thảo dược (trị liệu hương thơm, thanh lọc cơ thể) và massage đá nóng (20 phút - xoa dịu tinh thần, giảm đau nhức cơ bắp)."
+        },
+        "handMaskPrive": {
+          "name": "Mặt nạ tay dưỡng chất Privé™",
+          "desc": "Mặt nạ tay (20 phút)\nMassage tay (10 phút)"
+        },
+        "footMaskPrive": {
+          "name": "Mặt nạ chân dưỡng chất Privé™",
+          "desc": "Mặt nạ chân (20 phút)\nMassage chân (10 phút)"
+        },
+        "heelCarePrive": {
+          "name": "Trị liệu gót chân Privé™",
+          "desc": "Gel làm mềm\nLàm sạch sâu & loại bỏ chai\nKem trị liệu"
+        },
+        "armHandCarePrive": {
+          "name": "Trị liệu tay & cánh tay Privé™",
+          "desc": "Tẩy tế bào chết\nMask kích hoạt & làm mềm\nLotion dưỡng ẩm\nMassage (10 phút)"
+        },
+        "footCarePrive": {
+          "name": "Chăm sóc bàn chân & cẳng chân Privé™",
+          "desc": "Làm sạch\nTẩy tế bào chết bàn chân\nMặt nạ tất chân\nLotion dưỡng ẩm"
+        },
+        "handCareLoccitane": {
+          "name": "Hand Spa Almond L'Occitane cao cấp",
+          "desc": "Dầu làm sạch\nTẩy tế bào chết\nMặt nạ chuyên sâu\nDầu dưỡng\nKem tay & móng"
+        }
+      },
+      "optionGroups": {
+        "duration": {
+          "label": "Thời lượng"
+        }
+      },
+      "options": {
+        "duration60Hotstone": {
+          "name": "60 phút (Bao gồm 15 phút đá nóng)"
+        }
+      }
+    },
+    "spa": {
+      "tabLabel": "Chăm sóc tóc",
+      "tabNote": "Thông tin bổ sung về sản phẩm:\nCác sản phẩm chăm sóc tóc của Davines chứa các công thức nhẹ nhàng, phù hợp cho mọi loại tóc, giúp giải quyết các vấn đề như khô ráp, gãy rụng hoặc gàu.\nSản phẩm cung cấp dưỡng ẩm sâu và điều trị hiệu quả, mang lại kết quả nhanh chóng và toàn diện.\nCác sản phẩm Davines không chứa các thành phần có hại như sulfates và parabens.",
+      "categories": {
+        "hairWash": {
+          "label": "GỘI ĐẦU THƯ GIÃN"
+        },
+        "headSpa": {
+          "label": "GỘI ĐẦU CHUYÊN SÂU"
+        },
+        "headSpaAddons": {
+          "label": "DỊCH VỤ THÊM CHĂM SÓC MẶT"
+        }
+      },
+      "detailedSections": {
+        "products": "Sản phẩm sử dụng"
+      },
+      "items": {
+        "hairEssential": {
+          "name": "GỘI ĐẦU THƯ GIÃN",
+          "desc": "Tóc được phục hồi sức sống\nMát-xa đầu hoặc tay (10 phút)",
+          "details": {
+            "products": "Các sản phẩm chăm sóc tóc của Davines chứa các công thức nhẹ nhàng, phù hợp cho mọi loại tóc, giúp giải quyết các vấn đề như khô ráp, gãy rụng hoặc gàu.\nSản phẩm cung cấp dưỡng ẩm sâu và điều trị hiệu quả, mang lại kết quả nhanh chóng và toàn diện.\nCác sản phẩm Davines không chứa các thành phần có hại như sulfates và parabens."
+          }
+        },
+        "hairSignature": {
+          "name": "GỘI ĐẦU CHUYÊN SÂU",
+          "desc": "Dưỡng ẩm sâu\nMát-xa giảm căng thẳng",
+          "details": {
+            "products": "Các sản phẩm chăm sóc tóc của Davines chứa các công thức nhẹ nhàng, phù hợp cho mọi loại tóc, giúp giải quyết các vấn đề như khô ráp, gãy rụng hoặc gàu.\nSản phẩm cung cấp dưỡng ẩm sâu và điều trị hiệu quả, mang lại kết quả nhanh chóng và toàn diện.\nCác sản phẩm Davines không chứa các thành phần có hại như sulfates và parabens."
+          }
+        },
+        "addonRadiantCleansing": {
+          "name": "Làm sạch rạng rỡ",
+          "desc": "Tẩy trang, rửa mặt sạch sâu."
+        },
+        "addonNaturalGlow": {
+          "name": "Sáng hồng tự nhiên",
+          "desc": "Tẩy trang, rửa mặt, massage mặt và đắp mặt nạ."
+        }
+      },
+      "optionGroups": {
+        "hairLength": {
+          "label": "Độ dài tóc"
+        }
+      },
+      "options": {
+        "lengthShort": {
+          "name": "Tóc ngắn & trung bình"
+        },
+        "longBelowShoulder": {
+          "name": "Tóc dài"
+        },
+        "addonRadiantCleansing": {
+          "name": "Làm sạch rạng rỡ",
+          "desc": "Tẩy trang, rửa mặt sạch sâu."
+        },
+        "addonNaturalGlow": {
+          "name": "Sáng hồng tự nhiên",
+          "desc": "Tẩy trang, rửa mặt, massage mặt và đắp mặt nạ."
+        }
+      }
+    },
+    "facial": {
+      "tabLabel": "LIỆU TRÌNH CHO DA MẶT",
+      "categories": {
+        "comfortZoneFacials": {
+          "label": "[COMFORT.ZONE]"
+        }
+      },
+      "detailedSections": {
+        "benefits": "Lợi ích",
+        "suitableFor": "Phù hợp với",
+        "effects": "Hiệu quả",
+        "treatment": "Liệu trình"
+      },
+      "items": {
+        "facialRemedy": {
+          "name": "LÀM DỊU CHO DA NHẠY CẢM",
+          "desc": "Tái tạo và làm mềm da.\nLàm dịu mẫn đỏ và kích ứng.\nDưỡng ẩm và củng cố hàng rào bảo vệ da."
+        },
+        "facialRecover": {
+          "name": "PHỤC HỒI BẢO VỆ DA",
+          "desc": "Bảo vệ da chống lại các tác nhân gây hại từ môi trường.\nDưỡng ẩm, phục hồi và mang lại sự mềm mại và mịn màng."
+        },
+        "facialPureness": {
+          "name": "TINH LỌC TẠP CHẤT CHO DA DẦU",
+          "desc": "Giảm kích thước lỗ chân lông lớn.\nGiảm mụn và vết sẹo do mụn.\nCân bằng da dầu để có làn da đồng đều hơn."
+        },
+        "facialHydramemory": {
+          "name": "CẤP NƯỚC DƯỠNG ẨM SÂU",
+          "desc": "Dưỡng ẩm và làm sáng da chuyên sâu.\nKhôi phục sự săn chắc và sáng bóng cho da ngăn ngừa lão hóa sớm."
+        },
+        "facialSublime": {
+          "name": "SUBLIME SKIN PRO",
+          "desc": "Kích thích tái tạo da.\nMang lại làn da sáng mịn.\nTăng cường độ săn chắc của da.\nCông thức không chứa hương liệu nhân tạo."
+        }
+      },
+      "optionGroups": {
+        "duration": {
+          "label": "Thời lượng"
+        }
+      },
+      "options": {
+        "durationBasic60": {
+          "name": "Cơ bản - 60 phút"
+        },
+        "durationPro90": {
+          "name": "Chuyên sâu - 90 phút"
+        }
+      }
+    },
+    "waxing": {
+      "tabLabel": "Dịch vụ wax",
+      "categories": {
+        "waxingWomen": {
+          "label": "NỮ",
+          "note": "Sáp cứng và sáp mềm G|G™"
+        },
+        "waxingMen": {
+          "label": "NAM",
+          "note": "Sáp cứng và sáp mềm G|G™"
+        }
+      },
+      "items": {
+        "waxFace": {
+          "name": "Vùng mặt"
+        },
+        "waxArms": {
+          "name": "Vùng tay"
+        },
+        "waxLegs": {
+          "name": "Vùng chân"
+        },
+        "waxBikini": {
+          "name": "Vùng bikini"
+        },
+        "waxBack": {
+          "name": "Vùng lưng"
+        },
+        "waxBelly": {
+          "name": "Vùng bụng"
+        }
+      },
+      "optionGroups": {
+        "area": {
+          "label": "Vùng"
+        },
+        "coverage": {
+          "label": "Mức độ"
+        }
+      },
+      "options": {
+        "areaLip": {
+          "name": "Vùng môi"
+        },
+        "areaHairline": {
+          "name": "Vùng chân tóc"
+        },
+        "areaChin": {
+          "name": "Vùng cằm"
+        },
+        "areaLipChin": {
+          "name": "Vùng môi - cằm"
+        },
+        "areaEyebrow": {
+          "name": "Vùng chân mày"
+        },
+        "areaNeck": {
+          "name": "Vùng cổ"
+        },
+        "coverageHalf": {
+          "name": "1/2"
+        },
+        "coverageFull": {
+          "name": "Toàn bộ"
+        },
+        "areaUnderarms": {
+          "name": "Vùng nách"
+        },
+        "areaHalfArms": {
+          "name": "1/2"
+        },
+        "areaFullArms": {
+          "name": "Toàn bộ"
+        }
+      }
+    }
+  },
+  "contact": {
+    "zalo": "Zalo",
+    "whatsapp": "WhatsApp",
+    "phone": "Điện thoại",
+    "email": "Thư điện tử",
+    "messageTemplate": "Mẫu tin nhắn",
+    "copy": "Sao chép",
+    "copied": "Đã sao chép!",
+    "clickToCopy": "Nhấn để sao chép",
+    "bookingMessageTemplate": "Xin chào Privé,\nTôi muốn đặt lịch với thông tin như sau:\n\nChi nhánh mong muốn:\n- TP. Hồ Chí Minh: Quận 1 / Quận 2 / Quận 7\n- Hà Nội: Hoàn Kiếm\nDịch vụ:\nNgày & giờ:\nTên khách:\nĐiện thoại / WhatsApp:\nSố lượng khách:\nYêu cầu đặc biệt (nếu có):\n\nCảm ơn và hẹn gặp lại bạn sớm tại Privé 🌿",
+    "urgentMessage": "Nếu bạn dự định đến trong vòng 90 phút tới, vui lòng liên hệ trực tiếp để chúng tôi sắp xếp tốt nhất cho bạn."
+  },
+  "settings": {
+    "title": "Cài đặt",
+    "languages": {
+      "english": "Tiếng Anh",
+      "french": "Tiếng Pháp",
+      "chinese": "Tiếng Trung",
+      "vietnamese": "Tiếng Việt (VI)"
+    },
+    "actions": {
+      "clearProgress": "Xóa thông tin đã nhập",
+      "clearCancel": "Quay lại"
+    },
+    "clearConfirm": {
+      "message": "Thông tin đã nhập của bạn sẽ bị xóa và không thể hoàn tác"
+    }
+  },
+  "nav": {
+    "back": "Quay lại",
+    "next": "Tiếp tục",
+    "cart": "Giỏ dịch vụ",
+    "call": "Gọi điện",
+    "formNavLabel": "Điều hướng biểu mẫu"
+  }
+}

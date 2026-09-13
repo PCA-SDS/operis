@@ -30,8 +30,8 @@ export const customerPriorityUpdateSchema = z.object({
 export const customerPriorityListSchema = z.object({
   id: z.string().uuid().optional(),
   customerId: z.string().uuid().optional(),
-  page: z.coerce.number().min(1).default(1),
-  pageSize: z.coerce.number().min(1).max(100).default(50),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
   sortField: z.enum(['id', 'customer_id', 'priority', 'created_at']).optional().default('created_at'),
   sortDir: z.enum(['asc', 'desc']).optional().default('desc'),
 })

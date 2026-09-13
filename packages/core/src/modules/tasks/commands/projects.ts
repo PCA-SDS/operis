@@ -21,6 +21,7 @@ import {
 import { assertScopedUserIds } from '../lib/assignment'
 import { loadTasksMessages } from '../lib/messages'
 import { byId, isoDate, normalizeText } from '../lib/values'
+import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
 import {
   ensureOrganizationScope,
   ensureTenantScope,
@@ -98,11 +99,6 @@ async function syncMembers(
       }),
     )
   }
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  const code = (error as { code?: string })?.code
-  return code === '23505'
 }
 
 const createProjectCommand: CommandHandler<ProjectCreateInput, { projectId: string }> = {

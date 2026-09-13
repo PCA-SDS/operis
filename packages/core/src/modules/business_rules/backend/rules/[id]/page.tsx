@@ -16,7 +16,7 @@ import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import {
-  businessRuleFormSchema,
+  createBusinessRuleFormSchema,
   createFormGroups,
   createFieldDefinitions,
   type BusinessRuleFormValues,
@@ -99,6 +99,7 @@ export default function EditBusinessRulePage() {
   }
 
   const fields = React.useMemo(() => createFieldDefinitions(t), [t])
+  const schema = React.useMemo(() => createBusinessRuleFormSchema(t), [t])
 
   const formGroups = React.useMemo(
     () => createFormGroups(t, ConditionBuilder, ActionBuilder),
@@ -158,7 +159,7 @@ export default function EditBusinessRulePage() {
           key={ruleId}
           title={t('business_rules.rules.edit.title')}
           backHref="/backend/rules"
-          schema={businessRuleFormSchema}
+          schema={schema}
           fields={fields}
           initialValues={initialValues}
           optimisticLockUpdatedAt={rule?.updatedAt ?? rule?.updated_at ?? null}

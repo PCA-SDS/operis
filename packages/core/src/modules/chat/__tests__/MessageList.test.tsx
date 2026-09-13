@@ -85,6 +85,7 @@ function message(overrides: Partial<ChatMessageDto> = {}): ChatMessageDto {
     kind: 'user',
     body: 'hello',
     createdAt: '2026-09-02T10:00:00.000Z',
+    editedAt: null,
     clientMessageId: null,
     replyTo: null,
     systemEvent: null,
@@ -126,6 +127,33 @@ function authorLineCount(): number {
 }
 
 describe('MessageList', () => {
+  /**
+   * A skeleton earns its place by being the same silhouette as what replaces
+   * it. Even-width rows down the left read as a table and then jump when the
+   * real transcript lands.
+   */
+  describe('while loading', () => {
+    it('draws bubbles on both sides, not list rows', () => {
+      const { container } = renderList([], [], { isLoading: true })
+      const bubbles = Array.from(container.querySelectorAll('[data-slot="skeleton"]'))
+
+      expect(bubbles.length).toBeGreaterThan(3)
+      expect(bubbles.every((bubble) => bubble.className.includes('rounded-2xl'))).toBe(true)
+      expect(bubbles.some((bubble) => bubble.className.includes('bg-primary-soft'))).toBe(true)
+      expect(bubbles.some((bubble) => bubble.className.includes('bg-surface-muted'))).toBe(true)
+    })
+
+    it('weights the placeholder to the bottom, where a live transcript sits', () => {
+      const { container } = renderList([], [], { isLoading: true })
+      expect(container.firstElementChild?.className).toContain('justify-end')
+    })
+
+    it('announces itself', () => {
+      renderList([], [], { isLoading: true })
+      expect(screen.getAllByRole('status')[0]).toHaveAttribute('aria-busy', 'true')
+    })
+  })
+
   it('renders message bodies as text, never as markup', () => {
     renderList([message({ body: '<img src=x onerror=alert(1)>' })])
     // The body appears verbatim: if it had been parsed as HTML, this literal
@@ -306,6 +334,87 @@ describe('MessageList', () => {
       fireEvent.click(screen.getByText('Copy message'))
 
       expect(writeText).toHaveBeenCalledWith('the exact text')
+    })
+  })
+
+  /**
+   * Who may do what is decided per row, here, rather than by the caller: the
+   * caller knows whether the viewer may write in this conversation, and only the
+   * row knows who wrote the message.
+   */
+  describe('editing and deleting', () => {
+    function openMenuFor(row: HTMLElement): void {
+      fireEvent.click(
+        row.querySelector('button[aria-haspopup="menu"]') as HTMLElement,
+      )
+    }
+
+    function rowFor(id: string): HTMLElement {
+      return document.querySelector(`li[data-message-id="${id}"]`) as HTMLElement
+    }
+
+    it('offers edit on your own message', () => {
+      renderList([message({ id: 'mine', senderUserId: ME })], [], { onEdit: jest.fn() })
+      openMenuFor(rowFor('mine'))
+      expect(screen.getByText('Edit message')).toBeTruthy()
+    })
+
+    it('never offers edit on somebody else’s, even to a space owner', () => {
+      renderList([message({ id: 'theirs', senderUserId: THEM })], [], {
+        onEdit: jest.fn(),
+        canModerate: true,
+      })
+      openMenuFor(rowFor('theirs'))
+      expect(screen.queryByText('Edit message')).toBeNull()
+    })
+
+    it('hands the current body back so the composer can prefill it', () => {
+      const onEdit = jest.fn()
+      renderList([message({ id: 'mine', senderUserId: ME, body: 'as written' })], [], { onEdit })
+      openMenuFor(rowFor('mine'))
+      fireEvent.click(screen.getByText('Edit message'))
+      expect(onEdit).toHaveBeenCalledWith({ messageId: 'mine', body: 'as written' })
+    })
+
+    it('offers delete on your own message', () => {
+      const onDelete = jest.fn()
+      renderList([message({ id: 'mine', senderUserId: ME })], [], { onDelete })
+      openMenuFor(rowFor('mine'))
+      fireEvent.click(screen.getByText('Delete message'))
+      expect(onDelete).toHaveBeenCalledWith('mine')
+    })
+
+    it('withholds delete on somebody else’s message from an ordinary member', () => {
+      renderList([message({ id: 'theirs', senderUserId: THEM })], [], { onDelete: jest.fn() })
+      openMenuFor(rowFor('theirs'))
+      expect(screen.queryByText('Delete message')).toBeNull()
+    })
+
+    /** Removing a message is moderation, and a space already has owners for it. */
+    it('offers delete on somebody else’s message to a space owner', () => {
+      renderList([message({ id: 'theirs', senderUserId: THEM })], [], {
+        onDelete: jest.fn(),
+        canModerate: true,
+      })
+      openMenuFor(rowFor('theirs'))
+      expect(screen.getByText('Delete message')).toBeTruthy()
+    })
+
+    it('offers neither to a read-only member', () => {
+      renderList([message({ id: 'mine', senderUserId: ME })])
+      openMenuFor(rowFor('mine'))
+      expect(screen.queryByText('Edit message')).toBeNull()
+      expect(screen.queryByText('Delete message')).toBeNull()
+    })
+
+    it('marks an edited message, so the reader knows the words changed', () => {
+      renderList([message({ id: 'm1', editedAt: '2026-09-02T10:04:00.000Z' })])
+      expect(screen.getByText('(edited)')).toBeTruthy()
+    })
+
+    it('says nothing about a message nobody has edited', () => {
+      renderList([message({ id: 'm1' })])
+      expect(screen.queryByText('(edited)')).toBeNull()
     })
   })
 
@@ -1259,5 +1368,41 @@ describe('reply references', () => {
       authorName: 'Bob',
       body: 'the question',
     })
+  })
+})
+
+describe('pinning from the hover bar', () => {
+  /**
+   * Pinning is the action people take on a message they mean to come back to,
+   * and the panel that lists the results now sits beside the conversation — so
+   * it belongs on the bar rather than two clicks deep in the overflow.
+   */
+  it('offers a pin control on the message itself', () => {
+    renderList([message({ id: 'm1' })], [], {
+      onTogglePin: jest.fn(),
+    })
+    expect(screen.getByRole('button', { name: 'Pin message' })).toBeTruthy()
+  })
+
+  it('offers to undo it on a message already pinned', () => {
+    const pinnedMessage = message({ id: 'm1', pinned: true })
+    renderList([pinnedMessage], [], { onTogglePin: jest.fn() })
+    expect(screen.getByRole('button', { name: 'Unpin message' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Pin message' })).toBeNull()
+  })
+
+  it('pins the message it belongs to', () => {
+    const onTogglePin = jest.fn()
+    renderList([message({ id: 'm1' })], [], { onTogglePin })
+    fireEvent.click(screen.getByRole('button', { name: 'Pin message' }))
+    expect(onTogglePin).toHaveBeenCalledWith('m1', true)
+  })
+
+  it('offers nothing to a reader who may not pin', () => {
+    // A space member who is not an owner: the server refuses, so a control here
+    // would be a button that answers 403.
+    renderList([message({ id: 'm1' })])
+    expect(screen.queryByRole('button', { name: 'Pin message' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Unpin message' })).toBeNull()
   })
 })

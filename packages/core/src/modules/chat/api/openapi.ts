@@ -85,6 +85,17 @@ export const reactionSchema = z.object({
 export const reactionToggleSchema = z.object({ emoji: z.string(), reacted: z.boolean() })
 export const pinToggleSchema = z.object({ pinned: z.boolean() })
 
+export const editMessageResponseSchema = z.object({
+  messageId: z.string().uuid(),
+  body: z.string(),
+  editedAt: z.string(),
+})
+
+export const deleteMessageResponseSchema = z.object({
+  messageId: z.string().uuid(),
+  deletedAt: z.string(),
+})
+
 export const pinnedMessageSchema = z.object({
   messageId: z.string().uuid(),
   pinnedByUserId: z.string().uuid(),
@@ -109,6 +120,7 @@ export const messageSchema = z.object({
   senderName: z.string(),
   body: z.string(),
   createdAt: z.string(),
+  editedAt: z.string().nullable(),
   clientMessageId: z.string().nullable(),
   kind: z.enum(['user', 'system']),
   replyTo: replyTargetSchema.nullable(),
@@ -151,4 +163,66 @@ export const markReadResponseSchema = z.object({ lastReadAt: z.string() })
 export const markAllReadResponseSchema = z.object({
   conversationIds: z.array(z.string().uuid()),
   lastReadAt: z.string(),
+})
+
+export const searchHitSchema = z.object({
+  messageId: z.string().uuid(),
+  conversationId: z.string().uuid(),
+  conversationTitle: z.string().nullable(),
+  conversationKind: z.enum(['direct', 'space']),
+  senderUserId: z.string().uuid(),
+  senderName: z.string(),
+  snippet: z.string(),
+  highlights: z.array(z.object({ start: z.number(), end: z.number() })),
+  truncatedStart: z.boolean(),
+  truncatedEnd: z.boolean(),
+  createdAt: z.string(),
+})
+
+export const searchResultSchema = z.object({
+  items: z.array(searchHitSchema),
+  nextCursor: z.string().nullable(),
+  hasMore: z.boolean(),
+  total: z.number(),
+  totalIsCapped: z.boolean(),
+  fuzzyAvailable: z.boolean(),
+})
+
+export const chatAttachmentSchema = z.object({
+  id: z.string().uuid(),
+  fileName: z.string(),
+  mimeType: z.string(),
+  fileSize: z.number(),
+  kind: z.enum(['media', 'file']),
+  status: z.enum(['pending', 'ready', 'rejected', 'failed']),
+  createdAt: z.string(),
+})
+
+const sharedFileEntrySchema = z.object({
+  kind: z.enum(['file', 'media']),
+  attachmentId: z.string().uuid(),
+  messageId: z.string().uuid(),
+  fileName: z.string(),
+  mimeType: z.string(),
+  fileSize: z.number(),
+  uploaderUserId: z.string().uuid(),
+  uploaderName: z.string(),
+  createdAt: z.string(),
+})
+
+const sharedLinkEntrySchema = z.object({
+  kind: z.literal('link'),
+  id: z.string().uuid(),
+  messageId: z.string().uuid(),
+  url: z.string(),
+  host: z.string(),
+  sharedByUserId: z.string().uuid(),
+  sharedByName: z.string(),
+  createdAt: z.string(),
+})
+
+export const sharedResourcesSchema = z.object({
+  items: z.array(z.union([sharedFileEntrySchema, sharedLinkEntrySchema])),
+  nextCursor: z.string().nullable(),
+  hasMore: z.boolean(),
 })

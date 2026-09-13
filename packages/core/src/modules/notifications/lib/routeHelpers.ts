@@ -6,6 +6,7 @@ import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { resolveNotificationService, type NotificationService } from './notificationService'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 /**
  * Mutation-guard resource kind for notification rows.
@@ -230,7 +231,7 @@ export function createBulkNotificationRoute<TSchema extends z.ZodTypeAny>(
   return async function POST(req: Request) {
     const { service, scope, ctx } = await resolveNotificationContext(req)
 
-    const body = await req.json().catch(() => ({}))
+    const body = await readJsonSafe(req, {})
     const parsed = schema.safeParse(body)
     if (!parsed.success) {
       return notificationValidationErrorResponse(parsed.error)

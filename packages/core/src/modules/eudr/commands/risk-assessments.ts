@@ -40,6 +40,7 @@ import {
   type RiskAssessmentUpdateInput,
 } from '../data/validators'
 import { getCountryRiskTier } from '../lib/reference-data'
+import { toDateOrNull as toDate } from '@open-mercato/shared/lib/date/normalize'
 
 const RISK_ASSESSMENT_ENTITY_ID = 'eudr:eudr_risk_assessment'
 
@@ -122,10 +123,6 @@ const riskAssessmentCrudEvents: CrudEventsConfig<EudrRiskAssessment> = {
 
 function parseScopedCommandInput(input: unknown): ScopedCommandInput {
   return scopedCommandInputSchema.parse(input)
-}
-
-function toDate(value: string | null): Date | null {
-  return value ? new Date(value) : null
 }
 
 function cloneCountryRisks(value: CountryRisk[]): CountryRisk[] {

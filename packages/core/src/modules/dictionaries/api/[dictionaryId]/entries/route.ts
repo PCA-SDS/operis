@@ -37,6 +37,7 @@ import {
   sortDictionaryEntries,
 } from '@open-mercato/core/modules/dictionaries/lib/entrySort'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('dictionaries').child({ component: 'entries-api' })
 
@@ -202,7 +203,7 @@ export async function POST(req: Request, ctx: { params?: { dictionaryId?: string
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const { dictionaryId } = paramsSchema.parse({ dictionaryId: ctx.params?.dictionaryId })
-    const payload = createDictionaryEntrySchema.parse(await req.json().catch(() => ({})))
+    const payload = createDictionaryEntrySchema.parse(await readJsonSafe(req, {}))
     const guardUserId = resolveDictionaryActorId(context.auth)
     const guardResult = await validateCrudMutationGuard(context.container, {
       tenantId: context.tenantId,

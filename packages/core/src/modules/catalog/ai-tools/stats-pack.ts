@@ -10,14 +10,10 @@
  * Read-only — no `prepareMutation` gate, no DB writes.
  */
 
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { z } from 'zod'
 import { CatalogProduct, CatalogProductCategory, CatalogProductTag } from '../data/entities'
-import { assertTenantScope, type CatalogAiToolDefinition, type CatalogToolContext } from './types'
-
-function resolveEm(ctx: CatalogToolContext): EntityManager {
-  return ctx.container.resolve<EntityManager>('em')
-}
+import { assertTenantScope, type CatalogAiToolDefinition } from './types'
+import { resolveEm } from './_shared'
 
 const showStatsInput = z
   .object({

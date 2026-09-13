@@ -5,6 +5,7 @@ import type { CustomFieldSnapshot } from '@open-mercato/shared/lib/commands/cust
 import { CheckoutLink, CheckoutLinkTemplate } from '../data/entities'
 import { requireCheckoutScope, type CheckoutScope } from '../lib/utils'
 import { serializeTemplateOrLink, toMoneyString } from '../lib/utils'
+import { cloneJson } from '@open-mercato/shared/lib/json/cloneJson'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -88,11 +89,6 @@ const PROPAGATED_TEMPLATE_FIELD_KEYS = [
 ] as const satisfies ReadonlyArray<keyof CheckoutTemplateSnapshot>
 
 type PropagatedTemplateFieldKey = (typeof PROPAGATED_TEMPLATE_FIELD_KEYS)[number]
-
-function cloneJson<T>(value: T): T {
-  if (value == null) return value
-  return JSON.parse(JSON.stringify(value)) as T
-}
 
 function valuesEqual(left: unknown, right: unknown): boolean {
   if (left === right) return true

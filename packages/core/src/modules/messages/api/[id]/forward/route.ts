@@ -2,7 +2,7 @@ import type { CommandBus } from '@open-mercato/shared/lib/commands/command-bus'
 import { forwardMessageSchema } from '../../../data/validators'
 import { attachOperationMetadataHeader, OperationLogEntryLike } from '../../../lib/operationMetadata'
 import { canUseMessageEmailFeature, parseRequestBodySafe, resolveMessageContext } from '../../../lib/routeHelpers'
-import { resolveUserFeatures, runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../guards'
+import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../guards'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi/types'
 import { forwardResponseSchema, forwardMessageSchema as forwardSchema } from '../../openapi'
 import { MessageCommandExecuteResult } from '../../../commands/shared'
@@ -33,7 +33,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       requestHeaders: req.headers,
       mutationPayload: input as Record<string, unknown>,
     },
-    resolveUserFeatures(ctx.auth),
   )
   if (!guardResult.ok) {
     return Response.json(

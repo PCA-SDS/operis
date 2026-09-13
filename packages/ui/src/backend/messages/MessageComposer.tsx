@@ -40,6 +40,7 @@ function ContextObjectPreview({ contextObject }: { contextObject: MessageCompose
         actionLabel={contextObject.actionLabel}
         previewData={contextObject.previewData ?? undefined}
         icon={objectType?.icon}
+        fallbackTitleKey={objectType?.labelKey}
       />
     )
   }

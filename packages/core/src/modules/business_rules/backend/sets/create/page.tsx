@@ -7,17 +7,9 @@ import { CrudForm } from '@open-mercato/ui/backend/CrudForm'
 import type { CrudField } from '@open-mercato/ui/backend/CrudForm'
 import { apiFetch } from '@open-mercato/ui/backend/utils/api'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { z } from 'zod'
+import { createRuleSetFormSchema, type RuleSetFormValues } from '../../../components/formConfig'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
-const createRuleSetFormSchema = (t: (key: string) => string) =>
-  z.object({
-    setId: z.string().min(1, t('business_rules.sets.form.validation.setIdRequired')).max(50),
-    setName: z.string().min(1, t('business_rules.sets.form.validation.setNameRequired')).max(200),
-    description: z.string().max(5000).optional().nullable(),
-    enabled: z.boolean().optional(),
-  })
-
-type RuleSetFormValues = z.infer<ReturnType<typeof createRuleSetFormSchema>>
 
 export default function CreateRuleSetPage() {
   const router = useRouter()
@@ -40,12 +32,14 @@ export default function CreateRuleSetPage() {
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || error.message || t('business_rules.sets.errors.createFailed'))
+      // A 502 HTML page or an empty body would make `.json()` throw a
+      // SyntaxError that replaces the real failure with a parse error.
+      const error = await readJsonSafe<{ error?: string; message?: string }>(response, {})
+      throw new Error(error?.error || error?.message || t('business_rules.sets.errors.createFailed'))
     }
 
-    const result = await response.json()
-    router.push(`/backend/sets/${result.id}`)
+    const result = await readJsonSafe<{ id?: string }>(response, {})
+    router.push(`/backend/sets/${result?.id ?? ''}`)
     router.refresh()
   }
 

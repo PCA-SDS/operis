@@ -21,6 +21,8 @@ import {
   productMappingCreateSchema,
 } from '../../../../data/validators'
 import { suggestCommodityForHsCode } from '../../../../lib/reference-data'
+import { resolveGrantedFeatures } from '@open-mercato/shared/lib/auth/grantedFeatures'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('eudr').child({ component: 'api/product-mappings/suggestions/apply' })
 
@@ -71,12 +73,6 @@ function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
 }
 
-function resolveUserFeatures(auth: unknown): string[] {
-  const features = (auth as { features?: unknown })?.features
-  if (!Array.isArray(features)) return []
-  return features.filter((value): value is string => typeof value === 'string')
-}
-
 async function runGuards(
   ctx: CommandRuntimeContext,
   input: MutationGuardInput,
@@ -90,7 +86,7 @@ async function runGuards(
   const legacyGuard = bridgeLegacyGuard(ctx.container)
   const guards = [...getAllMutationGuardInstances(), ...(legacyGuard ? [legacyGuard] : [])]
   return runMutationGuards(guards, input, {
-    userFeatures: resolveUserFeatures(ctx.auth),
+    userFeatures: await resolveGrantedFeatures(ctx.container, ctx.auth, input.organizationId),
   })
 }
 
@@ -264,7 +260,7 @@ export async function POST(req: Request) {
   try {
     const requestContext = await resolveRequestContext(req)
     const { translate } = await resolveTranslations()
-    const payload = await req.json().catch(() => ({}))
+    const payload = await readJsonSafe(req, {})
     const input = applySchema.parse(payload)
     const catalogInfo = await loadCatalogProductInfo(
       requestContext,

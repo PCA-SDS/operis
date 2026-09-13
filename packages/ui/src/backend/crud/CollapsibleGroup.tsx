@@ -53,7 +53,7 @@ export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, Collaps
     ) : null
 
     const errorBadge = errorCount > 0 ? (
-      <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+      <span className="inline-flex items-center rounded-full bg-status-error-bg px-2 py-0.5 text-xs font-medium text-status-error-text">
         {errorCount === 1
           ? t('ui.collapsible.errorSingular', '{{count}} error', { count: errorCount })
           : t('ui.collapsible.errorPlural', '{{count}} errors', { count: errorCount })}

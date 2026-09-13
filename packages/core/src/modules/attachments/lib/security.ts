@@ -65,6 +65,39 @@ const SAFE_INLINE_MIME_TYPES = new Set([
   'image/webp',
 ])
 
+/**
+ * Whether these bytes are an executable, whatever the file is called.
+ *
+ * Extension checks stop `payload.exe`; they do nothing about the same payload
+ * renamed `invoice.pdf`. The magic numbers are what the operating system itself
+ * dispatches on, so they are the honest answer to "what is this file" — and a
+ * file whose true type is an executable violates the policy no matter which
+ * name it arrived under.
+ *
+ * Deliberately narrow: these are the headers that make a file directly
+ * runnable. Detecting a malicious *document* is a scanner's job, not a
+ * signature table's, and pretending otherwise here would be the "a MIME check
+ * is not malware protection" mistake.
+ */
+export function hasExecutableSignature(buffer: Buffer): boolean {
+  if (buffer.length < 4) return false
+
+  // Windows PE and DOS: "MZ".
+  if (buffer[0] === 0x4d && buffer[1] === 0x5a) return true
+  // Linux and most Unix: 0x7F "ELF".
+  if (buffer[0] === 0x7f && buffer[1] === 0x45 && buffer[2] === 0x4c && buffer[3] === 0x46) return true
+
+  const leading = buffer.readUInt32BE(0)
+  // Mach-O, both endiannesses and both widths, plus the universal/fat header —
+  // which Java class files share, and which is equally not something to run.
+  if ([0xfeedface, 0xfeedfacf, 0xcefaedfe, 0xcffaedfe, 0xcafebabe].includes(leading)) return true
+
+  // A shebang makes a text file executable, which is the point of it.
+  if (buffer[0] === 0x23 && buffer[1] === 0x21) return true
+
+  return false
+}
+
 export function getAttachmentExtension(fileName: string | null | undefined): string {
   const trimmed = String(fileName ?? '').trim()
   const parts = trimmed.split('.').filter(Boolean)
@@ -167,6 +200,10 @@ export function isActiveContentAttachment(
 
   const effectiveMimeType = String(mimeType ?? '').trim().toLowerCase()
   if (effectiveMimeType && ACTIVE_CONTENT_MIME_TYPES.has(effectiveMimeType)) return true
+
+  // Before the MIME sniff, because an executable has no MIME type this table
+  // would recognise — which is exactly how one travels under a harmless name.
+  if (hasExecutableSignature(buffer)) return true
 
   const sniffedMimeType = detectMimeTypeFromBuffer(buffer)
   return Boolean(sniffedMimeType && ACTIVE_CONTENT_MIME_TYPES.has(sniffedMimeType))

@@ -65,7 +65,7 @@ export const moduleOverrideExamples: ModuleOverrides = {
   nav: {
     // Prepends sidebar nav group ids ahead of the built-in ordering; unnamed groups keep their
     // current position. Applied beneath role and per-user sidebar preferences.
-    groupOrder: ['example.nav.group'],
+    groupOrder: ['example.nav.group', 'appointments.nav.group'],
   },
 }
 
@@ -97,6 +97,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'audit_logs', from: '@open-mercato/core' },
   { id: 'attachments', from: '@open-mercato/core' },
   { id: 'catalog', from: '@open-mercato/core' },
+  { id: 'appointments', from: '@open-mercato/core' },
   { id: 'sales', from: '@open-mercato/core' },
   { id: 'invoice', from: '@open-mercato/core' },
   { id: 'warranty_claims', from: '@open-mercato/core' },
@@ -132,6 +133,12 @@ export const enabledModules: ModuleEntry[] = [
   // messaging only — the external channel bridge is `communication_channels` and
   // the email-shaped inbox is `messages`; this is neither.
   { id: 'chat', from: '@open-mercato/core' },
+  // Maps chat conversations onto Matrix rooms. Compiled in but inert: the
+  // transport is selected by OM_CHAT_TRANSPORT, which defaults to the existing
+  // Postgres path, and the module renders nothing. Listed after `chat` so its
+  // migrations run once the tables it maps already exist.
+  // See docs/architecture/adr/ADR-0006-matrix-chat-transport.md
+  { id: 'chat_matrix', from: '@open-mercato/core' },
   // Communication channels hub (SPEC-045d) — bridges external chat/email channels
   // (Slack, WhatsApp, Email) to the unified Messages inbox. Provider packages
   // (channel-slack, channel-whatsapp, future email providers) register adapters here.
@@ -163,6 +170,7 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'channel_apns', from: '@open-mercato/channel-apns' },
   { id: 'channel_expo', from: '@open-mercato/channel-expo' },
   { id: 'channel_fcm', from: '@open-mercato/channel-fcm' },
+  { id: 'translate_ctranslate2', from: '@open-mercato/translate-ctranslate2' },
   { id: 'sync_akeneo', from: '@open-mercato/sync-akeneo' },
   // One-shot TPS catalog importer. CLI only — no routes, no entities. Client
   // menu data lives in the package so core carries no single customer's catalogue.

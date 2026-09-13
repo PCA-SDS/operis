@@ -20,7 +20,6 @@
  * the route's `id` filter (or post-filtered when more than one matches),
  * mirroring Phase 3a's `companyId` → `ids` trick for `customers.list_people`.
  */
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { z } from 'zod'
 import { defineApiBackedAiTool } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/api-backed-tool'
 import type {
@@ -30,15 +29,7 @@ import type {
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { CatalogProductPrice } from '../data/entities'
 import { assertTenantScope, type CatalogAiToolDefinition, type CatalogToolContext } from './types'
-import { listPriceKindsCore } from './_shared'
-
-function resolveEm(ctx: CatalogToolContext | AiToolExecutionContext): EntityManager {
-  return ctx.container.resolve<EntityManager>('em')
-}
-
-function buildScope(ctx: CatalogToolContext | AiToolExecutionContext, tenantId: string) {
-  return { tenantId, organizationId: ctx.organizationId }
-}
+import { buildScope, listPriceKindsCore, resolveEm } from './_shared'
 
 const listPricesInput = z
   .object({

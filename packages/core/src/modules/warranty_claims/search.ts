@@ -9,6 +9,7 @@ import type {
 import { E } from '#generated/entities.ids.generated'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { appendLine } from '@open-mercato/shared/modules/search/descriptorHelpers'
 
 const logger = createLogger('warranty_claims')
 
@@ -28,13 +29,6 @@ function readString(record: Record<string, unknown>, snakeKey: string, camelKey?
   if (typeof value !== 'string') return null
   const trimmed = value.trim()
   return trimmed.length ? trimmed : null
-}
-
-function appendLine(lines: string[], label: string, value: unknown): void {
-  if (typeof value !== 'string') return
-  const trimmed = value.trim()
-  if (!trimmed.length) return
-  lines.push(`${label}: ${trimmed}`)
 }
 
 function resolveClaimId(record: Record<string, unknown>): string | null {

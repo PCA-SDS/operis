@@ -35,8 +35,8 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 const logger = createLogger('customers')
 
 const listSchema = z.object({
-  page: z.coerce.number().min(1).default(1),
-  pageSize: z.coerce.number().min(1).max(100).default(50),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
   entityId: z.string().uuid().optional(),
   dealId: z.string().uuid().optional(),
   activityType: z.string().optional(),

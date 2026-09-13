@@ -22,8 +22,10 @@ const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(200).default(50),
+    page: z.coerce.number().int().min(1).default(1),
+    // Deliberately above the shared default: the shipments section loads a document's full shipment set in one request,
+    // and lowering this ceiling would 400 those existing callers.
+    pageSize: z.coerce.number().int().min(1).max(200).default(50),
     orderId: z.string().uuid().optional(),
     sortField: z.string().optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),

@@ -13,9 +13,7 @@ export function scopeOf(input: { tenantId: string; organizationId: string }): Ta
   return { tenantId: input.tenantId, organizationId: input.organizationId }
 }
 
-export function forkEm(ctx: CommandRuntimeContext): EntityManager {
-  return (ctx.container.resolve('em') as EntityManager).fork()
-}
+export { forkEm } from '@open-mercato/shared/lib/commands/helpers'
 
 export function readEm(ctx: CommandRuntimeContext): EntityManager {
   return ctx.container.resolve('em') as EntityManager

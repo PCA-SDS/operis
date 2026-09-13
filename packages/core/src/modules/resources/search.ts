@@ -6,47 +6,13 @@ import type {
 } from '@open-mercato/shared/modules/search'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-
-function pickString(...candidates: Array<unknown>): string | null {
-  for (const candidate of candidates) {
-    if (typeof candidate !== 'string') continue
-    const trimmed = candidate.trim()
-    if (trimmed.length > 0) return trimmed
-  }
-  return null
-}
-
-function snippet(value: unknown, max = 140): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const trimmed = value.trim()
-  if (!trimmed.length) return undefined
-  if (trimmed.length <= max) return trimmed
-  return `${trimmed.slice(0, max - 3)}...`
-}
-
-function appendLine(lines: string[], label: string, value: unknown) {
-  if (value === null || value === undefined) return
-  const text = Array.isArray(value)
-    ? value.map((item) => (item === null || item === undefined ? '' : String(item))).filter(Boolean).join(', ')
-    : (typeof value === 'object' ? JSON.stringify(value) : String(value))
-  if (!text.trim()) return
-  lines.push(`${label}: ${text}`)
-}
+import { appendLine, formatSubtitle, pickString, snippet } from '@open-mercato/shared/modules/search/descriptorHelpers'
 
 function appendCustomFieldLines(lines: string[], customFields: Record<string, unknown>) {
   for (const [key, value] of Object.entries(customFields)) {
     if (value === null || value === undefined) continue
     appendLine(lines, key.replace(/^cf:/, ''), value)
   }
-}
-
-function formatSubtitle(...parts: Array<unknown>): string | undefined {
-  const text = parts
-    .map((part) => (part === null || part === undefined ? '' : String(part)))
-    .map((part) => part.trim())
-    .filter(Boolean)
-  if (text.length === 0) return undefined
-  return text.join(' · ')
 }
 
 function buildResourcePresenter(
@@ -85,6 +51,43 @@ function buildResourceTypePresenter(
     subtitle: formatSubtitle(description),
     icon: 'shapes',
     badge: t('resources.search.badge.resourceType', 'Resource type'),
+  }
+}
+
+function buildResourceAreaPresenter(
+  t: TranslateFn,
+  record: Record<string, unknown>,
+  customFields: Record<string, unknown>,
+): SearchResultPresenter {
+  const title =
+    pickString(record.name, record.display_name, record.displayName, customFields.name, customFields.display_name) ??
+    (record.id as string | undefined) ??
+    t('resources.search.badge.resourceArea', 'Resource area')
+  const description = snippet(record.description ?? customFields.description)
+  const areaTypeId = record.area_type_id ?? record.areaTypeId
+  return {
+    title: String(title),
+    subtitle: formatSubtitle(description, areaTypeId),
+    icon: 'map-pin',
+    badge: t('resources.search.badge.resourceArea', 'Resource area'),
+  }
+}
+
+function buildAreaTypePresenter(
+  t: TranslateFn,
+  record: Record<string, unknown>,
+  _customFields: Record<string, unknown>,
+): SearchResultPresenter {
+  const title =
+    pickString(record.name, record.display_name, record.displayName) ??
+    (record.id as string | undefined) ??
+    t('resources.search.badge.areaType', 'Area type')
+  const description = snippet(record.description)
+  return {
+    title: String(title),
+    subtitle: formatSubtitle(description),
+    icon: 'layers',
+    badge: t('resources.search.badge.areaType', 'Area type'),
   }
 }
 
@@ -150,6 +153,54 @@ export const searchConfig: SearchModuleConfig = {
         return buildResourceTypePresenter(t, ctx.record, ctx.customFields)
       },
       resolveUrl: async (ctx) => `/backend/resources/resource-types/${encodeURIComponent(String(ctx.record.id))}/edit`,
+      fieldPolicy: {
+        searchable: ['name', 'description', 'appearance_icon', 'appearance_color'],
+      },
+    },
+    {
+      entityId: 'resources:resources_resource_area',
+      aclFeatures: ['resources.areas.view'],
+      enabled: true,
+      priority: 6,
+      buildSource: async (ctx) => {
+        const { t } = await resolveTranslations()
+        const record = ctx.record
+        const lines: string[] = []
+        appendLine(lines, 'Name', record.name)
+        appendLine(lines, 'Description', record.description)
+        appendLine(lines, 'Type', record.area_type_id ?? record.areaTypeId)
+        appendLine(lines, 'Parent', record.parent_area_id ?? record.parentAreaId)
+        return buildIndexSource(ctx, buildResourceAreaPresenter(t, record, ctx.customFields), lines)
+      },
+      formatResult: async (ctx) => {
+        const { t } = await resolveTranslations()
+        return buildResourceAreaPresenter(t, ctx.record, ctx.customFields)
+      },
+      resolveUrl: async (ctx) => `/backend/resources/areas/${encodeURIComponent(String(ctx.record.id))}/edit`,
+      fieldPolicy: {
+        searchable: ['name', 'description'],
+      },
+    },
+    {
+      entityId: 'resources:resources_resource_area_type',
+      aclFeatures: ['resources.areas.view'],
+      enabled: true,
+      priority: 6,
+      buildSource: async (ctx) => {
+        const { t } = await resolveTranslations()
+        const record = ctx.record
+        const lines: string[] = []
+        appendLine(lines, 'Name', record.name)
+        appendLine(lines, 'Description', record.description)
+        appendLine(lines, 'Icon', record.appearance_icon ?? record.appearanceIcon)
+        appendLine(lines, 'Color', record.appearance_color ?? record.appearanceColor)
+        return buildIndexSource(ctx, buildAreaTypePresenter(t, record, ctx.customFields), lines)
+      },
+      formatResult: async (ctx) => {
+        const { t } = await resolveTranslations()
+        return buildAreaTypePresenter(t, ctx.record, ctx.customFields)
+      },
+      resolveUrl: async (_ctx) => '/backend/resources/area-types',
       fieldPolicy: {
         searchable: ['name', 'description', 'appearance_icon', 'appearance_color'],
       },

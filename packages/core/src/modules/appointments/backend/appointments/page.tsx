@@ -1,0 +1,474 @@
+"use client"
+
+import * as React from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { Settings, Eye, Edit, Copy, LayoutPanelTop, Trash2 } from 'lucide-react'
+import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { DataTable } from '@open-mercato/ui/backend/DataTable'
+import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
+import { Button } from '@open-mercato/ui/primitives/button'
+import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { deleteCrud } from '@open-mercato/ui/backend/utils/crud'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
+import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
+import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { buildHrefWithReturnTo } from '@open-mercato/shared/lib/navigation/returnTo'
+import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
+import { AppointmentContactCell } from '../../components/AppointmentContactCell'
+import { AppointmentNotesCell } from '../../components/AppointmentNotesCell'
+import { AppointmentStatusSelect } from '../../components/AppointmentStatusSelect'
+import { AppointmentUrgencyCell } from '../../components/AppointmentUrgencyCell'
+import { AppointmentArrivalInfo } from '../../components/AppointmentArrivalInfo'
+import { APPOINTMENT_BOOKING_TYPE_OPTIONS } from '../../data/constants'
+import { formatCustomerDisplayName } from '../../lib/customerName'
+import { formatCustomerPhone } from '../../lib/phoneSnapshot'
+
+type Row = {
+  id: string
+  organizationId: string
+  organizationName: string | null
+  customerName: string
+  customerSalutation: string | null
+  customerPhone: string | null
+  customerEmail: string | null
+  customerPhoneCountryCode: string | null
+  bookingType: string | null
+  statusCode: string
+  requestedStartAt: string
+  notes: string | null
+  externalNotes: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+type ListPayload = { items: Row[] }
+
+type StatusOption = { code: string; label: string }
+
+function parseRequestedAt(value: string): Date | null {
+  try {
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return null
+    return date
+  } catch {
+    return null
+  }
+}
+
+function formatBookingDate(value: string, emptyLabel: string) {
+  const date = parseRequestedAt(value)
+  if (!date) return emptyLabel
+  return date.toLocaleDateString()
+}
+
+function formatBookingTime(value: string, emptyLabel: string) {
+  const date = parseRequestedAt(value)
+  if (!date) return emptyLabel
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatBookingType(value: string | null | undefined, emptyLabel: string) {
+  if (!value) return emptyLabel
+  const label = APPOINTMENT_BOOKING_TYPE_OPTIONS.find((option) => option.value === value)?.label
+  return label ?? value
+}
+
+function matchesSearch(row: Row, query: string, statusLabel: string | undefined): boolean {
+  const needle = query.trim().toLowerCase()
+  if (!needle) return true
+  const haystack = [
+    formatCustomerDisplayName(row.customerSalutation, row.customerName),
+    row.customerName,
+    row.organizationName ?? '',
+    row.customerEmail ?? '',
+    formatCustomerPhone(row.customerPhoneCountryCode, row.customerPhone),
+    row.customerPhone ?? '',
+    row.bookingType ?? '',
+    row.bookingType ? formatBookingType(row.bookingType, '') : '',
+    row.statusCode,
+    statusLabel ?? '',
+    row.notes ?? '',
+    row.externalNotes ?? '',
+    row.id,
+  ]
+    .join(' ')
+    .toLowerCase()
+  return haystack.includes(needle)
+}
+
+export default function AppointmentsListPage() {
+  const t = useT()
+  const pathname = usePathname()
+  const scopeVersion = useOrganizationScopeVersion()
+  const [rows, setRows] = React.useState<Row[]>([])
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [search, setSearch] = React.useState('')
+  const [filterValues, setFilterValues] = React.useState<FilterValues>({})
+  const [reloadToken, setReloadToken] = React.useState(0)
+  const [statusOptions, setStatusOptions] = React.useState<{ code: string; label: string }[]>([])
+
+  const statusesSettingsHref = React.useMemo(
+    () => buildHrefWithReturnTo('/backend/config/appointments', pathname || '/backend/appointments'),
+    [pathname],
+  )
+
+  React.useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+    async function loadStatuses() {
+      try {
+        const call = await apiCall<{ items?: StatusOption[] }>(
+          '/api/appointments/statuses',
+          { signal: controller.signal },
+          { fallback: { items: [] } },
+        )
+        if (cancelled || !call.ok) return
+        setStatusOptions(
+          (call.result?.items ?? []).map((item) => ({
+            code: item.code,
+            label: item.label,
+          })),
+        )
+      } catch (err) {
+        if (!cancelled) {
+          console.error(err)
+        }
+      }
+    }
+    void loadStatuses()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [scopeVersion])
+
+  const filters = React.useMemo<FilterDef[]>(
+    () => [
+      {
+        id: 'statusCode',
+        label: t('appointments.list.filters.status'),
+        type: 'select',
+        multiple: true,
+        options: statusOptions.map((option) => ({
+          value: option.code,
+          label: option.label,
+        })),
+      },
+    ],
+    [t, statusOptions],
+  )
+
+  React.useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+    async function load() {
+      setIsLoading(true)
+      try {
+        const call = await apiCall<ListPayload>(
+          '/api/appointments',
+          { signal: controller.signal },
+          { fallback: { items: [] } },
+        )
+        if (!call.ok) {
+          if (cancelled) return
+          const errorPayload = call.result as { error?: string } | undefined
+          flash(
+            typeof errorPayload?.error === 'string'
+              ? errorPayload.error
+              : t('appointments.list.error.loadFailed'),
+            'error',
+          )
+          return
+        }
+        if (!cancelled) {
+          setRows(Array.isArray(call.result?.items) ? call.result.items : [])
+        }
+      } catch (error) {
+        if (!cancelled) {
+          flash(
+            error instanceof Error ? error.message : t('appointments.list.error.loadFailed'),
+            'error',
+          )
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [scopeVersion, t])
+
+  const { ConfirmDialogElement, confirm } = useConfirmDialog()
+
+  const handleRowStatusChange = React.useCallback((appointmentId: string, nextStatusCode: string) => {
+    setRows((current) =>
+      current.map((row) =>
+        row.id === appointmentId ? { ...row, statusCode: nextStatusCode } : row,
+      ),
+    )
+  }, [])
+
+  const handleClone = React.useCallback(async (row: Row) => {
+    try {
+      const call = await apiCall<{ success: boolean; id?: string; error?: string }>(
+        `/api/appointments/${row.id}/clone`,
+        { method: 'POST' },
+        { fallback: { success: false } }
+      )
+      if (!call.ok || call.result?.error) {
+        throw new Error(call.result?.error || t('appointments.clone.failed', 'Unable to clone appointment.'))
+      }
+      flash(t('appointments.clone.success', 'Appointment cloned successfully'), 'success')
+      setReloadToken((prev: number) => prev + 1)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('appointments.clone.failed', 'Unable to clone appointment.')
+      flash(message, 'error')
+    }
+  }, [t])
+
+  const handleDelete = React.useCallback(async (row: Row) => {
+    const confirmed = await confirm({
+      title: t('appointments.list.actions.deleteConfirm', 'Delete this appointment?'),
+      variant: 'destructive',
+    })
+    if (!confirmed) return
+    try {
+      const headers = buildOptimisticLockHeader(row.updatedAt)
+      const call = await apiCall<{ success: boolean; error?: string }>(
+        `/api/appointments/${row.id}`,
+        { method: 'DELETE', headers },
+        { fallback: { success: false } }
+      )
+      if (!call.ok || call.result?.error) {
+        throw new Error(call.result?.error || t('appointments.delete.failed', 'Unable to delete appointment.'))
+      }
+      flash(t('appointments.delete.success', 'Appointment deleted'), 'success')
+      setRows((current) => current.filter((r) => r.id !== row.id))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('appointments.delete.failed', 'Unable to delete appointment.')
+      flash(message, 'error')
+    }
+  }, [confirm, t])
+
+  const statusLabelByCode = React.useMemo(() => {
+    const map = new Map<string, string>()
+    for (const option of statusOptions) {
+      map.set(option.code, option.label)
+    }
+    return map
+  }, [statusOptions])
+
+  const selectedStatusCodes = React.useMemo(() => {
+    const raw = filterValues.statusCode
+    if (Array.isArray(raw)) return new Set(raw.filter((item): item is string => typeof item === 'string'))
+    if (typeof raw === 'string' && raw.trim()) return new Set([raw.trim()])
+    return new Set<string>()
+  }, [filterValues.statusCode])
+
+  const visibleRows = React.useMemo(
+    () =>
+      rows.filter(
+        (row) =>
+          (selectedStatusCodes.size === 0 || selectedStatusCodes.has(row.statusCode)) &&
+          matchesSearch(row, search, statusLabelByCode.get(row.statusCode)),
+      ),
+    [rows, search, selectedStatusCodes, statusLabelByCode],
+  )
+
+  const columns = React.useMemo<ColumnDef<Row>[]>(
+    () => [
+      {
+        id: 'urgency',
+        accessorKey: 'createdAt',
+        header: () => (
+          <div className="text-center">{t('appointments.list.columns.urgency', 'Urgency')}</div>
+        ),
+        size: 140,
+        cell: ({ row }) => (
+          <div className="flex justify-center">
+            <AppointmentUrgencyCell
+              createdAt={row.original.createdAt}
+              statusCode={row.original.statusCode}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'bookingDate',
+        accessorKey: 'requestedStartAt',
+        header: t('appointments.list.columns.bookingDate', 'Booking Date'),
+        cell: ({ row }) =>
+          formatBookingDate(row.original.requestedStartAt, t('appointments.list.noValue')),
+      },
+      {
+        id: 'bookingTime',
+        accessorKey: 'requestedStartAt',
+        header: t('appointments.list.columns.time', 'Time'),
+        cell: ({ row }) => (
+          <div className="flex flex-col">
+            <span className="font-medium">
+              {formatBookingTime(row.original.requestedStartAt, t('appointments.list.noValue'))}
+            </span>
+            <AppointmentArrivalInfo
+              requestedStartAt={row.original.requestedStartAt}
+              statusCode={row.original.statusCode}
+            />
+          </div>
+        ),
+      },
+      {
+        id: 'customerName',
+        accessorFn: (row) =>
+          formatCustomerDisplayName(row.customerSalutation, row.customerName),
+        header: t('appointments.list.columns.customerName', 'Customer Name'),
+        cell: ({ row }) => (
+          <span className="truncate font-medium">
+            {formatCustomerDisplayName(
+              row.original.customerSalutation,
+              row.original.customerName,
+            ) || t('appointments.list.noValue')}
+          </span>
+        ),
+      },
+      {
+        id: 'contact',
+        accessorFn: (row) =>
+          `${row.customerPhoneCountryCode ?? ''} ${row.customerPhone ?? ''} ${row.customerEmail ?? ''}`.trim(),
+        header: t('appointments.list.columns.contact', 'Contact'),
+        meta: { truncate: false },
+        cell: ({ row }) => (
+          <AppointmentContactCell
+            phoneCountryCode={row.original.customerPhoneCountryCode}
+            customerPhone={row.original.customerPhone}
+            customerEmail={row.original.customerEmail}
+          />
+        ),
+      },
+      {
+        id: 'organizationName',
+        accessorKey: 'organizationName',
+        header: t('appointments.list.columns.location', 'Location'),
+        cell: ({ row }) =>
+          row.original.organizationName?.trim() || t('appointments.list.noValue'),
+      },
+      {
+        id: 'bookingType',
+        accessorKey: 'bookingType',
+        header: t('appointments.list.columns.bookingType', 'Type of booking'),
+        cell: ({ row }) => formatBookingType(row.original.bookingType, t('appointments.list.noValue')),
+      },
+      {
+        id: 'externalNotes',
+        accessorKey: 'externalNotes',
+        header: t('appointments.list.columns.customerNotes', 'Customer Notes'),
+        meta: { truncate: false },
+        cell: ({ row }) => (
+          <AppointmentNotesCell
+            notes={row.original.externalNotes}
+            titleKey="appointments.list.notes.customerTitle"
+            titleFallback="Customer Notes"
+          />
+        ),
+      },
+      {
+        id: 'notes',
+        accessorKey: 'notes',
+        header: t('appointments.list.columns.internalNotes', 'Internal Notes'),
+        meta: { truncate: false },
+        cell: ({ row }) => (
+          <AppointmentNotesCell
+            notes={row.original.notes}
+            titleKey="appointments.list.notes.internalTitle"
+            titleFallback="Internal Notes"
+          />
+        ),
+      },
+      {
+        id: 'statusCode',
+        accessorKey: 'statusCode',
+        header: t('appointments.list.columns.status'),
+        meta: { truncate: false },
+        cell: ({ row }) => (
+          <AppointmentStatusSelect
+            appointmentId={row.original.id}
+            statusCode={row.original.statusCode}
+            statuses={statusOptions}
+            onStatusChange={(nextCode) => handleRowStatusChange(row.original.id, nextCode)}
+          />
+        ),
+      },
+      {
+        id: 'actions',
+        header: () => <div className="text-center">{t('appointments.list.columns.actions', 'Actions')}</div>,
+        meta: { truncate: false },
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1.5">
+            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.view', 'View Details')}>
+              <Link href={`/backend/appointments/${row.original.id}`}>
+                <Eye className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.edit', 'Edit Booking')}>
+              <Link href={`/backend/appointments/${row.original.id}/edit`}>
+                <Edit className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.clone', 'Clone Booking')} onClick={() => void handleClone(row.original)}>
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.planner', 'Open Seat Planner')} disabled>
+              <LayoutPanelTop className="h-3.5 w-3.5" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" title={t('appointments.list.actions.delete', 'Delete Booking')} onClick={() => void handleDelete(row.original)}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [t, statusOptions, handleRowStatusChange, handleClone, handleDelete],
+  )
+
+  return (
+    <Page>
+      <PageBody>
+        <DataTable
+          title={t('appointments.list.title')}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild variant="outline">
+                <Link href={statusesSettingsHref}>
+                  <Settings className="size-4" aria-hidden="true" />
+                  {t('appointments.list.actions.configureStatuses', 'Configure statuses')}
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link href="/backend/appointments/create">
+                  {t('appointments.list.actions.create')}
+                </Link>
+              </Button>
+            </div>
+          }
+          columns={columns}
+          data={visibleRows}
+          filters={filters}
+          filterValues={filterValues}
+          onFiltersApply={(values) => setFilterValues(values)}
+          onFiltersClear={() => setFilterValues({})}
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder={t('appointments.list.search.placeholder', 'Search appointments…')}
+          perspective={{ tableId: 'appointments.list.v5' }}
+          isLoading={isLoading}
+        />
+        {ConfirmDialogElement}
+      </PageBody>
+    </Page>
+  )
+}

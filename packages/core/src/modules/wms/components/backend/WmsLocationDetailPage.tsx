@@ -45,6 +45,7 @@ import { AdjustInventoryDialog } from './AdjustInventoryDialog'
 import { CycleCountWizardDialog } from './CycleCountWizardDialog'
 import { LocationEditDialog } from './LocationEditDialog'
 import { useWmsInventoryMutationAccess } from './useWmsInventoryMutationAccess'
+import { downloadCsvExport } from '../../lib/downloadCsvExport'
 
 const locationIdSchema = z.string().uuid()
 
@@ -129,23 +130,6 @@ type InventoryMutationPreset = {
 type ItemFilter = 'all' | 'sellable' | 'picking' | 'nearExpiry'
 
 const NEAR_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000
-
-function escapeCsvCell(value: string | number): string {
-  const str = String(value ?? '')
-  if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`
-  return str
-}
-
-function downloadCsvFile(filename: string, rows: string[][]) {
-  const csv = rows.map((row) => row.map(escapeCsvCell).join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
 
 function toNumber(value: string | number | null | undefined): number {
   const parsed = Number(value ?? 0)
@@ -747,29 +731,31 @@ export default function WmsLocationDetailPage({ locationId }: WmsLocationDetailP
   }, [pagedBalances, selectedBalanceIds])
 
   const handleExportItemsCsv = React.useCallback(() => {
-    const headers = [
-      t('wms.backend.location.items.columns.sku', 'SKU'),
-      t('wms.backend.location.items.columns.variant', 'Variant name'),
-      t('wms.backend.location.items.columns.lot', 'Lot'),
-      t('wms.backend.location.items.columns.onHand', 'On hand'),
-      t('wms.backend.location.items.columns.reserved', 'Reserved'),
-      t('wms.backend.location.items.columns.status', 'Status'),
+    const columns = [
+      { field: 'sku', header: t('wms.backend.location.items.columns.sku', 'SKU') },
+      { field: 'variant', header: t('wms.backend.location.items.columns.variant', 'Variant name') },
+      { field: 'lot', header: t('wms.backend.location.items.columns.lot', 'Lot') },
+      { field: 'onHand', header: t('wms.backend.location.items.columns.onHand', 'On hand') },
+      { field: 'reserved', header: t('wms.backend.location.items.columns.reserved', 'Reserved') },
+      { field: 'status', header: t('wms.backend.location.items.columns.status', 'Status') },
     ]
     const rows = filteredBalances.map((row) => {
       const lot = row.lot_id ? lotById.get(row.lot_id) : undefined
       const reorderPoint = reorderPointByVariant.get(row.catalog_variant_id?.trim() ?? '') ?? 0
       const status = resolveItemStatus(row, lot, reorderPoint, nowMs)
-      return [
-        formatSkuLabel(row),
-        formatVariantName(row),
-        formatLotLabel(lot, locale),
-        String(toNumber(row.quantity_on_hand)),
-        String(toNumber(row.quantity_reserved)),
-        t(status.labelKey, status.labelFallback),
-      ]
+      return {
+        sku: formatSkuLabel(row),
+        variant: formatVariantName(row),
+        lot: formatLotLabel(lot, locale),
+        // Raw numbers, not strings: the serializer exempts `number` from formula
+        // neutralization, so a stringified negative would export as `'-7`.
+        onHand: toNumber(row.quantity_on_hand),
+        reserved: toNumber(row.quantity_reserved),
+        status: t(status.labelKey, status.labelFallback),
+      }
     })
     const safeCode = pageTitle.replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'location'
-    downloadCsvFile(`${safeCode}-items.csv`, [headers, ...rows])
+    downloadCsvExport(`${safeCode}-items.csv`, columns, rows)
   }, [filteredBalances, locale, lotById, nowMs, pageTitle, reorderPointByVariant, t])
 
   const warehouseLabel = formatWarehouseLabel(locationQuery.data ?? {})
@@ -1201,7 +1187,15 @@ export default function WmsLocationDetailPage({ locationId }: WmsLocationDetailP
             </section>
 
             <DataTable<InventoryMovementRow>
-              title={t('wms.backend.location.activity.title', 'Recent activity')}
+              // A mid-page section heading, not a page title: a bare string here
+              // takes DataTable's standalone `h1 text-2xl` treatment and reads as a
+              // second page title under the real one. This matches the `embedded`
+              // distribution table in the section above.
+              title={(
+                <h2 className="text-sm font-semibold leading-tight text-foreground">
+                  {t('wms.backend.location.activity.title', 'Recent activity')}
+                </h2>
+              )}
               columns={activityColumns}
               data={movementsQuery.data ?? []}
               disableRowClick

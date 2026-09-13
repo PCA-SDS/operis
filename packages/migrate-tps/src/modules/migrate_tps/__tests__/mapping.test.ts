@@ -5,6 +5,7 @@ import {
   extractTpsDuration,
   hasNestedTpsOptionTree,
   enumerateTpsOptionPaths,
+  buildTranslationsPayload,
   type OptionPath,
 } from '../mapping'
 import type { OptionGroup } from '@open-mercato/core/modules/catalog/data/types'
@@ -127,5 +128,51 @@ describe('TPS Migration Mapping Helpers', () => {
       expect(paths[1].optionValues).toEqual({ 'Color': 'Blue' })
       expect(paths[1].totalPrice).toBe(120)
     })
+  })
+})
+
+describe('buildTranslationsPayload', () => {
+  it('resolves every TPS locale for a key path present in all of them', () => {
+    expect(buildTranslationsPayload({ name: 'common.close' })).toEqual({
+      en: { name: 'Close' },
+      fr: { name: 'Fermer' },
+      vi: { name: 'Đóng' },
+      zh: { name: '关闭' },
+    })
+  })
+
+  it('maps several entity fields from separate key paths in one payload', () => {
+    const payload = buildTranslationsPayload({ name: 'common.close', description: 'meta.title' })
+    expect(payload.vi).toEqual({ name: 'Đóng', description: 'Privé Spa - Đặt lịch' })
+    expect(payload.en).toEqual({ name: 'Close', description: 'Privé Spa - Booking' })
+  })
+
+  it('skips fields whose key path is undefined instead of writing an empty value', () => {
+    const payload = buildTranslationsPayload({ name: 'common.close', description: undefined })
+    for (const locale of Object.keys(payload)) {
+      expect(payload[locale]).not.toHaveProperty('description')
+    }
+  })
+
+  it('omits a locale entirely when it translates none of the requested fields', () => {
+    // `contact.clickToCopy` exists in en/vi but not fr/zh — the caller uses the
+    // empty payload to decide whether to write an entity_translations row at all.
+    const payload = buildTranslationsPayload({ note: 'contact.clickToCopy' })
+    expect(Object.keys(payload).sort()).toEqual(['en', 'vi'])
+  })
+
+  it('returns an empty payload when nothing resolves, so no translation row is written', () => {
+    expect(buildTranslationsPayload({ name: 'no.such.key.at.all' })).toEqual({})
+    expect(buildTranslationsPayload({})).toEqual({})
+  })
+
+  it('ignores a key path that lands on a group rather than a string', () => {
+    expect(buildTranslationsPayload({ name: 'common' })).toEqual({})
+  })
+
+  it('does not walk the prototype chain when resolving a key path', () => {
+    expect(buildTranslationsPayload({ name: '__proto__.polluted' })).toEqual({})
+    expect(buildTranslationsPayload({ name: 'constructor.name' })).toEqual({})
+    expect(buildTranslationsPayload({ name: 'common.constructor.name' })).toEqual({})
   })
 })

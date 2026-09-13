@@ -12,8 +12,28 @@ import { getTokenContext, readJsonSafe } from '@open-mercato/core/helpers/integr
 type FeatureCheckResponse = { ok?: boolean; granted?: string[] }
 type AdminNavResponse = { grantedFeatures?: string[] }
 
+/**
+ * A feature id no enabled module declares.
+ *
+ * It used to be nulled by an `overrides.acl.features` entry on the `example`
+ * module; that module left the deployment with the MVP scope change, and the
+ * override block it belonged to is now only a copyable reference in
+ * `apps/mercato/src/modules.ts` (`moduleOverrideExamples`), wired to nothing.
+ * Either way the runtime verdict under test is the same one: a grant naming a
+ * feature the registry does not hold is inert, whether the id was retired or
+ * never existed. Pointing at a live module's id would test the opposite.
+ */
 const REMOVED_FEATURE = 'example.manage'
-const ACTIVE_SIBLING = 'example.todos.view'
+
+/**
+ * A live feature from an enabled module, and the reason this test can tell
+ * "denied because the id is dead" apart from "denied because the check is
+ * broken". `example.todos.view` used to play this part and went with the same
+ * module — which made the wildcard and superadmin cases pass for the wrong
+ * reason while this assertion failed.
+ */
+const ACTIVE_SIBLING = 'tasks.view'
+const ACTIVE_SIBLING_WILDCARD = 'tasks.*'
 
 async function checkFeatures(
   request: APIRequestContext,
@@ -68,7 +88,7 @@ test.describe('TC-AUTH-055: nulled ACL features are runtime-inert', () => {
     try {
       const actors = [
         await createActor('literal', { features: [REMOVED_FEATURE, ACTIVE_SIBLING] }),
-        await createActor('wildcard', { features: ['example.*'] }),
+        await createActor('wildcard', { features: [ACTIVE_SIBLING_WILDCARD] }),
         await createActor('superadmin', { features: [], isSuperAdmin: true }),
       ]
 

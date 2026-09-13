@@ -15,6 +15,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { WorkflowEvent, WorkflowInstance } from '../../data/entities'
 import { workflowEventListItemSchema } from '../openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { MAX_PAGE_SIZE } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('workflows')
 
@@ -174,7 +175,7 @@ export const openApi = {
       tags: ['Workflows'],
       query: z.object({
         page: z.number().int().positive().default(1).optional(),
-        pageSize: z.number().int().positive().default(50).optional(),
+        pageSize: z.number().int().positive().max(MAX_PAGE_SIZE).default(50).optional(),
         eventType: z.string().optional(),
         workflowInstanceId: z.string().uuid().optional(),
         userId: z.string().optional(),

@@ -8,7 +8,6 @@ import { CatalogProduct, CatalogProductConstraint } from '../../../../data/entit
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import {
-  resolveUserFeatures,
   runCatalogMutationGuardAfterSuccess,
   runCatalogMutationGuards,
 } from '../../../guards'
@@ -29,8 +28,10 @@ const constraintResponseSchema = z.object({
   target_option_id: z.string().uuid().nullable(),
   source_product_name: z.string().nullable().optional(),
   source_option_name: z.string().nullable().optional(),
+  source_option_path: z.string().nullable().optional(),
   target_product_name: z.string().nullable().optional(),
   target_option_name: z.string().nullable().optional(),
+  target_option_path: z.string().nullable().optional(),
   locked: z.boolean(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -170,7 +171,7 @@ export async function GET(
       tenantId,
       organizationId
     },
-    { populate: ['sourceProduct', 'sourceOption', 'targetProduct', 'targetOption.group.product'] }
+    { populate: ['sourceProduct', 'sourceOption.group.product', 'targetProduct', 'targetOption.group.product'] }
   )
 
   const serialized = outgoing.map((c) => serializeConstraint(c))
@@ -188,7 +189,7 @@ export async function GET(
         tenantId,
         organizationId
       },
-      { populate: ['sourceProduct', 'sourceOption', 'targetProduct', 'targetOption.group.product'] }
+      { populate: ['sourceProduct', 'sourceOption.group.product', 'targetProduct', 'targetOption.group.product'] }
     )
     incomingConstraints = incoming.map((c) => serializeConstraint(c))
   }
@@ -206,7 +207,20 @@ export async function GET(
   })
 }
 
+function buildOptionPath(option: InstanceType<typeof CatalogProductConstraint>['sourceOption']) {
+  if (!option) return null
+  const parts = [
+    option.group?.product?.title,
+    option.group?.name,
+    option.name,
+  ].filter((part): part is string => Boolean(part))
+  return parts.length > 0 ? parts.join(' > ') : option.name
+}
+
 function serializeConstraint(c: InstanceType<typeof CatalogProductConstraint>) {
+  const sourceOptionPath = buildOptionPath(c.sourceOption)
+  const targetOptionPath = buildOptionPath(c.targetOption)
+
   return {
     id: c.id,
     constraint_type: c.constraintType,
@@ -214,10 +228,12 @@ function serializeConstraint(c: InstanceType<typeof CatalogProductConstraint>) {
     source_option_id: c.sourceOption?.id ?? null,
     target_product_id: c.targetProduct?.id ?? c.targetOption?.group?.product?.id ?? null,
     target_option_id: c.targetOption?.id ?? null,
-    source_product_name: c.sourceProduct?.title ?? null,
+    source_product_name: c.sourceProduct?.title ?? c.sourceOption?.group?.product?.title ?? null,
     source_option_name: c.sourceOption?.name ?? null,
+    source_option_path: sourceOptionPath,
     target_product_name: c.targetProduct?.title ?? c.targetOption?.group?.product?.title ?? null,
     target_option_name: c.targetOption?.name ?? null,
+    target_option_path: targetOptionPath,
     locked: c.locked,
     created_at: c.createdAt.toISOString(),
     updated_at: c.updatedAt.toISOString(),
@@ -279,7 +295,6 @@ export async function PUT(
   const guardResult = await runCatalogMutationGuards(
     ctx.container,
     guardInput,
-    resolveUserFeatures(ctx.auth),
   )
   if (!guardResult.ok) {
     throw new CrudHttpError(guardResult.errorStatus ?? 422, guardResult.errorBody ?? { error: 'Operation blocked by guard' })

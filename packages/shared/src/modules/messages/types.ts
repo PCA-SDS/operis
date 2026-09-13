@@ -131,6 +131,13 @@ export type ObjectPreviewProps = {
   actionType?: string
   actionLabel?: string
   icon?: string
+  /**
+   * i18n key for the heading when `previewData.title` is absent (a failed or
+   * pending preview load). Hosts pass the object type's own `labelKey`, so a
+   * module gets a translated fallback without forking the component — which is
+   * what `sales` had done, and its fork silently dropped `previewData.metadata`.
+   */
+  fallbackTitleKey?: string
 }
 
 export type ObjectDetailProps = ObjectPreviewProps & {

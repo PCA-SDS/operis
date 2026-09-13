@@ -167,16 +167,30 @@ export function createDictionarySelectLabels(
   }
 }
 
+/**
+ * Whole-unit money formatter for CRM cards and KPI strips — deliberately
+ * `maximumFractionDigits: 0`, which is why it does not simply call
+ * `@open-mercato/ui/utils/format`'s `formatCurrency`.
+ *
+ * With no usable currency code it formats a bare number rather than guessing
+ * one. It used to default to `'PLN'`, which silently rendered every
+ * currency-less amount in the product as Polish zloty.
+ */
 export function formatCurrency(amount: number, currency?: string | null): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currency || 'PLN',
-      maximumFractionDigits: 0,
-    }).format(amount)
-  } catch {
-    return `${amount.toLocaleString()} ${currency || 'PLN'}`
+  const code = currency && currency.length === 3 ? currency.toUpperCase() : undefined
+  if (code) {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: code,
+        maximumFractionDigits: 0,
+      }).format(amount)
+    } catch {
+      // An unknown-but-well-formed code: keep the number readable and append it.
+      return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(amount)} ${code}`
+    }
   }
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(amount)
 }
 
 export function formatFallbackLabel(value: string): string {

@@ -1,21 +1,11 @@
 import type { SearchBuildContext, SearchIndexSource, SearchModuleConfig, SearchResultPresenter } from '@open-mercato/shared/modules/search'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { normalizeText } from '@open-mercato/shared/modules/search/descriptorHelpers'
 
 const CATALOG_PRODUCTS_URL = '/backend/catalog/products'
 const CATALOG_CATEGORIES_URL = '/backend/catalog/categories'
 const CATALOG_CONFIG_URL = '/backend/config/catalog'
-
-function normalizeText(value: unknown): string | null {
-  if (value === null || value === undefined) return null
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    return trimmed.length > 0 ? trimmed : null
-  }
-  if (value instanceof Date) return value.toISOString()
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
-  return null
-}
 
 function pickText(...candidates: Array<unknown>): string | null {
   for (const candidate of candidates) {

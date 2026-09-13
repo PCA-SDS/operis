@@ -541,7 +541,7 @@ function resolveSplashLocaleConfig() {
   if (splashLocaleConfig) return splashLocaleConfig
 
   const fallback = {
-    locales: ['en', 'pl', 'es', 'de'],
+    locales: ['en', 'pl', 'es', 'de', 'ko', 'vi', 'fr', 'zh'],
     defaultLocale: 'en',
   }
 
@@ -1019,6 +1019,10 @@ function renderSplashHtml(req) {
     pl: 'Polski',
     es: 'Español',
     de: 'Deutsch',
+    ko: '한국어',
+    vi: 'Tiếng Việt',
+    fr: 'Français',
+    zh: '中文',
   }
   const splashBootstrap = escapeForInlineScript({
     supportedLocales: localeConfig.locales,

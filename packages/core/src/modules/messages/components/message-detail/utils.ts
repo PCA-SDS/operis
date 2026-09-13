@@ -1,28 +1,7 @@
 import type { MessageObjectAction } from '@open-mercato/shared/modules/messages/types'
 import type { MessageAction } from './types'
 
-export function toErrorMessage(payload: unknown): string | null {
-  if (!payload) return null
-  if (typeof payload === 'string') return payload
-  if (Array.isArray(payload)) {
-    for (const item of payload) {
-      const nested = toErrorMessage(item)
-      if (nested) return nested
-    }
-    return null
-  }
-  if (typeof payload === 'object') {
-    const record = payload as Record<string, unknown>
-    return (
-      toErrorMessage(record.error)
-      ?? toErrorMessage(record.message)
-      ?? toErrorMessage(record.detail)
-      ?? toErrorMessage(record.details)
-      ?? null
-    )
-  }
-  return null
-}
+export { toErrorMessage } from '@open-mercato/shared/lib/http/errorMessage'
 
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return '—'

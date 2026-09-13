@@ -21,7 +21,6 @@ jest.mock('@open-mercato/shared/lib/di/container', () => ({
 }))
 
 jest.mock('../guards', () => ({
-  resolveUserFeatures: jest.fn(() => []),
   runPaymentGatewayMutationGuards: jest.fn(),
   runPaymentGatewayMutationGuardAfterSuccess: jest.fn(),
 }))
@@ -74,7 +73,6 @@ describe('payment gateway write routes wire the mutation guard lifecycle', () =>
       expect(runPaymentGatewayMutationGuards).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ resourceKind: RESOURCE_KIND, operation: 'create' }),
-        [],
       )
     })
 
@@ -141,7 +139,6 @@ describe('payment gateway write routes wire the mutation guard lifecycle', () =>
       expect(runPaymentGatewayMutationGuards).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ resourceKind: RESOURCE_KIND, operation: 'update', resourceId: TXN_ID }),
-        [],
       )
     })
 
@@ -173,7 +170,6 @@ describe('payment gateway write routes wire the mutation guard lifecycle', () =>
       expect(runPaymentGatewayMutationGuards).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ resourceKind: RESOURCE_KIND, operation: 'update', resourceId: TXN_ID }),
-        [],
       )
     })
 
@@ -205,7 +201,6 @@ describe('payment gateway write routes wire the mutation guard lifecycle', () =>
       expect(runPaymentGatewayMutationGuards).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ resourceKind: RESOURCE_KIND, operation: 'update', resourceId: TXN_ID }),
-        [],
       )
     })
 

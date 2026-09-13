@@ -117,7 +117,7 @@ export function KpiCard({
     return (
       <div className={wrapperClass}>
         {headerRow}
-        <p className="text-sm text-destructive">{error}</p>
+        <p className="text-sm text-status-error-text">{error}</p>
       </div>
     )
   }

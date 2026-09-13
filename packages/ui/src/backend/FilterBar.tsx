@@ -81,14 +81,14 @@ export function FilterBar({
   }, [searchDraft, onSearchChange, searchDebounceMs])
 
   const activeCount = React.useMemo(() => {
-    const isActive = (v: any) => {
-      if (v == null) return false
-      if (typeof v === 'string') return v.trim() !== ''
-      if (Array.isArray(v)) return v.length > 0
-      if (typeof v === 'object') return Object.values(v).some((x) => x != null && x !== '')
-      return Boolean(v)
+    const countValue = (v: any): number => {
+      if (v == null) return 0
+      if (typeof v === 'string') return v.trim() ? 1 : 0
+      if (Array.isArray(v)) return v.filter((item) => item != null && item !== '').length
+      if (typeof v === 'object') return Object.values(v).some((x) => x != null && x !== '') ? 1 : 0
+      return v ? 1 : 0
     }
-    return Object.values(values).filter(isActive).length
+    return Object.values(values).reduce((total, value) => total + countValue(value), 0)
   }, [values])
 
   const containerClass = `flex flex-col ${layout === 'inline' ? 'gap-1 sm:gap-2' : 'gap-2'} w-full`

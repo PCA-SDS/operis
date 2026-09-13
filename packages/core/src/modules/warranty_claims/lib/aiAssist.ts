@@ -15,6 +15,7 @@ import type { AiChatRequestContext } from '@open-mercato/ai-assistant/modules/ai
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { WarrantyClaim, WarrantyClaimEvent, WarrantyClaimLine } from '../data/entities'
+import { toIsoOrNull as toIso } from '@open-mercato/shared/lib/date/normalize'
 import type {
   WarrantyClaimDisposition,
   WarrantyClaimEventKind,
@@ -145,12 +146,6 @@ export type ClaimPromptFactsInput = {
   lines: WarrantyClaimLine[]
   timelineEvents: WarrantyClaimEvent[]
   tone?: ClaimReplyTone
-}
-
-function toIso(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  const date = value instanceof Date ? value : new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
 
 function nullableString(value: string | number | null | undefined): string | null {

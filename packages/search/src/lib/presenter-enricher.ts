@@ -28,6 +28,10 @@ const logWarning = (message: string, context?: Record<string, unknown>) => {
  * Split an array into chunks of specified size.
  */
 function chunk<T>(array: T[], size: number): T[][] {
+  // A non-positive size would never advance `i` — guard it the same way the
+  // query_index copy of this helper does, so a mis-configured batch size fails
+  // as one oversized batch instead of hanging the enricher.
+  if (size <= 0) return [array]
   const chunks: T[][] = []
   for (let i = 0; i < array.length; i += size) {
     chunks.push(array.slice(i, i + size))

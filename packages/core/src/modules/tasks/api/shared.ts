@@ -170,6 +170,23 @@ export async function runGuardedCommand<TInput, TResult>(
 
   await guard.runAfterSuccess()
 
+  /**
+   * Drop everything this request had loaded, now that the command has committed.
+   *
+   * Commands run on their own `forkEm(ctx)`, so the rows they change are updated
+   * in a *different* identity map from `request.em` — and the mutation guard has
+   * usually already loaded the target into `request.em` to check it. Every route
+   * here then reads the record back through `request.em` to build its response,
+   * and MikroORM answers that `findOne` from the identity map: the write lands
+   * in the database while the response describes the row as it was BEFORE it.
+   *
+   * Measured on `PATCH /api/tasks/projects/:id/archive` with `{archived:false}`:
+   * the response carried the old `archivedAt` timestamp while an independent GET
+   * immediately after returned `null`. Sixteen routes share this shape, so the
+   * clear belongs here rather than in each of them — a new route cannot forget it.
+   */
+  request.em.clear()
+
   return { ok: true, result }
 }
 

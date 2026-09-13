@@ -15,6 +15,7 @@ import {
 } from '@open-mercato/shared/lib/crud/mutation-guard'
 import { assertAvailabilityWriteAccess, resolveAvailabilityActorId } from './access'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('planner').child({ component: 'availability' })
 
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
   try {
     const { ctx } = await resolveRequestContext(req)
     const { translate } = await resolveTranslations()
-    const payload = await req.json().catch(() => ({}))
+    const payload = await readJsonSafe(req, {})
     const input = parseScopedCommandInput(plannerAvailabilityWeeklyReplaceSchema, payload, ctx, translate)
     await assertAvailabilityWriteAccess(ctx, { subjectType: input.subjectType, subjectId: input.subjectId }, translate)
     const guardInput = {

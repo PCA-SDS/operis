@@ -5,6 +5,7 @@ import { parseScopedCommandInput, withScopedPayload } from '@open-mercato/shared
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { E } from '#generated/entities.ids.generated'
 import { WarrantyClaimLine } from '../../data/entities'
+import { toIsoOrEcho as toIso } from '@open-mercato/shared/lib/date/normalize'
 import {
   claimLineCreateSchema,
   claimLineUpdateSchema,
@@ -65,15 +66,6 @@ function readNumber(record: Record<string, unknown>, snakeKey: string, camelKey:
   if (typeof value === 'string') {
     const parsed = Number(value)
     return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
-}
-
-function toIso(value: unknown): string | null {
-  if (value instanceof Date) return value.toISOString()
-  if (typeof value === 'string') {
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? value : date.toISOString()
   }
   return null
 }

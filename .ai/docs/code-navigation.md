@@ -115,10 +115,15 @@ is deliberately **not** adopted here yet.
 ## What is not indexed
 
 `.graphifyignore` excludes `**/generated/`, `**/.docusaurus/`, and the scaffolder template
-tree (a byte-identical mirror of `apps/mercato/src/app` kept in sync by
-`yarn template:sync:fix` — indexing both doubles every hit). That template does not
-currently exist on disk: the `packages/create-app` → `packages/cli` rename is mid-flight,
-so both paths are listed defensively and the entries are inert until one reappears.
+tree (upstream, a byte-identical mirror of `apps/mercato/src/app` — indexing both sides
+doubles every hit). **This fork carries no template and no sync script**: neither
+`packages/create-app/template/` nor `packages/cli/template/` exists, and there is no
+`yarn template:sync:fix` — so there is nothing to mirror when you edit
+`apps/mercato/src/app/**` or `apps/mercato/src/i18n/**` (root `AGENTS.md` → Task Router
+says the same). Both paths stay listed defensively, and the entries are inert. The
+script-level parity tests take the same stance: they run behind
+`whenTemplatePresent()` (`scripts/__tests__/helpers/create-app-template.mjs`) and skip
+themselves rather than failing, so coverage resumes on its own if a template ever lands.
 
 Everything in `.gitignore` is excluded automatically by both tools.
 

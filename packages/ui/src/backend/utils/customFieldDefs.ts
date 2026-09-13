@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useQuery, type UseQueryResult, type QueryClient } from '@tanstack/react-query'
 import { readApiResultOrThrow } from './apiCall'
 import type { CustomFieldOptionDto } from '@open-mercato/shared/modules/entities/options'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 export type CustomFieldDefDto = {
   entityId?: string
@@ -120,7 +121,7 @@ async function readDefinitionsViaFetch(
   const res = await fetchImpl(`/api/entities/definitions?${query}`, {
     headers: { 'content-type': 'application/json' },
   })
-  const data = await res.json().catch(() => ({ items: [] }))
+  const data = await readJsonSafe<CustomFieldDefinitionsResponse>(res, { items: [] })
   return preparePayload(data)
 }
 

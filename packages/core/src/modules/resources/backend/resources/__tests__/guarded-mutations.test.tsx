@@ -2,7 +2,9 @@
  * @jest-environment jsdom
  */
 import * as React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import ResourcesResourceAreasPage from '../areas/page'
+import ResourcesResourceAreaEditPage from '../areas/[id]/edit/page'
 import ResourcesResourceTypesPage from '../resource-types/page'
 import ResourcesResourcesPage from '../resources/page'
 import ResourcesResourceDetailPage from '../resources/[id]/page'
@@ -23,6 +25,18 @@ const mockRunMutation = jest.fn(async ({ operation }: { operation: () => Promise
 const mockRetryLastMutation = jest.fn(async () => false)
 const mockResolveFieldsetCode = jest.fn(() => 'resources_resource_default')
 const mockTranslate = (_key: string, fallback?: string) => fallback ?? _key
+
+beforeAll(() => {
+  class ResizeObserverMock {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    configurable: true,
+    value: ResizeObserverMock,
+  })
+})
 
 jest.mock('next/navigation', () => ({
   usePathname: () => '/backend/resources/resources',
@@ -50,6 +64,7 @@ jest.mock('#generated/entities.ids.generated', () => ({
   E: {
     resources: {
       resources_resource: 'resources:resources_resource',
+      resources_resource_area: 'resources:resources_resource_area',
       resources_resource_activity: 'resources:resources_resource_activity',
     },
   },
@@ -70,11 +85,85 @@ jest.mock('@open-mercato/ui/primitives/button', () => ({
   ),
 }))
 
-jest.mock('@open-mercato/ui/backend/DataTable', () => ({
-  DataTable: (props: { data?: Array<Record<string, unknown>>; rowActions?: (row: Record<string, unknown>) => React.ReactNode }) => (
+jest.mock('@open-mercato/ui/primitives/icon-button', () => ({
+  IconButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props}>{children}</button>
+  ),
+}))
+
+jest.mock('@open-mercato/ui/primitives/popover', () => ({
+  Popover: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  PopoverTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  PopoverContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}))
+
+jest.mock('@open-mercato/ui/primitives/select', () => ({
+  Select: ({ children, onValueChange }: { children: React.ReactNode; onValueChange?: (value: string) => void }) => (
     <div>
+      {React.Children.map(children, (child) => (
+        React.isValidElement(child)
+          ? React.cloneElement(child as React.ReactElement<{ onSelectValue?: (value: string) => void }>, { onSelectValue: onValueChange })
+          : child
+      ))}
+    </div>
+  ),
+  SelectTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  SelectValue: () => null,
+  SelectContent: ({ children, onSelectValue }: { children: React.ReactNode; onSelectValue?: (value: string) => void }) => (
+    <div>
+      {React.Children.map(children, (child) => (
+        React.isValidElement(child)
+          ? React.cloneElement(child as React.ReactElement<{ onSelectValue?: (value: string) => void }>, { onSelectValue })
+          : child
+      ))}
+    </div>
+  ),
+  SelectItem: ({ children, value, onSelectValue }: { children: React.ReactNode; value: string; onSelectValue?: (value: string) => void }) => (
+    <button type="button" data-testid={`select-option-${value}`} onClick={() => onSelectValue?.(value)}>
+      {children}
+    </button>
+  ),
+}))
+
+jest.mock('@open-mercato/ui/backend/DataTable', () => ({
+  DataTable: (props: {
+    columns?: Array<{
+      accessorKey?: string
+      header?: React.ReactNode
+      cell?: (ctx: { row: { original: Record<string, unknown> } }) => React.ReactNode
+    }>
+    data?: Array<Record<string, unknown>>
+    actions?: React.ReactNode
+    filters?: Array<{ id: string; label: string }>
+    perspective?: { tableId: string }
+    rowActions?: (row: Record<string, unknown>) => React.ReactNode
+  }) => (
+    <div>
+      {props.actions}
+      {props.filters?.map((filter) => (
+        <button key={filter.id} type="button">
+          {filter.label}
+        </button>
+      ))}
+      {props.perspective ? (
+        <button type="button" aria-label="Customize columns">
+          ...
+        </button>
+      ) : null}
+      <div>
+        {(props.columns ?? []).map((column, columnIndex) => (
+          <span key={String(column.accessorKey ?? columnIndex)}>
+            {column.header}
+          </span>
+        ))}
+      </div>
       {(props.data ?? []).map((row, index) => (
         <div key={String(row.id ?? index)} data-testid={`row-${String(row.id ?? index)}`}>
+          {(props.columns ?? []).map((column, columnIndex) => (
+            <div key={String(column.accessorKey ?? columnIndex)}>
+              {column.cell?.({ row: { original: row } })}
+            </div>
+          ))}
           {props.rowActions?.(row)}
         </div>
       ))}
@@ -156,6 +245,10 @@ jest.mock('@open-mercato/core/modules/resources/components/detail/dictionaries',
     ...input,
   })),
   loadResourceDictionary: jest.fn(async () => ({ dictionary: { id: 'activity-types' }, entries: [] })),
+}))
+
+jest.mock('@open-mercato/core/modules/dictionaries/components/AppearanceSelector', () => ({
+  AppearanceSelector: () => <div data-testid="appearance-selector" />,
 }))
 
 jest.mock('@open-mercato/core/modules/planner/components/AvailabilityRulesEditor', () => ({
@@ -313,6 +406,7 @@ beforeEach(() => {
             id: 'resource-1',
             name: 'Room 1',
             resourceTypeId: null,
+            areaId: 'area-1',
             capacity: 1,
             tags: [],
             isActive: true,
@@ -321,6 +415,21 @@ beforeEach(() => {
         ],
         total: 1,
         page: 1,
+        totalPages: 1,
+      })
+    }
+    if (url.startsWith('/api/resources/areas')) {
+      return apiResult({
+        items: [
+          {
+            id: 'area-1',
+            name: 'Head Office',
+            parent_area_id: null,
+            sort_order: 0,
+            depth: 0,
+          },
+        ],
+        total: 1,
         totalPages: 1,
       })
     }
@@ -366,6 +475,44 @@ beforeEach(() => {
   })
 })
 
+function mockPointerTarget(target: Element): jest.SpyInstance<Element | null, [x: number, y: number]> {
+  if (typeof document.elementFromPoint !== 'function') {
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: jest.fn(),
+    })
+  }
+  return jest.spyOn(document, 'elementFromPoint').mockReturnValue(target)
+}
+
+async function dragRowOntoTarget(sourceRow: HTMLElement, targetRow: HTMLElement, options: { loseTargetBeforeDrop?: boolean } = {}) {
+  const dragHandle = sourceRow.querySelector('button[aria-label="Drag to reorder"]')
+  const target = targetRow.querySelector('[data-resource-reorder-id], [data-area-reorder-id]')
+  expect(dragHandle).toBeInstanceOf(HTMLElement)
+  expect(target).toBeInstanceOf(Element)
+  const elementFromPoint = mockPointerTarget(target as Element)
+  await act(async () => {
+    fireEvent.pointerDown(dragHandle as HTMLElement, { clientX: 8, clientY: 8, pointerId: 1 })
+  })
+  await act(async () => {
+    fireEvent.pointerMove(window, { clientX: 8, clientY: 80, pointerId: 1 })
+  })
+  if (options.loseTargetBeforeDrop) {
+    elementFromPoint.mockReturnValue(null)
+    await act(async () => {
+      fireEvent.pointerMove(window, { clientX: 8, clientY: 120, pointerId: 1 })
+    })
+  }
+  return {
+    drop: async () => {
+      await act(async () => {
+        fireEvent.pointerUp(window, { clientX: 8, clientY: 80, pointerId: 1 })
+      })
+      elementFromPoint.mockRestore()
+    },
+  }
+}
+
 it('wraps resource list deletes in the guarded mutation path', async () => {
   render(<ResourcesResourcesPage />)
 
@@ -383,6 +530,631 @@ it('wraps resource list deletes in the guarded mutation path', async () => {
     }),
     mutationPayload: expect.objectContaining({ operation: 'deleteResource', id: 'resource-1' }),
   }))
+})
+
+it('can group the resource list by area', async () => {
+  mockApiCall.mockImplementation(async (url: string) => {
+    if (url === '/api/auth/feature-check') {
+      return apiResult({ ok: true, granted: ['resources.manage_resources'] })
+    }
+    if (url.startsWith('/api/resources/resource-types')) {
+      return apiResult({
+        items: [{ id: 'type-1', name: 'Room', appearanceIcon: null, appearanceColor: null }],
+        total: 1,
+        page: 1,
+        totalPages: 1,
+      })
+    }
+    if (url.startsWith('/api/resources/resources')) {
+      return apiResult({
+        items: [
+          {
+            id: 'resource-high',
+            name: 'Room 2',
+            resourceTypeId: null,
+            areaId: 'area-1',
+            sort_order: 2,
+            capacity: 1,
+            tags: [],
+            isActive: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          },
+          {
+            id: 'resource-low',
+            name: 'Room 1',
+            resourceTypeId: null,
+            areaId: 'area-1',
+            sort_order: 1,
+            capacity: 1,
+            tags: [],
+            isActive: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          },
+        ],
+        total: 2,
+        page: 1,
+        totalPages: 1,
+      })
+    }
+    if (url.startsWith('/api/resources/areas')) {
+      return apiResult({
+        items: [
+          {
+            id: 'area-1',
+            name: 'Head Office',
+            parent_area_id: null,
+            sort_order: 0,
+            depth: 0,
+          },
+        ],
+        total: 1,
+        totalPages: 1,
+      })
+    }
+    return apiResult({ items: [] })
+  })
+
+  render(<ResourcesResourcesPage />)
+
+  fireEvent.click(await screen.findByTestId('select-option-area'))
+
+  const groupRow = await screen.findByTestId('row-group:area:area-1')
+  expect(groupRow).toHaveTextContent('Head Office')
+  const firstResource = screen.getByTestId('row-resource-low')
+  const secondResource = screen.getByTestId('row-resource-high')
+  expect(firstResource.compareDocumentPosition(secondResource)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+})
+
+it('wraps resource reorder actions in the guarded mutation path', async () => {
+  mockApiCall.mockImplementation(async (url: string) => {
+    if (url === '/api/auth/feature-check') {
+      return apiResult({ ok: true, granted: ['resources.manage_resources'] })
+    }
+    if (url.startsWith('/api/resources/resource-types')) {
+      return apiResult({ items: [], total: 0, page: 1, totalPages: 1 })
+    }
+    if (url.startsWith('/api/resources/resources')) {
+      return apiResult({
+        items: [
+          {
+            id: 'resource-low',
+            name: 'Room 1',
+            resourceTypeId: null,
+            areaId: 'area-1',
+            sort_order: 1,
+            capacity: 1,
+            tags: [],
+            isActive: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          },
+          {
+            id: 'resource-high',
+            name: 'Room 2',
+            resourceTypeId: null,
+            areaId: 'area-1',
+            sort_order: 2,
+            capacity: 1,
+            tags: [],
+            isActive: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          },
+        ],
+        total: 2,
+        page: 1,
+        totalPages: 1,
+      })
+    }
+    if (url.startsWith('/api/resources/areas')) {
+      return apiResult({
+        items: [{
+          id: 'area-1',
+          name: 'Head Office',
+          parent_area_id: null,
+          sort_order: 0,
+          depth: 0,
+        }],
+        total: 1,
+        totalPages: 1,
+      })
+    }
+    return apiResult({ items: [] })
+  })
+
+  render(<ResourcesResourcesPage />)
+
+  fireEvent.click(await screen.findByTestId('select-option-area'))
+  fireEvent.click(await screen.findAllByRole('button', { name: 'Move down' }).then((buttons) => buttons[0]))
+
+  await waitFor(() => {
+    expect(mockApiCallOrThrow).toHaveBeenCalledWith(
+      '/api/resources/resources/reorder',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ id: 'resource-low', direction: 'down' }),
+      }),
+      expect.any(Object),
+    )
+  })
+  expect(mockRunMutation).toHaveBeenCalledWith(expect.objectContaining({
+    mutationPayload: expect.objectContaining({
+      operation: 'reorderResource',
+      id: 'resource-low',
+      direction: 'down',
+    }),
+  }))
+})
+
+it('drops dragged resources after lower sibling rows', async () => {
+  mockApiCall.mockImplementation(async (url: string) => {
+    if (url === '/api/auth/feature-check') {
+      return apiResult({ ok: true, granted: ['resources.manage_resources'] })
+    }
+    if (url.startsWith('/api/resources/resource-types')) {
+      return apiResult({ items: [], total: 0, page: 1, totalPages: 1 })
+    }
+    if (url.startsWith('/api/resources/resources')) {
+      return apiResult({
+        items: [
+          {
+            id: 'resource-low',
+            name: 'Room 1',
+            resourceTypeId: null,
+            areaId: 'area-1',
+            sort_order: 1,
+            capacity: 1,
+            tags: [],
+            isActive: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          },
+          {
+            id: 'resource-high',
+            name: 'Room 2',
+            resourceTypeId: null,
+            areaId: 'area-1',
+            sort_order: 2,
+            capacity: 1,
+            tags: [],
+            isActive: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          },
+        ],
+        total: 2,
+        page: 1,
+        totalPages: 1,
+      })
+    }
+    if (url.startsWith('/api/resources/areas')) {
+      return apiResult({
+        items: [{
+          id: 'area-1',
+          name: 'Head Office',
+          parent_area_id: null,
+          sort_order: 0,
+          depth: 0,
+        }],
+        total: 1,
+        totalPages: 1,
+      })
+    }
+    return apiResult({ items: [] })
+  })
+
+  render(<ResourcesResourcesPage />)
+
+  fireEvent.click(await screen.findByTestId('select-option-area'))
+  const firstResource = await screen.findByTestId('row-resource-low')
+  const secondResource = screen.getByTestId('row-resource-high')
+  expect(firstResource.compareDocumentPosition(secondResource)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  const drag = await dragRowOntoTarget(firstResource, secondResource, { loseTargetBeforeDrop: true })
+  await waitFor(() => {
+    expect(secondResource.compareDocumentPosition(firstResource)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+  await drag.drop()
+
+  await waitFor(() => {
+    expect(mockApiCallOrThrow).toHaveBeenCalledWith(
+      '/api/resources/resources/reorder',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ id: 'resource-low', targetId: 'resource-high', position: 'after' }),
+      }),
+      expect.any(Object),
+    )
+  })
+})
+
+it('shows invalid drop feedback when resources are dragged across areas', async () => {
+  mockApiCall.mockImplementation(async (url: string) => {
+    if (url === '/api/auth/feature-check') {
+      return apiResult({ ok: true, granted: ['resources.manage_resources'] })
+    }
+    if (url.startsWith('/api/resources/resource-types')) {
+      return apiResult({ items: [], total: 0, page: 1, totalPages: 1 })
+    }
+    if (url.startsWith('/api/resources/resources')) {
+      return apiResult({
+        items: [
+          {
+            id: 'resource-area-a',
+            name: 'Room A',
+            resourceTypeId: null,
+            areaId: 'area-a',
+            sort_order: 1,
+            capacity: 1,
+            tags: [],
+            isActive: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          },
+          {
+            id: 'resource-area-b',
+            name: 'Room B',
+            resourceTypeId: null,
+            areaId: 'area-b',
+            sort_order: 1,
+            capacity: 1,
+            tags: [],
+            isActive: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          },
+        ],
+        total: 2,
+        page: 1,
+        totalPages: 1,
+      })
+    }
+    if (url.startsWith('/api/resources/areas')) {
+      return apiResult({
+        items: [
+          { id: 'area-a', name: 'Area A', parent_area_id: null, sort_order: 0, depth: 0 },
+          { id: 'area-b', name: 'Area B', parent_area_id: null, sort_order: 1, depth: 0 },
+        ],
+        total: 2,
+        totalPages: 1,
+      })
+    }
+    return apiResult({ items: [] })
+  })
+
+  render(<ResourcesResourcesPage />)
+
+  fireEvent.click(await screen.findByTestId('select-option-area'))
+  const sourceResource = await screen.findByTestId('row-resource-area-a')
+  const targetResource = screen.getByTestId('row-resource-area-b')
+  mockApiCallOrThrow.mockClear()
+  const drag = await dragRowOntoTarget(sourceResource, targetResource)
+  const targetCell = targetResource.querySelector('[data-resource-reorder-id]')
+  expect(targetCell).not.toHaveClass('bg-status-error-bg')
+  await drag.drop()
+
+  expect(mockApiCallOrThrow).not.toHaveBeenCalledWith(
+    '/api/resources/resources/reorder',
+    expect.anything(),
+    expect.anything(),
+  )
+})
+
+it('loads resource area children when a parent row is expanded', async () => {
+  mockReadApiResultOrThrow.mockImplementation(async (url: string) => {
+    if (url.startsWith('/api/resources/areas?')) {
+      const query = new URL(`http://localhost${url}`).searchParams
+      if (query.get('parentAreaId') === 'null') {
+        return {
+          items: [{
+            id: 'area-root',
+            name: 'Head Office',
+            description: null,
+            area_type: 'building',
+            parent_area_id: null,
+            sort_order: 0,
+            appearance_icon: null,
+            appearance_color: null,
+            is_active: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+            depth: 0,
+            child_count: 1,
+          }],
+          total: 1,
+          totalPages: 1,
+        }
+      }
+      if (query.get('parentAreaId') === 'area-root') {
+        return {
+          items: [{
+            id: 'area-child',
+            name: 'Floor 1',
+            description: null,
+            area_type: 'floor',
+            parent_area_id: 'area-root',
+            sort_order: 0,
+            appearance_icon: null,
+            appearance_color: null,
+            is_active: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+            depth: 1,
+            child_count: 0,
+          }],
+          total: 1,
+          totalPages: 1,
+        }
+      }
+    }
+    return { items: [], total: 0, totalPages: 1 }
+  })
+
+  render(<ResourcesResourceAreasPage />)
+
+  await waitFor(() => {
+    expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+      expect.stringContaining('parentAreaId=null'),
+      undefined,
+      expect.any(Object),
+    )
+  })
+  expect(screen.getByRole('button', { name: 'Status' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Area type' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Customize columns' })).toBeInTheDocument()
+
+  fireEvent.click(await screen.findByRole('button', { name: 'Expand area' }))
+
+  await waitFor(() => {
+    expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+      expect.stringContaining('parentAreaId=area-root'),
+      undefined,
+      expect.any(Object),
+    )
+  })
+  expect(await screen.findByTestId('row-area-child')).toBeInTheDocument()
+  expect(screen.getByText('Child areas')).toBeInTheDocument()
+  expect(screen.getByTestId('row-area-root')).toHaveTextContent('1')
+  expect(screen.getByTestId('row-area-child')).toHaveTextContent('0')
+})
+
+it('loads parent area edit options through the lazy tree API', async () => {
+  mockReadApiResultOrThrow.mockImplementation(async (url: string) => {
+    if (url.startsWith('/api/resources/area-types')) {
+      return { items: [], total: 0, totalPages: 1 }
+    }
+    if (url.startsWith('/api/resources/areas?')) {
+      const query = new URL(`http://localhost${url}`).searchParams
+      if (query.get('ids') === 'area-edit') {
+        return {
+          items: [{
+            id: 'area-edit',
+            name: 'Floor 2',
+            description: null,
+            area_type_id: null,
+            parent_area_id: 'area-parent',
+            sort_order: 0,
+            appearance_icon: null,
+            appearance_color: null,
+            is_active: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+          }],
+          total: 1,
+          totalPages: 1,
+        }
+      }
+      if (query.get('ids') === 'area-parent') {
+        return {
+          items: [{
+            id: 'area-parent',
+            name: 'Building A',
+            parent_area_id: 'area-root',
+            depth: 1,
+            child_count: 1,
+            path_label: 'Head Office / Building A',
+            ancestor_ids: ['area-root'],
+          }],
+          total: 1,
+          totalPages: 1,
+        }
+      }
+      if (query.get('ids') === 'area-root') {
+        return {
+          items: [{
+            id: 'area-root',
+            name: 'Head Office',
+            parent_area_id: null,
+            depth: 0,
+            child_count: 1,
+            path_label: 'Head Office',
+            ancestor_ids: [],
+          }],
+          total: 1,
+          totalPages: 1,
+        }
+      }
+      if (query.get('parentAreaId') === 'null') {
+        return {
+          items: [{
+            id: 'area-root',
+            name: 'Head Office',
+            parent_area_id: null,
+            depth: 0,
+            child_count: 1,
+            path_label: 'Head Office',
+          }],
+          total: 1,
+          totalPages: 1,
+        }
+      }
+      if (query.get('parentAreaId') === 'area-root') {
+        return {
+          items: [{
+            id: 'area-parent',
+            name: 'Building A',
+            parent_area_id: 'area-root',
+            depth: 1,
+            child_count: 0,
+            path_label: 'Head Office / Building A',
+          }],
+          total: 1,
+          totalPages: 1,
+        }
+      }
+    }
+    return { items: [], total: 0, totalPages: 1 }
+  })
+
+  render(<ResourcesResourceAreaEditPage params={{ id: 'area-edit' }} />)
+
+  await waitFor(() => {
+    expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+      expect.stringContaining('ids=area-edit'),
+      expect.any(Object),
+      expect.any(Object),
+    )
+  })
+  await waitFor(() => {
+    expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+      expect.stringContaining('parentAreaId=null'),
+      undefined,
+      expect.any(Object),
+    )
+  })
+  expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+    expect.stringContaining('excludeSubtreeOf=area-edit'),
+    undefined,
+    expect.any(Object),
+  )
+  expect(await screen.findByText('Head Office / Building A')).toBeInTheDocument()
+  expect(await screen.findByText('Building A')).toBeInTheDocument()
+
+  await waitFor(() => {
+    expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+      expect.stringContaining('parentAreaId=area-root'),
+      undefined,
+      expect.any(Object),
+    )
+  })
+})
+
+it('wraps resource area reorder actions in the guarded mutation path', async () => {
+  mockReadApiResultOrThrow.mockImplementation(async (url: string) => {
+    if (url.startsWith('/api/resources/areas?')) {
+      return {
+        items: [
+          {
+            id: 'area-low',
+            name: 'Head Office',
+            description: null,
+            area_type: 'building',
+            parent_area_id: null,
+            sort_order: 0,
+            appearance_icon: null,
+            appearance_color: null,
+            is_active: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+            depth: 0,
+            child_count: 0,
+          },
+          {
+            id: 'area-high',
+            name: 'Warehouse',
+            description: null,
+            area_type: 'building',
+            parent_area_id: null,
+            sort_order: 1,
+            appearance_icon: null,
+            appearance_color: null,
+            is_active: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+            depth: 0,
+            child_count: 0,
+          },
+        ],
+        total: 2,
+        totalPages: 1,
+      }
+    }
+    return { items: [], total: 0, totalPages: 1 }
+  })
+
+  render(<ResourcesResourceAreasPage />)
+
+  fireEvent.click(await screen.findAllByRole('button', { name: 'Move down' }).then((buttons) => buttons[0]))
+
+  await waitFor(() => {
+    expect(mockApiCallOrThrow).toHaveBeenCalledWith(
+      '/api/resources/areas/reorder',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ id: 'area-low', direction: 'down' }),
+      }),
+      expect.any(Object),
+    )
+  })
+  expect(mockRunMutation).toHaveBeenCalledWith(expect.objectContaining({
+    mutationPayload: expect.objectContaining({
+      operation: 'reorderResourceArea',
+      id: 'area-low',
+      direction: 'down',
+    }),
+  }))
+})
+
+it('drops dragged resource areas after lower sibling rows', async () => {
+  mockReadApiResultOrThrow.mockImplementation(async (url: string) => {
+    if (url.startsWith('/api/resources/areas?')) {
+      return {
+        items: [
+          {
+            id: 'area-low',
+            name: 'Head Office',
+            description: null,
+            area_type: 'building',
+            parent_area_id: null,
+            sort_order: 0,
+            appearance_icon: null,
+            appearance_color: null,
+            is_active: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+            depth: 0,
+            child_count: 0,
+          },
+          {
+            id: 'area-high',
+            name: 'Warehouse',
+            description: null,
+            area_type: 'building',
+            parent_area_id: null,
+            sort_order: 1,
+            appearance_icon: null,
+            appearance_color: null,
+            is_active: true,
+            updatedAt: '2026-06-19T10:00:00.000Z',
+            depth: 0,
+            child_count: 0,
+          },
+        ],
+        total: 2,
+        totalPages: 1,
+      }
+    }
+    return { items: [], total: 0, totalPages: 1 }
+  })
+
+  render(<ResourcesResourceAreasPage />)
+
+  const firstArea = await screen.findByTestId('row-area-low')
+  const secondArea = screen.getByTestId('row-area-high')
+  expect(firstArea.compareDocumentPosition(secondArea)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  const drag = await dragRowOntoTarget(firstArea, secondArea)
+  await waitFor(() => {
+    expect(secondArea.compareDocumentPosition(firstArea)).toBe(Node.DOCUMENT_POSITION_FOLLOWING)
+  })
+  await drag.drop()
+
+  await waitFor(() => {
+    expect(mockApiCallOrThrow).toHaveBeenCalledWith(
+      '/api/resources/areas/reorder',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ id: 'area-low', targetId: 'area-high', position: 'after' }),
+      }),
+      expect.any(Object),
+    )
+  })
 })
 
 it('wraps resource type list deletes in the guarded mutation path', async () => {

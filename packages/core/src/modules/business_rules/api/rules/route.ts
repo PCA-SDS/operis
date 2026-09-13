@@ -28,8 +28,8 @@ const logger = createLogger('business_rules').child({ component: 'rules-api' })
 
 const querySchema = z.looseObject({
   id: z.uuid().optional(),
-  page: z.coerce.number().min(1).default(1),
-  pageSize: z.coerce.number().min(1).max(100).default(50),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
   search: z.string().optional(),
   ruleId: z.string().optional(),
   ruleType: ruleTypeSchema.optional(),

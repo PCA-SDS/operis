@@ -4,7 +4,6 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getIntegration } from '@open-mercato/shared/modules/integrations/types'
 import {
-  resolveUserFeatures,
   runIntegrationMutationGuardAfterSuccess,
   runIntegrationMutationGuards,
 } from '../guards'
@@ -24,7 +23,6 @@ jest.mock('@open-mercato/shared/modules/integrations/types', () => ({
 }))
 
 jest.mock('../guards', () => ({
-  resolveUserFeatures: jest.fn(() => []),
   runIntegrationMutationGuards: jest.fn(),
   runIntegrationMutationGuardAfterSuccess: jest.fn(),
 }))

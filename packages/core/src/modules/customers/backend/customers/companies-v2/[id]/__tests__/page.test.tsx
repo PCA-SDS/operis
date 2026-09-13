@@ -186,10 +186,6 @@ jest.mock('../../../../../components/detail/CompanyPeopleSection', () => ({
   CompanyPeopleSection: () => <div>people</div>,
 }))
 
-jest.mock('../../../../../components/detail/ComingSoonPlaceholder', () => ({
-  ComingSoonPlaceholder: ({ label }: { label: string }) => <div>{label}</div>,
-}))
-
 jest.mock('../../../../../components/detail/ChangelogTab', () => ({
   ChangelogTab: () => <div>changelog</div>,
 }))

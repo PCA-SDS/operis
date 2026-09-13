@@ -18,6 +18,7 @@ import {
   type ResourcesResourceTagAssignmentInput,
 } from '../../../../data/validators'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('resources').child({ component: 'tags' })
 
@@ -55,7 +56,7 @@ function resolveActorId(ctx: CommandRuntimeContext): string {
 export async function POST(req: Request) {
   try {
     const { ctx, translate } = await buildContext(req)
-    const body = await req.json().catch(() => ({}))
+    const body = await readJsonSafe(req, {})
     const input = parseScopedCommandInput(resourcesResourceTagAssignmentSchema, body, ctx, translate)
     const actorId = resolveActorId(ctx)
     const guardResult = await validateCrudMutationGuard(ctx.container, {

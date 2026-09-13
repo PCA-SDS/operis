@@ -517,7 +517,7 @@ export const SERVICE_MENU: ServiceMenuData = {
                     id: 'gelish-structure',
                     nameKey: 'serviceMenu.nail.options.gelishStructure.name',
                     name: 'Gelish Structure Gel',
-                    conflictsWithItems: ['polish'], // Conflicts with Regular Polish (type-regular)
+                    conflictsWithOptions: [{ productId: 'polish', optionId: 'type-regular' }], // Conflicts with Regular Polish (type-regular)
                     nextGroups: [
                       {
                         id: 'nail-length',
@@ -602,7 +602,7 @@ export const SERVICE_MENU: ServiceMenuData = {
                     id: 'plexigel-overlay',
                     nameKey: 'serviceMenu.nail.options.plexigelOverlay.name',
                     name: 'CND™ Plexigel Build Overlay',
-                    conflictsWithItems: ['polish'], // Conflicts with Regular Polish (type-regular)
+                    conflictsWithOptions: [{ productId: 'polish', optionId: 'type-regular' }], // Conflicts with Regular Polish (type-regular)
                     nextGroups: [
                       {
                         id: 'nail-length',
@@ -1139,14 +1139,14 @@ export const SERVICE_MENU: ServiceMenuData = {
                     nameKey: 'serviceMenu.nail.options.scopeMani.name',
                     name: 'Manicure',
                     price: { kind: 'range', min: 55000, max: 240000 },
-                    conflictsWithItems: ['polish']
+                    conflictsWithOptions: [{ productId: 'polish', optionId: 'type-regular' }]
                   },
                   {
                     id: 'service-scope-pedicure',
                     nameKey: 'serviceMenu.nail.options.scopePedi.name',
                     name: 'Pedicure',
                     price: { kind: 'range', min: 55000, max: 240000 },
-                    conflictsWithItems: ['polish']
+                    conflictsWithOptions: [{ productId: 'polish', optionId: 'type-regular' }]
                   }
                 ]
               }
@@ -1181,7 +1181,7 @@ export const SERVICE_MENU: ServiceMenuData = {
                     id: 'full-set',
                     nameKey: 'serviceMenu.nail.options.extensionFullSet.name',
                     name: 'Full Set',
-                    conflictsWithItems: ['polish'], // Conflicts with Regular Polish (type-regular)
+                    conflictsWithOptions: [{ productId: 'polish', optionId: 'type-regular' }], // Conflicts with Regular Polish (type-regular)
                     nextGroups: [
                       {
                         id: 'service-type',
@@ -1538,7 +1538,7 @@ export const SERVICE_MENU: ServiceMenuData = {
                     id: 'refills',
                     nameKey: 'serviceMenu.nail.options.extensionRefills.name',
                     name: 'Refills',
-                    conflictsWithItems: ['polish'], // Conflicts with Regular Polish (type-regular)
+                    conflictsWithOptions: [{ productId: 'polish', optionId: 'type-regular' }], // Conflicts with Regular Polish (type-regular)
                     nextGroups: [
                       {
                         id: 'service-type',

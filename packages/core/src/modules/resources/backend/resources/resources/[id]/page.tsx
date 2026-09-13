@@ -40,6 +40,8 @@ type ResourceRecord = {
   name: string
   description?: string | null
   resourceTypeId: string | null
+  areaId?: string | null
+  sortOrder?: number | null
   capacity: number | null
   capacityUnitValue: string | null
   capacityUnitName: string | null
@@ -50,6 +52,8 @@ type ResourceRecord = {
   appearanceIcon?: string | null
   appearanceColor?: string | null
   resource_type_id?: string | null
+  area_id?: string | null
+  sort_order?: number | null
   capacity_unit_value?: string | null
   capacity_unit_name?: string | null
   capacity_unit_color?: string | null
@@ -79,6 +83,8 @@ function normalizeResourceRecord(record: ResourceRecord): ResourceRecord {
   return {
     ...record,
     resourceTypeId: record.resourceTypeId ?? record.resource_type_id ?? null,
+    areaId: record.areaId ?? record.area_id ?? null,
+    sortOrder: record.sortOrder ?? record.sort_order ?? 0,
     description: record.description ?? null,
     capacityUnitValue: record.capacityUnitValue ?? record.capacity_unit_value ?? null,
     capacityUnitName: record.capacityUnitName ?? record.capacity_unit_name ?? null,
@@ -326,6 +332,7 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
       ...rest,
       id: resourceId,
       resourceTypeId: values.resourceTypeId || null,
+      areaId: values.areaId || null,
       capacity: values.capacity ? Number(values.capacity) : null,
       capacityUnitValue: values.capacityUnitValue ? String(values.capacityUnitValue) : null,
       appearanceIcon: appearance.icon ?? null,
@@ -484,6 +491,8 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
     tagsSection,
     selectedResourceTypeId:
       typeof initialValues?.resourceTypeId === 'string' ? initialValues.resourceTypeId : null,
+    selectedAreaId:
+      typeof initialValues?.areaId === 'string' ? initialValues.areaId : null,
     selectedCapacityUnit:
       typeof initialValues?.capacityUnitValue === 'string' && initialValues.capacityUnitValue.length > 0
         ? selectedCapacityUnit
@@ -541,6 +550,7 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
             name: resource.name,
             description: resource.description ?? '',
             resourceTypeId: resource.resourceTypeId || '',
+            areaId: resource.areaId || null,
             capacity: resource.capacity ?? '',
             capacityUnitValue: resource.capacityUnitValue ?? '',
             appearance: { icon: resource.appearanceIcon ?? null, color: resource.appearanceColor ?? null },

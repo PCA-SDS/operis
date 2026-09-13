@@ -22,6 +22,55 @@ export const chatSendRateLimit = readEndpointRateLimitConfig('CHAT_SEND', {
   keyPrefix: 'chat_send',
 })
 
+/**
+ * Translation, on its own budget.
+ *
+ * Sharing the send bucket made a read gesture cost a write: holding the
+ * scroll-up key through thirty pages with whole-conversation mode on exhausted
+ * the quota and then blocked the reader from sending a message for thirty
+ * seconds. Reading should never be able to do that.
+ *
+ * Lower than sending, because the unit is not comparable: one request here can
+ * name sixty messages and each is real inference on a CPU-bound engine shared
+ * by the whole deployment. The engine's own concurrency gate is the hard bound;
+ * this is what stops one person reaching it.
+ */
+/**
+ * Uploads, limited harder than sends.
+ *
+ * An upload costs storage and a scan, not just a row, so the ceiling that
+ * matters is not the same one that governs typing. External participants are
+ * counted by the same key as everyone else — the limiter keys on the verified
+ * subject, so nothing about being external routes around it.
+ */
+export const chatAttachmentUploadRateLimit = readEndpointRateLimitConfig('CHAT_ATTACHMENT_UPLOAD', {
+  points: 30,
+  duration: 60,
+  keyPrefix: 'chat:attachment-upload',
+})
+
+export const chatTranslateRateLimit = readEndpointRateLimitConfig('CHAT_TRANSLATE', {
+  points: 12,
+  duration: 10,
+  blockDuration: 20,
+  keyPrefix: 'chat_translate',
+})
+
+/**
+ * Search, on its own budget.
+ *
+ * Search-as-you-type fires far more often than any other read, so it needs a
+ * ceiling — but billing it to the send bucket would let looking for a message
+ * stop you replying to one. Generous enough that a debounced typist never sees
+ * it, tight enough that an undebounced client does.
+ */
+export const chatSearchRateLimit = readEndpointRateLimitConfig('CHAT_SEARCH', {
+  points: 40,
+  duration: 10,
+  blockDuration: 10,
+  keyPrefix: 'chat_search',
+})
+
 export const chatConversationCreateRateLimit = readEndpointRateLimitConfig('CHAT_CONVERSATION_CREATE', {
   // Starting conversations is rare; a burst of them is someone walking the
   // directory.

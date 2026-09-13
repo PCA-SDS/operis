@@ -390,7 +390,7 @@ export function InlineTextEditor({
                   />
                 )
               })()}
-              {error ? <p className="text-xs text-destructive">{error}</p> : null}
+              {error ? <p className="text-xs text-status-error-text">{error}</p> : null}
               {renderBelowInput ? renderBelowInput({ draft, resolvedType, error, saving }) : null}
               {(() => {
                 const lowerType = (inputType ?? resolvedType ?? '').toLowerCase()
@@ -651,7 +651,7 @@ export function InlineMultilineEditor({
                 autoFocus
                 disabled={saving}
               />
-              {error ? <p className="text-xs text-destructive">{error}</p> : null}
+              {error ? <p className="text-xs text-status-error-text">{error}</p> : null}
               <div className="flex items-center gap-2">
                 <Button type="submit" size="sm" disabled={saving}>
                   {saving ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}

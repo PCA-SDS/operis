@@ -19,6 +19,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { RESOURCES_CAPACITY_UNIT_DICTIONARY_KEY } from '@open-mercato/core/modules/resources/lib/capacityUnits'
 import { RESOURCES_RESOURCE_FIELDSET_DEFAULT, resolveResourcesResourceFieldsetCode } from '@open-mercato/core/modules/resources/lib/resourceCustomFields'
+import { ResourceAreaTreeSelect } from '@open-mercato/core/modules/resources/components/ResourceAreaTreeSelect'
 import Link from 'next/link'
 import { Plus, Settings } from 'lucide-react'
 
@@ -27,6 +28,15 @@ const DEFAULT_PAGE_SIZE = 100
 type ResourceTypeRow = {
   id: string
   name: string
+}
+
+export type ResourceFormValues = {
+  id?: string
+  name: string
+  description?: string
+  resourceTypeId?: string | null
+  areaId?: string | null
+  sortOrder?: number
 }
 
 type ResourceTypesResponse = {
@@ -53,6 +63,7 @@ export type ResourcesResourceFormConfig = {
 export function useResourcesResourceFormConfig(options: {
   tagsSection?: ResourceTagsSectionConfig
   selectedResourceTypeId?: string | null
+  selectedAreaId?: string | null
   selectedCapacityUnit?: { value: string; label: string; color?: string | null; icon?: string | null } | null
 } = {}): ResourcesResourceFormConfig {
   const { selectedCapacityUnit, selectedResourceTypeId, tagsSection } = options
@@ -238,6 +249,23 @@ export function useResourcesResourceFormConfig(options: {
         },
       },
       {
+        id: 'areaId',
+        label: t('resources.resources.form.fields.area', 'Area'),
+        type: 'custom',
+        component: ({ value, setValue, disabled }) => {
+          const selectedValue = typeof value === 'string' && value ? value : null
+          return (
+            <ResourceAreaTreeSelect
+              value={selectedValue}
+              onChange={setValue}
+              disabled={disabled}
+              emptyLabel={t('resources.resourceAreas.form.noParent', 'None')}
+              loadingErrorLabel={t('resources.resourceAreas.errors.load', 'Failed to load resource areas.')}
+            />
+          )
+        },
+      },
+      {
         id: 'capacity',
         label: t('resources.resources.form.fields.capacity', 'Capacity'),
         description: t(
@@ -299,12 +327,12 @@ export function useResourcesResourceFormConfig(options: {
 
     return baseFields
   }, [
-    appearanceLabels,
-    capacityUnitDictionaryId,
-    resolveFieldsetCode,
-    resourceTypes,
-    selectedCapacityUnit,
     t,
+    resourceTypes,
+    resolveFieldsetCode,
+    capacityUnitDictionaryId,
+    selectedCapacityUnit,
+    appearanceLabels,
   ])
 
   const groups = React.useMemo<CrudFormGroup[]>(() => {
@@ -316,6 +344,7 @@ export function useResourcesResourceFormConfig(options: {
           'name',
           'description',
           'resourceTypeId',
+          'areaId',
           'capacity',
           'capacityUnitValue',
           'appearance',

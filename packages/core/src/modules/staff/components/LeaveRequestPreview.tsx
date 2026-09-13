@@ -3,6 +3,9 @@
 import type { ObjectPreviewProps } from '@open-mercato/shared/modules/messages/types'
 import { CalendarClock } from 'lucide-react'
 import { Badge } from '@open-mercato/ui/primitives/badge'
+import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { cn } from '@open-mercato/shared/lib/utils'
+import { STATUS_TONE_CLASSES } from '@open-mercato/ui/backend/messages'
 
 export function LeaveRequestPreview({
   snapshot,
@@ -10,6 +13,7 @@ export function LeaveRequestPreview({
   actionRequired,
   actionLabel
 }: ObjectPreviewProps) {
+  const t = useT()
   // Use previewData if available, otherwise fall back to snapshot
   const data = snapshot as {
     employeeName?: string
@@ -19,13 +23,13 @@ export function LeaveRequestPreview({
     type?: string
   } | undefined
 
-  const title = previewData?.title || 'Leave Request'
+  const title = previewData?.title || t('staff.leaveRequest.preview.title', 'Leave Request')
   const subtitle = previewData?.subtitle || (data ?
     `${data.employeeName} - ${data.startDate} to ${data.endDate}` :
-    'Leave Request Details'
+    t('staff.leaveRequest.preview.subtitle', 'Leave Request Details')
   )
   const status = previewData?.status || data?.status
-  const statusColor = previewData?.statusColor || 'amber'
+  const statusTone = STATUS_TONE_CLASSES[previewData?.statusColor ?? 'amber'] ?? ''
 
   return (
     <div className="flex items-start gap-3 rounded-md border p-3 bg-muted/30">
@@ -35,7 +39,7 @@ export function LeaveRequestPreview({
           <span className="font-medium text-sm">{title}</span>
           {actionRequired && (
             <Badge variant="secondary" className="text-xs">
-              {actionLabel || 'Action Required'}
+              {actionLabel || t('staff.leaveRequest.preview.actionRequired', 'Action Required')}
             </Badge>
           )}
         </div>
@@ -46,7 +50,7 @@ export function LeaveRequestPreview({
         )}
         <div className="flex items-center gap-2 mt-2">
           {status && (
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className={cn('text-xs', statusTone)}>
               {status}
             </Badge>
           )}

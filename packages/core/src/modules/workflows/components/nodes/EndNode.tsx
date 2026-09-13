@@ -41,7 +41,7 @@ export const EndNode = memo(function EndNode({ data, isConnectable, selected }: 
         position={Position.Top}
         id="target"
         isConnectable={isConnectable}
-        className="!w-3 !h-3 !bg-[#0080FE] !border-2 !border-white"
+        className="!w-3 !h-3 !bg-primary !border-2 !border-background"
       />
 
       <WorkflowNodeCard

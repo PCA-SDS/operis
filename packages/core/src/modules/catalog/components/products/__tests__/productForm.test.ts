@@ -20,6 +20,32 @@ import {
   isConfigurableProductType,
 } from '../productForm'
 
+/**
+ * The form's own starting values must clear its own schema. The existing cases
+ * pass a hand-built object, which leaves mediaItems/options/variants undefined —
+ * `.optional()` accepts that, so a schema that rejects the real array values
+ * still passed every test while blocking submit on create and edit.
+ */
+describe('productFormSchema accepts the values the form actually holds', () => {
+  it('parses BASE_INITIAL_VALUES once the required title is filled in', () => {
+    const parsed = productFormSchema.safeParse({ ...BASE_INITIAL_VALUES, title: 'Service' })
+    expect(parsed.error?.issues ?? []).toEqual([])
+    expect(parsed.success).toBe(true)
+  })
+
+  it('parses the array-valued fields once they are populated', () => {
+    const parsed = productFormSchema.safeParse({
+      ...BASE_INITIAL_VALUES,
+      title: 'Service',
+      mediaItems: [{ id: 'm1' }],
+      options: [{ id: 'o1', values: [] }],
+      variants: [createVariantDraft()],
+    })
+    expect(parsed.error?.issues ?? []).toEqual([])
+    expect(parsed.success).toBe(true)
+  })
+})
+
 describe('product form measurement normalizers', () => {
   it('normalizes dimensions from object payloads', () => {
     expect(normalizeProductDimensions({ width: '10', height: 5, depth: 1.5, unit: ' cm ' })).toEqual({

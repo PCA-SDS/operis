@@ -55,6 +55,8 @@ import { InjectionSpot, useInjectionWidgets } from '@open-mercato/ui/backend/inj
 import { DetailTabsLayout } from '../../../../components/detail/DetailTabsLayout'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { SendObjectMessageDialog } from '@open-mercato/ui/backend/messages'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
+import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
 
 type CompanyOverview = {
   company: {
@@ -218,14 +220,18 @@ export default function CustomerCompanyDetailPage({ params }: { params?: { id?: 
   }, [activeTab])
 
   const validators = React.useMemo(() => ({
+    // Same rules the server enforces in `customers/data/validators.ts`.
     email: (value: string) => {
       if (!value) return null
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      return emailRegex.test(value) ? null : t('customers.companies.detail.inline.emailInvalid', 'Enter a valid email address.')
+      return emailSchema().safeParse(value).success
+        ? null
+        : t('customers.companies.detail.inline.emailInvalid', 'Enter a valid email address.')
     },
     phone: (value: string) => {
       if (!value) return null
-      return value.length >= 3 ? null : t('customers.companies.detail.inline.phoneInvalid', 'Phone number is too short.')
+      return isValidPhoneNumber(value)
+        ? null
+        : t('customers.companies.detail.inline.phoneInvalid', 'Enter a valid phone number.')
     },
     displayName: (value: string) => {
       const trimmed = value.trim()

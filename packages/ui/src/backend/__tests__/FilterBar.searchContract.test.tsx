@@ -23,7 +23,8 @@
  */
 
 jest.mock('@open-mercato/shared/lib/i18n/context', () => ({
-  useT: () => (_key: string, fallback: string) => fallback,
+  useT: () => (_key: string, fallback: string, params?: Record<string, unknown>) =>
+    fallback.replace(/\{(\w+)\}/g, (_match, key) => String(params?.[key] ?? `{${key}}`)),
 }))
 
 import * as React from 'react'
@@ -71,5 +72,25 @@ describe('FilterBar search — integration ARIA contract', () => {
   it('exposes the clear button under its documented accessible name', () => {
     renderFilterBar({ searchValue: 'acme' })
     expect(screen.getByRole('button', { name: 'Clear search' })).toBeInTheDocument()
+  })
+
+  it('counts each selected multi-select filter option in the filter trigger', () => {
+    renderFilterBar({
+      filters: [
+        {
+          id: 'statusCode',
+          label: 'Status',
+          type: 'select',
+          multiple: true,
+          options: [
+            { value: 'new_request', label: 'New request' },
+            { value: 'booked', label: 'Booked' },
+          ],
+        },
+      ],
+      values: { statusCode: ['new_request', 'booked'] },
+    })
+
+    expect(screen.getByRole('button', { name: 'Filters 2' })).toBeInTheDocument()
   })
 })

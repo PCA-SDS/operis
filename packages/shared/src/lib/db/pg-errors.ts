@@ -3,12 +3,83 @@
  * the ORM/driver layer that surfaces it. Shared across modules so duplicate-insert
  * handling stays consistent platform-wide.
  */
-export function isUniqueViolation(err: unknown): boolean {
-  if (!err || typeof err !== 'object') return false
-  const code = (err as { code?: string }).code
-  if (code === '23505') return true // Postgres unique_violation
-  const message = (err as { message?: string }).message
-  return typeof message === 'string' && /duplicate key value|unique constraint/i.test(message)
+/** SQLSTATE for `unique_violation`. */
+export const POSTGRES_UNIQUE_VIOLATION = '23505'
+
+const UNIQUE_VIOLATION_MESSAGE = /duplicate key value|unique constraint|duplicate key/i
+
+/**
+ * ORMs and drivers each wrap the driver error differently — MikroORM nests it
+ * under `previous`, some paths under `cause`, others under `driverError`. Walk
+ * the chain rather than checking one shape.
+ */
+const WRAPPER_KEYS = ['cause', 'previous', 'driverError', 'originalError'] as const
+
+/**
+ * Detect a Postgres unique-constraint violation (SQLSTATE 23505) through
+ * whatever wrapper surfaced it, optionally narrowing to one constraint.
+ *
+ * Twelve modules had each hand-rolled a different subset of this check — some
+ * only the top-level `code`, some only the ORM exception class, some only a
+ * message match. Each therefore missed violations the others caught, and a miss
+ * means the caller's duplicate-handling path is skipped and the request fails as
+ * an unexpected 500 instead.
+ */
+export type UniqueViolationOptions = {
+  /**
+   * Also treat an error whose *message* mentions a duplicate key as a violation,
+   * for drivers that drop the SQLSTATE.
+   *
+   * Off by default, deliberately: the message is not authoritative, and matching
+   * on it misclassifies any unrelated failure that happens to quote a constraint
+   * — which is exactly how a "don't leak internal errors" path started answering
+   * 409 instead of 500.
+   */
+  matchMessage?: boolean
+}
+
+export function isUniqueViolation(
+  err: unknown,
+  constraintName?: string,
+  options: UniqueViolationOptions = {},
+): boolean {
+  const seen = new Set<unknown>()
+
+  const matchesConstraint = (record: Record<string, unknown>): boolean => {
+    if (!constraintName) return true
+    const constraint = typeof record.constraint === 'string' ? record.constraint : ''
+    const detail = typeof record.detail === 'string' ? record.detail : ''
+    const message = typeof record.message === 'string' ? record.message : ''
+    return (
+      constraint === constraintName ||
+      detail.includes(constraintName) ||
+      message.includes(constraintName)
+    )
+  }
+
+  const inspect = (value: unknown, depth: number): boolean => {
+    if (depth > 5 || !value || typeof value !== 'object' || seen.has(value)) return false
+    seen.add(value)
+    const record = value as Record<string, unknown>
+
+    if (record.code === POSTGRES_UNIQUE_VIOLATION || record.sqlState === POSTGRES_UNIQUE_VIOLATION) {
+      if (matchesConstraint(record)) return true
+    }
+    // MikroORM's `UniqueConstraintViolationException` keeps the SQLSTATE on the
+    // wrapped driver error, so it is reached by the walk below rather than by a
+    // class check — which also avoids importing the ORM into this helper.
+    if (typeof record.name === 'string' && record.name === 'UniqueConstraintViolationException') {
+      if (matchesConstraint(record)) return true
+    }
+    if (options.matchMessage && !constraintName) {
+      const message = typeof record.message === 'string' ? record.message : ''
+      if (message && UNIQUE_VIOLATION_MESSAGE.test(message)) return true
+    }
+
+    return WRAPPER_KEYS.some((key) => inspect(record[key], depth + 1))
+  }
+
+  return inspect(err, 0)
 }
 
 /**

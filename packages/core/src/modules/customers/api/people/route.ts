@@ -43,8 +43,8 @@ const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().min(1).default(1),
-    pageSize: z.coerce.number().min(1).max(100).default(50),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(50),
     search: z.string().optional(),
     email: z.string().optional(),
     emailStartsWith: z.string().optional(),
@@ -103,6 +103,7 @@ const crud = makeCrudRoute({
       'status',
       'lifecycle_stage',
       'source',
+      'origin',
       'next_interaction_at',
       'next_interaction_name',
       'next_interaction_ref_id',
@@ -506,6 +507,7 @@ const crud = makeCrudRoute({
           status: entity?.status ?? record.status ?? null,
           lifecycle_stage: entity?.lifecycleStage ?? record.lifecycle_stage ?? null,
           source: entity?.source ?? record.source ?? null,
+          origin: entity?.origin ?? record.origin ?? null,
           next_interaction_at: entity?.nextInteractionAt ? entity.nextInteractionAt.toISOString() : record.next_interaction_at ?? null,
           next_interaction_name: entity?.nextInteractionName ?? record.next_interaction_name ?? null,
           next_interaction_ref_id: entity?.nextInteractionRefId ?? record.next_interaction_ref_id ?? null,

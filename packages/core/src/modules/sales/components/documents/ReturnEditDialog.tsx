@@ -9,6 +9,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { E } from '#generated/entities.ids.generated'
 import { handleSectionMutationError } from './optimisticLock'
+import { toDateInputValue as toSharedDateInputValue } from '@open-mercato/shared/lib/date/format'
 
 export type ReturnEditRecord = {
   id: string
@@ -36,11 +37,14 @@ type ReturnEditDialogProps = {
   onSaved: () => Promise<void>
 }
 
+/**
+ * The dialog's inputs want `''` for "no date"; the shared normalizer answers
+ * `null`. It also short-circuits values that are already `YYYY-MM-DD`, which the
+ * local copy this replaced did not — an offset-bearing timestamp whose local day
+ * differs from its UTC day used to render as the previous day here.
+ */
 function toDateInputValue(value: string | null | undefined): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toISOString().slice(0, 10)
+  return toSharedDateInputValue(value) ?? ''
 }
 
 export function ReturnEditDialog({

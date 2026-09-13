@@ -42,15 +42,41 @@ export type BusinessRuleFormValues = {
  * Form Validation Schema
  * Extends the API schema with additional client-side validation
  */
-export const businessRuleFormSchema = z
+/**
+ * Built per-render from the active translator, matching the rule-set form in
+ * `backend/sets/create/page.tsx`. Validation copy is user-facing, so it goes
+ * through `t()` like every other client form schema in the package.
+ */
+export const createBusinessRuleFormSchema = (t: (key: string, fallback?: string) => string) => z
   .object({
-    ruleId: z.string().min(1, 'Rule ID is required').max(50, 'Rule ID must be 50 characters or less'),
-    ruleName: z.string().min(1, 'Rule name is required').max(200, 'Rule name must be 200 characters or less'),
-    description: z.string().max(5000, 'Description must be 5000 characters or less').optional().nullable(),
+    ruleId: z
+      .string()
+      .min(1, t('business_rules.rules.form.validation.ruleIdRequired', 'Rule ID is required'))
+      .max(50, t('business_rules.rules.form.validation.ruleIdMax', 'Rule ID must be 50 characters or less')),
+    ruleName: z
+      .string()
+      .min(1, t('business_rules.rules.form.validation.ruleNameRequired', 'Rule name is required'))
+      .max(200, t('business_rules.rules.form.validation.ruleNameMax', 'Rule name must be 200 characters or less')),
+    description: z
+      .string()
+      .max(5000, t('business_rules.rules.form.validation.descriptionMax', 'Description must be 5000 characters or less'))
+      .optional()
+      .nullable(),
     ruleType: ruleTypeSchema,
-    ruleCategory: z.string().max(50, 'Category must be 50 characters or less').optional().nullable(),
-    entityType: z.string().min(1, 'Entity type is required').max(50, 'Entity type must be 50 characters or less'),
-    eventType: z.string().max(50, 'Event type must be 50 characters or less').optional().nullable(),
+    ruleCategory: z
+      .string()
+      .max(50, t('business_rules.rules.form.validation.categoryMax', 'Category must be 50 characters or less'))
+      .optional()
+      .nullable(),
+    entityType: z
+      .string()
+      .min(1, t('business_rules.rules.form.validation.entityTypeRequired', 'Entity type is required'))
+      .max(50, t('business_rules.rules.form.validation.entityTypeMax', 'Entity type must be 50 characters or less')),
+    eventType: z
+      .string()
+      .max(50, t('business_rules.rules.form.validation.eventTypeMax', 'Event type must be 50 characters or less'))
+      .optional()
+      .nullable(),
     conditionExpression: z.any(), // Validated by custom validator
     successActions: z.array(z.any()).optional().nullable(),
     failureActions: z.array(z.any()).optional().nullable(),
@@ -60,7 +86,31 @@ export const businessRuleFormSchema = z
     effectiveFrom: z.string().optional().nullable(),
     effectiveTo: z.string().optional().nullable(),
   })
-  .superRefine((data, ctx) => refineEffectiveDateRange(data, ctx, EFFECTIVE_DATE_RANGE_DEFAULT_MESSAGE))
+  .superRefine((data, ctx) => refineEffectiveDateRange(
+    data,
+    ctx,
+    t('business_rules.rules.form.validation.effectiveDateRange', EFFECTIVE_DATE_RANGE_DEFAULT_MESSAGE),
+  ))
+
+/**
+ * Rule-set form schema. Shared by the create and edit pages so the two cannot
+ * drift — the edit page previously carried a bare copy with no messages at all.
+ */
+export const createRuleSetFormSchema = (t: (key: string, fallback?: string) => string) =>
+  z.object({
+    setId: z
+      .string()
+      .min(1, t('business_rules.sets.form.validation.setIdRequired', 'Set ID is required'))
+      .max(50),
+    setName: z
+      .string()
+      .min(1, t('business_rules.sets.form.validation.setNameRequired', 'Set name is required'))
+      .max(200),
+    description: z.string().max(5000).optional().nullable(),
+    enabled: z.boolean().optional(),
+  })
+
+export type RuleSetFormValues = z.infer<ReturnType<typeof createRuleSetFormSchema>>
 
 /**
  * Get Rule Type Options

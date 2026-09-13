@@ -2,6 +2,8 @@ import { z } from 'zod'
 import { fieldsetCodeRegex } from '@open-mercato/shared/modules/entities/validators'
 import { DEFAULT_CHECKOUT_CUSTOMER_FIELDS } from '../lib/defaults'
 import { CHECKOUT_LINK_STATUSES } from '../lib/constants'
+import { currencyCodeSchema as currencyCodeSchema_, moneyAmountSchema } from '@open-mercato/shared/lib/validation'
+import { isValidCheckoutEmail, isValidCheckoutPhone } from '../lib/customerDataValidation'
 
 function normalizeBlankString(value: unknown): unknown {
   if (typeof value !== 'string') return value
@@ -26,9 +28,7 @@ function requiredTrimmedString(message: string) {
 const hexColorSchema = z.string().regex(/^#([0-9a-fA-F]{6})$/, {
   message: 'checkout.validation.common.invalidColor',
 })
-const currencyCodeSchema = z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/, {
-  message: 'checkout.validation.common.invalidCurrencyCode',
-})
+const currencyCodeSchema = currencyCodeSchema_({ message: 'checkout.validation.common.invalidCurrencyCode' })
 const optionalTrimmedString = z.preprocess(
   normalizeBlankString,
   z.string().trim().min(1, { message: 'checkout.validation.common.required' }).optional().nullable(),
@@ -43,7 +43,21 @@ const optionalFieldsetCodeSchema = z.preprocess(
     message: 'checkout.validation.common.invalidFieldsetCode',
   }).optional().nullable(),
 )
-const positiveMoneySchema = z.coerce.number().finite('checkout.validation.common.invalidNumber').nonnegative('checkout.validation.common.nonNegativeNumber')
+// The money columns behind these are numeric(12,2), so anything finer was being
+// silently rounded by Postgres on write rather than reported to the caller.
+/**
+ * `max` is the capacity of the `numeric(12,2)` columns behind these fields, not
+ * the shared default. The schema this replaced was unbounded, and the shared
+ * ceiling of 999,999,999 is an order of magnitude below what the column holds —
+ * a pay link priced in a high-denomination currency (a billion VND is roughly
+ * forty thousand USD) would start failing validation.
+ */
+const positiveMoneySchema = moneyAmountSchema({
+  max: 9_999_999_999.99,
+  scale: 2,
+  message: 'checkout.validation.common.nonNegativeNumber',
+  scaleMessage: 'checkout.validation.common.invalidNumber',
+})
 const linkStatusSchema = z.enum(CHECKOUT_LINK_STATUSES)
 
 export const customerFieldOptionSchema = z.object({
@@ -238,8 +252,17 @@ export const transactionCreateSchema = z.object({
   customerData: z.record(z.string(), z.unknown()).default({}),
   firstName: optionalTrimmedString,
   lastName: optionalTrimmedString,
-  email: optionalTrimmedString,
-  phone: optionalTrimmedString,
+  // The client already ran `isValidCheckoutEmail` / `isValidCheckoutPhone` on
+  // these; the server accepted any non-empty string. Reusing the SAME predicates
+  // rather than a second rule is what keeps the two from disagreeing.
+  email: optionalTrimmedString.refine(
+    (value) => value == null || isValidCheckoutEmail(value),
+    { message: 'checkout.validation.common.invalidEmail' },
+  ),
+  phone: optionalTrimmedString.refine(
+    (value) => value == null || isValidCheckoutPhone(value),
+    { message: 'checkout.validation.common.invalidPhone' },
+  ),
   gatewayTransactionId: z.string().uuid('checkout.validation.common.invalidUuid').optional().nullable(),
   paymentStatus: optionalTrimmedString,
   selectedPriceItemId: optionalTrimmedString,
@@ -269,7 +292,7 @@ export const publicSubmitSchema = z.object({
     terms: z.boolean().optional(),
     privacyPolicy: z.boolean().optional(),
   }).default({}),
-  amount: z.coerce.number().finite().nonnegative().optional(),
+  amount: moneyAmountSchema({ max: 9_999_999_999.99, scale: 2 }).optional(),
   selectedPriceItemId: optionalTrimmedString,
 })
 

@@ -8,7 +8,7 @@ import { apiFetch } from '@open-mercato/ui/backend/utils/api'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import {
-  businessRuleFormSchema,
+  createBusinessRuleFormSchema,
   createFormGroups,
   createFieldDefinitions,
   defaultFormValues,
@@ -17,6 +17,7 @@ import {
 import { ConditionBuilder } from '../../../components/ConditionBuilder'
 import { ActionBuilder } from '../../../components/ActionBuilder'
 import { buildRulePayload } from '../../../components/utils/formHelpers'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 export default function CreateBusinessRulePage() {
   const router = useRouter()
@@ -50,16 +51,19 @@ export default function CreateBusinessRulePage() {
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || error.message || t('business_rules.errors.createFailed'))
+      // A 502 HTML page or an empty body would make `.json()` throw a
+      // SyntaxError that replaces the real failure with a parse error.
+      const error = await readJsonSafe<{ error?: string; message?: string }>(response, {})
+      throw new Error(error?.error || error?.message || t('business_rules.errors.createFailed'))
     }
 
-    const result = await response.json()
-    router.push(`/backend/rules/${result.id}`)
+    const result = await readJsonSafe<{ id?: string }>(response, {})
+    router.push(`/backend/rules/${result?.id ?? ''}`)
     router.refresh()
   }
 
   const fields = React.useMemo(() => createFieldDefinitions(t), [t])
+  const schema = React.useMemo(() => createBusinessRuleFormSchema(t), [t])
 
   const formGroups = React.useMemo(
     () => createFormGroups(t, ConditionBuilder, ActionBuilder),
@@ -72,7 +76,7 @@ export default function CreateBusinessRulePage() {
         <CrudForm
           title={t('business_rules.rules.create.title')}
           backHref="/backend/rules"
-          schema={businessRuleFormSchema}
+          schema={schema}
           fields={fields}
           initialValues={defaultFormValues}
           onSubmit={handleSubmit}

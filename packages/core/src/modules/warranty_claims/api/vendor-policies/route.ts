@@ -10,6 +10,7 @@ import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { E } from '#generated/entities.ids.generated'
 import * as F from '#generated/entities/warranty_vendor_policy'
 import { WarrantyVendorPolicy } from '../../data/entities'
+import { toIsoOrEcho as toIso } from '@open-mercato/shared/lib/date/normalize'
 import {
   vendorPolicyCreateSchema,
   vendorPolicyUpdateSchema,
@@ -177,15 +178,6 @@ function readStringArray(record: Record<string, unknown>, snakeKey: string, came
   const value = record[snakeKey] ?? record[camelKey]
   if (!Array.isArray(value)) return null
   return value.filter((entry): entry is string => typeof entry === 'string')
-}
-
-function toIso(value: unknown): string | null {
-  if (value instanceof Date) return value.toISOString()
-  if (typeof value === 'string') {
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? value : date.toISOString()
-  }
-  return null
 }
 
 function isDetailQuery(query: VendorPolicyListQuery): boolean {

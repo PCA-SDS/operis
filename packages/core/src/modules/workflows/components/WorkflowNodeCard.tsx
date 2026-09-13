@@ -39,7 +39,7 @@ export function WorkflowNodeCard({
         transition-all duration-200 relative
         ${
           selected
-            ? 'shadow-[0_0_0_3px_rgba(0,128,254,0.15)] border-[#0080FE]'
+            ? 'ring-2 ring-primary/20 border-primary'
             : 'shadow-sm hover:shadow-md'
         }
       `}

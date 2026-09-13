@@ -1,7 +1,10 @@
 import { assertAttachmentScopeInvariant, checkAttachmentAccess } from '../access'
 
 function attachment(overrides: Record<string, unknown> = {}) {
-  return { tenantId: 'tenant-1', organizationId: 'org-1', ...overrides } as any
+  // `scanStatus: 'clean'` by default: these cases are about scope and partition
+  // visibility, and an uncleared file is refused before any of that is reached.
+  // The scan gate has its own tests in `scanning.test.ts`.
+  return { tenantId: 'tenant-1', organizationId: 'org-1', scanStatus: 'clean', ...overrides } as any
 }
 
 function partition(isPublic: boolean) {

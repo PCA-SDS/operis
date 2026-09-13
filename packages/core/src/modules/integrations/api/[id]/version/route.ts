@@ -10,11 +10,11 @@ import { updateVersionSchema } from '../../../data/validators'
 import type { IntegrationStateService } from '../../../lib/state-service'
 import { resolveDefaultApiVersion } from '../../../lib/registry-service'
 import {
-  resolveUserFeatures,
   runIntegrationMutationGuardAfterSuccess,
   runIntegrationMutationGuards,
 } from '../../guards'
 import { organizationScopeRequiredResponse, resolveActiveOrganizationId } from '@open-mercato/shared/lib/auth/organizationScope'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const idParamsSchema = z.object({ id: z.string().min(1) })
 
@@ -51,7 +51,7 @@ export async function PUT(req: Request, ctx: { params?: Promise<{ id?: string }>
     return NextResponse.json({ error: 'Integration not found' }, { status: 404 })
   }
 
-  const payload = await req.json().catch(() => null)
+  const payload = await readJsonSafe(req)
   const parsedBody = updateVersionSchema.safeParse(payload)
   if (!parsedBody.success) {
     return NextResponse.json({ error: 'Invalid payload', details: parsedBody.error.flatten() }, { status: 422 })
@@ -87,7 +87,6 @@ export async function PUT(req: Request, ctx: { params?: Promise<{ id?: string }>
       requestHeaders: req.headers,
       mutationPayload: parsedBody.data as Record<string, unknown>,
     },
-    resolveUserFeatures(auth),
   )
   if (!guardResult.ok) {
     return NextResponse.json(guardResult.errorBody ?? { error: 'Operation blocked by guard' }, { status: guardResult.errorStatus ?? 422 })

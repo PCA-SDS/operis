@@ -4,6 +4,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { mergeAttachmentMetadata, readAttachmentMetadata } from '../../lib/metadata'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import {
   attachmentsTag,
   transferAttachmentsRequestSchema,
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
   if (!auth || !auth.tenantId || !auth.orgId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  const json = await req.json().catch(() => null)
+  const json = await readJsonSafe(req)
   const parsed = transferSchema.safeParse(json)
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })

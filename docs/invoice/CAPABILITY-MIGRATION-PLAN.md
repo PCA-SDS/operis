@@ -30,6 +30,24 @@ Locked decisions:
 | M9 | UI parity | Backend pages and browser flows. |
 | M10 | AI helper | Optional read-only invoice assistant. |
 
+## Phase 5 Domain Parity Gate (2026-09-09)
+
+M5 Auto-Paid and M6 Invoice Core are backend-contract complete. Manual AP
+creation now consumes partner terms and Auto-Paid through Invoice Core. AR
+summary and forecast use exchange-rate services, and AR send uses company email
+memory as a best-effort side effect.
+
+Invoice Core exposes `applyInvoicePayment(scope, invoiceId, input)` for trusted
+future payment workflows. It owns scoped loading, installment payment, and
+settlement rollup recomputation. M7 must use this seam and must not write the
+Invoice table directly. Future M8 sync can call `invoiceAutoPaidService.applyAll(scope)`.
+
+Generic invoice writes do not accept or trust derived payment rollups. All
+mutations require trusted tenant and organization scope.
+
+Remaining work is intentionally separate: M7 payment confirmation, M8 GDT
+sync, and M9 UI parity. See `.ai/specs/2026-09-09-invoice-phase-5-domain-parity-gate.md`.
+
 ## Phase 3 Start Packet
 
 Phase 3 can start with M0. Do not implement UI or GDT provider details before
@@ -97,9 +115,8 @@ Data requirements:
 - Add optimistic locking to every user-editable entity.
 - Add search configuration with `invoice.view` ACL gating, allowlisted text
   fields, tax-code hash-only fields, and token/hash exclusions.
-- Keep `invoice_company_registry.payload` unencrypted in M0 only because M0 does
-  not call lookup providers or write raw provider responses. M4 must revisit
-  payload encryption before provider writes.
+- `invoice_company_registry.payload` is encrypted before CAP-008 provider
+  writes are enabled.
 
 Optimistic locking decisions:
 
@@ -131,6 +148,15 @@ Definition of done:
   this explicitly in the PR body.
 
 ## M1 CAP-003 Partner Payment Terms
+
+Progress:
+
+- Task 4.1 implemented the domain service, DI registration, partner validators,
+  and focused unit coverage for list/search, matching, updates, and due-date
+  default resolution.
+- The partner list, match, and payment-term update API routes are implemented
+  as thin boundaries over `invoicePartnerTermsService`.
+- The UI settings page remains for a later CAP-003 task.
 
 Dependencies:
 
@@ -168,6 +194,15 @@ Definition of done:
 
 ## M2 CAP-006 Company Email Memory
 
+Progress:
+
+- Task 4.2 implemented `invoiceCompanyEmailsService`, DI registration, route
+  handlers for list/record/remove, OpenAPI metadata, and focused tests.
+- The service lists by scoped company, upserts normalized email by company, and
+  removes only scoped company email rows.
+- Recipient picker UI remains for M9. CAP-001 and CAP-005 can call the service
+  now for best-effort recipient memory.
+
 Dependencies:
 
 - M0 table `invoice_company_emails`.
@@ -203,6 +238,17 @@ Definition of done:
 
 ## M3 CAP-007 Exchange Rates
 
+Progress:
+
+- Task 4.3 implemented `invoiceExchangeRatesService`, DI registration, the
+  read API route, OpenAPI metadata, and focused provider/mock route tests.
+- The service is process-local and read-only. It does not depend on
+  `EntityManager` and does not write invoice rows.
+- Cache freshness is 24 hours. Expired snapshots remain available only as stale
+  fallback when the provider fails.
+- Summary, forecast, and form preview consumers are still future work in CAP-001
+  and M9.
+
 Dependencies:
 
 - M0 DI and config access.
@@ -215,12 +261,18 @@ Target files:
 Data read/write:
 
 - No invoice table writes.
-- Optional process-local snapshot cache.
+- Process-local snapshot cache only.
 
 Implementation type:
 
 - Preserve old process-local cache by default.
 - Adapt provider HTTP/config access to Operis.
+- Default upstream is `https://open.er-api.com/v6/latest/USD`, overridden by
+  `EXCHANGE_RATE_API_URL`.
+- VND conversion uses `rates.VND / rates[currency]`; VND itself is exactly 1.
+- Invalid, missing, zero, negative, or non-finite upstream rates are rejected and
+  are not cached.
+- No automatic retry loop.
 
 Expected tests:
 
@@ -230,12 +282,22 @@ Expected tests:
 - Stale cache is used when upstream fails.
 - No cache plus upstream failure returns service unavailable.
 - Invalid upstream response is rejected.
+- Route requires auth and `invoice.view`.
+- No Invoice database rows are written.
 
 Definition of done:
 
 - Summary, forecast, and form preview can request rates.
 
 ## M4 CAP-008 Company Lookup
+
+Progress:
+
+- Task 4.5 finalized the provider cache security contract by encrypting
+  `invoice_company_registry.payload` and requiring decrypted scoped reads.
+- Task 4.6 implemented the invoice company lookup service/API boundary for
+  Vietnam MST and Singapore UEN, with 30-day cache freshness, stale fallback,
+  and no `invoice_companies` writes.
 
 Dependencies:
 
@@ -252,9 +314,8 @@ Data read/write:
 
 - Reads/writes `invoice_company_registry`.
 - Does not create `invoice_companies`.
-- Before writing provider payloads, either add payload encryption for
-  `invoice_company_registry.payload` or document a stricter provider response
-  shape that proves encryption is not required.
+- Provider payload writes use encrypted `invoice_company_registry.payload` and
+  decrypted scoped cache reads.
 
 Implementation type:
 
@@ -281,8 +342,8 @@ Dependencies:
 
 Target files:
 
-- `services/auto-paid-service.ts`
-- `commands/auto-paid.ts`
+- `services/auto-paid-service.ts` - implemented for domain behavior.
+- `commands/auto-paid.ts` - implemented for user-triggered mutations.
 - `api/auto-paid/route.ts`
 - settings UI
 
@@ -309,6 +370,15 @@ Expected tests:
 Definition of done:
 
 - Manual AP create and sync completion can call auto-paid logic.
+
+Progress:
+
+- Service, DI registration, validators, command handlers, and focused tests are implemented.
+- API routes, settings UI, manual AP create call site, and sync completion call site are still pending.
+- Authenticated API routes (`GET /api/invoice/auto-paid`, `GET /api/invoice/auto-paid/candidates`, `POST /api/invoice/auto-paid`, `DELETE /api/invoice/auto-paid/[id]`, and `PATCH /api/invoice/invoices/[id]/reverse-auto-paid`) are implemented with OpenAPI metadata, mutation guards, and command bus writes.
+- Candidate listing contract (`listCandidates`) is exposed directly on `invoiceAutoPaidService` and tested.
+- Settings UI, manual AP create call site, and sync completion call site are still pending.
+- Removal reverts by scoped current `sellerTaxCode` and `autoSettled = true`; this is the stable target rule because invoices do not persist the source rule id.
 
 ## M6 CAP-001 Invoice Core
 
@@ -360,6 +430,30 @@ Expected tests:
 Definition of done:
 
 - Dashboard/list/detail/create/edit/send/tracking parity is proven by unit and browser scenarios.
+
+Progress:
+
+- Implemented the first CAP-001 read-only slice: scoped `invoiceService.listInvoices`,
+  `invoiceService.getInvoiceDetail`, QueryEngine-backed list filters/sort/page,
+  safe DTO mappers, and `GET /api/invoice/invoices` plus
+  `GET /api/invoice/invoices/[id]` with `invoice.view` metadata.
+- Implemented the CAP-001 manual AP lifecycle slice: manual invoice
+  create/update/delete service methods, command handlers, route writes,
+  server-side line/totals calculation, partner create/reuse, duplicate guard,
+  due-date defaults through CAP-003, Auto-Paid integration through M5, and
+  optimistic locking for edit/delete. Buyer stamping follows DEC-036:
+  `buyer_name` is the trusted scoped `Organization.name` and `buyer_tax_code`
+  is `null`.
+- Implemented the CAP-001 dedicated due-date slice:
+  `PATCH /api/invoice/invoices/[id]/due-date`,
+  `invoice.invoices.update-due-date`, scoped service mutation, set/clear
+  support for manual and imported invoices, invoice-date/max-range validation,
+  installment-authoritative `nextDueDate` behavior, route mutation guards, and
+  command-level optimistic locking.
+- Summary, forecast, send/tracking, payment confirmation, and UI parity remain
+  pending. AR settlement and non-recoverable state transitions are implemented
+  through dedicated scoped commands and routes, including installment-aware
+  rollups and optimistic locking.
 
 ## M7 CAP-005 Payment Confirmations
 

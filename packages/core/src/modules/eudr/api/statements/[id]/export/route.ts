@@ -31,6 +31,7 @@ import {
 } from '../../../../data/validators'
 import { hasMissingSpecies } from '../../../../lib/species'
 import { EUDR_AMEND_WINDOW_MS } from '../../../../lib/statement-lifecycle'
+import { toIsoOrEcho as toIsoString } from '@open-mercato/shared/lib/date/normalize'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['eudr.statements.view', 'eudr.submissions.view', 'eudr.mappings.view', 'eudr.plots.view', 'eudr.risk.view'] },
@@ -52,13 +53,6 @@ type GeoJsonFeature = {
 
 function hasPrivilegedStatementExportAccess(auth: AuthenticatedContext): boolean {
   return auth.isSuperAdmin === true
-}
-
-function toIsoString(value: unknown): string | null {
-  if (value instanceof Date) return value.toISOString()
-  if (typeof value !== 'string' || value.length === 0) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toISOString()
 }
 
 function stringArray(value: unknown): string[] {

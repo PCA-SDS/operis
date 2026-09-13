@@ -139,7 +139,7 @@ function ProgressJobCard({ job, t, onCancel }: { job: ProgressJobDto; t: Transla
           <div className="flex items-center gap-2">
             {isActive && <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />}
             {isCompleted && <CheckCircle className="h-4 w-4 text-status-success-icon flex-shrink-0" />}
-            {isFailed && <XCircle className="h-4 w-4 text-destructive flex-shrink-0" />}
+            {isFailed && <XCircle className="h-4 w-4 text-status-error-icon flex-shrink-0" />}
             <span className="font-medium truncate">{job.name}</span>
           </div>
 
@@ -148,7 +148,7 @@ function ProgressJobCard({ job, t, onCancel }: { job: ProgressJobDto; t: Transla
           )}
 
           {isFailed && job.errorMessage && (
-            <p className="text-sm text-destructive mt-1">{job.errorMessage}</p>
+            <p className="text-sm text-status-error-text mt-1">{job.errorMessage}</p>
           )}
         </div>
 

@@ -6,21 +6,13 @@
  * attachment bridge, not this enumeration. Tags tool mirrors the existing
  * `/api/catalog/tags` GET surface (feature-gated the same way).
  */
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { z } from 'zod'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { E } from '#generated/entities.ids.generated'
 import { Attachment } from '@open-mercato/core/modules/attachments/data/entities'
 import { CatalogProductTag, CatalogProductTagAssignment } from '../data/entities'
-import { assertTenantScope, type CatalogAiToolDefinition, type CatalogToolContext } from './types'
-
-function resolveEm(ctx: CatalogToolContext): EntityManager {
-  return ctx.container.resolve<EntityManager>('em')
-}
-
-function buildScope(ctx: CatalogToolContext, tenantId: string) {
-  return { tenantId, organizationId: ctx.organizationId }
-}
+import { assertTenantScope, type CatalogAiToolDefinition } from './types'
+import { buildScope, resolveEm } from './_shared'
 
 const listProductMediaInput = z
   .object({

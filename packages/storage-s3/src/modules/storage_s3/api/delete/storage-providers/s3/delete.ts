@@ -7,6 +7,7 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isS3KeyAddressableByScope } from '../../../../lib/key-scope'
 import { S3StorageDriver } from '../../../../lib/s3-driver'
 import type { AttachmentQuotaService } from '@open-mercato/core/modules/attachments/lib/quota-service'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 export const metadata = {
   path: '/storage-providers/s3/delete',
@@ -34,7 +35,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: t('storage_s3.errors.unauthorized', 'Unauthorized') }, { status: 401 })
   }
 
-  const json = await req.json().catch(() => null)
+  const json = await readJsonSafe(req)
   const parsed = requestSchema.safeParse(json)
   if (!parsed.success) {
     return NextResponse.json({ error: t('storage_s3.errors.invalidPayload', 'Invalid payload') }, { status: 400 })

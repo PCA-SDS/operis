@@ -24,8 +24,8 @@ export const metadata = routeMetadata
 const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z.object({
-  page: z.coerce.number().min(1).default(1),
-  pageSize: z.coerce.number().min(1).max(100).default(25),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(25),
   catalogProductId: z.string().uuid().optional(),
   catalogVariantId: z.string().uuid().optional(),
   defaultStrategy: z.enum(['fifo', 'lifo', 'fefo']).optional(),

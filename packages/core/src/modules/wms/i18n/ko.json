@@ -101,6 +101,7 @@
   "wms.backend.config.warehouses.primary.yes": "주요한",
   "wms.backend.config.warehouses.search": "창고 검색",
   "wms.backend.config.warehouses.title": "창고",
+  "wms.backend.config.warehouses.validation.primaryRequiresActive": "Inactive warehouses cannot be marked as primary.",
   "wms.backend.config.zones.columns.code": "암호",
   "wms.backend.config.zones.columns.name": "존",
   "wms.backend.config.zones.columns.priority": "우선 사항",

@@ -4,6 +4,7 @@ import * as React from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { translateWithFallback } from '@open-mercato/shared/lib/i18n/translate'
+import { formatAmount } from './constants'
 
 export type CurrencyBreakdownRow = {
   currency: string
@@ -97,14 +98,6 @@ export function CurrencyBreakdownTable({
       </ul>
     </div>
   )
-}
-
-function formatAmount(amount: number): string {
-  return new Intl.NumberFormat(undefined, {
-    style: 'decimal',
-    maximumFractionDigits: 0,
-    useGrouping: true,
-  }).format(Math.round(amount))
 }
 
 export default CurrencyBreakdownTable

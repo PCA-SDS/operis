@@ -266,7 +266,7 @@ function HistoryDropdown({ open, onOpenChange, closed, onPick }: HistoryDropdown
         <div
           className="absolute right-0 top-full mt-2 w-72 max-h-[60vh] overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
           // Inline z-index so the dropdown sits above any host surface
-          // (chat dialog at z-[70], dock panel, modal overlays). Inline
+          // (chat dialog at z-banner, dock panel, modal overlays). Inline
           // beats Tailwind JIT for arbitrary high values.
           style={{ zIndex: 2147483000 }}
           data-ai-chat-history-panel=""

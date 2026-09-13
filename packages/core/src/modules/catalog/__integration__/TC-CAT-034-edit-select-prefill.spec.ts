@@ -134,16 +134,24 @@ test.describe('TC-CAT-034: Catalog edit forms prefill saved async selects', () =
         `/backend/catalog/products/${encodeURIComponent(variantProductId)}/variants/${encodeURIComponent(variantId)}`,
       )
       await expect(page.locator(`input[value="QA Select Variant ${stamp}"]`).first()).toBeVisible()
-      // Scope to the "Prices" CrudForm group card (nearest `bg-card` ancestor — both the
-      // collapsible and plain group containers carry it) instead of the shared column
-      // wrapper. The variant General group now renders its own combobox (the GTIN type
-      // select), so a form-wide getByRole('combobox').first() would match that sibling
-      // group's select; the tax-rate select is the only combobox inside the Prices group.
-      const pricesSection = page
-        .getByText('Prices', { exact: true })
-        .locator('xpath=ancestor::div[contains(@class,"bg-card")][1]')
-        .first()
-      await expect(pricesSection.getByRole('combobox').first()).toContainText(selectedTaxRate.name)
+      /**
+       * Matched by the value, not by where it sits in the DOM.
+       *
+       * This used to walk up from the "Prices" heading to the nearest
+       * `bg-card` ancestor and take that card's first combobox. The card class
+       * became `bg-surface` in the design-system migration and the locator
+       * silently resolved to nothing — the assertion was coupled to a Tailwind
+       * class, and to the heading and the select still sharing one ancestor.
+       *
+       * The scoping only ever existed to avoid `.first()` landing on the
+       * General group's GTIN-type select. Filtering on the tax rate's own name
+       * removes that problem outright: the name carries a per-run timestamp, so
+       * exactly one combobox on the page can contain it, and the assertion says
+       * what the test actually means — the saved tax class is prefilled.
+       */
+      await expect(
+        page.getByRole('combobox').filter({ hasText: selectedTaxRate.name }),
+      ).toHaveCount(1)
     } finally {
       await deleteCatalogProductIfExists(request, token, productId)
       await deleteCatalogProductIfExists(request, token, variantProductId)

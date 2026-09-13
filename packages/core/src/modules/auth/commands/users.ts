@@ -13,7 +13,7 @@ import type { CrudEventsConfig, CrudIndexerConfig } from '@open-mercato/shared/l
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { UniqueConstraintViolationException, LockMode } from '@mikro-orm/core'
+import { LockMode } from '@mikro-orm/core'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import { User, UserRole, Role, UserAcl, Session, PasswordReset } from '@open-mercato/core/modules/auth/data/entities'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
@@ -49,6 +49,7 @@ import {
   throwUserDestinationOrganizationNotFound,
 } from '@open-mercato/core/modules/auth/lib/grantChecks'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
+import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
 
 const logger = createLogger('auth').child({ component: 'users-commands' })
 
@@ -511,16 +512,6 @@ async function sendInviteToUser(
   }
 
   return { emailSent }
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  if (error instanceof UniqueConstraintViolationException) return true
-  if (!error || typeof error !== 'object') return false
-  const code = (error as { code?: string }).code
-  if (code === '23505') return true
-  const messageRaw = (error as { message?: string })?.message
-  const message = typeof messageRaw === 'string' ? messageRaw : ''
-  return message.toLowerCase().includes('duplicate key')
 }
 
 const updateUserCommand: CommandHandler<Record<string, unknown>, User> = {

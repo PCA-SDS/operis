@@ -17,11 +17,11 @@ import {
   type StaffTeamMemberCreateInput,
 } from '../../../data/validators'
 import {
-  resolveUserFeatures,
   runStaffMutationGuardAfterSuccess,
   runStaffMutationGuards,
 } from '../../guards'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const logger = createLogger('staff')
 
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
     const { ctx, translate } = await buildContext(req)
     const auth = ctx.auth
     if (!auth?.sub) throw new CrudHttpError(401, { error: translate('staff.errors.unauthorized', 'Unauthorized') })
-    const body = await req.json().catch(() => ({}))
+    const body = await readJsonSafe(req, {})
     const parsed = parseScopedCommandInput(staffTeamMemberSelfCreateSchema, body, ctx, translate)
     const em = (ctx.container.resolve('em') as any)
     const existing = await findOneWithDecryption(
@@ -125,7 +125,6 @@ export async function POST(req: Request) {
         requestHeaders: req.headers,
         mutationPayload: parsed,
       },
-      resolveUserFeatures(auth),
     )
     if (!guardResult.ok) {
       return NextResponse.json(

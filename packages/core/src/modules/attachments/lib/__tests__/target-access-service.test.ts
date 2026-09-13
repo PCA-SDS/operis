@@ -12,7 +12,11 @@ const organizationId = 'org-1'
 const auth = { sub: 'user-1', tenantId, orgId: organizationId, roles: ['admin'] }
 
 function makeService(attachment: Record<string, unknown> | null) {
-  findOneWithDecryptionMock.mockResolvedValue(attachment)
+  // Cleared unless a case says otherwise: these assert target linkage, and an
+  // uncleared file never reaches that question.
+  findOneWithDecryptionMock.mockResolvedValue(
+    attachment ? { scanStatus: 'clean', ...attachment } : attachment,
+  )
   const em = {
     findOne: jest.fn(async () => ({ code: 'private', isPublic: false })),
   } as unknown as EntityManager

@@ -1,6 +1,7 @@
 import type { SearchBuildContext, SearchIndexSource, SearchModuleConfig, SearchResultPresenter } from '@open-mercato/shared/modules/search'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { normalizeText } from '@open-mercato/shared/modules/search/descriptorHelpers'
 
 const EUDR_STATEMENTS_URL = '/backend/eudr/statements'
 const EUDR_PLOTS_URL = '/backend/eudr/plots'
@@ -10,17 +11,6 @@ function assertTenantContext(ctx: SearchBuildContext): void {
   if (typeof ctx.tenantId !== 'string' || ctx.tenantId.length === 0) {
     throw new Error('[internal] [search.eudr] Missing tenantId in search build context')
   }
-}
-
-function normalizeText(value: unknown): string | null {
-  if (value === null || value === undefined) return null
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    return trimmed.length > 0 ? trimmed : null
-  }
-  if (value instanceof Date) return value.toISOString()
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
-  return null
 }
 
 function readRecordText(record: Record<string, unknown>, ...keys: string[]): string | null {
