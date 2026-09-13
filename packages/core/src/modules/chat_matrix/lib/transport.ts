@@ -18,14 +18,33 @@ import type {
   PublishEditInput,
   PublishMessageInput,
   PublishReactionInput,
+  PublishReadReceiptInput,
+  PublishTypingInput,
   RecordPublicationInput,
 } from '@open-mercato/core/modules/chat/lib/transport'
 import type { ChatScope } from '@open-mercato/core/modules/chat/lib/scope'
 import { ChatMatrixEvent, ChatMatrixRoom } from '../data/entities'
 import { ensureIdentity } from './identities'
+import {
+  attachmentSubjectKey,
+  editSubjectKey,
+  reactionSubjectKey,
+  redactionSubjectKey,
+} from './subjectKey'
+import { loadAttachmentBytes, matrixMsgtypeFor } from './media'
+import { resolveChatAttachmentLimits } from '@open-mercato/core/modules/chat/lib/attachmentPolicy'
 import { ensureRoom, redactAsRoomMember, sendAsRoomMember, type RoomDeps } from './rooms'
 
 const logger = createLogger('chat_matrix').child({ component: 'transport' })
+
+/**
+ * How long the homeserver keeps someone marked as typing without a refresh.
+ *
+ * Long enough that a normal pause between words does not clear it, short enough
+ * that a client which crashes mid-sentence stops looking like it is still
+ * typing a few seconds later.
+ */
+const TYPING_TIMEOUT_MS = 8_000
 
 /**
  * The shadow writer.
@@ -158,6 +177,30 @@ export function createMatrixChatTransport(
         asUser: senderMxid,
       })
 
+      /**
+       * The files, each as its own event — best-effort, in both modes.
+       *
+       * Matrix models a file as a message of its own, so a message carrying two
+       * pictures is three events in the room. They go after the text so a client
+       * renders them in the order the composer staged them.
+       *
+       * Never fatal, even in authoritative mode, and the asymmetry with the text
+       * message is the same one edits and reactions have: a send that Matrix
+       * refuses must not commit, because a row would then exist for a message
+       * the stream never carried. A file has no such hole — it lives in Operis'
+       * own store whichever system owns the stream — so a failed copy leaves the
+       * room missing a picture rather than Operis missing a message.
+       */
+      try {
+        await publishAttachments(ctx, scope, input, room.roomId, senderMxid, client)
+      } catch (error) {
+        logger.error('failed to copy attachments into the room', {
+          conversationId: input.conversationId,
+          messageId: input.messageId,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+
       // Recording is deliberately NOT done here. In authoritative mode this runs
       // before the message row exists, so there is nothing to correlate yet;
       // the caller records inside the transaction that creates it.
@@ -288,7 +331,7 @@ export function createMatrixChatTransport(
         input.senderName,
       )
 
-      await sendAsRoomMember(deps(ctx), scope.tenantId, {
+      const sentEdit = await sendAsRoomMember(deps(ctx), scope.tenantId, {
         roomId: target.roomId,
         eventType: 'm.room.message',
         /**
@@ -321,6 +364,18 @@ export function createMatrixChatTransport(
         userId: input.senderUserId,
         asUser: editorMxid,
       })
+
+      // So the reader recognises our own edit coming back, instead of applying
+      // it a second time from the event.
+      await recordEvent(ctx, scope, {
+        messageId: null,
+        subjectKey: editSubjectKey(input.messageId, input.editedAt),
+        conversationId: input.conversationId,
+        roomId: target.roomId,
+        eventId: sentEdit.event_id,
+        eventType: 'm.room.message',
+        originServerTs: new Date(),
+      })
     },
 
     async publishDeletion(ctx, scope: ChatScope, input: PublishDeletionInput) {
@@ -334,7 +389,7 @@ export function createMatrixChatTransport(
         input.actorName,
       )
 
-      await redactAsRoomMember(deps(ctx), scope.tenantId, {
+      const sentRedaction = await redactAsRoomMember(deps(ctx), scope.tenantId, {
         roomId: target.roomId,
         eventId: target.eventId,
         // A message is deleted once — `deleted_at` is set and never unset — so
@@ -349,6 +404,68 @@ export function createMatrixChatTransport(
       // that the redaction really landed, and deleting it would leave the
       // backfill treating the message as never published — which, for a
       // soft-deleted message, it would then correctly skip, losing the trail.
+
+      // The redaction gets a mapping of its own, so the reader recognises it as
+      // ours. A redaction carries no content and so cannot be marked
+      // `om.origin` the way a message is; this is the only way to tell.
+      await recordEvent(ctx, scope, {
+        messageId: null,
+        subjectKey: redactionSubjectKey(input.messageId),
+        conversationId: input.conversationId,
+        roomId: target.roomId,
+        eventId: sentRedaction.event_id,
+        eventType: 'm.room.redaction',
+        originServerTs: new Date(),
+      })
+    },
+
+    /**
+     * `m.typing` — a room-level ephemeral, not an event.
+     *
+     * The homeserver holds it for `timeoutMs` and then forgets, which is why
+     * the stop signal is a courtesy rather than a requirement: a client that
+     * closes its laptop mid-sentence stops typing on its own. The call is
+     * marked non-retryable at the client for the same reason — a typing
+     * notification that arrives late is worse than one that never arrives.
+     */
+    async publishTyping(ctx, scope: ChatScope, input: PublishTypingInput) {
+      const room = await ctx.em.findOne(ChatMatrixRoom, {
+        conversationId: input.conversationId,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+      })
+      if (!room || room.state !== 'ready') return
+
+      const mxid = await ensureIdentity({ em: ctx.em, client, config }, scope.tenantId, input.userId)
+      await client.setTyping(room.roomId, mxid, input.typing, TYPING_TIMEOUT_MS)
+    },
+
+    /**
+     * `m.read` — the public receipt, which is the point of sending it.
+     *
+     * `m.read.private` exists for advancing your own marker without telling the
+     * room; Operis already has `last_read_at` for that, so the only reason to
+     * reach the homeserver at all is to let everyone else see it.
+     */
+    async publishReadReceipt(ctx, scope: ChatScope, input: PublishReadReceiptInput) {
+      const room = await ctx.em.findOne(ChatMatrixRoom, {
+        conversationId: input.conversationId,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+      })
+      if (!room || room.state !== 'ready') return
+
+      const target = await ctx.em.findOne(ChatMatrixEvent, {
+        messageId: input.messageId,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+      })
+      // A message that predates the transport has no event to point at. The
+      // next read of a mirrored message carries the marker forward.
+      if (!target) return
+
+      const mxid = await ensureIdentity({ em: ctx.em, client, config }, scope.tenantId, input.userId)
+      await client.sendReceipt(room.roomId, target.eventId, mxid)
     },
 
     async recordPublication(ctx, scope: ChatScope, input: RecordPublicationInput) {
@@ -426,21 +543,6 @@ async function resolveEventId(
   return mapped.eventId
 }
 
-/**
- * The tuple a reaction is unique on, rendered as a lookup key.
- *
- * `chat_message_reactions` is unique on (message, user, emoji) and its row is
- * DELETED on un-react, so the mapping has to be keyed on something that outlives
- * the row. This is that something.
- */
-function reactionSubjectKey(input: {
-  messageId: string
-  userId: string
-  emoji: string
-}): string {
-  return `reaction:${input.messageId}:${input.userId}:${input.emoji}`
-}
-
 type RecordEventInput = {
   messageId: string | null
   subjectKey?: string | null
@@ -459,6 +561,84 @@ type RecordEventInput = {
  * It stays null only for events that arrive from the homeserver first, which is
  * the phase after this one.
  */
+/**
+ * Copy each of a message's attachments into the media repo and announce it.
+ *
+ * Idempotent on `chat_matrix_events.subject_key`: a retried publish finds the
+ * copy it already made and neither re-uploads the bytes nor puts a second
+ * `m.image` in the room. That matters more here than anywhere else in the
+ * transport — re-uploading is the one operation whose cost is measured in
+ * megabytes rather than milliseconds.
+ */
+async function publishAttachments(
+  ctx: ChatTransportContext,
+  scope: ChatScope,
+  input: PublishMessageInput,
+  roomId: string,
+  senderMxid: string,
+  client: MatrixClient,
+): Promise<void> {
+  if (input.attachmentIds.length === 0) return
+
+  const limits = resolveChatAttachmentLimits()
+  const files = await loadAttachmentBytes({
+    em: ctx.em,
+    container: ctx.container,
+    scope,
+    attachmentIds: input.attachmentIds,
+    maxBytes: limits.maxBytes,
+  })
+
+  for (const file of files) {
+    const subjectKey = attachmentSubjectKey(file.id)
+    const existing = await ctx.em.findOne(ChatMatrixEvent, {
+      subjectKey,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+    })
+    if (existing) continue
+
+    const uploaded = await client.uploadMedia({
+      body: file.buffer,
+      contentType: file.mimeType,
+      fileName: file.fileName,
+      asUser: senderMxid,
+    })
+
+    const sent = await client.sendEvent({
+      roomId,
+      eventType: 'm.room.message',
+      // Keyed on the message AND the file, so a message with two attachments
+      // does not send the second under the first one's transaction id — which
+      // the homeserver would answer by handing back the first file's event.
+      transactionId: deriveRelatedTransactionId(`${input.messageId}:${file.id}`, 'attachment'),
+      content: {
+        msgtype: matrixMsgtypeFor(file.mimeType),
+        'om.origin': 'operis',
+        // The filename is the body by Matrix convention: it is what a client
+        // that cannot render the file shows, and what a screen reader reads.
+        body: file.fileName,
+        filename: file.fileName,
+        url: uploaded.content_uri,
+        info: { mimetype: file.mimeType, size: file.size },
+      },
+      asUser: senderMxid,
+    })
+
+    await recordEvent(ctx, scope, {
+      // Null: an attachment is not a message, and the drift check counts
+      // messages. The subject key is what makes it findable again.
+      messageId: null,
+      subjectKey,
+      conversationId: input.conversationId,
+      roomId,
+      eventId: sent.event_id,
+      eventType: 'm.room.message',
+      originServerTs: new Date(),
+    })
+  }
+}
+
 async function recordEvent(
   ctx: ChatTransportContext,
   scope: ChatScope,
