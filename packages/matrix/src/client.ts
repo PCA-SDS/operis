@@ -48,7 +48,19 @@ export type UploadResult = { content_uri: string }
 export type SyncResult = {
   next_batch: string
   rooms?: {
-    join?: Record<string, { timeline?: { events?: unknown[]; limited?: boolean; prev_batch?: string } }>
+    join?: Record<
+      string,
+      {
+        timeline?: { events?: unknown[]; limited?: boolean; prev_batch?: string }
+        /**
+         * Typing notifications and read receipts, when the filter asks for
+         * them. Ephemeral events carry no `event_id` and are never part of the
+         * room's history — the homeserver simply reports the current state of
+         * each, so a reader that misses one has missed nothing durable.
+         */
+        ephemeral?: { events?: unknown[] }
+      }
+    >
     invite?: Record<string, unknown>
     leave?: Record<string, unknown>
   }
