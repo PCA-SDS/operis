@@ -68,12 +68,12 @@ jobs:
           - main
     steps:
       - name: Checkout ${{ matrix.branch }}
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ matrix.branch }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24.19.0
 
@@ -95,7 +95,7 @@ jobs:
         # Restoring is safe and keeps the speed-up: `ci.yml` populates these keys from
         # the branch being built, and a miss only costs this daily job a cold install.
         # Guarded by scripts/__tests__/workflow-cache-poisoning.test.mjs.
-        uses: actions/cache/restore@v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: .yarn/cache
           key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
@@ -132,7 +132,7 @@ jobs:
 
       - name: Open or refresh tracking issue
         if: steps.audit.outcome == 'failure'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const fs = require('fs')
@@ -206,7 +206,7 @@ jobs:
 
       - name: Close tracking issue
         if: steps.audit.outcome == 'success'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const branch = ${{ toJSON(matrix.branch) }}
