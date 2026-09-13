@@ -43,6 +43,11 @@ export class FakeEntityManager {
     this.bucket(entity).push(row)
   }
 
+  /** Everything currently stored for one entity, for asserting on writes. */
+  rowsOf(entity: unknown): Row[] {
+    return [...this.bucket(entity)]
+  }
+
   seedRaced(entity: unknown, row: Row): void {
     const existing = this.racedRows.get(entity) ?? []
     existing.push(row)
