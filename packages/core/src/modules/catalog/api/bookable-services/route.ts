@@ -40,18 +40,48 @@ const bookableServicesRateLimitConfig = readEndpointRateLimitConfig('CATALOG_BOO
   keyPrefix: 'catalog_bookable_services',
 })
 
+const bookableServiceOptionGroupSchema: z.ZodType<any> = z.lazy(() => z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  requirement: z.enum(['required', 'optional']),
+  selectMode: z.enum(['single', 'multiple']),
+  options: z.array(bookableServiceOptionSchema),
+}))
+
+const bookableServiceOptionSchema: z.ZodType<any> = z.lazy(() => z.object({
+  id: z.string().uuid(),
+  code: z.string().nullable(),
+  name: z.string(),
+  description: z.string().nullable(),
+  priceFlat: z.string().nullable(),
+  durationMinutes: z.number().int().nullable(),
+  isAddon: z.boolean(),
+  nextGroups: z.array(bookableServiceOptionGroupSchema),
+}))
+
 const bookableServiceSchema = z.object({
   id: z.string().uuid(),
   title: z.string(),
   subtitle: z.string().nullable(),
   description: z.string().nullable(),
   handle: z.string().nullable(),
+  sku: z.string().nullable(),
+  categoryPath: z.array(z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    description: z.string().nullable(),
+    parentId: z.string().uuid().nullable(),
+  })),
   currencyCode: z.string().nullable(),
   unitPriceNet: z.string().nullable(),
   unitPriceGross: z.string().nullable(),
   durationMinutes: z.number().int().nullable(),
+  categoryId: z.string().uuid().nullable().optional(),
+  categoryName: z.string().nullable().optional(),
   organizationId: z.string().uuid(),
   tenantId: z.string().uuid(),
+  optionGroups: z.array(bookableServiceOptionGroupSchema),
 })
 
 const successSchema = z.object({
@@ -104,7 +134,7 @@ export async function GET(req: Request) {
         {
           error: translate(
             'catalog.bookableServices.invalidInput',
-            'tenantId and organizationId are required.',
+            'tenantId is required.',
           ),
           code: 'INVALID_INPUT',
         },
@@ -132,7 +162,7 @@ export const openApi: OpenApiRouteDoc = {
     GET: {
       summary: 'List active services for a tenant organization (branch)',
       description:
-        'Public booking helper. Requires explicit tenantId + organizationId. Returns active catalog products with custom fieldset `service_schedule` for that organization only (decision A: load catalog by branch). Prices resolve through `catalogPricingService`, so a service with no price applicable to an anonymous caller reports null amounts; quote-only products never report a price. Channel-scoped prices apply when `channelId` is given, or when the organization has exactly one active sales channel; an organization with several gets unscoped prices unless it names one. Staff enable services via Catalog UI in the branch org; demo data comes from catalog seedExamples. Rate limited per client IP.',
+        'Public booking helper. Requires explicit tenantId. organizationId is optional for tenant-wide public booking catalogs. Returns active catalog products with custom fieldset `service_schedule` for that organization only (decision A: load catalog by branch). Prices resolve through `catalogPricingService`, so a service with no price applicable to an anonymous caller reports null amounts; quote-only products never report a price. Channel-scoped prices apply when `channelId` is given, or when the organization has exactly one active sales channel; an organization with several gets unscoped prices unless it names one. Staff enable services via Catalog UI in the branch org; demo data comes from catalog seedExamples. Rate limited per client IP.',
       query: bookableServicesQuerySchema,
       responses: [
         { status: 200, description: 'Bookable services', schema: successSchema },

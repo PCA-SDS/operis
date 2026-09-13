@@ -5,37 +5,61 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { createLogger } from '@open-mercato/shared/lib/logger'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import type { CatalogPricingService } from '@open-mercato/core/modules/catalog/services/catalogPricingService'
 import { Appointment } from '../data/entities'
 import { appointmentStaffCreateSchema } from '../data/validators'
 import { createAppointmentFromPublicIntake } from '../lib/intake'
 import { emitAppointmentEvent } from '../events'
-import type { CatalogPricingService } from '@open-mercato/core/modules/catalog/services/catalogPricingService'
-
-const logger = createLogger('appointments').child({ component: 'appointments-api' })
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
   POST: { requireAuth: true, requireFeatures: ['appointments.create'] },
 }
 
-function mapAppointment(row: Appointment) {
+function mapAppointment(row: Appointment, organizationName: string | null = null) {
   return {
     id: row.id,
     tenantId: row.tenantId,
     organizationId: row.organizationId,
+    organizationName,
     customerEntityId: row.customerEntityId,
     customerName: row.customerName,
+    customerSalutation: row.customerSalutation ?? null,
     customerPhone: row.customerPhone ?? null,
     customerEmail: row.customerEmail ?? null,
+    customerPhoneCountryCode: row.customerPhoneCountryCode ?? null,
+    customerOrigin: row.customerOrigin ?? null,
+    bookingType: row.bookingType ?? null,
     statusCode: row.statusCode,
     requestedStartAt: row.requestedStartAt.toISOString(),
     requestedEndAt: row.requestedEndAt?.toISOString() ?? null,
     notes: row.notes ?? null,
+    externalNotes: row.externalNotes ?? null,
+    createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }
+}
+
+async function resolveOrganizationNames(
+  em: EntityManager,
+  organizationIds: string[],
+): Promise<Map<string, string>> {
+  const uniqueIds = Array.from(new Set(organizationIds.filter(Boolean)))
+  if (uniqueIds.length === 0) return new Map()
+  const organizations = await em.find(Organization, {
+    id: { $in: uniqueIds },
+    deletedAt: null,
+  })
+  return new Map(
+    organizations.map((org) => {
+      const id = String(org.id)
+      const name = typeof org.name === 'string' && org.name.trim() ? org.name.trim() : id
+      return [id, name]
+    }),
+  )
 }
 
 export async function GET(req: Request) {
@@ -74,9 +98,16 @@ export async function GET(req: Request) {
       orderBy: { requestedStartAt: 'desc' },
       limit: 100,
     })
-    return NextResponse.json({ items: rows.map(mapAppointment) })
-  } catch (error) {
-    logger.error('Failed to list appointments', { err: error })
+    const orgNames = await resolveOrganizationNames(
+      em,
+      rows.map((row) => row.organizationId),
+    )
+    return NextResponse.json({
+      items: rows.map((row) =>
+        mapAppointment(row, orgNames.get(row.organizationId) ?? null),
+      ),
+    })
+  } catch {
     return NextResponse.json(
       {
         error: translate('appointments.list.failed', 'Unable to list appointments.'),
@@ -91,7 +122,22 @@ export async function POST(req: Request) {
   const { translate } = await resolveTranslations()
   try {
     const auth = await getAuthFromRequest(req)
-    if (!auth?.tenantId || !auth.orgId) {
+    if (!auth?.tenantId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const body = appointmentStaffCreateSchema.parse(await req.json())
+    const container = await createRequestContainer()
+    // The module's own AGENTS.md: "Staff create uses auth tenant/org — never
+    // trust client-supplied scope on POST /api/appointments." A body id is only
+    // honored when the principal may act on that organization.
+    const createScope = await resolveOrganizationScopeForRequest({
+      container,
+      auth,
+      request: req,
+      selectedId: body.organizationId ?? undefined,
+    })
+    const organizationId = createScope?.selectedId ?? auth.orgId ?? null
+    if (!organizationId) {
       return NextResponse.json(
         {
           error: translate(
@@ -103,16 +149,15 @@ export async function POST(req: Request) {
         { status: 400 },
       )
     }
-    const body = appointmentStaffCreateSchema.parse(await req.json())
-    const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
     const pricingService = container.resolve<CatalogPricingService>('catalogPricingService')
+    const { organizationId: _ignoredOrganizationId, ...intakeBody } = body
     const result = await createAppointmentFromPublicIntake(
       em,
       {
-        ...body,
+        ...intakeBody,
         tenantId: auth.tenantId,
-        organizationId: auth.orgId,
+        organizationId,
       },
       { pricingService },
     )
@@ -120,7 +165,7 @@ export async function POST(req: Request) {
       await emitAppointmentEvent('appointments.appointment.created', {
         id: result.id,
         tenantId: auth.tenantId,
-        organizationId: auth.orgId,
+        organizationId,
       })
     } catch {
       /* best-effort */
@@ -139,7 +184,6 @@ export async function POST(req: Request) {
         { status: 400 },
       )
     }
-    logger.error('Failed to create appointment', { err: error })
     return NextResponse.json(
       {
         error: translate('appointments.create.failed', 'Unable to create appointment.'),

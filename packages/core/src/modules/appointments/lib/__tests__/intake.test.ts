@@ -17,12 +17,6 @@ jest.mock('../../setup', () => ({
   ensureSystemAppointmentStatuses: (...args: unknown[]) => mockEnsureSystemAppointmentStatuses(...args),
 }))
 
-jest.mock('../../data/entities', () => ({
-  Appointment: class Appointment {},
-  AppointmentLine: class AppointmentLine {},
-  AppointmentStatus: class AppointmentStatus {},
-}))
-
 describe('createAppointmentFromPublicIntake', () => {
   const tenantId = '22222222-2222-4222-8222-222222222222'
   const organizationId = '33333333-3333-4333-8333-333333333333'
@@ -79,28 +73,43 @@ describe('createAppointmentFromPublicIntake', () => {
 
   it('creates appointment with customer + line snapshots and new_request status', async () => {
     const { createAppointmentFromPublicIntake } = await import('../intake')
-    const result = await createAppointmentFromPublicIntake(
-      em as never,
-      {
-        tenantId,
-        organizationId,
-        requestedStartAt: '2026-09-01T10:00:00.000Z',
-        customer: {
-          firstName: 'Ada',
-          lastName: 'Lovelace',
-          phone: '+15551212',
-          email: 'ada@example.com',
-        },
-        lines: [{ productId }],
+    const result = await createAppointmentFromPublicIntake(em as never, {
+      tenantId,
+      organizationId,
+      requestedStartAt: '2026-09-01T10:00:00.000Z',
+      bookingType: 'walk_in',
+      externalNotes: 'Guest prefers quiet room',
+      customer: {
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        phone: '+15551212',
+        email: 'ada@example.com',
+        source: 'linkedin',
+        origin: 'local',
+        phoneCountryCode: '+1',
       },
-      { pricingService: {} as never },
-    )
+      lines: [{ productId }],
+    })
 
     expect(result.statusCode).toBe('new_request')
     expect(result.customerEntityId).toBe(customerEntityId)
     expect(result.customerCreated).toBe(true)
     expect(result.lineCount).toBe(1)
     expect(result.requestedEndAt).toBe('2026-09-01T11:00:00.000Z')
+    expect(mockFindOrCreatePersonForIntake).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ source: 'linkedin', origin: 'local', phoneCountryCode: '+1' }),
+    )
+    expect(em.create).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        customerOrigin: 'local',
+        bookingType: 'walk_in',
+        externalNotes: 'Guest prefers quiet room',
+        customerPhone: '5551212',
+        customerPhoneCountryCode: '+1',
+      }),
+    )
     expect(em.persist).toHaveBeenCalled()
     expect(em.flush).toHaveBeenCalled()
   })
@@ -110,21 +119,20 @@ describe('createAppointmentFromPublicIntake', () => {
     const { createAppointmentFromPublicIntake } = await import('../intake')
 
     await expect(
-      createAppointmentFromPublicIntake(
-        em as never,
-        {
-          tenantId,
-          organizationId,
-          requestedStartAt: '2026-09-01T10:00:00.000Z',
-          customer: {
-            firstName: 'Ada',
-            lastName: 'Lovelace',
-            phone: '+15551212',
-          },
-          lines: [{ productId }],
+      createAppointmentFromPublicIntake(em as never, {
+        tenantId,
+        organizationId,
+        requestedStartAt: '2026-09-01T10:00:00.000Z',
+        bookingType: 'call_in',
+        customer: {
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          phone: '+15551212',
+          source: 'facebook',
+          origin: 'tourist',
         },
-        { pricingService: {} as never },
-      ),
+        lines: [{ productId }],
+      }),
     ).rejects.toMatchObject({ status: 400, body: { code: 'SERVICE_NOT_BOOKABLE' } })
   })
 })

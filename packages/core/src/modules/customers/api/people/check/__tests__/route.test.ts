@@ -57,7 +57,7 @@ describe('customers people check route', () => {
     mockCheckPersonIdentity.mockResolvedValue({ exists: true })
 
     const { POST } = await import('../route')
-    const response = await POST(post({ tenantId: TENANT, phone: '+65 9123 4567' }))
+    const response = await POST(post({ tenantId: TENANT, phone: '+65 9123 4567', phoneCountryCode: '65' }))
 
     expect(response.status).toBe(200)
     const payload = await response.json()
@@ -84,7 +84,7 @@ describe('customers people check route', () => {
     )
 
     const { POST } = await import('../route')
-    const response = await POST(post({ tenantId: TENANT, phone: '+6591234567', email: 'other@example.com' }))
+    const response = await POST(post({ tenantId: TENANT, phone: '+6591234567', phoneCountryCode: '65', email: 'other@example.com' }))
 
     expect(response.status).toBe(409)
     expect((await response.json()).code).toBe('PERSON_IDENTITY_CONFLICT')
@@ -92,7 +92,7 @@ describe('customers people check route', () => {
 
   it('rejects a malformed tenant id before touching the database', async () => {
     const { POST } = await import('../route')
-    const response = await POST(post({ tenantId: 'not-a-uuid', phone: '+6591234567' }))
+    const response = await POST(post({ tenantId: 'not-a-uuid', phone: '+6591234567', phoneCountryCode: '65' }))
 
     expect(response.status).toBe(400)
     expect((await response.json()).code).toBe('INVALID_INPUT')
@@ -103,7 +103,7 @@ describe('customers people check route', () => {
     mockCheckRateLimit.mockResolvedValue(NextResponse.json({ error: 'Too many requests.' }, { status: 429 }))
 
     const { POST } = await import('../route')
-    const response = await POST(post({ tenantId: TENANT, phone: '+6591234567' }))
+    const response = await POST(post({ tenantId: TENANT, phone: '+6591234567', phoneCountryCode: '65' }))
 
     expect(response.status).toBe(429)
     expect(mockCheckPersonIdentity).not.toHaveBeenCalled()
@@ -113,7 +113,7 @@ describe('customers people check route', () => {
     mockCheckPersonIdentity.mockRejectedValue(new Error('connection terminated: relation "x" does not exist'))
 
     const { POST } = await import('../route')
-    const response = await POST(post({ tenantId: TENANT, phone: '+6591234567' }))
+    const response = await POST(post({ tenantId: TENANT, phone: '+6591234567', phoneCountryCode: '65' }))
 
     expect(response.status).toBe(500)
     const payload = await response.json()
