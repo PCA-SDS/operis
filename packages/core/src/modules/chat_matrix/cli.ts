@@ -162,7 +162,7 @@ async function sync(): Promise<void> {
   const em = container.resolve<EntityManager>('em')
   const before = await em.fork().findOne(ChatMatrixSyncState, { stream: DEFAULT_SYNC_STREAM })
 
-  await syncWorker({ id: 'cli', payload: {} } as never, {
+  await syncWorker({ id: 'cli', payload: { drain: true } } as never, {
     jobId: 'cli',
     attemptNumber: 1,
     queueName: CHAT_MATRIX_QUEUES.sync,
