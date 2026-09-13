@@ -689,19 +689,48 @@ jobs:
           IMAGE: ${{ steps.meta.outputs.image }}
           TAG: ${{ steps.meta.outputs.tag }}
           PUSH: ${{ steps.meta.outputs.push }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          # Trivy runs inside its own container, so the `docker login` performed on
+          # the HOST is invisible to it — its config lives in the runner's home, not
+          # the scanner's. Without these two the remote lookup 401s and the scan dies
+          # with "unable to find the specified image", which is how this step failed
+          # every time it ran: never a finding, always a lookup it could not perform.
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
 
-          # The PR path builds with `--output type=cacheonly`, so no local image exists
+          # The PR path builds with `--output type=cacheonly`, so nothing is published
           # to scan. Rebuilding it here purely to scan would double a ten-minute build;
-          # the merge-queue and push paths both load a real image and are scanned.
+          # the merge-queue and push paths publish a real image and are scanned.
           if [ "$PUSH" != "true" ]; then
-            echo "PR build produced no local image (cacheonly) — scan runs on the merge-queue and push paths."
+            echo "PR build published no image (cacheonly) — scan runs on the merge-queue and push paths."
             exit 0
           fi
 
+          # Read the image back from the REGISTRY, not the local daemon. The build
+          # step ships it with `--push`, which streams straight to GHCR and loads
+          # nothing locally, so `docker inspect` never had anything to find. Adding
+          # `--load` instead would export a second full copy of a multi-gigabyte
+          # image onto a runner that already needs a "Reclaim runner disk" step.
+          #
+          # By digest when we have one: that is the exact artifact this run pushed,
+          # and unlike a tag it cannot be moved out from under the scan.
+          TARGET="$IMAGE:$TAG"
+          if [ -n "${DIGEST:-}" ]; then
+            TARGET="$IMAGE@$DIGEST"
+          fi
+          echo "Scanning $TARGET"
+
+          # No docker.sock. Nothing local is being inspected any more, and mounting
+          # it handed a container root-equivalent control of the runner — in a job
+          # that also holds `packages: write`.
+          #
+          # --platform pins the manifest to select: `--provenance`/`--sbom` make the
+          # pushed tag an OCI index carrying attestation manifests alongside the image.
           docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
+            -e TRIVY_USERNAME \
+            -e TRIVY_PASSWORD \
             -v "$HOME/.cache/trivy:/root/.cache/trivy" \
             "$TRIVY_IMAGE" \
             image \
@@ -710,7 +739,8 @@ jobs:
               --exit-code 1 \
               --no-progress \
               --scanners vuln \
-              "$IMAGE:$TAG"
+              --platform linux/amd64 \
+              "$TARGET"
 
       - name: Summary
         run: |
