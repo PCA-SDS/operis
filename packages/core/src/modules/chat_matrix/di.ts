@@ -37,22 +37,84 @@ function loadMatrixBindings(): {
 } {
   const require = createRequire(import.meta.url)
   const matrix = require('@open-mercato/matrix')
-  // `.js` is what the shipped artifact next to this file is called; the bare
-  // specifier is what resolves when this runs from the TypeScript source tree.
-  // Node's CJS resolver is doing the work here, not the test runner's, so
-  // neither form covers both trees on its own.
-  const transport = (() => {
-    try {
-      return require('./lib/transport.js')
-    } catch {
-      return require('./lib/transport')
-    }
-  })()
+  /**
+   * The sibling is loaded by PACKAGE specifier, not by relative path.
+   *
+   * A bundler resolves `./lib/transport.js` against the bundled `di.js`, where
+   * no such file sits, and emits an empty module stub rather than throwing — so
+   * the `catch` below never ran, `createMatrixChatTransport` came back
+   * `undefined`, and `register` went on to log that it had bound Matrix. The
+   * package specifier is the same form the generated DI registry uses to import
+   * this very file, so whatever resolves that resolves this. The relative forms
+   * stay as fallbacks for the source and test trees, where the package
+   * self-reference is not always available.
+   */
+  const transport = loadFirstWith('createMatrixChatTransport', require, [
+    '@open-mercato/core/modules/chat_matrix/lib/transport',
+    './lib/transport.js',
+    './lib/transport',
+  ])
   return {
-    MatrixClient: matrix.MatrixClient,
-    matrixConfigFromEnv: matrix.matrixConfigFromEnv,
-    createMatrixChatTransport: transport.createMatrixChatTransport,
+    MatrixClient: bindingOf(matrix, 'MatrixClient'),
+    matrixConfigFromEnv: bindingOf(matrix, 'matrixConfigFromEnv'),
+    createMatrixChatTransport: bindingOf(transport, 'createMatrixChatTransport'),
   }
+}
+
+/**
+ * The first specifier that actually yields the export, not the first that loads.
+ *
+ * Taking the first require that does not throw is what hid the bundler stub:
+ * an empty object is a successful load and a useless one.
+ */
+function loadFirstWith(
+  name: string,
+  require: NodeJS.Require,
+  specifiers: readonly string[],
+): unknown {
+  const failures: string[] = []
+  for (const specifier of specifiers) {
+    let loaded: unknown
+    try {
+      loaded = require(specifier)
+    } catch (error) {
+      failures.push(`${specifier}: ${error instanceof Error ? error.message : String(error)}`)
+      continue
+    }
+    const namespace = loaded as Record<string, unknown> | undefined
+    if (namespace?.[name] !== undefined) return loaded
+    if ((namespace?.default as Record<string, unknown> | undefined)?.[name] !== undefined) return loaded
+    failures.push(`${specifier}: loaded, but carries no "${name}"`)
+  }
+  throw new Error(
+    `[internal] OM_CHAT_TRANSPORT=matrix but "${name}" could not be loaded. Tried — ${failures.join('; ')}.`,
+  )
+}
+
+/**
+ * One named export, whichever shape the loader handed back.
+ *
+ * `packages/core` and `@open-mercato/matrix` are both `"type": "module"`, so
+ * `createRequire` returns an ES module namespace here — and depending on the
+ * runtime doing the resolving, the names sit either on the namespace itself or
+ * behind its `default`. Reading only the first shape is how the transport came
+ * back `undefined` under a production Next build while `register` below still
+ * logged that it had bound Matrix.
+ *
+ * A missing binding throws rather than returning `undefined`, for the same
+ * reason `register` refuses to boot without a homeserver: a transport that is
+ * absent at resolve time is indistinguishable from `local` to everyone except
+ * the homeserver that never receives anything.
+ */
+function bindingOf<T>(loaded: unknown, name: string): T {
+  const namespace = loaded as Record<string, unknown> | undefined
+  const direct = namespace?.[name]
+  if (direct !== undefined) return direct as T
+  const nested = (namespace?.default as Record<string, unknown> | undefined)?.[name]
+  if (nested !== undefined) return nested as T
+  throw new Error(
+    `[internal] OM_CHAT_TRANSPORT=matrix but the Matrix binding "${name}" did not load. Available: ${Object.keys(namespace ?? {}).join(', ') || '(none)'}.`,
+  )
 }
 
 /**
