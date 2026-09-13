@@ -16,6 +16,7 @@
       "yarn lint",
       "yarn test:repo-wide-guards",
       "yarn test:scripts",
+      "yarn audit:ci",
       "yarn check:time-bombs:fail",
       "yarn typecheck:serial",
       "yarn test:ci",

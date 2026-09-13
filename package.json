@@ -104,6 +104,7 @@
     "ds:code-connect:publish": "yarn workspace @open-mercato/ui figma connect publish",
     "test:scripts": "node --test scripts/__tests__/*.test.mjs apps/mercato/scripts/__tests__/*.test.mjs",
     "test:repo-wide-guards": "node scripts/repo-wide-guards.mjs",
+    "audit:ci": "node scripts/audit-ci.mjs --severity high",
     "official-modules": "node scripts/official-modules.mjs",
     "postinstall": "node scripts/official-modules-setup.mjs",
     "test:integration": "cross-env ENABLE_CRUD_API_CACHE=true npx playwright test --config .ai/qa/tests/playwright.config.ts",
