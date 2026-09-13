@@ -55,6 +55,16 @@ export type MessageComposerProps = {
   /** Hands the body to the transcript, which owns delivery and retry from there. */
   onSend: (body: string) => void
   /**
+   * Fired while the viewer is composing, and once when they stop.
+   *
+   * The composer only reports the gesture; throttling it and deciding what to
+   * do with it belong to the view, which is the thing that knows which
+   * conversation this is — the same division as the reply target and the staged
+   * files.
+   */
+  onTypingActivity?: () => void
+  onTypingStopped?: () => void
+  /**
    * Files staged for this message, owned by the view so a conversation switch
    * clears them in one place — the same reason the reply target lives there.
    */
@@ -98,6 +108,8 @@ export type MessageComposerProps = {
 export function MessageComposer({
   disabled,
   onSend,
+  onTypingActivity,
+  onTypingStopped,
   placeholder,
   replyTarget,
   onCancelReply,
@@ -304,9 +316,11 @@ export function MessageComposer({
     if (anyUploading) return
     pendingValue.current = ''
     onSend(body)
+    // The message is the strongest possible "no longer typing".
+    onTypingStopped?.()
     setValue('')
     textareaRef.current?.focus()
-  }, [anyReady, anyUploading, disabled, editTarget, onCancelEdit, onSend, onSubmitEdit])
+  }, [anyReady, anyUploading, disabled, editTarget, onCancelEdit, onSend, onSubmitEdit, onTypingStopped])
 
   /**
    * Files arriving from the picker, a drop, or a paste.
@@ -632,6 +646,9 @@ export function MessageComposer({
           onChange={(event) => {
             setValue(event.target.value)
             syncDraft(event.target.value)
+            // Emptying the field is the other way of stopping.
+            if (event.target.value.length > 0) onTypingActivity?.()
+            else onTypingStopped?.()
           }}
           onKeyUp={(event) => syncDraft(event.currentTarget.value)}
           onClick={(event) => syncDraft(event.currentTarget.value)}

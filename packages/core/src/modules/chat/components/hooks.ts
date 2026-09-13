@@ -20,6 +20,7 @@ import { hasFeature } from '@open-mercato/shared/security/features'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
+import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import type { AppEventPayload } from '@open-mercato/shared/modules/widgets/injection'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -206,11 +207,141 @@ export function useChatLiveRefresh(): void {
     [client, scope],
   )
 
-  useAppEvent('chat.*', (payload) => schedule(payload.id, conversationIdOf(payload)), [schedule])
+  useAppEvent(
+    'chat.*',
+    (payload) => {
+      /**
+       * Typing refetches nothing, ever.
+       *
+       * It is not a change to any cached thing — no message, no cursor, no
+       * count — and it arrives on a keystroke. Letting it fall through to the
+       * wide path would invalidate the whole module's cache several times a
+       * second while somebody composed a sentence. `useTypingPeers` reads it
+       * directly instead.
+       */
+      if (payload.id === 'chat.conversation.typing') return
+      schedule(payload.id, conversationIdOf(payload))
+    },
+    [schedule],
+  )
   // A dropped socket means the client cannot know what it missed, so this one
   // always takes the wide path.
   useAppEvent('om:bridge:reconnected', () => schedule('om:bridge:reconnected', null), [schedule])
 }
+
+/**
+ * How long a typing notification is believed without a refresh.
+ *
+ * A little longer than the client's own resend interval, so a steady typist
+ * never flickers, and short enough that somebody who closes their laptop
+ * mid-sentence stops looking like they are still typing.
+ */
+const TYPING_TTL_MS = 7_000
+
+/**
+ * Who is currently typing in one conversation.
+ *
+ * Entirely client-side state with a deadline on each entry: the server sends
+ * "started" and "stopped", but a client that crashes sends neither, so the
+ * expiry — not the stop signal — is what guarantees the indicator goes away.
+ */
+export function useTypingPeers(conversationId: string | null): string[] {
+  const [peers, setPeers] = React.useState<Record<string, number>>({})
+
+  useAppEvent(
+    'chat.conversation.typing',
+    (payload) => {
+      const body = (payload.payload ?? {}) as { conversationId?: string; userId?: string; typing?: boolean }
+      if (!conversationId || body.conversationId !== conversationId) return
+      const userId = body.userId
+      if (typeof userId !== 'string' || userId.length === 0) return
+      setPeers((current) => {
+        if (!body.typing) {
+          if (!(userId in current)) return current
+          const next = { ...current }
+          delete next[userId]
+          return next
+        }
+        return { ...current, [userId]: Date.now() + TYPING_TTL_MS }
+      })
+    },
+    [conversationId],
+  )
+
+  // One timer for the whole set rather than one per person: the list is small
+  // and short-lived, and a timer per entry leaks on every re-render.
+  React.useEffect(() => {
+    if (Object.keys(peers).length === 0) return
+    const timer = setInterval(() => {
+      const now = Date.now()
+      setPeers((current) => {
+        const live = Object.entries(current).filter(([, expiry]) => expiry > now)
+        return live.length === Object.keys(current).length ? current : Object.fromEntries(live)
+      })
+    }, 1_000)
+    return () => clearInterval(timer)
+  }, [peers])
+
+  // Reset when the reader moves to another conversation: whoever was typing
+  // over there is not typing here.
+  React.useEffect(() => setPeers({}), [conversationId])
+
+  return React.useMemo(
+    () => Object.entries(peers).filter(([, expiry]) => expiry > Date.now()).map(([userId]) => userId),
+    [peers],
+  )
+}
+
+/**
+ * Announce that the viewer is typing, at most once every few seconds.
+ *
+ * Throttled rather than debounced, because a debounce says nothing at all until
+ * somebody pauses — which is the one moment they are not typing. The stop
+ * signal is sent on send and on unmount; everything else is left to the
+ * expiry on the other side.
+ */
+export function useTypingSignal(conversationId: string | null): {
+  onActivity: () => void
+  onStopped: () => void
+} {
+  const lastSentAt = React.useRef(0)
+  const announced = React.useRef(false)
+
+  const send = React.useCallback(
+    (typing: boolean) => {
+      if (!conversationId) return
+      void apiCall(`/api/chat/conversations/${conversationId}/typing`, {
+        method: 'POST',
+        body: JSON.stringify({ typing }),
+      }).catch(() => {
+        // A dropped keystroke signal is not worth a toast, a retry or a log.
+      })
+    },
+    [conversationId],
+  )
+
+  const onActivity = React.useCallback(() => {
+    const now = Date.now()
+    if (now - lastSentAt.current < TYPING_RESEND_MS) return
+    lastSentAt.current = now
+    announced.current = true
+    send(true)
+  }, [send])
+
+  const onStopped = React.useCallback(() => {
+    if (!announced.current) return
+    announced.current = false
+    lastSentAt.current = 0
+    send(false)
+  }, [send])
+
+  React.useEffect(() => () => { if (announced.current) send(false) }, [send])
+
+  return { onActivity, onStopped }
+}
+
+/** Slightly under the notification's own lifetime, so a steady typist never lapses. */
+const TYPING_RESEND_MS = 4_000
 
 /**
  * Whether the viewer may write, not just read.
@@ -525,6 +656,29 @@ function useMutationFailureFlash(): (fallback: string) => void {
     },
     [t],
   )
+}
+
+/**
+ * Silence a conversation, or stop silencing it.
+ *
+ * Guarded like every other write in the module, so it does not become the one
+ * that quietly opts out of record locks. Invalidates the module's key space
+ * because the flag shows in two places at once — the header control and the
+ * conversation row.
+ */
+export function useConversationMute(conversationId: string | undefined) {
+  const client = useQueryClient()
+  const { runMutation } = useGuardedMutation({ contextId: 'chat.conversation' })
+
+  return useMutation({
+    mutationFn: (muted: boolean) =>
+      runMutation({
+        operation: () => chatApi.setMuted(conversationId as string, muted),
+        context: { resourceKind: 'chat.conversation', resourceId: conversationId ?? null },
+        mutationPayload: { muted },
+      }),
+    onSuccess: () => invalidateChat(client),
+  })
 }
 
 export function useMessageEngagement(conversationId: string | undefined) {
