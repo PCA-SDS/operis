@@ -159,6 +159,8 @@ export const sendMessageResponseSchema = z.object({
 export const unreadCountSchema = z.object({ unreadCount: z.number() })
 
 export const markReadResponseSchema = z.object({ lastReadAt: z.string() })
+export const typingResponseSchema = z.object({ typing: z.boolean() })
+export const mutedResponseSchema = z.object({ muted: z.boolean() })
 
 export const markAllReadResponseSchema = z.object({
   conversationIds: z.array(z.string().uuid()),

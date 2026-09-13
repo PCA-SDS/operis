@@ -810,6 +810,7 @@ export class DefaultChatService implements ChatService {
         unreadCount: unreadCounts.get(conversation.id) ?? 0,
         hasUnreadMention: mentionFlags.has(conversation.id),
         pinnedCount: pinnedCounts.get(conversation.id) ?? 0,
+        muted: Boolean(membership?.mutedAt),
         lastReadAt: membership?.lastReadAt?.toISOString() ?? null,
         counterpartLastReadAt: counterpartParticipant?.lastReadAt?.toISOString() ?? null,
       }
