@@ -243,7 +243,7 @@ export const invoiceManualLineItemInputSchema = z.object({
     })
   }
 })
-export const invoiceManualWriteSchema = z.object({
+export const invoiceManualWriteBaseSchema = z.object({
   partnerName: invoiceCompanyNameSchema,
   partnerCountryCode: invoiceCountryCodeSchema,
   partnerTaxCode: optionalTrimmedString(invoiceTaxCodeSchema),
@@ -254,7 +254,9 @@ export const invoiceManualWriteSchema = z.object({
   dueDate: invoiceManualNullableDateSchema,
   currencyCode: invoiceCurrencyCodeSchema.default('VND'),
   lineItems: z.array(invoiceManualLineItemInputSchema).min(1).max(INVOICE_LINE_ITEMS_MAX),
-}).strip().superRefine((input, ctx) => {
+}).strip()
+
+const validateManualInvoicePartner = (input: z.infer<typeof invoiceManualWriteBaseSchema>, ctx: z.RefinementCtx) => {
   if (input.partnerCountryCode === 'VN') {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -262,7 +264,9 @@ export const invoiceManualWriteSchema = z.object({
       message: 'Vietnamese partners are not supported for manual invoices',
     })
   }
-})
+}
+
+export const invoiceManualWriteSchema = invoiceManualWriteBaseSchema.superRefine(validateManualInvoicePartner)
 export const invoiceManualCreateSchema = invoiceManualWriteSchema
 export const invoiceManualUpdateSchema = invoiceManualWriteSchema
 export const invoiceDueDateUpdateSchema = z.object({

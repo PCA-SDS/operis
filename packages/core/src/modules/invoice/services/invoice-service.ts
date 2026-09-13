@@ -325,11 +325,18 @@ export class InvoiceService {
     let arNonRecoverable = 0
     let apOutstanding = 0
     let apSettled = 0
+    const counts = {
+      AR: { unpaidInvoices: 0, partiallyPaidInvoices: 0, paidInvoices: 0 },
+      AP: { unpaidInvoices: 0, partiallyPaidInvoices: 0, paidInvoices: 0 },
+    }
 
     for (const inv of invoices) {
       const rate = resolveVndRate(inv.currencyCode)
       const paidVnd = money(inv.paidAmount) * rate
       const outstandingVnd = money(inv.outstandingAmount) * rate
+      if (inv.settlementStatus === 'SETTLED') counts[inv.direction].paidInvoices += 1
+      else if (inv.settlementStatus === 'PARTIALLY_PAID') counts[inv.direction].partiallyPaidInvoices += 1
+      else counts[inv.direction].unpaidInvoices += 1
 
       if (inv.direction === 'AR') {
         arSettled += paidVnd
@@ -357,6 +364,7 @@ export class InvoiceService {
         settledAmount: moneyString(arSettled),
         totalAmount: moneyString(arOutstanding + arSettled),
         nonRecoverableAmount: moneyString(arNonRecoverable),
+        ...counts.AR,
       },
       ap: {
         outstanding: moneyString(apOutstanding),
@@ -366,6 +374,7 @@ export class InvoiceService {
         outstandingAmount: moneyString(apOutstanding),
         settledAmount: moneyString(apSettled),
         totalAmount: moneyString(apOutstanding + apSettled),
+        ...counts.AP,
       },
       netPosition: moneyString(netPosition),
       net: moneyString(netPosition),

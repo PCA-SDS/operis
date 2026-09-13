@@ -296,6 +296,9 @@ export type InvoiceDirectionSummaryDto = {
   settledAmount: string
   totalAmount: string
   nonRecoverableAmount?: string
+  unpaidInvoices: number
+  partiallyPaidInvoices: number
+  paidInvoices: number
 }
 
 export type InvoiceSummaryDto = {

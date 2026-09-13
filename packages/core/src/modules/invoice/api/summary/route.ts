@@ -42,6 +42,9 @@ const invoiceDirectionSummarySchema = z.object({
   settledAmount: z.string(),
   totalAmount: z.string(),
   nonRecoverableAmount: z.string().optional(),
+  unpaidInvoices: z.number().int().nonnegative(),
+  partiallyPaidInvoices: z.number().int().nonnegative(),
+  paidInvoices: z.number().int().nonnegative(),
 })
 
 export const invoiceSummaryResponseSchema = z.object({
@@ -122,4 +125,3 @@ export const openApi: OpenApiRouteDoc = {
     },
   },
 }
-
