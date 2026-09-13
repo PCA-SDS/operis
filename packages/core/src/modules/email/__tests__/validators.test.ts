@@ -37,6 +37,7 @@ const baseTemplate = {
     variableTypes: {
       vatPitReportsLink: 'link',
     },
+    ruleNotes: 'Use when the company has quarterly activity and payable tax values.',
     rules: { type: 'tax_report', hasTaxPayable: true, hasCit: false },
     sortOrder: 2,
     isActive: true,
@@ -58,6 +59,7 @@ describe('email validators', () => {
         variableTypes: {
           vatPitReportsLink: 'link',
         },
+        ruleNotes: 'Use when the company has quarterly activity and payable tax values.',
       },
     })
   })

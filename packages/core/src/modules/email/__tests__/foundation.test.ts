@@ -86,6 +86,7 @@ describe('email module foundation', () => {
       join('data', 'entities.ts'),
       join('data', 'pca-source-templates.ts'),
       join('data', 'validators.ts'),
+      join('__integration__', 'TC-EMAIL-001-compose-template-ui.spec.ts'),
       join('migrations', 'Migration20260911143000_pca_email_templates.ts'),
     ]) {
       expect(existsSync(join(MODULE_ROOT, relativePath))).toBe(true)
@@ -126,11 +127,14 @@ describe('email module foundation', () => {
     expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain('"organizations"."name" ilike')
     expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain("'%PCA Company Services%'")
     expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain('on conflict ("organization_id", "tenant_id", "template_key")')
+    expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain('ruleNotes: template.ruleNotes')
     expect(PCA_TEMPLATE_MIGRATION_SOURCE).not.toContain('Acme Corp')
   })
 
   it('declares every PCA source placeholder used in subjects and bodies', () => {
     for (const template of pcaAccountingSourceTemplates) {
+      expect(template.ruleNotes).toEqual(expect.any(String))
+      expect(template.ruleNotes.length).toBeGreaterThan(20)
       const declared = new Set([...template.fields, ...Object.keys(template.defaultValues), ...Object.keys(template.variableTypes)])
       const placeholders = extractTemplateVariables(`${template.subject} ${template.bodyHtml}`)
         .filter((placeholder) => !systemTemplateVariables.has(placeholder))
@@ -202,11 +206,18 @@ describe('email module foundation', () => {
     expect(TEMPLATE_BUILDER_SOURCE).toContain('lg:sticky')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.insertVariable')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.whenToUse.label')
+    expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.ruleNotes.label')
+    expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.ruleNotes.help')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.priority.label')
+    expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.status.draftHelp')
+    expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.status.publishedHelp')
+    expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.status.archivedHelp')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.subject.help')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.variableKey.help')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.variableType.help')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.variableSample.help')
+    expect(TEMPLATE_BUILDER_SOURCE).toContain('const canShowInGenerator = value.status ===')
+    expect(TEMPLATE_BUILDER_SOURCE).toContain('disabled={!canShowInGenerator}')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('onMouseDown={(event) => event.preventDefault()}')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('key={index}')
     expect(TEMPLATE_BUILDER_SOURCE).not.toContain('key={`${variableName}')
@@ -251,6 +262,9 @@ describe('email module foundation', () => {
   it('keeps compose preview non-sending and feature gated', () => {
     expect(COMPOSE_META_SOURCE).toContain("requireFeatures: ['email.templates.view']")
     expect(COMPOSE_PAGE_SOURCE).toContain('This does not send email')
+    expect(COMPOSE_PAGE_SOURCE).toContain('email.compose.empty.templates')
+    expect(COMPOSE_PAGE_SOURCE).toContain('email.compose.empty.companies')
+    expect(COMPOSE_PAGE_SOURCE).toContain('email.compose.preview.emptyBody')
     expect(COMPOSE_PAGE_SOURCE).toContain('Accounting values')
     expect(COMPOSE_PAGE_SOURCE).not.toContain('Accounting values JSON')
     expect(COMPOSE_PAGE_SOURCE).toContain('activeOnly=true')
