@@ -409,7 +409,7 @@ export default function EmailComposePreviewPage() {
             </DraftPartCard>
             <DraftPartCard copied={copiedPart === 'body'} copiedLabel={t('email.common.copied', 'Copied')} copyLabel={t('email.common.copy', 'Copy')} label={t('email.templates.preview.emailBody', 'Email body')} onCopy={() => void copyDraftPart('body')}>
               {selectedTemplate ? (
-                <iframe className="mt-2 h-[min(560px,70vh)] min-h-80 w-full rounded border bg-white" sandbox="" srcDoc={`<!doctype html><html><body style="font-family:Arial,sans-serif;color:#111827;line-height:1.5;padding:16px">${previewHtml}</body></html>`} title={t('email.compose.preview.iframeTitle', 'Email compose preview')} />
+                <iframe className="mt-2 h-[min(560px,70vh)] min-h-80 w-full rounded border bg-white" sandbox="" srcDoc={`<!doctype html><html><body style="font-family:Arial,sans-serif;color:#111827;line-height:1.5;padding:16px;margin:0;max-width:100%;overflow-wrap:anywhere">${previewHtml}</body></html>`} title={t('email.compose.preview.iframeTitle', 'Email compose preview')} />
               ) : (
                 <div className="mt-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">{t('email.compose.preview.emptyBody', 'Select a published template to preview the email body.')}</div>
               )}

@@ -470,12 +470,12 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
                 </div>
               ) : null}
               {variableRows.length ? variableRows.map((variableName, index) => (
-                <div key={index} className="grid gap-2 md:grid-cols-[minmax(150px,1fr)_140px_minmax(180px,1fr)_auto]">
-                  <input aria-label={t('email.templates.form.variableKey', 'Variable key')} className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={variableName} onChange={(event) => updateVariableName(index, event.target.value)} placeholder="uploadFolderUrl" />
-                  <select aria-label={t('email.templates.form.variableType', 'Variable type')} className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={parsedVariableTypes[variableName] ?? 'text'} onChange={(event) => updateVariableType(variableName, event.target.value as VariableType)}>
+                <div key={index} className="grid gap-2 rounded-md border border-border/60 p-2 md:grid-cols-[minmax(150px,1fr)_140px_minmax(180px,1fr)_auto] md:border-0 md:p-0">
+                  <label className="grid gap-1 text-xs font-medium text-muted-foreground md:block"><span className="md:hidden">{t('email.templates.form.variableKey.label', 'Variable key')}</span><input aria-label={t('email.templates.form.variableKey', 'Variable key')} className="rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-foreground" value={variableName} onChange={(event) => updateVariableName(index, event.target.value)} placeholder="uploadFolderUrl" /></label>
+                  <label className="grid gap-1 text-xs font-medium text-muted-foreground md:block"><span className="md:hidden">{t('email.templates.form.variableType.label', 'Type')}</span><select aria-label={t('email.templates.form.variableType', 'Variable type')} className="rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-foreground" value={parsedVariableTypes[variableName] ?? 'text'} onChange={(event) => updateVariableType(variableName, event.target.value as VariableType)}>
                     {variableTypes.map((type) => <option key={type} value={type}>{variableTypeLabel(t, type)}</option>)}
-                  </select>
-                  <input aria-label={t('email.templates.form.samplePreviewValue', 'Sample preview value')} className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={String(parseDefaultValues(value.defaultValues)[variableName] ?? '')} onChange={(event) => updateVariableSample(variableName, event.target.value)} placeholder={(parsedVariableTypes[variableName] ?? 'text') === 'link' ? 'https://example.com/folder' : t('email.templates.form.samplePreviewValue', 'Sample preview value')} />
+                  </select></label>
+                  <label className="grid gap-1 text-xs font-medium text-muted-foreground md:block"><span className="md:hidden">{t('email.templates.form.variableSample.label', 'Preview value')}</span><input aria-label={t('email.templates.form.samplePreviewValue', 'Sample preview value')} className="rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-foreground" value={String(parseDefaultValues(value.defaultValues)[variableName] ?? '')} onChange={(event) => updateVariableSample(variableName, event.target.value)} placeholder={(parsedVariableTypes[variableName] ?? 'text') === 'link' ? 'https://example.com/folder' : t('email.templates.form.samplePreviewValue', 'Sample preview value')} /></label>
                   <Button
                     type="button"
                     size="sm"
@@ -563,7 +563,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
           <input type="hidden" value={value.sortOrder} readOnly />
           <input type="hidden" value={value.workflowKey} readOnly />
           <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" className="size-4" checked={value.isActive && canShowInGenerator} disabled={!canShowInGenerator} onChange={(event) => setField('isActive', event.target.checked)} /> <HelpLabel help={t('email.templates.form.showInGenerator.help', 'Only published templates can appear in Compose Email. Draft and archived templates are hidden even when this is checked.')}>{t('email.templates.form.showInGenerator.label', 'Show in accounting generator')}</HelpLabel></label>
-          <div className="flex justify-between gap-2">
+          <div className="sticky bottom-0 z-10 -mx-4 flex justify-between gap-2 border-t bg-card/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/80">
             {mode === 'edit' && onDelete ? <Button type="button" variant="destructive" disabled={isSaving} onClick={onDelete}>{t('email.common.delete', 'Delete')}</Button> : <span />}
             <div className="flex gap-2"><Button type="button" variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.cancel', 'Cancel')}</Link></Button><Button type="submit" disabled={isSaving}>{isSaving ? t('email.common.saving', 'Saving…') : mode === 'create' ? t('email.templates.form.createSubmit', 'Create Template') : t('email.templates.form.saveSubmit', 'Save Template')}</Button></div>
           </div>
@@ -573,11 +573,11 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
           {previewError ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{previewError}</div> : null}
           <div className="rounded-md border bg-background p-3">
             <div className="flex items-center justify-between gap-2"><div className="text-xs uppercase text-muted-foreground">{t('email.templates.form.subject.label', 'Subject')}</div><Button type="button" size="sm" variant="ghost" onClick={copyPreviewSubject}>{copied === 'subject' ? t('email.common.copied', 'Copied') : t('email.templates.preview.copySubject', 'Copy subject')}</Button></div>
-            <div className="mt-1 font-medium">{previewSubject}</div>{value.preheader ? <div className="mt-1 text-sm text-muted-foreground">{renderWithSamples(value.preheader, sampleValues)}</div> : null}
+            <div className="mt-1 break-words font-medium">{previewSubject}</div>{value.preheader ? <div className="mt-1 break-words text-sm text-muted-foreground">{renderWithSamples(value.preheader, sampleValues)}</div> : null}
           </div>
           <div className="rounded-md border bg-background p-3">
             <div className="flex items-center justify-between gap-2"><div className="text-xs uppercase text-muted-foreground">{t('email.templates.preview.emailBody', 'Email body')}</div><Button type="button" size="sm" variant="ghost" onClick={copyPreviewBody}>{copied === 'body' ? t('email.common.copied', 'Copied') : t('email.templates.preview.copyBody', 'Copy body')}</Button></div>
-            <iframe className="mt-2 h-[min(24rem,70vh)] min-h-64 w-full rounded border bg-white" sandbox="" srcDoc={`<!doctype html><html><body style="font-family:Arial,sans-serif;color:#111827;line-height:1.5;padding:16px">${previewHtml}</body></html>`} title={t('email.templates.preview.iframeTitle', 'Email template preview')} />
+            <iframe className="mt-2 h-[min(24rem,70vh)] min-h-64 w-full rounded border bg-white" sandbox="" srcDoc={`<!doctype html><html><body style="font-family:Arial,sans-serif;color:#111827;line-height:1.5;padding:16px;margin:0;max-width:100%;overflow-wrap:anywhere">${previewHtml}</body></html>`} title={t('email.templates.preview.iframeTitle', 'Email template preview')} />
           </div>
         </aside>
       </form>
