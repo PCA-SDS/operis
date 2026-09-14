@@ -414,8 +414,8 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
   return (
     <>
       {error ? <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div> : null}
-      <form className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(340px,460px)]" onSubmit={onSubmit}>
-        <div className="min-w-0 space-y-4 rounded-lg border bg-card p-4">
+      <form className="grid w-full max-w-full min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,460px)]" onSubmit={onSubmit}>
+        <div className="w-full max-w-full min-w-0 space-y-4 rounded-lg border bg-card p-4">
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.templateKey.help', 'Unique code used by automation and imports. Use lowercase letters, numbers, dots, dashes, or underscores.')}>{t('email.templates.form.templateKey.label', 'Template key')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.templateKey} onChange={(event) => setField('templateKey', event.target.value)} required /></label>
             <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.name.help', 'Human-friendly name shown to users when choosing a template.')}>{t('email.templates.form.name.label', 'Name')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.name} onChange={(event) => setField('name', event.target.value)} required /></label>
@@ -426,7 +426,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
           <section className="min-w-0 space-y-3 rounded-md border border-border bg-background p-3">
             <div>
               <h2 className="font-medium"><HelpLabel help={t('email.templates.form.whenToUse.help', 'These choices are saved as rule metadata for future workflow selection. They do not send email or auto-select templates yet.')}>{t('email.templates.form.whenToUse.label', 'When to use this template')}</HelpLabel></h2>
-              <p className="text-xs text-muted-foreground">{t('email.templates.form.whenToUse.description', 'Choose simple business conditions instead of editing raw rules JSON.')}</p>
+              <p className="max-w-full whitespace-normal break-words text-xs text-muted-foreground">{t('email.templates.form.whenToUse.description', 'Choose simple business conditions instead of editing raw rules JSON.')}</p>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.workflow.help', 'Main accounting workflow where this template should appear later.')}>{t('email.templates.form.workflow.label', 'Email purpose')}</HelpLabel><select className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.workflowKey || String(parsedRules.type ?? '')} onChange={(event) => updateWorkflow(event.target.value)}><option value="">{t('email.templates.form.workflow.any', 'Any accounting email')}</option><option value="request_documents">{t('email.templates.form.workflow.requestDocuments', 'Request documents')}</option><option value="tax_report">{t('email.templates.form.workflow.taxReport', 'Tax report')}</option></select></label>
@@ -441,7 +441,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="font-medium"><HelpLabel help={t('email.templates.form.systemVariables.help', 'Read-only placeholders filled automatically from the selected company and linked people.')}>{t('email.templates.form.systemVariables.label', 'System variables')}</HelpLabel></h2>
-                <p className="text-xs text-muted-foreground">{t('email.templates.form.systemVariables.description', 'Filled automatically from the selected Operis company and linked people during email compose.')}</p>
+                <p className="max-w-full whitespace-normal break-words text-xs text-muted-foreground">{t('email.templates.form.systemVariables.description', 'Filled automatically from the selected Operis company and linked people during email compose.')}</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -456,7 +456,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="font-medium"><HelpLabel help={t('email.templates.form.customVariables.help', 'User-defined accounting values, such as deadlines, tax amounts, or document links.')}>{t('email.templates.form.customVariables.label', 'Custom variables')}</HelpLabel></h2>
-                <p className="text-xs text-muted-foreground">{t('email.templates.form.customVariables.description', 'Define only values that come from accounting context, rules, or manual input. Sample values are preview-only.')}</p>
+                <p className="max-w-full whitespace-normal break-words text-xs text-muted-foreground">{t('email.templates.form.customVariables.description', 'Define only values that come from accounting context, rules, or manual input. Sample values are preview-only.')}</p>
               </div>
               <Button type="button" size="sm" variant="secondary" onClick={addVariable}>{t('email.templates.form.addVariable', 'Add variable')}</Button>
             </div>
@@ -509,9 +509,9 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
           </label>
           <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.preheader.help', 'Short preview text some email clients show under the subject.')}>{t('email.templates.form.preheader.label', 'Preheader')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.preheader} onChange={(event) => setField('preheader', event.target.value)} /></label>
 
-          <section className="space-y-3 rounded-md border border-border bg-background p-3">
+          <section className="min-w-0 space-y-3 rounded-md border border-border bg-background p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div><h2 className="font-medium"><HelpLabel help={t('email.templates.form.blocks.help', 'Build the email body from reusable blocks. Rich text blocks allow selected-text typography.')}>{t('email.templates.form.blocks.label', 'Visual builder blocks')}</HelpLabel></h2><p className="text-xs text-muted-foreground">{t('email.templates.form.blocks.description', 'Editable blocks are stored as template blocks; rich text blocks support selected-text typography.')}</p></div>
+              <div className="min-w-0"><h2 className="font-medium"><HelpLabel help={t('email.templates.form.blocks.help', 'Build the email body from reusable blocks. Rich text blocks allow selected-text typography.')}>{t('email.templates.form.blocks.label', 'Visual builder blocks')}</HelpLabel></h2><p className="max-w-full whitespace-normal break-words text-xs text-muted-foreground">{t('email.templates.form.blocks.description', 'Editable blocks are stored as template blocks; rich text blocks support selected-text typography.')}</p></div>
               <div className="flex flex-wrap gap-2">
                 <Button type="button" size="sm" variant="secondary" onClick={() => addBlock(createBlock('heading', t('email.templates.form.newHeading', 'New heading')))}>{t('email.templates.blocks.heading', 'Heading')}</Button>
                 <Button type="button" size="sm" variant="secondary" onClick={() => addBlock(createBlock('rich-text-html', `<p>${t('email.templates.form.newRichText', 'New rich text')}</p>`))}>{t('email.templates.blocks.richText', 'Rich text')}</Button>
@@ -521,13 +521,13 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
               </div>
             </div>
             {value.blocks.map((block, index) => (
-              <div key={block.id} className="space-y-2 rounded-md border border-border p-3">
+              <div key={block.id} className="min-w-0 space-y-2 rounded-md border border-border p-3">
                 <div className="grid gap-2 md:grid-cols-[140px_minmax(0,1fr)_auto]">
                   <select className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={block.type} onChange={(event) => updateBlock(index, { type: event.target.value as BlockType })}>
                     <option value="heading">{t('email.templates.blocks.heading', 'Heading')}</option><option value="rich-text-html">{t('email.templates.blocks.richText', 'Rich text')}</option><option value="paragraph">{t('email.templates.blocks.plainText', 'Plain text')}</option><option value="button">{t('email.templates.blocks.button', 'Button')}</option><option value="divider">{t('email.templates.blocks.divider', 'Divider')}</option>
                   </select>
                   <input className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={block.label} onChange={(event) => updateBlock(index, { label: event.target.value })} placeholder={t('email.templates.form.blockLabel', 'Block label')} />
-                  <div className="flex gap-1"><Button type="button" size="sm" variant="ghost" onClick={() => moveBlock(index, -1)}>↑</Button><Button type="button" size="sm" variant="ghost" onClick={() => moveBlock(index, 1)}>↓</Button><Button type="button" size="sm" variant="ghost" onClick={() => removeBlock(index)}>{t('email.common.remove', 'Remove')}</Button></div>
+                  <div className="flex flex-wrap gap-1"><Button type="button" size="sm" variant="ghost" onClick={() => moveBlock(index, -1)}>↑</Button><Button type="button" size="sm" variant="ghost" onClick={() => moveBlock(index, 1)}>↓</Button><Button type="button" size="sm" variant="ghost" onClick={() => removeBlock(index)}>{t('email.common.remove', 'Remove')}</Button></div>
                 </div>
                 {block.type !== 'divider' ? (
                   <div className="space-y-2">
@@ -568,7 +568,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
             <div className="flex gap-2"><Button type="button" variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.cancel', 'Cancel')}</Link></Button><Button type="submit" disabled={isSaving}>{isSaving ? t('email.common.saving', 'Saving…') : mode === 'create' ? t('email.templates.form.createSubmit', 'Create Template') : t('email.templates.form.saveSubmit', 'Save Template')}</Button></div>
           </div>
         </div>
-        <aside className="min-w-0 space-y-4 self-start rounded-lg border bg-card p-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-auto">
+        <aside className="w-full max-w-full min-w-0 space-y-4 self-start rounded-lg border bg-card p-4 xl:sticky xl:top-24 xl:max-h-[calc(100vh-7rem)] xl:overflow-auto">
           <div><h2 className="font-semibold"><HelpLabel help={t('email.templates.preview.help', 'Shows how the subject and body will look using sample values. Use Compose Email later to choose a specific company.')}>{t('email.templates.preview.title', 'Live preview')}</HelpLabel></h2><p className="text-sm text-muted-foreground">{t('email.templates.preview.description', 'Preview uses sample/default values only and does not send email.')}</p></div>
           {previewError ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{previewError}</div> : null}
           <div className="rounded-md border bg-background p-3">

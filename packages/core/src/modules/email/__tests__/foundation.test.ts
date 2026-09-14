@@ -231,7 +231,7 @@ describe('email module foundation', () => {
     }
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.preview.copySubject')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.preview.copyBody')
-    expect(TEMPLATE_BUILDER_SOURCE).toContain('lg:sticky')
+    expect(TEMPLATE_BUILDER_SOURCE).toContain('xl:sticky')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.insertVariable')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.whenToUse.label')
     expect(TEMPLATE_BUILDER_SOURCE).toContain('email.templates.form.ruleNotes.label')

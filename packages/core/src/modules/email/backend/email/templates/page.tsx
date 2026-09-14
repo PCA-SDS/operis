@@ -115,7 +115,7 @@ export default function EmailTemplatesPage() {
 
   return (
     <Page className="min-w-0 overflow-x-hidden">
-      <PageBody>
+      <PageBody className="min-w-0 w-full max-w-full">
         <div className="mb-4 flex flex-wrap items-stretch justify-between gap-3 sm:items-center">
           <form
             className="flex w-full min-w-0 gap-2 sm:flex-1"
@@ -156,15 +156,39 @@ export default function EmailTemplatesPage() {
             </Button>
           </div>
         </div>
-        <DataTable<EmailTemplateRow>
-          title={t('email.templates.title', 'Email Templates')}
-          columns={columns}
-          data={rows}
-          isLoading={isLoading}
-          error={error}
-          emptyState={statusFilter === 'archived' ? t('email.templates.empty.archived', 'No archived email templates found.') : t('email.templates.empty', 'No saved email templates yet. Create a tenant-owned template from scratch.')}
-          pagination={{ page, pageSize, total, totalPages, onPageChange: setPage }}
-        />
+        <div className="space-y-3 sm:hidden">
+          {isLoading ? <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">{t('ui.dataTable.loading', 'Loading data...')}</div> : null}
+          {!isLoading && error ? <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div> : null}
+          {!isLoading && !error && rows.length === 0 ? <div className="rounded-lg border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">{statusFilter === 'archived' ? t('email.templates.empty.archived', 'No archived email templates found.') : t('email.templates.empty', 'No saved email templates yet. Create a tenant-owned template from scratch.')}</div> : null}
+          {!isLoading && !error ? rows.map((row) => (
+            <article key={row.id} className="rounded-lg border bg-card p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="break-words font-semibold">{row.name}</h2>
+                  <p className="break-all text-xs text-muted-foreground">{row.template_key}</p>
+                </div>
+                <Tag variant={statusVariant(row.status)}>{t(`email.templates.status.${row.status}`, row.status)}</Tag>
+              </div>
+              <dl className="mt-3 grid gap-2 text-sm">
+                <div><dt className="text-xs text-muted-foreground">{t('email.templates.table.category', 'Category')}</dt><dd>{row.category}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">{t('email.templates.table.subject', 'Subject')}</dt><dd className="break-words">{row.subject}</dd></div>
+                <div><dt className="text-xs text-muted-foreground">{t('email.templates.table.updated', 'Updated')}</dt><dd>{new Date(row.updatedAt).toLocaleString()}</dd></div>
+              </dl>
+              <Button className="mt-4 w-full" variant="secondary" asChild><Link href={`/backend/email/templates/${row.id}/edit`}>{t('email.common.edit', 'Edit')}</Link></Button>
+            </article>
+          )) : null}
+        </div>
+        <div className="hidden sm:block">
+          <DataTable<EmailTemplateRow>
+            title={t('email.templates.title', 'Email Templates')}
+            columns={columns}
+            data={rows}
+            isLoading={isLoading}
+            error={error}
+            emptyState={statusFilter === 'archived' ? t('email.templates.empty.archived', 'No archived email templates found.') : t('email.templates.empty', 'No saved email templates yet. Create a tenant-owned template from scratch.')}
+            pagination={{ page, pageSize, total, totalPages, onPageChange: setPage }}
+          />
+        </div>
       </PageBody>
     </Page>
   )

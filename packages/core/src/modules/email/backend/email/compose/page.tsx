@@ -322,7 +322,7 @@ export default function EmailComposePreviewPage() {
 
   return (
     <Page className="min-w-0 overflow-x-hidden">
-      <PageBody>
+      <PageBody className="min-w-0 w-full max-w-full">
         <div className="mb-4 flex flex-wrap items-stretch justify-between gap-3 sm:items-center">
           <div>
             <h1 className="text-2xl font-semibold">{t('email.compose.title', 'Compose Email')}</h1>
@@ -341,8 +341,8 @@ export default function EmailComposePreviewPage() {
             {t('email.compose.empty.companies', 'No companies are available. Create or select a customer company before composing email.')}
           </div>
         ) : null}
-        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-          <section className="min-w-0 space-y-4 rounded-lg border bg-card p-4">
+        <div className="grid w-full max-w-full min-w-0 gap-4 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+          <section className="w-full max-w-full min-w-0 space-y-4 rounded-lg border bg-card p-4">
             <label className="block text-sm font-medium"><HelpLabel help={t('email.compose.template.help', 'Choose a published tenant-owned template. Draft and archived templates are not available here.')}>{t('email.compose.template.label', 'Template')}</HelpLabel>
               <select className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" disabled={isLoading || templates.length === 0} value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
                 {templates.length ? templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>) : <option value="">{t('email.compose.template.nonePublished', 'No published templates')}</option>}
@@ -354,7 +354,7 @@ export default function EmailComposePreviewPage() {
               </select>
               <span className="mt-1 block text-xs text-muted-foreground">{t('email.compose.company.description', 'Selecting a company fills company variables and linked people/recipient variables when available.')}</span>
             </label>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-1">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1">
               <label className="block text-sm font-medium"><HelpLabel help={t('email.compose.companyName.help', 'Filled from the selected company; editable for this preview only.')}>{t('email.compose.companyName', 'Company name')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={companyName} onChange={(event) => setCompanyName(event.target.value)} /></label>
               <label className="block text-sm font-medium"><HelpLabel help={t('email.compose.companyCode.help', 'Optional company code used by templates such as accounting subjects.')}>{t('email.compose.companyCode', 'Company code')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={companyCode} onChange={(event) => setCompanyCode(event.target.value)} /></label>
               <label className="block text-sm font-medium"><HelpLabel help={t('email.compose.companyEmail.help', 'Company email from the customer record; editable for this preview only.')}>{t('email.compose.companyEmail', 'Company email')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={companyEmail} onChange={(event) => setCompanyEmail(event.target.value)} /></label>
@@ -372,13 +372,13 @@ export default function EmailComposePreviewPage() {
               </div>
               <div className="space-y-2">
                 {accountingRows.map((row, index) => (
-                  <div key={`accounting-value-${index}`} className="grid gap-2 md:grid-cols-[minmax(140px,1fr)_minmax(180px,1fr)_auto] lg:grid-cols-[minmax(140px,1fr)_minmax(180px,1fr)_auto]">
-                    <input className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={row.key} onChange={(event) => {
+                  <div key={`accounting-value-${index}`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2rem] items-center gap-1 md:grid-cols-[minmax(140px,1fr)_minmax(180px,1fr)_auto] md:gap-2 lg:grid-cols-[minmax(140px,1fr)_minmax(180px,1fr)_auto]">
+                    <input className="min-w-0 rounded-md border border-border bg-background px-3 py-2 text-sm" value={row.key} onChange={(event) => {
                       const next = [...accountingRows]
                       next[index] = { ...row, key: event.target.value }
                       setAccountingRows(next)
                     }} placeholder={t('email.compose.accountingValues.keyPlaceholder', 'quarterPeriod')} />
-                    <input className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={row.value} onChange={(event) => {
+                    <input className="min-w-0 rounded-md border border-border bg-background px-3 py-2 text-sm" value={row.value} onChange={(event) => {
                       const next = [...accountingRows]
                       next[index] = { ...row, value: event.target.value }
                       setAccountingRows(next)
@@ -387,7 +387,7 @@ export default function EmailComposePreviewPage() {
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="h-9 w-9 shrink-0 px-0 text-destructive hover:text-destructive"
+                      className="h-9 w-8 shrink-0 justify-self-end px-0 text-destructive hover:text-destructive"
                       aria-label={t('email.common.remove', 'Remove')}
                       title={t('email.common.remove', 'Remove')}
                       onClick={() => setAccountingRows(accountingRows.filter((_, rowIndex) => rowIndex !== index))}
@@ -399,7 +399,7 @@ export default function EmailComposePreviewPage() {
               </div>
             </section>
           </section>
-          <aside className="min-w-0 space-y-4 rounded-lg border bg-card p-4">
+          <aside className="w-full max-w-full min-w-0 space-y-4 rounded-lg border bg-card p-4">
             <div><h2 className="font-semibold"><HelpLabel help={t('email.compose.preview.help', 'Shows the email output using the selected template, company, linked people, and accounting values.')}>{t('email.compose.preview.title', 'Live preview')}</HelpLabel></h2><p className="text-sm text-muted-foreground">{t('email.compose.preview.description', 'System variables come from the selected company and linked people; this page lets users verify output before sending exists.')}</p></div>
             <DraftPartCard copied={copiedPart === 'recipients'} copiedLabel={t('email.common.copied', 'Copied')} copyLabel={t('email.common.copy', 'Copy')} label={t('email.compose.preview.to', 'To')} onCopy={() => void copyDraftPart('recipients')}>
               <div className="mt-1 font-medium">{effectiveRecipientEmails || t('email.compose.preview.noRecipients', 'No recipients selected')}</div>

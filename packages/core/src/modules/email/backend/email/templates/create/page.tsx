@@ -117,7 +117,7 @@ export default function CreateEmailTemplatePage() {
 
   return (
     <Page className="min-w-0 overflow-x-hidden">
-      <PageBody>
+      <PageBody className="min-w-0 w-full max-w-full">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{t('email.templates.create.title', 'Create Email Template')}</h1>

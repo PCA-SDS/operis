@@ -283,7 +283,7 @@ export default function EditEmailTemplatePage({ params }: { params?: { id?: stri
 
   return (
     <Page className="min-w-0 overflow-x-hidden">
-      <PageBody>
+      <PageBody className="min-w-0 w-full max-w-full">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{t('email.templates.edit.title', 'Edit Email Template')}</h1>
