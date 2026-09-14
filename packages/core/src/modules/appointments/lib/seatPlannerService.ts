@@ -551,6 +551,65 @@ export class AppointmentSeatPlannerService {
   }
 
   /**
+   * Remove an appointment line and cancel all of its resource assignments.
+   */
+  async removeLine(params: {
+    appointmentId: string
+    lineId: string
+    tenantId: string
+    organizationId: string
+  }): Promise<void> {
+    const appointment = await this.em.findOne(Appointment, {
+      id: params.appointmentId,
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
+      deletedAt: null,
+    })
+    const line = await this.em.findOne(AppointmentLine, {
+      id: params.lineId,
+      appointment: params.appointmentId,
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
+      deletedAt: null,
+    })
+
+    if (!appointment || !line) {
+      const error = new Error('Line not found')
+      ;(error as Error & { code: string }).code = 'LINE_NOT_FOUND'
+      throw error
+    }
+
+    const activeLineCount = await this.em.count(AppointmentLine, {
+      appointment: params.appointmentId,
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
+      deletedAt: null,
+    })
+    if (activeLineCount <= 1) {
+      const error = new Error('Appointment must contain at least one service')
+      ;(error as Error & { code: string }).code = 'LAST_LINE'
+      throw error
+    }
+
+    const assignments = await this.em.find(ResourcesAssignment, {
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
+      sourceModule: 'appointment',
+      sourceEntityType: 'appointment_line',
+      sourceEntityId: params.lineId,
+      cancelledAt: null,
+    })
+    const now = new Date()
+    for (const assignment of assignments) {
+      assignment.cancelledAt = now
+      assignment.updatedAt = now
+    }
+    line.deletedAt = now
+    appointment.updatedAt = now
+    await this.em.flush()
+  }
+
+  /**
    * Confirm all draft assignments for an appointment
    */
   async confirmDrafts(params: {

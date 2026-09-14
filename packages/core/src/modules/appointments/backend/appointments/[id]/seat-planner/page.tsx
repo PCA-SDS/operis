@@ -370,10 +370,11 @@ function BookingSidebar(props: {
   isSaving: boolean
   onSelectLine: (lineId: string) => void
   onClearLine: (lineId: string) => void
+  onRemoveLine: (lineId: string) => void
   onPreviewAction: () => void
   onAddService: () => void
 }) {
-  const { workspace, activeLineId, canManage, isSaving, onSelectLine, onClearLine, onPreviewAction, onAddService } = props
+  const { workspace, activeLineId, canManage, isSaving, onSelectLine, onClearLine, onRemoveLine, onPreviewAction, onAddService } = props
   const t = useT()
   const assigned = workspace.lines.filter((line) => line.currentAssignment).length
   const customerInitials = workspace.appointment.customerName
@@ -458,7 +459,25 @@ function BookingSidebar(props: {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <p className="line-clamp-2 text-sm font-medium">{line.productTitle}</p>
-                          {line.currentAssignment ? <Check className="mt-0.5 size-4 shrink-0 text-status-success-icon" /> : null}
+                          <div className="flex shrink-0 items-center gap-1">
+                            {line.currentAssignment ? <Check className="mt-0.5 size-4 text-status-success-icon" /> : null}
+                            {canManage ? (
+                              <IconButton
+                                type="button"
+                                size="xs"
+                                variant="ghost"
+                                className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                aria-label={t('appointments.seatPlanner.removeService', 'Remove service')}
+                                disabled={isSaving || workspace.lines.length <= 1}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  onRemoveLine(line.id)
+                                }}
+                              >
+                                <Trash2 className="size-3.5" />
+                              </IconButton>
+                            ) : null}
+                          </div>
                         </div>
                         {line.options.length > 0 ? (
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -1194,6 +1213,46 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     flash(t('appointments.seatPlanner.draftCleared', 'Draft cleared'), 'success')
   }, [confirm, guardedMutation, loadWorkspace, t, workspace])
 
+  const removeLine = React.useCallback(async (lineId: string) => {
+    if (!workspace || workspace.lines.length <= 1) return
+    const line = workspace.lines.find((entry) => entry.id === lineId)
+    if (!line) return
+    const confirmed = await confirm({
+      title: t('appointments.seatPlanner.removeServiceTitle', 'Remove service?'),
+      description: t('appointments.seatPlanner.removeServiceDescription', 'This will remove the service and clear its scheduled resource, time, and staff.'),
+      confirmText: t('appointments.seatPlanner.removeService', 'Remove service'),
+      variant: 'destructive',
+    })
+    if (!confirmed) return
+
+    const previousWorkspace = workspace
+    setWorkspace((current) => current ? {
+      ...current,
+      lines: current.lines.filter((entry) => entry.id !== lineId),
+      allocations: current.allocations.filter((allocation) => allocation.lineId !== lineId),
+    } : current)
+    setActiveLineId((current) => current === lineId ? previousWorkspace.lines.find((entry) => entry.id !== lineId)?.id ?? null : current)
+    setPopoverState((current) => current?.allocation.lineId === lineId ? null : current)
+    setStaffSheetTarget((current) => current?.allocation.lineId === lineId ? null : current)
+
+    try {
+      const result = await guardedMutation.runMutation({
+        operation: () => readApiResultOrThrow<{ updatedAt: string }>(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/lines/${encodeURIComponent(lineId)}`, {
+          method: 'DELETE',
+          headers: buildOptimisticLockHeader(workspace.appointment.updatedAt),
+        }),
+        context: { appointmentId: workspace.appointment.id, lineId, resourceKind: 'appointments.appointmentLine' },
+        mutationPayload: { appointmentId: workspace.appointment.id, lineId },
+      })
+      setWorkspace((current) => current ? { ...current, appointment: { ...current.appointment, updatedAt: result.updatedAt } } : current)
+      flash(t('appointments.seatPlanner.serviceRemoved', 'Service removed'), 'success')
+    } catch (error) {
+      setWorkspace(previousWorkspace)
+      setActiveLineId(lineId)
+      flash(error instanceof Error ? error.message : t('appointments.seatPlanner.removeServiceFailed', 'Unable to remove service.'), 'error')
+    }
+  }, [confirm, guardedMutation, t, workspace])
+
   const handleSlotClick = React.useCallback(async (resourceId: string, time: string) => {
     if (!workspace || !activeLine) return
     const startMinutes = timeToMinutes(time)
@@ -1407,6 +1466,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                   isSaving={isSaving}
                   onSelectLine={handleLineSelect}
                   onClearLine={(lineId) => void clearDraft(lineId)}
+                  onRemoveLine={(lineId) => void removeLine(lineId)}
                   onPreviewAction={() => flash(t('appointments.seatPlanner.frontendPreview', 'This action is wired as a frontend preview for now.'), 'info')}
                   onAddService={() => {
                     setSelectedServices([])
