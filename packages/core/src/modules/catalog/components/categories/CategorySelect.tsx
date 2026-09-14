@@ -1,6 +1,14 @@
 "use client"
 import * as React from 'react'
+import { cn } from '@open-mercato/shared/lib/utils'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@open-mercato/ui/primitives/select'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { formatCategoryTreeLabel, type CategoryTreeNode } from '../../lib/categoryTree'
 
@@ -30,6 +38,10 @@ type FetchState =
   | { status: 'loading' }
   | { status: 'error' }
   | { status: 'success'; nodes: CategoryTreeNode[] }
+
+const ROOT_CATEGORY_VALUE = '__catalog_category_root__'
+const LOADING_CATEGORY_VALUE = '__catalog_category_loading__'
+const ERROR_CATEGORY_VALUE = '__catalog_category_error__'
 
 async function fetchTree(status: 'all' | 'active' | 'inactive', errorMessage: string) {
   const search = new URLSearchParams()
@@ -72,7 +84,7 @@ function buildOptions(nodes: CategoryTreeNode[], inactiveSuffix: string): Intern
   return list
 }
 
-export const CategorySelect = React.forwardRef<HTMLSelectElement, CategorySelectProps>(function CategorySelect(
+export const CategorySelect = React.forwardRef<HTMLButtonElement, CategorySelectProps>(function CategorySelect(
   {
     value = null,
     onChange,
@@ -128,48 +140,63 @@ export const CategorySelect = React.forwardRef<HTMLSelectElement, CategorySelect
   const inactiveSuffix = React.useMemo(() => ` (${t('catalog.categories.select.inactive', 'inactive')})`, [t])
   const options = React.useMemo(() => buildOptions(nodes, inactiveSuffix), [nodes, inactiveSuffix])
 
-  const handleChange = React.useCallback(
-    (event: React.ChangeEvent<HTMLSelectElement>) => {
-      const next = event.target.value
-      onChange?.(next ? next : null)
+  const handleValueChange = React.useCallback(
+    (next: string) => {
+      if (next === ROOT_CATEGORY_VALUE) {
+        onChange?.(null)
+        return
+      }
+      if (next === LOADING_CATEGORY_VALUE || next === ERROR_CATEGORY_VALUE) {
+        return
+      }
+      onChange?.(next)
     },
     [onChange],
   )
 
-  const selectValue = value ?? ''
   const showLoading = !providedNodes && fetchState.status === 'loading'
   const showError = !providedNodes && fetchState.status === 'error'
   const resolvedEmptyLabel = emptyOptionLabel ?? t('catalog.categories.select.empty', 'Root level')
+  const loadingLabel = t('catalog.categories.select.loading', 'Loading categories…')
+  const errorLabel = t('catalog.categories.select.error', 'Failed to load categories')
+  const selectValue = value ?? (showLoading ? LOADING_CATEGORY_VALUE : showError ? ERROR_CATEGORY_VALUE : includeEmptyOption ? ROOT_CATEGORY_VALUE : undefined)
+  const placeholder = showLoading ? loadingLabel : showError ? errorLabel : resolvedEmptyLabel
+  const selectedOption = value ? options.find((option) => option.value === value) : null
+  const selectedLabel = selectedOption?.label ?? (value && showLoading ? loadingLabel : undefined)
+  const selectKey = `${showLoading ? 'loading' : showError ? 'error' : 'loaded'}-${selectValue ?? 'empty'}`
 
   return (
-    <select
-      ref={ref}
-      id={id}
+    <Select
+      key={selectKey}
       name={name}
-      className={className}
       value={selectValue}
-      onChange={handleChange}
+      onValueChange={handleValueChange}
       disabled={disabled || fetchState.status === 'loading'}
       required={required}
     >
-      {includeEmptyOption ? (
-        <option value="">{resolvedEmptyLabel}</option>
-      ) : null}
-      {showLoading ? (
-        <option value="" disabled>
-          {t('catalog.categories.select.loading', 'Loading categories…')}
-        </option>
-      ) : null}
-      {showError ? (
-        <option value="" disabled>
-          {t('catalog.categories.select.error', 'Failed to load categories')}
-        </option>
-      ) : null}
-      {options.map((option) => (
-        <option key={option.value} value={option.value} disabled={option.disabled}>
-          {option.label}
-        </option>
-      ))}
-    </select>
+      <SelectTrigger ref={ref} id={id} className={cn('w-full', className)} aria-required={required || undefined}>
+        <SelectValue placeholder={placeholder}>{selectedLabel}</SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        {includeEmptyOption ? (
+          <SelectItem value={ROOT_CATEGORY_VALUE}>{resolvedEmptyLabel}</SelectItem>
+        ) : null}
+        {showLoading ? (
+          <SelectItem value={LOADING_CATEGORY_VALUE} disabled>
+            {loadingLabel}
+          </SelectItem>
+        ) : null}
+        {showError ? (
+          <SelectItem value={ERROR_CATEGORY_VALUE} disabled>
+            {errorLabel}
+          </SelectItem>
+        ) : null}
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 })
