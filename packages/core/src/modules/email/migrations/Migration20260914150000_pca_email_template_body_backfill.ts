@@ -60,7 +60,8 @@ export class Migration20260914150000_pca_email_template_body_backfill extends Mi
           and templates."deleted_at" is null
           and templates."accounting_metadata"->>'migratedFrom' = 'pca-accounting'
           and (
-            coalesce(jsonb_array_length(templates."blocks"), 0) = 0
+            jsonb_typeof(templates."blocks") <> 'array'
+            or jsonb_array_length(templates."blocks") = 0
             or coalesce(templates."design"->'body'->>'html', '') = ''
           )
           and "tenants"."deleted_at" is null

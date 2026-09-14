@@ -139,7 +139,8 @@ describe('email module foundation', () => {
   it('repairs previously migrated PCA templates without overwriting edited bodies', () => {
     expect(PCA_TEMPLATE_BODY_BACKFILL_SOURCE).toContain('update "email_templates" as templates')
     expect(PCA_TEMPLATE_BODY_BACKFILL_SOURCE).toContain("templates.\"accounting_metadata\"->>'migratedFrom' = 'pca-accounting'")
-    expect(PCA_TEMPLATE_BODY_BACKFILL_SOURCE).toContain('jsonb_array_length(templates."blocks")')
+    expect(PCA_TEMPLATE_BODY_BACKFILL_SOURCE).toContain('jsonb_typeof(templates."blocks") <> \'array\'')
+    expect(PCA_TEMPLATE_BODY_BACKFILL_SOURCE).toContain('jsonb_array_length(templates."blocks") = 0')
     expect(PCA_TEMPLATE_BODY_BACKFILL_SOURCE).toContain("coalesce(templates.\"design\"->'body'->>'html', '') = ''")
     expect(PCA_TEMPLATE_BODY_BACKFILL_SOURCE).toContain('"tenants"."name" ilike')
     expect(PCA_TEMPLATE_BODY_BACKFILL_SOURCE).toContain('"organizations"."name" ilike')
