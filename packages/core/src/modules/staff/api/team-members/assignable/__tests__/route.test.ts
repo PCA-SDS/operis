@@ -138,6 +138,38 @@ describe('staff assignable team-members route', () => {
     )
   })
 
+  it('includes active team members without auth users when requested', async () => {
+    mockUserHasAllFeatures.mockResolvedValueOnce(true)
+    mockFindWithDecryption.mockResolvedValueOnce([
+      {
+        id: '44444444-4444-4444-4444-444444444444',
+        displayName: 'No User',
+        userId: null,
+        teamId: null,
+      },
+    ])
+
+    const { GET } = await import('../route')
+    const response = await GET(
+      new Request('http://localhost/api/staff/team-members/assignable?includeUnlinked=true'),
+    )
+    const body = (await response.json()) as Record<string, unknown>
+
+    expect(response.status).toBe(200)
+    expect(body.items).toEqual([
+      {
+        id: '44444444-4444-4444-4444-444444444444',
+        teamMemberId: '44444444-4444-4444-4444-444444444444',
+        userId: null,
+        displayName: 'No User',
+        email: null,
+        teamName: null,
+        user: null,
+        team: null,
+      },
+    ])
+  })
+
   it('returns 403 when the user cannot manage customer roles or activities', async () => {
     mockUserHasAllFeatures
       .mockResolvedValueOnce(false)

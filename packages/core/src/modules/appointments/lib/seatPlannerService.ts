@@ -12,6 +12,8 @@ import { Organization } from '@open-mercato/core/modules/directory/data/entities
 import { CatalogProductOption, CatalogProductOptionGroup } from '@open-mercato/core/modules/catalog/data/entities'
 import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
 import { getMergedAvailabilityWindows } from '@open-mercato/core/modules/planner/lib/availabilityMerge'
+import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
 import { Appointment, AppointmentLine, AppointmentLineOptionGroup } from '../data/entities'
 import { loadLineOptionSnapshots, resolveDurationMinutes } from './lineOptionSnapshot'
 
@@ -321,6 +323,26 @@ export class AppointmentSeatPlannerService {
       : []
     const allocationAppointmentById = new Map(allocationAppointments.map((entry) => [entry.id, entry]))
     const resourceById = new Map(resourcesWithAvailability.map((resource) => [resource.id, resource]))
+    const assignedMemberIds = Array.from(new Set(
+      dayAssignments
+        .map((assignment) => assignment.assignedMemberId)
+        .filter((memberId): memberId is string => typeof memberId === 'string' && memberId.length > 0),
+    ))
+    const assignedMembers = assignedMemberIds.length > 0
+      ? await findWithDecryption(
+          this.em,
+          StaffTeamMember,
+          {
+            id: { $in: assignedMemberIds },
+            tenantId: params.tenantId,
+            organizationId: { $in: resourceOrganizationIds },
+            deletedAt: null,
+          },
+          undefined,
+          { tenantId: params.tenantId, organizationId: params.organizationId },
+        )
+      : []
+    const assignedMemberNameById = new Map(assignedMembers.map((member) => [member.id, member.displayName]))
     const allocations = dayAssignments.flatMap((assignment) => {
       const line = allocationLineById.get(assignment.sourceEntityId)
       if (!line) return []
@@ -338,7 +360,9 @@ export class AppointmentSeatPlannerService {
         endsAt: assignment.endsAt.toISOString(),
         state: assignment.state,
         assignedMemberId: assignment.assignedMemberId ?? null,
-        assignedMemberName: null,
+        assignedMemberName: assignment.assignedMemberId
+          ? assignedMemberNameById.get(assignment.assignedMemberId) ?? null
+          : null,
       }]
     }).filter((allocation) => allocation.resourceId.length > 0)
 
@@ -400,7 +424,9 @@ export class AppointmentSeatPlannerService {
                 startsAt: assignment.startsAt,
                 endsAt: assignment.endsAt,
                 assignedMemberId: assignment.assignedMemberId,
-                assignedMemberName: assignment.assignedMemberName,
+                assignedMemberName: assignment.assignedMemberId
+                  ? assignedMemberNameById.get(assignment.assignedMemberId) ?? null
+                  : null,
               }
             : undefined,
         }

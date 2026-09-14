@@ -707,14 +707,14 @@ function StaffSheet(props: {
           <IconButton type="button" variant="ghost" aria-label={t('common.close', 'Close')} onClick={onClose}><X className="size-4" /></IconButton>
         </div>
 
-        <div className="shrink-0 border-b border-border bg-muted/20 px-4 py-3">
+        <div className="shrink-0 border-b border-border bg-muted/20 px-4 py-2">
           <p className="text-sm font-semibold">{target.allocation.serviceName}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><MapPin className="size-3.5" />{target.allocation.resourceName}</span>
             <span aria-hidden="true">•</span>
             <span className="flex items-center gap-1"><Clock className="size-3.5" />{formatTime(target.allocation.startsAt)} - {formatTime(target.allocation.endsAt)}</span>
           </div>
-          <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2.5">
+          <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2">
             <div>
               <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('appointments.seatPlanner.duration', 'Duration')}</p>
               <p className="mt-0.5 text-sm font-semibold">{duration} min</p>
@@ -724,6 +724,17 @@ function StaffSheet(props: {
               <IconButton type="button" size="sm" variant="outline" aria-label={t('appointments.seatPlanner.increaseDuration', 'Increase duration')} disabled={duration >= MAX_DURATION || isSaving} onClick={() => onDurationChange(duration + SLOT_MINUTES)}><Plus className="size-4" /></IconButton>
             </div>
           </div>
+          {target.allocation.assignedMemberId ? (
+            <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-1.5">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('appointments.seatPlanner.staffAssigned', 'Staff assigned')}</p>
+                <p className="truncate text-sm font-semibold">{target.allocation.assignedMemberName ?? t('appointments.seatPlanner.staffMember', 'Staff member')}</p>
+              </div>
+              <IconButton type="button" size="sm" variant="ghost" aria-label={t('appointments.seatPlanner.removeStaff', 'Remove staff')} disabled={isSaving} onClick={() => onAssign(null)}>
+                <X className="size-4" />
+              </IconButton>
+            </div>
+          ) : null}
         </div>
 
         <div className="shrink-0 border-b border-border p-3">
@@ -737,12 +748,8 @@ function StaffSheet(props: {
             if (element.scrollHeight - element.scrollTop - element.clientHeight < 96 && hasMoreStaff && !isLoadingMoreStaff) onLoadMore()
           }}
         >
-          <div className="space-y-2">
-            <Button type="button" variant={target.allocation.assignedMemberId ? 'ghost' : 'outline'} className="h-auto w-full justify-start gap-3 p-3" disabled={isSaving || !target.allocation.assignedMemberId} onClick={() => onAssign(null)}>
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"><UserRound className="size-4" /></span>
-              <span className="flex-1 text-left text-sm font-semibold">{t('appointments.seatPlanner.noStaffAssigned', 'No staff assigned')}</span>
-              {!target.allocation.assignedMemberId ? <Check className="size-4" /> : null}
-            </Button>
+          <div className="space-y-3">
+            <p className="px-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{t('appointments.seatPlanner.staffList', 'Staff list')}</p>
             {isLoadingStaff ? <p className="p-3 text-sm text-muted-foreground">{t('appointments.seatPlanner.loadingStaff', 'Loading staff...')}</p> : null}
             {!isLoadingStaff && filteredStaff.length === 0 ? (
               <div className="flex min-h-40 flex-col items-center justify-center gap-2 px-4 text-center text-muted-foreground">
@@ -754,15 +761,17 @@ function StaffSheet(props: {
               const busy = busyStaffIds.has(member.id)
               const active = target.allocation.assignedMemberId === member.id
               return (
-                <Button key={member.id} type="button" variant={active ? 'outline' : 'ghost'} className="h-auto w-full justify-start gap-3 p-3" disabled={isSaving || busy} onClick={() => onAssign(member.id)}>
+                <Button key={member.id} type="button" variant="ghost" aria-pressed={active} className={`h-auto w-full justify-start gap-3 rounded-md border p-3 text-left ${active ? 'border-primary bg-primary/5' : 'border-border bg-surface hover:bg-muted/40'}`} disabled={isSaving || busy} onClick={() => onAssign(active ? null : member.id)}>
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
                     {member.displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
                   </span>
-                  <span className="min-w-0 flex-1 text-left">
+                  <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold">{member.displayName}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{busy ? t('appointments.seatPlanner.staffBusy', 'Busy') : member.roleLabel}</span>
+                    <span className="mt-1 flex flex-wrap gap-1">
+                      <Tag variant={busy ? 'warning' : 'neutral'}>{busy ? t('appointments.seatPlanner.staffBusy', 'Busy') : member.roleLabel}</Tag>
+                    </span>
                   </span>
-                  {active ? <Check className="size-4" /> : null}
+                  <span className={`flex size-5 shrink-0 items-center justify-center rounded-sm border ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-surface'}`}>{active ? <Check className="size-3.5" /> : null}</span>
                 </Button>
               )
             })}
@@ -874,7 +883,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     if (page === 1) setIsLoadingStaff(true)
     else setIsLoadingMoreStaff(true)
     try {
-      const response = await readApiResultOrThrow<{ items?: Array<{ id: string; displayName: string; teamName?: string | null }> }>(`/api/staff/team-members/assignable?page=${page}&pageSize=${STAFF_PAGE_SIZE}`)
+      const response = await readApiResultOrThrow<{ items?: Array<{ id: string; displayName: string; teamName?: string | null }> }>(`/api/staff/team-members/assignable?page=${page}&pageSize=${STAFF_PAGE_SIZE}&includeUnlinked=true`)
       const items = response.items ?? []
       const nextStaff = items.map((member) => ({
         id: member.id,
@@ -1014,13 +1023,16 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         endsAt: line.currentAssignment.endsAt,
         state: line.currentAssignment.state,
         assignedMemberId: line.currentAssignment.assignedMemberId,
-        assignedMemberName: line.currentAssignment.assignedMemberName,
+        assignedMemberName: line.currentAssignment.assignedMemberName
+          ?? (line.currentAssignment.assignedMemberId
+            ? staffMembers.find((member) => member.id === line.currentAssignment?.assignedMemberId)?.displayName ?? null
+            : null),
         laneIndex: 0,
         lanesCount: 1,
       })
       return allocations
     }, [])
-  }, [workspace])
+  }, [staffMembers, workspace])
   const allAllocations = React.useMemo(() => {
     if (!workspace) return []
     const bySeat = new Map<string, PlannerAllocation[]>()
@@ -1096,8 +1108,18 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
 
   const saveDraft = React.useCallback(async (line: SeatPlannerLine, resourceId: string, startsAt: string, duration: number, assignedMemberId?: string | null) => {
     if (!workspace) return
-    const body = { resourceId, startsAt, endsAt: addMinutes(startsAt, duration), assignedMemberId: assignedMemberId ?? line.currentAssignment?.assignedMemberId ?? null }
+    const body = {
+      resourceId,
+      startsAt,
+      endsAt: addMinutes(startsAt, duration),
+      assignedMemberId: assignedMemberId === undefined
+        ? line.currentAssignment?.assignedMemberId ?? null
+        : assignedMemberId,
+    }
     const resourceName = seatColumns.find((resource) => resource.id === resourceId)?.name ?? null
+    const assignedMemberName = body.assignedMemberId
+      ? staffMembers.find((member) => member.id === body.assignedMemberId)?.displayName ?? null
+      : null
     const optimisticAssignment = {
       id: line.currentAssignment?.id ?? `optimistic-${line.id}`,
       state: 'draft' as const,
@@ -1106,7 +1128,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       startsAt,
       endsAt: body.endsAt,
       assignedMemberId: body.assignedMemberId,
-      assignedMemberName: line.currentAssignment?.assignedMemberName ?? null,
+      assignedMemberName,
     }
     setWorkspace((current) => current ? {
       ...current,
@@ -1132,7 +1154,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             startsAt: assignment.startsAt,
             endsAt: assignment.endsAt,
             assignedMemberId: assignment.assignedMemberId ?? null,
-            assignedMemberName: assignment.assignedMemberName ?? null,
+            assignedMemberName: assignment.assignedMemberName ?? assignedMemberName,
           },
         } : entry),
       } : current)
@@ -1140,7 +1162,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       await loadWorkspace()
       throw error
     }
-  }, [guardedMutation, loadWorkspace, seatColumns, workspace])
+  }, [guardedMutation, loadWorkspace, seatColumns, staffMembers, workspace])
 
   const clearDraft = React.useCallback(async (lineId: string) => {
     if (!workspace) return
@@ -1241,10 +1263,17 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     if (!line || target.allocation.appointmentId !== workspace?.appointment.id) return
     if (staffId === null && !target.allocation.assignedMemberId) return
     await saveDraft(line, target.allocation.resourceId, target.allocation.startsAt, durationMinutes(target.allocation.startsAt, target.allocation.endsAt), staffId)
-    setStaffSheetTarget(null)
+    setStaffSheetTarget((current) => current ? {
+      ...current,
+      allocation: {
+        ...current.allocation,
+        assignedMemberId: staffId,
+        assignedMemberName: staffId ? staffMembers.find((member) => member.id === staffId)?.displayName ?? null : null,
+      },
+    } : current)
     setPopoverState(null)
     flash(staffId ? t('appointments.seatPlanner.staffAssigned', 'Staff assigned') : t('appointments.seatPlanner.staffUnassigned', 'Staff removed'), 'success')
-  }, [saveDraft, t, workspace?.appointment.id])
+  }, [flash, saveDraft, staffMembers, t, workspace?.appointment.id])
 
   const busyStaffIds = React.useMemo(() => {
     if (!staffSheetTarget) return new Set<string>()
