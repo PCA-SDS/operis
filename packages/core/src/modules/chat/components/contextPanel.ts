@@ -17,7 +17,22 @@ import {
  * drawers.
  */
 
-export type ChatContextPanelKind = 'pins' | 'shared'
+/**
+ * `section:<id>` is a slot another module has claimed through
+ * `chat:conversation-panel:sections` — the label and icon come from that
+ * contribution, so chat can render the toggle without knowing what is behind it.
+ * A template-literal member rather than a second state field: the region is
+ * single-slot, and adding a parallel "which section" would let it be open on two
+ * things at once.
+ */
+export type ChatContextPanelKind = 'pins' | 'shared' | `section:${string}`
+
+/** The section id inside a `section:<id>` kind, or null for a built-in panel. */
+export function panelSectionId(kind: ChatContextPanelKind | null): string | null {
+  if (!kind || !kind.startsWith('section:')) return null
+  const id = kind.slice('section:'.length)
+  return id.length > 0 ? id : null
+}
 
 /**
  * Widths, in pixels, in one place.
@@ -160,6 +175,26 @@ export type ChatContextPanelState = {
  */
 let openKind: ChatContextPanelKind | null = null
 
+/** Everything currently rendering the region, so a request from outside reaches it. */
+const kindListeners = new Set<(kind: ChatContextPanelKind | null) => void>()
+
+/**
+ * Open one of the contributed sections from outside the header.
+ *
+ * A module that contributed a section also wants to open it — a `/tasks` command, a
+ * "show me the list" link — and the toggle that would normally do it lives in chat's
+ * own header. Rather than exporting the whole state hook, this asks for a section by
+ * the id the contribution declared, which is the same id the toggle uses.
+ *
+ * Ignored when no conversation view is mounted, which is what makes it safe to call
+ * from a command handler that does not know whether one is.
+ */
+export function openChatPanelSection(sectionId: string): void {
+  const next: ChatContextPanelKind = `section:${sectionId}`
+  openKind = next
+  for (const listener of [...kindListeners]) listener(next)
+}
+
 export function useChatContextPanel(): ChatContextPanelState {
   const [kind, setKindState] = React.useState<ChatContextPanelKind | null>(() =>
     typeof window === 'undefined' ? null : openKind,
@@ -174,6 +209,17 @@ export function useChatContextPanel(): ChatContextPanelState {
     },
     [],
   )
+  // Subscribed so `openChatPanelSection` reaches this instance. The module binding
+  // above is what survives a conversation switch; this is what makes a request from
+  // outside the header visible to the component currently rendering the region.
+  React.useEffect(() => {
+    const listener = (next: ChatContextPanelKind | null) => setKindState(next)
+    kindListeners.add(listener)
+    return () => {
+      kindListeners.delete(listener)
+    }
+  }, [])
+
   const [width, setWidthState] = React.useState<number>(CHAT_PANEL_WIDTH.default)
   const hydrated = React.useRef(false)
 

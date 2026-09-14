@@ -10,6 +10,11 @@ import { cn } from '@open-mercato/shared/lib/utils'
 import { MAX_MESSAGE_LENGTH } from '../data/validators'
 import { EVERYONE_TOKEN, userToken } from '../lib/mentions'
 import { applyMention, detectMentionDraft, type MentionDraft } from '../lib/mentionDraft'
+import {
+  detectSlashCommandDraft,
+  resolveSlashCommand,
+  type SlashCommandDraft,
+} from '../lib/slashCommands'
 import type { ChatDraftAttachment } from './useChatAttachments'
 import { ComposerAttachments } from './ComposerAttachments'
 
@@ -30,12 +35,37 @@ const MENTION_SUGGESTION_LIMIT = 6
 const MENTION_LISTBOX_ID = 'chat-mention-suggestions'
 const mentionOptionId = (index: number) => `${MENTION_LISTBOX_ID}-option-${index}`
 
+/**
+ * The command menu's own combobox wiring, separate from the mention menu's.
+ *
+ * Two ids rather than one shared listbox: only ever one of the two is open, but
+ * `aria-activedescendant` points at an id, and reusing the mention menu's ids would
+ * make the announced option belong to a list that is not on screen.
+ */
+const COMMAND_LISTBOX_ID = 'chat-command-suggestions'
+const commandOptionId = (index: number) => `${COMMAND_LISTBOX_ID}-option-${index}`
+
 export type MentionCandidate = {
   id: string
   name: string
   /** `everyone` is offered alongside people, so one menu handles both. */
   kind: 'user' | 'everyone'
   subtitle?: string
+}
+
+/**
+ * A command another module has contributed to the composer.
+ *
+ * `name` is what the writer types after the slash and is matched case-insensitively;
+ * it is never shown as the label, so a module can offer `/mytasks` while labelling
+ * it "My tasks" in the reader's own language.
+ */
+export type ComposerCommand = {
+  id: string
+  name: string
+  label: string
+  description?: string
+  onSelect: (argument: string) => void
 }
 
 export type MessageComposerProps = {
@@ -91,6 +121,21 @@ export type MessageComposerProps = {
   editTarget?: { messageId: string; body: string } | null
   onSubmitEdit?: (body: string) => void
   onCancelEdit?: () => void
+  /**
+   * Commands offered when the line begins with `/`. Empty disables the menu
+   * entirely, which is what a deployment without the integration gets — and then
+   * a leading slash is just a character, exactly as it was before.
+   */
+  commands?: ComposerCommand[]
+  /**
+   * Incremented by the parent once a command has taken the draft.
+   *
+   * The composer does NOT clear the line when a command is invoked: the command
+   * surface can be cancelled, and a validation or network failure must not cost
+   * somebody the sentence they typed. The parent bumps this only after the work
+   * actually succeeded, and that is when the box empties.
+   */
+  commandConsumedToken?: number
 }
 
 /**
@@ -122,6 +167,8 @@ export function MessageComposer({
   onAttachFiles,
   onRemoveAttachment,
   onRetryAttachment,
+  commands = [],
+  commandConsumedToken = 0,
 }: MessageComposerProps) {
   const t = useT()
   const [value, setValue] = React.useState('')
@@ -238,6 +285,17 @@ export function MessageComposer({
   const [draft, setDraft] = React.useState<MentionDraft | null>(null)
   const [highlighted, setHighlighted] = React.useState(0)
 
+  /**
+   * The leading `/token` the caret is inside, and the menu it opens.
+   *
+   * Only ever a *leading* token — `lib/slashCommands.ts` anchors at the first
+   * character — so a slash in a URL, a pasted block, a quote or a path is never a
+   * command and the menu never opens over one.
+   */
+  const [commandDraft, setCommandDraft] = React.useState<SlashCommandDraft | null>(null)
+  const [commandHighlighted, setCommandHighlighted] = React.useState(0)
+  const [commandError, setCommandError] = React.useState<string | null>(null)
+
   const suggestions = React.useMemo(() => {
     if (!draft || mentionCandidates.length === 0) return []
     const needle = draft.query.trim().toLowerCase()
@@ -247,6 +305,37 @@ export function MessageComposer({
   }, [draft, mentionCandidates])
 
   const menuOpen = draft !== null && suggestions.length > 0
+
+  const commandSuggestions = React.useMemo(() => {
+    if (!commandDraft || commands.length === 0) return []
+    const needle = commandDraft.query.trim().toLowerCase()
+    return commands.filter((command) => command.name.toLowerCase().startsWith(needle))
+  }, [commandDraft, commands])
+
+  // Never both. The mention menu wins if somehow both matched, because a mention
+  // can only be in progress mid-line and a command only at the start.
+  const commandMenuOpen = !menuOpen && commandDraft !== null && commandSuggestions.length > 0
+
+  React.useEffect(() => {
+    setCommandHighlighted(0)
+  }, [commandDraft?.query])
+
+  /**
+   * The parent has taken the draft, so the box may empty.
+   *
+   * Not on invocation: a drawer can be cancelled and a create can fail, and either
+   * would otherwise destroy what was typed. `commandConsumedToken` is bumped only
+   * once the work is actually done.
+   */
+  const consumedToken = React.useRef(commandConsumedToken)
+  React.useEffect(() => {
+    if (commandConsumedToken === consumedToken.current) return
+    consumedToken.current = commandConsumedToken
+    pendingValue.current = ''
+    setValue('')
+    setCommandDraft(null)
+    setCommandError(null)
+  }, [commandConsumedToken])
 
   React.useEffect(() => {
     setHighlighted(0)
@@ -262,7 +351,12 @@ export function MessageComposer({
   const syncDraft = React.useCallback(
     (next: string) => {
       const textarea = textareaRef.current
-      setDraft(detectMentionDraft(next, textarea ? textarea.selectionStart : null))
+      const caret = textarea ? textarea.selectionStart : null
+      setDraft(detectMentionDraft(next, caret))
+      setCommandDraft(detectSlashCommandDraft(next, caret))
+      // The "no such command" notice belongs to one submission, not to the field:
+      // typing anything at all means the writer is working on it again.
+      setCommandError(null)
     },
     [],
   )
@@ -284,6 +378,34 @@ export function MessageComposer({
       })
     },
     [draft, value],
+  )
+
+  /**
+   * Run a command, and keep the line.
+   *
+   * The argument is everything after the command token, passed through verbatim so
+   * a quick-add grammar can parse it — the composer deliberately does not try to
+   * interpret it, which is what keeps one parser authoritative.
+   */
+  const runCommand = React.useCallback(
+    (command: ComposerCommand, argument: string) => {
+      setCommandDraft(null)
+      setCommandError(null)
+      command.onSelect(argument)
+    },
+    [],
+  )
+
+  const chooseCommand = React.useCallback(
+    (command: ComposerCommand) => {
+      const line = pendingValue.current
+      const invocation = resolveSlashCommand(line, [command.name])
+      // Selected from the menu while only `/ta` is typed, the line is not yet a
+      // full invocation — so the argument is whatever follows the token, or empty.
+      const argument = invocation?.argument ?? line.replace(/^\/[a-zA-Z0-9_-]*\s*/, '')
+      runCommand(command, argument)
+    },
+    [runCommand],
   )
 
   const submit = React.useCallback(() => {
@@ -310,6 +432,38 @@ export function MessageComposer({
       return
     }
 
+    /**
+     * A line that explicitly names a command is never sent as a message.
+     *
+     * Only an exact match on a command this build offers: `/task Prepare the
+     * proposal` runs, and `see /docs/setup for the steps` or
+     * `/etc/passwd is unreadable` send as the ordinary messages they are. A leading
+     * slash whose token matches nothing known is left in the box with a notice
+     * rather than silently sent or silently discarded — nothing is mutated, and the
+     * writer keeps every word.
+     */
+    if (commands.length > 0 && body.startsWith('/') && attachments.length === 0) {
+      const invocation = resolveSlashCommand(
+        body,
+        commands.map((command) => command.name),
+      )
+      if (invocation) {
+        const command = commands.find(
+          (candidate) => candidate.name.toLowerCase() === invocation.name,
+        )
+        if (command) {
+          runCommand(command, invocation.argument)
+          return
+        }
+      }
+      // A bare `/word` with nothing after it reads as an attempted command; a
+      // sentence that merely begins with a path does not, and must still send.
+      if (/^\/[a-zA-Z0-9_-]*$/.test(body)) {
+        setCommandError(body.length === 1 ? null : body.slice(1))
+        return
+      }
+    }
+
     // Text alone, files alone, or both — but never nothing, and never while a
     // file is still on its way, because that send would silently drop it.
     if (body.length === 0 && !anyReady) return
@@ -320,7 +474,19 @@ export function MessageComposer({
     onTypingStopped?.()
     setValue('')
     textareaRef.current?.focus()
-  }, [anyReady, anyUploading, disabled, editTarget, onCancelEdit, onSend, onSubmitEdit, onTypingStopped])
+  }, [
+    anyReady,
+    anyUploading,
+    attachments.length,
+    commands,
+    disabled,
+    editTarget,
+    onCancelEdit,
+    onSend,
+    onSubmitEdit,
+    onTypingStopped,
+    runCommand,
+  ])
 
   /**
    * Files arriving from the picker, a drop, or a paste.
@@ -371,6 +537,40 @@ export function MessageComposer({
         }
       }
 
+      /**
+       * The command menu owns the same keys while it is open, and for the same
+       * reason: Enter must pick the highlighted command rather than send `/ta` as a
+       * message, and Escape must close the menu rather than the drawer behind it.
+       *
+       * Checked after the mention menu because only one of the two can be open, and
+       * a mention is the more specific state.
+       */
+      if (commandMenuOpen) {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault()
+          setCommandHighlighted((current) => {
+            const delta = event.key === 'ArrowDown' ? 1 : -1
+            return (current + delta + commandSuggestions.length) % commandSuggestions.length
+          })
+          return
+        }
+        if (event.key === 'Enter' || event.key === 'Tab') {
+          // An IME candidate is confirmed with Enter, so while one is composing
+          // this key is not a selection — the same rule the send path follows, and
+          // the module ships `ko`, `vi` and `zh`.
+          if (event.nativeEvent.isComposing) return
+          event.preventDefault()
+          const command = commandSuggestions[commandHighlighted]
+          if (command) chooseCommand(command)
+          return
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          setCommandDraft(null)
+          return
+        }
+      }
+
       // Escape abandons the edit. Ahead of the reply branch because edit mode is
       // the more committed state of the two, and the draft is not lost: leaving
       // edit mode puts back whatever was in the box before it started.
@@ -397,6 +597,10 @@ export function MessageComposer({
     },
     [
       choose,
+      chooseCommand,
+      commandHighlighted,
+      commandMenuOpen,
+      commandSuggestions,
       editTarget,
       highlighted,
       menuOpen,
@@ -439,6 +643,54 @@ export function MessageComposer({
           it would open off-screen, and one anchored to the caret would jump as
           the field grows. Rendered in flow, it pushes the box down by its own
           height and nothing overlaps. */}
+      {/* Same place as the mention menu, and for the same reason: the composer sits
+          at the bottom of the pane, so a popover below it would open off-screen and
+          one anchored to the caret would jump as the field grows. Rendered in flow,
+          it pushes the box down by its own height and nothing overlaps. */}
+      {commandMenuOpen ? (
+        <div
+          role="listbox"
+          id={COMMAND_LISTBOX_ID}
+          aria-label={t('chat.commands.suggestionsLabel', 'Commands')}
+          className="mb-1 overflow-hidden rounded-xl border border-border bg-surface shadow-md"
+        >
+          {commandSuggestions.map((command, index) => (
+            <button
+              key={command.id}
+              id={commandOptionId(index)}
+              type="button"
+              role="option"
+              aria-selected={index === commandHighlighted}
+              // The textarea keeps focus so typing continues uninterrupted;
+              // without this the blur would close the menu before the click. It is
+              // also what makes the row work on touch, where the tap would
+              // otherwise dismiss the menu first.
+              onMouseDown={(event) => event.preventDefault()}
+              onMouseEnter={() => setCommandHighlighted(index)}
+              onClick={() => chooseCommand(command)}
+              className={cn(
+                'flex w-full items-start gap-2 px-3 py-2 text-left transition-colors',
+                index === commandHighlighted ? 'bg-surface-muted' : 'hover:bg-surface-muted',
+              )}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-foreground">
+                  {command.label}
+                </span>
+                {command.description ? (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {command.description}
+                  </span>
+                ) : null}
+              </span>
+              <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                /{command.name}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {menuOpen ? (
         <div
           role="listbox"
@@ -666,8 +918,20 @@ export function MessageComposer({
           // announcing it as a text area, and `aria-expanded` on one is
           // inconsistently handled. The menu is a helper over a text field, not
           // a select.
-          aria-controls={menuOpen ? MENTION_LISTBOX_ID : undefined}
-          aria-activedescendant={menuOpen ? mentionOptionId(highlighted) : undefined}
+          aria-controls={
+            menuOpen
+              ? MENTION_LISTBOX_ID
+              : commandMenuOpen
+                ? COMMAND_LISTBOX_ID
+                : undefined
+          }
+          aria-activedescendant={
+            menuOpen
+              ? mentionOptionId(highlighted)
+              : commandMenuOpen
+                ? commandOptionId(commandHighlighted)
+                : undefined
+          }
           aria-invalid={tooLong || undefined}
           className={cn(
             // One row of room, plus the padding — a reply that fits on a line
@@ -706,13 +970,19 @@ export function MessageComposer({
               silently stopped working. */}
           <p
             id="chat-composer-hint"
-            role={tooLong ? 'alert' : undefined}
+            // Announced, because both cases are the send button silently declining
+            // to work and a muted line nobody hears is how that becomes a mystery.
+            role={tooLong || commandError ? 'alert' : undefined}
             className={cn(
               'flex min-h-7 min-w-0 flex-1 items-center gap-2 pl-1 text-xs',
-              tooLong ? 'text-status-error-text' : 'text-muted-foreground',
+              tooLong || commandError ? 'text-status-error-text' : 'text-muted-foreground',
             )}
           >
-            {tooLong
+            {commandError
+              ? t('chat.commands.unknown', 'There is no /{name} command. Your message is still here.', {
+                  name: commandError,
+                })
+              : tooLong
               ? t('chat.composer.tooLong', 'Messages are limited to {max} characters.', {
                   max: MAX_MESSAGE_LENGTH,
                 })
