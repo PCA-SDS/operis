@@ -263,6 +263,22 @@ RUN chmod +x /app/docker/scripts/railway-entrypoint.sh
 RUN chmod +x /app/docker/scripts/init-or-migrate.sh
 RUN chmod +x /app/docker/scripts/mcp-entrypoint.sh
 
+# Drop npm from the runtime image.
+#
+# This project installs with Yarn 4 through corepack and the container runs
+# `yarn start`; npm is never invoked. But the Node base image bundles npm along
+# with its OWN vendored dependency tree under /usr/local/lib/node_modules/npm,
+# and those copies are pinned by npm's release, so nothing in this repo's
+# `resolutions` can move them. They are what the image scan reports as
+# brace-expansion, ip-address and tar findings — advisories against a package
+# manager that has no reason to be in a production image in the first place.
+#
+# Placed after the `yarn workspaces focus` above, which is the last step that
+# touches the dependency tree. Corepack is a separate binary and is unaffected.
+RUN rm -rf /usr/local/lib/node_modules/npm \
+           /usr/local/bin/npm \
+           /usr/local/bin/npx
+
 # Prepare storage directory for Railway volume mount
 RUN mkdir -p /app/apps/mercato/storage
 
