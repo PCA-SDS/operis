@@ -117,4 +117,5 @@ No rule path should hard-code PCA behavior in app bootstrap or another module.
 - `Migration20260903142415_email` creates the tenant-scoped template and accounting-default tables.
 - `Migration20260911143000_pca_email_templates` imports the five PCA templates with complete body HTML, builder blocks, variables, and rule metadata only for PCA-matched tenants/organizations.
 - `Migration20260914150000_pca_email_template_body_backfill` repairs PCA rows created by an earlier incomplete migration when their body is empty or malformed. It does not overwrite non-empty template bodies.
+- `Migration20260914160000_acme_email_templates` is a temporary, explicit import for the `Acme Corp` tenant used for evaluation. Remove or replace it when the PCA tenant is available; it does not target other tenants.
 - Run the normal application migration step after merging to `main`; do not seed or copy template rows manually. Non-PCA tenants intentionally remain empty until they create their own templates.
