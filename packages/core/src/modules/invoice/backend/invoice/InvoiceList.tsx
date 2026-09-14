@@ -10,7 +10,7 @@ import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { Pencil, Trash2 } from 'lucide-react'
+import { CalendarDays, Pencil, Trash2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { Dropdown } from '@open-mercato/ui/primitives/dropdown'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
@@ -85,9 +85,9 @@ export function InvoiceList({ direction }: { direction?: 'AP' | 'AR' }) {
     }
     const statusClass = (status: string | null) => status === 'ACTIVE' ? 'bg-status-success-bg text-status-success-text' : status === 'CANCELLED' ? 'bg-status-error-bg text-status-error-text' : 'bg-muted text-muted-foreground'
     const common: ColumnDef<InvoiceRow>[] = [
-      { accessorKey: 'partnerName', header: t('invoice.list.columns.partner') },
-      { id: 'invoiceNumber', accessorKey: 'invoiceNumber', header: t('invoice.list.columns.number'), cell: ({ row }) => [row.original.invoiceSymbol, row.original.invoiceNumber].filter(Boolean).join(' · ') || '—' },
-      { accessorKey: 'dueDate', header: t('invoice.list.columns.dueDate'), cell: ({ row }) => dateLabel(row.original.dueDate) },
+      { accessorKey: 'partnerName', header: t('invoice.list.columns.partner'), meta: { maxWidth: '22rem' } },
+      { id: 'invoiceNumber', accessorKey: 'invoiceNumber', header: t('invoice.list.columns.number'), meta: { maxWidth: '16rem' }, cell: ({ row }) => [row.original.invoiceSymbol, row.original.invoiceNumber].filter(Boolean).join(' · ') || '—' },
+      { accessorKey: 'dueDate', header: t('invoice.list.columns.dueDate'), meta: { maxWidth: '9rem' }, cell: ({ row }) => dateLabel(row.original.dueDate) },
     ]
     const installments: ColumnDef<InvoiceRow> = { id: 'installments', header: t('invoice.list.columns.installments', { fallback: 'Installments' }), cell: ({ row }) => row.original.hasInstallmentPlan ? <Button type="button" variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); void openInstallments(row.original.id) }}>{t('invoice.list.installments.viewPlan', { fallback: 'View plan' })}</Button> : '—' }
     const total: ColumnDef<InvoiceRow> = { accessorKey: 'grossAmount', header: t('invoice.list.columns.total'), cell: ({ row }) => row.original.grossAmount ? `${Number(row.original.grossAmount).toLocaleString()} ${row.original.currencyCode ?? ''}` : '—' }
@@ -99,10 +99,10 @@ export function InvoiceList({ direction }: { direction?: 'AP' | 'AR' }) {
       return <><div className="flex items-center justify-end gap-1"><Button type="button" variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); router.push(`/backend/invoice/all/${invoice.id}`) }}>{label}</Button><IconButton type="button" variant="ghost" size="sm" aria-label={t('invoice.actions.edit', { fallback: 'Edit' })} onClick={(event) => { event.stopPropagation(); router.push(`/backend/invoice/all/${invoice.id}/edit`) }}><Pencil /></IconButton><IconButton type="button" variant="ghost" size="sm" aria-label={t('invoice.actions.delete', { fallback: 'Delete' })} onClick={(event) => { event.stopPropagation(); setDeletingInvoiceId(invoice.id) }}><Trash2 /></IconButton></div><Dialog open={deletingInvoiceId === invoice.id} onOpenChange={(open) => { if (!open) setDeletingInvoiceId(null) }}><DialogContent><DialogHeader><DialogTitle>{t('invoice.actions.deleteConfirm', { fallback: 'Delete invoice?' })}</DialogTitle></DialogHeader><div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setDeletingInvoiceId(null)}>{t('common.cancel', { fallback: 'Cancel' })}</Button><Button type="button" variant="destructive" onClick={() => void deleteInvoice()}>{t('common.delete', { fallback: 'Delete' })}</Button></div></DialogContent></Dialog></>
     } }
     if (!direction) return [
-      { accessorKey: 'direction', header: t('invoice.list.columns.direction'), cell: ({ row }) => <span className="rounded-full bg-muted px-2 py-1 text-xs font-medium">{row.original.direction}</span> },
+      { accessorKey: 'direction', header: t('invoice.list.columns.direction'), meta: { maxWidth: '7rem' }, cell: ({ row }) => <span className="rounded-full bg-muted px-2 py-1 text-xs font-medium">{row.original.direction}</span> },
       ...common,
       installments,
-      { accessorKey: 'invoiceStatus', header: t('invoice.list.columns.status', { fallback: 'Status' }), cell: ({ row }) => <span className={`rounded-full px-2 py-1 text-xs font-medium ${statusClass(row.original.invoiceStatus)}`}>{row.original.invoiceStatus ? t(`invoice.status.${row.original.invoiceStatus.toLowerCase()}`, { fallback: row.original.invoiceStatus }) : '—'}</span> },
+      { accessorKey: 'invoiceStatus', header: t('invoice.list.columns.status', { fallback: 'Status' }), meta: { maxWidth: '9rem' }, cell: ({ row }) => <span className={`rounded-full px-2 py-1 text-xs font-medium ${statusClass(row.original.invoiceStatus)}`}>{row.original.invoiceStatus ? t(`invoice.status.${row.original.invoiceStatus.toLowerCase()}`, { fallback: row.original.invoiceStatus }) : '—'}</span> },
       total,
       actions,
     ]
