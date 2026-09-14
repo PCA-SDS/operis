@@ -192,7 +192,7 @@ export class InvoicePaymentConfirmationsService {
       invoice: {
         symbol: invoice.invoiceSymbol ?? null,
         number: invoice.invoiceNumber,
-        amount: installment?.totalAmount ?? invoice.outstandingAmount,
+        amount: installment?.totalAmount ?? invoice.grossAmount ?? invoice.outstandingAmount ?? '0',
         currencyCode: invoice.currencyCode,
       },
       installment: installment
