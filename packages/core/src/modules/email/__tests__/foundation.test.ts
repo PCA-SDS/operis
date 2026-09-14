@@ -187,6 +187,7 @@ describe('email module foundation', () => {
     expect(TEMPLATES_ROUTE_SOURCE).toContain('item.blocks ?? []')
     expect(TEMPLATES_ROUTE_SOURCE).toContain('item.accounting_metadata ?? item.accountingMetadata ?? null')
     expect(TEMPLATES_ROUTE_SOURCE).toContain('item.template_key ?? item.templateKey')
+    expect(TEMPLATES_ROUTE_SOURCE).toContain("if (!query.status && !query.includeArchived) filters.status = { $ne: 'archived' }")
   })
 
   it('keeps the template builder non-technical for tenant users', () => {
@@ -246,6 +247,9 @@ describe('email module foundation', () => {
     expect(COMPOSE_META_SOURCE).not.toContain('navHidden: true')
     expect(ACCOUNTING_DEFAULTS_META_SOURCE).toContain('navHidden: true')
     expect(TEMPLATE_LIST_PAGE_SOURCE).not.toContain('/backend/email/accounting-defaults')
+    expect(TEMPLATE_LIST_PAGE_SOURCE).toContain("type StatusFilter = 'current' | 'draft' | 'published' | 'archived' | 'all'")
+    expect(TEMPLATE_LIST_PAGE_SOURCE).toContain("params.set('includeArchived', 'true')")
+    expect(TEMPLATE_LIST_PAGE_SOURCE).toContain('email.templates.empty.archived')
   })
 
   it('keeps accounting defaults non-technical for tenant users', () => {

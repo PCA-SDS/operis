@@ -26,6 +26,8 @@ type EmailTemplateListResponse = {
   totalPages?: number
 }
 
+type StatusFilter = 'current' | 'draft' | 'published' | 'archived' | 'all'
+
 function statusVariant(status: EmailTemplateRow['status']): 'success' | 'warning' | 'neutral' {
   if (status === 'published') return 'success'
   if (status === 'draft') return 'warning'
@@ -40,6 +42,7 @@ export default function EmailTemplatesPage() {
   const [totalPages, setTotalPages] = React.useState(1)
   const [search, setSearch] = React.useState('')
   const [query, setQuery] = React.useState('')
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('current')
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const pageSize = 25
@@ -53,6 +56,8 @@ export default function EmailTemplatesPage() {
       setError(null)
       const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize), sort: 'updatedAt', order: 'desc' })
       if (query.trim()) params.set('search', query.trim())
+      if (statusFilter === 'all') params.set('includeArchived', 'true')
+      if (statusFilter !== 'current' && statusFilter !== 'all') params.set('status', statusFilter)
       const response = await apiCall<EmailTemplateListResponse>(`/api/email/templates?${params}`, {
         signal: controller.signal,
       }).catch((err: unknown) => ({ ok: false as const, result: { error: err instanceof Error ? err.message : t('email.templates.errors.load', 'Failed to load email templates') } }))
@@ -77,7 +82,7 @@ export default function EmailTemplatesPage() {
       cancelled = true
       controller.abort()
     }
-  }, [page, query])
+  }, [page, query, statusFilter])
 
   const columns = React.useMemo<ColumnDef<EmailTemplateRow>[]>(
     () => [
@@ -128,6 +133,23 @@ export default function EmailTemplatesPage() {
             />
             <Button type="submit" variant="secondary">{t('email.common.search', 'Search')}</Button>
           </form>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>{t('email.templates.filters.status.label', 'Status')}</span>
+            <select
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+              value={statusFilter}
+              onChange={(event) => {
+                setPage(1)
+                setStatusFilter(event.target.value as StatusFilter)
+              }}
+            >
+              <option value="current">{t('email.templates.filters.status.current', 'Current: Draft + Published')}</option>
+              <option value="draft">{t('email.templates.status.draft', 'Draft')}</option>
+              <option value="published">{t('email.templates.status.published', 'Published')}</option>
+              <option value="archived">{t('email.templates.status.archived', 'Archived')}</option>
+              <option value="all">{t('email.templates.filters.status.all', 'All statuses')}</option>
+            </select>
+          </label>
           <div className="flex gap-2">
             <Button asChild>
               <Link href="/backend/email/templates/create">{t('email.templates.newTemplate', 'New Template')}</Link>
@@ -140,7 +162,7 @@ export default function EmailTemplatesPage() {
           data={rows}
           isLoading={isLoading}
           error={error}
-          emptyState={t('email.templates.empty', 'No saved email templates yet. Create a tenant-owned template from scratch.')}
+          emptyState={statusFilter === 'archived' ? t('email.templates.empty.archived', 'No archived email templates found.') : t('email.templates.empty', 'No saved email templates yet. Create a tenant-owned template from scratch.')}
           pagination={{ page, pageSize, total, totalPages, onPageChange: setPage }}
         />
       </PageBody>

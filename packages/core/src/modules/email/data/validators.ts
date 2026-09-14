@@ -103,6 +103,7 @@ export const emailTemplateQuerySchema = z
     search: z.string().trim().max(200).optional(),
     category: z.string().trim().max(100).optional(),
     status: emailTemplateStatusSchema.optional(),
+    includeArchived: z.coerce.boolean().optional(),
     activeOnly: z.coerce.boolean().optional(),
     page: z.coerce.number().int().min(1).optional(),
     pageSize: z.coerce.number().int().min(1).max(200).optional(),

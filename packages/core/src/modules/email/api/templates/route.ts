@@ -138,6 +138,7 @@ export const { metadata, GET, POST, PUT, DELETE } = makeCrudRoute({
       }
       if (query.category) filters.category = query.category
       if (query.status) filters.status = query.status
+      if (!query.status && !query.includeArchived) filters.status = { $ne: 'archived' }
       if (query.activeOnly) filters.status = 'published'
       return filters
     },
