@@ -29,10 +29,23 @@ const invoiceManualFormSchema = invoiceManualWriteBaseSchema
 
 export type InvoiceFormValues = z.infer<typeof invoiceManualFormSchema> & { id?: string; updatedAt?: string }
 type Lookup = { company: { name: string; taxCode: string | null; countryCode: string; address: string | null } | null }
+type InvoiceFormLineItem = InvoiceFormValues['lineItems'][number]
+
+function normalizeLineItems(lineItems: InvoiceFormValues['lineItems'] | undefined): InvoiceFormLineItem[] {
+  return (lineItems ?? []).map((line) => ({
+    name: line.name,
+    unit: line.unit ?? null,
+    quantity: line.quantity,
+    unitPrice: line.unitPrice,
+    discountAmount: line.discountAmount ?? undefined,
+    discountPercent: line.discountPercent ?? undefined,
+    vatRate: line.vatRate ?? undefined,
+  }))
+}
 
 function isoDate(value: string | null) { return value ? value.slice(0, 10) : '' }
 
-export function InvoiceForm({ initialValues, mode, onSaved }: { initialValues?: Partial<InvoiceFormValues>; mode: 'create' | 'edit'; onSaved: (id: string) => void }) {
+export function InvoiceForm({ initialValues, mode, recordId, onSaved }: { initialValues?: Partial<InvoiceFormValues>; mode: 'create' | 'edit'; recordId?: string; onSaved: (id: string) => void }) {
   const t = useT()
   const [lookupBusy, setLookupBusy] = React.useState(false)
   const [lookupMessage, setLookupMessage] = React.useState<string | null>(null)
@@ -73,5 +86,13 @@ export function InvoiceForm({ initialValues, mode, onSaved }: { initialValues?: 
     { id: 'lines', title: t('invoice.form.groups.lines'), description: t('invoice.form.groups.linesDescription'), column: 1 as const, fields: ['lineItems'] },
   ], [t])
 
-  return <CrudForm<InvoiceFormValues> title={t(mode === 'create' ? 'invoice.form.createTitle' : 'invoice.form.editTitle')} backHref="/backend/invoice/all" backLabel={t('invoice.form.backToInvoices')} fields={fields} groups={groups} schema={schema} initialValues={{ currencyCode: 'VND', lineItems: [], ...initialValues, invoiceDate: isoDate(initialValues?.invoiceDate ?? null), dueDate: isoDate(initialValues?.dueDate ?? null) }} submitLabel={t('invoice.form.save')} cancelHref="/backend/invoice/all" onSubmit={async (values) => { const result = mode === 'create' ? await createCrud<{ invoice: { id: string } }>('invoice/invoices', values) : await updateCrud<{ invoice: { id: string } }>(`invoice/invoices/${values.id}`, values); const id = result.result?.invoice.id; if (!id) throw createCrudFormError(t('invoice.errors.request_failed')); flash(t('invoice.form.saved'), 'success'); onSaved(id) }} />
+  const normalizedInitialValues = React.useMemo<Partial<InvoiceFormValues>>(() => ({
+    currencyCode: 'VND',
+    ...initialValues,
+    lineItems: normalizeLineItems(initialValues?.lineItems),
+    invoiceDate: isoDate(initialValues?.invoiceDate ?? null),
+    dueDate: isoDate(initialValues?.dueDate ?? null),
+  }), [initialValues])
+
+  return <CrudForm<InvoiceFormValues> title={t(mode === 'create' ? 'invoice.form.createTitle' : 'invoice.form.editTitle')} backHref="/backend/invoice/all" backLabel={t('invoice.form.backToInvoices')} fields={fields} groups={groups} schema={schema} initialValues={normalizedInitialValues} submitLabel={t('invoice.form.save')} cancelHref="/backend/invoice/all" onSubmit={async (values) => { const payload = { partnerName: values.partnerName, partnerTaxCode: values.partnerTaxCode?.trim() || null, partnerCountryCode: values.partnerCountryCode, invoiceSymbol: values.invoiceSymbol?.trim() || null, invoiceNumber: values.invoiceNumber, invoiceCode: values.invoiceCode?.trim() || null, invoiceDate: values.invoiceDate, dueDate: values.dueDate?.trim() || null, currencyCode: values.currencyCode, lineItems: values.lineItems.map((line) => ({ name: line.name, unit: line.unit?.trim() || null, quantity: line.quantity, unitPrice: line.unitPrice, discountAmount: line.discountAmount?.trim() || undefined, discountPercent: line.discountPercent, vatRate: line.vatRate })) }; const targetId = recordId ?? values.id; const result = mode === 'create' ? await createCrud<{ invoice: { id: string } }>('invoice/invoices', payload) : targetId ? await updateCrud<{ invoice: { id: string } }>(`invoice/invoices/${targetId}`, payload) : (() => { throw createCrudFormError(t('invoice.errors.request_failed')) })(); const id = result.result?.invoice.id; if (!id) throw createCrudFormError(t('invoice.errors.request_failed')); flash(t('invoice.form.saved'), 'success'); onSaved(id) }} />
 }
