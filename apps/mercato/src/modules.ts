@@ -132,6 +132,12 @@ export const enabledModules: ModuleEntry[] = [
   // messaging only — the external channel bridge is `communication_channels` and
   // the email-shaped inbox is `messages`; this is neither.
   { id: 'chat', from: '@open-mercato/core' },
+  // Maps chat conversations onto Matrix rooms. Compiled in but inert: the
+  // transport is selected by OM_CHAT_TRANSPORT, which defaults to the existing
+  // Postgres path, and the module renders nothing. Listed after `chat` so its
+  // migrations run once the tables it maps already exist.
+  // See docs/architecture/adr/ADR-0006-matrix-chat-transport.md
+  { id: 'chat_matrix', from: '@open-mercato/core' },
   // Communication channels hub (SPEC-045d) — bridges external chat/email channels
   // (Slack, WhatsApp, Email) to the unified Messages inbox. Provider packages
   // (channel-slack, channel-whatsapp, future email providers) register adapters here.

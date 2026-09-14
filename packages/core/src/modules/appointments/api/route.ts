@@ -6,6 +6,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import type { CatalogPricingService } from '@open-mercato/core/modules/catalog/services/catalogPricingService'
 import { Appointment } from '../data/entities'
@@ -69,10 +70,22 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const url = new URL(req.url)
-    const organizationId = url.searchParams.get('organizationId') ?? auth.orgId ?? null
     const statusCode = url.searchParams.get('statusCode')?.trim() || null
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
+
+    // `?organizationId=` is caller input, so it goes through the allow-list
+    // rather than into the query. `resolveOrganizationScopeForRequest` honors a
+    // selection only when the principal may act on it and otherwise falls back
+    // to their own accessible scope, so a restricted caller asking for another
+    // branch reads their own rows instead of that branch's.
+    const scope = await resolveOrganizationScopeForRequest({
+      container,
+      auth,
+      request: req,
+      selectedId: url.searchParams.get('organizationId') ?? undefined,
+    })
+    const organizationId = scope?.selectedId ?? auth.orgId ?? null
 
     const where: Record<string, unknown> = {
       tenantId: auth.tenantId,
@@ -113,7 +126,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const body = appointmentStaffCreateSchema.parse(await req.json())
-    const organizationId = body.organizationId ?? auth.orgId ?? null
+    const container = await createRequestContainer()
+    // The module's own AGENTS.md: "Staff create uses auth tenant/org — never
+    // trust client-supplied scope on POST /api/appointments." A body id is only
+    // honored when the principal may act on that organization.
+    const createScope = await resolveOrganizationScopeForRequest({
+      container,
+      auth,
+      request: req,
+      selectedId: body.organizationId ?? undefined,
+    })
+    const organizationId = createScope?.selectedId ?? auth.orgId ?? null
     if (!organizationId) {
       return NextResponse.json(
         {
@@ -126,7 +149,6 @@ export async function POST(req: Request) {
         { status: 400 },
       )
     }
-    const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
     const pricingService = container.resolve<CatalogPricingService>('catalogPricingService')
     const { organizationId: _ignoredOrganizationId, ...intakeBody } = body

@@ -17,7 +17,11 @@ test.describe('TC-CAT-007: Create Product Category', () => {
       await login(page, 'admin');
       await page.goto('/backend/catalog/categories/create');
 
-      await page.getByRole('textbox', { name: 'e.g., Footwear' }).fill(categoryName);
+      await // The category form is a CrudForm, so the Name field carries a real <Label> and
+      // its accessible name is "Name" — the `e.g., Footwear` placeholder this used to
+      // match is now only a placeholder. (The hand-rolled product form has no labels,
+      // which is why TC-CAT-003's `e.g., Summer sneaker` still resolves.)
+      page.getByRole('textbox', { name: /^Name$/ }).fill(categoryName);
       await page.getByRole('button', { name: 'Create' }).last().click();
 
       await expect(page).toHaveURL(/\/backend\/catalog\/categories$/);

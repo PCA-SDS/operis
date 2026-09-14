@@ -142,6 +142,7 @@ function toMessageDto(
     kind: message.kind,
     body: message.body,
     createdAt: message.createdAt.toISOString(),
+    editedAt: message.editedAt ? message.editedAt.toISOString() : null,
     clientMessageId: message.clientMessageId ?? null,
     replyTo,
     systemEvent: message.systemEvent ?? null,
@@ -809,6 +810,7 @@ export class DefaultChatService implements ChatService {
         unreadCount: unreadCounts.get(conversation.id) ?? 0,
         hasUnreadMention: mentionFlags.has(conversation.id),
         pinnedCount: pinnedCounts.get(conversation.id) ?? 0,
+        muted: Boolean(membership?.mutedAt),
         lastReadAt: membership?.lastReadAt?.toISOString() ?? null,
         counterpartLastReadAt: counterpartParticipant?.lastReadAt?.toISOString() ?? null,
       }

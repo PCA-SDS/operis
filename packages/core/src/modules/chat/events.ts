@@ -40,6 +40,20 @@ const events = [
     clientBroadcast: true,
   },
   {
+    id: 'chat.message.edited',
+    label: 'Chat Message Edited',
+    entity: 'message',
+    category: 'crud',
+    clientBroadcast: true,
+  },
+  {
+    id: 'chat.message.deleted',
+    label: 'Chat Message Deleted',
+    entity: 'message',
+    category: 'crud',
+    clientBroadcast: true,
+  },
+  {
     id: 'chat.conversation.updated',
     label: 'Chat Conversation Updated',
     entity: 'conversation',
@@ -70,6 +84,21 @@ const events = [
     clientBroadcast: true,
     // Reading is per-person bookkeeping, not something another module should be
     // able to hang a workflow off.
+    excludeFromTriggers: true,
+  },
+  {
+    id: 'chat.conversation.typing',
+    label: 'Chat Typing',
+    entity: 'conversation',
+    category: 'lifecycle',
+    clientBroadcast: true,
+    /**
+     * Nothing is stored, and nothing may hang off it.
+     *
+     * A typing notification is true for a few seconds and then is not. A
+     * workflow triggered by one would fire on a keystroke and act on a fact
+     * that had already expired by the time it ran.
+     */
     excludeFromTriggers: true,
   },
 ] as const

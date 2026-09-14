@@ -69,8 +69,17 @@ test.describe('TC-SALES-4053: inline customer address persistence', () => {
 
       const dialog = page.getByRole('dialog', { name: /(?:New|Create) person/ })
       await expect(dialog).toBeVisible()
-      await dialog.getByText('First name *').locator('..').getByRole('textbox').fill('QA')
-      await dialog.getByText('Last name *').locator('..').getByRole('textbox').fill(`Inline ${stamp}`)
+      /**
+       * By accessible name, not by label text plus a DOM hop.
+       *
+       * This matched `getByText('First name *')` and then took its parent's
+       * textbox. The required marker renders as `First name*` with no space, so
+       * the text never matched and `fill` timed out on an empty locator. Both
+       * inputs carry `aria-labelledby`, so their accessible name is the label —
+       * matching that skips the punctuation and the parent hop entirely.
+       */
+      await dialog.getByRole('textbox', { name: /^First name/ }).fill('QA')
+      await dialog.getByRole('textbox', { name: /^Last name/ }).fill(`Inline ${stamp}`)
       await dialog.getByRole('button', { name: 'Add address' }).click()
       await dialog.getByRole('textbox', { name: /Address line 1|Street/ }).fill(addressLine)
       await dialog.getByRole('textbox', { name: 'City' }).fill('Warsaw')

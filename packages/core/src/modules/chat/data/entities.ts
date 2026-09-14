@@ -170,7 +170,7 @@ export class ChatConversation {
     `create index "chat_participants_owner_idx" on "chat_participants" ("conversation_id") where "role" = 'owner'`,
 })
 export class ChatParticipant {
-  [OptionalProps]?: 'role' | 'lastReadAt' | 'createdAt' | 'updatedAt'
+  [OptionalProps]?: 'role' | 'lastReadAt' | 'mutedAt' | 'createdAt' | 'updatedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -196,6 +196,21 @@ export class ChatParticipant {
 
   @Property({ name: 'last_read_at', type: Date, nullable: true })
   lastReadAt?: Date | null
+
+  /**
+   * When this person silenced the conversation, or null.
+   *
+   * A timestamp rather than a boolean, for the same reason `last_read_at` is
+   * one: it answers "since when" for free, and a later "mute for two hours"
+   * needs a moment to measure from rather than a flag to reinterpret.
+   *
+   * Muting suppresses **notifications only**. The unread count still moves and
+   * the conversation still rises in the list — silencing a room is not the same
+   * as pretending nothing happened in it, and every chat that conflates the two
+   * ends up with people missing things they muted six months ago.
+   */
+  @Property({ name: 'muted_at', type: Date, nullable: true })
+  mutedAt?: Date | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
@@ -251,6 +266,7 @@ export class ChatMessage {
     | 'mentionsEveryone'
     | 'systemEvent'
     | 'systemTargetUserId'
+    | 'editedAt'
     | 'createdAt'
     | 'updatedAt'
     | 'deletedAt'
@@ -331,6 +347,17 @@ export class ChatMessage {
 
   @Property({ name: 'client_message_id', type: 'text', nullable: true })
   clientMessageId?: string | null
+
+  /**
+   * When the author last rewrote the body, or null if they never did.
+   *
+   * Deliberately NOT `updated_at`: that column's `onUpdate` hook fires on every
+   * flush that touches the row — a reaction, a pin, a search-document backfill —
+   * so it cannot answer "did a person change these words". This one is written
+   * only by the edit command, which is what makes "(edited)" honest.
+   */
+  @Property({ name: 'edited_at', type: Date, nullable: true })
+  editedAt?: Date | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

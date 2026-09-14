@@ -28,6 +28,7 @@ import { ResourcesResourceForm, useResourcesResourceFormConfig } from '@open-mer
 import { renderDictionaryColor, renderDictionaryIcon, ICON_SUGGESTIONS } from '@open-mercato/core/modules/dictionaries/components/dictionaryAppearance'
 import { createResourceNotesAdapter } from '@open-mercato/core/modules/resources/components/detail/notesAdapter'
 import { createResourceActivitiesAdapter } from '@open-mercato/core/modules/resources/components/detail/activitiesAdapter'
+import { ResourceBookingsSection } from '@open-mercato/core/modules/resources/components/ResourceBookingsSection'
 import {
   createResourceDictionaryEntry,
   loadResourceDictionary,
@@ -114,7 +115,7 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
   // detected) and making the conflict flaky.
   const loadedResourceIdRef = React.useRef<string | null>(null)
   const [tags, setTags] = React.useState<TagOption[]>([])
-  const [activeTab, setActiveTab] = React.useState<'details' | 'availability'>('details')
+  const [activeTab, setActiveTab] = React.useState<'details' | 'availability' | 'bookings'>('details')
   const [activeDetailTab, setActiveDetailTab] = React.useState<'notes' | 'activities'>('notes')
   const [sectionAction, setSectionAction] = React.useState<SectionAction | null>(null)
   const [availabilityRuleSetId, setAvailabilityRuleSetId] = React.useState<string | null>(null)
@@ -351,8 +352,9 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
   }, [resourceId, t])
 
   const tabs = React.useMemo(() => ([
-    { id: 'details', label: t('resources.resources.tabs.details', 'Details') },
-    { id: 'availability', label: t('resources.resources.tabs.availability', 'Availability') },
+    { id: 'details' as const, label: t('resources.resources.tabs.details', 'Details') },
+    { id: 'availability' as const, label: t('resources.resources.tabs.availability', 'Availability') },
+    { id: 'bookings' as const, label: t('resources.resources.tabs.bookings', 'Bookings') },
   ]), [t])
   const detailTabs = React.useMemo(() => ([
     { id: 'notes' as const, label: t('resources.resources.detail.tabs.notes', 'Notes') },
@@ -687,7 +689,7 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
 
           <Tabs
             value={activeTab}
-            onValueChange={(value) => setActiveTab(value as 'details' | 'availability')}
+            onValueChange={(value) => setActiveTab(value as 'details' | 'availability' | 'bookings')}
             variant="underline"
           >
             <TabsList
@@ -802,7 +804,7 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
                 />
               </div>
             </>
-          ) : (
+          ) : activeTab === 'availability' ? (
             <AvailabilityRulesEditor
               subjectType="resource"
               subjectId={resourceId ?? ''}
@@ -812,7 +814,11 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
               onRulesetChange={handleRulesetChange}
               buildScheduleItems={buildScheduleItems}
             />
-          )}
+          ) : activeTab === 'bookings' ? (
+            <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+              <ResourceBookingsSection resourceId={resourceId ?? ''} />
+            </div>
+          ) : null}
         </div>
       </PageBody>
     </Page>

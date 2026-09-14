@@ -366,13 +366,10 @@ export function ComboboxInput({
         } else {
           confirmSelection(input)
         }
-      } else if (event.key === 'Escape') {
-        if (!showSuggestions) return
-        event.preventDefault()
-        event.stopPropagation()
-        setShowSuggestions(false)
-        setSelectedIndex(-1)
       }
+      // Escape is deliberately absent: a synthetic handler runs after Radix's
+      // document capture listener has already dismissed the overlay. It is
+      // handled by the window capture effect below instead.
     },
     [confirmSelection, disabled, filteredSuggestions, input, selectValue, selectedIndex, showSuggestions]
   )
@@ -391,6 +388,38 @@ export function ComboboxInput({
       activeElement.scrollIntoView({ block: 'nearest' })
     }
   }, [optionDomId, selectedIndex, showSuggestions])
+
+  // Escape has to be intercepted before it leaves the window, not in the React
+  // handler above. Radix overlays (Dialog, Popover, DropdownMenu, Sheet) listen
+  // for it with `document.addEventListener('keydown', fn, { capture: true })`,
+  // which fires on the way DOWN — long before the event reaches this input and
+  // long before React runs `onKeyDown`. A synthetic `stopPropagation()` there
+  // is therefore dead code: dismissing the suggestion list would also tear down
+  // the surrounding dialog and discard everything the user typed. A capture
+  // listener on `window` sits one step earlier in the same propagation path, so
+  // this is the only place a combobox can claim the key back.
+  React.useEffect(() => {
+    if (disabled || !showSuggestions) return
+    if (typeof window === 'undefined') return
+
+    const handleEscapeCapture = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      // Only claim the key while this combobox is the one being typed into;
+      // an Escape aimed anywhere else still belongs to the overlay.
+      if (event.target !== inputRef.current) return
+      event.preventDefault()
+      event.stopPropagation()
+      // Settle on the same value blur would settle on, so what the field shows
+      // and what the form holds cannot drift apart: free text is committed when
+      // custom values are allowed, and reverted to the known label when not.
+      confirmSelection(input)
+      setShowSuggestions(false)
+      setSelectedIndex(-1)
+    }
+
+    window.addEventListener('keydown', handleEscapeCapture, true)
+    return () => window.removeEventListener('keydown', handleEscapeCapture, true)
+  }, [confirmSelection, disabled, input, showSuggestions])
 
   const showClearButton = clearable && !disabled && (value !== '' || input !== '')
   const listboxVisible = showSuggestions

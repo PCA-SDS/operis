@@ -57,6 +57,10 @@ export const REPO_WIDE_GUARDS = [
         scans: 'every packages/*/src root plus apps/mercato/src — hardcoded links into another module with no module gate',
       },
       {
+        path: 'src/__tests__/production-install-workspace-closure.test.ts',
+        scans: 'every packages/*/package.json plus apps/mercato/package.json — @open-mercato/* peer dependencies the production install would not link',
+      },
+      {
         path: 'src/__tests__/mvp-module-scope.test.ts',
         scans: 'every module index.ts across packages/ and apps/ — the shipped default-entitlement plan and its dependency closure',
       },

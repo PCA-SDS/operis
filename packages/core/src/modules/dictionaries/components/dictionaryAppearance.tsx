@@ -452,6 +452,10 @@ export function renderDictionaryIcon(icon: string | null | undefined, className 
     if (!IconComponent) return null
     return <IconComponent className={className} aria-hidden />
   }
+  if (icon.startsWith('http://') || icon.startsWith('https://') || icon.startsWith('/api/')) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={icon} alt="" className={className} style={{ objectFit: 'contain' }} aria-hidden />
+  }
   return <span className="text-base">{icon}</span>
 }
 

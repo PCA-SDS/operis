@@ -27,7 +27,7 @@ import { CUSTOMER_DICTIONARY_ORGANIZATION_REQUIRED_CODE } from '../../../lib/dic
 const logger = createLogger('customers')
 
 const colorSchema = z.string().trim().regex(/^#([0-9A-Fa-f]{6})$/, 'Invalid color hex')
-const iconSchema = z.string().trim().min(1).max(48)
+const iconSchema = z.string().trim().min(1).max(100)
 
 const postSchema = z.object({
   value: z.string().trim().min(1).max(150),

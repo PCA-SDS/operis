@@ -35,10 +35,12 @@ export const INVOICE_MANUAL_ISSUE_DATE_MIN = '2000-01-01'
 export const INVOICE_MANUAL_FORM_DEFAULT_DUE_DAYS = 45
 export const INVOICE_PARTNER_DEFAULT_DUE_DAYS = 30
 export const INVOICE_PAYMENT_CONFIRMATION_TOKEN_BYTES = 32
+export const INVOICE_EMAIL_TRACKING_TOKEN_BYTES = 32
 export const INVOICE_PAYMENT_CONFIRMATION_TTL_DAYS = 14
 export const INVOICE_INSTALLMENT_COUNT_MIN = 2
 export const INVOICE_INSTALLMENT_COUNT_MAX = 60
 export const INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH = 1000
+export const invoiceNonRecoverableNoteSchema = z.string().trim().max(INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH)
 export const INVOICE_SYNC_MAX_WINDOW_DAYS = 1825
 export const INVOICE_SYNC_COOLDOWN_SECONDS = 300
 export const INVOICE_SYNC_FAILED_AUTH_BACKOFF_SECONDS = 900
@@ -74,6 +76,16 @@ export const invoiceCurrencyCodeSchema = z.enum(INVOICE_CURRENCY_CODES)
 export const invoiceSettlementFilterSchema = z.enum(['settled', 'unsettled'])
 export const invoiceRecoverabilityFilterSchema = z.enum(['all', 'recoverable', 'nonRecoverable'])
 export const invoiceSortDirectionSchema = z.enum(['asc', 'desc'])
+export const invoiceSortFieldSchema = z.enum([
+  'invoiceDate',
+  'dueDate',
+  'invoiceNumber',
+  'grossAmount',
+  'settlementStatus',
+  'invoiceStatus',
+  'createdAt',
+  'updatedAt',
+])
 
 export const invoiceIdSchema = uuid()
 export const invoiceCompanyIdSchema = uuid()
@@ -116,6 +128,7 @@ export const invoiceDateRangeSchema = z.object({
 /** Amounts stay decimal strings so the 4-dp arithmetic never round-trips through a JS number. */
 export const invoiceMoneySchema = moneyDecimalStringSchema({ signed: true })
 export const invoicePositiveMoneySchema = moneyDecimalStringSchema()
+export const invoiceNonNegativeMoneySchema = invoicePositiveMoneySchema
 export const invoicePercentSchema = z.coerce
   .number()
   .min(INVOICE_INSTALLMENT_INTEREST_RATE_MIN)
@@ -135,6 +148,10 @@ export const invoiceSourceInvoiceIdSchema = z.string().trim().min(1).max(191)
 export const invoiceProviderSchema = z.string().trim().min(1).max(80)
 export const invoiceIdempotencyKeySchema = z.string().trim().min(1).max(191)
 export const invoiceEmailSchema = emailSchema()
+export const invoiceSendSchema = z.object({
+  email: invoiceEmailSchema,
+}).strict()
+export type InvoiceSendInput = z.infer<typeof invoiceSendSchema>
 export const invoiceCompanyLookupCountrySchema = invoiceCountryCodeSchema
 export const invoiceCompanyLookupIdentifierSchema = z.string().trim().min(1).max(80)
 
@@ -150,6 +167,93 @@ export const invoicePartnerListQuerySchema = z.object({
   pageSize: invoicePartnerPageSizeSchema,
   search: invoiceSearchSchema,
 })
+export const invoiceListQuerySchema = z.object({
+  page: invoicePageSchema,
+  pageSize: invoicePageSizeSchema,
+  direction: invoiceDirectionSchema.optional(),
+  status: invoiceStatusSchema.optional(),
+  settlement: invoiceSettlementFilterSchema.optional(),
+  recoverability: invoiceRecoverabilityFilterSchema.default('all'),
+  partnerId: invoiceCompanyIdSchema.optional(),
+  fromDate: invoiceDateSchema.optional(),
+  toDate: invoiceDateSchema.optional(),
+  search: invoiceSearchSchema,
+  sortField: invoiceSortFieldSchema.default('invoiceDate'),
+  sortDir: invoiceSortDirectionSchema.default('desc'),
+})
+const invoiceManualOptionalMoneySchema = z.preprocess((value) => {
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}, invoiceNonNegativeMoneySchema.optional())
+const invoiceManualNullableDateSchema = z.preprocess((value) => {
+  if (value === null) return null
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}, invoiceDateSchema.nullable().optional())
+export const invoiceManualLineItemInputSchema = z.object({
+  name: z.string().trim().min(1).max(500),
+  unit: nullableTrimmedString(80),
+  quantity: invoiceNonNegativeMoneySchema,
+  unitPrice: invoiceNonNegativeMoneySchema,
+  discountAmount: invoiceManualOptionalMoneySchema,
+  discountPercent: invoicePercentSchema.optional(),
+  vatRate: invoicePercentSchema.optional(),
+}).strict().superRefine((item, ctx) => {
+  if (item.discountAmount !== undefined && item.discountPercent !== undefined) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['discountPercent'],
+      message: 'Use discount amount or discount percent, not both',
+    })
+  }
+})
+export const invoiceManualWriteSchema = z.object({
+  partnerName: invoiceCompanyNameSchema,
+  partnerCountryCode: invoiceCountryCodeSchema,
+  partnerTaxCode: optionalTrimmedString(invoiceTaxCodeSchema),
+  invoiceSymbol: invoiceSymbolSchema,
+  invoiceNumber: invoiceNumberSchema,
+  invoiceCode: invoiceCodeSchema,
+  invoiceDate: invoiceDateSchema,
+  dueDate: invoiceManualNullableDateSchema,
+  currencyCode: invoiceCurrencyCodeSchema.default('VND'),
+  lineItems: z.array(invoiceManualLineItemInputSchema).min(1).max(INVOICE_LINE_ITEMS_MAX),
+}).strip().superRefine((input, ctx) => {
+  if (input.partnerCountryCode === 'VN') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['partnerCountryCode'],
+      message: 'Vietnamese partners are not supported for manual invoices',
+    })
+  }
+})
+export const invoiceManualCreateSchema = invoiceManualWriteSchema
+export const invoiceManualUpdateSchema = invoiceManualWriteSchema
+export const invoiceDueDateUpdateSchema = z.object({
+  // null clears the due date; ISO date string sets it.
+  // Range/order validation requires the invoice row and happens in the service.
+  dueDate: invoiceManualNullableDateSchema,
+}).strict()
+export type InvoiceDueDateUpdateInput = z.infer<typeof invoiceDueDateUpdateSchema>
+export const invoiceSettlementUpdateSchema = z.object({
+  settled: z.boolean(),
+}).strict()
+export type InvoiceSettlementUpdateInput = z.infer<typeof invoiceSettlementUpdateSchema>
+export const invoiceNonRecoverableUpdateSchema = z.object({
+  nonRecoverable: z.boolean(),
+  note: invoiceNonRecoverableNoteSchema.nullable().optional(),
+}).strict().superRefine((input, ctx) => {
+  if (input.nonRecoverable && !input.note?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['note'],
+      message: 'Non-recoverable note is required',
+    })
+  }
+})
+export type InvoiceNonRecoverableUpdateInput = z.infer<typeof invoiceNonRecoverableUpdateSchema>
 export const invoicePartnerMatchQuerySchema = z.object({
   taxCode: optionalTrimmedString(invoiceTaxCodeSchema),
   name: optionalTrimmedString(invoiceCompanyNameSchema),
@@ -164,6 +268,20 @@ export const invoiceCompanyEmailRecordSchema = z.object({
 export const invoiceCompanyEmailDeleteQuerySchema = z.object({
   companyId: invoiceCompanyIdSchema,
 })
+export const invoiceAutoPaidTaxCodeIdSchema = uuid()
+export const invoiceAutoPaidRuleUpsertSchema = z.object({
+  taxCode: invoiceTaxCodeSchema,
+}).strict()
+export const invoiceAutoPaidRuleRemoveSchema = z.object({
+  id: invoiceAutoPaidTaxCodeIdSchema,
+}).strict()
+export const invoiceAutoPaidReverseSchema = z.object({
+  invoiceId: invoiceIdSchema,
+}).strict()
+export const invoiceAutoPaidCandidateDtoSchema = z.object({
+  taxCode: invoiceTaxCodeSchema,
+  invoiceCount: z.number().int().nonnegative(),
+}).strict()
 export const invoiceLineNumberSchema = z.coerce.number().int().min(1).max(INVOICE_LINE_ITEMS_MAX)
 export const invoiceInstallmentCountSchema = z.coerce
   .number()
@@ -171,7 +289,6 @@ export const invoiceInstallmentCountSchema = z.coerce
   .min(INVOICE_INSTALLMENT_COUNT_MIN)
   .max(INVOICE_INSTALLMENT_COUNT_MAX)
 export const invoiceProgressSchema = z.coerce.number().int().min(0).max(100)
-export const invoiceNonRecoverableNoteSchema = z.string().trim().max(INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH)
 export const invoiceNullableNoteSchema = nullableTrimmedString(INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH)
 
 const invoiceHex64Schema = () =>
@@ -223,3 +340,14 @@ export type InvoiceCompanyLookupProviderKey = z.infer<typeof invoiceCompanyLooku
 export type InvoiceCompanyLookupCompany = z.infer<typeof invoiceCompanyLookupCompanySchema>
 export type InvoiceCompanyLookupResult = z.infer<typeof invoiceCompanyLookupResultSchema>
 export type InvoiceCompanyLookupCachePayload = z.infer<typeof invoiceCompanyLookupCachePayloadSchema>
+export type InvoiceListQuery = z.infer<typeof invoiceListQuerySchema>
+export type InvoiceManualWriteInput = z.infer<typeof invoiceManualWriteSchema>
+export type InvoiceManualLineItemInput = z.infer<typeof invoiceManualLineItemInputSchema>
+
+export const invoiceForecastQuerySchema = z.object({
+  // A bare calendar day, not a datetime: the forecast buckets on the UTC date and
+  // a loose `new Date()` parse silently accepted "2026" and "12/31/2026", and
+  // shifted an offset-bearing timestamp into the previous day's bucket.
+  throughDate: invoiceDateStringSchema.optional(),
+}).strict()
+export type InvoiceForecastQueryInput = z.infer<typeof invoiceForecastQuerySchema>

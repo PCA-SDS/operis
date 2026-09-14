@@ -95,20 +95,41 @@ test.describe('TC-TASKS-017: scope isolation and input safety', () => {
     }
   })
 
-  test('ignores scope fields smuggled into a request body', async ({ request }) => {
+  test('refuses a smuggled tenant and ignores other smuggled columns', async ({ request }) => {
     const token = await getAuthToken(request, 'admin')
     const ctx = { request, token }
     const projectIds: string[] = []
 
     try {
-      // Scope always comes from the session, never the payload.
-      const response = await apiRequest(request, 'POST', '/api/tasks/projects', {
+      /**
+       * A foreign `tenantId` is REFUSED, not quietly dropped.
+       *
+       * This assertion used to expect a 201 with the smuggled scope ignored.
+       * `enforceTenantSelection` refuses outright for a non-superadmin naming a
+       * tenant that is not their own, which is the stronger of the two
+       * behaviours — it surfaces the attempt instead of silently absorbing it.
+       * The property the test exists to protect is unchanged and is asserted
+       * here directly: a payload tenant can never place the row in that tenant.
+       */
+      const smuggled = await apiRequest(request, 'POST', '/api/tasks/projects', {
         token,
         data: {
-          key: 'MASS01',
+          key: `MASS${Date.now() % 100000}`,
           name: 'Mass assignment probe',
           tenantId: '11111111-2222-4333-8444-000000000001',
           organizationId: '11111111-2222-4333-8444-000000000002',
+        },
+      })
+      expect(smuggled.status(), 'a foreign tenant in the body must be refused').toBe(403)
+
+      // The remaining mass-assignment surface: columns the caller must not be
+      // able to seed, sent without any scope override so the request is allowed
+      // through to the command that has to ignore them.
+      const response = await apiRequest(request, 'POST', '/api/tasks/projects', {
+        token,
+        data: {
+          key: `MASS${(Date.now() + 1) % 100000}`,
+          name: 'Mass assignment probe',
           isInbox: true,
           taskSeq: 500,
         },
@@ -120,8 +141,6 @@ test.describe('TC-TASKS-017: scope isolation and input safety', () => {
       // The smuggled `isInbox` must not have taken.
       expect(project.isInbox).toBe(false)
 
-      // …and the project is readable in the caller's own scope, which it would
-      // not be had the tenant/organization overrides been honoured.
       const read = await apiRequest(request, 'GET', `/api/tasks/projects/${project.id}`, { token })
       expect(read.ok()).toBeTruthy()
 

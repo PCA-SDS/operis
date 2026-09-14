@@ -20,12 +20,12 @@ test.describe('TC-CAT-008: Create Nested Category Hierarchy', () => {
     };
 
     const selectParent = async (): Promise<void> => {
-      const select = page.locator('select#parentId');
+      const select = page.locator('button#parentId');
       await expect(select).toBeVisible({ timeout: 10_000 });
       // Wait for CategorySelect to finish loading options from API
-      await expect(select.locator(`option[value="${parentCategoryId}"]`))
-        .toBeAttached({ timeout: 10_000 });
-      await select.selectOption(parentCategoryId!);
+      await select.click();
+      await page.getByRole('option', { name: new RegExp(parentName) }).click();
+      await expect(select).toContainText(parentName);
     };
 
     try {
@@ -33,7 +33,11 @@ test.describe('TC-CAT-008: Create Nested Category Hierarchy', () => {
       await login(page, 'admin');
 
       await page.goto('/backend/catalog/categories/create');
-      await page.getByRole('textbox', { name: 'e.g., Footwear' }).fill(parentName);
+      await // The category form is a CrudForm, so the Name field carries a real <Label> and
+      // its accessible name is "Name" — the `e.g., Footwear` placeholder this used to
+      // match is now only a placeholder. (The hand-rolled product form has no labels,
+      // which is why TC-CAT-003's `e.g., Summer sneaker` still resolves.)
+      page.getByRole('textbox', { name: /^Name$/ }).fill(parentName);
       await page.getByRole('button', { name: 'Create' }).last().click();
       await expect(page).toHaveURL(/\/backend\/catalog\/categories$/);
       await waitForList();
@@ -46,7 +50,7 @@ test.describe('TC-CAT-008: Create Nested Category Hierarchy', () => {
       parentCategoryId = page.url().match(/\/backend\/catalog\/categories\/([0-9a-f-]{36})\/edit$/i)?.[1] ?? null;
 
       await page.goto('/backend/catalog/categories/create');
-      await page.getByRole('textbox', { name: 'e.g., Footwear' }).fill(childName);
+      await page.getByRole('textbox', { name: /^Name$/ }).fill(childName);
       await selectParent();
       await page.getByRole('button', { name: 'Create' }).last().click();
       await expect(page).toHaveURL(/\/backend\/catalog\/categories$/);
@@ -59,10 +63,10 @@ test.describe('TC-CAT-008: Create Nested Category Hierarchy', () => {
       await expect(page).toHaveURL(/\/backend\/catalog\/categories\/[0-9a-f-]{36}\/edit$/i);
       childCategoryId = page.url().match(/\/backend\/catalog\/categories\/([0-9a-f-]{36})\/edit$/i)?.[1] ?? null;
       if (parentCategoryId) {
-        const select = page.locator('select#parentId');
+        const select = page.locator('button#parentId');
         await expect(select).toBeVisible({ timeout: 10_000 });
         // Wait for CategorySelect to load and reflect the saved parent value
-        await expect(select).toHaveValue(parentCategoryId, { timeout: 10_000 });
+        await expect(select).toContainText(parentName, { timeout: 10_000 });
       }
     } finally {
       if (token && childCategoryId) {

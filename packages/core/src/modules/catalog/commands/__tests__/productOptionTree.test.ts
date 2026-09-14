@@ -97,6 +97,76 @@ describe('catalog.product_options.sync_tree', () => {
     await expect(cmd.execute(input, ctx)).rejects.toThrow('Foreign group ID detected')
   })
 
+  it('rejects an option ID already owned by another product', async () => {
+    const cmd = loadCommand()
+    const { em } = buildMockEm()
+    const takenOptionId = '44444444-4444-4444-8444-444444444444'
+
+    // Same tenant and organization, but the option hangs off another product's
+    // group — syncing it here would insert a row whose primary key is taken.
+    em.find.mockImplementation(async (entityCls: any) => {
+      if (entityCls.name === 'CatalogProductOption') {
+        return [{
+          id: takenOptionId,
+          tenantId: TENANT,
+          organizationId: ORG,
+          group: { id: '66666666-4444-4444-8444-444444444444', product: { id: '77777777-4444-4444-8444-444444444444' } },
+        }]
+      }
+      return []
+    })
+
+    const ctx = {
+      container: { resolve: () => em },
+      auth: { tenantId: TENANT, orgId: ORG },
+    }
+    const input = {
+      productId: PRODUCT,
+      tenantId: TENANT,
+      organizationId: ORG,
+      groups: [],
+      options: [{ id: takenOptionId, groupId: '88888888-4444-4444-8444-444444444444', name: 'Taken', sortOrder: 1, isActive: true }],
+    }
+
+    // `jest.isolateModules` gives the command its own copy of the error class,
+    // so assert on the shape rather than the constructor identity.
+    const error = await cmd.execute(input, ctx).catch((err: unknown) => err)
+    expect((error as { status?: number }).status).toBe(400)
+    expect(String((error as Error).message)).toContain('Foreign option ID detected')
+  })
+
+  it('accepts an option ID that already belongs to this product', async () => {
+    const cmd = loadCommand()
+    const { em } = buildMockEm()
+    const ownOptionId = '55555555-5555-4555-8555-555555555555'
+
+    em.find.mockImplementation(async (entityCls: any) => {
+      if (entityCls.name === 'CatalogProductOption') {
+        return [{
+          id: ownOptionId,
+          tenantId: TENANT,
+          organizationId: ORG,
+          group: { id: '99999999-5555-4555-8555-555555555555', product: { id: PRODUCT } },
+        }]
+      }
+      return []
+    })
+
+    const ctx = {
+      container: { resolve: () => em },
+      auth: { tenantId: TENANT, orgId: ORG },
+    }
+    const input = {
+      productId: PRODUCT,
+      tenantId: TENANT,
+      organizationId: ORG,
+      groups: [{ id: '99999999-5555-4555-8555-555555555555', name: 'Mine Group', sortOrder: 1, isActive: true }],
+      options: [{ id: ownOptionId, groupId: '99999999-5555-4555-8555-555555555555', name: 'Mine', sortOrder: 1, isActive: true }],
+    }
+
+    await expect(cmd.execute(input, ctx)).resolves.toBeUndefined()
+  })
+
   it('syncs correctly, deleting removed items and upserting others', async () => {
     const cmd = loadCommand()
     const { em, removes, persists, getFlushCount, mockProduct } = buildMockEm()

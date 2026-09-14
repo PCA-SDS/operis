@@ -66,6 +66,14 @@ export type ChatConversationDto = {
   hasUnreadMention: boolean
   /** How many messages are pinned here, for the header control. */
   pinnedCount: number
+  /**
+   * Whether the viewer has silenced this conversation.
+   *
+   * Notifications only. The unread count still moves and the conversation still
+   * rises in the list, because silencing a room is not the same as pretending
+   * nothing happened in it.
+   */
+  muted: boolean
   lastReadAt: string | null
   /**
    * How far the other person has read, which is the read receipt for everything
@@ -159,6 +167,14 @@ export type ChatMessageDto = {
   kind: ChatMessageKind
   body: string
   createdAt: string
+  /**
+   * When the author last rewrote the body, or null if they never did.
+   *
+   * Separate from `createdAt` and from the row's `updated_at`: the transcript
+   * marks an edited message so a reader knows the words in front of them are not
+   * the ones that were sent, and only a real edit may make that claim.
+   */
+  editedAt: string | null
   clientMessageId: string | null
   /** The message this replies to, already resolved. Null for a normal message. */
   replyTo: ChatReplyTargetDto | null

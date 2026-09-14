@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
@@ -15,6 +16,9 @@ import { emitAppointmentEvent } from '../../events'
 import { updateAppointmentFromStaffEdit } from '../../lib/intake'
 import { CustomerEntity } from '@open-mercato/core/modules/customers/data/entities'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+
+const logger = createLogger('appointments')
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -36,6 +40,7 @@ function mapLine(line: AppointmentLine) {
     unitPriceGross: line.unitPriceGross ?? null,
     durationMinutes: line.durationMinutes ?? null,
     productCategory: line.productCategory ?? null,
+    selectedOptions: line.selectedOptions ?? null,
     sortOrder: line.sortOrder,
   }
 }
@@ -44,6 +49,7 @@ function mapAppointment(
   row: Appointment,
   lines: AppointmentLine[],
   customerSource: string | null = null,
+  customerUpdatedAt: string | null = null,
   organizationName: string | null = null,
 ) {
   return {
@@ -60,6 +66,7 @@ function mapAppointment(
     customerOrigin: row.customerOrigin ?? null,
     bookingType: row.bookingType ?? null,
     customerSource,
+    customerUpdatedAt,
     statusCode: row.statusCode,
     requestedStartAt: row.requestedStartAt.toISOString(),
     requestedEndAt: row.requestedEndAt?.toISOString() ?? null,
@@ -87,13 +94,16 @@ async function loadCustomerSource(
   em: EntityManager,
   tenantId: string,
   customerEntityId: string,
-): Promise<string | null> {
+): Promise<{ source: string | null; updatedAt: string | null }> {
   const entity = await em.findOne(CustomerEntity, {
     id: customerEntityId,
     tenantId,
     deletedAt: null,
   })
-  return entity?.source ?? null
+  return {
+    source: entity?.source ?? null,
+    updatedAt: entity?.updatedAt?.toISOString() ?? null,
+  }
 }
 
 export const APPOINTMENT_RESOURCE_KIND = 'appointments.appointment'
@@ -142,10 +152,10 @@ export async function GET(req: Request, ctx: RouteContext) {
       { appointment: appointment.id, deletedAt: null },
       { orderBy: { sortOrder: 'asc' } },
     )
-    const customerSource = await loadCustomerSource(em, auth.tenantId, appointment.customerEntityId)
+    const customer = await loadCustomerSource(em, auth.tenantId, appointment.customerEntityId)
     const organizationName = await resolveOrganizationName(em, appointment.organizationId)
     return NextResponse.json(
-      mapAppointment(appointment, lines, customerSource, organizationName),
+      mapAppointment(appointment, lines, customer.source, customer.updatedAt, organizationName),
     )
   } catch {
     return NextResponse.json(
@@ -220,10 +230,10 @@ export async function PATCH(req: Request, ctx: RouteContext) {
       { appointment: appointment.id, deletedAt: null },
       { orderBy: { sortOrder: 'asc' } },
     )
-    const customerSource = await loadCustomerSource(em, auth.tenantId, appointment.customerEntityId)
+    const customer = await loadCustomerSource(em, auth.tenantId, appointment.customerEntityId)
     const organizationName = await resolveOrganizationName(em, appointment.organizationId)
     return NextResponse.json(
-      mapAppointment(appointment, lines, customerSource, organizationName),
+      mapAppointment(appointment, lines, customer.source, customer.updatedAt, organizationName),
     )
   } catch (error) {
     if (isCrudHttpError(error)) {
@@ -285,7 +295,66 @@ export async function PUT(req: Request, ctx: RouteContext) {
       request: req,
     })
 
-    const organizationId = body.organizationId ?? appointment.organizationId
+    // The load is scoped, but the write target was not: a body id moved the
+    // appointment (and every replaced line) into another branch of the tenant.
+    // Re-resolve through the allow-list so only an organization the caller may
+    // act on can be the destination.
+    let organizationId = appointment.organizationId
+    if (body.organizationId && body.organizationId !== appointment.organizationId) {
+      const targetScope = await resolveOrganizationScopeForRequest({
+        container,
+        auth,
+        request: req,
+        selectedId: body.organizationId,
+      })
+      if (targetScope?.selectedId !== body.organizationId) {
+        return NextResponse.json(
+          {
+            error: translate('appointments.update.organizationNotAllowed', 'You cannot move this appointment to that organization.'),
+            code: 'ORGANIZATION_NOT_ALLOWED',
+          },
+          { status: 403 },
+        )
+      }
+      organizationId = body.organizationId
+    }
+
+    if (body.updateCustomerProfile) {
+      const rbac = container.resolve('rbacService') as {
+        userHasAllFeatures?: (
+          userId: string,
+          features: string[],
+          scope: { tenantId: string | null; organizationId: string | null },
+        ) => Promise<boolean>
+      }
+      const canUpdateCustomer = await rbac.userHasAllFeatures?.(
+        auth.sub,
+        ['customers.people.manage'],
+        { tenantId: auth.tenantId, organizationId },
+      )
+      if (!canUpdateCustomer) {
+        return NextResponse.json(
+          {
+            error: translate(
+              'appointments.update.customerProfilePermission',
+              'You do not have permission to update the customer profile.',
+            ),
+            code: 'CUSTOMER_PROFILE_PERMISSION_DENIED',
+          },
+          { status: 403 },
+        )
+      }
+    }
+
+    const commandBus = container.resolve<CommandBus>('commandBus')
+    const commandContext: CommandRuntimeContext = {
+      container,
+      auth,
+      organizationScope: scope,
+      selectedOrganizationId: scope?.selectedId ?? organizationId,
+      organizationIds: scope?.filterIds ?? [organizationId],
+      request: req,
+    }
 
     const result = await updateAppointmentFromStaffEdit(
       em,
@@ -295,7 +364,7 @@ export async function PUT(req: Request, ctx: RouteContext) {
         tenantId: auth.tenantId,
         organizationId,
       },
-      { pricingService },
+      { pricingService, commandBus, commandContext },
     )
 
     try {
@@ -314,18 +383,28 @@ export async function PUT(req: Request, ctx: RouteContext) {
       { appointment: appointment.id, deletedAt: null },
       { orderBy: { sortOrder: 'asc' } },
     )
-    const customerSource = await loadCustomerSource(em, auth.tenantId, result.customerEntityId)
+    const customer = await loadCustomerSource(em, auth.tenantId, result.customerEntityId)
     const organizationName = await resolveOrganizationName(em, organizationId)
     return NextResponse.json(
-      mapAppointment(appointment, lines, customerSource, organizationName),
+      mapAppointment(appointment, lines, customer.source, customer.updatedAt, organizationName),
     )
   } catch (error) {
     if (isCrudHttpError(error)) {
       return NextResponse.json(error.body, { status: error.status })
     }
     if (error instanceof z.ZodError) {
+      logger.warn('Appointment update validation failed', {
+        issues: error.issues,
+      })
       return NextResponse.json(
-        { error: translate('appointments.update.invalidInput', 'Invalid update payload.'), code: 'INVALID_INPUT' },
+        {
+          error: translate('appointments.update.invalidInput', 'Invalid update payload.'),
+          code: 'INVALID_INPUT',
+          details: error.issues.map((issue) => ({
+            path: issue.path,
+            message: issue.message,
+          })),
+        },
         { status: 400 },
       )
     }

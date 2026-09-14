@@ -146,6 +146,7 @@ function buildEm(flushError?: unknown) {
     commit: jest.fn().mockResolvedValue(undefined),
     rollback: jest.fn().mockResolvedValue(undefined),
   }
+  ;(em as Record<string, unknown>).__variantRecord = variantRecord
   ;(em as Record<string, unknown>).fork = jest.fn().mockReturnValue(em)
   return em
 }
@@ -217,6 +218,31 @@ const UPDATE_INPUT = {
 // ---------------------------------------------------------------------------
 
 describe('createVariantCommand — SKU uniqueness handling', () => {
+  it('persists duration fields on create', async () => {
+    expect(createCommand).toBeDefined()
+    const em = buildEm()
+    await createCommand.execute(
+      {
+        ...CREATE_INPUT,
+        durationValue: 60,
+        durationUnit: 'minute',
+        durationMin: 45,
+        durationMax: 75,
+      },
+      buildCtx(em),
+    )
+
+    expect(em.create).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        durationValue: 60,
+        durationUnit: 'minute',
+        durationMin: 45,
+        durationMax: 75,
+      }),
+    )
+  })
+
   it('throws CrudHttpError 400 with fieldErrors.sku when flush fails with SKU constraint via constraint property', async () => {
     expect(createCommand).toBeDefined()
     const { error } = await runCommand(createCommand, CREATE_INPUT, makeSkuConstraintError())
@@ -253,6 +279,26 @@ describe('createVariantCommand — SKU uniqueness handling', () => {
 // ---------------------------------------------------------------------------
 
 describe('updateVariantCommand — SKU uniqueness handling', () => {
+  it('persists duration fields on update', async () => {
+    expect(updateCommand).toBeDefined()
+    const em = buildEm()
+    await updateCommand.execute(
+      {
+        ...UPDATE_INPUT,
+        durationValue: 90,
+        durationUnit: 'minute',
+        durationMin: 60,
+        durationMax: 120,
+      },
+      buildCtx(em),
+    )
+
+    expect((em.__variantRecord as Record<string, unknown>).durationValue).toBe(90)
+    expect((em.__variantRecord as Record<string, unknown>).durationUnit).toBe('minute')
+    expect((em.__variantRecord as Record<string, unknown>).durationMin).toBe(60)
+    expect((em.__variantRecord as Record<string, unknown>).durationMax).toBe(120)
+  })
+
   it('throws CrudHttpError 400 with fieldErrors.sku when flush fails with SKU constraint', async () => {
     expect(updateCommand).toBeDefined()
     const { error } = await runCommand(updateCommand, UPDATE_INPUT, makeSkuConstraintError())

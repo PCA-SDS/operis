@@ -427,3 +427,57 @@ Reason:
 This preserves old business behavior and gives summary, forecast, and form
 preview a single VND normalization service. Other provider shapes or shared
 cache backends are separate design changes.
+
+## DEC-034 Auto-Paid Rule Revert Ownership
+
+Decision:
+
+When an Auto-Paid rule is removed, revert only scoped live AP invoices whose
+current `seller_tax_code` matches the removed rule and whose `auto_settled`
+flag is true.
+
+Reason:
+
+Invoice rows do not store the rule id that settled them. The tax code plus
+trusted tenant/organization scope is the rule ownership boundary, and the
+`auto_settled` flag protects manually settled or otherwise paid invoices.
+
+Implementation note:
+
+Manual reverse sets `auto_pay_excluded = true`, so future add/apply passes skip
+that invoice even if the tax code rule is added again.
+
+## DEC-035 Auto-Paid Candidate And Route Contract
+
+Decision:
+
+Auto-Paid candidate listing queries scoped AP invoices directly by `seller_tax_code`,
+excludes synthetic `auto:%` codes, empty codes, and tax codes already in
+`invoice_auto_paid_tax_codes`. The candidate service method `listCandidates` is
+called directly for reads and future sync without commands or mutation guards.
+Auto-Paid rule management and candidate routes require `invoice.settings.manage`,
+while reverse auto-paid settlement on an invoice requires `invoice.manage`.
+All route mutations execute through the command bus (`invoice.auto_paid.add`,
+`invoice.auto_paid.remove`, `invoice.auto_paid.reverse`) after mutation guards.
+
+Reason:
+
+This provides a clean separation of concerns: read operations and internal sync
+call sites can reuse the service contract directly, while all HTTP write routes
+run through platform mutation guards and audit-logged command execution with
+payload-blind trusted scope.
+
+## DEC-036 Manual Invoice Buyer Stamping
+
+Decision:
+
+Manual AP invoice create/update stamps the host company from trusted
+organization scope. Use the scoped `Organization.name` as `buyer_name` and set
+`buyer_tax_code = null`. Request body buyer fields are ignored.
+
+Reason:
+
+The current Organization model has a trusted name but no scoped legal tax
+identifier. Using request body buyer identity would make manual invoices trust
+client-owned ownership data. Setting buyer tax code to null keeps the snapshot
+honest until a trusted organization tax identity exists.

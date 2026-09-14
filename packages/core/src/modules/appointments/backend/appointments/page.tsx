@@ -13,7 +13,8 @@ import { deleteCrud } from '@open-mercato/ui/backend/utils/crud'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
+import { emitOrganizationScopeChanged } from '@open-mercato/shared/lib/frontend/organizationEvents'
+import { useOrganizationScopeDetail, useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { buildHrefWithReturnTo } from '@open-mercato/shared/lib/navigation/returnTo'
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
@@ -103,12 +104,21 @@ export default function AppointmentsListPage() {
   const t = useT()
   const pathname = usePathname()
   const scopeVersion = useOrganizationScopeVersion()
+  const { tenantId: scopeTenantId } = useOrganizationScopeDetail()
   const [rows, setRows] = React.useState<Row[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [search, setSearch] = React.useState('')
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [reloadToken, setReloadToken] = React.useState(0)
   const [statusOptions, setStatusOptions] = React.useState<{ code: string; label: string }[]>([])
+
+  const prepareSeatPlannerScope = React.useCallback((organizationId: string) => {
+    const normalizedOrganizationId = organizationId.trim()
+    if (!normalizedOrganizationId || typeof document === 'undefined') return
+
+    document.cookie = `om_selected_org=${encodeURIComponent(normalizedOrganizationId)}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`
+    emitOrganizationScopeChanged({ organizationId: normalizedOrganizationId, tenantId: scopeTenantId ?? null })
+  }, [scopeTenantId])
 
   const statusesSettingsHref = React.useMemo(
     () => buildHrefWithReturnTo('/backend/config/appointments', pathname || '/backend/appointments'),
@@ -422,8 +432,13 @@ export default function AppointmentsListPage() {
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.clone', 'Clone Booking')} onClick={() => void handleClone(row.original)}>
               <Copy className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.planner', 'Open Seat Planner')} disabled>
-              <LayoutPanelTop className="h-3.5 w-3.5" />
+            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.planner', 'Open Seat Planner')}>
+              <Link
+                href={`/backend/appointments/${row.original.id}/seat-planner`}
+                onClick={() => prepareSeatPlannerScope(row.original.organizationId)}
+              >
+                <LayoutPanelTop className="h-3.5 w-3.5" />
+              </Link>
             </Button>
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" title={t('appointments.list.actions.delete', 'Delete Booking')} onClick={() => void handleDelete(row.original)}>
               <Trash2 className="h-3.5 w-3.5" />
@@ -432,7 +447,7 @@ export default function AppointmentsListPage() {
         ),
       },
     ],
-    [t, statusOptions, handleRowStatusChange, handleClone, handleDelete],
+    [handleClone, handleDelete, handleRowStatusChange, prepareSeatPlannerScope, statusOptions, t],
   )
 
   return (

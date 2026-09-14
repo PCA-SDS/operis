@@ -13,7 +13,20 @@ import eventsConfig from '../events'
  */
 
 const MODULE_ROOT = path.resolve(__dirname, '..')
-const LOCALES = ['en', 'pl', 'es', 'de', 'ko'] as const
+/**
+ * Read from disk, never hardcoded.
+ *
+ * A fixed list is a guard that silently stops guarding: `vi`, `fr` and `zh`
+ * were added to this module later, the list was not, and eighteen keys shipped
+ * to five locales while three sat behind. The suite passed; `yarn
+ * i18n:check-sync` caught it at the repo gate instead, which is exactly the
+ * feedback this test exists to give first.
+ */
+const LOCALES = fs
+  .readdirSync(path.join(__dirname, '..', 'i18n'))
+  .filter((file) => file.endsWith('.json'))
+  .map((file) => file.replace(/\.json$/, ''))
+  .sort()
 
 const featureIds = new Set(features.map((feature) => feature.id))
 const locale = JSON.parse(
@@ -85,13 +98,16 @@ describe('API routes', () => {
       'api/conversations/[id]/members/route.ts',
       'api/conversations/[id]/messages/[messageId]/pin/route.ts',
       'api/conversations/[id]/messages/[messageId]/reactions/route.ts',
+      'api/conversations/[id]/messages/[messageId]/route.ts',
       'api/conversations/[id]/messages/route.ts',
+      'api/conversations/[id]/mute/route.ts',
       'api/conversations/[id]/pins/route.ts',
       'api/conversations/[id]/read/route.ts',
       'api/conversations/[id]/route.ts',
       'api/conversations/[id]/search/route.ts',
       'api/conversations/[id]/shared/route.ts',
       'api/conversations/[id]/translate/route.ts',
+      'api/conversations/[id]/typing/route.ts',
       'api/conversations/route.ts',
       'api/directory/route.ts',
       'api/read-all/route.ts',

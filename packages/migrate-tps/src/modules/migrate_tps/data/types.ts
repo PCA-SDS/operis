@@ -26,9 +26,15 @@ export type Option = {
 
   mutuallyExclusive?: string[]
   conflictsWithItems?: string[]
-  requiresItems?: string[]
-  requiresOptions?: string[]
+  conflictsWithOptions?: OptionReference[]
   nextGroups?: OptionGroup[]
+}
+
+export type OptionReference = {
+  productId: string
+  optionId: string
+  groupPath?: string[]
+  optionPath?: string[]
 }
 
 export type OptionGroup = {
@@ -72,9 +78,6 @@ export type ServiceItem = {
   include?: Includes
 
   mutuallyExclusiveItems?: string[]
-  conflictsWithItems?: string[]
-  requiresItems?: string[]
-  requiresOptions?: string[]
 
   detailedInfo?: DetailedInfo
 }

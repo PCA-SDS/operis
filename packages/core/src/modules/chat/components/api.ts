@@ -95,6 +95,10 @@ export const chatApi = {
     (await apiCallOrThrow<ChatConversationDto>(`${BASE}/conversations/${id}`, jsonInit('PATCH', { title })))
       .result!,
 
+  setMuted: async (id: string, muted: boolean) =>
+    (await apiCallOrThrow<{ muted: boolean }>(`${BASE}/conversations/${id}/mute`, jsonInit('POST', { muted })))
+      .result!,
+
   listMembers: (id: string, params: { q?: string; limit?: number; offset?: number }, signal?: AbortSignal) =>
     readApiResultOrThrow<ChatMemberListDto>(`${BASE}/conversations/${id}/members${query(params)}`, { signal }),
 
@@ -189,6 +193,18 @@ export const chatApi = {
     (await apiCallOrThrow<{ emoji: string; reacted: boolean }>(
       `${BASE}/conversations/${conversationId}/messages/${messageId}/reactions`,
       jsonInit('POST', { emoji }),
+    )).result!,
+
+  editMessage: async (conversationId: string, messageId: string, body: string) =>
+    (await apiCallOrThrow<{ messageId: string; body: string; editedAt: string }>(
+      `${BASE}/conversations/${conversationId}/messages/${messageId}`,
+      jsonInit('PATCH', { body }),
+    )).result!,
+
+  deleteMessage: async (conversationId: string, messageId: string) =>
+    (await apiCallOrThrow<{ messageId: string; deletedAt: string }>(
+      `${BASE}/conversations/${conversationId}/messages/${messageId}`,
+      jsonInit('DELETE'),
     )).result!,
 
   setPinned: async (conversationId: string, messageId: string, pinned: boolean) =>

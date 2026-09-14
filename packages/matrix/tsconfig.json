@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // Declared explicitly, unlike sibling packages.
+    //
+    // The base config's `typeRoots` does not auto-include @types/node here:
+    // every other package picks it up transitively through a dependency that
+    // references it (packages/cache via @types/better-sqlite3, for instance).
+    // This package's only Node coupling is `node:crypto` and `process.env`, so
+    // nothing drags the types in and `Buffer` / `process` fail to resolve.
+    "types": ["node"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/__tests__/**"]
+}

@@ -49,6 +49,8 @@ type FormValues = {
   time: string
   notes: string
   externalNotes: string
+  updateCustomerProfile: boolean
+  customerUpdatedAt: string | null
   serviceSelections: { productId: string, selectedOptions?: Record<string, unknown> }[]
 }
 
@@ -130,7 +132,15 @@ function normalizeTimeValue(raw: string | null | undefined): string | null {
   return `${match[1]}:${match[2]}`
 }
 
-export default function AppointmentEditPage({ params }: { params?: { id?: string | string[] } }) {
+export function AppointmentEditForm({
+  params,
+  embedded = false,
+  onSaved,
+}: {
+  params?: { id?: string | string[] }
+  embedded?: boolean
+  onSaved?: () => Promise<void> | void
+}) {
   const appointmentId = typeof params?.id === 'string' ? params.id : (Array.isArray(params?.id) ? params.id[0] : '')
   const t = useT()
   const router = useRouter()
@@ -191,7 +201,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
     let cancelled = false
     const controller = new AbortController()
     async function loadServices() {
-      if (!tenantId) {
+      if (!tenantId || !locationId) {
         setServices([])
         setServicesError(null)
         setServicesLoading(false)
@@ -202,6 +212,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
       try {
         const params = new URLSearchParams({
           tenantId,
+          organizationId: locationId,
         })
         const call = await apiCall<{ items?: BookableService[]; error?: string }>(
           `/api/catalog/bookable-services?${params.toString()}`,
@@ -233,7 +244,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
       cancelled = true
       controller.abort()
     }
-  }, [tenantId, t])
+  }, [locationId, tenantId, t])
 
   React.useEffect(() => {
     let cancelled = false
@@ -245,7 +256,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
         const call = await apiCall<any>(`/api/appointments/${appointmentId}`, { signal: controller.signal }, { fallback: null })
         if (cancelled) return
         if (!call.ok || !call.result) {
-          router.push('/backend/appointments')
+          if (!embedded) router.push('/backend/appointments')
           return
         }
         const data = call.result
@@ -265,6 +276,8 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
           name: data.customerName || '',
           origin: data.customerOrigin || '',
           referral: data.customerSource || '',
+          updateCustomerProfile: false,
+          customerUpdatedAt: data.customerUpdatedAt || null,
           location: data.organizationId || '',
           bookingType: data.bookingType || '',
           date: `${year}-${month}-${day}`,
@@ -277,7 +290,12 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
           })) || [],
         })
       } catch (err) {
-        if (!cancelled) console.error(err)
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return
+        // The !ok branch above redirects; a thrown error used to leave the page
+        // on "Loading..." forever, because initialData stays null and nothing
+        // tells the user why.
+        flash(t('appointments.edit.loadFailed', 'Unable to load this appointment.'), 'error')
+        if (!embedded) router.push('/backend/appointments')
       } finally {
         if (!cancelled) setDataLoading(false)
       }
@@ -287,7 +305,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
       cancelled = true
       controller.abort()
     }
-  }, [appointmentId, router])
+  }, [appointmentId, embedded, router, t])
 
   const lookupCustomer = React.useCallback(
     async (
@@ -310,7 +328,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
         }>(
           '/api/customers/people/check',
           {
-            method: 'PUT',
+            method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
               tenantId,
@@ -456,6 +474,15 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
             showManage
             showActiveAppearance={false}
           />
+        ),
+      },
+      {
+        id: 'updateCustomerProfile',
+        label: t('appointments.edit.updateCustomerProfile', 'Update customer profile too'),
+        type: 'checkbox',
+        description: t(
+          'appointments.edit.updateCustomerProfileHint',
+          'Also update the shared customer profile with these details.',
         ),
       },
       {
@@ -614,7 +641,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
         id: 'customer',
         title: t('appointments.create.group.customer'),
         column: 1,
-        fields: ['phone', 'salutation', 'name', 'email', 'origin', 'referral'],
+        fields: ['phone', 'salutation', 'name', 'email', 'origin', 'referral', 'updateCustomerProfile'],
       },
       {
         id: 'visit',
@@ -633,6 +660,9 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
   )
 
   if (dataLoading || !initialData) {
+    if (embedded) {
+      return <div className="flex min-h-64 items-center justify-center text-muted-foreground">{t('common.loading', 'Loading…')}</div>
+    }
     return (
       <Page>
         <PageBody>
@@ -644,15 +674,14 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
     )
   }
 
-  return (
-    <Page>
-      <PageBody>
-        <CrudForm<FormValues>
+  const form = (
+    <CrudForm<FormValues>
           title={t('appointments.edit.title', 'Edit appointment')}
           backHref="/backend/appointments"
           fields={fields}
           groups={groups}
           initialValues={initialData}
+          embedded={embedded}
           submitLabel={t('common.save', 'Save')}
           cancelHref="/backend/appointments"
           onSubmit={async (values) => {
@@ -713,6 +742,10 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
                       notes: values.notes.trim() || null,
                       externalNotes: values.externalNotes.trim() || null,
                       bookingType: values.bookingType,
+                      updateCustomerProfile: values.updateCustomerProfile === true,
+                      ...(values.updateCustomerProfile && values.customerUpdatedAt
+                        ? { customerUpdatedAt: values.customerUpdatedAt }
+                        : {}),
                       customer: {
                         firstName,
                         lastName,
@@ -745,6 +778,10 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
               context: {},
             })
             flash(t('appointments.update.success', 'Appointment updated'), 'success')
+            if (embedded) {
+              await onSaved?.()
+              return
+            }
             if (result?.id) {
               router.push(`/backend/appointments/${result.id}`)
             } else {
@@ -752,7 +789,16 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
             }
           }}
         />
-      </PageBody>
+  )
+
+  if (embedded) return form
+  return (
+    <Page>
+      <PageBody>{form}</PageBody>
     </Page>
   )
+}
+
+export default function AppointmentEditPage({ params }: { params?: { id?: string | string[] } }) {
+  return <AppointmentEditForm params={params} />
 }
