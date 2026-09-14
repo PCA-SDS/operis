@@ -166,8 +166,12 @@ describe('module-facts BC resolve guard (T2)', () => {
     // module of any real size was going to cross it.
     //
     // What says this is growth and not the blow-up this file exists to catch is
-    // the delta assertion below. The extraction SHAPE is unchanged; there is
-    // simply one more module in the repo.
+    // the delta assertion below. The extraction SHAPE is unchanged; there are
+    // simply more modules in the repo.
+    //
+    // JSON cap raised by the `email` module: tenant-owned templates, accounting
+    // defaults, ACL, routes, backend pages and search add ordinary linear module
+    // metadata. The extension delta remains far below its blow-up guard.
     //
     // JSON cap raised a seventh time by `chat_matrix`, the Matrix chat transport
     // (see docs/architecture/adr/ADR-0006). It is four mapping tables, one ACL

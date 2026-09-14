@@ -172,6 +172,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.6",
     "@next/eslint-plugin-next": "^16.2.9",
+    "@open-mercato/translate-ctranslate2": "workspace:*",
     "@playwright/test": "^1.62.0",
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/jest-runner": "^10.0.0",

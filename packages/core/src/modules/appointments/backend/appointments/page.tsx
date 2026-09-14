@@ -133,9 +133,8 @@ export default function AppointmentsListPage() {
           })),
         )
       } catch (err) {
-        if (!cancelled) {
-          console.error(err)
-        }
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return
+        flash(t('appointments.list.statuses.loadFailed', 'Unable to load appointment statuses. The status column is disabled.'), 'error')
       }
     }
     void loadStatuses()

@@ -200,7 +200,8 @@ export default function AppointmentCreatePage() {
           })
         }
       } catch (err) {
-        if (!cancelled) console.error(err)
+        if (cancelled || (err instanceof DOMException && err.name === 'AbortError')) return
+        flash(t('appointments.create.cloneSource.loadFailed', 'Unable to load the appointment being cloned.'), 'error')
       }
     }
     void loadClone()
@@ -237,7 +238,9 @@ export default function AppointmentCreatePage() {
           null
         setLocationId(preferred)
       } catch (err) {
-        if (!cancelled) console.error(err)
+        if (!(err instanceof DOMException && err.name === 'AbortError') && !cancelled) {
+          flash(t('appointments.locations.loadFailed', 'Unable to load locations. Reload the page to try again.'), 'error')
+        }
       } finally {
         if (!cancelled) setLocationsLoading(false)
       }

@@ -366,6 +366,8 @@ export type DataTableProps<T extends RowData> = {
   extensionTableId?: string
   /** Horizontal alignment of the row-actions (kebab) column header + cell. Defaults to 'right'. */
   actionsColumnAlign?: 'right' | 'center'
+  /** Allow the table to fit narrow viewports instead of enforcing the desktop minimum width. */
+  mobileFit?: boolean
   virtualized?: boolean
   /**
    * Caps the table's own scrollport so a long page does not turn into an
@@ -1376,6 +1378,7 @@ export function DataTable<T extends RowData>({
   replacementHandle,
   extensionTableId: extensionTableIdProp,
   actionsColumnAlign = 'right',
+  mobileFit = false,
   virtualized = false,
   maxBodyHeight,
   virtualizedMaxHeight,
@@ -3457,12 +3460,12 @@ export function DataTable<T extends RowData>({
         continue
       }
       const declared = (column.columnDef as { meta?: ColumnTruncateMeta })?.meta?.width
-      tracks.push(typeof declared === 'string' && declared.trim() ? declared : 'minmax(0,1fr)')
+      tracks.push(typeof declared === 'string' && declared.trim() ? declared : mobileFit ? 'minmax(1px,1fr)' : 'minmax(0,1fr)')
     }
-    if (hasActionsColumn) tracks.push(TABLE_ICON_COLUMN_WIDTH)
+    if (hasActionsColumn) tracks.push(mobileFit ? '4rem' : TABLE_ICON_COLUMN_WIDTH)
     return tracks
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasInjectedBulkActions, hasActionsColumn, enableColumnResize, columnSizing, visibleLeafColumns.map((c) => c.id).join('|')])
+  }, [hasInjectedBulkActions, hasActionsColumn, enableColumnResize, columnSizing, mobileFit, visibleLeafColumns.map((c) => c.id).join('|')])
 
   const virtualScrollRef = React.useRef<HTMLDivElement>(null)
   // Measure the horizontal scroll viewport so the empty state can center within
@@ -3663,7 +3666,7 @@ export function DataTable<T extends RowData>({
         <Table
           columns={gridColumnTracks}
           density={embedded ? 'compact' : 'default'}
-          className="min-w-[640px] md:min-w-0"
+          className={mobileFit ? 'min-w-0' : 'min-w-[640px] md:min-w-0'}
         >
           <TableHeader sticky={isHeaderPinned}>
             {table.getHeaderGroups().map((hg) => (
