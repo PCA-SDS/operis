@@ -253,6 +253,8 @@ describe('Module Decoupling', () => {
       expect(resolveDefaultPartitionCode(null)).toBe('privateAttachments')
       expect(resolveDefaultPartitionCode(undefined)).toBe('privateAttachments')
       expect(resolveDefaultPartitionCode('some-entity')).toBe('privateAttachments')
+      // When catalog is disabled, the literal string also falls through
+      expect(resolveDefaultPartitionCode('catalog:catalog_product')).toBe('privateAttachments')
     })
   })
 

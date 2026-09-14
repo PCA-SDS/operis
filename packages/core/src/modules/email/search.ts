@@ -46,7 +46,9 @@ export const searchConfig: SearchModuleConfig = {
       priority: 6,
       buildSource,
       formatResult: (ctx) => presenter(ctx.record),
-      resolveUrl: (ctx) => `/backend/email/templates?template=${encodeURIComponent(String(ctx.record.id))}`,
+      // Every other module deep-links to the record route; the list page never
+      // read `?template=`, so a search hit landed on the unfiltered list.
+      resolveUrl: (ctx) => `/backend/email/templates/${encodeURIComponent(String(ctx.record.id))}/edit`,
       fieldPolicy: {
         searchable: ['template_key', 'name', 'description', 'category', 'status', 'subject', 'preheader'],
         excluded: ['design', 'blocks', 'variables', 'accounting_metadata'],

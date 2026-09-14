@@ -2,8 +2,29 @@ import type { EntityData, EntityManager, FilterQuery } from '@mikro-orm/postgres
 import { registerCommand, type CommandHandler, type CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { assertOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
+import { sanitizeRichTextHtml } from '@open-mercato/shared/lib/html/sanitizeRichText'
 import { EmailTemplate } from '../data/entities'
 import { createEmailTemplateSchema, updateEmailTemplateSchema, deleteEmailTemplateSchema } from '../data/validators'
+
+type StoredBlock = { type?: unknown; props?: unknown }
+
+/**
+ * Sanitize on write as well as on render, the way tasks handles comment bodies.
+ * `rich-text-html` is the one block type whose HTML is stored verbatim, so a
+ * stored body could otherwise carry active markup to every later consumer.
+ */
+function sanitizeTemplateBlocks<T>(blocks: T): T {
+  if (!Array.isArray(blocks)) return blocks
+  return blocks.map((block) => {
+    const candidate = block as StoredBlock
+    if (candidate?.type !== 'rich-text-html') return block
+    const props = candidate.props
+    if (!props || typeof props !== 'object') return block
+    const html = (props as Record<string, unknown>).html
+    if (typeof html !== 'string') return block
+    return { ...candidate, props: { ...(props as Record<string, unknown>), html: sanitizeRichTextHtml(html) } }
+  }) as unknown as T
+}
 
 function ensureEmailScope(ctx: CommandRuntimeContext): { tenantId: string; organizationId: string } {
   const tenantId = ctx.auth?.tenantId ?? null
@@ -54,7 +75,7 @@ const createTemplateCommand: CommandHandler<Record<string, unknown>, ReturnType<
       subject: parsed.subject,
       preheader: parsed.preheader ?? null,
       design: parsed.design,
-      blocks: parsed.blocks,
+      blocks: sanitizeTemplateBlocks(parsed.blocks),
       variables: parsed.variables,
       accountingMetadata: parsed.accounting_metadata ?? null,
       createdByUserId: ctx.auth?.sub ?? null,
@@ -96,7 +117,7 @@ const updateTemplateCommand: CommandHandler<Record<string, unknown>, ReturnType<
     if (parsed.subject !== undefined) patch.subject = parsed.subject
     if (parsed.preheader !== undefined) patch.preheader = parsed.preheader ?? null
     if (parsed.design !== undefined) patch.design = parsed.design
-    if (parsed.blocks !== undefined) patch.blocks = parsed.blocks
+    if (parsed.blocks !== undefined) patch.blocks = sanitizeTemplateBlocks(parsed.blocks)
     if (parsed.variables !== undefined) patch.variables = parsed.variables
     if (parsed.accounting_metadata !== undefined) patch.accountingMetadata = parsed.accounting_metadata ?? null
     patch.updatedByUserId = ctx.auth?.sub ?? null
