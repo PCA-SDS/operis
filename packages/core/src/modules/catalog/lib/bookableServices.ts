@@ -47,6 +47,8 @@ export type BookableServiceOption = {
   name: string
   description: string | null
   priceFlat: string | null
+  priceMin: string | null
+  priceMax: string | null
   durationMinutes: number | null
   isAddon: boolean
   mutuallyExclusive?: string[]
@@ -375,6 +377,8 @@ export async function listBookableServicesForOrganization(
           name: opt.name,
           description: opt.description ?? null,
           priceFlat: opt.priceFlat ?? null,
+          priceMin: opt.priceMin ?? null,
+          priceMax: opt.priceMax ?? null,
           durationMinutes: opt.durationValue ?? null,
           isAddon: opt.isAddon,
           mutuallyExclusive: mutuallyExclusive.length > 0 ? mutuallyExclusive : undefined,
