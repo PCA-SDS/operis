@@ -17,6 +17,10 @@ const PCA_TEMPLATE_MIGRATION_SOURCE = readFileSync(
   join(MODULE_ROOT, 'migrations', 'Migration20260911143000_pca_email_templates.ts'),
   'utf8',
 )
+const PCA_TEMPLATE_BODY_BACKFILL_SOURCE = readFileSync(
+  join(MODULE_ROOT, 'migrations', 'Migration20260914150000_pca_email_template_body_backfill.ts'),
+  'utf8',
+)
 const ENTITY_SOURCE = readFileSync(join(MODULE_ROOT, 'data', 'entities.ts'), 'utf8')
 const COMMANDS_SOURCE = readFileSync(join(MODULE_ROOT, 'commands', 'templates.ts'), 'utf8')
 const SETUP_SOURCE = readFileSync(join(MODULE_ROOT, 'setup.ts'), 'utf8')
@@ -88,6 +92,7 @@ describe('email module foundation', () => {
       join('data', 'validators.ts'),
       join('__integration__', 'TC-EMAIL-001-compose-template-ui.spec.ts'),
       join('migrations', 'Migration20260911143000_pca_email_templates.ts'),
+      join('migrations', 'Migration20260914150000_pca_email_template_body_backfill.ts'),
     ]) {
       expect(existsSync(join(MODULE_ROOT, relativePath))).toBe(true)
     }
@@ -129,6 +134,15 @@ describe('email module foundation', () => {
     expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain('on conflict ("organization_id", "tenant_id", "template_key")')
     expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain('ruleNotes: template.ruleNotes')
     expect(PCA_TEMPLATE_MIGRATION_SOURCE).not.toContain('Acme Corp')
+  })
+
+  it('repairs previously migrated PCA templates without overwriting edited bodies', () => {
+    expect(PCA_TEMPLATE_BODY_BACKFILL_SOURCE).toContain('update "email_templates" as templates')
+    expect(PCA_TEMPLATE_BODY_BACKFILL_SOURCE).toContain("templates.\"accounting_metadata\"->>'migratedFrom' = 'pca-accounting'")
+    expect(PCA_TEMPLATE_BODY_BACKFILL_SOURCE).toContain('jsonb_array_length(templates."blocks")')
+    expect(PCA_TEMPLATE_BODY_BACKFILL_SOURCE).toContain("coalesce(templates.\"design\"->'body'->>'html', '') = ''")
+    expect(PCA_TEMPLATE_BODY_BACKFILL_SOURCE).toContain('"tenants"."name" ilike')
+    expect(PCA_TEMPLATE_BODY_BACKFILL_SOURCE).toContain('"organizations"."name" ilike')
   })
 
   it('declares every PCA source placeholder used in subjects and bodies', () => {
