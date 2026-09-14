@@ -60,6 +60,10 @@ const EXPECTED_DEFAULT_ENABLED_MODULE_IDS = [
   'currencies',
   'customers',
   'data_sync',
+  // The tenant-owned email template builder and accounting email defaults. On by
+  // default because it needs no external credentials: a tenant provisioned without
+  // it has no way to author the templates the accounting flows already expect.
+  'email',
   'integrations',
   'mcp',
   'messages',
