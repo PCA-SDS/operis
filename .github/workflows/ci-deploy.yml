@@ -317,25 +317,22 @@ jobs:
 
       - name: Audit dependencies for known CVEs
         id: audit
-        # REPORTING-ONLY, deliberately, and this should not stay that way.
+        # BLOCKING. It was reporting-only until the backlog it was waiting on was
+        # cleared — the six accepted-but-unfixed advisories (@xmldom/xmldom, js-yaml x2,
+        # nodemailer, sharp, svgo) are fixed, and `yarn audit:ci` now reports no
+        # advisories at or above threshold. The condition this step's own note set for
+        # making it blocking is met, so the `continue-on-error` is gone.
         #
-        # `yarn audit:ci` exits 1 on this tree today, and the scheduled half has failed
-        # every day for at least a week — six accepted-but-unfixed advisories
-        # (@xmldom/xmldom, js-yaml x2, nodemailer, sharp, svgo). Making this blocking on
-        # the same commit that introduces it would red-line every open pull request over
-        # a backlog none of their authors created, and the reliable outcome of that is a
-        # team that learns to bypass the gate.
+        # What that means for a red run here: unlike the image scan, `audit:ci` has no
+        # `--ignore-unfixed`. A newly published HIGH advisory blocks even when no patched
+        # release exists yet, which is deliberate — the alternative is a gate that stays
+        # quiet about exactly the advisories nobody can fix.
         #
-        # So it reports first. The value it restores immediately is VISIBILITY on the
-        # pull request that adds a dependency, which is what went missing when ci.yml was
-        # removed and left audit.yml describing a counterpart that no longer existed.
-        #
-        # TO MAKE IT BLOCKING — one line, once the backlog is triaged: delete
-        # `continue-on-error` below. Triage means each advisory is either fixed or added
-        # to scripts/audit-ci-allowlist.json with a reason, which is a security decision
-        # for a maintainer to make explicitly rather than something to infer from the
-        # fact that CI is currently red.
-        continue-on-error: true
+        # The escape hatch is scripts/audit-ci-allowlist.json: an entry per GHSA with a
+        # written justification and a re-check condition (see the two image-size entries
+        # for the shape). Reach for that when a fix genuinely does not exist. Do NOT
+        # restore `continue-on-error` to get a green run — that silences every future
+        # advisory to clear one, which is the failure this step was built to avoid.
         timeout-minutes: 10
         run: |
           set -o pipefail

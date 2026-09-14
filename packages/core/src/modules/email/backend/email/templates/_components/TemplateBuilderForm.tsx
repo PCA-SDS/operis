@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { RichEditor } from '@open-mercato/ui/primitives/rich-editor'
+import { sanitizeRichTextHtml } from '@open-mercato/shared/lib/html/sanitizeRichText'
 
 export type TemplateStatus = 'draft' | 'published' | 'archived'
 export type BlockType = 'heading' | 'paragraph' | 'button' | 'divider' | 'rich-text-html'
@@ -112,9 +113,11 @@ export function buildTemplateBlocks(blocks: TemplateBlockFormValue[]) {
 export function blocksToHtml(blocks: TemplateBlockFormValue[]): string {
   return blocks.map((block) => {
     if (block.type === 'heading') return `<h2>${escapeHtml(block.content)}</h2>`
-    if (block.type === 'button') return `<p><a href="${escapeHtml(block.url || '#')}">${escapeHtml(block.content || 'Open link')}</a></p>`
+    if (block.type === 'button') return `<p><a href="${escapeHtml(sanitizeHref(block.url || '#'))}">${escapeHtml(block.content || 'Open link')}</a></p>`
     if (block.type === 'divider') return '<hr />'
-    if (block.type === 'rich-text-html') return block.content
+    // Every sibling branch escapes; this one shipped the stored body raw, so a
+    // tenant-authored template reached the preview and the clipboard unfiltered.
+    if (block.type === 'rich-text-html') return sanitizeRichTextHtml(block.content)
     return `<p>${escapeHtml(block.content).replace(/\n/g, '<br />')}</p>`
   }).join('\n')
 }
@@ -134,7 +137,10 @@ export function renderHtmlPreviewWithSamples(value: string, samples: Record<stri
     const after = source.slice(offset, offset + 120).toLowerCase()
     const alreadyInsideAnchor = before.lastIndexOf('<a ') > before.lastIndexOf('</a>') && after.includes('</a>')
     const isLink = types[key] === 'link' || /(?:url|link)$/i.test(key) || /^https?:\/\//i.test(sample)
-    if (!isLink || alreadyInsideAnchor) return escapeHtml(sample)
+    // Inside an existing anchor the value IS the href — the shipped templates are
+    // all <a href="{{uploadLink}}"> — so it still needs the scheme check.
+    if (alreadyInsideAnchor) return escapeHtml(isLink ? sanitizeHref(sample) : sample)
+    if (!isLink) return escapeHtml(sample)
     return `<a href="${escapeHtml(sanitizeHref(sample))}" target="_blank" rel="noopener noreferrer">${escapeHtml(key)}</a>`
   })
 }
@@ -378,14 +384,19 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
     })
   }
 
-  let sampleValues: Record<string, unknown> = {}
   let previewError: string | null = null
   try {
-    sampleValues = parseJsonObject(value.defaultValues, 'Default values')
+    // Parsed for validation only — the value is rebuilt from the system
+    // variables below, so the old assignment here was dead.
+    parseJsonObject(value.defaultValues, 'Default values')
   } catch (err) {
-    previewError = err instanceof Error ? err.message : 'Default values must be valid JSON'
+    // parseJsonObject throws an `[internal]`-prefixed message; that marker means
+    // "not user-facing", and the sibling edit page already strips it before display.
+    previewError = err instanceof Error
+      ? err.message.replace(/^\[internal]\s*/, '')
+      : t('email.templates.errors.defaultValuesJson', 'Default values must be valid JSON')
   }
-  sampleValues = Object.fromEntries(systemVariables.map((variable) => [variable.key, variable.sample]))
+  const sampleValues: Record<string, unknown> = Object.fromEntries(systemVariables.map((variable) => [variable.key, variable.sample]))
   Object.assign(sampleValues, customTemplateValues(parseDefaultValues(value.defaultValues)))
   const previewSubject = renderWithSamples(value.subject || 'Untitled subject', sampleValues)
   const previewHtml = renderHtmlPreviewWithSamples(blocksToHtml(value.blocks), sampleValues, parsedVariableTypes)

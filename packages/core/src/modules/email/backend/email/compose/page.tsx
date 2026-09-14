@@ -155,16 +155,17 @@ export default function EmailComposePreviewPage() {
   const [isLoading, setIsLoading] = React.useState(true)
   const [isLoadingCompanies, setIsLoadingCompanies] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
-  const [companyName, setCompanyName] = React.useState('Harborview Analytics')
-  const [companyCode, setCompanyCode] = React.useState('HV-001')
-  const [companyEmail, setCompanyEmail] = React.useState('info@harborviewanalytics.com')
-  const [contactNames, setContactNames] = React.useState('Ms. Linh, Mr. David')
-  const [recipientEmails, setRecipientEmails] = React.useState('linh@example.com, david@example.com')
-  const [greeting, setGreeting] = React.useState('Dear Ms. Linh and Mr. David,')
-  const [accountingRows, setAccountingRows] = React.useState<KeyValueRow[]>([
-    { key: 'quarterPeriod', value: 'Quarter 1 2026' },
-    { key: 'declarationDeadline', value: 'April 29, 2026' },
-  ])
+  // Start empty. These used to be seeded with plausible-looking company and
+  // recipient details, and nothing cleared them when the customers reads failed
+  // — a user holding only email.templates.view gets 403 on those endpoints and
+  // would otherwise copy a complete draft addressed to people who do not exist.
+  const [companyName, setCompanyName] = React.useState('')
+  const [companyCode, setCompanyCode] = React.useState('')
+  const [companyEmail, setCompanyEmail] = React.useState('')
+  const [contactNames, setContactNames] = React.useState('')
+  const [recipientEmails, setRecipientEmails] = React.useState('')
+  const [greeting, setGreeting] = React.useState('')
+  const [accountingRows, setAccountingRows] = React.useState<KeyValueRow[]>([])
   const [copiedPart, setCopiedPart] = React.useState<EmailDraftPart | null>(null)
 
   React.useEffect(() => {
@@ -433,12 +434,16 @@ function DraftPartCard({ children, copied, copiedLabel, copyLabel, label, onCopy
 }
 
 function htmlToPlainText(html: string) {
-  const element = document.createElement('div')
+  // A <template> parses inertly: no scripts run and no resources load. A
+  // detached <div> still fires onerror/onload on <img>/<svg>/<video>, which put
+  // attacker-authored template markup onto the app origin the moment a user
+  // pressed Copy. Same fix as tasks/components/richTextUtils.ts.
+  const element = document.createElement('template')
   element.innerHTML = html
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n\n')
     .replace(/<\/div>/gi, '\n')
-  return (element.textContent ?? '').replace(/\n{3,}/g, '\n\n').trim()
+  return (element.content.textContent ?? '').replace(/\n{3,}/g, '\n\n').trim()
 }
 
 async function copyHtml(html: string) {

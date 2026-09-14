@@ -15,6 +15,8 @@ import {
   type MutationGuard,
   type MutationGuardInput,
 } from '@open-mercato/shared/lib/crud/mutation-guard-registry'
+import { getAllMutationGuardInstances } from '@open-mercato/shared/lib/crud/mutation-guard-store'
+import { resolveGrantedFeatures } from '@open-mercato/shared/lib/auth/grantedFeatures'
 import { EmailAccountingDefaults } from '../../data/entities'
 import { emailAccountingDefaultsSchema } from '../../data/validators'
 import { createEmailOperationId, emailCommonErrors, emailSettingsTag } from '../openapi'
@@ -55,12 +57,6 @@ async function resolveContext(req: Request) {
     return { error: NextResponse.json({ error: 'Tenant and organization context required' }, { status: 400 }) }
   }
   return { auth, container, tenantId: auth.tenantId, organizationId }
-}
-
-function resolveUserFeatures(auth: unknown): string[] {
-  const features = (auth as { features?: unknown })?.features
-  if (!Array.isArray(features)) return []
-  return features.filter((value): value is string => typeof value === 'string')
 }
 
 export async function GET(req: Request) {
@@ -115,9 +111,14 @@ export async function PUT(req: Request) {
       requestHeaders: req.headers,
       mutationPayload: parsed.data,
     }
+    // Registry guards were never collected — only the legacy bridge — so anything
+    // registered through registerMutationGuard was skipped on this route.
+    const guards = [...getAllMutationGuardInstances()]
     const legacyGuard = bridgeLegacyGuard(ctx.container)
-    const guardResult = legacyGuard
-      ? await runMutationGuards([legacyGuard], guardInput, { userFeatures: resolveUserFeatures(ctx.auth) })
+    if (legacyGuard) guards.push(legacyGuard)
+    const userFeatures = await resolveGrantedFeatures(ctx.container, ctx.auth, ctx.organizationId)
+    const guardResult = guards.length
+      ? await runMutationGuards(guards, guardInput, { userFeatures })
       : { ok: true, afterSuccessCallbacks: [] as Array<{ guard: MutationGuard; metadata: Record<string, unknown> | null }> }
     if (!guardResult.ok) {
       return NextResponse.json(guardResult.errorBody ?? { error: 'Operation blocked' }, { status: guardResult.errorStatus ?? 422 })

@@ -166,8 +166,14 @@ export const { metadata, GET, POST, PUT, DELETE } = makeCrudRoute({
   hooks: {
     afterList: (payload, ctx) => {
       if (!ctx.query.activeOnly || !Array.isArray(payload.items)) return
+      const beforeFilter = payload.items.length
       payload.items = payload.items.filter((item: { accounting_metadata?: { isActive?: unknown } | null }) => item.accounting_metadata?.isActive !== false)
-      payload.total = payload.items.length
+      // The filter runs after pagination, so recomputing total from the page
+      // reported at most pageSize and collapsed totalPages to 1. Subtract only
+      // what this page dropped.
+      if (typeof payload.total === 'number') {
+        payload.total = Math.max(0, payload.total - (beforeFilter - payload.items.length))
+      }
       if (typeof payload.totalPages === 'number' && typeof payload.pageSize === 'number') {
         payload.totalPages = Math.ceil(payload.total / payload.pageSize)
       }

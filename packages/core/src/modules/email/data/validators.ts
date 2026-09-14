@@ -62,7 +62,7 @@ const templateShape = {
   subject: z.string().trim().min(1).max(500),
   preheader: clearableStringSchema(500),
   design: jsonObjectSchema.default({}),
-  blocks: z.array(emailTemplateBlockSchema).default([]),
+  blocks: z.array(emailTemplateBlockSchema).max(200).default([]),
   variables: z.array(z.string().trim().min(1).max(120)).max(200).default([]),
   accounting_metadata: accountingTemplateMetadataSchema.nullable().optional(),
 }
@@ -106,7 +106,7 @@ export const emailTemplateQuerySchema = z
     includeArchived: z.coerce.boolean().optional(),
     activeOnly: z.coerce.boolean().optional(),
     page: z.coerce.number().int().min(1).optional(),
-    pageSize: z.coerce.number().int().min(1).max(200).optional(),
+    pageSize: z.coerce.number().int().min(1).max(100).optional(),
     sort: z.string().trim().max(100).optional(),
     order: z.enum(['asc', 'desc']).optional(),
   })
