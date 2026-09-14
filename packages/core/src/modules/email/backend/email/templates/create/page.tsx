@@ -116,7 +116,7 @@ export default function CreateEmailTemplatePage() {
   }
 
   return (
-    <Page>
+    <Page className="min-w-0 overflow-x-hidden">
       <PageBody>
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>

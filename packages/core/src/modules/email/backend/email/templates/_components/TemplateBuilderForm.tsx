@@ -423,7 +423,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
             <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.status.help', 'Draft templates are editable, published templates are selectable in compose, archived templates are hidden from normal use.')}>{t('email.templates.form.status.label', 'Status')}</HelpLabel><select className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.status} onChange={(event) => setField('status', event.target.value as TemplateStatus)}><option value="draft">{t('email.templates.status.draft', 'Draft')}</option><option value="published">{t('email.templates.status.published', 'Published')}</option><option value="archived">{t('email.templates.status.archived', 'Archived')}</option></select><span className="mt-1 block text-xs text-muted-foreground">{value.status === 'published' ? t('email.templates.form.status.publishedHelp', 'Published templates can appear in Compose Email when enabled below.') : value.status === 'archived' ? t('email.templates.form.status.archivedHelp', 'Archived templates stay hidden from Compose Email.') : t('email.templates.form.status.draftHelp', 'Draft templates are saved for editing and stay hidden from Compose Email.')}</span></label>
           </div>
           <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.description.help', 'Short internal note explaining when this template is useful.')}>{t('email.templates.form.description.label', 'Description')}</HelpLabel><textarea className="mt-1 min-h-20 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.description} onChange={(event) => setField('description', event.target.value)} /></label>
-          <section className="space-y-3 rounded-md border border-border bg-background p-3">
+          <section className="min-w-0 space-y-3 rounded-md border border-border bg-background p-3">
             <div>
               <h2 className="font-medium"><HelpLabel help={t('email.templates.form.whenToUse.help', 'These choices are saved as rule metadata for future workflow selection. They do not send email or auto-select templates yet.')}>{t('email.templates.form.whenToUse.label', 'When to use this template')}</HelpLabel></h2>
               <p className="text-xs text-muted-foreground">{t('email.templates.form.whenToUse.description', 'Choose simple business conditions instead of editing raw rules JSON.')}</p>
@@ -437,7 +437,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
             </div>
             <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.ruleNotes.help', 'Plain-language notes for staff, such as when to choose this template or what values to check before copying.')}>{t('email.templates.form.ruleNotes.label', 'Rule notes')}</HelpLabel><textarea className="mt-1 min-h-20 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.ruleNotes} onChange={(event) => setField('ruleNotes', event.target.value)} placeholder={t('email.templates.form.ruleNotes.placeholder', 'Example: Use this for Q4 annual CIT finalization after reports are ready.')} /></label>
           </section>
-          <section className="space-y-3 rounded-md border border-border bg-background p-3">
+          <section className="min-w-0 space-y-3 rounded-md border border-border bg-background p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="font-medium"><HelpLabel help={t('email.templates.form.systemVariables.help', 'Read-only placeholders filled automatically from the selected company and linked people.')}>{t('email.templates.form.systemVariables.label', 'System variables')}</HelpLabel></h2>
@@ -452,7 +452,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
               ))}
             </div>
           </section>
-          <section className="space-y-3 rounded-md border border-border bg-background p-3">
+          <section className="min-w-0 space-y-3 rounded-md border border-border bg-background p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="font-medium"><HelpLabel help={t('email.templates.form.customVariables.help', 'User-defined accounting values, such as deadlines, tax amounts, or document links.')}>{t('email.templates.form.customVariables.label', 'Custom variables')}</HelpLabel></h2>

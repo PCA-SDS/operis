@@ -114,7 +114,7 @@ export default function EmailTemplatesPage() {
   )
 
   return (
-    <Page>
+    <Page className="min-w-0 overflow-x-hidden">
       <PageBody>
         <div className="mb-4 flex flex-wrap items-stretch justify-between gap-3 sm:items-center">
           <form

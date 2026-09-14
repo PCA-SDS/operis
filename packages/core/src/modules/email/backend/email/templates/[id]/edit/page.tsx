@@ -282,7 +282,7 @@ export default function EditEmailTemplatePage({ params }: { params?: { id?: stri
   }
 
   return (
-    <Page>
+    <Page className="min-w-0 overflow-x-hidden">
       <PageBody>
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
