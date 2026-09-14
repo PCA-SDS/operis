@@ -31,8 +31,10 @@ export interface SeatPlannerLine {
     resourceName?: string | null
     startsAt: string
     endsAt: string
+    assignedMemberIds: string[]
     assignedMemberId?: string | null
     assignedMemberName?: string | null
+    assignedMemberNames?: string[]
   }
 }
 
@@ -65,8 +67,10 @@ export interface SeatPlannerWorkspace {
     startsAt: string
     endsAt: string
     state: 'draft' | 'confirmed'
+    assignedMemberIds: string[]
     assignedMemberId?: string | null
     assignedMemberName?: string | null
+    assignedMemberNames?: string[]
     customerSalutation: string | null
     updatedAt: string
   }>
@@ -128,12 +132,21 @@ export interface UpsertDraftParams {
   startsAt: Date
   endsAt: Date
   assignedMemberId?: string | null
+  assignedMemberIds?: string[]
   expectedUpdatedAt?: string
 }
 
 export interface UpdateStaffParams {
   assignmentId: string
   assignedMemberId: string | null
+  assignedMemberIds?: string[]
+}
+
+function getAssignedMemberIds(assignment: { assignedMemberIds?: string[] | null; assignedMemberId?: string | null }): string[] {
+  if (Array.isArray(assignment.assignedMemberIds) && assignment.assignedMemberIds.length > 0) {
+    return Array.from(new Set(assignment.assignedMemberIds.filter((id): id is string => typeof id === 'string' && id.length > 0)))
+  }
+  return assignment.assignedMemberId ? [assignment.assignedMemberId] : []
 }
 
 /**
@@ -327,11 +340,7 @@ export class AppointmentSeatPlannerService {
       : []
     const allocationAppointmentById = new Map(allocationAppointments.map((entry) => [entry.id, entry]))
     const resourceById = new Map(resourcesWithAvailability.map((resource) => [resource.id, resource]))
-    const assignedMemberIds = Array.from(new Set(
-      dayAssignments
-        .map((assignment) => assignment.assignedMemberId)
-        .filter((memberId): memberId is string => typeof memberId === 'string' && memberId.length > 0),
-    ))
+    const assignedMemberIds = Array.from(new Set(dayAssignments.flatMap(getAssignedMemberIds)))
     const assignedMembers = assignedMemberIds.length > 0
       ? await findWithDecryption(
           this.em,
@@ -352,6 +361,10 @@ export class AppointmentSeatPlannerService {
       if (!line) return []
       const sourceAppointment = allocationAppointmentById.get(line.appointment.id)
       const resource = resourceById.get(assignment.resource?.id ?? '')
+      const memberIds = getAssignedMemberIds(assignment)
+      const memberNames = memberIds
+        .map((memberId) => assignedMemberNameById.get(memberId))
+        .filter((name): name is string => typeof name === 'string')
       return [{
         id: assignment.id,
         appointmentId: sourceAppointment?.id ?? line.appointment.id,
@@ -364,10 +377,12 @@ export class AppointmentSeatPlannerService {
         startsAt: assignment.startsAt.toISOString(),
         endsAt: assignment.endsAt.toISOString(),
         state: assignment.state,
+        assignedMemberIds: memberIds,
         assignedMemberId: assignment.assignedMemberId ?? null,
         assignedMemberName: assignment.assignedMemberId
           ? assignedMemberNameById.get(assignment.assignedMemberId) ?? null
           : null,
+        assignedMemberNames: memberNames,
         updatedAt: assignment.updatedAt.toISOString(),
       }]
     }).filter((allocation) => allocation.resourceId.length > 0)
@@ -429,10 +444,14 @@ export class AppointmentSeatPlannerService {
                 resourceName: resource?.name,
                 startsAt: assignment.startsAt,
                 endsAt: assignment.endsAt,
+                assignedMemberIds: getAssignedMemberIds(assignment),
                 assignedMemberId: assignment.assignedMemberId,
                 assignedMemberName: assignment.assignedMemberId
                   ? assignedMemberNameById.get(assignment.assignedMemberId) ?? null
                   : null,
+                assignedMemberNames: getAssignedMemberIds(assignment)
+                  .map((memberId) => assignedMemberNameById.get(memberId))
+                  .filter((name): name is string => typeof name === 'string'),
                 updatedAt: assignment.updatedAt,
               }
             : undefined,
@@ -516,6 +535,7 @@ export class AppointmentSeatPlannerService {
       startsAt: params.startsAt,
       endsAt: params.endsAt,
       assignedMemberId: params.assignedMemberId,
+      assignedMemberIds: params.assignedMemberIds,
       title: line.productTitle ?? undefined,
       userId: params.userId,
       organizationIds: resourceOrganizationIds,
@@ -693,6 +713,7 @@ export class AppointmentSeatPlannerService {
     return this.assignmentService.updateAssignmentStaff({
       assignmentId: params.assignmentId,
       assignedMemberId: params.assignedMemberId,
+      assignedMemberIds: params.assignedMemberIds,
     })
   }
 }

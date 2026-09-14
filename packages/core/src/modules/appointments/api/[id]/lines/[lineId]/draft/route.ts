@@ -20,6 +20,7 @@ const upsertDraftSchema = z.object({
   startsAt: z.string().datetime(),
   endsAt: z.string().datetime(),
   assignedMemberId: z.string().uuid().nullable().optional(),
+  assignedMemberIds: z.array(z.string().uuid()).optional(),
   expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
 })
 
@@ -99,6 +100,7 @@ export async function PUT(req: Request, ctx: RouteContext) {
       startsAt: new Date(body.startsAt),
       endsAt: new Date(body.endsAt),
       assignedMemberId: body.assignedMemberId ?? null,
+      assignedMemberIds: body.assignedMemberIds,
       userId: auth.userId ?? null,
       expectedUpdatedAt: body.expectedUpdatedAt,
     })

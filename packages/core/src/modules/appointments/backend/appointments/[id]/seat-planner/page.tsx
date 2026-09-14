@@ -66,8 +66,10 @@ type SeatPlannerLine = {
     resourceName?: string | null
     startsAt: string
     endsAt: string
+    assignedMemberIds: string[]
     assignedMemberId?: string | null
     assignedMemberName?: string | null
+    assignedMemberNames?: string[]
     updatedAt: string
   }
 }
@@ -120,8 +122,10 @@ type PlannerAllocation = {
   startsAt: string
   endsAt: string
   state: 'draft' | 'confirmed'
+  assignedMemberIds: string[]
   assignedMemberId?: string | null
   assignedMemberName?: string | null
+  assignedMemberNames?: string[]
   updatedAt: string
   laneIndex: number
   lanesCount: number
@@ -134,14 +138,21 @@ type DraftAssignmentResult = {
   state: 'draft' | 'confirmed'
   startsAt: string
   endsAt: string
+  assignedMemberIds?: string[]
   assignedMemberId?: string | null
   assignedMemberName?: string | null
+  assignedMemberNames?: string[]
   updatedAt: string
 }
 
-type StaffMember = { id: string; displayName: string; roleLabel: string }
+type StaffMember = { id: string; displayName: string; roleLabel: string; roleLabels: string[] }
 type PopoverState = { allocation: PlannerAllocation; anchor: DOMRect }
 type StaffSheetTarget = { allocation: PlannerAllocation; line: SeatPlannerLine | null }
+
+function assignedMemberIdsFor(value: { assignedMemberIds?: string[]; assignedMemberId?: string | null }): string[] {
+  if (Array.isArray(value.assignedMemberIds) && value.assignedMemberIds.length > 0) return value.assignedMemberIds
+  return value.assignedMemberId ? [value.assignedMemberId] : []
+}
 
 interface SeatPlannerPageProps {
   params?: { id?: string }
@@ -367,7 +378,7 @@ function PlannerBlock(props: {
         </>
       )}
       {isOwn && displayDuration > 30 ? (
-        <span className="truncate text-[10px] opacity-80">{allocation.assignedMemberName || line?.currentAssignment?.assignedMemberName || 'No staff assigned'}</span>
+        <span className="line-clamp-2 break-words text-[10px] leading-tight opacity-80">{(allocation.assignedMemberNames ?? (allocation.assignedMemberName ? [allocation.assignedMemberName] : [])).join(', ') || 'No staff assigned'}</span>
       ) : null}
       {displayDuration >= 30 ? (
         <span className="mt-auto truncate text-[10px] opacity-80">{formatTime(allocation.startsAt)} - {formatTime(addMinutes(allocation.startsAt, displayDuration))}</span>
@@ -526,7 +537,7 @@ function BookingSidebar(props: {
                           </div>
                           <div className="flex items-center gap-2 truncate">
                             <UserRound className="size-3.5 shrink-0" />
-                            <span>{t('appointments.seatPlanner.staff', 'Staff')}: <span className="font-medium text-foreground">{line.currentAssignment.assignedMemberName ?? t('appointments.seatPlanner.notSelected', 'Not selected')}</span></span>
+                            <span>{t('appointments.seatPlanner.staff', 'Staff')}: <span className="line-clamp-2 break-words font-medium leading-tight text-foreground">{(line.currentAssignment.assignedMemberNames ?? (line.currentAssignment.assignedMemberName ? [line.currentAssignment.assignedMemberName] : [])).join(', ') || t('appointments.seatPlanner.notSelected', 'Not selected')}</span></span>
                           </div>
                         </div>
                         {canManage && line.currentAssignment.state === 'draft' ? (
@@ -570,6 +581,7 @@ function DraftPopover(props: {
   const { state, line, isOwn, onClose, onClear, onDurationChange, onOpenStaff } = props
   const t = useT()
   const allocation = state.allocation
+  const assignedNames = allocation.assignedMemberNames ?? (allocation.assignedMemberName ? [allocation.assignedMemberName] : [])
   const customerDisplayName = [allocation.customerSalutation, allocation.customerName].filter(Boolean).join(' ')
   const currentDuration = durationMinutes(allocation.startsAt, allocation.endsAt)
   const [rawDuration, setRawDuration] = React.useState(String(currentDuration))
@@ -671,9 +683,9 @@ function DraftPopover(props: {
 
           {/* Staff */}
           <div className="flex items-center gap-2.5 rounded-md border border-border/50 bg-muted/20 p-2.5">
-            <UserRound className={`size-4 shrink-0 ${allocation.assignedMemberName ? 'text-muted-foreground' : 'text-status-warning-text'}`} />
-            <span className={`truncate text-sm font-medium ${allocation.assignedMemberName ? 'text-foreground' : 'text-status-warning-text'}`}>
-              {allocation.assignedMemberName || t('appointments.seatPlanner.noStaffAssigned', 'No staff assigned')}
+            <UserRound className={`size-4 shrink-0 ${assignedNames.length > 0 ? 'text-muted-foreground' : 'text-status-warning-text'}`} />
+            <span className={`line-clamp-2 break-words text-sm font-medium leading-tight ${assignedNames.length > 0 ? 'text-foreground' : 'text-status-warning-text'}`}>
+              {assignedNames.join(', ') || t('appointments.seatPlanner.noStaffAssigned', 'No staff assigned')}
             </span>
           </div>
 
@@ -731,7 +743,7 @@ function StaffSheet(props: {
   const filteredStaff = React.useMemo(() => {
     const value = query.trim().toLowerCase()
     if (!value) return staff
-    return staff.filter((member) => `${member.displayName} ${member.roleLabel}`.toLowerCase().includes(value))
+    return staff.filter((member) => `${member.displayName} ${member.roleLabel} ${member.roleLabels.join(' ')}`.toLowerCase().includes(value))
   }, [query, staff])
 
   return (
@@ -762,11 +774,11 @@ function StaffSheet(props: {
               <IconButton type="button" size="sm" variant="outline" aria-label={t('appointments.seatPlanner.increaseDuration', 'Increase duration')} disabled={duration >= MAX_DURATION || isSaving} onClick={() => onDurationChange(duration + SLOT_MINUTES)}><Plus className="size-4" /></IconButton>
             </div>
           </div>
-          {target.allocation.assignedMemberId ? (
+          {assignedMemberIdsFor(target.allocation).length > 0 ? (
             <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-1.5">
               <div className="min-w-0">
                 <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('appointments.seatPlanner.staffAssigned', 'Staff assigned')}</p>
-                <p className="truncate text-sm font-semibold">{target.allocation.assignedMemberName ?? t('appointments.seatPlanner.staffMember', 'Staff member')}</p>
+                <p className="line-clamp-2 break-words text-sm font-semibold leading-tight">{(target.allocation.assignedMemberNames ?? (target.allocation.assignedMemberName ? [target.allocation.assignedMemberName] : [])).join(', ')}</p>
               </div>
               <IconButton type="button" size="sm" variant="ghost" aria-label={t('appointments.seatPlanner.removeStaff', 'Remove staff')} disabled={isSaving} onClick={() => onAssign(null)}>
                 <X className="size-4" />
@@ -797,16 +809,20 @@ function StaffSheet(props: {
             ) : null}
             {filteredStaff.map((member) => {
               const busy = busyStaffIds.has(member.id)
-              const active = target.allocation.assignedMemberId === member.id
+              const active = assignedMemberIdsFor(target.allocation).includes(member.id)
               return (
-                <Button key={member.id} type="button" variant="ghost" aria-pressed={active} className={`h-auto w-full justify-start gap-3 rounded-md border p-3 text-left ${active ? 'border-primary bg-primary/5' : 'border-border bg-surface hover:bg-muted/40'}`} disabled={isSaving || busy} onClick={() => onAssign(active ? null : member.id)}>
+                <Button key={member.id} type="button" variant="ghost" aria-pressed={active} className={`h-auto w-full justify-start gap-3 rounded-md border p-3 text-left ${active ? 'border-primary bg-primary/5' : 'border-border bg-surface hover:bg-muted/40'}`} disabled={isSaving || busy} onClick={() => onAssign(member.id)}>
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
                     {member.displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold">{member.displayName}</span>
                     <span className="mt-1 flex flex-wrap gap-1">
-                      <Tag variant={busy ? 'warning' : 'neutral'}>{busy ? t('appointments.seatPlanner.staffBusy', 'Busy') : member.roleLabel}</Tag>
+                      {busy ? <Tag variant="warning">{t('appointments.seatPlanner.staffBusy', 'Busy')}</Tag> : null}
+                      {!busy && member.roleLabels.length > 0
+                        ? member.roleLabels.map((role) => <Tag key={role} variant="neutral">{role}</Tag>)
+                        : null}
+                      {!busy && member.roleLabels.length === 0 ? <Tag variant="neutral">{member.roleLabel}</Tag> : null}
                     </span>
                   </span>
                   <span className={`flex size-5 shrink-0 items-center justify-center rounded-sm border ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-surface'}`}>{active ? <Check className="size-3.5" /> : null}</span>
@@ -923,12 +939,13 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     if (page === 1) setIsLoadingStaff(true)
     else setIsLoadingMoreStaff(true)
     try {
-      const response = await readApiResultOrThrow<{ items?: Array<{ id: string; displayName: string; teamName?: string | null }> }>(`/api/staff/team-members/assignable?page=${page}&pageSize=${STAFF_PAGE_SIZE}&includeUnlinked=true`)
+      const response = await readApiResultOrThrow<{ items?: Array<{ id: string; displayName: string; teamName?: string | null; roleNames?: string[] }> }>(`/api/staff/team-members/assignable?page=${page}&pageSize=${STAFF_PAGE_SIZE}&includeUnlinked=true`)
       const items = response.items ?? []
       const nextStaff = items.map((member) => ({
         id: member.id,
         displayName: member.displayName,
         roleLabel: member.teamName ?? t('appointments.seatPlanner.staffMember', 'Staff member'),
+        roleLabels: Array.isArray(member.roleNames) ? member.roleNames : [],
       }))
       setStaffMembers((current) => {
         if (page === 1) return nextStaff
@@ -943,7 +960,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       if (page === 1) {
         try {
           const response = await readApiResultOrThrow<{ member?: { id: string; displayName: string } | null }>('/api/staff/team-members/self')
-          const fallbackStaff = response.member ? [{ id: response.member.id, displayName: response.member.displayName, roleLabel: t('appointments.seatPlanner.staffMember', 'Staff member') }] : []
+          const fallbackStaff = response.member ? [{ id: response.member.id, displayName: response.member.displayName, roleLabel: t('appointments.seatPlanner.staffMember', 'Staff member'), roleLabels: [] }] : []
           setStaffMembers(fallbackStaff)
           staffPageRef.current = 1
           hasMoreStaffRef.current = false
@@ -1061,12 +1078,14 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         customerName: workspace.appointment.customerName,
         startsAt: line.currentAssignment.startsAt,
         endsAt: line.currentAssignment.endsAt,
+        assignedMemberIds: assignedMemberIdsFor(line.currentAssignment),
         state: line.currentAssignment.state,
         assignedMemberId: line.currentAssignment.assignedMemberId,
         assignedMemberName: line.currentAssignment.assignedMemberName
           ?? (line.currentAssignment.assignedMemberId
             ? staffMembers.find((member) => member.id === line.currentAssignment?.assignedMemberId)?.displayName ?? null
             : null),
+        assignedMemberNames: line.currentAssignment.assignedMemberNames,
         updatedAt: line.currentAssignment.updatedAt,
         laneIndex: 0,
         lanesCount: 1,
@@ -1147,33 +1166,36 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     return bookableServices.filter((service) => !existingProductIds.has(service.id))
   }, [bookableServices, workspace?.lines])
 
-  const saveDraft = React.useCallback(async (line: SeatPlannerLine, resourceId: string, startsAt: string, duration: number, assignedMemberId?: string | null) => {
-    if (!workspace) return
+  const saveDraft = React.useCallback(async (line: SeatPlannerLine, resourceId: string, startsAt: string, duration: number, assignedMemberIds?: string[]) => {
+    if (!workspace) return null
+    const currentLine = workspace.lines.find((entry) => entry.id === line.id) ?? line
+    const nextAssignedMemberIds = assignedMemberIds ?? assignedMemberIdsFor(currentLine.currentAssignment ?? {})
     const body = {
       resourceId,
       startsAt,
       endsAt: addMinutes(startsAt, duration),
-      assignedMemberId: assignedMemberId === undefined
-        ? line.currentAssignment?.assignedMemberId ?? null
-        : assignedMemberId,
-      ...(line.currentAssignment?.state === 'draft' && line.currentAssignment.updatedAt
-        ? { expectedUpdatedAt: line.currentAssignment.updatedAt }
+      assignedMemberIds: nextAssignedMemberIds,
+      assignedMemberId: nextAssignedMemberIds[0] ?? null,
+      ...(currentLine.currentAssignment?.state === 'draft' && currentLine.currentAssignment.updatedAt
+        ? { expectedUpdatedAt: currentLine.currentAssignment.updatedAt }
         : {}),
     }
     const resourceName = seatColumns.find((resource) => resource.id === resourceId)?.name ?? null
-    const assignedMemberName = body.assignedMemberId
-      ? staffMembers.find((member) => member.id === body.assignedMemberId)?.displayName ?? null
-      : null
+    const assignedMemberNames = nextAssignedMemberIds
+      .map((memberId) => staffMembers.find((member) => member.id === memberId)?.displayName)
+      .filter((name): name is string => typeof name === 'string')
     const optimisticAssignment = {
-      id: line.currentAssignment?.id ?? `optimistic-${line.id}`,
+      id: currentLine.currentAssignment?.id ?? `optimistic-${line.id}`,
       state: 'draft' as const,
       resourceId,
       resourceName,
       startsAt,
       endsAt: body.endsAt,
+      assignedMemberIds: nextAssignedMemberIds,
       assignedMemberId: body.assignedMemberId,
-      assignedMemberName,
-      updatedAt: line.currentAssignment?.updatedAt ?? '',
+      assignedMemberName: assignedMemberNames[0] ?? null,
+      assignedMemberNames,
+      updatedAt: currentLine.currentAssignment?.updatedAt ?? '',
     }
     setWorkspace((current) => current ? {
       ...current,
@@ -1198,12 +1220,15 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             resourceName: assignment.resourceName ?? resourceName,
             startsAt: assignment.startsAt,
             endsAt: assignment.endsAt,
+            assignedMemberIds: assignment.assignedMemberIds ?? (assignment.assignedMemberId ? [assignment.assignedMemberId] : []),
             assignedMemberId: assignment.assignedMemberId ?? null,
-            assignedMemberName: assignment.assignedMemberName ?? assignedMemberName,
+            assignedMemberName: assignment.assignedMemberName ?? assignedMemberNames[0] ?? null,
+            assignedMemberNames: assignment.assignedMemberNames ?? assignedMemberNames,
             updatedAt: assignment.updatedAt,
           },
         } : entry),
       } : current)
+      return assignment
     } catch (error) {
       await loadWorkspace()
       throw error
@@ -1351,25 +1376,37 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       flash(t('appointments.seatPlanner.resourceBooked', 'That resource is already booked for this time.'), 'error')
       return
     }
-    await saveDraft(line, allocation.resourceId, allocation.startsAt, nextDuration, allocation.assignedMemberId ?? null)
+    await saveDraft(line, allocation.resourceId, allocation.startsAt, nextDuration, assignedMemberIdsFor(allocation))
     setPopoverState(null)
   }, [allocationsBySeat, flash, saveDraft, t, workspace])
 
   const handleAssignStaff = React.useCallback(async (target: StaffSheetTarget, staffId: string | null) => {
     const line = target.line
     if (!line || target.allocation.appointmentId !== workspace?.appointment.id) return
-    if (staffId === null && !target.allocation.assignedMemberId) return
-    await saveDraft(line, target.allocation.resourceId, target.allocation.startsAt, durationMinutes(target.allocation.startsAt, target.allocation.endsAt), staffId)
+    const currentIds = assignedMemberIdsFor(target.allocation)
+    const nextIds = staffId === null
+      ? []
+      : currentIds.includes(staffId)
+        ? currentIds.filter((id) => id !== staffId)
+        : [...currentIds, staffId]
+    const assignment = await saveDraft(line, target.allocation.resourceId, target.allocation.startsAt, durationMinutes(target.allocation.startsAt, target.allocation.endsAt), nextIds)
+    const nextNames = nextIds
+      .map((id) => staffMembers.find((member) => member.id === id)?.displayName)
+      .filter((name): name is string => typeof name === 'string')
     setStaffSheetTarget((current) => current ? {
       ...current,
       allocation: {
         ...current.allocation,
-        assignedMemberId: staffId,
-        assignedMemberName: staffId ? staffMembers.find((member) => member.id === staffId)?.displayName ?? null : null,
+        assignedMemberIds: nextIds,
+        assignedMemberId: nextIds[0] ?? null,
+        assignedMemberName: nextNames[0] ?? null,
+        assignedMemberNames: nextNames,
+        updatedAt: assignment?.updatedAt ?? current.allocation.updatedAt,
       },
     } : current)
-    setPopoverState(null)
-    flash(staffId ? t('appointments.seatPlanner.staffAssigned', 'Staff assigned') : t('appointments.seatPlanner.staffUnassigned', 'Staff removed'), 'success')
+    flash(staffId && !currentIds.includes(staffId)
+      ? t('appointments.seatPlanner.staffAssigned', 'Staff assigned')
+      : t('appointments.seatPlanner.staffUnassigned', 'Staff removed'), 'success')
   }, [flash, saveDraft, staffMembers, t, workspace?.appointment.id])
 
   const busyStaffIds = React.useMemo(() => {
@@ -1378,10 +1415,12 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     const targetStart = new Date(staffSheetTarget.allocation.startsAt).getTime()
     const targetEnd = new Date(staffSheetTarget.allocation.endsAt).getTime()
     for (const allocation of allAllocations) {
-      if (allocation.id === staffSheetTarget.allocation.id || !allocation.assignedMemberId) continue
+      if (allocation.id === staffSheetTarget.allocation.id) continue
       const start = new Date(allocation.startsAt).getTime()
       const end = new Date(allocation.endsAt).getTime()
-      if (targetStart < end && start < targetEnd) busy.add(allocation.assignedMemberId)
+      if (targetStart < end && start < targetEnd) {
+        assignedMemberIdsFor(allocation).forEach((memberId) => busy.add(memberId))
+      }
     }
     return busy
   }, [allAllocations, staffSheetTarget])
@@ -1436,9 +1475,11 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         customerName: workspace.appointment.customerName,
         startsAt: assignment.startsAt,
         endsAt: assignment.endsAt,
+        assignedMemberIds: assignedMemberIdsFor(assignment),
         state: assignment.state,
         assignedMemberId: assignment.assignedMemberId,
         assignedMemberName: assignment.assignedMemberName,
+        assignedMemberNames: assignment.assignedMemberNames,
         updatedAt: assignment.updatedAt,
         laneIndex: 0,
         lanesCount: 1,

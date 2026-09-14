@@ -35,6 +35,7 @@ export interface AssignmentUpsertParams {
   startsAt: Date
   endsAt: Date
   assignedMemberId?: string | null
+  assignedMemberIds?: string[]
   title?: string
   organizationIds?: string[]
 
@@ -55,6 +56,8 @@ export interface AssignmentDTO {
   startsAt: string
   endsAt: string
   assignedMemberId?: string | null
+  assignedMemberIds: string[]
+  assignedMemberNames?: string[]
   assignedMemberName?: string | null
   title?: string | null
   sourceModule: string
@@ -91,6 +94,14 @@ export class ResourceAssignmentService {
 
   constructor(private readonly em: EntityManager) {
     this.conflictService = new AssignmentConflictService(em)
+  }
+
+  private normalizeAssignedMemberIds(assignment: ResourcesAssignment): string[] {
+    const ids = Array.isArray(assignment.assignedMemberIds)
+      ? assignment.assignedMemberIds.filter((id): id is string => typeof id === 'string' && id.length > 0)
+      : []
+    if (ids.length > 0) return Array.from(new Set(ids))
+    return assignment.assignedMemberId ? [assignment.assignedMemberId] : []
   }
 
   /**
@@ -272,6 +283,10 @@ export class ResourceAssignmentService {
  * - Keeps the confirmed assignment as a baseline until the draft is confirmed
    */
   async upsertDraft(params: AssignmentUpsertParams): Promise<AssignmentDTO> {
+    const assignedMemberIds = Array.from(new Set(
+      params.assignedMemberIds ?? (params.assignedMemberId ? [params.assignedMemberId] : []),
+    ))
+    const assignedMemberId = assignedMemberIds[0] ?? null
     // Validate assignment - exclude source entity IDs from conflict check
     // (allows same booking lines to stack on same resource)
     const excludeSourceEntityIds = [
@@ -320,7 +335,8 @@ export class ResourceAssignmentService {
         resource: params.resourceId,
         startsAt: params.startsAt,
         endsAt: params.endsAt,
-        assignedMemberId: params.assignedMemberId ?? null,
+        assignedMemberId,
+        assignedMemberIds,
         title: params.title ?? null,
       })
       assignment = existingDraft
@@ -343,7 +359,8 @@ export class ResourceAssignmentService {
         state: 'draft',
         startsAt: params.startsAt,
         endsAt: params.endsAt,
-        assignedMemberId: params.assignedMemberId ?? null,
+        assignedMemberId,
+        assignedMemberIds,
         title: params.title ?? null,
         createdByUserId: params.userId ?? null,
       })
@@ -500,6 +517,7 @@ export class ResourceAssignmentService {
   async updateAssignmentStaff(params: {
     assignmentId: string
     assignedMemberId: string | null
+    assignedMemberIds?: string[]
   }): Promise<AssignmentDTO> {
     const assignment = await this.em.findOne(ResourcesAssignment, {
       id: params.assignmentId,
@@ -510,7 +528,11 @@ export class ResourceAssignmentService {
       throw new Error('Assignment not found')
     }
 
-    assignment.assignedMemberId = params.assignedMemberId
+    const assignedMemberIds = Array.from(new Set(
+      params.assignedMemberIds ?? (params.assignedMemberId ? [params.assignedMemberId] : []),
+    ))
+    assignment.assignedMemberId = assignedMemberIds[0] ?? null
+    assignment.assignedMemberIds = assignedMemberIds
     assignment.updatedAt = new Date()
 
     await this.em.flush()
@@ -523,13 +545,15 @@ export class ResourceAssignmentService {
    * Convert entity to DTO
    */
   private toDTO(assignment: ResourcesAssignment): AssignmentDTO {
+    const assignedMemberIds = this.normalizeAssignedMemberIds(assignment)
     return {
       id: assignment.id,
       resourceId: assignment.resource?.id ?? '',  // ManyToOne - access via relation
       state: assignment.state,
       startsAt: assignment.startsAt.toISOString(),
       endsAt: assignment.endsAt.toISOString(),
-      assignedMemberId: assignment.assignedMemberId ?? undefined,
+      assignedMemberId: assignedMemberIds[0] ?? undefined,
+      assignedMemberIds,
       assignedMemberName: undefined, // Will be enriched by caller if needed
       title: assignment.title ?? undefined,
       sourceModule: assignment.sourceModule,
