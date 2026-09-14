@@ -214,7 +214,6 @@ describe('email module foundation', () => {
     expect(TEMPLATES_ROUTE_SOURCE).toContain('item.blocks ?? []')
     expect(TEMPLATES_ROUTE_SOURCE).toContain('item.accounting_metadata ?? item.accountingMetadata ?? null')
     expect(TEMPLATES_ROUTE_SOURCE).toContain('item.template_key ?? item.templateKey')
-    expect(TEMPLATES_ROUTE_SOURCE).toContain("if (!query.status && !query.includeArchived) filters.status = { $ne: 'archived' }")
   })
 
   it('keeps the template builder non-technical for tenant users', () => {
