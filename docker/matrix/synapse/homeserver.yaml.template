@@ -1,0 +1,139 @@
+# Synapse configuration for Operis chat transport — TEMPLATE.
+#
+# This file is committed and reviewable. `yarn matrix:up` renders it into
+# .matrix-dev/synapse/homeserver.yaml, substituting the ${...} placeholders with
+# values from .matrix-dev/synapse/secrets.env (generated once, never committed).
+#
+# Everything here is CONFIGURATION. Synapse itself is run as an unmodified
+# upstream image: it is AGPL-3.0, and patching it would attach source-disclosure
+# obligations to every deployment. See ADR-0006.
+
+server_name: "${MATRIX_SERVER_NAME}"
+public_baseurl: "${MATRIX_PUBLIC_BASEURL}"
+pid_file: /data/homeserver.pid
+report_stats: false
+
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    # Behind the compose network only. Published to 127.0.0.1 on the host.
+    x_forwarded: true
+    bind_addresses: ["0.0.0.0"]
+    resources:
+      - names: [client]
+        compress: false
+
+database:
+  name: psycopg2
+  args:
+    user: "${MATRIX_PG_USER}"
+    password: "${MATRIX_PG_PASSWORD}"
+    dbname: "${MATRIX_PG_DATABASE}"
+    host: matrix-postgres
+    port: 5432
+    cp_min: 5
+    cp_max: 10
+
+log_config: "/data/log.config"
+signing_key_path: "/data/signing.key"
+media_store_path: /data/media_store
+
+# ---------------------------------------------------------------------------
+# Isolation. Operis is the only client; nothing federates, nothing is public.
+# ---------------------------------------------------------------------------
+
+# Federate with nobody. An empty whitelist denies every remote server, and port
+# 8448 is never published, so this is belt and braces.
+federation_domain_whitelist: []
+allow_public_rooms_over_federation: false
+allow_public_rooms_without_auth: false
+
+# No key server chatter without federation. Without the suppression Synapse logs
+# a warning on every start telling you to configure what you deliberately have not.
+trusted_key_servers: []
+suppress_key_server_warning: true
+
+# The appservice creates every chat identity. Nobody self-registers.
+enable_registration: false
+enable_registration_captcha: false
+registration_requires_token: true
+
+# Password login stays on ONLY so a developer can sign a real account into the
+# Element console. Operis users never log in here — they are appservice-owned
+# identities with no password at all.
+password_config:
+  enabled: true
+
+# A directory of every user on the homeserver is a cross-tenant enumeration
+# oracle: one Matrix account would be able to list identities belonging to every
+# other organization. Off, and profile lookups are limited to shared rooms.
+user_directory:
+  enabled: false
+  search_all_users: false
+limit_profile_requests_to_users_who_share_rooms: true
+include_profile_data_on_invite: false
+
+# No room is ever published to a directory. Operis decides who sees what.
+room_list_publication_rules:
+  - action: deny
+
+# Presence is per-user online state fanned out to everyone sharing a room. Chat
+# does not use it, and it is one of the most expensive things Synapse does.
+presence:
+  enabled: false
+
+# ---------------------------------------------------------------------------
+# Application service
+# ---------------------------------------------------------------------------
+
+app_service_config_files:
+  - /data/registration.operis.yaml
+
+# ---------------------------------------------------------------------------
+# Media
+# ---------------------------------------------------------------------------
+
+# Matches OM_CHAT_ATTACHMENT_MAX_UPLOAD_MB (default 200M) so the two limits
+# cannot disagree about the same file.
+max_upload_size: 200M
+enable_authenticated_media: true
+
+# URL previews would make the homeserver fetch arbitrary URLs that appear in
+# message bodies — an SSRF surface reachable by anyone who can type a message.
+url_preview_enabled: false
+
+# ---------------------------------------------------------------------------
+# Rate limiting
+# ---------------------------------------------------------------------------
+#
+# The appservice registration sets `rate_limited: false`, so these apply to real
+# accounts only (the developer console). Operis does its own rate limiting in
+# chat/lib/rateLimits.ts and does not rely on Synapse for it.
+
+rc_message:
+  per_second: 10
+  burst_count: 50
+
+rc_login:
+  address:
+    per_second: 0.15
+    burst_count: 5
+
+rc_joins:
+  local:
+    per_second: 10
+    burst_count: 50
+
+# Appservice user registration bursts hard during backfill.
+rc_registration:
+  per_second: 10
+  burst_count: 100
+
+# ---------------------------------------------------------------------------
+# Secrets — generated per environment, never committed.
+# ---------------------------------------------------------------------------
+
+macaroon_secret_key: "${MATRIX_MACAROON_SECRET}"
+form_secret: "${MATRIX_FORM_SECRET}"
+registration_shared_secret: "${MATRIX_REGISTRATION_SHARED_SECRET}"

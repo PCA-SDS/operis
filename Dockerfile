@@ -30,6 +30,7 @@ COPY packages/core/package.json ./packages/core/
 COPY packages/eslint-plugin-ds/package.json ./packages/eslint-plugin-ds/
 COPY packages/events/package.json ./packages/events/
 COPY packages/gateway-stripe/package.json ./packages/gateway-stripe/
+COPY packages/matrix/package.json ./packages/matrix/
 COPY packages/migrate-tps/package.json ./packages/migrate-tps/
 COPY packages/onboarding/package.json ./packages/onboarding/
 COPY packages/queue/package.json ./packages/queue/
@@ -105,6 +106,7 @@ COPY packages/core/package.json ./packages/core/
 COPY packages/eslint-plugin-ds/package.json ./packages/eslint-plugin-ds/
 COPY packages/events/package.json ./packages/events/
 COPY packages/gateway-stripe/package.json ./packages/gateway-stripe/
+COPY packages/matrix/package.json ./packages/matrix/
 COPY packages/migrate-tps/package.json ./packages/migrate-tps/
 COPY packages/onboarding/package.json ./packages/onboarding/
 COPY packages/queue/package.json ./packages/queue/
@@ -217,6 +219,7 @@ COPY --from=builder /app/packages/core/package.json ./packages/core/
 COPY --from=builder /app/packages/eslint-plugin-ds/package.json ./packages/eslint-plugin-ds/
 COPY --from=builder /app/packages/events/package.json ./packages/events/
 COPY --from=builder /app/packages/gateway-stripe/package.json ./packages/gateway-stripe/
+COPY --from=builder /app/packages/matrix/package.json ./packages/matrix/
 COPY --from=builder /app/packages/migrate-tps/package.json ./packages/migrate-tps/
 COPY --from=builder /app/packages/onboarding/package.json ./packages/onboarding/
 COPY --from=builder /app/packages/queue/package.json ./packages/queue/

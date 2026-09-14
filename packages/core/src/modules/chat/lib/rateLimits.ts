@@ -108,3 +108,18 @@ export const chatUnreadCountRateLimit = readEndpointRateLimitConfig('CHAT_UNREAD
   duration: 60,
   keyPrefix: 'chat_unread_count',
 })
+
+/**
+ * Typing, on a bucket of its own.
+ *
+ * A keystroke signal must never cost a send: sharing the bucket would let a
+ * long message in a busy conversation exhaust the quota and then refuse the
+ * message itself. The client throttles to one notification every few seconds,
+ * so this is generous for a person and tight for a loop.
+ */
+export const chatTypingRateLimit = readEndpointRateLimitConfig('CHAT_TYPING', {
+  points: 40,
+  duration: 10,
+  blockDuration: 10,
+  keyPrefix: 'chat_typing',
+})

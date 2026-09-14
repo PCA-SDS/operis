@@ -263,7 +263,7 @@ export function VariantDurationSection({ values, setValue, showHeading = true }:
           <SegmentedControl
             value={durationMode}
             onValueChange={(v) => setDurationMode(v as 'fixed' | 'range')}
-            aria-label="Duration mode"
+            aria-label={t('catalog.variants.duration.modeLabel', 'Duration mode')}
             size="sm"
           >
             <SegmentedControlItem value="fixed">
@@ -278,7 +278,7 @@ export function VariantDurationSection({ values, setValue, showHeading = true }:
         <SegmentedControl
           value={durationMode}
           onValueChange={(v) => setDurationMode(v as 'fixed' | 'range')}
-          aria-label="Duration mode"
+          aria-label={t('catalog.variants.duration.modeLabel', 'Duration mode')}
           size="sm"
           fullWidth
         >
@@ -297,7 +297,7 @@ export function VariantDurationSection({ values, setValue, showHeading = true }:
             type="number"
             min="0"
             className="w-full font-mono"
-            placeholder="e.g. 60"
+            placeholder={t('catalog.variants.duration.valuePlaceholder', 'e.g. 60')}
             value={values.durationValue ?? ''}
             onChange={(e) => setValue('durationValue', e.target.value)}
           />
@@ -577,7 +577,7 @@ export function VariantPricesSection({
                   <SegmentedControl
                     value={kindMode}
                     onValueChange={(v) => setPriceMode(kind.id, v as 'fixed' | 'range' | 'starting_at')}
-                    aria-label={`Price mode for ${kind.title}`}
+                    aria-label={t('catalog.variants.price.modeLabel', 'Price mode for {kind}').replace('{kind}', kind.title)}
                     size="sm"
                   >
                     <SegmentedControlItem value="fixed">

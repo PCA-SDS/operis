@@ -20,6 +20,35 @@ import { getAuthToken } from '@open-mercato/core/modules/core/__integration__/he
  *      now lists three agents: customers.account_assistant,
  *      catalog.catalog_assistant, and catalog.merchandising_assistant.
  */
+/**
+ * Force the `aiConfigured` flag on the agents payload.
+ *
+ * The injected body renders `<AiProviderSetupPanel>` instead of `<AiChat>` when
+ * no LLM provider key is configured, which is exactly the ephemeral test
+ * environment's state — there is no `ANTHROPIC_API_KEY` and there should not be
+ * one. These tests are about the sheet, the injection wiring and the selection
+ * pill, not about talking to a model, so the real agent list is kept and only
+ * this flag is overridden. Same helper and same reasoning as
+ * `customers/__integration__/TC-AI-INJECT-009-backend-inject.spec.ts`.
+ */
+async function stubAiConfigured(page: import('@playwright/test').Page): Promise<void> {
+  await page.route('**/api/ai_assistant/ai/agents**', async (route) => {
+    const response = await route.fetch();
+    let body: unknown = null;
+    try {
+      body = await response.json();
+    } catch {
+      await route.fulfill({ response });
+      return;
+    }
+    await route.fulfill({
+      response,
+      contentType: 'application/json',
+      body: JSON.stringify({ ...(body as Record<string, unknown>), aiConfigured: true }),
+    });
+  });
+}
+
 test.describe('TC-AI-MERCHANDISING-008: catalog.merchandising_assistant sheet', () => {
   const MERCHANDISING_AGENT_ID = 'catalog.merchandising_assistant';
   const CATALOG_AGENT_ID = 'catalog.catalog_assistant';
@@ -75,6 +104,7 @@ test.describe('TC-AI-MERCHANDISING-008: catalog.merchandising_assistant sheet', 
   test('trigger renders on products list page and opens the merchandising sheet', async ({ page }) => {
     // CI cold-compile of the products list + injection widget can exceed the
     // default 20s test timeout; give this test 2 minutes.
+    await stubAiConfigured(page);
     test.setTimeout(120_000);
     await login(page, 'superadmin');
     await page.goto('/backend/catalog/products', { waitUntil: 'domcontentloaded' });
@@ -102,6 +132,7 @@ test.describe('TC-AI-MERCHANDISING-008: catalog.merchandising_assistant sheet', 
   });
 
   test('selection pill reflects the current selected count when selection changes', async ({ page }) => {
+    await stubAiConfigured(page);
     test.setTimeout(120_000);
     await login(page, 'superadmin');
     await page.goto('/backend/catalog/products', { waitUntil: 'domcontentloaded' });
@@ -159,6 +190,7 @@ test.describe('TC-AI-MERCHANDISING-008: catalog.merchandising_assistant sheet', 
   });
 
   test('merchandising sheet title and chat region render after trigger click', async ({ page }) => {
+    await stubAiConfigured(page);
     test.setTimeout(120_000);
     await login(page, 'superadmin');
     await page.goto('/backend/catalog/products', { waitUntil: 'domcontentloaded' });

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 import { login } from '@open-mercato/core/modules/core/__integration__/helpers/auth'
 import { apiRequest, getAuthToken } from '@open-mercato/core/modules/core/__integration__/helpers/api'
@@ -19,11 +20,25 @@ type OptionTreeResponse = {
   }>
 }
 
-const ROOT_GROUP_ID = '4ab2edb9-35cc-4688-9b82-d3f8d0d0f101'
-const CHILD_GROUP_ID = '4ab2edb9-35cc-4688-9b82-d3f8d0d0f102'
-const PARENT_OPTION_ID = '4ab2edb9-35cc-4688-9b82-d3f8d0d0f103'
-const CHILD_OPTION_ID = '4ab2edb9-35cc-4688-9b82-d3f8d0d0f104'
-const SIBLING_OPTION_ID = '4ab2edb9-35cc-4688-9b82-d3f8d0d0f105'
+/**
+ * Minted per run, not hardcoded.
+ *
+ * These were five fixed UUIDs, which made the spec collide with itself: option
+ * group and option ids are globally unique, so the moment any run left its rows
+ * behind — its own `retries: 1` attempt, or a run whose cleanup did not finish —
+ * every later run tried to insert ids that already existed and the seed came
+ * back `500`. That is precisely the "self-contained, stable without relying on
+ * seeded data" rule in `.ai/qa/AGENTS.md`, and fixed ids cannot satisfy it.
+ *
+ * (Worth noting separately: a duplicate id surfaces from
+ * `catalog.product_options.sync_tree` as a 500 rather than a 4xx. Making the
+ * spec isolated is the fix for this test; the error mapping is its own issue.)
+ */
+const ROOT_GROUP_ID = randomUUID()
+const CHILD_GROUP_ID = randomUUID()
+const PARENT_OPTION_ID = randomUUID()
+const CHILD_OPTION_ID = randomUUID()
+const SIBLING_OPTION_ID = randomUUID()
 
 const INITIAL_GROUP_NAME = 'Quality Level'
 const UPDATED_GROUP_NAME = 'Quality Level Updated'
@@ -155,7 +170,19 @@ async function deleteOptionFromRow(page: Page, optionName: string): Promise<void
 
   const row = label.locator('xpath=ancestor::div[contains(@class,"group/opt")]').first()
   await row.hover()
-  await row.locator('button').last().click()
+  /**
+   * The option's OWN delete, which is the first trash button in the row.
+   *
+   * This was `row.locator('button').last()`. An option row contains its nested
+   * sub-groups and their options, so for "Gel Polish" — the one option in this
+   * fixture that has a child group — the row holds twelve buttons and the last
+   * of them belongs to the nested "Nail Art" row. The click deleted the wrong
+   * node, the parent survived, and the assertion that follows reported it.
+   *
+   * DOM order puts the option's own controls before any nested content, so the
+   * first trash icon in the row is always this option's.
+   */
+  await row.locator('button:has(svg[class*="lucide-trash"])').first().click()
 
   const confirmDialog = page.getByRole('alertdialog')
   await expect(confirmDialog).toBeVisible({ timeout: 10_000 })
@@ -190,7 +217,18 @@ test.describe('TC-CAT-036: option-tree roundtrip for nested delete', () => {
       await expect(page.locator('span', { hasText: SIBLING_OPTION_NAME }).first()).toBeVisible()
 
       await groupLabel.click()
-      const renameInput = page.locator(`input[value="${INITIAL_GROUP_NAME}"]`).first()
+      /**
+       * The focused input, not `input[value="Quality Level"]`.
+       *
+       * That selector matched on the value *attribute*, so it stopped matching
+       * the instant the field was retyped — and `fillControlledInput` verifies
+       * by re-resolving the locator, so it could never confirm its own write.
+       * The field ended up correctly renamed while the helper span until the
+       * test timed out. Clicking the label focuses the rename input and every
+       * retry re-clicks it, so `:focus` identifies the same element in both
+       * states.
+       */
+      const renameInput = page.locator('input:focus')
       await expect(renameInput).toBeVisible({ timeout: 10_000 })
       await fillControlledInput(renameInput, UPDATED_GROUP_NAME)
       await renameInput.press('Enter')

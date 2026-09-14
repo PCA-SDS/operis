@@ -43,7 +43,7 @@ test.describe('TC-INT-006: Embedded Settings Headings on Resource and Team Membe
         name: /resource settings|ressourceneinstellungen|configuraci\u00f3n del recurso|ustawienia zasobu/i,
       });
       await expect(resourceSettingsHeading).toBeVisible();
-      const resourceCard = page.locator('div.rounded-lg.border.bg-card.p-4').filter({ has: resourceSettingsHeading }).first();
+      const resourceCard = page.locator('div.rounded-xl.border.bg-surface.p-4').filter({ has: resourceSettingsHeading }).first();
       await expect(resourceCard.locator('button[type="submit"]')).toBeVisible({ timeout: 45_000 });
       await expect(resourceCard.getByText(/edit resource|ressource bearbeiten|editar recurso|edytuj zas\u00f3b/i)).toHaveCount(0);
 
@@ -52,7 +52,7 @@ test.describe('TC-INT-006: Embedded Settings Headings on Resource and Team Membe
         name: /member settings|mitgliedseinstellungen|configuraci\u00f3n del miembro|ustawienia cz\u0142onka/i,
       });
       await expect(memberSettingsHeading).toBeVisible();
-      const memberCard = page.locator('div.rounded-lg.border.bg-card.p-4').filter({ has: memberSettingsHeading }).first();
+      const memberCard = page.locator('div.rounded-xl.border.bg-surface.p-4').filter({ has: memberSettingsHeading }).first();
       await expect(memberCard.locator('button[type="submit"]')).toBeVisible({ timeout: 45_000 });
       await expect(memberCard.getByText(/edit team member|teammitglied bearbeiten|editar miembro|edytuj cz\u0142onka/i)).toHaveCount(0);
     } finally {

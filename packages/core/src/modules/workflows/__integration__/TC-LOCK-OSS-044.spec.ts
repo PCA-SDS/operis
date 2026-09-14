@@ -15,6 +15,7 @@ import {
 import { fillControlledInput } from '@open-mercato/core/modules/core/__integration__/helpers/ui'
 import { readJsonSafe } from '@open-mercato/core/modules/core/__integration__/helpers/generalFixtures'
 import { OPTIMISTIC_LOCK_HEADER_NAME } from '@open-mercato/shared/lib/crud/optimistic-lock-headers'
+import { tableRowByText } from '@open-mercato/core/modules/core/__integration__/helpers/tableDom'
 
 /**
  * TC-LOCK-OSS-044 — workflows definition + custom-entity record + checkout
@@ -427,7 +428,11 @@ test.describe('TC-LOCK-OSS-044: workflow-definition list toggle optimistic-lock 
       await login(page, 'admin')
       await page.goto(DEFINITIONS_LIST_PATH)
 
-      const row = page.locator('tr', { hasText: created.workflowName }).first()
+      // `tableRowByText`, not `locator('tr')`: the DataTable is a CSS grid of
+      // divs carrying role/data-slot hooks, so a native `tr` selector matches
+      // nothing and the spec fails as "row not visible" rather than as a broken
+      // selector. `helpers/tableDom.ts` is the single place that contract lives.
+      const row = tableRowByText(page, created.workflowName)
       await expect(row).toBeVisible({ timeout: 20_000 })
 
       // The Enabled badge renders as a button labelled Yes/No. Clicking it also
@@ -470,7 +475,11 @@ test.describe('TC-LOCK-OSS-044: workflow-definition list toggle optimistic-lock 
       await login(page, 'admin')
       await page.goto(DEFINITIONS_LIST_PATH)
 
-      const row = page.locator('tr', { hasText: created.workflowName }).first()
+      // `tableRowByText`, not `locator('tr')`: the DataTable is a CSS grid of
+      // divs carrying role/data-slot hooks, so a native `tr` selector matches
+      // nothing and the spec fails as "row not visible" rather than as a broken
+      // selector. `helpers/tableDom.ts` is the single place that contract lives.
+      const row = tableRowByText(page, created.workflowName)
       await expect(row).toBeVisible({ timeout: 20_000 })
 
       // The row-action "Disable" item `stopPropagation`s (stays on the list) and
@@ -505,7 +514,11 @@ test.describe('TC-LOCK-OSS-044: workflow-definition list toggle optimistic-lock 
       await login(page, 'admin')
       await page.goto(DEFINITIONS_LIST_PATH)
 
-      const row = page.locator('tr', { hasText: created.workflowName }).first()
+      // `tableRowByText`, not `locator('tr')`: the DataTable is a CSS grid of
+      // divs carrying role/data-slot hooks, so a native `tr` selector matches
+      // nothing and the spec fails as "row not visible" rather than as a broken
+      // selector. `helpers/tableDom.ts` is the single place that contract lives.
+      const row = tableRowByText(page, created.workflowName)
       await expect(row).toBeVisible({ timeout: 20_000 })
 
       // The list now holds the pre-bump updatedAt. Advance updated_at out-of-band

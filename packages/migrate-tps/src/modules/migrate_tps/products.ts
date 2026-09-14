@@ -416,6 +416,7 @@ export const migrateTpsProductsCommand: ModuleCli = {
     let productCount = 0
     let variantCount = 0
     let constraintCount = 0
+    const uncategorizedLabels = new Set<string>()
     const customFieldAssignments: Array<() => Promise<void>> = []
     const dataEngine = new DefaultDataEngine(em, container)
 
@@ -502,6 +503,9 @@ export const migrateTpsProductsCommand: ModuleCli = {
             }))
           }
 
+          if (category.label && !categoryMap.has(category.label)) {
+            uncategorizedLabels.add(category.label)
+          }
           if (category.label && categoryMap.has(category.label)) {
             const assignment = em.create(CatalogProductCategoryAssignment, {
               id: randomUUID(),
@@ -556,15 +560,32 @@ export const migrateTpsProductsCommand: ModuleCli = {
     logger.info('Flushing records to database...')
     await em.flush()
 
+    let customFieldFailures = 0
     for (const assign of customFieldAssignments) {
       try {
         await assign()
       } catch (err) {
+        customFieldFailures += 1
         logger.warn('Failed to set TPS service custom field summary', { err })
       }
     }
 
-    logger.info(`Migration successful! Created ${productCount} Products, ${variantCount} Variants, and ${constraintCount} Constraints.`)
+    const summary = `Created ${productCount} Products, ${variantCount} Variants, and ${constraintCount} Constraints.`
+    if (uncategorizedLabels.size > 0) {
+      logger.warn(
+        `No category matched for: ${[...uncategorizedLabels].sort((left, right) => left.localeCompare(right)).join(', ')} — those products are uncategorized. Run the categories migration first.`,
+      )
+    }
+    if (customFieldFailures > 0) {
+      logger.warn(
+        `${customFieldFailures} product(s) have no service_duration_minutes value; bookable-services will list them without a duration.`,
+      )
+    }
+    if (customFieldFailures > 0 || uncategorizedLabels.size > 0) {
+      logger.warn(`Migration completed with warnings. ${summary}`)
+    } else {
+      logger.info(`Migration successful! ${summary}`)
+    }
       })
     } catch (err) {
       logger.error('An error occurred during Product migration', { err })

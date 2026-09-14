@@ -36,6 +36,7 @@ function mapLine(line: AppointmentLine) {
     unitPriceGross: line.unitPriceGross ?? null,
     durationMinutes: line.durationMinutes ?? null,
     productCategory: line.productCategory ?? null,
+    selectedOptions: line.selectedOptions ?? null,
     sortOrder: line.sortOrder,
   }
 }
@@ -285,7 +286,29 @@ export async function PUT(req: Request, ctx: RouteContext) {
       request: req,
     })
 
-    const organizationId = body.organizationId ?? appointment.organizationId
+    // The load is scoped, but the write target was not: a body id moved the
+    // appointment (and every replaced line) into another branch of the tenant.
+    // Re-resolve through the allow-list so only an organization the caller may
+    // act on can be the destination.
+    let organizationId = appointment.organizationId
+    if (body.organizationId && body.organizationId !== appointment.organizationId) {
+      const targetScope = await resolveOrganizationScopeForRequest({
+        container,
+        auth,
+        request: req,
+        selectedId: body.organizationId,
+      })
+      if (targetScope?.selectedId !== body.organizationId) {
+        return NextResponse.json(
+          {
+            error: translate('appointments.update.organizationNotAllowed', 'You cannot move this appointment to that organization.'),
+            code: 'ORGANIZATION_NOT_ALLOWED',
+          },
+          { status: 403 },
+        )
+      }
+      organizationId = body.organizationId
+    }
 
     const result = await updateAppointmentFromStaffEdit(
       em,

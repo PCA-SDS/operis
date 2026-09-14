@@ -1,4 +1,6 @@
 {
+  "dictionaries.appearance.iconUpload": "Upload custom icon",
+  "dictionaries.appearance.iconUploadFailed": "Failed to upload the icon.",
   "dictionaries.config.delete.confirm": "¿Eliminar el diccionario \"{{name}}\"?",
   "dictionaries.config.dialog.cancel": "Cancelar",
   "dictionaries.config.dialog.createTitle": "Crear diccionario",

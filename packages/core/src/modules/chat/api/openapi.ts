@@ -85,6 +85,17 @@ export const reactionSchema = z.object({
 export const reactionToggleSchema = z.object({ emoji: z.string(), reacted: z.boolean() })
 export const pinToggleSchema = z.object({ pinned: z.boolean() })
 
+export const editMessageResponseSchema = z.object({
+  messageId: z.string().uuid(),
+  body: z.string(),
+  editedAt: z.string(),
+})
+
+export const deleteMessageResponseSchema = z.object({
+  messageId: z.string().uuid(),
+  deletedAt: z.string(),
+})
+
 export const pinnedMessageSchema = z.object({
   messageId: z.string().uuid(),
   pinnedByUserId: z.string().uuid(),
@@ -109,6 +120,7 @@ export const messageSchema = z.object({
   senderName: z.string(),
   body: z.string(),
   createdAt: z.string(),
+  editedAt: z.string().nullable(),
   clientMessageId: z.string().nullable(),
   kind: z.enum(['user', 'system']),
   replyTo: replyTargetSchema.nullable(),
@@ -147,6 +159,8 @@ export const sendMessageResponseSchema = z.object({
 export const unreadCountSchema = z.object({ unreadCount: z.number() })
 
 export const markReadResponseSchema = z.object({ lastReadAt: z.string() })
+export const typingResponseSchema = z.object({ typing: z.boolean() })
+export const mutedResponseSchema = z.object({ muted: z.boolean() })
 
 export const markAllReadResponseSchema = z.object({
   conversationIds: z.array(z.string().uuid()),

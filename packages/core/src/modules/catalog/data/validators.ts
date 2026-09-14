@@ -39,6 +39,10 @@ const currencyCodeSchema = currencyCodeSchema_({ message: 'currency code must be
 
 const metadataSchema = z.record(z.string(), z.unknown()).nullable().optional()
 
+// duration_* are int4 columns. Without a ceiling, an oversized value reaches
+// Postgres and comes back as 22003 "integer out of range" — a 500 where the
+// caller should have seen a 400.
+const CATALOG_DURATION_MAX = 2147483647
 const durationUnitSchema = z.preprocess((value) => {
   if (value === undefined) return undefined
   if (value === null) return null
@@ -374,10 +378,10 @@ const variantBaseSchema = scoped.extend({
   weightUnit: z.string().trim().max(25).optional(),
   taxRateId: uuid().nullable().optional(),
   taxRate: z.coerce.number().min(0).max(100).optional().nullable(),
-  durationValue: z.coerce.number().int().min(0).nullable().optional(),
+  durationValue: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
   durationUnit: durationUnitSchema,
-  durationMin: z.coerce.number().int().min(0).nullable().optional(),
-  durationMax: z.coerce.number().int().min(0).nullable().optional(),
+  durationMin: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
+  durationMax: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
   dimensions: z
     .object({
       width: z.coerce.number().min(0).optional(),
@@ -582,10 +586,10 @@ export const catalogProductOptionCreateSchema = scoped.extend({
   priceFlat: catalogPriceString().nullable().optional(),
   priceMin: catalogPriceString().nullable().optional(),
   priceMax: catalogPriceString().nullable().optional(),
-  durationValue: z.coerce.number().int().min(0).nullable().optional(),
+  durationValue: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
   durationUnit: durationUnitSchema,
-  durationMin: z.coerce.number().int().min(0).nullable().optional(),
-  durationMax: z.coerce.number().int().min(0).nullable().optional(),
+  durationMin: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
+  durationMax: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
   isAddon: z.boolean().optional(),
   sortOrder: z.coerce.number().int().optional(),
   isActive: z.boolean().optional(),
@@ -673,10 +677,10 @@ export const catalogProductOptionTreeSyncSchema = scoped.extend({
       priceFlat: catalogPriceString().nullable().optional(),
       priceMin: catalogPriceString().nullable().optional(),
       priceMax: catalogPriceString().nullable().optional(),
-      durationValue: z.coerce.number().int().min(0).nullable().optional(),
+      durationValue: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
       durationUnit: durationUnitSchema,
-      durationMin: z.coerce.number().int().min(0).nullable().optional(),
-      durationMax: z.coerce.number().int().min(0).nullable().optional(),
+      durationMin: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
+      durationMax: z.coerce.number().int().min(0).max(CATALOG_DURATION_MAX).nullable().optional(),
       isAddon: z.boolean().optional(),
       sortOrder: z.coerce.number().int().optional(),
       isActive: z.boolean().optional(),

@@ -9,7 +9,7 @@ export class Migration20260910153000_appointments_line_options extends Migration
 
   override async down(): Promise<void> {
     this.addSql(
-      `alter table "appointment_lines" drop column "selected_options";`,
+      `alter table "appointment_lines" drop column if exists "selected_options";`,
     )
   }
 }

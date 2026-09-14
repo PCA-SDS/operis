@@ -155,6 +155,98 @@ services:
     networks:
       - mercato-network
 
+  # ---------------------------------------------------------------------------
+  # Matrix chat transport (profile: matrix)
+  #
+  # Started only by `yarn matrix:up`, never by a bare `docker compose up`, so a
+  # developer who is not working on chat transport pays nothing for it.
+  #
+  # Synapse and Element are AGPL-3.0. They run here as UNMODIFIED upstream
+  # images and are spoken to over the Matrix HTTP protocol; no AGPL source
+  # enters this repository. See ADR-0006. Both images are pinned: `latest`
+  # would let a homeserver upgrade land in the middle of an unrelated branch.
+  # ---------------------------------------------------------------------------
+
+  matrix-postgres:
+    image: postgres:17-alpine
+    container_name: mercato-matrix-postgres
+    restart: unless-stopped
+    profiles:
+      - matrix
+    environment:
+      POSTGRES_USER: ${MATRIX_PG_USER:-synapse}
+      POSTGRES_PASSWORD: ${MATRIX_PG_PASSWORD:-synapse}
+      POSTGRES_DB: ${MATRIX_PG_DATABASE:-synapse}
+      # Synapse REQUIRES a C-collated database and refuses to start against
+      # anything else. Setting it at initdb time is the only moment this can be
+      # decided — a running cluster cannot be re-collated.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    # Deliberately its own instance rather than a second database inside
+    # mercato-postgres: `yarn db:reset` must never be able to reach it.
+    volumes:
+      - matrix_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MATRIX_PG_USER:-synapse} -d ${MATRIX_PG_DATABASE:-synapse}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mercato-network
+
+  synapse:
+    image: ghcr.io/element-hq/synapse:v1.160.0
+    container_name: mercato-synapse
+    restart: unless-stopped
+    profiles:
+      - matrix
+    depends_on:
+      matrix-postgres:
+        condition: service_healthy
+    environment:
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+    ports:
+      # Loopback only. Synapse holds every chat message and its client API is
+      # authenticated by bearer token; publishing it on 0.0.0.0 would offer that
+      # to everything on the developer's network. Same reasoning as `translation`.
+      - "127.0.0.1:${MATRIX_SYNAPSE_PORT:-8008}:8008"
+    volumes:
+      # Rendered config, signing key, appservice registration and media store.
+      # Written by `yarn matrix:up`; git-ignored because it holds secrets.
+      - ./.matrix-dev/synapse:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8008/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      # A fresh database runs the full schema migration before the listener
+      # answers. Measured at ~70s on an M-series laptop, so 60s failed the very
+      # first `matrix:up` on a clean volume while succeeding on every later one
+      # — the worst kind of flake. 180s covers a cold start with headroom.
+      start_period: 180s
+      retries: 5
+    networks:
+      - mercato-network
+
+  element:
+    image: vectorim/element-web:v1.12.27
+    container_name: mercato-element
+    restart: unless-stopped
+    profiles:
+      - matrix
+    depends_on:
+      synapse:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${MATRIX_ELEMENT_PORT:-8009}:80"
+    volumes:
+      - ./docker/matrix/element/config.json:/app/config.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - mercato-network
+
 volumes:
   postgres_data:
     name: mercato-postgres-data
@@ -168,6 +260,8 @@ volumes:
     name: mercato-verdaccio-storage
   verdaccio_plugins:
     name: mercato-verdaccio-plugins
+  matrix_postgres_data:
+    name: mercato-matrix-postgres-data
 
 networks:
   mercato-network:

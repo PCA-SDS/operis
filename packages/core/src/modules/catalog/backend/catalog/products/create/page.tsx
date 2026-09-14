@@ -33,7 +33,6 @@ import {
   SegmentedControl,
   SegmentedControlItem,
 } from "@open-mercato/ui/primitives/segmented-control";
-import { AmountInput } from "@open-mercato/ui/primitives/amount-input";
 import {
   Plus,
   Trash2,
@@ -1277,7 +1276,7 @@ function DefaultVariantBuilder({
           </h4>
 
           <div className="grid grid-cols-1 gap-4">
-            {priceKinds.map((kind: any) => {
+            {priceKinds.map((kind) => {
               const val = variant.prices?.[kind.id]?.amount ?? "";
               const minVal = variant.prices?.[kind.id]?.priceMin ?? "";
               const maxVal = variant.prices?.[kind.id]?.priceMax ?? "";
@@ -1297,7 +1296,7 @@ function DefaultVariantBuilder({
                       <SegmentedControl
                         value={kindPriceMode}
                         onValueChange={(v) => setPriceMode(kind.id, v as "fixed" | "range")}
-                        aria-label={`Price mode for ${kind.title}`}
+                        aria-label={t('catalog.variants.price.modeLabel', 'Price mode for {kind}').replace('{kind}', kind.title)}
                         size="sm"
                       >
                         <SegmentedControlItem value="fixed">
@@ -1395,7 +1394,7 @@ function DefaultVariantBuilder({
               <SegmentedControl
                 value={durationMode}
                 onValueChange={(v) => setDurationMode(v as "fixed" | "range")}
-                aria-label="Duration mode"
+                aria-label={t('catalog.variants.duration.modeLabel', 'Duration mode')}
                 size="sm"
               >
                 <SegmentedControlItem value="fixed">
@@ -1413,7 +1412,7 @@ function DefaultVariantBuilder({
                   type="number"
                   min="0"
                   className="flex-1"
-                  placeholder="e.g. 60"
+                  placeholder={t('catalog.variants.duration.valuePlaceholder', 'e.g. 60')}
                   value={variant.durationValue || ""}
                   onChange={(e) => {
                     syncServiceDurationSummary(e.target.value);

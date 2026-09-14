@@ -33,8 +33,19 @@ import { createDictionaryFixture } from '@open-mercato/core/helpers/integration/
  *   - DELETE /api/entities/entities                          (cleanup)
  */
 
+/**
+ * Table-backed entity ids from modules this app actually ships.
+ *
+ * `example:todo` used to be the first case. The `example` module left the build
+ * in `d108ad27`, so the records API now refuses it with 403 (the caller cannot
+ * reach that module at all) BEFORE the system-entity check runs — the request
+ * is still rejected, but for a different reason, and the assertion here is
+ * about the 400 that `system_entity_records_blocked` produces.
+ * `catalog:catalog_product` is a shipped equivalent that exercises the intended
+ * path; verified against a running app to return 400 with that exact code.
+ */
 const SYSTEM_ENTITY_CASES: Array<{ entityId: string; values: Record<string, unknown> }> = [
-  { entityId: 'example:todo', values: { priority: 2 } },
+  { entityId: 'catalog:catalog_product', values: { priority: 2 } },
   { entityId: 'customers:customer_deal', values: { competitive_risk: 'high' } },
 ];
 

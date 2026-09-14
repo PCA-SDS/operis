@@ -17,6 +17,9 @@ import { createInvoicePartnerTermsService } from './services/partner-terms-servi
 import { createInvoiceCompanyEmailsService } from './services/company-emails-service'
 import { createInvoiceExchangeRatesService } from './services/exchange-rates-service'
 import { createInvoiceCompanyLookupService } from './services/company-lookup-service'
+import { createInvoiceAutoPaidService } from './services/auto-paid-service'
+import { createInvoiceService } from './services/invoice-service'
+import { createInvoiceTrackingService } from './services/invoice-tracking-service'
 
 export function register(container: AppContainer) {
   container.register({
@@ -29,6 +32,25 @@ export function register(container: AppContainer) {
     ).scoped().proxy(),
     invoiceExchangeRatesService: asFunction(() => createInvoiceExchangeRatesService()).singleton().proxy(),
     invoiceCompanyLookupService: asFunction(({ em }) => createInvoiceCompanyLookupService(em)).scoped().proxy(),
+    invoiceAutoPaidService: asFunction(({ em, invoiceScopedPersistenceService }) =>
+      createInvoiceAutoPaidService(em, invoiceScopedPersistenceService),
+    ).scoped().proxy(),
+    invoiceTrackingService: asFunction(({ em }) => createInvoiceTrackingService(em)).scoped().proxy(),
+    invoiceService: asFunction(({
+      em,
+      queryEngine,
+      invoiceScopedPersistenceService,
+      invoiceExchangeRatesService,
+      invoiceCompanyEmailsService,
+    }) =>
+      createInvoiceService(
+        em,
+        queryEngine,
+        invoiceScopedPersistenceService,
+        invoiceExchangeRatesService,
+        invoiceCompanyEmailsService,
+      ),
+    ).scoped().proxy(),
     Invoice: asValue(Invoice),
     InvoiceAutoPaidTaxCode: asValue(InvoiceAutoPaidTaxCode),
     InvoiceCompany: asValue(InvoiceCompany),
