@@ -66,6 +66,7 @@ export interface SeatPlannerWorkspace {
     state: 'draft' | 'confirmed'
     assignedMemberId?: string | null
     assignedMemberName?: string | null
+    customerSalutation: string | null
   }>
   resources: Array<{
     id: string
@@ -356,6 +357,7 @@ export class AppointmentSeatPlannerService {
         resourceName: resource?.name ?? null,
         serviceName: line.productTitle,
         customerName: sourceAppointment?.customerName ?? '',
+        customerSalutation: sourceAppointment?.customerSalutation ?? null,
         startsAt: assignment.startsAt.toISOString(),
         endsAt: assignment.endsAt.toISOString(),
         state: assignment.state,

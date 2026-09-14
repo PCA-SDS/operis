@@ -115,6 +115,7 @@ type PlannerAllocation = {
   resourceName?: string | null
   serviceName: string
   customerName: string
+  customerSalutation?: string | null
   startsAt: string
   endsAt: string
   state: 'draft' | 'confirmed'
@@ -304,6 +305,8 @@ function PlannerBlock(props: {
   const displayDuration = dragDuration ?? currentDuration
   const laneWidth = 100 / allocation.lanesCount
   const laneInset = 8 / allocation.lanesCount
+  const compactExistingLabel = !isOwn && displayDuration <= 30
+  const existingCustomerName = [allocation.customerSalutation, allocation.customerName].filter(Boolean).join(' ')
 
   const handleResizePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!isOwn) return
@@ -350,8 +353,17 @@ function PlannerBlock(props: {
         if (event.key === 'Enter' || event.key === ' ') onOpen(event as unknown as React.MouseEvent<HTMLDivElement>)
       }}
     >
-      <span className={`${displayDuration <= 15 ? 'truncate' : 'line-clamp-2'} font-semibold leading-tight`}>{allocation.serviceName}</span>
-      {displayDuration > 30 ? (
+      {isOwn || compactExistingLabel ? (
+        <span className={`${displayDuration <= 15 ? 'truncate' : 'line-clamp-2'} font-semibold leading-tight`}>
+          {isOwn ? allocation.serviceName : `${existingCustomerName} · ${allocation.serviceName}`}
+        </span>
+      ) : (
+        <>
+          <span className="truncate font-semibold leading-tight">{existingCustomerName}</span>
+          <span className="truncate text-[10px] opacity-80">{allocation.serviceName}</span>
+        </>
+      )}
+      {isOwn && displayDuration > 30 ? (
         <span className="truncate text-[10px] opacity-80">{allocation.assignedMemberName || line?.currentAssignment?.assignedMemberName || 'No staff assigned'}</span>
       ) : null}
       {displayDuration >= 30 ? (
@@ -555,6 +567,7 @@ function DraftPopover(props: {
   const { state, line, isOwn, onClose, onClear, onDurationChange, onOpenStaff } = props
   const t = useT()
   const allocation = state.allocation
+  const customerDisplayName = [allocation.customerSalutation, allocation.customerName].filter(Boolean).join(' ')
   const currentDuration = durationMinutes(allocation.startsAt, allocation.endsAt)
   const [rawDuration, setRawDuration] = React.useState(String(currentDuration))
   const popoverRef = React.useRef<HTMLDivElement>(null)
@@ -599,14 +612,15 @@ function DraftPopover(props: {
     <div
       ref={popoverRef}
       role="dialog"
-      aria-label={allocation.serviceName}
+      aria-label={isOwn ? allocation.serviceName : `${customerDisplayName} - ${allocation.serviceName}`}
       className="fixed z-50 flex max-h-[calc(100vh-1.5rem)] w-80 max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-xl"
       style={{ left: position.left, top: position.top }}
       onClick={(event) => event.stopPropagation()}
     >
       <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-muted/20 px-4 py-3">
         <div className="min-w-0 flex-1">
-          <h3 className="truncate text-sm font-semibold">{allocation.serviceName}</h3>
+          <h3 className="truncate text-sm font-semibold">{isOwn ? allocation.serviceName : customerDisplayName}</h3>
+          {!isOwn ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{allocation.serviceName}</p> : null}
           <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
             <MapPin className="size-3.5 shrink-0" />
             <span className="truncate font-medium text-foreground">{allocation.resourceName ?? line?.currentAssignment?.resourceName}</span>
