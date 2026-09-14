@@ -51,6 +51,11 @@ const EXPECTED_DEFAULT_ENABLED_MODULE_IDS = [
   'channel_gmail',
   'channel_imap',
   'chat',
+  // The chat-to-tasks integration. On by default because both halves are: a tenant
+  // that has chat and tasks has no reason to be handed them unconnected. It owns only
+  // the link between the two, so withholding it from `tenant_modules` empties the
+  // spots it fills and leaves both modules exactly as they were.
+  'chat_tasks',
   'communication_channels',
   'currencies',
   'customers',
