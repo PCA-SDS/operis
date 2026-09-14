@@ -92,6 +92,16 @@ const transactionSchema = z.looseObject({
 
 export type AppserviceTransaction = {
   events: MatrixEvent[]
+  /**
+   * Typing notifications and read receipts, as delivered.
+   *
+   * Left unparsed on purpose: an ephemeral event carries no `event_id` and no
+   * `sender`, so `matrixEventSchema` rejects every one of them. Their own
+   * parsers — `parseTypingNotification`, `parseReadReceipts` — take the raw
+   * shape, and passing it through unchanged keeps this function from having to
+   * know which of them the caller cares about.
+   */
+  ephemeral: unknown[]
   /** Count before parsing, so a drop caused by a malformed event is visible. */
   receivedCount: number
 }
@@ -110,7 +120,11 @@ export function parseTransaction(body: unknown): AppserviceTransaction | null {
   const events = parsed.data.events
     .map(parseMatrixEvent)
     .filter((event): event is MatrixEvent => event !== null)
-  return { events, receivedCount: parsed.data.events.length }
+  return {
+    events,
+    ephemeral: parsed.data.ephemeral ?? [],
+    receivedCount: parsed.data.events.length,
+  }
 }
 
 /**
@@ -121,13 +135,21 @@ export function parseTransaction(body: unknown): AppserviceTransaction | null {
  * for every joined room. Narrowing at the server is the difference between a
  * first poll that costs a few kilobytes and one that costs megabytes.
  */
-export function buildSyncFilter(options: { timelineLimit?: number } = {}): string {
+export function buildSyncFilter(
+  options: { timelineLimit?: number; ephemeralTypes?: readonly string[] } = {},
+): string {
   return JSON.stringify({
     presence: { types: [] },
     account_data: { types: [] },
     room: {
       account_data: { types: [] },
-      ephemeral: { types: [] },
+      /**
+       * Empty by default, and that default is the expensive-to-reverse one:
+       * asking for ephemeral events means every keystroke in every joined room
+       * arrives on the poll. A caller that wants typing or receipts asks for
+       * exactly those two types.
+       */
+      ephemeral: { types: [...(options.ephemeralTypes ?? [])] },
       state: { types: [], lazy_load_members: true },
       timeline: {
         limit: options.timelineLimit ?? 50,

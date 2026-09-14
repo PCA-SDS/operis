@@ -9,28 +9,51 @@ import YAML from 'yaml'
  * Validation-gate parity guard.
  *
  * `.ai/agentic.config.json` → `validation.commands` is what every contributor and coding agent
- * is told to run before pushing. The CI job that actually blocks a merge is `quality` in
- * `.github/workflows/ci-deploy.yml`. Those are two hand-maintained copies of one list, and
+ * is told to run before pushing. The CI jobs that actually block a merge are the ones
+ * `ci-required` waits on in `.github/workflows/ci-deploy.yml`. Those are two hand-maintained
+ * copies of one list, and
  * nothing kept them in sync — so the documented gate drifted until running all of it locally
  * still let a PR fail CI on a step the list never mentioned. That is the failure this guard
  * exists to make impossible.
  *
- * The contract is **coverage, not equality**: every `yarn` script the `quality` job runs must
- * appear in `validation.commands`. The config may carry extra local-only checks — `build:app`
+ * The contract is **coverage, not equality**: every `yarn` script a gate job runs must appear
+ * in `validation.commands`. The config may carry extra local-only checks — `build:app`
  * catches a Next build break that CI only finds later in the image build, and the i18n checks
  * mirror the pre-commit hook — and extras are additional safety, not drift.
  *
  * Order is deliberately NOT asserted. The real ordering constraint (build → generate → build
  * before anything typechecks) fails loudly and immediately when violated, so pinning order here
  * would only add a brittle way to break the build without catching a silent failure.
+ *
+ * THE GATE SET IS DERIVED, NOT NAMED. This used to read a single job called `quality`. That
+ * job was split into six concurrent ones, and a hardcoded name would have gone on passing by
+ * reading a job that no longer existed — or, worse, silently covered one job out of six. The
+ * gate is now whatever `ci-required` declares in `needs`, which is the same list branch
+ * protection enforces, so a seventh gate job is covered the moment it is wired in and cannot
+ * be added without being wired in.
+ *
+ * The shared prologue (install, build, generate) moved into the local composite action at
+ * .github/actions/setup, so that file is parsed alongside the workflow — otherwise every
+ * command it runs would silently leave the guard's view.
  */
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..')
 const workflowPath = path.join(repoRoot, '.github', 'workflows', 'ci-deploy.yml')
 const configPath = path.join(repoRoot, '.ai', 'agentic.config.json')
 
-/** The job whose failure blocks a merge. Keyed structurally — `name:` is display text. */
-const GATE_JOB = 'quality'
+/**
+ * The aggregator that branch protection requires. Its `needs` list IS the gate.
+ * Keyed structurally — `name:` is display text and can change without meaning anything.
+ */
+const AGGREGATOR_JOB = 'ci-required'
+
+/** Jobs that run after the gate rather than as part of it. */
+const POST_GATE_JOBS = new Set(['build', 'translation-image', 'deploy'])
+
+/** Bookkeeping jobs that gate nothing on their own. */
+const NON_CHECK_JOBS = new Set(['scope', 'prepare', AGGREGATOR_JOB])
+
+const setupActionPath = path.join(repoRoot, '.github', 'actions', 'setup', 'action.yml')
 
 /**
  * Steps that run `yarn` but are not validation.
@@ -47,16 +70,9 @@ const NOT_A_VALIDATION_STEP = new Set(['install'])
  */
 const MIN_EXPECTED_CI_COMMANDS = 6
 
-function readGateJobYarnScripts() {
-  const workflow = YAML.parse(fs.readFileSync(workflowPath, 'utf8'))
-  const job = workflow?.jobs?.[GATE_JOB]
-  assert.ok(job, `ci-deploy.yml has no "${GATE_JOB}" job — this guard is reading the wrong file or the job was renamed.`)
-
-  const steps = job.steps ?? []
-  assert.ok(steps.length > 0, `The "${GATE_JOB}" job has no steps.`)
-
+function yarnScriptsIn(steps) {
   const scripts = []
-  for (const step of steps) {
+  for (const step of steps ?? []) {
     if (typeof step?.run !== 'string') continue
     for (const line of step.run.split('\n')) {
       // One line may chain several: `yarn lint:check-graph && yarn lint`.
@@ -67,6 +83,44 @@ function readGateJobYarnScripts() {
       }
     }
   }
+  return scripts
+}
+
+function readWorkflow() {
+  return YAML.parse(fs.readFileSync(workflowPath, 'utf8'))
+}
+
+/** The jobs `ci-required` waits on, minus the bookkeeping ones. */
+function gateJobIds(workflow) {
+  const aggregator = workflow?.jobs?.[AGGREGATOR_JOB]
+  assert.ok(
+    aggregator,
+    `ci-deploy.yml has no "${AGGREGATOR_JOB}" job. That job is the single required status check; `
+      + 'without it nothing blocks a merge and this guard has nothing to derive the gate from.',
+  )
+
+  const needs = Array.isArray(aggregator.needs) ? aggregator.needs : [aggregator.needs].filter(Boolean)
+  return needs.filter((jobId) => !NON_CHECK_JOBS.has(jobId))
+}
+
+function readGateJobYarnScripts() {
+  const workflow = readWorkflow()
+  const scripts = []
+
+  for (const jobId of gateJobIds(workflow)) {
+    const job = workflow.jobs?.[jobId]
+    assert.ok(job, `ci-required lists "${jobId}" in needs, but no such job exists.`)
+    for (const script of yarnScriptsIn(job.steps)) {
+      if (!scripts.includes(script)) scripts.push(script)
+    }
+  }
+
+  // The shared prologue lives in the composite action, not in any job's steps.
+  const setupAction = YAML.parse(fs.readFileSync(setupActionPath, 'utf8'))
+  for (const script of yarnScriptsIn(setupAction?.runs?.steps)) {
+    if (!scripts.includes(script)) scripts.push(script)
+  }
+
   return scripts
 }
 
@@ -87,11 +141,11 @@ const ciScripts = readGateJobYarnScripts()
 const configuredCommands = readConfiguredCommands()
 const configuredScripts = configuredCommands.map(yarnScriptOf).filter((script) => script !== null)
 
-test('the parser actually found the gate job\'s commands', () => {
+test('the parser actually found the gate jobs\' commands', () => {
   // Guards every assertion below against a silently empty parse.
   assert.ok(
     ciScripts.length >= MIN_EXPECTED_CI_COMMANDS,
-    `Only parsed ${ciScripts.length} yarn command(s) from the "${GATE_JOB}" job (expected at least ${MIN_EXPECTED_CI_COMMANDS}). `
+    `Only parsed ${ciScripts.length} yarn command(s) from the gate jobs (expected at least ${MIN_EXPECTED_CI_COMMANDS}). `
       + `The workflow's shape probably changed and this guard is no longer reading it: ${JSON.stringify(ciScripts)}`,
   )
 })
@@ -102,7 +156,7 @@ test('every command CI runs is in the documented local gate', () => {
   assert.deepEqual(
     missing,
     [],
-    'These run in the ci-deploy.yml "quality" job but are absent from validation.commands in '
+    'These run in a ci-deploy.yml gate job but are absent from validation.commands in '
       + '.ai/agentic.config.json, so following the documented gate locally does NOT reproduce CI:\n'
       + missing.map((script) => `  yarn ${script}`).join('\n')
       + '\n\nAdd them to validation.commands, or add the script to NOT_A_VALIDATION_STEP in this '
@@ -136,4 +190,48 @@ test('every documented command is a plain yarn invocation', () => {
       + 'compare them against the workflow. Split anything compound into separate entries:\n'
       + unparsed.map((command) => `  ${command}`).join('\n'),
   )
+})
+
+test('every checking job is wired into the required status check', () => {
+  // The hole this closes: someone adds a seventh gate job, it runs and goes red on pull
+  // requests, and the merge is allowed anyway because branch protection only requires
+  // `ci-required` and `ci-required` never waited on it. A job that checks something must
+  // be in that needs list, or it is decoration.
+  const workflow = readWorkflow()
+  const declared = new Set(gateJobIds(workflow))
+
+  const unwired = Object.keys(workflow.jobs ?? {}).filter(
+    (jobId) => !declared.has(jobId) && !NON_CHECK_JOBS.has(jobId) && !POST_GATE_JOBS.has(jobId),
+  )
+
+  assert.deepEqual(
+    unwired,
+    [],
+    `These jobs run but are not in ${AGGREGATOR_JOB}'s needs, so branch protection ignores whether they pass:\n`
+      + unwired.map((jobId) => `  ${jobId}`).join('\n')
+      + `\n\nAdd each to the ${AGGREGATOR_JOB} needs list, or to POST_GATE_JOBS in this test if it genuinely `
+      + 'runs after the gate rather than as part of it.',
+  )
+})
+
+test('the aggregator inspects results rather than relying on needs alone', () => {
+  // `needs` alone does NOT make a job fail when a dependency fails IF the job also carries
+  // `if: always()` — which this one must, so that a legitimately skipped job does not skip
+  // the required check itself. The explicit result inspection is therefore load-bearing:
+  // without it the aggregator would report success no matter what its dependencies did.
+  const aggregator = readWorkflow().jobs?.[AGGREGATOR_JOB]
+  // run + env together: the results reach the script through `env: ${{ toJSON(needs) }}`,
+  // so inspecting only `run` would miss the very reference this asserts on.
+  const body = (aggregator.steps ?? [])
+    .map((step) => [step.run ?? '', JSON.stringify(step.env ?? {})].join('\n'))
+    .join('\n')
+
+  assert.match(String(aggregator.if ?? ''), /always\(\)/, `${AGGREGATOR_JOB} must run even when a dependency is skipped.`)
+  assert.match(
+    body,
+    /needs/i,
+    `${AGGREGATOR_JOB} carries if: always(), so it MUST inspect the needs results explicitly — otherwise it `
+      + 'reports success regardless of whether the gate jobs passed.',
+  )
+  assert.match(body, /exit 1/, `${AGGREGATOR_JOB} must exit non-zero when a gate job did not pass.`)
 })

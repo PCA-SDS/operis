@@ -66,6 +66,14 @@ export type ChatConversationDto = {
   hasUnreadMention: boolean
   /** How many messages are pinned here, for the header control. */
   pinnedCount: number
+  /**
+   * Whether the viewer has silenced this conversation.
+   *
+   * Notifications only. The unread count still moves and the conversation still
+   * rises in the list, because silencing a room is not the same as pretending
+   * nothing happened in it.
+   */
+  muted: boolean
   lastReadAt: string | null
   /**
    * How far the other person has read, which is the read receipt for everything
