@@ -354,6 +354,11 @@ This is a pre-implementation spec. Compliance requirements for implementation:
 
 ## Changelog
 
+- 2026-09-14: Implemented the CAP-001/CAP-006 invoice-send UI slice on the
+  invoice detail page: AR-only send/resend, company email memory selection and
+  removal, guarded optimistic-lock mutations, sent/open state refresh, i18n,
+  and focused Playwright coverage. Validation and review remain pending.
+
 - 2026-09-10: Reconciled CAP-005 documentation with its three implementation
   commits. The M7 backend contract is complete; payment-confirmation browser UI
   and browser acceptance remain M9 work. Recorded DEC-037 for exact unique

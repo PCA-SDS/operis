@@ -585,6 +585,16 @@ Definition of done:
 
 ## M9 UI Parity
 
+Progress update (2026-09-14):
+
+- Implemented the invoice-detail CAP-001/CAP-006 send UX slice: AR-only
+  send/resend, remembered company recipient selection and removal, manual
+  recipient validation, guarded optimistic-lock send integration, and
+  backend-derived sent/open state refresh.
+- Added focused browser coverage in
+  `TC-INV-004-send-company-email-memory.spec.ts`. Execution and review remain
+  pending.
+
 Dependencies:
 
 - API contracts for each page action.
