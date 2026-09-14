@@ -414,8 +414,8 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
   return (
     <>
       {error ? <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div> : null}
-      <form className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(340px,460px)]" onSubmit={onSubmit}>
-        <div className="space-y-4 rounded-lg border bg-card p-4">
+      <form className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(340px,460px)]" onSubmit={onSubmit}>
+        <div className="min-w-0 space-y-4 rounded-lg border bg-card p-4">
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.templateKey.help', 'Unique code used by automation and imports. Use lowercase letters, numbers, dots, dashes, or underscores.')}>{t('email.templates.form.templateKey.label', 'Template key')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.templateKey} onChange={(event) => setField('templateKey', event.target.value)} required /></label>
             <label className="block text-sm font-medium"><HelpLabel help={t('email.templates.form.name.help', 'Human-friendly name shown to users when choosing a template.')}>{t('email.templates.form.name.label', 'Name')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={value.name} onChange={(event) => setField('name', event.target.value)} required /></label>
@@ -568,7 +568,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
             <div className="flex gap-2"><Button type="button" variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.cancel', 'Cancel')}</Link></Button><Button type="submit" disabled={isSaving}>{isSaving ? t('email.common.saving', 'Saving…') : mode === 'create' ? t('email.templates.form.createSubmit', 'Create Template') : t('email.templates.form.saveSubmit', 'Save Template')}</Button></div>
           </div>
         </div>
-        <aside className="space-y-4 self-start rounded-lg border bg-card p-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-auto">
+        <aside className="min-w-0 space-y-4 self-start rounded-lg border bg-card p-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-auto">
           <div><h2 className="font-semibold"><HelpLabel help={t('email.templates.preview.help', 'Shows how the subject and body will look using sample values. Use Compose Email later to choose a specific company.')}>{t('email.templates.preview.title', 'Live preview')}</HelpLabel></h2><p className="text-sm text-muted-foreground">{t('email.templates.preview.description', 'Preview uses sample/default values only and does not send email.')}</p></div>
           {previewError ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{previewError}</div> : null}
           <div className="rounded-md border bg-background p-3">
@@ -577,7 +577,7 @@ export function TemplateBuilderForm({ mode, value, error, isSaving, onChange, on
           </div>
           <div className="rounded-md border bg-background p-3">
             <div className="flex items-center justify-between gap-2"><div className="text-xs uppercase text-muted-foreground">{t('email.templates.preview.emailBody', 'Email body')}</div><Button type="button" size="sm" variant="ghost" onClick={copyPreviewBody}>{copied === 'body' ? t('email.common.copied', 'Copied') : t('email.templates.preview.copyBody', 'Copy body')}</Button></div>
-            <iframe className="mt-2 h-96 w-full rounded border bg-white" sandbox="" srcDoc={`<!doctype html><html><body style="font-family:Arial,sans-serif;color:#111827;line-height:1.5;padding:16px">${previewHtml}</body></html>`} title={t('email.templates.preview.iframeTitle', 'Email template preview')} />
+            <iframe className="mt-2 h-[min(24rem,70vh)] min-h-64 w-full rounded border bg-white" sandbox="" srcDoc={`<!doctype html><html><body style="font-family:Arial,sans-serif;color:#111827;line-height:1.5;padding:16px">${previewHtml}</body></html>`} title={t('email.templates.preview.iframeTitle', 'Email template preview')} />
           </div>
         </aside>
       </form>

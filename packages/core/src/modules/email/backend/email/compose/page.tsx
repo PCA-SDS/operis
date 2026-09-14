@@ -323,12 +323,12 @@ export default function EmailComposePreviewPage() {
   return (
     <Page>
       <PageBody>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-stretch justify-between gap-3 sm:items-center">
           <div>
             <h1 className="text-2xl font-semibold">{t('email.compose.title', 'Compose Email')}</h1>
             <p className="text-sm text-muted-foreground">{t('email.compose.description', 'Preview a published tenant template with selected company/contact and accounting values. This does not send email.')}</p>
           </div>
-          <Button variant="secondary" asChild><Link href="/backend/email/templates">{t('email.compose.backToTemplates', 'Back to Templates')}</Link></Button>
+          <Button className="w-full sm:w-auto" variant="secondary" asChild><Link href="/backend/email/templates">{t('email.compose.backToTemplates', 'Back to Templates')}</Link></Button>
         </div>
         {error ? <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div> : null}
         {!isLoading && !hasTemplates ? (
@@ -341,8 +341,8 @@ export default function EmailComposePreviewPage() {
             {t('email.compose.empty.companies', 'No companies are available. Create or select a customer company before composing email.')}
           </div>
         ) : null}
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-          <section className="space-y-4 rounded-lg border bg-card p-4">
+        <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+          <section className="min-w-0 space-y-4 rounded-lg border bg-card p-4">
             <label className="block text-sm font-medium"><HelpLabel help={t('email.compose.template.help', 'Choose a published tenant-owned template. Draft and archived templates are not available here.')}>{t('email.compose.template.label', 'Template')}</HelpLabel>
               <select className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" disabled={isLoading || templates.length === 0} value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
                 {templates.length ? templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>) : <option value="">{t('email.compose.template.nonePublished', 'No published templates')}</option>}
@@ -399,7 +399,7 @@ export default function EmailComposePreviewPage() {
               </div>
             </section>
           </section>
-          <aside className="space-y-4 rounded-lg border bg-card p-4">
+          <aside className="min-w-0 space-y-4 rounded-lg border bg-card p-4">
             <div><h2 className="font-semibold"><HelpLabel help={t('email.compose.preview.help', 'Shows the email output using the selected template, company, linked people, and accounting values.')}>{t('email.compose.preview.title', 'Live preview')}</HelpLabel></h2><p className="text-sm text-muted-foreground">{t('email.compose.preview.description', 'System variables come from the selected company and linked people; this page lets users verify output before sending exists.')}</p></div>
             <DraftPartCard copied={copiedPart === 'recipients'} copiedLabel={t('email.common.copied', 'Copied')} copyLabel={t('email.common.copy', 'Copy')} label={t('email.compose.preview.to', 'To')} onCopy={() => void copyDraftPart('recipients')}>
               <div className="mt-1 font-medium">{effectiveRecipientEmails || t('email.compose.preview.noRecipients', 'No recipients selected')}</div>
@@ -409,7 +409,7 @@ export default function EmailComposePreviewPage() {
             </DraftPartCard>
             <DraftPartCard copied={copiedPart === 'body'} copiedLabel={t('email.common.copied', 'Copied')} copyLabel={t('email.common.copy', 'Copy')} label={t('email.templates.preview.emailBody', 'Email body')} onCopy={() => void copyDraftPart('body')}>
               {selectedTemplate ? (
-                <iframe className="mt-2 h-[560px] w-full rounded border bg-white" sandbox="" srcDoc={`<!doctype html><html><body style="font-family:Arial,sans-serif;color:#111827;line-height:1.5;padding:16px">${previewHtml}</body></html>`} title={t('email.compose.preview.iframeTitle', 'Email compose preview')} />
+                <iframe className="mt-2 h-[min(560px,70vh)] min-h-80 w-full rounded border bg-white" sandbox="" srcDoc={`<!doctype html><html><body style="font-family:Arial,sans-serif;color:#111827;line-height:1.5;padding:16px">${previewHtml}</body></html>`} title={t('email.compose.preview.iframeTitle', 'Email compose preview')} />
               ) : (
                 <div className="mt-2 rounded-md border border-dashed p-4 text-sm text-muted-foreground">{t('email.compose.preview.emptyBody', 'Select a published template to preview the email body.')}</div>
               )}

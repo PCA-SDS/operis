@@ -116,9 +116,9 @@ export default function EmailTemplatesPage() {
   return (
     <Page>
       <PageBody>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-stretch justify-between gap-3 sm:items-center">
           <form
-            className="flex min-w-0 flex-1 gap-2"
+            className="flex w-full min-w-0 gap-2 sm:flex-1"
             onSubmit={(event) => {
               event.preventDefault()
               setPage(1)
@@ -133,10 +133,10 @@ export default function EmailTemplatesPage() {
             />
             <Button type="submit" variant="secondary">{t('email.common.search', 'Search')}</Button>
           </form>
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <label className="flex w-full min-w-0 items-center gap-2 text-sm text-muted-foreground sm:w-auto">
             <span>{t('email.templates.filters.status.label', 'Status')}</span>
             <select
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+              className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground sm:flex-none"
               value={statusFilter}
               onChange={(event) => {
                 setPage(1)
@@ -150,8 +150,8 @@ export default function EmailTemplatesPage() {
               <option value="all">{t('email.templates.filters.status.all', 'All statuses')}</option>
             </select>
           </label>
-          <div className="flex gap-2">
-            <Button asChild>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button className="w-full sm:w-auto" asChild>
               <Link href="/backend/email/templates/create">{t('email.templates.newTemplate', 'New Template')}</Link>
             </Button>
           </div>
