@@ -56,7 +56,7 @@ Parity status from the old PCA stories:
 | Template label/key/category/subject/body fields | Implemented as `name`, `template_key`, `category`, `subject`, and builder `blocks`. |
 | Template variables/default values/rules/sort order | Implemented in `variables` and `accounting_metadata`. |
 | Client/company compose workspace | Implemented as preview-only `/backend/email/compose` using scoped Customers APIs. |
-| Copy-ready generated draft | Implemented for recipients, subject, and rendered HTML body with plain-text fallback. Compose can also create an internal Operis Messages draft without sending email. |
+| Copy-ready generated draft | Implemented for recipients, subject, and rendered HTML body with plain-text fallback. |
 | Per-user Gmail connection / Gmail draft creation | Not implemented in this module yet. Operis communication-channel send-as-user currently creates an outbound message and enqueues real delivery; `channel-gmail` sends via `gmail.users.messages.send`. PCA-style Gmail Drafts need a future communication-channel draft bridge instead of a direct Gmail call from this module. |
 | Seed five PCA templates for all tenants | Intentionally not implemented; PCA templates are source data for the PCA tenant only. |
 | Real email sending | Intentionally deferred to Gmail/IMAP/SMTP channel integrations. |
@@ -111,3 +111,10 @@ No rule path should hard-code PCA behavior in app bootstrap or another module.
 - User-editable writes use optimistic-lock headers.
 - The custom accounting-defaults route runs mutation guards before saving.
 - Search indexes only templates and excludes large/sensitive payload fields: `design`, `blocks`, and `accounting_metadata`.
+
+## Deployment And Migration
+
+- `Migration20260903142415_email` creates the tenant-scoped template and accounting-default tables.
+- `Migration20260911143000_pca_email_templates` imports the five PCA templates with complete body HTML, builder blocks, variables, and rule metadata only for PCA-matched tenants/organizations.
+- `Migration20260914150000_pca_email_template_body_backfill` repairs PCA rows created by an earlier incomplete migration when their body is empty or malformed. It does not overwrite non-empty template bodies.
+- Run the normal application migration step after merging to `main`; do not seed or copy template rows manually. Non-PCA tenants intentionally remain empty until they create their own templates.
