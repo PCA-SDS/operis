@@ -13,6 +13,7 @@
 
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { assign } from '@mikro-orm/core'
+import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import {
   ResourcesAssignment,
   ResourcesResource,
@@ -43,6 +44,7 @@ export interface AssignmentUpsertParams {
 
   // Audit
   userId?: string | null
+  expectedUpdatedAt?: string
 }
 
 export interface AssignmentDTO {
@@ -308,6 +310,12 @@ export class ResourceAssignmentService {
     let assignment: ResourcesAssignment
 
     if (existingDraft) {
+      enforceCommandOptimisticLock({
+        resourceKind: 'resources.assignment',
+        resourceId: existingDraft.id,
+        current: existingDraft.updatedAt,
+        expected: params.expectedUpdatedAt,
+      })
       this.em.assign(existingDraft, {
         resource: params.resourceId,
         startsAt: params.startsAt,
@@ -317,6 +325,14 @@ export class ResourceAssignmentService {
       })
       assignment = existingDraft
     } else {
+      if (params.expectedUpdatedAt) {
+        enforceCommandOptimisticLock({
+          resourceKind: 'resources.assignment',
+          resourceId: params.sourceEntityId,
+          current: null,
+          expected: params.expectedUpdatedAt,
+        })
+      }
       assignment = this.em.create(ResourcesAssignment, {
         tenantId: params.tenantId,
         organizationId: params.organizationId,
@@ -348,6 +364,7 @@ export class ResourceAssignmentService {
     sourceModule: string
     sourceEntityType: string
     sourceEntityId: string
+    expectedUpdatedAt?: string
   }): Promise<void> {
     const existing = await this.em.findOne(ResourcesAssignment, {
       tenantId: params.tenantId,
@@ -360,9 +377,22 @@ export class ResourceAssignmentService {
     })
 
     if (existing) {
+      enforceCommandOptimisticLock({
+        resourceKind: 'resources.assignment',
+        resourceId: existing.id,
+        current: existing.updatedAt,
+        expected: params.expectedUpdatedAt,
+      })
       existing.cancelledAt = new Date()
       existing.updatedAt = new Date()
       await this.em.flush()
+    } else if (params.expectedUpdatedAt) {
+      enforceCommandOptimisticLock({
+        resourceKind: 'resources.assignment',
+        resourceId: params.sourceEntityId,
+        current: null,
+        expected: params.expectedUpdatedAt,
+      })
     }
   }
 
@@ -377,6 +407,7 @@ export class ResourceAssignmentService {
     sourceEntityType: string
     sourceEntityId: string
     userId?: string | null
+    expectedUpdatedAt?: string
   }): Promise<AssignmentDTO[]> {
     // Get all drafts for this source
     const drafts = await this.em.find(ResourcesAssignment, {
@@ -390,8 +421,23 @@ export class ResourceAssignmentService {
     })
 
     if (drafts.length === 0) {
+      if (params.expectedUpdatedAt) {
+        enforceCommandOptimisticLock({
+          resourceKind: 'resources.assignment',
+          resourceId: params.sourceEntityId,
+          current: null,
+          expected: params.expectedUpdatedAt,
+        })
+      }
       return []
     }
+
+    enforceCommandOptimisticLock({
+      resourceKind: 'resources.assignment',
+      resourceId: drafts[0].id,
+      current: drafts[0].updatedAt,
+      expected: params.expectedUpdatedAt,
+    })
 
     // Find and cancel any existing confirmed assignments
     const confirmed = await this.em.find(ResourcesAssignment, {

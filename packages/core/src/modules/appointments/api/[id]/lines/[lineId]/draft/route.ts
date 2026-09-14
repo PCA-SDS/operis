@@ -5,6 +5,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import {
   runCrudMutationGuardAfterSuccess,
@@ -19,6 +20,7 @@ const upsertDraftSchema = z.object({
   startsAt: z.string().datetime(),
   endsAt: z.string().datetime(),
   assignedMemberId: z.string().uuid().nullable().optional(),
+  expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
 })
 
 export type RouteContext = { params: Promise<{ id: string; lineId: string }> }
@@ -98,6 +100,7 @@ export async function PUT(req: Request, ctx: RouteContext) {
       endsAt: new Date(body.endsAt),
       assignedMemberId: body.assignedMemberId ?? null,
       userId: auth.userId ?? null,
+      expectedUpdatedAt: body.expectedUpdatedAt,
     })
     if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
       await runCrudMutationGuardAfterSuccess(container, {
@@ -116,6 +119,10 @@ export async function PUT(req: Request, ctx: RouteContext) {
     return NextResponse.json(assignment)
   } catch (error) {
     logger.error('Seat planner draft save failed', { error })
+
+    if (isCrudHttpError(error)) {
+      return NextResponse.json(error.body, { status: error.status })
+    }
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -231,11 +238,14 @@ export async function DELETE(req: Request, ctx: RouteContext) {
 
     const service = new AppointmentSeatPlannerService(em)
 
+    const expectedUpdatedAt = req.headers.get('x-om-ext-optimistic-lock-expected-updated-at') ?? undefined
+
     await service.clearDraft({
       appointmentId,
       lineId,
       tenantId: auth.tenantId,
       organizationId,
+      expectedUpdatedAt,
     })
     if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
       await runCrudMutationGuardAfterSuccess(container, {
@@ -254,6 +264,10 @@ export async function DELETE(req: Request, ctx: RouteContext) {
     return NextResponse.json({ success: true })
   } catch (error) {
     logger.error('Seat planner draft clear failed', { error })
+
+    if (isCrudHttpError(error)) {
+      return NextResponse.json(error.body, { status: error.status })
+    }
 
     if (error instanceof Error) {
       const code = (error as Error & { code?: string }).code

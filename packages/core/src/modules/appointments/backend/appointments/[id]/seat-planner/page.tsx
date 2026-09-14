@@ -68,6 +68,7 @@ type SeatPlannerLine = {
     endsAt: string
     assignedMemberId?: string | null
     assignedMemberName?: string | null
+    updatedAt: string
   }
 }
 
@@ -121,6 +122,7 @@ type PlannerAllocation = {
   state: 'draft' | 'confirmed'
   assignedMemberId?: string | null
   assignedMemberName?: string | null
+  updatedAt: string
   laneIndex: number
   lanesCount: number
 }
@@ -134,6 +136,7 @@ type DraftAssignmentResult = {
   endsAt: string
   assignedMemberId?: string | null
   assignedMemberName?: string | null
+  updatedAt: string
 }
 
 type StaffMember = { id: string; displayName: string; roleLabel: string }
@@ -1064,6 +1067,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
           ?? (line.currentAssignment.assignedMemberId
             ? staffMembers.find((member) => member.id === line.currentAssignment?.assignedMemberId)?.displayName ?? null
             : null),
+        updatedAt: line.currentAssignment.updatedAt,
         laneIndex: 0,
         lanesCount: 1,
       })
@@ -1152,6 +1156,9 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       assignedMemberId: assignedMemberId === undefined
         ? line.currentAssignment?.assignedMemberId ?? null
         : assignedMemberId,
+      ...(line.currentAssignment?.state === 'draft' && line.currentAssignment.updatedAt
+        ? { expectedUpdatedAt: line.currentAssignment.updatedAt }
+        : {}),
     }
     const resourceName = seatColumns.find((resource) => resource.id === resourceId)?.name ?? null
     const assignedMemberName = body.assignedMemberId
@@ -1166,6 +1173,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       endsAt: body.endsAt,
       assignedMemberId: body.assignedMemberId,
       assignedMemberName,
+      updatedAt: line.currentAssignment?.updatedAt ?? '',
     }
     setWorkspace((current) => current ? {
       ...current,
@@ -1192,6 +1200,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             endsAt: assignment.endsAt,
             assignedMemberId: assignment.assignedMemberId ?? null,
             assignedMemberName: assignment.assignedMemberName ?? assignedMemberName,
+            updatedAt: assignment.updatedAt,
           },
         } : entry),
       } : current)
@@ -1218,7 +1227,10 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     } : current)
     try {
       await guardedMutation.runMutation({
-        operation: () => readApiResultOrThrow(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/lines/${encodeURIComponent(lineId)}/draft`, { method: 'DELETE' }),
+        operation: () => readApiResultOrThrow(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/lines/${encodeURIComponent(lineId)}/draft`, {
+          method: 'DELETE',
+          headers: buildOptimisticLockHeader(workspace.lines.find((line) => line.id === lineId)?.currentAssignment?.updatedAt),
+        }),
         context: { appointmentId: workspace.appointment.id, lineId, resourceKind: 'appointments.seatPlannerDraft' },
         mutationPayload: { appointmentId: workspace.appointment.id, lineId },
       })
@@ -1310,7 +1322,15 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const handleConfirmAll = React.useCallback(async () => {
     if (!workspace) return
     await guardedMutation.runMutation({
-      operation: () => readApiResultOrThrow(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/confirm-drafts`, { method: 'POST' }),
+      operation: () => readApiResultOrThrow(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/confirm-drafts`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          expectedAssignments: workspace.lines.flatMap((line) => line.currentAssignment?.state === 'draft'
+            ? [{ lineId: line.id, updatedAt: line.currentAssignment.updatedAt }]
+            : []),
+        }),
+      }),
       context: { appointmentId: workspace.appointment.id, resourceKind: 'appointments.seatPlanner' },
       mutationPayload: { appointmentId: workspace.appointment.id },
     })
@@ -1419,6 +1439,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         state: assignment.state,
         assignedMemberId: assignment.assignedMemberId,
         assignedMemberName: assignment.assignedMemberName,
+        updatedAt: assignment.updatedAt,
         laneIndex: 0,
         lanesCount: 1,
       })

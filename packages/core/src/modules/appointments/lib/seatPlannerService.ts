@@ -13,6 +13,7 @@ import { CatalogProductOption, CatalogProductOptionGroup } from '@open-mercato/c
 import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
 import { getMergedAvailabilityWindows } from '@open-mercato/core/modules/planner/lib/availabilityMerge'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
 import { Appointment, AppointmentLine, AppointmentLineOptionGroup } from '../data/entities'
 import { loadLineOptionSnapshots, resolveDurationMinutes } from './lineOptionSnapshot'
@@ -67,6 +68,7 @@ export interface SeatPlannerWorkspace {
     assignedMemberId?: string | null
     assignedMemberName?: string | null
     customerSalutation: string | null
+    updatedAt: string
   }>
   resources: Array<{
     id: string
@@ -126,6 +128,7 @@ export interface UpsertDraftParams {
   startsAt: Date
   endsAt: Date
   assignedMemberId?: string | null
+  expectedUpdatedAt?: string
 }
 
 export interface UpdateStaffParams {
@@ -365,6 +368,7 @@ export class AppointmentSeatPlannerService {
         assignedMemberName: assignment.assignedMemberId
           ? assignedMemberNameById.get(assignment.assignedMemberId) ?? null
           : null,
+        updatedAt: assignment.updatedAt.toISOString(),
       }]
     }).filter((allocation) => allocation.resourceId.length > 0)
 
@@ -429,6 +433,7 @@ export class AppointmentSeatPlannerService {
                 assignedMemberName: assignment.assignedMemberId
                   ? assignedMemberNameById.get(assignment.assignedMemberId) ?? null
                   : null,
+                updatedAt: assignment.updatedAt,
               }
             : undefined,
         }
@@ -516,6 +521,7 @@ export class AppointmentSeatPlannerService {
       organizationIds: resourceOrganizationIds,
       excludeSourceEntityIds,
       includeDraftConflicts: true,
+      expectedUpdatedAt: params.expectedUpdatedAt,
     })
   }
 
@@ -527,6 +533,7 @@ export class AppointmentSeatPlannerService {
     lineId: string
     tenantId: string
     organizationId: string
+    expectedUpdatedAt?: string
   }): Promise<void> {
     // Validate line belongs to appointment
     const line = await this.em.findOne(AppointmentLine, {
@@ -549,6 +556,7 @@ export class AppointmentSeatPlannerService {
       sourceModule: 'appointment',
       sourceEntityType: 'appointment_line',
       sourceEntityId: params.lineId,
+      expectedUpdatedAt: params.expectedUpdatedAt,
     })
   }
 
@@ -619,6 +627,7 @@ export class AppointmentSeatPlannerService {
     tenantId: string
     organizationId: string
     userId?: string | null
+    expectedAssignments?: Array<{ lineId: string; updatedAt: string }>
   }): Promise<AssignmentDTO[]> {
     // Load lines to get all sourceEntityIds
     const lines = await this.em.find(
@@ -632,6 +641,31 @@ export class AppointmentSeatPlannerService {
     )
 
     const allAssignments: AssignmentDTO[] = []
+    const expectedByLineId = new Map(
+      (params.expectedAssignments ?? []).map((assignment) => [assignment.lineId, assignment]),
+    )
+
+    if (expectedByLineId.size > 0) {
+      const expectedLineIds = Array.from(expectedByLineId.keys())
+      const drafts = await this.em.find(ResourcesAssignment, {
+        tenantId: params.tenantId,
+        organizationId: params.organizationId,
+        sourceModule: 'appointment',
+        sourceEntityType: 'appointment_line',
+        sourceEntityId: { $in: expectedLineIds },
+        state: 'draft',
+        cancelledAt: null,
+      })
+      for (const lineId of expectedLineIds) {
+        const draft = drafts.find((assignment) => assignment.sourceEntityId === lineId)
+        enforceCommandOptimisticLock({
+          resourceKind: 'resources.assignment',
+          resourceId: draft?.id ?? lineId,
+          current: draft?.updatedAt ?? null,
+          expected: expectedByLineId.get(lineId)?.updatedAt,
+        })
+      }
+    }
 
     // Confirm drafts for each line
     for (const line of lines) {
@@ -642,6 +676,7 @@ export class AppointmentSeatPlannerService {
         sourceEntityType: 'appointment_line',
         sourceEntityId: line.id,
         userId: params.userId,
+        expectedUpdatedAt: expectedByLineId.get(line.id)?.updatedAt,
       })
       allAssignments.push(...assignments)
     }

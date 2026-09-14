@@ -5,6 +5,8 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import {
   runCrudMutationGuardAfterSuccess,
@@ -17,6 +19,12 @@ type RouteContext = { params: Promise<{ id: string }> }
 
 const logger = createLogger('appointments').child({ component: 'seat-planner-confirm-api' })
 const uuidSchema = z.string().uuid()
+const confirmDraftsSchema = z.object({
+  expectedAssignments: z.array(z.object({
+    lineId: uuidSchema,
+    updatedAt: z.string().datetime({ offset: true }),
+  })).optional(),
+})
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['appointments.seat_planner.manage'] },
@@ -42,6 +50,8 @@ export async function POST(req: Request, ctx: RouteContext) {
         { status: 404 },
       )
     }
+
+    const body = confirmDraftsSchema.parse(await readJsonSafe(req, {}))
 
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
@@ -76,6 +86,7 @@ export async function POST(req: Request, ctx: RouteContext) {
       tenantId: auth.tenantId,
       organizationId,
       userId: auth.userId ?? null,
+      expectedAssignments: body.expectedAssignments,
     })
     if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
       await runCrudMutationGuardAfterSuccess(container, {
@@ -97,6 +108,12 @@ export async function POST(req: Request, ctx: RouteContext) {
     })
   } catch (error) {
     logger.error('Seat planner draft confirmation failed', { error })
+    if (isCrudHttpError(error)) {
+      return NextResponse.json(error.body, { status: error.status })
+    }
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Invalid request body', issues: error.issues }, { status: 400 })
+    }
     const message = error instanceof Error ? error.message : 'Failed to confirm drafts'
     return NextResponse.json({ error: message }, { status: 500 })
   }
