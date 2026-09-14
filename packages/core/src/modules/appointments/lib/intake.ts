@@ -1,4 +1,5 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
+import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { findOrCreatePersonForIntake } from '@open-mercato/core/modules/customers/lib/personLookup'
 import {
@@ -9,9 +10,14 @@ import { Appointment, AppointmentLine, AppointmentStatus } from '../data/entitie
 import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
 import { DEFAULT_PUBLIC_APPOINTMENT_STATUS_CODE } from '../data/constants'
 import { ensureSystemAppointmentStatuses } from '../setup'
-import type { AppointmentPublicCreateInput } from '../data/validators'
+import type { AppointmentPublicCreateInput, AppointmentStaffCreateInput } from '../data/validators'
 import { toAppointmentPhoneSnapshot } from './phoneSnapshot'
 import { snapshotLineOptions, deleteLineOptionSnapshots } from './lineOptionSnapshot'
+
+type StaffEditDeps = BookableServiceDeps & {
+  commandBus?: CommandBus
+  commandContext?: CommandRuntimeContext
+}
 
 export type CreatedAppointmentResult = {
   id: string
@@ -164,8 +170,8 @@ export async function createAppointmentFromPublicIntake(
 export async function updateAppointmentFromStaffEdit(
   em: EntityManager,
   id: string,
-  input: AppointmentPublicCreateInput,
-  deps: BookableServiceDeps,
+  input: AppointmentStaffCreateInput & { tenantId: string; organizationId: string },
+  deps: StaffEditDeps,
 ) {
   const appointment = await em.findOne(Appointment, { id, tenantId: input.tenantId, deletedAt: null })
   if (!appointment) {
@@ -333,6 +339,31 @@ export async function updateAppointmentFromStaffEdit(
   }
 
   await em.flush()
+
+  if (
+    input.updateCustomerProfile
+    && person.entityId === appointment.customerEntityId
+    && deps.commandBus
+    && deps.commandContext
+  ) {
+    await deps.commandBus.execute('customers.people.update', {
+      input: {
+        id: person.entityId,
+        displayName: customerName,
+        firstName: input.customer.firstName,
+        lastName: input.customer.lastName,
+        salutation: input.customer.salutation ?? null,
+        primaryEmail: input.customer.email ?? null,
+        primaryPhone: input.customer.phone,
+        phoneCountryCode: phoneSnapshot?.customerPhoneCountryCode ?? input.customer.phoneCountryCode ?? null,
+        phoneCountry: input.customer.phoneCountry ?? null,
+        source: input.customer.source,
+        origin: input.customer.origin,
+        ...(input.customerUpdatedAt ? { expectedUpdatedAt: input.customerUpdatedAt } : {}),
+      },
+      ctx: deps.commandContext,
+    })
+  }
 
   return {
     id: appointment.id,

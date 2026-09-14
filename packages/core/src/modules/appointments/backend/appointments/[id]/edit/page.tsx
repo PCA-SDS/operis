@@ -49,6 +49,8 @@ type FormValues = {
   time: string
   notes: string
   externalNotes: string
+  updateCustomerProfile: boolean
+  customerUpdatedAt: string | null
   serviceSelections: { productId: string, selectedOptions?: Record<string, unknown> }[]
 }
 
@@ -274,6 +276,8 @@ export function AppointmentEditForm({
           name: data.customerName || '',
           origin: data.customerOrigin || '',
           referral: data.customerSource || '',
+          updateCustomerProfile: false,
+          customerUpdatedAt: data.customerUpdatedAt || null,
           location: data.organizationId || '',
           bookingType: data.bookingType || '',
           date: `${year}-${month}-${day}`,
@@ -473,6 +477,15 @@ export function AppointmentEditForm({
         ),
       },
       {
+        id: 'updateCustomerProfile',
+        label: t('appointments.edit.updateCustomerProfile', 'Update customer profile too'),
+        type: 'checkbox',
+        description: t(
+          'appointments.edit.updateCustomerProfileHint',
+          'Also update the shared customer profile with these details.',
+        ),
+      },
+      {
         id: 'location',
         label: t('appointments.create.field.location'),
         type: 'custom',
@@ -628,7 +641,7 @@ export function AppointmentEditForm({
         id: 'customer',
         title: t('appointments.create.group.customer'),
         column: 1,
-        fields: ['phone', 'salutation', 'name', 'email', 'origin', 'referral'],
+        fields: ['phone', 'salutation', 'name', 'email', 'origin', 'referral', 'updateCustomerProfile'],
       },
       {
         id: 'visit',
@@ -729,6 +742,10 @@ export function AppointmentEditForm({
                       notes: values.notes.trim() || null,
                       externalNotes: values.externalNotes.trim() || null,
                       bookingType: values.bookingType,
+                      updateCustomerProfile: values.updateCustomerProfile === true,
+                      ...(values.updateCustomerProfile && values.customerUpdatedAt
+                        ? { customerUpdatedAt: values.customerUpdatedAt }
+                        : {}),
                       customer: {
                         firstName,
                         lastName,

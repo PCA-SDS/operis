@@ -58,6 +58,8 @@ export const appointmentPublicCreateSchema = appointmentCreateFieldsSchema.exten
 /** Staff create: tenant from auth; organization from body or auth org. */
 export const appointmentStaffCreateSchema = appointmentCreateFieldsSchema.extend({
   organizationId: uuid().optional(),
+  updateCustomerProfile: z.boolean().optional().default(false),
+  customerUpdatedAt: z.string().datetime({ offset: true }).optional(),
 })
 
 export const appointmentStatusUpdateSchema = z.object({
