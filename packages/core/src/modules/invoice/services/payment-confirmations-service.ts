@@ -51,6 +51,22 @@ export type InvoiceIncomingPaymentConfirmationResult = {
   invoice: InvoiceDetailDto
 }
 
+export type InvoicePaymentConfirmationView = {
+  status: 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'EXPIRED'
+  expiresAt: string
+}
+
+export type InvoicePaymentConfirmationPresentation = {
+  wholeInvoice: InvoicePaymentConfirmationView | null
+  installments: Record<string, InvoicePaymentConfirmationView>
+  incoming: {
+    confirmationId: string
+    payerName: string | null
+    amount: string
+    currencyCode: string
+  } | null
+}
+
 type IncomingPaymentConfirmationMatch = {
   receiverInvoice: Invoice
   confirmation: InvoicePaymentConfirmation
@@ -259,6 +275,71 @@ export class InvoicePaymentConfirmationsService {
 
   async rejectPublic(rawToken: string): Promise<InvoicePaymentConfirmationPublicTransition> {
     return this.transitionPublic(rawToken, 'REJECTED')
+  }
+
+  async getPresentationState(
+    scope: InvoiceScope,
+    invoice: InvoiceDetailDto,
+  ): Promise<InvoicePaymentConfirmationPresentation> {
+    const now = new Date()
+    const confirmations = await this.em.find(InvoicePaymentConfirmation, {
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+      invoice: invoice.id,
+    }, {
+      populate: ['installment'] as never[],
+      orderBy: { createdAt: 'desc' },
+    })
+    const result: InvoicePaymentConfirmationPresentation = {
+      wholeInvoice: null,
+      installments: {},
+      incoming: null,
+    }
+    for (const confirmation of confirmations) {
+      const view: InvoicePaymentConfirmationView = {
+        status: confirmation.status === 'PENDING' && confirmation.expiresAt <= now
+          ? 'EXPIRED'
+          : confirmation.status,
+        expiresAt: confirmation.expiresAt.toISOString(),
+      }
+      const installmentId = confirmation.installment?.id ?? null
+      if (installmentId) {
+        if (!result.installments[installmentId]) result.installments[installmentId] = view
+      } else if (!result.wholeInvoice) {
+        result.wholeInvoice = view
+      }
+    }
+
+    if (invoice.direction === 'AR') {
+      const incoming = await this.em.find(InvoicePaymentConfirmation, {
+        status: 'PENDING',
+        expiresAt: { $gt: now },
+        installment: null,
+        invoice: {
+          direction: 'AP',
+          deletedAt: null,
+          sellerTaxCode: invoice.sellerTaxCode,
+          buyerTaxCode: invoice.buyerTaxCode,
+          invoiceSymbol: invoice.invoiceSymbol,
+          invoiceNumber: invoice.invoiceNumber,
+          invoiceDate: invoice.invoiceDate ? new Date(invoice.invoiceDate) : null,
+        },
+      }, {
+        populate: ['invoice'] as never[],
+        orderBy: { createdAt: 'desc' },
+        limit: 2,
+      })
+      if (incoming.length === 1) {
+        const claim = incoming[0]
+        result.incoming = {
+          confirmationId: claim.id,
+          payerName: claim.invoice.buyerName ?? null,
+          amount: claim.invoice.outstandingAmount ?? '0',
+          currencyCode: claim.invoice.currencyCode,
+        }
+      }
+    }
+    return result
   }
 
   private async findIncoming(

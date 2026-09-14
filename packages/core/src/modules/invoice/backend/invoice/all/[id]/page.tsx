@@ -11,6 +11,11 @@ import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { InvoiceSendPanel } from '../../components/InvoiceSendPanel'
+import {
+  IncomingPaymentConfirmationPanel,
+  InvoicePaymentConfirmationPanel,
+  type PaymentConfirmationState,
+} from '../../components/InvoicePaymentConfirmationPanel'
 
 type Invoice = {
   id: string
@@ -42,6 +47,7 @@ type Invoice = {
   updatedAt: string | null
   lineItems: Array<{ id: string; lineNumber: number; name: string; quantity: string | null; unitPrice: string | null; vatRate: string | null; lineTotal: string }>
   installments: Array<{ id: string; sequence: number; principalAmount: string; interestAmount: string; totalAmount: string; dueDate: string | null; status: string }>
+  paymentConfirmation?: PaymentConfirmationState
 }
 
 type DetailState = 'loading' | 'error' | 'notFound' | 'ready'
@@ -196,6 +202,8 @@ export default function InvoiceDetailPage() {
 
           <aside className="space-y-4 lg:sticky lg:top-5">
             {invoice.direction === 'AR' ? <InvoiceSendPanel invoice={invoice} onSent={load} /> : null}
+            {invoice.direction === 'AP' ? <InvoicePaymentConfirmationPanel invoice={invoice} onChanged={load} /> : null}
+            {invoice.direction === 'AR' ? <IncomingPaymentConfirmationPanel invoice={invoice} onChanged={load} /> : null}
             <section className="rounded-xl border border-border bg-surface p-5">
               <h2 className="border-b border-border pb-3 text-xs font-semibold text-muted-foreground">{t('invoice.detail.summary')}</h2>
               <div className="space-y-3 pt-4 text-sm">

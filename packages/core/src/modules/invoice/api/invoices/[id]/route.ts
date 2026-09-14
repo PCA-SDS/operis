@@ -6,6 +6,7 @@ import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-muta
 import { invoiceManualUpdateSchema } from '../../../data/validators'
 import type { InvoiceScope } from '../../../data/scope'
 import type { InvoiceService } from '../../../services/invoice-service'
+import type { InvoicePaymentConfirmationsService } from '../../../services/payment-confirmations-service'
 import type {
   InvoiceManualDeleteCommandResult,
   InvoiceManualUpdateCommandResult,
@@ -49,8 +50,16 @@ export async function GET(req: Request, routeContext: RouteContext = {}) {
     routeScope = context.scope
     const service = context.container.resolve<InvoiceService>('invoiceService')
     const invoice = await service.getInvoiceDetail(context.scope, params.id)
+    const cradle = context.container as typeof context.container & {
+      hasRegistration?: (name: string) => boolean
+    }
+    let paymentConfirmation
+    if (typeof cradle.hasRegistration === 'function' && cradle.hasRegistration('invoicePaymentConfirmationsService')) {
+      const confirmations = cradle.resolve<InvoicePaymentConfirmationsService>('invoicePaymentConfirmationsService')
+      paymentConfirmation = await confirmations.getPresentationState(context.scope, invoice)
+    }
 
-    return NextResponse.json(invoice)
+    return NextResponse.json({ ...invoice, paymentConfirmation })
   } catch (err) {
     return handleInvoiceInvoiceRouteError(err, 'get invoice detail', routeScope, invoiceId)
   }
