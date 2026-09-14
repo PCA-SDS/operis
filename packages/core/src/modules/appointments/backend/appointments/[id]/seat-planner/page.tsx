@@ -39,6 +39,7 @@ import { AppointmentStatusBadge } from '@open-mercato/core/modules/appointments/
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { resolveRegisteredLucideIconNode } from '@open-mercato/ui/backend/icons/lucideRegistry'
 import { AppointmentServicePicker, type AppointmentBookableService, type AppointmentServiceSelection } from '@open-mercato/core/modules/appointments/components/AppointmentServicePicker'
+import { AppointmentEditForm } from '../edit/page'
 
 const START_HOUR = 8
 const END_HOUR = 22
@@ -368,14 +369,14 @@ function BookingSidebar(props: {
   activeLineId: string | null
   canManage: boolean
   isSaving: boolean
-  editHref: string
   onSelectLine: (lineId: string) => void
   onClearLine: (lineId: string) => void
   onRemoveLine: (lineId: string) => void
-  onPreviewAction: () => void
+  onEdit: () => void
+  onPayment: () => void
   onAddService: () => void
 }) {
-  const { workspace, activeLineId, canManage, isSaving, editHref, onSelectLine, onClearLine, onRemoveLine, onPreviewAction, onAddService } = props
+  const { workspace, activeLineId, canManage, isSaving, onSelectLine, onClearLine, onRemoveLine, onEdit, onPayment, onAddService } = props
   const t = useT()
   const assigned = workspace.lines.filter((line) => line.currentAssignment).length
   const customerInitials = workspace.appointment.customerName
@@ -420,10 +421,8 @@ function BookingSidebar(props: {
           </div>
         </div>
         <div className="mt-4 flex gap-2">
-          <Button asChild type="button" size="sm" variant="outline" className="flex-1">
-            <Link href={editHref}>{t('appointments.seatPlanner.edit', 'Edit')}</Link>
-          </Button>
-          <Button type="button" size="sm" variant="outline" className="flex-1" onClick={onPreviewAction}>{t('appointments.seatPlanner.payment', 'Payment')}</Button>
+          <Button type="button" size="sm" variant="outline" className="flex-1" onClick={onEdit}>{t('appointments.seatPlanner.edit', 'Edit')}</Button>
+          <Button type="button" size="sm" variant="outline" className="flex-1" onClick={onPayment}>{t('appointments.seatPlanner.payment', 'Payment')}</Button>
         </div>
       </div>
 
@@ -881,6 +880,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
   const [popoverState, setPopoverState] = React.useState<PopoverState | null>(null)
   const [staffSheetTarget, setStaffSheetTarget] = React.useState<StaffSheetTarget | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false)
   const [isAddServiceOpen, setIsAddServiceOpen] = React.useState(false)
   const [bookableServices, setBookableServices] = React.useState<AppointmentBookableService[]>([])
   const [selectedServices, setSelectedServices] = React.useState<AppointmentServiceSelection[]>([])
@@ -1467,11 +1467,11 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                   activeLineId={activeLineId}
                   canManage
                   isSaving={isSaving}
-                  editHref={`/backend/appointments/${workspace.appointment.id}/edit`}
                   onSelectLine={handleLineSelect}
                   onClearLine={(lineId) => void clearDraft(lineId)}
                   onRemoveLine={(lineId) => void removeLine(lineId)}
-                  onPreviewAction={() => flash(t('appointments.seatPlanner.frontendPreview', 'This action is wired as a frontend preview for now.'), 'info')}
+                  onEdit={() => setIsEditDialogOpen(true)}
+                  onPayment={() => flash(t('appointments.seatPlanner.frontendPreview', 'This action is wired as a frontend preview for now.'), 'info')}
                   onAddService={() => {
                     setSelectedServices([])
                     setIsAddServiceOpen(true)
@@ -1619,6 +1619,19 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             onLoadMore={() => void loadStaffPage(staffPageRef.current + 1)}
           />
         ) : null}
+
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent size="xl" className="max-h-[90dvh] overflow-x-hidden overflow-y-auto px-4 sm:px-6" disableBodyWrap>
+            <AppointmentEditForm
+              params={{ id: workspace.appointment.id }}
+              embedded
+              onSaved={async () => {
+                setIsEditDialogOpen(false)
+                await loadWorkspace(undefined, false)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
 
         <Dialog
           open={isAddServiceOpen}
