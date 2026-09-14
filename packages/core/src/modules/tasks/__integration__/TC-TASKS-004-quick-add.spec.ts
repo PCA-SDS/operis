@@ -21,7 +21,7 @@ test.describe('TC-TASKS-004: quick add', () => {
     const labelIds: string[] = []
 
     try {
-      const project = await createProject(ctx, { key: 'QADD1', name: 'Quickadd' })
+      const project = await createProject(ctx, { name: 'Quickadd' })
       projectIds.push(project.id)
       const label = await createLabel(ctx, { name: `qa-${Date.now()}` })
       labelIds.push(label.id)
