@@ -354,6 +354,12 @@ This is a pre-implementation spec. Compliance requirements for implementation:
 
 ## Changelog
 
+- 2026-09-14: Added the CAP-003/CAP-004 Invoice settings UI at
+  `/backend/invoice/settings`: partner search and optimistic-lock-aware terms
+  editing, Auto-Paid candidate/manual rule creation and confirmed removal,
+  backend-state refresh after writes, invoice-detail Auto-Paid reversal, i18n,
+  and Playwright browser coverage.
+
 - 2026-09-14: Implemented the CAP-001/CAP-006 invoice-send UI slice on the
   invoice detail page: AR-only send/resend, company email memory selection and
   removal, guarded optimistic-lock mutations, sent/open state refresh, i18n,

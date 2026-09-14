@@ -63,6 +63,7 @@ export function createInvoiceSyncService(
   const status = (job: InvoiceSyncJob) => ({
     jobId: job.id, state: job.state, progress: job.progress, fromDate: job.fromDate.toISOString(), toDate: job.toDate.toISOString(),
     scopeTaxCodes: job.scopeTaxCodes, failureCategory: job.failureCategory ?? null, failureMessage: job.failureMessage ?? null,
+    counts: { processed: 0, imported: 0, updated: 0, skipped: 0, errors: 0, ...job.counts },
     progressJobId: job.progressJobId ?? null, createdAt: job.createdAt.toISOString(), updatedAt: job.updatedAt.toISOString(),
     startedAt: job.startedAt?.toISOString() ?? null, finishedAt: job.finishedAt?.toISOString() ?? null,
   })

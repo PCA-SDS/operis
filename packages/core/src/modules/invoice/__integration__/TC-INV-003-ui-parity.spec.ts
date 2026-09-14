@@ -30,3 +30,79 @@ test.describe('Invoice read surfaces', () => {
     await expect(page).toHaveURL(/\/backend\/invoice\/all\//)
   })
 })
+
+test.describe('Invoice settings', () => {
+  test('searches partners and saves only default due days', async ({ page }) => {
+    const partner = {
+      id: '00000000-0000-0000-0000-000000000011',
+      name: 'Acme Supplier',
+      taxCode: 'TAX-ACME',
+      countryCode: 'SG',
+      defaultDueDays: 30,
+      updatedAt: '2026-09-14T00:00:00.000Z',
+    }
+    let savedBody: unknown = null
+    let requestedSearch = ''
+
+    await page.route('**/api/invoice/partners?**', async (route) => {
+      const url = new URL(route.request().url())
+      requestedSearch = url.searchParams.get('search') ?? ''
+      await route.fulfill({
+        status: 200,
+        json: { items: [partner], total: 1, page: 1, pageSize: 20, totalPages: 1 },
+      })
+    })
+    await page.route(`**/api/invoice/partners/${partner.id}`, async (route) => {
+      savedBody = route.request().postDataJSON()
+      partner.defaultDueDays = 45
+      partner.updatedAt = '2026-09-14T00:01:00.000Z'
+      await route.fulfill({ status: 200, json: { ok: true, partner } })
+    })
+    await page.route('**/api/invoice/auto-paid', (route) => route.fulfill({ status: 200, json: { items: [] } }))
+    await page.route('**/api/invoice/auto-paid/candidates', (route) => route.fulfill({ status: 200, json: { items: [] } }))
+
+    await page.goto('/backend/invoice/settings')
+    await expect(page.getByRole('heading', { name: /invoice settings/i })).toBeVisible()
+    await page.getByRole('textbox', { name: /search partner companies/i }).fill('Acme')
+    await expect.poll(() => requestedSearch).toBe('Acme')
+    const terms = page.getByRole('textbox', { name: /default payment terms for Acme Supplier/i })
+    await terms.fill('45')
+    await terms.press('Enter')
+    await expect.poll(() => savedBody).toEqual({ defaultDueDays: 45 })
+  })
+
+  test('adds and removes an Auto-Paid rule, then refreshes backend state', async ({ page }) => {
+    const rule = { id: '00000000-0000-0000-0000-000000000021', taxCode: 'SUP-001', updatedAt: null }
+    let rules: typeof rule[] = []
+    let addCalls = 0
+    let removeCalls = 0
+
+    await page.route('**/api/invoice/partners?**', (route) => route.fulfill({ status: 200, json: { items: [], total: 0, page: 1, pageSize: 20, totalPages: 0 } }))
+    await page.route('**/api/invoice/auto-paid/candidates', (route) => route.fulfill({ status: 200, json: { items: [{ taxCode: 'SUP-001', invoiceCount: 3 }] } }))
+    await page.route('**/api/invoice/auto-paid', async (route) => {
+      if (route.request().method() === 'POST') {
+        addCalls += 1
+        rules = [rule]
+        await route.fulfill({ status: 200, json: { ok: true, ruleId: rule.id, taxCode: rule.taxCode, settledCount: 3 } })
+        return
+      }
+      await route.fulfill({ status: 200, json: { items: rules } })
+    })
+    await page.route(`**/api/invoice/auto-paid/${rule.id}`, async (route) => {
+      removeCalls += 1
+      rules = []
+      await route.fulfill({ status: 200, json: { ok: true, ruleId: rule.id, taxCode: rule.taxCode, revertedCount: 3 } })
+    })
+
+    await page.goto('/backend/invoice/settings')
+    await page.getByLabel(/supplier from existing payables/i).selectOption('SUP-001')
+    await page.getByRole('button', { name: /add selected/i }).click()
+    await expect.poll(() => addCalls).toBe(1)
+    await expect(page.getByText('SUP-001', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: /remove Auto-Paid rule for SUP-001/i }).click()
+    await expect(page.getByText(/remove Auto-Paid rule\?/i)).toBeVisible()
+    await page.getByRole('button', { name: /^remove$/i }).last().click()
+    await expect.poll(() => removeCalls).toBe(1)
+    await expect(page.getByText(/no Auto-Paid rules yet/i)).toBeVisible()
+  })
+})

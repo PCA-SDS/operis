@@ -364,6 +364,11 @@ export const invoiceSyncAuthenticateSchema = z.object({
 export const invoiceSyncJobStatusSchema = z.object({
   jobId: uuid(), state: invoiceSyncJobStateSchema, progress: z.number().int().min(0).max(100),
   fromDate: z.string().datetime(), toDate: z.string().datetime(), scopeTaxCodes: z.array(invoiceTaxCodeSchema),
+  counts: z.object({
+    processed: z.number().int().nonnegative(), imported: z.number().int().nonnegative(),
+    updated: z.number().int().nonnegative(), skipped: z.number().int().nonnegative(),
+    errors: z.number().int().nonnegative(),
+  }).strict(),
   failureCategory: invoiceSyncJobFailureCategorySchema.nullable(), failureMessage: z.string().nullable(),
   progressJobId: uuid().nullable(), createdAt: z.string().datetime(), updatedAt: z.string().datetime(),
   startedAt: z.string().datetime().nullable(), finishedAt: z.string().datetime().nullable(),

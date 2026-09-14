@@ -6,6 +6,9 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
+import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { InvoiceSendPanel } from '../../components/InvoiceSendPanel'
 
@@ -53,6 +56,8 @@ function displayMoney(value: string | null, currency: string | null) {
 
 export default function InvoiceDetailPage() {
   const t = useT()
+  const { confirm, ConfirmDialogElement } = useConfirmDialog()
+  const { runMutation, retryLastMutation, isPending: isReversingAutoPaid } = useGuardedMutation({ contextId: 'invoice.detail.reverse-auto-paid' })
   const router = useRouter()
   const params = useParams<{ id?: string }>()
   const pathname = usePathname()
@@ -88,6 +93,37 @@ export default function InvoiceDetailPage() {
 
   React.useEffect(() => { void load() }, [load])
 
+  const reverseAutoPaid = React.useCallback(async () => {
+    if (!invoice) return
+    const accepted = await confirm({
+      title: t('invoice.detail.reverseAutoPaid.title'),
+      text: t('invoice.detail.reverseAutoPaid.description'),
+      confirmText: t('invoice.detail.reverseAutoPaid.confirm'),
+      cancelText: t('invoice.settings.cancel'),
+      variant: 'destructive',
+    })
+    if (!accepted) return
+    try {
+      await runMutation({
+        operation: async () => {
+          const call = await apiCall<{ ok: true; reversed: true }>(
+            `/api/invoice/invoices/${encodeURIComponent(invoice.id)}/reverse-auto-paid`,
+            { method: 'PATCH' },
+            { fallback: null },
+          )
+          if (!call.ok || !call.result?.ok) throw new Error(t('invoice.detail.reverseAutoPaid.failed'))
+          return call.result
+        },
+        context: { invoiceId: invoice.id, resourceKind: 'invoice.invoice', retryLastMutation },
+        mutationPayload: { invoiceId: invoice.id },
+      })
+      flash(t('invoice.detail.reverseAutoPaid.success'), 'success')
+      await load()
+    } catch {
+      flash(t('invoice.detail.reverseAutoPaid.failed'), 'error')
+    }
+  }, [confirm, invoice, load, retryLastMutation, runMutation, t])
+
   if (state === 'loading') return <Page><PageBody><LoadingMessage label={t('invoice.detail.loading')} /></PageBody></Page>
   if (state === 'notFound') {
     return <Page><PageBody><ErrorMessage label={t('invoice.detail.notFound')} action={<Button type="button" onClick={() => router.push('/backend/invoice/all')}>{t('invoice.detail.backToList')}</Button>} /></PageBody></Page>
@@ -119,6 +155,7 @@ export default function InvoiceDetailPage() {
             </div>
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-surface px-3 py-1 text-sm">{status}</span>
+              {invoice.direction === 'AP' && invoice.autoSettled ? <Button type="button" variant="outline" disabled={isReversingAutoPaid} onClick={() => void reverseAutoPaid()}>{t('invoice.detail.reverseAutoPaid.action')}</Button> : null}
               {invoice.origin === 'MANUAL' ? <Button type="button" variant="outline" onClick={() => router.push(`/backend/invoice/all/${invoice.id}/edit`)}>{t('invoice.detail.edit')}</Button> : null}
             </div>
           </div>
@@ -170,6 +207,7 @@ export default function InvoiceDetailPage() {
           </aside>
         </div>
       </PageBody>
+      {ConfirmDialogElement}
     </Page>
   )
 }
