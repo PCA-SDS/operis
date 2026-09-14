@@ -368,13 +368,14 @@ function BookingSidebar(props: {
   activeLineId: string | null
   canManage: boolean
   isSaving: boolean
+  editHref: string
   onSelectLine: (lineId: string) => void
   onClearLine: (lineId: string) => void
   onRemoveLine: (lineId: string) => void
   onPreviewAction: () => void
   onAddService: () => void
 }) {
-  const { workspace, activeLineId, canManage, isSaving, onSelectLine, onClearLine, onRemoveLine, onPreviewAction, onAddService } = props
+  const { workspace, activeLineId, canManage, isSaving, editHref, onSelectLine, onClearLine, onRemoveLine, onPreviewAction, onAddService } = props
   const t = useT()
   const assigned = workspace.lines.filter((line) => line.currentAssignment).length
   const customerInitials = workspace.appointment.customerName
@@ -419,7 +420,9 @@ function BookingSidebar(props: {
           </div>
         </div>
         <div className="mt-4 flex gap-2">
-          <Button type="button" size="sm" variant="outline" className="flex-1" onClick={onPreviewAction}>{t('appointments.seatPlanner.edit', 'Edit')}</Button>
+          <Button asChild type="button" size="sm" variant="outline" className="flex-1">
+            <Link href={editHref}>{t('appointments.seatPlanner.edit', 'Edit')}</Link>
+          </Button>
           <Button type="button" size="sm" variant="outline" className="flex-1" onClick={onPreviewAction}>{t('appointments.seatPlanner.payment', 'Payment')}</Button>
         </div>
       </div>
@@ -1464,6 +1467,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                   activeLineId={activeLineId}
                   canManage
                   isSaving={isSaving}
+                  editHref={`/backend/appointments/${workspace.appointment.id}/edit`}
                   onSelectLine={handleLineSelect}
                   onClearLine={(lineId) => void clearDraft(lineId)}
                   onRemoveLine={(lineId) => void removeLine(lineId)}

@@ -6,6 +6,7 @@ import {
   type BookableServiceDeps,
 } from '@open-mercato/core/modules/catalog/lib/bookableServices'
 import { Appointment, AppointmentLine, AppointmentStatus } from '../data/entities'
+import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
 import { DEFAULT_PUBLIC_APPOINTMENT_STATUS_CODE } from '../data/constants'
 import { ensureSystemAppointmentStatuses } from '../setup'
 import type { AppointmentPublicCreateInput } from '../data/validators'
@@ -24,6 +25,14 @@ export type CreatedAppointmentResult = {
 
 function addMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() + minutes * 60_000)
+}
+
+function stableSerialize(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value as Record<string, unknown>).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize((value as Record<string, unknown>)[key])}`).join(',')}}`
+  }
+  return JSON.stringify(value) ?? 'null'
 }
 
 export async function createAppointmentFromPublicIntake(
@@ -217,6 +226,48 @@ export async function updateAppointmentFromStaffEdit(
     input.customer.phoneCountryCode,
   )
 
+  const oldOrganizationId = appointment.organizationId
+  const oldRequestedStartAt = appointment.requestedStartAt
+  const oldLines = await em.find(AppointmentLine, { appointment: appointment.id, deletedAt: null })
+  const oldLineIds = oldLines.map((line) => line.id)
+  const oldAssignments = oldLineIds.length > 0
+    ? await em.find(ResourcesAssignment, {
+        tenantId: input.tenantId,
+        organizationId: { $in: Array.from(new Set([oldOrganizationId, input.organizationId])) },
+        sourceModule: 'appointment',
+        sourceEntityType: 'appointment_line',
+        sourceEntityId: { $in: oldLineIds },
+        cancelledAt: null,
+      })
+    : []
+  const assignmentsByLineId = new Map<string, ResourcesAssignment[]>()
+  for (const assignment of oldAssignments) {
+    assignmentsByLineId.set(assignment.sourceEntityId, [
+      ...(assignmentsByLineId.get(assignment.sourceEntityId) ?? []),
+      assignment,
+    ])
+  }
+  const oldDate = oldRequestedStartAt.toISOString().slice(0, 10)
+  const nextDate = requestedStartAt.toISOString().slice(0, 10)
+  const locationChanged = oldOrganizationId !== input.organizationId
+  const usedLineIds = new Set<string>()
+  const now = new Date()
+
+  const cancelAssignments = (lineId: string) => {
+    for (const assignment of assignmentsByLineId.get(lineId) ?? []) {
+      assignment.cancelledAt = now
+      assignment.updatedAt = now
+    }
+  }
+
+  const findMatchingLine = (productId: string, selectedOptions: Record<string, unknown> | undefined) => {
+    const serializedOptions = stableSerialize(selectedOptions ?? {})
+    return oldLines.find((line) => {
+      if (usedLineIds.has(line.id) || line.productId !== productId) return false
+      return stableSerialize(line.selectedOptions ?? {}) === serializedOptions
+    })
+  }
+
   appointment.organizationId = input.organizationId
   appointment.customerEntityId = person.entityId
   appointment.customerName = customerName
@@ -233,19 +284,27 @@ export async function updateAppointmentFromStaffEdit(
   appointment.externalNotes = input.externalNotes ?? null
   appointment.updatedAt = new Date()
 
-  // Replace lines
-  const oldLines = await em.find(AppointmentLine, { appointment: appointment.id, deletedAt: null })
-
-  // Delete option snapshots for old lines (cascade will handle FK cleanup, but explicit is clearer)
-  for (const line of oldLines) {
-    await deleteLineOptionSnapshots(em, line.id)
-  }
-
-  for (const line of oldLines) {
-    line.deletedAt = new Date()
-  }
-
   for (const line of resolvedLines) {
+    const existingLine = findMatchingLine(line.service.id, line.selectedOptions)
+    if (existingLine) {
+      usedLineIds.add(existingLine.id)
+      const assignmentInvalid = locationChanged
+        || oldDate !== nextDate
+        || existingLine.durationMinutes !== line.service.durationMinutes
+        || (assignmentsByLineId.get(existingLine.id) ?? []).some((assignment) => assignment.startsAt < requestedStartAt)
+      if (assignmentInvalid) cancelAssignments(existingLine.id)
+      existingLine.organizationId = input.organizationId
+      existingLine.productTitle = line.service.title
+      existingLine.productHandle = line.service.handle
+      existingLine.currencyCode = line.service.currencyCode
+      existingLine.unitPriceNet = line.service.unitPriceNet
+      existingLine.unitPriceGross = line.service.unitPriceGross
+      existingLine.durationMinutes = line.service.durationMinutes
+      existingLine.productCategory = line.service.categoryName
+      existingLine.sortOrder = line.sortOrder
+      continue
+    }
+
     const lineEntity = em.create(AppointmentLine, {
       appointment,
       tenantId: input.tenantId,
@@ -263,8 +322,14 @@ export async function updateAppointmentFromStaffEdit(
     })
     em.persist(lineEntity)
 
-    // Snapshot options from catalog for analytics and historical accuracy
     await snapshotLineOptions(em, lineEntity, { selectedOptions: line.selectedOptions })
+  }
+
+  for (const line of oldLines) {
+    if (usedLineIds.has(line.id)) continue
+    cancelAssignments(line.id)
+    await deleteLineOptionSnapshots(em, line.id)
+    line.deletedAt = now
   }
 
   await em.flush()
