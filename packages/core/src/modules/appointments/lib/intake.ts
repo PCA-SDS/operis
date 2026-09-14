@@ -36,7 +36,7 @@ function addMinutes(date: Date, minutes: number): Date {
 function stableSerialize(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`
   if (value && typeof value === 'object') {
-    return `{${Object.keys(value as Record<string, unknown>).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize((value as Record<string, unknown>)[key])}`).join(',')}}`
+    return `{${Object.keys(value as Record<string, unknown>).sort((left, right) => left.localeCompare(right)).map((key) => `${JSON.stringify(key)}:${stableSerialize((value as Record<string, unknown>)[key])}`).join(',')}}`
   }
   return JSON.stringify(value) ?? 'null'
 }
