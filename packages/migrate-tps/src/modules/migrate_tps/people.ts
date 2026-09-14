@@ -24,6 +24,7 @@ type TpsCustomer = {
   phone_country_code: string
   phone_country: string
   origin: string
+  created_at: Date
 }
 
 type TpsAccount = {
@@ -111,10 +112,64 @@ async function migrateCustomers(
   tenantId: string,
   rootOrgId: string,
   replace: boolean,
-): Promise<{ created: number; updated: number; skipped: number }> {
+  reportSkipped: boolean,
+  repairConflicts: boolean,
+): Promise<{ created: number; updated: number; skipped: number; fallbackMatches: Array<{ tpsId: string; tpsName: string; operisId: string; operisName: string; matchedBy: string }>; phoneConflicts: number }> {
   let created = 0
   let updated = 0
   let skipped = 0
+  let phoneConflicts = 0
+  const fallbackMatches: Array<{ tpsId: string; tpsName: string; operisId: string; operisName: string; matchedBy: string }> = []
+  const existingEntities = await em.find(CustomerEntity, {
+    tenantId,
+    kind: 'person',
+    deletedAt: null,
+  })
+  const sourceById = new Map(customers.map((source) => [source.id, source]))
+  const phoneGroups = new Map<string, TpsCustomer[]>()
+  for (const source of customers) {
+    const phone = canonicalizePhone(source.phone, source.phone_country_code)
+    const phoneHash = resolvePhoneIdentity({
+      primaryPhone: phone,
+      phoneCountryCode: source.phone_country_code,
+      phoneCountry: source.phone_country,
+    }).primaryPhoneHash
+    if (!phoneHash) continue
+    phoneGroups.set(phoneHash, [...(phoneGroups.get(phoneHash) ?? []), source])
+  }
+  const phoneOwnerBySourceId = new Map<string, string>()
+  for (const group of phoneGroups.values()) {
+    const owner = group.slice().sort((left, right) => {
+      const byDate = right.created_at.getTime() - left.created_at.getTime()
+      return byDate !== 0 ? byDate : right.id.localeCompare(left.id)
+    })[0]
+    if (owner) {
+      for (const source of group) phoneOwnerBySourceId.set(source.id, owner.id)
+    }
+  }
+
+  const entitiesByMarker = new Map<string, CustomerEntity>()
+  for (const existing of existingEntities) {
+    if (existing.description) entitiesByMarker.set(existing.description, existing)
+  }
+  if (repairConflicts) {
+    for (const [marker, entity] of entitiesByMarker) {
+      if (!marker.startsWith(`[${CUSTOMER_MARKER_PREFIX}`)) continue
+      const sourceId = marker.slice(`[${CUSTOMER_MARKER_PREFIX}`.length, -1)
+      const source = sourceById.get(sourceId)
+      if (!source || phoneOwnerBySourceId.get(source.id) === source.id) continue
+      entity.primaryPhone = null
+      entity.primaryPhoneHash = null
+      entity.phoneCountryCode = null
+      entity.phoneCountry = null
+    }
+    await em.flush()
+  }
+
+  const entitiesByPhoneHash = new Map<string, CustomerEntity>()
+  for (const existing of existingEntities) {
+    if (existing.primaryPhoneHash) entitiesByPhoneHash.set(existing.primaryPhoneHash, existing)
+  }
 
   for (const source of customers) {
     const marker = sourceMarker(CUSTOMER_MARKER_PREFIX, source.id)
@@ -125,27 +180,13 @@ async function migrateCustomers(
       phoneCountry: source.phone_country,
     })
     const email = source.email?.trim().toLowerCase() || null
-    let entity = await em.findOne(CustomerEntity, { tenantId, kind: 'person', deletedAt: null, description: marker })
-    if (!entity && phoneIdentity.primaryPhoneHash) {
-      entity = await em.findOne(CustomerEntity, {
-        tenantId,
-        kind: 'person',
-        deletedAt: null,
-        primaryPhoneHash: phoneIdentity.primaryPhoneHash,
-      })
-    }
-    if (!entity && email) {
-      entity = await em.findOne(CustomerEntity, {
-        tenantId,
-        kind: 'person',
-        deletedAt: null,
-        primaryEmailHash: computeEmailLookupHash(email),
-      })
-    }
+    const shouldKeepPhone = !phoneIdentity.primaryPhoneHash || phoneOwnerBySourceId.get(source.id) === source.id
+    let entity = entitiesByMarker.get(marker)
 
     const { firstName, lastName } = splitName(source.name)
     if (entity) {
       if (!replace) {
+        if (reportSkipped && entity.description !== marker) fallbackMatches.push({ tpsId: source.id, tpsName: source.name, operisId: entity.id, operisName: entity.displayName, matchedBy: 'source-conflict' })
         skipped++
         continue
       }
@@ -154,12 +195,17 @@ async function migrateCustomers(
       entity.description = marker
       entity.primaryEmail = email
       entity.primaryEmailHash = computeEmailLookupHash(email)
-      entity.primaryPhone = phoneIdentity.primaryPhone
-      entity.primaryPhoneHash = phoneIdentity.primaryPhoneHash
-      entity.phoneCountryCode = phoneIdentity.phoneCountryCode
-      entity.phoneCountry = phoneIdentity.phoneCountry
+      const existingPhoneOwner = phoneIdentity.primaryPhoneHash ? entitiesByPhoneHash.get(phoneIdentity.primaryPhoneHash) : undefined
+      const canKeepPhone = shouldKeepPhone && (!existingPhoneOwner || existingPhoneOwner.id === entity.id)
+      if (shouldKeepPhone && existingPhoneOwner && existingPhoneOwner.id !== entity.id) phoneConflicts++
+      entity.primaryPhone = canKeepPhone ? phoneIdentity.primaryPhone : null
+      entity.primaryPhoneHash = canKeepPhone ? phoneIdentity.primaryPhoneHash : null
+      entity.phoneCountryCode = canKeepPhone ? phoneIdentity.phoneCountryCode : null
+      entity.phoneCountry = canKeepPhone ? phoneIdentity.phoneCountry : null
       entity.source = 'tps'
       entity.origin = source.origin?.trim() || null
+      entitiesByMarker.set(marker, entity)
+      if (canKeepPhone && phoneIdentity.primaryPhoneHash) entitiesByPhoneHash.set(phoneIdentity.primaryPhoneHash, entity)
       const profile = await em.findOne(CustomerPersonProfile, { entity: entity.id })
       if (profile) {
         profile.organizationId = rootOrgId
@@ -171,6 +217,9 @@ async function migrateCustomers(
       continue
     }
 
+    const existingPhoneOwner = phoneIdentity.primaryPhoneHash ? entitiesByPhoneHash.get(phoneIdentity.primaryPhoneHash) : undefined
+    const canKeepPhone = shouldKeepPhone && !existingPhoneOwner
+    if (shouldKeepPhone && existingPhoneOwner) phoneConflicts++
     entity = em.create(CustomerEntity, {
       id: randomUUID(),
       organizationId: rootOrgId,
@@ -180,10 +229,10 @@ async function migrateCustomers(
       description: marker,
       primaryEmail: email,
       primaryEmailHash: computeEmailLookupHash(email),
-      primaryPhone: phoneIdentity.primaryPhone,
-      primaryPhoneHash: phoneIdentity.primaryPhoneHash,
-      phoneCountryCode: phoneIdentity.phoneCountryCode,
-      phoneCountry: phoneIdentity.phoneCountry,
+      primaryPhone: canKeepPhone ? phoneIdentity.primaryPhone : null,
+      primaryPhoneHash: canKeepPhone ? phoneIdentity.primaryPhoneHash : null,
+      phoneCountryCode: canKeepPhone ? phoneIdentity.phoneCountryCode : null,
+      phoneCountry: canKeepPhone ? phoneIdentity.phoneCountry : null,
       source: 'tps',
       origin: source.origin?.trim() || null,
       lifecycleStage: 'customer',
@@ -202,9 +251,11 @@ async function migrateCustomers(
     })
     em.persist(entity)
     em.persist(profile)
+    entitiesByMarker.set(marker, entity)
+    if (canKeepPhone && phoneIdentity.primaryPhoneHash) entitiesByPhoneHash.set(phoneIdentity.primaryPhoneHash, entity)
     created++
   }
-  return { created, updated, skipped }
+  return { created, updated, skipped, fallbackMatches, phoneConflicts }
 }
 
 async function migrateStaff(
@@ -349,13 +400,19 @@ export const migrateTpsPeopleCommand: ModuleCli = {
     const tenantId = positional[0]
     const rootOrgId = positional[1]
     if (!tenantId || !rootOrgId) {
-      logger.error('Usage: yarn mercato migrate_tps people <tenantId> <rootOrgId> [--replace]')
+      logger.error('Usage: yarn mercato migrate_tps people <tenantId> <rootOrgId> [--replace] [--customers-only|--staff-only]')
       throw new Error('Missing tenantId or rootOrgId')
     }
     const tpsUrl = process.env.TPS_DATABASE_URL
     if (!tpsUrl) throw new Error('TPS_DATABASE_URL is required for people migration')
     const replace = rest.includes('--replace')
     const staffOnly = rest.includes('--staff-only')
+    const customersOnly = rest.includes('--customers-only')
+    const reportSkipped = rest.includes('--report-skipped')
+    const repairConflicts = rest.includes('--repair-phone-conflicts')
+    if (staffOnly && customersOnly) {
+      throw new Error('Use only one of --staff-only or --customers-only')
+    }
     const container = await createRequestContainer()
     let client: Client | null = null
     try {
@@ -363,16 +420,20 @@ export const migrateTpsPeopleCommand: ModuleCli = {
       const [customerResult, accountResult, accountJobRoleResult] = await Promise.all([
         staffOnly
           ? Promise.resolve({ rows: [] as TpsCustomer[] })
-          : client.query<TpsCustomer>('SELECT id, name, salutation::text, email, phone, phone_country_code, phone_country, origin FROM customers ORDER BY id'),
-        client.query<TpsAccount>(`SELECT a.id, a.name, a.email, a.password, a.all_locations, a.locations
-          FROM accounts a JOIN roles r ON r.id = a.role_id
-          WHERE upper(r.name) = 'STAFF' ORDER BY a.id`),
-        client.query<TpsAccountJobRole>(`SELECT ajr.account_id, jr.id AS job_role_id, jr.name AS job_role_name,
-            jr.code AS job_role_code, jr.description AS job_role_description
-          FROM account_job_roles ajr
-          JOIN job_roles jr ON jr.id = ajr.job_role_id
-          WHERE jr.deleted_at IS NULL
-          ORDER BY ajr.account_id, jr.name`),
+          : client.query<TpsCustomer>('SELECT id, name, salutation::text, email, phone, phone_country_code, phone_country, origin, created_at FROM customers ORDER BY id'),
+        customersOnly
+          ? Promise.resolve({ rows: [] as TpsAccount[] })
+          : client.query<TpsAccount>(`SELECT a.id, a.name, a.email, a.password, a.all_locations, a.locations
+            FROM accounts a JOIN roles r ON r.id = a.role_id
+            WHERE upper(r.name) = 'STAFF' ORDER BY a.id`),
+        customersOnly
+          ? Promise.resolve({ rows: [] as TpsAccountJobRole[] })
+          : client.query<TpsAccountJobRole>(`SELECT ajr.account_id, jr.id AS job_role_id, jr.name AS job_role_name,
+              jr.code AS job_role_code, jr.description AS job_role_description
+            FROM account_job_roles ajr
+            JOIN job_roles jr ON jr.id = ajr.job_role_id
+            WHERE jr.deleted_at IS NULL
+            ORDER BY ajr.account_id, jr.name`),
       ])
       const accountJobRoles = new Map<string, TpsAccountJobRole[]>()
       for (const row of accountJobRoleResult.rows) {
@@ -384,11 +445,20 @@ export const migrateTpsPeopleCommand: ModuleCli = {
       const branchOrganizations = await loadBranchOrganizations(em, tenantId, rootOrgId)
       await em.transactional(async (transactionEm) => {
         const customerStats = staffOnly
-          ? { created: 0, updated: 0, skipped: 0 }
-          : await migrateCustomers(transactionEm, customerResult.rows, tenantId, rootOrgId, replace)
-        const staffStats = await migrateStaff(transactionEm, accountResult.rows, accountJobRoles, branchOrganizations, tenantId, replace)
+          ? { created: 0, updated: 0, skipped: 0, fallbackMatches: [] as Array<{ tpsId: string; tpsName: string; operisId: string; operisName: string; matchedBy: string }>, phoneConflicts: 0 }
+          : await migrateCustomers(transactionEm, customerResult.rows, tenantId, rootOrgId, replace || repairConflicts, reportSkipped, repairConflicts)
+        const staffStats = customersOnly
+          ? { created: 0, updated: 0, skipped: 0, unlinked: 0, rolesCreated: 0, rolesAssigned: 0 }
+          : await migrateStaff(transactionEm, accountResult.rows, accountJobRoles, branchOrganizations, tenantId, replace)
         await transactionEm.flush()
         logger.info(`Customers: created=${customerStats.created}, updated=${customerStats.updated}, skipped=${customerStats.skipped}`)
+        if (reportSkipped && customerStats.fallbackMatches.length > 0) {
+          logger.info(`Customers matched by fallback identity (${customerStats.fallbackMatches.length}):`)
+          for (const match of customerStats.fallbackMatches) {
+            logger.info(`  TPS ${match.tpsId} (${match.tpsName}) -> Operis ${match.operisId} (${match.operisName}) by ${match.matchedBy}`)
+          }
+        }
+        if (customerStats.phoneConflicts > 0) logger.info(`Customer phone conflicts left without primary phone: ${customerStats.phoneConflicts}`)
         logger.info(`Staff memberships: created=${staffStats.created}, updated=${staffStats.updated}, skipped=${staffStats.skipped}, unlinked=${staffStats.unlinked}`)
         logger.info(`Staff job roles: created=${staffStats.rolesCreated}, assigned=${staffStats.rolesAssigned}`)
       })
