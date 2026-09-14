@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   Calendar,
@@ -872,6 +872,7 @@ function SeatPlannerLoadingSkeleton() {
 
 export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const t = useT()
+  const router = useRouter()
   const appointmentId = typeof params?.id === 'string' ? params.id : ''
   const [workspace, setWorkspace] = React.useState<SeatPlannerWorkspace | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
@@ -1434,8 +1435,22 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
           <header className="shrink-0 border-b border-border bg-surface">
             <div className="px-3 py-2.5 sm:px-4 sm:py-3">
               <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-                <IconButton asChild variant="ghost" aria-label={t('common.back', 'Back')}>
-                  <Link href={`/backend/appointments/${workspace.appointment.id}`}><ArrowLeft className="size-4" /></Link>
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  aria-label={t('common.back', 'Back')}
+                  onClick={() => {
+                    const hasSameOriginHistory = typeof window !== 'undefined' &&
+                      window.history.length > 1 &&
+                      document.referrer.startsWith(window.location.origin)
+                    if (hasSameOriginHistory) {
+                      router.back()
+                    } else {
+                      router.push(`/backend/appointments/${workspace.appointment.id}`)
+                    }
+                  }}
+                >
+                  <ArrowLeft className="size-4" />
                 </IconButton>
                 <IconButton type="button" variant="outline" className="lg:hidden" aria-label={t('appointments.seatPlanner.openSidebar', 'Open booking details')} onClick={() => setMobileSidebarOpen(true)}>
                   <Menu className="size-4" />
