@@ -87,7 +87,7 @@ This prevents users from retyping company/contact facts already stored in the Cu
 
 - Company values represent the business customer selected from Operis Customers/Companies.
 - People values represent linked contacts/recipients for that company.
-- If no people are linked yet, company variables still render and the company email is used as the recipient fallback; contact variables stay empty or must be entered manually in preview.
+- Linked people produce one `Dear <name>,` greeting line per person. If no people are linked yet, company variables still render and the company email is used as the recipient fallback; contact variables stay empty or must be entered manually in preview.
 - Company and people values are loaded through existing scoped Customers APIs instead of direct cross-module imports or relationships.
 - The page is copy-only for now: users copy recipients, subject, and body from the preview. It never sends email and never creates Operis or Gmail drafts.
 - Future compose integration should reuse this scoped lookup path when adding draft/send actions. Gmail Drafts must be added through the communication-channel boundary because the existing send-as-user facade is a real-send path, not a draft path.

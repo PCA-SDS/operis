@@ -39,4 +39,10 @@ describe('email template builder helpers', () => {
       uploadFolderUrl: 'link',
     })).toBe('Upload here: <a href="https://example.com/company-folder" target="_blank" rel="noopener noreferrer">uploadFolderUrl</a>')
   })
+
+  it('renders one greeting line per linked person', () => {
+    expect(renderHtmlPreviewWithSamples('<p>{{greeting}}</p>', {
+      greeting: 'Dear Ms. Linh,\nDear Mr. David,',
+    }, {})).toBe('<p>Dear Ms. Linh,<br />Dear Mr. David,</p>')
+  })
 })

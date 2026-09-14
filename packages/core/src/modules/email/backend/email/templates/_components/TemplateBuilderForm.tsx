@@ -55,7 +55,7 @@ const systemVariables = [
   { key: 'companyEmail', label: 'Company email', sample: 'info@harborviewanalytics.com' },
   { key: 'contactNames', label: 'Contact names', sample: 'Ms. Linh, Mr. David' },
   { key: 'recipientEmails', label: 'Recipient emails', sample: 'linh@example.com, david@example.com' },
-  { key: 'greeting', label: 'Greeting', sample: 'Dear Ms. Linh and Mr. David,' },
+  { key: 'greeting', label: 'Greeting', sample: 'Dear Ms. Linh,\nDear Mr. David,' },
 ] as const
 
 const systemVariableKeys: ReadonlySet<string> = new Set(systemVariables.map((variable) => variable.key))
@@ -140,7 +140,7 @@ export function renderHtmlPreviewWithSamples(value: string, samples: Record<stri
     // Inside an existing anchor the value IS the href — the shipped templates are
     // all <a href="{{uploadLink}}"> — so it still needs the scheme check.
     if (alreadyInsideAnchor) return escapeHtml(isLink ? sanitizeHref(sample) : sample)
-    if (!isLink) return escapeHtml(sample)
+    if (!isLink) return escapeHtml(sample).replace(/\n/g, '<br />')
     return `<a href="${escapeHtml(sanitizeHref(sample))}" target="_blank" rel="noopener noreferrer">${escapeHtml(key)}</a>`
   })
 }
