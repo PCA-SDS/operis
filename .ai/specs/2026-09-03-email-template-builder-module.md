@@ -384,9 +384,12 @@ include reviewed migration files and snapshots.
 
 ## Final Compliance Report
 
-Pending. This spec is pre-implementation and must not be moved to
-`.ai/specs/implemented/` until all scoped phases selected for the PR are coded,
-validated, and deployed/accepted.
+The scoped M1–M5 implementation and PR validation are complete. The module has
+tenant/org-scoped entities and migrations, guarded CRUD APIs, ACL/setup wiring,
+responsive backend pages, i18n, preview rendering, PCA source migration and
+body backfill, unit/integration coverage, and passing CI gates. Deployment and
+manual acceptance remain pending, so this spec stays in the root until the
+merged `main` deployment is accepted.
 
 ## Changelog
 
@@ -395,3 +398,6 @@ validated, and deployed/accepted.
 - 2026-09-03: Started M1/M2 with the core `email` module shell, ACL/setup,
   template/defaults entities, scoped API contracts, commands, and initial
   MikroORM migration/snapshot.
+- 2026-09-14: Completed the scoped email template builder, PCA migration and
+  backfill, responsive UI, preview/compose flow, validation, tests, and PR
+  documentation; deployment and manual acceptance remain pending.
