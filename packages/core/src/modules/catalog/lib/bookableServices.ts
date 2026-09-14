@@ -13,6 +13,7 @@ import {
   CatalogProductCategoryAssignment,
   CatalogProductOptionGroup,
   CatalogProductOption,
+  CatalogProductConstraint,
 } from '../data/entities'
 import type { CatalogPricingService } from '../services/catalogPricingService'
 import type { PriceRow, PricingContext } from './pricing'
@@ -48,6 +49,10 @@ export type BookableServiceOption = {
   priceFlat: string | null
   durationMinutes: number | null
   isAddon: boolean
+  mutuallyExclusive?: string[]
+  conflictsWithItems?: string[]
+  requiresItems?: string[]
+  requiresOptions?: string[]
   nextGroups: BookableServiceOptionGroup[]
 }
 
@@ -77,6 +82,10 @@ export type BookableService = {
   categoryName: string | null
   organizationId: string
   tenantId: string
+  mutuallyExclusiveItems?: string[]
+  requiresItems?: string[]
+  requiresOptions?: string[]
+  include?: { itemId: string; locked?: boolean }
   optionGroups: BookableServiceOptionGroup[]
 }
 
@@ -196,7 +205,7 @@ export async function listBookableServicesForOrganization(
     tenantId: scope.tenantId,
     ...scopedWhere,
   }
-  const [prices, customFieldsByProductId, defaultVariants, categories, assignments, optionGroups, options] = await Promise.all([
+  const [prices, customFieldsByProductId, defaultVariants, categories, assignments, optionGroups, options, constraints] = await Promise.all([
     findWithDecryption(
       em,
       CatalogProductPrice,
@@ -243,6 +252,9 @@ export async function listBookableServicesForOrganization(
     em.find(CatalogProductOption,
       { ...categoryScope, group: { product: { $in: productIds } }, isActive: true, deletedAt: null },
       { orderBy: { sortOrder: 'asc', id: 'asc' } }
+    ),
+    em.find(CatalogProductConstraint,
+      { ...categoryScope, $or: [ { sourceProduct: { $in: productIds } }, { sourceOption: { group: { product: { $in: productIds } } } } ] }
     ),
   ])
 
@@ -292,6 +304,30 @@ export async function listBookableServicesForOrganization(
     date: new Date(),
   }
 
+  const itemConstraints = new Map<string, CatalogProductConstraint[]>()
+  const optionConstraints = new Map<string, CatalogProductConstraint[]>()
+
+  for (const c of constraints) {
+    if (c.sourceProduct) {
+      const sourceId = typeof c.sourceProduct === 'string' ? c.sourceProduct : c.sourceProduct.id
+      const bucket = itemConstraints.get(sourceId) ?? []
+      bucket.push(c)
+      itemConstraints.set(sourceId, bucket)
+    }
+    if (c.sourceOption) {
+      const sourceId = typeof c.sourceOption === 'string' ? c.sourceOption : c.sourceOption.id
+      const bucket = optionConstraints.get(sourceId) ?? []
+      bucket.push(c)
+      optionConstraints.set(sourceId, bucket)
+    }
+  }
+
+  const getTargetId = (c: CatalogProductConstraint, field: 'targetProduct' | 'targetOption') => {
+    const target = c[field]
+    if (!target) return null
+    return typeof target === 'string' ? target : target.id
+  }
+
   // Build the option tree
   const optionsByGroupId = new Map<string, CatalogProductOption[]>()
   for (const opt of options) {
@@ -326,16 +362,28 @@ export async function listBookableServicesForOrganization(
       description: group.description ?? null,
       requirement: group.requirement,
       selectMode: group.selectMode,
-      options: groupOptions.map((opt) => ({
-        id: opt.id,
-        code: opt.code ?? null,
-        name: opt.name,
-        description: opt.description ?? null,
-        priceFlat: opt.priceFlat ?? null,
-        durationMinutes: opt.durationValue ?? null,
-        isAddon: opt.isAddon,
-        nextGroups: (groupsByParentOptionId.get(opt.id) ?? []).map(buildOptionTree),
-      })),
+      options: groupOptions.map((opt) => {
+        const optConstraints = optionConstraints.get(opt.id) ?? []
+        const mutuallyExclusive = optConstraints.filter(c => c.constraintType === 'mutually_exclusive_item' && c.targetOption).map(c => getTargetId(c, 'targetOption')!)
+        const conflictsWithItems = optConstraints.filter(c => c.constraintType === 'conflicts_with_item' && c.targetProduct).map(c => getTargetId(c, 'targetProduct')!)
+        const requiresItems = optConstraints.filter(c => c.constraintType === 'requires_item' && c.targetProduct).map(c => getTargetId(c, 'targetProduct')!)
+        const requiresOptions = optConstraints.filter(c => c.constraintType === 'requires_item' && c.targetOption).map(c => getTargetId(c, 'targetOption')!)
+
+        return {
+          id: opt.id,
+          code: opt.code ?? null,
+          name: opt.name,
+          description: opt.description ?? null,
+          priceFlat: opt.priceFlat ?? null,
+          durationMinutes: opt.durationValue ?? null,
+          isAddon: opt.isAddon,
+          mutuallyExclusive: mutuallyExclusive.length > 0 ? mutuallyExclusive : undefined,
+          conflictsWithItems: conflictsWithItems.length > 0 ? conflictsWithItems : undefined,
+          requiresItems: requiresItems.length > 0 ? requiresItems : undefined,
+          requiresOptions: requiresOptions.length > 0 ? requiresOptions : undefined,
+          nextGroups: (groupsByParentOptionId.get(opt.id) ?? []).map(buildOptionTree),
+        }
+      }),
     }
   }
 
@@ -376,6 +424,24 @@ export async function listBookableServicesForOrganization(
       categoryName: category?.name ?? null,
       organizationId: product.organizationId,
       tenantId: product.tenantId,
+
+      mutuallyExclusiveItems: (() => {
+        const c = itemConstraints.get(product.id)?.filter(x => x.constraintType === 'mutually_exclusive_item' && x.targetProduct)
+        return c?.length ? c.map(x => getTargetId(x, 'targetProduct')!) : undefined
+      })(),
+      requiresItems: (() => {
+        const c = itemConstraints.get(product.id)?.filter(x => x.constraintType === 'requires_item' && x.targetProduct)
+        return c?.length ? c.map(x => getTargetId(x, 'targetProduct')!) : undefined
+      })(),
+      requiresOptions: (() => {
+        const c = itemConstraints.get(product.id)?.filter(x => x.constraintType === 'requires_item' && x.targetOption)
+        return c?.length ? c.map(x => getTargetId(x, 'targetOption')!) : undefined
+      })(),
+      include: (() => {
+        const c = itemConstraints.get(product.id)?.find(x => x.constraintType === 'includes_item' && x.targetProduct)
+        return c ? { itemId: getTargetId(c, 'targetProduct')!, locked: c.locked } : undefined
+      })(),
+
       optionGroups: (rootGroupsByProductId.get(product.id) ?? []).map(buildOptionTree),
     }
   })

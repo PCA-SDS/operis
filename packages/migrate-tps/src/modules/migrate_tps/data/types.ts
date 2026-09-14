@@ -26,6 +26,8 @@ export type Option = {
 
   mutuallyExclusive?: string[]
   conflictsWithItems?: string[]
+  requiresItems?: string[]
+  requiresOptions?: string[]
   nextGroups?: OptionGroup[]
 }
 
@@ -70,6 +72,9 @@ export type ServiceItem = {
   include?: Includes
 
   mutuallyExclusiveItems?: string[]
+  conflictsWithItems?: string[]
+  requiresItems?: string[]
+  requiresOptions?: string[]
 
   detailedInfo?: DetailedInfo
 }

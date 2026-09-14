@@ -35,7 +35,7 @@ function traverseOptionTree(
   tenantId: string,
   organizationId: string,
   parentOption: CatalogProductOption | null = null,
-  tpsOptionMap: Map<string, string> = new Map()
+  tpsOptionMap: Map<string, string[]> = new Map()
 ) {
   let sortOrderGroup = 0
   for (const group of groups) {
@@ -111,7 +111,9 @@ function traverseOptionTree(
         }))
       }
 
-      tpsOptionMap.set(opt.id, optionEntity.id)
+      const existingIds = tpsOptionMap.get(opt.id) || []
+      existingIds.push(optionEntity.id)
+      tpsOptionMap.set(opt.id, existingIds)
 
       if (opt.nextGroups && opt.nextGroups.length > 0) {
         traverseOptionTree(em, opt.nextGroups, product, tenantId, organizationId, optionEntity, tpsOptionMap)
@@ -260,7 +262,7 @@ export const migrateTpsProductsCommand: ModuleCli = {
     let constraintCount = 0
 
     const tpsProductMap = new Map<string, string>()
-    const tpsOptionMap = new Map<string, string>()
+    const tpsOptionMap = new Map<string, string[]>()
 
     for (const rootCat of Object.values(SERVICE_MENU)) {
       for (const category of rootCat.categories) {
@@ -381,44 +383,130 @@ export const migrateTpsProductsCommand: ModuleCli = {
             }
           }
 
+          if (sourceProductId && item.requiresOptions) {
+            for (const targetTpsId of item.requiresOptions) {
+              const targetOptionIds = tpsOptionMap.get(targetTpsId)
+              if (targetOptionIds) {
+                for (const targetOptionId of targetOptionIds) {
+                  em.persist(em.create(CatalogProductConstraint, {
+                    id: randomUUID(),
+                    tenantId,
+                    organizationId,
+                    constraintType: 'requires_item',
+                    sourceProduct: em.getReference(CatalogProduct, sourceProductId),
+                    targetOption: em.getReference(CatalogProductOption, targetOptionId),
+                    locked: false,
+                  }))
+                  constraintCount++
+                }
+              }
+            }
+          }
+
+          if (sourceProductId && item.requiresItems) {
+            for (const targetTpsId of item.requiresItems) {
+              const targetProductId = tpsProductMap.get(targetTpsId)
+              if (targetProductId) {
+                em.persist(em.create(CatalogProductConstraint, {
+                  id: randomUUID(),
+                  tenantId,
+                  organizationId,
+                  constraintType: 'requires_item',
+                  sourceProduct: em.getReference(CatalogProduct, sourceProductId),
+                  targetProduct: em.getReference(CatalogProduct, targetProductId),
+                  locked: false,
+                }))
+                constraintCount++
+              }
+            }
+          }
+
           if (item.optionGroups) {
             const queue = [...item.optionGroups]
             while (queue.length > 0) {
               const group = queue.shift()!
               for (const opt of group.options) {
-                const sourceOptionId = tpsOptionMap.get(opt.id)
-                if (sourceOptionId && opt.conflictsWithItems) {
-                  for (const targetTpsId of opt.conflictsWithItems) {
-                    const targetProductId = tpsProductMap.get(targetTpsId)
-                    if (targetProductId) {
-                      em.persist(em.create(CatalogProductConstraint, {
-                        id: randomUUID(),
-                        tenantId,
-                        organizationId,
-                        constraintType: 'conflicts_with_item',
-                        sourceOption: em.getReference(CatalogProductOption, sourceOptionId),
-                        targetProduct: em.getReference(CatalogProduct, targetProductId),
-                        locked: false,
-                      }))
-                      constraintCount++
+                const sourceOptionIds = tpsOptionMap.get(opt.id)
+                if (sourceOptionIds && opt.conflictsWithItems) {
+                  for (const sourceOptionId of sourceOptionIds) {
+                    for (const targetTpsId of opt.conflictsWithItems) {
+                      const targetProductId = tpsProductMap.get(targetTpsId)
+                      if (targetProductId) {
+                        em.persist(em.create(CatalogProductConstraint, {
+                          id: randomUUID(),
+                          tenantId,
+                          organizationId,
+                          constraintType: 'conflicts_with_item',
+                          sourceOption: em.getReference(CatalogProductOption, sourceOptionId),
+                          targetProduct: em.getReference(CatalogProduct, targetProductId),
+                          locked: false,
+                        }))
+                        constraintCount++
+                      }
                     }
                   }
                 }
                 
-                if (sourceOptionId && opt.mutuallyExclusive) {
-                  for (const targetTpsId of opt.mutuallyExclusive) {
-                    const targetOptionId = tpsOptionMap.get(targetTpsId)
-                    if (targetOptionId) {
-                      em.persist(em.create(CatalogProductConstraint, {
-                        id: randomUUID(),
-                        tenantId,
-                        organizationId,
-                        constraintType: 'mutually_exclusive_item',
-                        sourceOption: em.getReference(CatalogProductOption, sourceOptionId),
-                        targetOption: em.getReference(CatalogProductOption, targetOptionId),
-                        locked: false,
-                      }))
-                      constraintCount++
+                if (sourceOptionIds && opt.mutuallyExclusive) {
+                  for (const sourceOptionId of sourceOptionIds) {
+                    for (const targetTpsId of opt.mutuallyExclusive) {
+                      const targetOptionIds = tpsOptionMap.get(targetTpsId)
+                      if (targetOptionIds) {
+                        for (const targetOptionId of targetOptionIds) {
+                          em.persist(em.create(CatalogProductConstraint, {
+                            id: randomUUID(),
+                            tenantId,
+                            organizationId,
+                            constraintType: 'mutually_exclusive_item',
+                            sourceOption: em.getReference(CatalogProductOption, sourceOptionId),
+                            targetOption: em.getReference(CatalogProductOption, targetOptionId),
+                            locked: false,
+                          }))
+                          constraintCount++
+                        }
+                      }
+                    }
+                  }
+                }
+
+                if (sourceOptionIds && opt.requiresOptions) {
+                  for (const sourceOptionId of sourceOptionIds) {
+                    for (const targetTpsId of opt.requiresOptions) {
+                      const targetOptionIds = tpsOptionMap.get(targetTpsId)
+                      if (targetOptionIds) {
+                        for (const targetOptionId of targetOptionIds) {
+                          em.persist(em.create(CatalogProductConstraint, {
+                            id: randomUUID(),
+                            tenantId,
+                            organizationId,
+                            constraintType: 'requires_item',
+                            sourceOption: em.getReference(CatalogProductOption, sourceOptionId),
+                            targetOption: em.getReference(CatalogProductOption, targetOptionId),
+                            locked: false,
+                          }))
+                          constraintCount++
+                        }
+                      }
+                    }
+                  }
+                }
+
+                if (sourceOptionIds && opt.requiresItems) {
+                  for (const sourceOptionId of sourceOptionIds) {
+                    for (const targetTpsId of opt.requiresItems) {
+                      const targetProductId = tpsProductMap.get(targetTpsId)
+                      if (targetProductId) {
+                        em.persist(em.create(CatalogProductConstraint, {
+                          id: randomUUID(),
+                          tenantId,
+                          organizationId,
+                          constraintType: 'requires_item',
+                          sourceOption: em.getReference(CatalogProductOption, sourceOptionId),
+                          targetProduct: em.getReference(CatalogProduct, targetProductId),
+                          locked: false,
+                        }))
+                        constraintCount++
+                      }
                     }
                   }
                 }

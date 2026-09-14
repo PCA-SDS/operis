@@ -1126,6 +1126,7 @@ export const SERVICE_MENU: ServiceMenuData = {
             name: 'Nail Art',
             descriptionKey: 'serviceMenu.nail.items.artLevel.desc',
             description: 'Professional nail art designs from Level 1 to Level 5',
+            requiresOptions: ['polish-gel'],
             optionGroups: [
               {
                 id: 'service-scope',
@@ -1168,6 +1169,7 @@ export const SERVICE_MENU: ServiceMenuData = {
             name: 'Nail Extensions',
             descriptionKey: 'serviceMenu.nail.items.extensionType.desc',
             description: 'Achieve the perfect length with our professional Full Set or Refill services',
+            requiresOptions: ['polish-gel'],
             // Note: No item-level conflict. Regular Polish conflicts via option-level conflictsWithItems
             optionGroups: [
               {
