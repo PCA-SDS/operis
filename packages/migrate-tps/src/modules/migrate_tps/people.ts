@@ -58,6 +58,10 @@ async function connectTps(url: string): Promise<Client> {
   return client
 }
 
+async function queryTps<T>(client: Client, text: string): Promise<{ rows: T[] }> {
+  return (await client.query(text)) as unknown as { rows: T[] }
+}
+
 function splitName(value: string): { firstName: string; lastName: string } {
   const parts = value.trim().split(/\s+/).filter(Boolean)
   if (parts.length <= 1) return { firstName: parts[0] ?? 'Unknown', lastName: '-' }
@@ -420,15 +424,15 @@ export const migrateTpsPeopleCommand: ModuleCli = {
       const [customerResult, accountResult, accountJobRoleResult] = await Promise.all([
         staffOnly
           ? Promise.resolve({ rows: [] as TpsCustomer[] })
-          : client.query<TpsCustomer>('SELECT id, name, salutation::text, email, phone, phone_country_code, phone_country, origin, created_at FROM customers ORDER BY id'),
+          : queryTps<TpsCustomer>(client, 'SELECT id, name, salutation::text, email, phone, phone_country_code, phone_country, origin, created_at FROM customers ORDER BY id'),
         customersOnly
           ? Promise.resolve({ rows: [] as TpsAccount[] })
-          : client.query<TpsAccount>(`SELECT a.id, a.name, a.email, a.password, a.all_locations, a.locations
+          : queryTps<TpsAccount>(client, `SELECT a.id, a.name, a.email, a.password, a.all_locations, a.locations
             FROM accounts a JOIN roles r ON r.id = a.role_id
             WHERE upper(r.name) = 'STAFF' ORDER BY a.id`),
         customersOnly
           ? Promise.resolve({ rows: [] as TpsAccountJobRole[] })
-          : client.query<TpsAccountJobRole>(`SELECT ajr.account_id, jr.id AS job_role_id, jr.name AS job_role_name,
+          : queryTps<TpsAccountJobRole>(client, `SELECT ajr.account_id, jr.id AS job_role_id, jr.name AS job_role_name,
               jr.code AS job_role_code, jr.description AS job_role_description
             FROM account_job_roles ajr
             JOIN job_roles jr ON jr.id = ajr.job_role_id

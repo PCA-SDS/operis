@@ -107,6 +107,10 @@ async function connectTps(url: string): Promise<Client> {
   return client
 }
 
+async function queryTps<T>(client: Client, text: string): Promise<{ rows: T[] }> {
+  return (await client.query(text)) as unknown as { rows: T[] }
+}
+
 async function ensureStatus(em: EntityManager, tenantId: string, input: { code: string; label: string }): Promise<AppointmentStatus> {
   let status = await em.findOne(AppointmentStatus, { tenantId, code: input.code, deletedAt: null })
   if (!status) {
@@ -376,11 +380,11 @@ export const migrateTpsAppointmentsCommand: ModuleCli = {
     try {
       client = await connectTps(tpsUrl)
       const [bookingResult, statusResult, allocationResult, employeeResult, seatResult] = await Promise.all([
-        client.query<TpsBooking>('SELECT id, customer_id, location::text, type_of_booking::text, customer_name, customer_email, customer_phone, phone_country_code, phone_country, salutation::text, origin, internal_notes, external_notes, service_selections, created_at, updated_at, requested_start_at, status_id, deleted_at FROM bookings ORDER BY id'),
-        client.query<TpsStatus>('SELECT id, value FROM statuses'),
-        client.query<TpsAllocation>('SELECT id, booking_id, seat_id, start_at, end_at, service_item_id, service_name, duration_minutes, state::text FROM booking_allocations'),
-        client.query<TpsEmployee>('SELECT booking_allocation_id, employee_id FROM booking_allocation_employees'),
-        client.query<TpsSeat>('SELECT s.id, f.location::text, s.code, s.name FROM seats s JOIN floors f ON f.id = s.floor_id'),
+        queryTps<TpsBooking>(client, 'SELECT id, customer_id, location::text, type_of_booking::text, customer_name, customer_email, customer_phone, phone_country_code, phone_country, salutation::text, origin, internal_notes, external_notes, service_selections, created_at, updated_at, requested_start_at, status_id, deleted_at FROM bookings ORDER BY id'),
+        queryTps<TpsStatus>(client, 'SELECT id, value FROM statuses'),
+        queryTps<TpsAllocation>(client, 'SELECT id, booking_id, seat_id, start_at, end_at, service_item_id, service_name, duration_minutes, state::text FROM booking_allocations'),
+        queryTps<TpsEmployee>(client, 'SELECT booking_allocation_id, employee_id FROM booking_allocation_employees'),
+        queryTps<TpsSeat>(client, 'SELECT s.id, f.location::text, s.code, s.name FROM seats s JOIN floors f ON f.id = s.floor_id'),
       ])
       const containerEm = container.resolve<EntityManager>('em').fork()
       await containerEm.transactional(async (em) => {

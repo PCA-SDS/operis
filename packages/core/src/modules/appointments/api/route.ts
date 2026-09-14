@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import type { FilterQuery } from '@mikro-orm/core'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
@@ -8,6 +9,7 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern'
 import type { CatalogPricingService } from '@open-mercato/core/modules/catalog/services/catalogPricingService'
 import { Appointment } from '../data/entities'
 import { appointmentStaffCreateSchema } from '../data/validators'
@@ -70,7 +72,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const url = new URL(req.url)
-    const statusCode = url.searchParams.get('statusCode')?.trim() || null
+    const page = z.coerce.number().int().min(1).catch(1).parse(url.searchParams.get('page'))
+    const pageSize = z.coerce.number().int().min(1).max(100).catch(50).parse(url.searchParams.get('pageSize'))
+    const search = url.searchParams.get('search')?.trim() || null
+    const statusCodes = Array.from(
+      new Set(
+        (url.searchParams.get('statusCode') ?? '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
+      ),
+    )
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
 
@@ -87,16 +99,30 @@ export async function GET(req: Request) {
     })
     const organizationId = scope?.selectedId ?? auth.orgId ?? null
 
-    const where: Record<string, unknown> = {
+    const where: FilterQuery<Appointment> = {
       tenantId: auth.tenantId,
       deletedAt: null,
     }
     if (organizationId) where.organizationId = organizationId
-    if (statusCode) where.statusCode = statusCode
+    if (statusCodes.length === 1) where.statusCode = statusCodes[0]
+    if (statusCodes.length > 1) where.statusCode = { $in: statusCodes }
+    if (search) {
+      const pattern = `%${escapeLikePattern(search)}%`
+      where.$or = [
+        { customerName: { $ilike: pattern } },
+        { customerEmail: { $ilike: pattern } },
+        { customerPhone: { $ilike: pattern } },
+        { bookingType: { $ilike: pattern } },
+        { statusCode: { $ilike: pattern } },
+        { notes: { $ilike: pattern } },
+        { externalNotes: { $ilike: pattern } },
+      ]
+    }
 
-    const rows = await em.find(Appointment, where, {
+    const [rows, total] = await em.findAndCount(Appointment, where, {
       orderBy: { requestedStartAt: 'desc' },
-      limit: 100,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
     })
     const orgNames = await resolveOrganizationNames(
       em,
@@ -106,6 +132,10 @@ export async function GET(req: Request) {
       items: rows.map((row) =>
         mapAppointment(row, orgNames.get(row.organizationId) ?? null),
       ),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
     })
   } catch {
     return NextResponse.json(

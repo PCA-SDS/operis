@@ -25,7 +25,6 @@ import { AppointmentUrgencyCell } from '../../components/AppointmentUrgencyCell'
 import { AppointmentArrivalInfo } from '../../components/AppointmentArrivalInfo'
 import { APPOINTMENT_BOOKING_TYPE_OPTIONS } from '../../data/constants'
 import { formatCustomerDisplayName } from '../../lib/customerName'
-import { formatCustomerPhone } from '../../lib/phoneSnapshot'
 
 type Row = {
   id: string
@@ -45,7 +44,13 @@ type Row = {
   updatedAt: string
 }
 
-type ListPayload = { items: Row[] }
+type ListPayload = {
+  items: Row[]
+  total?: number
+  page?: number
+  pageSize?: number
+  totalPages?: number
+}
 
 type StatusOption = { code: string; label: string }
 
@@ -77,35 +82,15 @@ function formatBookingType(value: string | null | undefined, emptyLabel: string)
   return label ?? value
 }
 
-function matchesSearch(row: Row, query: string, statusLabel: string | undefined): boolean {
-  const needle = query.trim().toLowerCase()
-  if (!needle) return true
-  const haystack = [
-    formatCustomerDisplayName(row.customerSalutation, row.customerName),
-    row.customerName,
-    row.organizationName ?? '',
-    row.customerEmail ?? '',
-    formatCustomerPhone(row.customerPhoneCountryCode, row.customerPhone),
-    row.customerPhone ?? '',
-    row.bookingType ?? '',
-    row.bookingType ? formatBookingType(row.bookingType, '') : '',
-    row.statusCode,
-    statusLabel ?? '',
-    row.notes ?? '',
-    row.externalNotes ?? '',
-    row.id,
-  ]
-    .join(' ')
-    .toLowerCase()
-  return haystack.includes(needle)
-}
-
 export default function AppointmentsListPage() {
   const t = useT()
   const pathname = usePathname()
   const scopeVersion = useOrganizationScopeVersion()
   const { tenantId: scopeTenantId } = useOrganizationScopeDetail()
   const [rows, setRows] = React.useState<Row[]>([])
+  const [page, setPage] = React.useState(1)
+  const [total, setTotal] = React.useState(0)
+  const [totalPages, setTotalPages] = React.useState(1)
   const [isLoading, setIsLoading] = React.useState(true)
   const [search, setSearch] = React.useState('')
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
@@ -177,10 +162,21 @@ export default function AppointmentsListPage() {
     async function load() {
       setIsLoading(true)
       try {
+        const params = new URLSearchParams()
+        params.set('page', String(page))
+        params.set('pageSize', '50')
+        const selectedStatusCodes = Array.isArray(filterValues.statusCode)
+          ? filterValues.statusCode.filter((value): value is string => typeof value === 'string')
+          : typeof filterValues.statusCode === 'string' && filterValues.statusCode.trim()
+            ? [filterValues.statusCode.trim()]
+            : []
+        if (selectedStatusCodes.length > 0) params.set('statusCode', selectedStatusCodes.join(','))
+        if (search.trim()) params.set('search', search.trim())
+
         const call = await apiCall<ListPayload>(
-          '/api/appointments',
+          `/api/appointments?${params.toString()}`,
           { signal: controller.signal },
-          { fallback: { items: [] } },
+          { fallback: { items: [], total: 0, page, pageSize: 50, totalPages: 1 } },
         )
         if (!call.ok) {
           if (cancelled) return
@@ -195,6 +191,8 @@ export default function AppointmentsListPage() {
         }
         if (!cancelled) {
           setRows(Array.isArray(call.result?.items) ? call.result.items : [])
+          setTotal(call.result?.total ?? 0)
+          setTotalPages(call.result?.totalPages ?? 1)
         }
       } catch (error) {
         if (!cancelled) {
@@ -212,7 +210,11 @@ export default function AppointmentsListPage() {
       cancelled = true
       controller.abort()
     }
-  }, [scopeVersion, t])
+  }, [filterValues.statusCode, page, reloadToken, scopeVersion, search, t])
+
+  React.useEffect(() => {
+    setPage(1)
+  }, [scopeVersion])
 
   const { ConfirmDialogElement, confirm } = useConfirmDialog()
 
@@ -266,30 +268,7 @@ export default function AppointmentsListPage() {
     }
   }, [confirm, t])
 
-  const statusLabelByCode = React.useMemo(() => {
-    const map = new Map<string, string>()
-    for (const option of statusOptions) {
-      map.set(option.code, option.label)
-    }
-    return map
-  }, [statusOptions])
-
-  const selectedStatusCodes = React.useMemo(() => {
-    const raw = filterValues.statusCode
-    if (Array.isArray(raw)) return new Set(raw.filter((item): item is string => typeof item === 'string'))
-    if (typeof raw === 'string' && raw.trim()) return new Set([raw.trim()])
-    return new Set<string>()
-  }, [filterValues.statusCode])
-
-  const visibleRows = React.useMemo(
-    () =>
-      rows.filter(
-        (row) =>
-          (selectedStatusCodes.size === 0 || selectedStatusCodes.has(row.statusCode)) &&
-          matchesSearch(row, search, statusLabelByCode.get(row.statusCode)),
-      ),
-    [rows, search, selectedStatusCodes, statusLabelByCode],
-  )
+  const visibleRows = React.useMemo(() => rows, [rows])
 
   const columns = React.useMemo<ColumnDef<Row>[]>(
     () => [
@@ -474,12 +453,22 @@ export default function AppointmentsListPage() {
           data={visibleRows}
           filters={filters}
           filterValues={filterValues}
-          onFiltersApply={(values) => setFilterValues(values)}
-          onFiltersClear={() => setFilterValues({})}
+          onFiltersApply={(values) => {
+            setPage(1)
+            setFilterValues(values)
+          }}
+          onFiltersClear={() => {
+            setPage(1)
+            setFilterValues({})
+          }}
           searchValue={search}
-          onSearchChange={setSearch}
+          onSearchChange={(value) => {
+            setPage(1)
+            setSearch(value)
+          }}
           searchPlaceholder={t('appointments.list.search.placeholder', 'Search appointments…')}
           perspective={{ tableId: 'appointments.list.v5' }}
+          pagination={{ page, pageSize: 50, total, totalPages, onPageChange: setPage }}
           isLoading={isLoading}
         />
         {ConfirmDialogElement}
