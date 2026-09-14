@@ -63,7 +63,7 @@ describe('email module foundation', () => {
     expect(metadata).toMatchObject({
       name: 'email',
       title: 'Email Templates',
-      defaultEntitlement: 'disabled',
+      defaultEntitlement: 'enabled',
       category: 'Communication',
     })
 
