@@ -279,10 +279,10 @@ function computeLanes(allocations: PlannerAllocation[]): PlannerAllocation[] {
 }
 
 function blockTone(isOwn: boolean, isActive: boolean, state: 'draft' | 'confirmed'): string {
-  if (!isOwn) return 'border-border bg-muted text-muted-foreground'
+  if (!isOwn) return 'border-status-neutral-border bg-status-neutral-bg text-status-neutral-text'
   if (isActive) return 'border-primary bg-primary text-primary-foreground shadow-md'
   if (state === 'confirmed') return 'border-status-success-border bg-status-success-bg text-status-success-text'
-  return 'border-status-info-border bg-status-info-bg text-status-info-text'
+  return 'border-status-warning-border bg-status-warning-bg text-status-warning-text'
 }
 
 function PlannerBlock(props: {
