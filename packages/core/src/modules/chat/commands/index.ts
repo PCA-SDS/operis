@@ -3,5 +3,6 @@
 import './conversations'
 import './engagement'
 import './translation'
+import './cards'
 import './messages'
 import './spaces'

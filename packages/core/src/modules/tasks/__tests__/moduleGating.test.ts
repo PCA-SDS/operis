@@ -169,18 +169,46 @@ describe('the module disappears when disabled', () => {
     expect(grants.every((grant) => grant.startsWith('tasks.'))).toBe(true)
   })
 
-  it('leaves no other core module importing it', () => {
-    // A cross-module import would make disabling tasks break its importer,
-    // which is exactly what module gating must not do.
+  /**
+   * Modules that may import this one, because they declare it as a hard requirement.
+   *
+   * An undeclared cross-module import is the thing this test exists to catch: it makes
+   * disabling tasks break its importer silently. A module whose `index.ts` says
+   * `requires: ['tasks']` has made the dependency explicit instead — tenant
+   * provisioning removes it along with tasks (`resolveReachableModuleIds`), so there is
+   * no state in which its code runs without tasks present.
+   *
+   * Adding a name here is therefore not a way around the rule; the assertion below
+   * re-reads each module's own `requires` and fails if the declaration is missing.
+   */
+  const DEPENDENT_MODULES = ['chat_tasks']
+
+  it('leaves no other core module importing it without declaring it as a requirement', () => {
     const offenders: string[] = []
     const sources = walk(CORE_MODULES, (file) => /\.(ts|tsx)$/.test(file)).filter(
       (file) => !file.startsWith(`${TASKS_ROOT}${path.sep}`),
     )
     for (const file of sources) {
       const source = fs.readFileSync(file, 'utf8')
-      if (/from '[^']*modules\/tasks\//.test(source)) offenders.push(path.relative(CORE_MODULES, file))
+      if (!/from '[^']*modules\/tasks\//.test(source)) continue
+      const relative = path.relative(CORE_MODULES, file)
+      const moduleId = relative.split(path.sep)[0]
+      if (moduleId && DEPENDENT_MODULES.includes(moduleId)) continue
+      offenders.push(relative)
     }
     expect(offenders).toEqual([])
+  })
+
+  it('is declared as a hard requirement by every module allowed to import it', () => {
+    // Read from each module's own metadata rather than trusted from the list above, so
+    // the allowance and the declaration cannot drift apart.
+    const undeclared = DEPENDENT_MODULES.filter((moduleId) => {
+      const indexPath = path.join(CORE_MODULES, moduleId, 'index.ts')
+      if (!fs.existsSync(indexPath)) return true
+      const source = fs.readFileSync(indexPath, 'utf8')
+      return !/requires:\s*\[[^\]]*'tasks'/.test(source)
+    })
+    expect(undeclared).toEqual([])
   })
 })
 

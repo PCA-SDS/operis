@@ -260,6 +260,50 @@ They are **excluded from the unread predicate** (`m.kind = 'user'`), so a space
 with active membership is not permanently unread for everyone in it. They still
 bump `last_message_at`, so the space rises in the list.
 
+## Cards and Extension Points
+
+Chat renders spots and imports nothing from the modules that fill them.
+`extension-points.ts` declares six hosts; a seventh should follow the same shape —
+`defineModuleExtensionPoints`, a literal spot id, and a `source` naming the component
+that actually renders it.
+
+| Spot | Fills |
+|---|---|
+| `chat:composer:commands` | `/`-command entries (row-action widgets: data, not render) |
+| `chat:message:actions` | extra items in a message's own menu |
+| `chat:message:card` | the body of a `systemEvent: 'card'` row |
+| `chat:conversation-panel:sections` | a tab in the side panel |
+| `chat:conversation-panel:section` | that tab's content |
+| `chat:conversation:overlays` | always-mounted drawers, so a command can open one |
+
+**A card row is a pointer with no text.** `systemEvent: 'card'` on a `kind: 'system'`
+row with an **empty body**, written by `chat.messages.appendCard` and removed by
+`chat.messages.removeCard`. Chat neither knows nor asks what a card refers to: the
+spot's widget resolves it **per viewer** through its own authorized read, and one that
+resolves nothing renders `chat.cards.unavailable`. Being a system row, it is already
+excluded from the unread predicate and already not editable.
+
+The empty body is the contract, not an omission — it is what keeps whatever the card
+points at out of `search_body`, the conversation preview, the translation cache and the
+transport. Never "improve" a card by storing a summary in its body: that is a snapshot,
+it goes stale, and it escapes the permission check the widget performs.
+
+`appendCard` is **not** a third send path. No mentions, no links, no attachments, no
+reply target, no publish: it appends the row, bumps `last_message_at` with an **empty**
+preview, and emits `chat.message.sent` carrying `card: true` to the conversation
+audience.
+
+## Slash Commands
+
+`lib/slashCommands.ts` is pure and isomorphic, and deliberately strict: **only an
+explicit leading command counts.** `COMMAND_TOKEN` is anchored, so a URL, a pasted
+path, a code fragment and a quoted `/` all stay ordinary text. A leading token matching
+nothing known is **neither sent as a message nor discarded** — the composer says it is
+unknown and keeps what was typed.
+
+Composition is checked before the menu sees a key: `isComposing` means an IME is
+mid-word and Enter belongs to the IME, not to the menu.
+
 ## Where Things Live
 
 | Concern | File |
