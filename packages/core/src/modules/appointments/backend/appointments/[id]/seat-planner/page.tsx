@@ -238,6 +238,39 @@ function resourceSupportsRange(resource: Resource | undefined, startsAt: string,
   })
 }
 
+function findFirstAvailablePlacement(
+  resources: Resource[],
+  allocations: PlannerAllocation[],
+  line: SeatPlannerLine | undefined,
+  requestedStartAt: string,
+  timelineStartMinutes: number,
+  timelineEndMinutes: number,
+): { resourceId: string; minutes: number } | null {
+  const requestedDate = new Date(requestedStartAt)
+  const requestedMinutes = requestedDate.getHours() * 60 + requestedDate.getMinutes()
+  const duration = lineDuration(line)
+  const firstCandidate = Math.max(
+    timelineStartMinutes,
+    Math.ceil(Math.max(requestedMinutes, timelineStartMinutes) / SLOT_MINUTES) * SLOT_MINUTES,
+  )
+
+  for (const resource of resources) {
+    for (let minutes = firstCandidate; minutes + duration <= timelineEndMinutes; minutes += SLOT_MINUTES) {
+      const startsAt = buildIsoFromSlot(requestedStartAt, minutesToTime(minutes))
+      const endsAt = addMinutes(startsAt, duration)
+      if (!resourceSupportsRange(resource, startsAt, endsAt)) continue
+      const overlaps = allocations.some((allocation) => {
+        if (allocation.resourceId !== resource.id) return false
+        return new Date(allocation.startsAt).getTime() < new Date(endsAt).getTime()
+          && new Date(startsAt).getTime() < new Date(allocation.endsAt).getTime()
+      })
+      if (!overlaps) return { resourceId: resource.id, minutes }
+    }
+  }
+
+  return null
+}
+
 function snapDuration(value: number): number {
   return Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.round(value / SLOT_MINUTES) * SLOT_MINUTES))
 }
@@ -1554,13 +1587,35 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   }, [allAllocations, liveStaffSheetTarget])
 
   React.useEffect(() => {
-    if (!timelineRef.current || ownAllocations.length === 0) return
-    const first = [...ownAllocations].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0]
-    if (!first) return
-    const seatIndex = seatColumns.findIndex((seat) => seat.id === first.resourceId)
+    const timeline = timelineRef.current
+    if (!timeline) return
+    if (ownAllocations.length > 0) {
+      const first = [...ownAllocations].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0]
+      if (!first) return
+      const seatIndex = seatColumns.findIndex((seat) => seat.id === first.resourceId)
+      const seatOffset = seatColumns.slice(0, Math.max(0, seatIndex)).reduce((width, seat) => width + (resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH * zoomScale), TIME_COLUMN_WIDTH)
+      timeline.scrollTo({ top: Math.max(0, allocationTop(first, timelineBounds.startMinutes, zoomScale) - 80), left: Math.max(0, seatOffset - 120), behavior: 'smooth' })
+      return
+    }
+
+    const line = workspace?.lines.find((entry) => !entry.currentAssignment) ?? workspace?.lines[0]
+    if (!workspace || !line) return
+    const placement = findFirstAvailablePlacement(
+      seatColumns,
+      allAllocations,
+      line,
+      workspace.appointment.requestedStartAt,
+      timelineBounds.startMinutes,
+      timelineBounds.endMinutes,
+    )
+    const minutes = placement?.minutes ?? Math.max(
+      timelineBounds.startMinutes,
+      Math.min(earliestMinutes, timelineBounds.endMinutes - lineDuration(line)),
+    )
+    const seatIndex = seatColumns.findIndex((seat) => seat.id === placement?.resourceId)
     const seatOffset = seatColumns.slice(0, Math.max(0, seatIndex)).reduce((width, seat) => width + (resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH * zoomScale), TIME_COLUMN_WIDTH)
-    timelineRef.current.scrollTo({ top: Math.max(0, allocationTop(first, timelineBounds.startMinutes, zoomScale) - 80), left: Math.max(0, seatOffset - 120), behavior: 'smooth' })
-  }, [ownAllocations, resourceColumnWidths, seatColumns, timelineBounds.startMinutes, zoomScale])
+    timeline.scrollTo({ top: Math.max(0, slotTop(minutesToTime(minutes), timelineBounds.startMinutes, zoomScale) - 80), left: Math.max(0, seatOffset - 120), behavior: 'smooth' })
+  }, [allAllocations, earliestMinutes, ownAllocations, resourceColumnWidths, seatColumns, timelineBounds.endMinutes, timelineBounds.startMinutes, workspace, zoomScale])
 
   const scrollServiceIntoView = React.useCallback((lineId: string) => {
     const service = document.querySelector<HTMLElement>(`[data-seat-planner-line-id="${lineId}"]`)
