@@ -328,8 +328,21 @@ export class AppointmentSeatPlannerService {
       endsAt: { $gt: scheduleDayStart },
       cancelledAt: null,
     }, { orderBy: { startsAt: 'asc' } })
+    const assignmentsByLine = new Map<string, ResourcesAssignment[]>()
+    for (const assignment of dayAssignments) {
+      const lineAssignments = assignmentsByLine.get(assignment.sourceEntityId) ?? []
+      lineAssignments.push(assignment)
+      assignmentsByLine.set(assignment.sourceEntityId, lineAssignments)
+    }
+    const effectiveDayAssignments = Array.from(assignmentsByLine.values()).flatMap((lineAssignments) => {
+      const drafts = lineAssignments.filter((assignment) => assignment.state === 'draft')
+      const candidates = drafts.length > 0
+        ? drafts
+        : lineAssignments.filter((assignment) => assignment.state === 'confirmed')
+      return candidates.sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime()).slice(0, 1)
+    })
 
-    const assignmentLineIds = Array.from(new Set(dayAssignments.map((assignment) => assignment.sourceEntityId)))
+    const assignmentLineIds = Array.from(new Set(effectiveDayAssignments.map((assignment) => assignment.sourceEntityId)))
     const allocationLines = assignmentLineIds.length > 0
       ? await this.em.find(AppointmentLine, { id: { $in: assignmentLineIds }, tenantId: params.tenantId, deletedAt: null })
       : []
@@ -340,7 +353,7 @@ export class AppointmentSeatPlannerService {
       : []
     const allocationAppointmentById = new Map(allocationAppointments.map((entry) => [entry.id, entry]))
     const resourceById = new Map(resourcesWithAvailability.map((resource) => [resource.id, resource]))
-    const assignedMemberIds = Array.from(new Set(dayAssignments.flatMap(getAssignedMemberIds)))
+    const assignedMemberIds = Array.from(new Set(effectiveDayAssignments.flatMap(getAssignedMemberIds)))
     const assignedMembers = assignedMemberIds.length > 0
       ? await findWithDecryption(
           this.em,
@@ -356,7 +369,7 @@ export class AppointmentSeatPlannerService {
         )
       : []
     const assignedMemberNameById = new Map(assignedMembers.map((member) => [member.id, member.displayName]))
-    const allocations = dayAssignments.flatMap((assignment) => {
+    const allocations = effectiveDayAssignments.flatMap((assignment) => {
       const line = allocationLineById.get(assignment.sourceEntityId)
       if (!line) return []
       const sourceAppointment = allocationAppointmentById.get(line.appointment.id)
