@@ -10,13 +10,13 @@ import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { CalendarDays, Pencil, Trash2 } from 'lucide-react'
+import { Ban, CalendarDays, Pencil, Trash2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { Dropdown } from '@open-mercato/ui/primitives/dropdown'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 
-type InvoiceRow = { id: string; direction: 'AP' | 'AR'; partnerName: string | null; invoiceSymbol: string | null; invoiceNumber: string | null; invoiceDate: string | null; dueDate: string | null; nextDueDate: string | null; currencyCode: string | null; grossAmount: string | null; settlementStatus: string | null; invoiceStatus: string | null; hasInstallmentPlan: boolean; hasReceived: boolean; hasPaid: boolean; autoSettled: boolean; nonRecoverable: boolean; lastSentAt: string | null; origin: string | null }
+type InvoiceRow = { id: string; direction: 'AP' | 'AR'; companyId: string | null; partnerName: string | null; invoiceSymbol: string | null; invoiceNumber: string | null; invoiceDate: string | null; dueDate: string | null; nextDueDate: string | null; currencyCode: string | null; grossAmount: string | null; settlementStatus: string | null; invoiceStatus: string | null; hasInstallmentPlan: boolean; hasReceived: boolean; hasPaid: boolean; autoSettled: boolean; nonRecoverable: boolean; lastSentAt: string | null; origin: string | null }
 type Response = { items: InvoiceRow[]; total: number; page: number; pageSize: number; totalPages: number }
 type DirectionSummary = { outstandingAmount: string; settledAmount: string; unpaidInvoices: number; partiallyPaidInvoices: number; paidInvoices: number }
 type SummaryResponse = { currency: 'VND'; ar: DirectionSummary; ap: DirectionSummary }
@@ -35,8 +35,10 @@ export function InvoiceList({ direction }: { direction?: 'AP' | 'AR' }) {
   const [payload, setPayload] = React.useState<Response | null>(null); const [loading, setLoading] = React.useState(true); const [failed, setFailed] = React.useState(false)
   const [summary, setSummary] = React.useState<SummaryResponse | null>(null)
   const [installments, setInstallments] = React.useState<Installment[]>([])
+  const [installmentInvoice, setInstallmentInvoice] = React.useState<InvoiceRow | null>(null)
   const [installmentsOpen, setInstallmentsOpen] = React.useState(false)
   const [deletingInvoiceId, setDeletingInvoiceId] = React.useState<string | null>(null)
+  const [updatingInvoiceId, setUpdatingInvoiceId] = React.useState<string | null>(null)
   const page = Number(searchParams.get('page') ?? '1') || 1; const search = searchParams.get('search') ?? ''
   const recoverability = searchParams.get('recoverability') ?? 'all'
   const fromDate = searchParams.get('fromDate') ?? ''
@@ -62,17 +64,32 @@ export function InvoiceList({ direction }: { direction?: 'AP' | 'AR' }) {
     router.push(`?${params}`)
   }, [router, searchParams])
   const openInstallments = React.useCallback(async (invoiceId: string) => {
-    const call = await apiCall<InvoiceDetail>(`/api/invoice/invoices/${invoiceId}`)
-    if (!call.ok || !call.result) return
-    setInstallments(call.result.installments)
-    setInstallmentsOpen(true)
-  }, [])
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('installmentsId', invoiceId)
+    router.push(`?${params}`)
+  }, [router, searchParams])
   const load = React.useCallback(async () => { setLoading(true); setFailed(false); const params = new URLSearchParams({ page: String(page), pageSize: '50', sortField: searchParams.get('sortField') ?? 'invoiceDate', sortDir: searchParams.get('sortDir') ?? 'desc' }); if (activeDirection !== 'all') params.set('direction', activeDirection); if (recoverability !== 'all') params.set('recoverability', recoverability); if (fromDate) params.set('fromDate', fromDate); if (toDate) params.set('toDate', toDate); if (search) params.set('search', search); const [call, summaryCall] = await Promise.all([apiCall<Response>(`/api/invoice/invoices?${params}`), direction ? apiCall<SummaryResponse>('/api/invoice/summary') : Promise.resolve(null)]); if (!call.ok || !call.result) setFailed(true); else setPayload(call.result); if (summaryCall?.ok && summaryCall.result) setSummary(summaryCall.result); setLoading(false) }, [activeDirection, direction, fromDate, page, recoverability, search, searchParams, toDate])
   const deleteInvoice = React.useCallback(async () => {
     if (!deletingInvoiceId) return
     const call = await apiCall(`/api/invoice/invoices/${deletingInvoiceId}`, { method: 'DELETE' })
     if (call.ok) { setDeletingInvoiceId(null); void load() }
   }, [deletingInvoiceId, load])
+  const updateSettlement = React.useCallback(async (invoice: InvoiceRow, settled: boolean) => {
+    if (direction === 'AP') {
+      router.push(`/backend/invoice/all/${invoice.id}`)
+      return
+    }
+    setUpdatingInvoiceId(invoice.id)
+    await apiCall(`/api/invoice/invoices/${invoice.id}/settlement`, { method: 'PATCH', body: JSON.stringify({ settled }) })
+    setUpdatingInvoiceId(null)
+    void load()
+  }, [direction, load, router])
+  const updateRecoverability = React.useCallback(async (invoice: InvoiceRow) => {
+    setUpdatingInvoiceId(invoice.id)
+    await apiCall(`/api/invoice/invoices/${invoice.id}/non-recoverable`, { method: 'PATCH', body: JSON.stringify({ nonRecoverable: !invoice.nonRecoverable, note: !invoice.nonRecoverable ? 'Marked from receivables' : null }) })
+    setUpdatingInvoiceId(null)
+    void load()
+  }, [load])
   React.useEffect(() => { void load() }, [load])
   const columns = React.useMemo<ColumnDef<InvoiceRow>[]>(() => {
     const dateLabel = (value: string | null) => value ? new Date(value).toLocaleDateString() : '—'
@@ -93,10 +110,9 @@ export function InvoiceList({ direction }: { direction?: 'AP' | 'AR' }) {
     const total: ColumnDef<InvoiceRow> = { accessorKey: 'grossAmount', header: t('invoice.list.columns.total'), cell: ({ row }) => row.original.grossAmount ? `${Number(row.original.grossAmount).toLocaleString()} ${row.original.currencyCode ?? ''}` : '—' }
     const actions: ColumnDef<InvoiceRow> = { id: 'actions', header: t('invoice.list.columns.actions', { fallback: 'Actions' }), cell: ({ row }) => {
       const invoice = row.original
-      let label = t('invoice.actions.view', { fallback: 'View' })
-      if (direction === 'AP') label = invoice.autoSettled ? t('invoice.actions.autoPaid', { fallback: '⚡ Auto-paid' }) : invoice.hasPaid ? t('invoice.actions.paid', { fallback: '✓ Paid' }) : invoice.lastSentAt ? t('invoice.actions.pending', { fallback: 'Pending' }) : t('invoice.actions.paidQuestion', { fallback: 'Paid?' })
-      if (direction === 'AR') label = invoice.nonRecoverable ? t('invoice.actions.nonRecoverable', { fallback: 'Non-Recoverable' }) : invoice.hasReceived ? t('invoice.actions.received', { fallback: '✓ Received' }) : t('invoice.actions.markReceived', { fallback: 'Mark as Received' })
-      return <><div className="flex items-center justify-end gap-1"><Button type="button" variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); router.push(`/backend/invoice/all/${invoice.id}`) }}>{label}</Button><IconButton type="button" variant="ghost" size="sm" aria-label={t('invoice.actions.edit', { fallback: 'Edit' })} onClick={(event) => { event.stopPropagation(); router.push(`/backend/invoice/all/${invoice.id}/edit`) }}><Pencil /></IconButton><IconButton type="button" variant="ghost" size="sm" aria-label={t('invoice.actions.delete', { fallback: 'Delete' })} onClick={(event) => { event.stopPropagation(); setDeletingInvoiceId(invoice.id) }}><Trash2 /></IconButton></div><Dialog open={deletingInvoiceId === invoice.id} onOpenChange={(open) => { if (!open) setDeletingInvoiceId(null) }}><DialogContent><DialogHeader><DialogTitle>{t('invoice.actions.deleteConfirm', { fallback: 'Delete invoice?' })}</DialogTitle></DialogHeader><div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setDeletingInvoiceId(null)}>{t('common.cancel', { fallback: 'Cancel' })}</Button><Button type="button" variant="destructive" onClick={() => void deleteInvoice()}>{t('common.delete', { fallback: 'Delete' })}</Button></div></DialogContent></Dialog></>
+      const isBusy = updatingInvoiceId === invoice.id
+      const primaryAction = direction === 'AP' ? <Button type="button" variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); router.push(`/backend/invoice/all/${invoice.id}`) }}>{invoice.autoSettled ? t('invoice.actions.autoPaid', { fallback: 'Auto-paid' }) : invoice.hasPaid ? t('invoice.actions.paid', { fallback: 'Paid' }) : t('invoice.actions.paidQuestion', { fallback: 'Paid?' })}</Button> : direction === 'AR' ? <Button type="button" variant={invoice.hasReceived ? 'secondary' : 'outline'} size="sm" disabled={isBusy || invoice.nonRecoverable} onClick={(event) => { event.stopPropagation(); void updateSettlement(invoice, !invoice.hasReceived) }}>{invoice.hasReceived ? t('invoice.actions.received', { fallback: 'Received' }) : t('invoice.actions.markReceived', { fallback: 'Mark as received' })}</Button> : null
+      return <><div className="flex items-center justify-end gap-1">{primaryAction}{direction === 'AR' && <IconButton type="button" variant="ghost" size="sm" aria-label={t('invoice.actions.installments', { fallback: 'Installments' })} disabled={isBusy || invoice.hasReceived} onClick={(event) => { event.stopPropagation(); void openInstallments(invoice.id) }}><CalendarDays /></IconButton>}{direction === 'AR' && <IconButton type="button" variant="ghost" size="sm" aria-label={invoice.nonRecoverable ? t('invoice.actions.recover', { fallback: 'Mark recoverable' }) : t('invoice.actions.nonRecoverable', { fallback: 'Mark non-recoverable' })} disabled={isBusy || invoice.hasReceived} onClick={(event) => { event.stopPropagation(); void updateRecoverability(invoice) }}><Ban /></IconButton>}<IconButton type="button" variant="ghost" size="sm" aria-label={t('invoice.actions.edit', { fallback: 'Edit' })} onClick={(event) => { event.stopPropagation(); router.push(`/backend/invoice/all/${invoice.id}/edit`) }}><Pencil /></IconButton><IconButton type="button" variant="ghost" size="sm" aria-label={t('invoice.actions.delete', { fallback: 'Delete' })} onClick={(event) => { event.stopPropagation(); setDeletingInvoiceId(invoice.id) }}><Trash2 /></IconButton></div><Dialog open={deletingInvoiceId === invoice.id} onOpenChange={(open) => { if (!open) setDeletingInvoiceId(null) }}><DialogContent><DialogHeader><DialogTitle>{t('invoice.actions.deleteConfirm', { fallback: 'Delete invoice?' })}</DialogTitle></DialogHeader><div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setDeletingInvoiceId(null)}>{t('common.cancel', { fallback: 'Cancel' })}</Button><Button type="button" variant="destructive" onClick={() => void deleteInvoice()}>{t('common.delete', { fallback: 'Delete' })}</Button></div></DialogContent></Dialog></>
     } }
     if (!direction) return [
       { accessorKey: 'direction', header: t('invoice.list.columns.direction'), meta: { maxWidth: '7rem' }, cell: ({ row }) => <span className="rounded-full bg-muted px-2 py-1 text-xs font-medium">{row.original.direction}</span> },
@@ -107,7 +123,7 @@ export function InvoiceList({ direction }: { direction?: 'AP' | 'AR' }) {
       actions,
     ]
     return [...common, { id: 'paymentStatus', header: t('invoice.list.columns.paymentStatus', { fallback: 'Payment Status' }), cell: ({ row }) => paymentStatus(row.original.nextDueDate) }, installments, total, actions]
-  }, [direction, openInstallments, router, t])
+  }, [deleteInvoice, direction, openInstallments, router, t, updateRecoverability, updateSettlement, updatingInvoiceId])
   if (loading && !payload) return <Page><PageBody><LoadingMessage label={t('invoice.list.loading')} /></PageBody></Page>
   if (failed && !payload) return <Page><PageBody><ErrorMessage label={t('invoice.list.error')} action={<Button type="button" onClick={() => void load()}>{t('invoice.actions.retry')}</Button>} /></PageBody></Page>
   const rows = payload?.items ?? []

@@ -18,6 +18,9 @@ export type LineChartProps = {
   valueFormatter?: (value: number) => string
   showLegend?: boolean
   showGridLines?: boolean
+  showXAxis?: boolean
+  showYAxis?: boolean
+  showZeroLine?: boolean
   curveType?: 'linear' | 'natural' | 'monotone' | 'step'
   connectNulls?: boolean
   className?: string
@@ -56,6 +59,9 @@ export function LineChart({
   valueFormatter = defaultValueFormatter,
   showLegend = true,
   showGridLines = true,
+  showXAxis = true,
+  showYAxis = true,
+  showZeroLine = false,
   curveType = 'monotone',
   connectNulls = true,
   className = '',
@@ -108,6 +114,9 @@ export function LineChart({
           valueFormatter={valueFormatter}
           showLegend={showLegend}
           showGridLines={showGridLines}
+          showXAxis={showXAxis}
+          showYAxis={showYAxis}
+          showZeroLine={showZeroLine}
           curveType={curveType}
           connectNulls={connectNulls}
           categoryLabels={categoryLabels}

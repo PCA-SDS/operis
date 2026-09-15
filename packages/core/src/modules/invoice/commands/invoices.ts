@@ -9,6 +9,8 @@ import {
   invoiceDueDateUpdateSchema,
   invoiceSettlementUpdateSchema,
   invoiceNonRecoverableUpdateSchema,
+  invoiceInstallmentPlanUpdateSchema,
+  invoiceInstallmentStatusUpdateSchema,
   invoiceSendSchema,
 } from '../data/validators'
 import type {
@@ -16,6 +18,8 @@ import type {
   InvoiceManualMutationResult,
   InvoiceDueDateUpdateResult,
   InvoiceNonRecoverableUpdateResult,
+  InvoiceInstallmentPlanUpdateResult,
+  InvoiceInstallmentStatusUpdateResult,
   InvoiceSettlementUpdateResult,
   InvoiceService,
 } from '../services/invoice-service'
@@ -137,6 +141,8 @@ export type InvoiceNonRecoverableUpdateCommandResult = {
   invoiceId: string
   invoice: InvoiceNonRecoverableUpdateResult['invoice']
 }
+export type InvoiceInstallmentPlanCommandResult = { invoiceId: string; invoice: InvoiceInstallmentPlanUpdateResult['invoice'] }
+export type InvoiceInstallmentStatusCommandResult = { invoiceId: string; invoice: InvoiceInstallmentStatusUpdateResult['invoice'] }
 export type InvoiceSendCommandResult = {
   invoiceId: string
   invoice: InvoiceManualMutationResult['invoice']
@@ -247,6 +253,51 @@ export const updateInvoiceNonRecoverableCommand: CommandHandler<unknown, Invoice
 
 registerCommand(updateInvoiceSettlementCommand)
 registerCommand(updateInvoiceNonRecoverableCommand)
+
+export const updateInvoiceInstallmentPlanCommand: CommandHandler<unknown, InvoiceInstallmentPlanCommandResult> = {
+  id: 'invoice.invoices.update-installment-plan', isUndoable: false,
+  async execute(rawInput, ctx) {
+    const record = rawInput as Record<string, unknown>
+    const id = invoiceIdSchema.parse(record.id)
+    const input = invoiceInstallmentPlanUpdateSchema.parse(record.input ?? record)
+    const scope = requireInvoiceScope(ctx)
+    await enforceInvoiceCommandOptimisticLock(ctx, id)
+    const result = await serviceFrom(ctx).updateInstallmentPlan(scope, id, input)
+    return { invoiceId: result.invoice.id, invoice: result.invoice }
+  },
+  buildLog({ result, ctx }) { const scope = requireInvoiceScope(ctx); return { actionLabel: 'Update invoice installment plan', resourceKind: INVOICE_INVOICE_RESOURCE_KIND, resourceId: result.invoiceId, tenantId: scope.tenantId, organizationId: scope.organizationId } },
+}
+
+export const deleteInvoiceInstallmentPlanCommand: CommandHandler<unknown, InvoiceInstallmentPlanCommandResult> = {
+  id: 'invoice.invoices.delete-installment-plan', isUndoable: false,
+  async execute(rawInput, ctx) {
+    const id = invoiceIdSchema.parse((rawInput as Record<string, unknown>).id)
+    const scope = requireInvoiceScope(ctx)
+    await enforceInvoiceCommandOptimisticLock(ctx, id)
+    const result = await serviceFrom(ctx).deleteInstallmentPlan(scope, id)
+    return { invoiceId: result.invoice.id, invoice: result.invoice }
+  },
+  buildLog({ result, ctx }) { const scope = requireInvoiceScope(ctx); return { actionLabel: 'Delete invoice installment plan', resourceKind: INVOICE_INVOICE_RESOURCE_KIND, resourceId: result.invoiceId, tenantId: scope.tenantId, organizationId: scope.organizationId } },
+}
+
+export const updateInvoiceInstallmentStatusCommand: CommandHandler<unknown, InvoiceInstallmentStatusCommandResult> = {
+  id: 'invoice.invoices.update-installment-status', isUndoable: false,
+  async execute(rawInput, ctx) {
+    const record = rawInput as Record<string, unknown>
+    const id = invoiceIdSchema.parse(record.id)
+    const installmentId = invoiceIdSchema.parse(record.installmentId)
+    const input = invoiceInstallmentStatusUpdateSchema.parse(record.input ?? record)
+    const scope = requireInvoiceScope(ctx)
+    await enforceInvoiceCommandOptimisticLock(ctx, id)
+    const result = await serviceFrom(ctx).updateInstallmentStatus(scope, id, installmentId, input)
+    return { invoiceId: result.invoice.id, invoice: result.invoice }
+  },
+  buildLog({ result, ctx }) { const scope = requireInvoiceScope(ctx); return { actionLabel: 'Update invoice installment status', resourceKind: INVOICE_INVOICE_RESOURCE_KIND, resourceId: result.invoiceId, tenantId: scope.tenantId, organizationId: scope.organizationId } },
+}
+
+registerCommand(updateInvoiceInstallmentPlanCommand)
+registerCommand(deleteInvoiceInstallmentPlanCommand)
+registerCommand(updateInvoiceInstallmentStatusCommand)
 
 export const sendInvoiceCommand: CommandHandler<unknown, InvoiceSendCommandResult> = {
   id: 'invoice.invoices.send',

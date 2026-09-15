@@ -15,5 +15,5 @@ export default function EditInvoicePage() {
   if (state === 'loading') return <Page><PageBody><LoadingMessage label={t('invoice.detail.loading')} /></PageBody></Page>
   if (state === 'notFound') return <Page><PageBody><ErrorMessage label={t('invoice.detail.notFound')} /></PageBody></Page>
   if (state !== 'ready' || !record) return <Page><PageBody><ErrorMessage label={t('invoice.detail.error')} /></PageBody></Page>
-  return <Page><PageBody><InvoiceForm mode="edit" initialValues={record} onSaved={() => router.push(`/backend/invoice/all/${id}`)} /></PageBody></Page>
+  return <Page><PageBody><InvoiceForm mode="edit" recordId={id} initialValues={record} onSaved={() => router.push(`/backend/invoice/all/${id}`)} /></PageBody></Page>
 }

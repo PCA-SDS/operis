@@ -1,2 +1,2 @@
-import { InvoiceList } from '../InvoiceList'
-export default function ReceivablesPage() { return <InvoiceList direction="AR" /> }
+import { ReceivablesPageClient } from './ReceivablesPageClient'
+export default function ReceivablesPage() { return <ReceivablesPageClient /> }

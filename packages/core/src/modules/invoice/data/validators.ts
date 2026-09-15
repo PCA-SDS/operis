@@ -279,6 +279,23 @@ export const invoiceSettlementUpdateSchema = z.object({
   settled: z.boolean(),
 }).strict()
 export type InvoiceSettlementUpdateInput = z.infer<typeof invoiceSettlementUpdateSchema>
+export const invoiceNullableNoteSchema = nullableTrimmedString(INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH)
+export const invoiceInstallmentInputSchema = z.object({
+  principalAmount: invoicePositiveMoneySchema,
+  interestRate: invoicePercentSchema,
+  dueDate: invoiceDateSchema,
+  note: invoiceNullableNoteSchema,
+}).strict()
+export const invoiceInstallmentPlanUpdateSchema = z.object({
+  installments: z.array(invoiceInstallmentInputSchema)
+    .min(INVOICE_INSTALLMENT_COUNT_MIN)
+    .max(INVOICE_INSTALLMENT_COUNT_MAX),
+}).strict()
+export type InvoiceInstallmentPlanUpdateInput = z.infer<typeof invoiceInstallmentPlanUpdateSchema>
+export const invoiceInstallmentStatusUpdateSchema = z.object({
+  paid: z.boolean(),
+}).strict()
+export type InvoiceInstallmentStatusUpdateInput = z.infer<typeof invoiceInstallmentStatusUpdateSchema>
 export const invoiceNonRecoverableUpdateSchema = z.object({
   nonRecoverable: z.boolean(),
   note: invoiceNonRecoverableNoteSchema.nullable().optional(),
@@ -327,8 +344,6 @@ export const invoiceInstallmentCountSchema = z.coerce
   .min(INVOICE_INSTALLMENT_COUNT_MIN)
   .max(INVOICE_INSTALLMENT_COUNT_MAX)
 export const invoiceProgressSchema = z.coerce.number().int().min(0).max(100)
-export const invoiceNullableNoteSchema = nullableTrimmedString(INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH)
-
 const invoiceHex64Schema = () =>
   z
     .string()
