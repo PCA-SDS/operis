@@ -1601,8 +1601,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                 <ResourceIcon resource={seat} />
                               </span>
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold">{seat.code || seat.name}</p>
-                                <p className="truncate text-xs text-muted-foreground">{seat.name}</p>
+                                <p className="truncate text-sm font-semibold">{seat.name}</p>
+                                <p className="truncate text-xs text-muted-foreground">{seat.code || seat.name}</p>
                               </div>
                             </div>
                           </div>

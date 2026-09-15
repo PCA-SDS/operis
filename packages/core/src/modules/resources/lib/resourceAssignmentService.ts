@@ -191,7 +191,7 @@ export class ResourceAssignmentService {
       resources: orderedResources.map((r) => ({
         id: r.id,
         name: r.name,
-        code: r.capacityUnitValue,
+        code: r.code,
         appearanceIcon: r.appearanceIcon,
         capacityUnitIcon: r.capacityUnitIcon,
         capacityUnitColor: r.capacityUnitColor,

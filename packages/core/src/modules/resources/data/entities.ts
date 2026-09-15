@@ -88,6 +88,9 @@ export class ResourcesResource {
   name!: string
 
   @Property({ type: 'text', nullable: true })
+  code?: string | null
+
+  @Property({ type: 'text', nullable: true })
   description?: string | null
 
   @Property({ name: 'resource_type_id', type: 'uuid', nullable: true })

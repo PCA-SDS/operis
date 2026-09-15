@@ -293,7 +293,11 @@ export class AppointmentSeatPlannerService {
             range: { start: scheduleDayStart, end: scheduleDayEnd },
           }).map((window) => ({ startsAt: window.start.toISOString(), endsAt: window.end.toISOString() }))
         : null
-      return { ...resource, availabilityWindows }
+      return {
+        ...resource,
+        code: resourceRecord?.code ?? resource.code ?? null,
+        availabilityWindows,
+      }
     })
 
     // Load option snapshots for all lines (prefer snapshot tables, fallback to catalog)

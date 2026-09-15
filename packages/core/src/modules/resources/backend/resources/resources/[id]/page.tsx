@@ -39,6 +39,7 @@ import type { DictionarySelectLabels } from '@open-mercato/core/modules/dictiona
 type ResourceRecord = {
   id: string
   name: string
+  code?: string | null
   description?: string | null
   resourceTypeId: string | null
   areaId?: string | null
@@ -550,6 +551,7 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
           setInitialValues({
             id: resource.id,
             name: resource.name,
+            code: resource.code ?? null,
             description: resource.description ?? '',
             resourceTypeId: resource.resourceTypeId || '',
             areaId: resource.areaId || null,
