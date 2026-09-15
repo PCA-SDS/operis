@@ -143,6 +143,29 @@ export async function setRecordCustomFields(
   const ownCustomFieldTransaction = txCapable && !txEm.isInTransaction!()
   if (ownCustomFieldTransaction) await txEm.begin!()
   try {
+  // Pre-load the existing rows for every scalar key in ONE query. The per-key
+  // branch below used to issue its own `em.findOne`, so a record with N custom
+  // fields cost N sequential round trips — all inside the transaction opened
+  // above, holding row locks on `custom_field_values` for the whole walk.
+  // Only scalar keys are loaded: the array branch replaces its rows with
+  // `nativeDelete` + fresh inserts and never reads the existing ones, so
+  // pulling them into the identity map here would be pointless and would leave
+  // managed entities behind rows the delete has already removed.
+  const scalarKeys = keys.filter((key) => values[key] !== undefined && !Array.isArray(values[key]))
+  const existingByFieldKey = new Map<string, CustomFieldValue>()
+  if (scalarKeys.length) {
+    const existingRows = await em.find(CustomFieldValue, {
+      entityId,
+      recordId,
+      organizationId,
+      tenantId,
+      fieldKey: { $in: scalarKeys },
+    })
+    // `findOne` returned the first matching row; keep that by not overwriting.
+    for (const row of existingRows) {
+      if (!existingByFieldKey.has(row.fieldKey)) existingByFieldKey.set(row.fieldKey, row)
+    }
+  }
   for (const fieldKey of keys) {
     const raw = values[fieldKey]
     if (raw === undefined) continue
@@ -184,7 +207,7 @@ export async function setRecordCustomFields(
       ? await encryptCustomFieldValue(raw as Primitive, tenantId, getEncryptionService(), encryptionCache)
       : raw
 
-    let cf = await em.findOne(CustomFieldValue, { entityId, recordId, organizationId, tenantId, fieldKey })
+    let cf = existingByFieldKey.get(fieldKey) ?? null
     if (!cf) {
       cf = em.create(CustomFieldValue, { entityId, recordId, organizationId, tenantId, fieldKey, createdAt: new Date() })
       toPersist.push(cf)
