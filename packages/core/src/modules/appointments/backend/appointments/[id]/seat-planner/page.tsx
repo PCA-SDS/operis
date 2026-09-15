@@ -149,6 +149,7 @@ type DraftAssignmentResult = {
 type StaffMember = { id: string; displayName: string; roleLabel: string; roleLabels: string[] }
 type PopoverState = { allocation: PlannerAllocation; anchor: DOMRect }
 type StaffSheetTarget = { allocation: PlannerAllocation; line: SeatPlannerLine | null }
+type HoveredSlot = { resourceId: string; time: string }
 
 function assignedMemberIdsFor(value: { assignedMemberIds?: string[]; assignedMemberId?: string | null }): string[] {
   if (Array.isArray(value.assignedMemberIds) && value.assignedMemberIds.length > 0) return value.assignedMemberIds
@@ -920,6 +921,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [activeLineId, setActiveLineId] = React.useState<string | null>(null)
+  const [hoveredSlot, setHoveredSlot] = React.useState<HoveredSlot | null>(null)
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
   const [popoverState, setPopoverState] = React.useState<PopoverState | null>(null)
   const [staffSheetTarget, setStaffSheetTarget] = React.useState<StaffSheetTarget | null>(null)
@@ -1638,8 +1640,26 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                           ))}
                         </div>
 
-                        {seatColumns.map((seat) => (
-                          <div key={seat.id} className={`relative border-r border-border bg-surface ${seat.isFirstInFloor ? 'border-l' : ''}`}>
+                        {seatColumns.map((seat) => {
+                          const isPreviewTarget = hoveredSlot?.resourceId === seat.id && Boolean(activeLine)
+                          const previewDuration = activeLine ? lineDuration(activeLine) : 0
+                          const previewStartsAt = isPreviewTarget && hoveredSlot
+                            ? buildIsoFromSlot(workspace.appointment.requestedStartAt, hoveredSlot.time)
+                            : null
+                          const previewEndsAt = previewStartsAt ? addMinutes(previewStartsAt, previewDuration) : null
+                          const previewStaffNames = activeLine?.currentAssignment?.assignedMemberNames
+                            ?? (activeLine?.currentAssignment?.assignedMemberName ? [activeLine.currentAssignment.assignedMemberName] : [])
+                          const previewBlocked = previewStartsAt && previewEndsAt
+                            ? timeToMinutes(hoveredSlot?.time ?? '00:00') < earliestMinutes
+                              || !canUseResourceRange(seat.id, previewStartsAt, previewEndsAt)
+                              || (allocationsBySeat.get(seat.id) ?? []).some((allocation) => {
+                                if (allocation.appointmentId === workspace.appointment.id) return false
+                                return new Date(previewStartsAt).getTime() < new Date(allocation.endsAt).getTime()
+                                  && new Date(allocation.startsAt).getTime() < new Date(previewEndsAt).getTime()
+                              })
+                            : false
+                          return (
+                            <div key={seat.id} className={`relative border-r border-border bg-surface ${seat.isFirstInFloor ? 'border-l' : ''}`} onMouseLeave={() => setHoveredSlot(null)}>
                             <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-muted/60" style={{ height: Math.max(0, ((earliestMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight()) }} />
                             {slotGridMarkers.map((time) => <div key={`${seat.id}-${time}-slot-grid`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time, timelineBounds.startMinutes) }} />)}
                             {timeMarkers.map((time) => <div key={`${seat.id}-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time, timelineBounds.startMinutes) }} />)}
@@ -1663,6 +1683,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                   className={`absolute left-0 right-0 rounded-none border-t border-transparent p-0 ${blocked ? 'cursor-not-allowed opacity-40' : 'hover:bg-primary/10'}`}
                                   style={{ top: slotTop(time, timelineBounds.startMinutes), height: slotHeight() }}
                                   disabled={!activeLine || blocked}
+                                  onMouseEnter={() => setHoveredSlot({ resourceId: seat.id, time })}
                                   onClick={() => {
                                     void handleSlotClick(seat.id, time)
                                   }}
@@ -1670,6 +1691,23 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                 />
                               )
                             })}
+                            {isPreviewTarget && previewStartsAt && previewEndsAt && activeLine ? (
+                              <div
+                                className={`pointer-events-none absolute left-1 right-1 z-10 flex flex-col overflow-hidden rounded-md border-2 border-dashed px-2 py-1 text-xs ${previewBlocked ? 'border-destructive/60 bg-destructive/10 text-destructive' : 'border-primary/60 bg-primary/10 text-primary'}`}
+                                style={{
+                                  top: slotTop(hoveredSlot?.time ?? minutesToTime(timelineBounds.startMinutes), timelineBounds.startMinutes),
+                                  height: Math.max((previewDuration / SLOT_MINUTES) * slotHeight(), 24),
+                                }}
+                              >
+                                <span className={`${previewDuration <= 15 ? 'truncate' : 'line-clamp-2'} font-semibold leading-tight`}>{activeLine.productTitle}</span>
+                                {previewDuration > 30 ? (
+                                  <span className="line-clamp-2 break-words text-[10px] leading-tight opacity-80">{previewStaffNames.join(', ') || 'No staff assigned'}</span>
+                                ) : null}
+                                {previewDuration >= 30 ? (
+                                  <span className="mt-auto truncate text-[10px] opacity-80">{formatTime(previewStartsAt)} - {formatTime(previewEndsAt)}</span>
+                                ) : null}
+                              </div>
+                            ) : null}
                             {(allocationsBySeat.get(seat.id) ?? []).map((allocation) => {
                               const line = workspace.lines.find((entry) => entry.id === allocation.lineId) ?? null
                               return (
@@ -1691,8 +1729,9 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                 />
                               )
                             })}
-                          </div>
-                        ))}
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   </div>
