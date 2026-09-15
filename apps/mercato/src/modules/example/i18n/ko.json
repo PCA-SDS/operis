@@ -298,7 +298,7 @@
   "example.umes.extensions.phaseG.description": "이 하네스는 `crud-form:example.todo`에서 주입된 위젯을 활성 상태로 유지합니다. 한 번 제출하여 필드/이벤트 파이프라인이 실행되는지 확인하세요.",
   "example.umes.extensions.phaseG.hint1": "1. 주입된 위젯 카드 `Example Injection Widget`이 폼 필드 위에 보여야 합니다.",
   "example.umes.extensions.phaseG.hint2": "2. 유효한 폼을 저장하면 폼 아래의 `submitResult`가 업데이트되어야 합니다.",
-  "example.umes.extensions.phaseG.hint3": "3. 고객 상세 폼(`/backend/customers/people/:id`)에서 주입된 `_example.priority` 필드는 onSave 핸들러를 통해 저장되어야 합니다.",
+  "example.umes.extensions.phaseG.hint3": "3. 고객 상세 폼(`/backend/customers/people-v2/:id`)에서 주입된 `_example.priority` 필드는 onSave 핸들러를 통해 저장되어야 합니다.",
   "example.umes.extensions.phaseG.title": "Phase G — CrudForm 필드 주입",
   "example.umes.extensions.phaseH.description": "이 영역에서 활성화된 교체 핸들: 페이지, DataTable, CrudForm, 그리고 `example/widgets/components.ts`에 선언된 `ui.detail:NotesSection` 래퍼입니다.",
   "example.umes.extensions.phaseH.hint1": "1. 이 페이지 루트는 `data-component-handle=\"page:/backend/umes-extensions\"`를 노출해야 합니다.",
