@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { BadgeCheck, CalendarClock } from 'lucide-react'
-import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { useInvoiceT as useT } from '@open-mercato/core/modules/invoice/lib/useInvoiceT'
 import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 
 import { AutoPaidSettings } from './components/AutoPaidSettings'
