@@ -5,7 +5,7 @@ import { login } from '@open-mercato/core/helpers/integration/auth'
  * TC-UX-008: RecordNotFoundState back-to-list action navigates to the owning list page
  * Source: .ai/specs/implemented/2026-03-23-unified-record-not-found-ui-state.md (Phase 5 — Integration Coverage)
  *
- * Uses the Phase-1 representative page `/backend/customers/companies/[id]`
+ * Uses the Phase-1 representative page `/backend/customers/companies-v2/[id]`
  * (introduced in PR #2014) to confirm the recovery action actually navigates,
  * not just renders a link with the right href.
  */
@@ -14,7 +14,7 @@ test.describe('TC-UX-008: RecordNotFoundState — back-to-list navigation on Pha
     await login(page, 'admin')
 
     const missingId = crypto.randomUUID()
-    await page.goto(`/backend/customers/companies/${missingId}`, { waitUntil: 'commit' })
+    await page.goto(`/backend/customers/companies-v2/${missingId}`, { waitUntil: 'commit' })
 
     const notFoundLabel = page.getByText('Company not found', { exact: false })
     await expect(notFoundLabel).toBeVisible({ timeout: 15_000 })

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 import type { AwilixContainer } from 'awilix'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { createCrudFormError } from '@open-mercato/ui/backend/utils/serverErrors'
@@ -28,7 +29,7 @@ export const queueImportHistorySchema = z.object({
   channelId: z.string().uuid(),
   sinceDays: z.number().int().min(1).max(365).default(30),
   contactEmails: z
-    .array(z.string().email().max(255))
+    .array(emailSchema())
     .max(200)
     .optional(),
   maxMessages: z.number().int().min(1).max(5000).default(1000),

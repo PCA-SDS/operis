@@ -233,6 +233,33 @@ export type SearchBuildContext = {
 }
 
 /**
+ * Assert that a search build context carries a tenant, narrowing it to the
+ * module's own tenant-scoped context type.
+ *
+ * `tenantId` is optional on {@link SearchBuildContext} because the indexer can
+ * be driven from contexts that have not resolved one yet, but every module's
+ * descriptors need it to scope their lookups. Four modules each carried a
+ * byte-identical private copy of this check, two of which were missing the
+ * `[internal]` prefix the i18n checker expects on developer-facing throws.
+ *
+ * Pass the module's context type explicitly so the narrowing stays exactly as
+ * specific as it was:
+ *
+ * ```ts
+ * type SearchContext = SearchBuildContext & { tenantId: string }
+ * assertSearchTenantContext<SearchContext>(ctx, 'customers')
+ * ```
+ */
+export function assertSearchTenantContext<TContext extends SearchBuildContext & { tenantId: string }>(
+  ctx: SearchBuildContext,
+  moduleId: string,
+): asserts ctx is TContext {
+  if (typeof ctx.tenantId !== 'string' || ctx.tenantId.length === 0) {
+    throw new Error(`[internal] [search.${moduleId}] Missing tenantId in search build context`)
+  }
+}
+
+/**
  * Source data for indexing a record.
  */
 export type SearchIndexSource = {

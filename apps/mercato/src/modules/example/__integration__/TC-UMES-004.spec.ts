@@ -282,7 +282,7 @@ test.describe('TC-UMES-004: Phase E-H completion', () => {
       createdPriorityId = (await seededPriority.json())?.id ?? null
 
       await login(page, 'admin')
-      await page.goto(`/backend/customers/people/${encodeURIComponent(personId)}`, { waitUntil: 'commit' })
+      await page.goto(`/backend/customers/people-v2/${encodeURIComponent(personId)}`, { waitUntil: 'commit' })
       await page.waitForLoadState('domcontentloaded')
 
       const priorityWidget = page.locator('div.rounded-md.border', { hasText: 'Customer priority' }).first()
@@ -360,7 +360,7 @@ test.describe('TC-UMES-004: Phase E-H completion', () => {
       await expect(page.locator('[data-component-handle="data-table:example.umes.extensions"]')).toHaveCount(1)
       await expect(page.locator('[data-component-handle="crud-form:example.todo"]')).toHaveCount(1)
 
-      await page.goto(`/backend/customers/people/${encodeURIComponent(personId)}`, { waitUntil: 'commit' })
+      await page.goto(`/backend/customers/people-v2/${encodeURIComponent(personId)}`, { waitUntil: 'commit' })
       await page.waitForLoadState('domcontentloaded')
       await expect(page.locator('[data-component-handle="section:ui.detail.NotesSection"]')).toHaveCount(1)
       await expect(page.getByTestId('example-notes-wrapper')).toHaveClass(/border-dotted/)

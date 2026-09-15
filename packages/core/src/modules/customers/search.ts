@@ -1,4 +1,5 @@
 import type { QueryCustomFieldSource, QueryEngine } from '@open-mercato/shared/lib/query/types'
+import { assertSearchTenantContext } from '@open-mercato/shared/modules/search'
 import type {
   SearchModuleConfig,
   SearchBuildContext,
@@ -21,12 +22,6 @@ const logger = createLogger('customers')
 type SearchContext = SearchBuildContext & {
   tenantId: string
   queryEngine?: QueryEngine
-}
-
-function assertTenantContext(ctx: SearchBuildContext): asserts ctx is SearchContext {
-  if (typeof ctx.tenantId !== 'string' || ctx.tenantId.length === 0) {
-    throw new Error('[search.customers] Missing tenantId in search build context')
-  }
 }
 
 type CustomerProfileKind = 'person' | 'company'
@@ -672,7 +667,7 @@ export const searchConfig: SearchModuleConfig = {
       priority: 10,
 
       buildSource: async (ctx: SearchBuildContext): Promise<SearchIndexSource | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'customers')
         const { t } = await resolveTranslations()
         const lines: string[] = []
         const record = ctx.record
@@ -737,7 +732,7 @@ export const searchConfig: SearchModuleConfig = {
       },
 
       formatResult: async (ctx: SearchBuildContext): Promise<SearchResultPresenter | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'customers')
         const { t } = await resolveTranslations()
         const entity = await getCustomerEntity(ctx, resolveCustomerEntityId(ctx.record))
         return resolvePersonPresenter(t, ctx.record, entity, ctx.customFields)
@@ -784,7 +779,7 @@ export const searchConfig: SearchModuleConfig = {
       priority: 10,
 
       buildSource: async (ctx: SearchBuildContext): Promise<SearchIndexSource | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'customers')
         const { t } = await resolveTranslations()
         const lines: string[] = []
         const record = ctx.record
@@ -831,7 +826,7 @@ export const searchConfig: SearchModuleConfig = {
       },
 
       formatResult: async (ctx: SearchBuildContext): Promise<SearchResultPresenter | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'customers')
         const { t } = await resolveTranslations()
         const entity = await getCustomerEntity(ctx, resolveCustomerEntityId(ctx.record))
         return resolveCompanyPresenter(t, ctx.record, entity, ctx.customFields)
@@ -879,7 +874,7 @@ export const searchConfig: SearchModuleConfig = {
       priority: 6,
 
       buildSource: async (ctx: SearchBuildContext): Promise<SearchIndexSource | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'customers')
         const parent = await getCustomerEntity(ctx, ctx.record.entity_id as string ?? ctx.record.entityId as string)
         const lines: string[] = []
         if (parent?.display_name) lines.push(`Customer: ${parent.display_name}`)
@@ -907,7 +902,7 @@ export const searchConfig: SearchModuleConfig = {
       },
 
       formatResult: async (ctx: SearchBuildContext): Promise<SearchResultPresenter | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'customers')
         const { t } = await resolveTranslations()
         const parent = await getCustomerEntity(ctx, ctx.record.entity_id as string ?? ctx.record.entityId as string)
         const title = (parent?.display_name as string | undefined) ?? t('customers.search.fallback.customerNote', 'Customer note')
@@ -919,14 +914,14 @@ export const searchConfig: SearchModuleConfig = {
       },
 
       resolveUrl: async (ctx: SearchBuildContext): Promise<string | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'customers')
         const parent = await getCustomerEntity(ctx, ctx.record.entity_id as string ?? ctx.record.entityId as string)
         const base = buildCustomerUrl(parent?.kind as string ?? null, (parent?.id ?? ctx.record.entity_id ?? ctx.record.entityId) as string)
         return base ? `${base}#notes` : null
       },
 
       resolveLinks: async (ctx: SearchBuildContext): Promise<SearchResultLink[] | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'customers')
         const { t } = await resolveTranslations()
         const links: SearchResultLink[] = []
         const parent = await getCustomerEntity(ctx, ctx.record.entity_id as string ?? ctx.record.entityId as string)
@@ -1048,7 +1043,7 @@ export const searchConfig: SearchModuleConfig = {
       priority: 5,
 
       buildSource: async (ctx: SearchBuildContext): Promise<SearchIndexSource | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'customers')
         const { t } = await resolveTranslations()
         const parent = await getCustomerEntity(ctx, ctx.record.entity_id as string ?? ctx.record.entityId as string)
         const lines: string[] = []
@@ -1080,7 +1075,7 @@ export const searchConfig: SearchModuleConfig = {
       },
 
       formatResult: async (ctx: SearchBuildContext): Promise<SearchResultPresenter | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'customers')
         const { t } = await resolveTranslations()
         const parent = await getCustomerEntity(ctx, ctx.record.entity_id as string ?? ctx.record.entityId as string)
         return {
@@ -1096,7 +1091,7 @@ export const searchConfig: SearchModuleConfig = {
       },
 
       resolveUrl: async (ctx: SearchBuildContext): Promise<string | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'customers')
         const parent = await getCustomerEntity(ctx, ctx.record.entity_id as string ?? ctx.record.entityId as string)
         const base = buildCustomerUrl(parent?.kind as string ?? null, (parent?.id ?? ctx.record.entity_id ?? ctx.record.entityId) as string)
         return base ? `${base}#activity-${ctx.record.id ?? ctx.record.activity_id ?? ''}` : null
@@ -1132,7 +1127,7 @@ export const searchConfig: SearchModuleConfig = {
       priority: 4,
 
       buildSource: async (ctx: SearchBuildContext): Promise<SearchIndexSource | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'customers')
         const todo = await getLinkedTodo(ctx) as Record<string, unknown> | null
         const parent = await getCustomerEntity(ctx, ctx.record.entity_id as string ?? ctx.record.entityId as string)
         const lines: string[] = []
@@ -1155,7 +1150,7 @@ export const searchConfig: SearchModuleConfig = {
       },
 
       formatResult: async (ctx: SearchBuildContext): Promise<SearchResultPresenter | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'customers')
         const { t } = await resolveTranslations()
         const todo = await getLinkedTodo(ctx) as Record<string, unknown> | null
         const parent = await getCustomerEntity(ctx, ctx.record.entity_id as string ?? ctx.record.entityId as string)
@@ -1167,7 +1162,7 @@ export const searchConfig: SearchModuleConfig = {
       },
 
       resolveUrl: async (ctx: SearchBuildContext): Promise<string | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'customers')
         const parent = await getCustomerEntity(ctx, ctx.record.entity_id as string ?? ctx.record.entityId as string)
         const base = buildCustomerUrl(parent?.kind as string ?? null, (parent?.id ?? ctx.record.entity_id ?? ctx.record.entityId) as string)
         return base ? `${base}#tasks` : null

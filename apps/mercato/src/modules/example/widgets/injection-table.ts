@@ -90,7 +90,9 @@ export const injectionTable: ModuleInjectionTable = {
     widgetId: 'example.injection.customer-priority-bulk-actions',
     priority: 30,
   },
-  'customers.person.detail:details': {
+  // Was `customers.person.detail:details`, a spot that only existed on the removed
+  // v1 person page. The v2 page renders `detail:customers.person:footer`.
+  'detail:customers.person:footer': {
     widgetId: 'example.injection.customer-priority-detail',
     priority: 30,
   },

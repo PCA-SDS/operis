@@ -276,7 +276,7 @@ The **customers** module (`packages/core/src/modules/customers/`) is the referen
 |---------|----------------|---------------|
 | List with DataTable | `backend/customers/companies/page.tsx` | Columns, pagination, filters, RowActions, bulk actions |
 | Create with CrudForm | `backend/customers/companies/create/page.tsx` | Form fields, validation, custom fields, flash |
-| Detail with tabs | `backend/customers/companies/[id]/page.tsx` | Loading, tabs, sections, guarded mutations |
+| Detail with tabs | `backend/customers/companies-v2/[id]/page.tsx` | Loading, tabs, sections, guarded mutations |
 | CRUD API route | `api/companies/route.ts` | makeCrudRoute, openApi, query engine |
 | Commands (Command pattern) | `commands/companies.ts` | create/update/delete with undo, before/after snapshots |
 | Zod validators | `data/validators.ts` | Schema per entity, reusability |

@@ -8,6 +8,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { loadAuditLogDisplayMaps } from '../display'
 import { requireResolvedTenantScope } from '../readScope'
 import { z } from 'zod'
+import { MAX_PAGE_SIZE } from '@open-mercato/shared/lib/validation'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import { ACTION_LOG_FILTER_TYPES } from '@open-mercato/core/modules/audit_logs/lib/projections'
@@ -53,8 +54,8 @@ const auditActionQuerySchema = z.object({
     .optional(),
   limit: z.string().describe('Maximum number of records to return (default 50, max 1000)').optional(),
   offset: z.string().describe('Zero-based record offset for pagination (legacy — prefer page/pageSize)').optional(),
-  page: z.string().describe('Page number (default 1)').optional(),
-  pageSize: z.string().describe('Page size (default 50, max 200)').optional(),
+  page: z.coerce.number().int().min(1).describe('Page number (default 1)').optional(),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).describe(`Page size (default 50, max ${MAX_PAGE_SIZE})`).optional(),
   sortField: z
     .enum(SORT_FIELDS)
     .describe('Sort field: `createdAt`, `user`, `action`, `field`, or `source`.')
@@ -181,7 +182,7 @@ export async function GET(req: Request) {
   const limit = parseLimit(url.searchParams.get('limit'))
   const offset = parseOffset(url.searchParams.get('offset'))
   const page = parseNumber(url.searchParams.get('page'), { min: 1, max: 1000000, fallback: 1 })
-  const pageSize = parseNumber(url.searchParams.get('pageSize'), { min: 1, max: 200, fallback: 50 })
+  const pageSize = parseNumber(url.searchParams.get('pageSize'), { min: 1, max: MAX_PAGE_SIZE, fallback: 50 })
   const sortField = SORT_FIELDS.find((value) => value === url.searchParams.get('sortField')) ?? 'createdAt'
   const sortDir = SORT_DIRECTIONS.find((value) => value === url.searchParams.get('sortDir')) ?? 'desc'
   const before = parseDate(url.searchParams.get('before'))

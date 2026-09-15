@@ -23,7 +23,7 @@ const CROSS_MODULE_SPOT_IDS = [
   'data-table:customers.people.list:row-actions',
   'data-table:customers.people:bulk-actions',
   'data-table:customers.people.list:bulk-actions',
-  'customers.person.detail:details',
+  'detail:customers.person:footer',
   'crud-form:catalog.product',
   'crud-form:catalog.catalog_product',
   'crud-form:catalog.variant',

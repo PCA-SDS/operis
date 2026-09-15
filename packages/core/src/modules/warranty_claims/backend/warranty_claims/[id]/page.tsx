@@ -1034,13 +1034,13 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
         { signal: controller.signal },
         { fallback: { items: [] } },
       )
-      if (people.ok && hasMatch(people.result)) return `/backend/customers/people/${claimCustomerId}`
+      if (people.ok && hasMatch(people.result)) return `/backend/customers/people-v2/${claimCustomerId}`
       const companies = await apiCall<{ items?: unknown[] }>(
         `/api/customers/companies?ids=${idsParam}&pageSize=1`,
         { signal: controller.signal },
         { fallback: { items: [] } },
       )
-      if (companies.ok && hasMatch(companies.result)) return `/backend/customers/companies/${claimCustomerId}`
+      if (companies.ok && hasMatch(companies.result)) return `/backend/customers/companies-v2/${claimCustomerId}`
       return null
     }
     resolveCustomerHref()

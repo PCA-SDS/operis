@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
+import { emptyStringToNull } from '@open-mercato/shared/lib/validation'
 import { COORDINATE_RANGES } from '@open-mercato/shared/lib/location/coordinates'
 import { dictionaryEntrySortModeSchema } from '@open-mercato/core/modules/dictionaries/lib/entrySort'
 
@@ -14,12 +15,6 @@ export const ACTIVITY_PHONE_INVALID_MESSAGE_KEY = 'customers.activities.errors.p
 // customer_deals.description is an unbounded `text` column; this cap only exists to keep
 // request bodies, fulltext search documents and query-index documents from growing without limit.
 export const DEAL_DESCRIPTION_MAX_LENGTH = 50_000
-
-const emptyStringToNull = (value: unknown): unknown => {
-  if (typeof value !== 'string') return value
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
 
 const phoneSchema = z.preprocess(
   emptyStringToNull,

@@ -7,7 +7,14 @@
  * Where a module genuinely needs different rules, pass the options these
  * factories expose and say why in a comment.
  */
-export { EMAIL_MAX_LENGTH, emailSchema, normalizeEmail, type EmailSchemaOptions } from './email'
+export {
+  EMAIL_MAX_LENGTH,
+  LOOSE_EMAIL_PATTERN,
+  emailSchema,
+  normalizeEmail,
+  type EmailSchemaOptions,
+} from './email'
+export { emptyStringToNull } from './preprocess'
 export {
   CURRENCY_CODE_PATTERN,
   currencyCodeSchema,

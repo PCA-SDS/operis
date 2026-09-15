@@ -4,6 +4,7 @@ import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
 import { CustomerEntity, CustomerPersonProfile } from '../data/entities'
 import { resolvePhoneIdentity } from './contactIdentity'
+import { normalizeEmail } from '@open-mercato/shared/lib/validation'
 
 export type PersonCheckCustomer = {
   id: string
@@ -32,12 +33,6 @@ export type PersonTenantScope = {
 /** Create still needs an organization_id row value (home org / booking branch). */
 export type PersonLookupScope = PersonTenantScope & {
   organizationId: string
-}
-
-function normalizeEmail(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim().toLowerCase()
-  return trimmed.length ? trimmed : null
 }
 
 function mapPersonToCheckCustomer(

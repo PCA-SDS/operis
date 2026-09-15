@@ -363,5 +363,5 @@ import { Check, X, AlertTriangle, Info } from 'lucide-react'
 ### Reference module
 When building new UI, use the **customers module** as reference implementation:
 - List: `packages/core/src/modules/customers/backend/customers/people/page.tsx`
-- Detail: `packages/core/src/modules/customers/backend/customers/people/[id]/page.tsx`
+- Detail: `packages/core/src/modules/customers/backend/customers/people-v2/[id]/page.tsx`
 - Status mapping: `packages/core/src/modules/customers/components/formConfig.tsx`

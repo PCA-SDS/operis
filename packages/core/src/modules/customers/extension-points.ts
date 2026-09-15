@@ -26,14 +26,12 @@ export const extensionPoints = defineModuleExtensionPoints({
     companyHeader: detailHost('detail:customers.company:header', 'backend/customers/companies-v2/[id]/page.tsx'),
     companyStatusBadges: detailHost('detail:customers.company:status-badges', 'backend/customers/companies-v2/[id]/page.tsx'),
     companyFooter: detailHost('detail:customers.company:footer', 'backend/customers/companies-v2/[id]/page.tsx'),
-    companyLegacyDetails: detailHost('customers.company.detail:details', 'backend/customers/companies/[id]/page.tsx'),
     dealHeader: detailHost('detail:customers.deal:header', 'backend/customers/deals/[id]/page.tsx'),
     dealStatusBadges: detailHost('detail:customers.deal:status-badges', 'backend/customers/deals/[id]/page.tsx'),
     dealFooter: detailHost('detail:customers.deal:footer', 'backend/customers/deals/[id]/page.tsx'),
     personHeader: detailHost('detail:customers.person:header', 'backend/customers/people-v2/[id]/page.tsx'),
     personStatusBadges: detailHost('detail:customers.person:status-badges', 'backend/customers/people-v2/[id]/page.tsx'),
     personFooter: detailHost('detail:customers.person:footer', 'backend/customers/people-v2/[id]/page.tsx'),
-    personLegacyDetails: detailHost('customers.person.detail:details', 'backend/customers/people/[id]/page.tsx'),
   },
 })
 

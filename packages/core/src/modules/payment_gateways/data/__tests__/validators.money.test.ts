@@ -1,6 +1,6 @@
 /** @jest-environment node */
 
-import { createSessionSchema } from '../validators'
+import { captureSchema, createSessionSchema, refundSchema } from '../validators'
 
 const base = { providerKey: 'mock', amount: 10 }
 
@@ -76,4 +76,44 @@ describe('createSessionSchema amount', () => {
       expect(parseAmount(input).success).toBe(false)
     },
   )
+})
+
+/**
+ * Capture and refund amounts reach the same `toCents()` conversion as the
+ * session amount, so they carry the same bound and scale. They were left on the
+ * original `z.number().positive().optional()` when the session field was fixed.
+ */
+describe.each([
+  ['captureSchema', captureSchema],
+  ['refundSchema', refundSchema],
+])('%s amount', (_name, schema) => {
+  const transactionId = '00000000-0000-4000-8000-000000000000'
+  function parseAmount(amount: unknown) {
+    return schema.safeParse({ transactionId, amount })
+  }
+
+  it('stays optional — omitting it means a full capture or refund', () => {
+    expect(schema.safeParse({ transactionId }).success).toBe(true)
+  })
+
+  it.each([10, 10.5, 10.55])('accepts %j', (input) => {
+    expect(parseAmount(input).success).toBe(true)
+  })
+
+  it.each([0.001, 10.005, 10.555])('rejects %j rather than rounding it at the gateway', (input) => {
+    expect(parseAmount(input).success).toBe(false)
+  })
+
+  it('rejects an unbounded amount', () => {
+    expect(parseAmount(1e21).success).toBe(false)
+  })
+
+  it('still rejects zero and negatives', () => {
+    expect(parseAmount(0).success).toBe(false)
+    expect(parseAmount(-1).success).toBe(false)
+  })
+
+  it.each([[true], ['10'], [[]], [{}]])('rejects the non-number %j instead of coercing it', (input) => {
+    expect(parseAmount(input).success).toBe(false)
+  })
 })

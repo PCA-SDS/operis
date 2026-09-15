@@ -76,7 +76,7 @@ Stable replacement handles are now emitted automatically:
 - `section:ui.detail.<SectionName>` for shared detail sections (`NotesSection`, `ActivitiesSection`, `AddressesSection`, `TagsSection`, `CustomDataSection`, `DetailFieldsSection`, `AttachmentsSection`)
 - **Dashboard** – `dashboard:before` and `dashboard:after` wrap the widget grid.
 - **Sales documents** – `sales.document.detail.quote:tabs`, `sales.document.detail.order:tabs` (new tabs) and `sales.document.detail.<kind>:details` for blocks beneath the details section.
-- **Customers** – `customers.company.detail:tabs` and `customers.company.detail:details`; `customers.person.detail:tabs` and `customers.person.detail:details`.
+- **Customers** – `customers.company.detail:tabs` and `customers.person.detail:tabs` for tabs; `detail:customers.<entity>:header`, `:status-badges` and `:footer` around the detail form, and `crud-form:customers.<entity>:fields` for fields inside it. The v1-only `customers.<entity>.detail:details` spots were removed with the v1 detail pages.
 - **Backend record context** – `backend:record:current` is mounted once per backend page and receives `{ path, query }` context for page-level record widgets.
 - **Backend layout** – `backend:layout:top` and `backend:layout:footer` render at the start and end of the main backend content area.
 - **Backend sidebar** – `backend:sidebar:top` and `backend:sidebar:footer` render in the desktop sidebar shell above and below navigation/customization actions.

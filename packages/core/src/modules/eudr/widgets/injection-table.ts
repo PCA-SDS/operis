@@ -25,7 +25,6 @@ export const injectionTable: ModuleInjectionTable = {
     },
   ],
   'detail:customers.company:footer': [supplierComplianceWidget],
-  'customers.company.detail:details': [supplierComplianceWidget],
 }
 
 export default injectionTable
