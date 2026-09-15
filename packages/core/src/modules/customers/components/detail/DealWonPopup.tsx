@@ -11,6 +11,7 @@ import {
   DialogFooter,
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
+import { formatAmountOrDash } from '@open-mercato/core/modules/customers/lib/amountFormat'
 
 type DealStatsPayload = {
   dealValue: number | null
@@ -31,16 +32,6 @@ type DealWonPopupProps = {
   stats: DealStatsPayload | null
   onViewDashboard?: () => void
   onBackToPipeline?: () => void
-}
-
-function formatCurrency(value: number | null, currency: string | null): string {
-  if (value === null || !Number.isFinite(value)) return '—'
-  if (!currency) return value.toLocaleString()
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value)
-  } catch {
-    return `${value.toLocaleString()} ${currency}`
-  }
 }
 
 function formatClosedDate(value: string, t: ReturnType<typeof useT>): string {
@@ -112,7 +103,7 @@ export function DealWonPopup({
                 {dealTitle}
               </p>
               <p className="mt-2 text-2xl font-bold text-primary">
-                {stats ? formatCurrency(stats.dealValue, stats.dealCurrency) : '—'}
+                {stats ? formatAmountOrDash(stats.dealValue, stats.dealCurrency) : '—'}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t('customers.deals.detail.won.closed', 'Won')} · {stats ? formatClosedDate(stats.closedAt, t) : '—'}

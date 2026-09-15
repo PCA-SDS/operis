@@ -3,6 +3,8 @@ import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { extractPhoneDigits, validatePhoneNumber } from '@open-mercato/shared/lib/phone'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { normalizeEmail } from '@open-mercato/shared/lib/validation'
 import type {
   DataMapping,
   DataSyncAdapter,
@@ -113,17 +115,6 @@ type BuiltPersonPayload = {
     customFields?: Record<string, unknown>
   }
   sourceIdentifier: string | null
-}
-
-function normalizeOptionalString(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
-
-function normalizeEmail(value: unknown): string | null {
-  const normalized = normalizeOptionalString(value)
-  return normalized ? normalized.toLowerCase() : null
 }
 
 const COUNTRY_DIAL_CODES: Record<string, string> = {

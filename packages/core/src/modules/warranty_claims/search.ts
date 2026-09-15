@@ -1,4 +1,5 @@
 import { SortDir, type QueryEngine } from '@open-mercato/shared/lib/query/types'
+import { assertSearchTenantContext } from '@open-mercato/shared/modules/search'
 import type {
   SearchBuildContext,
   SearchIndexSource,
@@ -16,12 +17,6 @@ const logger = createLogger('warranty_claims')
 type SearchContext = SearchBuildContext & {
   tenantId: string
   queryEngine?: QueryEngine
-}
-
-function assertTenantContext(ctx: SearchBuildContext): asserts ctx is SearchContext {
-  if (typeof ctx.tenantId !== 'string' || ctx.tenantId.length === 0) {
-    throw new Error('[internal] [search.warranty_claims] Missing tenantId in search build context')
-  }
 }
 
 function readString(record: Record<string, unknown>, snakeKey: string, camelKey?: string): string | null {
@@ -116,7 +111,7 @@ export const searchConfig: SearchModuleConfig = {
       priority: 20,
 
       buildSource: async (ctx: SearchBuildContext): Promise<SearchIndexSource | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'warranty_claims')
         const record = ctx.record
         const lines: string[] = []
         appendLine(lines, 'Claim number', readString(record, 'claim_number', 'claimNumber') ?? '')
@@ -148,7 +143,7 @@ export const searchConfig: SearchModuleConfig = {
       },
 
       formatResult: (ctx: SearchBuildContext): SearchResultPresenter | null => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'warranty_claims')
         return resolvePresenter(ctx.record)
       },
 

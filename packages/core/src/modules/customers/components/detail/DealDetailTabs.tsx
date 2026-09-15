@@ -6,6 +6,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { registerComponent } from '@open-mercato/shared/modules/widgets/component-registry'
 import { useRegisteredComponent } from '@open-mercato/ui/backend/injection/useRegisteredComponent'
 import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
+import { formatTabCount } from './utils'
 
 export type DealTabId =
   | 'activities'
@@ -42,11 +43,6 @@ export function resolveLegacyTab(tab: string | null | undefined, knownTabIds?: I
   if (SUPPORTED_TAB_IDS.has(tab as DealTabId)) return tab as DealTabId
   if (knownTabIds && new Set(knownTabIds).has(tab)) return tab
   return 'activities'
-}
-
-function formatTabCount(count: number): string | number | undefined {
-  if (count <= 0) return undefined
-  return count > 999 ? '999+' : count
 }
 
 function DefaultDealDetailTabs({

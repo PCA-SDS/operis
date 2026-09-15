@@ -3,11 +3,9 @@
  * MUST NOT import from data/entities or any server-only module.
  */
 
-export function normalizeOptionalString(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+
+export { normalizeOptionalString }
 
 export function buildCheckoutAttachmentPreviewUrl(attachmentId: string | null | undefined): string | null {
   const normalized = normalizeOptionalString(attachmentId)
