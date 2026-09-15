@@ -19,8 +19,11 @@ test.describe('TC-TASKS-003: task lifecycle', () => {
     const projectIds: string[] = []
 
     try {
-      const projectA = await createProject(ctx, { key: 'SEQA1' })
-      const projectB = await createProject(ctx, { key: 'SEQB1' })
+      // Generated keys, not fixed ones. A hard-coded key makes the suite pass once
+      // and then fail against the same database for as long as the row survives —
+      // and it proves nothing the returned key does not.
+      const projectA = await createProject(ctx)
+      const projectB = await createProject(ctx)
       projectIds.push(projectA.id, projectB.id)
 
       const a1 = await createTask(ctx, projectA.id, { title: 'First' })
@@ -31,8 +34,10 @@ test.describe('TC-TASKS-003: task lifecycle', () => {
       expect(a2.number).toBe(2)
       // Each project counts independently — a task reference is scoped to it.
       expect(b1.number).toBe(1)
-      expect(a1.projectKey).toBe('SEQA1')
-      expect(b1.projectKey).toBe('SEQB1')
+      // Each task's reference carries its OWN project's key, and the two differ.
+      expect(a1.projectKey).toBe(projectA.key)
+      expect(b1.projectKey).toBe(projectB.key)
+      expect(projectA.key).not.toBe(projectB.key)
     } finally {
       await cleanupTasks(ctx, { projectIds })
     }

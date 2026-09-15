@@ -29,8 +29,24 @@ export type ChatParticipantRole = 'owner' | 'member'
  */
 export type ChatMessageKind = 'user' | 'system'
 
-/** The membership changes that leave a trace in the transcript. */
-export type ChatSystemEvent = 'member_added' | 'member_removed' | 'member_left' | 'space_renamed'
+/**
+ * The non-authored rows that leave a trace in the transcript.
+ *
+ * The first four are membership changes. `card` is different in kind: it marks a
+ * row that stands for something outside chat — a task, today — and whose body is
+ * rendered by whichever module owns that thing, through the
+ * `chat:message:card` extension point. It is a system row rather than a user one
+ * on purpose: a system row stores no text, so nothing belonging to another
+ * module can reach `search_body`, the conversation preview, the translation
+ * pipeline or the outbound transport, and it is already excluded from the unread
+ * predicate and from editing.
+ */
+export type ChatSystemEvent =
+  | 'member_added'
+  | 'member_removed'
+  | 'member_left'
+  | 'space_renamed'
+  | 'card'
 
 /** Longest space name the schema and the validators both accept. */
 export const MAX_SPACE_TITLE_LENGTH = 80
