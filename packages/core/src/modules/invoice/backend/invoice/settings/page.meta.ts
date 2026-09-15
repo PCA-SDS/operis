@@ -5,7 +5,7 @@ export const metadata = {
   pageTitleKey: 'invoice.settings.title',
   pageGroup: 'Invoice',
   pageGroupKey: 'invoice.nav.group',
-  pageOrder: 34,
+  pageOrder: 35,
   icon: 'settings',
   breadcrumb: [
     { label: 'Invoice', labelKey: 'invoice.nav.title' },
