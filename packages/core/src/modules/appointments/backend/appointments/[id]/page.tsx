@@ -51,7 +51,12 @@ type Detail = {
   updatedAt: string
 }
 
-type StatusOption = { code: string; label: string }
+type StatusOption = {
+  code: string
+  label: string
+  backgroundColor?: string | null
+  textColor?: string | null
+}
 
 function formatDateTime(value: string | null, emptyLabel: string) {
   if (!value) return emptyLabel
@@ -197,8 +202,10 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
   const empty = t('appointments.list.noValue')
   const selectedStatusLabel =
     statuses.find((status) => status.code === statusCode)?.label ?? statusCode
+  const selectedStatus = statuses.find((status) => status.code === statusCode)
   const savedStatusLabel =
     statuses.find((status) => status.code === detail.statusCode)?.label ?? detail.statusCode
+  const savedStatus = statuses.find((status) => status.code === detail.statusCode)
 
   return (
     <Page>
@@ -207,7 +214,12 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-semibold text-foreground">{t('appointments.detail.title')}</h1>
-              <AppointmentStatusBadge statusCode={detail.statusCode} label={savedStatusLabel} />
+              <AppointmentStatusBadge
+                statusCode={detail.statusCode}
+                label={savedStatusLabel}
+                backgroundColor={savedStatus?.backgroundColor}
+                textColor={savedStatus?.textColor}
+              />
             </div>
             <p className="text-sm text-muted-foreground">{detail.customerName}</p>
           </div>
@@ -279,6 +291,8 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
                         <AppointmentStatusBadge
                           statusCode={statusCode}
                           label={selectedStatusLabel}
+                          backgroundColor={selectedStatus?.backgroundColor}
+                          textColor={selectedStatus?.textColor}
                         />
                       ) : null}
                     </SelectValue>
@@ -286,7 +300,12 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
                   <SelectContent>
                     {statuses.map((status) => (
                       <SelectItem key={status.code} value={status.code}>
-                        <AppointmentStatusBadge statusCode={status.code} label={status.label} />
+                        <AppointmentStatusBadge
+                          statusCode={status.code}
+                          label={status.label}
+                          backgroundColor={status.backgroundColor}
+                          textColor={status.textColor}
+                        />
                       </SelectItem>
                     ))}
                   </SelectContent>

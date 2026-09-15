@@ -310,7 +310,12 @@ export function AppointmentStatusSettings() {
             >
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <AppointmentStatusBadge statusCode={status.code} label={status.label} />
+                  <AppointmentStatusBadge
+                    statusCode={status.code}
+                    label={status.label}
+                    backgroundColor={status.backgroundColor}
+                    textColor={status.textColor}
+                  />
                   {status.isSystem ? (
                     <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                       {translate('appointments.config.statuses.systemBadge', 'System')}

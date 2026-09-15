@@ -70,12 +70,16 @@ export const appointmentStatusCatalogCreateSchema = z.object({
   label: z.string().trim().min(1).max(120),
   code: z.string().trim().min(1).max(64).optional(),
   description: clearableString(500),
+  backgroundColor: clearableString(64),
+  textColor: clearableString(64),
   sortOrder: z.number().int().min(0).max(10_000).optional(),
 })
 
 export const appointmentStatusCatalogUpdateSchema = z.object({
   label: z.string().trim().min(1).max(120).optional(),
   description: clearableString(500),
+  backgroundColor: clearableString(64),
+  textColor: clearableString(64),
   sortOrder: z.number().int().min(0).max(10_000).optional(),
 })
 

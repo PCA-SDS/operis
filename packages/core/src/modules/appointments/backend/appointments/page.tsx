@@ -52,7 +52,12 @@ type ListPayload = {
   totalPages?: number
 }
 
-type StatusOption = { code: string; label: string }
+type StatusOption = {
+  code: string
+  label: string
+  backgroundColor?: string | null
+  textColor?: string | null
+}
 
 function parseRequestedAt(value: string): Date | null {
   try {

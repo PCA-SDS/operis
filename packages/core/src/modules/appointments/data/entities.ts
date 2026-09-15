@@ -22,6 +22,12 @@ export class AppointmentStatus {
   @Property({ type: 'text', nullable: true })
   description?: string | null
 
+  @Property({ name: 'background_color', type: 'text', nullable: true })
+  backgroundColor?: string | null
+
+  @Property({ name: 'text_color', type: 'text', nullable: true })
+  textColor?: string | null
+
   @Property({ name: 'is_system', type: 'boolean', default: false })
   isSystem: boolean = false
 

@@ -103,6 +103,8 @@ type SeatPlannerWorkspace = {
     requestedStartAt: string
     requestedEndAt: string | null
     statusCode: string
+    statusBackgroundColor: string | null
+    statusTextColor: string | null
     updatedAt: string
   }
   lines: SeatPlannerLine[]
@@ -426,7 +428,11 @@ function BookingSidebar(props: {
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <p className="truncate text-base font-semibold">{displayName}</p>
-              <AppointmentStatusBadge statusCode={workspace.appointment.statusCode} />
+              <AppointmentStatusBadge
+                statusCode={workspace.appointment.statusCode}
+                backgroundColor={workspace.appointment.statusBackgroundColor}
+                textColor={workspace.appointment.statusTextColor}
+              />
             </div>
             {workspace.appointment.customerPhone ? (
               <p className="mt-1 flex items-center gap-1.5 truncate text-xs text-muted-foreground"><Phone className="size-3.5 shrink-0" />{workspace.appointment.customerPhone}</p>

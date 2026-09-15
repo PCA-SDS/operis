@@ -11,6 +11,9 @@ export type StatusBadgeProps = {
   children: React.ReactNode
   /** Show colored dot before text */
   dot?: boolean
+  /** Optional persisted colors for tenant-specific status catalogs. */
+  backgroundColor?: string | null
+  textColor?: string | null
   /** Additional className */
   className?: string
 }
@@ -27,16 +30,20 @@ export function StatusBadge({
   variant,
   children,
   dot = false,
+  backgroundColor,
+  textColor,
   className,
 }: StatusBadgeProps) {
   return (
     <Badge
       variant={variant}
       className={cn(dot && 'gap-1.5', className)}
+      style={{ backgroundColor: backgroundColor ?? undefined, color: textColor ?? undefined }}
     >
       {dot && (
         <span
           className={cn('inline-block h-1.5 w-1.5 rounded-full shrink-0', dotColors[variant])}
+          style={{ backgroundColor: textColor ?? undefined }}
           aria-hidden="true"
         />
       )}

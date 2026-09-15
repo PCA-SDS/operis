@@ -15,7 +15,7 @@ import { getMergedAvailabilityWindows } from '@open-mercato/core/modules/planner
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
-import { Appointment, AppointmentLine, AppointmentLineOptionGroup } from '../data/entities'
+import { Appointment, AppointmentLine, AppointmentLineOptionGroup, AppointmentStatus } from '../data/entities'
 import { loadLineOptionSnapshots, resolveDurationMinutes } from './lineOptionSnapshot'
 
 export interface SeatPlannerLine {
@@ -53,6 +53,8 @@ export interface SeatPlannerWorkspace {
     requestedStartAt: string
     requestedEndAt: string | null
     statusCode: string
+    statusBackgroundColor: string | null
+    statusTextColor: string | null
     updatedAt: string
   }
   lines: SeatPlannerLine[]
@@ -194,6 +196,11 @@ export class AppointmentSeatPlannerService {
     const appointmentOrganization = await this.em.findOne(Organization, {
       id: appointment.organizationId,
       tenant: params.tenantId,
+      deletedAt: null,
+    })
+    const appointmentStatus = await this.em.findOne(AppointmentStatus, {
+      tenantId: params.tenantId,
+      code: appointment.statusCode,
       deletedAt: null,
     })
 
@@ -493,6 +500,8 @@ export class AppointmentSeatPlannerService {
         requestedStartAt: appointment.requestedStartAt.toISOString(),
         requestedEndAt: effectiveEndAt.toISOString(),
         statusCode: appointment.statusCode,
+        statusBackgroundColor: appointmentStatus?.backgroundColor ?? null,
+        statusTextColor: appointmentStatus?.textColor ?? null,
         updatedAt: appointment.updatedAt.toISOString(),
       },
       lines: linesWithAssignments,

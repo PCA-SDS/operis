@@ -888,6 +888,23 @@
       "name": "appointment_statuses",
       "schema": "public",
       "columns": {
+        "background_color": {
+          "name": "background_color",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
         "code": {
           "name": "code",
           "type": "text",
@@ -1040,6 +1057,23 @@
           "collation": null,
           "enumItems": [],
           "mappedType": "uuid"
+        },
+        "text_color": {
+          "name": "text_color",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
         },
         "updated_at": {
           "name": "updated_at",

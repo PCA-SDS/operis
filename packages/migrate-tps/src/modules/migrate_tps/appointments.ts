@@ -37,7 +37,12 @@ type TpsBooking = {
   deleted_at: Date | null
 }
 
-type TpsStatus = { id: string; value: string }
+type TpsStatus = {
+  id: string
+  value: string
+  background_color: string | null
+  text_color: string | null
+}
 type TpsAllocation = {
   id: string
   booking_id: string
@@ -86,14 +91,28 @@ function normalizeStatusCode(value: string): string {
   return code.slice(0, 64) || 'tps_status'
 }
 
-function mapStatus(value: string | null | undefined): { code: string; label: string } {
+function mapStatus(
+  value: string | null | undefined,
+  backgroundColor: string | null = null,
+  textColor: string | null = null,
+): { code: string; label: string; backgroundColor: string | null; textColor: string | null } {
   const source = value?.trim().toLowerCase() || 'new_request'
-  if (source === 'cancelled') return { code: 'cancelled', label: 'Cancelled' }
-  if (source === 'in_progress') return { code: 'in_progress', label: 'In progress' }
-  if (source === 'new_request') return { code: 'new_request', label: 'New request' }
-  if (source === 'completed') return { code: 'completed', label: 'Completed' }
-  if (source === 'booked' || source.endsWith('_booked')) return { code: 'booked', label: 'Booked' }
-  return { code: normalizeStatusCode(source), label: source.replaceAll('_', ' ') }
+  const colors = {
+    backgroundColor: backgroundColor?.trim() || null,
+    textColor: textColor?.trim() || null,
+  }
+  if (source === 'cancelled') return { code: 'cancelled', label: 'Cancelled', ...colors }
+  if (source === 'in_progress') return { code: 'in_progress', label: 'In progress', ...colors }
+  if (source === 'new_request') return { code: 'new_request', label: 'New request', ...colors }
+  if (source === 'completed') return { code: 'completed', label: 'Completed', ...colors }
+  if (source === 'booked') return { code: 'booked', label: 'Booked', ...colors }
+  const code = normalizeStatusCode(source)
+  const label = source
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+  return { code, label: label || code, ...colors }
 }
 
 async function connectTps(url: string): Promise<Client> {
@@ -111,7 +130,11 @@ async function queryTps<T>(client: Client, text: string): Promise<{ rows: T[] }>
   return (await client.query(text)) as unknown as { rows: T[] }
 }
 
-async function ensureStatus(em: EntityManager, tenantId: string, input: { code: string; label: string }): Promise<AppointmentStatus> {
+async function ensureStatus(
+  em: EntityManager,
+  tenantId: string,
+  input: { code: string; label: string; backgroundColor: string | null; textColor: string | null },
+): Promise<AppointmentStatus> {
   let status = await em.findOne(AppointmentStatus, { tenantId, code: input.code, deletedAt: null })
   if (!status) {
     status = em.create(AppointmentStatus, {
@@ -120,10 +143,15 @@ async function ensureStatus(em: EntityManager, tenantId: string, input: { code: 
       code: input.code,
       label: input.label,
       description: `Imported from TPS status ${input.code}.`,
+      backgroundColor: input.backgroundColor,
+      textColor: input.textColor,
       isSystem: false,
       sortOrder: 100,
     })
     em.persist(status)
+  } else {
+    status.backgroundColor = input.backgroundColor
+    status.textColor = input.textColor
   }
   return status
 }
@@ -267,7 +295,12 @@ async function migrateAppointments(
       logger.warn(`Skipping TPS booking ${booking.id}: customer ${booking.customer_id} was not migrated`)
       continue
     }
-    const status = await ensureStatus(em, tenantId, mapStatus(statuses.get(booking.status_id)?.value))
+    const sourceStatus = statuses.get(booking.status_id)
+    const status = await ensureStatus(
+      em,
+      tenantId,
+      mapStatus(sourceStatus?.value, sourceStatus?.background_color, sourceStatus?.text_color),
+    )
     const selections = parseSelections(booking.service_selections)
     const bookingAllocations = allocationsByBooking.get(booking.id) ?? []
     const allocationEnd = bookingAllocations.reduce<Date | null>((latest, entry) => !latest || entry.end_at > latest ? entry.end_at : latest, null)
@@ -381,7 +414,7 @@ export const migrateTpsAppointmentsCommand: ModuleCli = {
       client = await connectTps(tpsUrl)
       const [bookingResult, statusResult, allocationResult, employeeResult, seatResult] = await Promise.all([
         queryTps<TpsBooking>(client, 'SELECT id, customer_id, location::text, type_of_booking::text, customer_name, customer_email, customer_phone, phone_country_code, phone_country, salutation::text, origin, internal_notes, external_notes, service_selections, created_at, updated_at, requested_start_at, status_id, deleted_at FROM bookings ORDER BY id'),
-        queryTps<TpsStatus>(client, 'SELECT id, value FROM statuses'),
+        queryTps<TpsStatus>(client, 'SELECT id, value, background_color, text_color FROM statuses'),
         queryTps<TpsAllocation>(client, 'SELECT id, booking_id, seat_id, start_at, end_at, service_item_id, service_name, duration_minutes, state::text FROM booking_allocations'),
         queryTps<TpsEmployee>(client, 'SELECT booking_allocation_id, employee_id FROM booking_allocation_employees'),
         queryTps<TpsSeat>(client, 'SELECT s.id, f.location::text, s.code, s.name FROM seats s JOIN floors f ON f.id = s.floor_id'),
