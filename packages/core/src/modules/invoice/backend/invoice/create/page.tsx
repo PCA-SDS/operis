@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { InvoiceForm } from '../../InvoiceForm'
+import { InvoiceForm } from '../InvoiceForm'
 
 export default function CreateInvoicePage() {
   const router = useRouter()

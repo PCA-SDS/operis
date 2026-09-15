@@ -276,6 +276,7 @@
   "invoice.dashboard.settled": "Settled",
   "invoice.dashboard.partiallyPaid": "Partially paid",
   "invoice.dashboard.unsettled": "Unsettled",
+  "invoice.dashboard.invoices": "invoices",
   "invoice.overview.amountUnpaid": "Amount unpaid",
   "invoice.overview.amountSettled": "Amount settled",
   "invoice.overview.unpaidInvoices": "Unpaid invoices",
