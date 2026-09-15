@@ -1,9 +1,8 @@
-import React from 'react'
 import { randomBytes } from 'node:crypto'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import { badRequest, conflict, notFound, CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { sendEmail } from '@open-mercato/shared/lib/email/send'
-import { detectLocale, resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { getSecurityEmailBaseUrl } from '@open-mercato/shared/lib/url'
 
@@ -26,16 +25,11 @@ import {
 } from '../data/validators'
 import { emitInvoiceEvent } from '../events'
 import type { InvoiceCompanyEmailsService } from './company-emails-service'
+import { createPaymentConfirmationEmail } from './invoice-email'
 import { InvoiceScopedPersistenceService } from './scoped-persistence-service'
 import type { InvoiceService } from './invoice-service'
 
 const logger = createLogger('invoice').child({ component: 'payment-confirmations-service' })
-
-type InvoicePaymentConfirmationEmailTranslate = (
-  key: string,
-  fallback: string,
-  values?: Record<string, string>,
-) => string
 
 export type InvoicePaymentConfirmationRequestResult = {
   confirmationId: string
@@ -92,74 +86,6 @@ function installmentItems(invoice: Invoice): InvoiceInstallment[] {
     if (typeof collection.getItems === 'function') return collection.getItems()
   }
   return []
-}
-
-function invoiceLabel(invoice: Invoice): string {
-  return [invoice.invoiceSymbol, invoice.invoiceNumber]
-    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
-    .join(' ')
-}
-
-function createPaymentConfirmationEmail(input: {
-  invoice: Invoice
-  installment: InvoiceInstallment | null
-  confirmationUrl: string
-  expiresAt: Date
-  locale: string
-  translate: InvoicePaymentConfirmationEmailTranslate
-}): { subject: string; react: React.ReactElement } {
-  const { invoice, installment, confirmationUrl, expiresAt, locale, translate } = input
-  const label = invoiceLabel(invoice)
-  const amount = installment?.totalAmount ?? invoice.outstandingAmount ?? '0'
-  const payer = invoice.buyerName || translate('invoice.paymentConfirmation.email.payerFallback', 'Buyer')
-  const payee = invoice.sellerName || invoice.company?.name || translate(
-    'invoice.paymentConfirmation.email.payeeFallback',
-    'Supplier',
-  )
-  const formattedExpiry = expiresAt.toLocaleDateString(locale, { year: 'numeric', month: 'long', day: 'numeric' })
-  const subject = translate(
-    'invoice.paymentConfirmation.email.subject',
-    'Payment confirmation for invoice {invoiceLabel}',
-    { invoiceLabel: label },
-  )
-  const content: React.ReactNode[] = [
-    React.createElement('h1', { key: 'heading' }, translate(
-      'invoice.paymentConfirmation.email.heading',
-      'Please confirm payment',
-    )),
-    React.createElement('p', { key: 'intro' }, translate(
-      'invoice.paymentConfirmation.email.intro',
-      '{payer} asks {payee} to confirm payment for invoice {invoiceLabel}.',
-      { payer, payee, invoiceLabel: label },
-    )),
-    React.createElement('p', { key: 'amount' }, translate(
-      'invoice.paymentConfirmation.email.amount',
-      'Amount: {amount} {currency}',
-      { amount, currency: invoice.currencyCode },
-    )),
-  ]
-
-  if (installment) {
-    content.push(React.createElement('p', { key: 'installment' }, translate(
-      'invoice.paymentConfirmation.email.installment',
-      'Installment {sequence}',
-      { sequence: String(installment.sequence) },
-    )))
-  }
-
-  content.push(
-    React.createElement('p', { key: 'expiry' }, translate(
-      'invoice.paymentConfirmation.email.expiry',
-      'This request expires on {expiryDate}.',
-      { expiryDate: formattedExpiry },
-    )),
-    React.createElement('a', { key: 'action', href: confirmationUrl }, translate(
-      'invoice.paymentConfirmation.email.action',
-      'Review payment request',
-    )),
-  )
-
-  return { subject, react: React.createElement('div', null, content) }
 }
 
 export class InvoicePaymentConfirmationsService {
@@ -492,7 +418,6 @@ export class InvoicePaymentConfirmationsService {
   ): Promise<InvoicePaymentConfirmationRequestResult> {
     const input = invoicePaymentConfirmationRequestSchema.parse(rawInput)
     const { translate } = await resolveTranslations()
-    const locale = await detectLocale()
     let supersededCount = 0
     let companyId = ''
 
@@ -542,8 +467,7 @@ export class InvoicePaymentConfirmationsService {
         invoice,
         installment,
         confirmationUrl,
-        expiresAt,
-        locale,
+        expiresInDays: INVOICE_PAYMENT_CONFIRMATION_TTL_DAYS,
         translate,
       })
       try {

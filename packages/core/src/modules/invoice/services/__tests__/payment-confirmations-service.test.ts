@@ -115,7 +115,11 @@ describe('InvoicePaymentConfirmationsService.request', () => {
     const harness = buildService(buildInvoice())
     jest.mocked(sendEmail).mockImplementation(async (options) => {
       harness.callOrder.push('email')
-      expect(JSON.stringify(options.react)).toContain('60.0000 USD')
+      const rendered = JSON.stringify(options.react)
+      expect(rendered).toContain('Hi Supplier Company')
+      expect(rendered).toContain('Buyer Company says they have paid you 60.0000 USD for invoice AA/26E 1001.')
+      expect(rendered).toContain('Yes, I received this payment')
+      expect(rendered).toContain('This link expires in 7 days.')
     })
 
     const result = await harness.service.request(scope, {

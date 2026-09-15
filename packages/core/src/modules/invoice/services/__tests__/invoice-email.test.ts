@@ -86,6 +86,8 @@ describe('InvoiceService.sendInvoice', () => {
       const rendered = JSON.stringify(options.react)
       expect(rendered).toContain('AR-1001')
       expect(rendered).toContain('Consulting')
+      expect(rendered).toContain('<table')
+      expect(rendered).toContain('Bill to')
       expect(rendered).toContain('https://assets.example.test/api/invoice/track/')
     })
     em.flush.mockImplementation(async () => {
