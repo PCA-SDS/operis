@@ -270,6 +270,10 @@ function groupResources(resources: Resource[]): Array<Resource & { floorName: st
 
 function ResourceIcon({ resource }: { resource: Resource }) {
   const iconName = resource.appearanceIcon ?? resource.capacityUnitIcon ?? resource.typeIcon ?? null
+  const isImageSource = Boolean(iconName && /^(https?:\/\/|\/|data:image\/)/i.test(iconName))
+  if (isImageSource) {
+    return <img src={iconName ?? undefined} alt="" className="size-4 object-contain" aria-hidden="true" />
+  }
   const iconNode = resolveRegisteredLucideIconNode(iconName ?? undefined, 'size-4')
   if (iconNode) return iconNode
   if (iconName) return <span className="text-sm leading-none" aria-hidden="true">{iconName}</span>
