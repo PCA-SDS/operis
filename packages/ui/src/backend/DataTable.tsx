@@ -776,6 +776,14 @@ type ColumnTruncateMeta = {
  * that does not sit over its own column of digits is the classic tell that a
  * table was assembled rather than designed.
  */
+// Hoisted out of the per-cell helpers below. These are constants, but as inline
+// array literals they were re-allocated on every call — and the helpers run once
+// per cell, so a 50-row × 12-column table rebuilt 1,800 throwaway arrays on every
+// render (sort, filter, page, resize). Sets also make the lookup O(1).
+const WIDE_COLUMN_KEYS = new Set(['title', 'name', 'description', 'source', 'companies', 'people'])
+const MEDIUM_COLUMN_KEYS = new Set(['status', 'pipelineStage', 'pipeline_stage', 'type', 'category'])
+const SKIP_TRUNCATION_COLUMN_IDS = new Set(['actions', 'select', 'checkbox', 'expand'])
+
 function resolveColumnAlign(columnMeta: ColumnTruncateMeta | undefined): TableCellAlign {
   return columnMeta?.align === 'right' ? 'right' : 'left'
 }
@@ -793,8 +801,7 @@ function getColumnTruncateConfig(columnId: string, accessorKey?: string, columnM
   }
 
   // Core informative columns get wider width
-  const wideColumns = ['title', 'name', 'description', 'source', 'companies', 'people']
-  if (wideColumns.includes(key)) {
+  if (WIDE_COLUMN_KEYS.has(key)) {
     return {
       maxWidth: metaMaxWidth || '250px',
       truncate: typeof columnMeta?.truncate === 'boolean' ? columnMeta.truncate : true,
@@ -802,8 +809,7 @@ function getColumnTruncateConfig(columnId: string, accessorKey?: string, columnM
   }
 
   // Medium width for status-like columns
-  const mediumColumns = ['status', 'pipelineStage', 'pipeline_stage', 'type', 'category']
-  if (mediumColumns.includes(key)) {
+  if (MEDIUM_COLUMN_KEYS.has(key)) {
     return {
       maxWidth: metaMaxWidth || '180px',
       truncate: typeof columnMeta?.truncate === 'boolean' ? columnMeta.truncate : true,
@@ -839,8 +845,7 @@ function readInjectedColumnValue(row: unknown, accessorKey: string): unknown {
 
 // Check if a column should skip truncation (e.g., actions column)
 function shouldSkipTruncation(columnId: string): boolean {
-  const skipColumns = ['actions', 'select', 'checkbox', 'expand']
-  return skipColumns.includes(columnId.toLowerCase())
+  return SKIP_TRUNCATION_COLUMN_IDS.has(columnId.toLowerCase())
 }
 
 function ExportMenu({ config, sections }: { config: DataTableExportConfig; sections: ResolvedExportSection[] }) {
@@ -3864,16 +3869,22 @@ export function DataTable<T extends RowData>({
                       // Get raw cell value for tooltip - flexRender returns React elements
                       // that cannot have their text extracted, so we pass the raw value directly
                       // Check for custom tooltip content function in column meta for complex cells
-                      const cellValue = cell.getValue()
-                      const metaTooltipContent = columnMeta?.tooltipContent as ((row: unknown) => string | undefined) | undefined
+                      // Only ever read by the `TruncatedCell` branch below, so it is
+                      // computed only when the cell actually truncates. Unconditionally
+                      // stringifying every value cost one throwaway `String()` per cell
+                      // per render on tables where most columns do not truncate.
                       let tooltipText: string | undefined
-                      if (metaTooltipContent) {
-                        tooltipText = metaTooltipContent(row.original)
-                      } else if (isDateCol && cellValue != null) {
-                        const parsedDate = tryParseDate(cellValue)
-                        tooltipText = parsedDate ? (formatWithPublicDateFormat(parsedDate, DATE_FORMAT) ?? String(cellValue)) : String(cellValue)
-                      } else {
-                        tooltipText = cellValue != null ? String(cellValue) : undefined
+                      if (shouldTruncate) {
+                        const cellValue = cell.getValue()
+                        const metaTooltipContent = columnMeta?.tooltipContent as ((row: unknown) => string | undefined) | undefined
+                        if (metaTooltipContent) {
+                          tooltipText = metaTooltipContent(row.original)
+                        } else if (isDateCol && cellValue != null) {
+                          const parsedDate = tryParseDate(cellValue)
+                          tooltipText = parsedDate ? (formatWithPublicDateFormat(parsedDate, DATE_FORMAT) ?? String(cellValue)) : String(cellValue)
+                        } else {
+                          tooltipText = cellValue != null ? String(cellValue) : undefined
+                        }
                       }
 
                       // A user-resized width (#1835) overrides the default truncation

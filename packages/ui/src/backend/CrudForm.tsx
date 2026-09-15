@@ -1905,12 +1905,26 @@ export function CrudForm<TValues extends Record<string, unknown>>({
             value={value}
             onChange={(_, nextValue) => setValue(nextValue)}
             context={injectedFieldContext}
-            formData={(formValues ?? values) as Record<string, unknown>}
+            formData={(formValues ?? valuesRef.current) as Record<string, unknown>}
           />
         ),
       }
     })
-  }, [injectedFieldContext, injectedFieldDefinitions, values])
+    // Deliberately NOT keyed on `values`. The only use of form state in this memo
+    // is the fallback above, and the sole caller of `field.component` always
+    // passes `values` (see the custom-field branch of FieldControl), so the
+    // fallback is unreachable in practice — `valuesRef` is kept current by a
+    // layout effect and is correct if it ever is reached.
+    //
+    // Keying on `values` rebuilt this array on EVERY KEYSTROKE, which cascaded:
+    // new field objects -> new `allFields` -> new `fieldOptionsById` Map and new
+    // merged option arrays -> a fresh `options` prop identity for every field.
+    // That defeated `FieldControl`'s memo comparator for NON-custom fields too, so
+    // a relation select holding 500 loaded options re-rendered and re-derived its
+    // `singleSelectOptionsKey` over all 500 on each character typed in an
+    // unrelated field. Custom fields still re-render on `values` by design — the
+    // comparator compares `prev.values === next.values` for them.
+  }, [injectedFieldContext, injectedFieldDefinitions])
 
   const allFields = React.useMemo(() => {
     const base = [...fields, ...injectedCrudFields]
