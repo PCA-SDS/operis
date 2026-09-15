@@ -5,8 +5,6 @@ import {
   deleteCurrenciesEntityIfExists,
   generateUniqueCurrencyCode,
 } from '@open-mercato/core/modules/core/__integration__/helpers/currenciesFixtures'
-import { createCompanyFixture, deleteEntityIfExists } from '@open-mercato/core/modules/core/__integration__/helpers/crmFixtures'
-import { login } from '@open-mercato/core/modules/core/__integration__/helpers/auth'
 import {
   readUpdatedAt,
   putWithLock,
@@ -27,10 +25,12 @@ import {
  *          advances updated_at; a SECOND PUT carrying that FRESH token → 200 (no
  *          false 409). This is the sequential-edit case the conflict guard must
  *          not regress (#2055 refreshes the token after each save).
- *   NEG-04 v1 dead route: the customers companies list routes detail to
- *          `companies-v2`; the legacy `/backend/customers/companies/<id>` (v1)
- *          page is NOT the live single-Save editor — it edits inline and has no
- *          header "Save" button. Lenient assertion only.
+ *   NEG-04 v1 dead route: REMOVED 2026-09-15. The case asserted that the legacy
+ *          `/backend/customers/companies/<id>` page was not the single-Save editor.
+ *          That page has been deleted, so the case had no subject left: pointed at
+ *          v2 it asserted something false, and pointed at the dead route it passed
+ *          trivially against a 404. Company edit + delete conflict behaviour on the
+ *          surviving surface is covered by TC-LOCK-OSS-014.
  *   NEG-02 opt-out (OM_OPTIMISTIC_LOCK=off): NOT runnable here — this shared app
  *          boots default-ON and a second app with the flag flipped cannot be
  *          booted from this suite. The opt-out is a pure function of the env
@@ -130,29 +130,6 @@ test.describe('TC-LOCK-OSS-046: optimistic-lock negative / additive contract', (
       ).toBeLessThan(400)
     } finally {
       await deleteCurrenciesEntityIfExists(page.request, token, CURRENCY_API_BASE, currencyId)
-    }
-  })
-
-  test('NEG-04: the v1 companies detail route is not the live single-Save editor', async ({ page }) => {
-    const token = await getAuthToken(page.request, 'admin')
-    const stamp = Date.now()
-    let companyId: string | null = null
-    try {
-      companyId = await createCompanyFixture(page.request, token, `QA Lock 046 NEG04 ${stamp}`)
-
-      await login(page, 'admin')
-      await page.goto(`/backend/customers/companies/${companyId}`)
-
-      // The v1 page edits inline (no header "Save" button); the live editor lives
-      // under companies-v2. Lenient assertion: no top-level Save button is present.
-      await page.waitForLoadState('domcontentloaded')
-      const saveButton = page.getByRole('button', { name: /^save$/i })
-      await expect(
-        saveButton,
-        'the legacy v1 companies page should not expose a header "Save" button',
-      ).toHaveCount(0, { timeout: 15_000 })
-    } finally {
-      await deleteEntityIfExists(page.request, token, '/api/customers/companies', companyId)
     }
   })
 
