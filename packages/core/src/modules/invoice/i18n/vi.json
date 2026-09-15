@@ -51,7 +51,7 @@
   "invoice.detail.reverseAutoPaid.description": "Hóa đơn này sẽ trở về chưa thanh toán và bị loại khỏi các lần tự động thanh toán sau.",
   "invoice.detail.reverseAutoPaid.confirm": "Hoàn tác thanh toán",
   "invoice.detail.reverseAutoPaid.success": "Đã hoàn tác thanh toán tự động.",
-  "invoice.detail.reverseAutoPaid.failed": "Không thể hoàn tác thanh toán tự động."
+  "invoice.detail.reverseAutoPaid.failed": "Không thể hoàn tác thanh toán tự động.",
   "invoice.nav.title": "Hóa đơn",
   "invoice.nav.group": "Hóa đơn",
   "invoice.actions.retry": "Thử lại",
