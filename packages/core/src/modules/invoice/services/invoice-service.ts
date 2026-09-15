@@ -332,8 +332,8 @@ export class InvoiceService {
     let apOutstanding = 0
     let apSettled = 0
     const counts = {
-      AR: { unpaidInvoices: 0, partiallyPaidInvoices: 0, paidInvoices: 0 },
-      AP: { unpaidInvoices: 0, partiallyPaidInvoices: 0, paidInvoices: 0 },
+      AR: { unpaidInvoices: 0, partiallyPaidInvoices: 0, paidInvoices: 0, unreceivedInvoices: 0, receivedInvoices: 0, nonRecoverableInvoices: 0 },
+      AP: { unpaidInvoices: 0, partiallyPaidInvoices: 0, paidInvoices: 0, unreceivedInvoices: 0, receivedInvoices: 0, nonRecoverableInvoices: 0 },
     }
 
     for (const inv of invoices) {
@@ -343,6 +343,9 @@ export class InvoiceService {
       if (inv.settlementStatus === 'SETTLED') counts[inv.direction].paidInvoices += 1
       else if (inv.settlementStatus === 'PARTIALLY_PAID') counts[inv.direction].partiallyPaidInvoices += 1
       else counts[inv.direction].unpaidInvoices += 1
+      if (inv.hasReceived) counts[inv.direction].receivedInvoices += 1
+      else counts[inv.direction].unreceivedInvoices += 1
+      if (inv.nonRecoverable) counts[inv.direction].nonRecoverableInvoices += 1
 
       if (inv.direction === 'AR') {
         arSettled += paidVnd

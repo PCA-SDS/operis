@@ -45,6 +45,9 @@ const invoiceDirectionSummarySchema = z.object({
   unpaidInvoices: z.number().int().nonnegative(),
   partiallyPaidInvoices: z.number().int().nonnegative(),
   paidInvoices: z.number().int().nonnegative(),
+  unreceivedInvoices: z.number().int().nonnegative(),
+  receivedInvoices: z.number().int().nonnegative(),
+  nonRecoverableInvoices: z.number().int().nonnegative(),
 })
 
 export const invoiceSummaryResponseSchema = z.object({

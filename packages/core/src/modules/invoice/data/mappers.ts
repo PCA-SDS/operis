@@ -299,6 +299,9 @@ export type InvoiceDirectionSummaryDto = {
   unpaidInvoices: number
   partiallyPaidInvoices: number
   paidInvoices: number
+  unreceivedInvoices: number
+  receivedInvoices: number
+  nonRecoverableInvoices: number
 }
 
 export type InvoiceSummaryDto = {

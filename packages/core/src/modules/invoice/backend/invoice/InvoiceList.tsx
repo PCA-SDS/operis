@@ -18,7 +18,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 
 type InvoiceRow = { id: string; direction: 'AP' | 'AR'; companyId: string | null; partnerName: string | null; invoiceSymbol: string | null; invoiceNumber: string | null; invoiceDate: string | null; dueDate: string | null; nextDueDate: string | null; currencyCode: string | null; grossAmount: string | null; settlementStatus: string | null; invoiceStatus: string | null; hasInstallmentPlan: boolean; hasReceived: boolean; hasPaid: boolean; autoSettled: boolean; nonRecoverable: boolean; lastSentAt: string | null; origin: string | null }
 type Response = { items: InvoiceRow[]; total: number; page: number; pageSize: number; totalPages: number }
-type DirectionSummary = { outstandingAmount: string; settledAmount: string; unpaidInvoices: number; partiallyPaidInvoices: number; paidInvoices: number }
+type DirectionSummary = { outstandingAmount: string; settledAmount: string; unpaidInvoices: number; partiallyPaidInvoices: number; paidInvoices: number; unreceivedInvoices: number; receivedInvoices: number; nonRecoverableInvoices: number }
 type SummaryResponse = { currency: 'VND'; ar: DirectionSummary; ap: DirectionSummary }
 type Installment = { id: string; sequence: number; principalAmount: string; interestRate: string; interestAmount: string; totalAmount: string; dueDate: string | null; status: string; note: string | null }
 type InvoiceDetail = InvoiceRow & { installments: Installment[] }
@@ -132,9 +132,18 @@ export function InvoiceList({ direction }: { direction?: 'AP' | 'AR' }) {
   const overview = directionSummary ? [
     [t('invoice.overview.amountUnpaid', { fallback: 'Amount unpaid' }), `${Number(directionSummary.outstandingAmount).toLocaleString()} ${summary?.currency}`],
     [t('invoice.overview.amountSettled', { fallback: 'Amount settled' }), `${Number(directionSummary.settledAmount).toLocaleString()} ${summary?.currency}`],
-    [t('invoice.overview.unpaidInvoices', { fallback: 'Unpaid invoices' }), directionSummary.unpaidInvoices],
-    [t('invoice.overview.partialInvoices', { fallback: 'Partial invoices' }), directionSummary.partiallyPaidInvoices],
-    [t('invoice.overview.paidInvoices', { fallback: 'Paid invoices' }), directionSummary.paidInvoices],
+    ...(direction === 'AR'
+      ? [
+          [t('invoice.overview.unreceivedInvoices', { fallback: 'Unreceived invoice' }), directionSummary.unreceivedInvoices],
+          [t('invoice.overview.receivedInvoices', { fallback: 'Received invoice' }), directionSummary.receivedInvoices],
+          [t('invoice.overview.partialInvoices', { fallback: 'Partial invoice' }), directionSummary.partiallyPaidInvoices],
+          [t('invoice.overview.nonRecoverableInvoices', { fallback: 'Non-recoverable invoice' }), directionSummary.nonRecoverableInvoices],
+        ]
+      : [
+          [t('invoice.overview.unpaidInvoices', { fallback: 'Unpaid invoices' }), directionSummary.unpaidInvoices],
+          [t('invoice.overview.partialInvoices', { fallback: 'Partial invoices' }), directionSummary.partiallyPaidInvoices],
+          [t('invoice.overview.paidInvoices', { fallback: 'Paid invoices' }), directionSummary.paidInvoices],
+        ]),
   ] : []
   const issuedLabel = fromDate || toDate ? `${fromDate || '…'} – ${toDate || '…'}` : t('invoice.list.all', { fallback: 'All' })
   const monthStart = new Date(issuedMonth.getFullYear(), issuedMonth.getMonth(), 1)
