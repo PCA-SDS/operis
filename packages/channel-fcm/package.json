@@ -64,7 +64,7 @@
   "dependencies": {
     "@open-mercato/core": "workspace:*",
     "@open-mercato/ui": "workspace:*",
-    "firebase-admin": "^13.0.2"
+    "firebase-admin": "^14.3.0"
   },
   "peerDependencies": {
     "@mikro-orm/postgresql": "^7.0.14",
