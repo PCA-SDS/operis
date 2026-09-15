@@ -167,7 +167,7 @@ describe('module-facts BC resolve guard (T2)', () => {
     //
     // What says this is growth and not the blow-up this file exists to catch is
     // the delta assertion below. The extraction SHAPE is unchanged; there are
-    // simply more modules in the repo.
+    // simply more real module surfaces in the repo.
     //
     // JSON cap raised by the `email` module: tenant-owned templates, accounting
     // defaults, ACL, routes, backend pages and search add ordinary linear module
@@ -182,6 +182,17 @@ describe('module-facts BC resolve guard (T2)', () => {
     // hairline pass.
     //
     // MEASURED 2026-09-10: complete 4,101,347 · legacy 2,326,397 · delta 1,774,950.
+    //
+    // ⚠️ The DELTA cap below is the assertion that actually detects the
+    // multiplicative blow-up this file exists to catch, and it is at 98.6% of its
+    // 1,800,000 limit with 25,050 bytes to spare. That is pre-existing and not
+    // caused by this module — but the next module of any real size will trip it,
+    // and whoever hits it should work out whether the delta is growing linearly
+    // (raise it) or the extraction shape has changed (do not).
+    //
+    // The seat-planner/resource-assignment API surface also contributes real
+    // appointment draft/confirm routes, a resource assignment route, ACL
+    // features, and entity facts.
     //
     // DELTA cap raised once, by `chat_tasks` (the chat-to-tasks integration: 8 API
     // routes, 2 entities, 2 events, 6 extension hosts, 7 injection widgets, 1 page).

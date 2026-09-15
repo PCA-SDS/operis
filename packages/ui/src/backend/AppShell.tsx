@@ -1491,7 +1491,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           </div>
         </header>
         <ProgressTopBar t={t} className="sticky top-0 z-sticky" completedAutoHideMs={progressCompletedAutoHideMs} />
-        <main className="mx-auto flex min-w-0 max-w-screen-2xl flex-1 flex-col px-4 pb-8 pt-4 sm:px-6 lg:px-8 lg:pt-5">
+        <main className="mx-auto flex min-w-0 w-full max-w-screen-2xl flex-1 flex-col px-4 pb-8 pt-4 sm:px-6 lg:px-8 lg:pt-5">
           <InjectionSpot spotId={BACKEND_LAYOUT_TOP_INJECTION_SPOT_ID} context={injectionContext} />
           <FlashMessages />
           <PartialIndexBanner />

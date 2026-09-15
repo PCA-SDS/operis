@@ -162,6 +162,7 @@ export const personCreateSchema = scopedSchema.extend({
 export const personUpdateSchema = z
   .object({
     id: uuid(),
+    expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
   })
   .merge(
     scopedSchema.extend({

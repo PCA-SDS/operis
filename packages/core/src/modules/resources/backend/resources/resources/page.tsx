@@ -36,6 +36,7 @@ const RESOURCE_LIST_MUTATION_CONTEXT_ID = 'resources.resources.list'
 type ResourceRow = {
   id: string
   name: string
+  code: string | null
   resourceTypeId: string | null
   areaId: string | null
   sortOrder: number
@@ -955,6 +956,13 @@ export default function ResourcesResourcesPage() {
       },
     },
     {
+      accessorKey: 'code',
+      header: t('resources.resources.list.columns.code', 'Code'),
+      cell: ({ row }) => row.original.rowKind === 'resource'
+        ? row.original.code || t('resources.resources.list.columns.code.empty', '-')
+        : null,
+    },
+    {
       accessorKey: 'appearance',
       header: t('resources.resources.list.columns.appearance', 'Appearance'),
       meta: { priority: 2 },
@@ -1265,6 +1273,7 @@ function ResourcePointerNameCell({
 function mapApiResource(item: Record<string, unknown>): ResourceRow {
   const id = typeof item.id === 'string' ? item.id : ''
   const name = typeof item.name === 'string' ? item.name : id
+  const code = typeof item.code === 'string' ? item.code : null
   const resourceTypeId = typeof item.resourceTypeId === 'string'
     ? item.resourceTypeId
     : typeof item.resource_type_id === 'string'
@@ -1311,6 +1320,7 @@ function mapApiResource(item: Record<string, unknown>): ResourceRow {
   return withDataTableNamespaces({
     id,
     name,
+    code,
     resourceTypeId,
     areaId,
     sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,

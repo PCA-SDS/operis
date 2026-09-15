@@ -34,6 +34,8 @@ export type AppointmentStatusDto = {
   code: string
   label: string
   description: string | null
+  backgroundColor: string | null
+  textColor: string | null
   isSystem: boolean
   sortOrder: number
   createdAt: string
@@ -45,6 +47,8 @@ export function mapAppointmentStatusRow(row: {
   code: string
   label: string
   description?: string | null
+  backgroundColor?: string | null
+  textColor?: string | null
   isSystem: boolean
   sortOrder: number
   createdAt: Date
@@ -55,6 +59,8 @@ export function mapAppointmentStatusRow(row: {
     code: row.code,
     label: row.label,
     description: row.description ?? null,
+    backgroundColor: row.backgroundColor ?? null,
+    textColor: row.textColor ?? null,
     isSystem: row.isSystem,
     sortOrder: row.sortOrder,
     createdAt: row.createdAt.toISOString(),
