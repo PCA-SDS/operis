@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   Calendar,
+  CalendarPlus,
   Check,
   ChevronRight,
   Clock,
@@ -150,6 +151,7 @@ type StaffMember = { id: string; displayName: string; roleLabel: string; roleLab
 type PopoverState = { allocation: PlannerAllocation; anchor: DOMRect }
 type StaffSheetTarget = { allocation: PlannerAllocation; line: SeatPlannerLine | null }
 type HoveredSlot = { resourceId: string; time: string }
+type HoveredInsertion = { allocationId: string; time: string }
 
 function assignedMemberIdsFor(value: { assignedMemberIds?: string[]; assignedMemberId?: string | null }): string[] {
   if (Array.isArray(value.assignedMemberIds) && value.assignedMemberIds.length > 0) return value.assignedMemberIds
@@ -318,10 +320,24 @@ function PlannerBlock(props: {
   timelineStartMinutes: number
   isOwn: boolean
   isActive: boolean
+  canInsert: boolean
   onResizeEnd: (duration: number) => Promise<void>
   onOpen: (event: React.MouseEvent<HTMLDivElement>) => void
+  onHoverInsertion: (event: React.MouseEvent<HTMLDivElement>) => void
+  onHoverBlock: () => void
 }) {
-  const { allocation, line, timelineStartMinutes, isOwn, isActive, onResizeEnd, onOpen } = props
+  const {
+    allocation,
+    line,
+    timelineStartMinutes,
+    isOwn,
+    isActive,
+    canInsert,
+    onResizeEnd,
+    onOpen,
+    onHoverInsertion,
+    onHoverBlock,
+  } = props
   const [dragDuration, setDragDuration] = React.useState<number | null>(null)
   const currentDuration = durationMinutes(allocation.startsAt, allocation.endsAt)
   const startYRef = React.useRef(0)
@@ -337,6 +353,8 @@ function PlannerBlock(props: {
     if (!isOwn) return
     event.preventDefault()
     event.stopPropagation()
+    const resizeHandle = event.currentTarget
+    resizeHandle.setPointerCapture(event.pointerId)
     startYRef.current = event.clientY
     startDurationRef.current = currentDuration
     nextDurationRef.current = currentDuration
@@ -349,6 +367,7 @@ function PlannerBlock(props: {
       document.removeEventListener('pointermove', onPointerMove)
       document.removeEventListener('pointerup', onPointerEnd)
       document.removeEventListener('pointercancel', onPointerEnd)
+      if (resizeHandle.hasPointerCapture(event.pointerId)) resizeHandle.releasePointerCapture(event.pointerId)
       setDragDuration(null)
       if (nextDurationRef.current !== currentDuration) await onResizeEnd(nextDurationRef.current)
     }
@@ -374,6 +393,8 @@ function PlannerBlock(props: {
         event.stopPropagation()
         onOpen(event)
       }}
+      onMouseMove={canInsert ? onHoverInsertion : undefined}
+      onMouseEnter={onHoverBlock}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') onOpen(event as unknown as React.MouseEvent<HTMLDivElement>)
       }}
@@ -395,8 +416,56 @@ function PlannerBlock(props: {
         <span className="mt-auto truncate text-[10px] opacity-80">{formatTime(allocation.startsAt)} - {formatTime(addMinutes(allocation.startsAt, displayDuration))}</span>
       ) : null}
       {isOwn ? (
-        <div className="absolute inset-x-0 bottom-0 h-3 cursor-row-resize bg-foreground/10" onPointerDown={handleResizePointerDown} onClick={(event) => event.stopPropagation()} />
+        <div className="absolute inset-x-0 bottom-0 h-4 touch-none cursor-row-resize bg-foreground/10" onPointerDown={handleResizePointerDown} onClick={(event) => event.stopPropagation()} />
       ) : null}
+    </div>
+  )
+}
+
+function PlannerInsertionRail(props: {
+  allocation: PlannerAllocation
+  timelineStartMinutes: number
+  insertionTime: string | null
+  onHover: (time: string) => void
+  onInsert: (time: string) => void
+}) {
+  const { allocation, timelineStartMinutes, insertionTime, onHover, onInsert } = props
+  const displayDuration = durationMinutes(allocation.startsAt, allocation.endsAt)
+
+  return (
+    <div
+      className="pointer-events-none absolute right-0 z-50 w-7"
+      style={{ top: allocationTop(allocation, timelineStartMinutes), height: allocationHeight(allocation), zIndex: 60 }}
+    >
+      {Array.from({ length: Math.ceil(displayDuration / SLOT_MINUTES) }, (_, slotIndex) => {
+        const slotStart = addMinutes(allocation.startsAt, slotIndex * SLOT_MINUTES)
+        const slotTime = minutesToTime(new Date(slotStart).getHours() * 60 + new Date(slotStart).getMinutes())
+        const active = slotTime === insertionTime
+        return (
+          <div
+            key={`${allocation.id}-insert-${slotTime}`}
+            role="button"
+            tabIndex={0}
+            className={`pointer-events-auto absolute inset-x-0 flex cursor-pointer items-center justify-center rounded-md border border-dashed backdrop-blur-sm text-primary shadow-sm transition-colors ${active ? 'border-primary bg-primary/10' : 'border-primary/60 bg-surface/30 hover:bg-surface/50'}`}
+            style={{ top: slotIndex * slotHeight(), height: Math.max(slotHeight() - 4, 20) }}
+            onMouseEnter={() => onHover(slotTime)}
+            onClick={(event) => {
+              event.stopPropagation()
+              onInsert(slotTime)
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                event.stopPropagation()
+                onInsert(slotTime)
+              }
+            }}
+            aria-label={`Place service at ${slotTime}`}
+          >
+            <CalendarPlus className="size-3" aria-hidden="true" />
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -922,6 +991,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const [error, setError] = React.useState<string | null>(null)
   const [activeLineId, setActiveLineId] = React.useState<string | null>(null)
   const [hoveredSlot, setHoveredSlot] = React.useState<HoveredSlot | null>(null)
+  const [hoveredInsertion, setHoveredInsertion] = React.useState<HoveredInsertion | null>(null)
+  const [isCoarsePointer, setIsCoarsePointer] = React.useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
   const [popoverState, setPopoverState] = React.useState<PopoverState | null>(null)
   const [staffSheetTarget, setStaffSheetTarget] = React.useState<StaffSheetTarget | null>(null)
@@ -940,6 +1011,19 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const workspaceRequestRef = React.useRef(0)
   const staffPageRef = React.useRef(0)
   const staffLoadingRef = React.useRef(false)
+
+  React.useEffect(() => {
+    const pointerQuery = window.matchMedia('(pointer: coarse)')
+    const anyPointerQuery = window.matchMedia('(any-pointer: coarse)')
+    const updatePointerMode = () => setIsCoarsePointer(pointerQuery.matches || anyPointerQuery.matches)
+    updatePointerMode()
+    pointerQuery.addEventListener('change', updatePointerMode)
+    anyPointerQuery.addEventListener('change', updatePointerMode)
+    return () => {
+      pointerQuery.removeEventListener('change', updatePointerMode)
+      anyPointerQuery.removeEventListener('change', updatePointerMode)
+    }
+  }, [])
   const hasMoreStaffRef = React.useRef(true)
   const guardedMutation = useGuardedMutation({ contextId: appointmentId ? `appointments.seatPlanner:${appointmentId}` : 'appointments.seatPlanner:pending' })
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
@@ -1365,6 +1449,17 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     flash(t('appointments.seatPlanner.saved', 'Assignment saved'), 'success')
   }, [activeLine, allocationsBySeat, canUseResourceRange, earliestMinutes, flash, saveDraft, t, workspace])
 
+  const handleInsertionHover = React.useCallback((allocation: PlannerAllocation, event: React.MouseEvent<HTMLDivElement>) => {
+    const start = new Date(allocation.startsAt)
+    const rect = event.currentTarget.getBoundingClientRect()
+    const offset = Math.min(
+      Math.max(0, durationMinutes(allocation.startsAt, allocation.endsAt) - SLOT_MINUTES),
+      Math.floor(Math.max(0, event.clientY - rect.top) / slotHeight()) * SLOT_MINUTES,
+    )
+    const target = new Date(start.getTime() + offset * 60000)
+    setHoveredInsertion({ allocationId: allocation.id, time: minutesToTime(target.getHours() * 60 + target.getMinutes()) })
+  }, [])
+
   const handleConfirmAll = React.useCallback(async () => {
     if (!workspace) return
     await guardedMutation.runMutation({
@@ -1659,7 +1754,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                               })
                             : false
                           return (
-                            <div key={seat.id} className={`relative border-r border-border bg-surface ${seat.isFirstInFloor ? 'border-l' : ''}`} onMouseLeave={() => setHoveredSlot(null)}>
+                            <div key={seat.id} className={`relative isolate border-r border-border bg-surface ${seat.isFirstInFloor ? 'border-l' : ''}`} onMouseLeave={() => { setHoveredSlot(null); setHoveredInsertion(null) }}>
                             <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-muted/60" style={{ height: Math.max(0, ((earliestMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight()) }} />
                             {slotGridMarkers.map((time) => <div key={`${seat.id}-${time}-slot-grid`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time, timelineBounds.startMinutes) }} />)}
                             {timeMarkers.map((time) => <div key={`${seat.id}-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time, timelineBounds.startMinutes) }} />)}
@@ -1718,7 +1813,10 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                   timelineStartMinutes={timelineBounds.startMinutes}
                                   isOwn={allocation.appointmentId === workspace.appointment.id}
                                   isActive={allocation.lineId === activeLineId}
+                                  canInsert={Boolean(activeLine && allocation.appointmentId === workspace.appointment.id && allocation.lineId !== activeLine.id)}
                                   onResizeEnd={(nextDuration) => handleDurationChange(allocation, nextDuration)}
+                                  onHoverInsertion={(event) => handleInsertionHover(allocation, event)}
+                                  onHoverBlock={() => setHoveredSlot(null)}
                                   onOpen={(event) => {
                                     setPopoverState({ allocation: { ...allocation, resourceName: seat.name }, anchor: event.currentTarget.getBoundingClientRect() })
                                     if (allocation.appointmentId === workspace.appointment.id) {
@@ -1729,6 +1827,28 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                 />
                               )
                             })}
+                            {activeLine ? (allocationsBySeat.get(seat.id) ?? [])
+                              .filter((allocation) => {
+                                if (allocation.appointmentId !== workspace.appointment.id || allocation.lineId === activeLine.id) return false
+                                if (isCoarsePointer) return allocation.laneIndex === allocation.lanesCount - 1
+                                return hoveredInsertion?.allocationId === allocation.id
+                              })
+                              .map((allocation) => (
+                                <PlannerInsertionRail
+                                  key={`${allocation.id}-insertion-rail`}
+                                  allocation={allocation}
+                                  timelineStartMinutes={timelineBounds.startMinutes}
+                                  insertionTime={hoveredInsertion?.allocationId === allocation.id ? hoveredInsertion.time : null}
+                                  onHover={(time) => {
+                                    setHoveredSlot(null)
+                                    setHoveredInsertion({ allocationId: allocation.id, time })
+                                  }}
+                                  onInsert={(time) => {
+                                    setHoveredInsertion(null)
+                                    void handleSlotClick(seat.id, time)
+                                  }}
+                                />
+                              )) : null}
                             </div>
                           )
                         })}
