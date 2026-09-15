@@ -120,7 +120,7 @@
   "invoice.list.loading": "Loading invoices…",
   "invoice.list.error": "Could not load invoices",
   "invoice.list.search": "Search invoices",
-  "invoice.list.columns.number": "Invoice number",
+  "invoice.list.columns.number": "Invoice No.",
   "invoice.list.columns.direction": "Direction",
   "invoice.list.columns.partner": "Partner",
   "invoice.list.columns.issueDate": "Issue date",
