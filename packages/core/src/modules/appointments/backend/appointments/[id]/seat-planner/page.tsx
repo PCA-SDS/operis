@@ -544,9 +544,9 @@ function BookingSidebar(props: {
                             <MapPin className="size-3.5 shrink-0" />
                             <span>{t('appointments.seatPlanner.seat', 'Seat')}: <span className="font-medium text-foreground">{line.currentAssignment.resourceName ?? t('appointments.seatPlanner.notSelected', 'Not selected')}</span></span>
                           </div>
-                          <div className="flex items-center gap-2 truncate">
+                          <div className="flex items-start gap-2">
                             <UserRound className="size-3.5 shrink-0" />
-                            <span>{t('appointments.seatPlanner.staff', 'Staff')}: <span className="line-clamp-2 break-words font-medium leading-tight text-foreground">{(line.currentAssignment.assignedMemberNames ?? (line.currentAssignment.assignedMemberName ? [line.currentAssignment.assignedMemberName] : [])).join(', ') || t('appointments.seatPlanner.notSelected', 'Not selected')}</span></span>
+                            <span className="min-w-0">{t('appointments.seatPlanner.staff', 'Staff')}: <span className="line-clamp-2 break-words font-medium leading-tight text-foreground">{(line.currentAssignment.assignedMemberNames ?? (line.currentAssignment.assignedMemberName ? [line.currentAssignment.assignedMemberName] : [])).join(', ') || t('appointments.seatPlanner.notSelected', 'Not selected')}</span></span>
                           </div>
                         </div>
                         {canManage && line.currentAssignment.state === 'draft' ? (
@@ -820,7 +820,7 @@ function StaffSheet(props: {
               const busy = busyStaffIds.has(member.id)
               const active = assignedMemberIdsFor(target.allocation).includes(member.id)
               return (
-                <Button key={member.id} type="button" variant="ghost" aria-pressed={active} className={`h-auto w-full justify-start gap-3 rounded-md border p-3 text-left ${active ? 'border-primary bg-primary/5' : 'border-border bg-surface hover:bg-muted/40'}`} disabled={isSaving || busy} onClick={() => onAssign(member.id)}>
+                <Button key={member.id} type="button" variant="ghost" aria-pressed={active} className={`h-auto w-full justify-start gap-3 rounded-md border p-3 text-left ${active ? 'border-primary bg-primary/5' : 'border-border bg-surface hover:bg-muted/40'}`} disabled={isSaving} onClick={() => onAssign(member.id)}>
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
                     {member.displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
                   </span>
@@ -1115,6 +1115,16 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     for (const allocation of allocations.values()) bySeat.set(allocation.resourceId, [...(bySeat.get(allocation.resourceId) ?? []), allocation])
     return [...bySeat.values()].flatMap(computeLanes)
   }, [ownAllocations, workspace])
+  const liveStaffSheetTarget = React.useMemo(() => {
+    if (!staffSheetTarget) return null
+    const allocation = allAllocations.find((entry) => entry.id === staffSheetTarget.allocation.id)
+    return allocation ? { ...staffSheetTarget, allocation } : staffSheetTarget
+  }, [allAllocations, staffSheetTarget])
+  const livePopoverState = React.useMemo(() => {
+    if (!popoverState) return null
+    const allocation = allAllocations.find((entry) => entry.id === popoverState.allocation.id)
+    return allocation ? { ...popoverState, allocation } : popoverState
+  }, [allAllocations, popoverState])
   const allocationsBySeat = React.useMemo(() => {
     const map = new Map<string, PlannerAllocation[]>()
     for (const allocation of allAllocations) map.set(allocation.resourceId, [...(map.get(allocation.resourceId) ?? []), allocation])
@@ -1419,12 +1429,12 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   }, [flash, saveDraft, staffMembers, t, workspace?.appointment.id])
 
   const busyStaffIds = React.useMemo(() => {
-    if (!staffSheetTarget) return new Set<string>()
+    if (!liveStaffSheetTarget) return new Set<string>()
     const busy = new Set<string>()
-    const targetStart = new Date(staffSheetTarget.allocation.startsAt).getTime()
-    const targetEnd = new Date(staffSheetTarget.allocation.endsAt).getTime()
+    const targetStart = new Date(liveStaffSheetTarget.allocation.startsAt).getTime()
+    const targetEnd = new Date(liveStaffSheetTarget.allocation.endsAt).getTime()
     for (const allocation of allAllocations) {
-      if (allocation.id === staffSheetTarget.allocation.id) continue
+      if (allocation.id === liveStaffSheetTarget.allocation.id) continue
       const start = new Date(allocation.startsAt).getTime()
       const end = new Date(allocation.endsAt).getTime()
       if (targetStart < end && start < targetEnd) {
@@ -1432,7 +1442,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       }
     }
     return busy
-  }, [allAllocations, staffSheetTarget])
+  }, [allAllocations, liveStaffSheetTarget])
 
   React.useEffect(() => {
     if (!timelineRef.current || ownAllocations.length === 0) return
@@ -1692,21 +1702,21 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
           </div>
         </div>
 
-        {popoverState ? (
+        {livePopoverState ? (
           <DraftPopover
-            state={popoverState}
-            line={workspace.lines.find((line) => line.id === popoverState.allocation.lineId) ?? null}
-            isOwn={popoverState.allocation.appointmentId === workspace.appointment.id}
+            state={livePopoverState}
+            line={workspace.lines.find((line) => line.id === livePopoverState.allocation.lineId) ?? null}
+            isOwn={livePopoverState.allocation.appointmentId === workspace.appointment.id}
             onClose={() => setPopoverState(null)}
-            onClear={() => void clearDraft(popoverState.allocation.lineId)}
-            onDurationChange={(nextDuration) => void handleDurationChange(popoverState.allocation, nextDuration)}
-            onOpenStaff={() => setStaffSheetTarget({ allocation: popoverState.allocation, line: workspace.lines.find((line) => line.id === popoverState.allocation.lineId) ?? null })}
+            onClear={() => void clearDraft(livePopoverState.allocation.lineId)}
+            onDurationChange={(nextDuration) => void handleDurationChange(livePopoverState.allocation, nextDuration)}
+            onOpenStaff={() => setStaffSheetTarget({ allocation: livePopoverState.allocation, line: workspace.lines.find((line) => line.id === livePopoverState.allocation.lineId) ?? null })}
           />
         ) : null}
 
-        {staffSheetTarget ? (
+        {liveStaffSheetTarget ? (
           <StaffSheet
-            target={staffSheetTarget}
+            target={liveStaffSheetTarget}
             staff={staffMembers}
             isLoadingStaff={isLoadingStaff}
             isLoadingMoreStaff={isLoadingMoreStaff}
@@ -1714,8 +1724,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             busyStaffIds={busyStaffIds}
             isSaving={isSaving}
             onClose={() => setStaffSheetTarget(null)}
-            onAssign={(staffId) => void handleAssignStaff(staffSheetTarget, staffId)}
-            onDurationChange={(nextDuration) => void handleDurationChange(staffSheetTarget.allocation, nextDuration)}
+            onAssign={(staffId) => void handleAssignStaff(liveStaffSheetTarget, staffId)}
+            onDurationChange={(nextDuration) => void handleDurationChange(liveStaffSheetTarget.allocation, nextDuration)}
             onLoadMore={() => void loadStaffPage(staffPageRef.current + 1)}
           />
         ) : null}
