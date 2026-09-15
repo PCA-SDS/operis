@@ -64,7 +64,7 @@
   "dependencies": {
     "@open-mercato/core": "workspace:*",
     "@open-mercato/ui": "workspace:*",
-    "expo-server-sdk": "^3.15.0"
+    "expo-server-sdk": "^7.2.0"
   },
   "peerDependencies": {
     "@mikro-orm/postgresql": "^7.0.14",
