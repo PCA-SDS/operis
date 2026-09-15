@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import {
   Select,
   SelectContent,
@@ -20,6 +21,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { AppointmentStatusBadge } from '../../../components/AppointmentStatusBadge'
 import { formatCustomerPhone } from '../../../lib/phoneSnapshot'
+import { Check, Copy } from 'lucide-react'
 
 type Line = {
   id: string
@@ -74,6 +76,61 @@ function Field({ label, value }: { label: string; value: string }) {
     <div className="space-y-1">
       <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="text-sm text-foreground">{value}</div>
+    </div>
+  )
+}
+
+function CopyField({
+  label,
+  value,
+  emptyLabel,
+  copyLabel,
+  copiedLabel,
+  copyFailedLabel,
+}: {
+  label: string
+  value: string
+  emptyLabel: string
+  copyLabel: string
+  copiedLabel: string
+  copyFailedLabel: string
+}) {
+  const [copied, setCopied] = React.useState(false)
+  const resetTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  React.useEffect(() => () => {
+    if (resetTimer.current) clearTimeout(resetTimer.current)
+  }, [])
+
+  const handleCopy = async () => {
+    if (!value || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(true)
+      if (resetTimer.current) clearTimeout(resetTimer.current)
+      resetTimer.current = setTimeout(() => setCopied(false), 1500)
+    } catch {
+      flash(copyFailedLabel, 'error')
+    }
+  }
+
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="flex min-w-0 items-center gap-1">
+        <div className="min-w-0 flex-1 truncate text-sm text-foreground">{value || emptyLabel}</div>
+        <IconButton
+          type="button"
+          size="sm"
+          variant="ghost"
+          aria-label={copied ? copiedLabel : copyLabel}
+          title={copied ? copiedLabel : copyLabel}
+          disabled={!value}
+          onClick={() => void handleCopy()}
+        >
+          {copied ? <Check className="size-4 text-status-success-text" /> : <Copy className="size-4" />}
+        </IconButton>
+      </div>
     </div>
   )
 }
@@ -200,6 +257,7 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
   }
 
   const empty = t('appointments.list.noValue')
+  const phoneValue = formatCustomerPhone(detail.customerPhoneCountryCode, detail.customerPhone)
   const selectedStatusLabel =
     statuses.find((status) => status.code === statusCode)?.label ?? statusCode
   const selectedStatus = statuses.find((status) => status.code === statusCode)
@@ -238,13 +296,22 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
               label={t('appointments.detail.field.salutation')}
               value={detail.customerSalutation || empty}
             />
-            <Field
+            <CopyField
               label={t('appointments.detail.field.phone')}
-              value={
-                formatCustomerPhone(detail.customerPhoneCountryCode, detail.customerPhone) || empty
-              }
+              value={phoneValue}
+              emptyLabel={empty}
+              copyLabel={t('appointments.detail.copyPhone', 'Copy phone')}
+              copiedLabel={t('appointments.detail.copied', 'Copied')}
+              copyFailedLabel={t('appointments.detail.copyFailed', 'Could not copy to the clipboard.')}
             />
-            <Field label={t('appointments.detail.field.email')} value={detail.customerEmail || empty} />
+            <CopyField
+              label={t('appointments.detail.field.email')}
+              value={detail.customerEmail || ''}
+              emptyLabel={empty}
+              copyLabel={t('appointments.detail.copyEmail', 'Copy email')}
+              copiedLabel={t('appointments.detail.copied', 'Copied')}
+              copyFailedLabel={t('appointments.detail.copyFailed', 'Could not copy to the clipboard.')}
+            />
             <Field label={t('appointments.detail.field.origin')} value={detail.customerOrigin || empty} />
             <Field label={t('appointments.detail.field.referral')} value={detail.customerSource || empty} />
           </div>
