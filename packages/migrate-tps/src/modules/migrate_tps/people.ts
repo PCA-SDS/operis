@@ -24,6 +24,7 @@ type TpsCustomer = {
   phone_country_code: string
   phone_country: string
   origin: string
+  referral: string | null
   created_at: Date
 }
 
@@ -72,6 +73,10 @@ function splitName(value: string): { firstName: string; lastName: string } {
 function normalizeSalutation(value: string | null): string | null {
   if (!value || value === 'None') return null
   return value.trim() || null
+}
+
+function normalizeReferral(value: string | null): string | null {
+  return value?.trim() || null
 }
 
 function canonicalizePhone(phone: string, countryCode: string): string {
@@ -217,7 +222,7 @@ async function migrateCustomers(
       entity.primaryPhoneHash = canKeepPhone ? phoneIdentity.primaryPhoneHash : null
       entity.phoneCountryCode = canKeepPhone ? phoneIdentity.phoneCountryCode : null
       entity.phoneCountry = canKeepPhone ? phoneIdentity.phoneCountry : null
-      entity.source = 'tps'
+      entity.source = normalizeReferral(source.referral)
       entity.origin = source.origin?.trim() || null
       entitiesByMarker.set(marker, entity)
       if (canKeepPhone && phoneIdentity.primaryPhoneHash) entitiesByPhoneHash.set(phoneIdentity.primaryPhoneHash, entity)
@@ -248,7 +253,7 @@ async function migrateCustomers(
       primaryPhoneHash: canKeepPhone ? phoneIdentity.primaryPhoneHash : null,
       phoneCountryCode: canKeepPhone ? phoneIdentity.phoneCountryCode : null,
       phoneCountry: canKeepPhone ? phoneIdentity.phoneCountry : null,
-      source: 'tps',
+      source: normalizeReferral(source.referral),
       origin: source.origin?.trim() || null,
       lifecycleStage: 'customer',
       status: 'active',
@@ -450,7 +455,7 @@ export const migrateTpsPeopleCommand: ModuleCli = {
       const [customerResult, accountResult, accountJobRoleResult] = await Promise.all([
         staffOnly || accountsOnly
           ? Promise.resolve({ rows: [] as TpsCustomer[] })
-          : queryTps<TpsCustomer>(client, 'SELECT id, name, salutation::text, email, phone, phone_country_code, phone_country, origin, created_at FROM customers ORDER BY id'),
+          : queryTps<TpsCustomer>(client, 'SELECT id, name, salutation::text, email, phone, phone_country_code, phone_country, origin, referral, created_at FROM customers ORDER BY id'),
         customersOnly
           ? Promise.resolve({ rows: [] as TpsAccount[] })
           : queryTps<TpsAccount>(client, `SELECT a.id, a.name, a.email, a.password, r.name AS role_name, a.all_locations, a.locations
