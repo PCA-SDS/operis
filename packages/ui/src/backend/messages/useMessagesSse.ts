@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { apiCall } from '../utils/apiCall'
 import { useAppEvent } from '../injection/useAppEvent'
+import { useTabRestoreRefresh } from '../utils/backgroundPolling'
 import type { MessagePollItem, UseMessagesPollResult } from './useMessagesPoll'
 
 export function useMessagesSse(): UseMessagesPollResult {
@@ -25,8 +26,15 @@ export function useMessagesSse(): UseMessagesPollResult {
 
   const fetchMessages = React.useCallback(async () => {
     try {
+      // `pageSize=1`. The only consumer of this hook is `MessagesIcon`, which reads
+      // `unreadCount` and `hasNew` — never the list. `hasNew` is derived purely from
+      // whether the newest message id changed, so one row answers it exactly as
+      // twenty did. The wildcard SSE subscription cannot replace this check:
+      // `messages.message.*` also covers read/archived/deleted, which must not pulse
+      // the badge. Fetching twenty also wrote twenty `access_logs` rows per refresh
+      // (the CRUD factory logs one per returned record).
       const [listResult, countResult] = await Promise.all([
-        apiCall<{ items?: MessagePollItem[] }>('/api/messages?folder=inbox&page=1&pageSize=20', requestInit),
+        apiCall<{ items?: MessagePollItem[] }>('/api/messages?folder=inbox&page=1&pageSize=1', requestInit),
         apiCall<{ unreadCount?: number }>('/api/messages/unread-count', requestInit),
       ])
 
@@ -67,18 +75,19 @@ export function useMessagesSse(): UseMessagesPollResult {
     void fetchMessages()
   }, [fetchMessages])
 
+  // `visibilitychange`-only + coalesced — see useTabRestoreRefresh. A raw
+  // `focus` listener double-fired on every tab restore.
+  useTabRestoreRefresh(React.useCallback(() => {
+    void fetchMessages()
+  }, [fetchMessages]))
+
   React.useEffect(() => {
-    const onFocus = () => {
-      void fetchMessages()
-    }
-    window.addEventListener('focus', onFocus)
     return () => {
-      window.removeEventListener('focus', onFocus)
       if (pulseTimeoutRef.current) {
         window.clearTimeout(pulseTimeoutRef.current)
       }
     }
-  }, [fetchMessages])
+  }, [])
 
   useAppEvent(
     'messages.message.*',
