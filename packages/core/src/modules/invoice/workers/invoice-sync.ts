@@ -37,15 +37,24 @@ type SyncCounts = {
   updated: number
   skipped: number
   errors: number
+  ar: StreamCounts
+  ap: StreamCounts
 }
 
-const emptyCounts = (): SyncCounts => ({ processed: 0, imported: 0, updated: 0, skipped: 0, errors: 0 })
+type StreamCounts = { fetched: number; new: number; updated: number; skipped: number; errors: number }
 
-function addCounts(target: SyncCounts, result: InvoiceSyncPersistenceResult): void {
+const emptyStreamCounts = (): StreamCounts => ({ fetched: 0, new: 0, updated: 0, skipped: 0, errors: 0 })
+const emptyCounts = (): SyncCounts => ({ processed: 0, imported: 0, updated: 0, skipped: 0, errors: 0, ar: emptyStreamCounts(), ap: emptyStreamCounts() })
+
+function addCounts(target: SyncCounts, stream: 'ar' | 'ap', result: InvoiceSyncPersistenceResult): void {
   target.imported += result.created
   target.updated += result.updated
   target.skipped += result.skipped
   target.errors += result.failed
+  target[stream].new += result.created
+  target[stream].updated += result.updated
+  target[stream].skipped += result.skipped
+  target[stream].errors += result.failed
 }
 
 function safeErrorMessage(error: unknown): string {
@@ -60,6 +69,7 @@ export default async function handle(job: QueuedJob<InvoiceSyncJobPayload>, ctx:
   const progressService = ctx.resolve<ProgressService>('progressService')
   const syncService = ctx.resolve('invoiceSyncService') as {
     getCachedToken(input: InvoiceScope): Promise<string | null>
+    setTerminalCooldown(input: InvoiceScope): Promise<void>
   }
   const fetcher = ctx.resolve('gdtFetcherService') as {
     fetch(input: { stream: GdtStream; token: string; fromDate: Date; toDate: Date }): AsyncGenerator<Record<string, unknown>>
@@ -111,6 +121,7 @@ export default async function handle(job: QueuedJob<InvoiceSyncJobPayload>, ctx:
       const batch: NormalizedInvoiceSource[] = []
       for await (const record of fetcher.fetch({ stream, token, fromDate, toDate })) {
         counts.processed += 1
+        counts[stream === 'sold' ? 'ar' : 'ap'].fetched += 1
         try {
           const normalized = normalizer.normalize(stream, record)
           const partnerTaxCode = normalized.direction === 'AP' ? normalized.sellerTaxCode : normalized.buyerTaxCode
@@ -118,20 +129,22 @@ export default async function handle(job: QueuedJob<InvoiceSyncJobPayload>, ctx:
             batch.push(normalized)
           } else {
             counts.skipped += 1
+            counts[stream === 'sold' ? 'ar' : 'ap'].skipped += 1
           }
         } catch {
           counts.skipped += 1
+          counts[stream === 'sold' ? 'ar' : 'ap'].skipped += 1
         }
         if (batch.length >= 100) {
           await updateJob('PERSISTING', Math.min(95, 5 + counts.processed))
-          addCounts(counts, await persistence.persist(scope, batch.splice(0, batch.length)))
+          addCounts(counts, stream === 'sold' ? 'ar' : 'ap', await persistence.persist(scope, batch.splice(0, batch.length)))
           await updateProgress()
           await updateJob('FETCHING', Math.min(95, 5 + counts.processed))
         }
       }
       if (batch.length > 0) {
         await updateJob('PERSISTING', Math.min(95, 5 + counts.processed))
-        addCounts(counts, await persistence.persist(scope, batch))
+        addCounts(counts, stream === 'sold' ? 'ar' : 'ap', await persistence.persist(scope, batch))
         await updateProgress()
       }
     }
@@ -145,6 +158,7 @@ export default async function handle(job: QueuedJob<InvoiceSyncJobPayload>, ctx:
     await updateProgress()
     await updateJob('DONE', 100, true)
     await progressService.completeJob(payload.progressJobId, { resultSummary: counts }, progressContext)
+    await syncService.setTerminalCooldown(scope)
     await emitInvoiceEvent('invoice.sync.completed', { syncJobId: syncJob.id, progressJobId: payload.progressJobId, counts, ...scope })
   } catch (error) {
     const failureCategory = classifyGdtError(error)
@@ -153,6 +167,7 @@ export default async function handle(job: QueuedJob<InvoiceSyncJobPayload>, ctx:
     syncJob.counts = counts
     syncJob.failureCategory = failureCategory
     syncJob.failureMessage = safeErrorMessage(error)
+    syncJob.failureRequestId = crypto.randomUUID()
     syncJob.finishedAt = new Date()
     syncJob.updatedAt = new Date()
     await em.flush()
@@ -160,6 +175,7 @@ export default async function handle(job: QueuedJob<InvoiceSyncJobPayload>, ctx:
       errorMessage: syncJob.failureMessage,
       resultSummary: counts,
     }, progressContext)
+    await syncService.setTerminalCooldown(scope)
     await emitInvoiceEvent('invoice.sync.failed', {
       syncJobId: syncJob.id,
       progressJobId: payload.progressJobId,

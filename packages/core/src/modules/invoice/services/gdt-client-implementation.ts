@@ -10,6 +10,7 @@ export type GdtAuthResult =
 
 export interface GdtClient {
   isConfigured(): boolean
+  portalUrl?: string | null
   fetchCaptcha(): Promise<{ key: string; svg: string }>
   authenticate(input: { mst: string; password: string; captchaKey: string; captchaSolution: string }): Promise<GdtAuthResult>
   fetchPage(input: {
@@ -54,12 +55,21 @@ export function createGdtClient(config: Record<string, unknown> = {}): GdtClient
   }
   return {
     isConfigured: () => Boolean(baseUrl),
+    portalUrl: String(config.gdtPortalUrl ?? process.env.GDT_PORTAL_URL ?? '').trim() || null,
     async fetchCaptcha() {
       const response = await request(`${baseUrl}${captchaPath}`)
       if (!response.ok) throw new GdtProviderError(response.status === 401 ? 'auth' : 'provider', 'GDT CAPTCHA unavailable')
-      const body = await response.json() as { key?: string; captchaKey?: string; svg?: string; captchaSvg?: string }
-      if (!body.key && !body.captchaKey) throw new Error('[internal] Invalid GDT CAPTCHA response')
-      return { key: body.key ?? body.captchaKey!, svg: body.svg ?? body.captchaSvg ?? '' }
+      const contentType = response.headers.get('content-type') ?? ''
+      if (contentType.includes('json')) {
+        const body = await response.json() as { key?: string; captchaKey?: string; svg?: string; captchaSvg?: string; image?: string; data?: string; captcha?: string; content?: string }
+        const image = body.svg ?? body.captchaSvg ?? body.image ?? body.data ?? body.captcha ?? body.content ?? ''
+        if (!(body.key ?? body.captchaKey) || !image) throw new Error('[internal] Invalid GDT CAPTCHA response')
+        return { key: body.key ?? body.captchaKey!, svg: image }
+      }
+      const image = contentType.includes('svg') ? await response.text() : `data:${contentType || 'image/png'};base64,${Buffer.from(await response.arrayBuffer()).toString('base64')}`
+      const captchaKey = response.headers.get('x-captcha-key') ?? response.headers.get('captcha-key')
+      if (!captchaKey || !image) throw new Error('[internal] Invalid GDT CAPTCHA response')
+      return { key: captchaKey, svg: image }
     },
     async authenticate(input) {
       const response = await request(`${baseUrl}${authPath}`, {
@@ -108,5 +118,3 @@ export function createGdtClient(config: Record<string, unknown> = {}): GdtClient
 export async function cacheJson(cache: CacheStrategy, key: string, value: unknown, ttlSeconds: number) {
   await cache.set(key, value, { ttl: ttlSeconds * 1000 })
 }
-
-

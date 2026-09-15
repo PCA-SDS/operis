@@ -358,7 +358,7 @@ export function hashInvoicePublicToken(token: InvoicePublicToken): InvoiceTokenH
   return invoiceTokenHashSchema.parse(createHash('sha256').update(token).digest('hex'))
 }
 
-export const invoiceScopeTaxCodesSchema = z.array(invoiceTaxCodeSchema).max(100)
+export const invoiceScopeTaxCodesSchema = z.array(invoiceTaxCodeSchema).max(200)
 export const invoiceVietnameseTaxCodeSchema = z.string().trim().regex(/^\d{10}(?:-\d{3})?$/)
 export const invoiceSyncAcknowledgementsSchema = z.object({
   dueDatesRequireConfiguration: z.literal(true),
@@ -387,6 +387,8 @@ export const invoiceSyncJobStatusSchema = z.object({
   failureCategory: invoiceSyncJobFailureCategorySchema.nullable(), failureMessage: z.string().nullable(),
   progressJobId: uuid().nullable(), createdAt: z.string().datetime(), updatedAt: z.string().datetime(),
   startedAt: z.string().datetime().nullable(), finishedAt: z.string().datetime().nullable(),
+  startedBy: z.object({ id: uuid() }).nullable(),
+  failureRequestId: uuid().nullable(),
 }).strict()
 export const invoiceJsonRecordSchema = z.record(z.string(), z.unknown())
 

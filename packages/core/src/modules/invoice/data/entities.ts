@@ -559,6 +559,9 @@ export class InvoiceSyncJob {
   @Property({ name: 'failure_message', type: 'text', nullable: true })
   failureMessage?: string | null
 
+  @Property({ name: 'failure_request_id', type: 'uuid', nullable: true })
+  failureRequestId?: string | null
+
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
 
