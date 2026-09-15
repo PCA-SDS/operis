@@ -22,6 +22,8 @@ import {
   UserRound,
   Users,
   X,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -52,6 +54,7 @@ const OVERLAPPED_LANE_MIN_WIDTH = 128
 const MIN_DURATION = 15
 const MAX_DURATION = 480
 const STAFF_PAGE_SIZE = 50
+const ZOOM_LEVELS = [0.5, 0.625, 0.75, 1, 1.25, 1.5] as const
 
 type SeatPlannerLine = {
   id: string
@@ -196,21 +199,21 @@ function lineDuration(line: SeatPlannerLine | null | undefined): number {
   return Math.max(MIN_DURATION, line?.durationMinutes ?? 60)
 }
 
-function slotHeight(): number {
-  return HOUR_HEIGHT / (60 / SLOT_MINUTES)
+function slotHeight(zoom = 1): number {
+  return (HOUR_HEIGHT / (60 / SLOT_MINUTES)) * zoom
 }
 
-function slotTop(time: string, timelineStartMinutes: number): number {
-  return ((timeToMinutes(time) - timelineStartMinutes) / SLOT_MINUTES) * slotHeight()
+function slotTop(time: string, timelineStartMinutes: number, zoom = 1): number {
+  return ((timeToMinutes(time) - timelineStartMinutes) / SLOT_MINUTES) * slotHeight(zoom)
 }
 
-function allocationTop(allocation: PlannerAllocation, timelineStartMinutes: number): number {
+function allocationTop(allocation: PlannerAllocation, timelineStartMinutes: number, zoom = 1): number {
   const date = new Date(allocation.startsAt)
-  return (((date.getHours() * 60 + date.getMinutes()) - timelineStartMinutes) / SLOT_MINUTES) * slotHeight()
+  return (((date.getHours() * 60 + date.getMinutes()) - timelineStartMinutes) / SLOT_MINUTES) * slotHeight(zoom)
 }
 
-function allocationHeight(allocation: PlannerAllocation): number {
-  return Math.max((durationMinutes(allocation.startsAt, allocation.endsAt) / SLOT_MINUTES) * slotHeight(), 24)
+function allocationHeight(allocation: PlannerAllocation, zoom = 1): number {
+  return Math.max((durationMinutes(allocation.startsAt, allocation.endsAt) / SLOT_MINUTES) * slotHeight(zoom), 24)
 }
 
 function buildIsoFromSlot(baseIso: string, time: string): string {
@@ -318,6 +321,7 @@ function PlannerBlock(props: {
   allocation: PlannerAllocation
   line: SeatPlannerLine | null
   timelineStartMinutes: number
+  zoom: number
   isOwn: boolean
   isActive: boolean
   canInsert: boolean
@@ -330,6 +334,7 @@ function PlannerBlock(props: {
     allocation,
     line,
     timelineStartMinutes,
+    zoom,
     isOwn,
     isActive,
     canInsert,
@@ -359,7 +364,7 @@ function PlannerBlock(props: {
     startDurationRef.current = currentDuration
     nextDurationRef.current = currentDuration
     const onPointerMove = (moveEvent: PointerEvent) => {
-      const nextDuration = snapDuration(startDurationRef.current + ((moveEvent.clientY - startYRef.current) / slotHeight()) * SLOT_MINUTES)
+      const nextDuration = snapDuration(startDurationRef.current + ((moveEvent.clientY - startYRef.current) / slotHeight(zoom)) * SLOT_MINUTES)
       nextDurationRef.current = nextDuration
       setDragDuration(nextDuration)
     }
@@ -374,7 +379,7 @@ function PlannerBlock(props: {
     document.addEventListener('pointermove', onPointerMove)
     document.addEventListener('pointerup', onPointerEnd)
     document.addEventListener('pointercancel', onPointerEnd)
-  }, [currentDuration, isOwn, onResizeEnd])
+  }, [currentDuration, isOwn, onResizeEnd, zoom])
 
   return (
     <div
@@ -384,8 +389,8 @@ function PlannerBlock(props: {
       className={`absolute flex cursor-pointer flex-col overflow-hidden rounded-md border px-2 py-1 text-xs transition hover:ring-2 hover:ring-primary/40 ${blockTone(isOwn, isActive, allocation.state)}`}
       style={{
         zIndex: dragDuration !== null ? 25 : (isActive ? 21 : 20),
-        top: allocationTop(allocation, timelineStartMinutes),
-        height: Math.max((displayDuration / SLOT_MINUTES) * slotHeight(), 24),
+        top: allocationTop(allocation, timelineStartMinutes, zoom),
+        height: Math.max((displayDuration / SLOT_MINUTES) * slotHeight(zoom), 24),
         left: `calc(4px + ${allocation.laneIndex * laneWidth}% - ${allocation.laneIndex * laneInset}px)`,
         width: `calc(${laneWidth}% - ${laneInset}px)`,
       }}
@@ -425,17 +430,18 @@ function PlannerBlock(props: {
 function PlannerInsertionRail(props: {
   allocation: PlannerAllocation
   timelineStartMinutes: number
+  zoom: number
   insertionTime: string | null
   onHover: (time: string) => void
   onInsert: (time: string) => void
 }) {
-  const { allocation, timelineStartMinutes, insertionTime, onHover, onInsert } = props
+  const { allocation, timelineStartMinutes, zoom, insertionTime, onHover, onInsert } = props
   const displayDuration = durationMinutes(allocation.startsAt, allocation.endsAt)
 
   return (
     <div
       className="pointer-events-none absolute right-0 z-50 w-7"
-      style={{ top: allocationTop(allocation, timelineStartMinutes), height: allocationHeight(allocation), zIndex: 60 }}
+      style={{ top: allocationTop(allocation, timelineStartMinutes, zoom), height: allocationHeight(allocation, zoom), zIndex: 60 }}
     >
       {Array.from({ length: Math.ceil(displayDuration / SLOT_MINUTES) }, (_, slotIndex) => {
         const slotStart = addMinutes(allocation.startsAt, slotIndex * SLOT_MINUTES)
@@ -447,7 +453,7 @@ function PlannerInsertionRail(props: {
             role="button"
             tabIndex={0}
             className={`pointer-events-auto absolute inset-x-0 flex cursor-pointer items-center justify-center rounded-md border border-dashed backdrop-blur-sm text-primary shadow-sm transition-colors ${active ? 'border-primary bg-primary/10' : 'border-primary/60 bg-surface/30 hover:bg-surface/50'}`}
-            style={{ top: slotIndex * slotHeight(), height: Math.max(slotHeight() - 4, 20) }}
+            style={{ top: slotIndex * slotHeight(zoom), height: Math.max(slotHeight(zoom) - 4, 20) }}
             onMouseEnter={() => onHover(slotTime)}
             onClick={(event) => {
               event.stopPropagation()
@@ -990,6 +996,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [activeLineId, setActiveLineId] = React.useState<string | null>(null)
+  const [zoomScale, setZoomScale] = React.useState<number>(1)
   const [hoveredSlot, setHoveredSlot] = React.useState<HoveredSlot | null>(null)
   const [hoveredInsertion, setHoveredInsertion] = React.useState<HoveredInsertion | null>(null)
   const [isCoarsePointer, setIsCoarsePointer] = React.useState(false)
@@ -1220,10 +1227,11 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     const widths = new Map<string, number>()
     for (const seat of seatColumns) {
       const maxLanes = Math.max(1, ...(allocationsBySeat.get(seat.id) ?? []).map((allocation) => allocation.lanesCount))
-      widths.set(seat.id, maxLanes >= 3 ? Math.max(SEAT_COLUMN_WIDTH, maxLanes * OVERLAPPED_LANE_MIN_WIDTH + 8) : SEAT_COLUMN_WIDTH)
+      const baseWidth = maxLanes >= 3 ? Math.max(SEAT_COLUMN_WIDTH, maxLanes * OVERLAPPED_LANE_MIN_WIDTH + 8) : SEAT_COLUMN_WIDTH
+      widths.set(seat.id, baseWidth * zoomScale)
     }
     return widths
-  }, [allocationsBySeat, seatColumns])
+  }, [allocationsBySeat, seatColumns, zoomScale])
   const timelineBounds = React.useMemo(() => {
     const startCandidates: number[] = []
     const endCandidates: number[] = []
@@ -1261,8 +1269,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const activeLine = React.useMemo(() => workspace?.lines.find((line) => line.id === activeLineId) ?? null, [activeLineId, workspace?.lines])
   const earliestDate = workspace ? new Date(workspace.appointment.requestedStartAt) : null
   const earliestMinutes = earliestDate ? earliestDate.getHours() * 60 + earliestDate.getMinutes() : START_HOUR * 60
-  const bodyHeight = ((timelineBounds.endMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight()
-  const gridTemplateColumns = `${TIME_COLUMN_WIDTH}px ${seatColumns.map((seat) => `${resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH}px`).join(' ')}`
+  const bodyHeight = ((timelineBounds.endMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight(zoomScale)
+  const gridTemplateColumns = `${TIME_COLUMN_WIDTH}px ${seatColumns.map((seat) => `${resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH * zoomScale}px`).join(' ')}`
   const boardWidth = TIME_COLUMN_WIDTH + seatColumns.reduce((width, seat) => width + (resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH), 0)
   const isSaving = guardedMutation.isPending
   const canConfirm = Boolean(workspace?.lines.length) && Boolean(workspace?.lines.every((line) => Boolean(line.currentAssignment))) && !isSaving
@@ -1454,11 +1462,11 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     const rect = event.currentTarget.getBoundingClientRect()
     const offset = Math.min(
       Math.max(0, durationMinutes(allocation.startsAt, allocation.endsAt) - SLOT_MINUTES),
-      Math.floor(Math.max(0, event.clientY - rect.top) / slotHeight()) * SLOT_MINUTES,
+      Math.floor(Math.max(0, event.clientY - rect.top) / slotHeight(zoomScale)) * SLOT_MINUTES,
     )
     const target = new Date(start.getTime() + offset * 60000)
     setHoveredInsertion({ allocationId: allocation.id, time: minutesToTime(target.getHours() * 60 + target.getMinutes()) })
-  }, [])
+  }, [zoomScale])
 
   const handleConfirmAll = React.useCallback(async () => {
     if (!workspace) return
@@ -1546,9 +1554,9 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     const first = [...ownAllocations].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0]
     if (!first) return
     const seatIndex = seatColumns.findIndex((seat) => seat.id === first.resourceId)
-    const seatOffset = seatColumns.slice(0, Math.max(0, seatIndex)).reduce((width, seat) => width + (resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH), TIME_COLUMN_WIDTH)
-    timelineRef.current.scrollTo({ top: Math.max(0, allocationTop(first, timelineBounds.startMinutes) - 80), left: Math.max(0, seatOffset - 120), behavior: 'smooth' })
-  }, [ownAllocations, resourceColumnWidths, seatColumns, timelineBounds.startMinutes])
+    const seatOffset = seatColumns.slice(0, Math.max(0, seatIndex)).reduce((width, seat) => width + (resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH * zoomScale), TIME_COLUMN_WIDTH)
+    timelineRef.current.scrollTo({ top: Math.max(0, allocationTop(first, timelineBounds.startMinutes, zoomScale) - 80), left: Math.max(0, seatOffset - 120), behavior: 'smooth' })
+  }, [ownAllocations, resourceColumnWidths, seatColumns, timelineBounds.startMinutes, zoomScale])
 
   const scrollServiceIntoView = React.useCallback((lineId: string) => {
     const service = document.querySelector<HTMLElement>(`[data-seat-planner-line-id="${lineId}"]`)
@@ -1688,11 +1696,37 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             </aside>
 
             <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-              <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2">
+              <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-1.5 sm:px-4">
                 <div className="flex min-w-0 items-center gap-2">
                   <Clock className="size-4 text-muted-foreground" />
                   <span className="text-xs font-semibold uppercase tracking-wider">{t('appointments.seatPlanner.seatsStations', 'Resources')}</span>
-                  <Tag variant="neutral">{seatColumns.length} {t('appointments.seatPlanner.seats', 'resources')}</Tag>
+                  <Tag variant="neutral">
+                    {seatColumns.length}
+                    <span className="hidden sm:inline"> {t('appointments.seatPlanner.seats', 'resources')}</span>
+                  </Tag>
+                </div>
+                <div className="flex shrink-0 items-center gap-0 rounded-md border border-border bg-surface-muted p-0.5">
+                  <IconButton
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    aria-label={t('appointments.seatPlanner.zoomOut', 'Zoom out')}
+                    disabled={zoomScale === ZOOM_LEVELS[0]}
+                    onClick={() => setZoomScale((current) => ZOOM_LEVELS[Math.max(0, ZOOM_LEVELS.indexOf(current as typeof ZOOM_LEVELS[number]) - 1)] ?? ZOOM_LEVELS[0])}
+                  >
+                    <ZoomOut className="size-4" />
+                  </IconButton>
+                  <span className="min-w-10 px-0.5 text-center text-xs font-medium text-muted-foreground">{Math.round(zoomScale * 100)}%</span>
+                  <IconButton
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    aria-label={t('appointments.seatPlanner.zoomIn', 'Zoom in')}
+                    disabled={zoomScale === ZOOM_LEVELS[ZOOM_LEVELS.length - 1]}
+                    onClick={() => setZoomScale((current) => ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, ZOOM_LEVELS.indexOf(current as typeof ZOOM_LEVELS[number]) + 1)] ?? ZOOM_LEVELS[ZOOM_LEVELS.length - 1])}
+                  >
+                    <ZoomIn className="size-4" />
+                  </IconButton>
                 </div>
               </div>
 
@@ -1723,13 +1757,13 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                       </div>
 
                       <div className="absolute inset-x-0 bottom-0 grid" style={{ top: HEADER_HEIGHT, gridTemplateColumns }}>
-                        <div className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-status-warning-border" style={{ top: Math.max(0, ((earliestMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight()) }} />
+                        <div className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-status-warning-border" style={{ top: Math.max(0, ((earliestMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight(zoomScale)) }} />
                         <div className="sticky left-0 z-30 border-r border-border bg-surface">
                           {slotGridMarkers.map((time) => (
-                            <div key={`time-slot-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time, timelineBounds.startMinutes) }} />
+                            <div key={`time-slot-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time, timelineBounds.startMinutes, zoomScale) }} />
                           ))}
                           {timeMarkers.map((time) => (
-                            <div key={time} className="absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time, timelineBounds.startMinutes) }}>
+                            <div key={time} className="absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time, timelineBounds.startMinutes, zoomScale) }}>
                               <span className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-surface px-1 text-xs text-muted-foreground ${time === timeMarkers[0] ? 'top-2' : time === timeMarkers[timeMarkers.length - 1] ? '-mt-1 -translate-y-full' : '-translate-y-1/2'}`}>{time}</span>
                             </div>
                           ))}
@@ -1755,9 +1789,9 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                             : false
                           return (
                             <div key={seat.id} className={`relative isolate border-r border-border bg-surface ${seat.isFirstInFloor ? 'border-l' : ''}`} onMouseLeave={() => { setHoveredSlot(null); setHoveredInsertion(null) }}>
-                            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-muted/60" style={{ height: Math.max(0, ((earliestMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight()) }} />
-                            {slotGridMarkers.map((time) => <div key={`${seat.id}-${time}-slot-grid`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time, timelineBounds.startMinutes) }} />)}
-                            {timeMarkers.map((time) => <div key={`${seat.id}-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time, timelineBounds.startMinutes) }} />)}
+                            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-muted/60" style={{ height: Math.max(0, ((earliestMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight(zoomScale)) }} />
+                            {slotGridMarkers.map((time) => <div key={`${seat.id}-${time}-slot-grid`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time, timelineBounds.startMinutes, zoomScale) }} />)}
+                            {timeMarkers.map((time) => <div key={`${seat.id}-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time, timelineBounds.startMinutes, zoomScale) }} />)}
                             {slots.map((time) => {
                               const minutes = timeToMinutes(time)
                               const beforeEarliest = minutes < earliestMinutes
@@ -1776,7 +1810,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                   type="button"
                                   variant="ghost"
                                   className={`absolute left-0 right-0 rounded-none border-t border-transparent p-0 ${blocked ? 'cursor-not-allowed opacity-40' : 'hover:bg-primary/10'}`}
-                                  style={{ top: slotTop(time, timelineBounds.startMinutes), height: slotHeight() }}
+                                  style={{ top: slotTop(time, timelineBounds.startMinutes, zoomScale), height: slotHeight(zoomScale) }}
                                   disabled={!activeLine || blocked}
                                   onMouseEnter={() => setHoveredSlot({ resourceId: seat.id, time })}
                                   onClick={() => {
@@ -1790,8 +1824,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                               <div
                                 className={`pointer-events-none absolute left-1 right-1 z-10 flex flex-col overflow-hidden rounded-md border-2 border-dashed px-2 py-1 text-xs ${previewBlocked ? 'border-destructive/60 bg-destructive/10 text-destructive' : 'border-primary/60 bg-primary/10 text-primary'}`}
                                 style={{
-                                  top: slotTop(hoveredSlot?.time ?? minutesToTime(timelineBounds.startMinutes), timelineBounds.startMinutes),
-                                  height: Math.max((previewDuration / SLOT_MINUTES) * slotHeight(), 24),
+                                  top: slotTop(hoveredSlot?.time ?? minutesToTime(timelineBounds.startMinutes), timelineBounds.startMinutes, zoomScale),
+                                  height: Math.max((previewDuration / SLOT_MINUTES) * slotHeight(zoomScale), 24),
                                 }}
                               >
                                 <span className={`${previewDuration <= 15 ? 'truncate' : 'line-clamp-2'} font-semibold leading-tight`}>{activeLine.productTitle}</span>
@@ -1811,6 +1845,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                   allocation={{ ...allocation, resourceName: seat.name }}
                                   line={line}
                                   timelineStartMinutes={timelineBounds.startMinutes}
+                                  zoom={zoomScale}
                                   isOwn={allocation.appointmentId === workspace.appointment.id}
                                   isActive={allocation.lineId === activeLineId}
                                   canInsert={Boolean(activeLine && allocation.appointmentId === workspace.appointment.id && allocation.lineId !== activeLine.id)}
@@ -1838,6 +1873,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                   key={`${allocation.id}-insertion-rail`}
                                   allocation={allocation}
                                   timelineStartMinutes={timelineBounds.startMinutes}
+                                  zoom={zoomScale}
                                   insertionTime={hoveredInsertion?.allocationId === allocation.id ? hoveredInsertion.time : null}
                                   onHover={(time) => {
                                     setHoveredSlot(null)
