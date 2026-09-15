@@ -168,8 +168,21 @@ jobs:
           # those skipped the image build entirely and the first build of that
           # tree happened on main — the exact green-PR/red-main asymmetry this
           # gate exists to prevent.
+          #
+          # 2026-09-15: the same asymmetry, one layer down. The list was built
+          # from "files the Dockerfile COPYs by name", which silently excluded
+          # the thing the image is actually made of — the source `yarn build`
+          # compiles. A pure `packages/*/src` or `apps/mercato/src` change
+          # merged green having never been built as an image, and main was again
+          # the first place the image was built. Patching entry-by-entry has now
+          # failed twice, so both source trees are listed: anything `yarn build`
+          # compiles gets a no-push image verification on the PR. What remains
+          # excluded is what the image genuinely does not contain — `.ai/`,
+          # `docs/`, `apps/docs/`, `*.md`, and `__tests__`/`__integration__`.
+          # This trades runner time on most PRs for never discovering a broken
+          # image on main. That trade is deliberate.
           CHANGED="$(git diff --name-only "$BASE" "$HEAD")"
-          if grep -qE '^(Dockerfile|\.dockerignore|deploy/|docker/|scripts/|package\.json|yarn\.lock|\.yarnrc\.yml|turbo\.json|tsconfig(\.base)?\.json|newrelic\.js|jest\.config\.cjs|jest(\.dom)?\.setup\.ts|eslint\.config\.mjs|apps/mercato/(package\.json|next\.config\.ts)|packages/[^/]+/package\.json)' <<<"$CHANGED"; then
+          if grep -qE '^(Dockerfile|\.dockerignore|deploy/|docker/|scripts/|package\.json|yarn\.lock|\.yarnrc\.yml|turbo\.json|tsconfig(\.base)?\.json|newrelic\.js|jest\.config\.cjs|jest(\.dom)?\.setup\.ts|eslint\.config\.mjs|apps/mercato/(package\.json|next\.config\.ts)|packages/[^/]+/package\.json|packages/[^/]+/src/|apps/mercato/src/)' <<<"$CHANGED"; then
             echo "image=true" >> "$GITHUB_OUTPUT"
             echo "image-relevant paths changed - image build required"
           else

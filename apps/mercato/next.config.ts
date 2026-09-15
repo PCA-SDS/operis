@@ -10,6 +10,39 @@ import { telemetryServerExternalPackages } from '@open-mercato/telemetry/nextjs-
 const isDevelopment = process.env.NODE_ENV !== 'production'
 const allowedDevOrigins = isDevelopment ? resolveAllowedDevOrigins() : []
 
+/**
+ * Cap on the workers Next forks for the production build.
+ *
+ * Each worker carries its own heap, so on a memory-constrained machine — a Docker
+ * daemon with a small VM, most obviously — the default (one per core) is what
+ * OOM-kills `next build` rather than the main process heap. Unset means "use the
+ * Next default", so this is inert everywhere it is not deliberately set.
+ */
+const nextBuildWorkers = (() => {
+  const raw = process.env.NEXT_BUILD_WORKERS
+  if (!raw) return undefined
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
+})()
+
+/**
+ * Skip the type check `next build` runs, because something else already ran it.
+ *
+ * CI's `typecheck` job runs `yarn typecheck:serial` over all 26 packages and is
+ * inside the `ci-required` aggregator that the image build waits on, so by the
+ * time the Dockerfile reaches `yarn build` the exact same commit has already been
+ * type-checked. Running it again costs ~55s and, measured on a constrained
+ * daemon, ~5 GB of peak heap — it was the single largest memory consumer in the
+ * image build and the phase that OOM-killed it.
+ *
+ * Opt-in only. Unset — every local `yarn build:app`, and any build that is not
+ * behind the CI gate — keeps the check. The one case this genuinely removes
+ * coverage from is a `workflow_dispatch` with `skip_quality: true`, which skips
+ * `ci-required` and still builds the image; that dispatch is an explicit request
+ * to bypass the quality gates, and this is consistent with it.
+ */
+const skipTypeCheck = process.env.NEXT_SKIP_TYPE_CHECK === '1'
+
 const contentSecurityPolicy = buildContentSecurityPolicy(isDevelopment)
 const baseSecurityHeaders = buildBaseSecurityHeaders(isDevelopment)
 
@@ -20,7 +53,11 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
   // chain with a ratcheted byte budget (yarn agents:check-budget), so the
   // generated files would be untracked churn outside that system.
   agentRules: false,
+  typescript: { ignoreBuildErrors: skipTypeCheck },
   experimental: {
+    // Honour NEXT_BUILD_WORKERS when it is set; otherwise leave Next's own
+    // default in place (spreading `undefined` would pin the key to undefined).
+    ...(nextBuildWorkers ? { cpus: nextBuildWorkers } : {}),
     // Tell Turbopack/Webpack to treat these packages as having modularized
     // exports — only the named exports actually used in source are
     // evaluated. Big win in dev mode for barrel-heavy libraries.
