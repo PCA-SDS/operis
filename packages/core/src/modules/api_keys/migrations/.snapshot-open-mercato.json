@@ -206,6 +206,15 @@
           "primary": false,
           "unique": false,
           "expression": "create unique index \"api_keys_opencode_session_id_uq\" on \"api_keys\" (\"opencode_session_id\") where \"opencode_session_id\" is not null and \"deleted_at\" is null"
+        },
+        {
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "keyName": "api_keys_session_token_uq",
+          "primary": false,
+          "unique": false,
+          "expression": "create unique index \"api_keys_session_token_uq\" on \"api_keys\" (\"session_token\") where \"session_token\" is not null and \"deleted_at\" is null"
         }
       ],
       "checks": [],

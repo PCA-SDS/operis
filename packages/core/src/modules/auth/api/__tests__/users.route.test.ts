@@ -1,6 +1,7 @@
 /** @jest-environment node */
 
 import { DELETE, GET, POST, PUT } from '@open-mercato/core/modules/auth/api/users/route'
+import { RawQueryFragment } from '@mikro-orm/core'
 import { Role, RoleAcl, User, UserAcl, UserRole } from '@open-mercato/core/modules/auth/data/entities'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 
@@ -122,36 +123,60 @@ function makeRequest(path = '/api/auth/users', headers?: HeadersInit) {
   return new Request(`http://localhost${path}`, { method: 'GET', headers })
 }
 
-function findRoleLinkFilter(expectedRoleId: string): Record<string, unknown> {
-  const call = mockEm.find.mock.calls.find((args: unknown[]) => {
-    const roleClause = (args[1] as { role?: { $in?: string[] } })?.role
-    return Array.isArray(roleClause?.$in) && roleClause.$in.includes(expectedRoleId)
-  })
-  return (call?.[1] ?? {}) as Record<string, unknown>
+// Role membership and the role-name search leg are correlated EXISTS predicates on the
+// page query, not materialised id sets, so the assertions below introspect the raw SQL
+// fragment attached to the `findAndCount` where instead of an intermediate
+// `em.find(UserRole, ...)` call. `raw()` stores each fragment in a registry keyed by the
+// symbol it coerces to, which is what makes it recoverable here.
+function readPageWhereClauses(): Array<Record<string, unknown>> {
+  const call = mockEm.findAndCount.mock.calls[0]
+  const where = (call?.[1] ?? {}) as Record<string, unknown>
+  const conjunction = (where as { $and?: Array<Record<string, unknown>> }).$and
+  return Array.isArray(conjunction) ? conjunction : [where]
 }
 
-function findRoleLinkFilters(expectedRoleId: string): Array<Record<string, unknown>> {
-  return mockEm.find.mock.calls
-    .filter((args: unknown[]) => {
-      const roleClause = (args[1] as { role?: { $in?: string[] } })?.role
-      return Array.isArray(roleClause?.$in) && roleClause.$in.includes(expectedRoleId)
-    })
-    .map((args: unknown[]) => args[1] as Record<string, unknown>)
-}
-
-function readUserScopeClauses(filter: Record<string, unknown>): Array<Record<string, unknown>> {
-  const userScope = filter.user as Record<string, unknown> | undefined
-  if (!userScope) return []
-  const conjunction = (userScope as { $and?: Array<Record<string, unknown>> }).$and
-  return Array.isArray(conjunction) ? conjunction : [userScope]
-}
-
-function readScopedTenantId(filter: Record<string, unknown>): string | null {
-  for (const clause of readUserScopeClauses(filter)) {
-    const value = (clause as { tenantId?: unknown }).tenantId
-    if (typeof value === 'string' && value.length > 0) return value
+function readSearchOrClauses(): Array<Record<string, unknown>> {
+  for (const clause of readPageWhereClauses()) {
+    const disjunction = (clause as { $or?: Array<Record<string, unknown>> }).$or
+    if (Array.isArray(disjunction)) return disjunction
   }
-  return null
+  return []
+}
+
+function readRawFragments(): Array<{ sql: string; params: unknown[] }> {
+  const found: Array<{ sql: string; params: unknown[] }> = []
+  const seen = new Set<unknown>()
+  const visit = (node: unknown): void => {
+    if (!node || typeof node !== 'object' || seen.has(node)) return
+    seen.add(node)
+    if (Array.isArray(node)) {
+      for (const entry of node) visit(entry)
+      return
+    }
+    for (const key of Object.getOwnPropertySymbols(node)) {
+      if (!RawQueryFragment.isKnownFragmentSymbol(key)) continue
+      const fragment = RawQueryFragment.getKnownFragment(key)
+      if (fragment) found.push({ sql: fragment.sql, params: fragment.params })
+    }
+    for (const value of Object.values(node)) visit(value)
+  }
+  for (const clause of readPageWhereClauses()) visit(clause)
+  return found
+}
+
+function findRoleMembershipFragment(): { sql: string; params: unknown[] } | undefined {
+  return readRawFragments().find((fragment) => fragment.sql.includes('ur."role_id" in'))
+}
+
+function findRoleNameSearchFragment(): { sql: string; params: unknown[] } | undefined {
+  return readRawFragments().find((fragment) => fragment.sql.includes('r."name" ilike'))
+}
+
+function countRoleLinkLookups(): number {
+  return mockEm.find.mock.calls.filter((args: unknown[]) => {
+    const roleClause = (args[1] as { role?: { $in?: string[] } })?.role
+    return Array.isArray(roleClause?.$in)
+  }).length
 }
 
 describe('GET /api/auth/users', () => {
@@ -311,10 +336,14 @@ describe('GET /api/auth/users', () => {
       return params.some((p) => p && typeof p === 'object' && 'value' in p && p.value === tenantId)
     })
     expect(tenantScopeCall).toBeDefined()
-    const where = mockEm.findAndCount.mock.calls[0][1] as { $and: Array<Record<string, unknown>> }
-    expect(where.$and).toEqual(expect.arrayContaining([
+    expect(readPageWhereClauses()).toEqual(expect.arrayContaining([
       { deletedAt: null },
       { tenantId },
+    ]))
+    // The search legs are OR-ed: token-matched ids, organization-name matches, and the
+    // role-name EXISTS. The role-name leg is always present now (it contributes no rows
+    // when no role matches), so the token clause lives inside the disjunction.
+    expect(readSearchOrClauses()).toEqual(expect.arrayContaining([
       { id: { $in: [matchedUserId] } },
     ]))
     expect(body.total).toBe(1)
@@ -340,10 +369,11 @@ describe('GET /api/auth/users', () => {
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    const where = mockEm.findAndCount.mock.calls[0][1] as { $and: Array<Record<string, unknown>> }
-    expect(where.$and).toEqual(expect.arrayContaining([
+    expect(readPageWhereClauses()).toEqual(expect.arrayContaining([
       { deletedAt: null },
       { tenantId },
+    ]))
+    expect(readSearchOrClauses()).toEqual(expect.arrayContaining([
       { organizationId: { $in: [organizationId] } },
     ]))
     expect(body).toEqual({ items: [], total: 0, totalPages: 1, isSuperAdmin: false })
@@ -475,38 +505,40 @@ describe('GET /api/auth/users', () => {
     })
   })
 
-  test('includes users whose role names match the unified search term', async () => {
-    const matchedUserId = '523e4567-e89b-12d3-a456-426614174055'
-    mockEm.find
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ id: roleId, name: 'admin', tenantId }])
-      .mockResolvedValueOnce([{ user: { id: matchedUserId }, role: { id: roleId } }])
+  test('matches users by role name through a correlated EXISTS in the search disjunction', async () => {
     mockEm.findAndCount.mockResolvedValueOnce([[], 0])
 
     const response = await GET(makeRequest('/api/auth/users?search=admin&page=1&pageSize=50'))
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    const where = mockEm.findAndCount.mock.calls[0][1] as { $and: Array<Record<string, unknown>> }
-    expect(where.$and).toEqual(expect.arrayContaining([
-      { deletedAt: null },
-      { tenantId },
-      { id: { $in: [matchedUserId] } },
-    ]))
+    // No intermediate `roles` / `user_roles` reads: the role-name leg is one SQL predicate.
+    expect(countRoleLinkLookups()).toBe(0)
+    expect(mockEm.find).not.toHaveBeenCalledWith(Role, expect.anything())
+    const fragment = findRoleNameSearchFragment()
+    expect(fragment).toBeDefined()
+    expect(fragment!.sql).toContain('join "roles" r on r."id" = ur."role_id"')
+    expect(fragment!.sql).toContain('ur."deleted_at" is null')
+    expect(fragment!.sql).toContain('r."deleted_at" is null')
+    expect(fragment!.params).toEqual(['%admin%', tenantId])
     expect(body).toEqual({ items: [], total: 0, totalPages: 1, isSuperAdmin: false })
   })
 
-  test('returns empty result when search_tokens yield no matches', async () => {
+  test('returns an empty result through a bounded page query when search_tokens yield no matches', async () => {
     mockSearchTokenExecute.mockResolvedValueOnce([])
+    mockEm.findAndCount.mockResolvedValueOnce([[], 0])
 
     const response = await GET(makeRequest('/api/auth/users?search=nobody%40example.com'))
     const body = await response.json()
 
     expect(response.status).toBe(200)
+    // The old code short-circuited before `findAndCount` when no search leg produced ids.
+    // The role-name leg is now always present, so the page query runs and returns nothing.
+    // The response body is byte-identical, and `logCrudAccess` still writes no rows
+    // because it returns early on an empty item list.
     expect(body).toEqual({ items: [], total: 0, totalPages: 1, isSuperAdmin: false })
-    expect(mockEm.findAndCount).not.toHaveBeenCalled()
+    expect(mockEm.findAndCount).toHaveBeenCalledTimes(1)
+    expect(mockLogCrudAccess).toHaveBeenCalledWith(expect.objectContaining({ items: [] }))
   })
 
   test('superadmin search does not apply tenant scope on search_tokens', async () => {
@@ -749,24 +781,15 @@ describe('GET /api/auth/users', () => {
       return params.some((p) => p && typeof p === 'object' && 'value' in p && p.value === tenantId)
     })
     expect(tenantScopeCall).toBeDefined()
-    const where = mockEm.findAndCount.mock.calls[0][1] as { $and: Array<Record<string, unknown>> }
-    expect(where.$and).toEqual(expect.arrayContaining([
-      { tenantId },
+    expect(readPageWhereClauses()).toEqual(expect.arrayContaining([{ tenantId }]))
+    expect(readSearchOrClauses()).toEqual(expect.arrayContaining([
       { id: { $in: [matchedUserId] } },
     ]))
     expect(body.items).toHaveLength(1)
   })
 
-  test('intersects search matches with an existing role-based id filter', async () => {
-    const firstUserId = '523e4567-e89b-12d3-a456-426614174101'
+  test('ANDs the role membership EXISTS with the search disjunction', async () => {
     const secondUserId = '523e4567-e89b-12d3-a456-426614174102'
-    mockEm.find
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        { user: { id: firstUserId }, role: { id: roleId } },
-        { user: { id: secondUserId }, role: { id: roleId } },
-      ])
     mockSearchTokenExecute.mockResolvedValueOnce([{ entity_id: secondUserId }])
     mockEm.findAndCount.mockResolvedValueOnce([
       [{ id: secondUserId, email: 'match@example.com', tenantId, organizationId }],
@@ -776,32 +799,35 @@ describe('GET /api/auth/users', () => {
     const response = await GET(makeRequest(`/api/auth/users?roleId=${roleId}&search=match`))
     const body = await response.json()
 
-    const where = mockEm.findAndCount.mock.calls[0][1] as { $and: Array<Record<string, unknown>> }
-    expect(where.$and).toEqual(expect.arrayContaining([
-      { id: { $in: [firstUserId, secondUserId] } },
+    // Role membership is a top-level AND clause; the search legs stay an OR beside it,
+    // which is the same intersection the id-materialisation used to compute in JS.
+    expect(findRoleMembershipFragment()?.params).toEqual([roleId])
+    expect(readSearchOrClauses()).toEqual(expect.arrayContaining([
       { id: { $in: [secondUserId] } },
     ]))
     expect(body.total).toBe(1)
     expect(body.items[0].id).toBe(secondUserId)
   })
 
-  test('short-circuits with empty result when role filter has no matching users', async () => {
-    mockEm.find.mockResolvedValueOnce([])
+  test('returns an empty result through a bounded page query when the role filter matches nobody', async () => {
+    mockEm.findAndCount.mockResolvedValueOnce([[], 0])
 
     const response = await GET(makeRequest(`/api/auth/users?roleId=${roleId}`))
     const body = await response.json()
 
     expect(response.status).toBe(200)
+    // The old code materialised the link rows and short-circuited on an empty set. The
+    // EXISTS predicate lets Postgres decide, so the page query runs and returns nothing.
+    // Body is byte-identical, and `logCrudAccess` returns early on an empty item list, so
+    // this writes no audit rows either.
     expect(body).toEqual({ items: [], total: 0, totalPages: 1, isSuperAdmin: false })
-    expect(mockEm.findAndCount).not.toHaveBeenCalled()
+    expect(mockEm.findAndCount).toHaveBeenCalledTimes(1)
+    expect(countRoleLinkLookups()).toBe(0)
+    expect(mockLogCrudAccess).toHaveBeenCalledWith(expect.objectContaining({ items: [] }))
   })
 
-  test('applies roleId filter for a single role when users are found', async () => {
+  test('applies roleId filter for a single role as a correlated EXISTS', async () => {
     const matchedUserId = '523e4567-e89b-12d3-a456-426614174001'
-    mockEm.find
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ user: { id: matchedUserId }, role: { id: roleId } }])
     mockEm.findAndCount.mockResolvedValueOnce([
       [{ id: matchedUserId, email: 'role-filtered@example.com', tenantId, organizationId }],
       1,
@@ -810,27 +836,22 @@ describe('GET /api/auth/users', () => {
     const response = await GET(makeRequest(`/api/auth/users?roleId=${roleId}`))
     const body = await response.json()
 
-    const where = mockEm.findAndCount.mock.calls[0][1] as { $and: Array<Record<string, unknown>> }
-    expect(where.$and).toEqual(expect.arrayContaining([
-      { id: { $in: [matchedUserId] } },
-    ]))
+    // No `user_roles` row is materialised any more.
+    expect(countRoleLinkLookups()).toBe(0)
+    const fragment = findRoleMembershipFragment()
+    expect(fragment).toBeDefined()
+    expect(fragment!.sql).toContain('exists (select 1 from "user_roles" ur')
+    expect(fragment!.sql).toContain('ur."deleted_at" is null')
+    expect(fragment!.params).toEqual([roleId])
     expect(body.total).toBe(1)
     expect(body.items).toHaveLength(1)
     expect(body.items[0].email).toBe('role-filtered@example.com')
   })
 
-  test('supports multiple roleId params and narrows query to union of matched user ids', async () => {
+  test('supports multiple roleId params as a deduplicated IN inside one EXISTS', async () => {
     const secondRoleId = '323e4567-e89b-12d3-a456-426614174002'
     const firstUserId = '523e4567-e89b-12d3-a456-426614174011'
     const secondUserId = '523e4567-e89b-12d3-a456-426614174012'
-    mockEm.find
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        { user: { id: firstUserId }, role: { id: roleId } },
-        { user: secondUserId, role: { id: secondRoleId } },
-        { user: { id: firstUserId }, role: { id: secondRoleId } },
-      ])
     mockEm.findAndCount.mockResolvedValueOnce([
       [
         { id: firstUserId, email: 'first@example.com', tenantId, organizationId },
@@ -844,27 +865,18 @@ describe('GET /api/auth/users', () => {
     )
     const body = await response.json()
 
-    const roleFilter = mockEm.find.mock.calls[2][1] as { role?: { $in?: string[] } }
-    expect(roleFilter.role?.$in).toEqual(expect.arrayContaining([roleId, secondRoleId]))
-    expect(roleFilter.role?.$in).toHaveLength(2)
-
-    const where = mockEm.findAndCount.mock.calls[0][1] as { $and: Array<Record<string, unknown>> }
-    const idClause = where.$and.find((clause) => {
-      const value = (clause as { id?: { $in?: string[] } }).id
-      return Array.isArray(value?.$in)
-    }) as { id: { $in: string[] } }
-    expect(idClause.id.$in).toEqual(expect.arrayContaining([firstUserId, secondUserId]))
-    expect(idClause.id.$in).toHaveLength(2)
+    const fragment = findRoleMembershipFragment()
+    expect(fragment).toBeDefined()
+    // Union across the requested roles, deduplicated, and bound as parameters.
+    expect(fragment!.params).toEqual(expect.arrayContaining([roleId, secondRoleId]))
+    expect(fragment!.params).toHaveLength(2)
+    expect(fragment!.sql).toContain('ur."role_id" in (?, ?)')
     expect(body.total).toBe(2)
     expect(body.items).toHaveLength(2)
   })
 
-  test('scopes the role-link lookup by tenant so links from other tenants are never materialized', async () => {
+  test('keeps the role filter tenant-scoped by ANDing the EXISTS onto the scoped page query', async () => {
     const matchedUserId = '523e4567-e89b-12d3-a456-426614174021'
-    mockEm.find
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ user: { id: matchedUserId }, role: { id: roleId } }])
     mockEm.findAndCount.mockResolvedValueOnce([
       [{ id: matchedUserId, email: 'scoped@example.com', tenantId, organizationId }],
       1,
@@ -873,49 +885,18 @@ describe('GET /api/auth/users', () => {
     const response = await GET(makeRequest(`/api/auth/users?roleId=${roleId}`))
     const body = await response.json()
 
-    const roleLinkFilter = findRoleLinkFilter(roleId)
-    expect(roleLinkFilter.role).toEqual({ $in: [roleId] })
-    expect(roleLinkFilter.deletedAt).toBeNull()
-    expect(readUserScopeClauses(roleLinkFilter)).toEqual(expect.arrayContaining([
+    // Previously this invariant depended on replicating the user scope onto an
+    // intermediate link lookup. It is now structural: the EXISTS is one clause of the
+    // same conjunction that already carries the tenant and soft-delete predicates, so a
+    // foreign-tenant user cannot be reached no matter what `user_roles` contains.
+    expect(readPageWhereClauses()).toEqual(expect.arrayContaining([
       { deletedAt: null },
       { tenantId },
     ]))
+    expect(findRoleMembershipFragment()?.params).toEqual([roleId])
+    expect(countRoleLinkLookups()).toBe(0)
     expect(body.items).toHaveLength(1)
     expect(body.items[0].id).toBe(matchedUserId)
-  })
-
-  test('does not let another tenant role link inflate the candidate set while same-scope users still match', async () => {
-    const inScopeUserId = '523e4567-e89b-12d3-a456-426614174031'
-    const foreignTenantUserId = '523e4567-e89b-12d3-a456-426614174032'
-    const foreignTenantId = '123e4567-e89b-12d3-a456-426614174999'
-    const linkRows = [
-      { user: { id: inScopeUserId, tenantId }, role: { id: roleId } },
-      { user: { id: foreignTenantUserId, tenantId: foreignTenantId }, role: { id: roleId } },
-    ]
-    mockEm.find.mockImplementation(async (_entity: unknown, filter: Record<string, unknown>) => {
-      const roleClause = (filter as { role?: { $in?: string[] } }).role
-      if (!Array.isArray(roleClause?.$in)) return []
-      const scopedTenantId = readScopedTenantId(filter)
-      if (!scopedTenantId) return linkRows
-      return linkRows.filter((row) => row.user.tenantId === scopedTenantId)
-    })
-    mockEm.findAndCount.mockResolvedValueOnce([
-      [{ id: inScopeUserId, email: 'in-scope@example.com', tenantId, organizationId }],
-      1,
-    ])
-
-    const response = await GET(makeRequest(`/api/auth/users?roleId=${roleId}`))
-    const body = await response.json()
-
-    const where = mockEm.findAndCount.mock.calls[0][1] as { $and: Array<Record<string, unknown>> }
-    const idClause = where.$and.find((clause) => {
-      const value = (clause as { id?: { $in?: string[] } }).id
-      return Array.isArray(value?.$in)
-    }) as { id: { $in: string[] } }
-    expect(idClause.id.$in).toEqual([inScopeUserId])
-    expect(idClause.id.$in).not.toContain(foreignTenantUserId)
-    expect(body.items).toHaveLength(1)
-    expect(body.items[0].id).toBe(inScopeUserId)
   })
 
   test('propagates the superadmin selected tenant and organization scope into the role-link lookup', async () => {
@@ -935,7 +916,6 @@ describe('GET /api/auth/users', () => {
       allowedIds: [organizationId, descendantOrganizationId],
       tenantId: selectedTenantId,
     })
-    mockEm.find.mockResolvedValueOnce([{ user: { id: matchedUserId }, role: { id: roleId } }])
     mockEm.findAndCount.mockResolvedValueOnce([
       [{ id: matchedUserId, email: 'selected-scope@example.com', tenantId: selectedTenantId, organizationId }],
       1,
@@ -946,19 +926,16 @@ describe('GET /api/auth/users', () => {
     }))
     const body = await response.json()
 
-    expect(readUserScopeClauses(findRoleLinkFilter(roleId))).toEqual(expect.arrayContaining([
+    expect(readPageWhereClauses()).toEqual(expect.arrayContaining([
       { tenantId: selectedTenantId },
       { organizationId: { $in: [organizationId, descendantOrganizationId] } },
     ]))
+    expect(findRoleMembershipFragment()?.params).toEqual([roleId])
     expect(body.items).toHaveLength(1)
   })
 
-  test('narrows the role-link lookup by an explicit user id so the intersection stays bounded', async () => {
+  test('intersects ?id= with ?roleId= as `id = X and EXISTS(...)`', async () => {
     const requestedUserId = '523e4567-e89b-12d3-a456-426614174051'
-    mockEm.find
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ user: { id: requestedUserId }, role: { id: roleId } }])
     mockEm.findAndCount.mockResolvedValueOnce([
       [{ id: requestedUserId, email: 'intersected@example.com', tenantId, organizationId }],
       1,
@@ -967,99 +944,90 @@ describe('GET /api/auth/users', () => {
     const response = await GET(makeRequest(`/api/auth/users?id=${requestedUserId}&roleId=${roleId}`))
     const body = await response.json()
 
-    expect(readUserScopeClauses(findRoleLinkFilter(roleId))).toEqual(expect.arrayContaining([
+    expect(readPageWhereClauses()).toEqual(expect.arrayContaining([
       { id: { $in: [requestedUserId] } },
     ]))
+    expect(findRoleMembershipFragment()?.params).toEqual([roleId])
     expect(body.items).toHaveLength(1)
     expect(body.items[0].id).toBe(requestedUserId)
   })
 
-  test('scopes the role-name search branch role-link lookup by tenant', async () => {
-    const matchedUserId = '523e4567-e89b-12d3-a456-426614174061'
-    mockEm.find
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ id: roleId, name: 'admin', tenantId }])
-      .mockResolvedValueOnce([{ user: { id: matchedUserId }, role: { id: roleId } }])
+  test('binds the tenant scope into the role-name search EXISTS, admitting legacy global roles', async () => {
     mockEm.findAndCount.mockResolvedValueOnce([[], 0])
 
     const response = await GET(makeRequest('/api/auth/users?search=admin&page=1&pageSize=50'))
 
     expect(response.status).toBe(200)
-    const roleLinkFilter = findRoleLinkFilter(roleId)
-    expect(roleLinkFilter.deletedAt).toBeNull()
-    expect(readUserScopeClauses(roleLinkFilter)).toEqual(expect.arrayContaining([
-      { deletedAt: null },
-      { tenantId },
-    ]))
+    const fragment = findRoleNameSearchFragment()
+    expect(fragment).toBeDefined()
+    // Mirrors the previous `{ $or: [{ tenantId }, { tenantId: null }] }` filter exactly:
+    // legacy global roles carry a null tenant and must still match.
+    expect(fragment!.sql).toContain('(r."tenant_id" = ? or r."tenant_id" is null)')
+    expect(fragment!.params).toEqual(['%admin%', tenantId])
   })
 
-  test('does not let a foreign-tenant role-name match inflate the search candidate set', async () => {
-    const inScopeUserId = '523e4567-e89b-12d3-a456-426614174071'
-    const foreignTenantUserId = '523e4567-e89b-12d3-a456-426614174072'
-    const foreignTenantId = '123e4567-e89b-12d3-a456-426614174998'
-    const linkRows = [
-      { user: { id: inScopeUserId, tenantId }, role: { id: roleId } },
-      { user: { id: foreignTenantUserId, tenantId: foreignTenantId }, role: { id: roleId } },
-    ]
-    mockEm.find.mockImplementation(async (entity: unknown, filter: Record<string, unknown>) => {
-      if (entity === Role) return [{ id: roleId, name: 'admin', tenantId }]
-      const roleClause = (filter as { role?: { $in?: string[] } }).role
-      if (!Array.isArray(roleClause?.$in)) return []
-      const scopedTenantId = readScopedTenantId(filter)
-      if (!scopedTenantId) return linkRows
-      return linkRows.filter((row) => row.user.tenantId === scopedTenantId)
+  test('cannot let a foreign-tenant role-name match reach the result set', async () => {
+    mockEm.findAndCount.mockResolvedValueOnce([[], 0])
+
+    const response = await GET(makeRequest('/api/auth/users?search=admin&page=1&pageSize=50'))
+
+    expect(response.status).toBe(200)
+    // Two independent guards, both now structural rather than computed in JS: the EXISTS
+    // only joins roles in this tenant (or global ones), and the page query itself is
+    // already constrained to the tenant.
+    expect(findRoleNameSearchFragment()!.params).toEqual(['%admin%', tenantId])
+    expect(readPageWhereClauses()).toEqual(expect.arrayContaining([{ tenantId }]))
+    expect(countRoleLinkLookups()).toBe(0)
+  })
+
+  test('omits the role tenant disjunct for an unscoped superadmin so every tenant role matches', async () => {
+    mockGetAuthFromRequest.mockResolvedValueOnce({
+      sub: 'user-1',
+      tenantId: null,
+      orgId: null,
+      roles: ['superadmin'],
+      isSuperAdmin: true,
     })
+    mockLoadAcl.mockResolvedValueOnce({ isSuperAdmin: true })
     mockEm.findAndCount.mockResolvedValueOnce([[], 0])
 
     const response = await GET(makeRequest('/api/auth/users?search=admin&page=1&pageSize=50'))
 
     expect(response.status).toBe(200)
-    const where = JSON.stringify(mockEm.findAndCount.mock.calls[0][1])
-    expect(where).toContain(inScopeUserId)
-    expect(where).not.toContain(foreignTenantUserId)
+    const fragment = findRoleNameSearchFragment()
+    expect(fragment).toBeDefined()
+    expect(fragment!.sql).not.toContain('r."tenant_id"')
+    expect(fragment!.params).toEqual(['%admin%'])
   })
 
-  test('narrows the role-name search lookup with the id set the roleId branch already matched', async () => {
-    const firstUserId = '523e4567-e89b-12d3-a456-426614174081'
-    const secondUserId = '523e4567-e89b-12d3-a456-426614174082'
-    mockEm.find
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        { user: { id: firstUserId }, role: { id: roleId } },
-        { user: { id: secondUserId }, role: { id: roleId } },
-      ])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ id: roleId, name: 'admin', tenantId }])
-      .mockResolvedValueOnce([{ user: { id: firstUserId }, role: { id: roleId } }])
+  test('applies role membership and the role-name search leg together without extra queries', async () => {
     mockEm.findAndCount.mockResolvedValueOnce([[], 0])
 
     const response = await GET(makeRequest(`/api/auth/users?roleId=${roleId}&search=admin`))
 
     expect(response.status).toBe(200)
-    const roleLinkFilters = findRoleLinkFilters(roleId)
-    expect(roleLinkFilters).toHaveLength(2)
-    expect(readUserScopeClauses(roleLinkFilters[1])).toEqual(expect.arrayContaining([
-      { id: { $in: [firstUserId, secondUserId] } },
-    ]))
+    // The old shape ran two separate `user_roles` materialisations in this one request and
+    // pre-narrowed the second with the first's id set. Both are now single predicates, so
+    // the pre-narrowing is unnecessary — the conjunction enforces it.
+    expect(countRoleLinkLookups()).toBe(0)
+    expect(findRoleMembershipFragment()?.params).toEqual([roleId])
+    expect(findRoleNameSearchFragment()?.params).toEqual(['%admin%', tenantId])
   })
 
-  test('keeps the id intersection when the role-link lookup returns a user outside the requested id', async () => {
+  test('returns nothing when ?id= names a user who does not hold the requested role', async () => {
     const requestedUserId = '523e4567-e89b-12d3-a456-426614174091'
-    const otherUserId = '523e4567-e89b-12d3-a456-426614174092'
-    mockEm.find
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ user: { id: otherUserId }, role: { id: roleId } }])
+    mockEm.findAndCount.mockResolvedValueOnce([[], 0])
 
     const response = await GET(makeRequest(`/api/auth/users?id=${requestedUserId}&roleId=${roleId}`))
     const body = await response.json()
 
     expect(response.status).toBe(200)
     expect(body).toEqual({ items: [], total: 0, totalPages: 1, isSuperAdmin: false })
-    expect(mockEm.findAndCount).not.toHaveBeenCalled()
+    // Postgres evaluates the intersection now; the body is unchanged.
+    expect(readPageWhereClauses()).toEqual(expect.arrayContaining([
+      { id: { $in: [requestedUserId] } },
+    ]))
+    expect(findRoleMembershipFragment()?.params).toEqual([roleId])
   })
 
   test('excludes soft-deleted role links from the role enrichment read', async () => {

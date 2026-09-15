@@ -34,9 +34,40 @@ describe('directory/invalidateOrgScopeCache subscriber', () => {
       return 3
     })
     await handler({ tenantId: 'tenant-123', id: 'org-xyz' }, makeCtx({ deleteByTags }))
-    expect(deleteByTags).toHaveBeenCalledTimes(1)
     expect(deleteByTags).toHaveBeenCalledWith(['org-scope:tenant:tenant-123'])
-    expect(cacheTenants).toEqual(['tenant-123'])
+    expect(cacheTenants).toContain('tenant-123')
+  })
+
+  // The cache service prefixes keys/tags with the ambient cache tenant. The API
+  // dispatcher sets one; the server-component callers (backend catch-all page,
+  // sidebar chrome) do NOT, so their entries live under the global scope.
+  // Sweeping only the tenant scope left those stale for the whole TTL.
+  it('also sweeps the global cache scope, where server-rendered entries land', async () => {
+    const cacheTenants: Array<string | null> = []
+    const deleteByTags = jest.fn(async () => {
+      cacheTenants.push(getCurrentCacheTenant())
+      return 1
+    })
+    await handler({ tenantId: 'tenant-123', id: 'org-xyz' }, makeCtx({ deleteByTags }))
+    expect(deleteByTags).toHaveBeenCalledTimes(2)
+    expect(cacheTenants).toEqual(['tenant-123', null])
+    for (const call of deleteByTags.mock.calls) {
+      expect(call[0]).toEqual(['org-scope:tenant:tenant-123'])
+    }
+  })
+
+  it('still sweeps the global scope when the tenant-scoped delete throws', async () => {
+    const cacheTenants: Array<string | null> = []
+    const deleteByTags = jest.fn(async () => {
+      const scope = getCurrentCacheTenant()
+      cacheTenants.push(scope)
+      if (scope === 'tenant-123') throw new Error('cache backend down')
+      return 1
+    })
+    await expect(
+      handler({ tenantId: 'tenant-123' }, makeCtx({ deleteByTags })),
+    ).resolves.toBeUndefined()
+    expect(cacheTenants).toEqual(['tenant-123', null])
   })
 
   it('is a no-op when tenantId is missing on the payload', async () => {

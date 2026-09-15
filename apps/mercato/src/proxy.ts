@@ -6,6 +6,10 @@ import {
   isPlatformHost,
   type CustomDomainRouter,
 } from './lib/customDomainResolver'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+
+const proxyLogger = createLogger('proxy')
+
 import { tryNormalizeHostname } from '@open-mercato/core/modules/customer_accounts/lib/hostname'
 import { secretEqual } from '@open-mercato/core/modules/customer_accounts/lib/secretCompare'
 
@@ -44,7 +48,10 @@ async function resolveForCustomHost(
     if (!resolution.orgSlug) return { kind: 'unknown' }
     return { kind: 'resolved', orgSlug: resolution.orgSlug }
   } catch (err) {
-    console.warn(`[proxy] custom-domain resolve failed for ${hostname}`, err)
+    proxyLogger.warn('custom-domain resolve failed', {
+      hostname,
+      error: err instanceof Error ? err.message : String(err),
+    })
     return { kind: 'error' }
   }
 }

@@ -14,7 +14,11 @@ import { GET, POST, PUT, PATCH, DELETE } from '@/app/api/[...slug]/route'
 
 // Mock the auth module
 jest.mock('@open-mercato/shared/lib/auth/server', () => ({
-  resolveAuthFromRequestDetailed: jest.fn()
+  resolveAuthFromRequestDetailed: jest.fn(),
+  // The dispatcher hands the resolved identity to the handler on the request so
+  // `makeCrudRoute` does not re-run the auth pipeline. Auth resolution is mocked
+  // out here, so the stub only needs to satisfy the call.
+  attachTrustedAuthContext: jest.fn((request: Request) => request),
 }))
 
 // Mock DI container to provide rbacService

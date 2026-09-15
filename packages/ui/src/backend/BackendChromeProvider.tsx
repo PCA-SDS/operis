@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { apiCall } from './utils/apiCall'
+import { useTabRestoreRefresh } from './utils/backgroundPolling'
 import { subscribeOrganizationScopeChanged, getCurrentOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/organizationEvents'
 import { registerEntitledModuleIds } from '@open-mercato/shared/modules/widgets/injection-loader'
 import type {
@@ -79,18 +80,26 @@ export function BackendChromeProvider({ adminNavApi, children }: BackendChromePr
     registerEntitledModuleIds(payload?.enabledModuleIds ?? null)
   }, [payload])
 
+  // Restoring a tab fires BOTH `visibilitychange` and `window.focus`, so a raw
+  // `focus` listener refetched the whole chrome payload twice per alt-tab — and
+  // it did so alongside four other shell hooks doing the same thing.
+  // `useTabRestoreRefresh` listens to `visibilitychange` only and coalesces, so
+  // each surface refreshes on tab restore exactly once.
+  const onTabRestore = React.useCallback(() => {
+    if (!adminNavApi) return
+    void refresh()
+  }, [adminNavApi, refresh])
+  useTabRestoreRefresh(onTabRestore)
+
   React.useEffect(() => {
     if (!adminNavApi) return
-    const onFocus = () => { void refresh() }
     const onManualRefresh = () => { void refresh() }
     const unsubscribeScope = subscribeOrganizationScopeChanged(() => {
       void refresh()
     })
-    window.addEventListener('focus', onFocus)
     window.addEventListener('om:refresh-sidebar', onManualRefresh as EventListener)
     return () => {
       unsubscribeScope()
-      window.removeEventListener('focus', onFocus)
       window.removeEventListener('om:refresh-sidebar', onManualRefresh as EventListener)
     }
   }, [adminNavApi, refresh])

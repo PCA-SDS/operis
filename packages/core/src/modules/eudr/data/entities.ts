@@ -115,6 +115,15 @@ export class EudrPlot {
 @Entity({ tableName: 'eudr_evidence_submissions' })
 @Index({ name: 'idx_eudr_submissions_statement', properties: ['statementId'] })
 @Index({ name: 'idx_eudr_submissions_supplier', properties: ['supplierEntityId'] })
+// The compliance-overview dashboard widget counts submissions per status for the
+// viewer's tenant/org. Before this index the table carried NO tenant or organization
+// index at all, so each of those counts was a full sequential scan and the widget's
+// cost grew with total submissions across every tenant, not just the viewer's.
+@Index({
+  name: 'eudr_submissions_tenant_org_status_idx',
+  expression:
+    'create index "eudr_submissions_tenant_org_status_idx" on "eudr_evidence_submissions" ("tenant_id", "organization_id", "status") where "deleted_at" is null',
+})
 export class EudrEvidenceSubmission {
   [OptionalProps]?: 'attachmentIds' | 'plotIds' | 'status' | 'completenessScore' | 'missingFields' | 'createdAt' | 'updatedAt' | 'deletedAt'
 

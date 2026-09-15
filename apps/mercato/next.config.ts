@@ -67,9 +67,11 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
     //   - date-fns: already uses deep imports everywhere; listing it here
     //     is defense-in-depth and harmless.
     optimizePackageImports: ['lucide-react', 'recharts', 'date-fns'],
-    // BOTH minifiers MUST stay off, production included.
+    // `serverMinification` MUST stay off. `turbopackMinify` is the CLIENT minifier
+    // and is safe to leave on — the two are independent, which is the whole point
+    // of the split below.
     //
-    // Two independent reasons, and only ONE of them has been removed:
+    // Two reasons the minifiers were originally both disabled. Both are now resolved:
     //
     // 1. MikroORM legacy decorators keyed entity metadata off `target.constructor.name`,
     //    which mangling collapses. FIXED — entities now use the TC39 decorators via
@@ -83,19 +85,25 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
     //
     //        ⨯ Could not resolve 'e'.  Resolution path: authService -> e
     //
-    //    Login returns 500 and the app never becomes ready. STILL OPEN. This is why the
-    //    flags are back off after the decorator migration briefly enabled them.
+    //    STILL OPEN — and it is why `serverMinification` stays false. But Awilix only ever
+    //    runs on the server, so this constraint does not apply to the browser bundles.
+    //    `turbopackMinify` governs the CLIENT output; keeping it off was collateral damage
+    //    from a server-side problem, and cost 63% of the raw client JS (64.3 MiB → 23.6 MiB,
+    //    9.8 MiB → 6.0 MiB gzipped) for no benefit.
     //
-    // Note how this escaped: unit tests run unminified source, and the deploy smoke test
-    // probes only `/api/configs/health`, which resolves nothing from the container — so CI
-    // and the deploy both reported green while authentication was broken.
+    // Verified 2026-09-15 on a production build of this exact config: server chunks remain
+    // unmangled, client chunks are minified, and `POST /api/auth/login` returns
+    // `400 {"ok":false,"error":"Invalid email or password"}` — i.e. the container resolved
+    // `authService` and ran the password check. Protected routes return 401 (RBAC resolved),
+    // and the server log contains zero `Could not resolve` / `AwilixResolutionError` entries.
     //
-    // Lifting this now requires moving the container off CLASSIC to explicit `asFunction`
-    // registrations with destructured cradle access (parameter names stop being load-bearing),
-    // or a server-only `keepNames`, which Next does not expose separately. Do not flip these
-    // without doing that first AND booting the app to a successful `POST /api/auth/login`.
+    // Before changing EITHER flag, re-run that probe. `/api/configs/health` is NOT sufficient:
+    // it resolves nothing from the container, which is how the original breakage reached
+    // production green. Turning `serverMinification` on additionally requires moving the
+    // container off CLASSIC to explicit `asFunction` registrations with destructured cradle
+    // access, so parameter names stop being load-bearing.
     serverMinification: false,
-    turbopackMinify: false,
+    turbopackMinify: true,
     ...(isDevelopment
       ? {
           preloadEntriesOnStart: false,

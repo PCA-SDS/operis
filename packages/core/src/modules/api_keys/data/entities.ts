@@ -10,6 +10,17 @@ import { Entity, Index, PrimaryKey, Property, Unique } from '@open-mercato/share
   expression:
     'create unique index "api_keys_opencode_session_id_uq" on "api_keys" ("opencode_session_id") where "opencode_session_id" is not null and "deleted_at" is null',
 })
+// `findApiKeyBySessionToken` looks rows up by this column on every AI-chat and MCP
+// request, and `createSessionApiKey` mints a NEW row per chat session that is only
+// soft-deleted on expiry — so the table grows monotonically with chat usage while
+// the lookup stayed a sequential scan. Partial-unique mirrors the opencode index
+// above: it serves the lookup and enforces the invariant the lookup already assumes
+// (at most one live row per token).
+@Index({
+  name: 'api_keys_session_token_uq',
+  expression:
+    'create unique index "api_keys_session_token_uq" on "api_keys" ("session_token") where "session_token" is not null and "deleted_at" is null',
+})
 export class ApiKey {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string

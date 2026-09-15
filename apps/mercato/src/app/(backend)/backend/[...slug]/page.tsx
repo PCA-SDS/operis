@@ -59,6 +59,14 @@ export default async function BackendCatchAll(props: BackendParams) {
   const pathname = '/backend/' + (params.slug?.join('/') ?? '')
   const match = findRouteManifestMatch(getBackendRouteManifests(), pathname)
   if (!match) return notFound()
+  // Start resolving the page module now. It depends only on `match`, but it used
+  // to be awaited after every auth/RBAC round trip below, so module resolution
+  // was serialized behind four DB-backed awaits on every backend navigation.
+  // Awaited unchanged at the end, so a load failure still surfaces there; the
+  // detached `.catch` only stops an access-denied early return from leaving this
+  // promise unhandled.
+  const loadComponentPromise = match.route.load()
+  loadComponentPromise.catch(() => {})
   let auth: AuthContext = null
   let container: Awaited<ReturnType<typeof createRequestContainer>> | null = null
   const ensureContainer = async () => {
@@ -129,7 +137,7 @@ export default async function BackendCatchAll(props: BackendParams) {
   })
   if (middlewareRedirect) redirect(middlewareRedirect)
   const pageHandle = ComponentReplacementHandles.page(pathname)
-  const LoadedComponent = await match.route.load()
+  const LoadedComponent = await loadComponentPromise
   const Component = resolveRegisteredComponent(pageHandle, LoadedComponent)
 
   return (

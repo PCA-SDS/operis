@@ -9,6 +9,7 @@ import type { AppEventPayload } from '@open-mercato/shared/modules/widgets/injec
 import type { NotificationDto } from '@open-mercato/shared/modules/notifications/types'
 import { useOptionalT } from '@open-mercato/shared/lib/i18n/context'
 import { useAppEvent } from '../injection/useAppEvent'
+import { useTabRestoreRefresh } from '../utils/backgroundPolling'
 import {
   dispatchNotificationHandlers,
   getRequiredNotificationHandlerFeatures,
@@ -201,13 +202,11 @@ export function useNotificationsSse(): UseNotificationsSseResult {
     void fetchNotifications()
   }, [fetchNotifications])
 
-  React.useEffect(() => {
-    const onFocus = () => {
-      void fetchNotifications()
-    }
-    window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
-  }, [fetchNotifications])
+  // `visibilitychange`-only + coalesced — see useTabRestoreRefresh. A raw
+  // `focus` listener double-fired on every tab restore.
+  useTabRestoreRefresh(React.useCallback(() => {
+    void fetchNotifications()
+  }, [fetchNotifications]))
 
   return {
     notifications,

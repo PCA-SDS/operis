@@ -82,6 +82,16 @@ export class StaffTeamRole {
 
 @Entity({ tableName: 'staff_team_members' })
 @Index({ name: 'staff_team_members_tenant_org_idx', properties: ['tenantId', 'organizationId'] })
+// `roleIds` is queried with `$contains`, which compiles to the jsonb containment
+// operator `role_ids @> '[...]'`. btree cannot serve that, so filtering Team Members
+// by role — and the per-role member counts on the Team Roles list — re-checked every
+// row in the tenant. `jsonb_path_ops` is the smaller, faster GIN opclass and supports
+// exactly the containment queries this column is used for.
+@Index({
+  name: 'staff_team_members_role_ids_gin',
+  expression:
+    'create index "staff_team_members_role_ids_gin" on "staff_team_members" using gin ("role_ids" jsonb_path_ops) where "deleted_at" is null',
+})
 export class StaffTeamMember {
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string

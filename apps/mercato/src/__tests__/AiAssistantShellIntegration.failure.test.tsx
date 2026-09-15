@@ -35,9 +35,12 @@ describe('AiAssistantShellIntegration (import failure)', () => {
     })
 
     expect(screen.queryByTestId('ai-assistant-provider')).not.toBeInTheDocument()
-    expect(errorSpy).toHaveBeenCalledWith(
-      'Failed to load AI assistant integration',
-      loadError,
-    )
+    // Logged through the `createLogger` facade rather than a raw `console.error`,
+    // so the browser transport formats it as one namespaced line with the error
+    // serialised into the structured fields.
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    expect(String(errorSpy.mock.calls[0]?.[0])).toContain('[ai-assistant-shell]')
+    expect(String(errorSpy.mock.calls[0]?.[0])).toContain('Failed to load AI assistant integration')
+    expect(String(errorSpy.mock.calls[0]?.[0])).toContain(loadError.message)
   })
 })
