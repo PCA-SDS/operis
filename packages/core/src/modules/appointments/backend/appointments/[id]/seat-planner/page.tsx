@@ -35,7 +35,6 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
-import { AppointmentStatusBadge } from '@open-mercato/core/modules/appointments/components/AppointmentStatusBadge'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { resolveRegisteredLucideIconNode } from '@open-mercato/ui/backend/icons/lucideRegistry'
 import { AppointmentServicePicker, type AppointmentBookableService, type AppointmentServiceSelection } from '@open-mercato/core/modules/appointments/components/AppointmentServicePicker'
@@ -182,6 +181,9 @@ function durationMinutes(startsAt: string, endsAt: string): number {
 }
 
 function lineDuration(line: SeatPlannerLine | null | undefined): number {
+  if (line?.currentAssignment) {
+    return durationMinutes(line.currentAssignment.startsAt, line.currentAssignment.endsAt)
+  }
   return Math.max(MIN_DURATION, line?.durationMinutes ?? 60)
 }
 
@@ -428,11 +430,6 @@ function BookingSidebar(props: {
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <p className="truncate text-base font-semibold">{displayName}</p>
-              <AppointmentStatusBadge
-                statusCode={workspace.appointment.statusCode}
-                backgroundColor={workspace.appointment.statusBackgroundColor}
-                textColor={workspace.appointment.statusTextColor}
-              />
             </div>
             {workspace.appointment.customerPhone ? (
               <p className="mt-1 flex items-center gap-1.5 truncate text-xs text-muted-foreground"><Phone className="size-3.5 shrink-0" />{workspace.appointment.customerPhone}</p>
