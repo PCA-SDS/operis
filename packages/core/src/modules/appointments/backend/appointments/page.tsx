@@ -100,7 +100,7 @@ export default function AppointmentsListPage() {
   const [search, setSearch] = React.useState('')
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [reloadToken, setReloadToken] = React.useState(0)
-  const [statusOptions, setStatusOptions] = React.useState<{ code: string; label: string }[]>([])
+  const [statusOptions, setStatusOptions] = React.useState<StatusOption[]>([])
 
   const prepareSeatPlannerScope = React.useCallback((organizationId: string) => {
     const normalizedOrganizationId = organizationId.trim()
@@ -130,6 +130,8 @@ export default function AppointmentsListPage() {
           (call.result?.items ?? []).map((item) => ({
             code: item.code,
             label: item.label,
+            backgroundColor: item.backgroundColor ?? null,
+            textColor: item.textColor ?? null,
           })),
         )
       } catch (err) {

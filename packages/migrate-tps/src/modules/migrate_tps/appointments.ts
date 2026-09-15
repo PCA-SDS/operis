@@ -40,6 +40,7 @@ type TpsBooking = {
 type TpsStatus = {
   id: string
   value: string
+  description: string | null
   background_color: string | null
   text_color: string | null
 }
@@ -93,26 +94,27 @@ function normalizeStatusCode(value: string): string {
 
 function mapStatus(
   value: string | null | undefined,
+  description: string | null = null,
   backgroundColor: string | null = null,
   textColor: string | null = null,
 ): { code: string; label: string; backgroundColor: string | null; textColor: string | null } {
   const source = value?.trim().toLowerCase() || 'new_request'
+  const sourceLabel = description?.trim() || null
   const colors = {
     backgroundColor: backgroundColor?.trim() || null,
     textColor: textColor?.trim() || null,
   }
-  if (source === 'cancelled') return { code: 'cancelled', label: 'Cancelled', ...colors }
-  if (source === 'in_progress') return { code: 'in_progress', label: 'In progress', ...colors }
-  if (source === 'new_request') return { code: 'new_request', label: 'New request', ...colors }
-  if (source === 'completed') return { code: 'completed', label: 'Completed', ...colors }
-  if (source === 'booked') return { code: 'booked', label: 'Booked', ...colors }
+  if (source === 'cancelled') return { code: 'cancelled', label: sourceLabel || 'Cancelled', ...colors }
+  if (source === 'in_progress') return { code: 'in_progress', label: sourceLabel || 'In progress', ...colors }
+  if (source === 'new_request') return { code: 'new_request', label: sourceLabel || 'New request', ...colors }
+  if (source === 'completed') return { code: 'completed', label: sourceLabel || 'Completed', ...colors }
   const code = normalizeStatusCode(source)
   const label = source
     .split('_')
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
-  return { code, label: label || code, ...colors }
+  return { code, label: sourceLabel || label || code, ...colors }
 }
 
 async function connectTps(url: string): Promise<Client> {
@@ -150,6 +152,7 @@ async function ensureStatus(
     })
     em.persist(status)
   } else {
+    status.label = input.label
     status.backgroundColor = input.backgroundColor
     status.textColor = input.textColor
   }
@@ -299,7 +302,12 @@ async function migrateAppointments(
     const status = await ensureStatus(
       em,
       tenantId,
-      mapStatus(sourceStatus?.value, sourceStatus?.background_color, sourceStatus?.text_color),
+      mapStatus(
+        sourceStatus?.value,
+        sourceStatus?.description,
+        sourceStatus?.background_color,
+        sourceStatus?.text_color,
+      ),
     )
     const selections = parseSelections(booking.service_selections)
     const bookingAllocations = allocationsByBooking.get(booking.id) ?? []
@@ -414,7 +422,7 @@ export const migrateTpsAppointmentsCommand: ModuleCli = {
       client = await connectTps(tpsUrl)
       const [bookingResult, statusResult, allocationResult, employeeResult, seatResult] = await Promise.all([
         queryTps<TpsBooking>(client, 'SELECT id, customer_id, location::text, type_of_booking::text, customer_name, customer_email, customer_phone, phone_country_code, phone_country, salutation::text, origin, internal_notes, external_notes, service_selections, created_at, updated_at, requested_start_at, status_id, deleted_at FROM bookings ORDER BY id'),
-        queryTps<TpsStatus>(client, 'SELECT id, value, background_color, text_color FROM statuses'),
+        queryTps<TpsStatus>(client, 'SELECT id, value, description, background_color, text_color FROM statuses'),
         queryTps<TpsAllocation>(client, 'SELECT id, booking_id, seat_id, start_at, end_at, service_item_id, service_name, duration_minutes, state::text FROM booking_allocations'),
         queryTps<TpsEmployee>(client, 'SELECT booking_allocation_id, employee_id FROM booking_allocation_employees'),
         queryTps<TpsSeat>(client, 'SELECT s.id, f.location::text, s.code, s.name FROM seats s JOIN floors f ON f.id = s.floor_id'),
