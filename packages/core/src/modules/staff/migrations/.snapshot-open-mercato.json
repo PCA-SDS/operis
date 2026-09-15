@@ -2187,6 +2187,15 @@
           "keyName": "staff_team_members_tenant_org_idx",
           "primary": false,
           "unique": false
+        },
+        {
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "keyName": "staff_team_members_role_ids_gin",
+          "primary": false,
+          "unique": false,
+          "expression": "create index \"staff_team_members_role_ids_gin\" on \"staff_team_members\" using gin (\"role_ids\" jsonb_path_ops) where \"deleted_at\" is null"
         }
       ],
       "checks": [],
