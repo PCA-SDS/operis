@@ -176,6 +176,12 @@ function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
+function formatSalutation(value: string | null | undefined): string {
+  const normalized = value?.trim() ?? ''
+  if (!normalized) return ''
+  return /[.!?]$/.test(normalized) ? normalized : `${normalized}.`
+}
+
 function durationMinutes(startsAt: string, endsAt: string): number {
   return Math.max(MIN_DURATION, Math.round((new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60000))
 }
@@ -324,7 +330,7 @@ function PlannerBlock(props: {
   const laneWidth = 100 / allocation.lanesCount
   const laneInset = 8 / allocation.lanesCount
   const compactExistingLabel = !isOwn && displayDuration <= 30
-  const existingCustomerName = [allocation.customerSalutation, allocation.customerName].filter(Boolean).join(' ')
+  const existingCustomerName = [formatSalutation(allocation.customerSalutation), allocation.customerName].filter(Boolean).join(' ')
 
   const handleResizePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!isOwn) return
@@ -416,7 +422,7 @@ function BookingSidebar(props: {
     .slice(0, 2)
     .join('')
     .toUpperCase()
-  const displayName = [workspace.appointment.customerSalutation, workspace.appointment.customerName].filter(Boolean).join(' ')
+  const displayName = [formatSalutation(workspace.appointment.customerSalutation), workspace.appointment.customerName].filter(Boolean).join(' ')
   const formatLabel = (value: string | null) => value
     ? value.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase())
     : null
@@ -585,7 +591,7 @@ function DraftPopover(props: {
   const t = useT()
   const allocation = state.allocation
   const assignedNames = allocation.assignedMemberNames ?? (allocation.assignedMemberName ? [allocation.assignedMemberName] : [])
-  const customerDisplayName = [allocation.customerSalutation, allocation.customerName].filter(Boolean).join(' ')
+  const customerDisplayName = [formatSalutation(allocation.customerSalutation), allocation.customerName].filter(Boolean).join(' ')
   const currentDuration = durationMinutes(allocation.startsAt, allocation.endsAt)
   const [rawDuration, setRawDuration] = React.useState(String(currentDuration))
   const popoverRef = React.useRef<HTMLDivElement>(null)
