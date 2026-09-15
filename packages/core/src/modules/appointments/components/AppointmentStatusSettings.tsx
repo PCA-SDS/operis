@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { ColorPicker } from '@open-mercato/ui/primitives/color-picker'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
@@ -32,6 +33,8 @@ type FormState = {
   code: string
   description: string
   sortOrder: string
+  backgroundColor: string
+  textColor: string
 }
 
 const EMPTY_FORM: FormState = {
@@ -39,6 +42,8 @@ const EMPTY_FORM: FormState = {
   code: '',
   description: '',
   sortOrder: '100',
+  backgroundColor: '',
+  textColor: '',
 }
 
 const SAVE_CONTEXT_ID = 'appointments-status-settings'
@@ -113,6 +118,8 @@ export function AppointmentStatusSettings() {
       code: status.code,
       description: status.description ?? '',
       sortOrder: String(status.sortOrder),
+      backgroundColor: status.backgroundColor ?? '',
+      textColor: status.textColor ?? '',
     })
     setDialog({ mode: 'edit', status })
   }, [])
@@ -199,6 +206,8 @@ export function AppointmentStatusSettings() {
                   label,
                   code: form.code.trim() || undefined,
                   description: form.description.trim() || null,
+                  backgroundColor: form.backgroundColor || null,
+                  textColor: form.textColor || null,
                   sortOrder: Number.isFinite(sortOrder) ? sortOrder : 100,
                 }),
               })
@@ -228,6 +237,8 @@ export function AppointmentStatusSettings() {
                   body: JSON.stringify({
                     ...(status.isSystem ? {} : { label }),
                     description: form.description.trim() || null,
+                    backgroundColor: form.backgroundColor || null,
+                    textColor: form.textColor || null,
                     sortOrder: Number.isFinite(sortOrder) ? sortOrder : status.sortOrder,
                   }),
                 },
@@ -419,6 +430,49 @@ export function AppointmentStatusSettings() {
                 value={form.sortOrder}
                 disabled={submitting}
                 onChange={(event) => setForm((prev) => ({ ...prev, sortOrder: event.target.value }))}
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>
+                  {translate('appointments.config.statuses.dialog.backgroundColorLabel', 'Background color')}
+                </Label>
+                <ColorPicker
+                  value={form.backgroundColor || '#FFFFFF'}
+                  onChange={(value) => setForm((prev) => ({ ...prev, backgroundColor: value }))}
+                  onRemoveColor={() => setForm((prev) => ({ ...prev, backgroundColor: '' }))}
+                  removeAriaLabel={translate('appointments.config.statuses.dialog.clearColor', 'Clear color')}
+                  size="sm"
+                  className="w-full justify-start"
+                  disabled={submitting}
+                  aria-label={translate('appointments.config.statuses.dialog.backgroundColorLabel', 'Background color')}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>
+                  {translate('appointments.config.statuses.dialog.textColorLabel', 'Text color')}
+                </Label>
+                <ColorPicker
+                  value={form.textColor || '#000000'}
+                  onChange={(value) => setForm((prev) => ({ ...prev, textColor: value }))}
+                  onRemoveColor={() => setForm((prev) => ({ ...prev, textColor: '' }))}
+                  removeAriaLabel={translate('appointments.config.statuses.dialog.clearColor', 'Clear color')}
+                  size="sm"
+                  className="w-full justify-start"
+                  disabled={submitting}
+                  aria-label={translate('appointments.config.statuses.dialog.textColorLabel', 'Text color')}
+                />
+              </div>
+            </div>
+            <div className="space-y-2 rounded-md border border-border bg-muted/30 p-3">
+              <Label>
+                {translate('appointments.config.statuses.dialog.previewLabel', 'Preview')}
+              </Label>
+              <AppointmentStatusBadge
+                statusCode={form.code.trim() || 'preview'}
+                label={form.label.trim() || translate('appointments.config.statuses.dialog.previewStatus', 'Status')}
+                backgroundColor={form.backgroundColor || null}
+                textColor={form.textColor || null}
               />
             </div>
             <div className="flex justify-end gap-2">
