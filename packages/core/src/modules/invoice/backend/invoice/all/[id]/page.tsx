@@ -10,7 +10,6 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { InvoiceSendPanel } from '../../components/InvoiceSendPanel'
 import {
   IncomingPaymentConfirmationPanel,
   InvoicePaymentConfirmationPanel,
@@ -175,10 +174,10 @@ export default function InvoiceDetailPage() {
           <section className="overflow-hidden rounded-xl border border-border bg-surface">
             <div className="flex justify-between border-b border-border p-6">
               <div><h2 className="font-semibold">{sellerDisplayName}</h2><p className="text-sm text-muted-foreground">{t('invoice.detail.taxCode', 'Tax code')}: {invoice.sellerTaxCode ?? invoice.partnerTaxCode ?? '—'}</p></div>
-              <div className="text-right"><p className="text-sm text-muted-foreground">{label}</p><p className="text-xs text-muted-foreground">{t('invoice.detail.total')}</p><p className="text-2xl font-semibold">{displayMoney(invoice.grossAmount, invoice.currencyCode)}</p></div>
+              <div className="text-right"><p className="inline-flex rounded-md bg-modal-muted px-3 py-1 text-sm text-muted-foreground">{label}</p><p className="mt-2 text-xs text-muted-foreground">{t('invoice.detail.total')}</p><p className="text-2xl font-semibold">{displayMoney(invoice.grossAmount, invoice.currencyCode)}</p></div>
             </div>
             <div className="grid gap-5 border-b border-border p-6 sm:grid-cols-[220px_1fr]">
-              <div className="rounded-xl bg-input-bg p-4">
+              <div className="rounded-xl bg-modal-muted p-4">
                 <p className="text-xs text-muted-foreground">{t('invoice.detail.issueDate')}</p><p>{displayDate(invoice.invoiceDate)}</p>
                 <p className="mt-4 text-xs text-muted-foreground">{t('invoice.detail.dueDate')}</p><p>{displayDate(invoice.dueDate)}</p>
                 <p className="mt-4 text-xs text-muted-foreground">{t('invoice.detail.source')}</p><p>{invoice.origin === 'MANUAL' ? t('invoice.detail.createdInApp') : t('invoice.detail.imported')}</p>
@@ -187,7 +186,7 @@ export default function InvoiceDetailPage() {
             </div>
             <div className="overflow-x-auto p-6">
               <table className="w-full text-sm">
-                <thead><tr className="bg-input-bg text-left"><th className="p-2">{t('invoice.detail.no')}</th><th className="p-2">{t('invoice.detail.description')}</th><th className="p-2">{t('invoice.detail.qty')}</th><th className="p-2">{t('invoice.detail.unitPrice')}</th><th className="p-2">{t('invoice.detail.vat')}</th><th className="p-2 text-right">{t('invoice.detail.amount')}</th></tr></thead>
+                <thead><tr className="bg-modal-muted text-left"><th className="p-2">{t('invoice.detail.no')}</th><th className="p-2">{t('invoice.detail.description')}</th><th className="p-2">{t('invoice.detail.qty')}</th><th className="p-2">{t('invoice.detail.unitPrice')}</th><th className="p-2">{t('invoice.detail.vat')}</th><th className="p-2 text-right">{t('invoice.detail.amount')}</th></tr></thead>
                 <tbody>{invoice.lineItems.map((item) => <tr key={item.id} className="border-b border-border"><td className="p-2">{item.lineNumber}</td><td className="p-2">{item.name}</td><td className="p-2">{item.quantity ?? '—'}</td><td className="p-2">{displayMoney(item.unitPrice, invoice.currencyCode)}</td><td className="p-2">{item.vatRate ?? '—'}</td><td className="p-2 text-right">{displayMoney(item.lineTotal, invoice.currencyCode)}</td></tr>)}</tbody>
               </table>
             </div>
@@ -205,7 +204,6 @@ export default function InvoiceDetailPage() {
           </section>
 
           <aside className="space-y-4 lg:sticky lg:top-5">
-            {invoice.direction === 'AR' ? <InvoiceSendPanel invoice={invoice} onSent={load} /> : null}
             {invoice.direction === 'AP' ? <InvoicePaymentConfirmationPanel invoice={invoice} onChanged={load} /> : null}
             {invoice.direction === 'AR' ? <IncomingPaymentConfirmationPanel invoice={invoice} onChanged={load} /> : null}
             <section className="rounded-xl border border-border bg-surface p-5">
