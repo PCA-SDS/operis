@@ -75,6 +75,7 @@ function PieChartImpl({
             <Label
               value={valueFormatter(total)}
               position="center"
+              dy={-12}
               className="fill-foreground text-2xl font-bold"
             />
           )}
