@@ -8,7 +8,7 @@ import { Organization } from '@open-mercato/core/modules/directory/data/entities
 import { Appointment, AppointmentLine, AppointmentStatus, AppointmentLineOption, AppointmentLineOptionGroup } from '@open-mercato/core/modules/appointments/data/entities'
 import { ensureSystemAppointmentStatuses } from '@open-mercato/core/modules/appointments/setup'
 import { CustomerEntity } from '@open-mercato/core/modules/customers/data/entities'
-import { CatalogProduct, CatalogProductOption, CatalogProductOptionGroup, CatalogProductPrice, CatalogProductVariant } from '@open-mercato/core/modules/catalog/data/entities'
+import { CatalogProduct, CatalogProductCategoryAssignment, CatalogProductOption, CatalogProductOptionGroup, CatalogProductPrice, CatalogProductVariant } from '@open-mercato/core/modules/catalog/data/entities'
 import { ResourcesAssignment, ResourcesResource } from '@open-mercato/core/modules/resources/data/entities'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
 import { TPS_LOCATION_MAPPING } from './lib'
@@ -220,17 +220,26 @@ async function migrateAppointments(
     if (sourceId) productBySourceId.set(sourceId, product)
   }
   const productIds = products.map((product) => product.id)
-  const [variants, prices, groups, options] = await Promise.all([
+  const [variants, prices, groups, options, categoryAssignments] = await Promise.all([
     em.find(CatalogProductVariant, { tenantId, product: { $in: productIds }, deletedAt: null }),
     em.find(CatalogProductPrice, { tenantId, product: { $in: productIds } }),
     em.find(CatalogProductOptionGroup, { tenantId, product: { $in: productIds }, deletedAt: null }),
     em.find(CatalogProductOption, { tenantId, deletedAt: null }),
+    em.find(CatalogProductCategoryAssignment, { tenantId, product: { $in: productIds } }, {
+      populate: ['category'],
+      orderBy: { position: 'asc' },
+    }),
   ])
   const variantByProduct = new Map<string, CatalogProductVariant>()
   for (const variant of variants) if (!variantByProduct.has(variant.product.id)) variantByProduct.set(variant.product.id, variant)
   const priceByProduct = new Map<string, CatalogProductPrice>()
   for (const price of prices) {
     if (price.product && !priceByProduct.has(price.product.id)) priceByProduct.set(price.product.id, price)
+  }
+  const categoryByProduct = new Map<string, string>()
+  for (const assignment of categoryAssignments) {
+    const productId = typeof assignment.product === 'string' ? assignment.product : assignment.product.id
+    if (!categoryByProduct.has(productId)) categoryByProduct.set(productId, assignment.category.name)
   }
   const optionByProductAndSource = new Map<string, CatalogProductOption>()
   const groupsByProduct = new Map<string, Map<string, CatalogProductOptionGroup>>()
@@ -376,6 +385,7 @@ async function migrateAppointments(
         id: randomUUID(), appointment, tenantId, organizationId, productId: product.id, productTitle: product.title,
         productHandle: product.handle, currencyCode: price?.currencyCode ?? 'VND',
         unitPriceNet: price?.unitPriceNet ?? null, unitPriceGross: price?.unitPriceGross ?? null,
+        productCategory: categoryByProduct.get(product.id) ?? null,
         durationMinutes: duration, selectedOptions, sortOrder,
       })
       em.persist(line)

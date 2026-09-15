@@ -422,9 +422,11 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
                 <article key={line.id} className="rounded-lg border border-border bg-surface p-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        {line.productCategory || t('appointments.detail.group.services')}
-                      </p>
+                      {line.productCategory ? (
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          {line.productCategory}
+                        </p>
+                      ) : null}
                       <h3 className="mt-1 text-base font-semibold text-foreground">
                         {index + 1}. {line.productTitle}
                       </h3>
