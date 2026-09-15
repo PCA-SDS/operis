@@ -419,7 +419,7 @@ const t = useT()
 2. Message list/thread pages subscribe through `useMessages` — no custom polling.
 3. Optimistic email sends MUST go through `mergeOptimisticEmailThreads` so pending state renders consistently.
 
-**Reference call sites:** `packages/core/src/modules/customers/backend/customers/people/[id]/page.tsx` (SendObjectMessageDialog), `packages/core/src/modules/customers/components/detail/PersonEmailThreadsTab.tsx` (EmailThreadsPanel).
+**Reference call sites:** `packages/core/src/modules/currencies/backend/currencies/[id]/page.tsx` (SendObjectMessageDialog), `packages/core/src/modules/customers/components/detail/PersonEmailThreadsTab.tsx` (EmailThreadsPanel).
 
 ---
 
