@@ -1649,7 +1649,12 @@ export function makeCrudRoute<TCreate = any, TUpdate = any, TList = any>(opts: C
       if (cachedValue) {
         cacheStatus = 'hit'
         profiler.mark('cache_hit', { generatedAt: cachedValue.generatedAt ?? null })
-        const payload = safeClone(cachedValue.payload)
+        // Shape check only — read the cached payload directly. The predicate is
+        // pure (`typeof` / `Array.isArray` on own structure), so a clone cannot
+        // change its answer, and the payload is cloned for real below. Cloning
+        // here too made every cache hit pay `structuredClone` twice and discard
+        // the first result.
+        const payload = cachedValue.payload
         if (!payload || typeof payload !== 'object' || Array.isArray(payload) || !Array.isArray((payload as any).items)) {
           cacheStatus = 'miss'
           profiler.mark('cache_payload_invalid', {
