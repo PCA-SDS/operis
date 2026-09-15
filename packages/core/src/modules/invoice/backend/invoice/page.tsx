@@ -6,7 +6,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { LineChart, PieChart } from '@open-mercato/ui/backend/charts'
-import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { useInvoiceT as useT } from '@open-mercato/core/modules/invoice/lib/useInvoiceT'
 import { InvoiceSyncButton } from './components/InvoiceSyncButton'
 
 type Direction = { outstandingAmount: string }

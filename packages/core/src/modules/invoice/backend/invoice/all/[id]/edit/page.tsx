@@ -5,7 +5,7 @@ import { useParams, usePathname, useRouter } from 'next/navigation'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { useInvoiceT as useT } from '@open-mercato/core/modules/invoice/lib/useInvoiceT'
 import { InvoiceForm, type InvoiceFormValues } from '../../../InvoiceForm'
 
 export default function EditInvoicePage() {
