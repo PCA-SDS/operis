@@ -50,7 +50,7 @@ describe('customers utils - phone duplicate lookup', () => {
     expect(result).toEqual({
       id: 'c1',
       label: 'Ada Lovelace',
-      href: '/backend/customers/people/c1',
+      href: '/backend/customers/people-v2/c1',
     })
     expect(mockedApiCall).toHaveBeenCalledWith(
       '/api/customers/people?hasPhone=true&page=1&pageSize=50&sortField=createdAt&sortDir=desc'
@@ -80,7 +80,7 @@ describe('customers utils - phone duplicate lookup', () => {
     expect(result).toEqual({
       id: 'duplicate',
       label: 'Grace Hopper',
-      href: '/backend/customers/people/duplicate',
+      href: '/backend/customers/people-v2/duplicate',
     })
     expect(mockedApiCall).toHaveBeenCalledTimes(2)
   })
@@ -134,7 +134,7 @@ describe('customers utils - phone duplicate lookup', () => {
     expect(result).toEqual({
       id: 'duplicate',
       label: 'Grace Hopper',
-      href: '/backend/customers/people/duplicate',
+      href: '/backend/customers/people-v2/duplicate',
     })
     expect(mockedApiCall).toHaveBeenCalledTimes(3)
   })

@@ -597,7 +597,7 @@ export function PortalUserDetailPageClient({ params, portalOrigin }: PortalUserD
               <p className="text-muted-foreground">{t('customer_accounts.admin.detail.fields.personEntity', 'Linked Person')}</p>
               {editPersonEntityId ? (
                 <div className="flex items-center gap-2">
-                  <Link href={`/backend/customers/people/${editPersonEntityId}`} className="text-primary hover:underline">
+                  <Link href={`/backend/customers/people-v2/${editPersonEntityId}`} className="text-primary hover:underline">
                     {personName || editPersonEntityId}
                   </Link>
                   <Button type="button" variant="outline" size="sm" onClick={() => { setEditPersonEntityId(null); setPersonName(null) }}>
@@ -640,7 +640,7 @@ export function PortalUserDetailPageClient({ params, portalOrigin }: PortalUserD
               <p className="text-muted-foreground">{t('customer_accounts.admin.detail.fields.customerEntity', 'Linked Company')}</p>
               {editCustomerEntityId ? (
                 <div className="flex items-center gap-2">
-                  <Link href={`/backend/customers/companies/${editCustomerEntityId}`} className="text-primary hover:underline">
+                  <Link href={`/backend/customers/companies-v2/${editCustomerEntityId}`} className="text-primary hover:underline">
                     {companyName || editCustomerEntityId}
                   </Link>
                   <Button type="button" variant="outline" size="sm" onClick={() => { setEditCustomerEntityId(null); setCompanyName(null) }}>

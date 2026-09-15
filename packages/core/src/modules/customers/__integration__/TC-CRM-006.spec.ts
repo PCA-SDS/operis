@@ -19,7 +19,7 @@ test.describe('TC-CRM-006: Customer Address Management', () => {
       companyId = await createCompanyFixture(request, token, `QA TC-CRM-006 ${Date.now()}`);
 
       await login(page, 'admin');
-      await page.goto(`/backend/customers/companies/${companyId}`);
+      await page.goto(`/backend/customers/companies-v2/${companyId}`);
 
       await page.getByRole('tab', { name: 'Addresses' }).click();
       await page.getByRole('button', { name: 'Add address' }).click();

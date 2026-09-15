@@ -39,6 +39,7 @@ import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
 import { mapCrudServerErrorToFormErrors } from '@open-mercato/ui/backend/utils/serverErrors'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { LOOSE_EMAIL_PATTERN } from '@open-mercato/shared/lib/validation'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { ContactEmailDisplay } from '@open-mercato/core/modules/sales/components/ContactEmailDisplay'
@@ -1062,7 +1063,6 @@ function SectionCard({
   )
 }
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function ContactEmailInlineEditor({
   label,
@@ -1089,7 +1089,7 @@ function ContactEmailInlineEditor({
   const trimmedDraft = React.useMemo(() => draft.trim(), [draft])
   const isValidEmail = React.useMemo(() => {
     if (!trimmedDraft.length) return true
-    return EMAIL_REGEX.test(trimmedDraft)
+    return LOOSE_EMAIL_PATTERN.test(trimmedDraft)
   }, [trimmedDraft])
   const { duplicate, checking } = useEmailDuplicateCheck(draft, {
     recordId: typeof recordId === 'string' ? recordId : null,
@@ -1106,7 +1106,7 @@ function ContactEmailInlineEditor({
 
   const handleSave = React.useCallback(async () => {
     const normalized = trimmedDraft.length ? trimmedDraft : ''
-    if (normalized.length && !EMAIL_REGEX.test(normalized)) {
+    if (normalized.length && !LOOSE_EMAIL_PATTERN.test(normalized)) {
       setError(t('customers.people.detail.inline.emailInvalid', 'Enter a valid email address.'))
       return
     }
@@ -1182,7 +1182,7 @@ function ContactEmailInlineEditor({
                   {t('customers.people.detail.inline.emailDuplicate', undefined, { name: duplicate.displayName })}{' '}
                   <Link
                     className="font-medium text-primary underline underline-offset-2"
-                    href={`/backend/customers/people/${duplicate.id}`}
+                    href={`/backend/customers/people-v2/${duplicate.id}`}
                   >
                     {t('customers.people.detail.inline.emailDuplicateLink')}
                   </Link>
