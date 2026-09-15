@@ -1,5 +1,6 @@
 import { makeCrudRoute, type CrudCtx } from '@open-mercato/shared/lib/crud/factory'
 import { z } from 'zod'
+import { MAX_PAGE_SIZE } from '@open-mercato/shared/lib/validation'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { FeatureToggle } from '../../data/entities'
 import { E } from '#generated/entities.ids.generated'
@@ -17,7 +18,7 @@ const listQuerySchema = z
     page: z.coerce.number().int().min(1).default(1).describe('Page number for pagination'),
     // Deliberately above the shared default: the settings UI and the
     // feature-toggle integration specs fetch the full list with pageSize=200.
-    pageSize: z.coerce.number().int().min(1).max(200).default(50).describe('Number of items per page (max 200)'),
+    pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(50).describe(`Number of items per page (max ${MAX_PAGE_SIZE})`),
     search: z.string().optional().describe('Case-insensitive search across identifier, name, description, and category'),
     type: toggleTypeSchema.optional().describe('Filter by toggle type (boolean, string, number, json)'),
     category: z.string().optional().describe('Filter by category (case-insensitive partial match)'),

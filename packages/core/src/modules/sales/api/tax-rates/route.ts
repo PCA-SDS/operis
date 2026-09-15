@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_PAGE_SIZE } from '@open-mercato/shared/lib/validation'
 import { makeCrudRoute } from '@open-mercato/shared/lib/crud/factory'
 import { splitCustomFieldPayload } from '@open-mercato/shared/lib/crud/custom-fields'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
@@ -17,7 +18,7 @@ const listSchema = z
     page: z.coerce.number().int().min(1).default(1),
     // Deliberately above the shared default: the tax-rate pickers in sales and catalog load the whole list in one request,
     // and lowering this ceiling would 400 those existing callers.
-    pageSize: z.coerce.number().int().min(1).max(200).default(50),
+    pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(50),
     search: z.string().optional(),
     country: z.string().optional(),
     region: z.string().optional(),

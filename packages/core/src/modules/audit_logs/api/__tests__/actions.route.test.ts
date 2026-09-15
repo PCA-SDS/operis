@@ -145,7 +145,7 @@ describe('GET /api/audit_logs/audit-logs/actions', () => {
     }))
   })
 
-  it('clamps pageSize to max 200', async () => {
+  it('clamps pageSize to MAX_PAGE_SIZE', async () => {
     const { getAuthFromRequest } = await import('@open-mercato/shared/lib/auth/server')
     ;(getAuthFromRequest as jest.Mock).mockResolvedValue({
       sub: 'user-1',
@@ -155,7 +155,7 @@ describe('GET /api/audit_logs/audit-logs/actions', () => {
 
     await GET(makeRequest('http://localhost/api/audit_logs/audit-logs/actions?pageSize=999'))
     expect(mockActionLogs.list).toHaveBeenCalledWith(expect.objectContaining({
-      pageSize: 200,
+      pageSize: 100,
     }))
   })
 
