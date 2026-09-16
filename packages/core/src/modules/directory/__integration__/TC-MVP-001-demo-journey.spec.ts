@@ -7,16 +7,17 @@ import { expect, test, type Page, type APIRequestContext } from '@playwright/tes
  * tenant-admin separation, module entitlement shaping navigation, protected
  * routes, cross-tenant isolation, and logout.
  *
- * Environment: requires the `yarn seed:dev` topology (Operis / Acme / Globex).
+ * Environment: requires the `yarn seed:dev` topology (Operis / Company A /
+ * Company B).
  * The suite SKIPS itself when those accounts are absent, so it is safe to run
  * against a `mercato init` database, which seeds a different topology.
  */
 
 const PASSWORD = process.env.OM_DEV_SEED_PASSWORD || 'Operis!23'
-const SUPERADMIN = 'admin@operis.local'
-const TENANT_ADMIN = 'admin@acme.local'
-const TENANT_USER = 'user@acme.local'
-const OTHER_TENANT_ADMIN = 'admin@globex.local'
+const SUPERADMIN = 'superadmin@operis.local'
+const TENANT_ADMIN = 'admin@companya.local'
+const TENANT_USER = 'user@companya.local'
+const OTHER_TENANT_ADMIN = 'admin@companyb.local'
 
 async function apiLogin(request: APIRequestContext, email: string): Promise<boolean> {
   const response = await request.post('/api/auth/login', {
@@ -52,7 +53,7 @@ test.describe('TC-MVP-001: Operis MVP demo journey', () => {
     expect(tenants.status()).toBe(200)
     const body = await tenants.json()
     const names = (body.items ?? []).map((item: { name: string }) => item.name)
-    expect(names).toEqual(expect.arrayContaining(['Operis', 'Acme', 'Globex']))
+    expect(names).toEqual(expect.arrayContaining(['Operis', 'Company A', 'Company B']))
 
     // The tenants admin page renders rather than 404ing or erroring.
     await page.goto('/backend/directory/tenants', { waitUntil: 'domcontentloaded' })
@@ -77,35 +78,35 @@ test.describe('TC-MVP-001: Operis MVP demo journey', () => {
   })
 
   test('module entitlement shapes navigation and API access per tenant', async ({ browser }) => {
-    const acme = await browser.newContext()
-    const globex = await browser.newContext()
+    const companyA = await browser.newContext()
+    const companyB = await browser.newContext()
     try {
-      await uiLogin(await acme.newPage(), TENANT_ADMIN)
-      await uiLogin(await globex.newPage(), OTHER_TENANT_ADMIN)
+      await uiLogin(await companyA.newPage(), TENANT_ADMIN)
+      await uiLogin(await companyB.newPage(), OTHER_TENANT_ADMIN)
 
-      // Acme is entitled to wms; Globex is not (withheld by the seed).
-      expect((await acme.request.get('/api/wms/warehouses')).status()).toBe(200)
-      expect([401, 403]).toContain((await globex.request.get('/api/wms/warehouses')).status())
+      // Company A is entitled to tasks; Company B is not (withheld by the seed).
+      expect((await companyA.request.get('/api/tasks/projects')).status()).toBe(200)
+      expect([401, 403]).toContain((await companyB.request.get('/api/tasks/projects')).status())
 
-      const acmeNav = await (await acme.request.get('/api/auth/admin/nav')).json()
-      const globexNav = await (await globex.request.get('/api/auth/admin/nav')).json()
+      const companyANav = await (await companyA.request.get('/api/auth/admin/nav')).json()
+      const companyBNav = await (await companyB.request.get('/api/auth/admin/nav')).json()
 
-      const wmsGrants = (nav: { grantedFeatures?: string[] }) =>
-        (nav.grantedFeatures ?? []).filter((feature) => feature.startsWith('wms.')).length
+      const taskGrants = (nav: { grantedFeatures?: string[] }) =>
+        (nav.grantedFeatures ?? []).filter((feature) => feature.startsWith('tasks.')).length
       const customerGrants = (nav: { grantedFeatures?: string[] }) =>
         (nav.grantedFeatures ?? []).filter((feature) => feature.startsWith('customers.')).length
-      const wmsNavEntries = (nav: { groups?: unknown }) =>
-        (JSON.stringify(nav.groups ?? []).match(/\/backend\/wms/g) ?? []).length
+      const taskNavEntries = (nav: { groups?: unknown }) =>
+        (JSON.stringify(nav.groups ?? []).match(/\/backend\/tasks/g) ?? []).length
 
-      expect(wmsGrants(acmeNav)).toBeGreaterThan(0)
-      expect(wmsGrants(globexNav)).toBe(0)
-      expect(wmsNavEntries(acmeNav)).toBeGreaterThan(0)
-      expect(wmsNavEntries(globexNav)).toBe(0)
+      expect(taskGrants(companyANav)).toBeGreaterThan(0)
+      expect(taskGrants(companyBNav)).toBe(0)
+      expect(taskNavEntries(companyANav)).toBeGreaterThan(0)
+      expect(taskNavEntries(companyBNav)).toBe(0)
       // Only the withheld module differs — entitlement must not disturb anything else.
-      expect(customerGrants(globexNav)).toBe(customerGrants(acmeNav))
+      expect(customerGrants(companyBNav)).toBe(customerGrants(companyANav))
     } finally {
-      await acme.close()
-      await globex.close()
+      await companyA.close()
+      await companyB.close()
     }
   })
 
@@ -113,18 +114,18 @@ test.describe('TC-MVP-001: Operis MVP demo journey', () => {
     const superadminOk = await apiLogin(request, SUPERADMIN)
     expect(superadminOk).toBe(true)
     const tenants = await (await request.get('/api/directory/tenants')).json()
-    const globexTenant = (tenants.items ?? []).find((item: { name: string }) => item.name === 'Globex')
-    expect(globexTenant).toBeTruthy()
+    const companyBTenant = (tenants.items ?? []).find((item: { name: string }) => item.name === 'Company B')
+    expect(companyBTenant).toBeTruthy()
 
-    const acme = await browser.newContext()
+    const companyA = await browser.newContext()
     try {
-      await uiLogin(await acme.newPage(), TENANT_ADMIN)
-      const organizations = await acme.request.get('/api/directory/organizations')
+      await uiLogin(await companyA.newPage(), TENANT_ADMIN)
+      const organizations = await companyA.request.get('/api/directory/organizations')
       const payload = await organizations.text()
-      // Acme's organization listing must not contain Globex's tenant id.
-      expect(payload).not.toContain(globexTenant.id)
+      // Company A's organization listing must not contain Company B's tenant id.
+      expect(payload).not.toContain(companyBTenant.id)
     } finally {
-      await acme.close()
+      await companyA.close()
     }
   })
 
