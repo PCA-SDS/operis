@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { FormHeader } from '@open-mercato/ui/backend/forms'
+import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
@@ -12,7 +13,7 @@ import { AppointmentStatusBadge } from '../../../components/AppointmentStatusBad
 import { APPOINTMENT_BOOKING_TYPE_OPTIONS } from '../../../data/constants'
 import { formatCustomerPhone } from '../../../lib/phoneSnapshot'
 import { formatCurrency } from '@open-mercato/ui/utils/format'
-import { CalendarDays, Check, ClipboardList, Clock3, Copy, DollarSign, FileText, Globe2, ListChecks, Mail, MapPin, Megaphone, MessageSquare, Phone, UserRound } from 'lucide-react'
+import { CalendarDays, Check, ClipboardList, Clock3, Copy, DollarSign, FileText, Globe2, LayoutPanelTop, ListChecks, Mail, MapPin, Megaphone, MessageSquare, Phone, UserRound } from 'lucide-react'
 
 type Line = {
   id: string
@@ -108,7 +109,7 @@ function Field({
           {!isRow ? icon : null}
           <span>{label}</span>
         </div>
-        <div className={isRow ? 'text-base font-medium text-foreground' : 'text-sm text-foreground'}>{value}</div>
+        <div className={isRow ? 'whitespace-pre-line break-words text-base font-medium text-foreground' : 'text-sm text-foreground'}>{value}</div>
       </div>
     </div>
   )
@@ -279,6 +280,7 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
     return total + basePrice + optionTotal
   }, 0)
   const totalCurrencyCode = detail.lines.find((line) => line.currencyCode)?.currencyCode ?? null
+  const seatPlannerHref = `/backend/appointments/${encodeURIComponent(detail.id)}/seat-planner`
 
   return (
     <Page>
@@ -302,6 +304,20 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
                 </span>
               ) : null}
             </span>
+          )}
+          actionsContent={(
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                document.cookie = `om_selected_org=${encodeURIComponent(detail.organizationId)}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`
+                window.location.assign(seatPlannerHref)
+              }}
+            >
+              <LayoutPanelTop className="size-4" aria-hidden="true" />
+              {t('appointments.detail.openSeatPlanner', 'Open Seat Planner')}
+            </Button>
           )}
         />
 
