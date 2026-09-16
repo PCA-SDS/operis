@@ -108,6 +108,14 @@ yarn db:generate     # after changing an entity: emit a new migration to review
 To wipe local data and rebuild from migrations:
 
 ```bash
+yarn seed:fresh        # analyse, confirm, then wipe and re-seed in one step
+```
+
+`yarn seed:fresh` reports what the database currently holds, asks for
+confirmation, then runs the two steps below. Use `--yes` to skip the prompt and
+`--dry-run` to see the report without changing anything.
+
+```bash
 yarn db:reset --yes    # drops every table, re-applies all migrations
 yarn seed:dev          # recreates the development tenants and accounts
 ```
@@ -133,17 +141,17 @@ These are development credentials and are refused when `NODE_ENV=production`.
 
 | Account | Company | Role | Purpose |
 |---|---|---|---|
-| `admin@operis.local` | **Operis** | `superadmin` | Platform Superadmin — administers the platform and every tenant |
-| `admin@acme.local` | Acme | `admin` | Tenant Administrator — administers Acme only |
-| `user@acme.local` | Acme | `employee` | Tenant User — restricted day-to-day access |
-| `admin@globex.local` | Globex | `admin` | Second tenant, for proving cross-tenant isolation |
-| `user@globex.local` | Globex | `employee` | Second-tenant user |
+| `superadmin@operis.local` | **Operis** | `superadmin` | Platform Superadmin — administers the platform and every tenant |
+| `admin@companya.local` | Company A | `admin` | Tenant Administrator — administers Company A only |
+| `user@companya.local` | Company A | `employee` | Tenant User — restricted day-to-day access |
+| `admin@companyb.local` | Company B | `admin` | Second tenant, for proving cross-tenant isolation |
+| `user@companyb.local` | Company B | `employee` | Second-tenant user |
 
 Operis is a **separate company** from any customer tenant. The `superadmin` role
 exists only in the Operis tenant, so no tenant administrator can escalate into
-platform administration. Globex intentionally has the **`wms` module withheld**, which
-is what makes module entitlement observable: Acme sees Warehouse in its navigation,
-Globex does not.
+platform administration. Company B intentionally has the **`tasks` module withheld**,
+which is what makes module entitlement observable: Company A sees Tasks in its
+navigation, Company B does not.
 
 Sign in at **http://localhost:3000/login**, then land on **/backend**.
 
