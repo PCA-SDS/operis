@@ -14,6 +14,7 @@ import {
 } from '@open-mercato/shared/lib/crud/mutation-guard'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { AppointmentSeatPlannerService } from '../../../lib/seatPlannerService'
+import { emitAppointmentEvent } from '../../../events'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -101,6 +102,13 @@ export async function POST(req: Request, ctx: RouteContext) {
         metadata: guardResult.metadata ?? null,
       })
     }
+
+    await emitAppointmentEvent('appointments.appointment.schedule_confirmed', {
+      id: appointmentId,
+      tenantId: auth.tenantId,
+      organizationId,
+      action: 'schedule_confirmed',
+    })
 
     return NextResponse.json({
       success: true,

@@ -12,12 +12,8 @@ import { DEFAULT_PUBLIC_APPOINTMENT_STATUS_CODE } from '../data/constants'
 import { ensureSystemAppointmentStatuses } from '../setup'
 import type { AppointmentPublicCreateInput, AppointmentStaffCreateInput } from '../data/validators'
 import { toAppointmentPhoneSnapshot } from './phoneSnapshot'
-import {
-  snapshotLineOptions,
-  deleteLineOptionSnapshots,
-  loadLineOptionSnapshots,
-  resolveDurationMinutes,
-} from './lineOptionSnapshot'
+import { snapshotLineOptions, deleteLineOptionSnapshots } from './lineOptionSnapshot'
+import { checkPersonIdentity, type PersonCheckResult } from '@open-mercato/core/modules/customers/lib/personLookup'
 
 type StaffEditDeps = BookableServiceDeps & {
   commandBus?: CommandBus
@@ -34,6 +30,64 @@ export type CreatedAppointmentResult = {
   lineCount: number
 }
 
+export type PublicCustomerLookupResult = Omit<PersonCheckResult, 'lastBooking'> & {
+  lastBooking: {
+    organizationId: string
+    requestedStartAt: string
+    serviceLines: Array<{
+      productId: string
+      selectedOptions: Record<string, unknown> | Record<string, unknown>[] | null
+    }>
+  } | null
+}
+
+export async function lookupPublicCustomerForAppointment(
+  em: EntityManager,
+  input: {
+    tenantId: string
+    phone: string
+    email: string
+    phoneCountryCode?: string | null
+    phoneCountry?: string | null
+  },
+): Promise<PublicCustomerLookupResult> {
+  const identity = await checkPersonIdentity(em, { tenantId: input.tenantId }, input)
+  if (!identity.exists || !identity.customer) {
+    return { exists: false, customer: null, lastBooking: null }
+  }
+
+  const appointment = await em.findOne(
+    Appointment,
+    {
+      tenantId: input.tenantId,
+      customerEntityId: identity.customer.id,
+      deletedAt: null,
+    },
+    {
+      orderBy: { requestedStartAt: 'DESC' },
+      populate: ['lines'],
+    },
+  )
+
+  return {
+    ...identity,
+    lastBooking: appointment
+      ? {
+          organizationId: appointment.organizationId,
+          requestedStartAt: appointment.requestedStartAt.toISOString(),
+          serviceLines: appointment.lines
+            .getItems()
+            .filter((line) => !line.deletedAt)
+            .sort((left, right) => left.sortOrder - right.sortOrder)
+            .map((line) => ({
+              productId: line.productId,
+              selectedOptions: line.selectedOptions ?? null,
+            })),
+        }
+      : null,
+  }
+}
+
 function addMinutes(date: Date, minutes: number): Date {
   return new Date(date.getTime() + minutes * 60_000)
 }
@@ -48,7 +102,7 @@ function stableSerialize(value: unknown): string {
 
 export async function createAppointmentFromPublicIntake(
   em: EntityManager,
-  input: AppointmentPublicCreateInput,
+  input: AppointmentPublicCreateInput & { statusCode?: string },
   deps: BookableServiceDeps,
 ): Promise<CreatedAppointmentResult> {
   const requestedStartAt = new Date(input.requestedStartAt)
@@ -94,7 +148,7 @@ export async function createAppointmentFromPublicIntake(
   await ensureSystemAppointmentStatuses(em, input.tenantId)
   const status = await em.findOne(AppointmentStatus, {
     tenantId: input.tenantId,
-    code: DEFAULT_PUBLIC_APPOINTMENT_STATUS_CODE,
+    code: input.statusCode ?? DEFAULT_PUBLIC_APPOINTMENT_STATUS_CODE,
     deletedAt: null,
   })
   if (!status) {
@@ -299,14 +353,9 @@ export async function updateAppointmentFromStaffEdit(
     const existingLine = findMatchingLine(line.service.id, line.selectedOptions)
     if (existingLine) {
       usedLineIds.add(existingLine.id)
-      const existingSnapshots = await loadLineOptionSnapshots(em, existingLine.id)
-      const nextDurationMinutes = resolveDurationMinutes(
-        line.service.durationMinutes,
-        existingSnapshots.groups.flatMap((group) => group.options),
-      )
       const assignmentInvalid = locationChanged
         || oldDate !== nextDate
-        || existingLine.durationMinutes !== nextDurationMinutes
+        || existingLine.durationMinutes !== line.service.durationMinutes
         || (assignmentsByLineId.get(existingLine.id) ?? []).some((assignment) => assignment.startsAt < requestedStartAt)
       if (assignmentInvalid) cancelAssignments(existingLine.id)
       existingLine.organizationId = input.organizationId
@@ -315,7 +364,7 @@ export async function updateAppointmentFromStaffEdit(
       existingLine.currencyCode = line.service.currencyCode
       existingLine.unitPriceNet = line.service.unitPriceNet
       existingLine.unitPriceGross = line.service.unitPriceGross
-      existingLine.durationMinutes = nextDurationMinutes
+      existingLine.durationMinutes = line.service.durationMinutes
       existingLine.productCategory = line.service.categoryName
       existingLine.sortOrder = line.sortOrder
       continue

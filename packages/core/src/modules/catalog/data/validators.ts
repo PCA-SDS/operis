@@ -696,6 +696,7 @@ export type CatalogProductOptionTreeSyncInput = z.infer<typeof catalogProductOpt
 export const bookableServicesQuerySchema = tenantScoped.extend({
   organizationId: uuid().optional(),
   channelId: uuid().optional(),
+  locale: z.string().min(2).max(10).optional(),
 })
 
 export type BookableServicesQueryInput = z.infer<typeof bookableServicesQuerySchema>

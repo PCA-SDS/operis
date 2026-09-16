@@ -52,18 +52,58 @@ export type AppointmentServiceSelection = {
   selectedOptions?: Record<string, string | string[]>
 }
 
+type AppointmentServiceOptionGroup = NonNullable<AppointmentBookableService['optionGroups']>[number]
+
+function hasSelectedOption(value: string | string[] | undefined): boolean {
+  return typeof value === 'string' ? value.length > 0 : Array.isArray(value) && value.length > 0
+}
+
+function hasCompleteOptionGroups(
+  groups: AppointmentServiceOptionGroup[],
+  selectedOptions: Record<string, string | string[]>,
+  parentPath = '',
+): boolean {
+  return groups.every((group) => {
+    const groupKey = parentPath ? `${parentPath}/${group.id}` : group.id
+    const selectedValue = selectedOptions[groupKey] ?? selectedOptions[group.id]
+    if (group.requirement === 'required' && !hasSelectedOption(selectedValue)) return false
+
+    const selectedIds = typeof selectedValue === 'string' ? [selectedValue] : selectedValue ?? []
+    return selectedIds.every((optionId) => {
+      const option = group.options.find((entry) => entry.id === optionId)
+      return !option?.nextGroups?.length || hasCompleteOptionGroups(
+        option.nextGroups,
+        selectedOptions,
+        `${groupKey}/${optionId}`,
+      )
+    })
+  })
+}
+
+export function hasCompleteAppointmentServiceOptions(
+  service: AppointmentBookableService,
+  selection: AppointmentServiceSelection,
+): boolean {
+  return !service.optionGroups?.length || hasCompleteOptionGroups(
+    service.optionGroups,
+    selection.selectedOptions ?? {},
+  )
+}
+
 function OptionGroupsEditor({
   groups,
   value,
   onChange,
   disabled,
-  currencyCode
+  currencyCode,
+  namePrefix,
 }: {
   groups: any[] // BookableServiceOptionGroup[]
   value: Record<string, string | string[]>
   onChange: (val: Record<string, string | string[]>) => void
   disabled?: boolean
   currencyCode?: string | null
+  namePrefix: string
 }) {
   return (
     <div className="mt-3 space-y-4 pl-3 border-l-2 border-primary/20">
@@ -87,7 +127,7 @@ function OptionGroupsEditor({
                 <label key={opt.id} className="flex items-start gap-2 text-sm cursor-pointer hover:bg-muted/50 p-1 -ml-1 rounded">
                   <input
                     type={isMultiple ? 'checkbox' : 'radio'}
-                    name={`group-${group.id}`}
+                    name={`${namePrefix}-${group.id}`}
                     value={opt.id}
                     checked={selectedOptionIds.includes(opt.id)}
                     disabled={disabled}
@@ -122,6 +162,7 @@ function OptionGroupsEditor({
                   onChange={onChange}
                   disabled={disabled}
                   currencyCode={currencyCode}
+                  namePrefix={`${namePrefix}-${opt.id}`}
                 />
               )
             })}
@@ -264,6 +305,7 @@ export function AppointmentServicePicker({
                         }}
                         disabled={disabled}
                         currencyCode={service.currencyCode}
+                        namePrefix={`${instanceId}-${service.id}`}
                       />
                     </div>
                   )}

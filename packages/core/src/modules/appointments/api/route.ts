@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import type { FilterQuery } from '@mikro-orm/core'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
@@ -9,13 +8,14 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
-import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern'
+import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
 import type { CatalogPricingService } from '@open-mercato/core/modules/catalog/services/catalogPricingService'
-import { Appointment } from '../data/entities'
+import { Appointment, AppointmentLine } from '../data/entities'
 import { appointmentStaffCreateSchema } from '../data/validators'
 import { createAppointmentFromPublicIntake } from '../lib/intake'
 import { emitAppointmentEvent } from '../events'
-import { getVisibleAppointmentExternalNotes } from '../lib/notes'
+import { deriveScheduleConfirmationStatus } from '../lib/scheduleTracking'
+import { compareAppointmentListRows } from '../lib/appointmentListSorting'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -40,10 +40,25 @@ function mapAppointment(row: Appointment, organizationName: string | null = null
     requestedStartAt: row.requestedStartAt.toISOString(),
     requestedEndAt: row.requestedEndAt?.toISOString() ?? null,
     notes: row.notes ?? null,
-    externalNotes: getVisibleAppointmentExternalNotes(row.externalNotes),
+    externalNotes: row.externalNotes ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }
+}
+
+function mapAppointmentTotals(lines: AppointmentLine[]) {
+  const totals = new Map<string, { amount: number; currencyCode: string | null }>()
+  for (const line of lines) {
+    const appointmentId = String(line.appointment.id)
+    const amount = Number(line.unitPriceGross ?? line.unitPriceNet ?? '')
+    if (!Number.isFinite(amount)) continue
+    const current = totals.get(appointmentId)
+    totals.set(appointmentId, {
+      amount: (current?.amount ?? 0) + amount,
+      currencyCode: current?.currencyCode ?? line.currencyCode ?? null,
+    })
+  }
+  return totals
 }
 
 async function resolveOrganizationNames(
@@ -73,17 +88,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const url = new URL(req.url)
-    const page = z.coerce.number().int().min(1).catch(1).parse(url.searchParams.get('page'))
-    const pageSize = z.coerce.number().int().min(1).max(100).catch(50).parse(url.searchParams.get('pageSize'))
-    const search = url.searchParams.get('search')?.trim() || null
-    const statusCodes = Array.from(
-      new Set(
-        (url.searchParams.get('statusCode') ?? '')
-          .split(',')
-          .map((value) => value.trim())
-          .filter(Boolean),
-      ),
-    )
+    const statusCode = url.searchParams.get('statusCode')?.trim() || null
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
 
@@ -100,44 +105,66 @@ export async function GET(req: Request) {
     })
     const organizationId = scope?.selectedId ?? auth.orgId ?? null
 
-    const where: FilterQuery<Appointment> = {
+    const where: Record<string, unknown> = {
       tenantId: auth.tenantId,
       deletedAt: null,
     }
     if (organizationId) where.organizationId = organizationId
-    if (statusCodes.length === 1) where.statusCode = statusCodes[0]
-    if (statusCodes.length > 1) where.statusCode = { $in: statusCodes }
-    if (search) {
-      const pattern = `%${escapeLikePattern(search)}%`
-      where.$or = [
-        { customerName: { $ilike: pattern } },
-        { customerEmail: { $ilike: pattern } },
-        { customerPhone: { $ilike: pattern } },
-        { bookingType: { $ilike: pattern } },
-        { statusCode: { $ilike: pattern } },
-        { notes: { $ilike: pattern } },
-        { externalNotes: { $ilike: pattern } },
-      ]
-    }
+    if (statusCode) where.statusCode = statusCode
 
-    const [rows, total] = await em.findAndCount(Appointment, where, {
+    const rows = await em.find(Appointment, where, {
       orderBy: { requestedStartAt: 'desc' },
-      limit: pageSize,
-      offset: (page - 1) * pageSize,
     })
+    const lines = rows.length > 0
+      ? await em.find(AppointmentLine, {
+        appointment: { $in: rows.map((row) => row.id) },
+        tenantId: auth.tenantId,
+        deletedAt: null,
+      })
+      : []
+    const lineIds = lines.map((line) => line.id)
+    const assignments = lineIds.length > 0
+      ? await em.find(ResourcesAssignment, {
+        tenantId: auth.tenantId,
+        sourceModule: 'appointment',
+        sourceEntityType: 'appointment_line',
+        sourceEntityId: { $in: lineIds },
+        state: 'confirmed',
+        cancelledAt: null,
+      })
+      : []
+    const confirmedAllocationCountByAppointment = new Map<string, number>()
+    const lineAppointmentById = new Map(lines.map((line) => [line.id, String(line.appointment.id)]))
+    for (const assignment of assignments) {
+      const appointmentId = lineAppointmentById.get(assignment.sourceEntityId)
+      if (!appointmentId) continue
+      confirmedAllocationCountByAppointment.set(
+        appointmentId,
+        (confirmedAllocationCountByAppointment.get(appointmentId) ?? 0) + 1,
+      )
+    }
+    const totals = mapAppointmentTotals(lines)
     const orgNames = await resolveOrganizationNames(
       em,
       rows.map((row) => row.organizationId),
     )
-    return NextResponse.json({
-      items: rows.map((row) =>
-        mapAppointment(row, orgNames.get(row.organizationId) ?? null),
-      ),
-      total,
-      page,
-      pageSize,
-      totalPages: Math.max(1, Math.ceil(total / pageSize)),
-    })
+    const items = rows.map((row) => {
+        const confirmedAllocationCount = confirmedAllocationCountByAppointment.get(row.id) ?? 0
+        const scheduleConfirmationStatus = deriveScheduleConfirmationStatus({
+          createdAt: row.createdAt,
+          confirmedAllocationCount,
+          statusCode: row.statusCode,
+        })
+        const total = totals.get(row.id)
+        return {
+          ...mapAppointment(row, orgNames.get(row.organizationId) ?? null),
+          totalAmount: total?.amount ?? null,
+          currencyCode: total?.currencyCode ?? null,
+          scheduleConfirmationStatus,
+        }
+      })
+    items.sort(compareAppointmentListRows)
+    return NextResponse.json({ items })
   } catch {
     return NextResponse.json(
       {
@@ -197,6 +224,7 @@ export async function POST(req: Request) {
         id: result.id,
         tenantId: auth.tenantId,
         organizationId,
+        customerName: [body.customer.firstName, body.customer.lastName].filter(Boolean).join(' '),
       })
     } catch {
       /* best-effort */

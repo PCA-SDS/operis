@@ -118,7 +118,10 @@ export async function resolveNotificationContext(req: Request): Promise<Notifica
   })
   const tenantId = organizationScope.tenantId ?? ctx.auth?.tenantId ?? ''
   const organizationId = organizationScope.selectedId
-  const organizationIds = organizationScope.filterIds
+  // Notification inbox scope follows every organization the user can access,
+  // not only the currently selected organization. Row-level recipient checks
+  // at creation time already constrain notifications to the source org.
+  const organizationIds = organizationScope.allowedIds
   ctx.organizationScope = organizationScope
   ctx.selectedOrganizationId = organizationId
   ctx.organizationIds = organizationIds
