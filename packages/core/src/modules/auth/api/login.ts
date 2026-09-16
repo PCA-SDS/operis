@@ -16,6 +16,9 @@ import { runCustomRouteAfterInterceptors } from '@open-mercato/shared/lib/crud/c
 import { sanitizeRedirectPath } from '@open-mercato/core/modules/auth/lib/safeRedirect'
 import { getAppBaseUrl } from '@open-mercato/shared/lib/url'
 import { parseNumberWithDefault } from '@open-mercato/shared/lib/number'
+import type { EntityManager } from '@mikro-orm/postgresql'
+import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
+import { isActorScopeLive } from '@open-mercato/core/modules/auth/lib/sessionIntegrity'
 
 const loginRateLimitConfig = readEndpointRateLimitConfig('LOGIN', {
   points: 5, duration: 60, blockDuration: 60, keyPrefix: 'login',
@@ -134,6 +137,29 @@ export async function POST(req: Request) {
     else reason = 'invalid_credentials'
     void emitAuthEvent('auth.login.failed', { email: parsed.data.email, reason }).catch(() => undefined)
     return NextResponse.json({ ok: false, error: translate('auth.login.errors.invalidCredentials', 'Invalid email or password') }, { status: 401 })
+  }
+  // Tenant/organization lifecycle. Without this a suspended or soft-deleted tenant
+  // could still mint brand-new sessions, which made suspension purely cosmetic.
+  // Super-admins are exempt so a suspended tenant stays reachable for support and
+  // reactivation; the failure is reported with the same uniform 401 as a bad password
+  // so the response never becomes an oracle for another tenant's account state.
+  const loginTenantId = tenantId ?? (user.tenantId ? String(user.tenantId) : null)
+  const loginOrganizationId = user.organizationId ? String(user.organizationId) : null
+  const lifecycleEm = container.resolve('em') as EntityManager
+  const [loginTenant, loginOrganization] = await Promise.all([
+    loginTenantId ? lifecycleEm.findOne(Tenant, { id: loginTenantId }) : Promise.resolve(null),
+    loginOrganizationId ? lifecycleEm.findOne(Organization, { id: loginOrganizationId }) : Promise.resolve(null),
+  ])
+  if (!isActorScopeLive(
+    { id: loginTenantId, row: loginTenant },
+    { id: loginOrganizationId, row: loginOrganization },
+  )) {
+    const rbac = container.resolve('rbacService') as { isGlobalSuperAdmin(userId: string): Promise<boolean> }
+    const isPlatformAdmin = await rbac.isGlobalSuperAdmin(String(user.id)).catch(() => false)
+    if (!isPlatformAdmin) {
+      void emitAuthEvent('auth.login.failed', { email: parsed.data.email, reason: 'tenant_suspended' }).catch(() => undefined)
+      return NextResponse.json({ ok: false, error: translate('auth.login.errors.invalidCredentials', 'Invalid email or password') }, { status: 401 })
+    }
   }
   // Optional role requirement
   if (requiredRoles.length) {

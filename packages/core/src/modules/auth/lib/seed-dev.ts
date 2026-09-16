@@ -45,9 +45,9 @@ export type DevSeedTenantSpec = {
  *
  * Operis is the platform tenant and is deliberately a separate company from any
  * customer tenant: the platform superadmin must not be reachable by anyone
- * administering Acme. Globex exists so cross-tenant isolation has a real second
- * tenant to be tested against, and withholds `wms` so module entitlement has an
- * observable effect.
+ * administering Company A. Company B exists so cross-tenant isolation has a real
+ * second tenant to be tested against, and withholds `tasks` so module
+ * entitlement has an observable effect.
  */
 export const DEV_SEED_TENANTS: DevSeedTenantSpec[] = [
   {
@@ -55,27 +55,27 @@ export const DEV_SEED_TENANTS: DevSeedTenantSpec[] = [
     slug: 'operis',
     isPlatform: true,
     users: [
-      { email: 'admin@operis.local', roles: ['superadmin'], name: 'Operis Platform Superadmin' },
+      { email: 'superadmin@operis.local', roles: ['superadmin'], name: 'Operis Platform Superadmin' },
     ],
   },
   {
-    name: 'Acme',
-    slug: 'acme',
+    name: 'Company A',
+    slug: 'company-a',
     users: [
-      { email: 'admin@acme.local', roles: ['admin'], name: 'Acme Tenant Admin' },
-      { email: 'user@acme.local', roles: ['employee'], name: 'Acme Tenant User' },
+      { email: 'admin@companya.local', roles: ['admin'], name: 'Company A Admin' },
+      { email: 'user@companya.local', roles: ['employee'], name: 'Company A User' },
     ],
   },
   {
-    name: 'Globex',
-    slug: 'globex',
+    name: 'Company B',
+    slug: 'company-b',
     // Withholds a module the shipped plan switches ON, so the seeded topology
     // still demonstrates entitlement having a visible effect. Withholding one
     // that is off everywhere by default would demonstrate nothing.
     withheldModules: ['tasks'],
     users: [
-      { email: 'admin@globex.local', roles: ['admin'], name: 'Globex Tenant Admin' },
-      { email: 'user@globex.local', roles: ['employee'], name: 'Globex Tenant User' },
+      { email: 'admin@companyb.local', roles: ['admin'], name: 'Company B Admin' },
+      { email: 'user@companyb.local', roles: ['employee'], name: 'Company B User' },
     ],
   },
 ]

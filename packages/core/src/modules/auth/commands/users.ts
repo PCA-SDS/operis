@@ -18,6 +18,7 @@ import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import { User, UserRole, Role, UserAcl, Session, PasswordReset } from '@open-mercato/core/modules/auth/data/entities'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { resolveOrganizationScope } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { isOrganizationAccessAllowed } from '@open-mercato/shared/lib/auth/organizationAccess'
 import { E } from '#generated/entities.ids.generated'
 import { z } from 'zod'
 import {
@@ -219,6 +220,28 @@ const createUserCommand: CommandHandler<Record<string, unknown>, CreateUserResul
     if (!organization) throw new CrudHttpError(400, { error: 'Organization not found' })
     const tenantId = organization.tenant?.id ? String(organization.tenant.id) : null
     assertTargetTenantInScope(resolveActorTenantScope(ctx), tenantId, 'Organization not found')
+
+    // The tenant check above is not sufficient on its own: within the right tenant, an
+    // admin restricted to one organization could still create a user in a sibling
+    // organization they cannot see. `auth.users.update` already enforces this via
+    // `assertActorCanAssignUserDestination`; create did not, which is the asymmetry that
+    // made it a gap rather than a policy. Same fail-closed predicate, same 400 as an
+    // unknown organization so this does not become an existence oracle.
+    const actorIsSuperAdmin = ctx.systemActor === true || ctx.auth?.isSuperAdmin === true
+    if (!actorIsSuperAdmin && ctx.auth?.sub) {
+      const rbacService = ctx.container.resolve('rbacService') as RbacService
+      const organizationScope = ctx.organizationScope?.tenantId === tenantId
+        ? ctx.organizationScope
+        : await resolveOrganizationScope({ em, rbac: rbacService, auth: ctx.auth, tenantId })
+      const allowedOrganizationIds = organizationScope?.allowedIds ?? null
+      if (!isOrganizationAccessAllowed({
+        isSuperAdmin: false,
+        allowedOrganizationIds,
+        targetOrganizationId: parsed.organizationId,
+      })) {
+        throw new CrudHttpError(400, { error: 'Organization not found' })
+      }
+    }
 
     const emailHash = computeEmailHash(parsed.email)
     // Email is unique per-tenant, not globally (see Migration20260610120000:

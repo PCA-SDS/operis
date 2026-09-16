@@ -195,3 +195,16 @@ follow the shipped plan. `mercato directory sync-tenant-modules --apply-defaults
 reconciles existing tenants; `--enable-all` is the test-environment override.
 `design_system`, `api_docs` and `api_keys` left `PLATFORM_MODULE_IDS` and are now
 entitleable. See `.ai/specs/2026-08-25-mvp-module-scope-and-ui-gating.md`.
+
+## Superseded detail (2026-09-16)
+
+The seeded topology was renamed. `DEV_SEED_TENANTS` now declares Operis
+(`superadmin@operis.local`), Company A (`admin@companya.local`,
+`user@companya.local`) and Company B (`admin@companyb.local`,
+`user@companyb.local`); the shape above — one platform tenant holding the only
+`superadmin` role, plus two business tenants, one of them withholding a module —
+is unchanged. The withheld module is `tasks`, not `wms`, following the
+`defaultEntitlement` change recorded in the 2026-08-25 note above;
+TC-MVP-001 asserted `wms` until now and was corrected with the rename.
+`yarn seed:fresh` (`scripts/reset-and-seed.mjs`) wipes and re-seeds this
+topology in one step.

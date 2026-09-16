@@ -729,6 +729,7 @@ export function SalesDocumentsTable({ kind }: { kind: SalesDocumentKind }) {
                 },
                 {
                   id: 'delete',
+                  destructive: true,
                   label:
                     kind === 'order'
                       ? t('sales.documents.list.table.deleteOrder', 'Delete order')

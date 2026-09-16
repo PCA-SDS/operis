@@ -9,7 +9,7 @@ import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customF
 import { slugify } from '@open-mercato/shared/lib/slugify'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { E } from '#generated/entities.ids.generated'
-import { CategorySelect } from '../../../../components/categories/CategorySelect'
+import { CategoryTreeSelect } from '../../../../components/categories/CategoryTreeSelect'
 import { CategorySlugFieldSync } from '../../../../components/categories/CategorySlugFieldSync'
 
 type CategoryFormValues = {
@@ -75,12 +75,10 @@ export default function CreateCatalogCategoryPage() {
       label: t('catalog.categories.form.field.parent', 'Parent'),
       type: 'custom',
       component: ({ id, value, setValue }) => (
-        <CategorySelect
+        <CategoryTreeSelect
           id={id}
           value={typeof value === 'string' ? value : null}
           onChange={(next) => setValue(next ?? '')}
-          includeEmptyOption
-          className="w-full h-9 rounded border px-2 text-sm"
         />
       ),
     },

@@ -7,7 +7,7 @@ import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { RowActions } from '@open-mercato/ui/backend/RowActions'
+import { RowActions, type RowActionItem } from '@open-mercato/ui/backend/RowActions'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
@@ -260,7 +260,7 @@ export default function WebhooksListPage() {
           }}
           perspective={{ tableId: extensionPoints.hosts.webhooksTable.tableId }}
           rowActions={(row) => {
-            const items = [
+            const items: RowActionItem[] = [
               {
                 id: 'view-deliveries',
                 label: t('webhooks.list.actions.viewDeliveries'),
@@ -277,7 +277,7 @@ export default function WebhooksListPage() {
                   onSelect: () => { void handleToggleActive(row) },
                 },
               )
-              items.push({ id: 'delete', label: t('webhooks.list.actions.delete'), onSelect: () => { void handleDelete(row) } })
+              items.push({ id: 'delete', label: t('webhooks.list.actions.delete'), destructive: true, onSelect: () => { void handleDelete(row) } })
             }
 
             return <RowActions items={items} />

@@ -76,7 +76,7 @@ function buildTestContext() {
       switch (token) {
         case 'dataEngine': return dataEngine
         case 'em': return em
-        case 'rbacService': return { invalidateUserCache: jest.fn(async () => {}) }
+        case 'rbacService': return { loadAcl: async () => ({ isSuperAdmin: false, features: [], organizations: null }), invalidateUserCache: jest.fn(async () => {}) }
         case 'cache': return { deleteByTags: jest.fn(async () => {}) }
         case 'notificationService': return { create: jest.fn(async () => ({})) }
         default: throw new Error(`Unexpected dependency: ${token}`)

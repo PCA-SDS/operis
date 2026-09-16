@@ -67,9 +67,9 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
     //   - date-fns: already uses deep imports everywhere; listing it here
     //     is defense-in-depth and harmless.
     optimizePackageImports: ['lucide-react', 'recharts', 'date-fns'],
-    // `serverMinification` MUST stay off. `turbopackMinify` is the CLIENT minifier
-    // and is safe to leave on — the two are independent, which is the whole point
-    // of the split below.
+    // BOTH minifiers MUST stay off. Under Turbopack they are NOT independent:
+    // `turbopackMinify` governs server output too, and `serverMinification: false`
+    // does not constrain it. That was measured on 2026-09-16 — see reason 2.
     //
     // Two reasons the minifiers were originally both disabled. Both are now resolved:
     //
@@ -85,25 +85,41 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
     //
     //        ⨯ Could not resolve 'e'.  Resolution path: authService -> e
     //
-    //    STILL OPEN — and it is why `serverMinification` stays false. But Awilix only ever
-    //    runs on the server, so this constraint does not apply to the browser bundles.
-    //    `turbopackMinify` governs the CLIENT output; keeping it off was collateral damage
-    //    from a server-side problem, and cost 63% of the raw client JS (64.3 MiB → 23.6 MiB,
-    //    9.8 MiB → 6.0 MiB gzipped) for no benefit.
+    //    STILL OPEN. The assumption that this was a server-only concern — and that
+    //    `turbopackMinify` therefore only touched browser bundles — was WRONG, and
+    //    setting it to `true` took the application down completely:
     //
-    // Verified 2026-09-15 on a production build of this exact config: server chunks remain
-    // unmangled, client chunks are minified, and `POST /api/auth/login` returns
-    // `400 {"ok":false,"error":"Invalid email or password"}` — i.e. the container resolved
-    // `authService` and ran the password check. Protected routes return 401 (RBAC resolved),
-    // and the server log contains zero `Could not resolve` / `AwilixResolutionError` entries.
+    //        POST /api/auth/login -> 500
+    //        ⨯ Could not resolve 'e'.  Resolution path: authService -> e
+    //          at packages/core/src/modules/auth/api/login.ts:107
     //
-    // Before changing EITHER flag, re-run that probe. `/api/configs/health` is NOT sufficient:
-    // it resolves nothing from the container, which is how the original breakage reached
-    // production green. Turning `serverMinification` on additionally requires moving the
-    // container off CLASSIC to explicit `asFunction` registrations with destructured cradle
-    // access, so parameter names stop being load-bearing.
+    //    Reproduced 2026-09-16 on a clean production build AND in dev, and confirmed
+    //    causal in both directions by flipping this one flag. Nobody could sign in.
+    //
+    // WHY THE 2026-09-15 VERIFICATION MISSED IT. That probe recorded
+    // `POST /api/auth/login -> 400 {"ok":false,"error":"Invalid email or password"}`
+    // and read it as "the container resolved authService and ran the password check".
+    // It did not. `/api/auth/login` accepts `application/x-www-form-urlencoded` or form
+    // data ONLY; any other body (e.g. JSON) throws in `parseLoginForm`, which catches and
+    // yields empty fields, so zod fails and the handler returns 400 at login.ts:104 —
+    // three lines BEFORE `container.resolve('authService')` at login.ts:107. A 400 proves
+    // the request never reached the container. The probe could not have failed.
+    //
+    // THE ONLY VALID PROBE is a real credentialed sign-in that returns 200 with a token:
+    //
+    //   curl -s -o /dev/null -w '%{http_code}' -X POST $BASE/api/auth/login \
+    //     -H 'Content-Type: application/x-www-form-urlencoded' \
+    //     --data-urlencode "email=$EMAIL" --data-urlencode "password=$PASSWORD"
+    //   # 200 = container resolved. 500 = minification broke DI. 400 = malformed probe,
+    //   # NOT a pass — fix the probe and re-run.
+    //
+    // `/api/configs/health` is likewise insufficient: it resolves nothing from the
+    // container. Re-enabling EITHER flag first requires moving the container off CLASSIC
+    // to explicit `asFunction((cradle) => ...).proxy()` registrations (17 `asClass` sites
+    // plus the named-parameter `asFunction` sites in container.ts), so that parameter
+    // names stop being load-bearing. Until then both stay false.
     serverMinification: false,
-    turbopackMinify: true,
+    turbopackMinify: false,
     ...(isDevelopment
       ? {
           preloadEntriesOnStart: false,

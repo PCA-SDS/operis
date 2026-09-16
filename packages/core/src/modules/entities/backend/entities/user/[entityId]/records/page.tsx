@@ -411,12 +411,12 @@ export RECORD_ID="<record uuid>"`}</code></pre>
             rowActions={(row) => (
               <RowActions
                 items={[
-                  { id: 'edit', label: 'Edit', href: `/backend/entities/user/${encodeURIComponent(entityId)}/records/${encodeURIComponent(String((row as any).id))}` },
-                  { id: 'delete', label: 'Delete', destructive: true, onSelect: async () => {
+                  { id: 'edit', label: t('common.edit', 'Edit'), href: `/backend/entities/user/${encodeURIComponent(entityId)}/records/${encodeURIComponent(String((row as any).id))}` },
+                  { id: 'delete', label: t('common.delete', 'Delete'), destructive: true, onSelect: async () => {
                     const recordId = String((row as any).id)
                     try {
                       const confirmed = await confirm({
-                        title: 'Delete this record?',
+                        title: t('entities.userEntities.records.deleteConfirm.title', 'Delete this record?'),
                         variant: 'destructive',
                       })
                       if (!confirmed) return

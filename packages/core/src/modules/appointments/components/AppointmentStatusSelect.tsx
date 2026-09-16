@@ -19,6 +19,8 @@ import { AppointmentStatusBadge } from './AppointmentStatusBadge'
 export type AppointmentStatusOption = {
   code: string
   label: string
+  backgroundColor?: string | null
+  textColor?: string | null
 }
 
 type AppointmentStatusSelectProps = {
@@ -47,6 +49,7 @@ export function AppointmentStatusSelect({
 
   const selectedLabel =
     statuses.find((status) => status.code === statusCode)?.label ?? statusCode
+  const selectedStatus = statuses.find((status) => status.code === statusCode)
 
   const handleValueChange = React.useCallback(
     async (nextCode: string) => {
@@ -114,6 +117,8 @@ export function AppointmentStatusSelect({
               <AppointmentStatusBadge
                 statusCode={statusCode}
                 label={selectedLabel}
+                backgroundColor={selectedStatus?.backgroundColor}
+                textColor={selectedStatus?.textColor}
                 className="border font-medium"
               />
             ) : null}
@@ -122,7 +127,12 @@ export function AppointmentStatusSelect({
         <SelectContent>
           {statuses.map((status) => (
             <SelectItem key={status.code} value={status.code}>
-              <AppointmentStatusBadge statusCode={status.code} label={status.label} />
+              <AppointmentStatusBadge
+                statusCode={status.code}
+                label={status.label}
+                backgroundColor={status.backgroundColor}
+                textColor={status.textColor}
+              />
             </SelectItem>
           ))}
         </SelectContent>

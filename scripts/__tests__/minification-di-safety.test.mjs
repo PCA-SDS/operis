@@ -19,34 +19,49 @@ import test from 'node:test'
  * tests run unminified source, and the deploy smoke test probed a route that resolves nothing
  * from the container.
  *
- * So this is an interlock, not a style rule. It arbitrates `serverMinification` only.
+ * So this is an interlock, not a style rule. It arbitrates BOTH minifier flags.
  *
- * CORRECTION (2026-09-15): this file used to interlock `turbopackMinify` too, on the stated
- * premise that "under Turbopack this is the flag that governs BOTH graphs". Measured against
- * the installed next@16.3.3, that is false — the two flags are independent:
+ * CORRECTION (2026-09-15) — WITHDRAWN. That revision released the `turbopackMinify` interlock
+ * on the premise that the two flags are independent and that the client minifier "cannot reach"
+ * Awilix. Its supporting measurement was:
  *
- *   - With `turbopackMinify: true` and `serverMinification: false`, the SERVER output keeps
- *     its constructor parameter names (`constructor(em, entityName`,
- *     `constructor(em, getDbFn, resolveEncryptionService`), and the literal `rbacService`
- *     still appears in 1,055 server files. The CLIENT output is mangled in the same build
- *     (`constructor(e,r)`, `constructor(e,t)`).
- *   - Booted on that build, `POST /api/auth/login` returns
- *     `400 {"ok":false,"error":"Invalid email or password"}` — i.e. the container resolved
- *     `authService` by parameter name and ran the password check. Protected routes return 401
- *     (RBAC resolved), and the server log contains zero `Could not resolve` /
- *     `AwilixResolutionError` entries.
+ *     POST /api/auth/login -> 400 {"ok":false,"error":"Invalid email or password"}
+ *     "i.e. the container resolved authService by parameter name and ran the password check"
  *
- * Awilix only ever runs on the server, so the client minifier cannot reach it. Keeping
- * `turbopackMinify` off was collateral damage from a server-side constraint, and it cost 63%
- * of the raw client JS (64.3 MiB -> 23.6 MiB; 9.8 MiB -> 6.0 MiB gzipped) for no safety.
+ * That inference is wrong, and it is the same false-green that let the original outage ship.
+ * `/api/auth/login` accepts `application/x-www-form-urlencoded` or form data ONLY. Any other
+ * body (JSON, most obviously) throws inside `parseLoginForm`, which catches and returns empty
+ * fields; zod then fails and the handler returns 400 at `login.ts:104` — three lines BEFORE
+ * `container.resolve('authService')` at `login.ts:107`. A 400 proves the request never reached
+ * the container. The probe could not have failed, whatever the flags were set to.
  *
- * `serverMinification` stays interlocked. Lifting THAT means moving the container to explicit
- * `asFunction` registrations with destructured cradle access — at which point parameter names
- * stop being load-bearing and this test starts passing on its own.
+ * RE-MEASURED (2026-09-16) with a real credentialed, form-encoded sign-in, against a clean
+ * production build and again in dev:
  *
- * Before changing either flag, re-run the login probe above. `/api/configs/health` is NOT
- * sufficient: it resolves nothing from the container, which is how the original breakage
- * reached production green.
+ *   - `turbopackMinify: true`  -> POST /api/auth/login 500, and the server log carries
+ *       `⨯ Could not resolve 'e'.  Resolution path: authService -> e`
+ *       at `packages/core/src/modules/auth/api/login.ts:107`. The ephemeral production
+ *       environment could not reach readiness at all. Nobody could sign in.
+ *   - `turbopackMinify: false` -> POST /api/auth/login 200, token issued, zero
+ *       `Could not resolve` entries in the log.
+ *
+ * Only that one flag changed between the two runs, so under the installed Turbopack it DOES
+ * reach the server graph and `serverMinification: false` does not constrain it.
+ *
+ * Both flags therefore stay off while the container resolves by parameter name. The cost is
+ * real — ~63% of the raw client JS — and it is the price of a working login until the container
+ * moves to explicit `asFunction((cradle) => ...).proxy()` registrations (17 `asClass` sites plus
+ * the named-parameter `asFunction` sites in container.ts). At that point parameter names stop
+ * being load-bearing and both interlocks release on their own.
+ *
+ * Before changing either flag, re-run the probe THAT CAN FAIL:
+ *
+ *   curl -s -o /dev/null -w '%{http_code}' -X POST $BASE/api/auth/login \
+ *     -H 'Content-Type: application/x-www-form-urlencoded' \
+ *     --data-urlencode "email=$EMAIL" --data-urlencode "password=$PASSWORD"
+ *   # 200 = container resolved. 500 = minification broke DI. 400 = malformed probe, NOT a pass.
+ *
+ * `/api/configs/health` is likewise insufficient: it resolves nothing from the container.
  */
 
 const repoRoot = path.resolve(import.meta.dirname, '..', '..')
@@ -93,9 +108,8 @@ test('the interlock can still find both settings it arbitrates', () => {
     turbopackMinify,
     null,
     `Could not find an explicit \`turbopackMinify: true|false\` in ${path.relative(repoRoot, nextConfigPath)}. `
-      + 'This is the CLIENT minifier and is deliberately enabled; it must stay stated explicitly '
-      + 'so a silent revert to Next\'s default is visible in review rather than as a 63% client-JS '
-      + 'regression nobody notices.',
+      + 'Next defaults it to TRUE, and TRUE breaks Awilix CLASSIC resolution on the server, so an '
+      + 'absent flag is an outage waiting to happen. It must stay stated explicitly.',
   )
   assert.match(
     container,
@@ -120,16 +134,21 @@ test('server minification stays off while the container resolves by parameter na
   )
 })
 
-test('the client minifier is not re-disabled as collateral damage from the server constraint', () => {
-  // The two flags are independent (see the header). Turning the CLIENT minifier off does not
-  // protect Awilix — Awilix never runs in the browser — it just ships 63% more raw JS. If a
-  // future change genuinely needs it off, state the reason here and flip this assertion.
+test('turbopackMinify stays off too while the container resolves by parameter name', () => {
+  if (!usesClassicInjection) return // Container moved off CLASSIC; the interlock no longer applies.
+
+  // Measured, not assumed: under the installed Turbopack this flag reaches the SERVER graph,
+  // and `serverMinification: false` does not constrain it. See the header for the two runs.
   assert.equal(
     turbopackMinify,
-    true,
-    'turbopackMinify (the CLIENT minifier) is disabled. That does not protect the Awilix '
-      + 'container — Awilix only runs on the server, which serverMinification already covers — '
-      + 'and it costs ~63% of the raw client bundle. Re-enable it, or record here why the client '
-      + 'bundle must ship unminified.',
+    false,
+    'turbopackMinify is enabled while the Awilix container still runs in InjectionMode.CLASSIC. '
+      + 'Measured on this repo: that combination mangles server constructor parameter names and '
+      + 'takes authentication down completely —\n'
+      + "  POST /api/auth/login -> 500,  ⨯ Could not resolve 'e'.  Resolution path: authService -> e\n\n"
+      + 'It is NOT client-only, whatever an earlier revision of this file claimed. Move '
+      + 'packages/shared/src/lib/di/container.ts off CLASSIC first, then prove it with a real '
+      + 'form-encoded sign-in returning 200 — a 400 means the probe was malformed and never '
+      + 'reached the container.',
   )
 })

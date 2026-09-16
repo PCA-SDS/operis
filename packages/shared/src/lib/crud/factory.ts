@@ -83,6 +83,25 @@ type RbacServiceLike = {
 
 const logger = createLogger('shared').child({ component: 'crud' })
 
+/**
+ * Whether an export may discard the route's own `buildFilters`.
+ *
+ * `exportScope=full` is the "export everything, not just what I've filtered to" button,
+ * so it normally drops `buildFilters` along with the advanced filters and id selection.
+ * That is only safe while the query engine is still appending its automatic `tenant_id`
+ * predicate. A list that sets `omitAutomaticTenantOrgScope` has taken over scoping
+ * itself — there, `buildFilters` IS the tenant boundary, and dropping it exported other
+ * tenants' rows (a tenant-scoped principal holding only `scheduler.jobs.view` could read
+ * every tenant's scheduled jobs). Those routes therefore keep their filters under every
+ * export scope: the access boundary is never droppable.
+ */
+export function shouldDropUserFiltersForExport(
+  exportFullRequested: boolean,
+  omitAutomaticTenantOrgScope: boolean | undefined,
+): boolean {
+  return exportFullRequested && !omitAutomaticTenantOrgScope
+}
+
 function resolveSortParams(queryParams: Record<string, unknown>, defaultSort?: CrudDefaultSort) {
   const rawSortField = queryParams.sortField ?? queryParams.sort
   const requestedSortField =
@@ -1748,13 +1767,14 @@ export function makeCrudRoute<TCreate = any, TUpdate = any, TList = any>(opts: C
         const page: Page = exportRequested
           ? { page: 1, pageSize: exportPageSize }
           : { page: requestedPage, pageSize: requestedPageSize }
-        const baseFilters = exportFullRequested
+        const dropUserFilters = shouldDropUserFiltersForExport(exportFullRequested, opts.list?.omitAutomaticTenantOrgScope)
+        const baseFilters = dropUserFilters
           ? ({} as Where<any>)
           : (opts.list.buildFilters ? await opts.list.buildFilters(validated as any, ctx) : ({} as Where<any>))
-        const filters = exportFullRequested
+        const filters = dropUserFilters
           ? baseFilters
           : mergeAdvancedFilters(baseFilters as Record<string, unknown>, validated as Record<string, unknown>) as Where<any>
-        const mergedFilters = exportFullRequested ? filters : mergeIdFilter(filters, parsedIds, { idsParamProvided })
+        const mergedFilters = dropUserFilters ? filters : mergeIdFilter(filters, parsedIds, { idsParamProvided })
         const withDeleted = parseBooleanToken((queryParams as any).withDeleted) === true
         profiler.mark('filters_ready', { withDeleted })
         if (
@@ -2040,13 +2060,14 @@ export function makeCrudRoute<TCreate = any, TUpdate = any, TList = any>(opts: C
         })
         return response
       }
-      const fallbackBaseFilters = exportFullRequested
+      const fallbackDropUserFilters = shouldDropUserFiltersForExport(exportFullRequested, opts.list?.omitAutomaticTenantOrgScope)
+      const fallbackBaseFilters = fallbackDropUserFilters
         ? ({} as Where<any>)
         : (opts.list.buildFilters ? await opts.list.buildFilters(validated as any, ctx) : ({} as Where<any>))
-      const fallbackFilters = exportFullRequested
+      const fallbackFilters = fallbackDropUserFilters
         ? fallbackBaseFilters
         : mergeAdvancedFilters(fallbackBaseFilters as Record<string, unknown>, validated as Record<string, unknown>) as Where<any>
-      const mergedFallbackFilters = exportFullRequested
+      const mergedFallbackFilters = fallbackDropUserFilters
         ? fallbackFilters
         : mergeIdFilter(fallbackFilters, parsedIds, { idsParamProvided })
       const ormFilters = translateFiltersForOrm(

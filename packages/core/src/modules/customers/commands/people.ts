@@ -12,6 +12,7 @@ import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 import { normalizeEmail } from '@open-mercato/shared/lib/validation'
 import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
+import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import {
   CustomerAddress,
@@ -980,6 +981,13 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
     const record = assertFound(entity, 'Person not found')
     ensureTenantScope(ctx, record.tenantId)
     ensureOrganizationScope(ctx, record.organizationId)
+    enforceCommandOptimisticLock({
+      resourceKind: 'customers.person',
+      resourceId: record.id,
+      current: record.updatedAt,
+      expected: parsed.expectedUpdatedAt,
+      request: ctx.request,
+    })
     const profile = await em.findOne(CustomerPersonProfile, { entity: record })
     if (!profile) throw notFound('Person profile not found')
 

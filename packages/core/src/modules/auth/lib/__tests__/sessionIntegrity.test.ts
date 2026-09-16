@@ -13,6 +13,29 @@ jest.mock('@open-mercato/shared/lib/encryption/find', () => ({
 const userId = '11111111-1111-4111-8111-111111111111'
 const tenantId = '22222222-2222-4222-8222-222222222222'
 const organizationId = '33333333-3333-4333-8333-333333333333'
+
+// Tenant/organization lifecycle rows the resolver now reads through the raw EM.
+// Default: both live, so existing expectations are unaffected.
+const lifecycleRows = {
+  tenant: { isActive: true, deletedAt: null } as { isActive: boolean; deletedAt: Date | null } | null,
+  organization: { isActive: true, deletedAt: null } as { isActive: boolean; deletedAt: Date | null } | null,
+}
+
+function resetLifecycleRows() {
+  lifecycleRows.tenant = { isActive: true, deletedAt: null }
+  lifecycleRows.organization = { isActive: true, deletedAt: null }
+}
+
+function createEmMock(): import('@mikro-orm/postgresql').EntityManager {
+  return {
+    findOne: jest.fn(async (entity: unknown) => {
+      const name = (entity as { name?: string })?.name
+      if (name === 'Tenant') return lifecycleRows.tenant
+      if (name === 'Organization') return lifecycleRows.organization
+      return null
+    }),
+  } as unknown as import('@mikro-orm/postgresql').EntityManager
+}
 const scopedTenantId = '44444444-4444-4444-8444-444444444444'
 const scopedOrganizationId = '55555555-5555-4555-8555-555555555555'
 const adminRoleId = '66666666-6666-4666-8666-666666666666'
@@ -48,7 +71,7 @@ const validSession: SessionLookupResult = {
 }
 
 describe('isAuthContextValid', () => {
-  const em = {} as import('@mikro-orm/postgresql').EntityManager
+  const em = createEmMock()
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -387,7 +410,7 @@ describe('isAuthContextValid', () => {
 })
 
 describe('staff legacy tokens across the migration window', () => {
-  const em = {} as import('@mikro-orm/postgresql').EntityManager
+  const em = createEmMock()
   const originalJwtSecret = process.env.JWT_SECRET
   const originalGrace = process.env.JWT_LEGACY_GRACE_MINUTES
   const originalCutover = process.env.JWT_LEGACY_CUTOVER_AT
@@ -445,5 +468,60 @@ describe('staff legacy tokens across the migration window', () => {
     expect(payload).not.toBeNull()
     expect(payload?._legacyToken).toBeUndefined()
     await expect(isAuthContextValid(em, payload as never)).resolves.toBe(false)
+  })
+})
+
+// Regression cover for the review finding that suspending or deleting a tenant changed
+// nothing: the resolver re-read the user every request but never the rows that own them,
+// so existing sessions kept working and fresh logins still succeeded.
+describe('tenant and organization lifecycle', () => {
+  const em = createEmMock()
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    resetLifecycleRows()
+    findWithDecryption.mockResolvedValue([])
+    findOneWithDecryption.mockResolvedValue(null)
+    mockFindOneByEntity({ session: validSession, user: { id: userId, tenantId, organizationId } })
+  })
+
+  const liveAuth = () => ({ sub: userId, sid: sessionId, tenantId, orgId: organizationId, roles: [] })
+
+  it('accepts a principal whose tenant and organization are both live', async () => {
+    await expect(isAuthContextValid(em, liveAuth())).resolves.toBe(true)
+  })
+
+  it('rejects a principal whose tenant is deactivated', async () => {
+    lifecycleRows.tenant = { isActive: false, deletedAt: null }
+    await expect(isAuthContextValid(em, liveAuth())).resolves.toBe(false)
+  })
+
+  it('rejects a principal whose tenant is soft-deleted', async () => {
+    lifecycleRows.tenant = { isActive: true, deletedAt: new Date() }
+    await expect(isAuthContextValid(em, liveAuth())).resolves.toBe(false)
+  })
+
+  it('rejects a principal whose organization is deactivated', async () => {
+    lifecycleRows.organization = { isActive: false, deletedAt: null }
+    await expect(isAuthContextValid(em, liveAuth())).resolves.toBe(false)
+  })
+
+  it('rejects a principal whose tenant row has gone missing entirely', async () => {
+    lifecycleRows.tenant = null
+    await expect(isAuthContextValid(em, liveAuth())).resolves.toBe(false)
+  })
+
+  // Suspension locks out the tenant's own members, not the platform operator —
+  // otherwise a suspended tenant could never be investigated or reactivated in-app.
+  it('still admits a super-admin when the tenant is suspended', async () => {
+    lifecycleRows.tenant = { isActive: false, deletedAt: null }
+    mockFindOneByEntity({
+      session: validSession,
+      user: { id: userId, tenantId, organizationId },
+      userAcl: { isSuperAdmin: true },
+    })
+    findWithDecryption.mockResolvedValue([{ role: { id: adminRoleId, name: 'admin' } }])
+
+    await expect(isAuthContextValid(em, liveAuth())).resolves.toBe(true)
   })
 })

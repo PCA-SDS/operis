@@ -81,6 +81,8 @@ export const migrateTpsAllCommand: ModuleCli = {
       logger.info('Options:')
       logger.info('  --replace        Overwrite existing data')
       logger.info('  --skip-branches  Skip branches migration')
+      logger.info('  --skip-people    Skip customer and staff migration')
+      logger.info('  --skip-appointments Skip appointment migration')
       return
     }
 
@@ -97,6 +99,8 @@ export const migrateTpsAllCommand: ModuleCli = {
 
     const replace = rest.includes('--replace')
     const skipBranches = rest.includes('--skip-branches')
+    const skipPeople = rest.includes('--skip-people')
+    const skipAppointments = rest.includes('--skip-appointments')
 
     logger.info('========================================')
     logger.info('  TPS Migration - All Modules')
@@ -110,7 +114,7 @@ export const migrateTpsAllCommand: ModuleCli = {
       // Step 1: Categories (migrate to root org)
       if (!rest.includes('--skip-categories')) {
         logger.info('')
-        logger.info('>>> Step 1/4: Migrating categories...')
+        logger.info('>>> Step 1/6: Migrating categories...')
         const args = ['migrate_tps', 'categories', tenantId, rootOrgId]
         if (replace) args.push('--replace')
         await runMercato(args)
@@ -119,7 +123,7 @@ export const migrateTpsAllCommand: ModuleCli = {
       // Step 2: Products (migrate to root org)
       if (!rest.includes('--skip-products')) {
         logger.info('')
-        logger.info('>>> Step 2/4: Migrating products...')
+        logger.info('>>> Step 2/6: Migrating products...')
         const args = ['migrate_tps', 'products', tenantId, rootOrgId]
         if (replace) args.push('--replace')
         await runMercato(args)
@@ -128,7 +132,7 @@ export const migrateTpsAllCommand: ModuleCli = {
       // Step 3: Branches (create child orgs from TPS locations under root org)
       if (!skipBranches) {
         logger.info('')
-        logger.info('>>> Step 3/4: Migrating branches...')
+        logger.info('>>> Step 3/6: Migrating branches...')
         const args = ['migrate_tps', 'branches', tenantId, rootOrgId]
         if (replace) args.push('--replace')
         await runMercato(args)
@@ -164,7 +168,7 @@ export const migrateTpsAllCommand: ModuleCli = {
           // Step 4: Resources (migrate to each TPS child org)
           if (!rest.includes('--skip-resources')) {
             logger.info('')
-            logger.info('>>> Step 4/4: Migrating resources...')
+            logger.info('>>> Step 4/6: Migrating resources...')
 
             for (const org of tpsOrgs) {
               logger.info(`  Migrating resources for "${org.name}" (${org.id})...`)
@@ -174,6 +178,22 @@ export const migrateTpsAllCommand: ModuleCli = {
             }
           }
         }
+      }
+
+      if (!skipPeople) {
+        logger.info('')
+        logger.info('>>> Step 5/6: Migrating customers and staff...')
+        const args = ['migrate_tps', 'people', tenantId, rootOrgId]
+        if (replace) args.push('--replace')
+        await runMercato(args)
+      }
+
+      if (!skipAppointments) {
+        logger.info('')
+        logger.info('>>> Step 6/6: Migrating appointments...')
+        const args = ['migrate_tps', 'appointments', tenantId, rootOrgId]
+        if (replace) args.push('--replace')
+        await runMercato(args)
       }
 
       logger.info('')
