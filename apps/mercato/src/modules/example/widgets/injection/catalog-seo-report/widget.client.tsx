@@ -76,7 +76,7 @@ export default function CatalogSeoReportWidget(_props: InjectionWidgetComponentP
   }, [load])
 
   return (
-    <div className="rounded-xl border border-border bg-surface shadow-sm p-3 shadow-sm">
+    <div className="rounded-xl border border-border bg-surface shadow-sm p-3">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-foreground">
