@@ -61,6 +61,8 @@ export function AppointmentStaffAssignmentSheet({
   onLoadMore: () => void
 }) {
   const t = useT()
+  const hasTarget = Boolean(target)
+  const [isVisible, setIsVisible] = React.useState(false)
   const [query, setQuery] = React.useState('')
   const resultsRef = React.useRef<HTMLDivElement>(null)
   const duration = target ? durationMinutes(target) : MIN_DURATION
@@ -70,11 +72,20 @@ export function AppointmentStaffAssignmentSheet({
     return staff.filter((member) => `${member.displayName} ${member.roleLabel}`.toLowerCase().includes(value))
   }, [query, staff])
 
+  React.useEffect(() => {
+    if (!hasTarget) {
+      setIsVisible(false)
+      return
+    }
+    const frame = window.requestAnimationFrame(() => setIsVisible(true))
+    return () => window.cancelAnimationFrame(frame)
+  }, [hasTarget])
+
   if (!target) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-foreground/20" onClick={onClose}>
-      <aside className="flex h-full w-full max-w-md flex-col bg-surface shadow-lg" onClick={(event) => event.stopPropagation()}>
+    <div className={`fixed inset-0 z-50 flex justify-end bg-foreground/20 transition-opacity duration-150 ease-out ${isVisible ? 'opacity-100' : 'opacity-0'}`} onClick={onClose}>
+      <aside className={`flex h-full w-full max-w-md flex-col bg-surface shadow-lg transition-transform duration-150 ease-out will-change-transform ${isVisible ? 'translate-x-0' : 'translate-x-full'}`} onClick={(event) => event.stopPropagation()}>
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
             <h2 className="text-base font-semibold">{t('appointments.staffAssignment.title', 'Assign staff')}</h2>
