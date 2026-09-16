@@ -26,6 +26,11 @@ export interface GdtClient {
   }): Promise<GdtInvoicePage>
 }
 
+function positiveInteger(value: unknown, fallback: number): number {
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
+}
+
 export function createGdtClient(config: Record<string, unknown> = {}): GdtClient {
   const baseUrl = String(config.gdtBaseUrl ?? process.env.GDT_BASE_URL ?? '').replace(/\/$/, '')
   const queryBaseUrl = String(config.gdtQueryBaseUrl ?? process.env.GDT_QUERY_BASE_URL ?? baseUrl).replace(/\/$/, '')
@@ -33,9 +38,13 @@ export function createGdtClient(config: Record<string, unknown> = {}): GdtClient
   const authPath = String(config.gdtAuthPath ?? process.env.GDT_PATH_AUTHENTICATE ?? '/security-taxpayer/authenticate')
   const soldPath = String(config.gdtSoldPath ?? process.env.GDT_PATH_QUERY_SOLD ?? '/query/invoices/sold')
   const purchasedPath = String(config.gdtPurchasedPath ?? process.env.GDT_PATH_QUERY_PURCHASED ?? '/query/invoices/purchase')
-  const timeoutMs = Number(config.gdtTimeoutMs ?? process.env.GDT_REQUEST_TIMEOUT_MS ?? 20000)
-  const retryAttempts = Number(config.gdtRetryAttempts ?? process.env.GDT_MAX_RETRIES ?? 3)
-  const retryBaseDelayMs = Number(config.gdtRetryBaseDelayMs ?? process.env.GDT_RETRY_BASE_DELAY_MS ?? 500)
+  // Bare `Number()` turns a typo into a silent outage: `Number('abc')` is NaN, and
+  // `setTimeout(fn, NaN)` fires after 1ms, so every request would abort instantly and
+  // surface as an unreachable portal. `attempt < NaN` is likewise always false, which
+  // turns retries off without a word. Same shape as `positiveInteger` in `gdt/gdt-fetcher.ts`.
+  const timeoutMs = positiveInteger(config.gdtTimeoutMs ?? process.env.GDT_REQUEST_TIMEOUT_MS, 20000)
+  const retryAttempts = positiveInteger(config.gdtRetryAttempts ?? process.env.GDT_MAX_RETRIES, 3)
+  const retryBaseDelayMs = positiveInteger(config.gdtRetryBaseDelayMs ?? process.env.GDT_RETRY_BASE_DELAY_MS, 500)
   const request = async (url: string, init?: RequestInit, retry = init?.method !== 'POST') => {
     const requestMethod = init?.method ?? 'GET'
     const endpoint = safeEndpoint(url)
@@ -44,21 +53,28 @@ export function createGdtClient(config: Record<string, unknown> = {}): GdtClient
       attempt += 1
       const startedAt = Date.now()
       logger.debug('GDT request started', { endpoint, method: requestMethod, attempt, retry, timeoutMs })
+      const controller = new AbortController()
+      // `fetch` settles as soon as the response HEADERS arrive — the body is streamed later,
+      // by the caller's `response.json()`. Clearing the timer here would leave that read with
+      // no timeout at all, so a peer that sends headers and then stalls hangs forever. The
+      // worker runs at concurrency 1 on a shared queue, so one stalled read blocks invoice
+      // sync for every tenant. Leaving the timer armed makes the budget cover the whole
+      // exchange; `unref` stops a pending timer from holding the process open.
+      const timer = setTimeout(() => controller.abort(), timeoutMs)
+      timer.unref?.()
       try {
-        const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), timeoutMs)
-        try {
-          const response = await fetch(url, { ...init, signal: controller.signal })
-          if (retry && (response.status === 429 || response.status >= 500) && attempt < retryAttempts) {
-            const delayMs = retryBaseDelayMs * (2 ** (attempt - 1))
-            logger.warn('GDT request retrying', { endpoint, method: requestMethod, attempt, status: response.status, delayMs, elapsedMs: Date.now() - startedAt })
-            await new Promise((resolve) => setTimeout(resolve, delayMs))
-            continue
-          }
-          logger.info('GDT request completed', { endpoint, method: requestMethod, attempt, status: response.status, ok: response.ok, elapsedMs: Date.now() - startedAt })
-          return response
-        } finally { clearTimeout(timer) }
+        const response = await fetch(url, { ...init, signal: controller.signal })
+        if (retry && (response.status === 429 || response.status >= 500) && attempt < retryAttempts) {
+          clearTimeout(timer)
+          const delayMs = retryBaseDelayMs * (2 ** (attempt - 1))
+          logger.warn('GDT request retrying', { endpoint, method: requestMethod, attempt, status: response.status, delayMs, elapsedMs: Date.now() - startedAt })
+          await new Promise((resolve) => setTimeout(resolve, delayMs))
+          continue
+        }
+        logger.info('GDT request completed', { endpoint, method: requestMethod, attempt, status: response.status, ok: response.ok, elapsedMs: Date.now() - startedAt })
+        return response
       } catch (error) {
+        clearTimeout(timer)
         const errorDetails = describeRequestError(error)
         if (!retry || attempt >= retryAttempts) {
           logger.error('GDT request failed', { endpoint, method: requestMethod, attempt, elapsedMs: Date.now() - startedAt, ...errorDetails })

@@ -15,7 +15,18 @@ import {
 import { createGdtClient, type GdtClient } from './gdt-client'
 
 const ACTIVE_STATES: InvoiceSyncJobState[] = ['QUEUED', 'AUTHENTICATING', 'FETCHING', 'PERSISTING']
-  const queue: Queue<Record<string, unknown>> = createModuleQueue('invoice-sync', { concurrency: 1 })
+
+/**
+ * Built lazily, not at module scope. Under `QUEUE_STRATEGY=async` the factory eagerly resolves
+ * `QUEUE_REDIS_URL`/`REDIS_URL` and throws when neither is set — at module scope that crashes
+ * evaluation for every route that transitively imports `invoice/di.ts`. Every other module
+ * memoizes inside a function (`data_sync/lib/queue.ts`, `push_notifications/lib/queue.ts`).
+ */
+let syncQueue: Queue<Record<string, unknown>> | null = null
+function getSyncQueue(): Queue<Record<string, unknown>> {
+  if (!syncQueue) syncQueue = createModuleQueue('invoice-sync', { concurrency: 1 })
+  return syncQueue
+}
 
 export type InvoiceSyncService = ReturnType<typeof createInvoiceSyncService>
 type EncryptionService = { isEnabled?: () => boolean; encryptEntityPayload?: (entityId: string, payload: Record<string, unknown>, tenantId: string, organizationId: string) => Promise<Record<string, unknown>>; decryptEntityPayload?: (entityId: string, payload: Record<string, unknown>, tenantId: string, organizationId: string) => Promise<Record<string, unknown>> }
@@ -112,7 +123,7 @@ export function createInvoiceSyncService(
     job.progressJobId = progress.id
     await em.flush()
     try {
-      await queue.enqueue({ syncJobId: job.id, progressJobId: progress.id, tenantId: scope.tenantId, organizationId: scope.organizationId, userId, fromDate: input.fromDate, toDate: input.toDate, scopeTaxCodes: input.scopeTaxCodes })
+      await getSyncQueue().enqueue({ syncJobId: job.id, progressJobId: progress.id, tenantId: scope.tenantId, organizationId: scope.organizationId, userId, fromDate: input.fromDate, toDate: input.toDate, scopeTaxCodes: input.scopeTaxCodes })
     } catch (error) {
       job.state = 'FAILED'; job.failureCategory = 'INTERNAL_ERROR'; job.failureMessage = '[internal] Queue enqueue failed'; job.failureRequestId = crypto.randomUUID(); job.finishedAt = new Date(); await em.flush()
       await progressService.failJob(progress.id, { errorMessage: '[internal] Queue enqueue failed' }, { tenantId: scope.tenantId, organizationId: scope.organizationId, userId })
@@ -122,6 +133,15 @@ export function createInvoiceSyncService(
     return status(job)
   }
   return {
+    /**
+     * Drop a token GDT has rejected. Without this a 401 leaves the token cached for up to
+     * `INVOICE_SYNC_GDT_TOKEN_TTL_CAP_SECONDS` (23h), and `start()`'s `getCachedToken` fast
+     * path keeps enqueueing syncs that re-present the same dead token — so sync stays broken
+     * for the org with no operator recovery short of waiting out the TTL.
+     */
+    async clearCachedToken(scope: InvoiceScope) {
+      await withTenantCache(scope, () => cache.delete(key(scope, 'token')))
+    },
     async getCachedToken(scope: InvoiceScope) {
       const cachedToken = await withTenantCache(scope, () => cache.get(key(scope, 'token'))) as Record<string, unknown> | null
       if (!cachedToken) return null

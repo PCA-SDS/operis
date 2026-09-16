@@ -120,7 +120,12 @@ function SyncProgress({ job, t }: { job: SyncJob | null; t: ReturnType<typeof us
   if (!job) return <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground"><Spinner />{t('invoice.sync.starting', 'Starting sync…')}</div>
   const labels: Record<SyncState, string> = { QUEUED: t('invoice.sync.state.queued', 'Queued'), AUTHENTICATING: t('invoice.sync.state.authenticating', 'Authenticating'), FETCHING: t('invoice.sync.state.fetching', 'Fetching invoices'), PERSISTING: t('invoice.sync.state.persisting', 'Importing invoices'), DONE: t('invoice.sync.state.done', 'Completed'), FAILED: t('invoice.sync.state.failed', 'Failed') }
   const variants: Record<SyncState, StatusBadgeVariant> = { QUEUED: 'neutral', AUTHENTICATING: 'info', FETCHING: 'info', PERSISTING: 'warning', DONE: 'success', FAILED: 'error' }
-  const failureMessage = job.failureCategory === 'INTERNAL_ERROR' ? null : job.failureMessage
+  // Every `GdtProviderError` message is `[internal]`-prefixed by construction, and the
+  // classifier maps those to AUTH_FAILED/PORTAL_UNREACHABLE — not INTERNAL_ERROR — so the
+  // category check alone let developer strings through. The translated title above already
+  // says what happened; fall back to the generic line rather than leaking the marker.
+  const categoryMessage = job.failureCategory === 'INTERNAL_ERROR' ? null : job.failureMessage
+  const failureMessage = categoryMessage?.startsWith('[internal]') ? null : categoryMessage
   const stream = (value?: StreamCounts): StreamCounts => value ?? { fetched: 0, new: 0, updated: 0, skipped: 0, errors: 0 }
   const ar = stream(job.counts.ar); const ap = stream(job.counts.ap)
   const streamTable = (title: string, counts: StreamCounts) => <div className="rounded-lg border border-border bg-surface p-3"><p className="font-medium">{title}</p><dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><dt>{t('invoice.sync.counts.fetched', 'Fetched')}</dt><dd>{counts.fetched}</dd><dt>{t('invoice.sync.counts.new', 'New')}</dt><dd>{counts.new}</dd><dt>{t('invoice.sync.counts.updated', 'Updated')}</dt><dd>{counts.updated}</dd><dt>{t('invoice.sync.counts.skipped', 'Skipped')}</dt><dd>{counts.skipped}</dd><dt>{t('invoice.sync.counts.errors', 'Errors')}</dt><dd>{counts.errors}</dd></dl></div>

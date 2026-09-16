@@ -97,7 +97,7 @@ function lineItems(record: GdtWireRecord): NormalizedInvoiceLine[] | undefined {
     if (!item || typeof item !== 'object') throw new MalformedGdtInvoiceError('line item is invalid')
     const line = item as GdtWireRecord
     return {
-      lineNumber: Number(value(line, 'lineNumber', 'line_number', 'stt') ?? index + 1),
+      lineNumber: lineNumberOf(value(line, 'lineNumber', 'line_number', 'stt'), index),
       name: requiredText(line, 'line name', 'name', 'itemName', 'item_name', 'description'),
       unit: text(line, 'unit', 'unitName', 'unit_name'),
       quantity: decimal(line, 'quantity', 'quantity', 'qty'),
@@ -117,6 +117,16 @@ export function buildGdtSourceInvoiceId(record: GdtWireRecord): string {
   const series = requiredText(record, 'series', 'series', 'symbol', 'invoiceSeries', 'invoice_series', 'shdon')
   const number = requiredText(record, 'invoice number', 'invoiceNumber', 'invoice_number', 'number', 'sohdon')
   return `gdt:${seller}:${template}:${series}:${number}`
+}
+
+/**
+ * `line_number` is `integer NOT NULL` with a unique constraint on `(invoice, lineNumber)`.
+ * A bare `Number()` yields `NaN` for any non-numeric `stt`, which survives normalization and
+ * only fails at flush — costing the whole invoice. Every sibling field already validates.
+ */
+function lineNumberOf(raw: unknown, index: number): number {
+  const parsed = Number(raw)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : index + 1
 }
 
 export function normalizeGdtInvoice(stream: GdtStream, record: GdtWireRecord): NormalizedInvoiceSource {

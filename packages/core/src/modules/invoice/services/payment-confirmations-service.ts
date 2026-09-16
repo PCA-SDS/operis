@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { UniqueConstraintViolationException } from '@mikro-orm/core'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import { badRequest, conflict, notFound, CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { sendEmail } from '@open-mercato/shared/lib/email/send'
@@ -28,6 +29,21 @@ import type { InvoiceCompanyEmailsService } from './company-emails-service'
 import { createPaymentConfirmationEmail } from './invoice-email'
 import { InvoiceScopedPersistenceService } from './scoped-persistence-service'
 import type { InvoiceService } from './invoice-service'
+
+/**
+ * Money is stored as `numeric(18,4)` decimal strings. Compare at that scale rather than by
+ * string equality so `100.0000` and `100` agree, using the same 4-decimal convention as
+ * `invoice-service.ts`'s `money()`.
+ */
+const MONEY_EPSILON = 0.00005
+
+function claimAmountOf(confirmation: { installment?: { totalAmount?: string | null } | null; invoice: { outstandingAmount?: string | null; grossAmount?: string | null } }): number {
+  const raw = confirmation.installment?.totalAmount
+    ?? confirmation.invoice.outstandingAmount
+    ?? confirmation.invoice.grossAmount
+    ?? '0'
+  return Number.parseFloat(raw) || 0
+}
 
 const logger = createLogger('invoice').child({ component: 'payment-confirmations-service' })
 
@@ -301,7 +317,9 @@ export class InvoicePaymentConfirmationsService {
         invoiceDate: receiverInvoice.invoiceDate,
       },
     }, {
-      populate: ['invoice'] as never[],
+      // `installment` is read by the settlement amount guard; an unpopulated relation would
+      // silently read as undefined and let an installment-scoped claim settle in full.
+      populate: ['invoice', 'installment'] as never[],
       orderBy: { createdAt: 'desc' },
       limit: 2,
     })
@@ -353,6 +371,19 @@ export class InvoicePaymentConfirmationsService {
           { tenantId: confirmation.tenantId, organizationId: confirmation.organizationId },
           confirmation.invoice.id,
         )
+        // `updateReceivableSettlement` settles the receivable in FULL — it has no partial path.
+        // The claim is derived from the payer's invoice (the same figure the receiver is shown),
+        // so it must actually cover the receivable before we mark it paid. Without this a claim
+        // of 1.0000 settles an arbitrarily large receivable.
+        const claimedAmount = claimAmountOf(confirmation)
+        const receivableOutstanding = Number.parseFloat(receiverInvoice.outstandingAmount ?? receiverInvoice.grossAmount ?? '0') || 0
+        if (confirmation.invoice.currencyCode !== receiverInvoice.currencyCode) {
+          throw conflict('[internal] Payment confirmation currency does not match the receivable')
+        }
+        if (claimedAmount + MONEY_EPSILON < receivableOutstanding) {
+          throw conflict('[internal] Payment confirmation does not cover the outstanding receivable')
+        }
+
         const receiverResult = await transactionInvoiceService.updateReceivableSettlement(
           scope,
           receiverInvoice.id,
@@ -449,6 +480,22 @@ export class InvoicePaymentConfirmationsService {
       const confirmationUrl = `${getSecurityEmailBaseUrl()}/confirm-payment/${rawToken}`
       const now = new Date()
       const expiresAt = new Date(now.getTime() + INVOICE_PAYMENT_CONFIRMATION_TTL_DAYS * 24 * 60 * 60 * 1000)
+      // Supersede any prior pending request BEFORE inserting the replacement. Doing it after
+      // the insert meant two concurrent requests each failed to see the other's uncommitted
+      // row, both deletes matched nothing, and two PENDING rows with two live tokens
+      // committed — after which `findIncoming`'s `length !== 1` check 409s the receiver's
+      // Accept button permanently. The partial unique index added in
+      // `Migration20260916120000_invoice_payment_confirmation_pending_unique.ts` closes the
+      // remaining window where both transactions interleave past this delete.
+      const previousPendingWhere: FilterQuery<InvoicePaymentConfirmation> = {
+        invoice,
+        installment,
+        status: 'PENDING',
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+      }
+      supersededCount = await tx.nativeDelete(InvoicePaymentConfirmation, previousPendingWhere)
+
       const confirmation = scopedPersistence.createScoped(InvoicePaymentConfirmation, scope, {
         invoice,
         installment,
@@ -461,7 +508,17 @@ export class InvoicePaymentConfirmationsService {
         createdAt: now,
         updatedAt: now,
       })
-      await tx.persist(confirmation).flush()
+      try {
+        await tx.persist(confirmation).flush()
+      } catch (error) {
+        // The partial unique index fired: a concurrent request committed its own PENDING row
+        // between our supersede and this insert. Surface it as a conflict the caller can retry
+        // rather than a 500 — and never leave two live tokens behind.
+        if (error instanceof UniqueConstraintViolationException) {
+          throw conflict('[internal] A payment confirmation request is already pending for this invoice')
+        }
+        throw error
+      }
 
       const email = createPaymentConfirmationEmail({
         invoice,
@@ -482,15 +539,6 @@ export class InvoicePaymentConfirmationsService {
         throw badRequest('[internal] Payment confirmation email delivery failed')
       }
 
-      const previousPendingWhere: FilterQuery<InvoicePaymentConfirmation> = {
-        id: { $ne: confirmation.id },
-        invoice,
-        installment,
-        status: 'PENDING',
-        tenantId: scope.tenantId,
-        organizationId: scope.organizationId,
-      }
-      supersededCount = await tx.nativeDelete(InvoicePaymentConfirmation, previousPendingWhere)
       companyId = invoice.company.id
 
       return {

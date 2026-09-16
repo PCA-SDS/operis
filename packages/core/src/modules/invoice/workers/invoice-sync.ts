@@ -5,7 +5,7 @@ import type { ProgressService, ProgressServiceContext } from '../../progress/lib
 import { InvoiceSyncJob } from '../data/entities'
 import type { InvoiceScope } from '../data/scope'
 import { emitInvoiceEvent } from '../events'
-import { classifyGdtError } from '../services/gdt/errors'
+import { GdtProviderError, classifyGdtError } from '../services/gdt/errors'
 import type { GdtStream } from '../services/gdt/types'
 import type { InvoiceSyncPersistenceResult } from '../services/sync-persistence-service'
 import type { NormalizedInvoiceSource } from '../services/gdt/invoice-normalizer'
@@ -57,8 +57,17 @@ function addCounts(target: SyncCounts, stream: 'ar' | 'ap', result: InvoiceSyncP
   target[stream].errors += result.failed
 }
 
+const MAX_FAILURE_MESSAGE_LENGTH = 500
+
+/**
+ * `failure_message` is an unbounded `text` column that `status()` returns to every caller with
+ * `invoice.sync`. A driver exception's message carries the failing SQL and its bound parameters
+ * — partner names, tax codes, amounts — so only messages we construct ourselves are persisted.
+ * Anything else is reduced to a marker; the real error still goes to the logs with full detail.
+ */
 function safeErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : '[internal] Invoice sync failed'
+  if (error instanceof GdtProviderError) return error.message.slice(0, MAX_FAILURE_MESSAGE_LENGTH)
+  return '[internal] Invoice sync failed'
 }
 
 export default async function handle(job: QueuedJob<InvoiceSyncJobPayload>, ctx: HandlerContext): Promise<void> {
@@ -69,6 +78,7 @@ export default async function handle(job: QueuedJob<InvoiceSyncJobPayload>, ctx:
   const progressService = ctx.resolve<ProgressService>('progressService')
   const syncService = ctx.resolve('invoiceSyncService') as {
     getCachedToken(input: InvoiceScope): Promise<string | null>
+    clearCachedToken(input: InvoiceScope): Promise<void>
     setTerminalCooldown(input: InvoiceScope): Promise<void>
   }
   const fetcher = ctx.resolve('gdtFetcherService') as {
@@ -162,6 +172,7 @@ export default async function handle(job: QueuedJob<InvoiceSyncJobPayload>, ctx:
     await emitInvoiceEvent('invoice.sync.completed', { syncJobId: syncJob.id, progressJobId: payload.progressJobId, counts, ...scope })
   } catch (error) {
     const failureCategory = classifyGdtError(error)
+    if (failureCategory === 'AUTH_FAILED') await syncService.clearCachedToken(scope)
     syncJob.state = 'FAILED'
     syncJob.progress = Math.min(syncJob.progress, 99)
     syncJob.counts = counts

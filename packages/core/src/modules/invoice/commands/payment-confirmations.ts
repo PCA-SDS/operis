@@ -2,6 +2,7 @@ import { registerCommand } from '@open-mercato/shared/lib/commands'
 import type { CommandHandler, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 
 import { requireInvoiceScope } from '../data/scope'
+import { enforceInvoiceCommandOptimisticLock } from './shared'
 import {
   invoiceIncomingPaymentConfirmationSchema,
   invoicePaymentConfirmationRequestSchema,
@@ -22,6 +23,7 @@ export const requestPaymentConfirmationCommand: CommandHandler<unknown, InvoiceP
   async execute(rawInput, ctx) {
     const input = invoicePaymentConfirmationRequestSchema.parse(rawInput)
     const scope = requireInvoiceScope(ctx)
+    await enforceInvoiceCommandOptimisticLock(ctx, input.invoiceId)
 
     return serviceFrom(ctx).request(scope, input)
   },
@@ -52,6 +54,7 @@ function incomingCommand(
     async execute(rawInput, ctx) {
       const input = invoiceIncomingPaymentConfirmationSchema.parse(rawInput)
       const scope = requireInvoiceScope(ctx)
+      await enforceInvoiceCommandOptimisticLock(ctx, input.invoiceId)
 
       return target === 'accept'
         ? serviceFrom(ctx).acceptIncoming(scope, input.invoiceId)

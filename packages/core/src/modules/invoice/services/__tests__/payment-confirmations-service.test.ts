@@ -140,15 +140,18 @@ describe('InvoicePaymentConfirmationsService.request', () => {
       installmentId: null,
       status: 'PENDING',
     })
-    expect(harness.callOrder).toEqual(['create', 'email', 'supersede'])
+    // Supersede runs FIRST: deleting prior pendings after the insert let two concurrent
+    // requests both commit, which permanently 409s the receiver's Accept button.
+    expect(harness.callOrder).toEqual(['supersede', 'create', 'email'])
     expect(harness.tx.findOne).toHaveBeenCalledWith(expect.any(Function), {
       id: invoiceId,
       tenantId: scope.tenantId,
       organizationId: scope.organizationId,
       deletedAt: null,
     }, expect.any(Object))
+    // No `id: { $ne: … }` any more — the supersede runs before the insert, so the replacement
+    // row does not exist yet and cannot delete itself.
     expect(harness.tx.nativeDelete).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({
-      id: { $ne: confirmationId },
       installment: null,
       status: 'PENDING',
       tenantId: scope.tenantId,
@@ -235,8 +238,9 @@ describe('InvoicePaymentConfirmationsService.request', () => {
       invoiceId,
       recipientEmail: 'supplier@example.com',
     })).rejects.toMatchObject({ status: 400 })
+    // The supersede now runs before the email, so it IS attempted — but it shares the
+    // transaction, so a failed send rolls it back and prior requests survive regardless.
     expect(harness.wasCommitted()).toBe(false)
-    expect(harness.tx.nativeDelete).not.toHaveBeenCalled()
     expect(harness.companyEmailsService.record).not.toHaveBeenCalled()
     expect(emitInvoiceEvent).not.toHaveBeenCalled()
   })
@@ -350,6 +354,37 @@ describe('InvoicePaymentConfirmationsService incoming actions', () => {
       organizationId: 'payer-organization',
     }, harness.payerInvoice.id)
     expect(harness.updateReceivableSettlement).toHaveBeenCalledWith(scope, invoiceId, { settled: true })
+  })
+
+  it('refuses to settle a receivable the claim does not cover', async () => {
+    // The payer claims their own outstanding (60.0000); the receivable is larger.
+    // `updateReceivableSettlement` settles in FULL, so accepting here would mark a
+    // 500.0000 receivable paid on the strength of a 60.0000 claim.
+    const harness = buildIncomingHarness({
+      receiver: buildInvoice({
+        direction: 'AR',
+        lineItems: [] as never,
+        installments: [] as never,
+        outstandingAmount: '500.0000',
+      }),
+    })
+
+    await expect(harness.service.acceptIncoming(scope, invoiceId)).rejects.toMatchObject({ status: 409 })
+    expect(harness.updateReceivableSettlement).not.toHaveBeenCalled()
+  })
+
+  it('refuses to settle across a currency mismatch', async () => {
+    const harness = buildIncomingHarness({
+      receiver: buildInvoice({
+        direction: 'AR',
+        lineItems: [] as never,
+        installments: [] as never,
+        currencyCode: 'VND',
+      }),
+    })
+
+    await expect(harness.service.acceptIncoming(scope, invoiceId)).rejects.toMatchObject({ status: 409 })
+    expect(harness.updateReceivableSettlement).not.toHaveBeenCalled()
   })
 
   it('rejects a matching claim without changing either invoice', async () => {

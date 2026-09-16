@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
-import { resolveInvoiceInvoiceRouteContext, handleInvoiceInvoiceRouteError } from '../invoices/shared'
+import { resolveInvoiceInvoiceRouteContext, handleInvoiceInvoiceRouteError, readRequestRecord } from '../invoices/shared'
 import { invoiceSyncStartSchema } from '../../data/validators'
 import { createInvoiceOperationId } from '../openapi'
 
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const context = await resolveInvoiceInvoiceRouteContext(req)
-    const body = await req.json().catch(() => ({}))
+    const body = await readRequestRecord(req)
     const parsed = invoiceSyncStartSchema.parse(body)
     const guarded = await runRouteMutationGuards({ container: context.container, req, auth: { userId: context.userId, tenantId: context.scope.tenantId, organizationId: context.scope.organizationId }, input: { resourceKind: 'invoice.sync', operation: 'create', mutationPayload: parsed } })
     if (!guarded.ok) return guarded.response

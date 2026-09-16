@@ -14,7 +14,8 @@ import { ComboboxInput } from '@open-mercato/ui/backend/inputs/ComboboxInput'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
-import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 
 export type PaymentConfirmationView = {
   status: 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'EXPIRED'
@@ -29,6 +30,7 @@ export type PaymentConfirmationState = {
 
 type Invoice = {
   id: string
+  updatedAt?: string | null
   direction: 'AP' | 'AR'
   companyId: string | null
   partnerName: string | null
@@ -189,7 +191,10 @@ export function IncomingPaymentConfirmationPanel({ invoice, onChanged }: { invoi
     try {
       await runMutation({
         operation: async () => {
-          const call = await apiCall<{ ok: true }>(`/api/invoice/invoices/${encodeURIComponent(invoice.id)}/incoming-confirmation/${action}`, { method: 'POST' }, { fallback: null })
+          const call = await withScopedApiRequestHeaders(
+            buildOptimisticLockHeader(invoice.updatedAt),
+            () => apiCall<{ ok: true }>(`/api/invoice/invoices/${encodeURIComponent(invoice.id)}/incoming-confirmation/${action}`, { method: 'POST' }, { fallback: null }),
+          )
           if (!call.ok) throw new Error(t('invoice.paymentConfirmation.incomingFailed'))
           return call.result
         },

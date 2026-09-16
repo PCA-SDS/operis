@@ -9,11 +9,23 @@ const scope = { tenantId: 'tenant-1', organizationId: 'org-1' }
 const invoiceId = '11111111-1111-4111-8111-111111111111'
 const confirmationId = '22222222-2222-4222-8222-222222222222'
 
-function createContext(service: Record<string, jest.Mock>): CommandRuntimeContext {
+function createEm(): Record<string, jest.Mock> {
+  return {
+    findOne: jest.fn(async () => ({ id: invoiceId, updatedAt: new Date('2026-01-01T00:00:00.000Z') })),
+  }
+}
+
+function createContext(
+  service: Record<string, jest.Mock>,
+  em: Record<string, jest.Mock> = createEm(),
+): CommandRuntimeContext {
   const container = createContainer<Record<string, unknown>>({
     injectionMode: InjectionMode.PROXY,
   }) as unknown as AppContainer
-  container.register({ invoicePaymentConfirmationsService: asValue(service) })
+  container.register({
+    em: asValue(em),
+    invoicePaymentConfirmationsService: asValue(service),
+  })
 
   return {
     container,
@@ -52,6 +64,29 @@ describe('invoice payment confirmation commands', () => {
 
     await expect(handler?.execute({ invoiceId }, createContext(service))).resolves.toEqual(result)
     expect(serviceMethod).toHaveBeenCalledWith(scope, invoiceId)
+  })
+
+  it.each([
+    ['accept-incoming', 'invoice.payment_confirmations.accept-incoming', 'acceptIncoming'],
+    ['reject-incoming', 'invoice.payment_confirmations.reject-incoming', 'rejectIncoming'],
+    ['request', 'invoice.payment_confirmations.request', 'request'],
+  ])('enforces the invoice optimistic lock before %s mutates settlement state', async (_label, commandId, method) => {
+    const service: Record<string, jest.Mock> = { [method]: jest.fn(async () => ({ confirmationId, invoiceId, status: 'PENDING' })) }
+    const em = createEm()
+    const handler = commandRegistry.get(commandId)
+    // Both incoming schemas are `.strict()`, so only the request command accepts a recipient.
+    const input = method === 'request' ? { invoiceId, recipientEmail: 'supplier@example.com' } : { invoiceId }
+
+    await handler?.execute(input, createContext(service, em))
+
+    // `invoice:Invoice` is enabled in the record-locks ledger, so every write surface has to
+    // read the current `updated_at` under the caller's scope before mutating.
+    expect(em.findOne).toHaveBeenCalledWith(expect.any(Function), {
+      id: invoiceId,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+      deletedAt: null,
+    })
   })
 
   it('rejects forged scope on incoming actions', async () => {
