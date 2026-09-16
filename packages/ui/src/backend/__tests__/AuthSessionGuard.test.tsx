@@ -58,7 +58,10 @@ describe('AuthSessionGuard', () => {
     render(<AuthSessionGuard serverUserId="employee-id" />)
 
     await act(async () => {
-      window.dispatchEvent(new Event('focus'))
+      // Tab restore is signalled by `visibilitychange`. The guard deliberately
+      // no longer listens to `window.focus` as well — a restore fires both, and
+      // listening to both sent two identity checks per restore.
+      document.dispatchEvent(new Event('visibilitychange'))
     })
 
     await waitFor(() => {
@@ -73,7 +76,10 @@ describe('AuthSessionGuard', () => {
     render(<AuthSessionGuard serverUserId="employee-id" />)
 
     await act(async () => {
-      window.dispatchEvent(new Event('focus'))
+      // Tab restore is signalled by `visibilitychange`. The guard deliberately
+      // no longer listens to `window.focus` as well — a restore fires both, and
+      // listening to both sent two identity checks per restore.
+      document.dispatchEvent(new Event('visibilitychange'))
     })
 
     await waitFor(() => {
@@ -88,7 +94,10 @@ describe('AuthSessionGuard', () => {
     render(<AuthSessionGuard serverUserId="employee-id" />)
 
     await act(async () => {
-      window.dispatchEvent(new Event('focus'))
+      // Tab restore is signalled by `visibilitychange`. The guard deliberately
+      // no longer listens to `window.focus` as well — a restore fires both, and
+      // listening to both sent two identity checks per restore.
+      document.dispatchEvent(new Event('visibilitychange'))
     })
 
     await waitFor(() => {

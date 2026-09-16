@@ -198,3 +198,12 @@ export function formatFallbackLabel(value: string): string {
     .replace(/[_-]+/g, ' ')
     .replace(/^\w/, (c) => c.toUpperCase())
 }
+
+/**
+ * Render a tab badge count: hidden when empty, capped so a large number cannot
+ * stretch the tab strip. Three detail tab strips each carried a copy.
+ */
+export function formatTabCount(count: number): string | number | undefined {
+  if (count <= 0) return undefined
+  return count > 999 ? '999+' : count
+}

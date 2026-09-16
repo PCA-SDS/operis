@@ -86,6 +86,21 @@ const events = [
     // able to hang a workflow off.
     excludeFromTriggers: true,
   },
+  {
+    id: 'chat.conversation.typing',
+    label: 'Chat Typing',
+    entity: 'conversation',
+    category: 'lifecycle',
+    clientBroadcast: true,
+    /**
+     * Nothing is stored, and nothing may hang off it.
+     *
+     * A typing notification is true for a few seconds and then is not. A
+     * workflow triggered by one would fire on a keystroke and act on a fact
+     * that had already expired by the time it ran.
+     */
+    excludeFromTriggers: true,
+  },
 ] as const
 
 export const eventsConfig = createModuleEvents({ moduleId: 'chat', events })

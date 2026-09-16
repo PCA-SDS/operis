@@ -2362,6 +2362,8 @@
   "customers.people.form.lifecycleStage.placeholder": "Wybierz etap cyklu",
   "customers.people.form.linkedInUrl": "LinkedIn",
   "customers.people.form.linkedInUrl.placeholder": "https://www.linkedin.com/in/przyklad",
+  "customers.people.form.origin": "Origin",
+  "customers.people.form.origin.placeholder": "Select an origin",
   "customers.people.form.phoneChecking": "Sprawdzanie, czy numer telefonu jest już używany…",
   "customers.people.form.phoneDuplicateLink": "Otwórz rekord",
   "customers.people.form.phoneDuplicateNotice": "Ten numer telefonu jest już przypisany do {{name}}.",

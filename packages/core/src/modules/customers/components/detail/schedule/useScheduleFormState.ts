@@ -1,5 +1,6 @@
 import * as React from 'react'
 import type { ActivityType } from './fieldConfig'
+import { formatLocalDateInput, formatLocalTimeInput } from '@open-mercato/core/modules/customers/lib/calendar/editorPayload'
 
 export type RsvpStatus = 'pending' | 'accepted' | 'declined' | 'tentative'
 
@@ -63,18 +64,6 @@ const DEFAULT_REMINDER_MINUTES: Record<ActivityType, number> = {
   task: 1440,
   email: 15,
   note: 15,
-}
-
-function padDatePart(value: number): string {
-  return String(value).padStart(2, '0')
-}
-
-function formatLocalDateInput(date: Date): string {
-  return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`
-}
-
-function formatLocalTimeInput(date: Date): string {
-  return `${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`
 }
 
 interface UseScheduleFormStateParams {

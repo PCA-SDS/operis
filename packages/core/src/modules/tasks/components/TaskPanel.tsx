@@ -134,8 +134,17 @@ export function TaskPanel({
 
   const { task, isLoading, error, retry } = useTask(activeId ?? undefined)
   const errorMessage = useTaskError(error, t('tasks.common.loadFailed', "This didn't load"))
-  const { milestones } = useMilestones(projectId)
-  const { create, update, remove } = useTaskMutations(projectId)
+  /**
+   * The project the panel is working in.
+   *
+   * A caller that opens the panel on an existing task does not always know which
+   * project it is in — a deep link carries a task id and nothing else — so the
+   * loaded task answers for itself. Creating still needs the prop, because there
+   * is no task yet to ask.
+   */
+  const effectiveProjectId = projectId || task?.projectId || ''
+  const { milestones } = useMilestones(effectiveProjectId)
+  const { create, update, remove } = useTaskMutations(effectiveProjectId)
 
   const busyCreate = create.isPending
 

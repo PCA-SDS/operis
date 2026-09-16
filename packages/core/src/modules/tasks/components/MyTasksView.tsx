@@ -16,6 +16,7 @@ import { StatusSelect } from './StatusSelect'
 import { SubtaskProgress } from './badges'
 import { PriorityBars } from './PriorityBars'
 import { TaskPanel } from './TaskPanel'
+import { TASK_PARAM } from './shellParams'
 import { AddTaskRow, ErrorState, SkeletonBlock } from './ui-bits'
 import {
   TASK_STATUS_META,
@@ -117,6 +118,23 @@ export function MyTasksView({ view }: { view: MyTaskView }) {
   const [searchInput, setSearchInput] = React.useState(urlQuery)
   const [composerOpen, setComposerOpen] = React.useState(false)
   const [selected, setSelected] = React.useState<{ id: string; projectId: string } | null>(null)
+
+  /**
+   * A task named in the URL.
+   *
+   * The panel is otherwise opened from local state, which is right for clicking a
+   * row you can already see and useless as a destination: anything outside this
+   * component — a notification, a search hit, a task card in a chat conversation —
+   * has no way to say "open this one". `?task=<id>` is that way, and it is a
+   * parameter on a route this module already owns rather than a new route, so it
+   * cannot collide with the `workflows` queue that shares the `/backend/tasks`
+   * prefix.
+   *
+   * The id is a request, not an authorization: the panel fetches the task over
+   * the module's own authorized route, so a guessed id renders the panel's own
+   * not-found state.
+   */
+  const urlTaskId = searchParams.get(TASK_PARAM)
 
   React.useEffect(() => setSearchInput(urlQuery), [urlQuery])
 
@@ -276,13 +294,25 @@ export function MyTasksView({ view }: { view: MyTaskView }) {
         </div>
       )}
 
-      {selected && (
+      {/* The URL wins over local state while it names a task, so a link opens the
+          panel even when a row was already selected. Closing clears the
+          parameter as well, or the panel would reopen on the next render. */}
+      {urlTaskId ? (
+        <TaskPanel
+          key={urlTaskId}
+          taskId={urlTaskId}
+          /* Empty: the panel reads the real project from the task it loads, and
+             only needs this when creating. */
+          projectId=""
+          onClose={() => setParams({ [TASK_PARAM]: null })}
+        />
+      ) : selected ? (
         <TaskPanel
           taskId={selected.id}
           projectId={selected.projectId}
           onClose={() => setSelected(null)}
         />
-      )}
+      ) : null}
     </div>
   )
 }

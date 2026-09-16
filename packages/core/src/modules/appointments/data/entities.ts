@@ -53,6 +53,8 @@ export class Appointment {
     | 'customerPhone'
     | 'customerPhoneCountryCode'
     | 'customerPhoneCountry'
+    | 'customerOrigin'
+    | 'bookingType'
     | 'notes'
     | 'externalNotes'
 
@@ -85,6 +87,14 @@ export class Appointment {
 
   @Property({ name: 'customer_phone_country', type: 'text', nullable: true })
   customerPhoneCountry?: string | null
+
+  /** TPS origin (local / tourist / expatriate) — booking attribute, not CRM profile. */
+  @Property({ name: 'customer_origin', type: 'text', nullable: true })
+  customerOrigin?: string | null
+
+  /** TPS type of booking (call_in / walk_in / …). */
+  @Property({ name: 'booking_type', type: 'text', nullable: true })
+  bookingType?: string | null
 
   @ManyToOne(() => AppointmentStatus, { fieldName: 'status_id', deleteRule: 'restrict' })
   status!: AppointmentStatus
@@ -164,6 +174,12 @@ export class AppointmentLine {
 
   @Property({ name: 'duration_minutes', type: 'int', nullable: true })
   durationMinutes?: number | null
+
+  @Property({ name: 'product_category', type: 'text', nullable: true })
+  productCategory?: string | null
+
+  @Property({ name: 'selected_options', type: 'jsonb', nullable: true })
+  selectedOptions?: Record<string, unknown>[] | null
 
   @Property({ name: 'sort_order', type: 'int', default: 0 })
   sortOrder: number = 0

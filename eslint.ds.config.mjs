@@ -151,6 +151,30 @@ export default [
       'om-ds/no-legacy-alert-variant': 'error',
     },
   },
+  // `chat_tasks` ships strict for the same reason `chat` and `tasks` do: a module
+  // added today has no baseline debt. Its `widgets/injection/**` client components
+  // are rendering surfaces too — they ARE the UI another module shows — so the glob
+  // covers them alongside `components/`.
+  {
+    files: [
+      'packages/core/src/modules/chat_tasks/backend/**/*.{ts,tsx}',
+      'packages/core/src/modules/chat_tasks/components/**/*.{ts,tsx}',
+      'packages/core/src/modules/chat_tasks/widgets/**/*.{ts,tsx}',
+    ],
+    ignores: ['**/__tests__/**', '**/*.generated.*'],
+    linterOptions,
+    languageOptions,
+    plugins,
+    rules: {
+      'om-ds/require-empty-state': 'error',
+      'om-ds/require-page-wrapper': 'error',
+      'om-ds/no-raw-table': 'error',
+      'om-ds/require-loading-state': 'error',
+      'om-ds/require-status-badge': 'error',
+      'om-ds/no-hardcoded-status-colors': 'error',
+      'om-ds/no-legacy-alert-variant': 'error',
+    },
+  },
   {
     files: [
       'packages/core/src/modules/invoice/backend/**/*.{ts,tsx}',
@@ -179,6 +203,7 @@ export default [
     files: [
       'packages/core/src/modules/tasks/components/api.ts',
       'packages/core/src/modules/chat/components/api.ts',
+      'packages/core/src/modules/chat_tasks/components/api.ts',
     ],
     linterOptions,
     languageOptions,

@@ -55,9 +55,11 @@ second messaging engine for groups.
   index that makes direct pairs canonical.
 - Ask before adding an ACL feature. Space access is deliberately **membership,
   not privilege**: no role grant should open a space its holder was not added to.
-- Ask before emitting a notification per space message — the read-cursor unread
-  model is the intended UX, and one row per member per message is the noise the
-  module exists to avoid.
+- Ask before widening notifications beyond what `subscribers/message-notification.ts`
+  already does. A direct message notifies its counterpart; a space notifies only
+  the people a message **names**. Notifying on every space message is the noise
+  the read-cursor unread model exists to avoid — one row per member per message,
+  thousands a day in a busy room.
 
 ## Never
 
@@ -184,6 +186,44 @@ reader cannot find.
 The translation cache needs no invalidation either way: its rows are keyed by a
 hash of the source text, so an edited message misses and is translated afresh.
 
+## Notifications and Mute
+
+`subscribers/message-notification.ts`, on `chat.message.sent`. Two types rather
+than one — `chat.direct.received` and `chat.mention.received` — because the
+point of separating them is that a person can silence one and keep the other.
+
+**Who gets told is the whole policy.** A direct notifies its counterpart. A
+space notifies only the people the message names, by mention or `@everyone`.
+Three exclusions on top: the sender, anyone who muted the conversation, and
+anyone whose read cursor is already past the message — that last one is the
+person who had it open as it arrived.
+
+`groupKey` is keyed on the conversation and the reader, **not** the message, so
+a colleague sending five messages while you are away leaves one entry rather
+than five to dismiss.
+
+**Mute is `chat_participants.muted_at`**, beside `last_read_at` — the other
+per-person-per-conversation state. It suppresses notifications and nothing else:
+the unread count still moves and the conversation still rises in the list.
+Conflating the two is how people lose things in rooms they silenced months ago.
+A timestamp rather than a boolean because it answers "since when" for free.
+
+## Typing
+
+`chat.conversations.setTyping` fans an SSE frame to everyone in the conversation
+**except** the person typing, and mirrors `m.typing` when the transport carries
+it. Nothing is stored on either side.
+
+`chat.conversation.typing` is excluded from the live-refresh path in
+`components/hooks.ts` — it invalidates no cache, ever. It is not a change to any
+cached thing and it arrives on a keystroke; letting it fall through would
+invalidate the module's whole key space several times a second while somebody
+composed a sentence.
+
+The client throttles to one notification every few seconds and the indicator
+expires on its own after seven. The expiry, not the stop signal, is what
+guarantees it goes away — a client that crashes mid-sentence sends no stop.
+
 ## Departed Members
 
 A participant row outlives the organization membership that created it. What that
@@ -219,6 +259,50 @@ freeze a name that later changes.
 They are **excluded from the unread predicate** (`m.kind = 'user'`), so a space
 with active membership is not permanently unread for everyone in it. They still
 bump `last_message_at`, so the space rises in the list.
+
+## Cards and Extension Points
+
+Chat renders spots and imports nothing from the modules that fill them.
+`extension-points.ts` declares six hosts; a seventh should follow the same shape —
+`defineModuleExtensionPoints`, a literal spot id, and a `source` naming the component
+that actually renders it.
+
+| Spot | Fills |
+|---|---|
+| `chat:composer:commands` | `/`-command entries (row-action widgets: data, not render) |
+| `chat:message:actions` | extra items in a message's own menu |
+| `chat:message:card` | the body of a `systemEvent: 'card'` row |
+| `chat:conversation-panel:sections` | a tab in the side panel |
+| `chat:conversation-panel:section` | that tab's content |
+| `chat:conversation:overlays` | always-mounted drawers, so a command can open one |
+
+**A card row is a pointer with no text.** `systemEvent: 'card'` on a `kind: 'system'`
+row with an **empty body**, written by `chat.messages.appendCard` and removed by
+`chat.messages.removeCard`. Chat neither knows nor asks what a card refers to: the
+spot's widget resolves it **per viewer** through its own authorized read, and one that
+resolves nothing renders `chat.cards.unavailable`. Being a system row, it is already
+excluded from the unread predicate and already not editable.
+
+The empty body is the contract, not an omission — it is what keeps whatever the card
+points at out of `search_body`, the conversation preview, the translation cache and the
+transport. Never "improve" a card by storing a summary in its body: that is a snapshot,
+it goes stale, and it escapes the permission check the widget performs.
+
+`appendCard` is **not** a third send path. No mentions, no links, no attachments, no
+reply target, no publish: it appends the row, bumps `last_message_at` with an **empty**
+preview, and emits `chat.message.sent` carrying `card: true` to the conversation
+audience.
+
+## Slash Commands
+
+`lib/slashCommands.ts` is pure and isomorphic, and deliberately strict: **only an
+explicit leading command counts.** `COMMAND_TOKEN` is anchored, so a URL, a pasted
+path, a code fragment and a quoted `/` all stay ordinary text. A leading token matching
+nothing known is **neither sent as a message nor discarded** — the composer says it is
+unknown and keeps what was typed.
+
+Composition is checked before the menu sees a key: `isComposing` means an IME is
+mid-word and Enter belongs to the IME, not to the menu.
 
 ## Where Things Live
 

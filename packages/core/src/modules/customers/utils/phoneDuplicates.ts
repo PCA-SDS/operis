@@ -41,7 +41,7 @@ export async function lookupPhoneDuplicate(
           return {
             id,
             label: displayName,
-            href: `/backend/customers/people/${id}`,
+            href: `/backend/customers/people-v2/${id}`,
           }
         }
       }

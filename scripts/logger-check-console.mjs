@@ -43,7 +43,11 @@ const green = (s) => `\x1b[32m${s}\x1b[0m`
 const dim = (s) => `\x1b[2m${s}\x1b[0m`
 const cyan = (s) => `\x1b[36m${s}\x1b[0m`
 
-const DEFAULT_SCAN_GLOBS = ['packages/*/src/**/*.{ts,tsx}']
+// `apps/*/src` was outside the scan until 2026-09-15, so the gate certified the
+// app as clean while the universal API dispatcher logged straight to console on
+// its 403 path. The app ships the same runtime as the packages; it gets the same
+// gate.
+const DEFAULT_SCAN_GLOBS = ['packages/*/src/**/*.{ts,tsx}', 'apps/*/src/**/*.{ts,tsx}']
 
 const DEFAULT_IGNORE = [
   '**/node_modules/**',

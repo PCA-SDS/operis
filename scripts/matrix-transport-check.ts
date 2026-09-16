@@ -496,6 +496,7 @@ async function main(): Promise<void> {
     em: em as never,
     commandBus: commandBus as never,
     config,
+    client,
     container: {} as never,
   }
 

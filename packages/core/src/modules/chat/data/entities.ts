@@ -29,8 +29,24 @@ export type ChatParticipantRole = 'owner' | 'member'
  */
 export type ChatMessageKind = 'user' | 'system'
 
-/** The membership changes that leave a trace in the transcript. */
-export type ChatSystemEvent = 'member_added' | 'member_removed' | 'member_left' | 'space_renamed'
+/**
+ * The non-authored rows that leave a trace in the transcript.
+ *
+ * The first four are membership changes. `card` is different in kind: it marks a
+ * row that stands for something outside chat — a task, today — and whose body is
+ * rendered by whichever module owns that thing, through the
+ * `chat:message:card` extension point. It is a system row rather than a user one
+ * on purpose: a system row stores no text, so nothing belonging to another
+ * module can reach `search_body`, the conversation preview, the translation
+ * pipeline or the outbound transport, and it is already excluded from the unread
+ * predicate and from editing.
+ */
+export type ChatSystemEvent =
+  | 'member_added'
+  | 'member_removed'
+  | 'member_left'
+  | 'space_renamed'
+  | 'card'
 
 /** Longest space name the schema and the validators both accept. */
 export const MAX_SPACE_TITLE_LENGTH = 80
@@ -170,7 +186,7 @@ export class ChatConversation {
     `create index "chat_participants_owner_idx" on "chat_participants" ("conversation_id") where "role" = 'owner'`,
 })
 export class ChatParticipant {
-  [OptionalProps]?: 'role' | 'lastReadAt' | 'createdAt' | 'updatedAt'
+  [OptionalProps]?: 'role' | 'lastReadAt' | 'mutedAt' | 'createdAt' | 'updatedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -196,6 +212,21 @@ export class ChatParticipant {
 
   @Property({ name: 'last_read_at', type: Date, nullable: true })
   lastReadAt?: Date | null
+
+  /**
+   * When this person silenced the conversation, or null.
+   *
+   * A timestamp rather than a boolean, for the same reason `last_read_at` is
+   * one: it answers "since when" for free, and a later "mute for two hours"
+   * needs a moment to measure from rather than a flag to reinterpret.
+   *
+   * Muting suppresses **notifications only**. The unread count still moves and
+   * the conversation still rises in the list — silencing a room is not the same
+   * as pretending nothing happened in it, and every chat that conflates the two
+   * ends up with people missing things they muted six months ago.
+   */
+  @Property({ name: 'muted_at', type: Date, nullable: true })
+  mutedAt?: Date | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

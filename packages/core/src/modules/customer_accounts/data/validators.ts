@@ -1,8 +1,12 @@
 import { z } from 'zod'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 import { buildPasswordSchema } from '@open-mercato/shared/lib/auth/passwordPolicy'
 import { normalizeHostname } from '@open-mercato/core/modules/customer_accounts/lib/hostname'
 
-const emailField = z.string().email().max(255)
+// The column is `text`, so the shared 320-octet RFC 5321 cap applies; the old
+// 255 was not a column width. `emailSchema()` also trims, so a pasted address
+// with surrounding whitespace now parses instead of failing.
+const emailField = emailSchema()
 /**
  * The platform password policy, not a portal-local rule.
  *

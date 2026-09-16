@@ -134,7 +134,7 @@ describe('usePortalNotifications strategy', () => {
     await waitFor(() => expect(apiCallMock).toHaveBeenCalledTimes(6))
   })
 
-  it('reconciles notifications when the portal window regains focus', async () => {
+  it('reconciles notifications when the portal tab is restored', async () => {
     ;(window as unknown as { EventSource?: typeof EventSource }).EventSource = function EventSourceMock() {
       return {} as EventSource
     } as unknown as typeof EventSource
@@ -144,7 +144,9 @@ describe('usePortalNotifications strategy', () => {
     expect(apiCallMock).toHaveBeenCalledTimes(2)
 
     await act(async () => {
-      window.dispatchEvent(new Event('focus'))
+      // Tab restore is signalled by `visibilitychange`; the hook now uses the
+      // shared coalescing helper rather than a raw `window.focus` listener.
+      document.dispatchEvent(new Event('visibilitychange'))
       await new Promise<void>((resolve) => {
         setTimeout(resolve, 0)
       })

@@ -1,4 +1,4 @@
-import { buildVariantFilters, stripPlaceholderId } from '../variants/route'
+import { VARIANT_LIST_FIELDS, buildVariantFilters, stripPlaceholderId } from '../variants/route'
 import { sanitizeSearchTerm } from '../helpers'
 
 jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
@@ -40,5 +40,16 @@ describe('catalog variants route helpers', () => {
     const valid = { id: ' 0a463809-ef8f-420e-b329-6767eeefaa9e ' }
     stripPlaceholderId(valid)
     expect(valid.id).toBe('0a463809-ef8f-420e-b329-6767eeefaa9e')
+  })
+
+  it('returns service duration fields in variant list responses', () => {
+    expect(VARIANT_LIST_FIELDS).toEqual(
+      expect.arrayContaining([
+        'duration_value',
+        'duration_unit',
+        'duration_min',
+        'duration_max',
+      ]),
+    )
   })
 })

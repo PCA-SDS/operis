@@ -333,7 +333,7 @@ export default function UmesExtensionsPage() {
             <div className="font-medium text-status-warning-text">{t('example.umes.extensions.hintHeading', 'What should be visible and how it should work')}</div>
             <div>{t('example.umes.extensions.phaseG.hint1', '1. Injected widget card `Example Injection Widget` should be visible above form fields.')}</div>
             <div>{t('example.umes.extensions.phaseG.hint2', '2. Saving valid form should update `submitResult` below the form.')}</div>
-            <div>{t('example.umes.extensions.phaseG.hint3', '3. In customer detail form (`/backend/customers/people/:id`), injected `_example.priority` field should persist via onSave handler.')}</div>
+            <div>{t('example.umes.extensions.phaseG.hint3', '3. In customer detail form (`/backend/customers/people-v2/:id`), injected `_example.priority` field should persist via onSave handler.')}</div>
           </div>
           <CrudForm<{ title: string; note?: string }>
             schema={z.object({ title: z.string().min(1), note: z.string().optional() })}

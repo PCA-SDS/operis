@@ -9,6 +9,8 @@ import {
   snapshotsEqual,
 } from '@open-mercato/shared/lib/commands/helpers'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { normalizeEmail } from '@open-mercato/shared/lib/validation'
 import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import {
@@ -152,6 +154,7 @@ type PersonSnapshot = {
     status: string | null
     lifecycleStage: string | null
     source: string | null
+    origin: string | null
     nextInteractionAt: Date | null
     nextInteractionName: string | null
     nextInteractionRefId: string | null
@@ -225,21 +228,10 @@ function personEntityIndexEntry(entity: CustomerEntity): QueryIndexEventEntry {
   }
 }
 
-function normalizeOptionalString(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
-
 function normalizeHexColor(value: string | null | undefined): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim().toLowerCase()
   return /^#([0-9a-f]{6})$/.test(trimmed) ? trimmed : null
-}
-
-function normalizeEmail(value: string | null | undefined): string | null {
-  const normalized = normalizeOptionalString(value)
-  return normalized ? normalized.toLowerCase() : null
 }
 
 type PersonDeleteBlockerCounts = {
@@ -295,6 +287,7 @@ function serializePersonSnapshot(
       status: entity.status ?? null,
       lifecycleStage: entity.lifecycleStage ?? null,
       source: entity.source ?? null,
+      origin: entity.origin ?? null,
       nextInteractionAt: entity.nextInteractionAt ?? null,
       nextInteractionName: entity.nextInteractionName ?? null,
       nextInteractionRefId: entity.nextInteractionRefId ?? null,
@@ -555,6 +548,7 @@ type PersonGraphValues = {
   status: string | null
   lifecycleStage: string | null
   source: string | null
+  origin: string | null
   nextInteractionAt: Date | null
   nextInteractionName: string | null
   nextInteractionRefId: string | null
@@ -599,6 +593,7 @@ function buildPersonGraph(
     status: values.status,
     lifecycleStage: values.lifecycleStage,
     source: values.source,
+    origin: values.origin,
     nextInteractionAt: values.nextInteractionAt,
     nextInteractionName: values.nextInteractionName,
     nextInteractionRefId: values.nextInteractionRefId,
@@ -654,6 +649,7 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
     const status = normalizeOptionalString(parsed.status)
     const lifecycleStage = normalizeOptionalString(parsed.lifecycleStage)
     const source = normalizeOptionalString(parsed.source)
+    const origin = normalizeOptionalString(parsed.origin)
     const preferredName = normalizeOptionalString(parsed.preferredName)
     const jobTitle = normalizeOptionalString(parsed.jobTitle)
     const department = normalizeOptionalString(parsed.department)
@@ -695,6 +691,7 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
           status,
           lifecycleStage,
           source,
+          origin,
           nextInteractionAt: parsed.nextInteraction?.at ?? null,
           nextInteractionName,
           nextInteractionRefId,
@@ -869,6 +866,7 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
             status: after.entity.status,
             lifecycleStage: after.entity.lifecycleStage,
             source: after.entity.source,
+            origin: after.entity.origin,
             nextInteractionAt: after.entity.nextInteractionAt,
             nextInteractionName: after.entity.nextInteractionName,
             nextInteractionRefId: after.entity.nextInteractionRefId,
@@ -1033,6 +1031,9 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
         if (parsed.lifecycleStage !== undefined) record.lifecycleStage = normalizeOptionalString(parsed.lifecycleStage)
         if (parsed.source !== undefined) {
           record.source = normalizeOptionalString(parsed.source)
+        }
+        if (parsed.origin !== undefined) {
+          record.origin = normalizeOptionalString(parsed.origin)
         }
         if (parsed.isActive !== undefined) record.isActive = parsed.isActive
         if (parsed.nextInteraction) {
@@ -1205,6 +1206,7 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
             status: before.entity.status,
             lifecycleStage: before.entity.lifecycleStage,
             source: before.entity.source,
+            origin: before.entity.origin,
             nextInteractionAt: before.entity.nextInteractionAt,
             nextInteractionName: before.entity.nextInteractionName,
             nextInteractionRefId: before.entity.nextInteractionRefId,
@@ -1249,6 +1251,7 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
           entity.status = before.entity.status
           entity.lifecycleStage = before.entity.lifecycleStage
           entity.source = before.entity.source
+          entity.origin = before.entity.origin
           entity.nextInteractionAt = before.entity.nextInteractionAt
           entity.nextInteractionName = before.entity.nextInteractionName
           entity.nextInteractionRefId = before.entity.nextInteractionRefId
@@ -1497,6 +1500,7 @@ const deletePersonCommand: CommandHandler<{ body?: Record<string, unknown>; quer
           status: before.entity.status,
           lifecycleStage: before.entity.lifecycleStage,
           source: before.entity.source,
+          origin: before.entity.origin,
           nextInteractionAt: before.entity.nextInteractionAt,
           nextInteractionName: before.entity.nextInteractionName,
           nextInteractionRefId: before.entity.nextInteractionRefId,
@@ -1519,6 +1523,7 @@ const deletePersonCommand: CommandHandler<{ body?: Record<string, unknown>; quer
       entity.status = before.entity.status
       entity.lifecycleStage = before.entity.lifecycleStage
       entity.source = before.entity.source
+      entity.origin = before.entity.origin
       entity.nextInteractionAt = before.entity.nextInteractionAt
       entity.nextInteractionName = before.entity.nextInteractionName
       entity.nextInteractionRefId = before.entity.nextInteractionRefId

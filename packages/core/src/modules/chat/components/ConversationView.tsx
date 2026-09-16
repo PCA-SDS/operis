@@ -3,7 +3,19 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { ArrowLeft, ChevronRight, Paperclip, Pin, Search, Users } from 'lucide-react'
+import {
+  ArrowLeft,
+  Bell,
+  BellOff,
+  ChevronRight,
+  ListChecks,
+  MoreHorizontal,
+  Paperclip,
+  Pin,
+  Search,
+  Users,
+} from 'lucide-react'
+import { resolveInjectedIcon } from '@open-mercato/ui/backend/injection/resolveInjectedIcon'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
@@ -13,7 +25,10 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useTCount } from './plurals'
 import type { ChatMessageDto } from '../data/types'
-import { MessageComposer, type MentionCandidate } from './MessageComposer'
+import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
+import { extensionPoints } from '../extension-points'
+import { MessageComposer, type ComposerCommand, type MentionCandidate } from './MessageComposer'
+import { useChatInjectedActions } from './injection'
 import { useChatAttachments } from './useChatAttachments'
 import {
   MessageList,
@@ -29,14 +44,19 @@ import { ChatContextPanel } from './ChatContextPanel'
 import {
   clampPanelWidth,
   minimumSplitWidth,
+  panelSectionId,
   useContainerWidth,
   type ChatContextPanelState,
 } from './contextPanel'
+import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { TranslateControl } from './TranslateControl'
 import { SpaceDetailsDialog } from './SpaceDetailsDialog'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import {
   useCanSendChat,
+  useConversationMute,
+  useTypingPeers,
+  useTypingSignal,
   useChatLocale,
   useChatTranslation,
   useConversation,
@@ -596,8 +616,90 @@ export function ConversationView({
 
   /** Owners in a space; either participant in a direct — matching the server. */
   const canPin = Boolean(conversation) && (!isSpace || conversation?.viewerRole === 'owner')
+
+  /**
+   * What other modules contribute to this conversation.
+   *
+   * Both lists come back empty when nothing has claimed the spot, so the composer
+   * behaves exactly as it did before commands existed and the header grows no extra
+   * buttons. The feature filter is applied by the loader, so a viewer who lacks a
+   * contributed action's grants never sees it — and the endpoint behind it checks
+   * again anyway.
+   */
+  const composerCommandActions = useChatInjectedActions(
+    extensionPoints.hosts.composerCommands.spotId,
+  )
+  const panelSectionActions = useChatInjectedActions(
+    extensionPoints.hosts.conversationPanelSections.spotId,
+  )
+
+  /**
+   * A bump handed to the composer once a command has actually finished.
+   *
+   * The composer keeps the typed line until this changes, so cancelling the drawer
+   * or failing to create leaves the words in the box. Only a real success empties
+   * it.
+   */
+  const [commandConsumedToken, setCommandConsumedToken] = React.useState(0)
+
+  const composerCommands = React.useMemo<ComposerCommand[]>(
+    () =>
+      composerCommandActions.map((action) => ({
+        id: action.id,
+        // The contributed id doubles as the typed name: `chat_tasks.command.task`
+        // offers `/task`. Kept as the last dotted segment so a module namespaces its
+        // action without making the writer type the namespace.
+        name: action.id.split('.').pop() ?? action.id,
+        label: action.label,
+        onSelect: (argument: string) =>
+          action.onSelect(
+            { argument },
+            {
+              conversationId,
+              isSpace,
+              /** Called by the command once the work is done, never before. */
+              onConsumed: () => setCommandConsumedToken((current) => current + 1),
+            },
+          ),
+      })),
+    [composerCommandActions, conversationId, isSpace],
+  )
+
+  const openSectionId = panelSectionId(contextPanel.kind)
   // Resolved server-side for both kinds — a space's name, or the other person's.
   const conversationTitle = conversation?.title ?? t('chat.list.unknownPerson', 'Former colleague')
+
+  /**
+   * Who is typing, said in words.
+   *
+   * A direct conversation has exactly one other person and the header already
+   * names them, so naming them again would be noise — "Typing…" is what every
+   * other chat says there. A space names them, because in a room of eight it is
+   * the only useful part.
+   *
+   * Names come from the membership the mention picker already loaded; a typist
+   * who is not in that page is counted rather than named, which is why the
+   * three-or-more case says nothing about who.
+   */
+  const mute = useConversationMute(conversationId)
+  const typingSignal = useTypingSignal(conversationId)
+  const typingPeers = useTypingPeers(conversationId)
+  const typingLabel = React.useMemo(() => {
+    if (typingPeers.length === 0) return null
+    if (!isSpace) return t('chat.typing.one', 'Typing…')
+    const named = typingPeers
+      .map((userId) => members.find((member) => member.id === userId)?.name)
+      .filter((name): name is string => Boolean(name))
+    if (typingPeers.length === 1 && named.length === 1) {
+      return t('chat.typing.named', '{name} is typing…').replace('{name}', named[0])
+    }
+    if (typingPeers.length === 2 && named.length === 2) {
+      return t('chat.typing.two', '{first} and {second} are typing…')
+        .replace('{first}', named[0])
+        .replace('{second}', named[1])
+    }
+    return t('chat.typing.several', 'Several people are typing…')
+  }, [isSpace, members, t, typingPeers])
   // Only a DIRECT conversation can become one-way. A space with a departed
   // member is still a live room for everyone else, so it must not disable the
   // composer for them.
@@ -618,7 +720,14 @@ export function ConversationView({
   // too, rather than vanishing the moment a refetch fails.
   const header = (
     <>
-      <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
+      {/*
+        A CONTAINER query, not a viewport one, and the difference is the whole
+        bug. The constraint here is how wide this header is, which is not what
+        the window is: with the conversation list beside it, a 1024px viewport
+        gives this header 376px — phone-sized — while `sm:` happily reported
+        "desktop" and rendered the full toolbar into it.
+      */}
+      <header className="@container/chat-header flex h-14 shrink-0 items-center gap-3 border-b border-border px-4">
       {/* 32px, like every other control in this header. It is the only one a
           narrow screen shows alongside the title, so at 28px it was the odd
           size out on exactly the viewport where touch targets matter most. */}
@@ -677,7 +786,7 @@ export function ConversationView({
             type="button"
             onClick={() => setDetailsOpen(true)}
             aria-haspopup="dialog"
-            className="-mx-2 flex min-w-0 items-center gap-2 rounded-md px-2 py-1 outline-none transition-colors hover:bg-surface-muted focus-visible:shadow-focus"
+            className="-mx-2 flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 outline-none transition-colors hover:bg-surface-muted focus-visible:shadow-focus"
           >
             {identity}
             {/* The header is the way into the details panel, so it needs to look
@@ -694,12 +803,32 @@ export function ConversationView({
         )
       })()}
 
-      {/* Pushes the pin control to the trailing edge, away from the identity. */}
-      <span className="flex-1" />
+      {/*
+        No spacer here, deliberately. The identity block above already carries
+        `flex-1`, so a second `flex-1` element split the free space evenly with
+        it — on a 375px header that handed 84px to an empty span while the
+        conversation name was truncated to "empl…". The identity growing is what
+        pushes the controls to the trailing edge.
+      */}
 
-      {/* `size="default"` is 32px, the height every other control in this row
-          already has. At `sm` this one alone was 28px, so its hover target was
-          visibly smaller than its neighbours'. */}
+      {/*
+        Below `@md` (448px of HEADER, not of window) these move into a popover,
+        and the reason is measured rather than aesthetic: at 376px the row
+        consumed the whole header and
+        `truncate` squeezed the conversation name to ZERO width, so the header
+        stopped saying who you were talking to.
+
+        They are relocated rather than reimplemented as text items —
+        `TranslateControl` carries a language picker that a flat menu would
+        quietly drop, and a phone is exactly where somebody reading in a second
+        language needs it.
+
+        The mute control is deliberately NOT among them: it sits between the two
+        groups and stays visible at every width, because a muted room has to say
+        it is muted. Hiding the one control that carries state is how somebody
+        misses a message for a week and blames the notifications.
+      */}
+      <div className="hidden shrink-0 items-center gap-3 @md/chat-header:flex">
       {conversation ? (
         <IconButton
           variant="ghost"
@@ -730,15 +859,61 @@ export function ConversationView({
         />
       ) : null}
 
-      {/* Only when there is something to show. At zero this is not rendered
-          rather than rendered disabled: the panel's whole job is to answer
-          "what has been pinned here", and a control that opens an empty answer
-          is the dead end it exists to avoid. */}
-      {/* Beside pins, not buried in a menu: both answer "where did that go?",
-          and the panel is the only route back to a resource shared months ago. */}
-      {/* Icon-only, like the search control beside it, so the same primitive
-          at the same size — the two were a `Button` and an `IconButton` at two
-          different heights. Pins keeps `Button` because it shows a count. */}
+      </div>
+
+      {/* Beside the other header controls rather than in a menu: a muted room
+          has to SAY it is muted, or the first thing anybody does when they miss
+          something is blame the notifications. Icon-only at the same size as
+          the shared-files control next to it. */}
+      {conversation ? (
+        <IconButton
+          type="button"
+          variant="ghost"
+          size="default"
+          className={
+            conversation.muted ? 'shrink-0 text-foreground' : 'shrink-0 text-muted-foreground'
+          }
+          disabled={mute.isPending}
+          onClick={() => mute.mutate(!conversation.muted)}
+          aria-pressed={conversation.muted}
+          aria-label={
+            conversation.muted
+              ? t('chat.mute.unmute', 'Unmute conversation')
+              : t('chat.mute.mute', 'Mute conversation')
+          }
+          title={
+            conversation.muted
+              ? `${t('chat.mute.muted', 'Muted')} — ${t('chat.mute.hint', 'Notifications are silenced. Unread counts still update.')}`
+              : t('chat.mute.mute', 'Mute conversation')
+          }
+        >
+          {conversation.muted ? (
+            <BellOff className="size-4" aria-hidden="true" />
+          ) : (
+            <Bell className="size-4" aria-hidden="true" />
+          )}
+        </IconButton>
+      ) : null}
+
+      <div className="hidden shrink-0 items-center gap-3 @md/chat-header:flex">
+      {/* One toggle per section another module contributed. Rendered from the
+          contribution's own id and label, so chat adds no knowledge of what any of
+          them shows — and an empty list adds no buttons at all. */}
+      {panelSectionActions.map((action) => (
+        <IconButton
+          key={action.id}
+          type="button"
+          variant="ghost"
+          size="default"
+          className="shrink-0 text-muted-foreground"
+          onClick={() => contextPanel.toggle(`section:${action.id}`)}
+          aria-pressed={contextPanel.kind === `section:${action.id}`}
+          aria-label={action.label}
+          title={action.label}
+        >
+          {resolveInjectedIcon(action.icon) ?? <ListChecks className="size-4" aria-hidden="true" />}
+        </IconButton>
+      ))}
       <IconButton
         type="button"
         variant="ghost"
@@ -764,6 +939,104 @@ export function ConversationView({
           <span className="tabular-nums">{conversation.pinnedCount}</span>
           <span className="sr-only">{t('chat.pins.open', 'View pinned messages')}</span>
         </Button>
+      ) : null}
+      </div>
+
+      {conversation ? (
+        <Popover>
+          <PopoverTrigger asChild>
+            <IconButton
+              type="button"
+              variant="ghost"
+              size="default"
+              className="shrink-0 text-muted-foreground @md/chat-header:hidden"
+              aria-label={t('chat.conversation.moreActions', 'More actions')}
+            >
+              <MoreHorizontal className="size-4" aria-hidden="true" />
+            </IconButton>
+          </PopoverTrigger>
+          {/* A row, not a column: it is the same toolbar the wider viewport
+              shows, moved rather than restyled, so the icons stay where the
+              muscle memory already puts them. */}
+          <PopoverContent align="end" className="flex w-auto items-center gap-2 p-2">
+            {conversation ? (
+              <IconButton
+                variant="ghost"
+                size="default"
+                onClick={() => setSearchOpen((open) => !open)}
+                aria-expanded={searchOpen}
+                aria-label={t('chat.search.openInConversation', 'Search this conversation')}
+              >
+                <Search className="size-4" aria-hidden="true" />
+              </IconButton>
+            ) : null}
+
+            {conversation ? (
+              <TranslateControl
+                locale={chatLocale.locale}
+                translatableLocales={chatLocale.translatableLocales}
+                // Choosing a language only records the choice. Re-translating the
+                // transcript into it is the sticky mode's job, and doing it here as
+                // well raced the mode: both paths asked for the same messages, and
+                // whichever answered second wrote the other language's words.
+                onLocaleChange={(next) => chatLocale.setLocale.mutate(next)}
+                active={translateAll}
+                busy={translation.pending.size > 0}
+                onToggle={(next) => {
+                  setTranslateAll(next)
+                  if (!next) for (const message of messages) translation.showOriginal(message.id)
+                }}
+              />
+            ) : null}
+
+            {/* The same toggles as the wide header, because the two are alternatives
+                rather than a primary and an overflow: below the split width the
+                wide row is hidden entirely. */}
+            {panelSectionActions.map((action) => (
+              <IconButton
+                key={action.id}
+                type="button"
+                variant="ghost"
+                size="default"
+                className="shrink-0 text-muted-foreground"
+                onClick={() => contextPanel.toggle(`section:${action.id}`)}
+                aria-pressed={contextPanel.kind === `section:${action.id}`}
+                aria-label={action.label}
+                title={action.label}
+              >
+                {resolveInjectedIcon(action.icon) ?? (
+                  <ListChecks className="size-4" aria-hidden="true" />
+                )}
+              </IconButton>
+            ))}
+            <IconButton
+              type="button"
+              variant="ghost"
+              size="default"
+              className="shrink-0 text-muted-foreground"
+              onClick={() => contextPanel.toggle('shared')}
+              aria-pressed={contextPanel.kind === 'shared'}
+              aria-label={t('chat.shared.open', 'Shared files and links')}
+              title={t('chat.shared.open', 'Shared files and links')}
+            >
+              <Paperclip className="size-4" aria-hidden="true" />
+            </IconButton>
+            {conversation && conversation.pinnedCount > 0 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="shrink-0 gap-1.5 text-muted-foreground"
+                onClick={() => contextPanel.toggle('pins')}
+                aria-pressed={contextPanel.kind === 'pins'}
+              >
+                <Pin className="size-4" aria-hidden="true" />
+                <span className="tabular-nums">{conversation.pinnedCount}</span>
+                <span className="sr-only">{t('chat.pins.open', 'View pinned messages')}</span>
+              </Button>
+            ) : null}
+          </PopoverContent>
+        </Popover>
       ) : null}
       </header>
       {searchOpen && conversation ? (
@@ -896,6 +1169,16 @@ export function ConversationView({
         />
       )}
 
+      {typingLabel ? (
+        <div
+          className="px-4 pb-1 text-xs text-muted-foreground"
+          aria-live="polite"
+          data-testid="chat-typing-indicator"
+        >
+          {typingLabel}
+        </div>
+      ) : null}
+
       <MessageComposer
         attachments={draftAttachments.items}
         onAttachFiles={draftAttachments.add}
@@ -903,6 +1186,8 @@ export function ConversationView({
         onRetryAttachment={draftAttachments.retry}
         disabled={counterpartLeft || !canSend}
         onSend={handleSend}
+        onTypingActivity={typingSignal.onActivity}
+        onTypingStopped={typingSignal.onStopped}
         replyTarget={replyTarget}
         onCancelReply={() => setReplyTarget(null)}
         editTarget={editTarget}
@@ -910,6 +1195,8 @@ export function ConversationView({
         onCancelEdit={() => setEditTarget(null)}
         mentionCandidates={mentionCandidates}
         onMentionQueryChange={handleMentionQueryChange}
+        commands={composerCommands}
+        commandConsumedToken={commandConsumedToken}
         placeholder={
           !canSend
             ? t('chat.composer.readOnly', 'You do not have permission to send messages')
@@ -937,6 +1224,20 @@ export function ConversationView({
             it is a leaf inside the transcript, and one dialog for the whole view
             is what keeps its focus handling and its loading state coherent. */}
         {ConfirmDialogElement}
+
+        {/* The same reasoning, for other modules. A contributed command or message
+            action is a callback and cannot render a drawer, so something of the
+            claimer's has to be mounted already — this is it. Unclaimed it renders
+            nothing, which is why it can sit here unconditionally. */}
+        <InjectionSpot
+          spotId={extensionPoints.hosts.conversationOverlays.spotId}
+          context={{
+            conversationId,
+            isSpace,
+            currentUserId,
+            onJumpToMessage: jumpToMessage,
+          }}
+        />
       </>
     )
   }
@@ -956,7 +1257,9 @@ export function ConversationView({
         title={
           contextPanel.kind === 'shared'
             ? t('chat.shared.title', 'Shared')
-            : t('chat.pins.title', 'Pinned messages')
+            : openSectionId
+              ? (panelSectionActions.find((action) => action.id === openSectionId)?.label ?? '')
+              : t('chat.pins.title', 'Pinned messages')
         }
         width={panelWidth}
         containerWidth={splitWidth}
@@ -964,7 +1267,20 @@ export function ConversationView({
         onResetWidth={contextPanel.resetWidth}
         onClose={contextPanel.close}
       >
-        {contextPanel.kind === 'shared' ? (
+        {openSectionId ? (
+          // The section's body comes from whichever module claimed the render spot.
+          // `sectionId` is passed through so one claimer can offer more than one
+          // section without needing a spot each.
+          <InjectionSpot
+            spotId={extensionPoints.hosts.conversationPanelSection.spotId}
+            context={{
+              sectionId: openSectionId,
+              conversationId,
+              isSpace,
+              onJumpToMessage: handlePanelJump,
+            }}
+          />
+        ) : contextPanel.kind === 'shared' ? (
           <SharedResourcesList
             conversationId={conversationId}
             active={contextPanel.kind === 'shared'}

@@ -433,7 +433,7 @@ await searchService.index({
   organizationId: 'org-456',
   fields: { name: 'John Doe', email: 'john@example.com' },
   presenter: { title: 'John Doe', subtitle: 'Customer' },
-  url: '/backend/customers/people/rec-123',
+  url: '/backend/customers/people-v2/rec-123',
 })
 
 // Bulk index, delete, purge
@@ -517,7 +517,7 @@ curl "https://your-app.com/api/search?q=john%20doe&limit=20" \
       "score": 0.95,
       "source": "fulltext",
       "presenter": { "title": "John Doe", "subtitle": "Customer" },
-      "url": "/backend/customers/people/rec-123"
+      "url": "/backend/customers/people-v2/rec-123"
     }
   ],
   "strategiesUsed": ["fulltext", "vector"],

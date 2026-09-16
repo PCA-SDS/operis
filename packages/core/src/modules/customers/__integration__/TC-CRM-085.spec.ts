@@ -315,7 +315,7 @@ test.describe('TC-CRM-085: deals map view tab (UI)', () => {
       companyId = await createCompanyFixture(request, token, `TC-CRM-085 Coord Editor Co ${stamp}`);
 
       await login(page, 'admin');
-      await page.goto(`/backend/customers/companies/${companyId}?tab=addresses`);
+      await page.goto(`/backend/customers/companies-v2/${companyId}?tab=addresses`);
       await expect(
         page.getByRole('tab', { name: 'Addresses' }),
         'addresses tab is active on the company detail page',

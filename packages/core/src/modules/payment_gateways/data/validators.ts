@@ -52,7 +52,10 @@ export type CreateSessionPayload = z.infer<typeof createSessionSchema>
 
 export const captureSchema = z.object({
   transactionId: z.string().uuid(),
-  amount: z.number().positive().optional(),
+  // Same bound and minor-unit precision as `createSessionSchema.amount` above:
+  // a partial capture reaches the same `Math.round(amount * 100)` in the gateway
+  // adapters, so an unbounded `z.number().positive()` captured zero for `0.001`.
+  amount: moneyAmountSchema({ positive: true, scale: 2, coerce: false, max: 99_999_999_999_999 }).optional(),
   operationId: z.string().trim().min(1).max(200).optional(),
 })
 
@@ -60,7 +63,8 @@ export type CapturePayload = z.infer<typeof captureSchema>
 
 export const refundSchema = z.object({
   transactionId: z.string().uuid(),
-  amount: z.number().positive().optional(),
+  // See `captureSchema.amount` — a partial refund takes the same conversion path.
+  amount: moneyAmountSchema({ positive: true, scale: 2, coerce: false, max: 99_999_999_999_999 }).optional(),
   reason: z.string().max(200).optional(),
   operationId: z.string().trim().min(1).max(200).optional(),
 })

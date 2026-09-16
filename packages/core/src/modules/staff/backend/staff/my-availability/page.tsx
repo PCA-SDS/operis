@@ -39,19 +39,23 @@ export default function StaffMyAvailabilityPage() {
       setIsLoading(true)
       setError(null)
       try {
-        const memberCall = await apiCall<SelfMemberResponse>('/api/staff/team-members/self', { signal: controller.signal })
-        const featureCall = await apiCall<FeatureCheckResponse>('/api/auth/feature-check', {
-          signal: controller.signal,
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            features: [
-              'planner.manage_availability',
-              'staff.my_availability.manage',
-              'staff.my_availability.unavailability',
-            ],
+        // Independent requests — both results are consumed together below, so the
+        // page waited for the sum of two round trips instead of the longer one.
+        const [memberCall, featureCall] = await Promise.all([
+          apiCall<SelfMemberResponse>('/api/staff/team-members/self', { signal: controller.signal }),
+          apiCall<FeatureCheckResponse>('/api/auth/feature-check', {
+            signal: controller.signal,
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              features: [
+                'planner.manage_availability',
+                'staff.my_availability.manage',
+                'staff.my_availability.unavailability',
+              ],
+            }),
           }),
-        })
+        ])
         if (!cancelled) {
           setMember(memberCall.result?.member ?? null)
           const granted = Array.isArray(featureCall.result?.granted) ? featureCall.result?.granted ?? [] : []

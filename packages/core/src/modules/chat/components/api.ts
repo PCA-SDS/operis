@@ -95,6 +95,10 @@ export const chatApi = {
     (await apiCallOrThrow<ChatConversationDto>(`${BASE}/conversations/${id}`, jsonInit('PATCH', { title })))
       .result!,
 
+  setMuted: async (id: string, muted: boolean) =>
+    (await apiCallOrThrow<{ muted: boolean }>(`${BASE}/conversations/${id}/mute`, jsonInit('POST', { muted })))
+      .result!,
+
   listMembers: (id: string, params: { q?: string; limit?: number; offset?: number }, signal?: AbortSignal) =>
     readApiResultOrThrow<ChatMemberListDto>(`${BASE}/conversations/${id}/members${query(params)}`, { signal }),
 

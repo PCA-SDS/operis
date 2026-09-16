@@ -4,6 +4,7 @@ import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
 import type { QueryEngine } from '@open-mercato/shared/lib/query/types'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 import { E } from '#generated/entities.ids.generated'
 import { ProductInventoryProfile } from '../data/entities'
 import {
@@ -21,12 +22,6 @@ type SyncCatalogInventoryProfileInput = {
   tenantId: string
   userId: string
   container: AwilixContainer
-}
-
-function normalizeOptionalString(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
 }
 
 function buildCommandContext(params: {

@@ -326,14 +326,14 @@ const searchGetTool: AiToolDefinition = {
     let url: string | null = null
     const id = record.id ?? record.entity_id ?? input.recordId
     if (input.entityType.includes('person')) {
-      url = `/backend/customers/people/${id}`
+      url = `/backend/customers/people-v2/${id}`
     } else if (input.entityType.includes('company')) {
-      url = `/backend/customers/companies/${id}`
+      url = `/backend/customers/companies-v2/${id}`
     } else if (input.entityType.includes('deal')) {
       url = `/backend/customers/deals/${id}`
     } else if (input.entityType.includes('activity')) {
       const entityId = record.entity_id ?? record.entityId
-      url = entityId ? `/backend/customers/companies/${entityId}#activity-${id}` : null
+      url = entityId ? `/backend/customers/companies-v2/${entityId}#activity-${id}` : null
     }
 
     return {

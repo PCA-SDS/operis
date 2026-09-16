@@ -3,6 +3,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { LOOSE_EMAIL_PATTERN } from '@open-mercato/shared/lib/validation'
+import { PHONE_REGEX } from '@open-mercato/core/modules/shipping_carriers/data/validators'
 import {
   fetchProviders,
   fetchOrderAddresses,
@@ -44,10 +46,8 @@ const isAddressValid = (addr: Address) =>
 const isPackageValid = (pkg: PackageDimension) =>
   pkg.weightKg > 0 && pkg.lengthCm > 0 && pkg.widthCm > 0 && pkg.heightCm > 0
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const PHONE_REGEX = /^[+\d][\d\s\-().]{6,}$/
 
-const isEmailValid = (email: string) => email === '' || EMAIL_REGEX.test(email)
+const isEmailValid = (email: string) => email === '' || LOOSE_EMAIL_PATTERN.test(email)
 const isPhoneValid = (phone: string) => phone === '' || PHONE_REGEX.test(phone)
 
 export type ShipmentWizard = {

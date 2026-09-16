@@ -1,3 +1,4 @@
+import { assertSearchTenantContext } from '@open-mercato/shared/modules/search'
 import type {
   SearchModuleConfig,
   SearchBuildContext,
@@ -8,12 +9,6 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 
 type SearchContext = SearchBuildContext & {
   tenantId: string
-}
-
-function assertTenantContext(ctx: SearchBuildContext): asserts ctx is SearchContext {
-  if (typeof ctx.tenantId !== 'string' || ctx.tenantId.length === 0) {
-    throw new Error('[search.inbox_ops] Missing tenantId in search build context')
-  }
 }
 
 export const searchConfig: SearchModuleConfig = {
@@ -28,7 +23,7 @@ export const searchConfig: SearchModuleConfig = {
         excluded: ['metadata', 'participants'],
       },
       buildSource: async (ctx: SearchBuildContext): Promise<SearchIndexSource | null> => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'inbox_ops')
         const record = ctx.record
         if (!record.summary) return null
 

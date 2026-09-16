@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 import { PROJECT_COLOR_KEYS } from '../lib/timesheets-ui/colors'
 
 const projectColorSchema = z
@@ -160,7 +161,7 @@ const employeeProfileFields = {
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   workPhone: z.string().trim().max(32).optional().nullable(),
   personalPhone: z.string().trim().max(32).optional().nullable(),
-  personalEmail: z.string().trim().email().max(254).optional().nullable(),
+  personalEmail: emailSchema().optional().nullable(),
   dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
   notes: z.string().max(8000).optional().nullable(),
 }

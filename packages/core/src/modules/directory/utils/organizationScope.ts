@@ -50,6 +50,27 @@ function resolveOrgScopeTtlMs(): number {
   return parsed
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Both cookie-derived components of the cache key (`om_selected_org`,
+ * `om_selected_tenant`) are attacker-controllable: any authenticated user can
+ * vary them freely. Concatenated into a CROSS-REQUEST cache key unchecked, they
+ * let one user mint unbounded distinct entries — eviction churn that flushes
+ * other tenants' entries out of the shared memory LRU, or unbounded growth for a
+ * TTL window on redis/sqlite. Anything that is not a UUID (or the documented
+ * "all organizations" sentinel) is therefore not persisted across requests.
+ *
+ * The PER-REQUEST memo still uses the key unconditionally: it is keyed on the
+ * Request object and dies with it, so it cannot grow without bound, and keeping
+ * it is what collapses the feature-check and CRUD-factory resolutions into one.
+ */
+function isPersistableScopeKeyPart(value: string | null): boolean {
+  if (value === null) return true
+  if (isAllOrganizationsSelection(value)) return true
+  return UUID_PATTERN.test(value)
+}
+
 function buildOrgScopeCacheKey(parts: {
   userId: string
   effectiveTenantId: string
@@ -474,7 +495,9 @@ export async function resolveOrganizationScopeForRequest({
 
   const userId = typeof auth.sub === 'string' && auth.sub.length > 0 ? auth.sub : null
   const ttlMs = resolveOrgScopeTtlMs()
-  const cache = ttlMs > 0 ? resolveCacheFromContainer(container) : null
+  const cacheKeyIsPersistable =
+    isPersistableScopeKeyPart(normalizedSelectedId) && isPersistableScopeKeyPart(requestedTenantId ?? null)
+  const cache = ttlMs > 0 && cacheKeyIsPersistable ? resolveCacheFromContainer(container) : null
   const cacheKey = userId
     ? buildOrgScopeCacheKey({
         userId,

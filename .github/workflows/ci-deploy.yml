@@ -3,14 +3,30 @@ name: CI & Deploy
 # ==============================================================================
 # ONE workflow, one run per push.
 # ==============================================================================
-#   pull request  ->  quality
-#   push to main  ->  quality ─┐
-#                     build  ──┴─► deploy
+#                    ┌─ lint ────────┐
+#                    ├─ typecheck ───┤
+#   pull request ──► prepare ─┼─ guards ──────┼─► ci-required        (tests SCOPED)
+#                    ├─ audit ───────┤
+#                    └─ test ────────┘
 #
-# quality and build run CONCURRENTLY and deploy waits for both. Chaining them
-# would add the test time to the deploy time for no benefit: a failed test set
-# and a successful image build simply mean nothing ships. Wall clock is
-# max(quality, build) rather than the sum.
+#   merge queue  ──► the same fan-out, tests UNFILTERED, plus the image build
+#   push to main ──► the same fan-out ──► build ──► deploy
+#
+# The gate is six concurrent jobs behind one cache-warming `prepare`. It was a
+# single sequential job whose wall clock was the SUM of every step; lint and
+# typecheck results now arrive in about three minutes instead of after the
+# 466-second test step. Tests dominate either shape, so this buys feedback
+# latency and independently re-runnable jobs, not a proportional wall-clock cut.
+#
+# `ci-required` is the ONLY required status check. Branch protection cannot
+# express a conditional job, and a list of job names has to be re-edited in
+# repository settings every time a job is added — so one aggregator inspects
+# every result instead.
+#
+# A pull request runs a SCOPED test selection (scripts/ci-test-scope.mjs); the
+# merge queue runs the suite unfiltered before the commit becomes reachable from
+# main. That ordering is what makes scoping the pull-request lane safe: a miss
+# blocks a merge rather than turning main red.
 #
 # The image is built here, once, and pulled by the server. Building on the VPS
 # needs ~4 GB of heap and would compete with the four other production stacks
@@ -34,6 +50,12 @@ on:
       - 'apps/docs/**'
       - '.ai/**'
   pull_request:
+    branches: [main]
+  # The full, unfiltered lane. A pull request runs a SCOPED test selection, so the
+  # exhaustive run has to happen somewhere before the commit lands — and the merge queue
+  # is before, not after. A miss in the scoped lane blocks a merge here instead of
+  # turning main red, which is the whole reason scoping the pull-request lane is safe.
+  merge_group:
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -63,6 +85,13 @@ permissions:
 env:
   NODE_VERSION: '24.19.0'
   REGISTRY: ghcr.io
+  # Tag AND digest. The tag says which version a human is reading about; the digest is
+  # what actually runs. This scanner executes inside the one job holding
+  # `packages: write`, so resolving it by a floating tag would make "whatever
+  # aquasecurity pushed most recently" arbitrary code in a privileged job.
+  # Refresh with:
+  #   crane digest ghcr.io/aquasecurity/trivy:<version>
+  TRIVY_IMAGE: 'ghcr.io/aquasecurity/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969'
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -81,7 +110,7 @@ jobs:
       image: ${{ steps.decide.outputs.image }}
       translation: ${{ steps.decide.outputs.translation }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # The merge-base is needed to diff a PR against its target.
           fetch-depth: 0
@@ -139,8 +168,21 @@ jobs:
           # those skipped the image build entirely and the first build of that
           # tree happened on main — the exact green-PR/red-main asymmetry this
           # gate exists to prevent.
+          #
+          # 2026-09-15: the same asymmetry, one layer down. The list was built
+          # from "files the Dockerfile COPYs by name", which silently excluded
+          # the thing the image is actually made of — the source `yarn build`
+          # compiles. A pure `packages/*/src` or `apps/mercato/src` change
+          # merged green having never been built as an image, and main was again
+          # the first place the image was built. Patching entry-by-entry has now
+          # failed twice, so both source trees are listed: anything `yarn build`
+          # compiles gets a no-push image verification on the PR. What remains
+          # excluded is what the image genuinely does not contain — `.ai/`,
+          # `docs/`, `apps/docs/`, `*.md`, and `__tests__`/`__integration__`.
+          # This trades runner time on most PRs for never discovering a broken
+          # image on main. That trade is deliberate.
           CHANGED="$(git diff --name-only "$BASE" "$HEAD")"
-          if grep -qE '^(Dockerfile|\.dockerignore|deploy/|docker/|scripts/|package\.json|yarn\.lock|\.yarnrc\.yml|turbo\.json|tsconfig(\.base)?\.json|newrelic\.js|jest\.config\.cjs|jest(\.dom)?\.setup\.ts|eslint\.config\.mjs|apps/mercato/(package\.json|next\.config\.ts)|packages/[^/]+/package\.json)' <<<"$CHANGED"; then
+          if grep -qE '^(Dockerfile|\.dockerignore|deploy/|docker/|scripts/|package\.json|yarn\.lock|\.yarnrc\.yml|turbo\.json|tsconfig(\.base)?\.json|newrelic\.js|jest\.config\.cjs|jest(\.dom)?\.setup\.ts|eslint\.config\.mjs|apps/mercato/(package\.json|next\.config\.ts)|packages/[^/]+/package\.json|packages/[^/]+/src/|apps/mercato/src/)' <<<"$CHANGED"; then
             echo "image=true" >> "$GITHUB_OUTPUT"
             echo "image-relevant paths changed - image build required"
           else
@@ -149,119 +191,103 @@ jobs:
           fi
 
   # ---------------------------------------------------------------------------
-  quality:
-    name: Lint, typecheck, unit tests
+  # The gate, as six concurrent jobs behind one cache-warming job.
+  #
+  # This was a single sequential `quality` job whose wall clock was the SUM of every
+  # step: 15m53s cold, 8m31s warm. Unit tests were 466s of a 935s total, so lint and
+  # typecheck results — 13s and 107s of work — arrived eight to sixteen minutes after
+  # the push. Fanning them out puts every fast check in front of the reviewer in about
+  # three minutes and leaves the test job as the only long pole.
+  #
+  # Wall clock does NOT drop proportionally, and pretending otherwise would be the
+  # wrong reason to do this: tests dominate either shape. The win is feedback latency,
+  # plus the fact that a failed job can now be re-run on its own.
+  #
+  # `prepare` exists to warm the three caches deterministically and to fail the run
+  # early on a broken install or build. It is the ONLY job that saves a cache — see the
+  # save-cache input on .github/actions/setup.
+  prepare:
+    name: Install and build
     runs-on: ubuntu-latest
-    # Job-level cap is now a backstop, not the primary guard: every step below
-    # carries its own timeout so a hung step fails THAT step with its log
-    # attached. The 2026-08-29 incident hung in Typecheck for 45 minutes and
-    # then killed the runner ("The hosted runner lost communication with the
-    # server"), which discards the log and leaves nothing to diagnose.
-    timeout-minutes: 45
+    timeout-minutes: 30
     permissions:
       contents: read
     if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.skip_quality) }}
-
     steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ./.github/actions/setup
         with:
           node-version: ${{ env.NODE_VERSION }}
+          build: 'true'
+          save-cache: 'true'
 
-      - run: corepack enable
-
-      - name: Record runner resources
-        # Printed unconditionally and cheaply. A runner death is almost always
-        # memory or disk, and neither is knowable after the fact without this.
-        run: |
-          echo "cpus=$(nproc)  mem=$(free -m | awk '/^Mem:/{print $2}')MB"
-          df -h / | tail -1
-
-      - name: Cache Yarn packages
-        uses: actions/cache@v6
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    needs: [prepare]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ./.github/actions/setup
         with:
-          # ~/.yarn/berry/cache, NOT .yarn/cache. Yarn 4 defaults
-          # `enableGlobalCache: true` and .yarnrc.yml does not override it, so
-          # the package zips live in the global folder and `.yarn/cache` never
-          # exists in this repo at all. This step therefore cached an absent
-          # directory and restored nothing: every run whose node_modules cache
-          # missed re-downloaded the full dependency set from npm.
-          #
-          # The restore-keys line only becomes meaningful with the path fixed.
-          # Both this key and the node_modules key hash yarn.lock, so a lockfile
-          # change misses BOTH; the prefix fallback is what lets the unchanged
-          # majority of packages come from cache instead of the network.
-          path: ~/.yarn/berry/cache
-          key: yarn-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: yarn-${{ runner.os }}-
-
-      - name: Cache node_modules
-        uses: actions/cache@v6
-        with:
-          path: |
-            node_modules
-            packages/*/node_modules
-            apps/*/node_modules
-          # Node version is part of the key: node_modules holds compiled native
-          # addons (better-sqlite3, sharp, esbuild), and reusing them across a
-          # Node upgrade produces NODE_MODULE_VERSION load failures.
-          key: node-modules-${{ runner.os }}-node${{ env.NODE_VERSION }}-${{ hashFiles('yarn.lock') }}
-
-      - name: Cache Turbo outputs
-        uses: actions/cache@v6
-        with:
-          path: .turbo
-          # The ref_name segment has to be in the SAVE key for the matching
-          # restore-key to work. It previously appeared only in restore-keys,
-          # while saves went to `turbo-<os>-<sha>` — so `turbo-<os>-<ref>-`
-          # could never prefix-match anything and that line was dead. Only the
-          # loose `turbo-<os>-` fallback ever hit.
-          key: turbo-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-${{ github.ref_name }}-
-            turbo-${{ runner.os }}-main-
-            turbo-${{ runner.os }}-
-
-      - name: Cache Jest transform cache
-        uses: actions/cache@v6
-        with:
-          path: ${{ runner.temp }}/jest-cache
-          # ts-jest transpiles every test file and every module it pulls in.
-          # Cold, that dominates the test step; warm, it is close to free.
-          key: jest-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
-          restore-keys: |
-            jest-${{ runner.os }}-${{ github.ref_name }}-
-            jest-${{ runner.os }}-main-
-            jest-${{ runner.os }}-
-
-      - name: Install dependencies
-        timeout-minutes: 15
-        run: yarn install --immutable
+          node-version: ${{ env.NODE_VERSION }}
+          # eslint reads source, not build output, so this job skips the build entirely.
+          build: 'false'
 
       - name: Lint
-        # lint:check-graph first: turbo silently reports success when the task
-        # graph resolves to zero packages, so a misconfigured filter would make
-        # "lint passed" mean "lint never ran".
+        # lint:check-graph first: turbo silently reports success when the task graph
+        # resolves to zero packages, so a misconfigured filter would make "lint passed"
+        # mean "lint never ran".
         timeout-minutes: 15
         run: |
           yarn lint:check-graph
           yarn lint
 
-      - name: Build packages and generate module registries
-        # build -> generate -> build is the sequence the Dockerfile and the dev
-        # entrypoint both use. The second build is not redundant: `generate`
-        # writes packages/core/generated/, and core has to be rebuilt before
-        # anything can typecheck against it.
-        timeout-minutes: 25
-        run: |
-          yarn build:packages
-          yarn generate
-          yarn build:packages
+  # ---------------------------------------------------------------------------
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    needs: [prepare]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ./.github/actions/setup
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          # `generate` writes packages/core/generated/, which core's tsconfig `include`
+          # covers. Without it tsc typechecks a tree missing its generated registries.
+          build: 'true'
 
-      # Placed after build+generate on purpose: the telemetry guards resolve
-      # sibling packages through dist/, and the app guards read files under
-      # .mercato/generated/. Running them earlier fails on a clean checkout.
+      - name: Typecheck
+        # typecheck:serial, not typecheck. The root `typecheck` inherits turbo's global
+        # concurrency of 32, and TypeScript 7 is the native compiler — each process
+        # saturates every core, so 20+ at once thrashes the runner. Serial is not the
+        # slow path: the whole repo typechecks in ~10s.
+        timeout-minutes: 15
+        run: yarn typecheck:serial
+
+  # ---------------------------------------------------------------------------
+  guards:
+    name: Repo-wide guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    needs: [prepare]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ./.github/actions/setup
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          # The telemetry guards resolve sibling packages through dist/, and the app
+          # guards read files under .mercato/generated/. Both fail on a clean checkout.
+          build: 'true'
+
       - name: Run repo-wide audit guards (always, unfiltered)
         # Unconditional on purpose: turbo's filter selects PACKAGES, not paths,
         # so a filtered run silently skips guards that audit files outside the
@@ -281,32 +307,128 @@ jobs:
         timeout-minutes: 10
         run: yarn check:time-bombs:fail
 
-      - name: Typecheck
-        # typecheck:serial, not typecheck. The root `typecheck` inherits turbo's
-        # global concurrency of 32, and TypeScript 7 is the native compiler —
-        # each process saturates every core, so 20+ at once thrashes the runner.
-        # Serial is not the slow path: the whole repo typechecks in ~13s.
-        timeout-minutes: 15
-        run: yarn typecheck:serial
+  # ---------------------------------------------------------------------------
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    needs: [prepare]
+    # Restores the pull-request half of a pair that had been broken.
+    # `.github/workflows/audit.yml` opens by describing itself as the "time-triggered
+    # counterpart to the `audit` job in ci.yml" — and ci.yml no longer exists in this
+    # repository, so nothing audited a dependency change until 06:17 UTC the following
+    # day, on main, after the merge. Same script and same allowlist as the scheduled
+    # half, so the two agree on what counts as a failure.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ./.github/actions/setup
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          build: 'false'
 
-      - name: Unit tests
-        # Plain `yarn test` now. It runs one PACKAGE at a time (turbo
-        # --concurrency=1) while jest uses every core WITHIN that package, so
-        # peak process count is bounded at 1 + maxWorkers by construction
-        # instead of by a heap flag. The old `test:serial` set
-        # NODE_OPTIONS=--max-old-space-size=6144, which Node applies PER
-        # PROCESS — jest's main plus its workers — so it asked for up to 18 GB
-        # on a 16 GB runner.
+      - name: Audit dependencies for known CVEs
+        id: audit
+        # BLOCKING. It was reporting-only until the backlog it was waiting on was
+        # cleared — the six accepted-but-unfixed advisories (@xmldom/xmldom, js-yaml x2,
+        # nodemailer, sharp, svgo) are fixed, and `yarn audit:ci` now reports no
+        # advisories at or above threshold. The condition this step's own note set for
+        # making it blocking is met, so the `continue-on-error` is gone.
         #
-        # test:ci wraps `yarn test` with a single retry that fires ONLY when a
-        # jest worker died on a fatal signal and no test reported a failure.
-        # A real regression fails on assertions and is never retried. The retry
-        # is cheap because `test` is a cached turbo task: packages that already
-        # passed replay, and only the crashed one runs again.
-        timeout-minutes: 30
+        # What that means for a red run here: unlike the image scan, `audit:ci` has no
+        # `--ignore-unfixed`. A newly published HIGH advisory blocks even when no patched
+        # release exists yet, which is deliberate — the alternative is a gate that stays
+        # quiet about exactly the advisories nobody can fix.
+        #
+        # The escape hatch is scripts/audit-ci-allowlist.json: an entry per GHSA with a
+        # written justification and a re-check condition (see the two image-size entries
+        # for the shape). Reach for that when a fix genuinely does not exist. Do NOT
+        # restore `continue-on-error` to get a green run — that silences every future
+        # advisory to clear one, which is the failure this step was built to avoid.
+        timeout-minutes: 10
+        run: |
+          set -o pipefail
+          yarn audit:ci 2>&1 | tee audit.log
+
+      - name: Publish the audit result
+        if: always()
+        run: |
+          {
+            if [ "${{ steps.audit.outcome }}" = "success" ]; then
+              echo "### Dependency audit: no advisories at severity \`high\` or above"
+            else
+              echo "### Dependency audit: advisories found (reporting-only, not blocking)"
+              echo ""
+              echo "Fix each, or allowlist it with a reason in \`scripts/audit-ci-allowlist.json\`."
+              echo "This step becomes blocking by removing \`continue-on-error\` from the audit job."
+              echo ""
+              echo '```text'
+              cat audit.log 2>/dev/null || echo "(no output captured)"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    needs: [prepare]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The scoped path diffs against the merge base. scripts/ci-test-scope.mjs
+          # refuses to narrow when the base ref does not resolve — against a shallow
+          # clone that means every pull request would run the full suite, which is safe
+          # but silently discards the narrowing this job exists for.
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          build: 'true'
+
+      # --- FULL LANE ---------------------------------------------------------
+      - name: Unit tests (full, unfiltered)
+        # Everything that is not a pull request: the merge queue, a push to main, a
+        # manual dispatch. This is the lane that has to be exhaustive, because it is the
+        # last one before a commit becomes reachable from main.
+        #
+        # test:ci wraps `yarn test` with a single retry that fires ONLY when a jest
+        # worker died on a fatal signal and no test reported a failure. A real
+        # regression fails on assertions and is never retried. The retry is cheap
+        # because `test` is a cached turbo task: packages that already passed replay,
+        # and only the crashed one runs again.
+        if: ${{ github.event_name != 'pull_request' }}
+        timeout-minutes: 40
         env:
           JEST_CACHE_DIR: ${{ runner.temp }}/jest-cache
         run: yarn test:ci
+
+      # --- SCOPED LANE -------------------------------------------------------
+      - name: Unit tests (scoped to the change)
+        # ONE entry point on purpose. This runs both halves of the scoped lane —
+        # turbo's affected-package selection for every package except core, then a
+        # jest run narrowed by import graph for core itself — and both always run, so
+        # one push surfaces every failure.
+        #
+        # It is deliberately NOT a `yarn <script>`: scripts/__tests__/validation-gate-parity.test.mjs
+        # requires every yarn script CI runs to appear in validation.commands, and a
+        # NARROWED test command has no business in the documented local gate. The gate
+        # documents `yarn test:ci`, the exhaustive superset this narrows, which is the
+        # safe direction for that guard to be wrong in.
+        #
+        # Every uncertain input — an unresolvable base ref, an unsafe path, a file that
+        # participates in DI or registry wiring — falls back to the full core suite.
+        if: ${{ github.event_name == 'pull_request' }}
+        timeout-minutes: 40
+        env:
+          JEST_CACHE_DIR: ${{ runner.temp }}/jest-cache
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/ci-test-scope.mjs --base "$BASE_SHA"
 
       - name: Diagnose a failed run
         if: failure()
@@ -324,6 +446,47 @@ jobs:
           echo "::endgroup::"
 
   # ---------------------------------------------------------------------------
+  # The single required status check.
+  #
+  # Branch protection cannot express a conditional job: naming `build` directly leaves a
+  # docs-only pull request pending forever, because a skipped job never reports a
+  # conclusion. And a required-checks list built from job names has to be edited in
+  # repository settings every time a job is added — a step that is always forgotten, and
+  # whose omission silently widens what can merge.
+  #
+  # One aggregator solves both. It is the only name in the ruleset, it inspects every
+  # result explicitly, and `skipped` is accepted ONLY because each gate job's own `if:`
+  # is the thing that decides whether it should have run. A job that failed, was
+  # cancelled, or never reported fails this.
+  ci-required:
+    name: ci-required
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    if: ${{ always() }}
+    needs: [scope, prepare, lint, typecheck, guards, audit, test]
+    steps:
+      - name: Verify every gate job succeeded
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          echo "$RESULTS"
+
+          FAILED="$(echo "$RESULTS" | jq -r 'to_entries
+            | map(select(.value.result != "success" and .value.result != "skipped"))
+            | .[].key')"
+
+          if [ -n "$FAILED" ]; then
+            echo "::error::These gate jobs did not pass:"
+            echo "$FAILED" | while read -r job; do echo "::error::  $job"; done
+            exit 1
+          fi
+
+          echo "All gate jobs passed."
+
+  # ---------------------------------------------------------------------------
   build:
     name: Build and push image
     runs-on: ubuntu-latest
@@ -334,8 +497,8 @@ jobs:
       # is not possible, so this stays `write` and the push itself is gated on
       # the event below.
       packages: write
-    needs: [scope, quality]
-    # `needs: quality` is new. The header used to argue for running this
+    needs: [scope, ci-required]
+    # `needs: ci-required` (was `needs: quality`). The header used to argue for running this
     # concurrently so deploy waits on max(quality, build) instead of the sum —
     # correct arithmetic, wrong inputs now. Quality was ~20 minutes when that
     # was written; with a cached test task it is ~5, so gating costs a few
@@ -343,11 +506,12 @@ jobs:
     # 2026-08-29 push burned an hour of runner time on an image that could
     # never ship, because quality had already failed 40 minutes earlier.
     #
-    # `always()` so an explicitly skipped quality (skip_quality) still builds.
+    # `always()` so an explicitly skipped gate (skip_quality, which cascades from
+    # `prepare` through every job that needs it) still builds.
     if: >-
       always()
       && needs.scope.outputs.image == 'true'
-      && (needs.quality.result == 'success' || needs.quality.result == 'skipped')
+      && (needs['ci-required'].result == 'success' || needs['ci-required'].result == 'skipped')
       && (github.event_name != 'workflow_dispatch' || inputs.image_tag == '')
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
@@ -355,7 +519,7 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # 2026-08-29: main went red with "No space left on device" while the PR
       # that introduced the change was green — the PR skips this job unless an
@@ -430,7 +594,11 @@ jobs:
           # A PR proves the image still builds; it must not publish a tag or
           # overwrite the shared buildcache, or a broken branch would poison
           # main's cache and `:latest` would point at unreviewed code.
-          if [ "$EVENT" = "pull_request" ]; then
+          #
+          # merge_group is the same case and for the same reason. A queued commit is
+          # not yet reachable from main and may still be dequeued, so publishing
+          # `:latest` from it would point the tag at code that never merged.
+          if [ "$EVENT" = "pull_request" ] || [ "$EVENT" = "merge_group" ]; then
             echo "push=false" >> "$GITHUB_OUTPUT"
             echo "Verifying $IMAGE:$TAG builds (no push)"
           else
@@ -464,6 +632,15 @@ jobs:
             --cache-from "type=registry,ref=$IMAGE:buildcache"
             --metadata-file /tmp/build-meta.json
           )
+
+          # Provenance and an SBOM on every published tag. Two flags, and they are what
+          # let a later "which commit produced the image running in production, and what
+          # is inside it" be answered from the registry instead of from memory.
+          # Attestations attach to the pushed manifest, so they are meaningless for the
+          # cacheonly PR path below.
+          if [ "$PUSH" = "true" ]; then
+            ARGS+=(--provenance=mode=max --sbom=true)
+          fi
 
           if [ "$PUSH" = "true" ]; then
             # mode=max, and it has to be. mode=min exports only the layers
@@ -506,6 +683,75 @@ jobs:
           fi
           echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
 
+      - name: Scan the image for known vulnerabilities
+        # Nothing inspected the runtime image before this. The scan runs against the
+        # image built above and fails on HIGH/CRITICAL that HAVE A FIX AVAILABLE —
+        # `--ignore-unfixed`, because failing a build for a CVE with no patch published
+        # gives a team no action to take and trains them to bypass the gate.
+        #
+        # Pinned by digest, not by tag: this step runs with `packages: write` in scope,
+        # and a scanner image resolved by a floating tag is arbitrary code in that job.
+        # Trivy's own database download is allowed to fail the step — a scanner that
+        # silently passes because it could not fetch advisories is worse than no scan.
+        id: scan
+        timeout-minutes: 15
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          PUSH: ${{ steps.meta.outputs.push }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          # Trivy runs inside its own container, so the `docker login` performed on
+          # the HOST is invisible to it — its config lives in the runner's home, not
+          # the scanner's. Without these two the remote lookup 401s and the scan dies
+          # with "unable to find the specified image", which is how this step failed
+          # every time it ran: never a finding, always a lookup it could not perform.
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # The PR path builds with `--output type=cacheonly`, so nothing is published
+          # to scan. Rebuilding it here purely to scan would double a ten-minute build;
+          # the merge-queue and push paths publish a real image and are scanned.
+          if [ "$PUSH" != "true" ]; then
+            echo "PR build published no image (cacheonly) — scan runs on the merge-queue and push paths."
+            exit 0
+          fi
+
+          # Read the image back from the REGISTRY, not the local daemon. The build
+          # step ships it with `--push`, which streams straight to GHCR and loads
+          # nothing locally, so `docker inspect` never had anything to find. Adding
+          # `--load` instead would export a second full copy of a multi-gigabyte
+          # image onto a runner that already needs a "Reclaim runner disk" step.
+          #
+          # By digest when we have one: that is the exact artifact this run pushed,
+          # and unlike a tag it cannot be moved out from under the scan.
+          TARGET="$IMAGE:$TAG"
+          if [ -n "${DIGEST:-}" ]; then
+            TARGET="$IMAGE@$DIGEST"
+          fi
+          echo "Scanning $TARGET"
+
+          # No docker.sock. Nothing local is being inspected any more, and mounting
+          # it handed a container root-equivalent control of the runner — in a job
+          # that also holds `packages: write`.
+          #
+          # --platform pins the manifest to select: `--provenance`/`--sbom` make the
+          # pushed tag an OCI index carrying attestation manifests alongside the image.
+          docker run --rm \
+            -e TRIVY_USERNAME \
+            -e TRIVY_PASSWORD \
+            -v "$HOME/.cache/trivy:/root/.cache/trivy" \
+            "$TRIVY_IMAGE" \
+            image \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --exit-code 1 \
+              --no-progress \
+              --scanners vuln \
+              --platform linux/amd64 \
+              "$TARGET"
+
       - name: Summary
         run: |
           {
@@ -540,7 +786,7 @@ jobs:
       image: ${{ steps.meta.outputs.image }}
       tag: ${{ steps.meta.outputs.tag }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Resolve image name
         id: meta
@@ -615,18 +861,18 @@ jobs:
     # `docker compose up -d` fails the whole deploy if its image cannot be
     # pulled. An optional feature must not be able to take the app down, and on
     # the first merge `:latest` does not exist in the registry at all.
-    needs: [scope, quality, build, translation-image]
+    needs: [scope, ci-required, build, translation-image]
     # `always()` so this is evaluated even when a dependency was skipped —
     # without it, one skipped `needs` would skip this job outright. Each result
     # is then checked explicitly: success or skipped is fine, failure is not.
-    # skipped is legitimate for `quality` (skip_quality), for `build`
+    # skipped is legitimate for `ci-required` (skip_quality), for `build`
     # (redeploying an existing tag), and for `translation-image` (nothing under
     # services/translation changed, so the published image still stands).
     if: >-
       always()
-      && github.event_name != 'pull_request'
+      && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
       && needs.scope.result == 'success'
-      && (needs.quality.result == 'success' || needs.quality.result == 'skipped')
+      && (needs['ci-required'].result == 'success' || needs['ci-required'].result == 'skipped')
       && (needs.build.result == 'success'   || needs.build.result == 'skipped')
       && (needs['translation-image'].result == 'success' || needs['translation-image'].result == 'skipped')
     environment:
@@ -634,7 +880,7 @@ jobs:
       url: https://${{ vars.APP_DOMAIN }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Resolve tag to deploy
         id: tag

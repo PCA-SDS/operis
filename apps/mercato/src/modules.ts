@@ -9,6 +9,7 @@
 import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
 import type { ModuleOverrides } from '@open-mercato/shared/modules/overrides'
 import { officialModuleEntries } from './official-modules.generated'
+import * as email from '@open-mercato/core/modules/email'
 
 export type ModuleEntry = {
   id: string
@@ -64,7 +65,7 @@ export const moduleOverrideExamples: ModuleOverrides = {
   nav: {
     // Prepends sidebar nav group ids ahead of the built-in ordering; unnamed groups keep their
     // current position. Applied beneath role and per-user sidebar preferences.
-    groupOrder: ['example.nav.group'],
+    groupOrder: ['example.nav.group', 'appointments.nav.group'],
   },
 }
 
@@ -138,10 +139,19 @@ export const enabledModules: ModuleEntry[] = [
   // migrations run once the tables it maps already exist.
   // See docs/architecture/adr/ADR-0006-matrix-chat-transport.md
   { id: 'chat_matrix', from: '@open-mercato/core' },
+  // Connects chat and tasks: the `/task` command, task cards in a transcript, the
+  // conversation's Tasks panel and the "Raised from" rail in the task panel. Owns
+  // only the link between a conversation and a task — every task rule stays in
+  // `tasks` and every access rule stays in the module that owns it. Listed after
+  // both so its migrations run once the tables it references exist, and removing
+  // this line empties the spots it fills without touching either module.
+  { id: 'chat_tasks', from: '@open-mercato/core' },
   // Communication channels hub (SPEC-045d) — bridges external chat/email channels
   // (Slack, WhatsApp, Email) to the unified Messages inbox. Provider packages
   // (channel-slack, channel-whatsapp, future email providers) register adapters here.
   { id: 'communication_channels', from: '@open-mercato/core' },
+  // Tenant-owned template builder for accounting email defaults.
+  { id: 'email', from: '@open-mercato/core' },
   // Push notification rails — `push` delivery strategy + delivery log + send-push worker.
   // Fans out to `devices` tokens and sends through the `communication_channels` hub.
   { id: 'push_notifications', from: '@open-mercato/core' },

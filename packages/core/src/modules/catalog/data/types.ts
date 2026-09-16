@@ -152,8 +152,10 @@ export type CatalogConstraintItem = {
   target_option_id: string | null
   source_product_name?: string | null
   source_option_name?: string | null
+  source_option_path?: string | null
   target_product_name?: string | null
   target_option_name?: string | null
+  target_option_path?: string | null
   locked: boolean
   created_at: string
   updated_at: string

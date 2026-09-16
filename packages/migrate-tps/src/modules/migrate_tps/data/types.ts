@@ -26,7 +26,15 @@ export type Option = {
 
   mutuallyExclusive?: string[]
   conflictsWithItems?: string[]
+  conflictsWithOptions?: OptionReference[]
   nextGroups?: OptionGroup[]
+}
+
+export type OptionReference = {
+  productId: string
+  optionId: string
+  groupPath?: string[]
+  optionPath?: string[]
 }
 
 export type OptionGroup = {

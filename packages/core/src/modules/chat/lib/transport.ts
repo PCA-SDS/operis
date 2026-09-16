@@ -1,3 +1,4 @@
+import type { AwilixContainer } from 'awilix'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import type { ChatScope } from './scope'
@@ -99,6 +100,16 @@ export type EnsureConversationInput = {
  */
 export type ChatTransportContext = {
   em: EntityManager
+  /**
+   * The DI container, for a transport that needs a service rather than a table.
+   *
+   * Optional because the seam's whole point is that most of it needs nothing
+   * but an `EntityManager`, and a test harness that builds a partial context
+   * should not have to fake a container to exercise a text message. The Matrix
+   * transport resolves the `attachments` service through it to copy files into
+   * the media repo, and degrades to sending the text alone when it is absent.
+   */
+  container?: AwilixContainer
 }
 
 export interface ChatTransport {
@@ -132,6 +143,31 @@ export interface ChatTransport {
     scope: ChatScope,
     input: PublishMessageInput,
   ): Promise<PublishedMessage>
+
+  /**
+   * Say that somebody is typing, or has stopped.
+   *
+   * Best-effort by nature rather than by policy: there is nothing to reconcile
+   * and nothing to lose, so a failure is not even worth a warning.
+   */
+  publishTyping(
+    ctx: ChatTransportContext,
+    scope: ChatScope,
+    input: PublishTypingInput,
+  ): Promise<void>
+
+  /**
+   * Announce how far somebody has read.
+   *
+   * The read cursor lives in `chat_participants` whichever system owns the
+   * stream, so this is for the benefit of anything else reading the room — and
+   * is never something a reader's own unread count depends on.
+   */
+  publishReadReceipt(
+    ctx: ChatTransportContext,
+    scope: ChatScope,
+    input: PublishReadReceiptInput,
+  ): Promise<void>
 
   /**
    * Record that a message and an external event are the same thing.
@@ -247,6 +283,27 @@ export type PublishReactionInput = {
   added: boolean
 }
 
+/**
+ * Somebody is typing, or has stopped.
+ *
+ * Ephemeral in the strict sense: nothing is stored on either side, and a
+ * notification that never arrives has cost nothing. That is what makes it safe
+ * to send on a keystroke and safe to drop on a failure.
+ */
+export type PublishTypingInput = {
+  conversationId: string
+  userId: string
+  typing: boolean
+}
+
+/** How far somebody has read, announced to the room. */
+export type PublishReadReceiptInput = {
+  conversationId: string
+  userId: string
+  /** The newest message they have read. */
+  messageId: string
+}
+
 export type RecordPublicationInput = {
   conversationId: string
   messageId: string
@@ -284,6 +341,13 @@ export function createLocalChatTransport(): ChatTransport {
     },
     async publishDeletion() {
       // `deleted_at` is the deletion. Nothing else is holding a copy.
+    },
+    async publishTyping() {
+      // The SSE frame the caller already emitted IS the notification. With no
+      // external system there is no second audience to tell.
+    },
+    async publishReadReceipt() {
+      // `last_read_at` is the receipt, and nobody outside Operis is reading it.
     },
   }
 }
@@ -328,6 +392,48 @@ export function resolveChatTransportId(env: NodeJS.ProcessEnv = process.env): Ch
  * that already succeeded, and the caller would retry a message the reader can
  * already see. The failure is logged and left for reconciliation instead.
  */
+/**
+ * Typing and receipts never fail a caller, and never even warn.
+ *
+ * Unlike a message, an edit or a reaction, there is nothing here to reconcile
+ * later: the homeserver reports the CURRENT state of each, so the next one
+ * corrects whatever this one failed to say. Logging every dropped keystroke
+ * would be noise that hides the failures that matter.
+ */
+export async function publishTypingSafely(
+  transport: ChatTransport,
+  ctx: ChatTransportContext,
+  scope: ChatScope,
+  input: PublishTypingInput,
+): Promise<void> {
+  try {
+    await transport.publishTyping(ctx, scope, input)
+  } catch (error) {
+    logger.debug('chat transport failed to mirror a typing notification', {
+      transport: transport.id,
+      conversationId: input.conversationId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
+export async function publishReadReceiptSafely(
+  transport: ChatTransport,
+  ctx: ChatTransportContext,
+  scope: ChatScope,
+  input: PublishReadReceiptInput,
+): Promise<void> {
+  try {
+    await transport.publishReadReceipt(ctx, scope, input)
+  } catch (error) {
+    logger.debug('chat transport failed to mirror a read receipt', {
+      transport: transport.id,
+      conversationId: input.conversationId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
+}
+
 export async function publishMessageSafely(
   transport: ChatTransport,
   ctx: ChatTransportContext,

@@ -3,7 +3,7 @@ import { findApiRouteManifestMatch, getApiRouteManifests, registerApiRouteManife
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { getTelemetryRuntime } from '@open-mercato/shared/lib/telemetry/runtime'
 import { apiRouteFacades } from '@/.mercato/generated/api-route-shards.generated'
-import { resolveAuthFromRequestDetailed } from '@open-mercato/shared/lib/auth/server'
+import { attachTrustedAuthContext, resolveAuthFromRequestDetailed } from '@open-mercato/shared/lib/auth/server'
 import { bootstrap } from '@/bootstrap-api'
 import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
@@ -19,10 +19,14 @@ import { checkRateLimit, getClientIp, RATE_LIMIT_ERROR_KEY, RATE_LIMIT_ERROR_FAL
 import { getGlobalEventBus } from '@open-mercato/shared/modules/events'
 import { applicationLifecycleEvents, type ApplicationLifecycleEventId } from '@open-mercato/shared/lib/runtime/events'
 import { withModuleResourceUsage } from '@open-mercato/shared/lib/modules/resource-usage'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+import { isLevelEnabled } from '@open-mercato/shared/lib/logger/level'
 
 // Ensure all package registrations are initialized for API routes.
 bootstrap()
 registerApiRouteManifests(apiRouteFacades)
+
+const apiLogger = createLogger('api')
 
 const warnedDeprecatedRequireRoles = new Set<string>()
 
@@ -30,8 +34,8 @@ function warnDeprecatedRequireRoles(pathname: string, method: HttpMethod): void 
   const warnKey = `${method} ${pathname}`
   if (warnedDeprecatedRequireRoles.has(warnKey)) return
   warnedDeprecatedRequireRoles.add(warnKey)
-  console.warn(
-    '[api] Ignoring deprecated `requireRoles` guard — role names are mutable and spoofable, so they no longer authorize requests. Migrate to `requireFeatures` with immutable acl.ts feature IDs.',
+  apiLogger.warn(
+    'Ignoring deprecated `requireRoles` guard — role names are mutable and spoofable, so they no longer authorize requests. Migrate to `requireFeatures` with immutable acl.ts feature IDs.',
     { path: pathname, method },
   )
 }
@@ -245,33 +249,41 @@ export async function checkAuthorization(
       organizationId,
     })
     if (!ok) {
-      try {
-        const acl = await rbac.loadAcl(auth.sub, { tenantId: featureContext.scope.tenantId ?? auth.tenantId ?? null, organizationId })
-        console.warn('[api] Forbidden - missing required features', {
-          path: req.nextUrl.pathname,
-          method: req.method,
-          userId: auth.sub,
-          tenantId: featureContext.scope.tenantId ?? auth.tenantId ?? null,
-          selectedOrganizationId: featureContext.scope.selectedId,
-          organizationId,
-          requiredFeatures,
-          grantedFeatures: acl.features,
-          isSuperAdmin: acl.isSuperAdmin,
-          allowedOrganizations: acl.organizations,
-        })
-      } catch (err) {
+      const deniedTenantId = featureContext.scope.tenantId ?? auth.tenantId ?? null
+      // The denial itself is cheap to report and always worth reporting.
+      apiLogger.warn('Forbidden - missing required features', {
+        path: req.nextUrl.pathname,
+        method: req.method,
+        userId: auth.sub,
+        tenantId: deniedTenantId,
+        selectedOrganizationId: featureContext.scope.selectedId,
+        organizationId,
+        requiredFeatures,
+      })
+      // The full grant dump costs an extra `loadAcl` round trip that the 403
+      // itself does not need — `userHasAllFeatures` above already decided — and
+      // writes an unbounded, unredacted permission list on every denial. Anything
+      // probing endpoints it lacks access to therefore amplified DB/cache load in
+      // proportion to its request rate. Gated on debug so the diagnostic is still
+      // one `OM_LOG_LEVEL=debug` away when someone is actually chasing a denial.
+      if (isLevelEnabled('debug')) {
         try {
-          console.warn('[api] Forbidden - could not resolve ACL for logging', {
+          const acl = await rbac.loadAcl(auth.sub, { tenantId: deniedTenantId, organizationId })
+          apiLogger.debug('Forbidden - resolved ACL for denied request', {
             path: req.nextUrl.pathname,
-            method: req.method,
             userId: auth.sub,
-            tenantId: featureContext.scope.tenantId ?? auth.tenantId ?? null,
-            organizationId,
+            requiredFeatures,
+            grantedFeatures: acl.features,
+            isSuperAdmin: acl.isSuperAdmin,
+            allowedOrganizations: acl.organizations,
+          })
+        } catch (err) {
+          apiLogger.debug('Forbidden - could not resolve ACL for logging', {
+            path: req.nextUrl.pathname,
+            userId: auth.sub,
             requiredFeatures,
             error: err instanceof Error ? err.message : err,
           })
-        } catch {
-          // best-effort logging; ignore secondary failures
         }
       }
       return NextResponse.json({ error: t('api.errors.forbidden', 'Forbidden'), requiredFeatures }, { status: 403 })
@@ -395,6 +407,14 @@ async function handleRequest(
   const routeMetadata = normalizeLoadedMetadata(loadedRouteModule.metadata, method, match.route.kind)
   const authResolution = await resolveAuthFromRequestDetailed(req)
   const auth = authResolution.auth
+  // Hand the resolved identity down to the handler on the request itself.
+  // `makeCrudRoute`'s generated handlers take only `(request)` — they cannot see
+  // `handlerContext` — so without this every CRUD call re-ran the whole pipeline:
+  // a second JWT verify, a second `createRequestContainer()`, and the five
+  // sequential session-integrity queries in `resolveCanonicalStaffAuthContext`.
+  // `resolveAuthFromRequestDetailed` short-circuits on this envelope and returns
+  // it verbatim, so downstream sees exactly the object it would have recomputed.
+  attachTrustedAuthContext(req, { auth, status: authResolution.status })
   await emitLifecycleEvent(applicationLifecycleEvents.requestAuthResolved, {
     ...receivedPayload,
     authenticated: !!auth,

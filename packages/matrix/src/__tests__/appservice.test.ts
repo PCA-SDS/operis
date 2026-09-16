@@ -121,7 +121,7 @@ describe('parseTransaction', () => {
   })
 
   it('accepts an empty transaction', () => {
-    expect(parseTransaction({ events: [] })).toEqual({ events: [], receivedCount: 0 })
+    expect(parseTransaction({ events: [] })).toEqual({ events: [], ephemeral: [], receivedCount: 0 })
   })
 
   it('drops a malformed event but keeps the received count', () => {
@@ -140,8 +140,22 @@ describe('parseTransaction', () => {
     expect(parseTransaction(body)).toBeNull()
   })
 
+  /**
+   * Ephemeral events ride the same transaction and are handed on unparsed: they
+   * carry no `event_id` and no `sender`, so the event schema rejects every one
+   * of them and their own parsers take the raw shape.
+   */
+  it('passes ephemeral events through untouched', () => {
+    const receipt = { type: 'm.receipt', content: { $event: { 'm.read': { '@a:x': { ts: 1 } } } } }
+    expect(parseTransaction({ events: [], ephemeral: [receipt] })).toEqual({
+      events: [],
+      ephemeral: [receipt],
+      receivedCount: 0,
+    })
+  })
+
   it('defaults a missing events key to empty rather than failing', () => {
-    expect(parseTransaction({})).toEqual({ events: [], receivedCount: 0 })
+    expect(parseTransaction({})).toEqual({ events: [], ephemeral: [], receivedCount: 0 })
   })
 })
 

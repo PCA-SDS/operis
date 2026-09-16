@@ -5,6 +5,8 @@ import {
   buildVariantMetadata,
   mapPriceItemToDraft,
   findInvalidVariantPriceKinds,
+  buildVariantDurationPayload,
+  normalizeVariantDurationUnit,
 } from '../variantForm'
 import type { VariantFormValues } from '../variantForm'
 import type { PriceKindSummary } from '../productForm'
@@ -68,6 +70,32 @@ describe('createVariantInitialValues', () => {
     const first = createVariantInitialValues()
     const second = createVariantInitialValues()
     expect(first.mediaDraftId).not.toBe(second.mediaDraftId)
+  })
+})
+
+describe('variant duration helpers', () => {
+  it('normalizes legacy minute aliases to the canonical unit', () => {
+    expect(normalizeVariantDurationUnit('min')).toBe('minute')
+    expect(normalizeVariantDurationUnit('mins')).toBe('minute')
+    expect(normalizeVariantDurationUnit('minutes')).toBe('minute')
+  })
+
+  it('builds a canonical fixed duration payload', () => {
+    expect(buildVariantDurationPayload({ durationValue: '60', durationUnit: 'min' })).toEqual({
+      durationValue: 60,
+      durationUnit: 'minute',
+      durationMin: null,
+      durationMax: null,
+    })
+  })
+
+  it('clears the unit when no duration value is present', () => {
+    expect(buildVariantDurationPayload({ durationUnit: 'hour' })).toEqual({
+      durationValue: null,
+      durationUnit: null,
+      durationMin: null,
+      durationMax: null,
+    })
   })
 })
 

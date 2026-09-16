@@ -27,18 +27,39 @@ export async function actingUserId(ctx: CommandRuntimeContext): Promise<string> 
   throw forbidden(messages.unauthorized)
 }
 
+/**
+ * Everyone in a conversation, and which of them own it.
+ *
+ * One query for both, because the role sits on the row the audience is already
+ * read from — and the send path needs the owners to seat them at the room's
+ * moderation power level, which it previously could not name and so passed as
+ * an empty list.
+ */
+export async function conversationRoster(
+  em: EntityManager,
+  scope: ChatScope,
+  conversationId: string,
+): Promise<{ userIds: string[]; ownerUserIds: string[] }> {
+  const participants = await em.find(ChatParticipant, {
+    conversationId,
+    tenantId: scope.tenantId,
+    organizationId: scope.organizationId,
+  })
+  return {
+    userIds: participants.map((participant) => participant.userId),
+    ownerUserIds: participants
+      .filter((participant) => participant.role === 'owner')
+      .map((participant) => participant.userId),
+  }
+}
+
 /** The user ids of everyone in a conversation — the SSE audience. */
 export async function conversationAudience(
   em: EntityManager,
   scope: ChatScope,
   conversationId: string,
 ): Promise<string[]> {
-  const participants = await em.find(ChatParticipant, {
-    conversationId,
-    tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
-  })
-  return participants.map((participant) => participant.userId)
+  return (await conversationRoster(em, scope, conversationId)).userIds
 }
 
 /**
@@ -88,11 +109,16 @@ export function chatTransportFrom(ctx: CommandRuntimeContext): ChatTransport {
   if (typeof container.hasRegistration === 'function' && !container.hasRegistration('chatTransport')) {
     return createLocalChatTransport()
   }
-  try {
-    return container.resolve<ChatTransport>('chatTransport')
-  } catch {
-    return createLocalChatTransport()
-  }
+  /**
+   * A registration that fails to resolve is NOT a missing one.
+   *
+   * Swallowing the error here defeated the whole point of `chat_matrix/di.ts`
+   * refusing to boot without a homeserver: the module registered a factory that
+   * threw when called, every send silently fell back to `local`, and the only
+   * outward sign was a homeserver that received nothing. Rethrow with the token
+   * named, and let the deployment fail the way it was designed to.
+   */
+  return container.resolve<ChatTransport>('chatTransport')
 }
 
 /**

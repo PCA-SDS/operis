@@ -53,8 +53,8 @@ const crud = makeCrudRoute({
       'id', 'name', 'description', 'area_type_id', 'parent_area_id', 'sort_order',
       'appearance_icon', 'appearance_color', 'is_active', 'organization_id', 'tenant_id'
     ],
-    buildFilters: async (query: any) => {
-      const filters: Record<string, any> = {}
+    buildFilters: async (query) => {
+      const filters: Record<string, unknown> = {}
       if (query.search) {
         const pattern = `%${escapeLikePattern(query.search)}%`
         filters.$or = [
@@ -238,19 +238,33 @@ async function countChildrenByParentId(
   rows: ResourcesResourceArea[],
   params: { tenantId: string; orgWhere: Record<string, unknown>; excludedIds?: string[] },
 ): Promise<Map<string, number>> {
+  // One query for the whole page. This used to issue a separate `em.count` per
+  // row, so a default 100-row page cost 100 round trips on top of the list query
+  // and the total count. Only `parentAreaId` is selected, and every row on the
+  // page is seeded to 0 so the returned map has exactly the same keys as before.
   const counts = new Map<string, number>()
-  await Promise.all(rows.map(async (row) => {
-    const where: Record<string, unknown> = {
-      ...params.orgWhere,
-      tenantId: params.tenantId,
-      deletedAt: null,
-      parentAreaId: row.id,
-    }
-    if (params.excludedIds && params.excludedIds.length > 0) {
-      where.id = { $nin: params.excludedIds }
-    }
-    counts.set(String(row.id), await em.count(ResourcesResourceArea, where as FilterQuery<ResourcesResourceArea>))
-  }))
+  for (const row of rows) counts.set(String(row.id), 0)
+  const parentIds = rows.map((row) => String(row.id))
+  if (parentIds.length === 0) return counts
+
+  const where: Record<string, unknown> = {
+    ...params.orgWhere,
+    tenantId: params.tenantId,
+    deletedAt: null,
+    parentAreaId: { $in: parentIds },
+  }
+  if (params.excludedIds && params.excludedIds.length > 0) {
+    where.id = { $nin: params.excludedIds }
+  }
+  const children = await em.find(ResourcesResourceArea, where as FilterQuery<ResourcesResourceArea>, {
+    fields: ['parentAreaId'],
+  })
+  for (const child of children) {
+    const parentId = child.parentAreaId == null ? null : String(child.parentAreaId)
+    if (parentId == null) continue
+    const current = counts.get(parentId)
+    if (current !== undefined) counts.set(parentId, current + 1)
+  }
   return counts
 }
 

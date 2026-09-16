@@ -1,4 +1,8 @@
 import { normalizeHostname, tryNormalizeHostname } from '@open-mercato/core/modules/customer_accounts/lib/hostname'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+
+const customDomainCacheLogger = createLogger('custom-domain-cache')
+
 
 export type DomainResolution = {
   hostname: string
@@ -135,7 +139,7 @@ export function createCustomDomainCache(options: CustomDomainCacheOptions) {
     const ts = now()
     if (ts - lastCapWarnAt >= IN_FLIGHT_CAP_WARN_INTERVAL_MS) {
       lastCapWarnAt = ts
-      console.warn('[customDomainCache] inFlight cap reached, dropping fetch for', hostname)
+      customDomainCacheLogger.warn('inFlight cap reached, dropping fetch', { hostname })
     }
   }
 

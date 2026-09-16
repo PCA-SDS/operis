@@ -6,6 +6,7 @@ import { CrudForm, type CrudField, type CrudFormGroup } from '@open-mercato/ui/b
 import { createCrud } from '@open-mercato/ui/backend/utils/crud'
 import { createCrudFormError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { slugify } from '@open-mercato/shared/lib/slugify'
 
 type CreateCustomerRoleFormValues = {
   name: string
@@ -14,13 +15,6 @@ type CreateCustomerRoleFormValues = {
   isDefault: boolean
   customerAssignable: boolean
 } & Record<string, unknown>
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
 
 export default function CreateCustomerRolePage() {
   const t = useT()
@@ -96,7 +90,10 @@ export default function CreateCustomerRolePage() {
           onSubmit={async (values) => {
             const name = typeof values.name === 'string' ? values.name.trim() : ''
             const rawSlug = typeof values.slug === 'string' ? values.slug.trim() : ''
-            const slug = rawSlug || slugify(name)
+            // `allowedChars: ''` reproduces the local helper this replaced: it collapses
+            // runs that already contain a hyphen, so "Sales - Manager" slugs to
+            // "sales-manager" rather than "sales---manager".
+            const slug = rawSlug || slugify(name, { allowedChars: '' })
 
             if (!name) {
               throw createCrudFormError(

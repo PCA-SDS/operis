@@ -84,9 +84,9 @@ test.describe('TC-AUD-008: date-range filtering and pagination', () => {
         'advancing the offset moves to a different row',
       ).not.toBe(firstBody.items[0].id)
 
-      // pageSize is capped server-side at 200.
+      // pageSize is capped server-side at the repository-wide MAX_PAGE_SIZE.
       const cappedPage = await listActionLogs(request, token, { pageSize: 500, offset: 0 })
-      expect(cappedPage.body!.pageSize, 'pageSize is clamped to the 200 maximum').toBe(200)
+      expect(cappedPage.body!.pageSize, 'pageSize is clamped to the 100 maximum').toBe(100)
 
       // An offset past the last record returns no items.
       const beyondLast = await listActionLogs(request, token, { pageSize: 1, offset: 100_000_000 })

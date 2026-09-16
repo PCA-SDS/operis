@@ -21,11 +21,7 @@ export function requireId(id: string | null | undefined, label: string): string 
   throw new CrudHttpError(400, { error: `${label} id is required.` })
 }
 
-export function normalizeOptionalString(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
+export { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 /**
  * WMS quantities are never absent — an unreadable value means zero on hand, not

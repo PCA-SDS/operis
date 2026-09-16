@@ -2362,6 +2362,8 @@
   "customers.people.form.lifecycleStage.placeholder": "라이프사이클 단계를 선택하세요",
   "customers.people.form.linkedInUrl": "LinkedIn",
   "customers.people.form.linkedInUrl.placeholder": "https://www.linkedin.com/in/example",
+  "customers.people.form.origin": "Origin",
+  "customers.people.form.origin.placeholder": "Select an origin",
   "customers.people.form.phoneChecking": "일치하는 전화번호를 확인하는 중…",
   "customers.people.form.phoneDuplicateLink": "레코드 열기",
   "customers.people.form.phoneDuplicateNotice": "이 전화번호는 이미 {{name}}에 지정되어 있습니다.",

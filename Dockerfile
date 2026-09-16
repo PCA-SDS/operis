@@ -61,9 +61,45 @@ COPY jest.config.cjs jest.setup.ts jest.dom.setup.ts ./
 COPY eslint.config.mjs ./
 
 
-# Build the app
-# Limit Node.js heap to 4GB and reduce worker count to avoid OOM in constrained Docker environments
+# Build the app.
+#
+# `NODE_OPTIONS` here does NOT reach `next build`: apps/mercato's own build script
+# sets its own `--max-old-space-size` via cross-env, which replaces the inherited
+# value rather than merging with it. This ENV therefore only governs the package
+# builds and the generators; the Next build is sized by NEXT_BUILD_HEAP_MB below.
+# The old comment claimed this line also reduced the worker count. It never did.
 ENV NODE_OPTIONS="--max-old-space-size=4096"
+
+# The Next build is the peak-memory step and the one that OOM-kills the image
+# build on a constrained daemon. Two independent knobs, because heap alone is not
+# enough — Next forks static-generation workers that each carry their own:
+#   NEXT_BUILD_HEAP_MB  -> the main build process heap
+#   NEXT_BUILD_WORKERS  -> read by next.config.ts and passed to experimental.cpus
+#
+# The defaults deliberately reproduce today's CI behaviour exactly: 8192 is the
+# value the app's build script used to hard-code, and an empty worker count
+# leaves Next's own default (one per core) in place. Changing what a 16 GB runner
+# does is not the point of this — making a smaller daemon able to build is.
+#
+# Measured on a 7.7 GB Docker VM: the `Running TypeScript` phase OOMs below ~4 GB
+# of heap ("Ineffective mark-compacts"), and the kernel kills the container above
+# ~6 GB. Constrained daemons should pass something in between, with one worker:
+#   docker buildx build --build-arg NEXT_BUILD_HEAP_MB=4608 \
+#                       --build-arg NEXT_BUILD_WORKERS=1 ...
+ARG NEXT_BUILD_HEAP_MB=8192
+ARG NEXT_BUILD_WORKERS=
+ENV NEXT_BUILD_HEAP_MB=${NEXT_BUILD_HEAP_MB} \
+    NEXT_BUILD_WORKERS=${NEXT_BUILD_WORKERS}
+
+# Skip the type check inside `next build`: the CI `typecheck` job already ran
+# `yarn typecheck:serial` over this exact commit, and the image build waits on
+# `ci-required`, which that job is part of. The in-build check was pure
+# duplication — ~55s and the largest memory spike in this stage. next.config.ts
+# reads this; with it unset the check runs as before. Build with
+# `--build-arg NEXT_SKIP_TYPE_CHECK=0` to put it back.
+ARG NEXT_SKIP_TYPE_CHECK=1
+ENV NEXT_SKIP_TYPE_CHECK=${NEXT_SKIP_TYPE_CHECK}
+
 RUN yarn build
 
 # Dev prebuild stage: install + build at NATIVE VM filesystem speed.
@@ -262,6 +298,22 @@ COPY docker/scripts/mcp-entrypoint.sh /app/docker/scripts/mcp-entrypoint.sh
 RUN chmod +x /app/docker/scripts/railway-entrypoint.sh
 RUN chmod +x /app/docker/scripts/init-or-migrate.sh
 RUN chmod +x /app/docker/scripts/mcp-entrypoint.sh
+
+# Drop npm from the runtime image.
+#
+# This project installs with Yarn 4 through corepack and the container runs
+# `yarn start`; npm is never invoked. But the Node base image bundles npm along
+# with its OWN vendored dependency tree under /usr/local/lib/node_modules/npm,
+# and those copies are pinned by npm's release, so nothing in this repo's
+# `resolutions` can move them. They are what the image scan reports as
+# brace-expansion, ip-address and tar findings — advisories against a package
+# manager that has no reason to be in a production image in the first place.
+#
+# Placed after the `yarn workspaces focus` above, which is the last step that
+# touches the dependency tree. Corepack is a separate binary and is unaffected.
+RUN rm -rf /usr/local/lib/node_modules/npm \
+           /usr/local/bin/npm \
+           /usr/local/bin/npx
 
 # Prepare storage directory for Railway volume mount
 RUN mkdir -p /app/apps/mercato/storage

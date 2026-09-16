@@ -22,6 +22,9 @@ import {
 import { MessageBody } from './MessageBody'
 import type { HighlightPlan } from '../lib/searchQuery'
 import { MessageAttachments } from './MessageAttachments'
+import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
+import { extensionPoints } from '../extension-points'
+import { useChatInjectedActions, useChatSpotClaimed } from './injection'
 import {
   MessageReactions,
   QuickReactions,
@@ -310,6 +313,7 @@ function MessageMenu({
   onShowOriginal,
   onEdit,
   onDelete,
+  extraItems = [],
 }: {
   body: string
   onReply?: () => void
@@ -321,6 +325,12 @@ function MessageMenu({
   onEdit?: () => void
   /** Absent unless the viewer wrote it, or owns the space it is in. */
   onDelete?: () => void
+  /**
+   * Entries contributed by other modules through `chat:message:actions`, already
+   * bound to this message. They sit between the module's own actions and Delete
+   * so the destructive entry stays last wherever it is rendered from.
+   */
+  extraItems?: { id: string; label: string; onSelect: () => void }[]
 }) {
   const t = useT()
   return (
@@ -371,6 +381,7 @@ function MessageMenu({
         ...(onEdit
           ? [{ id: 'edit', label: t('chat.messages.edit', 'Edit message'), onSelect: onEdit }]
           : []),
+        ...extraItems,
         // Last, and marked destructive: it is the only entry here that cannot
         // be undone, so it sits furthest from the pointer's resting place.
         ...(onDelete
@@ -523,6 +534,15 @@ export function MessageList({
 }: MessageListProps) {
   const t = useT()
   const locale = useLocale()
+  /**
+   * Asked once for the whole transcript, not once per row.
+   *
+   * Both answers are identical for every message on screen, and resolving them
+   * per row would load the injection registry once per bubble on a page of
+   * thirty.
+   */
+  const cardSpotClaimed = useChatSpotClaimed(extensionPoints.hosts.messageCard.spotId)
+  const injectedMessageActions = useChatInjectedActions(extensionPoints.hosts.messageActions.spotId)
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const unreadDividerRef = React.useRef<HTMLLIElement>(null)
   const [atBottom, setAtBottom] = React.useState(true)
@@ -1125,6 +1145,44 @@ export function MessageList({
               aria-relevant="additions"
             >
               {rows.map((row) => {
+                if (row.kind === 'system' && row.message.systemEvent === 'card') {
+                  // A card row carries no text of its own: whichever module
+                  // posted it renders the body from an authorized read of the
+                  // record it points at, per viewer. Unclaimed — the owning
+                  // module disabled, or removed — the spot renders nothing, so
+                  // the fallback line below is what the reader sees instead of
+                  // an unexplained gap.
+                  return (
+                    <li
+                      key={row.key}
+                      data-message-id={row.message.id}
+                      data-chat-card="true"
+                      tabIndex={-1}
+                      className={cn('flex justify-center px-2 outline-none', TOP_GAP[row.topGap])}
+                    >
+                      <div className="w-full max-w-md">
+                        {cardSpotClaimed ? (
+                          <InjectionSpot
+                            spotId={extensionPoints.hosts.messageCard.spotId}
+                            context={{
+                              conversationId: row.message.conversationId,
+                              messageId: row.message.id,
+                              senderUserId: row.message.senderUserId,
+                              senderName: row.message.senderName,
+                              createdAt: row.message.createdAt,
+                              mine: row.message.senderUserId === currentUserId,
+                            }}
+                          />
+                        ) : (
+                          <p className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-muted-foreground">
+                            {t('chat.cards.unavailable', 'This card cannot be shown here.')}
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  )
+                }
+
                 if (row.kind === 'system') {
                   // Centred, muted, no bubble and no avatar: it is a note about
                   // the room. The sentence is assembled here from translations
@@ -1767,6 +1825,38 @@ export function MessageList({
                                 ? () => onDelete(row.message.id)
                                 : undefined
                             }
+                            /* Bound here rather than in the menu so each entry
+                               receives the message it was opened on — a module
+                               acting on "this message" needs the row, and the
+                               menu only knows the body. */
+                            extraItems={injectedMessageActions.map((action) => ({
+                              id: action.id,
+                              label: action.label,
+                              onSelect: () =>
+                                action.onSelect(
+                                  {
+                                    conversationId: row.message.conversationId,
+                                    messageId: row.message.id,
+                                    senderUserId: row.message.senderUserId,
+                                    senderName: row.message.senderName,
+                                    /**
+                                     * The text too, because the reader is already
+                                     * looking at it.
+                                     *
+                                     * A claimer that wants to offer "use this text"
+                                     * needs it in hand to show for review, and asking
+                                     * the server for a message the caller is currently
+                                     * reading would prove nothing new. What it must
+                                     * not do is persist it without being asked — that
+                                     * is the claimer's contract, not chat's.
+                                     */
+                                    body: row.message.body,
+                                    createdAt: row.message.createdAt,
+                                    mine: row.mine,
+                                  },
+                                  { conversationId: row.message.conversationId, isSpace },
+                                ),
+                            }))}
                           />
                         </div>
                       </div>
