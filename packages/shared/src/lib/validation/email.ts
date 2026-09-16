@@ -6,6 +6,26 @@ import { z } from 'zod'
  */
 export const EMAIL_MAX_LENGTH = 320
 
+/**
+ * A deliberately loose "looks like an address" pattern: one or more non-space,
+ * non-`@` characters, an `@`, then a dotted domain.
+ *
+ * Two legitimate uses, and only these:
+ *
+ * 1. **Fast client-side feedback** before a form is submitted. It is not an
+ *    enforcement point — the server schema built from {@link emailSchema} is.
+ *    This pattern is looser than `zod`'s `.email()` and applies no length cap,
+ *    so anything it accepts must still pass the server schema.
+ * 2. **Classifying** a free-text value, e.g. deciding whether a search term
+ *    should be matched against an email column. Here "is this shaped like an
+ *    address" is the whole question and rejecting an odd-but-real address costs
+ *    nothing.
+ *
+ * Five call sites each carried this literal before it lived here. Never use it
+ * to validate a value that is about to be stored.
+ */
+export const LOOSE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export type EmailSchemaOptions = {
   /** Message or i18n key for a malformed address. Defaults to zod's own. */
   message?: string
@@ -17,9 +37,15 @@ export type EmailSchemaOptions = {
  * The canonical email schema: trim, validate, cap at {@link EMAIL_MAX_LENGTH}.
  *
  * Before this existed there were 51 independent email schemas, 34 of which set
- * no length cap at all, plus eight copies of a loose `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`
- * regex on the client and two hand-rolled 25-line validators. Use this for any
- * new field, and prefer it when touching an existing one.
+ * no length cap at all. Use this for any new field, and prefer it when touching
+ * an existing one; roughly forty of those schemas are still hand-written.
+ *
+ * The loose client-side regex that used to be copied alongside them now lives
+ * here as {@link LOOSE_EMAIL_PATTERN}, which documents when it is the right
+ * tool. Two hand-rolled 25-line validators remain — `isValidCheckoutEmail` and
+ * the byte-identical copy in `ui/backend/messages` — and are deliberately
+ * stricter on domain labels and tighter on length (254) than this schema, so
+ * they are not a drop-in swap.
  *
  * Client-side forms may use it for fast feedback, but the server schema is the
  * enforcement point — a client check is never a substitute for one.

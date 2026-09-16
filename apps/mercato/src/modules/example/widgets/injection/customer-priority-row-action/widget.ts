@@ -18,7 +18,7 @@ const widget: InjectionRowActionWidget = {
         if (typeof id !== 'string' || id.length === 0) return
         const navigate = (context as { navigate?: (href: string) => void }).navigate
         if (typeof navigate !== 'function') return
-        navigate(`/backend/customers/people/${encodeURIComponent(id)}`)
+        navigate(`/backend/customers/people-v2/${encodeURIComponent(id)}`)
       },
     },
   ],

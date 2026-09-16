@@ -8,6 +8,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { loadAuditLogDisplayMaps } from '../display'
 import { requireResolvedTenantScope } from '../readScope'
 import { z } from 'zod'
+import { MAX_PAGE_SIZE } from '@open-mercato/shared/lib/validation'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 
 export const metadata = {
@@ -19,9 +20,9 @@ const auditAccessQuerySchema = z.object({
   actorUserId: z.string().uuid().describe('Filter by actor user id (tenant administrators only)').optional(),
   resourceKind: z.string().describe('Restrict to a resource kind such as `order` or `product`').optional(),
   accessType: z.string().describe('Access type filter, e.g. `read` or `export`').optional(),
-  page: z.string().describe('Page number (default 1)').optional(),
-  pageSize: z.string().describe('Page size (default 50)').optional(),
-  limit: z.string().describe('Explicit maximum number of records when paginating manually').optional(),
+  page: z.coerce.number().int().min(1).describe('Page number (default 1)').optional(),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).describe(`Page size (default 50, max ${MAX_PAGE_SIZE})`).optional(),
+  limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).describe('Explicit maximum number of records when paginating manually').optional(),
   before: z.string().describe('Return logs created before this ISO-8601 timestamp').optional(),
   after: z.string().describe('Return logs created after this ISO-8601 timestamp').optional(),
 })
@@ -97,7 +98,7 @@ export async function GET(req: Request) {
   const resourceKind = url.searchParams.get('resourceKind')
   const accessType = url.searchParams.get('accessType')
   const page = parseNumber(url.searchParams.get('page'), { min: 1, max: 1000000, fallback: 1 })
-  const pageSize = parseNumber(url.searchParams.get('pageSize'), { min: 1, max: 200, fallback: 50 })
+  const pageSize = parseNumber(url.searchParams.get('pageSize'), { min: 1, max: MAX_PAGE_SIZE, fallback: 50 })
   const before = parseDate(url.searchParams.get('before'))
   const after = parseDate(url.searchParams.get('after'))
 
@@ -123,7 +124,7 @@ export async function GET(req: Request) {
       accessType: accessType ?? undefined,
       page,
       pageSize,
-      limit: url.searchParams.get('limit') ? parseNumber(url.searchParams.get('limit'), { min: 1, max: 200, fallback: pageSize }) : undefined,
+      limit: url.searchParams.get('limit') ? parseNumber(url.searchParams.get('limit'), { min: 1, max: MAX_PAGE_SIZE, fallback: pageSize }) : undefined,
       before,
       after,
     })

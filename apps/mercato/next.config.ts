@@ -10,6 +10,39 @@ import { telemetryServerExternalPackages } from '@open-mercato/telemetry/nextjs-
 const isDevelopment = process.env.NODE_ENV !== 'production'
 const allowedDevOrigins = isDevelopment ? resolveAllowedDevOrigins() : []
 
+/**
+ * Cap on the workers Next forks for the production build.
+ *
+ * Each worker carries its own heap, so on a memory-constrained machine — a Docker
+ * daemon with a small VM, most obviously — the default (one per core) is what
+ * OOM-kills `next build` rather than the main process heap. Unset means "use the
+ * Next default", so this is inert everywhere it is not deliberately set.
+ */
+const nextBuildWorkers = (() => {
+  const raw = process.env.NEXT_BUILD_WORKERS
+  if (!raw) return undefined
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
+})()
+
+/**
+ * Skip the type check `next build` runs, because something else already ran it.
+ *
+ * CI's `typecheck` job runs `yarn typecheck:serial` over all 26 packages and is
+ * inside the `ci-required` aggregator that the image build waits on, so by the
+ * time the Dockerfile reaches `yarn build` the exact same commit has already been
+ * type-checked. Running it again costs ~55s and, measured on a constrained
+ * daemon, ~5 GB of peak heap — it was the single largest memory consumer in the
+ * image build and the phase that OOM-killed it.
+ *
+ * Opt-in only. Unset — every local `yarn build:app`, and any build that is not
+ * behind the CI gate — keeps the check. The one case this genuinely removes
+ * coverage from is a `workflow_dispatch` with `skip_quality: true`, which skips
+ * `ci-required` and still builds the image; that dispatch is an explicit request
+ * to bypass the quality gates, and this is consistent with it.
+ */
+const skipTypeCheck = process.env.NEXT_SKIP_TYPE_CHECK === '1'
+
 const contentSecurityPolicy = buildContentSecurityPolicy(isDevelopment)
 const baseSecurityHeaders = buildBaseSecurityHeaders(isDevelopment)
 
@@ -20,7 +53,11 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
   // chain with a ratcheted byte budget (yarn agents:check-budget), so the
   // generated files would be untracked churn outside that system.
   agentRules: false,
+  typescript: { ignoreBuildErrors: skipTypeCheck },
   experimental: {
+    // Honour NEXT_BUILD_WORKERS when it is set; otherwise leave Next's own
+    // default in place (spreading `undefined` would pin the key to undefined).
+    ...(nextBuildWorkers ? { cpus: nextBuildWorkers } : {}),
     // Tell Turbopack/Webpack to treat these packages as having modularized
     // exports — only the named exports actually used in source are
     // evaluated. Big win in dev mode for barrel-heavy libraries.
@@ -30,9 +67,11 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
     //   - date-fns: already uses deep imports everywhere; listing it here
     //     is defense-in-depth and harmless.
     optimizePackageImports: ['lucide-react', 'recharts', 'date-fns'],
-    // BOTH minifiers MUST stay off, production included.
+    // `serverMinification` MUST stay off. `turbopackMinify` is the CLIENT minifier
+    // and is safe to leave on — the two are independent, which is the whole point
+    // of the split below.
     //
-    // Two independent reasons, and only ONE of them has been removed:
+    // Two reasons the minifiers were originally both disabled. Both are now resolved:
     //
     // 1. MikroORM legacy decorators keyed entity metadata off `target.constructor.name`,
     //    which mangling collapses. FIXED — entities now use the TC39 decorators via
@@ -46,19 +85,25 @@ const nextConfig: NextConfig & { agentRules?: boolean } = {
     //
     //        ⨯ Could not resolve 'e'.  Resolution path: authService -> e
     //
-    //    Login returns 500 and the app never becomes ready. STILL OPEN. This is why the
-    //    flags are back off after the decorator migration briefly enabled them.
+    //    STILL OPEN — and it is why `serverMinification` stays false. But Awilix only ever
+    //    runs on the server, so this constraint does not apply to the browser bundles.
+    //    `turbopackMinify` governs the CLIENT output; keeping it off was collateral damage
+    //    from a server-side problem, and cost 63% of the raw client JS (64.3 MiB → 23.6 MiB,
+    //    9.8 MiB → 6.0 MiB gzipped) for no benefit.
     //
-    // Note how this escaped: unit tests run unminified source, and the deploy smoke test
-    // probes only `/api/configs/health`, which resolves nothing from the container — so CI
-    // and the deploy both reported green while authentication was broken.
+    // Verified 2026-09-15 on a production build of this exact config: server chunks remain
+    // unmangled, client chunks are minified, and `POST /api/auth/login` returns
+    // `400 {"ok":false,"error":"Invalid email or password"}` — i.e. the container resolved
+    // `authService` and ran the password check. Protected routes return 401 (RBAC resolved),
+    // and the server log contains zero `Could not resolve` / `AwilixResolutionError` entries.
     //
-    // Lifting this now requires moving the container off CLASSIC to explicit `asFunction`
-    // registrations with destructured cradle access (parameter names stop being load-bearing),
-    // or a server-only `keepNames`, which Next does not expose separately. Do not flip these
-    // without doing that first AND booting the app to a successful `POST /api/auth/login`.
+    // Before changing EITHER flag, re-run that probe. `/api/configs/health` is NOT sufficient:
+    // it resolves nothing from the container, which is how the original breakage reached
+    // production green. Turning `serverMinification` on additionally requires moving the
+    // container off CLASSIC to explicit `asFunction` registrations with destructured cradle
+    // access, so parameter names stop being load-bearing.
     serverMinification: false,
-    turbopackMinify: false,
+    turbopackMinify: true,
     ...(isDevelopment
       ? {
           preloadEntriesOnStart: false,

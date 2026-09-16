@@ -100,6 +100,55 @@ describe('resolveOrganizationScopeForRequest caching (Phase 4)', () => {
     expect((rbac.loadAcl as jest.Mock).mock.calls.length).toBe(1)
   })
 
+  // `om_selected_org` / `om_selected_tenant` are attacker-controllable. Feeding
+  // them into a CROSS-REQUEST cache key unchecked lets one user mint unbounded
+  // distinct entries and churn the shared LRU. The per-request memo is unaffected
+  // — it dies with the Request, so it cannot grow without bound.
+  it('does not persist the scope across requests when the selected-org cookie is not a UUID', async () => {
+    process.env.OM_ORG_SCOPE_CACHE_TTL_MS = '60000'
+    const em = createMockEm([{ id: 'org-home', descendantIds: [] }])
+    const rbac = createMockRbac()
+    const cache = createMemoryCache()
+    const container = createContainer(em, rbac, cache)
+
+    await resolveOrganizationScopeForRequest({ container, auth: auth(), selectedId: 'not-a-uuid::junk' })
+
+    expect(cache.set).not.toHaveBeenCalled()
+    expect(cache.get).not.toHaveBeenCalled()
+  })
+
+  it('still persists the scope when the selected-org cookie is a UUID', async () => {
+    process.env.OM_ORG_SCOPE_CACHE_TTL_MS = '60000'
+    const em = createMockEm([{ id: 'org-home', descendantIds: [] }])
+    const rbac = createMockRbac()
+    const cache = createMemoryCache()
+    const container = createContainer(em, rbac, cache)
+
+    await resolveOrganizationScopeForRequest({
+      container,
+      auth: auth(),
+      selectedId: '00000000-0000-4000-8000-0000000000aa',
+    })
+
+    expect(cache.get).toHaveBeenCalled()
+  })
+
+  it('keeps the per-request memo even when the cookie value is not persistable', async () => {
+    process.env.OM_ORG_SCOPE_CACHE_TTL_MS = '60000'
+    const em = createMockEm([{ id: 'org-home', descendantIds: [] }])
+    const rbac = createMockRbac()
+    const cache = createMemoryCache()
+    const container = createContainer(em, rbac, cache)
+    const request = {} as unknown as Request
+
+    const first = await resolveOrganizationScopeForRequest({ container, auth: auth(), request, selectedId: 'junk::1' })
+    const second = await resolveOrganizationScopeForRequest({ container, auth: auth(), request, selectedId: 'junk::1' })
+
+    expect(first).toBe(second)
+    expect(cache.set).not.toHaveBeenCalled()
+    expect((rbac.loadAcl as jest.Mock).mock.calls.length).toBe(1)
+  })
+
   it('memoizes resolution per request, deduping the double resolution (issue #2259)', async () => {
     // TTL off: the cross-request cache is disabled, so any dedupe must come from
     // the per-request memo keyed on the shared Request instance.

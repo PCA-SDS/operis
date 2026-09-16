@@ -1,6 +1,10 @@
 import type { AppContainer } from '@open-mercato/shared/lib/di/container'
 import { bootstrap } from '@open-mercato/core/bootstrap'
 import { applicationLifecycleEvents } from '@open-mercato/shared/lib/runtime/events'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+
+const applicationLogger = createLogger('application')
+
 
 const APP_BOOTSTRAP_STARTED_EMITTED_KEY = '__openMercatoApplicationBootstrapStartedEventEmitted__'
 const APP_BOOTSTRAP_COMPLETED_EMITTED_KEY = '__openMercatoApplicationBootstrapCompletedEventEmitted__'
@@ -30,7 +34,7 @@ async function emitApplicationLifecycleEvent(
 
     ;(globalThis as Record<string, unknown>)[emittedKey] = true
   } catch (error) {
-    console.warn('[application] Failed to emit lifecycle event', {
+    applicationLogger.warn('Failed to emit lifecycle event', {
       event: eventName,
       error: error instanceof Error ? error.message : String(error),
     })

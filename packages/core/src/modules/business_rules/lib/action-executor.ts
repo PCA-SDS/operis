@@ -7,6 +7,7 @@ import {
   resolveOpenMercatoApiKeyProfile,
 } from './openmercato-call-options'
 import type { OpenMercatoEndpointOption } from './openmercato-call-options-types'
+import { fetchWithTimeout } from '@open-mercato/shared/lib/http/fetchWithTimeout'
 
 /**
  * Action definition
@@ -510,10 +511,15 @@ async function handleCallOpenMercato(
       if (context.entityType) headers['X-Business-Rule-Entity-Type'] = context.entityType
       if (context.entityId) headers['X-Business-Rule-Entity-Id'] = context.entityId
 
-      const response = await fetch(fullUrl, {
+      // Bounded. This runs inside a persistent `event: '*'` subscriber, so an
+      // unbounded call pinned a pooled DB connection and held the one-time API key
+      // row alive for as long as the socket hung — previously capped only by the
+      // reverse proxy's 90s read timeout, which is incidental, not a design.
+      const response = await fetchWithTimeout(fullUrl, {
         method,
         headers,
         body: requestBody === undefined ? undefined : JSON.stringify(requestBody),
+        timeoutMs: resolveOpenMercatoCallTimeoutMs(),
       })
 
       const responseBody = await parseOpenMercatoResponseBody(response)
@@ -595,12 +601,37 @@ function resolveValue(value: any, context: ActionContext): any {
   return value
 }
 
+// The app calling itself should not leave the container. `APP_URL` is the PUBLIC
+// origin, so every CALL_OPEN_MERCATO action went out through the reverse proxy and
+// back in, occupying two request slots for one logical operation and inheriting the
+// proxy's timeouts. `INTERNAL_APP_ORIGIN` is already set for exactly this in
+// `deploy/docker-compose.prod.yml`; the precedence here mirrors
+// `apps/mercato/src/lib/customDomainResolver.ts:34-42`.
+const OPEN_MERCATO_CALL_DEFAULT_TIMEOUT_MS = 30_000
+
+function resolveOpenMercatoCallTimeoutMs(): number {
+  const raw = process.env.OM_BUSINESS_RULES_CALL_TIMEOUT_MS
+  if (raw === undefined) return OPEN_MERCATO_CALL_DEFAULT_TIMEOUT_MS
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed <= 0) return OPEN_MERCATO_CALL_DEFAULT_TIMEOUT_MS
+  return Math.floor(parsed)
+}
+
+function readInternalCallOrigin(): string {
+  const candidates = [
+    process.env.INTERNAL_APP_ORIGIN,
+    process.env.NEXT_INTERNAL_APP_ORIGIN,
+    process.env.APP_URL,
+  ].filter((value): value is string => Boolean(value && value.trim().length > 0))
+  if (candidates.length > 0) return candidates[0]!.trim().replace(/\/$/, '')
+  return 'http://localhost:3000'
+}
+
 function buildOpenMercatoApiUrl(endpoint: string): string {
   if (!endpoint.startsWith('/api/')) {
     throw new Error(`CALL_OPEN_MERCATO only supports /api/* paths, got: ${endpoint}`)
   }
-  const appUrl = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '')
-  return `${appUrl}${endpoint}`
+  return `${readInternalCallOrigin()}${endpoint}`
 }
 
 function normalizeOpenMercatoRequestBody(value: any, context: ActionContext): any {

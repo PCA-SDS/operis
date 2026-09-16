@@ -1,19 +1,10 @@
 'use client'
 
-import * as React from 'react'
 import { AlertTriangle, Clock } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { getTimeAgoParts, isAppointmentOverdue } from '../lib/urgency'
-
-function useNow(intervalMs = 60_000) {
-  const [now, setNow] = React.useState(() => Date.now())
-  React.useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), intervalMs)
-    return () => window.clearInterval(id)
-  }, [intervalMs])
-  return now
-}
+import { useNow } from '../lib/useNow'
 
 type AppointmentUrgencyCellProps = {
   createdAt: string

@@ -9,6 +9,7 @@ import {
   snapshotsEqual,
 } from '@open-mercato/shared/lib/commands/helpers'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { CrudHttpError, notFound } from '@open-mercato/shared/lib/crud/errors'
@@ -478,12 +479,6 @@ async function setCompanyCustomFields(
       notify: false,
     })
   }
-}
-
-function normalizeOptionalString(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
 }
 
 function normalizeHexColor(value: string | null | undefined): string | null {

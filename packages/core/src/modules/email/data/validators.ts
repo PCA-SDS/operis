@@ -1,12 +1,7 @@
 import { z } from 'zod'
+import { emptyStringToNull } from '@open-mercato/shared/lib/validation'
 
 const uuid = () => z.string().uuid()
-
-const emptyStringToNull = (value: unknown): unknown => {
-  if (typeof value !== 'string') return value
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
 
 const clearableStringSchema = (max: number) =>
   z.preprocess(emptyStringToNull, z.string().trim().max(max).nullable().optional())

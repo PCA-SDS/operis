@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc, OpenApiMethodDoc } from '@open-mercato/shared/lib/openapi'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import { LOOSE_EMAIL_PATTERN } from '@open-mercato/shared/lib/validation'
 import { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { CustomerUserService } from '@open-mercato/core/modules/customer_accounts/services/customerUserService'
 import { CustomerUser, CustomerUserRole, CustomerRole } from '@open-mercato/core/modules/customer_accounts/data/entities'
@@ -17,7 +18,6 @@ import { resolveSearchConfig } from '@open-mercato/shared/lib/search/config'
 import { tokenizeText } from '@open-mercato/shared/lib/search/tokenize'
 import { sql } from 'kysely'
 
-const EMAIL_LIKE_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export const metadata = {}
 
@@ -82,7 +82,7 @@ export async function GET(req: Request) {
     }
 
     // Also support exact email lookup via emailHash
-    if (EMAIL_LIKE_PATTERN.test(search)) {
+    if (LOOSE_EMAIL_PATTERN.test(search)) {
       searchFilter.push({ emailHash: { $in: lookupHashCandidates(search) } })
     }
 

@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import {
   Users,
   Handshake,
+  MapPin,
   Clock,
   History,
   Paperclip,
@@ -16,10 +17,12 @@ import type { SectionAction } from '@open-mercato/ui/backend/detail'
 import { registerComponent } from '@open-mercato/shared/modules/widgets/component-registry'
 import { useRegisteredComponent } from '@open-mercato/ui/backend/injection/useRegisteredComponent'
 import { useDealsAccess } from './useDealsAccess'
+import { formatTabCount } from './utils'
 
 export type CompanyTabId =
   | 'people'
   | 'deals'
+  | 'addresses'
   | 'activity-log'
   | 'changelog'
   | 'files'
@@ -41,6 +44,7 @@ export type CompanyDetailTabsProps = {
   hiddenTabIds?: string[]
   peopleCount?: number
   dealsCount?: number
+  addressesCount?: number
   activitiesCount?: number
   filesCount?: number
   sectionAction?: SectionAction | null
@@ -50,7 +54,6 @@ export type CompanyDetailTabsProps = {
 const LEGACY_TAB_MAP: Record<string, CompanyTabId> = {
   notes: 'people',
   activities: 'activity-log',
-  addresses: 'people',
   tasks: 'people',
   dashboard: 'people',
   'dane-firmy': 'people',
@@ -63,11 +66,6 @@ export function resolveLegacyTab(tab: string | null | undefined): CompanyTabId {
   return tab as CompanyTabId
 }
 
-function formatTabCount(count: number): string | number | undefined {
-  if (count <= 0) return undefined
-  return count > 999 ? '999+' : count
-}
-
 function DefaultCompanyDetailTabs({
   activeTab,
   onTabChange,
@@ -75,6 +73,7 @@ function DefaultCompanyDetailTabs({
   hiddenTabIds = [],
   peopleCount = 0,
   dealsCount = 0,
+  addressesCount = 0,
   activitiesCount = 0,
   filesCount = 0,
   sectionAction = null,
@@ -102,6 +101,12 @@ function DefaultCompanyDetailTabs({
           ]
         : []),
       {
+        id: 'addresses',
+        label: t('customers.companies.detail.tabs.addresses', 'Addresses'),
+        icon: <MapPin className="size-4" />,
+        count: formatTabCount(addressesCount),
+      },
+      {
         id: 'activity-log',
         label: t('customers.companies.detail.tabs.activityLog', 'Activity log'),
         icon: <Clock className="size-4" />,
@@ -120,7 +125,7 @@ function DefaultCompanyDetailTabs({
         count: formatTabCount(filesCount),
       },
     ],
-    [t, canViewDeals, peopleCount, dealsCount, activitiesCount, filesCount],
+    [t, canViewDeals, peopleCount, dealsCount, addressesCount, activitiesCount, filesCount],
   )
 
   const allTabs: TabDef[] = React.useMemo(() => {

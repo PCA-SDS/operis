@@ -347,9 +347,18 @@ export async function listSuperAdminUserIds(em: EntityManager, tenantId: string 
       : userRef
     if (userId) ids.add(String(userId))
   }
+  // Scope the role grants to the tenant, exactly as the UserAcl lookup above does.
+  // `RoleAcl.tenantId` is mandatory, so an unscoped read walked EVERY tenant's
+  // super-admin role grants on every Users-list request by a non-super-admin. The
+  // ids it produced for other tenants were inert — they feed an `id: { $nin: ... }`
+  // on a query that is already tenant-scoped, and ids are UUIDs so they can never
+  // collide — so narrowing here changes no result, only the rows read. The
+  // `user_roles` lookup below inherits the narrowing through `roleIds`.
+  const roleAclFilter: Record<string, unknown> = { isSuperAdmin: true }
+  if (tenantId) roleAclFilter.tenantId = tenantId
   const roleAcls = await em.find(
     RoleAcl,
-    { isSuperAdmin: true } as FilterQuery<RoleAcl>,
+    roleAclFilter as FilterQuery<RoleAcl>,
   )
   const roleIds = roleAcls
     .map((acl) => {
