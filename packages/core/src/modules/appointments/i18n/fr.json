@@ -295,5 +295,8 @@
   "appointments.update.failed": "Unable to update appointment.",
   "appointments.update.invalidInput": "Invalid update payload.",
   "appointments.update.organizationNotAllowed": "You cannot move this appointment to that organization.",
-  "appointments.update.success": "Appointment updated"
+  "appointments.update.success": "Appointment updated",
+  "appointments.notifications.appointment.created.title": "Nouveau rendez-vous",
+  "appointments.notifications.appointment.created.body": "Un nouveau rendez-vous pour {customerName} a été créé à {organizationName}.",
+  "appointments.notifications.appointment.created.view": "Voir le rendez-vous"
 }

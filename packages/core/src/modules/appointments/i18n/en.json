@@ -301,5 +301,8 @@
   "appointments.update.failed": "Unable to update appointment.",
   "appointments.update.invalidInput": "Invalid update payload.",
   "appointments.update.organizationNotAllowed": "You cannot move this appointment to that organization.",
-  "appointments.update.success": "Appointment updated"
+  "appointments.update.success": "Appointment updated",
+  "appointments.notifications.appointment.created.title": "New appointment",
+  "appointments.notifications.appointment.created.body": "A new appointment for {customerName} has been created at {organizationName}.",
+  "appointments.notifications.appointment.created.view": "View appointment"
 }

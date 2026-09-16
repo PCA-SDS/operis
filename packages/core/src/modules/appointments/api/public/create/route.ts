@@ -79,6 +79,11 @@ export async function POST(req: Request) {
         id: result.id,
         tenantId: body.tenantId,
         organizationId: body.organizationId,
+        customerName: [body.customer.firstName, body.customer.lastName].filter(Boolean).join(' '),
+        source: 'public_booking',
+      }, {
+        tenantId: body.tenantId,
+        organizationId: body.organizationId,
       })
     } catch {
       /* best-effort */

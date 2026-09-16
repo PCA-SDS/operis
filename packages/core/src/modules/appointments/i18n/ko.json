@@ -295,5 +295,8 @@
   "appointments.update.failed": "Unable to update appointment.",
   "appointments.update.invalidInput": "Invalid update payload.",
   "appointments.update.organizationNotAllowed": "You cannot move this appointment to that organization.",
-  "appointments.update.success": "Appointment updated"
+  "appointments.update.success": "Appointment updated",
+  "appointments.notifications.appointment.created.title": "새 약속",
+  "appointments.notifications.appointment.created.body": "{organizationName}에서 {customerName}님의 새 약속이 생성되었습니다.",
+  "appointments.notifications.appointment.created.view": "약속 보기"
 }

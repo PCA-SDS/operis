@@ -295,5 +295,8 @@
   "appointments.update.failed": "Unable to update appointment.",
   "appointments.update.invalidInput": "Invalid update payload.",
   "appointments.update.organizationNotAllowed": "You cannot move this appointment to that organization.",
-  "appointments.update.success": "Appointment updated"
+  "appointments.update.success": "Appointment updated",
+  "appointments.notifications.appointment.created.title": "Lịch hẹn mới",
+  "appointments.notifications.appointment.created.body": "Một lịch hẹn mới của {customerName} vừa được tạo tại {organizationName}.",
+  "appointments.notifications.appointment.created.view": "Xem lịch hẹn"
 }

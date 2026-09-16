@@ -229,6 +229,7 @@ export async function POST(req: Request) {
         id: result.id,
         tenantId: auth.tenantId,
         organizationId,
+        customerName: [body.customer.firstName, body.customer.lastName].filter(Boolean).join(' '),
       })
     } catch {
       /* best-effort */
