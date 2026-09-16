@@ -240,7 +240,9 @@ describe('Module Decoupling', () => {
       // has to be evaluated inside an isolated registry — a cached instance built
       // from unmocked entity ids would silently answer 'productsMedia' here.
       let resolveDefaultPartitionCode!: (entityId: string | null | undefined) => string
+      jest.resetModules()
       await jest.isolateModulesAsync(async () => {
+        jest.doMock('#generated/entities.ids.generated', () => ({ E: reducedE, M: reducedM }))
         const { E } = await import('#generated/entities.ids.generated')
         expect((E as Record<string, unknown>).catalog).toBeUndefined()
         ;({ resolveDefaultPartitionCode } = await import(

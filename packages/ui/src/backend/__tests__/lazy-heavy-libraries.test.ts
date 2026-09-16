@@ -131,4 +131,18 @@ describe('heavy libraries are lazy-loaded', () => {
     expect(source).not.toMatch(/from\s+['"]react-markdown['"]/)
     expect(source).not.toMatch(/from\s+['"]remark-gfm['"]/)
   })
+
+  // `optimizePackageImports` rewrites NAMED lucide imports to deep paths, but it
+  // cannot rewrite a namespace import — `import * as LucideIcons` retains the whole
+  // barrel, which pinned all 1,410 icon modules into one route chunk (1,776 KB raw
+  // / 212 KB gzipped). Presenter icon names come from the search index, so they
+  // cannot be enumerated at build time; `DynamicIcon` keeps that open contract and
+  // splits one chunk per icon.
+  it('HybridSearchTable resolves lucide icons dynamically instead of importing the barrel', () => {
+    const source = read(
+      'packages/search/src/modules/search/frontend/components/HybridSearchTable.tsx',
+    )
+    expect(source).not.toMatch(/import\s+\*\s+as\s+\w+\s+from\s+['"]lucide-react['"]/)
+    expect(source).toMatch(/from\s+['"]lucide-react\/dynamic['"]/)
+  })
 })

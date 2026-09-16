@@ -29,12 +29,23 @@ export type CreatedTask = {
   updatedAt: string
 }
 
-/** Project keys must be unique per scope, so derive one that cannot collide
- *  with a parallel worker's. Two uppercase letters plus four digits fits the
- *  2–10 character rule. */
+/**
+ * A project key that cannot collide — with a parallel worker, with a sibling
+ * created in the same millisecond, or with a previous run of this same suite.
+ *
+ * The clock alone is not enough on any of those counts. `Date.now() % 100000`
+ * repeats every 100 seconds, and two projects created back to back in one test
+ * land on the same millisecond often enough to matter; either way the second
+ * create fails with "a project with the key X already exists", which reads like a
+ * product bug and is not one. A random suffix removes all three cases.
+ *
+ * Shaped for `PROJECT_KEY_REGEX` (`^[A-Z][A-Z0-9]{1,9}$`): a leading alphabetic
+ * prefix, then base-36 characters, capped at the 10-character limit.
+ */
 export function uniqueProjectKey(prefix = 'QA'): string {
-  const digits = String(Date.now() % 100000).padStart(5, '0')
-  return `${prefix}${digits}`.slice(0, 10).toUpperCase()
+  const time = Date.now().toString(36).slice(-4)
+  const random = Math.random().toString(36).slice(2, 6)
+  return `${prefix}${time}${random}`.slice(0, 10).toUpperCase()
 }
 
 export async function createProject(

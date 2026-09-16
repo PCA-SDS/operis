@@ -12,6 +12,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  ReferenceLine,
 } from 'recharts'
 import { ChartTooltipContent, resolveChartColor } from './ChartUtils'
 import type { LineChartProps } from './LineChart'
@@ -26,6 +27,9 @@ type ImplProps = Pick<
   | 'valueFormatter'
   | 'showLegend'
   | 'showGridLines'
+  | 'showXAxis'
+  | 'showYAxis'
+  | 'showZeroLine'
   | 'curveType'
   | 'connectNulls'
   | 'categoryLabels'
@@ -52,6 +56,9 @@ function LineChartImpl({
   valueFormatter,
   showLegend = true,
   showGridLines = true,
+  showXAxis = true,
+  showYAxis = true,
+  showZeroLine = false,
   curveType = 'monotone',
   connectNulls = true,
   categoryLabels,
@@ -81,17 +88,20 @@ function LineChartImpl({
         )}
         <XAxis
           dataKey={index}
-          tick={AXIS_TICK}
+          tick={showXAxis ? AXIS_TICK : false}
           tickLine={false}
           axisLine={false}
+          height={showXAxis ? undefined : 0}
         />
         <YAxis
-          tickFormatter={valueFormatter}
-          tick={AXIS_TICK}
+          yAxisId="amount"
+          tickFormatter={showYAxis ? valueFormatter : undefined}
+          tick={showYAxis ? AXIS_TICK : false}
           tickLine={false}
           axisLine={false}
-          width={56}
+          width={showYAxis ? 56 : 0}
         />
+        {showZeroLine && <ReferenceLine yAxisId="amount" y={0} stroke="hsl(var(--border-strong))" strokeDasharray="3 3" strokeWidth={1} />}
         <Tooltip
           content={tooltipContent}
           cursor={TOOLTIP_CURSOR}
@@ -107,6 +117,7 @@ function LineChartImpl({
           ? categories.map((category, idx) => (
               <Area
                 key={category}
+                yAxisId="amount"
                 type={curveType}
                 dataKey={category}
                 stroke={getLineColor(idx)}
@@ -121,6 +132,7 @@ function LineChartImpl({
           : categories.map((category, idx) => (
               <Line
                 key={category}
+                yAxisId="amount"
                 type={curveType}
                 dataKey={category}
                 stroke={getLineColor(idx)}

@@ -20,7 +20,7 @@ export const messageObjectTypes: MessageObjectTypeDefinition[] = [
         id: 'view',
         labelKey: 'common.view',
         variant: 'outline',
-        href: '/backend/customers/people/{entityId}',
+        href: '/backend/customers/people-v2/{entityId}',
       },
     ],
     loadPreview: async (entityId, ctx) => {
@@ -47,7 +47,7 @@ export const messageObjectTypes: MessageObjectTypeDefinition[] = [
         id: 'view',
         labelKey: 'common.view',
         variant: 'outline',
-        href: '/backend/customers/companies/{entityId}',
+        href: '/backend/customers/companies-v2/{entityId}',
       },
     ],
     loadPreview: async (entityId, ctx) => {

@@ -113,6 +113,8 @@ export async function POST(req: Request) {
       code,
       label: body.label.trim(),
       description: body.description ?? null,
+      backgroundColor: body.backgroundColor ?? null,
+      textColor: body.textColor ?? null,
       isSystem: false,
       sortOrder: body.sortOrder ?? 100,
     })

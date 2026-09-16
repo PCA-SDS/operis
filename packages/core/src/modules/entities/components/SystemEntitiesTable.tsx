@@ -9,6 +9,7 @@ import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
+import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { buildEntitiesCsv } from '../lib/entitiesCsvExport'
 
 type EntityRow = {
@@ -28,6 +29,7 @@ const columns: ColumnDef<EntityRow>[] = [
 ]
 
 export default function SystemEntitiesTable() {
+  const t = useT()
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'entityId', desc: false }])
   const [page, setPage] = React.useState(1)
   const [search, setSearch] = React.useState('')
@@ -79,7 +81,7 @@ export default function SystemEntitiesTable() {
       rowActions={(row) => (
         <RowActions
           items={[
-            { id: 'edit', label: 'Edit', href: `/backend/entities/system/${encodeURIComponent(row.entityId)}` },
+            { id: 'edit', label: t('common.edit', 'Edit'), href: `/backend/entities/system/${encodeURIComponent(row.entityId)}` },
           ]}
         />
       )}

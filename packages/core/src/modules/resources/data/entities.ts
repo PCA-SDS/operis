@@ -88,6 +88,9 @@ export class ResourcesResource {
   name!: string
 
   @Property({ type: 'text', nullable: true })
+  code?: string | null
+
+  @Property({ type: 'text', nullable: true })
   description?: string | null
 
   @Property({ name: 'resource_type_id', type: 'uuid', nullable: true })
@@ -349,6 +352,7 @@ export class ResourcesAssignment {
     | 'updatedAt'
     | 'title'
     | 'assignedMemberId'
+    | 'assignedMemberIds'
     | 'cancelledAt'
     | 'createdByUserId'
 
@@ -391,6 +395,9 @@ export class ResourcesAssignment {
   // === STAFF ASSIGNMENT (generic - references staff module) ===
   @Property({ name: 'assigned_member_id', type: 'uuid', nullable: true })
   assignedMemberId?: string | null
+
+  @Property({ name: 'assigned_member_ids', type: 'jsonb', nullable: true })
+  assignedMemberIds?: string[] | null
 
   @Property({ type: 'text', nullable: true })
   title?: string | null

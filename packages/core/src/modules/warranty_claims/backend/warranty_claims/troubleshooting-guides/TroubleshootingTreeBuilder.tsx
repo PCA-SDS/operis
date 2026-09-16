@@ -364,7 +364,7 @@ export function TroubleshootingTreeBuilder({ value, setValue, disabled }: Builde
                             type="button"
                             variant="ghost"
                             className={cn(
-                              'h-auto w-full justify-start overflow-hidden rounded-xl border border-border bg-surface shadow-sm p-0 text-left shadow-sm transition-colors hover:border-foreground/30 hover:bg-card focus-visible:shadow-focus focus-visible:outline-none',
+                              'h-auto w-full justify-start overflow-hidden rounded-xl border border-border bg-surface shadow-sm p-0 text-left transition-colors hover:border-foreground/30 hover:bg-card focus-visible:shadow-focus focus-visible:outline-none',
                               selected ? 'border-accent-strong ring-1 ring-accent-strong' : 'border-border',
                             )}
                             onClick={() => setSelectedPath(item.nodePath)}

@@ -1,14 +1,8 @@
 import { z } from 'zod'
 import { parseGuideSteps } from '../lib/troubleshooting'
-import { currencyCodeSchema, moneyAmountSchema } from '@open-mercato/shared/lib/validation'
+import { currencyCodeSchema, emptyStringToNull, moneyAmountSchema } from '@open-mercato/shared/lib/validation'
 
 const uuid = () => z.string().uuid()
-
-const emptyStringToNull = (value: unknown): unknown => {
-  if (typeof value !== 'string') return value
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
 
 const clearableString = (max: number) =>
   z.preprocess(emptyStringToNull, z.string().trim().max(max).nullable().optional())

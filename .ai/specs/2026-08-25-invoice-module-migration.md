@@ -18,13 +18,15 @@ Phase 3 implementation can start from M0 in
 `docs/invoice/CAPABILITY-MIGRATION-PLAN.md`. No Phase 2documentation blocker is
 currently open.
 
-Current implementation status: the AR invoice email send and privacy-safe
-email-open tracking slice is implemented. Remaining invoice capabilities are
-tracked separately in the milestone documents.
+Current implementation status: the AR invoice email send, privacy-safe
+email-open tracking, and full CAP-005 payment-confirmation backend contract are
+implemented. CAP-005 includes authenticated requests, anonymous public
+preview/confirm/reject, and authenticated incoming AR accept/reject. Remaining
+invoice capabilities are tracked separately in the milestone documents.
 
-As of 2026-09-09, M5 Auto-Paid and M6 Invoice Core pass the Phase 5 domain
-contract gate at the backend boundary. The remaining milestones are M7 payment
-confirmation, M8 GDT sync, and M9 UI parity.
+As of 2026-09-10, M5 Auto-Paid, M6 Invoice Core, and M7 Payment Confirmations
+pass their backend contract gates. The remaining milestones are M8 GDT sync,
+M9 UI parity, and optional M10 AI helper.
 
 Phase 1 source evidence lives in:
 
@@ -351,6 +353,33 @@ This is a pre-implementation spec. Compliance requirements for implementation:
 - New backend pages use Operis UI primitives and guarded mutations.
 
 ## Changelog
+
+- 2026-09-14: Added the CAP-003/CAP-004 Invoice settings UI at
+  `/backend/invoice/settings`: partner search and optimistic-lock-aware terms
+  editing, Auto-Paid candidate/manual rule creation and confirmed removal,
+  backend-state refresh after writes, invoice-detail Auto-Paid reversal, i18n,
+  and Playwright browser coverage.
+
+- 2026-09-14: Implemented the CAP-001/CAP-006 invoice-send UI slice on the
+  invoice detail page: AR-only send/resend, company email memory selection and
+  removal, guarded optimistic-lock mutations, sent/open state refresh, i18n,
+  and focused Playwright coverage. Validation and review remain pending.
+
+- 2026-09-10: Reconciled CAP-005 documentation with its three implementation
+  commits. The M7 backend contract is complete; payment-confirmation browser UI
+  and browser acceptance remain M9 work. Recorded DEC-037 for exact unique
+  incoming matching and atomic two-sided settlement.
+- 2026-09-10: Completed the M7 authenticated CAP-005 backend flow. Added the
+  private request route and incoming AR accept/reject commands and APIs,
+  unexpired whole-invoice identity matching, ambiguity conflicts, conditional
+  pending-state transitions, and atomic AP/AR settlement coordination through
+  the M6 InvoiceService operations. Added focused route, command, transaction,
+  concurrency, and scope coverage. Payment-confirmation UI remains pending.
+- 2026-09-10: Implemented the authenticated CAP-005 payment-confirmation
+  request service and command with payload-blind scope, AP and installment
+  validation, hash-only 32-byte tokens, transactional mail rollback,
+  exact-target resend superseding, and best-effort recipient memory. Public
+  token actions, incoming AR actions, API routing, and UI remain pending.
 
 - 2026-08-25: Created migration spec and Phase 2implementation-ready design pack references.
 - 2026-08-25: Added Phase 3 readiness summary and resolved source-code

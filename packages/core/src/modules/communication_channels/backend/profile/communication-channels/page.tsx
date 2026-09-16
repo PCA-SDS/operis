@@ -26,6 +26,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { LOOSE_EMAIL_PATTERN } from '@open-mercato/shared/lib/validation'
 
 type ChannelRow = {
   id: string
@@ -618,7 +619,7 @@ function ImportHistoryDialog({ channel, onClose, onQueued }: ImportHistoryDialog
       .split(/[\s,;]+/)
       .map((s) => s.trim())
       .filter(Boolean)
-    if (parsedEmails.length > 0 && parsedEmails.some((s) => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s))) {
+    if (parsedEmails.length > 0 && parsedEmails.some((s) => !LOOSE_EMAIL_PATTERN.test(s))) {
       errors.contactEmails = t(
         'communication_channels.profile.importHistory.errors.contactEmails',
         'One or more entries is not a valid email address.',

@@ -6,12 +6,13 @@ import { logCrudAccess, makeCrudRoute } from '@open-mercato/shared/lib/crud/fact
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { User, Role, UserRole } from '@open-mercato/core/modules/auth/data/entities'
+import { User, UserRole } from '@open-mercato/core/modules/auth/data/entities'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
 import { E } from '#generated/entities.ids.generated'
 import { loadCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields'
 import type { EntityManager } from '@mikro-orm/postgresql'
+import { raw } from '@mikro-orm/core'
 import { userCrudEvents, userCrudIndexer } from '@open-mercato/core/modules/auth/commands/users'
 import {
   assertActorCanAccessUserTarget,
@@ -107,23 +108,68 @@ const errorResponseSchema = z.object({ error: z.string() })
 type CrudInput = Record<string, unknown>
 type UserListFilter = Record<string, unknown>
 
-// UserRole carries no tenant/organization columns of its own, so the caller's scope has to be
-// expressed as a predicate on the `user` relation — MikroORM compiles that into a database-side
-// join against `users` with the scope predicates in the WHERE clause, keeping the link lookup
-// bounded to the scope instead of every tenant holding the role.
-function buildRoleLinkFilter(
-  roleIdList: string[],
-  userScope: UserListFilter[],
-  candidateUserIds: Set<string> | null,
+// Role membership is expressed as a correlated EXISTS on the page query rather than by
+// loading every matching `user_roles` row into JS and re-injecting the ids as
+// `id: { $in: [...] }`. The old shape pulled one row per link — on a tenant where 50k
+// users share a role that is 50k rows over the wire and a 50k-element bind array back.
+//
+// The predicate is AND-ed onto the same `filters` array the page query already carries, so
+// every tenant/organization/soft-delete clause the link lookup used to replicate onto its
+// `user` relation now applies by construction, and `?id=` + `?roleId=` still intersect
+// (`id = X AND EXISTS(...)`).
+//
+// `raw()` with an alias callback receives MikroORM's alias placeholder, and a known-fragment
+// key whose value is an empty array compiles to the bare predicate with no `= ?` appended.
+// The fragment registry is a non-evicting WeakMap keyed by the fragment's symbol, so the same
+// fragment survives BOTH compilations inside `findAndCount` (the COUNT and the SELECT).
+//
+// This deliberately keeps `em.findAndCount(User, ...)`. Moving the page query to a
+// QueryBuilder would be materially wrong: `QueryBuilder.getResultList()` never dispatches
+// MikroORM's `onLoad` event, which is what drives the tenant-encryption subscriber, so it
+// would return ciphertext for `users.email` and `users.name`.
+function buildRoleMembershipExistsFilter(roleIdList: string[]): UserListFilter {
+  const placeholders = roleIdList.map(() => '?').join(', ')
+  const fragment = raw(
+    (alias: string) =>
+      `exists (select 1 from "user_roles" ur` +
+      ` where ur."user_id" = ${alias}."id"` +
+      ` and ur."deleted_at" is null` +
+      ` and ur."role_id" in (${placeholders}))`,
+    roleIdList,
+  )
+  return { [fragment as unknown as string]: [] }
+}
+
+// The role-name leg of `?search=`: "users holding a role whose name matches". Previously two
+// queries — every matching `roles` row, then every `user_roles` link for those roles — now one
+// correlated EXISTS. `roles.name` is plaintext (there is no `directory`/`auth` encryption map
+// entry for it), so the ILIKE is a genuine SQL predicate here, unlike the email leg which is
+// encryption-forced through `search_tokens`.
+//
+// The tenant disjunct is emitted only when a tenant scope is in play, mirroring the previous
+// filter exactly: legacy global roles carry `tenant_id is null` and must still match, and an
+// unscoped super admin deliberately sees every tenant's roles.
+function buildRoleNameSearchExistsFilter(
+  namePattern: string,
+  tenantScope: string | null | undefined,
 ): UserListFilter {
-  const scope = candidateUserIds
-    ? [...userScope, { id: { $in: Array.from(candidateUserIds) } }]
-    : userScope
-  return {
-    role: { $in: roleIdList },
-    deletedAt: null,
-    user: scope.length > 1 ? { $and: scope } : scope[0],
+  const params: unknown[] = [namePattern]
+  let tenantClause = ''
+  if (tenantScope) {
+    tenantClause = ' and (r."tenant_id" = ? or r."tenant_id" is null)'
+    params.push(tenantScope)
   }
+  const fragment = raw(
+    (alias: string) =>
+      `exists (select 1 from "user_roles" ur` +
+      ` join "roles" r on r."id" = ur."role_id"` +
+      ` where ur."user_id" = ${alias}."id"` +
+      ` and ur."deleted_at" is null` +
+      ` and r."deleted_at" is null` +
+      ` and r."name" ilike ?${tenantClause})`,
+    params,
+  )
+  return { [fragment as unknown as string]: [] }
 }
 
 const routeMetadata = {
@@ -293,30 +339,9 @@ export async function GET(req: Request) {
     }
     filters.push(displayNameFilters.length > 1 ? { $or: displayNameFilters } : displayNameFilters[0])
   }
-  let idFilter: Set<string> | null = id ? new Set([id]) : null
   if (Array.isArray(roleIds) && roleIds.length > 0) {
     const uniqueRoleIds = Array.from(new Set(roleIds))
-    const linksForRoles = await em.find(
-      UserRole,
-      buildRoleLinkFilter(uniqueRoleIds, filters, idFilter) as any,
-    )
-    const roleUserIds = new Set<string>()
-    for (const link of linksForRoles) {
-      const uid = String((link as any).user?.id || (link as any).user || '')
-      if (uid) roleUserIds.add(uid)
-    }
-    if (roleUserIds.size === 0) return NextResponse.json({ items: [], total: 0, totalPages: 1, isSuperAdmin })
-    if (idFilter) {
-      // buildRoleLinkFilter already constrains the lookup to `user.id IN idFilter`, so this
-      // intersection is enforced database-side; the loop stays as an application-level backstop
-      // so the `?id=` + `?roleId=` contract does not depend on that predicate alone.
-      for (const uid of Array.from(idFilter)) {
-        if (!roleUserIds.has(uid)) idFilter.delete(uid)
-      }
-    } else {
-      idFilter = roleUserIds
-    }
-    if (!idFilter || idFilter.size === 0) return NextResponse.json({ items: [], total: 0, totalPages: 1, isSuperAdmin })
+    filters.push(buildRoleMembershipExistsFilter(uniqueRoleIds))
   }
   const trimmedSearch = typeof search === 'string' ? search.trim() : ''
   if (trimmedSearch) {
@@ -348,49 +373,16 @@ export async function GET(req: Request) {
       searchFilters.push({ organizationId: { $in: matchingOrganizationIds as any } })
     }
 
-    const roleSearchFilters: any[] = [
-      { deletedAt: null },
-      { name: { $ilike: searchPattern } },
-    ]
-    if (tenantScope) {
-      roleSearchFilters.push({ $or: [{ tenantId: tenantScope }, { tenantId: null }] })
-    }
-    const matchingRoles = await em.find(
-      Role,
-      roleSearchFilters.length > 1 ? { $and: roleSearchFilters } : roleSearchFilters[0],
-    )
-    const matchingRoleIds = matchingRoles
-      .map((role) => (role?.id ? String(role.id) : null))
-      .filter((roleId): roleId is string => typeof roleId === 'string' && roleId.length > 0)
-    if (matchingRoleIds.length) {
-      const roleSearchLinks = await em.find(
-        UserRole,
-        buildRoleLinkFilter(matchingRoleIds, filters, idFilter) as any,
-      )
-      const matchingRoleUserIds = Array.from(new Set(
-        roleSearchLinks
-          .map((link) => {
-            const userRef = (link as any).user
-            const userId = userRef?.id ?? userRef
-            return userId ? String(userId) : null
-          })
-          .filter((userId): userId is string => typeof userId === 'string' && userId.length > 0),
-      ))
-      if (matchingRoleUserIds.length) {
-        searchFilters.push({ id: { $in: matchingRoleUserIds as any } })
-      }
-    }
-
-    if (!searchFilters.length) {
-      return NextResponse.json({ items: [], total: 0, totalPages: 1, isSuperAdmin })
-    }
+    searchFilters.push(buildRoleNameSearchExistsFilter(searchPattern, tenantScope))
 
     filters.push(searchFilters.length > 1 ? { $or: searchFilters } : searchFilters[0])
   }
-  if (idFilter && idFilter.size) {
-    filters.push({ id: { $in: Array.from(idFilter) as any } })
-  } else if (id) {
-    filters.push({ id })
+  // Emitted as a single-element IN rather than an equality: that is the clause shape the
+  // role branch used to produce when it intersected its matched ids into `?id=`, and it is
+  // what downstream assertions and query plans already expect. The intersection itself is
+  // now Postgres's job — `id in (X) and exists (...)`.
+  if (id) {
+    filters.push({ id: { $in: [id] as any } })
   }
   const where = filters.length > 1 ? { $and: filters } : filters[0]
   const [rows, count] = await em.findAndCount(User, where, { limit: pageSize, offset: (page - 1) * pageSize })

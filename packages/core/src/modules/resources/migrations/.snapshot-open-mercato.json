@@ -25,6 +25,23 @@
           "enumItems": [],
           "mappedType": "uuid"
         },
+        "assigned_member_ids": {
+          "name": "assigned_member_ids",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "json"
+        },
         "cancelled_at": {
           "name": "cancelled_at",
           "type": "timestamptz(6)",
@@ -2340,6 +2357,23 @@
         },
         "capacity_unit_value": {
           "name": "capacity_unit_value",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "code": {
+          "name": "code",
           "type": "text",
           "unsigned": false,
           "autoincrement": false,

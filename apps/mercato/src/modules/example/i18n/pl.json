@@ -298,7 +298,7 @@
   "example.umes.extensions.phaseG.description": "This harness keeps the injected widget active on `crud-form:example.todo`. Submit once to confirm the field/event pipeline executes.",
   "example.umes.extensions.phaseG.hint1": "1. Injected widget card `Example Injection Widget` should be visible above form fields.",
   "example.umes.extensions.phaseG.hint2": "2. Saving valid form should update `submitResult` below the form.",
-  "example.umes.extensions.phaseG.hint3": "3. In customer detail form (`/backend/customers/people/:id`), injected `_example.priority` field should persist via onSave handler.",
+  "example.umes.extensions.phaseG.hint3": "3. In customer detail form (`/backend/customers/people-v2/:id`), injected `_example.priority` field should persist via onSave handler.",
   "example.umes.extensions.phaseG.title": "Faza G — Wstrzykiwanie pól CrudForm",
   "example.umes.extensions.phaseH.description": "Active replacement handles in this area: page, DataTable, CrudForm, and the `ui.detail:NotesSection` wrapper declared in `example/widgets/components.ts`.",
   "example.umes.extensions.phaseH.hint1": "1. This page root should expose `data-component-handle=\"page:/backend/umes-extensions\"`.",

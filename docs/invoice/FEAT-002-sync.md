@@ -150,6 +150,12 @@ Import old and new invoices from the tax portal, dedupe by natural key, update t
 - Error handling: invalid invoice rows are skipped; worker-level error marks job FAILED and keeps partial counts.
 - Other: final pass `AutoPaidService.applyAll` is best effort; failure logs warning but sync can finish DONE.
 
+Operis implementation: the durable worker is registered as `invoice:sync` on the
+`invoice-sync` queue. It verifies the tenant and organization scope against the
+persisted `invoice_sync_jobs` row, uses ProgressJob for durable progress, and
+keeps source-row failures partial. Authentication, portal/provider, and unknown
+worker failures are classified into the persisted sync failure categories.
+
 ## Legacy/dead logic check
 - `SyncJobState.AUTHENTICATING` is marked transient/forward-compatible; current auth mostly happens before enqueue, but worker still sets it.
 - GDT naming and comments mix TCT/GDT terms; treat as historical naming, not business difference.

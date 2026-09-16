@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_PAGE_SIZE } from '@open-mercato/shared/lib/validation'
 import type { PerspectiveSettings } from '@open-mercato/shared/modules/perspectives/types'
 
 export const perspectiveSettingsSchema: z.ZodType<PerspectiveSettings> = z.object({
@@ -15,7 +16,7 @@ export const perspectiveSettingsSchema: z.ZodType<PerspectiveSettings> = z.objec
     .optional(),
   // A stored per-user table preference, not a request bound: perspectives
   // already persisted with pageSize up to 500 and must stay saveable.
-  pageSize: z.number().int().positive().max(500).optional(),
+  pageSize: z.number().int().positive().max(MAX_PAGE_SIZE).optional(),
   searchValue: z.string().max(200).optional(),
 })
 

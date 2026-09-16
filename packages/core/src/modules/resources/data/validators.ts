@@ -84,6 +84,7 @@ export const resourcesResourceAreaTypeUpdateSchema = z.object({
 export const resourcesResourceCreateSchema = z.object({
   ...scopedCreateFields,
   name: z.string().min(1),
+  code: z.string().trim().min(1).max(100).optional().nullable(),
   description: z.string().optional().nullable(),
   resourceTypeId: z.string().uuid().optional().nullable(),
   capacity: z.coerce.number().int().positive().optional().nullable(),
@@ -106,6 +107,7 @@ export const resourcesResourceCreateSchema = z.object({
 export const resourcesResourceUpdateSchema = z.object({
   ...scopedUpdateFields,
   name: z.string().min(1).optional(),
+  code: z.string().trim().min(1).max(100).optional().nullable(),
   description: z.string().optional().nullable(),
   resourceTypeId: z.string().uuid().optional().nullable(),
   capacity: z.coerce.number().int().positive().optional().nullable(),

@@ -769,6 +769,7 @@ TODO: Fix that latter to have reference by the package names
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-geist-sans);
+    overflow-x: hidden;
   }
   /* Native form controls — a safety net for legacy markup only. New code MUST
      use the `Checkbox` / `Radio` primitives, which draw their own box. */

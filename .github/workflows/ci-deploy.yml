@@ -168,8 +168,21 @@ jobs:
           # those skipped the image build entirely and the first build of that
           # tree happened on main — the exact green-PR/red-main asymmetry this
           # gate exists to prevent.
+          #
+          # 2026-09-15: the same asymmetry, one layer down. The list was built
+          # from "files the Dockerfile COPYs by name", which silently excluded
+          # the thing the image is actually made of — the source `yarn build`
+          # compiles. A pure `packages/*/src` or `apps/mercato/src` change
+          # merged green having never been built as an image, and main was again
+          # the first place the image was built. Patching entry-by-entry has now
+          # failed twice, so both source trees are listed: anything `yarn build`
+          # compiles gets a no-push image verification on the PR. What remains
+          # excluded is what the image genuinely does not contain — `.ai/`,
+          # `docs/`, `apps/docs/`, `*.md`, and `__tests__`/`__integration__`.
+          # This trades runner time on most PRs for never discovering a broken
+          # image on main. That trade is deliberate.
           CHANGED="$(git diff --name-only "$BASE" "$HEAD")"
-          if grep -qE '^(Dockerfile|\.dockerignore|deploy/|docker/|scripts/|package\.json|yarn\.lock|\.yarnrc\.yml|turbo\.json|tsconfig(\.base)?\.json|newrelic\.js|jest\.config\.cjs|jest(\.dom)?\.setup\.ts|eslint\.config\.mjs|apps/mercato/(package\.json|next\.config\.ts)|packages/[^/]+/package\.json)' <<<"$CHANGED"; then
+          if grep -qE '^(Dockerfile|\.dockerignore|deploy/|docker/|scripts/|package\.json|yarn\.lock|\.yarnrc\.yml|turbo\.json|tsconfig(\.base)?\.json|newrelic\.js|jest\.config\.cjs|jest(\.dom)?\.setup\.ts|eslint\.config\.mjs|apps/mercato/(package\.json|next\.config\.ts)|packages/[^/]+/package\.json|packages/[^/]+/src/|apps/mercato/src/)' <<<"$CHANGED"; then
             echo "image=true" >> "$GITHUB_OUTPUT"
             echo "image-relevant paths changed - image build required"
           else
@@ -317,25 +330,22 @@ jobs:
 
       - name: Audit dependencies for known CVEs
         id: audit
-        # REPORTING-ONLY, deliberately, and this should not stay that way.
+        # BLOCKING. It was reporting-only until the backlog it was waiting on was
+        # cleared — the six accepted-but-unfixed advisories (@xmldom/xmldom, js-yaml x2,
+        # nodemailer, sharp, svgo) are fixed, and `yarn audit:ci` now reports no
+        # advisories at or above threshold. The condition this step's own note set for
+        # making it blocking is met, so the `continue-on-error` is gone.
         #
-        # `yarn audit:ci` exits 1 on this tree today, and the scheduled half has failed
-        # every day for at least a week — six accepted-but-unfixed advisories
-        # (@xmldom/xmldom, js-yaml x2, nodemailer, sharp, svgo). Making this blocking on
-        # the same commit that introduces it would red-line every open pull request over
-        # a backlog none of their authors created, and the reliable outcome of that is a
-        # team that learns to bypass the gate.
+        # What that means for a red run here: unlike the image scan, `audit:ci` has no
+        # `--ignore-unfixed`. A newly published HIGH advisory blocks even when no patched
+        # release exists yet, which is deliberate — the alternative is a gate that stays
+        # quiet about exactly the advisories nobody can fix.
         #
-        # So it reports first. The value it restores immediately is VISIBILITY on the
-        # pull request that adds a dependency, which is what went missing when ci.yml was
-        # removed and left audit.yml describing a counterpart that no longer existed.
-        #
-        # TO MAKE IT BLOCKING — one line, once the backlog is triaged: delete
-        # `continue-on-error` below. Triage means each advisory is either fixed or added
-        # to scripts/audit-ci-allowlist.json with a reason, which is a security decision
-        # for a maintainer to make explicitly rather than something to infer from the
-        # fact that CI is currently red.
-        continue-on-error: true
+        # The escape hatch is scripts/audit-ci-allowlist.json: an entry per GHSA with a
+        # written justification and a re-check condition (see the two image-size entries
+        # for the shape). Reach for that when a fix genuinely does not exist. Do NOT
+        # restore `continue-on-error` to get a green run — that silences every future
+        # advisory to clear one, which is the failure this step was built to avoid.
         timeout-minutes: 10
         run: |
           set -o pipefail
@@ -1051,6 +1061,15 @@ jobs:
         # Deliberately WRONG credentials. A 401 proves the container resolved authService and
         # the handler ran; a 5xx proves it could not. No secret is needed to tell those apart,
         # which is what makes this safe to run against production on every deploy.
+        #
+        # The body MUST be form-encoded. `/api/auth/login` accepts
+        # `application/x-www-form-urlencoded` or form data only; a JSON body throws inside
+        # `parseLoginForm`, which catches and yields empty fields, so zod fails and the route
+        # answers 400 at login.ts:104 — three lines BEFORE `container.resolve('authService')`
+        # at login.ts:107. This probe used to send JSON and accept anything non-5xx, so it
+        # passed on a 400 that never reached the container: precisely the blind spot the
+        # comment above describes, in the check written to catch it. 400 is now fatal too,
+        # because a well-formed probe can no longer produce one.
         run: |
           set -euo pipefail
           if [ -z "$DOMAIN" ]; then
@@ -1059,9 +1078,15 @@ jobs:
           fi
           code="$(curl -sS -o /tmp/auth.json -w '%{http_code}' --max-time 20 \
             -X POST "https://$DOMAIN/api/auth/login" \
-            -H 'content-type: application/json' \
-            --data '{"email":"smoke-test@invalid.local","password":"not-a-real-password"}' || echo 000)"
+            -H 'content-type: application/x-www-form-urlencoded' \
+            --data-urlencode 'email=smoke-test@invalid.local' \
+            --data-urlencode 'password=not-a-real-password' || echo 000)"
           case "$code" in
+            400)
+              echo "::error::POST /api/auth/login returned 400 — the probe never reached the DI container, so this deploy is UNVERIFIED. The route's accepted content types have changed; fix the probe."
+              cat /tmp/auth.json 2>/dev/null || true
+              exit 1
+              ;;
             5*|000)
               echo "::error::POST /api/auth/login returned $code — the app is serving but its DI container or auth path is broken."
               cat /tmp/auth.json 2>/dev/null || true

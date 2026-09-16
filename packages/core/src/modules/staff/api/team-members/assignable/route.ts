@@ -12,7 +12,7 @@ import {
   resolveAuthActorId,
   resolveCustomersRequestContext,
 } from '@open-mercato/core/modules/customers/lib/interactionRequestContext'
-import { StaffTeam, StaffTeamMember } from '../../../data/entities'
+import { StaffTeam, StaffTeamMember, StaffTeamRole } from '../../../data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 const logger = createLogger('staff')
@@ -33,6 +33,7 @@ const itemSchema = z.object({
   displayName: z.string(),
   email: z.string().nullable().optional(),
   teamName: z.string().nullable().optional(),
+  roleNames: z.array(z.string()).optional(),
   user: z
     .object({
       id: z.string().uuid(),
@@ -126,8 +127,15 @@ export async function GET(request: Request) {
           .filter((value): value is string => typeof value === 'string'),
       ),
     )
+    const roleIds = Array.from(
+      new Set(
+        members
+          .flatMap((member) => (Array.isArray(member.roleIds) ? member.roleIds : []))
+          .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+      ),
+    )
 
-    const [users, teams] = await Promise.all([
+    const [users, teams, roles] = await Promise.all([
       userIds.length > 0
         ? findWithDecryption(
             em,
@@ -156,6 +164,20 @@ export async function GET(request: Request) {
             scope,
           )
         : Promise.resolve([]),
+      roleIds.length > 0
+        ? findWithDecryption(
+            em,
+            StaffTeamRole,
+            {
+              id: { $in: roleIds },
+              deletedAt: null,
+              tenantId: auth.tenantId,
+              ...orgFilter.where,
+            },
+            undefined,
+            scope,
+          )
+        : Promise.resolve([]),
     ])
 
     const userById = new Map(
@@ -176,6 +198,7 @@ export async function GET(request: Request) {
         },
       ]),
     )
+    const roleById = new Map(roles.map((role) => [role.id, role.name]))
 
     const items = members
       .filter((member) => query.includeUnlinked || (typeof member.userId === 'string' && member.userId.trim().length > 0))
@@ -183,6 +206,9 @@ export async function GET(request: Request) {
         const userId = typeof member.userId === 'string' && member.userId.trim().length > 0 ? member.userId : null
         const user = userId ? userById.get(userId) ?? { id: userId, email: null } : null
         const team = member.teamId ? teamById.get(member.teamId) ?? null : null
+        const roleNames = (Array.isArray(member.roleIds) ? member.roleIds : [])
+          .map((roleId) => roleById.get(roleId))
+          .filter((name): name is string => typeof name === 'string' && name.trim().length > 0)
         return {
           id: member.id,
           teamMemberId: member.id,
@@ -190,6 +216,7 @@ export async function GET(request: Request) {
           displayName: member.displayName?.trim() || user?.email || userId || member.id,
           email: user?.email ?? null,
           teamName: team?.name ?? null,
+          ...(roleNames.length > 0 ? { roleNames } : {}),
           user,
           team,
         }

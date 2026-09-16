@@ -12,6 +12,7 @@ import { ObjectHistoryButton } from './ObjectHistoryButton'
 import { useCustomerDictionary } from './hooks/useCustomerDictionary'
 import { formatFallbackLabel } from './utils'
 import { isTerminalPipelineOutcomeLabel } from './pipelineStageUtils'
+import { formatAmount } from '@open-mercato/core/modules/customers/lib/amountFormat'
 
 type DealAssociation = {
   id: string
@@ -45,18 +46,6 @@ type DealDetailHeaderProps = {
   onDelete: () => Promise<void> | void
   isDirty: boolean
   isSaving: boolean
-}
-
-function formatCurrency(amount: string | null, currency: string | null): string | null {
-  if (!amount) return null
-  const parsed = Number(amount)
-  if (!Number.isFinite(parsed)) return currency ? `${amount} ${currency}` : amount
-  if (!currency) return parsed.toLocaleString()
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(parsed)
-  } catch {
-    return `${parsed.toLocaleString()} ${currency}`
-  }
 }
 
 function formatDate(value: string | null): string | null {
@@ -199,7 +188,7 @@ export function DealDetailHeader({
 }: DealDetailHeaderProps) {
   const t = useT()
   const amountLabel = React.useMemo(
-    () => formatCurrency(deal.valueAmount, deal.valueCurrency),
+    () => formatAmount(deal.valueAmount, deal.valueCurrency),
     [deal.valueAmount, deal.valueCurrency],
   )
   const createdAtLabel = React.useMemo(() => formatDate(deal.createdAt), [deal.createdAt])

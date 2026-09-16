@@ -512,7 +512,7 @@ export default function ApiDocsExplorer(props: ApiDocsExplorerProps) {
         </aside>
 
         <section className="flex-1 space-y-6">
-          <div className="rounded-xl border border-border bg-surface shadow-sm p-5 shadow-sm">
+          <div className="rounded-xl border border-border bg-surface shadow-sm p-5">
             <div className="space-y-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -598,7 +598,7 @@ export default function ApiDocsExplorer(props: ApiDocsExplorerProps) {
                       <article
                         key={operation.id}
                         id={operationId}
-                        className={`rounded-xl border border-border bg-surface shadow-sm shadow-sm transition ${
+                        className={`rounded-xl border border-border bg-surface shadow-sm transition ${
                           selectedOperation?.id === operation.id ? 'ring-2 ring-primary/40' : ''
                         }`}
                       >
@@ -1313,7 +1313,7 @@ function TesterPanel(props: TesterPanelProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-border bg-surface shadow-sm p-5 shadow-sm">
+    <div className="flex flex-col gap-4 rounded-xl border border-border bg-surface shadow-sm p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">Interactive tester</h2>

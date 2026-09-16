@@ -44,14 +44,18 @@ const newUserId = '77777777-7777-4777-8777-777777777777'
 
 type CreateOrmEntity = jest.Mock<Promise<Record<string, unknown>>, [{ entity: unknown; data: Record<string, unknown> }]>
 
-function makeCtx(opts: { isSuperAdmin?: boolean; tenantId?: string | null; systemActor?: boolean } = {}): {
+function makeCtx(opts: { isSuperAdmin?: boolean; tenantId?: string | null; systemActor?: boolean; organizations?: string[] | null } = {}): {
   ctx: CommandRuntimeContext
   createOrmEntity: CreateOrmEntity
 } {
   const em: Record<string, unknown> = {
     fork: () => em,
     findOne: async () => null,
-    find: async () => [],
+    // `resolveOrganizationScope` builds its descendant map from the rows this returns,
+    // so an empty array would silently collapse every allowed set to nothing. Echo back
+    // the ids that were asked for, which is what the real query does for orgs that exist.
+    find: async (_entity: unknown, filter?: { id?: { $in?: string[] } }) =>
+      (filter?.id?.$in ?? []).map((id) => ({ id, descendantIds: [] })),
     count: async () => 0,
     nativeDelete: async () => 0,
     flush: async () => {},
@@ -68,7 +72,7 @@ function makeCtx(opts: { isSuperAdmin?: boolean; tenantId?: string | null; syste
     resolve: (token: string) => {
       if (token === 'em') return em
       if (token === 'dataEngine') return dataEngine
-      if (token === 'rbacService') return { invalidateUserCache: async () => {} }
+      if (token === 'rbacService') return { loadAcl: async () => ({ isSuperAdmin: false, features: [], organizations: opts.organizations ?? null }), invalidateUserCache: async () => {} }
       if (token === 'cache') return null
       throw new Error(`Unexpected dependency: ${token}`)
     },
@@ -142,6 +146,47 @@ describe('auth.users.create tenant scope', () => {
     const handler = getHandler('auth.users.create')
 
     await expect(handler.execute(createInput(orgInTenantB), ctx)).resolves.toBeTruthy()
+    expect(createOrmEntity).toHaveBeenCalledTimes(1)
+  })
+})
+
+// The tenant check alone let an admin restricted to one organization create users in a
+// sibling organization of the same tenant. `auth.users.update` already refused that via
+// `assertActorCanAssignUserDestination`; create did not.
+describe('auth.users.create organization scope', () => {
+  test('rejects a non-superadmin creating a user in an organization outside their allowed set', async () => {
+    mockOrganizationInTenant(tenantA)
+    const { ctx, createOrmEntity } = makeCtx({ tenantId: tenantA, organizations: [orgInTenantB] })
+    const handler = getHandler('auth.users.create')
+
+    await expect(handler.execute(createInput(orgInTenantA), ctx)).rejects.toMatchObject({ status: 400 })
+    expect(createOrmEntity).not.toHaveBeenCalled()
+  })
+
+  test('allows it when the organization is inside their allowed set', async () => {
+    mockOrganizationInTenant(tenantA)
+    const { ctx, createOrmEntity } = makeCtx({ tenantId: tenantA, organizations: [orgInTenantA] })
+    const handler = getHandler('auth.users.create')
+
+    await expect(handler.execute(createInput(orgInTenantA), ctx)).resolves.toBeTruthy()
+    expect(createOrmEntity).toHaveBeenCalledTimes(1)
+  })
+
+  test('leaves an unrestricted actor (organizations = null) unaffected', async () => {
+    mockOrganizationInTenant(tenantA)
+    const { ctx, createOrmEntity } = makeCtx({ tenantId: tenantA, organizations: null })
+    const handler = getHandler('auth.users.create')
+
+    await expect(handler.execute(createInput(orgInTenantA), ctx)).resolves.toBeTruthy()
+    expect(createOrmEntity).toHaveBeenCalledTimes(1)
+  })
+
+  test('does not constrain a superadmin', async () => {
+    mockOrganizationInTenant(tenantA)
+    const { ctx, createOrmEntity } = makeCtx({ tenantId: tenantA, isSuperAdmin: true, organizations: [orgInTenantB] })
+    const handler = getHandler('auth.users.create')
+
+    await expect(handler.execute(createInput(orgInTenantA), ctx)).resolves.toBeTruthy()
     expect(createOrmEntity).toHaveBeenCalledTimes(1)
   })
 })

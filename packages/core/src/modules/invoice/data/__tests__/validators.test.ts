@@ -23,6 +23,7 @@ import {
   invoiceNonRecoverableNoteSchema,
   invoicePageSizeSchema,
   invoicePaymentConfirmationStatusSchema,
+  invoicePaymentConfirmationRequestSchema,
   invoicePublicTokenSchema,
   invoiceInstallmentStatusSchema,
   invoiceOriginSchema,
@@ -93,5 +94,25 @@ describe('invoice validators', () => {
     expect(invoiceTokenHashSchema.parse(tokenHash)).toBe(tokenHash)
     expect(invoiceTokenHashSchema.safeParse('A'.repeat(64)).success).toBe(false)
     expect(invoiceTokenHashSchema.safeParse('a'.repeat(63)).success).toBe(false)
+  })
+
+  it('validates payment confirmation request inputs without accepting scope fields', () => {
+    const invoiceId = '11111111-1111-4111-8111-111111111111'
+    const installmentId = '22222222-2222-4222-8222-222222222222'
+
+    expect(invoicePaymentConfirmationRequestSchema.parse({
+      invoiceId,
+      recipientEmail: 'supplier@example.com',
+      installmentId,
+    })).toEqual({ invoiceId, recipientEmail: 'supplier@example.com', installmentId })
+    expect(invoicePaymentConfirmationRequestSchema.safeParse({
+      invoiceId,
+      recipientEmail: 'invalid-email',
+    }).success).toBe(false)
+    expect(invoicePaymentConfirmationRequestSchema.safeParse({
+      invoiceId,
+      recipientEmail: 'supplier@example.com',
+      tenantId: 'forged-tenant',
+    }).success).toBe(false)
   })
 })

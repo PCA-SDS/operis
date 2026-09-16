@@ -33,6 +33,27 @@ export async function assertScopedUserIds(
 ): Promise<string[]> {
   const unique = [...new Set(ids)].filter((id): id is string => typeof id === 'string' && id.length > 0)
   if (unique.length === 0) return []
+  const found = await filterScopedUserIds(em, scope, unique)
+  if (found.size !== unique.length) throw badRequest(message)
+  return unique
+}
+
+/**
+ * The subset of `ids` that is assignable in this scope — the same predicate as
+ * `assertScopedUserIds`, answering instead of throwing.
+ *
+ * Expressed as the one predicate so the two cannot drift: a caller that only wants
+ * to know *which* of a handful of candidates is assignable (a picker, a suggestion
+ * list) would otherwise reach for `listScopedUsers` and load and decrypt every user
+ * in the organization to test three ids.
+ */
+export async function filterScopedUserIds(
+  em: EntityManager,
+  scope: TasksScope,
+  ids: readonly string[],
+): Promise<Set<string>> {
+  const unique = [...new Set(ids)].filter((id): id is string => typeof id === 'string' && id.length > 0)
+  if (unique.length === 0) return new Set()
   const found = await em.find(
     User,
     {
@@ -43,8 +64,7 @@ export async function assertScopedUserIds(
     },
     { fields: ['id'] },
   )
-  if (found.length !== unique.length) throw badRequest(message)
-  return unique
+  return new Set(found.map((user) => user.id))
 }
 
 export async function assertScopedRoleIds(

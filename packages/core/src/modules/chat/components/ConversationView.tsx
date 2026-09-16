@@ -3,7 +3,19 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { ArrowLeft, Bell, BellOff, ChevronRight, MoreHorizontal, Paperclip, Pin, Search, Users } from 'lucide-react'
+import {
+  ArrowLeft,
+  Bell,
+  BellOff,
+  ChevronRight,
+  ListChecks,
+  MoreHorizontal,
+  Paperclip,
+  Pin,
+  Search,
+  Users,
+} from 'lucide-react'
+import { resolveInjectedIcon } from '@open-mercato/ui/backend/injection/resolveInjectedIcon'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
@@ -13,7 +25,10 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useTCount } from './plurals'
 import type { ChatMessageDto } from '../data/types'
-import { MessageComposer, type MentionCandidate } from './MessageComposer'
+import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
+import { extensionPoints } from '../extension-points'
+import { MessageComposer, type ComposerCommand, type MentionCandidate } from './MessageComposer'
+import { useChatInjectedActions } from './injection'
 import { useChatAttachments } from './useChatAttachments'
 import {
   MessageList,
@@ -29,6 +44,7 @@ import { ChatContextPanel } from './ChatContextPanel'
 import {
   clampPanelWidth,
   minimumSplitWidth,
+  panelSectionId,
   useContainerWidth,
   type ChatContextPanelState,
 } from './contextPanel'
@@ -600,6 +616,56 @@ export function ConversationView({
 
   /** Owners in a space; either participant in a direct — matching the server. */
   const canPin = Boolean(conversation) && (!isSpace || conversation?.viewerRole === 'owner')
+
+  /**
+   * What other modules contribute to this conversation.
+   *
+   * Both lists come back empty when nothing has claimed the spot, so the composer
+   * behaves exactly as it did before commands existed and the header grows no extra
+   * buttons. The feature filter is applied by the loader, so a viewer who lacks a
+   * contributed action's grants never sees it — and the endpoint behind it checks
+   * again anyway.
+   */
+  const composerCommandActions = useChatInjectedActions(
+    extensionPoints.hosts.composerCommands.spotId,
+  )
+  const panelSectionActions = useChatInjectedActions(
+    extensionPoints.hosts.conversationPanelSections.spotId,
+  )
+
+  /**
+   * A bump handed to the composer once a command has actually finished.
+   *
+   * The composer keeps the typed line until this changes, so cancelling the drawer
+   * or failing to create leaves the words in the box. Only a real success empties
+   * it.
+   */
+  const [commandConsumedToken, setCommandConsumedToken] = React.useState(0)
+
+  const composerCommands = React.useMemo<ComposerCommand[]>(
+    () =>
+      composerCommandActions.map((action) => ({
+        id: action.id,
+        // The contributed id doubles as the typed name: `chat_tasks.command.task`
+        // offers `/task`. Kept as the last dotted segment so a module namespaces its
+        // action without making the writer type the namespace.
+        name: action.id.split('.').pop() ?? action.id,
+        label: action.label,
+        onSelect: (argument: string) =>
+          action.onSelect(
+            { argument },
+            {
+              conversationId,
+              isSpace,
+              /** Called by the command once the work is done, never before. */
+              onConsumed: () => setCommandConsumedToken((current) => current + 1),
+            },
+          ),
+      })),
+    [composerCommandActions, conversationId, isSpace],
+  )
+
+  const openSectionId = panelSectionId(contextPanel.kind)
   // Resolved server-side for both kinds — a space's name, or the other person's.
   const conversationTitle = conversation?.title ?? t('chat.list.unknownPerson', 'Former colleague')
 
@@ -830,6 +896,24 @@ export function ConversationView({
       ) : null}
 
       <div className="hidden shrink-0 items-center gap-3 @md/chat-header:flex">
+      {/* One toggle per section another module contributed. Rendered from the
+          contribution's own id and label, so chat adds no knowledge of what any of
+          them shows — and an empty list adds no buttons at all. */}
+      {panelSectionActions.map((action) => (
+        <IconButton
+          key={action.id}
+          type="button"
+          variant="ghost"
+          size="default"
+          className="shrink-0 text-muted-foreground"
+          onClick={() => contextPanel.toggle(`section:${action.id}`)}
+          aria-pressed={contextPanel.kind === `section:${action.id}`}
+          aria-label={action.label}
+          title={action.label}
+        >
+          {resolveInjectedIcon(action.icon) ?? <ListChecks className="size-4" aria-hidden="true" />}
+        </IconButton>
+      ))}
       <IconButton
         type="button"
         variant="ghost"
@@ -905,6 +989,26 @@ export function ConversationView({
               />
             ) : null}
 
+            {/* The same toggles as the wide header, because the two are alternatives
+                rather than a primary and an overflow: below the split width the
+                wide row is hidden entirely. */}
+            {panelSectionActions.map((action) => (
+              <IconButton
+                key={action.id}
+                type="button"
+                variant="ghost"
+                size="default"
+                className="shrink-0 text-muted-foreground"
+                onClick={() => contextPanel.toggle(`section:${action.id}`)}
+                aria-pressed={contextPanel.kind === `section:${action.id}`}
+                aria-label={action.label}
+                title={action.label}
+              >
+                {resolveInjectedIcon(action.icon) ?? (
+                  <ListChecks className="size-4" aria-hidden="true" />
+                )}
+              </IconButton>
+            ))}
             <IconButton
               type="button"
               variant="ghost"
@@ -1091,6 +1195,8 @@ export function ConversationView({
         onCancelEdit={() => setEditTarget(null)}
         mentionCandidates={mentionCandidates}
         onMentionQueryChange={handleMentionQueryChange}
+        commands={composerCommands}
+        commandConsumedToken={commandConsumedToken}
         placeholder={
           !canSend
             ? t('chat.composer.readOnly', 'You do not have permission to send messages')
@@ -1118,6 +1224,20 @@ export function ConversationView({
             it is a leaf inside the transcript, and one dialog for the whole view
             is what keeps its focus handling and its loading state coherent. */}
         {ConfirmDialogElement}
+
+        {/* The same reasoning, for other modules. A contributed command or message
+            action is a callback and cannot render a drawer, so something of the
+            claimer's has to be mounted already — this is it. Unclaimed it renders
+            nothing, which is why it can sit here unconditionally. */}
+        <InjectionSpot
+          spotId={extensionPoints.hosts.conversationOverlays.spotId}
+          context={{
+            conversationId,
+            isSpace,
+            currentUserId,
+            onJumpToMessage: jumpToMessage,
+          }}
+        />
       </>
     )
   }
@@ -1137,7 +1257,9 @@ export function ConversationView({
         title={
           contextPanel.kind === 'shared'
             ? t('chat.shared.title', 'Shared')
-            : t('chat.pins.title', 'Pinned messages')
+            : openSectionId
+              ? (panelSectionActions.find((action) => action.id === openSectionId)?.label ?? '')
+              : t('chat.pins.title', 'Pinned messages')
         }
         width={panelWidth}
         containerWidth={splitWidth}
@@ -1145,7 +1267,20 @@ export function ConversationView({
         onResetWidth={contextPanel.resetWidth}
         onClose={contextPanel.close}
       >
-        {contextPanel.kind === 'shared' ? (
+        {openSectionId ? (
+          // The section's body comes from whichever module claimed the render spot.
+          // `sectionId` is passed through so one claimer can offer more than one
+          // section without needing a spot each.
+          <InjectionSpot
+            spotId={extensionPoints.hosts.conversationPanelSection.spotId}
+            context={{
+              sectionId: openSectionId,
+              conversationId,
+              isSpace,
+              onJumpToMessage: handlePanelJump,
+            }}
+          />
+        ) : contextPanel.kind === 'shared' ? (
           <SharedResourcesList
             conversationId={conversationId}
             active={contextPanel.kind === 'shared'}

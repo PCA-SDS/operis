@@ -7,8 +7,8 @@ Tài liệu này map từng CAP sang bằng chứng hiện có trong old repo v�
 Phase 5 gate status: M5 Auto-Paid and M6 Invoice Core are backend-contract
 complete. The cross-capability contract is covered by Invoice service tests,
 route/OpenAPI checks, and integration scenarios for scoped AP/AR behavior.
-Payment confirmation and GDT sync remain Phase 6 work; browser parity remains
-M9 work.
+Payment-confirmation backend parity is complete. GDT sync remains Phase 6 work,
+and browser parity remains M9 work.
 
 | CAP | Capability | Existing Evidence | Migration Blocker? |
 | --- | --- | --- | --- |
@@ -16,7 +16,7 @@ M9 work.
 | CAP-002 | Tax portal sync | Good validation/persistence/normalizer coverage; weak orchestration coverage | Infra parity blocker until Redis/BullMQ/GDT start-auth scenarios are proven |
 | CAP-003 | Partner payment terms | Focused backend service coverage | No blocker |
 | CAP-004 | Auto-paid | Scoped service, applyAll reuse, create/reverse and repeat-safe coverage | No M5 backend blocker; settings UI is M9 |
-| CAP-005 | Payment confirmations | Strong backend service coverage | No blocker, but public-route throttle/email scenario should be checked |
+| CAP-005 | Payment confirmations | Service, command, private/public route, concurrency, scope, and incoming AP/AR integration coverage | No backend blocker; browser flow is M9 |
 | CAP-006 | Company email memory | Scoped idempotent service and AR send integration coverage | No backend blocker; picker UI is M9 |
 | CAP-007 | Exchange rates | Focused service plus summary/forecast contract coverage | No domain blocker; cache operations remain deployment work |
 | CAP-008 | Company lookup | Shared-service behavior plus throttle policy; invoice wrapper weak | Needs route/autofill scenario |
@@ -162,21 +162,30 @@ Parity requirements:
 
 Evidence:
 
+- `packages/core/src/modules/invoice/services/__tests__/payment-confirmations-service.test.ts`
+- `packages/core/src/modules/invoice/api/payment-confirmations/__tests__/route.test.ts`
+- `packages/core/src/modules/invoice/api/payment-confirmations/public/[token]/__tests__/route.test.ts`
+- `packages/core/src/modules/invoice/api/invoices/[id]/incoming-confirmation/__tests__/route.test.ts`
+- `packages/core/src/modules/invoice/__integration__/INV-INV-002-incoming-payment-confirmations.spec.ts`
+
+Legacy reference evidence:
+
 - `apps/backend/src/modules/invoice/features/payment-confirmations/payment-confirmations.service.spec.ts`
 - `apps/backend/src/modules/invoice/features/payment-confirmations/payment-confirmations.service.ts`
 - `apps/backend/src/modules/invoice/features/payment-confirmations/payment-confirmations.controller.ts`
 - `apps/backend/src/modules/invoice/features/payment-confirmations/public-payment-confirmations.controller.ts`
 - `apps/backend/src/infra/throttler/throttle-policy.spec.ts`
 
-Gaps to prove in new repo:
+Remaining M9 and deployment checks:
 
 - Public URL end-to-end with real frontend route and email link.
 - Mail provider behavior if infra changes.
 - Throttle behavior if request limiting stack changes.
 
-Migration blocker:
+Backend migration blocker:
 
-- No business blocker; infra endpoint/mail parity must be proven before production cutover.
+- None. Browser flow and production mail/rate-limit configuration still require
+  acceptance before production cutover.
 
 ## CAP-006 Company Email Memory
 

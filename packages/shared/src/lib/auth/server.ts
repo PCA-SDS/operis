@@ -222,6 +222,14 @@ async function resolveApiKeyAuth(secret: string): Promise<AuthContext> {
         cache.setMiss(secret)
         return null
       }
+      // A user-attributed key must follow its owner's account state. Interactive
+      // sessions are rejected the moment `isConfirmed` goes false
+      // (`sessionIntegrity.ts`), but keys skip canonical re-resolution entirely, so
+      // without this a deactivated employee's integrations kept reading and writing.
+      if (user.isConfirmed === false) {
+        cache.setMiss(secret)
+        return null
+      }
       if ((user.tenantId ?? null) !== (record.tenantId ?? null)) {
         cache.setMiss(secret)
         return null
@@ -229,6 +237,27 @@ async function resolveApiKeyAuth(secret: string): Promise<AuthContext> {
       if ((user.organizationId ?? null) !== (record.organizationId ?? null)) {
         cache.setMiss(secret)
         return null
+      }
+      // The owning tenant/organization must also still be live, matching the
+      // machine-key branch below — otherwise suspending a tenant leaves its keys
+      // working, which is the same gap as F4 on a different principal type.
+      if (record.tenantId) {
+        const keyTenant = await em.findOne(Tenant, { id: record.tenantId, deletedAt: null, isActive: true })
+        if (!keyTenant) {
+          cache.setMiss(secret)
+          return null
+        }
+      }
+      if (record.organizationId) {
+        const keyOrganization = await em.findOne(Organization, {
+          id: record.organizationId,
+          deletedAt: null,
+          isActive: true,
+        })
+        if (!keyOrganization) {
+          cache.setMiss(secret)
+          return null
+        }
       }
     } else {
       if (record.tenantId) {

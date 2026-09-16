@@ -87,7 +87,7 @@ export function AuthSessionGuard({ serverUserId }: AuthSessionGuardProps) {
       }
     }
 
-    const onVisibilityOrFocus = () => {
+    const onVisibilityOnly = () => {
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
       void checkIdentity()
     }
@@ -107,15 +107,17 @@ export function AuthSessionGuard({ serverUserId }: AuthSessionGuardProps) {
       }
     }
 
-    window.addEventListener('focus', onVisibilityOrFocus)
-    document.addEventListener('visibilitychange', onVisibilityOrFocus)
+    // `visibilitychange` only. A tab restore fires `focus` too, so listening to
+    // both sent two identity checks per restore — the exact duplication
+    // `useTabRestoreRefresh` was written to stop. The `storage` and
+    // BroadcastChannel paths below still cover cross-tab identity changes.
+    document.addEventListener('visibilitychange', onVisibilityOnly)
     window.addEventListener('storage', onStorage)
 
     return () => {
       cancelled = true
       controller.abort()
-      window.removeEventListener('focus', onVisibilityOrFocus)
-      document.removeEventListener('visibilitychange', onVisibilityOrFocus)
+      document.removeEventListener('visibilitychange', onVisibilityOnly)
       window.removeEventListener('storage', onStorage)
       if (broadcastChannel) {
         broadcastChannel.onmessage = null

@@ -4,22 +4,11 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { ObjectPreviewData } from '@open-mercato/shared/modules/messages/types'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { CustomerCompanyProfile, CustomerDeal, CustomerEntity, CustomerPersonProfile } from '../data/entities'
+import { formatAmount } from '@open-mercato/core/modules/customers/lib/amountFormat'
 
 type PreviewContext = {
   tenantId: string
   organizationId?: string | null
-}
-
-function formatCurrency(amount: string | null | undefined, currency: string | null | undefined): string | null {
-  if (!amount) return null
-  const value = Number(amount)
-  if (!Number.isFinite(value)) return currency ? `${amount} ${currency}` : amount
-  if (!currency) return value.toLocaleString()
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value)
-  } catch {
-    return `${value.toLocaleString()} ${currency}`
-  }
 }
 
 function statusColor(status: string | null | undefined): string | undefined {
@@ -174,7 +163,7 @@ export async function loadCustomerDealPreview(entityId: string, ctx: PreviewCont
     return { title: defaultTitle, subtitle: entityId, status: t('customers.messageObjects.notFound'), statusColor: 'gray' }
   }
 
-  const amount = formatCurrency(deal.valueAmount, deal.valueCurrency)
+  const amount = formatAmount(deal.valueAmount, deal.valueCurrency)
   const probability = typeof deal.probability === 'number' ? `${deal.probability}%` : null
   const subtitle = [amount, probability].filter((part): part is string => Boolean(part && part.length > 0)).join(' • ')
   const metadata: Record<string, string> = {}

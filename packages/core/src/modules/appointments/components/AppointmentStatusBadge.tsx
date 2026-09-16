@@ -16,24 +16,37 @@ export const APPOINTMENT_STATUS_BADGE_VARIANTS: StatusMap<AppointmentSystemStatu
   deposit_received_booked: 'success',
 }
 
+const APPOINTMENT_IMPORTED_STATUS_BADGE_VARIANTS: Record<string, StatusBadgeVariant> = {
+  booked_non_deposit: 'success',
+  deposit_received_booked: 'success',
+  replied: 'info',
+  replied_need_to_follow_up: 'warning',
+  send_deposit_email: 'warning',
+  sent_deposit_rq_need_to_check: 'warning',
+}
+
 function isSystemStatus(value: string): value is AppointmentSystemStatusCode {
   return (APPOINTMENT_SYSTEM_STATUS_CODES as readonly string[]).includes(value)
 }
 
 export function getAppointmentStatusBadgeVariant(statusCode: string): StatusBadgeVariant {
   if (isSystemStatus(statusCode)) return APPOINTMENT_STATUS_BADGE_VARIANTS[statusCode]
-  return 'neutral'
+  return APPOINTMENT_IMPORTED_STATUS_BADGE_VARIANTS[statusCode] ?? 'neutral'
 }
 
 export function AppointmentStatusBadge({
-  statusCode,
-  label,
-  dot = true,
+    statusCode,
+    label,
+    backgroundColor,
+    textColor,
+    dot = true,
   className,
 }: {
   statusCode: string
   /** Prefer catalog label from `/api/appointments/statuses`; falls back to code. */
   label?: string | null
+  backgroundColor?: string | null
+  textColor?: string | null
   dot?: boolean
   className?: string
 }) {
@@ -54,6 +67,8 @@ export function AppointmentStatusBadge({
     <StatusBadge
       variant={getAppointmentStatusBadgeVariant(statusCode)}
       dot={dot}
+      backgroundColor={backgroundColor}
+      textColor={textColor}
       className={className}
     >
       {label?.trim() || defaultLabel || statusCode}

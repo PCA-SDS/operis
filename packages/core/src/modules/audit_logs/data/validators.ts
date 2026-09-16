@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_PAGE_SIZE } from '@open-mercato/shared/lib/validation'
 
 export const uuid = z.string().uuid()
 
@@ -52,7 +53,7 @@ export const actionLogListSchema = z.object({
   page: z.number().int().positive().default(1),
   // The audit-log routes clamp pageSize to 200 before calling the service;
   // a lower ceiling here rejects the value the route itself produced.
-  pageSize: z.number().int().positive().max(200).default(50),
+  pageSize: z.number().int().positive().max(MAX_PAGE_SIZE).default(50),
   before: z.date().optional(),
   after: z.date().optional(),
 })
@@ -75,7 +76,7 @@ export const accessLogListSchema = z.object({
   page: z.number().int().positive().default(1),
   // The audit-log routes clamp pageSize to 200 before calling the service;
   // a lower ceiling here rejects the value the route itself produced.
-  pageSize: z.number().int().positive().max(200).default(50),
+  pageSize: z.number().int().positive().max(MAX_PAGE_SIZE).default(50),
   before: z.date().optional(),
   after: z.date().optional(),
 })

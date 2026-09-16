@@ -6,7 +6,7 @@ import { login } from '@open-mercato/core/helpers/integration/auth'
  * Source: .ai/specs/implemented/2026-03-23-unified-record-not-found-ui-state.md (Phase 5 — Integration Coverage)
  *
  * Verifies:
- * - Navigating to `/backend/customers/people/<random-uuid>` renders the shared
+ * - Navigating to `/backend/customers/people-v2/<random-uuid>` renders the shared
  *   `RecordNotFoundState` instead of the detail form.
  * - The "Back to people" recovery action is visible.
  * - No CrudForm submit control is rendered on the not-found page.
@@ -16,7 +16,7 @@ test.describe('TC-UX-006: RecordNotFoundState — people detail with non-existen
     await login(page, 'admin')
 
     const missingId = crypto.randomUUID()
-    await page.goto(`/backend/customers/people/${missingId}`, { waitUntil: 'commit' })
+    await page.goto(`/backend/customers/people-v2/${missingId}`, { waitUntil: 'commit' })
 
     const notFoundLabel = page.getByText('Person not found', { exact: false })
     await expect(notFoundLabel).toBeVisible({ timeout: 15_000 })

@@ -15,8 +15,8 @@ import { getMergedAvailabilityWindows } from '@open-mercato/core/modules/planner
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
-import { Appointment, AppointmentLine, AppointmentLineOptionGroup } from '../data/entities'
-import { loadLineOptionSnapshots, resolveDurationMinutes } from './lineOptionSnapshot'
+import { Appointment, AppointmentLine, AppointmentLineOptionGroup, AppointmentStatus } from '../data/entities'
+import { loadLineOptionSnapshots } from './lineOptionSnapshot'
 
 export interface SeatPlannerLine {
   id: string
@@ -31,8 +31,10 @@ export interface SeatPlannerLine {
     resourceName?: string | null
     startsAt: string
     endsAt: string
+    assignedMemberIds: string[]
     assignedMemberId?: string | null
     assignedMemberName?: string | null
+    assignedMemberNames?: string[]
   }
 }
 
@@ -51,6 +53,8 @@ export interface SeatPlannerWorkspace {
     requestedStartAt: string
     requestedEndAt: string | null
     statusCode: string
+    statusBackgroundColor: string | null
+    statusTextColor: string | null
     updatedAt: string
   }
   lines: SeatPlannerLine[]
@@ -65,8 +69,10 @@ export interface SeatPlannerWorkspace {
     startsAt: string
     endsAt: string
     state: 'draft' | 'confirmed'
+    assignedMemberIds: string[]
     assignedMemberId?: string | null
     assignedMemberName?: string | null
+    assignedMemberNames?: string[]
     customerSalutation: string | null
     updatedAt: string
   }>
@@ -128,12 +134,21 @@ export interface UpsertDraftParams {
   startsAt: Date
   endsAt: Date
   assignedMemberId?: string | null
+  assignedMemberIds?: string[]
   expectedUpdatedAt?: string
 }
 
 export interface UpdateStaffParams {
   assignmentId: string
   assignedMemberId: string | null
+  assignedMemberIds?: string[]
+}
+
+function getAssignedMemberIds(assignment: { assignedMemberIds?: string[] | null; assignedMemberId?: string | null }): string[] {
+  if (Array.isArray(assignment.assignedMemberIds) && assignment.assignedMemberIds.length > 0) {
+    return Array.from(new Set(assignment.assignedMemberIds.filter((id): id is string => typeof id === 'string' && id.length > 0)))
+  }
+  return assignment.assignedMemberId ? [assignment.assignedMemberId] : []
 }
 
 /**
@@ -181,6 +196,11 @@ export class AppointmentSeatPlannerService {
     const appointmentOrganization = await this.em.findOne(Organization, {
       id: appointment.organizationId,
       tenant: params.tenantId,
+      deletedAt: null,
+    })
+    const appointmentStatus = await this.em.findOne(AppointmentStatus, {
+      tenantId: params.tenantId,
+      code: appointment.statusCode,
       deletedAt: null,
     })
 
@@ -273,7 +293,11 @@ export class AppointmentSeatPlannerService {
             range: { start: scheduleDayStart, end: scheduleDayEnd },
           }).map((window) => ({ startsAt: window.start.toISOString(), endsAt: window.end.toISOString() }))
         : null
-      return { ...resource, availabilityWindows }
+      return {
+        ...resource,
+        code: resourceRecord?.code ?? resource.code ?? null,
+        availabilityWindows,
+      }
     })
 
     // Load option snapshots for all lines (prefer snapshot tables, fallback to catalog)
@@ -315,8 +339,21 @@ export class AppointmentSeatPlannerService {
       endsAt: { $gt: scheduleDayStart },
       cancelledAt: null,
     }, { orderBy: { startsAt: 'asc' } })
+    const assignmentsByLine = new Map<string, ResourcesAssignment[]>()
+    for (const assignment of dayAssignments) {
+      const lineAssignments = assignmentsByLine.get(assignment.sourceEntityId) ?? []
+      lineAssignments.push(assignment)
+      assignmentsByLine.set(assignment.sourceEntityId, lineAssignments)
+    }
+    const effectiveDayAssignments = Array.from(assignmentsByLine.values()).flatMap((lineAssignments) => {
+      const drafts = lineAssignments.filter((assignment) => assignment.state === 'draft')
+      const candidates = drafts.length > 0
+        ? drafts
+        : lineAssignments.filter((assignment) => assignment.state === 'confirmed')
+      return candidates.sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime()).slice(0, 1)
+    })
 
-    const assignmentLineIds = Array.from(new Set(dayAssignments.map((assignment) => assignment.sourceEntityId)))
+    const assignmentLineIds = Array.from(new Set(effectiveDayAssignments.map((assignment) => assignment.sourceEntityId)))
     const allocationLines = assignmentLineIds.length > 0
       ? await this.em.find(AppointmentLine, { id: { $in: assignmentLineIds }, tenantId: params.tenantId, deletedAt: null })
       : []
@@ -327,11 +364,7 @@ export class AppointmentSeatPlannerService {
       : []
     const allocationAppointmentById = new Map(allocationAppointments.map((entry) => [entry.id, entry]))
     const resourceById = new Map(resourcesWithAvailability.map((resource) => [resource.id, resource]))
-    const assignedMemberIds = Array.from(new Set(
-      dayAssignments
-        .map((assignment) => assignment.assignedMemberId)
-        .filter((memberId): memberId is string => typeof memberId === 'string' && memberId.length > 0),
-    ))
+    const assignedMemberIds = Array.from(new Set(effectiveDayAssignments.flatMap(getAssignedMemberIds)))
     const assignedMembers = assignedMemberIds.length > 0
       ? await findWithDecryption(
           this.em,
@@ -347,11 +380,15 @@ export class AppointmentSeatPlannerService {
         )
       : []
     const assignedMemberNameById = new Map(assignedMembers.map((member) => [member.id, member.displayName]))
-    const allocations = dayAssignments.flatMap((assignment) => {
+    const allocations = effectiveDayAssignments.flatMap((assignment) => {
       const line = allocationLineById.get(assignment.sourceEntityId)
       if (!line) return []
       const sourceAppointment = allocationAppointmentById.get(line.appointment.id)
       const resource = resourceById.get(assignment.resource?.id ?? '')
+      const memberIds = getAssignedMemberIds(assignment)
+      const memberNames = memberIds
+        .map((memberId) => assignedMemberNameById.get(memberId))
+        .filter((name): name is string => typeof name === 'string')
       return [{
         id: assignment.id,
         appointmentId: sourceAppointment?.id ?? line.appointment.id,
@@ -364,10 +401,12 @@ export class AppointmentSeatPlannerService {
         startsAt: assignment.startsAt.toISOString(),
         endsAt: assignment.endsAt.toISOString(),
         state: assignment.state,
+        assignedMemberIds: memberIds,
         assignedMemberId: assignment.assignedMemberId ?? null,
         assignedMemberName: assignment.assignedMemberId
           ? assignedMemberNameById.get(assignment.assignedMemberId) ?? null
           : null,
+        assignedMemberNames: memberNames,
         updatedAt: assignment.updatedAt.toISOString(),
       }]
     }).filter((allocation) => allocation.resourceId.length > 0)
@@ -394,10 +433,9 @@ export class AppointmentSeatPlannerService {
 
         // Try to load options from snapshot tables first, fallback to catalog lookup
         let options: Array<{ groupName: string | null; name: string }>
-        let resolvedDuration = line.durationMinutes
+        const resolvedDuration = line.durationMinutes
         try {
           const snapshots = await loadLineOptionSnapshots(this.em, line.id)
-          resolvedDuration = resolveDurationMinutes(line.durationMinutes, snapshots.groups.flatMap((group) => group.options))
           if (snapshots.groups.length > 0) {
             // Use snapshot data
             options = snapshots.groups.flatMap((g) =>
@@ -429,10 +467,14 @@ export class AppointmentSeatPlannerService {
                 resourceName: resource?.name,
                 startsAt: assignment.startsAt,
                 endsAt: assignment.endsAt,
+                assignedMemberIds: getAssignedMemberIds(assignment),
                 assignedMemberId: assignment.assignedMemberId,
                 assignedMemberName: assignment.assignedMemberId
                   ? assignedMemberNameById.get(assignment.assignedMemberId) ?? null
                   : null,
+                assignedMemberNames: getAssignedMemberIds(assignment)
+                  .map((memberId) => assignedMemberNameById.get(memberId))
+                  .filter((name): name is string => typeof name === 'string'),
                 updatedAt: assignment.updatedAt,
               }
             : undefined,
@@ -461,6 +503,8 @@ export class AppointmentSeatPlannerService {
         requestedStartAt: appointment.requestedStartAt.toISOString(),
         requestedEndAt: effectiveEndAt.toISOString(),
         statusCode: appointment.statusCode,
+        statusBackgroundColor: appointmentStatus?.backgroundColor ?? null,
+        statusTextColor: appointmentStatus?.textColor ?? null,
         updatedAt: appointment.updatedAt.toISOString(),
       },
       lines: linesWithAssignments,
@@ -516,6 +560,7 @@ export class AppointmentSeatPlannerService {
       startsAt: params.startsAt,
       endsAt: params.endsAt,
       assignedMemberId: params.assignedMemberId,
+      assignedMemberIds: params.assignedMemberIds,
       title: line.productTitle ?? undefined,
       userId: params.userId,
       organizationIds: resourceOrganizationIds,
@@ -689,10 +734,15 @@ export class AppointmentSeatPlannerService {
    */
   async updateStaff(params: {
     appointmentId: string
+    tenantId: string
+    organizationId: string
   } & UpdateStaffParams): Promise<AssignmentDTO> {
     return this.assignmentService.updateAssignmentStaff({
       assignmentId: params.assignmentId,
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
       assignedMemberId: params.assignedMemberId,
+      assignedMemberIds: params.assignedMemberIds,
     })
   }
 }

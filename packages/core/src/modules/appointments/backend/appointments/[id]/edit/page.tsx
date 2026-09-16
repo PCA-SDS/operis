@@ -185,7 +185,9 @@ export function AppointmentEditForm({
           null
         setLocationId(preferred)
       } catch (err) {
-        if (!cancelled) console.error(err)
+        if (!(err instanceof DOMException && err.name === 'AbortError') && !cancelled) {
+          flash(t('appointments.locations.loadFailed', 'Unable to load locations. Reload the page to try again.'), 'error')
+        }
       } finally {
         if (!cancelled) setLocationsLoading(false)
       }

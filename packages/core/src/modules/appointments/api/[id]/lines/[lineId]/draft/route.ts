@@ -16,13 +16,19 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 import { AppointmentSeatPlannerService } from '../../../../../lib/seatPlannerService'
 import { emitAppointmentEvent } from '../../../../../events'
 
+const MAX_ASSIGNED_MEMBERS = 50
+
 const upsertDraftSchema = z.object({
   resourceId: z.string().uuid(),
   startsAt: z.string().datetime(),
   endsAt: z.string().datetime(),
   assignedMemberId: z.string().uuid().nullable().optional(),
+  assignedMemberIds: z.array(z.string().uuid()).max(MAX_ASSIGNED_MEMBERS).optional(),
   expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
-})
+}).refine(
+  (value) => new Date(value.endsAt).getTime() > new Date(value.startsAt).getTime(),
+  { message: 'endsAt must be after startsAt', path: ['endsAt'] },
+)
 
 export type RouteContext = { params: Promise<{ id: string; lineId: string }> }
 
@@ -100,8 +106,11 @@ export async function PUT(req: Request, ctx: RouteContext) {
       startsAt: new Date(body.startsAt),
       endsAt: new Date(body.endsAt),
       assignedMemberId: body.assignedMemberId ?? null,
+      assignedMemberIds: body.assignedMemberIds,
       userId: auth.userId ?? null,
-      expectedUpdatedAt: body.expectedUpdatedAt,
+      expectedUpdatedAt: body.expectedUpdatedAt
+        ?? req.headers.get('x-om-ext-optimistic-lock-expected-updated-at')
+        ?? undefined,
     })
     if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
       await runCrudMutationGuardAfterSuccess(container, {

@@ -102,6 +102,9 @@ export class Organization {
   @Property({ type: 'text', nullable: true })
   slug?: string | null
 
+  @Property({ name: 'tax_code', type: 'text', nullable: true })
+  taxCode?: string | null
+
   @Property({ name: 'logo_url', type: 'text', nullable: true })
   logoUrl?: string | null
 

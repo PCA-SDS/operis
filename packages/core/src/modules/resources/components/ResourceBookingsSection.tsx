@@ -4,6 +4,8 @@ import * as React from 'react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { ScheduleView, type ScheduleItem, type ScheduleRange } from '@open-mercato/ui/backend/schedule'
+import { ErrorMessage, LoadingMessage, TabEmptyState } from '@open-mercato/ui/backend/detail'
+import { SectionHeader } from '@open-mercato/ui/backend/SectionHeader'
 import { Button } from '@open-mercato/ui/primitives/button'
 
 type Assignment = {
@@ -68,7 +70,7 @@ export function ResourceBookingsSection({ resourceId }: ResourceBookingsSectionP
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load bookings')
+          setError(err instanceof Error ? err.message : t('resources.bookings.loadError', 'Failed to load bookings'))
         }
       } finally {
         if (!cancelled) {
@@ -89,13 +91,17 @@ export function ResourceBookingsSection({ resourceId }: ResourceBookingsSectionP
     const scheduleItems: ScheduleItem[] = items.map((assignment) => ({
       id: assignment.id,
       kind: 'event' as const,
-      title: `${assignment.title || 'Booking'} (${assignment.state === 'confirmed' ? 'Confirmed' : 'Draft'})`,
+      title: `${assignment.title || t('resources.bookings.untitled', 'Booking')} (${
+        assignment.state === 'confirmed'
+          ? t('resources.bookings.confirmed', 'Confirmed')
+          : t('resources.bookings.draft', 'Draft')
+      })`,
       startsAt: new Date(assignment.startsAt),
       endsAt: new Date(assignment.endsAt),
       status: assignment.state,
       subjectType: 'resource' as const,
       subjectId: assignment.resourceId,
-      color: assignment.state === 'confirmed' ? '#22c55e' : '#eab308',
+      color: assignment.state === 'confirmed' ? 'var(--status-success-icon)' : 'var(--status-warning-icon)',
       metadata: {
         sourceModule: assignment.sourceModule,
         sourceEntityType: assignment.sourceEntityType,
@@ -113,21 +119,19 @@ export function ResourceBookingsSection({ resourceId }: ResourceBookingsSectionP
   }, [])
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">{t('common.loading', 'Loading...')}</div>
-      </div>
-    )
+    return <LoadingMessage label={t('common.loading', 'Loading...')} />
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 text-center">
-        <p className="text-destructive mb-4">{error}</p>
-        <Button variant="outline" size="sm" onClick={() => setScheduleRange({ ...scheduleRange })}>
-          {t('common.retry', 'Retry')}
-        </Button>
-      </div>
+      <ErrorMessage
+        label={error}
+        action={(
+          <Button variant="outline" size="sm" onClick={() => setScheduleRange({ ...scheduleRange })}>
+            {t('common.retry', 'Retry')}
+          </Button>
+        )}
+      />
     )
   }
 
@@ -136,11 +140,11 @@ export function ResourceBookingsSection({ resourceId }: ResourceBookingsSectionP
       {/* Stats */}
       <div className="flex items-center gap-4 text-sm">
         <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-green-500" />
+          <div className="h-2 w-2 rounded-full bg-status-success-icon" />
           <span>{assignments.filter((a) => a.state === 'confirmed').length} {t('resources.bookings.confirmed', 'Confirmed')}</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-yellow-500" />
+          <div className="h-2 w-2 rounded-full bg-status-warning-icon" />
           <span>{assignments.filter((a) => a.state === 'draft').length} {t('resources.bookings.draft', 'Draft')}</span>
         </div>
       </div>
@@ -156,11 +160,16 @@ export function ResourceBookingsSection({ resourceId }: ResourceBookingsSectionP
       />
 
       {/* Assignment list */}
-      {assignments.length > 0 && (
+      {assignments.length === 0 ? (
+        <TabEmptyState
+          title={t('resources.bookings.emptyTitle', 'No bookings in this range')}
+          description={t('resources.bookings.emptyDescription', 'Bookings assigned to this resource will appear here.')}
+        />
+      ) : (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium">{t('resources.bookings.list', 'Upcoming Bookings')}</h4>
+          <SectionHeader title={t('resources.bookings.list', 'Upcoming Bookings')} count={assignments.length} />
           <div className="divide-y rounded-lg border">
-            {assignments
+            {[...assignments]
               .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
               .slice(0, 10)
               .map((assignment) => (
@@ -168,7 +177,7 @@ export function ResourceBookingsSection({ resourceId }: ResourceBookingsSectionP
                   <div className="flex items-center gap-3">
                     <div
                       className={`h-2 w-2 rounded-full ${
-                        assignment.state === 'confirmed' ? 'bg-green-500' : 'bg-yellow-500'
+                        assignment.state === 'confirmed' ? 'bg-status-success-icon' : 'bg-status-warning-icon'
                       }`}
                     />
                     <div>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { MAX_PAGE_SIZE } from '@open-mercato/shared/lib/validation'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { makeCrudRoute } from '@open-mercato/shared/lib/crud/factory'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
@@ -37,7 +38,7 @@ const viewSchema = z
     page: z.coerce.number().int().min(1).default(1),
     // Deliberately above the shared default: the category tree pickers load the whole list in one request,
     // and lowering this ceiling would 400 those existing callers.
-    pageSize: z.coerce.number().int().min(1).max(200).default(50),
+    pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(50),
     search: z.string().optional(),
     status: z.enum(['all', 'active', 'inactive']).optional(),
     ids: z.string().optional(),

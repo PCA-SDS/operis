@@ -96,15 +96,19 @@ function hashAccent(seed: string): string {
   return AVATAR_ACCENT_CLASSES[idx]
 }
 
+// Options are constant, so the formatter is built once — matching
+// `shortDateFormatter` below. Constructing it per call meant one
+// `Intl.NumberFormat` per card per board render.
+const dealValueFormatter = new Intl.NumberFormat(undefined, {
+  style: 'decimal',
+  maximumFractionDigits: 0,
+  useGrouping: true,
+})
+
 function splitCurrencyAmount(amount: number, currency: string | null): { display: string; code: string | null } {
   const code = currency && currency.length === 3 ? currency.toUpperCase() : null
   try {
-    const formatter = new Intl.NumberFormat(undefined, {
-      style: 'decimal',
-      maximumFractionDigits: 0,
-      useGrouping: true,
-    })
-    return { display: formatter.format(amount), code }
+    return { display: dealValueFormatter.format(amount), code }
   } catch {
     return { display: String(Math.round(amount)), code }
   }

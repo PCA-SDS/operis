@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "file": "data/pca-source-templates.ts",
+      "reason": "Inert PCA source template email body content preserved for tenant-specific migration parity; not rendered as global Operis UI copy."
+    }
+  ]
+}

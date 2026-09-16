@@ -77,18 +77,36 @@ packages/core/src/modules/invoice/
   api/
     openapi.ts
     invoices/route.ts
+    invoices/[id]/route.ts
+    invoices/[id]/due-date/route.ts
+    invoices/[id]/settlement/route.ts
+    invoices/[id]/non-recoverable/route.ts
+    invoices/[id]/reverse-auto-paid/route.ts
+    invoices/[id]/send/route.ts
+    invoices/[id]/incoming-confirmation/accept/route.ts
+    invoices/[id]/incoming-confirmation/reject/route.ts
+    invoices/[id]/installments/route.ts                    # planned
+    invoices/[id]/installments/[installmentId]/route.ts   # planned
     summary/route.ts
     forecast/route.ts
     partners/route.ts
+    partners/match/route.ts
+    partners/[id]/route.ts
     auto-paid/route.ts
+    auto-paid/candidates/route.ts
+    auto-paid/[id]/route.ts
     company-emails/route.ts
+    company-emails/[id]/route.ts
     exchange-rates/route.ts
-    company-lookup/route.ts
-    sync/route.ts
-    sync/authenticate/route.ts
-    sync/[jobId]/route.ts
+    company-lookup/[identifier]/route.ts
+    sync/route.ts                                          # planned
+    sync/latest/route.ts                                   # planned
+    sync/authenticate/route.ts                             # planned
+    sync/[jobId]/route.ts                                  # planned
     payment-confirmations/route.ts
     payment-confirmations/public/[token]/route.ts
+    payment-confirmations/public/[token]/confirm/route.ts
+    payment-confirmations/public/[token]/reject/route.ts
     track/[token]/pixel.gif/route.ts
   backend/
     invoice/page.tsx
@@ -159,27 +177,30 @@ New routes use Operis API discovery:
 - Custom write routes must run mutation guards.
 - All private routes require auth and feature checks.
 
-Target private API routes:
+Private API route groups:
 
 | Capability | Route group | Feature |
 | --- | --- | --- |
 | CAP-001 | `/api/invoice/invoices`, `/api/invoice/summary`, `/api/invoice/forecast` | `invoice.view`, `invoice.manage` |
-| CAP-002 | `/api/invoice/sync` | `invoice.sync` |
+| CAP-002 | `/api/invoice/sync` (planned) | `invoice.sync` |
 | CAP-003 | `/api/invoice/partners` | `invoice.settings.manage` |
 | CAP-004 | `/api/invoice/auto-paid` | `invoice.settings.manage` |
-| CAP-005 | `/api/invoice/payment-confirmations` | `invoice.payment_confirmations.manage` |
+| CAP-005 | `/api/invoice/payment-confirmations`, `/api/invoice/invoices/[id]/incoming-confirmation/*` | `invoice.payment_confirmations.manage` |
 | CAP-006 | `/api/invoice/company-emails` | `invoice.manage` |
 | CAP-007 | `/api/invoice/exchange-rates` | `invoice.view` |
-| CAP-008 | `/api/invoice/company-lookup` | `invoice.view` |
+| CAP-008 | `/api/invoice/company-lookup/[identifier]` | `invoice.view` |
 
-Target public API routes:
+Implemented public API routes:
 
 - `/api/invoice/payment-confirmations/public/[token]`
+- `/api/invoice/payment-confirmations/public/[token]/confirm`
+- `/api/invoice/payment-confirmations/public/[token]/reject`
 - `/api/invoice/track/[token]/pixel.gif`
 
 Public routes must never log raw token values.
 
-Target route method matrix:
+Route method matrix, verified against `packages/core/src/modules/invoice/api` on
+2026-09-10. Rows are implemented unless the purpose starts with **Planned**.
 
 | Method | Target route | Old route | Purpose |
 | --- | --- | --- | --- |
@@ -195,9 +216,9 @@ Target route method matrix:
 | `PATCH` | `/api/invoice/invoices/[id]/settlement` | `PATCH /invoice/invoices/:id/settlement` | AR settlement toggle. |
 | `PATCH` | `/api/invoice/invoices/[id]/reverse-auto-paid` | `PATCH /invoice/invoices/:id/reverse-auto-paid` | Reverse AP auto-paid settlement. |
 | `PATCH` | `/api/invoice/invoices/[id]/non-recoverable` | `PATCH /invoice/invoices/:id/non-recoverable` | AR write-off toggle. |
-| `PUT` | `/api/invoice/invoices/[id]/installments` | `PUT /invoice/invoices/:id/installments` | Replace AR installment plan. |
-| `DELETE` | `/api/invoice/invoices/[id]/installments` | `DELETE /invoice/invoices/:id/installments` | Delete AR installment plan. |
-| `PATCH` | `/api/invoice/invoices/[id]/installments/[installmentId]` | `PATCH /invoice/invoices/:id/installments/:installmentId` | Mark one installment paid/unpaid. |
+| `PUT` | `/api/invoice/invoices/[id]/installments` | `PUT /invoice/invoices/:id/installments` | **Planned:** replace AR installment plan. |
+| `DELETE` | `/api/invoice/invoices/[id]/installments` | `DELETE /invoice/invoices/:id/installments` | **Planned:** delete AR installment plan. |
+| `PATCH` | `/api/invoice/invoices/[id]/installments/[installmentId]` | `PATCH /invoice/invoices/:id/installments/:installmentId` | **Planned:** mark one installment paid/unpaid. |
 | `GET` | `/api/invoice/partners` | `GET /invoice/partners` | Partner payment-terms list. |
 | `GET` | `/api/invoice/partners/match` | `GET /invoice/partners/match` | Match typed partner identity. |
 | `PATCH` | `/api/invoice/partners/[id]` | `PATCH /invoice/partners/:id` | Set or clear default due days. |
@@ -210,14 +231,16 @@ Target route method matrix:
 | `DELETE` | `/api/invoice/company-emails/[id]` | old service method | Remove saved recipient email. |
 | `GET` | `/api/invoice/exchange-rates` | `GET /invoice/exchange-rates` | VND conversion hints. |
 | `GET` | `/api/invoice/company-lookup/[identifier]` | `GET /invoice/company-lookup/:taxCode` | Country-aware company lookup. |
-| `GET` | `/api/invoice/sync/latest` | `GET /invoice/sync/latest` | Sync availability and latest job. |
-| `POST` | `/api/invoice/sync` | `POST /invoice/sync` | Start sync or ask for captcha auth. |
-| `POST` | `/api/invoice/sync/authenticate` | `POST /invoice/sync/authenticate` | Submit password and captcha. |
-| `GET` | `/api/invoice/sync/[jobId]` | `GET /invoice/sync/:jobId` | Poll sync job status. |
+| `GET` | `/api/invoice/sync/latest` | `GET /invoice/sync/latest` | **Planned:** sync availability and latest job. |
+| `POST` | `/api/invoice/sync` | `POST /invoice/sync` | **Planned:** start sync or ask for captcha auth. |
+| `POST` | `/api/invoice/sync/authenticate` | `POST /invoice/sync/authenticate` | **Planned:** submit password and captcha. |
+| `GET` | `/api/invoice/sync/[jobId]` | `GET /invoice/sync/:jobId` | **Planned:** poll sync job status. |
 | `POST` | `/api/invoice/payment-confirmations` | `POST /invoice/invoices/:id/request-payment-confirmation` | Request AP confirmation email. |
 | `GET` | `/api/invoice/payment-confirmations/public/[token]` | `GET /public/invoice/payment-confirmations/:token` | Public preview. |
 | `POST` | `/api/invoice/payment-confirmations/public/[token]/confirm` | `POST /public/invoice/payment-confirmations/:token/confirm` | Public confirm. |
 | `POST` | `/api/invoice/payment-confirmations/public/[token]/reject` | `POST /public/invoice/payment-confirmations/:token/reject` | Public reject. |
+| `POST` | `/api/invoice/invoices/[id]/incoming-confirmation/accept` | `POST /invoice/invoices/:id/incoming-confirmation/accept` | Accept a unique matching incoming claim and settle both invoices. |
+| `POST` | `/api/invoice/invoices/[id]/incoming-confirmation/reject` | `POST /invoice/invoices/:id/incoming-confirmation/reject` | Reject a unique matching incoming claim. |
 | `GET` | `/api/invoice/track/[token]/pixel.gif` | `GET /public/invoice/track/:token/pixel.gif` | Email open tracking pixel. |
 
 If implementation groups sub-actions under one route file, it must still expose

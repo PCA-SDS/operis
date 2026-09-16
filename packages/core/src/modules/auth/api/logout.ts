@@ -46,9 +46,26 @@ function extractAuthTokenClaims(token: string | null): AuthTokenClaims {
   }
 }
 
+/**
+ * The access token as the caller actually presented it.
+ *
+ * Browsers send the `auth_token` cookie; API and mobile clients authenticate with
+ * `Authorization: Bearer`, which the dispatcher accepts everywhere else. Reading only
+ * the cookie meant a bearer-authenticated logout found no `sid`, revoked nothing, and
+ * left the token live for the rest of its lifetime — so signing out of a non-browser
+ * client did nothing at all.
+ */
+function readAccessToken(req: Request): string | null {
+  const cookieToken = parseCookie(req, 'auth_token')
+  if (cookieToken) return cookieToken
+  const header = req.headers.get('authorization') || ''
+  const match = header.match(/^Bearer\s+(.+)$/i)
+  return match ? match[1].trim() || null : null
+}
+
 export async function POST(req: Request) {
   const sessToken = parseCookie(req, 'session_token')
-  const authToken = parseCookie(req, 'auth_token')
+  const authToken = readAccessToken(req)
   const claims = extractAuthTokenClaims(authToken)
   let sessionRevoked = false
   if (sessToken || claims.sessionId) {

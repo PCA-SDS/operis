@@ -26,6 +26,7 @@ import { E } from '#generated/entities.ids.generated'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { DealsSection } from '../../../../components/detail/DealsSection'
 import { ActivityLogTab } from '../../../../components/detail/ActivityLogTab'
+import { AddressesSection } from '../../../../components/detail/AddressesSection'
 import { CompanyPeopleSection, type CompanyPersonSummary } from '../../../../components/detail/CompanyPeopleSection'
 import type { TagSummary } from '../../../../components/detail/types'
 import type { TagsSectionController } from '@open-mercato/ui/backend/detail'
@@ -537,6 +538,7 @@ export default function CompanyDetailV2Page({ params }: { params?: { id?: string
                 injectedTabs={injectedTabs.map((tab) => ({ id: tab.id, label: tab.label }))}
                 peopleCount={data.counts?.people ?? 0}
                 dealsCount={dealCount}
+                addressesCount={data.counts?.addresses ?? 0}
                 activitiesCount={data.counts?.activities ?? 0}
                 sectionAction={sectionAction}
               >
@@ -581,6 +583,20 @@ export default function CompanyDetailV2Page({ params }: { params?: { id?: string
                     translator={detailTranslator}
                     runGuardedMutation={runMutationWithContext}
                     onCountDelta={(delta) => setDealCount((current) => Math.max(0, current + delta))}
+                  />
+                )}
+
+                {activeTab === 'addresses' && (
+                  <AddressesSection
+                    entityId={companyId}
+                    emptyLabel={t('customers.companies.detail.empty.addresses', 'No addresses recorded.')}
+                    addActionLabel={t('customers.companies.detail.addresses.add', 'Add address')}
+                    emptyState={{
+                      title: t('customers.companies.detail.emptyState.addresses.title', 'No addresses yet'),
+                      actionLabel: t('customers.companies.detail.emptyState.addresses.action', 'Add address'),
+                    }}
+                    onActionChange={handleSectionActionChange}
+                    translator={detailTranslator}
                   />
                 )}
 

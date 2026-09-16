@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 import { assertStaticallySafeWebhookUrl, UnsafeWebhookUrlError } from '../lib/url-safety'
 import { isReservedWebhookCustomHeader } from '../lib/custom-headers'
 
@@ -49,9 +50,10 @@ export const webhookUpdateSchema = webhookCreateSchema.partial().extend({
 
 export type WebhookUpdateInput = z.infer<typeof webhookUpdateSchema>
 
-export const webhookListQuerySchema = z.object({
-  page: z.string().optional(),
-  pageSize: z.string().optional(),
+// `page`/`pageSize` were bare strings, so a malformed value silently fell back to
+// the default instead of being rejected; the real bound lived in a hand-rolled
+// clamp in the route. Default page size of 20 is preserved.
+export const webhookListQuerySchema = paginationQuerySchema({ defaultPageSize: 20 }).extend({
   search: z.string().optional(),
   isActive: z.string().optional(),
 })

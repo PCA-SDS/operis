@@ -42,6 +42,7 @@ function PieChartImpl({
   )
   const innerRadius = variant === 'donut' ? '60%' : 0
   const outerRadius = '80%'
+  const hasMultipleSlices = data.filter((item) => item.value > 0).length > 1
 
   const tooltipContent = React.useMemo(
     () => (
@@ -64,7 +65,7 @@ function PieChartImpl({
           cy="40%"
           innerRadius={innerRadius}
           outerRadius={outerRadius}
-          paddingAngle={2}
+          paddingAngle={hasMultipleSlices ? 2 : 0}
           strokeWidth={0}
         >
           {data.map((_, idx) => (
@@ -74,6 +75,7 @@ function PieChartImpl({
             <Label
               value={valueFormatter(total)}
               position="center"
+              dy={-12}
               className="fill-foreground text-2xl font-bold"
             />
           )}

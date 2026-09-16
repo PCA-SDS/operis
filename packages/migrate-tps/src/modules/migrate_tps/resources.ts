@@ -262,6 +262,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
   async run(rest) {
     const { tenantId, organizationId, replace } = parseTpsMigrateFlags(rest)
     const locationFilter = parseLocationFlag(rest)
+    const syncCodes = rest.includes('--sync-codes')
 
     if (!tenantId || !organizationId) {
       logger.error('Missing tenantId or organizationId')
@@ -331,6 +332,43 @@ export const migrateTpsResourcesCommand: ModuleCli = {
     }
 
     const baseEm = container.resolve<EntityManager>('em').fork()
+
+    if (syncCodes) {
+      const existingResources = await baseEm.find(ResourcesResource, {
+        tenantId,
+        organizationId,
+        deletedAt: null,
+      })
+      const resourcesByName = new Map<string, ResourcesResource[]>()
+      for (const resource of existingResources) {
+        const name = resource.name.trim()
+        const matches = resourcesByName.get(name) ?? []
+        matches.push(resource)
+        resourcesByName.set(name, matches)
+      }
+
+      let updatedCodes = 0
+      let skippedCodes = 0
+      for (const seat of tpsSeats.rows) {
+        const code = seat.code.trim()
+        const name = seat.name?.trim() || code
+        const candidates = resourcesByName.get(name) ?? resourcesByName.get(code) ?? []
+        if (candidates.length === 0) {
+          skippedCodes++
+          continue
+        }
+        for (const resource of candidates) {
+          if (resource.code !== code) {
+            resource.code = code
+            resource.updatedAt = new Date()
+            updatedCodes++
+          }
+        }
+      }
+      await baseEm.flush()
+      logger.info(`Synchronized ${updatedCodes} resource codes (skipped ${skippedCodes} ambiguous or missing seats).`)
+      return
+    }
 
     const [existingTypes, existingAreas, existingResources] = await Promise.all([
       baseEm.count(ResourcesResourceType, { tenantId, organizationId }),
@@ -490,12 +528,14 @@ export const migrateTpsResourcesCommand: ModuleCli = {
             tenantId,
             organizationId,
             name: seat.name?.trim() || seat.code,
+            code: seat.code.trim(),
             sortOrder: parseSortOrder(seat.sort_order),
             isActive: seat.is_active === 'true' || seat.is_active === 't',
             createdAt: now,
             updatedAt: now,
           })
           entity.name = seat.name?.trim() || seat.code
+          entity.code = seat.code.trim()
           entity.description = null
           entity.resourceTypeId = mappedTypeId
           entity.areaId = mappedAreaId

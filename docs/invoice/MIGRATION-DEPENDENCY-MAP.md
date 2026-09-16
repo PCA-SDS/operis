@@ -222,6 +222,8 @@ Incoming AR flow:
 
 ```text
 Receiver invoice UI
+  -> /api/invoice/invoices/[id]/incoming-confirmation/accept|reject
+  -> invoice.payment_confirmations.accept-incoming|reject-incoming
   -> invoicePaymentConfirmationsService.acceptIncoming/rejectIncoming
   -> match pending AP confirmation by invoice identity
   -> transaction settles payer AP and receiver AR
@@ -233,6 +235,11 @@ Must migrate after:
 - CAP-006 company email memory.
 - Mail provider integration.
 - Public route/rate-limit strategy.
+
+Implementation status:
+
+- All backend dependencies and flows above are implemented as of 2026-09-10.
+- Payment-confirmation screens and browser acceptance remain M9 work.
 
 ## CAP-006 Company Email Memory
 

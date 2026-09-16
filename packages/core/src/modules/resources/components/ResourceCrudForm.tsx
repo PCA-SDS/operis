@@ -33,6 +33,7 @@ type ResourceTypeRow = {
 export type ResourceFormValues = {
   id?: string
   name: string
+  code?: string | null
   description?: string
   resourceTypeId?: string | null
   areaId?: string | null
@@ -174,6 +175,7 @@ export function useResourcesResourceFormConfig(options: {
   const fields = React.useMemo<CrudField[]>(() => {
     const baseFields: CrudField[] = [
       { id: 'name', label: t('resources.resources.form.fields.name', 'Name'), type: 'text', required: true },
+      { id: 'code', label: t('resources.resources.form.fields.code', 'Code'), type: 'text' },
       {
         id: 'description',
         label: t('resources.resources.form.fields.description', 'Description'),
@@ -342,6 +344,7 @@ export function useResourcesResourceFormConfig(options: {
         column: 1,
         fields: [
           'name',
+          'code',
           'description',
           'resourceTypeId',
           'areaId',

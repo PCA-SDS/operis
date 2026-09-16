@@ -7,6 +7,10 @@ import {
   type CustomDomainCache,
   type DomainResolution,
 } from './customDomainCache'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+
+const customDomainLogger = createLogger('custom-domain')
+
 
 const DEFAULT_FETCH_TIMEOUT_MS = 5_000
 
@@ -171,9 +175,9 @@ export function ensureWarmUp(): Promise<unknown> {
     const router = getSharedCustomDomainRouter()
     sharedWarmUpPromise = router.warmUp().then((result) => {
       if ('error' in result && result.primed === 0) {
-        console.warn(`[custom-domain] warm-up skipped: ${result.error}`)
+        customDomainLogger.warn('warm-up skipped', { reason: result.error })
       } else if ('primed' in result) {
-        console.info(`[custom-domain] warm-up primed ${result.primed} domain(s)`)
+        customDomainLogger.info('warm-up primed domains', { primed: result.primed })
       }
       return result
     })

@@ -8,6 +8,25 @@
  * string.
  */
 
+/**
+ * `Intl.DateTimeFormat` construction costs roughly two orders of magnitude more
+ * than a `.format()` call on an existing instance, and the transcript formats
+ * two to three timestamps per message on every render of an unbounded, paged
+ * message list. Formatters are immutable and depend only on (locale, options),
+ * so one instance per combination is cached for the life of the tab. Output is
+ * byte-identical to constructing a fresh formatter each time.
+ */
+const dateTimeFormatterCache = new Map<string, Intl.DateTimeFormat>()
+
+function getDateTimeFormatter(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const cacheKey = `${locale}\u0000${JSON.stringify(options)}`
+  const cached = dateTimeFormatterCache.get(cacheKey)
+  if (cached) return cached
+  const formatter = new Intl.DateTimeFormat(locale, options)
+  dateTimeFormatterCache.set(cacheKey, formatter)
+  return formatter
+}
+
 function startOfDay(value: Date): number {
   return new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime()
 }
@@ -24,7 +43,7 @@ export function isSameDay(a: Date, b: Date): boolean {
 
 /** `09:41` — the timestamp beside a message. */
 export function formatTimeOfDay(locale: string, value: Date): string {
-  return new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(value)
+  return getDateTimeFormatter(locale, { hour: '2-digit', minute: '2-digit' }).format(value)
 }
 
 /**
@@ -41,7 +60,7 @@ export function formatDateSeparator(
   if (distance === 0) return labels.today
   if (distance === 1) return labels.yesterday
   const sameYear = value.getFullYear() === new Date().getFullYear()
-  return new Intl.DateTimeFormat(locale, {
+  return getDateTimeFormatter(locale, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -57,9 +76,9 @@ export function formatDateSeparator(
 export function formatListTimestamp(locale: string, value: Date): string {
   const distance = daysBetween(value, new Date())
   if (distance === 0) return formatTimeOfDay(locale, value)
-  if (distance < 7) return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(value)
+  if (distance < 7) return getDateTimeFormatter(locale, { weekday: 'short' }).format(value)
   const sameYear = value.getFullYear() === new Date().getFullYear()
-  return new Intl.DateTimeFormat(locale, {
+  return getDateTimeFormatter(locale, {
     day: 'numeric',
     month: 'short',
     year: sameYear ? undefined : '2-digit',
@@ -68,5 +87,5 @@ export function formatListTimestamp(locale: string, value: Date): string {
 
 /** The full instant, for the `title` and `dateTime` of a message timestamp. */
 export function formatFullTimestamp(locale: string, value: Date): string {
-  return new Intl.DateTimeFormat(locale, { dateStyle: 'full', timeStyle: 'short' }).format(value)
+  return getDateTimeFormatter(locale, { dateStyle: 'full', timeStyle: 'short' }).format(value)
 }

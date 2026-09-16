@@ -1,9 +1,105 @@
 # SPEC — CRUD API performance quick wins (target < 100 ms p50)
 
-**Status:** implemented (all five phases; verified against the code 2026-08-31)
+**Status:** code landed for all five phases — but **phases 4 and 5 are inert at default settings** (see "Shipped vs live" below)
 **Owner:** core / shared
 **Date:** 2026-05-24
 **Tracking issue:** [open-mercato/open-mercato#2044](https://github.com/open-mercato/open-mercato/issues/2044)
+
+## Shipped vs live (re-checked 2026-09-15)
+
+The earlier "implemented (all five phases)" status described the code, not the runtime. Three
+phases are live by default; two are behind flags that default to off and are set in no `.env`,
+no compose file and not in `deploy/required-env`, so they do nothing in any deployment:
+
+| Phase | Flag | Default | Live by default? |
+|---|---|---|---|
+| 1 — access-log batching | `OM_CRUD_ACCESS_LOG_BLOCKING` | off ⇒ non-blocking | yes |
+| 2 — custom-field definition cache | `OM_CF_DEF_CACHE_TTL_MS` | `300000` | yes |
+| 3 — RBAC memo | `OM_RBAC_DEFAULT_CACHE` | off, but `cache` resolves from the container anyway | yes |
+| 4 — org-scope cross-request cache | `OM_ORG_SCOPE_CACHE_TTL_MS` | **`0`** (`organizationScope.ts:43`) | **no** |
+| 5 — bootstrap once-guard | `OM_BOOTSTRAP_CACHE` | **unset ⇒ `false`** (`container.ts:64-69`) | **no** |
+
+Both defaults are deliberate and documented in the code: phase 4 waits on the
+`GET /api/customers/people` readiness probe staying green with the cache engaged, and phase 5
+is off because `tenantEncryptionService` captures the first request's `em.fork` and the event
+bus closes over the first container, which produced a 500 from CRUD list endpoints under
+`next start`. Neither blocker has been retired, so **do not simply flip these on** — each needs
+the verification its comment describes first. Phase 4's invalidation plumbing does now appear
+complete (`rbacService.ts` drops `org-scope:user:*` / `org-scope:tenant:*`, and a
+`directory:invalidate-org-scope-cache` subscriber exists), so it is the closer of the two.
+
+Per-request cost of them being inert: one uncached `organizations` SELECT per request
+(phase 4), and a full `bootstrap()` — 89 subscriber registrations, search-strategy
+construction, KMS/encryption service construction — inside every `createRequestContainer()`
+(phase 5).
+
+### What it takes to retire each blocker (audited 2026-09-15)
+
+**Phase 4 — close, two prerequisites now done, one remains.**
+
+Landed 2026-09-15:
+
+- `directory:invalidate-org-scope-cache` now sweeps **both** the tenant cache scope and
+  the global (`null`) one. The cache service prefixes every key and tag with the ambient
+  cache tenant, and only the API dispatcher establishes one — the two server-component
+  callers (`backend/[...slug]/page.tsx`, `auth/lib/backendChrome.tsx`) run with none, so
+  their entries land under `tenant:global:`. Sweeping only the tenant scope would have
+  left those stale for the full TTL, *including* the `allowedOrganizationIds` that gates
+  the page-level access check. `RbacService.deleteCacheByTags` already swept both; the
+  subscriber now mirrors it.
+- The two cookie-derived components of the cache key (`om_selected_org`,
+  `om_selected_tenant`) are UUID-validated before the **cross-request** cache is used.
+  Unvalidated, any authenticated user could mint unbounded distinct entries by varying a
+  cookie — LRU churn that evicts other tenants' entries under `CACHE_STRATEGY=memory`,
+  unbounded growth for a TTL window on redis/sqlite. The **per-request memo** still uses
+  the key unconditionally: it is keyed on the `Request` object and dies with it, and it is
+  what collapses the feature-check and CRUD-factory resolutions into one.
+
+Still outstanding before flipping `ORG_SCOPE_DEFAULT_TTL_MS`:
+
+- The readiness probe the code comment asks for (`GET /api/customers/people` staying green
+  with the cache engaged). That is a runtime gate; static analysis cannot discharge it.
+- Note the existing cache tests use a hand-rolled `Map` mock with **no tenant prefixing**,
+  which is precisely why the global-scope gap was invisible. A test against the real
+  `createCacheService` wrapper would be worth adding with the flip.
+
+Tenant isolation was specifically scrutinised and is **sound**: the key is injective in
+`(userId, effectiveTenantId)`, a non-super-admin cannot make `effectiveTenantId` differ
+from their own tenant (`organizationScope.ts:457-459` clamps it), and for a super admin
+`applySuperAdminScope` sets `auth.tenantId` to the *selected* tenant, so the physical
+cache prefix, the key and the invalidation tag all agree. No cross-tenant read is possible.
+
+**Phase 5 — still genuinely blocked, and worth less than it looks.**
+
+- Blocker (b), the event bus's resolver bound to the first container, is real and is
+  independently re-documented in
+  [`2026-08-04-events-worker-subscriber-registry.md`](2026-08-04-events-worker-subscriber-registry.md)
+  (§106-110). The worker path already takes a per-dispatch `resolve`; the **inline**
+  path does not. A naive late-bound thunk would be *worse* than the current bug — one
+  request's subscriber would resolve another's `em` mid-flight. A correct fix needs a
+  request-scoped `AsyncLocalStorage<AppContainer>`, which does not exist yet.
+- **An additional, unlisted blocker** is the more plausible source of the reported 500:
+  `BOOTSTRAP_CACHE_KEYS` caches `searchIndexer`, but `registerSearchModule` registers
+  **three** keys (`searchService`, `searchStrategies`, `searchIndexer`) and is skipped on
+  the replay path. Every container after the first is missing `searchService` and
+  `searchStrategies`, so `AwilixResolutionError` on ~9 call sites across `search`,
+  `query_index` and `ai-assistant`. Fix by calling `registerSearchModule` on the replay
+  path (which also rebinds the strategies to the current `em`/`queryEngine`) rather than
+  by adding the two keys to the cache list.
+- Blocker (a), `tenantEncryptionService` capturing the request `em`, could **not** be
+  confirmed. Its only two uses of `this.em` go through `em.getConnection()` against the
+  shared driver, and all its caches are `static`. Treat it as "unreviewed and structurally
+  wrong" rather than "proven broken" — and note that changing the registration to
+  `asFunction(...).scoped()` does not help, because `harvestBootstrapCache` resolves to a
+  concrete instance and replays it as `asValue` regardless.
+- Sizing the remaining prize honestly: **4 of the 7** cached keys (`cache`, `kmsService`,
+  `rateLimiterService`, `searchModuleConfigs`) are already process singletons or plain
+  data, so caching them saves nothing. The real win is the 89 subscriber re-registrations
+  and `registerSearchModule` — narrower than the spec's original 2–8 ms estimate, and to
+  be weighed against building the AsyncLocalStorage plumbing.
+- `bootstrap-cache.test.ts` mocks the real `bootstrap()`, so none of its 8 cases can catch
+  any of the above. Case 3 explicitly asserts the default-OFF behaviour and must be
+  rewritten if the default ever flips.
 
 ## TLDR
 
