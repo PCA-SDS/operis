@@ -12,21 +12,16 @@ export const notificationHandlers: NotificationHandler[] = [
   {
     id: 'appointments.appointment-created.toast',
     notificationType: 'appointments.appointment.created',
-    features: ['appointments.view'],
     priority: 100,
     handle(notification, context) {
       if (notification.bodyKey && !notification.bodyVariables?.customerName) return
 
-      const title = notification.titleKey
-        ? context.t?.(notification.titleKey, notification.title) ?? notification.title
-        : notification.title
       const body = notification.bodyKey
         ? context.t?.(notification.bodyKey, notification.body ?? undefined) ?? notification.body ?? undefined
         : notification.body ?? undefined
 
       context.toast({
-        title: interpolate(title, notification.titleVariables) ?? notification.title,
-        body: interpolate(body, notification.bodyVariables),
+        title: interpolate(body, notification.bodyVariables) ?? notification.title,
         severity: 'info',
         duration: 5000,
         action: {

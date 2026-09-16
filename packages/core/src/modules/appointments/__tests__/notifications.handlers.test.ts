@@ -32,10 +32,10 @@ describe('appointments notification handlers', () => {
     )
 
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'New appointment',
-      body: 'A new appointment has been created.',
+      title: 'A new appointment has been created.',
       severity: 'info',
     }))
+    expect(toast.mock.calls[0][0]).not.toHaveProperty('body')
 
     const toastOptions = toast.mock.calls[0][0] as { action?: { onClick: () => void } }
     toastOptions.action?.onClick()

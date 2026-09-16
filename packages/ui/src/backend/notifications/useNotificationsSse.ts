@@ -63,7 +63,7 @@ export function useNotificationsSse(): UseNotificationsSseResult {
     dismissRef,
   } = useNotificationActions(notifications, setNotifications, setUnreadCount)
 
-  const fetchNotifications = React.useCallback(async (dispatchHandlers = true) => {
+  const fetchNotifications = React.useCallback(async () => {
     try {
       const [notifResult, countResult] = await Promise.all([
         apiCall<{ items: NotificationDto[] }>('/api/notifications?pageSize=50'),
@@ -73,26 +73,6 @@ export function useNotificationsSse(): UseNotificationsSseResult {
       if (notifResult.ok && notifResult.result) {
         const fetched = notifResult.result.items
         setNotifications(fetched)
-        if (dispatchHandlers && fetched.length > 0) {
-          lastIdRef.current = fetched[0].id
-          dispatchNotificationHandlers(fetched, {
-            features: grantedFeaturesRef.current,
-            t: translateRef.current,
-            currentPath:
-              typeof window === 'undefined'
-                ? '/'
-                : `${window.location.pathname}${window.location.search}`,
-            refreshNotifications: () => {
-              // No-op: data was just fetched — avoid redundant refetch loop.
-            },
-            navigate: (href) => {
-              if (typeof window === 'undefined' || !href.startsWith('/')) return
-              window.location.assign(href)
-            },
-            markAsRead: async (notificationId) => markAsReadRef.current(notificationId),
-            dismiss: async (notificationId) => dismissRef.current(notificationId),
-          })
-        }
       }
 
       if (countResult.ok && countResult.result) {
@@ -134,7 +114,7 @@ export function useNotificationsSse(): UseNotificationsSseResult {
   }, [])
 
   React.useEffect(() => {
-    void fetchNotifications(false)
+    void fetchNotifications()
   }, [fetchNotifications])
 
   React.useEffect(() => {
