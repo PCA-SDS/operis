@@ -4,7 +4,7 @@ export type GdtWireRecord = Record<string, unknown>
 
 export type GdtInvoicePage = {
   items: GdtWireRecord[]
-  hasNext: boolean
+  nextCursor?: string
 }
 
 export type GdtFetchWindow = {

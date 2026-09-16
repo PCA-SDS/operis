@@ -11,8 +11,8 @@ describe('GDT fetcher', () => {
 
   it('iterates pages for both date windows', async () => {
     const fetchPage = jest.fn()
-      .mockResolvedValueOnce({ items: [{ id: 1 }], hasNext: true })
-      .mockResolvedValueOnce({ items: [{ id: 2 }], hasNext: false })
+      .mockResolvedValueOnce({ items: [{ id: 1 }], nextCursor: 'cursor-1' })
+      .mockResolvedValueOnce({ items: [{ id: 2 }], nextCursor: undefined })
     const records = []
     for await (const record of fetchGdtRecords({
       client: { fetchPage } as unknown as GdtClient,
@@ -23,7 +23,7 @@ describe('GDT fetcher', () => {
     })) records.push(record)
 
     expect(records).toEqual([{ id: 1 }, { id: 2 }])
-    expect(fetchPage).toHaveBeenCalledWith(expect.objectContaining({ stream: 'purchased', pageSize: 100, page: 1 }))
-    expect(fetchPage).toHaveBeenCalledWith(expect.objectContaining({ page: 2 }))
+    expect(fetchPage).toHaveBeenCalledWith(expect.objectContaining({ stream: 'purchased', pageSize: 15, cursor: undefined }))
+    expect(fetchPage).toHaveBeenCalledWith(expect.objectContaining({ cursor: 'cursor-1' }))
   })
 })
