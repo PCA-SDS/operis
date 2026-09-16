@@ -3,6 +3,7 @@ import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { AppointmentStatusSettings } from '../../../components/AppointmentStatusSettings'
+import { AppointmentEmailSettings } from '../../../components/AppointmentEmailSettings'
 
 export default async function AppointmentsConfigurationPage({
   searchParams,
@@ -24,6 +25,7 @@ export default async function AppointmentsConfigurationPage({
           </Button>
         ) : null}
         <AppointmentStatusSettings />
+        <AppointmentEmailSettings />
       </PageBody>
     </Page>
   )
