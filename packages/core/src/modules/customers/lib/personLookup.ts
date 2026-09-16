@@ -50,7 +50,10 @@ export async function searchPeopleForBooking(
       tenantId: scope.tenantId,
       kind: 'person',
       deletedAt: null,
-      displayName: { $ilike: searchPattern },
+      $or: [
+        { displayName: { $ilike: searchPattern } },
+        { primaryPhone: { $ilike: searchPattern } },
+      ],
     },
     { limit: 10, orderBy: { updatedAt: 'DESC' } },
     scope,

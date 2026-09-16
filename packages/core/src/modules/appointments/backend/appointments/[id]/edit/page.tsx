@@ -10,6 +10,8 @@ import { withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiC
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { Input } from '@open-mercato/ui/primitives/input'
+import { Loader2, Search, UserRound, X } from 'lucide-react'
 import {
   PhoneNumberField,
   PHONE_COUNTRIES,
@@ -63,6 +65,17 @@ type CheckCustomer = {
   phoneCountryCode: string | null
   source: string | null
   origin: string | null
+}
+
+type CustomerSearchResult = {
+  id: string
+  displayName: string
+  primaryEmail: string | null
+  primaryPhone: string | null
+  phoneCountryCode: string | null
+  salutation: string | null
+  origin: string | null
+  source: string | null
 }
 
 type OrgSwitcherNode = {
@@ -154,9 +167,46 @@ export function AppointmentEditForm({
   const [servicesLoading, setServicesLoading] = React.useState(false)
   const [servicesError, setServicesError] = React.useState<string | null>(null)
   const [lookupLoading, setLookupLoading] = React.useState(false)
+  const [customerSearch, setCustomerSearch] = React.useState('')
+  const [customerSearchResults, setCustomerSearchResults] = React.useState<CustomerSearchResult[]>([])
+  const [customerSearchOpen, setCustomerSearchOpen] = React.useState(false)
+  const [customerSearchLoading, setCustomerSearchLoading] = React.useState(false)
   const { runMutation } = useGuardedMutation({
     contextId: 'appointments.update',
   })
+
+  React.useEffect(() => {
+    const query = customerSearch.trim().slice(0, 64)
+    setCustomerSearchResults([])
+    if (!customerSearchOpen || query.length < 2) {
+      setCustomerSearchLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+    setCustomerSearchLoading(true)
+    const timeout = window.setTimeout(() => {
+      const params = new URLSearchParams({ search: query })
+      void apiCall<{ items?: CustomerSearchResult[] }>(
+        `/api/appointments/customer-search?${params.toString()}`,
+        { signal: controller.signal },
+        { fallback: null },
+      ).then((call) => {
+        if (controller.signal.aborted) return
+        setCustomerSearchResults(call.ok && Array.isArray(call.result?.items) ? call.result.items : [])
+        setCustomerSearchLoading(false)
+      }).catch(() => {
+        if (controller.signal.aborted) return
+        setCustomerSearchResults([])
+        setCustomerSearchLoading(false)
+      })
+    }, 350)
+
+    return () => {
+      window.clearTimeout(timeout)
+      controller.abort()
+    }
+  }, [customerSearch, customerSearchOpen])
 
   React.useEffect(() => {
     let cancelled = false
@@ -376,6 +426,104 @@ export function AppointmentEditForm({
 
   const fields = React.useMemo<CrudField[]>(
     () => [
+      {
+        id: 'customerSearch',
+        label: t('appointments.edit.customerSearch.label', 'Find returning customer'),
+        type: 'custom',
+        component: ({ setFormValue }) => (
+          <div className="space-y-2">
+            <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3 size-4 text-muted-foreground" />
+            <Input
+              value={customerSearch}
+              onFocus={() => setCustomerSearchOpen(true)}
+              onChange={(event) => {
+                setCustomerSearch(event.target.value.slice(0, 64))
+                setCustomerSearchOpen(true)
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setCustomerSearchOpen(false)
+              }}
+              placeholder={t('appointments.edit.customerSearch.placeholder', 'Type customer name or phone to search...')}
+              autoComplete="off"
+              className="pl-9 pr-10"
+            />
+            {customerSearchLoading ? (
+              <Loader2 className="absolute right-3 top-3 size-4 animate-spin text-muted-foreground" />
+            ) : customerSearch ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1 size-7"
+                aria-label={t('appointments.edit.customerSearch.clear', 'Clear customer search')}
+                onClick={() => {
+                  setCustomerSearch('')
+                  setCustomerSearchResults([])
+                  setCustomerSearchOpen(false)
+                }}
+              >
+                <X className="size-4" />
+              </Button>
+            ) : null}
+            {customerSearchOpen && customerSearch.trim() ? (
+              <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-lg">
+                <div className="max-h-72 overflow-y-auto p-1">
+                  {customerSearch.trim().length < 2 ? (
+                    <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                      {t('appointments.edit.customerSearch.minimum', 'Type at least 2 characters to search.')}
+                    </div>
+                  ) : customerSearchLoading && customerSearchResults.length === 0 ? (
+                    <div className="px-3 py-3 text-sm text-muted-foreground">
+                      {t('appointments.edit.customerSearch.loading', 'Searching customers...')}
+                    </div>
+                  ) : customerSearchResults.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                      {t('appointments.edit.customerSearch.empty', 'No customers found.')}
+                    </div>
+                  ) : customerSearchResults.map((customer) => (
+                    <button
+                      key={customer.id}
+                      type="button"
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-accent"
+                      onClick={() => {
+                        if (!setFormValue) return
+                        const phone = customer.primaryPhone?.trim() ?? ''
+                        const dialCode = customer.phoneCountryCode?.trim() ?? ''
+                        setFormValue('phone', phone ? (phone.startsWith('+') || !dialCode ? phone : `${dialCode} ${phone}`) : '')
+                        setFormValue('email', customer.primaryEmail ?? '')
+                        setFormValue('name', customer.displayName ?? '')
+                        setFormValue('salutation', customer.salutation ?? 'None')
+                        const matchingOrigin = APPOINTMENT_ORIGIN_OPTIONS.find((option) => option.value === customer.origin)
+                        if (matchingOrigin) setFormValue('origin', matchingOrigin.value)
+                        setFormValue('referral', customer.source ?? '')
+                        setCustomerSearch('')
+                        setCustomerSearchResults([])
+                        setCustomerSearchOpen(false)
+                        flash(t('appointments.edit.customerSearch.selected', 'Customer details filled in.'), 'success')
+                      }}
+                    >
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <UserRound className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{customer.displayName || t('appointments.edit.customerSearch.unnamed', 'Unnamed customer')}</span>
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          {[customer.phoneCountryCode, customer.primaryPhone, customer.primaryEmail].filter(Boolean).join(' · ')}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t('appointments.edit.customerSearch.hint', 'Search by customer name or phone. Suggestions load automatically after you stop typing.')}
+            </p>
+          </div>
+        ),
+      },
       {
         id: 'phone',
         label: t('appointments.create.field.phone'),
@@ -625,6 +773,10 @@ export function AppointmentEditForm({
     ],
     [
       t,
+      customerSearch,
+      customerSearchOpen,
+      customerSearchLoading,
+      customerSearchResults,
       services,
       servicesLoading,
       servicesError,
@@ -643,7 +795,7 @@ export function AppointmentEditForm({
         id: 'customer',
         title: t('appointments.create.group.customer'),
         column: 1,
-        fields: ['phone', 'salutation', 'name', 'email', 'origin', 'referral', 'updateCustomerProfile'],
+        fields: ['customerSearch', 'phone', 'salutation', 'name', 'email', 'origin', 'referral', 'updateCustomerProfile'],
       },
       {
         id: 'visit',
