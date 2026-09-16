@@ -145,17 +145,18 @@ function TimelineAppointmentBlock({
   const blockHeight = allocationHeight(block.startsAt, block.endsAt, hourHeight) - 6
   const isCompact = blockHeight < 176
   const isVeryCompact = blockHeight < 124
+  const hasRibbon = appointment.bookingType === 'booking_form' || appointment.statusCode === 'deposit_received_booked'
   const trigger = (
     <Button
       type="button"
       variant="ghost"
-      className={`absolute left-0 right-0 min-h-6 justify-start overflow-hidden rounded-md border text-left shadow-sm ${isCompact ? 'p-1.5' : 'p-2'} ${block.state === 'confirmed' ? 'border-status-success-border bg-status-success-bg text-status-success-text' : 'border-status-warning-border bg-status-warning-bg text-status-warning-text'} ${placementMode ? 'pointer-events-none border-2 border-primary bg-primary/10 text-muted-foreground' : ''}`}
+      className={`absolute left-0 right-0 min-h-6 items-start justify-start overflow-hidden rounded-md border text-left shadow-sm ${isCompact ? 'p-1' : 'p-1.5'} ${block.state === 'confirmed' ? 'border-status-success-border bg-status-success-bg text-status-success-text' : 'border-status-warning-border bg-status-warning-bg text-status-warning-text'} ${placementMode ? 'pointer-events-none border-2 border-primary bg-primary/10 text-muted-foreground' : ''}`}
       style={{ top: allocationTop(block.startsAt, hourHeight) + 3, height: blockHeight }}
     >
       <AppointmentBlockRibbons appointment={appointment} />
         <span className="block min-w-0">
-        <span className={cn('block truncate font-semibold', isCompact ? 'text-xs' : 'text-sm')}>{appointment.customerSalutation ? `${appointment.customerSalutation}. ` : ''}{appointment.customerName}</span>
-        <span className={cn('block space-y-1 border-t border-current/15', isCompact ? 'mt-1 pt-1' : 'mt-2 pt-2')}>
+        <span className={cn('block truncate font-semibold', isCompact ? 'text-xs' : 'text-sm', hasRibbon ? 'pr-8' : '')}>{appointment.customerSalutation ? `${appointment.customerSalutation}. ` : ''}{appointment.customerName}</span>
+        <span className={cn('block space-y-1 border-t border-current/15', isCompact ? 'mt-1 pt-1' : 'mt-1.5 pt-1.5')}>
           {services.slice(0, isVeryCompact ? 1 : services.length).map((service) => (
             <span key={`${service.name}-${service.startsAt}`} className="block min-w-0">
               <span className="flex items-baseline justify-between gap-2">

@@ -32,21 +32,27 @@ function foldSearchText(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 }
 
+function isAbortError(error: unknown) {
+  return error instanceof Error && (error.name === 'AbortError' || error.message === 'signal is aborted without reason')
+}
+
 export function BookingOverviewCreateSheet({
   open,
   onOpenChange,
   initialState,
+  organizationId,
   onSuccess,
   onConflict,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialState: CreateSheetState | null
+  organizationId: string
   onSuccess: () => void
   onConflict: (appointmentId: string) => void
 }) {
   const t = useT()
-  const { tenantId, organizationId } = useOrganizationScopeDetail()
+  const { tenantId } = useOrganizationScopeDetail()
   const [phone, setPhone] = React.useState('')
   const [name, setName] = React.useState('')
   const [email, setEmail] = React.useState('')
@@ -75,6 +81,7 @@ export function BookingOverviewCreateSheet({
     const params = new URLSearchParams({ tenantId, organizationId })
     void apiCall<{ items?: AppointmentBookableService[] }>(`/api/catalog/bookable-services?${params.toString()}`, { signal: controller.signal }, { fallback: null })
       .then((call) => { if (call.ok) setServices(call.result?.items ?? []) })
+      .catch((error: unknown) => { if (!controller.signal.aborted && !isAbortError(error)) return })
       .finally(() => { if (!controller.signal.aborted) setIsLoadingServices(false) })
     return () => controller.abort()
   }, [open, organizationId, tenantId])
@@ -116,6 +123,7 @@ export function BookingOverviewCreateSheet({
         const merged = tokenCalls.flatMap((tokenCall) => tokenCall.ok ? tokenCall.result?.items ?? [] : [])
         setCustomerSearchResults(Array.from(new Map(merged.map((customer) => [customer.id, customer])).values()))
       })
+        .catch((error: unknown) => { if (!controller.signal.aborted && !isAbortError(error)) return })
         .finally(() => { if (!controller.signal.aborted) setIsSearchingCustomers(false) })
     }, 350)
     return () => { window.clearTimeout(timer); controller.abort() }

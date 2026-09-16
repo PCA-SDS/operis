@@ -40,6 +40,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { resolveRegisteredLucideIconNode } from '@open-mercato/ui/backend/icons/lucideRegistry'
 import { AppointmentServicePicker, type AppointmentBookableService, type AppointmentServiceSelection } from '@open-mercato/core/modules/appointments/components/AppointmentServicePicker'
+import { AppointmentStaffAssignmentSheet } from '@open-mercato/core/modules/appointments/components/AppointmentStaffAssignmentSheet'
 import { AppointmentEditForm } from '../edit/page'
 
 const START_HOUR = 8
@@ -1667,8 +1668,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         ) : null}
 
         {staffSheetTarget ? (
-          <StaffSheet
-            target={staffSheetTarget}
+          <AppointmentStaffAssignmentSheet
+            target={staffSheetTarget.allocation}
             staff={staffMembers}
             isLoadingStaff={isLoadingStaff}
             isLoadingMoreStaff={isLoadingMoreStaff}
