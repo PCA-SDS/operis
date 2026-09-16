@@ -37,6 +37,7 @@ export type BookableServiceDeps = {
 export type BookableServiceCategory = {
   id: string
   name: string
+  slug: string | null
   description: string | null
   parentId: string | null
 }
@@ -46,6 +47,8 @@ export type BookableServiceOption = {
   code: string | null
   name: string
   description: string | null
+  note: string | null
+  unit: string | null
   priceFlat: string | null
   priceMin: string | null
   priceMax: string | null
@@ -274,7 +277,13 @@ export async function listBookableServicesForOrganization(
     let category = categoriesById.get(categoryId)
     while (category && !visited.has(category.id)) {
       visited.add(category.id)
-      path.unshift({ id: category.id, name: category.name, description: category.description ?? null, parentId: category.parentId ?? null })
+      path.unshift({
+        id: category.id,
+        name: category.name,
+        slug: category.slug ?? null,
+        description: category.description ?? null,
+        parentId: category.parentId ?? null,
+      })
       if (!category.parentId) break
       category = categoriesById.get(category.parentId)
     }
@@ -379,6 +388,8 @@ export async function listBookableServicesForOrganization(
           code: opt.code ?? null,
           name: opt.name,
           description: opt.description ?? null,
+          note: opt.note ?? null,
+          unit: opt.unit ?? null,
           priceFlat: opt.priceFlat ?? null,
           priceMin: opt.priceMin ?? null,
           priceMax: opt.priceMax ?? null,

@@ -17,6 +17,8 @@ import {
 } from '@open-mercato/shared/lib/ratelimit/helpers'
 import { bookableServicesQuerySchema } from '../../data/validators'
 import { listBookableServicesForOrganization } from '../../lib/bookableServices'
+import { localizeBookableServices } from '../../lib/bookableServiceTranslations'
+import { resolveLocaleFromRequest } from '../../../translations/lib/locale'
 import type { CatalogPricingService } from '../../services/catalogPricingService'
 
 const logger = createLogger('catalog')
@@ -59,6 +61,8 @@ const bookableServiceOptionSchema: z.ZodType<any> = z.lazy(() => z.object({
   code: z.string().nullable(),
   name: z.string(),
   description: z.string().nullable(),
+  note: z.string().nullable(),
+  unit: z.string().nullable(),
   priceFlat: z.string().nullable(),
   durationMinutes: z.number().int().nullable(),
   isAddon: z.boolean(),
@@ -75,6 +79,7 @@ const bookableServiceSchema = z.object({
   categoryPath: z.array(z.object({
     id: z.string().uuid(),
     name: z.string(),
+    slug: z.string().nullable(),
     description: z.string().nullable(),
     parentId: z.string().uuid().nullable(),
   })),
@@ -100,6 +105,7 @@ function parseQuery(url: URL) {
     tenantId: url.searchParams.get('tenantId') || undefined,
     organizationId: url.searchParams.get('organizationId') || undefined,
     channelId: url.searchParams.get('channelId') || undefined,
+    locale: url.searchParams.get('locale') || undefined,
   })
 }
 
@@ -129,7 +135,9 @@ export async function GET(req: Request) {
       { tenantId: query.tenantId, organizationId: query.organizationId, channelId: query.channelId },
       { pricingService },
     )
-    return NextResponse.json({ items }, { headers: publicCorsHeaders(req) })
+    const locale = query.locale ?? resolveLocaleFromRequest(req) ?? undefined
+    const localizedItems = await localizeBookableServices(em, items, query.tenantId, locale)
+    return NextResponse.json({ items: localizedItems }, { headers: publicCorsHeaders(req) })
   } catch (error) {
     if (isCrudHttpError(error)) {
       return NextResponse.json(error.body, { status: error.status, headers: publicCorsHeaders(req) })
@@ -167,7 +175,7 @@ export const openApi: OpenApiRouteDoc = {
     GET: {
       summary: 'List active services for a tenant organization (branch)',
       description:
-        'Public booking helper. Requires explicit tenantId. organizationId is optional for tenant-wide public booking catalogs. Returns active catalog products with custom fieldset `service_schedule` for that organization only (decision A: load catalog by branch). Prices resolve through `catalogPricingService`, so a service with no price applicable to an anonymous caller reports null amounts; quote-only products never report a price. Channel-scoped prices apply when `channelId` is given, or when the organization has exactly one active sales channel; an organization with several gets unscoped prices unless it names one. Staff enable services via Catalog UI in the branch org; demo data comes from catalog seedExamples. Rate limited per client IP.',
+        'Public booking helper. Requires explicit tenantId. organizationId is optional for tenant-wide public booking catalogs. Returns active catalog products with custom fieldset `service_schedule` for that organization only (decision A: load catalog by branch). Prices resolve through `catalogPricingService`, so a service with no price applicable to an anonymous caller reports null amounts; quote-only products never report a price. Channel-scoped prices apply when `channelId` is given, or when the organization has exactly one active sales channel; an organization with several gets unscoped prices unless it names one. Optional locale overlays existing tenant- and organization-scoped translations for products, categories, option groups, and options. Rate limited per client IP.',
       query: bookableServicesQuerySchema,
       responses: [
         { status: 200, description: 'Bookable services', schema: successSchema },
