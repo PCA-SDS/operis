@@ -49,6 +49,11 @@ const TEMPLATE_EDIT_SOURCE = readFileSync(
   'utf8',
 )
 const COMPOSE_PAGE_SOURCE = readFileSync(join(MODULE_ROOT, 'backend', 'email', 'compose', 'page.tsx'), 'utf8')
+// The pure render helpers, the clipboard helper and the shared form chrome moved
+// out of the `'use client'` builder so both previews resolve a template through
+// one implementation. These assertions follow the code rather than the file.
+const TEMPLATE_HTML_SOURCE = readFileSync(join(MODULE_ROOT, 'components', 'templateHtml.ts'), 'utf8')
+const CLIPBOARD_SOURCE = readFileSync(join(MODULE_ROOT, 'components', 'clipboard.ts'), 'utf8')
 const COMPOSE_META_SOURCE = readFileSync(join(MODULE_ROOT, 'backend', 'email', 'compose', 'page.meta.ts'), 'utf8')
 const README_SOURCE = readFileSync(join(MODULE_ROOT, 'README.md'), 'utf8')
 
@@ -275,7 +280,11 @@ describe('email module foundation', () => {
     expect(TEMPLATE_CREATE_META_SOURCE).toContain('navHidden: true')
     expect(COMPOSE_META_SOURCE).not.toContain('navHidden: true')
     expect(ACCOUNTING_DEFAULTS_META_SOURCE).toContain('navHidden: true')
-    expect(TEMPLATE_LIST_PAGE_SOURCE).not.toContain('/backend/email/accounting-defaults')
+    // navHidden keeps it out of the sidebar; the templates screen is the module
+    // hub every other page's breadcrumb points back to, so it carries the only
+    // entry point. Without this link the page is reachable by URL only.
+    expect(TEMPLATE_LIST_PAGE_SOURCE).toContain('/backend/email/accounting-defaults')
+    expect(TEMPLATE_LIST_PAGE_SOURCE).toContain('email.templates.accountingDefaults')
     expect(TEMPLATE_LIST_PAGE_SOURCE).toContain("type StatusFilter = 'current' | 'draft' | 'published' | 'archived' | 'all'")
     expect(TEMPLATE_LIST_PAGE_SOURCE).toContain("params.set('includeArchived', 'true')")
     expect(TEMPLATE_LIST_PAGE_SOURCE).toContain('email.templates.empty.archived')
@@ -287,8 +296,11 @@ describe('email module foundation', () => {
     expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('Default reply-to')
     expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('Common accounting placeholders')
     expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('Sample link placeholders')
-    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('key={`placeholder-${index}`}')
-    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('key={`link-placeholder-${index}`}')
+    // The React key must never derive from the editable key field, or typing in
+    // it remounts the input and drops focus on every keystroke.
+    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('key={`${rowKeyPrefix}-${index}`}')
+    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('rowKeyPrefix="placeholder"')
+    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('rowKeyPrefix="link-placeholder"')
     expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).not.toContain('key={`${row.key}-${index}`}')
   })
 
@@ -305,8 +317,12 @@ describe('email module foundation', () => {
     expect(COMPOSE_PAGE_SOURCE).toContain('/people?pageSize=100&sort=name-asc')
     expect(COMPOSE_PAGE_SOURCE).not.toContain('include=people')
     expect(COMPOSE_PAGE_SOURCE).toContain('readCompanyCode')
-    expect(COMPOSE_PAGE_SOURCE).toContain("'text/html'")
-    expect(COMPOSE_PAGE_SOURCE).toContain('new Blob([html]')
+    expect(CLIPBOARD_SOURCE).toContain("'text/html'")
+    expect(CLIPBOARD_SOURCE).toContain('new Blob([html]')
+    // Entities must decode for the text/plain flavour, or a copied body pastes
+    // "&amp;" as literal text. The builder shipped a regex-only variant that did.
+    expect(CLIPBOARD_SOURCE).toContain("document.createElement('template')")
+    expect(TEMPLATE_BUILDER_SOURCE).not.toContain('async function copyHtml')
     expect(COMPOSE_PAGE_SOURCE).toContain('effectiveRecipientEmails')
     expect(COMPOSE_PAGE_SOURCE).not.toContain('/api/messages')
     expect(COMPOSE_PAGE_SOURCE).not.toContain('isDraft: true')
@@ -343,8 +359,8 @@ describe('email module foundation', () => {
       'uploadLink',
       'submissionDeadline',
     ])
-    expect(TEMPLATE_BUILDER_SOURCE).toContain("{ key: 'companyCode'")
-    expect(TEMPLATE_BUILDER_SOURCE).toContain("{ key: 'companyName'")
+    expect(TEMPLATE_HTML_SOURCE).toContain("{ key: 'companyCode'")
+    expect(TEMPLATE_HTML_SOURCE).toContain("{ key: 'companyName'")
 
     for (const template of pcaAccountingSourceTemplates) {
       expect(template.bodyHtml).not.toContain('drive.google.com')
