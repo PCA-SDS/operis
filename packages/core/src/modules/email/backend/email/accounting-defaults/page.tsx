@@ -3,10 +3,18 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { Input } from '@open-mercato/ui/primitives/input'
+import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
+import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { updateCrud } from '@open-mercato/ui/backend/utils/crud'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
+import { HelpLabel } from '@open-mercato/core/modules/email/components/HelpLabel'
+import { PANEL_CLASS } from '@open-mercato/core/modules/email/components/formStyles'
+import { parseJsonObject } from '@open-mercato/core/modules/email/components/templateHtml'
 
 type DefaultsResponse = {
   default_sender_name: string | null
@@ -61,34 +69,6 @@ function rowsToJson(rows: KeyValueRow[]): string {
   )
 }
 
-function parseJsonObject(value: string, label: string): Record<string, unknown> {
-  const parsed = JSON.parse(value || '{}') as unknown
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error(`[internal] ${label} must be a JSON object`)
-  }
-  return parsed as Record<string, unknown>
-}
-
-function HelpLabel({ children, help }: { children: React.ReactNode; help: string }) {
-  return (
-    <span className="inline-flex items-center gap-1">
-      <span>{children}</span>
-      <span className="group relative inline-flex">
-        <button
-          type="button"
-          aria-label={help}
-          className="inline-flex size-4 items-center justify-center rounded-full border border-border bg-background text-[10px] font-semibold text-muted-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          i
-        </button>
-        <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden w-64 -translate-x-1/2 rounded-md border bg-popover px-2 py-1 text-xs font-normal text-popover-foreground shadow-md group-hover:block group-focus-within:block">
-          {help}
-        </span>
-      </span>
-    </span>
-  )
-}
-
 function toForm(defaults: DefaultsResponse): DefaultsForm {
   return {
     defaultSenderName: defaults.default_sender_name ?? '',
@@ -100,11 +80,46 @@ function toForm(defaults: DefaultsResponse): DefaultsForm {
   }
 }
 
+function KeyValueRows({
+  keyPlaceholder,
+  onChange,
+  removeLabel,
+  rowKeyPrefix,
+  rows,
+  valuePlaceholder,
+}: {
+  keyPlaceholder: string
+  onChange: (rows: KeyValueRow[]) => void
+  removeLabel: string
+  rowKeyPrefix: string
+  rows: KeyValueRow[]
+  valuePlaceholder: string
+}) {
+  return (
+    <div className="space-y-2">
+      {rows.map((row, index) => (
+        <div key={`${rowKeyPrefix}-${index}`} className="grid gap-2 md:grid-cols-[minmax(160px,1fr)_minmax(180px,1fr)_auto]">
+          <Input value={row.key} onChange={(event) => {
+            const next = [...rows]
+            next[index] = { ...row, key: event.target.value }
+            onChange(next)
+          }} placeholder={keyPlaceholder} />
+          <Input value={row.value} onChange={(event) => {
+            const next = [...rows]
+            next[index] = { ...row, value: event.target.value }
+            onChange(next)
+          }} placeholder={valuePlaceholder} />
+          <Button type="button" size="sm" variant="ghost" onClick={() => onChange(rows.filter((_, rowIndex) => rowIndex !== index))}>{removeLabel}</Button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default function EmailAccountingDefaultsPage() {
   const t = useT()
   const [form, setForm] = React.useState<DefaultsForm>(emptyForm)
   const [error, setError] = React.useState<string | null>(null)
-  const [notice, setNotice] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [isSaving, setIsSaving] = React.useState(false)
 
@@ -116,6 +131,7 @@ export default function EmailAccountingDefaultsPage() {
   const linkPlaceholderRows = React.useMemo(() => objectToRows(form.linkPlaceholders), [form.linkPlaceholders])
   const setPlaceholderRows = (rows: KeyValueRow[]) => setField('placeholders', rowsToJson(rows))
   const setLinkPlaceholderRows = (rows: KeyValueRow[]) => setField('linkPlaceholders', rowsToJson(rows))
+  const removeLabel = t('email.common.remove', 'Remove')
 
   React.useEffect(() => {
     const controller = new AbortController()
@@ -144,31 +160,24 @@ export default function EmailAccountingDefaultsPage() {
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError(null)
-    setNotice(null)
     setIsSaving(true)
     try {
-      const response = await withScopedApiRequestHeaders(
-        buildOptimisticLockHeader(form.updatedAt),
-        () => apiCall<DefaultsResponse>('/api/email/accounting-defaults', {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            expected_updated_at: form.updatedAt ?? undefined,
-            default_sender_name: form.defaultSenderName,
-            default_reply_to: form.defaultReplyTo,
-            placeholders: parseJsonObject(form.placeholders, 'Placeholders'),
-            link_placeholders: parseJsonObject(form.linkPlaceholders, 'Link placeholders'),
-            rules: parseJsonObject(form.rules, 'Rules'),
-          }),
-        }),
-      )
-      if (!response.ok) {
-        const body = response.result as { error?: string; message?: string } | undefined
-        throw new Error(body?.error ?? body?.message ?? t('email.accountingDefaults.errors.save', 'Failed to save accounting defaults'))
-      }
+      const response = await updateCrud<DefaultsResponse>('email/accounting-defaults', {
+        expected_updated_at: form.updatedAt ?? undefined,
+        default_sender_name: form.defaultSenderName,
+        default_reply_to: form.defaultReplyTo,
+        placeholders: parseJsonObject(form.placeholders, 'Placeholders'),
+        link_placeholders: parseJsonObject(form.linkPlaceholders, 'Link placeholders'),
+        rules: parseJsonObject(form.rules, 'Rules'),
+      }, {
+        fallbackResult: null,
+        headers: buildOptimisticLockHeader(form.updatedAt),
+        errorMessage: t('email.accountingDefaults.errors.save', 'Failed to save accounting defaults'),
+      })
       if (response.result) setForm(toForm(response.result))
-      setNotice(t('email.accountingDefaults.saved', 'Accounting defaults saved.'))
+      flash(t('email.accountingDefaults.saved', 'Accounting defaults saved.'), 'success')
     } catch (err) {
+      if (surfaceRecordConflict(err, t)) return
       setError(err instanceof Error ? err.message.replace(/^\[internal]\s*/, '') : t('email.accountingDefaults.errors.save', 'Failed to save accounting defaults'))
     } finally {
       setIsSaving(false)
@@ -177,29 +186,26 @@ export default function EmailAccountingDefaultsPage() {
 
   return (
     <Page>
+      <PageHeader
+        title={t('email.accountingDefaults.title', 'Accounting Defaults')}
+        description={t('email.accountingDefaults.description', 'Manage tenant-owned sender defaults, reusable placeholders, sample links, and workflow rules.')}
+        actions={<Button variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.back', 'Back')}</Link></Button>}
+      />
       <PageBody>
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{t('email.accountingDefaults.title', 'Accounting Defaults')}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{t('email.accountingDefaults.description', 'Manage tenant-owned sender defaults, reusable placeholders, sample links, and workflow rules.')}</p>
-          </div>
-          <Button variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.back', 'Back')}</Link></Button>
-        </div>
-        {error ? <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div> : null}
-        {notice ? <div className="mb-4 rounded-md border border-border bg-muted px-4 py-3 text-sm text-foreground">{notice}</div> : null}
+        {error ? <ErrorMessage label={error} /> : null}
         {isLoading ? (
-          <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">{t('email.accountingDefaults.loading', 'Loading accounting defaults…')}</div>
+          <LoadingMessage label={t('email.accountingDefaults.loading', 'Loading accounting defaults…')} />
         ) : (
-          <form className="space-y-4 rounded-lg border bg-card p-4" onSubmit={submit}>
-            <div className="rounded-md border bg-background p-3">
+          <form className="space-y-4 rounded-lg border bg-surface p-4" onSubmit={submit}>
+            <div className={PANEL_CLASS}>
               <p className="text-sm font-medium"><HelpLabel help={t('email.accountingDefaults.scope.help', 'Defaults are scoped to the current tenant only. PCA-specific values should be configured only inside the PCA tenant.')}>{t('email.accountingDefaults.scope.title', 'Tenant accounting defaults')}</HelpLabel></p>
               <p className="text-xs text-muted-foreground">{t('email.accountingDefaults.scope.description', 'These values belong only to the current tenant. Add PCA-specific values only inside the PCA tenant, not as global Operis defaults.')}</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
-              <label className="block text-sm font-medium"><HelpLabel help={t('email.accountingDefaults.senderName.help', 'Name shown as the sender when accounting emails are composed from this tenant.')}>{t('email.accountingDefaults.senderName.label', 'Default sender name')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={form.defaultSenderName} onChange={(event) => setField('defaultSenderName', event.target.value)} /></label>
-              <label className="block text-sm font-medium"><HelpLabel help={t('email.accountingDefaults.replyTo.help', 'Reply-to mailbox used for accounting emails. Leave blank if each sender chooses it later.')}>{t('email.accountingDefaults.replyTo.label', 'Default reply-to')}</HelpLabel><input className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm" value={form.defaultReplyTo} onChange={(event) => setField('defaultReplyTo', event.target.value)} placeholder={t('email.accountingDefaults.replyTo.placeholder', 'accounting@example.com')} /></label>
+              <label className="block text-sm font-medium"><HelpLabel help={t('email.accountingDefaults.senderName.help', 'Name shown as the sender when accounting emails are composed from this tenant.')}>{t('email.accountingDefaults.senderName.label', 'Default sender name')}</HelpLabel><Input className="mt-1" value={form.defaultSenderName} onChange={(event) => setField('defaultSenderName', event.target.value)} /></label>
+              <label className="block text-sm font-medium"><HelpLabel help={t('email.accountingDefaults.replyTo.help', 'Reply-to mailbox used for accounting emails. Leave blank if each sender chooses it later.')}>{t('email.accountingDefaults.replyTo.label', 'Default reply-to')}</HelpLabel><Input className="mt-1" type="email" value={form.defaultReplyTo} onChange={(event) => setField('defaultReplyTo', event.target.value)} placeholder={t('email.accountingDefaults.replyTo.placeholder', 'accounting@example.com')} /></label>
             </div>
-            <section className="space-y-3 rounded-md border bg-background p-3">
+            <section className={PANEL_CLASS}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h2 className="text-sm font-medium"><HelpLabel help={t('email.accountingDefaults.placeholders.help', 'Reusable accounting values that templates can use as custom variables, such as a quarter name or filing deadline.')}>{t('email.accountingDefaults.placeholders.title', 'Common accounting placeholders')}</HelpLabel></h2>
@@ -207,25 +213,16 @@ export default function EmailAccountingDefaultsPage() {
                 </div>
                 <Button type="button" size="sm" variant="secondary" onClick={() => setPlaceholderRows([...placeholderRows, { key: '', value: '' }])}>{t('email.accountingDefaults.placeholders.add', 'Add placeholder')}</Button>
               </div>
-              <div className="space-y-2">
-                {placeholderRows.map((row, index) => (
-                  <div key={`placeholder-${index}`} className="grid gap-2 md:grid-cols-[minmax(160px,1fr)_minmax(180px,1fr)_auto]">
-                    <input className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={row.key} onChange={(event) => {
-                      const next = [...placeholderRows]
-                      next[index] = { ...row, key: event.target.value }
-                      setPlaceholderRows(next)
-                    }} placeholder="quarterPeriod" />
-                    <input className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={row.value} onChange={(event) => {
-                      const next = [...placeholderRows]
-                      next[index] = { ...row, value: event.target.value }
-                      setPlaceholderRows(next)
-                    }} placeholder="Quarter 1 2026" />
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setPlaceholderRows(placeholderRows.filter((_, rowIndex) => rowIndex !== index))}>{t('email.common.remove', 'Remove')}</Button>
-                  </div>
-                ))}
-              </div>
+              <KeyValueRows
+                keyPlaceholder="quarterPeriod"
+                onChange={setPlaceholderRows}
+                removeLabel={removeLabel}
+                rowKeyPrefix="placeholder"
+                rows={placeholderRows}
+                valuePlaceholder="Quarter 1 2026"
+              />
             </section>
-            <section className="space-y-3 rounded-md border bg-background p-3">
+            <section className={PANEL_CLASS}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h2 className="text-sm font-medium"><HelpLabel help={t('email.accountingDefaults.links.help', 'Reusable placeholder URLs for template previews. Use safe placeholders, not real customer Drive or Sheets links.')}>{t('email.accountingDefaults.links.title', 'Sample link placeholders')}</HelpLabel></h2>
@@ -233,23 +230,14 @@ export default function EmailAccountingDefaultsPage() {
                 </div>
                 <Button type="button" size="sm" variant="secondary" onClick={() => setLinkPlaceholderRows([...linkPlaceholderRows, { key: '', value: 'https://example.com/' }])}>{t('email.accountingDefaults.links.add', 'Add link')}</Button>
               </div>
-              <div className="space-y-2">
-                {linkPlaceholderRows.map((row, index) => (
-                  <div key={`link-placeholder-${index}`} className="grid gap-2 md:grid-cols-[minmax(160px,1fr)_minmax(180px,1fr)_auto]">
-                    <input className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={row.key} onChange={(event) => {
-                      const next = [...linkPlaceholderRows]
-                      next[index] = { ...row, key: event.target.value }
-                      setLinkPlaceholderRows(next)
-                    }} placeholder="vatPitReportsLink" />
-                    <input className="rounded-md border border-border bg-background px-3 py-2 text-sm" value={row.value} onChange={(event) => {
-                      const next = [...linkPlaceholderRows]
-                      next[index] = { ...row, value: event.target.value }
-                      setLinkPlaceholderRows(next)
-                    }} placeholder="https://example.com/vat-pit-reports-folder" />
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setLinkPlaceholderRows(linkPlaceholderRows.filter((_, rowIndex) => rowIndex !== index))}>{t('email.common.remove', 'Remove')}</Button>
-                  </div>
-                ))}
-              </div>
+              <KeyValueRows
+                keyPlaceholder="vatPitReportsLink"
+                onChange={setLinkPlaceholderRows}
+                removeLabel={removeLabel}
+                rowKeyPrefix="link-placeholder"
+                rows={linkPlaceholderRows}
+                valuePlaceholder="https://example.com/vat-pit-reports-folder"
+              />
             </section>
             <input type="hidden" value={form.rules} readOnly />
             <div className="flex justify-end gap-2"><Button type="button" variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.cancel', 'Cancel')}</Link></Button><Button type="submit" disabled={isSaving}>{isSaving ? t('email.common.saving', 'Saving…') : t('email.accountingDefaults.save', 'Save Defaults')}</Button></div>

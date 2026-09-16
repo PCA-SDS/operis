@@ -1061,6 +1061,15 @@ jobs:
         # Deliberately WRONG credentials. A 401 proves the container resolved authService and
         # the handler ran; a 5xx proves it could not. No secret is needed to tell those apart,
         # which is what makes this safe to run against production on every deploy.
+        #
+        # The body MUST be form-encoded. `/api/auth/login` accepts
+        # `application/x-www-form-urlencoded` or form data only; a JSON body throws inside
+        # `parseLoginForm`, which catches and yields empty fields, so zod fails and the route
+        # answers 400 at login.ts:104 — three lines BEFORE `container.resolve('authService')`
+        # at login.ts:107. This probe used to send JSON and accept anything non-5xx, so it
+        # passed on a 400 that never reached the container: precisely the blind spot the
+        # comment above describes, in the check written to catch it. 400 is now fatal too,
+        # because a well-formed probe can no longer produce one.
         run: |
           set -euo pipefail
           if [ -z "$DOMAIN" ]; then
@@ -1069,9 +1078,15 @@ jobs:
           fi
           code="$(curl -sS -o /tmp/auth.json -w '%{http_code}' --max-time 20 \
             -X POST "https://$DOMAIN/api/auth/login" \
-            -H 'content-type: application/json' \
-            --data '{"email":"smoke-test@invalid.local","password":"not-a-real-password"}' || echo 000)"
+            -H 'content-type: application/x-www-form-urlencoded' \
+            --data-urlencode 'email=smoke-test@invalid.local' \
+            --data-urlencode 'password=not-a-real-password' || echo 000)"
           case "$code" in
+            400)
+              echo "::error::POST /api/auth/login returned 400 — the probe never reached the DI container, so this deploy is UNVERIFIED. The route's accepted content types have changed; fix the probe."
+              cat /tmp/auth.json 2>/dev/null || true
+              exit 1
+              ;;
             5*|000)
               echo "::error::POST /api/auth/login returned $code — the app is serving but its DI container or auth path is broken."
               cat /tmp/auth.json 2>/dev/null || true

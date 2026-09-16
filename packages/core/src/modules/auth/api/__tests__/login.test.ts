@@ -15,11 +15,29 @@ const authServiceMock = {
   createSession: jest.fn(async () => ({ session: { id: 'session-1' }, token: 'session-token' })),
 }
 
+// Tenant/organization lifecycle state the login route now checks before it will mint
+// a session. Tests that need a suspended tenant mutate these.
+const lifecycleState = {
+  tenant: { isActive: true, deletedAt: null } as { isActive: boolean; deletedAt: Date | null },
+  organization: { isActive: true, deletedAt: null } as { isActive: boolean; deletedAt: Date | null },
+}
+const rbacServiceMock = { isGlobalSuperAdmin: jest.fn(async () => false) }
+
+const emMock = {
+  findOne: jest.fn(async (entity: unknown) => {
+    const name = (entity as { name?: string })?.name
+    if (name === 'Tenant') return lifecycleState.tenant
+    if (name === 'Organization') return lifecycleState.organization
+    return null
+  }),
+}
+
 const containerMock = {
   resolve: jest.fn((name: string) => {
     if (name === 'authService') return authServiceMock
     if (name === 'eventBus') return { emitEvent: jest.fn(async () => undefined) }
-    if (name === 'em') return {}
+    if (name === 'rbacService') return rbacServiceMock
+    if (name === 'em') return emMock
     return null
   }),
 }
@@ -400,5 +418,71 @@ describe('POST /api/auth/login remember-me expiry parsing', () => {
     const oneDayMs = 24 * 60 * 60 * 1000
     expect(expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(oneDayMs)
     expect(expiresAt.getTime() - Date.now()).toBeGreaterThan(oneDayMs - 60_000)
+  })
+})
+
+// Regression cover: a suspended or deleted tenant used to keep minting brand-new
+// sessions, so suspension had no effect on sign-in at all.
+describe('POST /api/auth/login tenant lifecycle', () => {
+  function loginRequest() {
+    const form = new URLSearchParams()
+    form.set('email', 'user@example.com')
+    form.set('password', 'secret')
+    return new Request('http://localhost/api/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+    })
+  }
+
+  beforeEach(() => {
+    lifecycleState.tenant = { isActive: true, deletedAt: null }
+    lifecycleState.organization = { isActive: true, deletedAt: null }
+    rbacServiceMock.isGlobalSuperAdmin.mockResolvedValue(false)
+  })
+
+  it('issues a session while the tenant is live', async () => {
+    const res = await POST(loginRequest())
+    expect(res.status).toBe(200)
+  })
+
+  it('refuses to sign in against a deactivated tenant', async () => {
+    lifecycleState.tenant = { isActive: false, deletedAt: null }
+    const res = await POST(loginRequest())
+    expect(res.status).toBe(401)
+  })
+
+  it('refuses to sign in against a soft-deleted tenant', async () => {
+    lifecycleState.tenant = { isActive: true, deletedAt: new Date() }
+    const res = await POST(loginRequest())
+    expect(res.status).toBe(401)
+  })
+
+  it('refuses to sign in against a deactivated organization', async () => {
+    lifecycleState.organization = { isActive: false, deletedAt: null }
+    const res = await POST(loginRequest())
+    expect(res.status).toBe(401)
+  })
+
+  it('returns the same uniform error as a bad password, so it is not a tenant-state oracle', async () => {
+    lifecycleState.tenant = { isActive: false, deletedAt: null }
+    const suspended = await POST(loginRequest())
+    const suspendedBody = await suspended.json()
+
+    lifecycleState.tenant = { isActive: true, deletedAt: null }
+    authServiceMock.verifyPassword.mockResolvedValueOnce(false)
+    const badPassword = await POST(loginRequest())
+    const badPasswordBody = await badPassword.json()
+
+    expect(suspended.status).toBe(badPassword.status)
+    expect(suspendedBody).toEqual(badPasswordBody)
+  })
+
+  // Otherwise a suspended tenant could never be reactivated through the application.
+  it('still signs in a platform super-admin against a suspended tenant', async () => {
+    lifecycleState.tenant = { isActive: false, deletedAt: null }
+    rbacServiceMock.isGlobalSuperAdmin.mockResolvedValue(true)
+    const res = await POST(loginRequest())
+    expect(res.status).toBe(200)
   })
 })

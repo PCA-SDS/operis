@@ -4,26 +4,23 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { createCrud } from '@open-mercato/ui/backend/utils/crud'
+import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
+import { createStaticBlock } from '@open-mercato/core/modules/email/components/templateHtml'
 import {
-  TemplateBuilderForm,
+  DEFAULT_TEMPLATE_CATEGORY,
+  buildTemplateApiPayload,
   type TemplateBuilderFormValue,
-  blocksToHtml,
-  buildTemplateBlocks,
-  createStaticBlock,
-  customTemplateValues,
-  customTemplateVariables,
-  parseJsonObject,
-  splitCsv,
-} from '../_components/TemplateBuilderForm'
+} from '@open-mercato/core/modules/email/components/templatePayload'
+import { TemplateBuilderForm } from '../_components/TemplateBuilderForm'
 
 const initialForm: TemplateBuilderFormValue = {
   templateKey: '',
   name: '',
   description: '',
-  category: 'accounting',
+  category: DEFAULT_TEMPLATE_CATEGORY,
   status: 'draft',
   subject: '',
   preheader: '',
@@ -39,57 +36,20 @@ const initialForm: TemplateBuilderFormValue = {
   blocks: [],
 }
 
-function createInitialForm(bodyText: string): TemplateBuilderFormValue {
+function createInitialForm(bodyText: string, blockLabel: string): TemplateBuilderFormValue {
   return {
     ...initialForm,
-    blocks: [createStaticBlock('initial-body', 'rich-text-html', `<p>Hello {{companyName}},</p><p>${bodyText}</p>`)],
-  }
-}
-
-function buildPayload(form: TemplateBuilderFormValue) {
-  const variables = customTemplateVariables(form.variables)
-  const fields = splitCsv(form.fields)
-  const defaultValues = parseJsonObject(form.defaultValues, 'Default values')
-  const variableTypes = parseJsonObject(form.variableTypes, 'Variable types')
-  const rules = parseJsonObject(form.rules, 'Rules')
-  const html = blocksToHtml(form.blocks)
-  const sortOrder = Number.parseInt(form.sortOrder, 10)
-
-  return {
-    template_key: form.templateKey.trim(),
-    name: form.name.trim(),
-    description: form.description.trim() || null,
-    category: form.category.trim() || 'accounting',
-    status: form.status,
-    subject: form.subject.trim(),
-    preheader: form.preheader.trim() || null,
-    variables,
-    blocks: buildTemplateBlocks(form.blocks),
-    design: {
-      version: 1,
-      source: 'operis-email-template-builder',
-      body: { format: 'blocks+html', html },
-    },
-    accounting_metadata: {
-      workflowKey: form.workflowKey.trim() || undefined,
-      ruleKeys: Object.entries(rules).map(([key, value]) => `${key}:${String(value)}`),
-      migratedFrom: null,
-      sourceTemplateId: null,
-      fields,
-      defaultValues: customTemplateValues(defaultValues),
-      variableTypes,
-      rules,
-      ruleNotes: form.ruleNotes.trim() || undefined,
-      sortOrder: Number.isFinite(sortOrder) && sortOrder >= 0 ? sortOrder : 0,
-      isActive: form.isActive && form.status !== 'archived',
-    },
+    blocks: [createStaticBlock('initial-body', 'rich-text-html', `<p>Hello {{companyName}},</p><p>${bodyText}</p>`, '', blockLabel)],
   }
 }
 
 export default function CreateEmailTemplatePage() {
   const t = useT()
   const router = useRouter()
-  const [form, setForm] = React.useState<TemplateBuilderFormValue>(() => createInitialForm(t('email.templates.form.initialBody', 'Write your email body here.')))
+  const [form, setForm] = React.useState<TemplateBuilderFormValue>(() => createInitialForm(
+    t('email.templates.form.initialBody', 'Write your email body here.'),
+    t('email.templates.blocks.richText', 'Rich text'),
+  ))
   const [error, setError] = React.useState<string | null>(null)
   const [isSaving, setIsSaving] = React.useState(false)
 
@@ -98,18 +58,15 @@ export default function CreateEmailTemplatePage() {
     setError(null)
     setIsSaving(true)
     try {
-      const response = await apiCall<{ id?: string }>('/api/email/templates', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(buildPayload(form)),
+      const payload = buildTemplateApiPayload(form, t('email.templates.blocks.openLink', 'Open link'))
+      await createCrud('email/templates', payload, {
+        fallbackResult: null,
+        errorMessage: t('email.templates.errors.create', 'Failed to create email template'),
       })
-      if (!response.ok) {
-        const body = response.result as { error?: string; message?: string } | undefined
-        throw new Error(body?.error ?? body?.message ?? t('email.templates.errors.create', 'Failed to create email template'))
-      }
       router.push('/backend/email/templates')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('email.templates.errors.create', 'Failed to create email template'))
+      if (surfaceRecordConflict(err, t)) return
+      setError(err instanceof Error ? err.message.replace(/^\[internal]\s*/, '') : t('email.templates.errors.create', 'Failed to create email template'))
     } finally {
       setIsSaving(false)
     }
@@ -117,14 +74,12 @@ export default function CreateEmailTemplatePage() {
 
   return (
     <Page className="min-w-0 overflow-x-hidden">
+      <PageHeader
+        title={t('email.templates.create.title', 'Create Email Template')}
+        description={t('email.templates.create.description', 'Tenant-owned templates with workflow rules, typed variables, live preview, and visual-builder blocks.')}
+        actions={<Button variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.back', 'Back')}</Link></Button>}
+      />
       <PageBody className="min-w-0 w-full max-w-full">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{t('email.templates.create.title', 'Create Email Template')}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{t('email.templates.create.description', 'Tenant-owned templates with workflow rules, typed variables, live preview, and visual-builder blocks.')}</p>
-          </div>
-          <Button variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.back', 'Back')}</Link></Button>
-        </div>
         <TemplateBuilderForm mode="create" value={form} error={error} isSaving={isSaving} onChange={setForm} onSubmit={submit} />
       </PageBody>
     </Page>

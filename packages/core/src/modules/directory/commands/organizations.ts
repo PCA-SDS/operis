@@ -522,7 +522,13 @@ const updateOrganizationCommand: CommandHandler<Record<string, unknown>, Organiz
     const existing = await em.findOne(Organization, { id: parsed.id, deletedAt: null })
     if (!existing) throw new CrudHttpError(404, { error: 'Not found' })
 
-    const tenantId = await enforceTenantSelection(ctx, parsed.tenantId ?? resolveTenantIdFromEntity(existing))
+    // The tenant to authorize against is derived from the STORED record, never from
+    // the request. Reading `parsed.tenantId` first asked "may you act as your own
+    // tenant?" — which is trivially true — while the write below targeted another
+    // tenant's row by id, so a tenant admin could rename, deactivate or re-parent any
+    // organization whose id they knew. The delete path below already derives from the
+    // entity; this matches it.
+    const tenantId = await enforceTenantSelection(ctx, resolveTenantIdFromEntity(existing))
     if (!tenantId) throw new CrudHttpError(400, { error: 'Tenant scope required' })
 
     const parentId = parsed.parentId ?? null
@@ -572,7 +578,9 @@ const updateOrganizationCommand: CommandHandler<Record<string, unknown>, Organiz
       async () => {
         const organization = await de.updateOrmEntity({
           entity: Organization,
-          where: { id: parsed.id, deletedAt: null } as FilterQuery<Organization>,
+          // `tenant` is part of the predicate so the write cannot reach outside the
+          // tenant that was just authorized, even if the guard above is ever relaxed.
+          where: { id: parsed.id, tenant: tenantId, deletedAt: null } as FilterQuery<Organization>,
           apply: (entity) => {
             if (parsed.name !== undefined) entity.name = parsed.name
             if (resolvedSlug !== undefined) entity.slug = resolvedSlug

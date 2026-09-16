@@ -97,9 +97,14 @@ packages/core/src/modules/email/
   commands/
     templates.ts
     accounting-defaults.ts
-  services/
-    templateRenderer.ts
-    accountingDefaults.ts
+  components/
+    templateHtml.ts          # pure block -> HTML rendering and the ONE reader
+                             # of a persisted body (blocksFromRecord)
+    templatePayload.ts       # the one POST/PUT request body
+    clipboard.ts             # copy-to-clipboard for both previews
+    formStyles.ts            # shared field/panel/preview class strings
+    HelpLabel.tsx
+  backend/email/             # list, create, edit, compose, accounting-defaults
   migrations/
     MigrationYYYYMMDDHHMMSS.ts
     .snapshot-open-mercato.json
@@ -136,11 +141,15 @@ Initial private APIs:
 
 - `GET /api/email/templates`
 - `POST /api/email/templates`
-- `GET /api/email/templates/:id`
-- `PATCH /api/email/templates/:id`
-- `DELETE /api/email/templates/:id`
+- `GET /api/email/templates/:id` — re-enters the collection GET with `?id=`
+- `PUT /api/email/templates` — full update, id in the body
+- `DELETE /api/email/templates` — id in the body (`del.idFrom: 'body'`); the
+  `/:id` route re-exports the same handler
 - `GET /api/email/accounting-defaults`
 - `PUT /api/email/accounting-defaults`
+
+`makeCrudRoute` owns the collection routes, so update/delete are collection-level
+with the id in the body rather than the `PATCH /:id` originally sketched here.
 
 Every route must export `openApi`. CRUD-style routes should use `makeCrudRoute`
 where it fits. Custom writes must use the mutation guard contract.
@@ -312,6 +321,20 @@ Treat `pca_accounting` as a source system, not a codebase to paste in.
 - Add optimistic-lock handling in forms.
 - Add i18n and design-system compliant UI.
 
+The first pass shipped the editor, the previews and i18n, but the pages were
+built outside the design system: hand-rolled page headers at the wrong title
+weight, `bg-background` (the page ground) on raised panels and fields, ad-hoc
+loading/error banners, `window.confirm`, and a mobile card list duplicating
+`DataTable`. That was corrected in a follow-up — see the 2026-09-16 changelog
+entry. New work on these pages MUST use `PageHeader`, `LoadingMessage` /
+`ErrorMessage`, `useConfirmDialog`, `DataTable` and the `Input` / `Textarea` /
+`Checkbox` primitives.
+
+Native `<select>` is the one deliberate exception: the design system's `Select`
+is Radix-based and rejects the empty-string option values the "Any / none"
+filters rely on, so those elements stay native and borrow the `Input`
+primitive's field treatment via `components/formStyles.ts`.
+
 ## API Contracts
 
 Draft request/response shapes:
@@ -401,3 +424,15 @@ merged `main` deployment is accepted.
 - 2026-09-14: Completed the scoped email template builder, PCA migration and
   backfill, responsive UI, preview/compose flow, validation, tests, and PR
   documentation; deployment and manual acceptance remain pending.
+- 2026-09-16: Converged the module's five backend pages on the design system
+  (`PageHeader`, `LoadingMessage` / `ErrorMessage`, `RecordNotFoundState`,
+  `useConfirmDialog`, `EmptyState`, `Input` / `Textarea` / `Checkbox`, status
+  tokens) and removed the parallel implementations behind the authoring chain:
+  one `HelpLabel`, one clipboard helper, one API payload builder, and one reader
+  of the persisted body (`blocksFromRecord`). The two readers had disagreed on
+  the legacy `rich_text` block type and on the `design.body.html` fallback, so
+  the same stored template rendered differently in the builder and in compose.
+  `escapeHtml` moved to `@open-mercato/shared/lib/html/escapeHtml`. Accounting
+  Defaults is `navHidden` and had no inbound link — the templates screen now
+  carries it, using the `email.templates.accountingDefaults` key that had been
+  shipped unused. Ten orphaned i18n keys removed across all eight locales.

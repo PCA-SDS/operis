@@ -22,6 +22,7 @@ import {WorkflowDefinition, WorkflowSelector} from './WorkflowSelector'
 import {JsonBuilder} from '@open-mercato/ui/backend/JsonBuilder'
 import {StartPreConditionsEditor, type StartPreCondition} from './fields/StartPreConditionsEditor'
 import {useT} from '@open-mercato/shared/lib/i18n/context'
+import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import {useDialogKeyHandler} from '@open-mercato/ui/hooks/useDialogKeyHandler'
 import {useConfirmDialog} from '@open-mercato/ui/backend/confirm-dialog'
 import {isFutureIsoDateString, isValidDurationString} from '../data/validators'
@@ -362,7 +363,7 @@ export const NodeEditDialog = memo(function NodeEditDialog({ node, isOpen, onClo
     // Validate and sanitize step ID
     const sanitizedId = sanitizeId(node.id)
     if (sanitizedId !== node.id) {
-      alert(t('workflows.nodeEditor.stepIdSanitized', { from: node.id, to: sanitizedId }))
+      flash(t('workflows.nodeEditor.stepIdSanitized', { from: node.id, to: sanitizedId }), 'warning')
     }
 
     const updates: Partial<Node['data']> = {

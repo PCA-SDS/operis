@@ -50,6 +50,7 @@
     "initialize": "turbo run initialize --filter=@open-mercato/app",
     "seed:defaults": "yarn workspace @open-mercato/app seed:defaults",
     "seed:dev": "yarn workspace @open-mercato/app seed:dev",
+    "seed:fresh": "node scripts/reset-and-seed.mjs",
     "verify:mvp": "bash scripts/verify-mvp.sh",
     "docker:up": "docker compose -f docker-compose.fullapp.yml up --build -d",
     "docker:down": "docker compose -f docker-compose.fullapp.yml down",

@@ -248,6 +248,7 @@
   "entities.userEntities.form.submit": "Erstellen",
   "entities.userEntities.form.systemEntityNotice": "Dies ist eine im Code definierte Systementität. Ihr Label und ihre Beschreibung werden im Code verwaltet und können hier nicht bearbeitet werden — nur die Felddefinitionen unten sind bearbeitbar.",
   "entities.userEntities.form.title": "Entität erstellen",
+  "entities.userEntities.records.deleteConfirm.title": "Diesen Datensatz löschen?",
   "entities.userEntities.records.errors.deleteFailed": "Datensatz konnte nicht gelöscht werden",
   "entities.userEntities.records.errors.entityIdRequired": "Entitätskennung ist erforderlich",
   "entities.userEntities.records.errors.recordIdRequired": "Datensatzkennung ist erforderlich",

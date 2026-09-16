@@ -279,6 +279,7 @@ export default function CheckoutPayLinksPage() {
               {
                 id: 'delete',
                 label: t('checkout.common.actions.delete'),
+                destructive: true,
                 onSelect: async () => {
                   await runRowMutation({
                     row,

@@ -1647,6 +1647,7 @@
   "customers.errors.failed_to_assign_role": "Failed to assign role",
   "customers.errors.failed_to_delete_role": "Failed to delete role",
   "customers.errors.failed_to_load_roles": "Failed to load roles",
+  "customers.errors.failed_to_unassign_label": "Không thể gỡ nhãn",
   "customers.errors.failed_to_update_role": "Failed to update role",
   "customers.errors.interaction_required": "Interaction id is required",
   "customers.errors.internal": "Internal server error",
