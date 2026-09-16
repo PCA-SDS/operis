@@ -1,5 +1,7 @@
 'use client'
 
+// optimistic-lock-exempt: overview booking and scheduling actions are create/transition commands; the server owns the appointment resource lock and the sheet has no prior record version.
+
 import * as React from 'react'
 import { ArrowLeft, ArrowRight, CalendarDays, Loader2, Search, Sparkles, UserPlus, UserRound } from 'lucide-react'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'

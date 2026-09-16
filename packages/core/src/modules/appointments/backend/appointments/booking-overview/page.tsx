@@ -1,5 +1,7 @@
 'use client'
 
+// optimistic-lock-exempt: overview scheduling actions are command-level transitions; the server validates the appointment resource and the overview payload does not carry a record version.
+
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -251,7 +253,7 @@ export default function BookingOverviewPage() {
         const call = await apiCall<{ items?: OrganizationNode[] }>('/api/directory/organization-switcher', { signal: controller.signal }, { fallback: { items: [] } })
         if (!cancelled && call.ok) setOrganizations(call.result?.items ?? [])
       } catch (error) {
-        if (!controller.signal.aborted && !isAbortError(error)) flash(t('appointments.overview.error.organizations', 'Unable to load organizations.'), 'error')
+        if (!cancelled && !controller.signal.aborted && !isAbortError(error)) flash(t('appointments.overview.error.organizations', 'Unable to load organizations.'), 'error')
       }
     }
     void loadOrganizations()
