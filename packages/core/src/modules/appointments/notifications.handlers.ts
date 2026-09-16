@@ -15,6 +15,8 @@ export const notificationHandlers: NotificationHandler[] = [
     features: ['appointments.view'],
     priority: 100,
     handle(notification, context) {
+      if (notification.bodyKey && !notification.bodyVariables?.customerName) return
+
       const title = notification.titleKey
         ? context.t?.(notification.titleKey, notification.title) ?? notification.title
         : notification.title

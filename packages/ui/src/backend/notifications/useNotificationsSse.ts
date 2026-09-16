@@ -63,7 +63,7 @@ export function useNotificationsSse(): UseNotificationsSseResult {
     dismissRef,
   } = useNotificationActions(notifications, setNotifications, setUnreadCount)
 
-  const fetchNotifications = React.useCallback(async () => {
+  const fetchNotifications = React.useCallback(async (dispatchHandlers = true) => {
     try {
       const [notifResult, countResult] = await Promise.all([
         apiCall<{ items: NotificationDto[] }>('/api/notifications?pageSize=50'),
@@ -73,7 +73,7 @@ export function useNotificationsSse(): UseNotificationsSseResult {
       if (notifResult.ok && notifResult.result) {
         const fetched = notifResult.result.items
         setNotifications(fetched)
-        if (fetched.length > 0) {
+        if (dispatchHandlers && fetched.length > 0) {
           lastIdRef.current = fetched[0].id
           dispatchNotificationHandlers(fetched, {
             features: grantedFeaturesRef.current,
@@ -134,7 +134,7 @@ export function useNotificationsSse(): UseNotificationsSseResult {
   }, [])
 
   React.useEffect(() => {
-    void fetchNotifications()
+    void fetchNotifications(false)
   }, [fetchNotifications])
 
   React.useEffect(() => {
