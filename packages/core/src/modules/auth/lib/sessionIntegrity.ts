@@ -2,6 +2,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { Role, RoleAcl, Session, User, UserAcl, UserRole } from '@open-mercato/core/modules/auth/data/entities'
+import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const INVALID_SCOPE = Symbol('invalid-scope')
@@ -24,6 +25,30 @@ function resolveActorTenantId(auth: NonNullable<AuthContext>): NormalizedScopeId
 function resolveActorOrganizationId(auth: NonNullable<AuthContext>): NormalizedScopeId {
   const actorOrgId = (auth as { actorOrgId?: unknown }).actorOrgId
   return normalizeScopeId(actorOrgId ?? auth.orgId ?? null)
+}
+
+type LifecycleRow = { isActive?: boolean | null; deletedAt?: Date | null } | null
+
+/**
+ * Whether a tenant or organization row still permits its members to act.
+ *
+ * A scope that was never identified (`id === null`) is not a suspension — the schema
+ * allows a user with no tenant, and there is nothing to check. A scope whose id is set
+ * but whose row is absent IS a denial: the owning record is gone, so the principal has
+ * no live scope to act in.
+ */
+function isLifecycleRowLive(id: string | null, row: LifecycleRow): boolean {
+  if (id === null) return true
+  if (!row) return false
+  if (row.deletedAt) return false
+  return row.isActive !== false
+}
+
+export function isActorScopeLive(
+  tenant: { id: string | null; row: LifecycleRow },
+  organization: { id: string | null; row: LifecycleRow },
+): boolean {
+  return isLifecycleRowLive(tenant.id, tenant.row) && isLifecycleRowLive(organization.id, organization.row)
 }
 
 export async function resolveCanonicalStaffAuthContext(
@@ -86,7 +111,24 @@ export async function resolveCanonicalStaffAuthContext(
     undefined,
     { tenantId: actorTenantId, organizationId: actorOrganizationId },
   )
-  const [session, user] = await Promise.all([sessionPromise, userPromise])
+  // Tenant and organization lifecycle (INV-TENANT-008). Suspending or deleting a
+  // tenant used to change nothing: the per-request check re-read the user but never
+  // the rows that own them, so every existing session kept working and a fresh login
+  // still succeeded. These join the same `Promise.all` rather than adding a round
+  // trip. Both are looked up on the ACTOR's home scope, not on a super-admin's
+  // selected scope — see `resolveActorTenantId`.
+  const tenantPromise = actorTenantId
+    ? em.findOne(Tenant, { id: actorTenantId })
+    : Promise.resolve(null)
+  const organizationPromise = actorOrganizationId
+    ? em.findOne(Organization, { id: actorOrganizationId })
+    : Promise.resolve(null)
+  const [session, user, actorTenant, actorOrganization] = await Promise.all([
+    sessionPromise,
+    userPromise,
+    tenantPromise,
+    organizationPromise,
+  ])
 
   if (sessionId !== null) {
     if (!session) return null
@@ -140,6 +182,20 @@ export async function resolveCanonicalStaffAuthContext(
   const isSuperAdmin = currentTenantId
     ? userAclSuperAdmin || (await roleAclGrantsSuperAdmin(em, linkedRoles, currentTenantId, currentOrganizationId))
     : false
+
+  // Suspension is a tenant-user lockout, not a platform lockout: a super-admin keeps
+  // access so a suspended tenant can still be investigated and reactivated through the
+  // application. Everyone else is denied the moment their tenant or organization is
+  // deactivated or soft-deleted.
+  if (
+    !isSuperAdmin &&
+    !isActorScopeLive(
+      { id: actorTenantId, row: actorTenant },
+      { id: actorOrganizationId, row: actorOrganization },
+    )
+  ) {
+    return null
+  }
 
   return {
     ...auth,

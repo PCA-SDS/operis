@@ -24,15 +24,22 @@ export function AiActionChips({ activityType }: AiActionChipsProps) {
         {actions.map((action) => (
           <Tooltip key={action.key}>
             <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-auto gap-1 rounded-sm border-dashed bg-card pl-1.5 pr-[7px] py-[3px] text-[9px] font-medium text-muted-foreground/70 shadow-none hover:border-muted-foreground hover:text-foreground"
-              >
-                <AiIcon className="size-2.5 shrink-0" />
-                {t(action.i18nKey, action.fallback)}
-              </Button>
+              {/* The catalog ships no handlers yet, so these must not look
+                  actionable — the sibling ActivityAiActions already disables
+                  them. A disabled control swallows pointer events, hence the
+                  span the tooltip anchors to. */}
+              <span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled
+                  className="h-auto gap-1 rounded-sm border-dashed bg-card pl-1.5 pr-[7px] py-[3px] text-[9px] font-medium text-muted-foreground/70 opacity-100 shadow-none hover:border-muted-foreground hover:text-foreground"
+                >
+                  <AiIcon className="size-2.5 shrink-0" />
+                  {t(action.i18nKey, action.fallback)}
+                </Button>
+              </span>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
               {t('customers.ai.comingSoon', 'Coming soon')}

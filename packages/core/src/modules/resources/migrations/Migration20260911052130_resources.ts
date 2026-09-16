@@ -18,4 +18,11 @@ export class Migration20260911052130_resources extends Migration {
     this.addSql(`alter table "resources_assignments" add constraint "resources_assignments_resource_id_foreign" foreign key ("resource_id") references "resources_resources" ("id") on delete set null;`);
   }
 
+  override down(): void | Promise<void> {
+    this.addSql(`alter table "resources_assignments" drop constraint if exists "resources_assignments_resource_id_foreign";`);
+    this.addSql(`alter table "resources_blocks" drop constraint if exists "resources_blocks_resource_id_foreign";`);
+    this.addSql(`drop table if exists "resources_assignments" cascade;`);
+    this.addSql(`drop table if exists "resources_blocks" cascade;`);
+  }
+
 }

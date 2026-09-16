@@ -264,7 +264,7 @@ function SectionCard({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground shadow-sm">
+    <section className="rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground">
       <div className="mb-4 flex items-start gap-3">
         <div className="rounded-md border bg-muted/40 p-2 text-muted-foreground">{icon}</div>
         <div className="flex flex-1 items-start justify-between gap-2">
@@ -501,7 +501,6 @@ export function WarehouseSection({ viewAllHref }: ConfigSectionOptions = {}) {
       >
         <DataTable
           embedded
-          title={t('wms.backend.config.warehouses.title', 'Warehouses')}
           columns={columns}
           data={query.data?.items ?? []}
           isLoading={query.isLoading}
@@ -761,7 +760,6 @@ export function ZoneSection({ viewAllHref }: ConfigSectionOptions = {}) {
       >
         <DataTable
           embedded
-          title={t('wms.backend.config.zones.title', 'Zones')}
           columns={columns}
           data={query.data?.items ?? []}
           isLoading={query.isLoading}
@@ -962,7 +960,6 @@ export function LocationSection({ viewAllHref }: ConfigSectionOptions = {}) {
       >
         <DataTable
           embedded
-          title={t('wms.backend.config.locations.title', 'Locations')}
           columns={columns}
           data={query.data?.items ?? []}
           isLoading={query.isLoading}
@@ -1268,7 +1265,6 @@ export function InventoryProfilesSection() {
       >
         <DataTable
           embedded
-          title={t('wms.backend.config.profiles.title', 'Inventory profiles')}
           columns={columns}
           data={query.data?.items ?? []}
           isLoading={query.isLoading}
@@ -1343,7 +1339,7 @@ export default function WmsConfigurationPage() {
     <Page>
       <PageBody>
         <div className="space-y-6">
-          <section className="rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground shadow-sm">
+          <section className="rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground">
             <div className="space-y-1">
               <h1 className="text-2xl font-bold tracking-tight">{t('wms.backend.config.title', 'WMS configuration')}</h1>
               <p className="text-sm text-muted-foreground">

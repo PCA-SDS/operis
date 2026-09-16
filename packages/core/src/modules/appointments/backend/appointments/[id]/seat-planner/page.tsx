@@ -290,10 +290,13 @@ function buildTimeMarkers(timelineStartMinutes = START_HOUR * 60, timelineEndMin
   return markers
 }
 
-function groupResources(resources: Resource[]): Array<Resource & { floorName: string; isFirstInFloor: boolean }> {
+function groupResources(
+  resources: Resource[],
+  defaultFloorName: string,
+): Array<Resource & { floorName: string; isFirstInFloor: boolean }> {
   const groups = new Map<string, Resource[]>()
   for (const resource of resources) {
-    const floorName = resource.areaName || 'Main floor'
+    const floorName = resource.areaName || defaultFloorName
     groups.set(floorName, [...(groups.get(floorName) ?? []), resource])
   }
   return [...groups.entries()].flatMap(([floorName, values]) =>
@@ -367,6 +370,7 @@ function PlannerBlock(props: {
   onHoverInsertion: (event: React.MouseEvent<HTMLDivElement>) => void
   onHoverBlock: () => void
 }) {
+  const t = useT()
   const {
     allocation,
     line,
@@ -452,7 +456,7 @@ function PlannerBlock(props: {
         </>
       )}
       {isOwn && displayDuration > 30 ? (
-        <span className="line-clamp-2 break-words text-[10px] leading-tight opacity-80">{(allocation.assignedMemberNames ?? (allocation.assignedMemberName ? [allocation.assignedMemberName] : [])).join(', ') || 'No staff assigned'}</span>
+        <span className="line-clamp-2 break-words text-[10px] leading-tight opacity-80">{(allocation.assignedMemberNames ?? (allocation.assignedMemberName ? [allocation.assignedMemberName] : [])).join(', ') || t('appointments.seatPlanner.noStaffAssigned', 'No staff assigned')}</span>
       ) : null}
       {displayDuration >= 30 ? (
         <span className="mt-auto truncate text-[10px] opacity-80">{formatTime(allocation.startsAt)} - {formatTime(addMinutes(allocation.startsAt, displayDuration))}</span>
@@ -472,13 +476,14 @@ function PlannerInsertionRail(props: {
   onHover: (time: string) => void
   onInsert: (time: string) => void
 }) {
+  const t = useT()
   const { allocation, timelineStartMinutes, zoom, insertionTime, onHover, onInsert } = props
   const displayDuration = durationMinutes(allocation.startsAt, allocation.endsAt)
 
   return (
     <div
-      className="pointer-events-none absolute right-0 z-50 w-7"
-      style={{ top: allocationTop(allocation, timelineStartMinutes, zoom), height: allocationHeight(allocation, zoom), zIndex: 60 }}
+      className="pointer-events-none absolute right-0 w-7"
+      style={{ top: allocationTop(allocation, timelineStartMinutes, zoom), height: allocationHeight(allocation, zoom), zIndex: 26 }}
     >
       {Array.from({ length: Math.ceil(displayDuration / SLOT_MINUTES) }, (_, slotIndex) => {
         const slotStart = addMinutes(allocation.startsAt, slotIndex * SLOT_MINUTES)
@@ -503,7 +508,7 @@ function PlannerInsertionRail(props: {
                 onInsert(slotTime)
               }
             }}
-            aria-label={`Place service at ${slotTime}`}
+            aria-label={t('appointments.seatPlanner.placeServiceAt', 'Place service at {time}', { time: slotTime })}
           >
             <CalendarPlus className="size-3" aria-hidden="true" />
           </div>
@@ -750,7 +755,7 @@ function DraftPopover(props: {
       ref={popoverRef}
       role="dialog"
       aria-label={isOwn ? allocation.serviceName : `${customerDisplayName} - ${allocation.serviceName}`}
-      className="fixed z-50 flex max-h-[calc(100vh-1.5rem)] w-80 max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-xl"
+      className="fixed z-popover flex max-h-[calc(100vh-1.5rem)] w-80 max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-xl"
       style={{ left: position.left, top: position.top }}
       onClick={(event) => event.stopPropagation()}
     >
@@ -869,7 +874,7 @@ function StaffSheet(props: {
   }, [query, staff])
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-foreground/20" onClick={onClose}>
+    <div className="fixed inset-0 z-overlay flex justify-end bg-foreground/20" onClick={onClose}>
       <aside className="flex h-full w-full max-w-md flex-col bg-surface shadow-lg" onClick={(event) => event.stopPropagation()}>
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
@@ -1186,7 +1191,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             headers: buildOptimisticLockHeader(updatedAt),
             body: JSON.stringify(selection),
           }),
-          context: { appointmentId: workspace.appointment.id, resourceKind: 'appointments.appointmentLine' },
+          context: { appointmentId: workspace.appointment.id, resourceKind: 'appointments.appointmentLine', retryLastMutation: guardedMutation.retryLastMutation },
           mutationPayload: selection,
         })
         updatedAt = result.updatedAt
@@ -1202,7 +1207,10 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     }
   }, [guardedMutation, loadWorkspace, selectedServices, t, workspace])
 
-  const seatColumns = React.useMemo(() => groupResources(workspace?.resources ?? []), [workspace?.resources])
+  const seatColumns = React.useMemo(
+    () => groupResources(workspace?.resources ?? [], t('appointments.seatPlanner.defaultFloor', 'Main floor')),
+    [t, workspace?.resources],
+  )
   const ownAllocations = React.useMemo<PlannerAllocation[]>(() => {
     if (!workspace) return []
     return workspace.lines.reduce<PlannerAllocation[]>((allocations, line) => {
@@ -1356,7 +1364,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     try {
       const assignment = await guardedMutation.runMutation({
         operation: () => readApiResultOrThrow<DraftAssignmentResult>(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/lines/${encodeURIComponent(line.id)}/draft`, { method: 'PUT', body: JSON.stringify(body) }),
-        context: { appointmentId: workspace.appointment.id, lineId: line.id, resourceKind: 'appointments.seatPlannerDraft' },
+        context: { appointmentId: workspace.appointment.id, lineId: line.id, resourceKind: 'appointments.seatPlannerDraft', retryLastMutation: guardedMutation.retryLastMutation },
         mutationPayload: body,
       })
       setWorkspace((current) => current ? {
@@ -1406,7 +1414,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
           method: 'DELETE',
           headers: buildOptimisticLockHeader(workspace.lines.find((line) => line.id === lineId)?.currentAssignment?.updatedAt),
         }),
-        context: { appointmentId: workspace.appointment.id, lineId, resourceKind: 'appointments.seatPlannerDraft' },
+        context: { appointmentId: workspace.appointment.id, lineId, resourceKind: 'appointments.seatPlannerDraft', retryLastMutation: guardedMutation.retryLastMutation },
         mutationPayload: { appointmentId: workspace.appointment.id, lineId },
       })
     } catch (error) {
@@ -1446,7 +1454,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
           method: 'DELETE',
           headers: buildOptimisticLockHeader(workspace.appointment.updatedAt),
         }),
-        context: { appointmentId: workspace.appointment.id, lineId, resourceKind: 'appointments.appointmentLine' },
+        context: { appointmentId: workspace.appointment.id, lineId, resourceKind: 'appointments.appointmentLine', retryLastMutation: guardedMutation.retryLastMutation },
         mutationPayload: { appointmentId: workspace.appointment.id, lineId },
       })
       setWorkspace((current) => current ? { ...current, appointment: { ...current.appointment, updatedAt: result.updatedAt } } : current)
@@ -1488,8 +1496,15 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       plannedAssignments.push({ line, startsAt: nextStart, duration })
       nextStart = endsAt
     }
-    for (const assignment of plannedAssignments) {
-      await saveDraft(assignment.line, resourceId, assignment.startsAt, assignment.duration)
+    try {
+      for (const assignment of plannedAssignments) {
+        await saveDraft(assignment.line, resourceId, assignment.startsAt, assignment.duration)
+      }
+    } catch (saveError) {
+      flash(saveError instanceof Error
+        ? saveError.message
+        : t('appointments.seatPlanner.saveError', 'Unable to save the assignment.'), 'error')
+      return
     }
     flash(t('appointments.seatPlanner.saved', 'Assignment saved'), 'success')
   }, [activeLine, allocationsBySeat, canUseResourceRange, earliestMinutes, flash, saveDraft, t, workspace])
@@ -1507,22 +1522,28 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
 
   const handleConfirmAll = React.useCallback(async () => {
     if (!workspace) return
-    await guardedMutation.runMutation({
-      operation: () => readApiResultOrThrow(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/confirm-drafts`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          expectedAssignments: workspace.lines.flatMap((line) => line.currentAssignment?.state === 'draft'
-            ? [{ lineId: line.id, updatedAt: line.currentAssignment.updatedAt }]
-            : []),
+    try {
+      await guardedMutation.runMutation({
+        operation: () => readApiResultOrThrow(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/confirm-drafts`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            expectedAssignments: workspace.lines.flatMap((line) => line.currentAssignment?.state === 'draft'
+              ? [{ lineId: line.id, updatedAt: line.currentAssignment.updatedAt }]
+              : []),
+          }),
         }),
-      }),
-      context: { appointmentId: workspace.appointment.id, resourceKind: 'appointments.seatPlanner' },
-      mutationPayload: { appointmentId: workspace.appointment.id },
-    })
-    await loadWorkspace()
-    flash(t('appointments.seatPlanner.confirmed', 'All assignments confirmed'), 'success')
-  }, [guardedMutation, loadWorkspace, t, workspace])
+        context: { appointmentId: workspace.appointment.id, resourceKind: 'appointments.seatPlanner', retryLastMutation: guardedMutation.retryLastMutation },
+        mutationPayload: { appointmentId: workspace.appointment.id },
+      })
+      await loadWorkspace()
+      flash(t('appointments.seatPlanner.confirmed', 'All assignments confirmed'), 'success')
+    } catch (confirmError) {
+      flash(confirmError instanceof Error
+        ? confirmError.message
+        : t('appointments.seatPlanner.confirmError', 'Unable to confirm assignments.'), 'error')
+    }
+  }, [flash, guardedMutation, loadWorkspace, t, workspace])
 
   const handleDurationChange = React.useCallback(async (allocation: PlannerAllocation, nextDuration: number) => {
     const line = workspace?.lines.find((entry) => entry.id === allocation.lineId)
@@ -1550,7 +1571,15 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       : currentIds.includes(staffId)
         ? currentIds.filter((id) => id !== staffId)
         : [...currentIds, staffId]
-    const assignment = await saveDraft(line, target.allocation.resourceId, target.allocation.startsAt, durationMinutes(target.allocation.startsAt, target.allocation.endsAt), nextIds)
+    let assignment: Awaited<ReturnType<typeof saveDraft>>
+    try {
+      assignment = await saveDraft(line, target.allocation.resourceId, target.allocation.startsAt, durationMinutes(target.allocation.startsAt, target.allocation.endsAt), nextIds)
+    } catch (staffError) {
+      flash(staffError instanceof Error
+        ? staffError.message
+        : t('appointments.seatPlanner.staffAssignError', 'Unable to update staff.'), 'error')
+      return
+    }
     const nextNames = nextIds
       .map((id) => staffMembers.find((member) => member.id === id)?.displayName)
       .filter((name): name is string => typeof name === 'string')
@@ -1729,8 +1758,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
           </header>
 
           <div className="flex min-h-0 flex-1">
-            {mobileSidebarOpen ? <div className="fixed inset-0 z-40 bg-foreground/20 lg:hidden" onClick={() => setMobileSidebarOpen(false)} /> : null}
-            <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col min-h-0 w-full max-w-sm border-r border-border bg-surface shadow-lg transition-transform lg:static lg:z-auto lg:w-80 lg:translate-x-0 lg:shadow-none ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            {mobileSidebarOpen ? <div className="fixed inset-0 z-overlay bg-foreground/20 lg:hidden" onClick={() => setMobileSidebarOpen(false)} /> : null}
+            <aside className={`fixed inset-y-0 left-0 z-modal flex flex-col min-h-0 w-full max-w-sm border-r border-border bg-surface shadow-lg transition-transform lg:static lg:z-auto lg:w-80 lg:translate-x-0 lg:shadow-none ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
               <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3 lg:hidden">
                 <p className="text-sm font-semibold">{t('appointments.seatPlanner.bookingDetails', 'Booking details')}</p>
                 <IconButton type="button" variant="ghost" aria-label={t('common.close', 'Close')} onClick={() => setMobileSidebarOpen(false)}><PanelLeftClose className="size-4" /></IconButton>
@@ -1889,7 +1918,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                               >
                                 <span className={`${previewDuration <= 15 ? 'truncate' : 'line-clamp-2'} font-semibold leading-tight`}>{activeLine.productTitle}</span>
                                 {previewDuration > 30 ? (
-                                  <span className="line-clamp-2 break-words text-[10px] leading-tight opacity-80">{previewStaffNames.join(', ') || 'No staff assigned'}</span>
+                                  <span className="line-clamp-2 break-words text-[10px] leading-tight opacity-80">{previewStaffNames.join(', ') || t('appointments.seatPlanner.noStaffAssigned', 'No staff assigned')}</span>
                                 ) : null}
                                 {previewDuration >= 30 ? (
                                   <span className="mt-auto truncate text-[10px] opacity-80">{formatTime(previewStartsAt)} - {formatTime(previewEndsAt)}</span>

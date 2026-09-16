@@ -2,6 +2,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { DEFAULT_NOTIFICATION_DELIVERY_CONFIG, resolveNotificationDeliveryConfig } from '@open-mercato/core/modules/notifications/lib/deliveryConfig'
 import type { JobContext, QueuedJob, WorkerMeta } from '@open-mercato/queue'
 import { sendEmail } from '@open-mercato/shared/lib/email/send'
+import { escapeHtml } from '@open-mercato/shared/lib/html/escapeHtml'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { CheckoutTransaction, CheckoutLink } from '../data/entities'
@@ -28,15 +29,6 @@ type HandlerContext = JobContext & {
 
 function interpolateVariables(template: string, variables: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (match, key: string) => variables[key] ?? match)
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 }
 
 function renderInlineMarkdown(value: string): string {

@@ -1343,7 +1343,7 @@ export function OptionTreeEditor({
               <div className="min-w-0">
                 <p className="text-xs leading-5 text-muted-foreground sm:text-sm">
                   {rootGroups.length > 0
-                    ? `${rootGroups.length} ${t('catalog.options.rootGroups', 'root groups')} · ${localOptions.length} ${t('catalog.options.totalOptions', 'total options')}`
+                    ? `${rootGroups.length} ${t('catalog.options.rootGroups', 'root groups')} — ${localOptions.length} ${t('catalog.options.totalOptions', 'total options')}`
                     : t('catalog.options.emptyHint', 'Add groups to build the option tree for this product.')}
                 </p>
               </div>

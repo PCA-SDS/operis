@@ -57,6 +57,18 @@ export class AssignmentConflictService {
     organizationIds?: string[]
     includeDrafts?: boolean
   }): Promise<ValidationResult> {
+    // 0. Check the interval itself is well-formed
+    // Every overlap test below is half-open `[start, end)` — `startsAt < otherEnd AND endsAt > otherStart`.
+    // A reversed or zero-length interval satisfies neither side, so it would never conflict with anything
+    // and nothing would ever conflict with it: the row would be written and stay permanently invisible to
+    // double-booking detection while still rendering on the planner grid.
+    if (!(params.endsAt.getTime() > params.startsAt.getTime())) {
+      return {
+        valid: false,
+        error: { code: 'INVALID_INTERVAL', message: 'Assignment end must be after its start' },
+      }
+    }
+
     // 1. Check resource exists & is active
     const scopedOrganizationIds = params.organizationIds?.length ? params.organizationIds : [params.organizationId]
     const resource = await this.em.findOne(ResourcesResource, {

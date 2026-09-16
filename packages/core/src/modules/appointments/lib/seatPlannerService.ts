@@ -16,7 +16,7 @@ import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
 import { Appointment, AppointmentLine, AppointmentLineOptionGroup, AppointmentStatus } from '../data/entities'
-import { loadLineOptionSnapshots, resolveDurationMinutes } from './lineOptionSnapshot'
+import { loadLineOptionSnapshots } from './lineOptionSnapshot'
 
 export interface SeatPlannerLine {
   id: string
@@ -433,10 +433,9 @@ export class AppointmentSeatPlannerService {
 
         // Try to load options from snapshot tables first, fallback to catalog lookup
         let options: Array<{ groupName: string | null; name: string }>
-        let resolvedDuration = line.durationMinutes
+        const resolvedDuration = line.durationMinutes
         try {
           const snapshots = await loadLineOptionSnapshots(this.em, line.id)
-          resolvedDuration = resolveDurationMinutes(line.durationMinutes, snapshots.groups.flatMap((group) => group.options))
           if (snapshots.groups.length > 0) {
             // Use snapshot data
             options = snapshots.groups.flatMap((g) =>
@@ -735,9 +734,13 @@ export class AppointmentSeatPlannerService {
    */
   async updateStaff(params: {
     appointmentId: string
+    tenantId: string
+    organizationId: string
   } & UpdateStaffParams): Promise<AssignmentDTO> {
     return this.assignmentService.updateAssignmentStaff({
       assignmentId: params.assignmentId,
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
       assignedMemberId: params.assignedMemberId,
       assignedMemberIds: params.assignedMemberIds,
     })

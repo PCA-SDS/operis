@@ -18,6 +18,9 @@ export class Migration20260912022258_appointments extends Migration {
 
   override down(): void | Promise<void> {
     this.addSql(`alter table "appointment_line_options" drop constraint if exists "appointment_line_options_group_id_foreign";`);
+    this.addSql(`alter table "appointment_line_option_groups" drop constraint if exists "appointment_line_option_groups_line_id_foreign";`);
+    this.addSql(`drop table if exists "appointment_line_options" cascade;`);
+    this.addSql(`drop table if exists "appointment_line_option_groups" cascade;`);
   }
 
 }

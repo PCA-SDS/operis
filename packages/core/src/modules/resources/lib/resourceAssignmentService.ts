@@ -207,8 +207,16 @@ export class ResourceAssignmentService {
   /**
    * Get assignment by ID
    */
-  async getById(assignmentId: string): Promise<AssignmentDTO | null> {
-    const assignment = await this.em.findOne(ResourcesAssignment, { id: assignmentId })
+  async getById(params: {
+    assignmentId: string
+    tenantId: string
+    organizationId: string
+  }): Promise<AssignmentDTO | null> {
+    const assignment = await this.em.findOne(ResourcesAssignment, {
+      id: params.assignmentId,
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
+    })
     return assignment ? this.toDTO(assignment) : null
   }
 
@@ -498,9 +506,13 @@ export class ResourceAssignmentService {
    */
   async cancelAssignment(params: {
     assignmentId: string
+    tenantId: string
+    organizationId: string
   }): Promise<void> {
     const assignment = await this.em.findOne(ResourcesAssignment, {
       id: params.assignmentId,
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
       cancelledAt: null,
     })
 
@@ -516,11 +528,15 @@ export class ResourceAssignmentService {
    */
   async updateAssignmentStaff(params: {
     assignmentId: string
+    tenantId: string
+    organizationId: string
     assignedMemberId: string | null
     assignedMemberIds?: string[]
   }): Promise<AssignmentDTO> {
     const assignment = await this.em.findOne(ResourcesAssignment, {
       id: params.assignmentId,
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
       cancelledAt: null,
     })
 

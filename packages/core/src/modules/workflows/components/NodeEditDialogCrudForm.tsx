@@ -6,6 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Alert, AlertDescription } from '@open-mercato/ui/primitives/alert'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Trash2 } from 'lucide-react'
 import { CrudForm, type CrudFormGroup, type CrudField, type CrudCustomFieldRenderProps } from '@open-mercato/ui/backend/CrudForm'
 import { JsonBuilder } from '@open-mercato/ui/backend/JsonBuilder'
@@ -57,6 +59,7 @@ export interface NodeEditDialogCrudFormProps {
  * - decision: Basic fields only
  */
 export const NodeEditDialogCrudForm = memo(function NodeEditDialogCrudForm({ node, isOpen, onClose, onSave, onDelete }: NodeEditDialogCrudFormProps) {
+  const t = useT()
   const [initialValues, setInitialValues] = useState<Partial<NodeFormValues>>({})
   const [showJsonSchemaWarning, setShowJsonSchemaWarning] = useState(false)
 
@@ -75,11 +78,7 @@ export const NodeEditDialogCrudForm = memo(function NodeEditDialogCrudForm({ nod
     // Validate and sanitize step ID
     const sanitizedId = sanitizeId(node.id)
     if (sanitizedId !== node.id) {
-      if (typeof window !== 'undefined') {
-        window.alert(
-          `⚠️ Step ID was sanitized from "${node.id}" to "${sanitizedId}" to match schema requirements (lowercase letters, numbers, hyphens, and underscores only).`
-        )
-      }
+      flash(t('workflows.nodeEditor.stepIdSanitized', { from: node.id, to: sanitizedId }), 'warning')
     }
 
     try {
@@ -90,7 +89,7 @@ export const NodeEditDialogCrudForm = memo(function NodeEditDialogCrudForm({ nod
       // Error will be displayed in form (e.g., invalid JSON)
       throw error
     }
-  }, [node, onSave, onClose])
+  }, [node, onSave, onClose, t])
 
   const handleDelete = useCallback(() => {
     if (!node || !onDelete) return

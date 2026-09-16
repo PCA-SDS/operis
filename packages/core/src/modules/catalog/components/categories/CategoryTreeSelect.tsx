@@ -7,6 +7,7 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
@@ -116,6 +117,7 @@ export function CategoryTreeSelect({
   const noSelectionLabel = emptyLabel ?? t('catalog.categories.select.empty', 'Root level')
   const errorLabel = loadingErrorLabel ?? t('catalog.categories.select.error', 'Failed to load categories')
   const [nodes, setNodes] = React.useState<CategoryTreeSelectNode[]>([])
+  const [loadFailed, setLoadFailed] = React.useState(false)
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(new Set())
   const [loading, setLoading] = React.useState(true)
 
@@ -124,6 +126,7 @@ export function CategoryTreeSelect({
     const controller = new AbortController()
     async function loadCategories() {
       setLoading(true)
+      setLoadFailed(false)
       try {
         const params = new URLSearchParams({ view: 'tree', status: 'all' })
         const payload = await readApiResultOrThrow<CategoryTreeResponse>(
@@ -139,6 +142,7 @@ export function CategoryTreeSelect({
         if (cancelled) return
         logger.error('Failed to load category tree options', { err })
         setNodes([])
+        setLoadFailed(true)
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -181,12 +185,13 @@ export function CategoryTreeSelect({
       </PopoverTrigger>
       <PopoverContent className="w-80 p-1">
         <div className="max-h-80 overflow-auto">
+          {loadFailed ? <ErrorMessage label={errorLabel} className="mb-1" /> : null}
           <Button
             type="button"
             variant="ghost"
             role="option"
             aria-selected={!selectedValue}
-            className={cn('w-full justify-start', !selectedValue && 'bg-surface-strong text-foreground')}
+            className={cn('w-full justify-start', !selectedValue && 'border border-primary-border bg-primary-soft text-foreground')}
             onClick={() => onChange(null)}
           >
             <span>{noSelectionLabel}</span>
@@ -222,7 +227,7 @@ export function CategoryTreeSelect({
                   variant="ghost"
                   role="option"
                   aria-selected={isSelected}
-                  className={cn('min-w-0 flex-1 justify-start', isSelected && 'bg-surface-strong text-foreground')}
+                  className={cn('min-w-0 flex-1 justify-start', isSelected && 'border border-primary-border bg-primary-soft text-foreground')}
                   onClick={() => onChange(category.id)}
                 >
                   <span className="truncate">{category.name}</span>

@@ -150,6 +150,7 @@ export default function CheckoutTemplatesPage() {
               {
                 id: 'delete',
                 label: t('checkout.common.actions.delete'),
+                destructive: true,
                 onSelect: async () => {
                   await apiCallOrThrow(`/api/checkout/templates/${encodeURIComponent(row.id)}`, { method: 'DELETE' })
                   void loadRows()
