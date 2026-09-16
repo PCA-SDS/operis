@@ -55,9 +55,18 @@ export const appointmentPublicCreateSchema = appointmentCreateFieldsSchema.exten
   organizationId: uuid(),
 })
 
+export const appointmentPublicCustomerLookupSchema = z.object({
+  tenantId: uuid(),
+  phone: z.string().trim().min(1).max(50),
+  email: z.string().trim().email().max(255),
+  phoneCountryCode: clearableString(8),
+  phoneCountry: clearableString(120),
+})
+
 /** Staff create: tenant from auth; organization from body or auth org. */
 export const appointmentStaffCreateSchema = appointmentCreateFieldsSchema.extend({
   organizationId: uuid().optional(),
+  statusCode: z.string().trim().min(1).max(64).optional(),
   updateCustomerProfile: z.boolean().optional().default(false),
   customerUpdatedAt: z.string().datetime({ offset: true }).optional(),
 })
@@ -80,6 +89,7 @@ export const appointmentStatusCatalogUpdateSchema = z.object({
 })
 
 export type AppointmentPublicCreateInput = z.infer<typeof appointmentPublicCreateSchema>
+export type AppointmentPublicCustomerLookupInput = z.infer<typeof appointmentPublicCustomerLookupSchema>
 export type AppointmentStaffCreateInput = z.infer<typeof appointmentStaffCreateSchema>
 export type AppointmentStatusUpdateInput = z.infer<typeof appointmentStatusUpdateSchema>
 export type AppointmentStatusCatalogCreateInput = z.infer<typeof appointmentStatusCatalogCreateSchema>

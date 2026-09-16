@@ -14,6 +14,7 @@ import {
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { AppointmentSeatPlannerService } from '../../../../../lib/seatPlannerService'
+import { emitAppointmentEvent } from '../../../../../events'
 
 const upsertDraftSchema = z.object({
   resourceId: z.string().uuid(),
@@ -115,6 +116,17 @@ export async function PUT(req: Request, ctx: RouteContext) {
         metadata: guardResult.metadata ?? null,
       })
     }
+
+    await emitAppointmentEvent('appointments.appointment.draft_updated', {
+      id: appointmentId,
+      lineId,
+      tenantId: auth.tenantId,
+      organizationId,
+      action: 'draft_updated',
+      resourceId: body.resourceId,
+      startsAt: body.startsAt,
+      endsAt: body.endsAt,
+    })
 
     return NextResponse.json(assignment)
   } catch (error) {
@@ -260,6 +272,14 @@ export async function DELETE(req: Request, ctx: RouteContext) {
         metadata: guardResult.metadata ?? null,
       })
     }
+
+    await emitAppointmentEvent('appointments.appointment.draft_updated', {
+      id: appointmentId,
+      lineId,
+      tenantId: auth.tenantId,
+      organizationId,
+      action: 'draft_deleted',
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

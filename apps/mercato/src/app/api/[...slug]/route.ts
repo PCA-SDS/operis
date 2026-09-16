@@ -19,6 +19,7 @@ import { checkRateLimit, getClientIp, RATE_LIMIT_ERROR_KEY, RATE_LIMIT_ERROR_FAL
 import { getGlobalEventBus } from '@open-mercato/shared/modules/events'
 import { applicationLifecycleEvents, type ApplicationLifecycleEventId } from '@open-mercato/shared/lib/runtime/events'
 import { withModuleResourceUsage } from '@open-mercato/shared/lib/modules/resource-usage'
+import { publicCorsHeaders } from '@open-mercato/shared/lib/http/cors'
 
 // Ensure all package registrations are initialized for API routes.
 bootstrap()
@@ -524,4 +525,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sl
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ slug: string[] }> }) {
   return handleRequest('DELETE', req, params)
+}
+
+export function OPTIONS(req: NextRequest) {
+  const publicCorsPaths = new Set([
+    '/api/directory/public/organizations',
+    '/api/catalog/bookable-services',
+    '/api/appointments/public/create',
+    '/api/appointments/public/customer',
+  ])
+  if (!publicCorsPaths.has(req.nextUrl.pathname)) {
+    return new NextResponse(null, { status: 405 })
+  }
+
+  return new NextResponse(null, { status: 204, headers: publicCorsHeaders(req) })
 }

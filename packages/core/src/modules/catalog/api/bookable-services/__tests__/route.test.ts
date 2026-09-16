@@ -40,8 +40,8 @@ const CHANNEL = '44444444-4444-4444-8444-444444444444'
 
 const pricingService = { resolvePrice: jest.fn(), resolvePriceMany: jest.fn() }
 
-function get(query = `?tenantId=${TENANT}&organizationId=${ORG}`): Request {
-  return new Request(`http://localhost/api/catalog/bookable-services${query}`)
+function get(query = `?tenantId=${TENANT}&organizationId=${ORG}`, headers?: HeadersInit): Request {
+  return new Request(`http://localhost/api/catalog/bookable-services${query}`, { headers })
 }
 
 describe('catalog bookable-services route', () => {
@@ -88,6 +88,15 @@ describe('catalog bookable-services route', () => {
       { tenantId: TENANT, organizationId: ORG, channelId: undefined },
       { pricingService },
     )
+  })
+
+  it('returns CORS headers for the public booking form origin', async () => {
+    mockListBookableServicesForOrganization.mockResolvedValue([])
+
+    const { GET } = await import('../route')
+    const response = await GET(get(undefined, { Origin: 'http://localhost:3001' }))
+
+    expect(response.headers.get('access-control-allow-origin')).toBe('http://localhost:3001')
   })
 
   it('forwards an explicit pricing channel', async () => {

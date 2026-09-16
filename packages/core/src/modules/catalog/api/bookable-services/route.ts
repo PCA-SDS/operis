@@ -8,6 +8,7 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { readEndpointRateLimitConfig } from '@open-mercato/shared/lib/ratelimit/config'
+import { publicCorsHeaders, withPublicCorsHeaders } from '@open-mercato/shared/lib/http/cors'
 import {
   checkRateLimit,
   getClientIp,
@@ -22,6 +23,10 @@ const logger = createLogger('catalog')
 
 export const metadata = {
   GET: { requireAuth: false },
+}
+
+export function OPTIONS(req: Request) {
+  return new Response(null, { status: 204, headers: publicCorsHeaders(req) })
 }
 
 // Anonymous callers reach this list, and each request fans out to product,
@@ -110,7 +115,7 @@ export async function GET(req: Request) {
         clientIp ?? RATE_LIMIT_FALLBACK_KEY,
         translate('api.errors.rateLimit', 'Too many requests. Please try again later.'),
       )
-      if (rateLimitResponse) return rateLimitResponse
+      if (rateLimitResponse) return withPublicCorsHeaders(rateLimitResponse, req)
     } else {
       logger.error('Rate limiter service is not registered — check RATE_LIMIT_* configuration; bookable services is not rate limited')
     }
@@ -124,10 +129,10 @@ export async function GET(req: Request) {
       { tenantId: query.tenantId, organizationId: query.organizationId, channelId: query.channelId },
       { pricingService },
     )
-    return NextResponse.json({ items })
+    return NextResponse.json({ items }, { headers: publicCorsHeaders(req) })
   } catch (error) {
     if (isCrudHttpError(error)) {
-      return NextResponse.json(error.body, { status: error.status })
+      return NextResponse.json(error.body, { status: error.status, headers: publicCorsHeaders(req) })
     }
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -138,7 +143,7 @@ export async function GET(req: Request) {
           ),
           code: 'INVALID_INPUT',
         },
-        { status: 400 },
+        { status: 400, headers: publicCorsHeaders(req) },
       )
     }
     logger.error('bookable services listing failed', { component: 'bookableServices', err: error })
@@ -150,7 +155,7 @@ export async function GET(req: Request) {
         ),
         code: 'LIST_FAILED',
       },
-      { status: 500 },
+      { status: 500, headers: publicCorsHeaders(req) },
     )
   }
 }

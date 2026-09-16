@@ -37,6 +37,7 @@ import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { AppointmentStatusBadge } from '@open-mercato/core/modules/appointments/components/AppointmentStatusBadge'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { resolveRegisteredLucideIconNode } from '@open-mercato/ui/backend/icons/lucideRegistry'
 import { AppointmentServicePicker, type AppointmentBookableService, type AppointmentServiceSelection } from '@open-mercato/core/modules/appointments/components/AppointmentServicePicker'
 import { AppointmentEditForm } from '../edit/page'
@@ -997,6 +998,16 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     return () => controller.abort()
   }, [loadWorkspace])
 
+  useAppEvent('appointments.appointment.draft_updated', (event) => {
+    if (event.payload?.id !== appointmentId) return
+    void loadWorkspace(undefined, false)
+  }, [appointmentId, loadWorkspace])
+
+  useAppEvent('appointments.appointment.schedule_confirmed', (event) => {
+    if (event.payload?.id !== appointmentId) return
+    void loadWorkspace(undefined, false)
+  }, [appointmentId, loadWorkspace])
+
   React.useEffect(() => {
     if (!isAddServiceOpen || !workspace) return
     const controller = new AbortController()
@@ -1336,6 +1347,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     })
     await loadWorkspace()
     flash(t('appointments.seatPlanner.confirmed', 'All assignments confirmed'), 'success')
+    router.push(`/backend/appointments/booking-overview?date=${encodeURIComponent(workspace.appointment.requestedStartAt.slice(0, 10))}&organizationId=${encodeURIComponent(workspace.appointment.organizationId)}`)
   }, [guardedMutation, loadWorkspace, t, workspace])
 
   const handleDurationChange = React.useCallback(async (allocation: PlannerAllocation, nextDuration: number) => {

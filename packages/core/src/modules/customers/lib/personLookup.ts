@@ -1,9 +1,21 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
 import { CustomerEntity, CustomerPersonProfile } from '../data/entities'
 import { resolvePhoneIdentity } from './contactIdentity'
+
+export type PersonSearchResult = {
+  id: string
+  displayName: string
+  primaryEmail: string | null
+  primaryPhone: string | null
+  phoneCountryCode: string | null
+  phoneCountry: string | null
+  salutation: string | null
+  origin: string | null
+  source: string | null
+}
 
 export type PersonCheckCustomer = {
   id: string
@@ -22,6 +34,52 @@ export type PersonCheckResult = {
   exists: boolean
   customer: PersonCheckCustomer | null
   lastBooking: null
+}
+
+export async function searchPeopleForBooking(
+  em: EntityManager,
+  scope: PersonTenantScope,
+  search: string,
+): Promise<PersonSearchResult[]> {
+  const searchPattern = `%${search.trim().replace(/[%_]/g, '\\$&')}%`
+  const entities = await findWithDecryption(
+    em,
+    CustomerEntity,
+    {
+      tenantId: scope.tenantId,
+      kind: 'person',
+      deletedAt: null,
+      displayName: { $ilike: searchPattern },
+    },
+    { limit: 10, orderBy: { updatedAt: 'DESC' } },
+    scope,
+  )
+  const profiles = await findWithDecryption(
+    em,
+    CustomerPersonProfile,
+    { tenantId: scope.tenantId, entity: { $in: entities.map((entity) => entity.id) } },
+    { populate: ['entity'] },
+    scope,
+  )
+  const profilesByEntityId = new Map<string, CustomerPersonProfile>()
+  profiles.forEach((profile) => {
+    const entity = profile.entity as unknown as { id?: string } | undefined
+    if (entity?.id) profilesByEntityId.set(entity.id, profile)
+  })
+  return entities.map((entity) => {
+    const profile = profilesByEntityId.get(entity.id)
+    return {
+      id: entity.id,
+      displayName: entity.displayName,
+      primaryEmail: entity.primaryEmail ?? null,
+      primaryPhone: entity.primaryPhone ?? null,
+      phoneCountryCode: entity.phoneCountryCode ?? null,
+      phoneCountry: entity.phoneCountry ?? null,
+      salutation: profile?.salutation ?? null,
+      origin: entity.origin ?? null,
+      source: entity.source ?? null,
+    }
+  })
 }
 
 /** Tenant-wide identity lookup (customers are shared across branches/orgs). */

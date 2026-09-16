@@ -17,6 +17,7 @@ import { updateAppointmentFromStaffEdit } from '../../lib/intake'
 import { CustomerEntity } from '@open-mercato/core/modules/customers/data/entities'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { ensureSystemAppointmentStatuses } from '../../setup'
 
 const logger = createLogger('appointments')
 
@@ -197,6 +198,9 @@ export async function PATCH(req: Request, ctx: RouteContext) {
       current: appointment.updatedAt ?? null,
       request: req,
     })
+    if (body.statusCode === 'deposit_received_booked') {
+      await ensureSystemAppointmentStatuses(em, auth.tenantId)
+    }
 
     const status = await em.findOne(AppointmentStatus, {
       tenantId: auth.tenantId,

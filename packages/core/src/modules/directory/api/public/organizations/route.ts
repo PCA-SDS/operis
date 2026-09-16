@@ -2,10 +2,15 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import { publicCorsHeaders } from '@open-mercato/shared/lib/http/cors'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 
 export const metadata = {
   GET: { requireAuth: false },
+}
+
+export function OPTIONS(req: Request) {
+  return new Response(null, { status: 204, headers: publicCorsHeaders(req) })
 }
 
 const querySchema = z.object({
@@ -17,7 +22,7 @@ export async function GET(req: Request) {
     tenantId: new URL(req.url).searchParams.get('tenantId'),
   })
   if (!parsed.success) {
-    return NextResponse.json({ items: [], error: 'Invalid tenantId.' }, { status: 400 })
+    return NextResponse.json({ items: [], error: 'Invalid tenantId.' }, { status: 400, headers: publicCorsHeaders(req) })
   }
 
   const container = await createRequestContainer()
@@ -32,10 +37,9 @@ export async function GET(req: Request) {
     items: organizations.map((organization) => ({
       id: organization.id,
       name: organization.name,
-      description: organization.description ?? null,
       parentId: organization.parentId ?? null,
       rootId: organization.rootId ?? null,
       depth: organization.depth,
     })),
-  })
+  }, { headers: publicCorsHeaders(req) })
 }

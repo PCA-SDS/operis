@@ -13,6 +13,7 @@ export const APPOINTMENT_STATUS_BADGE_VARIANTS: StatusMap<AppointmentSystemStatu
   in_progress: 'warning',
   booked: 'success',
   cancelled: 'error',
+  deposit_received_booked: 'success',
 }
 
 function isSystemStatus(value: string): value is AppointmentSystemStatusCode {
@@ -43,8 +44,10 @@ export function AppointmentStatusBadge({
       ? t('appointments.status.inProgress', 'In progress')
       : statusCode === 'booked'
         ? t('appointments.status.booked', 'Booked')
-        : statusCode === 'cancelled'
-          ? t('appointments.status.cancelled', 'Cancelled')
+          : statusCode === 'cancelled'
+            ? t('appointments.status.cancelled', 'Cancelled')
+            : statusCode === 'deposit_received_booked'
+              ? t('appointments.status.depositReceivedBooked', 'Deposit Received Booked')
           : null
 
   return (

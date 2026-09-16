@@ -8,11 +8,13 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
 import type { CatalogPricingService } from '@open-mercato/core/modules/catalog/services/catalogPricingService'
-import { Appointment } from '../data/entities'
+import { Appointment, AppointmentLine } from '../data/entities'
 import { appointmentStaffCreateSchema } from '../data/validators'
 import { createAppointmentFromPublicIntake } from '../lib/intake'
 import { emitAppointmentEvent } from '../events'
+import { deriveScheduleConfirmationStatus } from '../lib/scheduleTracking'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -41,6 +43,21 @@ function mapAppointment(row: Appointment, organizationName: string | null = null
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }
+}
+
+function mapAppointmentTotals(lines: AppointmentLine[]) {
+  const totals = new Map<string, { amount: number; currencyCode: string | null }>()
+  for (const line of lines) {
+    const appointmentId = String(line.appointment.id)
+    const amount = Number(line.unitPriceGross ?? line.unitPriceNet ?? '')
+    if (!Number.isFinite(amount)) continue
+    const current = totals.get(appointmentId)
+    totals.set(appointmentId, {
+      amount: (current?.amount ?? 0) + amount,
+      currencyCode: current?.currencyCode ?? line.currencyCode ?? null,
+    })
+  }
+  return totals
 }
 
 async function resolveOrganizationNames(
@@ -96,17 +113,63 @@ export async function GET(req: Request) {
 
     const rows = await em.find(Appointment, where, {
       orderBy: { requestedStartAt: 'desc' },
-      limit: 100,
     })
+    const lines = rows.length > 0
+      ? await em.find(AppointmentLine, {
+        appointment: { $in: rows.map((row) => row.id) },
+        tenantId: auth.tenantId,
+        deletedAt: null,
+      })
+      : []
+    const lineIds = lines.map((line) => line.id)
+    const assignments = lineIds.length > 0
+      ? await em.find(ResourcesAssignment, {
+        tenantId: auth.tenantId,
+        sourceModule: 'appointment',
+        sourceEntityType: 'appointment_line',
+        sourceEntityId: { $in: lineIds },
+        state: 'confirmed',
+        cancelledAt: null,
+      })
+      : []
+    const confirmedAllocationCountByAppointment = new Map<string, number>()
+    const lineAppointmentById = new Map(lines.map((line) => [line.id, String(line.appointment.id)]))
+    for (const assignment of assignments) {
+      const appointmentId = lineAppointmentById.get(assignment.sourceEntityId)
+      if (!appointmentId) continue
+      confirmedAllocationCountByAppointment.set(
+        appointmentId,
+        (confirmedAllocationCountByAppointment.get(appointmentId) ?? 0) + 1,
+      )
+    }
+    const totals = mapAppointmentTotals(lines)
     const orgNames = await resolveOrganizationNames(
       em,
       rows.map((row) => row.organizationId),
     )
-    return NextResponse.json({
-      items: rows.map((row) =>
-        mapAppointment(row, orgNames.get(row.organizationId) ?? null),
-      ),
+    const items = rows.map((row) => {
+        const confirmedAllocationCount = confirmedAllocationCountByAppointment.get(row.id) ?? 0
+        const scheduleConfirmationStatus = deriveScheduleConfirmationStatus({
+          createdAt: row.createdAt,
+          confirmedAllocationCount,
+          statusCode: row.statusCode,
+        })
+        const total = totals.get(row.id)
+        return {
+          ...mapAppointment(row, orgNames.get(row.organizationId) ?? null),
+          totalAmount: total?.amount ?? null,
+          currencyCode: total?.currencyCode ?? null,
+          scheduleConfirmationStatus,
+        }
+      })
+    items.sort((left, right) => {
+      const leftPinned = left.scheduleConfirmationStatus === 'unconfirmed'
+      const rightPinned = right.scheduleConfirmationStatus === 'unconfirmed'
+      if (leftPinned !== rightPinned) return leftPinned ? -1 : 1
+      if (leftPinned && rightPinned) return Date.parse(right.createdAt) - Date.parse(left.createdAt)
+      return Date.parse(right.requestedStartAt) - Date.parse(left.requestedStartAt)
     })
+    return NextResponse.json({ items })
   } catch {
     return NextResponse.json(
       {

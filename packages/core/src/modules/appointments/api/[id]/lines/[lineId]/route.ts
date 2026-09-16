@@ -12,6 +12,7 @@ import { resolveOrganizationScopeFilter } from '@open-mercato/core/modules/direc
 import { Appointment } from '../../../../data/entities'
 import { AppointmentSeatPlannerService } from '../../../../lib/seatPlannerService'
 import { APPOINTMENT_RESOURCE_KIND } from '../../route'
+import { emitAppointmentEvent } from '../../../../events'
 
 export type RouteContext = { params: Promise<{ id: string; lineId: string }> }
 
@@ -76,6 +77,13 @@ export async function DELETE(req: Request, ctx: RouteContext) {
 
     const service = new AppointmentSeatPlannerService(em)
     await service.removeLine({ appointmentId, lineId, tenantId: auth.tenantId, organizationId })
+    await emitAppointmentEvent('appointments.appointment.updated', {
+      id: appointmentId,
+      tenantId: auth.tenantId,
+      organizationId: appointment.organizationId,
+      action: 'service_removed',
+      lineId,
+    })
     return NextResponse.json({ success: true, updatedAt: appointment.updatedAt.toISOString() })
   } catch (error) {
     if (isCrudHttpError(error)) return NextResponse.json(error.body, { status: error.status })
