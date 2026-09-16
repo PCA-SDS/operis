@@ -19,7 +19,17 @@ as locales and imported TypeScript fixtures.
 yarn mercato migrate_tps categories <tenantId> <organizationId> [--replace]
 yarn mercato migrate_tps products <tenantId> <organizationId> [--replace]
 yarn mercato migrate_tps resources <tenantId> <organizationId> [--location <location>] [--replace]
+yarn mercato migrate_tps people <tenantId> <rootOrganizationId> [--replace] [--staff-only]
 ```
+
+`people` imports TPS customers once at tenant level under the root organization,
+then creates one staff membership per branch for TPS accounts with the `STAFF`
+role. TPS accounts are linked to tenant-wide Operis users, and missing users are
+created from the TPS bcrypt hash. TPS `job_roles` are imported as branch-scoped
+`StaffTeamRole` records and assigned to each matching membership (for example,
+an account with `LASH` and `NAILS` receives both roles). Use `includeUnlinked=true`
+when loading the assignable staff roster. Pass `--staff-only` to skip customer
+writes.
 
 `--replace` wipes the existing categories for that tenant + organization before
 importing. Without it the command refuses to run when data is already present.

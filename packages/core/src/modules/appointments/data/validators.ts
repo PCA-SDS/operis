@@ -36,6 +36,11 @@ const appointmentLinesSchema = z
   .min(1)
   .max(20)
 
+export const appointmentLineAddSchema = z.object({
+  productId: uuid(),
+  selectedOptions: z.record(z.string(), z.unknown()).optional(),
+})
+
 const appointmentCreateFieldsSchema = z.object({
   requestedStartAt: z.string().datetime({ offset: true }),
   notes: clearableString(2000),
@@ -53,6 +58,8 @@ export const appointmentPublicCreateSchema = appointmentCreateFieldsSchema.exten
 /** Staff create: tenant from auth; organization from body or auth org. */
 export const appointmentStaffCreateSchema = appointmentCreateFieldsSchema.extend({
   organizationId: uuid().optional(),
+  updateCustomerProfile: z.boolean().optional().default(false),
+  customerUpdatedAt: z.string().datetime({ offset: true }).optional(),
 })
 
 export const appointmentStatusUpdateSchema = z.object({
@@ -63,12 +70,16 @@ export const appointmentStatusCatalogCreateSchema = z.object({
   label: z.string().trim().min(1).max(120),
   code: z.string().trim().min(1).max(64).optional(),
   description: clearableString(500),
+  backgroundColor: clearableString(64),
+  textColor: clearableString(64),
   sortOrder: z.number().int().min(0).max(10_000).optional(),
 })
 
 export const appointmentStatusCatalogUpdateSchema = z.object({
   label: z.string().trim().min(1).max(120).optional(),
   description: clearableString(500),
+  backgroundColor: clearableString(64),
+  textColor: clearableString(64),
   sortOrder: z.number().int().min(0).max(10_000).optional(),
 })
 

@@ -67,6 +67,12 @@ const COMMAND_GUARD_ALLOWLIST: Record<string, string> = {
     'OSS-only — user-device rename/deactivate mutates a per-owner device row (devices.user_device), not a shared collaborative-edit surface; the OSS floor covers the same-user two-tab race. Enterprise record_locks migration deferred.',
   'packages/core/src/modules/notifications/api/types/route.ts':
     'OSS-only — per-tenant notification-type override (notifications.settings) is single-admin tenant config edited from the Notification Delivery settings table, not a collaborative merge-dialog target; the OSS floor 409s the concurrent admin two-tab race (the PATCH replaces the whole channels array). Enterprise record_locks migration deferred.',
+  'packages/core/src/modules/appointments/lib/seatPlannerService.ts':
+    'OSS-only — appointment seat-planner draft and confirmation mutations lock the assignment updated_at floor; enterprise record_locks integration is deferred for this service-layer workflow.',
+  'packages/core/src/modules/customers/commands/people.ts':
+    'OSS-only — customer profile updates lock the customer updated_at floor; enterprise record_locks integration is deferred for this command path.',
+  'packages/core/src/modules/resources/lib/resourceAssignmentService.ts':
+    'OSS-only — resource-assignment draft, clear, and confirmation mutations lock the assignment updated_at floor; enterprise record_locks integration is deferred for this service-layer workflow.',
 }
 
 // `enforceCommandOptimisticLock(` but NOT `enforceCommandOptimisticLockWithGuards(`.

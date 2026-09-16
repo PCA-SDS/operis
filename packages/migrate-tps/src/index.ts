@@ -8,5 +8,6 @@
 
 export { migrateTpsCategoriesCommand } from './modules/migrate_tps/categories.js'
 export { migrateTpsProductsCommand } from './modules/migrate_tps/products.js'
+export { migrateTpsAppointmentsCommand } from './modules/migrate_tps/appointments.js'
 export { SERVICE_MENU } from './modules/migrate_tps/data/serviceMenu.js'
 export type { ServiceMenuData } from './modules/migrate_tps/data/types.js'

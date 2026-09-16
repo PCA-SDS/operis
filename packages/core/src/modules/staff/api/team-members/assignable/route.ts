@@ -12,7 +12,7 @@ import {
   resolveAuthActorId,
   resolveCustomersRequestContext,
 } from '@open-mercato/core/modules/customers/lib/interactionRequestContext'
-import { StaffTeam, StaffTeamMember } from '../../../data/entities'
+import { StaffTeam, StaffTeamMember, StaffTeamRole } from '../../../data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 const logger = createLogger('staff')
@@ -22,16 +22,18 @@ const querySchema = z
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(24),
     search: z.string().optional(),
+    includeUnlinked: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
   })
   .passthrough()
 
 const itemSchema = z.object({
   id: z.string().uuid(),
   teamMemberId: z.string().uuid(),
-  userId: z.string().uuid(),
+  userId: z.string().uuid().nullable(),
   displayName: z.string(),
   email: z.string().nullable().optional(),
   teamName: z.string().nullable().optional(),
+  roleNames: z.array(z.string()).optional(),
   user: z
     .object({
       id: z.string().uuid(),
@@ -125,8 +127,15 @@ export async function GET(request: Request) {
           .filter((value): value is string => typeof value === 'string'),
       ),
     )
+    const roleIds = Array.from(
+      new Set(
+        members
+          .flatMap((member) => (Array.isArray(member.roleIds) ? member.roleIds : []))
+          .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+      ),
+    )
 
-    const [users, teams] = await Promise.all([
+    const [users, teams, roles] = await Promise.all([
       userIds.length > 0
         ? findWithDecryption(
             em,
@@ -155,6 +164,20 @@ export async function GET(request: Request) {
             scope,
           )
         : Promise.resolve([]),
+      roleIds.length > 0
+        ? findWithDecryption(
+            em,
+            StaffTeamRole,
+            {
+              id: { $in: roleIds },
+              deletedAt: null,
+              tenantId: auth.tenantId,
+              ...orgFilter.where,
+            },
+            undefined,
+            scope,
+          )
+        : Promise.resolve([]),
     ])
 
     const userById = new Map(
@@ -175,20 +198,25 @@ export async function GET(request: Request) {
         },
       ]),
     )
+    const roleById = new Map(roles.map((role) => [role.id, role.name]))
 
     const items = members
-      .filter((member) => typeof member.userId === 'string' && member.userId.trim().length > 0)
+      .filter((member) => query.includeUnlinked || (typeof member.userId === 'string' && member.userId.trim().length > 0))
       .map((member) => {
-        const userId = member.userId as string
-        const user = userById.get(userId) ?? { id: userId, email: null }
+        const userId = typeof member.userId === 'string' && member.userId.trim().length > 0 ? member.userId : null
+        const user = userId ? userById.get(userId) ?? { id: userId, email: null } : null
         const team = member.teamId ? teamById.get(member.teamId) ?? null : null
+        const roleNames = (Array.isArray(member.roleIds) ? member.roleIds : [])
+          .map((roleId) => roleById.get(roleId))
+          .filter((name): name is string => typeof name === 'string' && name.trim().length > 0)
         return {
           id: member.id,
           teamMemberId: member.id,
           userId,
-          displayName: member.displayName?.trim() || user.email || userId,
-          email: user.email,
+          displayName: member.displayName?.trim() || user?.email || userId || member.id,
+          email: user?.email ?? null,
           teamName: team?.name ?? null,
+          ...(roleNames.length > 0 ? { roleNames } : {}),
           user,
           team,
         }
@@ -204,8 +232,9 @@ export async function GET(request: Request) {
 
     const deduped = Array.from(
       items.reduce((acc, item) => {
-        if (!acc.has(item.userId)) {
-          acc.set(item.userId, item)
+        const key = item.userId ?? `team-member:${item.teamMemberId}`
+        if (!acc.has(key)) {
+          acc.set(key, item)
         }
         return acc
       }, new Map<string, (typeof items)[number]>()),
@@ -238,7 +267,7 @@ export const openApi: OpenApiRouteDoc = {
       summary: 'List staff members that can be assigned from customer flows',
       query: querySchema,
       description:
-        'Returns active staff members linked to auth users. Access requires either customers.roles.manage or customers.activities.manage. Owned by the staff module; consumed from customer flows via this canonical URL. Replaces the deprecated /api/customers/assignable-staff route.',
+        'Returns active staff members, optionally including members without linked auth users. Access requires either customers.roles.manage or customers.activities.manage. Owned by the staff module; consumed from customer flows via this canonical URL. Replaces the deprecated /api/customers/assignable-staff route.',
       responses: [
         {
           status: 200,

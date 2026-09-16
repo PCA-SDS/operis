@@ -80,16 +80,16 @@ export type BookableService = {
   optionGroups: BookableServiceOptionGroup[]
 }
 
-async function assertBookableServiceScope(
+async function resolveBookableCatalogOrganizationIds(
   em: EntityManager,
   scope: BookableServiceScope,
-): Promise<void> {
+): Promise<string[] | null> {
   const tenant = await em.findOne(Tenant, { id: scope.tenantId, isActive: true, deletedAt: null })
   if (!tenant) {
     throw new CrudHttpError(404, { error: 'Tenant not found.', code: 'TENANT_NOT_FOUND' })
   }
 
-  if (!scope.organizationId) return
+  if (!scope.organizationId) return null
 
   const organization = await em.findOne(Organization, {
     id: scope.organizationId,
@@ -100,6 +100,11 @@ async function assertBookableServiceScope(
   if (!organization) {
     throw new CrudHttpError(404, { error: 'Organization not found.', code: 'ORGANIZATION_NOT_FOUND' })
   }
+
+  const ancestorIds = Array.isArray(organization.ancestorIds)
+    ? organization.ancestorIds.filter((id): id is string => typeof id === 'string' && id.length > 0)
+    : []
+  return [...new Set([scope.organizationId, ...ancestorIds])]
 }
 
 /**
@@ -161,12 +166,10 @@ export async function listBookableServicesForOrganization(
   scope: BookableServiceScope,
   deps: BookableServiceDeps,
 ): Promise<BookableService[]> {
-  await assertBookableServiceScope(em, scope)
+  const catalogOrganizationIds = await resolveBookableCatalogOrganizationIds(em, scope)
 
-  const scopedWhere = scope.organizationId ? { organizationId: scope.organizationId } : {}
-  const decryptScope = scope.organizationId
-    ? { tenantId: scope.tenantId, organizationId: scope.organizationId }
-    : { tenantId: scope.tenantId }
+  const scopedWhere = catalogOrganizationIds ? { organizationId: { $in: catalogOrganizationIds } } : {}
+  const decryptScope = { tenantId: scope.tenantId }
 
   // Phase 1 public booking can list the tenant-wide service catalog; organization scoping is optional.
   const [products, channelId] = await Promise.all([
@@ -232,10 +235,10 @@ export async function listBookableServicesForOrganization(
     ),
     findWithDecryption(em, CatalogProductCategory,
       { ...categoryScope, isActive: true, deletedAt: null },
-      { orderBy: { name: 'asc', id: 'asc' } }, categoryScope),
+      { orderBy: { name: 'asc', id: 'asc' } }, decryptScope),
     findWithDecryption(em, CatalogProductCategoryAssignment,
       { ...categoryScope, product: { $in: productIds } },
-      { orderBy: { position: 'asc', id: 'asc' } }, categoryScope),
+      { orderBy: { position: 'asc', id: 'asc' } }, decryptScope),
     em.find(CatalogProductOptionGroup, 
       { ...categoryScope, product: { $in: productIds }, isActive: true, deletedAt: null },
       { orderBy: { sortOrder: 'asc', id: 'asc' } }
