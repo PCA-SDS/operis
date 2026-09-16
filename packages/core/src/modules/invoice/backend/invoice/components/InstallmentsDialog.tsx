@@ -5,7 +5,8 @@ import { Check, Plus, Trash2 } from 'lucide-react'
 import { useInvoiceT as useT } from '@open-mercato/core/modules/invoice/lib/useInvoiceT'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
-import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
@@ -36,6 +37,7 @@ type Invoice = {
   grossAmount: string | null
   paidAmount: string | null
   outstandingAmount: string | null
+  updatedAt: string | null
   installments: PlanItem[]
 }
 
@@ -131,15 +133,18 @@ export function InstallmentsDialog({ invoiceId, onClose, onChanged }: { invoiceI
     const result = await runMutation({
       context: { invoiceId: invoice.id },
       mutationPayload: { installments: rows },
-      operation: () => apiCall(`/api/invoice/invoices/${invoice.id}/installments`, {
-        method: 'PUT',
-        body: JSON.stringify({ installments: rows.map((item) => ({
-          principalAmount: item.principalAmount,
-          interestRate: Number(item.interestRate || 0),
-          dueDate: item.dueDate,
-          note: item.note || null,
-        })) }),
-      }),
+      operation: () => withScopedApiRequestHeaders(
+        buildOptimisticLockHeader(invoice.updatedAt),
+        () => apiCall(`/api/invoice/invoices/${invoice.id}/installments`, {
+          method: 'PUT',
+          body: JSON.stringify({ installments: rows.map((item) => ({
+            principalAmount: item.principalAmount,
+            interestRate: Number(item.interestRate || 0),
+            dueDate: item.dueDate,
+            note: item.note || null,
+          })) }),
+        }),
+      ),
     })
     setBusy(false)
     if (!result.ok) flash(t('invoice.errors.request_failed'), 'error')
@@ -156,10 +161,13 @@ export function InstallmentsDialog({ invoiceId, onClose, onChanged }: { invoiceI
     const result = await runMutation({
       context: { invoiceId: invoice.id, installmentId: item.id },
       mutationPayload: { paid },
-      operation: () => apiCall(`/api/invoice/invoices/${invoice.id}/installments/${item.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ paid }),
-      }),
+      operation: () => withScopedApiRequestHeaders(
+        buildOptimisticLockHeader(invoice.updatedAt),
+        () => apiCall(`/api/invoice/invoices/${invoice.id}/installments/${item.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ paid }),
+        }),
+      ),
     })
     setBusy(false)
     if (result.ok) {
@@ -180,10 +188,13 @@ export function InstallmentsDialog({ invoiceId, onClose, onChanged }: { invoiceI
     const result = await runMutation({
       context: { invoiceId: invoice.id },
       mutationPayload: { settled },
-      operation: () => apiCall(`/api/invoice/invoices/${invoice.id}/settlement`, {
-        method: 'PATCH',
-        body: JSON.stringify({ settled }),
-      }),
+      operation: () => withScopedApiRequestHeaders(
+        buildOptimisticLockHeader(invoice.updatedAt),
+        () => apiCall(`/api/invoice/invoices/${invoice.id}/settlement`, {
+          method: 'PATCH',
+          body: JSON.stringify({ settled }),
+        }),
+      ),
     })
     setBusy(false)
     if (result.ok) {
@@ -203,7 +214,10 @@ export function InstallmentsDialog({ invoiceId, onClose, onChanged }: { invoiceI
     const result = await runMutation({
       context: { invoiceId: invoice.id },
       mutationPayload: { id: invoice.id },
-      operation: () => apiCall(`/api/invoice/invoices/${invoice.id}/installments`, { method: 'DELETE' }),
+      operation: () => withScopedApiRequestHeaders(
+        buildOptimisticLockHeader(invoice.updatedAt),
+        () => apiCall(`/api/invoice/invoices/${invoice.id}/installments`, { method: 'DELETE' }),
+      ),
     })
     setBusy(false)
     if (result.ok) {

@@ -5,7 +5,8 @@ import { useParams, usePathname, useRouter } from 'next/navigation'
 import { useInvoiceT as useT } from '@open-mercato/core/modules/invoice/lib/useInvoiceT'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
-import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -111,10 +112,13 @@ export default function InvoiceDetailPage() {
     try {
       await runMutation({
         operation: async () => {
-          const call = await apiCall<{ ok: true; reversed: true }>(
-            `/api/invoice/invoices/${encodeURIComponent(invoice.id)}/reverse-auto-paid`,
-            { method: 'PATCH' },
-            { fallback: null },
+          const call = await withScopedApiRequestHeaders(
+            buildOptimisticLockHeader(invoice.updatedAt),
+            () => apiCall<{ ok: true; reversed: true }>(
+              `/api/invoice/invoices/${encodeURIComponent(invoice.id)}/reverse-auto-paid`,
+              { method: 'PATCH' },
+              { fallback: null },
+            ),
           )
           if (!call.ok || !call.result?.ok) throw new Error(t('invoice.detail.reverseAutoPaid.failed'))
           return call.result

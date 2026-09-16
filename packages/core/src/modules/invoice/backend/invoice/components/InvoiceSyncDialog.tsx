@@ -51,18 +51,26 @@ export function InvoiceSyncDialog({ open, onOpenChange, availability, initialJob
   React.useEffect(() => { if (open) { setError(null); setPassword(''); setCaptchaSolution(''); setPortalUrl(availability.portalUrl ?? null); if (initialJob) { setJob(initialJob); setStep('progress') } } }, [availability.portalUrl, initialJob, open])
   React.useEffect(() => {
     if (!open || step !== 'progress' || !job || !ACTIVE_STATES.includes(job.state)) return
+    const controller = new AbortController()
     let cancelled = false; let timeout: ReturnType<typeof setTimeout> | null = null
     const poll = async () => {
-      const call = await apiCall<SyncJob>(`/api/invoice/sync/${job.jobId}`)
-      if (cancelled) return
-      if (call.ok && call.result) {
-        setJob(call.result); onJobChange(call.result); setError(null)
-        if (call.result.state === 'DONE' && completedJobRef.current !== call.result.jobId) { completedJobRef.current = call.result.jobId; onCompleted() }
-        if (ACTIVE_STATES.includes(call.result.state)) timeout = setTimeout(poll, 1500)
-      } else { setError(t('invoice.sync.errors.status', 'Progress could not be refreshed. The server task keeps running.')); timeout = setTimeout(poll, 3000) }
+      try {
+        const call = await apiCall<SyncJob>(`/api/invoice/sync/${job.jobId}`, { signal: controller.signal })
+        if (cancelled) return
+        if (call.ok && call.result) {
+          setJob(call.result); onJobChange(call.result); setError(null)
+          if (call.result.state === 'DONE' && completedJobRef.current !== call.result.jobId) { completedJobRef.current = call.result.jobId; onCompleted() }
+          if (ACTIVE_STATES.includes(call.result.state)) timeout = setTimeout(poll, 1500)
+        } else { setError(t('invoice.sync.errors.status', 'Progress could not be refreshed. The server task keeps running.')); timeout = setTimeout(poll, 3000) }
+      } catch {
+        if (!cancelled) {
+          setError(t('invoice.sync.errors.status', 'Progress could not be refreshed. The server task keeps running.'))
+          timeout = setTimeout(poll, 3000)
+        }
+      }
     }
     timeout = setTimeout(poll, 500)
-    return () => { cancelled = true; if (timeout) clearTimeout(timeout) }
+    return () => { cancelled = true; controller.abort(); if (timeout) clearTimeout(timeout) }
   }, [job?.jobId, job?.state, onCompleted, onJobChange, open, step, t])
 
   const moveToJob = React.useCallback((nextJob: SyncJob) => { setPassword(''); setCaptchaSolution(''); setJob(nextJob); onJobChange(nextJob); setStep('progress') }, [onJobChange])

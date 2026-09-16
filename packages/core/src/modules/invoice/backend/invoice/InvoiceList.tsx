@@ -13,7 +13,8 @@ import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Ban, CalendarDays, Pencil, Trash2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { Dropdown } from '@open-mercato/ui/primitives/dropdown'
-import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useInvoiceT as useT } from '@open-mercato/core/modules/invoice/lib/useInvoiceT'
 import { InvoiceSyncButton } from './components/InvoiceSyncButton'
 import { IssuedDateFilter } from './components/IssuedDateFilter'
@@ -21,7 +22,7 @@ import { InstallmentsDialog } from './components/InstallmentsDialog'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 
-type InvoiceRow = { id: string; direction: 'AP' | 'AR'; companyId: string | null; partnerName: string | null; invoiceSymbol: string | null; invoiceNumber: string | null; invoiceDate: string | null; dueDate: string | null; nextDueDate: string | null; currencyCode: string | null; grossAmount: string | null; settlementStatus: string | null; invoiceStatus: string | null; hasInstallmentPlan: boolean; hasReceived: boolean; hasPaid: boolean; autoSettled: boolean; nonRecoverable: boolean; lastSentAt: string | null; origin: string | null }
+type InvoiceRow = { id: string; direction: 'AP' | 'AR'; companyId: string | null; partnerName: string | null; invoiceSymbol: string | null; invoiceNumber: string | null; invoiceDate: string | null; dueDate: string | null; nextDueDate: string | null; currencyCode: string | null; grossAmount: string | null; settlementStatus: string | null; invoiceStatus: string | null; hasInstallmentPlan: boolean; hasReceived: boolean; hasPaid: boolean; autoSettled: boolean; nonRecoverable: boolean; lastSentAt: string | null; origin: string | null; updatedAt: string | null }
 type Response = { items: InvoiceRow[]; total: number; page: number; pageSize: number; totalPages: number }
 type DirectionSummary = { outstandingAmount: string; settledAmount: string; unpaidInvoices: number; partiallyPaidInvoices: number; paidInvoices: number; unreceivedInvoices: number; receivedInvoices: number; nonRecoverableInvoices: number }
 type SummaryResponse = { currency: 'VND'; ar: DirectionSummary; ap: DirectionSummary }
@@ -73,17 +74,18 @@ export function InvoiceList({ direction, showSyncButton = false }: { direction?:
   const load = React.useCallback(async () => { setLoading(true); setFailed(false); const params = new URLSearchParams({ page: String(page), pageSize: '50', sortField: searchParams.get('sortField') ?? 'invoiceDate', sortDir: searchParams.get('sortDir') ?? 'desc' }); if (activeDirection !== 'all') params.set('direction', activeDirection); if (recoverability !== 'all') params.set('recoverability', recoverability); if (fromDate) params.set('fromDate', fromDate); if (toDate) params.set('toDate', toDate); if (search) params.set('search', search); const [call, summaryCall] = await Promise.all([apiCall<Response>(`/api/invoice/invoices?${params}`), direction ? apiCall<SummaryResponse>('/api/invoice/summary') : Promise.resolve(null)]); if (!call.ok || !call.result) setFailed(true); else setPayload(call.result); if (summaryCall?.ok && summaryCall.result) setSummary(summaryCall.result); setLoading(false) }, [activeDirection, direction, fromDate, page, recoverability, search, searchParams, toDate])
   const deleteInvoice = React.useCallback(async () => {
     if (!deletingInvoiceId) return
-    const call = await runMutation({ context: { invoiceId: deletingInvoiceId }, mutationPayload: { id: deletingInvoiceId }, operation: () => apiCall(`/api/invoice/invoices/${deletingInvoiceId}`, { method: 'DELETE' }) })
+    const invoice = payload?.items.find((item) => item.id === deletingInvoiceId)
+    const call = await runMutation({ context: { invoiceId: deletingInvoiceId }, mutationPayload: { id: deletingInvoiceId }, operation: () => withScopedApiRequestHeaders(buildOptimisticLockHeader(invoice?.updatedAt), () => apiCall(`/api/invoice/invoices/${deletingInvoiceId}`, { method: 'DELETE' })) })
     if (call.ok) { setDeletingInvoiceId(null); void load() }
     else flash(t('invoice.errors.request_failed'), 'error')
-  }, [deletingInvoiceId, load, runMutation, t])
+  }, [deletingInvoiceId, load, payload, runMutation, t])
   const updateSettlement = React.useCallback(async (invoice: InvoiceRow, settled: boolean) => {
     if (direction === 'AP') {
       router.push(`/backend/invoice/all/${invoice.id}`)
       return
     }
     setUpdatingInvoiceId(invoice.id)
-    const result = await runMutation({ context: { invoiceId: invoice.id }, mutationPayload: { settled }, operation: () => apiCall(`/api/invoice/invoices/${invoice.id}/settlement`, { method: 'PATCH', body: JSON.stringify({ settled }) }) })
+    const result = await runMutation({ context: { invoiceId: invoice.id }, mutationPayload: { settled }, operation: () => withScopedApiRequestHeaders(buildOptimisticLockHeader(invoice.updatedAt), () => apiCall(`/api/invoice/invoices/${invoice.id}/settlement`, { method: 'PATCH', body: JSON.stringify({ settled }) })) })
     if (!result.ok) flash(t('invoice.errors.request_failed'), 'error')
     setUpdatingInvoiceId(null)
     void load()
@@ -91,7 +93,7 @@ export function InvoiceList({ direction, showSyncButton = false }: { direction?:
   const updateRecoverability = React.useCallback(async (invoice: InvoiceRow) => {
     setUpdatingInvoiceId(invoice.id)
     const body = { nonRecoverable: !invoice.nonRecoverable, note: !invoice.nonRecoverable ? t('invoice.actions.writeOffNote') : null }
-    const result = await runMutation({ context: { invoiceId: invoice.id }, mutationPayload: body, operation: () => apiCall(`/api/invoice/invoices/${invoice.id}/non-recoverable`, { method: 'PATCH', body: JSON.stringify(body) }) })
+    const result = await runMutation({ context: { invoiceId: invoice.id }, mutationPayload: body, operation: () => withScopedApiRequestHeaders(buildOptimisticLockHeader(invoice.updatedAt), () => apiCall(`/api/invoice/invoices/${invoice.id}/non-recoverable`, { method: 'PATCH', body: JSON.stringify(body) })) })
     if (!result.ok) flash(t('invoice.errors.request_failed'), 'error')
     setUpdatingInvoiceId(null)
     void load()

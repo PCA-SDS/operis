@@ -10,7 +10,8 @@ import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
-import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 
 type AutoPaidRule = { id: string; taxCode: string; updatedAt: string | null }
 type Candidate = { taxCode: string; invoiceCount: number }
@@ -75,11 +76,14 @@ export function AutoPaidSettings() {
     try {
       const result = await runMutation({
         operation: async () => {
-          const call = await apiCall<AddResponse>('/api/invoice/auto-paid', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ taxCode: value }),
-          }, { fallback: null })
+          const call = await withScopedApiRequestHeaders(
+            buildOptimisticLockHeader(undefined),
+            () => apiCall<AddResponse>('/api/invoice/auto-paid', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ taxCode: value }),
+            }, { fallback: null }),
+          )
           if (!call.ok || !call.result?.ok) throw new Error(responseError(call.result, t('invoice.settings.autoPaid.addFailed')))
           return call.result
         },
@@ -108,7 +112,10 @@ export function AutoPaidSettings() {
     try {
       const result = await runMutation({
         operation: async () => {
-          const call = await apiCall<RemoveResponse>(`/api/invoice/auto-paid/${encodeURIComponent(rule.id)}`, { method: 'DELETE' }, { fallback: null })
+          const call = await withScopedApiRequestHeaders(
+            buildOptimisticLockHeader(rule.updatedAt),
+            () => apiCall<RemoveResponse>(`/api/invoice/auto-paid/${encodeURIComponent(rule.id)}`, { method: 'DELETE' }, { fallback: null }),
+          )
           if (!call.ok || !call.result?.ok) throw new Error(responseError(call.result, t('invoice.settings.autoPaid.removeFailed')))
           return call.result
         },
