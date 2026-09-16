@@ -506,6 +506,7 @@ export class InvoicePaymentConfirmation {
 @Index({ name: 'invoice_sync_jobs_state_idx', properties: ['organizationId', 'tenantId', 'state'] })
 @Index({ name: 'invoice_sync_jobs_created_at_idx', properties: ['organizationId', 'tenantId', 'createdAt'] })
 @Unique({ name: 'invoice_sync_jobs_idempotency_scope_unique', properties: ['organizationId', 'tenantId', 'idempotencyKey'] })
+@Index({ name: 'invoice_sync_jobs_one_active_scope_idx', expression: "create unique index \"invoice_sync_jobs_one_active_scope_idx\" on \"invoice_sync_jobs\" (\"organization_id\", \"tenant_id\") where \"state\" in ('QUEUED','AUTHENTICATING','FETCHING','PERSISTING')" })
 @Check({
   name: 'invoice_sync_jobs_state_check',
   expression: enumCheck('state', INVOICE_SYNC_JOB_STATES),
@@ -557,6 +558,9 @@ export class InvoiceSyncJob {
 
   @Property({ name: 'failure_message', type: 'text', nullable: true })
   failureMessage?: string | null
+
+  @Property({ name: 'failure_request_id', type: 'uuid', nullable: true })
+  failureRequestId?: string | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

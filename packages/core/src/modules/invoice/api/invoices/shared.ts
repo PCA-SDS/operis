@@ -126,6 +126,22 @@ export const invoiceListResponseSchema = z.object({
 export const invoiceDetailResponseSchema = invoiceListItemDtoSchema.extend({
   lineItems: z.array(invoiceLineItemDtoSchema),
   installments: z.array(invoiceInstallmentDtoSchema),
+  paymentConfirmation: z.object({
+    wholeInvoice: z.object({
+      status: z.enum(['PENDING', 'CONFIRMED', 'REJECTED', 'EXPIRED']),
+      expiresAt: z.string().datetime(),
+    }).nullable(),
+    installments: z.record(z.string(), z.object({
+      status: z.enum(['PENDING', 'CONFIRMED', 'REJECTED', 'EXPIRED']),
+      expiresAt: z.string().datetime(),
+    })),
+    incoming: z.object({
+      confirmationId: z.string().uuid(),
+      payerName: z.string().nullable(),
+      amount: z.string(),
+      currencyCode: z.string(),
+    }).nullable(),
+  }).optional(),
 })
 export const invoiceManualMutationResponseSchema = z.object({
   ok: z.literal(true),

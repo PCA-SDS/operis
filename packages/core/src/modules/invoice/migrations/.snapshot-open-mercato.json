@@ -2657,6 +2657,29 @@
           "keyName": "invoice_payment_confirmations_token_hash_unique",
           "primary": false,
           "unique": true
+        },
+        {
+          "columnNames": [
+            "invoice_id",
+            "installment_id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "expression": "create unique index \"invoice_payment_confirmations_pending_installment_uq\" on \"invoice_payment_confirmations\" (\"invoice_id\", \"installment_id\") where \"status\" = 'PENDING' and \"installment_id\" is not null",
+          "keyName": "invoice_payment_confirmations_pending_installment_uq",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "invoice_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "expression": "create unique index \"invoice_payment_confirmations_pending_invoice_uq\" on \"invoice_payment_confirmations\" (\"invoice_id\") where \"status\" = 'PENDING' and \"installment_id\" is null",
+          "keyName": "invoice_payment_confirmations_pending_invoice_uq",
+          "primary": false,
+          "unique": true
         }
       ],
       "checks": [
@@ -2771,6 +2794,23 @@
           "collation": null,
           "enumItems": [],
           "mappedType": "text"
+        },
+        "failure_request_id": {
+          "name": "failure_request_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
         },
         "finished_at": {
           "name": "finished_at",
@@ -3068,6 +3108,18 @@
           "keyName": "invoice_sync_jobs_state_idx",
           "primary": false,
           "unique": false
+        },
+        {
+          "columnNames": [
+            "organization_id",
+            "tenant_id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "expression": "create unique index \"invoice_sync_jobs_one_active_scope_idx\" on \"invoice_sync_jobs\" (\"organization_id\", \"tenant_id\") where \"state\" in ('QUEUED','AUTHENTICATING','FETCHING','PERSISTING')",
+          "keyName": "invoice_sync_jobs_one_active_scope_idx",
+          "primary": false,
+          "unique": true
         }
       ],
       "checks": [

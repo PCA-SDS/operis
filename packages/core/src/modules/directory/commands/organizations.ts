@@ -83,6 +83,7 @@ type OrganizationUndoSnapshot = {
   id: string
   tenantId: string | null
   name: string
+  taxCode?: string | null
   slug?: string | null
   logoUrl?: string | null
   logoPreserveAspectRatio?: boolean
@@ -121,6 +122,7 @@ function serializeOrganization(entity: Organization, custom?: Record<string, unk
     id: String(entity.id),
     tenantId: resolveTenantIdFromEntity(entity),
     name: entity.name,
+    taxCode: entity.taxCode ?? null,
     slug: entity.slug ?? null,
     logoUrl: entity.logoUrl ?? null,
     logoPreserveAspectRatio: !!entity.logoPreserveAspectRatio,
@@ -147,6 +149,7 @@ function captureOrganizationSnapshots(
       id: String(entity.id),
       tenantId,
       name: entity.name,
+      taxCode: entity.taxCode ?? null,
       slug: entity.slug ?? null,
       logoUrl: entity.logoUrl ?? null,
       logoPreserveAspectRatio: !!entity.logoPreserveAspectRatio,
@@ -308,6 +311,7 @@ const createOrganizationCommand: CommandHandler<Record<string, unknown>, Organiz
           data: {
             tenant: tenantRef,
             name: parsed.name,
+            taxCode: parsed.taxCode ?? null,
             slug,
             logoUrl: parsed.logoUrl ?? null,
             logoPreserveAspectRatio: parsed.logoPreserveAspectRatio ?? false,
@@ -438,6 +442,7 @@ const createOrganizationCommand: CommandHandler<Record<string, unknown>, Organiz
           existing.name = after.name
           if (after.slug !== undefined) existing.slug = after.slug ?? null
           if (after.logoUrl !== undefined) existing.logoUrl = after.logoUrl ?? null
+          if (after.taxCode !== undefined) existing.taxCode = after.taxCode ?? null
           if (after.logoPreserveAspectRatio !== undefined) existing.logoPreserveAspectRatio = !!after.logoPreserveAspectRatio
           existing.isActive = after.isActive
           existing.parentId = after.parentId
@@ -585,6 +590,7 @@ const updateOrganizationCommand: CommandHandler<Record<string, unknown>, Organiz
             if (parsed.name !== undefined) entity.name = parsed.name
             if (resolvedSlug !== undefined) entity.slug = resolvedSlug
             if (parsed.logoUrl !== undefined) entity.logoUrl = parsed.logoUrl ?? null
+            if (parsed.taxCode !== undefined) entity.taxCode = parsed.taxCode ?? null
             if (parsed.logoPreserveAspectRatio !== undefined) entity.logoPreserveAspectRatio = parsed.logoPreserveAspectRatio
             if (parsed.isActive !== undefined) entity.isActive = parsed.isActive
             entity.parentId = parentId
@@ -652,7 +658,7 @@ const updateOrganizationCommand: CommandHandler<Record<string, unknown>, Organiz
       organizationId: String(result.id),
     })
     const after = serializeOrganization(result, custom)
-    const changes = buildChanges(beforeRecord, after as Record<string, unknown>, ['name', 'slug', 'logoUrl', 'logoPreserveAspectRatio', 'isActive', 'parentId'])
+    const changes = buildChanges(beforeRecord, after as Record<string, unknown>, ['name', 'taxCode', 'slug', 'logoUrl', 'logoPreserveAspectRatio', 'isActive', 'parentId'])
     const customDiff = diffCustomFieldChanges(beforeRecord?.custom, custom)
     for (const [key, diff] of Object.entries(customDiff)) {
       changes[`cf_${key}`] = diff
@@ -690,6 +696,7 @@ const updateOrganizationCommand: CommandHandler<Record<string, unknown>, Organiz
             entity.name = before.name
             if (before.slug !== undefined) entity.slug = before.slug
             if (before.logoUrl !== undefined) entity.logoUrl = before.logoUrl ?? null
+            if (before.taxCode !== undefined) entity.taxCode = before.taxCode ?? null
             if (before.logoPreserveAspectRatio !== undefined) entity.logoPreserveAspectRatio = !!before.logoPreserveAspectRatio
             entity.isActive = before.isActive
             entity.parentId = before.parentId

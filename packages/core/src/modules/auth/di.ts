@@ -15,7 +15,9 @@ export { resetRbacFallbackCache }
 
 export function register(container: AppContainer) {
   // Register or override core auth service
-  container.register({ authService: asClass(AuthService).scoped() })
+  container.register({
+    authService: asFunction(({ em }: { em: EntityManager }) => new AuthService(em)).proxy().scoped(),
+  })
   // Per-user module restrictions — the second entitlement layer. `asClass` for the
   // same reason as `tenantModuleService`: CLASSIC injection resolves the constructor's
   // `em` / `cache` parameter names, which an `asFunction((cradle) => …)` form would break.
@@ -39,6 +41,10 @@ export function register(container: AppContainer) {
       }).proxy().scoped(),
     })
   } else {
-    container.register({ rbacService: asClass(RbacService).scoped() })
+    container.register({
+      rbacService: asFunction(({ em, cache }: { em: EntityManager; cache?: CacheStrategy }) =>
+        new RbacService(em, cache),
+      ).proxy().scoped(),
+    })
   }
 }

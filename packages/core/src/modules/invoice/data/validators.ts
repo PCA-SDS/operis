@@ -36,7 +36,7 @@ export const INVOICE_MANUAL_FORM_DEFAULT_DUE_DAYS = 45
 export const INVOICE_PARTNER_DEFAULT_DUE_DAYS = 30
 export const INVOICE_PAYMENT_CONFIRMATION_TOKEN_BYTES = 32
 export const INVOICE_EMAIL_TRACKING_TOKEN_BYTES = 32
-export const INVOICE_PAYMENT_CONFIRMATION_TTL_DAYS = 14
+export const INVOICE_PAYMENT_CONFIRMATION_TTL_DAYS = 7
 export const INVOICE_INSTALLMENT_COUNT_MIN = 2
 export const INVOICE_INSTALLMENT_COUNT_MAX = 60
 export const INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH = 1000
@@ -53,6 +53,8 @@ export const INVOICE_TRACKING_PIXEL_RATE_LIMIT_REQUESTS = 120
 export const INVOICE_TRACKING_PIXEL_RATE_LIMIT_WINDOW_SECONDS = 60
 export const INVOICE_COMPANY_LOOKUP_RATE_LIMIT_REQUESTS = 60
 export const INVOICE_COMPANY_LOOKUP_RATE_LIMIT_WINDOW_SECONDS = 60
+export const INVOICE_PAYMENT_CONFIRMATION_PUBLIC_RATE_LIMIT_REQUESTS = 60
+export const INVOICE_PAYMENT_CONFIRMATION_PUBLIC_RATE_LIMIT_WINDOW_SECONDS = 60
 
 const uuid = () => z.string().uuid()
 const nullableTrimmedString = (max: number) => z.string().trim().max(max).nullable().optional()
@@ -152,6 +154,38 @@ export const invoiceSendSchema = z.object({
   email: invoiceEmailSchema,
 }).strict()
 export type InvoiceSendInput = z.infer<typeof invoiceSendSchema>
+export const invoicePaymentConfirmationRequestSchema = z.object({
+  invoiceId: invoiceIdSchema,
+  recipientEmail: invoiceEmailSchema,
+  installmentId: invoiceInstallmentIdSchema.optional(),
+}).strict()
+export type InvoicePaymentConfirmationRequestInput = z.infer<typeof invoicePaymentConfirmationRequestSchema>
+export const invoiceIncomingPaymentConfirmationSchema = z.object({
+  invoiceId: invoiceIdSchema,
+}).strict()
+export type InvoiceIncomingPaymentConfirmationInput = z.infer<typeof invoiceIncomingPaymentConfirmationSchema>
+export const invoicePaymentConfirmationPublicPreviewSchema = z.object({
+  status: invoicePaymentConfirmationStatusSchema,
+  expiresAt: z.string().datetime(),
+  payerName: z.string().nullable(),
+  payeeName: z.string().nullable(),
+  invoice: z.object({
+    symbol: z.string().nullable(),
+    number: invoiceNumberSchema,
+    amount: invoiceMoneySchema,
+    currencyCode: invoiceCurrencyCodeSchema,
+  }).strict(),
+  installment: z.object({
+    sequence: z.number().int(),
+    amount: invoiceMoneySchema,
+    dueDate: z.string().datetime(),
+  }).strict().nullable(),
+}).strict()
+export type InvoicePaymentConfirmationPublicPreview = z.infer<typeof invoicePaymentConfirmationPublicPreviewSchema>
+export const invoicePaymentConfirmationPublicTransitionSchema = z.object({
+  status: invoicePaymentConfirmationStatusSchema,
+}).strict()
+export type InvoicePaymentConfirmationPublicTransition = z.infer<typeof invoicePaymentConfirmationPublicTransitionSchema>
 export const invoiceCompanyLookupCountrySchema = invoiceCountryCodeSchema
 export const invoiceCompanyLookupIdentifierSchema = z.string().trim().min(1).max(80)
 
@@ -209,7 +243,7 @@ export const invoiceManualLineItemInputSchema = z.object({
     })
   }
 })
-export const invoiceManualWriteSchema = z.object({
+export const invoiceManualWriteBaseSchema = z.object({
   partnerName: invoiceCompanyNameSchema,
   partnerCountryCode: invoiceCountryCodeSchema,
   partnerTaxCode: optionalTrimmedString(invoiceTaxCodeSchema),
@@ -220,7 +254,9 @@ export const invoiceManualWriteSchema = z.object({
   dueDate: invoiceManualNullableDateSchema,
   currencyCode: invoiceCurrencyCodeSchema.default('VND'),
   lineItems: z.array(invoiceManualLineItemInputSchema).min(1).max(INVOICE_LINE_ITEMS_MAX),
-}).strip().superRefine((input, ctx) => {
+}).strip()
+
+const validateManualInvoicePartner = (input: z.infer<typeof invoiceManualWriteBaseSchema>, ctx: z.RefinementCtx) => {
   if (input.partnerCountryCode === 'VN') {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -228,7 +264,9 @@ export const invoiceManualWriteSchema = z.object({
       message: 'Vietnamese partners are not supported for manual invoices',
     })
   }
-})
+}
+
+export const invoiceManualWriteSchema = invoiceManualWriteBaseSchema.superRefine(validateManualInvoicePartner)
 export const invoiceManualCreateSchema = invoiceManualWriteSchema
 export const invoiceManualUpdateSchema = invoiceManualWriteSchema
 export const invoiceDueDateUpdateSchema = z.object({
@@ -241,6 +279,23 @@ export const invoiceSettlementUpdateSchema = z.object({
   settled: z.boolean(),
 }).strict()
 export type InvoiceSettlementUpdateInput = z.infer<typeof invoiceSettlementUpdateSchema>
+export const invoiceNullableNoteSchema = nullableTrimmedString(INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH)
+export const invoiceInstallmentInputSchema = z.object({
+  principalAmount: invoicePositiveMoneySchema,
+  interestRate: invoicePercentSchema,
+  dueDate: invoiceDateSchema,
+  note: invoiceNullableNoteSchema,
+}).strict()
+export const invoiceInstallmentPlanUpdateSchema = z.object({
+  installments: z.array(invoiceInstallmentInputSchema)
+    .min(INVOICE_INSTALLMENT_COUNT_MIN)
+    .max(INVOICE_INSTALLMENT_COUNT_MAX),
+}).strict()
+export type InvoiceInstallmentPlanUpdateInput = z.infer<typeof invoiceInstallmentPlanUpdateSchema>
+export const invoiceInstallmentStatusUpdateSchema = z.object({
+  paid: z.boolean(),
+}).strict()
+export type InvoiceInstallmentStatusUpdateInput = z.infer<typeof invoiceInstallmentStatusUpdateSchema>
 export const invoiceNonRecoverableUpdateSchema = z.object({
   nonRecoverable: z.boolean(),
   note: invoiceNonRecoverableNoteSchema.nullable().optional(),
@@ -289,8 +344,6 @@ export const invoiceInstallmentCountSchema = z.coerce
   .min(INVOICE_INSTALLMENT_COUNT_MIN)
   .max(INVOICE_INSTALLMENT_COUNT_MAX)
 export const invoiceProgressSchema = z.coerce.number().int().min(0).max(100)
-export const invoiceNullableNoteSchema = nullableTrimmedString(INVOICE_NON_RECOVERABLE_NOTE_MAX_LENGTH)
-
 const invoiceHex64Schema = () =>
   z
     .string()
@@ -305,7 +358,38 @@ export function hashInvoicePublicToken(token: InvoicePublicToken): InvoiceTokenH
   return invoiceTokenHashSchema.parse(createHash('sha256').update(token).digest('hex'))
 }
 
-export const invoiceScopeTaxCodesSchema = z.array(invoiceTaxCodeSchema).max(100)
+export const invoiceScopeTaxCodesSchema = z.array(invoiceTaxCodeSchema).max(200)
+export const invoiceVietnameseTaxCodeSchema = z.string().trim().regex(/^\d{10}(?:-\d{3})?$/)
+export const invoiceSyncAcknowledgementsSchema = z.object({
+  dueDatesRequireConfiguration: z.literal(true),
+  settlementIsManual: z.literal(true),
+}).strict()
+export const invoiceSyncStartSchema = z.object({
+  idempotencyKey: z.string().trim().regex(/^[A-Za-z0-9_-]{8,80}$/),
+  fromDate: invoiceDateStringSchema,
+  toDate: invoiceDateStringSchema,
+  scopeTaxCodes: invoiceScopeTaxCodesSchema.default([]),
+  acknowledgements: invoiceSyncAcknowledgementsSchema,
+}).strict()
+export const invoiceSyncAuthenticateSchema = z.object({
+  transactionId: uuid(),
+  password: z.string().min(1).max(512),
+  captchaSolution: z.string().trim().min(1).max(256),
+}).strict()
+export const invoiceSyncJobStatusSchema = z.object({
+  jobId: uuid(), state: invoiceSyncJobStateSchema, progress: z.number().int().min(0).max(100),
+  fromDate: z.string().datetime(), toDate: z.string().datetime(), scopeTaxCodes: z.array(invoiceTaxCodeSchema),
+  counts: z.object({
+    processed: z.number().int().nonnegative(), imported: z.number().int().nonnegative(),
+    updated: z.number().int().nonnegative(), skipped: z.number().int().nonnegative(),
+    errors: z.number().int().nonnegative(),
+  }).strict(),
+  failureCategory: invoiceSyncJobFailureCategorySchema.nullable(), failureMessage: z.string().nullable(),
+  progressJobId: uuid().nullable(), createdAt: z.string().datetime(), updatedAt: z.string().datetime(),
+  startedAt: z.string().datetime().nullable(), finishedAt: z.string().datetime().nullable(),
+  startedBy: z.object({ id: uuid() }).nullable(),
+  failureRequestId: uuid().nullable(),
+}).strict()
 export const invoiceJsonRecordSchema = z.record(z.string(), z.unknown())
 
 export const invoiceCompanyLookupProviderSchema = z.enum(['vietqr', 'data_gov_sg'])

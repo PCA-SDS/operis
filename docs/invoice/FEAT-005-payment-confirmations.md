@@ -1,5 +1,20 @@
 # FEAT-005 - Payment Confirmations
 
+## Operis implementation status
+
+- Status: backend complete as of 2026-09-10 across commits `f5e38145`,
+  `8d8a8d81`, and `b8b9c238`; browser UI remains part of M9 UI parity.
+- Authenticated request is exposed at `POST /api/invoice/payment-confirmations`.
+- Authenticated incoming AR accept/reject actions are exposed below the scoped
+  invoice route and use `invoice.payment_confirmations.manage`.
+- Incoming matching uses the exact seller tax code, buyer tax code, invoice
+  symbol, invoice number, and invoice date. It excludes installment and expired
+  claims and rejects ambiguous matches.
+- Incoming accept coordinates the confirmation transition, payer AP payment,
+  and receiver AR settlement in one transaction through Invoice-owned services.
+- Public token preview/confirm/reject is implemented with anonymous OpenAPI
+  metadata, token-shape validation before lookup, and endpoint rate limiting.
+
 ## Description
 AP payment settlement qua magic link. Tenant buyer bấm "Paid?", nhập email supplier/payee. Supplier mở public link để confirm/reject đã nhận tiền. Với AR tương ứng, tenant seller có thể accept/reject incoming payment claim trong app.
 
@@ -26,11 +41,20 @@ Không cho AP tự mark paid không có xác nhận, trừ auto-paid. Magic link
   - public route `/confirm-payment/:token`
 
 ## Main implementations
-- Backend:
+- Operis backend:
+  - `packages/core/src/modules/invoice/services/payment-confirmations-service.ts`
+  - `packages/core/src/modules/invoice/commands/payment-confirmations.ts`
+  - `packages/core/src/modules/invoice/api/payment-confirmations/route.ts`
+  - `packages/core/src/modules/invoice/api/payment-confirmations/public/[token]/route.ts`
+  - `packages/core/src/modules/invoice/api/payment-confirmations/public/[token]/confirm/route.ts`
+  - `packages/core/src/modules/invoice/api/payment-confirmations/public/[token]/reject/route.ts`
+  - `packages/core/src/modules/invoice/api/invoices/[id]/incoming-confirmation/accept/route.ts`
+  - `packages/core/src/modules/invoice/api/invoices/[id]/incoming-confirmation/reject/route.ts`
+- Legacy reference backend:
   - `apps/backend/src/modules/invoice/features/payment-confirmations/payment-confirmations.controller.ts`
   - `apps/backend/src/modules/invoice/features/payment-confirmations/payment-confirmations.public.controller.ts`
   - `apps/backend/src/modules/invoice/features/payment-confirmations/payment-confirmations.service.ts`
-- Frontend:
+- Legacy reference frontend, pending Operis M9 migration:
   - `apps/frontend/src/modules/invoice/features/invoices/components/PaidConfirmDialog.tsx`
   - `apps/frontend/src/modules/invoice/features/invoices/components/IncomingPaymentDialog.tsx`
   - `apps/frontend/src/core/public/pages/PaymentConfirmationPublicPage.tsx`
@@ -138,7 +162,9 @@ Không cho AP tự mark paid không có xác nhận, trừ auto-paid. Magic link
 - `APP_PUBLIC_URL` default localhost is dev-friendly infra; production config must be reviewed during migration.
 
 ## Evidence
-- `apps/backend/src/modules/invoice/features/payment-confirmations/payment-confirmations.service.spec.ts`
-- `apps/backend/src/infra/throttler/throttle-policy.spec.ts`
-- `apps/backend/prisma/schema.prisma`
-- `packages/shared-types/src/invoice.ts`
+- `packages/core/src/modules/invoice/services/__tests__/payment-confirmations-service.test.ts`
+- `packages/core/src/modules/invoice/api/payment-confirmations/__tests__/route.test.ts`
+- `packages/core/src/modules/invoice/api/payment-confirmations/public/[token]/__tests__/route.test.ts`
+- `packages/core/src/modules/invoice/api/invoices/[id]/incoming-confirmation/__tests__/route.test.ts`
+- `packages/core/src/modules/invoice/__integration__/INV-INV-002-incoming-payment-confirmations.spec.ts`
+- `packages/core/src/modules/invoice/commands/__tests__/payment-confirmations.test.ts`

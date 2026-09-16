@@ -27,6 +27,7 @@ import type { InvoiceExchangeRatesService } from '../services/exchange-rates-ser
 import type { InvoiceCompanyLookupService } from '../services/company-lookup-service'
 import type { InvoiceAutoPaidService } from '../services/auto-paid-service'
 import type { InvoiceService } from '../services/invoice-service'
+import type { InvoicePaymentConfirmationsService } from '../services/payment-confirmations-service'
 
 const MODULE_ROOT = join(__dirname, '..')
 const MIGRATION_SOURCE = readFileSync(
@@ -94,6 +95,7 @@ describe('invoice module foundation', () => {
       'encryption.ts',
       join('commands', 'auto-paid.ts'),
       join('commands', 'invoices.ts'),
+      join('commands', 'payment-confirmations.ts'),
       join('api', 'openapi.ts'),
       join('api', 'company-lookup', '[identifier]', 'route.ts'),
       join('api', 'partners', 'route.ts'),
@@ -110,6 +112,7 @@ describe('invoice module foundation', () => {
       join('services', 'company-lookup-service.ts'),
       join('services', 'exchange-rates-service.ts'),
       join('services', 'invoice-service.ts'),
+      join('services', 'payment-confirmations-service.ts'),
     ]) {
       expect(existsSync(join(MODULE_ROOT, relativePath))).toBe(true)
     }
@@ -177,6 +180,10 @@ describe('invoice module foundation', () => {
     expect(typeof invoiceService.updateManualInvoice).toBe('function')
     expect(typeof invoiceService.deleteManualInvoice).toBe('function')
 
+    const paymentConfirmationsService = container.resolve<InvoicePaymentConfirmationsService>(
+      'invoicePaymentConfirmationsService',
+    )
+    expect(typeof paymentConfirmationsService.request).toBe('function')
     // sendInvoice records the recipient only `if (this.companyEmailsService)`, so a
     // factory or DI signature that quietly drops the argument turns Company Email
     // Memory into a silent no-op that every unit test still passes — the tests

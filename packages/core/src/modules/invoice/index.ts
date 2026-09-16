@@ -2,6 +2,7 @@ import type { ModuleInfo } from '@open-mercato/shared/modules/registry'
 
 import './commands/auto-paid'
 import './commands/invoices'
+import './commands/payment-confirmations'
 
 export const metadata: ModuleInfo = {
   name: 'invoice',
@@ -15,3 +16,16 @@ export const metadata: ModuleInfo = {
 }
 
 export { features } from './acl'
+export { createGdtClient } from './services/gdt-client'
+export { createInvoiceSyncPersistenceService } from './services/sync-persistence-service'
+export {
+  buildGdtSourceInvoiceId,
+  classifyGdtError,
+  fetchGdtRecords,
+  GdtProviderError,
+  iterateGdtWindows,
+  MalformedGdtInvoiceError,
+  normalizeGdtInvoice,
+} from './services/gdt/index'
+export type { GdtClient, GdtAuthResult } from './services/gdt-client'
+export type { NormalizedInvoiceLine, NormalizedInvoiceSource } from './services/gdt/index'
