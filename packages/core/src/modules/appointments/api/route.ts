@@ -15,6 +15,7 @@ import { appointmentStaffCreateSchema } from '../data/validators'
 import { createAppointmentFromPublicIntake } from '../lib/intake'
 import { emitAppointmentEvent } from '../events'
 import { deriveScheduleConfirmationStatus } from '../lib/scheduleTracking'
+import { compareAppointmentListRows } from '../lib/appointmentListSorting'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -162,13 +163,7 @@ export async function GET(req: Request) {
           scheduleConfirmationStatus,
         }
       })
-    items.sort((left, right) => {
-      const leftPinned = left.scheduleConfirmationStatus === 'unconfirmed'
-      const rightPinned = right.scheduleConfirmationStatus === 'unconfirmed'
-      if (leftPinned !== rightPinned) return leftPinned ? -1 : 1
-      if (leftPinned && rightPinned) return Date.parse(right.createdAt) - Date.parse(left.createdAt)
-      return Date.parse(right.requestedStartAt) - Date.parse(left.requestedStartAt)
-    })
+    items.sort(compareAppointmentListRows)
     return NextResponse.json({ items })
   } catch {
     return NextResponse.json(

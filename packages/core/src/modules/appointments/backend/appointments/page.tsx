@@ -220,6 +220,8 @@ export default function AppointmentsListPage() {
   const [rows, setRows] = React.useState<Row[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [search, setSearch] = React.useState('')
+  const [page, setPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState(10)
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [selectedStatusCodes, setSelectedStatusCodes] = React.useState<Set<string>>(() => new Set())
   const [reloadToken, setReloadToken] = React.useState(0)
@@ -399,6 +401,16 @@ export default function AppointmentsListPage() {
       ),
     [rows, search, selectedStatusCodes, statusLabelByCode],
   )
+  const totalPages = Math.ceil(visibleRows.length / pageSize)
+  const currentPage = totalPages === 0 ? 1 : Math.min(page, totalPages)
+  const paginatedRows = React.useMemo(
+    () => visibleRows.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [currentPage, pageSize, visibleRows],
+  )
+
+  React.useEffect(() => {
+    if (page !== currentPage) setPage(currentPage)
+  }, [currentPage, page])
 
   const columns = React.useMemo<ColumnDef<Row>[]>(
     () => [
@@ -529,7 +541,10 @@ export default function AppointmentsListPage() {
           <StatusFilterButton
             options={statusOptions}
             selectedCodes={selectedStatusCodes}
-            onChange={(codes) => setSelectedStatusCodes(new Set(codes))}
+            onChange={(codes) => {
+              setSelectedStatusCodes(new Set(codes))
+              setPage(1)
+            }}
             t={t}
           />
         ),
@@ -606,13 +621,28 @@ export default function AppointmentsListPage() {
             </div>
           }
           columns={columns}
-          data={visibleRows}
+          data={paginatedRows}
+          pagination={{
+            page: currentPage,
+            pageSize,
+            total: visibleRows.length,
+            totalPages,
+            onPageChange: setPage,
+            pageSizeOptions: [10, 25, 50, 100],
+            onPageSizeChange: (nextPageSize) => {
+              setPageSize(nextPageSize)
+              setPage(1)
+            },
+          }}
           filters={filters}
           filterValues={filterValues}
           onFiltersApply={(values) => setFilterValues(values)}
           onFiltersClear={() => setFilterValues({})}
           searchValue={search}
-          onSearchChange={setSearch}
+          onSearchChange={(value) => {
+            setSearch(value)
+            setPage(1)
+          }}
           searchPlaceholder={t('appointments.list.search.placeholder', 'Search bookings…')}
           isLoading={isLoading}
         />
