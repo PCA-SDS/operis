@@ -11,6 +11,28 @@
     "typecheck": "tsc --noEmit"
   },
   "exports": {
+    "./modules/channel_expo": {
+      "types": "./src/modules/channel_expo/index.ts",
+      "default": "./dist/modules/channel_expo/index.js"
+    },
+    "./modules/channel_expo/contract": {
+      "types": "./src/modules/channel_expo/contract.ts",
+      "default": "./dist/modules/channel_expo/contract.js"
+    },
+    "./modules/channel_expo/*": null,
+    "./internal/*.json": "./src/*.json",
+    "./internal/*": {
+      "types": [
+        "./src/*.ts",
+        "./src/*.tsx",
+        "./src/*/index.ts",
+        "./src/*/index.tsx"
+      ],
+      "default": [
+        "./dist/*.js",
+        "./dist/*/index.js"
+      ]
+    },
     ".": "./dist/index.js",
     "./*.ts": {
       "types": "./src/*.ts",

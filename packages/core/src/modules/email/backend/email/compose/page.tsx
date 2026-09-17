@@ -9,16 +9,16 @@ import { Input } from '@open-mercato/ui/primitives/input'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { HelpLabel } from '@open-mercato/core/modules/email/components/HelpLabel'
-import { copyHtml, copyText } from '@open-mercato/core/modules/email/components/clipboard'
-import { FIELD_CLASS, PANEL_CLASS, PREVIEW_FRAME_CLASS, SUBPANEL_CLASS, previewDocument } from '@open-mercato/core/modules/email/components/formStyles'
+import { HelpLabel } from '../../../components/HelpLabel'
+import { copyHtml, copyText } from '../../../components/clipboard'
+import { FIELD_CLASS, PANEL_CLASS, PREVIEW_FRAME_CLASS, SUBPANEL_CLASS, previewDocument } from '../../../components/formStyles'
 import {
   blocksFromRecord,
   blocksToHtml,
   parseVariableTypes,
   renderHtmlPreviewWithSamples,
   renderWithSamples,
-} from '@open-mercato/core/modules/email/components/templateHtml'
+} from '../../../components/templateHtml'
 
 type EmailTemplateRow = {
   id: string

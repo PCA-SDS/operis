@@ -5,12 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Check, CircleAlert, Info, Paperclip, RefreshCw, ShieldCheck, Trash2, TriangleAlert } from 'lucide-react'
 import { useLocale, useT, type TranslateFn } from '@open-mercato/shared/lib/i18n/context'
-import { localizeDictionaryLabel } from '@open-mercato/core/modules/warranty_claims/lib/dictionaryLabels'
-import { formatQuantity } from '@open-mercato/core/modules/warranty_claims/lib/quantity'
+import { localizeDictionaryLabel } from '../../../../../lib/dictionaryLabels'
+import { formatQuantity } from '../../../../../lib/quantity'
 import {
   ATTACHMENT_ACCEPT_TYPES,
   validateAttachmentFile,
-} from '@open-mercato/core/modules/warranty_claims/lib/portalAttachmentValidation'
+} from '../../../../../lib/portalAttachmentValidation'
 import { Button } from '@open-mercato/ui/primitives/button'
 import {
   Dialog,

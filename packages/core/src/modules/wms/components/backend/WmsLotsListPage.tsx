@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { extensionPoints } from '@open-mercato/core/modules/wms/extension-points'
+import { extensionPoints } from '../../extension-points'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'

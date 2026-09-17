@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@open-mercato/
 import { Dropdown } from '@open-mercato/ui/primitives/dropdown'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
-import { useInvoiceT as useT } from '@open-mercato/core/modules/invoice/lib/useInvoiceT'
+import { useInvoiceT as useT } from '../../lib/useInvoiceT'
 import { InvoiceSyncButton } from './components/InvoiceSyncButton'
 import { IssuedDateFilter } from './components/IssuedDateFilter'
 import { InstallmentsDialog } from './components/InstallmentsDialog'

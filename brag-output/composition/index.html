@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Operis ERP — Product Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #0b1322;
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        color: #eaf0f9;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ---------- persistent backdrop ---------- */
+      .backdrop {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        background:
+          radial-gradient(1200px 780px at 22% 8%, rgba(67, 96, 142, 0.42), transparent 62%),
+          radial-gradient(980px 700px at 88% 96%, rgba(47, 72, 112, 0.34), transparent 60%),
+          linear-gradient(168deg, #16233a 0%, #101a2e 52%, #0b1322 100%);
+      }
+      .grain {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        opacity: 0.5;
+        background-image: linear-gradient(
+          to bottom,
+          rgba(255, 255, 255, 0.035) 0%,
+          rgba(255, 255, 255, 0) 38%
+        );
+      }
+
+      /* ---------- shared scene furniture ---------- */
+      .scene {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+      }
+      .frame {
+        position: absolute;
+        left: 200px;
+        top: 24px;
+        width: 1520px;
+        height: 950px;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #f7f9fc;
+        box-shadow:
+          0 2px 0 rgba(255, 255, 255, 0.16) inset,
+          0 44px 96px rgba(4, 9, 18, 0.62),
+          0 4px 16px rgba(4, 9, 18, 0.4);
+      }
+      .stage {
+        position: absolute;
+        inset: 0;
+      }
+      .stage img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: fill;
+      }
+
+      /* ---------- highlight ---------- */
+      .hl {
+        position: absolute;
+        border: 3px solid rgba(67, 96, 142, 0.95);
+        border-radius: 8px;
+        box-shadow:
+          0 0 0 3px rgba(255, 255, 255, 0.55),
+          0 10px 28px rgba(16, 26, 46, 0.28);
+        pointer-events: none;
+      }
+
+      /* ---------- cursor ---------- */
+      .cursor {
+        position: absolute;
+        width: 26px;
+        height: 26px;
+        margin-left: -13px;
+        margin-top: -13px;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .cursor .dot {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: rgba(20, 34, 58, 0.92);
+        border: 2px solid rgba(255, 255, 255, 0.92);
+        box-shadow: 0 6px 16px rgba(10, 18, 32, 0.45);
+      }
+      .cursor .ring {
+        position: absolute;
+        left: -13px;
+        top: -13px;
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        border: 3px solid rgba(67, 96, 142, 0.85);
+        opacity: 0;
+      }
+
+      /* ---------- caption band ---------- */
+      .cap {
+        position: absolute;
+        left: 200px;
+        top: 996px;
+        width: 1330px;
+        display: flex;
+        align-items: baseline;
+        gap: 20px;
+      }
+      .cap .bar {
+        width: 4px;
+        height: 30px;
+        border-radius: 2px;
+        background: #6e90c8;
+        align-self: center;
+      }
+      .cap .eyebrow {
+        font-size: 19px;
+        font-weight: 600;
+        letter-spacing: 0.17em;
+        text-transform: uppercase;
+        color: #8fa9d4;
+        white-space: nowrap;
+      }
+      .cap .head {
+        font-size: 35px;
+        font-weight: 500;
+        letter-spacing: -0.012em;
+        color: #eef3fa;
+      }
+      .wordmark {
+        position: absolute;
+        right: 200px;
+        top: 1006px;
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        color: #7e97c2;
+        z-index: 3;
+      }
+
+      /* ---------- progress ---------- */
+      .progress {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 3px;
+        background: rgba(143, 169, 212, 0.14);
+        z-index: 4;
+      }
+      .progress-fill {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, #43608e, #7fa0d4);
+      }
+
+      /* ---------- title card ---------- */
+      .card {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .mark {
+        font-size: 128px;
+        font-weight: 600;
+        letter-spacing: -0.04em;
+        color: #f2f6fc;
+      }
+      .mark-rule {
+        width: 220px;
+        height: 3px;
+        margin: 34px 0 30px;
+        border-radius: 2px;
+        background: linear-gradient(90deg, rgba(126, 160, 212, 0), #7fa0d4, rgba(126, 160, 212, 0));
+      }
+      .kicker {
+        font-size: 33px;
+        font-weight: 500;
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+        color: #9fb7dd;
+      }
+      .sub {
+        margin-top: 42px;
+        font-size: 31px;
+        font-weight: 400;
+        color: #b8c9e4;
+      }
+
+      /* ---------- outro ---------- */
+      .outro-head {
+        font-size: 54px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        color: #f2f6fc;
+        text-align: center;
+        max-width: 1580px;
+      }
+      .pillars {
+        margin-top: 58px;
+        display: grid;
+        grid-template-columns: repeat(3, auto);
+        gap: 20px 22px;
+        justify-content: center;
+      }
+      .pillar {
+        padding: 19px 32px;
+        border-radius: 999px;
+        border: 1px solid rgba(143, 169, 212, 0.34);
+        background: rgba(67, 96, 142, 0.18);
+        font-size: 26px;
+        font-weight: 500;
+        color: #d7e3f4;
+        white-space: nowrap;
+      }
+      .outro-foot {
+        margin-top: 64px;
+        font-size: 22px;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: #8fa9d4;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="101"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div class="backdrop"></div>
+      <div class="grain"></div>
+
+      <!-- 1 — title card -->
+      <section id="title-card" class="clip" data-start="0" data-duration="5" data-track-index="0">
+        <div class="card">
+          <div id="tc-mark" class="mark">Operis</div>
+          <div id="tc-rule" class="mark-rule"></div>
+          <div id="tc-kicker" class="kicker">Enterprise Resource Planning</div>
+          <div id="tc-sub" class="sub">
+            One platform for customers, sales, fulfilment and finance.
+          </div>
+        </div>
+      </section>
+
+      <!-- 2 — workspace -->
+      <section
+        id="sc-01"
+        class="clip scene"
+        data-start="5"
+        data-duration="7"
+        data-track-index="0"
+        data-zoom="1"
+        data-ox="0"
+        data-oy="0"
+      >
+        <div class="frame">
+          <div class="stage" data-layout-allow-overflow><img src="assets/screens/01-dashboard.png" alt="Operis dashboard" /></div>
+        </div>
+        <div class="cap">
+          <span class="bar"></span><span class="eyebrow">Workspace</span>
+          <span class="head">Your workspace opens on what needs attention</span>
+        </div>
+      </section>
+
+      <!-- 3 — customers list -->
+      <section
+        id="sc-02"
+        class="clip scene"
+        data-start="12"
+        data-duration="6"
+        data-track-index="0"
+        data-zoom="1"
+        data-ox="0"
+        data-oy="0"
+      >
+        <div class="frame">
+          <div class="stage" data-layout-allow-overflow>
+            <img src="assets/screens/02-companies.png" alt="Companies list" />
+            <div class="cursor" data-at="1" data-click="2.9" style="left: 28.86%; top: 28.8%">
+              <div class="ring"></div>
+              <div class="dot"></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">
+          <span class="bar"></span><span class="eyebrow">Customers</span>
+          <span class="head">Every customer in one list</span>
+        </div>
+      </section>
+
+      <!-- 4 — customer 360 -->
+      <section
+        id="sc-03"
+        class="clip scene"
+        data-start="18"
+        data-duration="7"
+        data-track-index="0"
+        data-zoom="1.08"
+        data-ox="0"
+        data-oy="0"
+      >
+        <div class="frame">
+          <div class="stage" data-layout-allow-overflow>
+            <img src="assets/screens/03-company-360.png" alt="Customer record" />
+            <div
+              class="hl"
+              data-at="0.9"
+              style="left: 20.2%; top: 25.6%; width: 11.6%; height: 10.4%"
+            ></div>
+          </div>
+        </div>
+        <div class="cap">
+          <span class="bar"></span><span class="eyebrow">Customer 360</span>
+          <span class="head">Contacts, deals and activity on a single record</span>
+        </div>
+      </section>
+
+      <!-- 5 — pipeline -->
+      <section
+        id="sc-04"
+        class="clip scene"
+        data-start="25"
+        data-duration="7"
+        data-track-index="0"
+        data-zoom="1.05"
+        data-ox="0"
+        data-oy="0"
+      >
+        <div class="frame">
+          <div class="stage" data-layout-allow-overflow><img src="assets/screens/04-pipeline.png" alt="Sales pipeline" /></div>
+        </div>
+        <div class="cap">
+          <span class="bar"></span><span class="eyebrow">Pipeline</span>
+          <span class="head">Move opportunities stage by stage</span>
+        </div>
+      </section>
+
+      <!-- 6 — forecasting -->
+      <section
+        id="sc-05"
+        class="clip scene"
+        data-start="32"
+        data-duration="6"
+        data-track-index="0"
+        data-zoom="1"
+        data-ox="0"
+        data-oy="0"
+      >
+        <div class="frame">
+          <div class="stage" data-layout-allow-overflow>
+            <img src="assets/screens/05-deals-list.png" alt="Deal metrics" />
+            <div class="hl" data-at="0.9" style="left: 15.4%; top: 11.4%; width: 80.6%; height: 16.2%"></div>
+          </div>
+        </div>
+        <div class="cap">
+          <span class="bar"></span><span class="eyebrow">Forecasting</span>
+          <span class="head">Pipeline value and win rate, always current</span>
+        </div>
+      </section>
+
+      <!-- 7 — catalogue -->
+      <section
+        id="sc-06"
+        class="clip scene"
+        data-start="38"
+        data-duration="6"
+        data-track-index="0"
+        data-zoom="1"
+        data-ox="0"
+        data-oy="0"
+      >
+        <div class="frame">
+          <div class="stage" data-layout-allow-overflow>
+            <img src="assets/screens/06-catalog.png" alt="Product catalogue" />
+            <div class="cursor" data-at="0.9" data-click="2.8" style="left: 51.69%; top: 28.85%">
+              <div class="ring"></div>
+              <div class="dot"></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">
+          <span class="bar"></span><span class="eyebrow">Catalogue</span>
+          <span class="head">Products and services in one catalogue</span>
+        </div>
+      </section>
+
+      <!-- 8 — product data -->
+      <section
+        id="sc-07"
+        class="clip scene"
+        data-start="44"
+        data-duration="6"
+        data-track-index="0"
+        data-zoom="1.06"
+        data-ox="0"
+        data-oy="0"
+      >
+        <div class="frame">
+          <div class="stage" data-layout-allow-overflow><img src="assets/screens/07-product.png" alt="Product detail" /></div>
+        </div>
+        <div class="cap">
+          <span class="bar"></span><span class="eyebrow">Product data</span>
+          <span class="head">Variants, pricing and compliance in one place</span>
+        </div>
+      </section>
+
+      <!-- 9 — quoting -->
+      <section
+        id="sc-08"
+        class="clip scene"
+        data-start="50"
+        data-duration="6"
+        data-track-index="0"
+        data-zoom="1"
+        data-ox="0"
+        data-oy="0"
+      >
+        <div class="frame">
+          <div class="stage" data-layout-allow-overflow><img src="assets/screens/08-quotes.png" alt="Sales quotes" /></div>
+        </div>
+        <div class="cap">
+          <span class="bar"></span><span class="eyebrow">Quoting</span>
+          <span class="head">Quote straight from the catalogue</span>
+        </div>
+      </section>
+
+      <!-- 10 — orders -->
+      <section
+        id="sc-09"
+        class="clip scene"
+        data-start="56"
+        data-duration="6"
+        data-track-index="0"
+        data-zoom="1"
+        data-ox="0"
+        data-oy="0"
+      >
+        <div class="frame">
+          <div class="stage" data-layout-allow-overflow>
+            <img src="assets/screens/09-orders.png" alt="Sales orders" />
+            <div class="cursor" data-at="0.9" data-click="2.8" style="left: 25.56%; top: 28.7%">
+              <div class="ring"></div>
+              <div class="dot"></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">
+          <span class="bar"></span><span class="eyebrow">Orders</span>
+          <span class="head">Accepted quotes become orders</span>
+        </div>
+      </section>
+
+      <!-- 11 — order document -->
+      <section
+        id="sc-10"
+        class="clip scene"
+        data-start="62"
+        data-duration="7"
+        data-track-index="0"
+        data-zoom="1"
+        data-ox="0"
+        data-oy="0"
+      >
+        <div class="frame">
+          <div class="stage" data-layout-allow-overflow>
+            <img src="assets/screens/10-order-items.png" alt="Sales order detail" />
+            <div
+              class="hl"
+              data-at="0.9"
+              style="left: 19.6%; top: 73.6%; width: 76.4%; height: 17.4%"
+            ></div>
+            <div class="cursor" data-at="3.9" data-click="5.3" style="left: 41.67%; top: 43.55%">
+              <div class="ring"></div>
+              <div class="dot"></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">
+          <span class="bar"></span><span class="eyebrow">Order</span>
+          <span class="head">One document carries the whole order</span>
+        </div>
+      </section>
+
+      <!-- 12 — fulfilment -->
+      <section
+        id="sc-11"
+        class="clip scene"
+        data-start="69"
+        data-duration="6"
+        data-track-index="0"
+        data-zoom="1"
+        data-ox="0"
+        data-oy="0"
+      >
+        <div class="frame">
+          <div class="stage" data-layout-allow-overflow>
+            <img src="assets/screens/11-order-shipments.png" alt="Order shipments" />
+            <div class="cursor" data-at="2.6" data-click="4" style="left: 47.85%; top: 43.55%">
+              <div class="ring"></div>
+              <div class="dot"></div>
+            </div>
+          </div>
+        </div>
+        <div class="cap">
+          <span class="bar"></span><span class="eyebrow">Fulfilment</span>
+          <span class="head">Shipments tracked line by line</span>
+        </div>
+      </section>
+
+      <!-- 13 — finance -->
+      <section
+        id="sc-12"
+        class="clip scene"
+        data-start="75"
+        data-duration="6"
+        data-track-index="0"
+        data-zoom="1"
+        data-ox="0"
+        data-oy="0"
+      >
+        <div class="frame">
+          <div class="stage" data-layout-allow-overflow>
+            <img src="assets/screens/12-order-payments.png" alt="Order payments" />
+          </div>
+        </div>
+        <div class="cap">
+          <span class="bar"></span><span class="eyebrow">Finance</span>
+          <span class="head">Payments settle against the order</span>
+        </div>
+      </section>
+
+      <!-- 14 — automation -->
+      <section
+        id="sc-13"
+        class="clip scene"
+        data-start="81"
+        data-duration="6"
+        data-track-index="0"
+        data-zoom="1.05"
+        data-ox="0"
+        data-oy="0"
+      >
+        <div class="frame">
+          <div class="stage" data-layout-allow-overflow>
+            <img src="assets/screens/14-workflows.png" alt="Workflow definitions" />
+          </div>
+        </div>
+        <div class="cap">
+          <span class="bar"></span><span class="eyebrow">Automation</span>
+          <span class="head">Order-to-fulfilment runs as a workflow</span>
+        </div>
+      </section>
+
+      <!-- 15 — governance -->
+      <section
+        id="sc-14"
+        class="clip scene"
+        data-start="87"
+        data-duration="6"
+        data-track-index="0"
+        data-zoom="1.04"
+        data-ox="0"
+        data-oy="0"
+      >
+        <div class="frame">
+          <div class="stage" data-layout-allow-overflow><img src="assets/screens/16-rules.png" alt="Business rules" /></div>
+        </div>
+        <div class="cap">
+          <span class="bar"></span><span class="eyebrow">Governance</span>
+          <span class="head">Business rules enforce policy automatically</span>
+        </div>
+      </section>
+
+      <!-- 16 — outro -->
+      <section id="outro" class="clip" data-start="93" data-duration="8" data-track-index="0">
+        <div class="card">
+          <div id="ou-head" class="outro-head">
+            One platform for customers, sales, fulfilment and finance.
+          </div>
+          <div class="pillars">
+            <div class="pillar">Customer 360</div>
+            <div class="pillar">Pipeline &amp; forecasting</div>
+            <div class="pillar">Catalogue &amp; quoting</div>
+            <div class="pillar">Order to cash</div>
+            <div class="pillar">Workflow automation</div>
+            <div class="pillar">Multi-tenant by design</div>
+          </div>
+          <div id="ou-foot" class="outro-foot">Operis</div>
+        </div>
+      </section>
+
+      <div class="wordmark">Operis ERP</div>
+
+      <div class="progress"><div id="progress-fill" class="progress-fill"></div></div>
+
+      <audio
+        id="bgm"
+        src="assets/audio/bgm.mp3"
+        data-start="0"
+        data-duration="101"
+        data-track-index="10"
+        data-volume="0.5"
+      ></audio>
+    </div>
+
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      const TOTAL = 101;
+      const OUT = 0.5;
+
+      // --- title card ---
+      tl.fromTo("#tc-mark", { scale: 0.985, transformOrigin: "50% 50%" }, { scale: 1, duration: 1.4, ease: "power2.out" }, 0);
+      tl.fromTo("#tc-rule", { opacity: 0, scaleX: 0 }, { opacity: 1, scaleX: 1, duration: 0.8, ease: "power2.out" }, 0.35);
+      tl.fromTo("#tc-kicker", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" }, 0.55);
+      tl.fromTo("#tc-sub", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" }, 0.85);
+      tl.to("#title-card .card", { opacity: 0, duration: 0.55, ease: "power2.in" }, 5 - OUT);
+
+      // --- screen scenes ---
+      document.querySelectorAll(".scene").forEach((scene) => {
+        const t0 = parseFloat(scene.dataset.start);
+        const dur = parseFloat(scene.dataset.duration);
+        const zoom = parseFloat(scene.dataset.zoom || "1");
+        const origin = (scene.dataset.ox || "50") + "% " + (scene.dataset.oy || "50") + "%";
+        const stage = scene.querySelector(".stage");
+        const frame = scene.querySelector(".frame");
+        const cap = scene.querySelector(".cap");
+
+        // slow push-in across the whole slot — the only continuous motion
+        tl.fromTo(
+          stage,
+          { scale: zoom, transformOrigin: origin },
+          { scale: zoom * 1.025, duration: dur, ease: "none" },
+          t0,
+        );
+
+        // cross-dissolve with a small lateral drift
+        tl.fromTo(frame, { opacity: 0, x: 26 }, { opacity: 1, x: 0, duration: 0.65, ease: "power2.out" }, t0);
+        tl.to(frame, { opacity: 0, x: -18, duration: OUT, ease: "power2.in" }, t0 + dur - OUT);
+
+        tl.fromTo(cap, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, t0 + 0.35);
+        tl.to(cap, { opacity: 0, duration: 0.4, ease: "power2.in" }, t0 + dur - OUT);
+
+        const hl = scene.querySelector(".hl");
+        if (hl) {
+          const at = parseFloat(hl.dataset.at || "1");
+          tl.fromTo(hl, { opacity: 0, scale: 0.98 }, { opacity: 1, scale: 1, duration: 0.5, ease: "power2.out" }, t0 + at);
+          tl.to(hl, { opacity: 0, duration: 0.35, ease: "power2.in" }, t0 + dur - OUT);
+        }
+
+        const cursor = scene.querySelector(".cursor");
+        if (cursor) {
+          const at = parseFloat(cursor.dataset.at || "1");
+          const click = parseFloat(cursor.dataset.click || String(at + 1.6));
+          tl.fromTo(
+            cursor,
+            { opacity: 0, x: -168, y: 124 },
+            { opacity: 1, x: 0, y: 0, duration: 1.25, ease: "power2.inOut" },
+            t0 + at,
+          );
+          tl.to(cursor.querySelector(".dot"), { scale: 0.76, duration: 0.11, yoyo: true, repeat: 1, ease: "power2.inOut" }, t0 + click);
+          tl.fromTo(
+            cursor.querySelector(".ring"),
+            { opacity: 0.85, scale: 0.42 },
+            { opacity: 0, scale: 1.75, duration: 0.75, ease: "power2.out" },
+            t0 + click,
+          );
+          tl.to(cursor, { opacity: 0, duration: 0.3, ease: "power2.in" }, t0 + dur - 0.75);
+        }
+      });
+
+      // --- outro ---
+      tl.fromTo("#ou-head", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 93.3);
+      tl.fromTo(
+        "#outro .pillar",
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.55, stagger: 0.09, ease: "power2.out" },
+        93.85,
+      );
+      tl.fromTo("#ou-foot", { opacity: 0 }, { opacity: 1, duration: 0.7, ease: "power2.out" }, 94.9);
+
+      // --- persistent chrome ---
+      tl.fromTo("#progress-fill", { scaleX: 0, transformOrigin: "0% 50%" }, { scaleX: 1, duration: TOTAL, ease: "none" }, 0);
+      tl.fromTo(".wordmark", { opacity: 0 }, { opacity: 1, duration: 0.8, ease: "power2.out" }, 5);
+      tl.to(".wordmark", { opacity: 0, duration: 0.5, ease: "power2.in" }, 92.6);
+
+      // --- audio bed ---
+      tl.fromTo("#bgm", { volume: 0 }, { volume: 0.5, duration: 1.6, ease: "none" }, 0);
+      tl.to("#bgm", { volume: 0, duration: 3.6, ease: "none" }, 97.4);
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

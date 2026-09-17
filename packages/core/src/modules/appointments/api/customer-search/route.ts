@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
@@ -23,4 +24,19 @@ export async function GET(req: Request) {
   const em = (container.resolve('em') as EntityManager).fork()
   const items = await searchPeopleForBooking(em, { tenantId: auth.tenantId }, parsed.data.search)
   return NextResponse.json({ items })
+}
+
+export const openApi: OpenApiRouteDoc = {
+  tag: 'Appointments',
+  summary: 'Search people for booking',
+  methods: {
+    GET: {
+      summary: 'Search people for booking',
+      description: 'Type-ahead over the caller\'s tenant, capped at 10 results.',
+      responses: [
+        { status: 200, description: 'Matching people' },
+        { status: 401, description: 'Unauthorized' },
+      ],
+    },
+  },
 }

@@ -8,6 +8,12 @@ module.exports = {
   rootDir: '.',
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
   moduleNameMapper: {
+    // Generated registries address package-backed modules through the 'internal'
+    // composition-root subpath, which maps 1:1 onto that package's src/. Jest has
+    // its own resolver and never reads package exports, so without this the
+    // generated bootstrap fails to resolve. Must stay FIRST — the generic
+    // '@open-mercato/<pkg>/(.*)' rules below would otherwise swallow 'internal/'.
+    '^@open-mercato/([^/]+)/internal/(.*)$': '<rootDir>/../$1/src/$2',
     '^@open-mercato/shared/(.*)$': '<rootDir>/../shared/src/$1',
     '^@open-mercato/ui/(.*)$': '<rootDir>/../ui/src/$1',
   },

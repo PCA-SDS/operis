@@ -12,9 +12,9 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { updateCrud } from '@open-mercato/ui/backend/utils/crud'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
-import { HelpLabel } from '@open-mercato/core/modules/email/components/HelpLabel'
-import { PANEL_CLASS } from '@open-mercato/core/modules/email/components/formStyles'
-import { parseJsonObject } from '@open-mercato/core/modules/email/components/templateHtml'
+import { HelpLabel } from '../../../components/HelpLabel'
+import { PANEL_CLASS } from '../../../components/formStyles'
+import { parseJsonObject } from '../../../components/templateHtml'
 
 type DefaultsResponse = {
   default_sender_name: string | null

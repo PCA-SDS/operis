@@ -1,14 +1,16 @@
 # Git and version control
 .git
 .gitignore
+.gitattributes
 .github
 
 # IDE and editor files
 .vscode
 .idea
-*.swp
-*.swo
+**/*.swp
+**/*.swo
 **/.DS_Store
+**/Thumbs.db
 
 # Build outputs (will be rebuilt in container)
 node_modules
@@ -22,19 +24,36 @@ coverage
 .turbo
 **/.turbo
 
+# Incremental compiler/linter caches from the host. Besides ~30MB of context,
+# a stale tsbuildinfo makes `tsc` believe outputs are current and skip emits,
+# so the image can build against a half-written dist.
+**/*.tsbuildinfo
+**/.eslintcache
+**/.vite
+
 # Generated files (will be regenerated)
 # The whole `.mercato` tree is regenerable local state — `next` alone is
 # multiple GB of dev build cache. The image builds its own and COPYs it out of
 # the builder stage (Dockerfile:234,242), so none of the host's copy is needed;
 # sending it just inflates the build context.
 apps/mercato/.mercato
-packages/core/generated
+# Every `packages/*/generated` is git-ignored, so a clean CI checkout never has
+# one and `yarn generate` must already produce them. Shipping the host's copy
+# only risks a stale registry winning over the freshly generated one.
+packages/*/generated
 
 # Local development files
-.env
-.env.local
-.env.*.local
-*.log
+# Bare `.env` matches ONLY the context root — `apps/mercato/.env` was still
+# reaching the builder through `COPY apps/ ./apps/`, baking local secrets into
+# a layer and letting host env vars steer `next build`. It is git-ignored, so
+# CI never had it; the `**/` forms make local builds match CI.
+**/.env
+**/.env.local
+**/.env.*.local
+**/.env.development
+**/.env.production
+**/.env.test
+**/*.log
 tmp
 .queue
 **/.queue
@@ -44,7 +63,10 @@ tmp
 .yarn/cache
 .pnp.*
 
-# Documentation build artifacts (source needed for docs image)
+# Documentation build artifacts.
+# Do NOT exclude `apps/docs/docs` or `apps/docs/static`: apps/docs/Dockerfile
+# builds from the REPO ROOT context (it needs the root package.json/yarn.lock),
+# so this file governs that image too and dropping the sources would break it.
 docs/build
 docs/.docusaurus
 apps/docs/build
@@ -53,15 +75,30 @@ apps/docs/.docusaurus
 # Docker files (exclude root, allow app-specific)
 Dockerfile
 docker-compose*.yml
+docker-compose*.yaml
+# `docker/` itself must stay: Dockerfile:211-213,295-297 COPY docker/scripts/*.sh.
+# These two are their own build contexts and are never read from the root one.
+docker/opencode
+docker/preview
+deploy
+services
+.devcontainer
 
 # Test files and testing utilities (not used in production builds)
 # Keep runtime helper sources under src/**/testing/ in the context.
 # The file-level patterns and __tests__/ exclusion below are sufficient for actual test code.
 **/*.test.ts
 **/*.test.tsx
+**/*.test.js
+**/*.test.jsx
+**/*.test.mjs
 **/*.spec.ts
 **/*.spec.tsx
+**/*.spec.js
+**/*.spec.jsx
+**/*.spec.mjs
 **/__tests__
+**/__integration__
 **/tests
 
 # CI-only scripts (not used during Docker builds)
@@ -69,8 +106,12 @@ scripts/merge-coverage.mjs
 scripts/i18n-check-sync.ts
 scripts/i18n-check-usage.ts
 
-# Development certificates
+# Development certificates and key material
 certs
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
 
 # Data directories (should be mounted as volumes)
 data
@@ -81,7 +122,29 @@ apps/mercato/storage
 graft
 .graft
 **/graphify-out
+.graphifyignore
 
-# CI/CD
-.github
-.vscode
+# Agent harness: specs, QA runs and captured artifacts. ~43MB, and nothing in
+# `yarn build` reads it — the scripts that do (check-client-boundaries,
+# ds-tokens-export, the i18n checkers) are standalone lint targets.
+.ai
+.claude
+.agents
+.husky
+.matrix-dev
+.mcp.json
+.mcp.json.example
+.npmrc.local
+.ignore
+.test-cache.json
+
+# Long-form root docs. AGENTS.md and BACKWARD_COMPATIBILITY.md are COPYed by
+# the Dockerfile and must stay.
+docs
+CHANGELOG.md
+UPGRADE_NOTES.md
+SCREENSHOTS.md
+HIRING.md
+CONTRIBUTING.md
+SECURITY.md
+report-high.md

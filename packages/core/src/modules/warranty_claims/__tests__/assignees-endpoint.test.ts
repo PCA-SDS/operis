@@ -6,7 +6,7 @@ import {
   MAX_ASSIGNEE_LOOKUP_IDS,
   metadata,
   parseRequestedIds,
-} from '@open-mercato/core/modules/warranty_claims/api/assignees/route'
+} from '../api/assignees/route'
 
 describe('warranty_claims assignee lookup guard', () => {
   it('is gated on a warranty_claims feature and never on an auth.* grant', () => {

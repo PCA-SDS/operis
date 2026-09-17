@@ -12,7 +12,12 @@ import { DEFAULT_PUBLIC_APPOINTMENT_STATUS_CODE } from '../data/constants'
 import { ensureSystemAppointmentStatuses } from '../setup'
 import type { AppointmentPublicCreateInput, AppointmentStaffCreateInput } from '../data/validators'
 import { toAppointmentPhoneSnapshot } from './phoneSnapshot'
-import { snapshotLineOptions, deleteLineOptionSnapshots } from './lineOptionSnapshot'
+import {
+  snapshotLineOptions,
+  deleteLineOptionSnapshots,
+  loadLineOptionSnapshots,
+  resolveDurationMinutes,
+} from './lineOptionSnapshot'
 import { checkPersonIdentity, type PersonCheckResult } from '@open-mercato/core/modules/customers/lib/personLookup'
 
 type StaffEditDeps = BookableServiceDeps & {
@@ -353,9 +358,17 @@ export async function updateAppointmentFromStaffEdit(
     const existingLine = findMatchingLine(line.service.id, line.selectedOptions)
     if (existingLine) {
       usedLineIds.add(existingLine.id)
+      // `durationMinutes` is persisted ALREADY RESOLVED (base + add-ons) by `snapshotLineOptions`,
+      // so comparing it against the bare catalog duration reports a change on every edit and
+      // silently cancels the confirmed seat assignment. Re-resolve from the same snapshot rows.
+      const existingSnapshots = await loadLineOptionSnapshots(em, existingLine.id)
+      const nextDurationMinutes = resolveDurationMinutes(
+        line.service.durationMinutes,
+        existingSnapshots.groups.flatMap((group) => group.options),
+      )
       const assignmentInvalid = locationChanged
         || oldDate !== nextDate
-        || existingLine.durationMinutes !== line.service.durationMinutes
+        || existingLine.durationMinutes !== nextDurationMinutes
         || (assignmentsByLineId.get(existingLine.id) ?? []).some((assignment) => assignment.startsAt < requestedStartAt)
       if (assignmentInvalid) cancelAssignments(existingLine.id)
       existingLine.organizationId = input.organizationId
@@ -364,7 +377,7 @@ export async function updateAppointmentFromStaffEdit(
       existingLine.currencyCode = line.service.currencyCode
       existingLine.unitPriceNet = line.service.unitPriceNet
       existingLine.unitPriceGross = line.service.unitPriceGross
-      existingLine.durationMinutes = line.service.durationMinutes
+      existingLine.durationMinutes = nextDurationMinutes
       existingLine.productCategory = line.service.categoryName
       existingLine.sortOrder = line.sortOrder
       continue

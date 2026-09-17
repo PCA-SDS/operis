@@ -2,7 +2,11 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import type { StorageDriverFactory } from '../drivers'
 import type { AttachmentQuotaService } from '../quota-service'
-import { ScopedAttachmentUploadError, ScopedAttachmentUploadService } from '../scoped-upload-service'
+import {
+  isScopedAttachmentUploadError,
+  ScopedAttachmentUploadError,
+  ScopedAttachmentUploadService,
+} from '../scoped-upload-service'
 
 jest.mock('../partitions', () => ({
   ensureDefaultPartitions: jest.fn(async () => undefined),
@@ -163,5 +167,49 @@ describe('ScopedAttachmentUploadService', () => {
       status: 413,
     }))
     expect(driver.store).not.toHaveBeenCalled()
+  })
+})
+
+describe('isScopedAttachmentUploadError', () => {
+  it('recognises an error thrown from a DUPLICATE copy of this module', () => {
+    // The real failure this guards: Turbopack puts the upload service in the `ssr`
+    // chunk group when a server component reaches it, while an API route that also
+    // imports it gets its own copy. `instanceof` then compares two different class
+    // objects and answers false, turning a deliberate 400 into a 500.
+    //
+    // A second class declaration is how that duplication looks from inside one realm.
+    class DuplicateScopedAttachmentUploadError extends Error {
+      constructor(
+        public readonly code: string,
+        public readonly status: number,
+      ) {
+        super(code)
+        this.name = 'ScopedAttachmentUploadError'
+      }
+    }
+
+    const duplicate = new DuplicateScopedAttachmentUploadError('dangerous_executable', 400)
+
+    expect(duplicate instanceof ScopedAttachmentUploadError).toBe(false)
+    expect(isScopedAttachmentUploadError(duplicate)).toBe(true)
+    if (isScopedAttachmentUploadError(duplicate)) {
+      expect(duplicate.status).toBe(400)
+      expect(duplicate.code).toBe('dangerous_executable')
+    }
+  })
+
+  it('recognises a same-realm instance', () => {
+    expect(isScopedAttachmentUploadError(new ScopedAttachmentUploadError('max_upload_size', 413))).toBe(true)
+  })
+
+  it('refuses look-alikes so an unrelated failure never becomes a mapped status', () => {
+    expect(isScopedAttachmentUploadError(new Error('dangerous_executable'))).toBe(false)
+    expect(isScopedAttachmentUploadError(null)).toBe(false)
+    expect(isScopedAttachmentUploadError('dangerous_executable')).toBe(false)
+    // Right name, unknown code — a storage driver that set the same name must not be
+    // mapped onto an upload status.
+    expect(isScopedAttachmentUploadError({ name: 'ScopedAttachmentUploadError', code: 'not_a_real_code', status: 400 })).toBe(false)
+    // Right name and code, but no status to answer with.
+    expect(isScopedAttachmentUploadError({ name: 'ScopedAttachmentUploadError', code: 'dangerous_executable' })).toBe(false)
   })
 })

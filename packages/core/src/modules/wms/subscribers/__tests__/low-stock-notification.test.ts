@@ -10,7 +10,7 @@ jest.mock('@open-mercato/core/modules/notifications/lib/notificationService', ()
 jest.mock('@open-mercato/core/modules/notifications/lib/notificationBuilder', () => ({
   buildFeatureNotificationFromType: (...args: unknown[]) => buildFeatureNotificationFromTypeMock(...args),
 }))
-jest.mock('@open-mercato/core/modules/wms/notifications', () => ({
+jest.mock('../../notifications', () => ({
   notificationTypes: [
     { type: 'wms.inventory.low_stock', module: 'wms', titleKey: 'wms.notifications.lowStock.title' },
   ],

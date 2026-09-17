@@ -15,7 +15,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { usePortalContext } from '@open-mercato/ui/portal/PortalContext'
 import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
 import { PortalInjectionSpots } from '@open-mercato/ui/backend/injection/spotIds'
-import { navigateWithPageReload } from '@open-mercato/core/modules/portal/lib/navigation'
+import { navigateWithPageReload } from '../../../../lib/navigation'
 import { FORM_FIELD_LABEL } from '@open-mercato/ui/backend/forms/formChrome'
 import {
   formatPasswordRequirements,

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { sendEmail } from '@open-mercato/shared/lib/email/send'
-import FeedbackEmail from '@open-mercato/onboarding/modules/onboarding/emails/FeedbackEmail'
+import FeedbackEmail from '../../emails/FeedbackEmail'
 import { checkAuthRateLimit } from '@open-mercato/core/modules/auth/lib/rateLimitCheck'
 import { readEndpointRateLimitConfig } from '@open-mercato/shared/lib/ratelimit/config'
 import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'

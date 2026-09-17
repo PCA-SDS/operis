@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { findApiRouteManifestMatch, getApiRouteManifests, registerApiRouteManifests, type HttpMethod } from '@open-mercato/shared/modules/registry'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { getTelemetryRuntime } from '@open-mercato/shared/lib/telemetry/runtime'
+import { createLogger } from '@open-mercato/shared/lib/logger'
 import { apiRouteFacades } from '@/.mercato/generated/api-route-shards.generated'
 import { resolveAuthFromRequestDetailed } from '@open-mercato/shared/lib/auth/server'
 import { bootstrap } from '@/bootstrap-api'
@@ -25,14 +26,16 @@ import { publicCorsHeaders } from '@open-mercato/shared/lib/http/cors'
 bootstrap()
 registerApiRouteManifests(apiRouteFacades)
 
+const logger = createLogger('api').child({ component: 'route-dispatcher' })
+
 const warnedDeprecatedRequireRoles = new Set<string>()
 
 function warnDeprecatedRequireRoles(pathname: string, method: HttpMethod): void {
   const warnKey = `${method} ${pathname}`
   if (warnedDeprecatedRequireRoles.has(warnKey)) return
   warnedDeprecatedRequireRoles.add(warnKey)
-  console.warn(
-    '[api] Ignoring deprecated `requireRoles` guard — role names are mutable and spoofable, so they no longer authorize requests. Migrate to `requireFeatures` with immutable acl.ts feature IDs.',
+  logger.warn(
+    'Ignoring deprecated `requireRoles` guard — role names are mutable and spoofable, so they no longer authorize requests. Migrate to `requireFeatures` with immutable acl.ts feature IDs.',
     { path: pathname, method },
   )
 }
@@ -248,7 +251,7 @@ export async function checkAuthorization(
     if (!ok) {
       try {
         const acl = await rbac.loadAcl(auth.sub, { tenantId: featureContext.scope.tenantId ?? auth.tenantId ?? null, organizationId })
-        console.warn('[api] Forbidden - missing required features', {
+        logger.warn('Forbidden - missing required features', {
           path: req.nextUrl.pathname,
           method: req.method,
           userId: auth.sub,
@@ -262,7 +265,7 @@ export async function checkAuthorization(
         })
       } catch (err) {
         try {
-          console.warn('[api] Forbidden - could not resolve ACL for logging', {
+          logger.warn('Forbidden - could not resolve ACL for logging', {
             path: req.nextUrl.pathname,
             method: req.method,
             userId: auth.sub,

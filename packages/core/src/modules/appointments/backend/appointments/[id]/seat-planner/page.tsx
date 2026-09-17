@@ -618,7 +618,7 @@ function DraftPopover(props: {
       ref={popoverRef}
       role="dialog"
       aria-label={isOwn ? allocation.serviceName : `${customerDisplayName} - ${allocation.serviceName}`}
-      className="fixed z-50 flex max-h-[calc(100vh-1.5rem)] w-80 max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-xl"
+      className="fixed z-popover flex max-h-[calc(100vh-1.5rem)] w-80 max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-xl"
       style={{ left: position.left, top: position.top }}
       onClick={(event) => event.stopPropagation()}
     >
@@ -737,7 +737,7 @@ function StaffSheet(props: {
   }, [query, staff])
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-foreground/20" onClick={onClose}>
+    <div className="fixed inset-0 z-overlay flex justify-end bg-foreground/20" onClick={onClose}>
       <aside className="flex h-full w-full max-w-md flex-col bg-surface shadow-lg" onClick={(event) => event.stopPropagation()}>
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
@@ -1042,7 +1042,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             headers: buildOptimisticLockHeader(updatedAt),
             body: JSON.stringify(selection),
           }),
-          context: { appointmentId: workspace.appointment.id, resourceKind: 'appointments.appointmentLine' },
+          context: { appointmentId: workspace.appointment.id, resourceKind: 'appointments.appointmentLine', retryLastMutation: guardedMutation.retryLastMutation },
           mutationPayload: selection,
         })
         updatedAt = result.updatedAt
@@ -1196,7 +1196,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     try {
       const assignment = await guardedMutation.runMutation({
         operation: () => readApiResultOrThrow<DraftAssignmentResult>(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/lines/${encodeURIComponent(line.id)}/draft`, { method: 'PUT', body: JSON.stringify(body) }),
-        context: { appointmentId: workspace.appointment.id, lineId: line.id, resourceKind: 'appointments.seatPlannerDraft' },
+        context: { appointmentId: workspace.appointment.id, lineId: line.id, resourceKind: 'appointments.seatPlannerDraft', retryLastMutation: guardedMutation.retryLastMutation },
         mutationPayload: body,
       })
       setWorkspace((current) => current ? {
@@ -1243,7 +1243,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
           method: 'DELETE',
           headers: buildOptimisticLockHeader(workspace.lines.find((line) => line.id === lineId)?.currentAssignment?.updatedAt),
         }),
-        context: { appointmentId: workspace.appointment.id, lineId, resourceKind: 'appointments.seatPlannerDraft' },
+        context: { appointmentId: workspace.appointment.id, lineId, resourceKind: 'appointments.seatPlannerDraft', retryLastMutation: guardedMutation.retryLastMutation },
         mutationPayload: { appointmentId: workspace.appointment.id, lineId },
       })
     } catch (error) {
@@ -1283,7 +1283,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
           method: 'DELETE',
           headers: buildOptimisticLockHeader(workspace.appointment.updatedAt),
         }),
-        context: { appointmentId: workspace.appointment.id, lineId, resourceKind: 'appointments.appointmentLine' },
+        context: { appointmentId: workspace.appointment.id, lineId, resourceKind: 'appointments.appointmentLine', retryLastMutation: guardedMutation.retryLastMutation },
         mutationPayload: { appointmentId: workspace.appointment.id, lineId },
       })
       setWorkspace((current) => current ? { ...current, appointment: { ...current.appointment, updatedAt: result.updatedAt } } : current)
@@ -1325,31 +1325,47 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       plannedAssignments.push({ line, startsAt: nextStart, duration })
       nextStart = endsAt
     }
-    for (const assignment of plannedAssignments) {
-      await saveDraft(assignment.line, resourceId, assignment.startsAt, assignment.duration)
+    try {
+      for (const assignment of plannedAssignments) {
+        await saveDraft(assignment.line, resourceId, assignment.startsAt, assignment.duration)
+      }
+    } catch (saveError) {
+      flash(saveError instanceof Error
+        ? saveError.message
+        : t('appointments.seatPlanner.saveError', 'Unable to save the assignment.'), 'error')
+      return
     }
     flash(t('appointments.seatPlanner.saved', 'Assignment saved'), 'success')
   }, [activeLine, allocationsBySeat, canUseResourceRange, earliestMinutes, flash, saveDraft, t, workspace])
 
   const handleConfirmAll = React.useCallback(async () => {
     if (!workspace) return
-    await guardedMutation.runMutation({
-      operation: () => readApiResultOrThrow(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/confirm-drafts`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          expectedAssignments: workspace.lines.flatMap((line) => line.currentAssignment?.state === 'draft'
-            ? [{ lineId: line.id, updatedAt: line.currentAssignment.updatedAt }]
-            : []),
+    try {
+      await guardedMutation.runMutation({
+        operation: () => readApiResultOrThrow(`/api/appointments/${encodeURIComponent(workspace.appointment.id)}/confirm-drafts`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            expectedAssignments: workspace.lines.flatMap((line) => line.currentAssignment?.state === 'draft'
+              ? [{ lineId: line.id, updatedAt: line.currentAssignment.updatedAt }]
+              : []),
+          }),
         }),
-      }),
-      context: { appointmentId: workspace.appointment.id, resourceKind: 'appointments.seatPlanner' },
-      mutationPayload: { appointmentId: workspace.appointment.id },
-    })
-    await loadWorkspace()
-    flash(t('appointments.seatPlanner.confirmed', 'All assignments confirmed'), 'success')
-    router.push(`/backend/appointments/booking-overview?date=${encodeURIComponent(workspace.appointment.requestedStartAt.slice(0, 10))}&organizationId=${encodeURIComponent(workspace.appointment.organizationId)}`)
-  }, [guardedMutation, loadWorkspace, t, workspace])
+        context: { appointmentId: workspace.appointment.id, resourceKind: 'appointments.seatPlanner', retryLastMutation: guardedMutation.retryLastMutation },
+        mutationPayload: { appointmentId: workspace.appointment.id },
+      })
+      await loadWorkspace()
+      flash(t('appointments.seatPlanner.confirmed', 'All assignments confirmed'), 'success')
+      router.push(`/backend/appointments/booking-overview?date=${encodeURIComponent(workspace.appointment.requestedStartAt.slice(0, 10))}&organizationId=${encodeURIComponent(workspace.appointment.organizationId)}`)
+    } catch (confirmError) {
+      // The call site is `onClick={() => void handleConfirmAll()}`, so an unhandled rejection
+      // here is a button that visibly does nothing on a 500. Navigation stays inside the try
+      // so a failed confirm never routes away from the planner.
+      flash(confirmError instanceof Error
+        ? confirmError.message
+        : t('appointments.seatPlanner.confirmError', 'Unable to confirm assignments.'), 'error')
+    }
+  }, [flash, guardedMutation, loadWorkspace, router, t, workspace])
 
   const handleDurationChange = React.useCallback(async (allocation: PlannerAllocation, nextDuration: number) => {
     const line = workspace?.lines.find((entry) => entry.id === allocation.lineId)
@@ -1372,7 +1388,14 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     const line = target.line
     if (!line || target.allocation.appointmentId !== workspace?.appointment.id) return
     if (staffId === null && !target.allocation.assignedMemberId) return
-    await saveDraft(line, target.allocation.resourceId, target.allocation.startsAt, durationMinutes(target.allocation.startsAt, target.allocation.endsAt), staffId)
+    try {
+      await saveDraft(line, target.allocation.resourceId, target.allocation.startsAt, durationMinutes(target.allocation.startsAt, target.allocation.endsAt), staffId)
+    } catch (staffError) {
+      flash(staffError instanceof Error
+        ? staffError.message
+        : t('appointments.seatPlanner.staffAssignError', 'Unable to update staff.'), 'error')
+      return
+    }
     setStaffSheetTarget((current) => current ? {
       ...current,
       allocation: {
@@ -1518,8 +1541,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
           </header>
 
           <div className="flex min-h-0 flex-1">
-            {mobileSidebarOpen ? <div className="fixed inset-0 z-40 bg-foreground/20 lg:hidden" onClick={() => setMobileSidebarOpen(false)} /> : null}
-            <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col min-h-0 w-full max-w-sm border-r border-border bg-surface shadow-lg transition-transform lg:static lg:z-auto lg:w-80 lg:translate-x-0 lg:shadow-none ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            {mobileSidebarOpen ? <div className="fixed inset-0 z-overlay bg-foreground/20 lg:hidden" onClick={() => setMobileSidebarOpen(false)} /> : null}
+            <aside className={`fixed inset-y-0 left-0 z-modal flex flex-col min-h-0 w-full max-w-sm border-r border-border bg-surface shadow-lg transition-transform lg:static lg:z-auto lg:w-80 lg:translate-x-0 lg:shadow-none ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
               <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3 lg:hidden">
                 <p className="text-sm font-semibold">{t('appointments.seatPlanner.bookingDetails', 'Booking details')}</p>
                 <IconButton type="button" variant="ghost" aria-label={t('common.close', 'Close')} onClick={() => setMobileSidebarOpen(false)}><PanelLeftClose className="size-4" /></IconButton>

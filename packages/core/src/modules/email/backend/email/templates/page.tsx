@@ -11,7 +11,7 @@ import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Tag } from '@open-mercato/ui/primitives/tag'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { FIELD_CLASS } from '@open-mercato/core/modules/email/components/formStyles'
+import { FIELD_CLASS } from '../../../components/formStyles'
 
 type EmailTemplateRow = {
   id: string

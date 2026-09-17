@@ -31,7 +31,7 @@ const sourcesPlugin: GeneratorPlugin = {
   bootstrapRegistration: {
     entriesExportName: 'webhookSourceEntries',
     registrationImports: [
-      `import { registerWebhookSourceEntries } from '@open-mercato/webhooks/modules/webhooks/lib/module-webhook-registry'`,
+      `import { registerWebhookSourceEntries } from '@open-mercato/webhooks/internal/modules/webhooks/lib/module-webhook-registry'`,
     ],
     buildCall: (name: string) => `registerWebhookSourceEntries(${name})`,
   },
@@ -48,7 +48,7 @@ const handlersPlugin: GeneratorPlugin = {
   bootstrapRegistration: {
     entriesExportName: 'webhookHandlerEntries',
     registrationImports: [
-      `import { registerWebhookHandlerEntries } from '@open-mercato/webhooks/modules/webhooks/lib/module-webhook-registry'`,
+      `import { registerWebhookHandlerEntries } from '@open-mercato/webhooks/internal/modules/webhooks/lib/module-webhook-registry'`,
     ],
     buildCall: (name: string) => `registerWebhookHandlerEntries(${name})`,
   },

@@ -44,11 +44,11 @@ export function AppointmentEmailSettings() {
       setSettings({ ...DEFAULT_APPOINTMENT_EMAIL_SETTINGS, ...value })
     } catch (err) {
       logger.error('appointment email settings load failed', { err })
-      flash('Failed to load appointment email settings.', 'error')
+      flash(translate('appointments.config.email.errors.loadFailed', 'Failed to load appointment email settings.'), 'error')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [translate])
 
   React.useEffect(() => { void load() }, [load, scopeVersion])
 
@@ -58,6 +58,8 @@ export function AppointmentEmailSettings() {
     try {
       await runMutation({
         operation: async () => {
+          // optimistic-lock-exempt: tenant-scoped ModuleConfigService key/value blob, not an
+          // entity — the GET returns the settings object with no record version to send back.
           const call = await apiCall('/api/appointments/email-settings', {
             method: 'PUT',
             headers: { 'content-type': 'application/json' },
@@ -73,10 +75,10 @@ export function AppointmentEmailSettings() {
         },
         mutationPayload: settings,
       })
-      flash('Appointment email settings saved.', 'success')
+      flash(translate('appointments.config.email.saved', 'Appointment email settings saved.'), 'success')
     } catch (err) {
       logger.error('appointment email settings save failed', { err })
-      flash(err instanceof Error ? err.message : 'Failed to save appointment email settings.', 'error')
+      flash(err instanceof Error ? err.message : translate('appointments.config.email.errors.saveFailed', 'Failed to save appointment email settings.'), 'error')
     } finally {
       setSaving(false)
     }

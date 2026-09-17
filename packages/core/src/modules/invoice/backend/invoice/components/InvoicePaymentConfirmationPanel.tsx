@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { CheckCircle2, CircleDollarSign, Mail, XCircle } from 'lucide-react'
 import { hasFeature } from '@open-mercato/shared/security/features'
-import { useInvoiceT as useT } from '@open-mercato/core/modules/invoice/lib/useInvoiceT'
+import { useInvoiceT as useT } from '../../../lib/useInvoiceT'
 import { Alert } from '@open-mercato/ui/primitives/alert'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Button } from '@open-mercato/ui/primitives/button'

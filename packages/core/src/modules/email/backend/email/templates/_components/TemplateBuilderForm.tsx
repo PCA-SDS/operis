@@ -9,8 +9,8 @@ import { Input } from '@open-mercato/ui/primitives/input'
 import { RichEditor } from '@open-mercato/ui/primitives/rich-editor'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
-import { HelpLabel } from '@open-mercato/core/modules/email/components/HelpLabel'
-import { copyHtml, copyText } from '@open-mercato/core/modules/email/components/clipboard'
+import { HelpLabel } from '../../../../components/HelpLabel'
+import { copyHtml, copyText } from '../../../../components/clipboard'
 import {
   blocksToHtml,
   createBlock,
@@ -28,9 +28,9 @@ import {
   type TemplateBlockFormValue,
   type TemplateStatus,
   type VariableType,
-} from '@open-mercato/core/modules/email/components/templateHtml'
-import { type TemplateBuilderFormValue } from '@open-mercato/core/modules/email/components/templatePayload'
-import { FIELD_CLASS, PANEL_CLASS, PREVIEW_FRAME_CLASS, SUBPANEL_CLASS, previewDocument } from '@open-mercato/core/modules/email/components/formStyles'
+} from '../../../../components/templateHtml'
+import { type TemplateBuilderFormValue } from '../../../../components/templatePayload'
+import { FIELD_CLASS, PANEL_CLASS, PREVIEW_FRAME_CLASS, SUBPANEL_CLASS, previewDocument } from '../../../../components/formStyles'
 
 export type { BlockType, TemplateBlockFormValue, TemplateBuilderFormValue, TemplateStatus, VariableType }
 

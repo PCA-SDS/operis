@@ -32,11 +32,11 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { usePortalContext } from '@open-mercato/ui/portal/PortalContext'
 import { PortalPageHeader } from '@open-mercato/ui/portal/components/PortalPageHeader'
 import { PortalCard, PortalCardHeader } from '@open-mercato/ui/portal/components/PortalCard'
-import { localizeDictionaryLabel } from '@open-mercato/core/modules/warranty_claims/lib/dictionaryLabels'
+import { localizeDictionaryLabel } from '../../../../../lib/dictionaryLabels'
 import {
   ATTACHMENT_ACCEPT_TYPES,
   validateAttachmentFile,
-} from '@open-mercato/core/modules/warranty_claims/lib/portalAttachmentValidation'
+} from '../../../../../lib/portalAttachmentValidation'
 import {
   TroubleshootingWalker,
   type TroubleshootingWalkerGuide,

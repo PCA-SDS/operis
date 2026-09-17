@@ -7,7 +7,7 @@ import {
   runCrudMutationGuardAfterSuccess,
   validateCrudMutationGuard,
 } from '@open-mercato/shared/lib/crud/mutation-guard'
-import { deleteUserPerspective } from '@open-mercato/core/modules/perspectives/services/perspectiveService'
+import { deleteUserPerspective } from '../../../services/perspectiveService'
 import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { perspectivesTag, perspectivesErrorSchema, perspectivesSuccessSchema } from '../../openapi'
 
