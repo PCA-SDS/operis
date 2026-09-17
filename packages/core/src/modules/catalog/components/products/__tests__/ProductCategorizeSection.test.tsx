@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import * as React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ProductCategorizeSection } from '../ProductCategorizeSection'
 import type { ProductFormValues } from '../productForm'
 
@@ -12,15 +12,21 @@ jest.mock('@open-mercato/ui/backend/utils/apiCall', () => ({
 }))
 
 jest.mock('@open-mercato/ui/backend/inputs/TagsInput', () => ({
-  TagsInput: ({ value = [], placeholder, onChange }: {
+  TagsInput: ({ value = [], placeholder, onChange, loadSuggestions }: {
     value?: string[]
     placeholder?: string
     onChange?: (next: string[]) => void
+    loadSuggestions?: (term?: string) => Promise<unknown>
   }) => (
     <div data-testid={`tags-input-${placeholder}`} data-value={Array.isArray(value) ? value.join(',') : ''}>
       <button data-testid={`trigger-${placeholder}`} type="button" onClick={() => onChange?.([...value, 'new-value'])}>
         add
       </button>
+      {loadSuggestions ? (
+        <button data-testid={`load-${placeholder}`} type="button" onClick={() => void loadSuggestions('QA')}>
+          load
+        </button>
+      ) : null}
       {Array.isArray(value) ? value.join(',') : ''}
     </div>
   ),
@@ -183,5 +189,22 @@ describe('ProductCategorizeSection', () => {
     expect(screen.getByTestId('tags-input-Search categories')).toHaveAttribute('data-value', '')
     expect(screen.getByTestId('tags-input-Pick channels')).toHaveAttribute('data-value', '')
     expect(screen.getByTestId('tags-input-Add tag and press Enter')).toHaveAttribute('data-value', '')
+  })
+
+  it('keeps category search within the API page-size limit', async () => {
+    mockReadApiResultOrThrow.mockResolvedValue({ items: [] })
+    render(
+      <ProductCategorizeSection values={createDefaultValues()} setValue={jest.fn()} errors={{}} />,
+    )
+
+    fireEvent.click(screen.getByTestId('load-Search categories'))
+
+    await waitFor(() => {
+      expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+        '/api/catalog/categories?pageSize=100&view=manage&search=QA',
+        undefined,
+        expect.objectContaining({ errorMessage: 'Failed to load categories' }),
+      )
+    })
   })
 })
