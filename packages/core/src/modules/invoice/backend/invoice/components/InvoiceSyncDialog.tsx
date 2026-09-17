@@ -13,7 +13,7 @@ import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
-import { useInvoiceT as useT } from '@open-mercato/core/modules/invoice/lib/useInvoiceT'
+import { useInvoiceT as useT } from '../../../lib/useInvoiceT'
 
 type SyncState = 'QUEUED' | 'AUTHENTICATING' | 'FETCHING' | 'PERSISTING' | 'DONE' | 'FAILED'
 type StreamCounts = { fetched: number; new: number; updated: number; skipped: number; errors: number }

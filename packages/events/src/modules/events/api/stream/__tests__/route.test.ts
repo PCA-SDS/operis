@@ -32,7 +32,7 @@ jest.mock('@open-mercato/shared/modules/events', () => ({
   isBroadcastEvent: jest.fn(() => true),
 }))
 
-import { GET } from '@open-mercato/events/modules/events/api/stream/route'
+import { GET } from '../route'
 
 // req.signal is a linked/derived signal in Node, so we spy AFTER the
 // Request is constructed to intercept the handler's real calls.

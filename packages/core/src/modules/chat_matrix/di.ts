@@ -48,6 +48,12 @@ function loadMatrixBindings(): {
    * this very file, so whatever resolves that resolves this. The relative forms
    * stay as fallbacks for the source and test trees, where the package
    * self-reference is not always available.
+   *
+   * `chat_matrix` is SEALED (ADR-0007), so this one path carries an explicit
+   * entry in `packages/core/package.json` — it is a runtime SELF-reference, not
+   * a public contract, and `module-seal-integrity.test.ts` fails if any other
+   * module imports it. Do not collapse it to a relative path: that is what the
+   * bundler stubs out, and the failure is silent.
    */
   const transport = loadFirstWith('createMatrixChatTransport', require, [
     '@open-mercato/core/modules/chat_matrix/lib/transport',

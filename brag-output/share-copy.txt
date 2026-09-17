@@ -1,0 +1,99 @@
+OPERIS ERP — PRODUCT DEMO
+Share copy for the 1:41 demo video (brag.mp4)
+
+
+────────────────────────────────────────────────────────────
+LINKEDIN / COMPANY POST
+────────────────────────────────────────────────────────────
+
+One platform for customers, sales, fulfilment and finance.
+
+This is Operis, running. Not a mockup — a real workspace, real records,
+one continuous journey: a customer arrives, becomes an opportunity, gets
+quoted from the catalogue, converts to an order, ships, and settles.
+
+Then the part that matters after the demo ends: it runs itself, and you
+stay in control. Order-to-fulfilment as a workflow. Business rules that
+enforce policy before anything breaks.
+
+Customer 360 · Pipeline & forecasting · Catalogue & quoting · Order to
+cash · Workflow automation · Multi-tenant by design
+
+1 minute 41 seconds, no narration — works with the sound off.
+
+
+────────────────────────────────────────────────────────────
+SHORT / X
+────────────────────────────────────────────────────────────
+
+Customer → opportunity → quote → order → shipment → payment.
+One platform, one record, no re-keying.
+
+Operis ERP, running for real. 1:41.
+
+
+────────────────────────────────────────────────────────────
+EMAIL TO A PROSPECT
+────────────────────────────────────────────────────────────
+
+Subject: Operis in 100 seconds
+
+Hi <name>,
+
+Rather than send a deck, here's the product actually running — a single
+end-to-end journey through Operis, from the customer record to the
+settled payment.
+
+It's 1 minute 41 seconds and there's no voiceover, so it plays fine in a
+meeting or on mute. What I'd watch for:
+
+  · 0:18 — everything about a customer on one record
+  · 0:32 — pipeline value and win rate, straight from live deals
+  · 1:02 — one order document carrying items, shipments and payments
+  · 1:21 — order-to-fulfilment running as an automated workflow
+  · 1:27 — business rules enforcing policy automatically
+
+Happy to walk through any part of it against your own process.
+
+<signature>
+
+
+────────────────────────────────────────────────────────────
+INTERNAL / STAKEHOLDER FRAMING
+────────────────────────────────────────────────────────────
+
+A 1:41 demo of the Operis platform, cut from real screen captures of the
+running application against seeded example data. It follows one business
+journey end to end rather than touring features, and closes on
+automation and governance — the two questions buyers ask last.
+
+No production or customer data appears anywhere in it.
+
+
+────────────────────────────────────────────────────────────
+CAPTIONS USED IN THE VIDEO (for subtitles or a transcript)
+────────────────────────────────────────────────────────────
+
+0:05  Workspace — Your workspace opens on what needs attention
+0:12  Customers — Every customer in one list
+0:18  Customer 360 — Contacts, deals and activity on a single record
+0:25  Pipeline — Move opportunities stage by stage
+0:32  Forecasting — Pipeline value and win rate, always current
+0:38  Catalogue — Products and services in one catalogue
+0:44  Product data — Variants, pricing and compliance in one place
+0:50  Quoting — Quote straight from the catalogue
+0:56  Orders — Accepted quotes become orders
+1:02  Order — One document carries the whole order
+1:09  Fulfilment — Shipments tracked line by line
+1:15  Finance — Payments settle against the order
+1:21  Automation — Order-to-fulfilment runs as a workflow
+1:27  Governance — Business rules enforce policy automatically
+1:33  One platform for customers, sales, fulfilment and finance.
+
+
+────────────────────────────────────────────────────────────
+CREDITS
+────────────────────────────────────────────────────────────
+
+Music — ende.app, "Happy Beats / Business Moves"
+Built with /brag (latent-spaces/brag) and Hyperframes

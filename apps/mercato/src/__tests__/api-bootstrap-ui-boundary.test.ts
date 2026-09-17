@@ -27,8 +27,13 @@ const findForbiddenUiRuntimeImports = (source: string): string[] =>
 
 function resolveContributorPath(specifier: string): string {
   const packageMatch = specifier.match(/^@open-mercato\/([^/]+)\/(.+)$/)
+  // Generated output addresses package-backed modules through the `internal`
+  // composition-root subpath, which maps 1:1 onto `src/` — see
+  // `packages/cli/src/lib/resolver.ts` and `module-seal-integrity.test.ts`.
+  // Strip it so the on-disk lookup below still lands on the real file.
+  const subpath = packageMatch?.[2].replace(/^internal\//, '')
   const basePath = packageMatch
-    ? path.join(workspaceRoot, 'packages', packageMatch[1], 'src', packageMatch[2])
+    ? path.join(workspaceRoot, 'packages', packageMatch[1], 'src', subpath!)
     : path.resolve(path.dirname(manifestPath), specifier)
 
   for (const candidate of [basePath, `${basePath}.ts`, `${basePath}.tsx`]) {

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Check, Plus, Trash2 } from 'lucide-react'
-import { useInvoiceT as useT } from '@open-mercato/core/modules/invoice/lib/useInvoiceT'
+import { useInvoiceT as useT } from '../../../lib/useInvoiceT'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'

@@ -10,6 +10,29 @@
     "typecheck": "tsc --noEmit"
   },
   "exports": {
+    "./modules/sync_akeneo/i18n/*.json": "./src/modules/sync_akeneo/i18n/*.json",
+    "./modules/sync_akeneo": {
+      "types": "./src/modules/sync_akeneo/index.ts",
+      "default": "./dist/modules/sync_akeneo/index.js"
+    },
+    "./modules/sync_akeneo/contract": {
+      "types": "./src/modules/sync_akeneo/contract.ts",
+      "default": "./dist/modules/sync_akeneo/contract.js"
+    },
+    "./modules/sync_akeneo/*": null,
+    "./internal/*.json": "./src/*.json",
+    "./internal/*": {
+      "types": [
+        "./src/*.ts",
+        "./src/*.tsx",
+        "./src/*/index.ts",
+        "./src/*/index.tsx"
+      ],
+      "default": [
+        "./dist/*.js",
+        "./dist/*/index.js"
+      ]
+    },
     ".": "./dist/index.js",
     "./*.ts": {
       "types": "./src/*.ts",

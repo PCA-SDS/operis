@@ -105,6 +105,14 @@ export const REPO_WIDE_GUARDS = [
         scans: 'every module backend/ tree across packages/ and apps/ — two nav groups rendering one label (the duplicate TASKS section)',
       },
       {
+        path: 'src/__tests__/module-seal-integrity.test.ts',
+        scans: 'every package exports map plus every hand-written .ts/.tsx across packages/ and apps/ — deep imports into a sealed module, relative paths escaping the exports map, hand-written use of the generated-code-only internal subpath, and any module that has lost its last deep importer and must now be sealed',
+      },
+      {
+        path: 'src/__tests__/module-contract-purity.test.ts',
+        scans: 'every module contract.ts across packages/ and apps/ — contracts re-exporting entities, importing another module, importing an implementation folder, or declaring ids outside their own namespace',
+      },
+      {
         path: 'src/modules/__tests__/crud-indexer-config.test.ts',
         scans: 'packages/ and apps/ — CRUD indexer configuration',
       },

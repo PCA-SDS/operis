@@ -11,6 +11,28 @@
     "typecheck": "tsc --noEmit"
   },
   "exports": {
+    "./modules/channel_fcm": {
+      "types": "./src/modules/channel_fcm/index.ts",
+      "default": "./dist/modules/channel_fcm/index.js"
+    },
+    "./modules/channel_fcm/contract": {
+      "types": "./src/modules/channel_fcm/contract.ts",
+      "default": "./dist/modules/channel_fcm/contract.js"
+    },
+    "./modules/channel_fcm/*": null,
+    "./internal/*.json": "./src/*.json",
+    "./internal/*": {
+      "types": [
+        "./src/*.ts",
+        "./src/*.tsx",
+        "./src/*/index.ts",
+        "./src/*/index.tsx"
+      ],
+      "default": [
+        "./dist/*.js",
+        "./dist/*/index.js"
+      ]
+    },
     ".": "./dist/index.js",
     "./*.ts": {
       "types": "./src/*.ts",

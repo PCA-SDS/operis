@@ -32,7 +32,7 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => ({ get: (key: string) => (key === 'token' ? searchParamsState.token : null) }),
 }))
 
-jest.mock('@open-mercato/core/modules/portal/lib/navigation', () => ({
+jest.mock('../lib/navigation', () => ({
   navigateWithPageReload: (...args: unknown[]) => navigateWithPageReloadMock(...args),
 }))
 

@@ -7,7 +7,7 @@ import {
   runCrudMutationGuardAfterSuccess,
   validateCrudMutationGuard,
 } from '@open-mercato/shared/lib/crud/mutation-guard'
-import { clearRolePerspectives } from '@open-mercato/core/modules/perspectives/services/perspectiveService'
+import { clearRolePerspectives } from '../../../../services/perspectiveService'
 import { Role } from '@open-mercato/core/modules/auth/data/entities'
 import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { perspectivesTag, perspectivesErrorSchema, perspectivesSuccessSchema } from '../../../openapi'

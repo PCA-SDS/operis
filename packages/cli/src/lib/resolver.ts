@@ -566,11 +566,24 @@ export function createResolver(cwd: string = process.cwd()): PackageResolver {
     },
 
     getModuleImportBase: (entry: ModuleEntry) => {
-      // Prefer @app overrides at import-time; fall back to provided package alias
+      // Prefer @app overrides at import-time; fall back to provided package alias.
+      //
+      // Package-backed modules are addressed through the `./internal/*` export
+      // subpath, NOT `./modules/<id>/*`. The generated registry is the
+      // composition root: it legitimately reaches into every module's `api/`,
+      // `backend/`, `subscribers/`, `workers/` and `data/`, which is exactly the
+      // access a sealed module denies to hand-written code. Splitting the two
+      // apart is what lets a module's `exports` entry be narrowed to its public
+      // contract while the registry keeps working — the boundary then fails a
+      // cross-module deep import at COMPILE time rather than in review.
+      //
+      // `@open-mercato/core/internal/**` is reserved for generated output.
+      // `packages/core/src/__tests__/module-seal-integrity.test.ts` fails if the
+      // prefix appears in a hand-written file.
       const from = entry.from || '@open-mercato/core'
       return {
         appBase: `@/modules/${entry.id}`,
-        pkgBase: `${from}/modules/${entry.id}`,
+        pkgBase: `${from}/internal/modules/${entry.id}`,
       }
     },
 

@@ -4,7 +4,7 @@ import * as React from 'react'
 import { RefreshCw } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
-import { useInvoiceT as useT } from '@open-mercato/core/modules/invoice/lib/useInvoiceT'
+import { useInvoiceT as useT } from '../../../lib/useInvoiceT'
 import { InvoiceSyncDialog, loadSyncAvailability, type SyncAvailability, type SyncJob } from './InvoiceSyncDialog'
 
 const ACTIVE_STATES = new Set(['QUEUED', 'AUTHENTICATING', 'FETCHING', 'PERSISTING'])

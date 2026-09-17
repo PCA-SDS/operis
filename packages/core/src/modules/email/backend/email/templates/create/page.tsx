@@ -8,12 +8,12 @@ import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { createCrud } from '@open-mercato/ui/backend/utils/crud'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
-import { createStaticBlock } from '@open-mercato/core/modules/email/components/templateHtml'
+import { createStaticBlock } from '../../../../components/templateHtml'
 import {
   DEFAULT_TEMPLATE_CATEGORY,
   buildTemplateApiPayload,
   type TemplateBuilderFormValue,
-} from '@open-mercato/core/modules/email/components/templatePayload'
+} from '../../../../components/templatePayload'
 import { TemplateBuilderForm } from '../_components/TemplateBuilderForm'
 
 const initialForm: TemplateBuilderFormValue = {

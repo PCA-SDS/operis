@@ -58,7 +58,7 @@ jest.mock('@open-mercato/shared/lib/commands/flush', () => ({
   withAtomicFlush: (...args: unknown[]) => withAtomicFlushMock(...args),
 }))
 
-jest.mock('@open-mercato/core/modules/perspectives/services/perspectiveService', () => ({
+jest.mock('../../../services/perspectiveService', () => ({
   loadPerspectivesState: jest.fn(),
   saveUserPerspective: (...args: unknown[]) => saveUserPerspectiveMock(...args),
   saveRolePerspectives: (...args: unknown[]) => saveRolePerspectivesMock(...args),
