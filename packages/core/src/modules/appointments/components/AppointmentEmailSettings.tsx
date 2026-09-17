@@ -58,8 +58,9 @@ export function AppointmentEmailSettings() {
     try {
       await runMutation({
         operation: async () => {
-          // optimistic-lock-exempt: tenant-scoped ModuleConfigService key/value blob, not an
-          // entity — the GET returns the settings object with no record version to send back.
+          // optimistic-lock-exempt: tenant-scoped module-config settings blob
+          // is a single settings row without an updated_at value in the API
+          // response, so there is no per-record version token to send.
           const call = await apiCall('/api/appointments/email-settings', {
             method: 'PUT',
             headers: { 'content-type': 'application/json' },
