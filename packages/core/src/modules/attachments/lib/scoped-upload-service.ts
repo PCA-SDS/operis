@@ -30,18 +30,23 @@ import type { AttachmentQuotaService } from './quota-service'
 
 const logger = createLogger('attachments')
 
-export type ScopedAttachmentUploadErrorCode =
-  | 'dangerous_executable'
-  | 'archive_rejected'
-  | 'max_upload_size'
-  | 'active_content'
-  | 'partition_unavailable'
-  | 'quota_exceeded'
-  | 'quota_target_exists'
-  | 'quota_unavailable'
-  | 'quota_recovery_unsupported'
-  | 'storage_failed'
-  | 'persistence_failed'
+export const SCOPED_ATTACHMENT_UPLOAD_ERROR_CODES = [
+  'dangerous_executable',
+  'archive_rejected',
+  'max_upload_size',
+  'active_content',
+  'partition_unavailable',
+  'quota_exceeded',
+  'quota_target_exists',
+  'quota_unavailable',
+  'quota_recovery_unsupported',
+  'storage_failed',
+  'persistence_failed',
+] as const
+
+export type ScopedAttachmentUploadErrorCode = (typeof SCOPED_ATTACHMENT_UPLOAD_ERROR_CODES)[number]
+
+const SCOPED_ATTACHMENT_UPLOAD_ERROR_NAME = 'ScopedAttachmentUploadError'
 
 export class ScopedAttachmentUploadError extends Error {
   constructor(
@@ -49,8 +54,39 @@ export class ScopedAttachmentUploadError extends Error {
     public readonly status: number,
   ) {
     super(code)
-    this.name = 'ScopedAttachmentUploadError'
+    this.name = SCOPED_ATTACHMENT_UPLOAD_ERROR_NAME
   }
+}
+
+/**
+ * Recognise an upload rejection WITHOUT relying on `instanceof`.
+ *
+ * `instanceof` compares class identity, and a bundler can give one source file
+ * two identities. Turbopack places this service in the `ssr` chunk group when a
+ * server component reaches it, while an API route that also imports it gets its
+ * own copy — so the route's `catch` compared an error built from the ssr copy
+ * against its own class object and saw `false`. A deliberate 400 then fell
+ * through to `throw`, and the caller got a 500.
+ *
+ * That failure is invisible in isolation and appears only once some OTHER module
+ * pulls the service into the ssr group, which is why it surfaced as a
+ * "works alone, fails in the suite" test: `eudr`'s portal components are what
+ * drags this module across the boundary ahead of `warranty_claims`.
+ *
+ * Structural identification is immune to that: the shape is ours, the name is
+ * set in the constructor, and the code is checked against the known set so an
+ * unrelated error that happens to share a name cannot be mapped to a status.
+ */
+export function isScopedAttachmentUploadError(error: unknown): error is ScopedAttachmentUploadError {
+  if (error instanceof ScopedAttachmentUploadError) return true
+  if (typeof error !== 'object' || error === null) return false
+  const candidate = error as { name?: unknown; code?: unknown; status?: unknown }
+  return (
+    candidate.name === SCOPED_ATTACHMENT_UPLOAD_ERROR_NAME
+    && typeof candidate.status === 'number'
+    && typeof candidate.code === 'string'
+    && (SCOPED_ATTACHMENT_UPLOAD_ERROR_CODES as readonly string[]).includes(candidate.code)
+  )
 }
 
 export type ScopedAttachmentUploadInput = {
