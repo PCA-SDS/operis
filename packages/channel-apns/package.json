@@ -11,6 +11,28 @@
     "typecheck": "tsc --noEmit"
   },
   "exports": {
+    "./modules/channel_apns": {
+      "types": "./src/modules/channel_apns/index.ts",
+      "default": "./dist/modules/channel_apns/index.js"
+    },
+    "./modules/channel_apns/contract": {
+      "types": "./src/modules/channel_apns/contract.ts",
+      "default": "./dist/modules/channel_apns/contract.js"
+    },
+    "./modules/channel_apns/*": null,
+    "./internal/*.json": "./src/*.json",
+    "./internal/*": {
+      "types": [
+        "./src/*.ts",
+        "./src/*.tsx",
+        "./src/*/index.ts",
+        "./src/*/index.tsx"
+      ],
+      "default": [
+        "./dist/*.js",
+        "./dist/*/index.js"
+      ]
+    },
     ".": "./dist/index.js",
     "./*.ts": {
       "types": "./src/*.ts",

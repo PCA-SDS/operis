@@ -11,6 +11,29 @@
     "typecheck": "tsc --noEmit"
   },
   "exports": {
+    "./modules/onboarding/i18n/*.json": "./src/modules/onboarding/i18n/*.json",
+    "./modules/onboarding": {
+      "types": "./src/modules/onboarding/index.ts",
+      "default": "./dist/modules/onboarding/index.js"
+    },
+    "./modules/onboarding/contract": {
+      "types": "./src/modules/onboarding/contract.ts",
+      "default": "./dist/modules/onboarding/contract.js"
+    },
+    "./modules/onboarding/*": null,
+    "./internal/*.json": "./src/*.json",
+    "./internal/*": {
+      "types": [
+        "./src/*.ts",
+        "./src/*.tsx",
+        "./src/*/index.ts",
+        "./src/*/index.tsx"
+      ],
+      "default": [
+        "./dist/*.js",
+        "./dist/*/index.js"
+      ]
+    },
     ".": "./dist/index.js",
     "./*.ts": {
       "types": "./src/*.ts",

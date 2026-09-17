@@ -25,6 +25,131 @@
     }
   },
   "exports": {
+    "./modules/chat_matrix/lib/transport": {
+      "types": "./src/modules/chat_matrix/lib/transport.ts",
+      "default": "./dist/modules/chat_matrix/lib/transport.js"
+    },
+    "./modules/sync_excel/i18n/*.json": "./src/modules/sync_excel/i18n/*.json",
+    "./modules/eudr/i18n/*.json": "./src/modules/eudr/i18n/*.json",
+    "./modules/design_system/i18n/*.json": "./src/modules/design_system/i18n/*.json",
+    "./modules/email/i18n/*.json": "./src/modules/email/i18n/*.json",
+    "./modules/invoice/i18n/*.json": "./src/modules/invoice/i18n/*.json",
+    "./modules/portal/i18n/*.json": "./src/modules/portal/i18n/*.json",
+    "./modules/wms/i18n/*.json": "./src/modules/wms/i18n/*.json",
+    "./modules/warranty_claims/i18n/*.json": "./src/modules/warranty_claims/i18n/*.json",
+    "./modules/chat_tasks/i18n/*.json": "./src/modules/chat_tasks/i18n/*.json",
+    "./modules/sync_excel": {
+      "types": "./src/modules/sync_excel/index.ts",
+      "default": "./dist/modules/sync_excel/index.js"
+    },
+    "./modules/sync_excel/contract": {
+      "types": "./src/modules/sync_excel/contract.ts",
+      "default": "./dist/modules/sync_excel/contract.js"
+    },
+    "./modules/sync_excel/*": null,
+    "./modules/eudr": {
+      "types": "./src/modules/eudr/index.ts",
+      "default": "./dist/modules/eudr/index.js"
+    },
+    "./modules/eudr/contract": {
+      "types": "./src/modules/eudr/contract.ts",
+      "default": "./dist/modules/eudr/contract.js"
+    },
+    "./modules/eudr/*": null,
+    "./modules/design_system": {
+      "types": "./src/modules/design_system/index.ts",
+      "default": "./dist/modules/design_system/index.js"
+    },
+    "./modules/design_system/contract": {
+      "types": "./src/modules/design_system/contract.ts",
+      "default": "./dist/modules/design_system/contract.js"
+    },
+    "./modules/design_system/*": null,
+    "./modules/chat_matrix": {
+      "types": "./src/modules/chat_matrix/index.ts",
+      "default": "./dist/modules/chat_matrix/index.js"
+    },
+    "./modules/chat_matrix/contract": {
+      "types": "./src/modules/chat_matrix/contract.ts",
+      "default": "./dist/modules/chat_matrix/contract.js"
+    },
+    "./modules/chat_matrix/*": null,
+    "./modules/chat_tasks": {
+      "types": "./src/modules/chat_tasks/index.ts",
+      "default": "./dist/modules/chat_tasks/index.js"
+    },
+    "./modules/chat_tasks/contract": {
+      "types": "./src/modules/chat_tasks/contract.ts",
+      "default": "./dist/modules/chat_tasks/contract.js"
+    },
+    "./modules/chat_tasks/*": null,
+    "./modules/perspectives": {
+      "types": "./src/modules/perspectives/index.ts",
+      "default": "./dist/modules/perspectives/index.js"
+    },
+    "./modules/perspectives/contract": {
+      "types": "./src/modules/perspectives/contract.ts",
+      "default": "./dist/modules/perspectives/contract.js"
+    },
+    "./modules/perspectives/*": null,
+    "./modules/warranty_claims": {
+      "types": "./src/modules/warranty_claims/index.ts",
+      "default": "./dist/modules/warranty_claims/index.js"
+    },
+    "./modules/warranty_claims/contract": {
+      "types": "./src/modules/warranty_claims/contract.ts",
+      "default": "./dist/modules/warranty_claims/contract.js"
+    },
+    "./modules/warranty_claims/*": null,
+    "./modules/wms": {
+      "types": "./src/modules/wms/index.ts",
+      "default": "./dist/modules/wms/index.js"
+    },
+    "./modules/wms/contract": {
+      "types": "./src/modules/wms/contract.ts",
+      "default": "./dist/modules/wms/contract.js"
+    },
+    "./modules/wms/*": null,
+    "./modules/portal": {
+      "types": "./src/modules/portal/index.ts",
+      "default": "./dist/modules/portal/index.js"
+    },
+    "./modules/portal/contract": {
+      "types": "./src/modules/portal/contract.ts",
+      "default": "./dist/modules/portal/contract.js"
+    },
+    "./modules/portal/*": null,
+    "./modules/invoice": {
+      "types": "./src/modules/invoice/index.ts",
+      "default": "./dist/modules/invoice/index.js"
+    },
+    "./modules/invoice/contract": {
+      "types": "./src/modules/invoice/contract.ts",
+      "default": "./dist/modules/invoice/contract.js"
+    },
+    "./modules/invoice/*": null,
+    "./modules/email": {
+      "types": "./src/modules/email/index.ts",
+      "default": "./dist/modules/email/index.js"
+    },
+    "./modules/email/contract": {
+      "types": "./src/modules/email/contract.ts",
+      "default": "./dist/modules/email/contract.js"
+    },
+    "./modules/email/*": null,
+    "./internal/*.json": "./src/*.json",
+    "./internal/*": {
+      "types": [
+        "./src/*.ts",
+        "./src/*.tsx",
+        "./src/*/index.ts",
+        "./src/*/index.tsx"
+      ],
+      "default": [
+        "./dist/*.js",
+        "./dist/*/index.js"
+      ]
+    },
     ".": "./dist/index.js",
     "./testing/integration": {
       "types": "./src/testing/integration/index.ts",
@@ -74,10 +199,6 @@
       "types": "./src/modules/directory/index.ts",
       "default": "./dist/modules/directory/index.js"
     },
-    "./modules/email": {
-      "types": "./src/modules/email/index.ts",
-      "default": "./dist/modules/email/index.js"
-    },
     "./modules/entities": {
       "types": "./src/modules/entities/index.ts",
       "default": "./dist/modules/entities/index.js"
@@ -121,10 +242,6 @@
     "./modules/dashboards": {
       "types": "./src/modules/dashboards/index.ts",
       "default": "./dist/modules/dashboards/index.js"
-    },
-    "./modules/perspectives": {
-      "types": "./src/modules/perspectives/index.ts",
-      "default": "./dist/modules/perspectives/index.js"
     },
     "./modules/business_rules": {
       "types": "./src/modules/business_rules/index.ts",

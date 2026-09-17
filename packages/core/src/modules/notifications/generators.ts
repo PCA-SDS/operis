@@ -32,7 +32,7 @@ const deliveryStrategiesPlugin: GeneratorPlugin = {
   bootstrapRegistration: {
     entriesExportName: 'notificationDeliveryStrategyEntries',
     registrationImports: [
-      `import { registerNotificationDeliveryStrategyEntries } from '@open-mercato/core/modules/notifications/lib/delivery-strategies-registry'`,
+      `import { registerNotificationDeliveryStrategyEntries } from '@open-mercato/core/internal/modules/notifications/lib/delivery-strategies-registry'`,
     ],
     buildCall: (name: string) => `registerNotificationDeliveryStrategyEntries(${name})`,
   },
@@ -71,7 +71,7 @@ const channelsPlugin: GeneratorPlugin = {
   bootstrapRegistration: {
     entriesExportName: 'notificationChannelEntries',
     registrationImports: [
-      `import { registerNotificationChannelEntries } from '@open-mercato/core/modules/notifications/lib/notification-channel-registry'`,
+      `import { registerNotificationChannelEntries } from '@open-mercato/core/internal/modules/notifications/lib/notification-channel-registry'`,
     ],
     buildCall: (name: string) => `registerNotificationChannelEntries(${name})`,
   },

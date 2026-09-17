@@ -5,8 +5,8 @@ import { defaultLocale, locales, type Locale } from '@open-mercato/shared/lib/i1
 import { createFallbackTranslator } from '@open-mercato/shared/lib/i18n/translate'
 import { sendEmail } from '@open-mercato/shared/lib/email/send'
 import { getSecurityEmailBaseUrl } from '@open-mercato/shared/lib/url'
-import { OnboardingService } from '@open-mercato/onboarding/modules/onboarding/lib/service'
-import WorkspaceReadyEmail from '@open-mercato/onboarding/modules/onboarding/emails/WorkspaceReadyEmail'
+import { OnboardingService } from './service'
+import WorkspaceReadyEmail from '../emails/WorkspaceReadyEmail'
 
 function resolveLocale(rawLocale: string | null | undefined): Locale {
   if (rawLocale && locales.includes(rawLocale as Locale)) return rawLocale as Locale

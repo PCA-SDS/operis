@@ -250,6 +250,33 @@ describe('invoice module foundation', () => {
     )
   })
 
+  it('declares the PENDING-confirmation partial indexes on the entity, not only in the migration', () => {
+    // A partial index has no `@Unique` equivalent, so it can only be expressed as a raw
+    // `expression`. Declaring it in the migration ALONE leaves it invisible to the ORM
+    // snapshot, and `yarn db:generate` then proposes DROPPING both on every run — output that,
+    // once committed, silently removes "at most one PENDING confirmation per invoice" and
+    // re-opens the double-token race `findIncoming` cannot recover from.
+    //
+    // This pins both halves and that they agree, so the entity and the migration cannot drift
+    // apart again without failing here first.
+    const pendingUniqueMigration = readFileSync(
+      join(MODULE_ROOT, 'migrations', 'Migration20260916120000_invoice_payment_confirmation_pending_unique.ts'),
+      'utf8',
+    )
+
+    const indexes = [
+      'create unique index "invoice_payment_confirmations_pending_installment_uq" on "invoice_payment_confirmations" ("invoice_id", "installment_id") where "status" = \'PENDING\' and "installment_id" is not null',
+      'create unique index "invoice_payment_confirmations_pending_invoice_uq" on "invoice_payment_confirmations" ("invoice_id") where "status" = \'PENDING\' and "installment_id" is null',
+    ]
+
+    for (const index of indexes) {
+      expect(ENTITY_SOURCE).toContain(index)
+      // The migration is idempotent so a re-run on an existing database is a no-op; the entity
+      // expression cannot be, because MikroORM compares it verbatim against the snapshot.
+      expect(pendingUniqueMigration).toContain(index.replace('create unique index ', 'create unique index if not exists '))
+    }
+  })
+
   it('pins key invoice migration constraints and FK behavior', () => {
     expect(MIGRATION_SOURCE).toContain('invoice_payment_confirmations_token_hash_unique')
     expect(MIGRATION_SOURCE).toContain('references "invoice_companies" ("id") on delete restrict')

@@ -17,12 +17,12 @@ import {
   createBlock,
   customTemplateVariables,
   type TemplateStatus,
-} from '@open-mercato/core/modules/email/components/templateHtml'
+} from '../../../../../components/templateHtml'
 import {
   DEFAULT_TEMPLATE_CATEGORY,
   buildTemplateApiPayload,
   type TemplateBuilderFormValue,
-} from '@open-mercato/core/modules/email/components/templatePayload'
+} from '../../../../../components/templatePayload'
 import { TemplateBuilderForm } from '../../_components/TemplateBuilderForm'
 
 type EmailTemplateRecord = {

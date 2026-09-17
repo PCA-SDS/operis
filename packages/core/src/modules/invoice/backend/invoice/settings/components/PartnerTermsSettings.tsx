@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Search } from 'lucide-react'
-import { useInvoiceT as useT } from '@open-mercato/core/modules/invoice/lib/useInvoiceT'
+import { useInvoiceT as useT } from '../../../../lib/useInvoiceT'
 import { Alert } from '@open-mercato/ui/primitives/alert'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'

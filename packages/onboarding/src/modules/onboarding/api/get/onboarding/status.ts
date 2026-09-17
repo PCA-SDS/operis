@@ -5,13 +5,13 @@ import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { assertAllowedAppOrigin, mapSecurityEmailUrlError } from '@open-mercato/shared/lib/url'
-import { OnboardingService } from '@open-mercato/onboarding/modules/onboarding/lib/service'
-import { sendWorkspaceReadyEmail } from '@open-mercato/onboarding/modules/onboarding/lib/ready-email'
+import { OnboardingService } from '../../../lib/service'
+import { sendWorkspaceReadyEmail } from '../../../lib/ready-email'
 import {
   resolveProvisioningIds,
   runDeferredProvisioning,
-} from '@open-mercato/onboarding/modules/onboarding/lib/deferred-provisioning'
-import { isPreparationClaimActive } from '@open-mercato/onboarding/modules/onboarding/lib/preparation-claim'
+} from '../../../lib/deferred-provisioning'
+import { isPreparationClaimActive } from '../../../lib/preparation-claim'
 import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 
 const logger = createLogger('onboarding').child({ component: 'status' })

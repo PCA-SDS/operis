@@ -1,6 +1,6 @@
 "use client"
 import { useCallback, useMemo, useState, useEffect } from 'react'
-import { extensionPoints } from '@open-mercato/core/modules/portal/extension-points'
+import { extensionPoints } from '../../../../extension-points'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useT } from '@open-mercato/shared/lib/i18n/context'

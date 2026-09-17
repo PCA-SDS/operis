@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import {
-  ScopedAttachmentUploadError,
+  isScopedAttachmentUploadError,
   type ScopedAttachmentUploadService,
 } from '@open-mercato/core/modules/attachments/lib/scoped-upload-service'
 import {
@@ -101,7 +101,7 @@ export async function POST(req: Request, context: { params?: Record<string, unkn
     // the response shape is part of the contract with it.
     return jsonOk({ item: toChatAttachmentDto(attachment) })
   } catch (error) {
-    if (error instanceof ScopedAttachmentUploadError) {
+    if (isScopedAttachmentUploadError(error)) {
       return Response.json({ error: error.code }, { status: error.status })
     }
     return toChatErrorResponse(error, 'chat.conversation.attachments.upload')

@@ -11,7 +11,7 @@ import { InvoiceLineItems } from './components/InvoiceLineItems'
 import { localDate } from '../../lib/localDates'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-import { useInvoiceT as useT } from '@open-mercato/core/modules/invoice/lib/useInvoiceT'
+import { useInvoiceT as useT } from '../../lib/useInvoiceT'
 import { invoiceDateStringSchema, invoiceManualWriteBaseSchema } from '../../data/validators'
 
 const invoiceManualFormSchema = invoiceManualWriteBaseSchema

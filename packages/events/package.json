@@ -11,6 +11,28 @@
     "typecheck": "tsc --noEmit"
   },
   "exports": {
+    "./modules/events": {
+      "types": "./src/modules/events/index.ts",
+      "default": "./dist/modules/events/index.js"
+    },
+    "./modules/events/contract": {
+      "types": "./src/modules/events/contract.ts",
+      "default": "./dist/modules/events/contract.js"
+    },
+    "./modules/events/*": null,
+    "./internal/*.json": "./src/*.json",
+    "./internal/*": {
+      "types": [
+        "./src/*.ts",
+        "./src/*.tsx",
+        "./src/*/index.ts",
+        "./src/*/index.tsx"
+      ],
+      "default": [
+        "./dist/*.js",
+        "./dist/*/index.js"
+      ]
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./dist/index.js"

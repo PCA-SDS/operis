@@ -11,6 +11,28 @@
     "typecheck": "tsc --noEmit"
   },
   "exports": {
+    "./modules/content": {
+      "types": "./src/modules/content/index.ts",
+      "default": "./dist/modules/content/index.js"
+    },
+    "./modules/content/contract": {
+      "types": "./src/modules/content/contract.ts",
+      "default": "./dist/modules/content/contract.js"
+    },
+    "./modules/content/*": null,
+    "./internal/*.json": "./src/*.json",
+    "./internal/*": {
+      "types": [
+        "./src/*.ts",
+        "./src/*.tsx",
+        "./src/*/index.ts",
+        "./src/*/index.tsx"
+      ],
+      "default": [
+        "./dist/*.js",
+        "./dist/*/index.js"
+      ]
+    },
     ".": "./dist/index.js",
     "./*.ts": {
       "types": "./src/*.ts",
