@@ -71,7 +71,21 @@ SIZE_BYTES="$(stat -c %s "$TARGET")"
 # pg_restore --list parses the archive's table of contents. A dump that cannot
 # be listed cannot be restored, and finding that out during an outage is too
 # late. This is cheap; run it every time.
-docker exec -i "$PG_CID" pg_restore --list /dev/stdin < "$TARGET" > /dev/null 2>&1 \
+#
+# The archive MUST reach pg_restore as a SEEKABLE FILE. A -Fc dump keeps its
+# table of contents at an offset, and `docker exec -i ... /dev/stdin` hands
+# pg_restore a pipe — which fails with "did not find magic string in file
+# header" on a byte-perfect dump and deletes it. That false negative silently
+# discarded every scheduled backup. The host carries no postgres client tools,
+# so copy the file into the container and read it there.
+IN_CID="/tmp/backup-verify-${STAMP}.dump"
+cleanup_in_cid() { docker exec "$PG_CID" rm -f "$IN_CID" >/dev/null 2>&1 || true; }
+trap cleanup_in_cid EXIT
+
+docker cp "$TARGET" "$PG_CID:$IN_CID" >/dev/null 2>&1 \
+  || { rm -f "$TARGET"; fail "could not copy the dump into the postgres container"; }
+
+docker exec "$PG_CID" pg_restore --list "$IN_CID" > /dev/null 2>&1 \
   || { rm -f "$TARGET"; fail "dump failed its integrity check — removed"; }
 
 log "ok: $(du -h "$TARGET" | cut -f1)"
@@ -84,8 +98,9 @@ if [ "${1:-}" = "--verify" ]; then
   SCRATCH="verify_$(date -u '+%s')"
   log "restoring into scratch database $SCRATCH …"
   docker exec "$PG_CID" createdb -U "$PGUSER" "$SCRATCH"
-  # shellcheck disable=SC2015
-  docker exec -i "$PG_CID" pg_restore -U "$PGUSER" -d "$SCRATCH" --no-owner < "$TARGET" >/dev/null 2>&1 || true
+  # Same seekable-file requirement as the --list check above; $IN_CID is the
+  # copy already inside the container.
+  docker exec "$PG_CID" pg_restore -U "$PGUSER" -d "$SCRATCH" --no-owner "$IN_CID" >/dev/null 2>&1 || true
   COUNT="$(docker exec "$PG_CID" psql -U "$PGUSER" -d "$SCRATCH" -tAc \
     "select count(*) from information_schema.tables where table_schema='public'")"
   docker exec "$PG_CID" dropdb -U "$PGUSER" "$SCRATCH"
