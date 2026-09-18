@@ -10,7 +10,10 @@ name: CI & Deploy
 #                    └─ test ────────┘
 #
 #   merge queue  ──► the same fan-out, tests UNFILTERED, plus the image build
-#   push to main ──► the same fan-out ──► build ──► deploy
+#   push to main ──► the same fan-out ──► build ──┬─► deploy staging
+#                                                 │   (/opt/operis-staging)
+#                                                 └─► deploy production
+#                                                     (waits for a reviewer)
 #
 # The gate is six concurrent jobs behind one cache-warming `prepare`. It was a
 # single sequential job whose wall clock was the SUM of every step; lint and
@@ -31,6 +34,17 @@ name: CI & Deploy
 # The image is built here, once, and pulled by the server. Building on the VPS
 # needs ~4 GB of heap and would compete with the four other production stacks
 # sharing that host.
+#
+# ONCE means once for BOTH environments. Staging and production pull the same
+# digest; staging costs no build time at all. That works because the runner
+# stage takes no environment-specific build args and the image is built with no
+# .env, so every NEXT_PUBLIC_* sits at its default and all real configuration
+# arrives at runtime from the stack's own .env. Introduce a build arg that
+# differs per environment and you lose this property — staging would stop
+# testing the artifact production runs.
+#
+# The two deploys are the same reusable workflow (deploy-target.yml) called
+# twice; see the deploy-staging/deploy-production jobs at the bottom.
 #
 # Runners are stock `ubuntu-latest`. Every workflow inherited from upstream
 # targets `blacksmith-4vcpu-ubuntu-2404`, a runner fleet this fork has no
@@ -65,6 +79,10 @@ on:
         default: ''
       skip_quality:
         description: 'Skip lint/typecheck/tests. Emergency use only.'
+        type: boolean
+        default: false
+      skip_staging:
+        description: 'Deploy straight to production without going through staging. Emergency use only.'
         type: boolean
         default: false
 
@@ -849,25 +867,68 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ---------------------------------------------------------------------------
-  deploy:
-    name: Deploy to VPS
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # read, not write: this token is handed to the VPS to pull the image.
+  # Deployment: staging, then production behind an approval.
+  #
+  # Both calls hand the SAME digest to the same reusable workflow
+  # (deploy-target.yml); only the inputs differ. Nothing is rebuilt between
+  # them, so "it worked on staging" is a statement about the exact bytes that
+  # production will run, not about a similar build of the same commit.
+  #
+  # The gate is the required reviewer on the `production` environment, not
+  # anything expressed here. That is deliberate: branch protection and job
+  # conditions cannot express "a human looked at it", and an environment
+  # reviewer can be changed without editing this file.
+  #
+  # NOTE ON QUEUEING: concurrency.group is per-ref with cancel-in-progress
+  # false on main, so while a production approval is pending the run stays
+  # open and the next merge to main queues behind it. That is the cost of the
+  # gate. If it becomes a problem, give the two deploys separate concurrency
+  # groups rather than removing the approval.
+  # ---------------------------------------------------------------------------
+  deploy-staging:
+    name: Staging
+    needs: [scope, ci-required, build, translation-image]
+    # `always()` so an explicitly skipped dependency (skip_quality, or a build
+    # skipped when redeploying an existing tag) still deploys. Each result is
+    # then checked by name: success or skipped is fine, failure is not.
+    if: >-
+      always()
+      && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      && !inputs.skip_staging
+      && needs.scope.result == 'success'
+      && (needs['ci-required'].result == 'success' || needs['ci-required'].result == 'skipped')
+      && (needs.build.result == 'success'   || needs.build.result == 'skipped')
+      && (needs['translation-image'].result == 'success' || needs['translation-image'].result == 'skipped')
+    # The workflow-level default is `contents: read`. A called workflow's job
+    # permissions are CAPPED by the caller's, so omitting packages here would
+    # silently strip the called job's `packages: read` and the VPS pull would
+    # fail with what looks like a registry problem.
     permissions:
       contents: read
       packages: read
-    # `translation-image` too: compose has no `profiles:` for the engine, so
-    # `docker compose up -d` fails the whole deploy if its image cannot be
-    # pulled. An optional feature must not be able to take the app down, and on
-    # the first merge `:latest` does not exist in the registry at all.
-    needs: [scope, ci-required, build, translation-image]
-    # `always()` so this is evaluated even when a dependency was skipped —
-    # without it, one skipped `needs` would skip this job outright. Each result
-    # is then checked explicitly: success or skipped is fine, failure is not.
-    # skipped is legitimate for `ci-required` (skip_quality), for `build`
-    # (redeploying an existing tag), and for `translation-image` (nothing under
-    # services/translation changed, so the published image still stands).
+    uses: ./.github/workflows/deploy-target.yml
+    secrets: inherit
+    with:
+      environment: staging
+      app_dir: /opt/operis-staging
+      stack_name: operis-staging
+      skip_backup: true
+      requested_tag: ${{ inputs.image_tag }}
+      built_tag: ${{ needs.build.outputs.tag }}
+      built_image: ${{ needs.build.outputs.image }}
+      built_digest: ${{ needs.build.outputs.digest }}
+
+  # ---------------------------------------------------------------------------
+  deploy-production:
+    name: Production
+    needs: [scope, ci-required, build, translation-image, deploy-staging]
+    # Production requires staging to have SUCCEEDED — not merely "not failed".
+    # `skipped` is accepted for every other dependency and deliberately not for
+    # this one: a skipped staging deploy means the release was never run
+    # anywhere, which is exactly the state this job exists to prevent.
+    #
+    # skip_staging is the emergency escape hatch, mirroring skip_quality. It is
+    # a workflow_dispatch input, so it cannot be reached by a push.
     if: >-
       always()
       && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
@@ -875,262 +936,19 @@ jobs:
       && (needs['ci-required'].result == 'success' || needs['ci-required'].result == 'skipped')
       && (needs.build.result == 'success'   || needs.build.result == 'skipped')
       && (needs['translation-image'].result == 'success' || needs['translation-image'].result == 'skipped')
-    environment:
-      name: production
-      url: https://${{ vars.APP_DOMAIN }}
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Resolve tag to deploy
-        id: tag
-        # Both values reach the shell as environment variables, never as
-        # interpolated text: a workflow_dispatch input is attacker-controlled
-        # from the moment anyone gains write access, and `'${{ ... }}'` inside
-        # run: would let a quote character break out into arbitrary commands.
-        env:
-          REQUESTED_TAG: ${{ inputs.image_tag }}
-          BUILT_TAG: ${{ needs.build.outputs.tag }}
-        run: |
-          set -euo pipefail
-          TAG="${REQUESTED_TAG:-$BUILT_TAG}"
-          [ -n "$TAG" ] || { echo "::error::no image tag to deploy"; exit 1; }
-          printf '%s' "$TAG" | grep -Eq '^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$' \
-            || { echo "::error::image tag contains illegal characters"; exit 1; }
-          echo "value=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Deploying tag: $TAG"
-
-      - name: Resolve image to deploy
-        id: image
-        # The image coordinate is derived HERE and handed to the server, rather
-        # than read from a copy kept on the server. github.repository follows a
-        # rename or an org transfer automatically; a hand-maintained APP_IMAGE in
-        # the VPS's .env does not, and its staleness surfaces only as a failed
-        # pull that reads like a registry login problem. One fact, one source.
-        env:
-          BUILT_IMAGE: ${{ needs.build.outputs.image }}
-          BUILT_DIGEST: ${{ needs.build.outputs.digest }}
-          REQUESTED_TAG: ${{ inputs.image_tag }}
-        run: |
-          set -euo pipefail
-          # BUILT_IMAGE is empty when the build job was skipped (redeploying an
-          # existing tag), so fall back to the same derivation the build uses.
-          IMAGE="${BUILT_IMAGE:-${REGISTRY}/$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')}"
-
-          # A digest pins the exact artifact, but only this run's build knows it.
-          # Redeploying an arbitrary existing tag has nothing to pin to, so the
-          # server is told to skip verification rather than be handed a digest
-          # belonging to a different image.
-          DIGEST=""
-          if [ -n "$BUILT_DIGEST" ] && [ -z "$REQUESTED_TAG" ]; then
-            DIGEST="$BUILT_DIGEST"
-          fi
-
-          echo "value=$IMAGE"   >> "$GITHUB_OUTPUT"
-          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
-          echo "Deploying image: $IMAGE${DIGEST:+  (digest $DIGEST)}"
-
-      - name: Configure SSH
-        env:
-          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          HOST: ${{ secrets.DEPLOY_HOST }}
-          USERNAME: ${{ secrets.DEPLOY_USER }}
-          PORT: ${{ secrets.DEPLOY_PORT || 22 }}
-        run: |
-          set -euo pipefail
-          : "${SSH_KEY:?DEPLOY_SSH_KEY secret is not set}"
-          : "${KNOWN_HOSTS:?DEPLOY_KNOWN_HOSTS secret is not set — run: ssh-keyscan -t ed25519 <host>}"
-          : "${HOST:?DEPLOY_HOST secret is not set}"
-          : "${USERNAME:?DEPLOY_USER secret is not set}"
-
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
-          chmod 600 ~/.ssh/id_deploy
-          # Pinned host key. StrictHostKeyChecking=accept-new would trust
-          # whatever answers on first connect — that is a machine-in-the-middle
-          # waiting to happen for a job that carries a deploy key.
-          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-
-          # Built from shell variables, so nothing from a secret is ever
-          # interpolated into this file as workflow text.
-          {
-            echo "Host target"
-            echo "  HostName $HOST"
-            echo "  User $USERNAME"
-            echo "  Port $PORT"
-            echo "  IdentityFile ~/.ssh/id_deploy"
-            echo "  IdentitiesOnly yes"
-            echo "  StrictHostKeyChecking yes"
-            echo "  ConnectTimeout 15"
-            echo "  ServerAliveInterval 30"
-          } >> ~/.ssh/config
-          chmod 600 ~/.ssh/config
-
-      - name: Verify connectivity
-        run: ssh target 'echo "connected as $(id -un)@$(hostname)"; docker version --format "docker {{.Server.Version}}"'
-
-      - name: Sync deployment files
-        # Only these six files. The server's .env, backups/ and logs/ are never
-        # touched by CI — secrets stay on the server, out of the pipeline.
-        #
-        # required-env travels with deploy.sh on purpose: it lists the variables
-        # this release needs, so adding one is a reviewed change in git rather
-        # than something to remember to set on the box afterwards.
-        #
-        # deploy/nginx/operis.conf.template is deliberately NOT synced. It lives
-        # in the pca-erp stack's directory and a bad copy there would break the
-        # gateway for four other hostnames, so it is installed by hand, once,
-        # behind an `nginx -t`. See deploy/README.md.
-        run: |
-          set -euo pipefail
-          rsync -az --checksum \
-            deploy/redis.conf \
-            deploy/deploy.sh \
-            deploy/backup.sh \
-            deploy/required-env \
-            deploy/dc \
-            target:/opt/operis/
-          rsync -az --checksum deploy/docker-compose.prod.yml target:/opt/operis/docker-compose.yml
-          ssh target 'chmod +x /opt/operis/deploy.sh /opt/operis/backup.sh /opt/operis/dc'
-
-      - name: Authenticate the server to GHCR (ephemeral)
-        # No permanent registry password is stored on the VPS. This is the
-        # job-scoped GITHUB_TOKEN, valid only for the life of this run, and the
-        # "Revoke" step below removes it again. Piped over stdin so it never
-        # lands in the server's argv (readable via /proc by any local user) or
-        # in a shell history file.
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GHCR_USER: ${{ github.actor }}
-        run: |
-          set -euo pipefail
-          printf '%s' "$GHCR_TOKEN" | ssh target "docker login ghcr.io -u $(printf '%q' "$GHCR_USER") --password-stdin"
-
-      - name: Deploy
-        # Same rule as the tag step: every value reaches the shell as an
-        # environment variable and is quoted with printf %q before it becomes
-        # part of a remote command line.
-        env:
-          TAG: ${{ steps.tag.outputs.value }}
-          IMAGE: ${{ steps.image.outputs.value }}
-          DIGEST: ${{ steps.image.outputs.digest }}
-        run: |
-          set -euo pipefail
-          ARGS="$(printf '%q' "$TAG") --image $(printf '%q' "$IMAGE")"
-          if [ -n "$DIGEST" ]; then
-            ARGS="$ARGS --digest $(printf '%q' "$DIGEST")"
-          fi
-          ssh target "/opt/operis/deploy.sh $ARGS"
-
-      - name: Smoke test through the public URL
-        env:
-          DOMAIN: ${{ vars.APP_DOMAIN }}
-        run: |
-          set -euo pipefail
-          # Deliberately fatal. Skipping the only external check because a
-          # variable is unset reports a green deploy that nothing verified —
-          # the one outcome worse than a red one, because it is trusted.
-          if [ -z "$DOMAIN" ]; then
-            echo "::error::repository variable APP_DOMAIN is not set, so the deploy cannot be verified."
-            echo "::error::Set it with: gh variable set APP_DOMAIN --body <hostname>"
-            exit 1
-          fi
-          for attempt in $(seq 1 12); do
-            code="$(curl -sS -o /tmp/health.json -w '%{http_code}' --max-time 20 "https://$DOMAIN/api/configs/health" || echo 000)"
-            if [ "$code" = "200" ]; then
-              echo "health OK: $(cat /tmp/health.json)"
-              exit 0
-            fi
-            echo "attempt $attempt: HTTP $code — retrying in 10s"
-            sleep 10
-          done
-          echo "::error::$DOMAIN did not return a healthy response after 2 minutes"
-          cat /tmp/health.json 2>/dev/null || true
-          exit 1
-
-      - name: Smoke test the DI container through a real route
-        env:
-          DOMAIN: ${{ vars.APP_DOMAIN }}
-        # /api/configs/health resolves nothing from the Awilix container, so it returns 200
-        # from an app whose every `asClass` registration is broken. That is not hypothetical:
-        # enabling minification mangled the constructor parameter names CLASSIC injection
-        # resolves by, login 500'd, and this deploy still reported healthy.
-        #
-        # Deliberately WRONG credentials. A 401 proves the container resolved authService and
-        # the handler ran; a 5xx proves it could not. No secret is needed to tell those apart,
-        # which is what makes this safe to run against production on every deploy.
-        #
-        # The body MUST be form-encoded. `/api/auth/login` accepts
-        # `application/x-www-form-urlencoded` or form data only; a JSON body throws inside
-        # `parseLoginForm`, which catches and yields empty fields, so zod fails and the route
-        # answers 400 at login.ts:104 — three lines BEFORE `container.resolve('authService')`
-        # at login.ts:107. This probe used to send JSON and accept anything non-5xx, so it
-        # passed on a 400 that never reached the container: precisely the blind spot the
-        # comment above describes, in the check written to catch it. 400 is now fatal too,
-        # because a well-formed probe can no longer produce one.
-        run: |
-          set -euo pipefail
-          if [ -z "$DOMAIN" ]; then
-            echo "::error::repository variable APP_DOMAIN is not set, so the deploy cannot be verified."
-            exit 1
-          fi
-          code="$(curl -sS -o /tmp/auth.json -w '%{http_code}' --max-time 20 \
-            -X POST "https://$DOMAIN/api/auth/login" \
-            -H 'content-type: application/x-www-form-urlencoded' \
-            --data-urlencode 'email=smoke-test@invalid.local' \
-            --data-urlencode 'password=not-a-real-password' || echo 000)"
-          case "$code" in
-            400)
-              echo "::error::POST /api/auth/login returned 400 — the probe never reached the DI container, so this deploy is UNVERIFIED. The route's accepted content types have changed; fix the probe."
-              cat /tmp/auth.json 2>/dev/null || true
-              exit 1
-              ;;
-            5*|000)
-              echo "::error::POST /api/auth/login returned $code — the app is serving but its DI container or auth path is broken."
-              cat /tmp/auth.json 2>/dev/null || true
-              exit 1
-              ;;
-            *)
-              echo "auth path OK: rejected bad credentials with HTTP $code"
-              ;;
-          esac
-
-      - name: Deployment summary
-        if: always()
-        env:
-          TAG: ${{ steps.tag.outputs.value }}
-          DOMAIN: ${{ vars.APP_DOMAIN }}
-          STATUS: ${{ job.status }}
-        run: |
-          {
-            echo "### Deployment $STATUS"
-            echo ""
-            echo "- tag: \`$TAG\`"
-            echo "- url: https://$DOMAIN"
-            echo "- commit: $GITHUB_SHA"
-            echo ""
-            echo "Roll back with: \`ssh <user>@<host> '/opt/operis/deploy.sh --rollback'\`"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Report failure details
-        if: failure()
-        run: |
-          echo "::group::deploy log (tail)"
-          ssh target 'tail -80 /opt/operis/logs/deploy.log' || true
-          echo "::endgroup::"
-          echo "::group::container state"
-          ssh target '/opt/operis/deploy.sh --status' || true
-          echo "::endgroup::"
-          echo "::group::app logs"
-          ssh target 'cd /opt/operis && ./dc logs --tail 100 app' || true
-          echo "::endgroup::"
-
-      - name: Revoke the server's registry credentials
-        if: always()
-        run: ssh target 'docker logout ghcr.io' || true
-
-      - name: Remove SSH key
-        if: always()
-        run: rm -f ~/.ssh/id_deploy ~/.ssh/config
+      && (needs['deploy-staging'].result == 'success'
+          || (github.event_name == 'workflow_dispatch' && inputs.skip_staging))
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/deploy-target.yml
+    secrets: inherit
+    with:
+      environment: production
+      app_dir: /opt/operis
+      stack_name: operis
+      skip_backup: false
+      requested_tag: ${{ inputs.image_tag }}
+      built_tag: ${{ needs.build.outputs.tag }}
+      built_image: ${{ needs.build.outputs.image }}
+      built_digest: ${{ needs.build.outputs.digest }}

@@ -1,0 +1,246 @@
+# =====================================================================
+# Operis STAGING — vhost for the shared pca-erp nginx gateway
+# ---------------------------------------------------------------------
+# INSTALL TO: /opt/pca-erp/docker/nginx/templates/operis-staging.conf.template
+#
+# The sibling of operis.conf.template, pointing at the operis-staging
+# stack (/opt/operis-staging) instead of production. Same gateway, same
+# certbot, different hostname and different upstream container.
+#
+# This is an ADDITIVE file. pca-erp's own default.conf.template is never
+# modified. The nginx service mounts the whole templates/ directory, and
+# the image's entrypoint renders every *.template in it into
+# /etc/nginx/conf.d/ on start.
+#
+# ---------------------------------------------------------------------
+# EVERY http-context NAME HERE IS PREFIXED, AND MUST STAY THAT WAY
+#
+# `map` and `log_format` live in the http context, not inside the server
+# block — so this file and operis.conf.template render into the SAME
+# namespace. Reusing production's `$operis_connection_upgrade`,
+# `$operis_args` or `operis_access` here is a DUPLICATE DEFINITION, which
+# nginx treats as fatal: the gateway then fails to start and takes erp,
+# auth, cloud and files.pca-sds.com down with it, not just Operis.
+#
+# Hence $operis_staging_connection_upgrade, $operis_staging_args and
+# operis_staging_access below. If you add another map, filter or
+# log_format, prefix it the same way.
+#
+# `nginx -t` before EVERY reload is what makes a mistake here fail closed
+# rather than take four unrelated hostnames offline.
+#
+# ---------------------------------------------------------------------
+# Why there are no ${VAR} placeholders in this file
+#
+# pca-erp sets NGINX_ENVSUBST_FILTER to exactly:
+#   ^(APP_DOMAIN|FILES_DOMAIN|CLOUD_DOMAIN|AUTH_DOMAIN|ADMIN_DOMAIN)$
+# Only those five names are substituted, across every template in the
+# directory. A ${OPERIS_DOMAIN} here would NOT be substituted — it would
+# survive verbatim into the rendered config and nginx would reject it.
+# Adding a sixth name to that filter means editing pca-erp's compose file,
+# which is exactly the coupling this file exists to avoid. So the hostname
+# is hardcoded. Change it here if the domain ever changes.
+#
+# The filter is also what keeps nginx's own runtime variables below
+# ($host, $request_uri, $proxy_add_x_forwarded_for, …) intact: without a
+# filter, envsubst would replace them all with empty strings.
+#
+# ---------------------------------------------------------------------
+# Self-contained by design
+#
+# Everything this file references, it defines. It does NOT reuse
+# default.conf.template's `redacted` log_format or assume a
+# `$connection_upgrade` map exists. conf.d/*.conf is included in
+# alphabetical order, so `default.conf` does load first today — but
+# depending on that would make this file break the day someone renames
+# theirs. The one thing it does inherit is the http-context TLS policy and
+# `resolver 127.0.0.11`, which are global by nature.
+#
+# ---------------------------------------------------------------------
+# ORDER OF OPERATIONS — this matters
+#
+# nginx REFUSES TO START when ssl_certificate points at a missing file.
+# Installing this file before the certificate exists and then reloading
+# takes down all four pca-sds.com hostnames with it. Always:
+#   1. issue the certificate
+#   2. install this file
+#   3. docker exec pca-erp-nginx nginx -t      <- must pass
+#   4. docker exec pca-erp-nginx nginx -s reload
+#
+# ---------------------------------------------------------------------
+# TLS renewal needs no changes: pca-erp's certbot service runs
+# `certbot renew` (every certificate on the box, not a fixed list) twice a
+# day, and its nginx reloads every 6 hours to pick up new files. The
+# :80 default_server already serves /.well-known/acme-challenge/ for ANY
+# hostname, so the HTTP-01 challenge for this domain works through it.
+# =====================================================================
+
+# WebSocket upgrade passthrough. Prefixed to avoid colliding with a map of
+# the same name if pca-erp ever adds one — a duplicate `map` is a fatal
+# config error, and it would take their gateway down, not just this vhost.
+map $http_upgrade $operis_staging_connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+# Query strings are reduced to a marker rather than logged. Operis puts
+# single-use credentials in query parameters — password-reset tokens,
+# invitation tokens, magic links — and nginx's built-in `combined` format
+# would write every one of them to the gateway log in full.
+map $args $operis_staging_args {
+    default "?<redacted>";
+    ""      "";
+}
+
+log_format operis_staging_access '$remote_addr - $remote_user [$time_local] '
+                         '"$request_method $uri$operis_staging_args $server_protocol" '
+                         '$status $body_bytes_sent '
+                         '"$http_referer" "$http_user_agent" rid=$request_id';
+
+server {
+    listen      443 ssl;
+    listen      [::]:443 ssl;
+    http2       on;
+
+    # NOT default_server — pca-erp's app vhost holds that, and it must keep
+    # holding it. This block is selected by SNI/Host match only.
+    server_name operis-staging.faheemkamel.com;
+
+    ssl_certificate     /etc/letsencrypt/live/operis-staging.faheemkamel.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/operis-staging.faheemkamel.com/privkey.pem;
+
+    # TLS protocol/cipher policy is set once in the http context by
+    # default.conf.template and applies here too — not repeated.
+
+    access_log /var/log/nginx/access.log operis_staging_access;
+
+    # Attachment uploads. Operis caps these at OM_ATTACHMENT_MAX_UPLOAD_MB
+    # (25 MB default); nginx's own default is 1m, which would 413 every
+    # upload the app actually allows. Keep this at or above the app cap.
+    client_max_body_size 32m;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    # One DAY here, against production's one year. HSTS is a promise the
+    # browser keeps even after this host stops existing, and a staging
+    # hostname is exactly the kind that gets torn down, moved or pointed
+    # somewhere else. A day still forces HTTPS for anyone actually using it
+    # without pinning them for a year to a box that may not be here.
+    # As in production: no includeSubDomains, no preload.
+    add_header Strict-Transport-Security "max-age=86400" always;
+    # Staging serves the same routes as production on a public hostname.
+    # Without this a crawler can index it, and duplicate content under a
+    # `staging.` host is both an SEO problem and an information leak.
+    add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
+    # X-Frame-Options and CSP are NOT set here: Operis's own next.config.ts
+    # already sends both. Emitting a second, different value for either is
+    # worse than emitting none — browsers resolve conflicting frame policies
+    # by taking the most restrictive, and duplicate CSP headers intersect.
+
+    # -----------------------------------------------------------------
+    # Build assets. Everything under /_next/static/ is content-hashed and
+    # immutable, and Next already sends `Cache-Control: public, max-age=31536000,
+    # immutable` for it — this block is about the CONNECTION, not the caching.
+    #
+    # `location /` below turns proxy_buffering off so RSC payloads stream. That
+    # setting is right for documents and wrong for these: the app's production
+    # chunks are large (the biggest is several MB, because both minifiers are
+    # disabled — see the MikroORM note in apps/mercato/next.config.ts), and with
+    # buffering off nginx reads from the upstream only as fast as the client
+    # accepts it, so one slow client pins a Node connection for the whole
+    # download. Buffering lets nginx take the response at LAN speed, release the
+    # upstream connection, and feed the client from its own buffer.
+    #
+    # A longer prefix wins over `location /` regardless of block order, and the
+    # SSE regex above cannot match these paths.
+    #
+    # Deliberately NO add_header here: a location block that sets any add_header
+    # stops inheriting the server-level ones, which would silently drop CSP,
+    # HSTS, X-Content-Type-Options and Referrer-Policy from every asset response.
+    # -----------------------------------------------------------------
+    location /_next/static/ {
+        set $upstream_operis_staging http://operis-staging-app:3000;
+        proxy_pass         $upstream_operis_staging$request_uri;
+
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+
+        proxy_buffering    on;
+        # Sized so a typical chunk lands entirely in memory; anything larger
+        # spills to nginx's temp files rather than throttling to client speed.
+        proxy_buffers      16 64k;
+        proxy_buffer_size  32k;
+        proxy_busy_buffers_size 128k;
+
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 90s;
+    }
+
+    # -----------------------------------------------------------------
+    # Server-Sent Events — the DOM event bridge, the customer-portal event
+    # bridge, and AI chat streaming. nginx buffers proxied responses by
+    # default, which holds an SSE frame until the buffer fills: the browser
+    # sees nothing for minutes and the feature looks broken rather than slow.
+    # These also stay open far longer than a normal request.
+    # -----------------------------------------------------------------
+    location ~ ^/api/(events/stream|customer_accounts/portal/events/stream|ai_assistant/) {
+        set $upstream_operis_staging http://operis-staging-app:3000;
+        proxy_pass         $upstream_operis_staging$request_uri;
+
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        # Empty Connection header: keeps the upstream connection alive and
+        # stops a client-supplied `Connection: close` ending the stream.
+        proxy_set_header   Connection        "";
+
+        proxy_buffering    off;
+        proxy_cache        off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # -----------------------------------------------------------------
+    # Everything else → the Next.js server.
+    #
+    # The variable + the http-context `resolver 127.0.0.11` (declared in
+    # default.conf.template) mean the upstream is resolved per request, so a
+    # redeployed operis-app container is picked up within the resolver's
+    # `valid=10s` without reloading nginx. A literal proxy_pass hostname
+    # would be resolved once at startup and 502 forever after a deploy.
+    #
+    # With a variable in proxy_pass nginx no longer appends the matched URI
+    # itself, hence the explicit $request_uri (which carries the query
+    # string too).
+    # -----------------------------------------------------------------
+    location / {
+        set $upstream_operis_staging http://operis-staging-app:3000;
+        proxy_pass         $upstream_operis_staging$request_uri;
+
+        proxy_http_version 1.1;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_set_header   Upgrade           $http_upgrade;
+        proxy_set_header   Connection        $operis_staging_connection_upgrade;
+
+        # Next.js streams React Server Component payloads. Buffering those
+        # delays first paint for no benefit on a low-traffic origin.
+        proxy_buffering    off;
+
+        # Fail fast while the app container restarts during a deploy: the
+        # default 60s connect wait would pin worker connections.
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 90s;
+        # Large uploads stream in slowly on poor connections; don't cut them
+        # off mid-body while the client is still sending.
+        proxy_send_timeout 90s;
+        proxy_request_buffering off;
+    }
+}

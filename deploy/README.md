@@ -12,20 +12,37 @@ them, with exactly one exception that is called out where it happens.
         ▼
   GitHub Actions ── docker build (Dockerfile, target: runner) ──► ghcr.io/pca-sds/operis:sha-abc1234
         │                                                                    │
+        │  ONE image. Staging and production deploy the same digest;         │
+        │  nothing is rebuilt between them.                                  │
+        │                                                                    │
+        │  deploy staging ──► [approval] ──► deploy production               │
+        │                                                                    │
         │ ssh + rsync (compose, redis.conf, scripts)                         │ docker pull
         ▼                                                                    ▼
   ┌──────────────────────────── OVH VPS ──────────────────────────────────────┐
   │                                                                           │
   │  :80 :443 ── pca-erp-nginx ─┬─► erp / auth / cloud / files.pca-sds.com    │
   │  (NOT OURS)                 │                                             │
-  │                             └─► operis.faheemkamel.com                    │
-  │                                        │ pca-erp-network                  │
-  │                                        ▼                                  │
-  │                                   operis-app ──┬─► operis-postgres  ┐     │
-  │                                                ├─► operis-redis     │ operis-
-  │                                                └─► operis-meilisearch┘ internal
+  │                             ├─► operis.faheemkamel.com                    │
+  │                             │            │ pca-erp-network                │
+  │                             │            ▼                                │
+  │                             │       operis-app ──┬─► operis-postgres  ┐   │
+  │                             │                    ├─► operis-redis     │ operis-
+  │                             │                    └─► operis-meilisearch┘ internal
+  │                             │                                             │
+  │                             └─► operis-staging.faheemkamel.com            │
+  │                                          │ pca-erp-network                │
+  │                                          ▼                                │
+  │                             operis-staging-app ──┬─► operis-staging-postgres ┐
+  │                                                  ├─► operis-staging-redis    │ operis-staging-
+  │                                                  └─► operis-staging-meilisearch┘ internal
   └───────────────────────────────────────────────────────────────────────────┘
 ```
+
+Both stacks run from the **same** `docker-compose.prod.yml`; `STACK_NAME` in each
+stack's `.env` prefixes the compose project, every container name, the internal
+network and every volume. The `pca-erp-network` gateway network is the one thing
+they share, which is how one nginx reaches both.
 
 Operis publishes **no host ports at all**. The app is reachable only by containers on
 `pca-erp-network` (i.e. the gateway); the datastores only by the app. That also
@@ -63,9 +80,11 @@ filter produces a byte-identical file — no nginx runtime variable gets eaten.
 | `00-audit-server.sh` | server | **Read-only** inventory. Changes nothing. Run before touching an unfamiliar box. |
 | `01-bootstrap-server.sh` | — | **Not used on this host.** Correct for a *fresh* single-purpose VPS; see its header. |
 | `docker-compose.prod.yml` | server (as `docker-compose.yml`) | The stack. Never builds; pulls the CI image. |
-| `nginx/operis.conf.template` | pca-erp templates dir | The vhost. Installed **by hand, once**. |
+| `nginx/operis.conf.template` | pca-erp templates dir | The production vhost. Installed **by hand, once**. |
+| `nginx/operis-staging.conf.template` | pca-erp templates dir | The staging vhost. Same rules. Every http-context name in it is prefixed `operis_staging_*` — see below. |
 | `redis.conf` | server | Redis with persistence on (queues live here). |
 | `env.production.example` | → server `.env` | Every environment variable, annotated. |
+| `env.staging.example` | → staging `.env` | The staging **delta** on top of the above, not a second copy of it. |
 | `init-env.sh` | server | Generates every secret straight into `.env` — never to stdout. |
 | `install-backup-timer.sh` | server | Installs the nightly backup systemd timer. Run once. |
 | `deploy.sh` | server | Pull → verify digest → back up → start → health-check → roll back on failure. |
@@ -159,8 +178,8 @@ ssh -i ~/.ssh/operis_deploy operis@148.113.44.174 'docker ps >/dev/null && echo 
 ### 4 — Secrets
 
 ```bash
-scp deploy/env.production.example operis@148.113.44.174:/opt/operis/.env
-ssh operis@148.113.44.174 'chmod 600 /opt/operis/.env'
+scp deploy/env.production.example ubuntu@148.113.44.174:/tmp/prod.env
+ssh ubuntu@148.113.44.174 'sudo install -m 600 -o operis -g operis /tmp/prod.env /opt/operis/.env && rm -f /tmp/prod.env && sudo ls -l /opt/operis/.env'
 ```
 
 Generate every secret with the block at the top of that file and fill it in. Minimum
@@ -275,8 +294,201 @@ ssh ubuntu@148.113.44.174 'sudo bash /tmp/install-backup-timer.sh --verify'
 crisis — that the dump works and restores. Confirm afterwards:
 
 ```bash
-ssh operis@148.113.44.174 'systemctl list-timers operis-backup.timer --no-pager; ls -lh /opt/operis/backups/'
+ssh ubuntu@148.113.44.174 'systemctl list-timers operis-backup.timer --no-pager; sudo ls -lh /opt/operis/backups/'
 ```
+
+---
+
+## Staging
+
+`operis-staging.faheemkamel.com`, at `/opt/operis-staging`, on this same host.
+
+Every merge to `main` builds **one** image, deploys it to staging automatically, then
+waits for a reviewer on the `production` environment before deploying **the same digest**
+to production. Staging therefore costs no build time: the `runner` stage takes no
+per-environment build arguments and the image is built with no `.env`, so one artifact
+genuinely serves both. That is also what makes "it passed on staging" a statement about
+the exact bytes production will run.
+
+Staging is a QA environment, not a second production. Postgres runs at about half
+production's settings, it gets a fresh `mercato init` seed rather than a copy of production
+data, and it takes no pre-deploy database dump (`SKIP_BACKUP=1` — its database is
+disposable, and with no backup timer nothing would prune the dumps).
+
+**Staging costs no extra image disk.** Both stacks pull the *same tag*, so there is one
+copy in the local image store, not two. That matters on this host: the image is ~6 GB and
+`docker system df` already reports ~48 GB reclaimable in old Operis tags. `deploy.sh` prunes
+images older than 168h on each deploy; staging deploying more often makes that run more
+often, not less.
+
+Measured on the box (2026-09-18): all 28 containers together use ~4.0 GiB against 17 GiB
+available, and production Operis is 1.9 GiB of that. Staging is the same shape, so budget
+~2 GiB. Re-check with `free -h` if this host ever gains another stack.
+
+### One-time setup
+
+Steps run in this order. Step 5 will refuse to start nginx if step 4 has not happened.
+
+#### 1 — DNS
+
+```
+A    operis-staging    148.113.44.174    TTL 300
+```
+
+```bash
+dig +short operis-staging.faheemkamel.com     # must return 148.113.44.174 before step 4
+```
+
+#### 2 — Directories
+
+Reuses the existing `operis` deploy account — same key, same `docker` group, no new
+credential to manage.
+
+> **You cannot SSH as `operis`.** That account's `authorized_keys` holds exactly one key,
+> `github-actions@operis`, and that is the point: the deploy account is reachable by CI and
+> by nothing else. Every human command below therefore connects as `ubuntu` (which carries
+> your laptop key and has passwordless sudo) and drops to `operis` with `sudo -u operis`
+> where file ownership matters.
+
+```bash
+ssh ubuntu@148.113.44.174 'sudo install -d -m 750 -o operis -g operis /opt/operis-staging && sudo install -d -m 700 -o operis -g operis /opt/operis-staging/backups && sudo install -d -m 750 -o operis -g operis /opt/operis-staging/logs && ls -ld /opt/operis-staging /opt/operis-staging/backups /opt/operis-staging/logs'
+```
+
+#### 3 — Secrets
+
+Land the template in `ubuntu`'s home first, then move it into place with the right owner
+and mode — `scp` straight to `/opt/operis-staging` cannot work, because that directory is
+`operis`-owned and you are connecting as `ubuntu`:
+
+```bash
+scp deploy/env.production.example ubuntu@148.113.44.174:/tmp/staging.env
+```
+
+```bash
+ssh ubuntu@148.113.44.174 'sudo install -m 600 -o operis -g operis /tmp/staging.env /opt/operis-staging/.env && rm -f /tmp/staging.env && sudo ls -l /opt/operis-staging/.env'
+```
+
+Now apply **every** override in `env.staging.example` on top of it, and generate fresh
+secrets with the block at the top of `env.production.example`:
+
+```bash
+ssh ubuntu@148.113.44.174 "for v in JWT_SECRET AUTH_SECRET NEXTAUTH_SECRET CONSENT_INTEGRITY_SECRET TENANT_DATA_ENCRYPTION_FALLBACK_KEY LOOKUP_HASH_PEPPER OM_THREAD_TOKEN_SECRET OM_HUB_OAUTH_STATE_KEY MEILISEARCH_MASTER_KEY DOMAIN_CHECK_SECRET DOMAIN_RESOLVE_SECRET; do echo \"\$v=\$(openssl rand -hex 32)\"; done; echo \"POSTGRES_PASSWORD=\$(openssl rand -base64 33 | tr -d '/+=' | head -c 40)\"; echo \"OM_INIT_SUPERADMIN_PASSWORD=\$(openssl rand -base64 18)\""
+```
+
+Paste that output into the file, then edit the rest:
+
+```bash
+ssh -t ubuntu@148.113.44.174 'sudo -u operis nano /opt/operis-staging/.env'
+```
+
+> **`STACK_NAME=operis-staging` is the line that matters.** Without it this stack renders
+> as compose project `operis` and would adopt **production's** containers and volumes.
+> `deploy.sh` asserts it against the value CI passes and refuses to run if they disagree —
+> but set it correctly rather than relying on the guard.
+
+Do not copy production's secrets. A shared `JWT_SECRET` or `AUTH_SECRET` makes a token
+minted on staging valid against production.
+
+#### 4 — Certificate
+
+Uses the existing certbot volumes and webroot; adds a certificate, touches no existing one.
+Renewal needs nothing further — pca-erp's certbot runs a blanket `certbot renew` twice a day.
+
+Rehearse first if DNS has only just propagated (Let's Encrypt allows 5 failures per hostname
+per hour):
+
+```bash
+ssh ubuntu@148.113.44.174 "docker run --rm -v pca-erp-certbot-certs:/etc/letsencrypt -v pca-erp-certbot-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot -d operis-staging.faheemkamel.com --email YOU@example.com --agree-tos --no-eff-email --key-type ecdsa --non-interactive --staging --dry-run"
+```
+
+Then for real:
+
+```bash
+ssh ubuntu@148.113.44.174 "docker run --rm -v pca-erp-certbot-certs:/etc/letsencrypt -v pca-erp-certbot-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot -d operis-staging.faheemkamel.com --email YOU@example.com --agree-tos --no-eff-email --key-type ecdsa --non-interactive"
+```
+
+```bash
+ssh ubuntu@148.113.44.174 "docker run --rm -v pca-erp-certbot-certs:/etc/letsencrypt certbot/certbot:v3.1.0 certificates"
+```
+
+#### 5 — Install the vhost
+
+> **This is the step that can take four unrelated hostnames offline.** `map` and
+> `log_format` live in nginx's http context, so both Operis templates render into one
+> namespace — a duplicate name is fatal and nginx then refuses to start at all. Every such
+> name in the staging template is prefixed `operis_staging_*` for exactly this reason. Both
+> templates have been verified to load together; keep the prefix if you edit it.
+
+```bash
+scp deploy/nginx/operis-staging.conf.template ubuntu@148.113.44.174:/opt/pca-erp/docker/nginx/templates/
+```
+
+Re-render, then **validate before reloading**:
+
+```bash
+ssh ubuntu@148.113.44.174 "docker compose -f /opt/pca-erp/docker-compose.prod.yml --env-file /opt/pca-erp/.env.prod up -d --no-deps nginx && docker exec pca-erp-nginx nginx -t"
+```
+
+`nginx -t` must print `syntax is ok` / `test is successful`. Only then:
+
+```bash
+ssh ubuntu@148.113.44.174 'docker exec pca-erp-nginx nginx -s reload'
+```
+
+If `nginx -t` fails, the running config is untouched — remove the template and re-render.
+
+#### 6 — GitHub environments
+
+The reviewer on `production` **is** the gate; nothing in the workflow enforces it.
+
+```bash
+gh api -X PUT repos/PCA-SDS/operis/environments/staging
+gh variable set APP_DOMAIN --env staging --body operis-staging.faheemkamel.com
+gh variable set APP_DOMAIN --env production --body operis.faheemkamel.com
+```
+
+Then, in **Settings → Environments → production**, tick **Required reviewers** and add
+yourself. `DEPLOY_*` secrets stay repository-level — same host, same user, same key.
+
+#### 7 — First deploy
+
+Actions → **CI & Deploy** → Run workflow. Staging deploys first; production then waits for
+your approval.
+
+First boot is slow: `mercato init` creates the schema and seeds before the app answers, and
+the health check allows 10 minutes for it. Then sign in at
+`https://operis-staging.faheemkamel.com` with the staging `OM_INIT_SUPERADMIN_*` and change
+that password.
+
+### Day-2
+
+Identical to production, with `APP_DIR` pointing at the staging stack:
+
+```bash
+ssh ubuntu@148.113.44.174 'sudo -u operis env APP_DIR=/opt/operis-staging /opt/operis-staging/deploy.sh --status'
+```
+
+```bash
+ssh ubuntu@148.113.44.174 'cd /opt/operis-staging && sudo -u operis ./dc logs -f app'
+```
+
+```bash
+ssh ubuntu@148.113.44.174 'sudo -u operis env APP_DIR=/opt/operis-staging /opt/operis-staging/deploy.sh --rollback'
+```
+
+To reset staging to a clean seed — destroys its data, leaves production untouched because
+every volume is prefixed:
+
+```bash
+ssh ubuntu@148.113.44.174 'cd /opt/operis-staging && sudo -u operis ./dc down -v && sudo -u operis env APP_DIR=/opt/operis-staging ./deploy.sh --status'
+```
+
+Then re-run the workflow; the next boot runs `mercato init` again.
+
+### Emergency: production without staging
+
+`workflow_dispatch` → **skip_staging**. Mirrors `skip_quality`: available when staging is
+broken and a fix must ship, and it means the release reaches production having run nowhere.
 
 ---
 
@@ -308,8 +520,13 @@ docker exec pca-erp-nginx nginx -t && docker exec pca-erp-nginx nginx -s reload
 ```
 
 Redeploy an older build without rebuilding: Actions → **CI & Deploy** → Run workflow →
-put the tag (`sha-abc1234`) in the **image_tag** input. `skip_quality` is the
-emergency escape hatch when a flaky test is blocking a needed deploy.
+put the tag (`sha-abc1234`) in the **image_tag** input. That tag goes to staging first and
+then waits for the production approval, exactly like a fresh build.
+
+Two emergency escape hatches, both `workflow_dispatch` inputs: `skip_quality` when a flaky
+test is blocking a needed deploy, and `skip_staging` when staging itself is broken. Each
+removes a gate that exists for a reason — `skip_staging` in particular means the release
+reaches production having run nowhere.
 
 ### Restoring the database
 
@@ -327,22 +544,39 @@ docker exec -i $(./dc ps -q postgres) \
 ## What happens on each deploy
 
 1. `quality` (lint + typecheck + unit tests) and `build` (the Docker image) run
-   concurrently. `deploy` waits for both, so nothing ships unless both are green.
+   concurrently. Both deploys wait for both, so nothing ships unless both are green.
    The image build is itself a second gate: `next build` type-checks and lints,
    with no `ignoreBuildErrors` in `next.config.ts`.
-2. CI rsyncs the compose file, `redis.conf` and the scripts.
-3. `deploy.sh` checks that `pca-erp-network` still exists, then pulls the image
-   **first** — a registry failure cannot take the running app down.
-4. It takes a `pg_dump` and **refuses to continue if the backup fails**.
-5. `docker compose up -d`. The app container runs `init-or-migrate.sh`: migrations plus
-   role-ACL sync, then `yarn start`.
-6. It polls the container health check (`/api/configs/health`, a real DB round-trip)
-   for up to 10 minutes.
-7. On failure it prints the app log and rolls the **image** back to the previous tag.
-8. CI curls `https://operis.faheemkamel.com/api/configs/health` from outside.
+2. **Staging deploys first**, automatically, via steps 3–9 below against
+   `/opt/operis-staging`.
+3. **Production waits for a reviewer** on the `production` environment, then runs the
+   same steps against `/opt/operis` with the **same image digest**. Nothing is rebuilt
+   in between.
 
-nginx needs no reload on deploy: it resolves `operis-app` per request via
-`resolver 127.0.0.11 valid=10s`, so a recreated container is picked up within seconds.
+Each deploy, staging or production, is the same sequence:
+
+4. CI rsyncs the compose file, `redis.conf` and the scripts into that stack's directory.
+5. `deploy.sh` asserts the stack identity — `STACK_NAME` in that `.env` must match the
+   stack CI is targeting — then checks `pca-erp-network` still exists and pulls the image
+   **first**, so a registry failure cannot take the running app down.
+6. It takes a `pg_dump` and **refuses to continue if the backup fails**. Skipped on
+   staging, whose database is disposable.
+7. `docker compose up -d`. The app container runs `init-or-migrate.sh`: migrations plus
+   role-ACL sync, then `yarn start`.
+8. It polls the container health check (`/api/configs/health`, a real DB round-trip)
+   for up to 10 minutes.
+9. On failure it prints the app log and rolls the **image** back to the previous tag.
+10. CI curls that environment's `/api/configs/health` from outside, then probes
+    `POST /api/auth/login` with deliberately wrong credentials — a 401 proves the DI
+    container resolved, a 5xx proves it did not.
+
+nginx needs no reload on deploy: it resolves `operis-app` / `operis-staging-app` per
+request via `resolver 127.0.0.11 valid=10s`, so a recreated container is picked up within
+seconds.
+
+Because `concurrency.group` is per-ref and does not cancel on main, a run holding a pending
+production approval **queues the next merge to main behind it**. That is the cost of the
+gate; approve promptly, or split the concurrency groups.
 
 ---
 
@@ -394,3 +628,7 @@ ports and carries `no-new-privileges`.
 | `503 degraded` from the health endpoint | app cannot reach Postgres — `./dc logs postgres` |
 | SSE / live updates never arrive | the streaming `location` block in the vhost — confirm `proxy_buffering off` survived a template edit |
 | Deploy blocked by *another deploy is in progress* | stale lock: `rm /opt/operis/.deploy.lock` after confirming nothing is running |
+| `stack mismatch — refusing to deploy` | that stack's `.env` renders a different compose project than the deploy targets — almost always a staging `.env` missing `STACK_NAME=operis-staging`. Nothing was pulled or restarted. Set it and re-run |
+| `duplicate "map"` / `duplicate "log_format"` from `nginx -t` | the staging vhost reuses an http-context name from the production one. Every such name must be `operis_staging_*`. The running config is untouched while `nginx -t` fails |
+| Production job never starts | either staging failed (production requires staging to have *succeeded*, not merely not-failed) or the environment approval is still pending — check the run's Review deployments prompt |
+| Staging and production disagree about what is deployed | compare `deploy.sh --status` on both; each prints its own `CURRENT_TAG`. They differ whenever an approval is outstanding, which is the gate working |
