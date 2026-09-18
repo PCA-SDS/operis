@@ -67,3 +67,36 @@ describe('ResourceAssignmentService.clearDraft', () => {
     expect(em.flush).not.toHaveBeenCalled()
   })
 })
+
+describe('ResourceAssignmentService.cancelAssignmentsForSourceEntities', () => {
+  it('cancels active assignments for the scoped source entities', async () => {
+    const assignments = [
+      { cancelledAt: null, updatedAt: new Date('2026-09-18T10:00:00.000Z') },
+      { cancelledAt: null, updatedAt: new Date('2026-09-18T10:00:00.000Z') },
+    ]
+    const em = {
+      find: jest.fn().mockResolvedValue(assignments),
+      flush: jest.fn(),
+    }
+    const service = new ResourceAssignmentService(em as never)
+
+    await expect(service.cancelAssignmentsForSourceEntities({
+      tenantId: 'tenant-1',
+      organizationId: 'organization-1',
+      sourceModule: 'appointment',
+      sourceEntityType: 'appointment_line',
+      sourceEntityIds: ['line-1', 'line-2'],
+    })).resolves.toBe(2)
+
+    expect(em.find).toHaveBeenCalledWith(expect.anything(), {
+      tenantId: 'tenant-1',
+      organizationId: 'organization-1',
+      sourceModule: 'appointment',
+      sourceEntityType: 'appointment_line',
+      sourceEntityId: { $in: ['line-1', 'line-2'] },
+      cancelledAt: null,
+    })
+    expect(assignments.every((assignment) => assignment.cancelledAt instanceof Date)).toBe(true)
+    expect(em.flush).toHaveBeenCalledTimes(1)
+  })
+})
