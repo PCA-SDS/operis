@@ -8,7 +8,7 @@ export const metadata: ModuleInfo = {
   author: 'Open Mercato Team',
   license: 'MIT',
   ejectable: true,
-  defaultEntitlement: 'disabled',
+  defaultEntitlement: 'enabled',
   category: 'Communication',
 }
 
