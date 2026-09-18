@@ -469,7 +469,7 @@ ssh ubuntu@148.113.44.174 'sudo -u operis env APP_DIR=/opt/operis-staging /opt/o
 ```
 
 ```bash
-ssh ubuntu@148.113.44.174 'cd /opt/operis-staging && sudo -u operis ./dc logs -f app'
+ssh ubuntu@148.113.44.174 "sudo -u operis bash -c 'cd /opt/operis-staging && ./dc logs -f app'"
 ```
 
 ```bash
@@ -480,7 +480,7 @@ To reset staging to a clean seed — destroys its data, leaves production untouc
 every volume is prefixed:
 
 ```bash
-ssh ubuntu@148.113.44.174 'cd /opt/operis-staging && sudo -u operis ./dc down -v && sudo -u operis env APP_DIR=/opt/operis-staging ./deploy.sh --status'
+ssh ubuntu@148.113.44.174 "sudo -u operis bash -c 'cd /opt/operis-staging && ./dc down -v && APP_DIR=/opt/operis-staging ./deploy.sh --status'"
 ```
 
 Then re-run the workflow; the next boot runs `mercato init` again.
@@ -494,7 +494,19 @@ broken and a fix must ship, and it means the release reaches production having r
 
 ## Day-2 operations
 
-From `/opt/operis`:
+From `/opt/operis`, **as the `operis` user**. You cannot SSH as `operis` (its
+`authorized_keys` holds the CI key only), and `/opt/operis` is mode 750 owned by
+`operis`, so `ubuntu` cannot even `cd` into it. Open a shell there like this:
+
+```bash
+ssh -t ubuntu@148.113.44.174 'sudo -u operis bash -c "cd /opt/operis && exec bash"'
+```
+
+Note the `cd` sits *inside* the `sudo`. Putting it outside — `ssh ubuntu@… 'cd /opt/operis
+&& sudo -u operis …'` — fails with `Permission denied`, because the `cd` runs as `ubuntu`
+before `sudo` is ever reached. Same applies to `/opt/operis-staging`.
+
+Then, in that shell:
 
 ```bash
 ./dc ps                       # what is running
