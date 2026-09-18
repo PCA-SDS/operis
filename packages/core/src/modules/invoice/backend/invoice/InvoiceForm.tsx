@@ -35,13 +35,23 @@ export type InvoiceFormValues = z.infer<typeof invoiceManualFormSchema> & { id?:
 type Lookup = { company: { name: string; taxCode: string | null; countryCode: string; address: string | null } | null }
 type InvoiceFormLineItem = InvoiceFormValues['lineItems'][number]
 
-function normalizeDecimal(value: string | null | undefined) {
+function normalizeDecimal(value: string | number | null | undefined) {
   if (value == null) return value
-  const trimmed = value.trim()
+  const trimmed = String(value).trim()
   if (!trimmed) return trimmed
   const [integerPart, fractionPart] = trimmed.split('.')
-  const normalizedFraction = fractionPart?.replace(/0+$/, '')
-  return normalizedFraction ? `${integerPart}.${normalizedFraction}` : integerPart
+  if (!fractionPart) return `${integerPart}.00`
+  const trimmedFraction = fractionPart.replace(/0+$/, '')
+  const normalizedFraction = trimmedFraction.length <= 2 && fractionPart.length > 2
+    ? trimmedFraction.padEnd(2, '0')
+    : fractionPart.length < 2
+      ? fractionPart.padEnd(2, '0')
+      : trimmedFraction.length === 0
+        ? '00'
+        : trimmedFraction.length === 1
+          ? `${trimmedFraction}0`
+          : trimmedFraction
+  return `${integerPart}.${normalizedFraction}`
 }
 
 function normalizeLineItems(lineItems: InvoiceFormValues['lineItems'] | undefined): InvoiceFormLineItem[] {

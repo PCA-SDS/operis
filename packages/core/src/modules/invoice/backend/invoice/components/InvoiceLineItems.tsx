@@ -54,7 +54,7 @@ export function InvoiceLineItems({ lines, onChange, currency, error }: {
           <div className="min-w-0 space-y-2">
             <label className="block text-xs font-semibold uppercase text-muted-foreground" htmlFor={`discount-${index}`}>{t('invoice.form.discount')}</label>
             <div className="flex items-center rounded-md border border-border bg-input-bg" role="group" aria-label={t('invoice.form.discountMode', 'Discount calculation mode')}>
-              <Input id={`discount-${index}`} type="number" min="0" max={percent ? 100 : undefined} step="0.0001" value={percent ? line.discountPercent ?? '' : line.discountAmount ?? ''} onChange={(event) => update(index, percent ? { discountPercent: event.target.value ? Number(event.target.value) : undefined, discountAmount: undefined } : { discountAmount: event.target.value || undefined, discountPercent: undefined })} className="min-w-0 flex-1 rounded-r-none border-0 bg-transparent focus-visible:ring-0" />
+              <Input id={`discount-${index}`} type="number" min="0" max={percent ? 100 : undefined} step="0.0001" value={percent ? (line.discountPercent != null ? Number(line.discountPercent).toFixed(2) : '') : line.discountAmount ?? ''} onChange={(event) => update(index, percent ? { discountPercent: event.target.value ? Number(event.target.value) : undefined, discountAmount: undefined } : { discountAmount: event.target.value || undefined, discountPercent: undefined })} className="min-w-0 flex-1 rounded-r-none border-0 bg-transparent focus-visible:ring-0" />
               <Button type="button" size="sm" variant="ghost" className={`h-7 min-w-8 rounded-md px-2 text-xs font-semibold ${!percent ? 'bg-modal-muted text-foreground' : 'text-muted-foreground'}`} aria-pressed={!percent} aria-label={t('invoice.form.discountAmount')} onClick={() => {
                 const base = Number(line.quantity || 0) * Number(line.unitPrice || 0)
                 const amount = percent && base > 0 ? base * Number(line.discountPercent ?? 0) / 100 : Number(line.discountAmount ?? 0)
@@ -67,7 +67,7 @@ export function InvoiceLineItems({ lines, onChange, currency, error }: {
               }}>%</Button>
             </div>
           </div>
-          <label className="min-w-0 space-y-2"><span className="text-xs font-semibold uppercase text-muted-foreground">{t('invoice.form.vatRate')}</span><Input type="number" min="0" max="100" step="0.0001" value={line.vatRate ?? ''} onChange={(event) => update(index, { vatRate: event.target.value ? Number(event.target.value) : undefined })} /></label>
+          <label className="min-w-0 space-y-2"><span className="text-xs font-semibold uppercase text-muted-foreground">{t('invoice.form.vatRate')}</span><Input type="number" min="0" max="100" step="0.0001" value={line.vatRate != null ? Number(line.vatRate).toFixed(2) : ''} onChange={(event) => update(index, { vatRate: event.target.value ? Number(event.target.value) : undefined })} /></label>
           <div className="min-w-0 space-y-2 sm:text-right"><p className="text-xs font-semibold uppercase text-muted-foreground">{t('invoice.form.lineTotal')}</p><p className="pt-2 text-sm font-medium">{amount(lineTotals(line).total)}</p></div>
         </div>
       </div>
