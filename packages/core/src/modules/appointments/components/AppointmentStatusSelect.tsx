@@ -102,6 +102,9 @@ export function AppointmentStatusSelect({
     <div
       className={className}
       onClick={(event) => event.stopPropagation()}
+      onPointerDown={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+      onTouchStart={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
       <Select

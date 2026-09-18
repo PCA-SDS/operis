@@ -14,11 +14,10 @@ import { Appointment, AppointmentLine, AppointmentStatus } from '../../data/enti
 import { appointmentStatusUpdateSchema, appointmentStaffCreateSchema } from '../../data/validators'
 import { emitAppointmentEvent } from '../../events'
 import { updateAppointmentFromStaffEdit } from '../../lib/intake'
-import { loadLineOptionSnapshots } from '../../lib/lineOptionSnapshot'
 import { CustomerEntity } from '@open-mercato/core/modules/customers/data/entities'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { getVisibleAppointmentExternalNotes, preserveAppointmentSourceMarker } from '../../lib/notes'
+import { ensureSystemAppointmentStatuses } from '../../setup'
 
 const logger = createLogger('appointments')
 
@@ -31,9 +30,7 @@ export const metadata = {
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-async function mapLine(em: EntityManager, line: AppointmentLine) {
-  const snapshots = await loadLineOptionSnapshots(em, line.id)
-
+function mapLine(line: AppointmentLine) {
   return {
     id: line.id,
     productId: line.productId,
@@ -45,17 +42,11 @@ async function mapLine(em: EntityManager, line: AppointmentLine) {
     durationMinutes: line.durationMinutes ?? null,
     productCategory: line.productCategory ?? null,
     selectedOptions: line.selectedOptions ?? null,
-    options: snapshots.groups.flatMap((group) => group.options.map((option) => ({
-      groupName: group.breadcrumbPath ?? group.groupName,
-      name: option.optionName,
-      priceFlat: option.priceFlat,
-    }))),
     sortOrder: line.sortOrder,
   }
 }
 
-async function mapAppointment(
-  em: EntityManager,
+function mapAppointment(
   row: Appointment,
   lines: AppointmentLine[],
   customerSource: string | null = null,
@@ -81,8 +72,8 @@ async function mapAppointment(
     requestedStartAt: row.requestedStartAt.toISOString(),
     requestedEndAt: row.requestedEndAt?.toISOString() ?? null,
     notes: row.notes ?? null,
-    externalNotes: getVisibleAppointmentExternalNotes(row.externalNotes),
-    lines: await Promise.all(lines.map((line) => mapLine(em, line))),
+    externalNotes: row.externalNotes ?? null,
+    lines: lines.map(mapLine),
     updatedAt: row.updatedAt.toISOString(),
   }
 }
@@ -165,7 +156,7 @@ export async function GET(req: Request, ctx: RouteContext) {
     const customer = await loadCustomerSource(em, auth.tenantId, appointment.customerEntityId)
     const organizationName = await resolveOrganizationName(em, appointment.organizationId)
     return NextResponse.json(
-      await mapAppointment(em, appointment, lines, customer.source, customer.updatedAt, organizationName),
+      mapAppointment(appointment, lines, customer.source, customer.updatedAt, organizationName),
     )
   } catch {
     return NextResponse.json(
@@ -207,6 +198,9 @@ export async function PATCH(req: Request, ctx: RouteContext) {
       current: appointment.updatedAt ?? null,
       request: req,
     })
+    if (body.statusCode === 'deposit_received_booked') {
+      await ensureSystemAppointmentStatuses(em, auth.tenantId)
+    }
 
     const status = await em.findOne(AppointmentStatus, {
       tenantId: auth.tenantId,
@@ -243,7 +237,7 @@ export async function PATCH(req: Request, ctx: RouteContext) {
     const customer = await loadCustomerSource(em, auth.tenantId, appointment.customerEntityId)
     const organizationName = await resolveOrganizationName(em, appointment.organizationId)
     return NextResponse.json(
-      await mapAppointment(em, appointment, lines, customer.source, customer.updatedAt, organizationName),
+      mapAppointment(appointment, lines, customer.source, customer.updatedAt, organizationName),
     )
   } catch (error) {
     if (isCrudHttpError(error)) {
@@ -371,7 +365,6 @@ export async function PUT(req: Request, ctx: RouteContext) {
       appointment.id,
       {
         ...body,
-        externalNotes: preserveAppointmentSourceMarker(appointment.externalNotes, body.externalNotes),
         tenantId: auth.tenantId,
         organizationId,
       },
@@ -397,7 +390,7 @@ export async function PUT(req: Request, ctx: RouteContext) {
     const customer = await loadCustomerSource(em, auth.tenantId, result.customerEntityId)
     const organizationName = await resolveOrganizationName(em, organizationId)
     return NextResponse.json(
-      await mapAppointment(em, appointment, lines, customer.source, customer.updatedAt, organizationName),
+      mapAppointment(appointment, lines, customer.source, customer.updatedAt, organizationName),
     )
   } catch (error) {
     if (isCrudHttpError(error)) {

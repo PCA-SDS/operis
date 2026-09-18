@@ -22,7 +22,7 @@ type Line = {
   durationMinutes: number | null
   unitPriceGross: string | null
   currencyCode: string | null
-  options: Array<{
+  options?: Array<{
     groupName: string | null
     name: string
     priceFlat: string | null
@@ -276,7 +276,7 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
   const savedStatus = statuses.find((status) => status.code === detail.statusCode)
   const totalAmount = detail.lines.reduce((total, line) => {
     const basePrice = numericValue(line.unitPriceGross) ?? 0
-    const optionTotal = line.options.reduce((sum, option) => sum + (numericValue(option.priceFlat) ?? 0), 0)
+    const optionTotal = (line.options ?? []).reduce((sum, option) => sum + (numericValue(option.priceFlat) ?? 0), 0)
     return total + basePrice + optionTotal
   }, 0)
   const totalCurrencyCode = detail.lines.find((line) => line.currencyCode)?.currencyCode ?? null
@@ -431,7 +431,7 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
           <div className="space-y-3">
             {detail.lines.map((line, index) => {
               const basePrice = numericValue(line.unitPriceGross)
-              const optionTotal = line.options.reduce((total, option) => total + (numericValue(option.priceFlat) ?? 0), 0)
+              const optionTotal = (line.options ?? []).reduce((total, option) => total + (numericValue(option.priceFlat) ?? 0), 0)
               const subtotal = basePrice == null && optionTotal === 0 ? null : (basePrice ?? 0) + optionTotal
 
               return (
@@ -468,14 +468,14 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
                     />
                   </div>
 
-                  {line.options.length > 0 ? (
+                  {(line.options ?? []).length > 0 ? (
                     <div className="mt-3 space-y-2">
                       <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground">
                         <ListChecks className="size-3.5 text-muted-foreground" aria-hidden="true" />
                         <span>{t('appointments.seatPlanner.options', 'Options')}</span>
                       </div>
                       <div className="space-y-1.5">
-                        {line.options.map((option, optionIndex) => (
+                        {(line.options ?? []).map((option, optionIndex) => (
                           <div key={`${option.groupName ?? 'option'}-${option.name}-${optionIndex}`} className="flex items-start justify-between gap-3 text-sm">
                             <span className="min-w-0 text-muted-foreground">
                               {option.groupName ? <span className="mr-1.5">{option.groupName}:</span> : null}

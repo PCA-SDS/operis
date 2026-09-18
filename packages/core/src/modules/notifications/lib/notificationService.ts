@@ -1,4 +1,5 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
+import type { FilterQuery } from '@mikro-orm/core'
 import { type Kysely, sql } from 'kysely'
 import { CrudHttpError, conflict } from '@open-mercato/shared/lib/crud/errors'
 import { invalidateCrudCache } from '@open-mercato/shared/lib/crud/cache'
@@ -139,11 +140,12 @@ async function findScopedNotificationOrThrow(
   const notification = await findOneWithDecryption(
     em,
     Notification,
-    {
+    ({
       id: notificationId,
       recipientUserId: ctx.userId,
       tenantId: ctx.tenantId,
-    },
+      $and: [buildNotificationReadScopeWhere(ctx)],
+    } as FilterQuery<Notification>),
     undefined,
     {
       tenantId: ctx.tenantId,
@@ -169,7 +171,6 @@ async function emitNotificationSseEvents(
   const visibleRecipientUserIds = Array.from(new Set(visible.map((n) => n.recipientUserId)))
   await eventBus.emit(NOTIFICATION_SSE_EVENTS.BATCH_CREATED, {
     tenantId: ctx.tenantId,
-    organizationId: normalizeOrgScope(ctx.organizationId),
     recipientUserIds: visibleRecipientUserIds,
     count: visible.length,
   })
@@ -177,7 +178,6 @@ async function emitNotificationSseEvents(
   for (const notification of visible) {
     await eventBus.emit(NOTIFICATION_SSE_EVENTS.CREATED, {
       tenantId: notification.tenantId,
-      organizationId: notification.organizationId ?? null,
       recipientUserId: notification.recipientUserId,
       notification: toNotificationDto(notification),
     })
@@ -358,7 +358,6 @@ export function createNotificationService(deps: NotificationServiceDeps): Notifi
       if (isInAppVisible(notification.channels)) {
         await eventBus.emit(NOTIFICATION_SSE_EVENTS.CREATED, {
           tenantId: notification.tenantId,
-          organizationId: notification.organizationId ?? null,
           recipientUserId: notification.recipientUserId,
           notification: toNotificationDto(notification),
         })
@@ -562,7 +561,14 @@ export function createNotificationService(deps: NotificationServiceDeps): Notifi
           // notifications that were never in the bell, inflating the returned
           // count past what the badge showed.
           .where(inAppVisibleSql() as any)
-        if (ctx.organizationId) {
+        if (Array.isArray(ctx.organizationIds)) {
+          if (ctx.organizationIds.length > 0) {
+            const organizationList = sql.join(ctx.organizationIds.map((organizationId) => sql`${organizationId}`))
+            chain = chain.where(sql`(organization_id in (${organizationList}) or organization_id is null)` as any)
+          } else {
+            chain = chain.where('organization_id' as any, 'is', null)
+          }
+        } else if (ctx.organizationIds === undefined && ctx.organizationId) {
           chain = chain.where('organization_id' as any, '=', ctx.organizationId)
         }
         return chain

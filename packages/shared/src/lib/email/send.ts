@@ -29,7 +29,9 @@ export function resolveEmailSendTimeoutMs(env: NodeJS.ProcessEnv = process.env):
 }
 
 export type SendEmailOptions = {
-  to: string
+  to: string | string[]
+  cc?: string | string[]
+  bcc?: string | string[]
   subject: string
   react: React.ReactElement
   from?: string
@@ -42,7 +44,9 @@ export type SendEmailOptions = {
 }
 
 type CapturedEmail = {
-  to: string
+  to: string | string[]
+  cc: string[]
+  bcc: string[]
   subject: string
   from: string | null
   replyTo: string | null
@@ -102,6 +106,8 @@ async function captureEmailForTests(options: SendEmailOptions): Promise<void> {
   const capturePath = resolveTestEmailCapturePath()
   const record: CapturedEmail = {
     to: options.to,
+    cc: options.cc ? (Array.isArray(options.cc) ? options.cc : [options.cc]) : [],
+    bcc: options.bcc ? (Array.isArray(options.bcc) ? options.bcc : [options.bcc]) : [],
     subject: options.subject,
     from: options.from ?? resolveDefaultEmailFromAddress() ?? null,
     replyTo: options.replyTo ?? null,
@@ -155,7 +161,7 @@ async function sendWithTimeout(
   )
 }
 
-export async function sendEmail({ to, subject, react, from, replyTo, attachments }: SendEmailOptions) {
+export async function sendEmail({ to, cc, bcc, subject, react, from, replyTo, attachments }: SendEmailOptions) {
   const emailDisabled =
     parseBooleanWithDefault(process.env.OM_DISABLE_EMAIL_DELIVERY, false) ||
     parseBooleanWithDefault(process.env.OM_TEST_MODE, false)
@@ -173,6 +179,8 @@ export async function sendEmail({ to, subject, react, from, replyTo, attachments
   }
   const payload = {
     to,
+    ...(cc ? { cc } : {}),
+    ...(bcc ? { bcc } : {}),
     subject,
     from: fromAddr,
     react,
