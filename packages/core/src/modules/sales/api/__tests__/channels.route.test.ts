@@ -36,7 +36,7 @@ describe('sales channels route helpers', () => {
     expect(parseIdList(undefined)).toEqual([])
   })
 
-  it('builds search filters with sanitized terms and flags', () => {
+  it('builds channel search filters from persisted channel columns', () => {
     const filters = buildSearchFilters({
       search: ' Flash % ',
       ids: '11111111-1111-4111-8111-111111111111,00000000-0000-4000-8000-000000000000',
@@ -44,8 +44,16 @@ describe('sales channels route helpers', () => {
     } as any)
 
     expect(filters.id).toEqual({ $in: ['11111111-1111-4111-8111-111111111111', '00000000-0000-4000-8000-000000000000'] })
-    expect(filters.search_text).toEqual({ $ilike: '%Flash \\%%' })
+    expect(filters.$or).toEqual([
+      { name: { $ilike: '%Flash \\%%' } },
+      { code: { $ilike: '%Flash \\%%' } },
+      { description: { $ilike: '%Flash \\%%' } },
+    ])
     expect(filters.is_active).toBe(false)
+  })
+
+  it('does not add a search predicate when search is absent', () => {
+    expect(buildSearchFilters({} as any)).toEqual({})
   })
 
   it('decorates listed channels with aggregated offer counts', async () => {
