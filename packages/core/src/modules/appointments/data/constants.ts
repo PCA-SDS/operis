@@ -1,6 +1,6 @@
 import { CUSTOMER_ORIGIN_OPTIONS, type CustomerOrigin } from '@open-mercato/core/modules/customers/data/constants'
 
-export const APPOINTMENT_SYSTEM_STATUS_CODES = ['new_request', 'in_progress', 'booked', 'cancelled'] as const
+export const APPOINTMENT_SYSTEM_STATUS_CODES = ['new_request', 'in_progress', 'booked', 'cancelled', 'deposit_received_booked'] as const
 
 export type AppointmentSystemStatusCode = (typeof APPOINTMENT_SYSTEM_STATUS_CODES)[number]
 
@@ -30,6 +30,12 @@ export const SYSTEM_APPOINTMENT_STATUS_SEEDS = [
     label: 'Cancelled',
     description: 'Booking was cancelled.',
     sortOrder: 3,
+  },
+  {
+    code: 'deposit_received_booked' as const,
+    label: 'Deposit Received Booked',
+    description: 'Booking deposit was received and the appointment is booked.',
+    sortOrder: 4,
   },
 ] as const
 

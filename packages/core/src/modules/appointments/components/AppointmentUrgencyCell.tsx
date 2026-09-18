@@ -1,17 +1,27 @@
 'use client'
 
-import { AlertTriangle, Clock } from 'lucide-react'
+import * as React from 'react'
+import { AlertTriangle, Clock, Pin } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { getTimeAgoParts, isAppointmentOverdue } from '../lib/urgency'
-import { useNow } from '../lib/useNow'
+
+function useNow(intervalMs = 60_000) {
+  const [now, setNow] = React.useState(() => Date.now())
+  React.useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), intervalMs)
+    return () => window.clearInterval(id)
+  }, [intervalMs])
+  return now
+}
 
 type AppointmentUrgencyCellProps = {
   createdAt: string
   statusCode: string
+  isPinned?: boolean
 }
 
-export function AppointmentUrgencyCell({ createdAt, statusCode }: AppointmentUrgencyCellProps) {
+export function AppointmentUrgencyCell({ createdAt, statusCode, isPinned = false }: AppointmentUrgencyCellProps) {
   const t = useT()
   const now = useNow()
   const overdue = isAppointmentOverdue(statusCode, createdAt, now)
@@ -74,6 +84,7 @@ export function AppointmentUrgencyCell({ createdAt, statusCode }: AppointmentUrg
           aria-hidden="true"
         />
       )}
+      {isPinned ? <Pin className="size-3.5 shrink-0 fill-status-warning-icon text-status-warning-icon" aria-label={t('appointments.list.schedule.pinned', 'Pinned booking')} /> : null}
       <span
         className={cn(
           'whitespace-nowrap text-xs',

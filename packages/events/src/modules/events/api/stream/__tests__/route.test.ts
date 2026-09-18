@@ -174,6 +174,27 @@ describe('SSE event stream — abort listener hygiene', () => {
     try { await reader.cancel() } catch {}
   })
 
+  it('delivers recipient-targeted tenant events across the selected organization', async () => {
+    const { req } = makeTrackedRequest()
+    const res = await GET(req)
+    expect(res.status).toBe(200)
+
+    const reader = (res.body as ReadableStream<Uint8Array>).getReader()
+    await reader.read()
+
+    await mockGlobalEventTap?.('notifications.notification.created', {
+      tenantId: 't1',
+      recipientUserId: 'u1',
+      notification: { id: 'n1', organizationId: 'o2' },
+    })
+
+    const { value, done } = await reader.read()
+    expect(done).toBe(false)
+    expect(new TextDecoder().decode(value)).toContain('"id":"n1"')
+
+    try { await reader.cancel() } catch {}
+  })
+
   it('does not fall back to payload scope when the trusted tenant marker is empty', async () => {
     const { req } = makeTrackedRequest()
     const res = await GET(req)

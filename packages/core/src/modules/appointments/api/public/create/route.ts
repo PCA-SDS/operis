@@ -8,6 +8,7 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { readEndpointRateLimitConfig } from '@open-mercato/shared/lib/ratelimit/config'
+import { publicCorsHeaders, withPublicCorsHeaders } from '@open-mercato/shared/lib/http/cors'
 import {
   checkRateLimit,
   getClientIp,
@@ -23,6 +24,10 @@ const logger = createLogger('appointments').child({ component: 'public-intake' }
 
 export const metadata = {
   POST: { requireAuth: false },
+}
+
+export function OPTIONS(req: Request) {
+  return new Response(null, { status: 204, headers: publicCorsHeaders(req) })
 }
 
 /**
@@ -59,7 +64,7 @@ export async function POST(req: Request) {
         clientIp ?? RATE_LIMIT_FALLBACK_KEY,
         translate('api.errors.rateLimit', 'Too many requests. Please try again later.'),
       )
-      if (rateLimitResponse) return rateLimitResponse
+      if (rateLimitResponse) return withPublicCorsHeaders(rateLimitResponse, req)
     } else {
       logger.error('Rate limiter service is not registered — check RATE_LIMIT_* configuration; public appointment intake is not rate limited')
     }
@@ -74,14 +79,19 @@ export async function POST(req: Request) {
         id: result.id,
         tenantId: body.tenantId,
         organizationId: body.organizationId,
+        customerName: [body.customer.firstName, body.customer.lastName].filter(Boolean).join(' '),
+        source: 'public_booking',
+      }, {
+        tenantId: body.tenantId,
+        organizationId: body.organizationId,
       })
     } catch {
       /* best-effort */
     }
-    return NextResponse.json(result, { status: 201 })
+    return NextResponse.json(result, { status: 201, headers: publicCorsHeaders(req) })
   } catch (error) {
     if (isCrudHttpError(error)) {
-      return NextResponse.json(error.body, { status: error.status })
+      return NextResponse.json(error.body, { status: error.status, headers: publicCorsHeaders(req) })
     }
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -89,7 +99,7 @@ export async function POST(req: Request) {
           error: translate('appointments.public.create.invalidInput', 'Invalid appointment payload.'),
           code: 'INVALID_INPUT',
         },
-        { status: 400 },
+        { status: 400, headers: publicCorsHeaders(req) },
       )
     }
     logger.error('Public appointment intake failed', { err: error })
@@ -98,7 +108,7 @@ export async function POST(req: Request) {
         error: translate('appointments.public.create.failed', 'Unable to create appointment.'),
         code: 'CREATE_FAILED',
       },
-      { status: 500 },
+      { status: 500, headers: publicCorsHeaders(req) },
     )
   }
 }

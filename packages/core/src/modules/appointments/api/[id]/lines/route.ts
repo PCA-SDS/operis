@@ -15,6 +15,7 @@ import { appointmentLineAddSchema } from '../../../data/validators'
 import { addServiceToAppointment } from '../../../lib/intake'
 import { APPOINTMENT_RESOURCE_KIND } from '../route'
 import type { CatalogPricingService } from '@open-mercato/core/modules/catalog/services/catalogPricingService'
+import { emitAppointmentEvent } from '../../../events'
 
 export type RouteContext = { params: Promise<{ id: string }> }
 
@@ -71,6 +72,13 @@ export async function POST(req: Request, ctx: RouteContext) {
       },
       { pricingService },
     )
+    await emitAppointmentEvent('appointments.appointment.updated', {
+      id: appointment.id,
+      tenantId: auth.tenantId,
+      organizationId: appointment.organizationId,
+      action: 'service_added',
+      lineId: line.id,
+    })
     return NextResponse.json({
       line: {
         id: line.id,

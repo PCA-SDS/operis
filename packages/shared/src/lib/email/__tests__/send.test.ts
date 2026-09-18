@@ -71,6 +71,31 @@ describe('sendEmail', () => {
     expect(payload.reply_to).toBeUndefined()
   })
 
+  it('passes cc and bcc recipient lists to Resend', async () => {
+    await sendEmail({
+      to: 'spa@example.com',
+      cc: ['manager@example.com'],
+      bcc: ['audit@example.com'],
+      subject: 'New appointment',
+      react: React.createElement('div', null, 'Booking details'),
+    })
+
+    const payload = sendMock.mock.calls[0]?.[0] as Record<string, unknown>
+    expect(payload.cc).toEqual(['manager@example.com'])
+    expect(payload.bcc).toEqual(['audit@example.com'])
+  })
+
+  it('passes multiple primary recipients to Resend', async () => {
+    await sendEmail({
+      to: ['spa@example.com', 'manager@example.com'],
+      subject: 'New appointment',
+      react: React.createElement('div', null, 'Booking details'),
+    })
+
+    const payload = sendMock.mock.calls[0]?.[0] as Record<string, unknown>
+    expect(payload.to).toEqual(['spa@example.com', 'manager@example.com'])
+  })
+
   it('passes attachments to Resend payload when provided', async () => {
     await sendEmail({
       to: 'user@example.com',

@@ -74,26 +74,6 @@ export function useNotificationsSse(): UseNotificationsSseResult {
       if (notifResult.ok && notifResult.result) {
         const fetched = notifResult.result.items
         setNotifications(fetched)
-        if (fetched.length > 0) {
-          lastIdRef.current = fetched[0].id
-          dispatchNotificationHandlers(fetched, {
-            features: grantedFeaturesRef.current,
-            t: translateRef.current,
-            currentPath:
-              typeof window === 'undefined'
-                ? '/'
-                : `${window.location.pathname}${window.location.search}`,
-            refreshNotifications: () => {
-              // No-op: data was just fetched — avoid redundant refetch loop.
-            },
-            navigate: (href) => {
-              if (typeof window === 'undefined' || !href.startsWith('/')) return
-              window.location.assign(href)
-            },
-            markAsRead: async (notificationId) => markAsReadRef.current(notificationId),
-            dismiss: async (notificationId) => dismissRef.current(notificationId),
-          })
-        }
       }
 
       if (countResult.ok && countResult.result) {
