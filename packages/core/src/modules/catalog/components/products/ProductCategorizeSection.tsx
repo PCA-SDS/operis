@@ -12,6 +12,12 @@ export type ProductCategorizePickerOption = {
   description?: string | null
 }
 
+const createPickerOptionsMap = (options?: ProductCategorizePickerOption[]) =>
+  (options ?? []).reduce<Record<string, ProductCategorizePickerOption>>((result, option) => {
+    if (option.value) result[option.value] = option
+    return result
+  }, {})
+
 const formatCategoryLabel = (name: string | null | undefined, fallback: string, parentName?: string | null) => {
   const base = typeof name === 'string' && name.trim().length ? name.trim() : fallback
   const parent = typeof parentName === 'string' && parentName.trim().length ? parentName.trim() : null
@@ -36,9 +42,15 @@ export function ProductCategorizeSection({
   initialTagOptions,
 }: ProductCategorizeSectionProps) {
   const t = useT()
-  const [categoryOptionsMap, setCategoryOptionsMap] = React.useState<Record<string, ProductCategorizePickerOption>>({})
-  const [channelOptionsMap, setChannelOptionsMap] = React.useState<Record<string, ProductCategorizePickerOption>>({})
-  const [tagOptionsMap, setTagOptionsMap] = React.useState<Record<string, ProductCategorizePickerOption>>({})
+  const [categoryOptionsMap, setCategoryOptionsMap] = React.useState<Record<string, ProductCategorizePickerOption>>(() =>
+    createPickerOptionsMap(initialCategoryOptions),
+  )
+  const [channelOptionsMap, setChannelOptionsMap] = React.useState<Record<string, ProductCategorizePickerOption>>(() =>
+    createPickerOptionsMap(initialChannelOptions),
+  )
+  const [tagOptionsMap, setTagOptionsMap] = React.useState<Record<string, ProductCategorizePickerOption>>(() =>
+    createPickerOptionsMap(initialTagOptions),
+  )
 
   const registerPickerOptions = React.useCallback(
     (
@@ -77,6 +89,51 @@ export function ProductCategorizeSection({
       registerPickerOptions(setTagOptionsMap, initialTagOptions)
     }
   }, [initialTagOptions, registerPickerOptions])
+
+  const selectedChannelIds = React.useMemo(
+    () => (Array.isArray(values.channelIds) ? values.channelIds.filter((id): id is string => typeof id === 'string' && !!id) : []),
+    [values.channelIds],
+  )
+  const missingChannelIds = React.useMemo(
+    () => selectedChannelIds.filter((id) => !channelOptionsMap[id]),
+    [channelOptionsMap, selectedChannelIds],
+  )
+
+  React.useEffect(() => {
+    if (!missingChannelIds.length) return
+    const controller = new AbortController()
+    const params = new URLSearchParams({ pageSize: '100', ids: missingChannelIds.join(',') })
+
+    void Promise.resolve(
+      readApiResultOrThrow<{
+        items?: Array<{ id?: string; name?: string; code?: string }>
+      }>(
+        `/api/sales/channels?${params.toString()}`,
+        { signal: controller.signal },
+        { errorMessage: t('catalog.products.filters.channelsLoadError', 'Failed to load channels') },
+      ),
+    )
+      .then((payload) => {
+        const items = Array.isArray(payload?.items) ? payload.items : []
+        const options = items
+          .map((entry): ProductCategorizePickerOption | null => {
+            const value = typeof entry.id === 'string' ? entry.id : null
+            if (!value) return null
+            const label =
+              typeof entry.name === 'string' && entry.name.trim().length
+                ? entry.name
+                : typeof entry.code === 'string' && entry.code.trim().length
+                  ? entry.code
+                  : value
+            return { value, label, description: null }
+          })
+          .filter((option): option is ProductCategorizePickerOption => !!option)
+        registerPickerOptions(setChannelOptionsMap, options)
+      })
+      .catch(() => undefined)
+
+    return () => controller.abort()
+  }, [missingChannelIds, registerPickerOptions, t])
 
   const resolveCategoryLabel = React.useCallback(
     (id: string) => categoryOptionsMap[id]?.label ?? id,
