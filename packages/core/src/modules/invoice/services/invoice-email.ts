@@ -76,6 +76,12 @@ function formatRate(value: string | null | undefined): string {
   return formatInvoiceRate(value)
 }
 
+function formatConfirmationAmount(value: string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—'
+  const amount = Number(value)
+  return Number.isFinite(amount) ? amount.toFixed(2) : value
+}
+
 function invoiceLabel(invoice: Invoice): string {
   return [invoice.invoiceSymbol, invoice.invoiceNumber]
     .filter((part): part is string => Boolean(part?.trim()))
@@ -237,7 +243,7 @@ export function buildPaymentConfirmationEmailHtml(input: PaymentConfirmationEmai
   const label = invoiceLabel(invoice)
   const payee = invoice.sellerName || invoice.company?.name || 'Supplier'
   const payer = invoice.buyerName || 'Buyer'
-  const amount = installment?.totalAmount ?? invoice.outstandingAmount ?? invoice.grossAmount
+  const amount = formatConfirmationAmount(installment?.totalAmount ?? invoice.outstandingAmount ?? invoice.grossAmount)
   const installmentText = installment
     ? `<div style="margin-top:8px;font-size:14px;color:${MUTED_COLOR};">${escapeHtml(translate('invoice.paymentConfirmation.email.installment', 'Installment {sequence}', { sequence: String(installment.sequence) }))}</div>`
     : ''
