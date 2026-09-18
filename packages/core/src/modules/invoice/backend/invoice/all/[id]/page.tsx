@@ -11,6 +11,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { formatInvoiceMoney, formatInvoiceNumber, formatInvoiceRate } from '../../../../lib/format'
 import {
   IncomingPaymentConfirmationPanel,
   InvoicePaymentConfirmationPanel,
@@ -45,7 +46,7 @@ type Invoice = {
   lastSentAt: string | null
   openedAt: string | null
   updatedAt: string | null
-  lineItems: Array<{ id: string; lineNumber: number; name: string; quantity: string | null; unitPrice: string | null; vatRate: string | null; lineTotal: string }>
+  lineItems: Array<{ id: string; lineNumber: number; name: string; quantity: string | null; unitPrice: string | null; discountAmount: string | null; discountPercent: string | null; vatRate: string | null; vatAmount: string | null; lineTotal: string }>
   installments: Array<{ id: string; sequence: number; principalAmount: string; interestAmount: string; totalAmount: string; dueDate: string | null; status: string }>
   paymentConfirmation?: PaymentConfirmationState
 }
@@ -54,10 +55,6 @@ type DetailState = 'loading' | 'error' | 'notFound' | 'ready'
 
 function displayDate(value: string | null) {
   return value ? new Date(value).toLocaleDateString() : '—'
-}
-
-function displayMoney(value: string | null, currency: string | null) {
-  return value ? `${value} ${currency ?? ''}`.trim() : '—'
 }
 
 export default function InvoiceDetailPage() {
@@ -178,7 +175,7 @@ export default function InvoiceDetailPage() {
           <section className="overflow-hidden rounded-xl border border-border bg-surface">
             <div className="flex justify-between border-b border-border p-6">
               <div><h2 className="font-semibold">{sellerDisplayName}</h2><p className="text-sm text-muted-foreground">{t('invoice.detail.taxCode', 'Tax code')}: {invoice.sellerTaxCode ?? '—'}</p></div>
-              <div className="text-right"><p className="inline-flex rounded-md bg-modal-muted px-3 py-1 text-sm text-muted-foreground">{label}</p><p className="mt-2 text-xs text-muted-foreground">{t('invoice.detail.total')}</p><p className="text-2xl font-semibold">{displayMoney(invoice.grossAmount, invoice.currencyCode)}</p></div>
+              <div className="text-right"><p className="inline-flex rounded-md bg-modal-muted px-3 py-1 text-sm text-muted-foreground">{label}</p><p className="mt-2 text-xs text-muted-foreground">{t('invoice.detail.total')}</p><p className="text-2xl font-semibold">{formatInvoiceMoney(invoice.grossAmount, invoice.currencyCode)}</p></div>
             </div>
             <div className="grid gap-5 border-b border-border p-6 sm:grid-cols-[220px_1fr]">
               <div className="rounded-xl bg-modal-muted p-4">
@@ -190,19 +187,19 @@ export default function InvoiceDetailPage() {
             </div>
             <div className="overflow-x-auto p-6">
               <table className="w-full text-sm">
-                <thead><tr className="bg-modal-muted text-left"><th className="p-2">{t('invoice.detail.no')}</th><th className="p-2">{t('invoice.detail.description')}</th><th className="p-2">{t('invoice.detail.qty')}</th><th className="p-2">{t('invoice.detail.unitPrice')}</th><th className="p-2">{t('invoice.detail.vat')}</th><th className="p-2 text-right">{t('invoice.detail.amount')}</th></tr></thead>
-                <tbody>{invoice.lineItems.map((item) => <tr key={item.id} className="border-b border-border"><td className="p-2">{item.lineNumber}</td><td className="p-2">{item.name}</td><td className="p-2">{item.quantity ?? '—'}</td><td className="p-2">{displayMoney(item.unitPrice, invoice.currencyCode)}</td><td className="p-2">{item.vatRate ?? '—'}</td><td className="p-2 text-right">{displayMoney(item.lineTotal, invoice.currencyCode)}</td></tr>)}</tbody>
+                <thead><tr className="bg-modal-muted text-left"><th className="p-2">{t('invoice.detail.no')}</th><th className="p-2">{t('invoice.detail.description')}</th><th className="p-2">{t('invoice.detail.qty')}</th><th className="p-2">{t('invoice.detail.unitPrice')}</th><th className="p-2">{t('invoice.detail.discount', 'Discount')}</th><th className="p-2">{t('invoice.detail.vat')}</th><th className="p-2">{t('invoice.detail.vatAmount', 'VAT amount')}</th><th className="p-2 text-right">{t('invoice.detail.amount')}</th></tr></thead>
+                <tbody>{invoice.lineItems.map((item) => <tr key={item.id} className="border-b border-border"><td className="p-2">{item.lineNumber}</td><td className="p-2">{item.name}</td><td className="p-2">{formatInvoiceNumber(item.quantity, invoice.currencyCode)}</td><td className="p-2">{formatInvoiceMoney(item.unitPrice, invoice.currencyCode)}</td><td className="p-2">{item.discountPercent !== null ? `${formatInvoiceRate(item.discountPercent)}` : formatInvoiceMoney(item.discountAmount, invoice.currencyCode)}</td><td className="p-2">{formatInvoiceRate(item.vatRate)}</td><td className="p-2">{formatInvoiceMoney(item.vatAmount, invoice.currencyCode)}</td><td className="p-2 text-right">{formatInvoiceMoney(item.lineTotal, invoice.currencyCode)}</td></tr>)}</tbody>
               </table>
             </div>
             <div className="ml-auto max-w-sm space-y-2 p-6 text-sm">
-              <div className="flex justify-between"><span>{t('invoice.detail.subtotal')}</span><span>{displayMoney(invoice.netAmount, invoice.currencyCode)}</span></div>
-              <div className="flex justify-between"><span>{t('invoice.detail.vat')}</span><span>{displayMoney(invoice.vatAmount, invoice.currencyCode)}</span></div>
-              <div className="flex justify-between border-t border-border pt-2 font-semibold"><span>{t('invoice.detail.total')}</span><span>{displayMoney(invoice.grossAmount, invoice.currencyCode)}</span></div>
+              <div className="flex justify-between"><span>{t('invoice.detail.subtotal')}</span><span>{formatInvoiceMoney(invoice.netAmount, invoice.currencyCode)}</span></div>
+              <div className="flex justify-between"><span>{t('invoice.detail.vat')}</span><span>{formatInvoiceMoney(invoice.vatAmount, invoice.currencyCode)}</span></div>
+              <div className="flex justify-between border-t border-border pt-2 font-semibold"><span>{t('invoice.detail.total')}</span><span>{formatInvoiceMoney(invoice.grossAmount, invoice.currencyCode)}</span></div>
             </div>
             {invoice.hasInstallmentPlan && invoice.installments.length > 0 ? (
               <div className="border-t border-border p-6">
                 <h2 className="mb-3 font-semibold">{t('invoice.detail.paymentSchedule')}</h2>
-                <div className="space-y-2 text-sm">{invoice.installments.map((item) => <div key={item.id} className="flex flex-wrap justify-between gap-2 border-b border-border py-2"><span>#{item.sequence} · {displayDate(item.dueDate)}</span><span>{displayMoney(item.totalAmount, invoice.currencyCode)} · {item.status}</span></div>)}</div>
+                <div className="space-y-2 text-sm">{invoice.installments.map((item) => <div key={item.id} className="flex flex-wrap justify-between gap-2 border-b border-border py-2"><span>#{item.sequence} · {displayDate(item.dueDate)}</span><span>{formatInvoiceMoney(item.totalAmount, invoice.currencyCode)} · {item.status}</span></div>)}</div>
               </div>
             ) : null}
           </section>
@@ -213,8 +210,8 @@ export default function InvoiceDetailPage() {
             <section className="rounded-xl border border-border bg-surface p-5">
               <h2 className="border-b border-border pb-3 text-xs font-semibold text-muted-foreground">{t('invoice.detail.summary')}</h2>
               <div className="space-y-3 pt-4 text-sm">
-                <div className="flex justify-between"><span>{t('invoice.detail.total')}</span><span>{displayMoney(invoice.grossAmount, invoice.currencyCode)}</span></div>
-                <div className="flex justify-between font-semibold"><span>{t('invoice.detail.remaining')}</span><span>{displayMoney(invoice.outstandingAmount, invoice.currencyCode)}</span></div>
+                <div className="flex justify-between"><span>{t('invoice.detail.total')}</span><span>{formatInvoiceMoney(invoice.grossAmount, invoice.currencyCode)}</span></div>
+                <div className="flex justify-between font-semibold"><span>{t('invoice.detail.remaining')}</span><span>{formatInvoiceMoney(invoice.outstandingAmount, invoice.currencyCode)}</span></div>
                 {invoice.dueDate && invoice.settlementStatus !== 'SETTLED' ? <p className="pt-3 text-muted-foreground">{t('invoice.detail.nextPayment')} {displayDate(invoice.dueDate)}</p> : null}
               </div>
             </section>
