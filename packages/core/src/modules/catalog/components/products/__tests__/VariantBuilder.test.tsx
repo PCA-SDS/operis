@@ -180,6 +180,19 @@ describe('VariantBasicsSection', () => {
     render(<VariantBasicsSection values={createDefaultValues()} setValue={setValue} errors={{ name: 'Name is required' }} />)
     expect(screen.getByText('Name is required')).toBeInTheDocument()
   })
+
+  it('displays server validation errors for SKU', () => {
+    const setValue = jest.fn()
+    render(
+      <VariantBasicsSection
+        values={createDefaultValues()}
+        setValue={setValue}
+        errors={{ sku: 'SKU contains invalid characters' }}
+      />,
+    )
+
+    expect(screen.getByText('SKU contains invalid characters')).toBeInTheDocument()
+  })
 })
 
 describe('VariantOptionValuesSection', () => {

@@ -127,6 +127,7 @@ export function VariantBasicsSection({ values, setValue, errors }: VariantSectio
             onChange={(event) => setValue('sku', event.target.value)}
             placeholder={t('catalog.variants.form.skuPlaceholder', 'Unique identifier')}
           />
+          {errors.sku ? <p className="text-xs text-status-error-text">{errors.sku}</p> : null}
         </div>
         <div className="space-y-2">
           <Label>{t('catalog.variants.form.barcodeLabel', 'Barcode')}</Label>
