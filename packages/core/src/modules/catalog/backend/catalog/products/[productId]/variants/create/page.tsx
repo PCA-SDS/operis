@@ -234,10 +234,11 @@ export default function CreateVariantPage({ params }: { params?: { productId?: s
         column: 1,
         title: t('catalog.variants.form.pricesLabel', 'Prices'),
         description: t('catalog.variants.form.pricesHint', 'Populate list prices per price kind.'),
-        component: ({ values, setValue }) => (
+        component: ({ values, setValue, errors }) => (
           <VariantPricesSection
             values={values as VariantFormValues}
             setValue={setValue}
+            errors={errors}
             priceKinds={priceKinds}
             taxRates={taxRates}
             showHeader={false}
