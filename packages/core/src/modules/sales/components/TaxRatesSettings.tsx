@@ -142,7 +142,7 @@ export function TaxRatesSettings() {
     setLoading(true)
     try {
       const payload = await readApiResultOrThrow<{ items?: Array<Record<string, unknown>> }>(
-        '/api/sales/tax-rates?pageSize=200',
+        '/api/sales/tax-rates?pageSize=100',
         undefined,
         { errorMessage: translations.errors.load, fallback: { items: [] } },
       )
@@ -399,4 +399,3 @@ function formatLocation(entry: TaxRateRow): string {
   if (entry.countryCode) parts.push(entry.countryCode.toUpperCase())
   return parts.length ? parts.join(', ') : '—'
 }
-
