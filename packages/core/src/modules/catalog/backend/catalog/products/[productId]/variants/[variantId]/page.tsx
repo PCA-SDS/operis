@@ -54,6 +54,14 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 
 const logger = createLogger('catalog')
 
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { name?: unknown }).name === 'AbortError'
+  )
+}
+
 type VariantResponse = {
   items?: Array<Record<string, unknown>>
 }
@@ -410,6 +418,7 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
           })
         }
       } catch (err) {
+        if (isAbortError(err)) return
         logger.error('catalog.variants.load.failed', { err })
         if (!cancelled) {
           const message = err instanceof Error && err.message ? err.message : t('catalog.variants.form.errors.load', 'Failed to load variant.')
