@@ -5,7 +5,8 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { SalesChannel } from '../../data/entities'
 import { channelCreateSchema, channelUpdateSchema } from '../../data/validators'
-import { buildAggregateSearchFilter, parseScopedCommandInput, resolveCrudRecordId } from '../utils'
+import { parseScopedCommandInput, resolveCrudRecordId } from '../utils'
+import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern'
 import { E } from '#generated/entities.ids.generated'
 import * as F from '#generated/entities/sales_channel'
 import {
@@ -78,8 +79,15 @@ export function buildSearchFilters(query: z.infer<typeof listSchema>): Record<st
     const ids = parseIdList(query.ids)
     if (ids.length) filters.id = { $in: ids }
   }
-  const searchFilter = buildAggregateSearchFilter(query.search)
-  if (searchFilter) Object.assign(filters, searchFilter)
+  const searchTerm = typeof query.search === 'string' ? query.search.trim() : ''
+  if (searchTerm) {
+    const searchPattern = `%${escapeLikePattern(searchTerm)}%`
+    filters.$or = [
+      { name: { $ilike: searchPattern } },
+      { code: { $ilike: searchPattern } },
+      { description: { $ilike: searchPattern } },
+    ]
+  }
   const isActive = parseBooleanToken(query.isActive)
   if (isActive !== null) filters.is_active = isActive
   return filters

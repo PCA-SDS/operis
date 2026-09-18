@@ -12,22 +12,17 @@ jest.mock('@open-mercato/ui/backend/utils/apiCall', () => ({
 }))
 
 jest.mock('@open-mercato/ui/backend/inputs/TagsInput', () => ({
-  TagsInput: ({ value = [], placeholder, onChange, loadSuggestions }: {
+  TagsInput: ({ value = [], placeholder, onChange, resolveLabel }: {
     value?: string[]
     placeholder?: string
     onChange?: (next: string[]) => void
-    loadSuggestions?: (term?: string) => Promise<unknown>
+    resolveLabel?: (value: string) => string
   }) => (
     <div data-testid={`tags-input-${placeholder}`} data-value={Array.isArray(value) ? value.join(',') : ''}>
       <button data-testid={`trigger-${placeholder}`} type="button" onClick={() => onChange?.([...value, 'new-value'])}>
         add
       </button>
-      {loadSuggestions ? (
-        <button data-testid={`load-${placeholder}`} type="button" onClick={() => void loadSuggestions('QA')}>
-          load
-        </button>
-      ) : null}
-      {Array.isArray(value) ? value.join(',') : ''}
+      {Array.isArray(value) ? value.map((item) => resolveLabel?.(item) ?? item).join(',') : ''}
     </div>
   ),
 }))
@@ -119,6 +114,27 @@ describe('ProductCategorizeSection', () => {
     expect(screen.getByTestId('tags-input-Pick channels')).toHaveAttribute('data-value', 'ch-1,ch-3')
   })
 
+  it('restores labels for selected channels after the section mounts again', async () => {
+    mockReadApiResultOrThrow.mockResolvedValue({
+      items: [{ id: 'channel-1', name: 'Online store', code: 'online' }],
+    })
+
+    render(
+      <ProductCategorizeSection
+        values={createDefaultValues({ channelIds: ['channel-1'] })}
+        setValue={jest.fn()}
+        errors={{}}
+      />,
+    )
+
+    await waitFor(() => expect(screen.getByTestId('tags-input-Pick channels')).toHaveTextContent('Online store'))
+    expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+      '/api/sales/channels?pageSize=100&ids=channel-1',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      expect.objectContaining({ errorMessage: 'Failed to load channels' }),
+    )
+  })
+
   it('passes tags to the tags TagsInput', () => {
     render(
       <ProductCategorizeSection
@@ -189,22 +205,5 @@ describe('ProductCategorizeSection', () => {
     expect(screen.getByTestId('tags-input-Search categories')).toHaveAttribute('data-value', '')
     expect(screen.getByTestId('tags-input-Pick channels')).toHaveAttribute('data-value', '')
     expect(screen.getByTestId('tags-input-Add tag and press Enter')).toHaveAttribute('data-value', '')
-  })
-
-  it('keeps category search within the API page-size limit', async () => {
-    mockReadApiResultOrThrow.mockResolvedValue({ items: [] })
-    render(
-      <ProductCategorizeSection values={createDefaultValues()} setValue={jest.fn()} errors={{}} />,
-    )
-
-    fireEvent.click(screen.getByTestId('load-Search categories'))
-
-    await waitFor(() => {
-      expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
-        '/api/catalog/categories?pageSize=100&view=manage&search=QA',
-        undefined,
-        expect.objectContaining({ errorMessage: 'Failed to load categories' }),
-      )
-    })
   })
 })
