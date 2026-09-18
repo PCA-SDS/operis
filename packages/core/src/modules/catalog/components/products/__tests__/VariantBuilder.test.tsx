@@ -131,6 +131,15 @@ function createOptionDefinitions(): OptionDefinition[] {
 }
 
 describe('VariantBasicsSection', () => {
+  it('keeps text inputs controlled when form values are not loaded yet', () => {
+    const setValue = jest.fn()
+    render(<VariantBasicsSection values={{} as VariantFormValues} setValue={setValue} errors={{}} />)
+
+    expect(screen.getByPlaceholderText('e.g., Blue / Small')).toHaveValue('')
+    expect(screen.getByPlaceholderText('Unique identifier')).toHaveValue('')
+    expect(screen.getByPlaceholderText('EAN, UPC, etc.')).toHaveValue('')
+  })
+
   it('renders name input with placeholder', () => {
     const setValue = jest.fn()
     render(<VariantBasicsSection values={createDefaultValues()} setValue={setValue} errors={{}} />)
