@@ -832,6 +832,7 @@ export default function EditCatalogProductPage({
           setPriceKinds(summaries);
         }
       } catch (err) {
+        if (isAbortError(err)) return;
         logger.error('catalog.price-kinds.fetch failed', { err });
         if (!cancelled) {
           setPriceKinds([]);
