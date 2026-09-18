@@ -177,7 +177,7 @@ export default function InvoiceDetailPage() {
         <div className="grid gap-5 lg:grid-cols-[minmax(0,768px)_320px]">
           <section className="overflow-hidden rounded-xl border border-border bg-surface">
             <div className="flex justify-between border-b border-border p-6">
-              <div><h2 className="font-semibold">{sellerDisplayName}</h2><p className="text-sm text-muted-foreground">{t('invoice.detail.taxCode', 'Tax code')}: {invoice.sellerTaxCode ?? invoice.partnerTaxCode ?? '—'}</p></div>
+              <div><h2 className="font-semibold">{sellerDisplayName}</h2><p className="text-sm text-muted-foreground">{t('invoice.detail.taxCode', 'Tax code')}: {invoice.sellerTaxCode ?? '—'}</p></div>
               <div className="text-right"><p className="inline-flex rounded-md bg-modal-muted px-3 py-1 text-sm text-muted-foreground">{label}</p><p className="mt-2 text-xs text-muted-foreground">{t('invoice.detail.total')}</p><p className="text-2xl font-semibold">{displayMoney(invoice.grossAmount, invoice.currencyCode)}</p></div>
             </div>
             <div className="grid gap-5 border-b border-border p-6 sm:grid-cols-[220px_1fr]">
@@ -186,7 +186,7 @@ export default function InvoiceDetailPage() {
                 <p className="mt-4 text-xs text-muted-foreground">{t('invoice.detail.dueDate')}</p><p>{displayDate(invoice.dueDate)}</p>
                 <p className="mt-4 text-xs text-muted-foreground">{t('invoice.detail.source')}</p><p>{invoice.origin === 'MANUAL' ? t('invoice.detail.createdInApp') : t('invoice.detail.imported')}</p>
               </div>
-              <div className="pt-0"><p className="text-xs text-muted-foreground">{t('invoice.detail.billTo')}</p><p className="font-semibold">{buyerDisplayName}</p><p className="text-sm text-muted-foreground">{t('invoice.detail.taxCode', 'Tax code')}: {invoice.buyerTaxCode ?? invoice.partnerTaxCode ?? '—'}</p></div>
+              <div className="pt-0"><p className="text-xs text-muted-foreground">{t('invoice.detail.billTo')}</p><p className="font-semibold">{buyerDisplayName}</p><p className="text-sm text-muted-foreground">{t('invoice.detail.taxCode', 'Tax code')}: {invoice.buyerTaxCode ?? '—'}</p></div>
             </div>
             <div className="overflow-x-auto p-6">
               <table className="w-full text-sm">

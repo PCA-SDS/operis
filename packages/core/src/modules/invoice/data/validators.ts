@@ -64,6 +64,8 @@ const optionalTrimmedString = (schema: z.ZodString) =>
     const trimmed = value.trim()
     return trimmed.length > 0 ? trimmed : undefined
   }, schema.optional())
+const nullableOptionalTrimmedString = (schema: z.ZodString) =>
+  z.preprocess((value) => value === null ? undefined : value, optionalTrimmedString(schema))
 
 export const invoiceDirectionSchema = z.enum(INVOICE_DIRECTIONS)
 export const invoiceStatusSchema = z.enum(INVOICE_STATUSES)
@@ -246,7 +248,7 @@ export const invoiceManualLineItemInputSchema = z.object({
 export const invoiceManualWriteBaseSchema = z.object({
   partnerName: invoiceCompanyNameSchema,
   partnerCountryCode: invoiceCountryCodeSchema,
-  partnerTaxCode: optionalTrimmedString(invoiceTaxCodeSchema),
+  partnerTaxCode: nullableOptionalTrimmedString(invoiceTaxCodeSchema),
   invoiceSymbol: invoiceSymbolSchema,
   invoiceNumber: invoiceNumberSchema,
   invoiceCode: invoiceCodeSchema,

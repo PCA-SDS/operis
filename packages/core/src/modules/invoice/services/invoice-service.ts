@@ -655,7 +655,7 @@ export class InvoiceService {
         company: partner.company,
         sellerTaxCode: partner.sellerTaxCode,
         sellerName: partner.sellerName,
-        buyerTaxCode: null,
+        buyerTaxCode: organization.taxCode?.trim() || null,
         buyerName: organization.name,
         invoiceSymbol: normalizedSymbol(parsed.invoiceSymbol),
         invoiceNumber: parsed.invoiceNumber,
@@ -731,7 +731,7 @@ export class InvoiceService {
       invoice.company = partner.company
       invoice.sellerTaxCode = partner.sellerTaxCode
       invoice.sellerName = partner.sellerName
-      invoice.buyerTaxCode = null
+      invoice.buyerTaxCode = organization.taxCode?.trim() || null
       invoice.buyerName = organization.name
       invoice.invoiceSymbol = normalizedSymbol(parsed.invoiceSymbol)
       invoice.invoiceNumber = parsed.invoiceNumber
