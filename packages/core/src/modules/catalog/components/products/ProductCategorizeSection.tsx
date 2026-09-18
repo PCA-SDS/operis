@@ -147,7 +147,7 @@ export function ProductCategorizeSection({
           { errorMessage: t('catalog.products.filters.channelsLoadError', 'Failed to load channels') },
         )
         const items = Array.isArray(payload?.items) ? payload.items : []
-        const options = items
+        const options: ProductCategorizePickerOption[] = items
           .map((entry) => {
             const value = typeof entry.id === 'string' ? entry.id : null
             if (!value) return null
@@ -157,14 +157,9 @@ export function ProductCategorizeSection({
                 : typeof entry.code === 'string' && entry.code.trim().length
                   ? entry.code
                   : value
-            const description = typeof entry.code === 'string' && entry.code.trim().length ? entry.code : null
-            return { value, label, description }
+            return { value, label, description: null }
           })
-          .filter(
-            (
-              option: { value: string; label: string; description: string | null } | null,
-            ): option is { value: string; label: string; description: string | null } => !!option,
-          )
+          .filter((option): option is { value: string; label: string; description: null } => !!option)
         registerPickerOptions(setChannelOptionsMap, options)
         return options
       } catch {
