@@ -231,8 +231,8 @@ const invoiceManualNullableDateSchema = z.preprocess((value) => {
 export const invoiceManualLineItemInputSchema = z.object({
   name: z.string().trim().min(1).max(500),
   unit: nullableTrimmedString(80),
-  quantity: invoiceNonNegativeMoneySchema,
-  unitPrice: invoiceNonNegativeMoneySchema,
+  quantity: invoicePositiveMoneySchema.refine((value) => Number(value) > 0, 'Must be greater than zero'),
+  unitPrice: invoicePositiveMoneySchema.refine((value) => Number(value) > 0, 'Must be greater than zero'),
   discountAmount: invoiceManualOptionalMoneySchema,
   discountPercent: invoicePercentSchema.optional(),
   vatRate: invoicePercentSchema.optional(),

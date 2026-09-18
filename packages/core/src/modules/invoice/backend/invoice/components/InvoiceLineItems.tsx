@@ -48,9 +48,9 @@ export function InvoiceLineItems({ lines, onChange, currency, error }: {
           <IconButton type="button" variant="ghost" aria-label={t('invoice.form.removeItem', { number: index + 1 })} onClick={() => onChange(lines.filter((_, itemIndex) => itemIndex !== index))}><Trash2 /></IconButton>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <label className="min-w-0 space-y-2"><span className="text-xs font-semibold uppercase text-muted-foreground">{t('invoice.form.quantity')} *</span><Input type="number" min="0" step="0.0001" required value={line.quantity} onChange={(event) => update(index, { quantity: event.target.value })} /></label>
+          <label className="min-w-0 space-y-2"><span className="text-xs font-semibold uppercase text-muted-foreground">{t('invoice.form.quantity')} *</span><Input type="number" min="0.0001" step="0.0001" required value={line.quantity} onChange={(event) => update(index, { quantity: event.target.value })} /></label>
           <label className="min-w-0 space-y-2"><span className="text-xs font-semibold uppercase text-muted-foreground">{t('invoice.form.unit')}</span><Input value={line.unit ?? ''} placeholder={t('invoice.form.unitPlaceholder')} onChange={(event) => update(index, { unit: event.target.value || null })} /></label>
-          <label className="min-w-0 space-y-2"><span className="text-xs font-semibold uppercase text-muted-foreground">{t('invoice.form.unitPrice')} *</span><Input type="number" min="0" step="0.0001" required value={line.unitPrice} onChange={(event) => update(index, { unitPrice: event.target.value })} /></label>
+          <label className="min-w-0 space-y-2"><span className="text-xs font-semibold uppercase text-muted-foreground">{t('invoice.form.unitPrice')} *</span><Input type="number" min="0.0001" step="0.0001" required value={line.unitPrice} onChange={(event) => update(index, { unitPrice: event.target.value })} /></label>
           <div className="min-w-0 space-y-2">
             <label className="block text-xs font-semibold uppercase text-muted-foreground" htmlFor={`discount-${index}`}>{t('invoice.form.discount')}</label>
             <div className="flex items-center rounded-md border border-border bg-input-bg" role="group" aria-label={t('invoice.form.discountMode', 'Discount calculation mode')}>
