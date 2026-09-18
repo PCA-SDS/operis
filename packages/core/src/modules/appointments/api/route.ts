@@ -22,11 +22,20 @@ import { createAppointmentFromPublicIntake } from '../lib/intake'
 import { emitAppointmentEvent } from '../events'
 import { deriveScheduleConfirmationStatus } from '../lib/scheduleTracking'
 import { compareAppointmentListRows } from '../lib/appointmentListSorting'
+import { buildIlikeTerm } from '@open-mercato/shared/lib/db/buildIlikeTerm'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
   POST: { requireAuth: true, requireFeatures: ['appointments.create'] },
 }
+
+const appointmentListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  search: z.string().trim().optional(),
+  statusCode: z.string().trim().optional(),
+  organizationId: z.string().uuid().optional(),
+})
 
 function mapAppointment(row: Appointment, organizationName: string | null = null) {
   return {
@@ -158,7 +167,18 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const url = new URL(req.url)
-    const statusCode = url.searchParams.get('statusCode')?.trim() || null
+    const queryResult = appointmentListQuerySchema.safeParse(Object.fromEntries(url.searchParams.entries()))
+    if (!queryResult.success) {
+      return NextResponse.json(
+        { error: translate('appointments.list.invalidQuery', 'Invalid input'), code: 'INVALID_INPUT' },
+        { status: 400 },
+      )
+    }
+    const query = queryResult.data
+    const statusCodes = (query.statusCode ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
 
@@ -171,7 +191,7 @@ export async function GET(req: Request) {
       container,
       auth,
       request: req,
-      selectedId: url.searchParams.get('organizationId') ?? undefined,
+      selectedId: query.organizationId,
     })
     const organizationId = scope?.selectedId ?? auth.orgId ?? null
 
@@ -180,10 +200,41 @@ export async function GET(req: Request) {
       deletedAt: null,
     }
     if (organizationId) where.organizationId = organizationId
-    if (statusCode) where.statusCode = statusCode
+    if (statusCodes.length === 1) where.statusCode = statusCodes[0]
+    if (statusCodes.length > 1) where.statusCode = { $in: statusCodes }
 
-    const rows = await em.find(Appointment, where, {
-      orderBy: { requestedStartAt: 'desc' },
+    if (query.search) {
+      const searchPattern = buildIlikeTerm(query.search)
+      const matchingOrganizations = await em.find(Organization, {
+        tenant: auth.tenantId,
+        deletedAt: null,
+        name: { $ilike: searchPattern },
+      }, { fields: ['id'] })
+      const searchFilters: Record<string, unknown>[] = [
+        { customerName: { $ilike: searchPattern } },
+        { customerSalutation: { $ilike: searchPattern } },
+        { customerEmail: { $ilike: searchPattern } },
+        { customerPhone: { $ilike: searchPattern } },
+        { customerPhoneCountryCode: { $ilike: searchPattern } },
+        { bookingType: { $ilike: searchPattern } },
+        { statusCode: { $ilike: searchPattern } },
+        { notes: { $ilike: searchPattern } },
+        { externalNotes: { $ilike: searchPattern } },
+      ]
+      const matchingAppointmentId = z.string().uuid().safeParse(query.search)
+      if (matchingAppointmentId.success) {
+        searchFilters.push({ id: matchingAppointmentId.data })
+      }
+      if (matchingOrganizations.length > 0) {
+        searchFilters.push({ organizationId: { $in: matchingOrganizations.map((organization) => organization.id) } })
+      }
+      where.$or = searchFilters
+    }
+
+    const [rows, total] = await em.findAndCount(Appointment, where, {
+      orderBy: { createdAt: 'desc', requestedStartAt: 'desc' },
+      limit: query.pageSize,
+      offset: (query.page - 1) * query.pageSize,
     })
     const lines = rows.length > 0
       ? await em.find(AppointmentLine, {
@@ -268,7 +319,13 @@ export async function GET(req: Request) {
         }
       })
     items.sort(compareAppointmentListRows)
-    return NextResponse.json({ items })
+    return NextResponse.json({
+      items,
+      total,
+      page: query.page,
+      pageSize: query.pageSize,
+      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+    })
   } catch {
     return NextResponse.json(
       {
