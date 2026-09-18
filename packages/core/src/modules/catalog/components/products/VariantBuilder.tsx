@@ -70,6 +70,7 @@ type VariantMetadataSectionProps = {
 type VariantPricesSectionProps = {
   values: VariantFormValues
   setValue: (id: string, value: unknown) => void
+  errors?: Record<string, string>
   priceKinds: PriceKindSummary[]
   taxRates: TaxRateSummary[]
   showHeader?: boolean
@@ -97,7 +98,7 @@ export function VariantBuilder({
       <VariantDurationSection values={values} setValue={setValue} />
       <VariantDimensionsSection values={values} setValue={setValue} />
       <VariantMetadataSection values={values} setValue={setValue} />
-      <VariantPricesSection values={values} setValue={setValue} priceKinds={priceKinds} taxRates={taxRates} />
+      <VariantPricesSection values={values} setValue={setValue} errors={errors} priceKinds={priceKinds} taxRates={taxRates} />
       <VariantMediaSection values={values} setValue={setValue} />
     </div>
   )
@@ -456,6 +457,7 @@ export function VariantMetadataSection({
 export function VariantPricesSection({
   values,
   setValue,
+  errors,
   priceKinds,
   taxRates,
   showHeader = true,
@@ -654,6 +656,7 @@ export function VariantPricesSection({
         ) : (
           <p className="text-xs text-muted-foreground">{t('catalog.variants.form.pricesEmpty', 'No price kinds configured yet.')}</p>
         )}
+        {errors?.prices ? <p className="text-xs text-status-error-text">{errors.prices}</p> : null}
       </div>
 
     </div>

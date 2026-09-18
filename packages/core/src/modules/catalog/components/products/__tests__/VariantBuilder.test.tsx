@@ -292,6 +292,21 @@ describe('VariantPricesSection', () => {
     expect(screen.getByText('No price kinds configured yet.')).toBeInTheDocument()
   })
 
+  it('displays price validation errors below the price inputs', () => {
+    const setValue = jest.fn()
+    render(
+      <VariantPricesSection
+        values={createDefaultValues()}
+        setValue={setValue}
+        errors={{ prices: 'Provide a valid non-negative price.' }}
+        priceKinds={createPriceKinds()}
+        taxRates={createTaxRates()}
+      />,
+    )
+
+    expect(screen.getByText('Provide a valid non-negative price.')).toBeInTheDocument()
+  })
+
   it('renders tax rate select with options', () => {
     const setValue = jest.fn()
     render(
