@@ -209,7 +209,7 @@ describe('email module foundation', () => {
   it('uses a smaller grid projection so list pages do not fetch body payloads', () => {
     expect(TEMPLATES_ROUTE_SOURCE).toContain('const listFields')
     expect(TEMPLATES_ROUTE_SOURCE).toContain('const detailFields')
-    expect(TEMPLATES_ROUTE_SOURCE).toContain('fields: (query) => query.id || query.ids || query.activeOnly ? detailFields : listFields')
+    expect(TEMPLATES_ROUTE_SOURCE).toContain('fields: (query) => query.id || query.ids ? detailFields : listFields')
     expect(TEMPLATES_ROUTE_SOURCE).toContain('item.accounting_metadata?.isActive !== false')
     expect(TEMPLATES_ROUTE_SOURCE).toContain('item.blocks ?? []')
     expect(TEMPLATES_ROUTE_SOURCE).toContain('item.accounting_metadata ?? item.accountingMetadata ?? null')
@@ -298,7 +298,7 @@ describe('email module foundation', () => {
     expect(COMPOSE_PAGE_SOURCE).toContain('email.compose.preview.emptyBody')
     expect(COMPOSE_PAGE_SOURCE).toContain('Accounting values')
     expect(COMPOSE_PAGE_SOURCE).not.toContain('Accounting values JSON')
-    expect(COMPOSE_PAGE_SOURCE).toContain('activeOnly=true')
+    expect(COMPOSE_PAGE_SOURCE).toContain('status=published')
     expect(COMPOSE_PAGE_SOURCE).toContain('/api/customers/companies?page=1&pageSize=50')
     expect(COMPOSE_PAGE_SOURCE).toContain('/people?pageSize=100&sort=name-asc')
     expect(COMPOSE_PAGE_SOURCE).not.toContain('include=people')

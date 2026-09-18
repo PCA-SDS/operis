@@ -174,7 +174,7 @@ export default function EmailComposePreviewPage() {
     async function loadTemplates() {
       setIsLoading(true)
       setError(null)
-      const response = await apiCall<ListResponse>('/api/email/templates?activeOnly=true&pageSize=100&sort=updatedAt&order=desc', {
+      const response = await apiCall<ListResponse>('/api/email/templates?status=published&pageSize=100&sort=updatedAt&order=desc', {
         signal: controller.signal,
       }).catch((err: unknown) => ({ ok: false as const, result: { error: err instanceof Error ? err.message : t('email.compose.errors.loadTemplates', 'Failed to load templates') } }))
       if (cancelled) return
