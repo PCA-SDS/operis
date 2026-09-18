@@ -1,6 +1,7 @@
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
 import type { EntityManager } from '@mikro-orm/postgresql'
+import { fromZonedTime } from 'date-fns-tz'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { parseAvailabilityRuleWindow } from '@open-mercato/core/modules/planner/lib/availabilitySchedule'
 import { PlannerAvailabilityRule } from '../data/entities'
@@ -59,14 +60,17 @@ function parseTimeInput(value: string): { hours: number; minutes: number } | nul
   return { hours, minutes }
 }
 
-function toDateForDay(value: string, time: string): Date | null {
+function toDateForDay(value: string, time: string, timezone: string): Date | null {
   if (!value) return null
   const parsed = parseTimeInput(time)
   if (!parsed) return null
   const parts = value.split('-').map((part) => Number(part))
   if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) return null
   const [year, month, day] = parts
-  const date = new Date(year, month - 1, day, parsed.hours, parsed.minutes, 0, 0)
+  const date = fromZonedTime(
+    `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(parsed.hours).padStart(2, '0')}:${String(parsed.minutes).padStart(2, '0')}:00`,
+    timezone,
+  )
   return Number.isNaN(date.getTime()) ? null : date
 }
 
@@ -86,10 +90,24 @@ function buildAvailabilityRrule(start: Date, end: Date): string {
   return `DTSTART:${dtStart}\nDURATION:${duration}\nRRULE:FREQ=DAILY;COUNT=1`
 }
 
-function buildFullDayRrule(date: string): string | null {
-  const start = toDateForDay(date, '00:00')
+function addCalendarDay(value: string): string | null {
+  const parts = value.split('-').map((part) => Number(part))
+  if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) return null
+  const [year, month, day] = parts
+  const next = new Date(Date.UTC(year, month - 1, day + 1))
+  if (Number.isNaN(next.getTime())) return null
+  return [next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate()]
+    .map((part) => String(part).padStart(2, '0'))
+    .join('-')
+}
+
+export function buildFullDayRrule(date: string, timezone: string): string | null {
+  const start = toDateForDay(date, '00:00', timezone)
   if (!start) return null
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+  const nextDate = addCalendarDay(date)
+  if (!nextDate) return null
+  const end = toDateForDay(nextDate, '00:00', timezone)
+  if (!end) return null
   return buildAvailabilityRrule(start, end)
 }
 
@@ -244,7 +262,7 @@ const replaceDateSpecificAvailabilityCommand: CommandHandler<PlannerAvailability
 
       if (!isAvailable) {
         dates.forEach((date) => {
-          const rrule = buildFullDayRrule(date)
+          const rrule = buildFullDayRrule(date, parsed.timezone)
           if (!rrule) return
           const record = trx.create(PlannerAvailabilityRule, {
             tenantId: parsed.tenantId,
@@ -266,8 +284,8 @@ const replaceDateSpecificAvailabilityCommand: CommandHandler<PlannerAvailability
       } else {
         dates.forEach((date) => {
           windows.forEach((window) => {
-            const start = toDateForDay(date, window.start)
-            const end = toDateForDay(date, window.end)
+            const start = toDateForDay(date, window.start, parsed.timezone)
+            const end = toDateForDay(date, window.end, parsed.timezone)
             if (!start || !end || start >= end) return
             const rrule = buildAvailabilityRrule(start, end)
             const record = trx.create(PlannerAvailabilityRule, {

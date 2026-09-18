@@ -96,4 +96,25 @@ describe('getMergedAvailabilityWindows', () => {
       { start: '2024-01-02T00:00:00.000Z', end: '2024-01-03T00:00:00.000Z' },
     ])
   })
+
+  it('blocks weekly availability with a timezone-shifted full-day unavailability rule', () => {
+    const range: AvailabilityRange = {
+      start: new Date('2026-09-18T00:00:00Z'),
+      end: new Date('2026-09-19T00:00:00Z'),
+    }
+    const rules: AvailabilityRuleLike[] = [
+      {
+        id: 'weekly-availability',
+        rrule: 'DTSTART:20260918T070000Z;DURATION:PT4H;FREQ=WEEKLY;BYDAY=FR',
+        kind: 'availability',
+      },
+      {
+        id: 'full-day-unavailability',
+        rrule: 'DTSTART:20260917T170000Z;DURATION:PT24H;FREQ=DAILY;COUNT=1',
+        kind: 'unavailability',
+      },
+    ]
+
+    expect(getMergedAvailabilityWindows({ rules, range })).toEqual([])
+  })
 })
