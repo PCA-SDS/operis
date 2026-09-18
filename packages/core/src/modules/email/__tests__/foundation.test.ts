@@ -25,6 +25,10 @@ const ACME_TEMPLATE_MIGRATION_SOURCE = readFileSync(
   join(MODULE_ROOT, 'migrations', 'Migration20260914160000_acme_email_templates.ts'),
   'utf8',
 )
+const PCA_COMPANY_SERVICES_TEMPLATE_MIGRATION_SOURCE = readFileSync(
+  join(MODULE_ROOT, 'migrations', 'Migration20260918150000_pca_company_services_email_templates.ts'),
+  'utf8',
+)
 const ENTITY_SOURCE = readFileSync(join(MODULE_ROOT, 'data', 'entities.ts'), 'utf8')
 const COMMANDS_SOURCE = readFileSync(join(MODULE_ROOT, 'commands', 'templates.ts'), 'utf8')
 const SETUP_SOURCE = readFileSync(join(MODULE_ROOT, 'setup.ts'), 'utf8')
@@ -156,6 +160,13 @@ describe('email module foundation', () => {
     expect(ACME_TEMPLATE_MIGRATION_SOURCE).not.toContain('ilike')
     expect(ACME_TEMPLATE_MIGRATION_SOURCE).toContain('status",')
     expect(ACME_TEMPLATE_MIGRATION_SOURCE).toContain('ruleNotes: template.ruleNotes')
+  })
+
+  it('imports PCA templates for the PCA Company Services tenant', () => {
+    expect(PCA_COMPANY_SERVICES_TEMPLATE_MIGRATION_SOURCE).toContain('PCA Company Services')
+    expect(PCA_COMPANY_SERVICES_TEMPLATE_MIGRATION_SOURCE).toContain('status",')
+    expect(PCA_COMPANY_SERVICES_TEMPLATE_MIGRATION_SOURCE).toContain('ruleNotes: template.ruleNotes')
+    expect(PCA_COMPANY_SERVICES_TEMPLATE_MIGRATION_SOURCE).toContain('on conflict ("organization_id", "tenant_id", "template_key")')
   })
 
   it('declares every PCA source placeholder used in subjects and bodies', () => {
