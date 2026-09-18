@@ -916,6 +916,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const staffPageRef = React.useRef(0)
   const staffLoadingRef = React.useRef(false)
   const hasMoreStaffRef = React.useRef(true)
+  const staffAvailabilityRangeRef = React.useRef<{ startsAt: string; endsAt: string } | null>(null)
   const guardedMutation = useGuardedMutation({ contextId: appointmentId ? `appointments.seatPlanner:${appointmentId}` : 'appointments.seatPlanner:pending' })
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
 
@@ -925,7 +926,11 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     if (page === 1) setIsLoadingStaff(true)
     else setIsLoadingMoreStaff(true)
     try {
-      const response = await readApiResultOrThrow<{ items?: Array<{ id: string; displayName: string; teamName?: string | null }> }>(`/api/staff/team-members/assignable?page=${page}&pageSize=${STAFF_PAGE_SIZE}&includeUnlinked=true`)
+      const range = staffAvailabilityRangeRef.current
+      const availabilityQuery = range
+        ? `&startsAt=${encodeURIComponent(range.startsAt)}&endsAt=${encodeURIComponent(range.endsAt)}`
+        : ''
+      const response = await readApiResultOrThrow<{ items?: Array<{ id: string; displayName: string; teamName?: string | null }> }>(`/api/staff/team-members/assignable?page=${page}&pageSize=${STAFF_PAGE_SIZE}&includeUnlinked=true${availabilityQuery}`)
       const items = response.items ?? []
       const nextStaff = items.map((member) => ({
         id: member.id,
@@ -1686,7 +1691,18 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             onClose={() => setPopoverState(null)}
             onClear={() => void clearDraft(popoverState.allocation.lineId)}
             onDurationChange={(nextDuration) => void handleDurationChange(popoverState.allocation, nextDuration)}
-            onOpenStaff={() => setStaffSheetTarget({ allocation: popoverState.allocation, line: workspace.lines.find((line) => line.id === popoverState.allocation.lineId) ?? null })}
+            onOpenStaff={() => {
+              staffAvailabilityRangeRef.current = {
+                startsAt: popoverState.allocation.startsAt,
+                endsAt: popoverState.allocation.endsAt,
+              }
+              staffPageRef.current = 0
+              staffLoadingRef.current = false
+              hasMoreStaffRef.current = true
+              setHasMoreStaff(true)
+              setStaffMembers([])
+              setStaffSheetTarget({ allocation: popoverState.allocation, line: workspace.lines.find((line) => line.id === popoverState.allocation.lineId) ?? null })
+            }}
           />
         ) : null}
 

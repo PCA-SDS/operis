@@ -12,6 +12,8 @@ import {
   resolveAuthActorId,
   resolveCustomersRequestContext,
 } from '@open-mercato/core/modules/customers/lib/interactionRequestContext'
+import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
+import { parseAvailabilityRuleWindow } from '@open-mercato/core/modules/planner/lib/availabilitySchedule'
 import { StaffTeam, StaffTeamMember, StaffTeamRole } from '../../../data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
@@ -23,6 +25,14 @@ const querySchema = z
     pageSize: z.coerce.number().int().min(1).max(100).default(24),
     search: z.string().optional(),
     includeUnlinked: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+    startsAt: z.string().datetime().optional(),
+    endsAt: z.string().datetime().optional(),
+  })
+  .superRefine((value, context) => {
+    if (!value.startsAt || !value.endsAt) return
+    if (new Date(value.endsAt).getTime() <= new Date(value.startsAt).getTime()) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['endsAt'], message: 'endsAt must be after startsAt' })
+    }
   })
   .passthrough()
 
@@ -100,7 +110,7 @@ export async function GET(request: Request) {
 
     const normalizedSearch = query.search?.trim().toLowerCase() ?? ''
 
-    const members = await findWithDecryption(
+    let members = await findWithDecryption(
       em,
       StaffTeamMember,
       {
@@ -112,6 +122,28 @@ export async function GET(request: Request) {
       { orderBy: { displayName: 'asc' } },
       scope,
     )
+
+    if (query.startsAt && query.endsAt && members.length > 0) {
+      const memberRules = await em.find(PlannerAvailabilityRule, {
+        tenantId: auth.tenantId,
+        ...orgFilter.where,
+        subjectType: 'member',
+        subjectId: { $in: members.map((member) => member.id) },
+        kind: 'unavailability',
+        deletedAt: null,
+      })
+      const startsAt = new Date(query.startsAt)
+      const endsAt = new Date(query.endsAt)
+      const unavailableMemberIds = new Set(
+        memberRules
+          .filter((rule) => {
+            const window = parseAvailabilityRuleWindow(rule)
+            return window.repeat === 'once' && window.startAt < endsAt && window.endAt > startsAt
+          })
+          .map((rule) => rule.subjectId),
+      )
+      members = members.filter((member) => !unavailableMemberIds.has(member.id))
+    }
 
     const userIds = Array.from(
       new Set(
