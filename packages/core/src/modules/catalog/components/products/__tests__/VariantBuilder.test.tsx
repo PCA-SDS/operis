@@ -180,6 +180,19 @@ describe('VariantBasicsSection', () => {
     render(<VariantBasicsSection values={createDefaultValues()} setValue={setValue} errors={{ name: 'Name is required' }} />)
     expect(screen.getByText('Name is required')).toBeInTheDocument()
   })
+
+  it('displays server validation errors for SKU', () => {
+    const setValue = jest.fn()
+    render(
+      <VariantBasicsSection
+        values={createDefaultValues()}
+        setValue={setValue}
+        errors={{ sku: 'SKU contains invalid characters' }}
+      />,
+    )
+
+    expect(screen.getByText('SKU contains invalid characters')).toBeInTheDocument()
+  })
 })
 
 describe('VariantOptionValuesSection', () => {
@@ -277,6 +290,21 @@ describe('VariantPricesSection', () => {
       <VariantPricesSection values={createDefaultValues()} setValue={setValue} priceKinds={[]} taxRates={createTaxRates()} />,
     )
     expect(screen.getByText('No price kinds configured yet.')).toBeInTheDocument()
+  })
+
+  it('displays price validation errors below the price inputs', () => {
+    const setValue = jest.fn()
+    render(
+      <VariantPricesSection
+        values={createDefaultValues()}
+        setValue={setValue}
+        errors={{ prices: 'Provide a valid non-negative price.' }}
+        priceKinds={createPriceKinds()}
+        taxRates={createTaxRates()}
+      />,
+    )
+
+    expect(screen.getByText('Provide a valid non-negative price.')).toBeInTheDocument()
   })
 
   it('renders tax rate select with options', () => {
