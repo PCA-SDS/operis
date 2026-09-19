@@ -113,7 +113,7 @@ export function VariantBasicsSection({ values, setValue, errors }: VariantSectio
           <span className="text-status-error-text">*</span>
         </Label>
         <Input
-          value={values.name}
+          value={values.name ?? ''}
           onChange={(event) => setValue('name', event.target.value)}
           placeholder={t('catalog.variants.form.namePlaceholder', 'e.g., Blue / Small')}
         />
@@ -123,7 +123,7 @@ export function VariantBasicsSection({ values, setValue, errors }: VariantSectio
         <div className="space-y-2">
           <Label>{t('catalog.variants.form.skuLabel', 'SKU')}</Label>
           <Input
-            value={values.sku}
+            value={values.sku ?? ''}
             onChange={(event) => setValue('sku', event.target.value)}
             placeholder={t('catalog.variants.form.skuPlaceholder', 'Unique identifier')}
           />
@@ -131,7 +131,7 @@ export function VariantBasicsSection({ values, setValue, errors }: VariantSectio
         <div className="space-y-2">
           <Label>{t('catalog.variants.form.barcodeLabel', 'Barcode')}</Label>
           <Input
-            value={values.barcode}
+            value={values.barcode ?? ''}
             onChange={(event) => setValue('barcode', event.target.value)}
             placeholder={t('catalog.variants.form.barcodePlaceholder', 'EAN, UPC, etc.')}
           />
@@ -173,7 +173,7 @@ export function VariantBasicsSection({ values, setValue, errors }: VariantSectio
           </Label>
           <Input
             id="catalog-variant-hs-code"
-            value={values.hsCode}
+            value={values.hsCode ?? ''}
             onChange={(event) => setValue('hsCode', event.target.value)}
           />
           {errors.hsCode ? <p className="text-xs text-status-error-text">{errors.hsCode}</p> : null}
