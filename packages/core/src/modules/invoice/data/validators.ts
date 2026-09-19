@@ -64,6 +64,8 @@ const optionalTrimmedString = (schema: z.ZodString) =>
     const trimmed = value.trim()
     return trimmed.length > 0 ? trimmed : undefined
   }, schema.optional())
+const nullableOptionalTrimmedString = (schema: z.ZodString) =>
+  z.preprocess((value) => value === null ? undefined : value, optionalTrimmedString(schema))
 
 export const invoiceDirectionSchema = z.enum(INVOICE_DIRECTIONS)
 export const invoiceStatusSchema = z.enum(INVOICE_STATUSES)
@@ -229,8 +231,8 @@ const invoiceManualNullableDateSchema = z.preprocess((value) => {
 export const invoiceManualLineItemInputSchema = z.object({
   name: z.string().trim().min(1).max(500),
   unit: nullableTrimmedString(80),
-  quantity: invoiceNonNegativeMoneySchema,
-  unitPrice: invoiceNonNegativeMoneySchema,
+  quantity: invoicePositiveMoneySchema.refine((value) => Number(value) > 0, 'Must be greater than zero'),
+  unitPrice: invoicePositiveMoneySchema.refine((value) => Number(value) > 0, 'Must be greater than zero'),
   discountAmount: invoiceManualOptionalMoneySchema,
   discountPercent: invoicePercentSchema.optional(),
   vatRate: invoicePercentSchema.optional(),
@@ -246,7 +248,7 @@ export const invoiceManualLineItemInputSchema = z.object({
 export const invoiceManualWriteBaseSchema = z.object({
   partnerName: invoiceCompanyNameSchema,
   partnerCountryCode: invoiceCountryCodeSchema,
-  partnerTaxCode: optionalTrimmedString(invoiceTaxCodeSchema),
+  partnerTaxCode: nullableOptionalTrimmedString(invoiceTaxCodeSchema),
   invoiceSymbol: invoiceSymbolSchema,
   invoiceNumber: invoiceNumberSchema,
   invoiceCode: invoiceCodeSchema,

@@ -2,6 +2,7 @@ import React from 'react'
 import { randomBytes } from 'node:crypto'
 
 import type { Invoice, InvoiceInstallment, InvoiceLineItem } from '../data/entities'
+import { formatInvoiceMoney, formatInvoiceNumber, formatInvoiceRate } from '../lib/format'
 import {
   invoicePublicTokenSchema,
   INVOICE_EMAIL_TRACKING_TOKEN_BYTES,
@@ -64,30 +65,15 @@ function formatDate(value: Date | null | undefined): string {
 }
 
 function formatMoney(value: string | null | undefined, currency: string): string {
-  if (value == null) return '—'
-  const amount = Number(value)
-  if (!Number.isFinite(amount)) return `${value} ${currency}`
-  try {
-    return new Intl.NumberFormat(currency === 'VND' ? 'vi-VN' : 'en-US', {
-      style: 'currency',
-      currency,
-      ...(currency === 'VND' ? { maximumFractionDigits: 0 } : {}),
-    }).format(amount)
-  } catch {
-    return `${value} ${currency}`
-  }
+  return formatInvoiceMoney(value, currency)
 }
 
-function formatNumber(value: string | null | undefined): string {
-  if (value == null) return '—'
-  const amount = Number(value)
-  return Number.isFinite(amount) ? amount.toLocaleString('en-US', { maximumFractionDigits: 4 }) : value
+function formatNumber(value: string | null | undefined, currency: string): string {
+  return formatInvoiceNumber(value, currency)
 }
 
 function formatRate(value: string | null | undefined): string {
-  if (value == null) return '—'
-  const amount = Number(value)
-  return Number.isFinite(amount) ? `${amount}%` : '—'
+  return formatInvoiceRate(value)
 }
 
 function invoiceLabel(invoice: Invoice): string {
@@ -123,7 +109,7 @@ function lineItemRow(item: InvoiceLineItem, currency: string, last: boolean): st
   return `<tr>
     <td style="padding:12px;${border}font-size:13px;color:${MUTED_COLOR};">${item.lineNumber}</td>
     <td style="padding:12px;${border}font-size:13px;color:${TEXT_COLOR};">${escapeHtml(item.name)}</td>
-    <td align="right" style="padding:12px;${border}font-size:13px;color:${TEXT_COLOR};">${formatNumber(item.quantity)}${item.unit ? ` ${escapeHtml(item.unit)}` : ''}</td>
+    <td align="right" style="padding:12px;${border}font-size:13px;color:${TEXT_COLOR};">${formatNumber(item.quantity, currency)}${item.unit ? ` ${escapeHtml(item.unit)}` : ''}</td>
     <td align="right" style="padding:12px;${border}font-size:13px;color:${TEXT_COLOR};">${escapeHtml(formatMoney(item.unitPrice, currency))}</td>
     <td align="right" style="padding:12px;${border}font-size:13px;color:${MUTED_COLOR};">${escapeHtml(formatRate(item.vatRate))}</td>
     <td align="right" style="padding:12px;${border}font-size:13px;font-weight:600;color:${TEXT_COLOR};">${escapeHtml(formatMoney(item.lineTotal, currency))}</td>

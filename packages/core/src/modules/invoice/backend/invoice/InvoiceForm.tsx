@@ -35,13 +35,32 @@ export type InvoiceFormValues = z.infer<typeof invoiceManualFormSchema> & { id?:
 type Lookup = { company: { name: string; taxCode: string | null; countryCode: string; address: string | null } | null }
 type InvoiceFormLineItem = InvoiceFormValues['lineItems'][number]
 
+function normalizeDecimal(value: string | number | null | undefined) {
+  if (value == null) return value
+  const trimmed = String(value).trim()
+  if (!trimmed) return trimmed
+  const [integerPart, fractionPart] = trimmed.split('.')
+  if (!fractionPart) return `${integerPart}.00`
+  const trimmedFraction = fractionPart.replace(/0+$/, '')
+  const normalizedFraction = trimmedFraction.length <= 2 && fractionPart.length > 2
+    ? trimmedFraction.padEnd(2, '0')
+    : fractionPart.length < 2
+      ? fractionPart.padEnd(2, '0')
+      : trimmedFraction.length === 0
+        ? '00'
+        : trimmedFraction.length === 1
+          ? `${trimmedFraction}0`
+          : trimmedFraction
+  return `${integerPart}.${normalizedFraction}`
+}
+
 function normalizeLineItems(lineItems: InvoiceFormValues['lineItems'] | undefined): InvoiceFormLineItem[] {
   return (lineItems ?? []).map((line) => ({
     name: line.name,
     unit: line.unit ?? null,
-    quantity: line.quantity,
-    unitPrice: line.unitPrice,
-    discountAmount: line.discountPercent != null ? undefined : line.discountAmount ?? undefined,
+    quantity: normalizeDecimal(line.quantity) ?? '',
+    unitPrice: normalizeDecimal(line.unitPrice) ?? '',
+    discountAmount: line.discountPercent != null ? undefined : normalizeDecimal(line.discountAmount) ?? undefined,
     discountPercent: line.discountPercent ?? undefined,
     vatRate: line.vatRate ?? undefined,
   }))
