@@ -469,7 +469,7 @@ ssh ubuntu@148.113.44.174 'sudo -u operis env APP_DIR=/opt/operis-staging /opt/o
 ```
 
 ```bash
-ssh ubuntu@148.113.44.174 "sudo -u operis bash -c 'cd /opt/operis-staging && ./dc logs -f app'"
+ssh ubuntu@148.113.44.174 "sudo -u operis bash -c 'cd /opt/operis-staging && APP_DIR=/opt/operis-staging ./dc logs -f app'"
 ```
 
 ```bash
@@ -480,7 +480,7 @@ To reset staging to a clean seed — destroys its data, leaves production untouc
 every volume is prefixed:
 
 ```bash
-ssh ubuntu@148.113.44.174 "sudo -u operis bash -c 'cd /opt/operis-staging && ./dc down -v && APP_DIR=/opt/operis-staging ./deploy.sh --status'"
+ssh ubuntu@148.113.44.174 "sudo -u operis bash -c 'cd /opt/operis-staging && APP_DIR=/opt/operis-staging ./dc down -v && APP_DIR=/opt/operis-staging ./deploy.sh --status'"
 ```
 
 Then re-run the workflow; the next boot runs `mercato init` again.
