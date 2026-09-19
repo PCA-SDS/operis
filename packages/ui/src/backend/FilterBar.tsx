@@ -5,6 +5,7 @@ import { Button } from '../primitives/button'
 import { SearchInput } from '../primitives/search-input'
 import { FilterDef, FilterOverlay, FilterValues } from './FilterOverlay'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 
 const DEFAULT_SEARCH_DEBOUNCE_MS = 300
 
@@ -58,6 +59,7 @@ export function FilterBar({
   const resolvedSearchPlaceholder = searchPlaceholder ?? t('ui.filterBar.searchPlaceholder', 'Search')
   const [open, setOpen] = React.useState(false)
   const [searchDraft, setSearchDraft] = React.useState(searchValue ?? '')
+  const debouncedSearchDraft = useDebouncedValue(searchDraft, searchDebounceMs)
   const lastAppliedSearchRef = React.useRef(searchValue ?? '')
 
   React.useEffect(() => {
@@ -66,19 +68,16 @@ export function FilterBar({
     setSearchDraft((prev) => (prev === next ? prev : next))
   }, [searchValue])
 
-  const searchPending = Boolean(onSearchChange) && searchDraft !== (searchValue ?? '')
+  const searchPending = Boolean(onSearchChange) && (
+    searchDraft !== (searchValue ?? '') || debouncedSearchDraft !== searchDraft
+  )
 
   React.useEffect(() => {
     if (!onSearchChange) return
-    const handle = window.setTimeout(() => {
-      if (lastAppliedSearchRef.current === searchDraft) return
-      lastAppliedSearchRef.current = searchDraft
-      onSearchChange(searchDraft)
-    }, searchDebounceMs)
-    return () => {
-      window.clearTimeout(handle)
-    }
-  }, [searchDraft, onSearchChange, searchDebounceMs])
+    if (lastAppliedSearchRef.current === debouncedSearchDraft) return
+    lastAppliedSearchRef.current = debouncedSearchDraft
+    onSearchChange(debouncedSearchDraft)
+  }, [debouncedSearchDraft, onSearchChange])
 
   const activeCount = React.useMemo(() => {
     const countValue = (v: any): number => {

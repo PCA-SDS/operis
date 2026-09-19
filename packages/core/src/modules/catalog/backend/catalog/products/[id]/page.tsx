@@ -144,6 +144,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 const logger = createLogger('catalog')
 
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { name?: unknown }).name === "AbortError"
+  );
+}
+
 type ProductResponse = {
   items?: Array<Record<string, unknown>>;
 };
@@ -783,6 +791,7 @@ export default function EditCatalogProductPage({
         }
         await loadVariants(productId!);
       } catch (err) {
+        if (isAbortError(err)) return;
         logger.error('catalog.products.edit.load failed', { err });
         if (!cancelled) {
           const message =
@@ -823,6 +832,7 @@ export default function EditCatalogProductPage({
           setPriceKinds(summaries);
         }
       } catch (err) {
+        if (isAbortError(err)) return;
         logger.error('catalog.price-kinds.fetch failed', { err });
         if (!cancelled) {
           setPriceKinds([]);
