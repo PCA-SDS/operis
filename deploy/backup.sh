@@ -16,7 +16,18 @@
 
 set -Eeuo pipefail
 
-APP_DIR="${APP_DIR:-/opt/operis}"
+# Defaults to the directory this script LIVES IN, not a hardcoded path.
+#
+# It used to default to /opt/operis outright. With a second stack on the same host
+# that is a loaded gun: a copy of this script in /opt/operis-staging would back up
+# PRODUCTION's database into staging's backups directory, and the nightly timer
+# would keep doing it. Resolving from $0 means a script backs up the stack it
+# lives beside.
+#
+# Production is unaffected: this script lives in /opt/operis there, so the default
+# still resolves to /opt/operis — including under the systemd unit, which sets
+# WorkingDirectory but not APP_DIR.
+APP_DIR="${APP_DIR:-$(cd -- "$(dirname -- "$0")" && pwd)}"
 BACKUP_DIR="$APP_DIR/backups"
 ENV_FILE="$APP_DIR/.env"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"

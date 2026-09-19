@@ -19,7 +19,18 @@
 
 set -Eeuo pipefail
 
-APP_DIR="${APP_DIR:-/opt/operis}"
+# Defaults to the directory this script LIVES IN, not a hardcoded path.
+#
+# It used to default to /opt/operis outright. With a second stack on the same host
+# that is a loaded gun: `cd /opt/operis-staging && ./dc down -v` would cd straight
+# back to /opt/operis and destroy PRODUCTION's volumes, having been typed, read and
+# reviewed as a staging command. Resolving from $0 means a script sitting in
+# /opt/operis-staging operates on /opt/operis-staging.
+#
+# Production is unaffected: deploy.sh, backup.sh and dc all live in /opt/operis
+# there, so the default still resolves to /opt/operis. CI passes APP_DIR explicitly
+# either way.
+APP_DIR="${APP_DIR:-$(cd -- "$(dirname -- "$0")" && pwd)}"
 COMPOSE_FILE="$APP_DIR/docker-compose.yml"
 ENV_FILE="$APP_DIR/.env"
 IMAGE_ENV_FILE="$APP_DIR/.image.env"
