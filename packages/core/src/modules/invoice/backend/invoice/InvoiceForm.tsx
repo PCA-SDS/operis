@@ -2,17 +2,17 @@
 
 import * as React from 'react'
 import { z } from 'zod'
-import { CrudForm, type CrudField } from '@open-mercato/ui/backend/CrudForm'
+import { CrudForm, type CrudCustomFieldRenderProps, type CrudField } from '@open-mercato/ui/backend/CrudForm'
 import { createCrud, updateCrud } from '@open-mercato/ui/backend/utils/crud'
 import { createCrudFormError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { InvoiceLineItems } from './components/InvoiceLineItems'
 import { localDate } from '../../lib/localDates'
-import { Button } from '@open-mercato/ui/primitives/button'
-import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useInvoiceT as useT } from '../../lib/useInvoiceT'
 import { invoiceDateStringSchema, invoiceManualWriteBaseSchema } from '../../data/validators'
+import { useInvoiceCompanyLookup } from './useInvoiceCompanyLookup'
+import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 
 const invoiceManualFormSchema = invoiceManualWriteBaseSchema
   .omit({ invoiceDate: true, dueDate: true })
@@ -32,7 +32,6 @@ const invoiceManualFormSchema = invoiceManualWriteBaseSchema
   })
 
 export type InvoiceFormValues = z.infer<typeof invoiceManualFormSchema> & { id?: string; updatedAt?: string }
-type Lookup = { company: { name: string; taxCode: string | null; countryCode: string; address: string | null } | null }
 type InvoiceFormLineItem = InvoiceFormValues['lineItems'][number]
 
 function normalizeDecimal(value: string | number | null | undefined) {
@@ -74,28 +73,60 @@ function dueDateForTerms(date: string, terms: number) {
   return localDate(result)
 }
 
+function InvoicePartnerTaxCodeField({
+  value,
+  setValue,
+  setFormValue,
+  values,
+  disabled,
+  error,
+  t,
+  mode,
+}: CrudCustomFieldRenderProps & { t: TranslateFn; mode: 'create' | 'edit' }) {
+  const identifier = typeof value === 'string' ? value : ''
+  const countryCode = typeof values?.partnerCountryCode === 'string' ? values.partnerCountryCode : ''
+  const partnerName = typeof values?.partnerName === 'string' ? values.partnerName.trim() : ''
+  const lookup = useInvoiceCompanyLookup(identifier, countryCode, mode === 'create')
+  const appliedIdentifier = React.useRef<string | null>(null)
+
+  React.useEffect(() => {
+    const company = lookup.company
+    const normalizedIdentifier = identifier.replace(/\s/g, '').toUpperCase()
+    if (!company || !setFormValue || partnerName || appliedIdentifier.current === normalizedIdentifier) return
+    if (company.registrationNumber !== normalizedIdentifier) return
+    appliedIdentifier.current = normalizedIdentifier
+    setFormValue('partnerName', company.name)
+  }, [identifier, lookup.company, partnerName, setFormValue])
+
+  const status = lookup.isLoading
+    ? t('invoice.form.lookupChecking')
+    : lookup.notFound
+      ? t('invoice.form.lookupNotFound')
+      : lookup.unavailable
+        ? t('invoice.form.lookupUnavailable')
+        : lookup.company
+          ? t('invoice.form.lookupMatched', { name: lookup.company.name })
+          : null
+
+  return <div className="space-y-2">
+    <Input
+      aria-label={t('invoice.form.partnerTaxCode')}
+      value={identifier}
+      onChange={(event) => setValue(event.target.value)}
+      disabled={disabled}
+    />
+    {status ? <p className="text-sm text-muted-foreground" role="status">{status}</p> : null}
+    {error ? <p className="text-sm text-status-error-text" role="alert">{error}</p> : null}
+  </div>
+}
+
 export function InvoiceForm({ initialValues, mode, recordId, onSaved }: { initialValues?: Partial<InvoiceFormValues>; mode: 'create' | 'edit'; recordId?: string; onSaved: (id: string) => void }) {
   const t = useT()
-  const [lookupBusy, setLookupBusy] = React.useState(false)
-  const [lookupMessage, setLookupMessage] = React.useState<string | null>(null)
-
-  async function doLookup(values: Record<string, unknown>, setFormValue?: (id: string, value: unknown) => void) {
-    const identifier = typeof values.partnerTaxCode === 'string' ? values.partnerTaxCode.trim() : ''
-    const country = typeof values.partnerCountryCode === 'string' ? values.partnerCountryCode : 'VN'
-    if (!identifier || !setFormValue) return
-    setLookupBusy(true); setLookupMessage(null)
-    const call = await apiCall<Lookup>(`/api/invoice/company-lookup/${encodeURIComponent(identifier)}?country=${encodeURIComponent(country)}`)
-    setLookupBusy(false)
-    if (!call.ok || !call.result?.company) { setLookupMessage(t('invoice.form.lookupUnavailable')); return }
-    setFormValue('partnerName', call.result.company.name)
-    setFormValue('partnerTaxCode', call.result.company.taxCode ?? identifier)
-    setLookupMessage(t('invoice.form.lookupApplied'))
-  }
 
   const schema = React.useMemo(() => invoiceManualFormSchema, [])
   const fields = React.useMemo<CrudField[]>(() => [
     { id: 'partnerName', type: 'text', label: t('invoice.form.partnerName'), required: true, layout: 'full' },
-    { id: 'partnerTaxCode', type: 'custom', label: t('invoice.form.partnerTaxCode'), rendersOwnError: true, layout: 'half', component: ({ value, setValue, setFormValue, values }) => <div className="space-y-2"><div className="flex gap-2"><input className="min-w-0 flex-1 rounded-md border bg-input-bg px-3 py-2" aria-label={t('invoice.form.partnerTaxCode')} value={typeof value === 'string' ? value : ''} onChange={(event) => setValue(event.target.value)} /><Button type="button" variant="outline" disabled={lookupBusy} onClick={() => void doLookup(values ?? {}, setFormValue)}>{lookupBusy ? t('invoice.form.lookupBusy') : t('invoice.form.lookup')}</Button></div>{lookupMessage && <p className="text-sm text-muted-foreground">{lookupMessage}</p>}</div> },
+    { id: 'partnerTaxCode', type: 'custom', label: t('invoice.form.partnerTaxCode'), rendersOwnError: true, layout: 'half', component: (props) => <InvoicePartnerTaxCodeField {...props} t={t} mode={mode} /> },
     { id: 'partnerCountryCode', type: 'select', label: t('invoice.form.partnerCountry'), options: [{ value: 'US', label: t('invoice.form.country.US', 'United States') }, { value: 'SG', label: t('invoice.form.country.SG', 'Singapore') }, { value: 'TH', label: t('invoice.form.country.TH', 'Thailand') }, { value: 'MY', label: t('invoice.form.country.MY', 'Malaysia') }, { value: 'CN', label: t('invoice.form.country.CN', 'China') }, { value: 'JP', label: t('invoice.form.country.JP', 'Japan') }, { value: 'KR', label: t('invoice.form.country.KR', 'South Korea') }, { value: 'AU', label: t('invoice.form.country.AU', 'Australia') }, { value: 'GB', label: t('invoice.form.country.GB', 'United Kingdom') }, { value: 'DE', label: t('invoice.form.country.DE', 'Germany') }, { value: 'FR', label: t('invoice.form.country.FR', 'France') }], required: true, layout: 'half' },
     { id: 'invoiceSymbol', type: 'text', label: t('invoice.form.symbol'), layout: 'half' },
     { id: 'invoiceNumber', type: 'text', label: t('invoice.form.number'), required: true, layout: 'half' },
@@ -105,7 +136,7 @@ export function InvoiceForm({ initialValues, mode, recordId, onSaved }: { initia
     { id: 'dueDate', type: 'date', label: t('invoice.form.dueDate'), layout: 'half' },
     { id: 'currencyCode', type: 'select', label: t('invoice.form.currency'), options: ['VND', 'USD', 'EUR', 'SGD'].map((value) => ({ value, label: value })), required: true, layout: 'half' },
     { id: 'lineItems', type: 'custom', label: '', rendersOwnError: true, component: ({ value, setValue, error, values }) => <InvoiceLineItems lines={Array.isArray(value) ? value as InvoiceFormValues['lineItems'] : []} onChange={setValue} currency={String(values?.currencyCode ?? 'VND')} error={error} /> },
-  ], [doLookup, lookupBusy, lookupMessage, t])
+  ], [mode, t])
 
   const groups = React.useMemo(() => [
     { id: 'supplier', title: t('invoice.form.groups.supplier'), description: t('invoice.form.groups.supplierDescription'), column: 1 as const, fields: ['partnerName', 'partnerTaxCode', 'partnerCountryCode'] },
