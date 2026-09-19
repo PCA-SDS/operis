@@ -99,7 +99,7 @@ export default function CreateVariantPage({ params }: { params?: { productId?: s
     const loadTaxRates = async () => {
       try {
         const payload = await readApiResultOrThrow<{ items?: Array<Record<string, unknown>> }>(
-          '/api/sales/tax-rates?pageSize=200',
+          '/api/sales/tax-rates?pageSize=100',
           undefined,
           { errorMessage: t('catalog.products.create.taxRates.error', 'Failed to load tax rates.'), fallback: { items: [] } },
         )
