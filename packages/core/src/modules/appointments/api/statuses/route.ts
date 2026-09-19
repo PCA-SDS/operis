@@ -5,6 +5,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
 import { AppointmentStatus } from '../../data/entities'
 import { appointmentStatusCatalogCreateSchema } from '../../data/validators'
 import {
@@ -122,6 +123,18 @@ export async function POST(req: Request) {
     await em.flush()
     return NextResponse.json(mapAppointmentStatusRow(row), { status: 201 })
   } catch (error) {
+    if (isUniqueViolation(error)) {
+      return NextResponse.json(
+        {
+          error: translate(
+            'appointments.config.statuses.error.codeExists',
+            'A status with that code already exists.',
+          ),
+          code: 'STATUS_CODE_EXISTS',
+        },
+        { status: 409 },
+      )
+    }
     if (error && typeof error === 'object' && 'name' in error && error.name === 'ZodError') {
       return NextResponse.json(
         {
