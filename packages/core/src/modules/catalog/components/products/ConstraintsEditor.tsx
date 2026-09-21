@@ -193,17 +193,6 @@ function draftToPayload(draft: ConstraintDraft): Omit<CatalogConstraintItem, 'cr
   }
 }
 
-function isReverseConstraint(draft: ConstraintDraft, incoming: CatalogConstraintItem): boolean {
-  const sourceMatches = draft.sourceKind === 'product'
-    ? incoming.target_product_id === draft.sourceId
-    : incoming.target_option_id === draft.sourceId
-  const targetMatches = draft.targetKind === 'product'
-    ? incoming.source_product_id === draft.targetId
-    : incoming.source_option_id === draft.targetId
-
-  return incoming.constraint_type === draft.constraintType && sourceMatches && targetMatches
-}
-
 // ─────────────────────────────────────────────────────────────────
 // Build nested tree from flat groups + options
 // ─────────────────────────────────────────────────────────────────
@@ -910,6 +899,11 @@ export function ConstraintsEditor({
   const onChangeRef = React.useRef(onChange)
   onChangeRef.current = onChange
 
+  const visibleIncomingConstraints = useMemo(
+    () => incomingConstraints.filter((constraint) => !hiddenIncomingIds.has(constraint.id)),
+    [hiddenIncomingIds, incomingConstraints],
+  )
+
   useEffect(() => {
     setHiddenIncomingIds(new Set())
   }, [constraints, incomingConstraints])
@@ -985,7 +979,7 @@ export function ConstraintsEditor({
       setHiddenIncomingIds((current) => {
         const nextHidden = new Set(current)
         for (const incoming of incomingConstraints) {
-          if (isReverseConstraint(deletedDraft, incoming)) nextHidden.add(incoming.id)
+          if (incoming.id === deletedDraft.id) nextHidden.add(incoming.id)
         }
         return nextHidden
       })
@@ -1053,7 +1047,7 @@ export function ConstraintsEditor({
       )}
 
       {/* Incoming Constraints (read-only) */}
-      {incomingConstraints && incomingConstraints.length > 0 && (
+      {visibleIncomingConstraints.length > 0 && (
         <div className="flex flex-col gap-3 pt-4 border-t mt-4">
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5">
@@ -1063,11 +1057,11 @@ export function ConstraintsEditor({
               </span>
             </div>
             <span className="text-xs text-muted-foreground">
-              ({incomingConstraints.length})
+              ({visibleIncomingConstraints.length})
             </span>
           </div>
           <div className="flex flex-col gap-2">
-            {incomingConstraints.filter((c) => !hiddenIncomingIds.has(c.id)).map((c) => {
+            {visibleIncomingConstraints.map((c) => {
               return (
                 <IncomingConstraintBadge key={c.id} constraint={c} />
               )

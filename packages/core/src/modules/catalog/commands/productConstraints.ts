@@ -50,39 +50,6 @@ type ConstraintsScope = {
 
 type CurrentConstraintRecords = CatalogProductConstraint[]
 
-function getConstraintEndpointIds(constraint: CatalogProductConstraint, side: 'source' | 'target') {
-  const product = side === 'source' ? constraint.sourceProduct : constraint.targetProduct
-  const option = side === 'source' ? constraint.sourceOption : constraint.targetOption
-  return {
-    productId: product?.id ?? null,
-    optionId: option?.id ?? null,
-  }
-}
-
-async function removeReverseConstraints(
-  em: EntityManager,
-  scope: ConstraintsScope,
-  constraint: CatalogProductConstraint,
-): Promise<void> {
-  const source = getConstraintEndpointIds(constraint, 'source')
-  const target = getConstraintEndpointIds(constraint, 'target')
-  const reverseConstraints = await em.find(CatalogProductConstraint, {
-    tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
-    constraintType: constraint.constraintType,
-    sourceProduct: target.productId,
-    sourceOption: target.optionId,
-    targetProduct: source.productId,
-    targetOption: source.optionId,
-  })
-
-  for (const reverseConstraint of reverseConstraints) {
-    if (reverseConstraint.id !== constraint.id) {
-      em.remove(reverseConstraint)
-    }
-  }
-}
-
 function toIso(value: Date | string | null | undefined): string | null {
   if (!value) return null
   if (value instanceof Date) {
@@ -169,7 +136,6 @@ async function applyConstraintsSnapshot(
   for (const constraint of currentConstraints) {
     if (!incomingIds.has(constraint.id)) {
       em.remove(constraint)
-      await removeReverseConstraints(em, scope, constraint)
     }
   }
 
