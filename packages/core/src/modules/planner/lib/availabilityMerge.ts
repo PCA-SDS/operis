@@ -100,8 +100,9 @@ function expandRule(rule: AvailabilityRuleLike, parsed: ParsedRule, range: Avail
   const { startAt, durationMinutes, freq, count, repeat, weekday } = parsed
   if (repeat === 'once') {
     if (shouldExcludeOccurrence(startAt, rule.exdates)) return []
-    const start = startOfDay(startAt)
-    const end = new Date(start.getTime() + DAY_MS)
+    const isFullDay = durationMinutes >= 24 * 60
+    const start = isFullDay ? startAt : startOfDay(startAt)
+    const end = isFullDay ? new Date(startAt.getTime() + durationMinutes * 60000) : new Date(start.getTime() + DAY_MS)
     if (end <= range.start || start >= range.end) return []
     return [{ start, end, ruleId: rule.id }]
   }
@@ -207,7 +208,7 @@ export function getMergedAvailabilityWindows(params: {
     .filter(({ parsed, rule }) => parsed.repeat !== 'once' && rule.kind !== 'unavailability')
     .map(({ rule }) => rule)
   const unavailabilityRules = parsedRules
-    .filter(({ parsed, rule }) => parsed.repeat !== 'once' && rule.kind === 'unavailability')
+    .filter(({ rule }) => rule.kind === 'unavailability')
     .map(({ rule }) => rule)
 
   const availabilityWindows = expandRules(availabilityRules, params.range)
