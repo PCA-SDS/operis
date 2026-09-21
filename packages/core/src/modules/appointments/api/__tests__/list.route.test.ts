@@ -51,6 +51,41 @@ describe('appointments list route totals', () => {
     mockResolveOrganizationScopeForRequest.mockResolvedValue({ selectedId: ORGANIZATION_ID })
   })
 
+  it('filters appointments by an inclusive requested start date range', async () => {
+    const em = {
+      find: jest.fn(async () => []),
+    }
+    mockCreateRequestContainer.mockResolvedValue({
+      resolve: () => ({ fork: () => em }),
+    })
+
+    const { GET } = await import('../route')
+    const response = await GET(new Request(
+      'http://localhost/api/appointments?requestedStartAtFrom=2026-09-21&requestedStartAtTo=2026-09-23',
+    ))
+
+    expect(response.status).toBe(200)
+    expect(em.find).toHaveBeenCalledWith(Appointment, expect.objectContaining({
+      tenantId: TENANT_ID,
+      organizationId: ORGANIZATION_ID,
+      requestedStartAt: {
+        $gte: new Date('2026-09-21T00:00:00.000Z'),
+        $lte: new Date('2026-09-23T23:59:59.999Z'),
+      },
+      deletedAt: null,
+    }), expect.anything())
+  })
+
+  it('rejects invalid requested start date ranges', async () => {
+    const { GET } = await import('../route')
+    const response = await GET(new Request(
+      'http://localhost/api/appointments?requestedStartAtFrom=2026-09-24&requestedStartAtTo=2026-09-23',
+    ))
+
+    expect(response.status).toBe(400)
+    expect(mockCreateRequestContainer).not.toHaveBeenCalled()
+  })
+
   it('returns no total when every appointment line has no stored price', async () => {
     const appointment = {
       id: APPOINTMENT_ID,

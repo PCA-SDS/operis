@@ -28,6 +28,25 @@ export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['appointments.create'] },
 }
 
+const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+function parseDateOnly(value: string | null): Date | null {
+  if (!value) return null
+  const parsed = dateOnlySchema.safeParse(value)
+  if (!parsed.success) return null
+  const date = new Date(`${value}T00:00:00.000Z`)
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) return null
+  return date
+}
+
+function parseDateRange(value: string | null, endOfDay: boolean): Date | null {
+  const date = parseDateOnly(value)
+  if (!date) return null
+  if (!endOfDay) return date
+  date.setUTCHours(23, 59, 59, 999)
+  return date
+}
+
 function mapAppointment(row: Appointment, organizationName: string | null = null) {
   return {
     id: row.id,
@@ -159,6 +178,16 @@ export async function GET(req: Request) {
     }
     const url = new URL(req.url)
     const statusCode = url.searchParams.get('statusCode')?.trim() || null
+    const requestedStartAtFromValue = url.searchParams.get('requestedStartAtFrom')?.trim() || null
+    const requestedStartAtToValue = url.searchParams.get('requestedStartAtTo')?.trim() || null
+    const requestedStartAtFrom = parseDateRange(requestedStartAtFromValue, false)
+    const requestedStartAtTo = parseDateRange(requestedStartAtToValue, true)
+    if ((requestedStartAtFromValue && !requestedStartAtFrom) || (requestedStartAtToValue && !requestedStartAtTo)) {
+      return NextResponse.json({ error: translate('appointments.list.invalidDateRange', 'Invalid requested start date range.') }, { status: 400 })
+    }
+    if (requestedStartAtFrom && requestedStartAtTo && requestedStartAtFrom > requestedStartAtTo) {
+      return NextResponse.json({ error: translate('appointments.list.invalidDateRange', 'Invalid requested start date range.') }, { status: 400 })
+    }
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
 
@@ -181,6 +210,12 @@ export async function GET(req: Request) {
     }
     if (organizationId) where.organizationId = organizationId
     if (statusCode) where.statusCode = statusCode
+    if (requestedStartAtFrom || requestedStartAtTo) {
+      where.requestedStartAt = {
+        ...(requestedStartAtFrom ? { $gte: requestedStartAtFrom } : {}),
+        ...(requestedStartAtTo ? { $lte: requestedStartAtTo } : {}),
+      }
+    }
 
     const rows = await em.find(Appointment, where, {
       orderBy: { requestedStartAt: 'desc' },

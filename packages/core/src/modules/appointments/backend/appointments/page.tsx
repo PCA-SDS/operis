@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarCheck, Check, ListFilter, Settings, Eye, Edit, Copy, LayoutPanelTop, Trash2 } from 'lucide-react'
+import { CalendarCheck, Check, ListFilter, Settings, Eye, Edit, Copy, LayoutPanelTop, Trash2, X } from 'lucide-react'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
@@ -17,7 +17,7 @@ import { emitOrganizationScopeChanged } from '@open-mercato/shared/lib/frontend/
 import { useOrganizationScopeDetail, useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { buildHrefWithReturnTo } from '@open-mercato/shared/lib/navigation/returnTo'
-import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
+import type { FilterValues } from '@open-mercato/ui/backend/FilterBar'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { AppointmentContactCell } from '../../components/AppointmentContactCell'
@@ -30,6 +30,10 @@ import { AppointmentStatusBadge } from '../../components/AppointmentStatusBadge'
 import { APPOINTMENT_BOOKING_TYPE_OPTIONS } from '../../data/constants'
 import { formatCustomerDisplayName } from '../../lib/customerName'
 import { formatCustomerPhone } from '../../lib/phoneSnapshot'
+import { DateRangePicker } from '@open-mercato/ui/primitives/date-range-picker'
+import type { DateRange } from '@open-mercato/ui/backend/date-range/dateRanges'
+import { FilterBar } from '@open-mercato/ui/backend/FilterBar'
+import { format } from 'date-fns/format'
 
 type Row = {
   id: string
@@ -280,19 +284,23 @@ export default function AppointmentsListPage() {
     }
   }, [scopeVersion])
 
-  const filters = React.useMemo<FilterDef[]>(
-    () => [],
-    [],
-  )
-
   React.useEffect(() => {
     let cancelled = false
     const controller = new AbortController()
     async function load() {
       if (!hasLoadedAppointmentsRef.current) setIsLoading(true)
       try {
+        const params = new URLSearchParams()
+        const requestedStartRange = filterValues.requestedStartRange as { from?: unknown; to?: unknown } | undefined
+        if (typeof requestedStartRange?.from === 'string' && requestedStartRange.from.trim()) {
+          params.set('requestedStartAtFrom', requestedStartRange.from.trim())
+        }
+        if (typeof requestedStartRange?.to === 'string' && requestedStartRange.to.trim()) {
+          params.set('requestedStartAtTo', requestedStartRange.to.trim())
+        }
+        const query = params.toString()
         const call = await apiCall<ListPayload>(
-          '/api/appointments',
+          query ? `/api/appointments?${query}` : '/api/appointments',
           { signal: controller.signal },
           { fallback: { items: [] } },
         )
@@ -330,7 +338,7 @@ export default function AppointmentsListPage() {
       cancelled = true
       controller.abort()
     }
-  }, [reloadToken, scopeVersion, t])
+  }, [filterValues.requestedStartRange, reloadToken, scopeVersion, t])
 
   const { ConfirmDialogElement, confirm } = useConfirmDialog()
 
@@ -411,6 +419,26 @@ export default function AppointmentsListPage() {
   React.useEffect(() => {
     if (page !== currentPage) setPage(currentPage)
   }, [currentPage, page])
+
+  const bookingDateRange = React.useMemo<DateRange | null>(() => {
+    const value = filterValues.requestedStartRange as { from?: unknown; to?: unknown } | undefined
+    const from = typeof value?.from === 'string' && value.from ? new Date(`${value.from}T00:00:00.000Z`) : null
+    const to = typeof value?.to === 'string' && value.to ? new Date(`${value.to}T00:00:00.000Z`) : null
+    if (from && Number.isNaN(from.getTime())) return null
+    if (to && Number.isNaN(to.getTime())) return null
+    if (!from && !to) return null
+    return { start: from ?? to!, end: to ?? from! }
+  }, [filterValues.requestedStartRange])
+
+  const handleBookingDateRangeChange = React.useCallback((next: DateRange | null) => {
+    setFilterValues((current) => ({
+      ...current,
+      requestedStartRange: next
+        ? { from: format(next.start, 'yyyy-MM-dd'), to: format(next.end, 'yyyy-MM-dd') }
+        : undefined,
+    }))
+    setPage(1)
+  }, [])
 
   const columns = React.useMemo<ColumnDef<Row>[]>(
     () => [
@@ -600,6 +628,43 @@ export default function AppointmentsListPage() {
       <PageBody>
         <DataTable
           title={t('appointments.list.title')}
+          toolbar={(
+            <FilterBar
+              searchValue={search}
+              onSearchChange={(value) => {
+                setSearch(value)
+                setPage(1)
+              }}
+              searchPlaceholder={t('appointments.list.search.placeholder', 'Search bookings…')}
+              trailingItems={(
+                <div className="flex items-center gap-2">
+                  <DateRangePicker
+                    value={bookingDateRange}
+                    onChange={handleBookingDateRangeChange}
+                    placeholder={t('appointments.list.filters.bookingDate', 'Booking date')}
+                    aria-label={t('appointments.list.filters.bookingDate', 'Booking date')}
+                    size="sm"
+                    showPresets={false}
+                    numberOfMonths={1}
+                    showRangeLabel={false}
+                    className="w-auto min-w-40 max-w-56"
+                  />
+                  {bookingDateRange ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t('appointments.list.filters.clearBookingDate', 'Clear booking date')}
+                      title={t('appointments.list.filters.clearBookingDate', 'Clear booking date')}
+                      onClick={() => handleBookingDateRangeChange(null)}
+                    >
+                      <X className="size-4" aria-hidden="true" />
+                    </Button>
+                  ) : null}
+                </div>
+              )}
+            />
+          )}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <Button asChild variant="outline">
@@ -634,16 +699,6 @@ export default function AppointmentsListPage() {
               setPage(1)
             },
           }}
-          filters={filters}
-          filterValues={filterValues}
-          onFiltersApply={(values) => setFilterValues(values)}
-          onFiltersClear={() => setFilterValues({})}
-          searchValue={search}
-          onSearchChange={(value) => {
-            setSearch(value)
-            setPage(1)
-          }}
-          searchPlaceholder={t('appointments.list.search.placeholder', 'Search bookings…')}
           isLoading={isLoading}
         />
         {ConfirmDialogElement}
