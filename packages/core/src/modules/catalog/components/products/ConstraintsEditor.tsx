@@ -5,7 +5,6 @@ import { useState, useCallback, useMemo } from 'react'
 import { Plus, Trash2, Lock, LockOpen, ArrowRight, Package, Inbox } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { Switch } from '@open-mercato/ui/primitives/switch'
 import { KbdShortcut } from '@open-mercato/ui/primitives/kbd'
 import { ListEmptyState } from '@open-mercato/ui/backend/filters/ListEmptyState'
 import { Radio, RadioGroup } from '@open-mercato/ui/primitives/radio'
@@ -105,27 +104,44 @@ type ConstraintDraft = {
   locked: boolean
 }
 
-function ConstraintLockIndicator({ locked }: { locked: boolean }) {
+function ConstraintLockIndicator({ locked, onToggle }: { locked: boolean; onToggle?: () => void }) {
   const t = useT()
   const label = locked
-    ? t('catalog.constraints.locked', 'Locked')
-    : t('catalog.constraints.unlocked', 'Unlocked')
+    ? t('catalog.constraints.unlock', 'Locked — click to unlock')
+    : t('catalog.constraints.lock', 'Unlocked — click to lock')
   const Icon = locked ? Lock : LockOpen
 
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span
-            role="img"
-            aria-label={label}
-            className={cn(
-              'inline-flex size-7 items-center justify-center rounded-lg',
-              locked ? 'text-status-warning-icon' : 'text-muted-foreground',
-            )}
-          >
-            <Icon className="w-3.5 h-3.5" />
-          </span>
+          {onToggle ? (
+            <IconButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={label}
+              aria-pressed={locked}
+              onClick={onToggle}
+              className={cn(
+                'group shrink-0',
+                locked ? 'text-status-warning-icon' : 'text-muted-foreground',
+              )}
+            >
+              <Icon key={locked ? 'locked' : 'unlocked'} className="w-3.5 h-3.5 animate-in fade-in zoom-in-95 duration-200 transition-transform group-hover:rotate-12" />
+            </IconButton>
+          ) : (
+            <span
+              role="img"
+              aria-label={label}
+              className={cn(
+                'inline-flex size-7 items-center justify-center rounded-lg',
+                locked ? 'text-status-warning-icon' : 'text-muted-foreground',
+              )}
+            >
+              <Icon className="w-3.5 h-3.5" />
+            </span>
+          )}
         </TooltipTrigger>
         <TooltipContent>{label}</TooltipContent>
       </Tooltip>
@@ -457,20 +473,10 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
           </Tag>
         )}
 
-        <ConstraintLockIndicator locked={draft.locked} />
-
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">
-            {draft.locked
-              ? t('catalog.constraints.locked', 'Locked')
-              : t('catalog.constraints.unlocked', 'Unlocked')}
-          </span>
-          <Switch
-            checked={draft.locked}
-            onCheckedChange={onLockedChange}
-            aria-label={t('catalog.constraints.toggleLocked', 'Toggle constraint lock')}
-          />
-        </div>
+        <ConstraintLockIndicator
+          locked={draft.locked}
+          onToggle={() => onLockedChange(!draft.locked)}
+        />
 
         <IconButton
           type="button"
