@@ -367,7 +367,9 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
       text: t('catalog.constraints.delete.description', 'This action cannot be undone.'),
       confirmText: t('common.delete', 'Delete'),
       variant: 'destructive',
-    }).then(() => onDelete())
+    }).then((confirmed) => {
+      if (confirmed) onDelete()
+    })
   }
 
   const color = CONSTRAINT_TYPE_COLORS[draft.constraintType]
