@@ -119,7 +119,6 @@ const productFormTypedSchema =
   productFormSchema as unknown as ZodType<ProductFormValues>;
 
 const SERVICE_FIELDSET_CODE = "service_schedule";
-const SERVICE_UNIT_CODE = "service";
 
 type VariantPriceRequest = {
   variantDraftId: string;
@@ -2205,8 +2204,6 @@ function ProductMetaSection({
             const nextIsConfigurable = isConfigurableProductType(nextType);
             if (nextType === "service") {
               setValue("customFieldsetCode", SERVICE_FIELDSET_CODE);
-              if (!values.defaultUnit) setValue("defaultUnit", SERVICE_UNIT_CODE);
-              if (!values.defaultSalesUnit) setValue("defaultSalesUnit", SERVICE_UNIT_CODE);
               setValue("requiresShipping", false);
             }
             if (nextIsConfigurable && !values.hasVariants) {
