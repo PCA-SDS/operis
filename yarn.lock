@@ -8579,7 +8579,7 @@ __metadata:
     imapflow: "npm:^1.4.7"
     jest: "npm:^30.4.2"
     mailparser: "npm:^3.9.14"
-    nodemailer: "npm:^9.0.3"
+    nodemailer: "npm:^10.0.10"
     react: "npm:19.2.8"
     react-dom: "npm:19.2.8"
     ts-jest: "npm:^29.4.12"
@@ -26861,10 +26861,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nodemailer@npm:9.1.0":
-  version: 9.1.0
-  resolution: "nodemailer@npm:9.1.0"
-  checksum: 10/556f130681709b8c287bfbaddfb73077de01bbaa834702b12c2dd7660f52fa57dc2d1a92d8c75f92578d9b7aedd0411a2fded116ae8e836efddb962f2b04b9ca
+"nodemailer@npm:10.0.10":
+  version: 10.0.10
+  resolution: "nodemailer@npm:10.0.10"
+  checksum: 10/3aeab7cd9aa087cb6280463a7c6b30dcffe2b901f7690cecc6d104196b1d31a2f25764f74a4bf84c05667fa75174a10462e2ec71f43a275aca96c95f45299bcf
   languageName: node
   linkType: hard
 
