@@ -816,6 +816,8 @@
   "catalog.variants.form.errors.invalidPrice": "Provide a valid non-negative price.",
   "catalog.variants.form.errors.load": "Failed to load variant.",
   "catalog.variants.form.errors.nameRequired": "Provide the variant name.",
+  "catalog.variants.errors.simpleProductCannotAddVariant": "Hãy đổi loại sản phẩm sang Configurable trước khi thêm biến thể khác.",
+  "catalog.products.edit.variants.simpleInstruction": "Sản phẩm Simple chỉ dùng một biến thể mặc định. Hãy đổi Product type sang Configurable để thêm biến thể.",
   "catalog.variants.form.errors.notFound": "Variant not found.",
   "catalog.variants.form.errors.productMissing": "Product identifier is missing.",
   "catalog.variants.form.errors.variantMissing": "Variant identifier is missing.",

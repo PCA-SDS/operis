@@ -54,6 +54,27 @@ const variantCrudEvents: CrudEventsConfig = {
   }),
 }
 
+async function ensureProductAllowsAdditionalVariant(
+  em: EntityManager,
+  product: CatalogProduct,
+  translate: (key: string, fallback: string) => string,
+): Promise<void> {
+  if (product.productType !== 'simple') return
+
+  const existingVariantCount = await em.count(CatalogProductVariant, {
+    product,
+    deletedAt: null,
+  })
+  if (existingVariantCount === 0) return
+
+  throw new CrudHttpError(400, {
+    error: translate(
+      'catalog.variants.errors.simpleProductCannotAddVariant',
+      'Change the product type to Configurable before adding another variant.',
+    ),
+  })
+}
+
 type VariantSnapshot = {
   id: string
   productId: string
@@ -615,9 +636,11 @@ const createVariantCommand: CommandHandler<VariantCreateInput, { variantId: stri
   async execute(rawInput, ctx) {
     const { parsed, custom } = parseWithCustomFields(variantCreateSchema, rawInput)
     const em = (ctx.container.resolve('em') as EntityManager).fork()
+    const { translate } = await resolveTranslations()
     const product = await requireProduct(em, parsed.productId, commandActorScope(ctx))
     ensureTenantScope(ctx, product.tenantId)
     ensureOrganizationScope(ctx, product.organizationId)
+    await ensureProductAllowsAdditionalVariant(em, product, translate)
     const { taxRateId, taxRate } = await resolveVariantTaxRate(
       em,
       product,
