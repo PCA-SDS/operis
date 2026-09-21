@@ -128,10 +128,18 @@ export const enabledModules: ModuleEntry[] = [
           'customers.deal_analyzer': null,
           'customers.deal_analyzer_tool_loop': null,
         },
+        // Keyed by the tool's `name` and the agent's `id` — two more conventions,
+        // distinct from the widget keys below. Deals tools are spread across four
+        // packs, not just `ai-tools/deals-pack.ts`.
         tools: {
           'customers.list_deals': null,
           'customers.get_deal': null,
           'customers.update_deal_stage': null,
+          'customers.analyze_deals': null,
+          'customers.list_deal_comments': null,
+          'customers.manage_deal_comment': null,
+          'customers.manage_deal_activity': null,
+          'customers.list_pipeline_stages': null,
         },
       },
       // Keyed by the registry entry's `key` (`<moduleId>:<folder>:widget`), which is
