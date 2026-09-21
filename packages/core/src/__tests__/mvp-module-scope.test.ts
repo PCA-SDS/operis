@@ -33,8 +33,8 @@ const PLATFORM_MODULE_IDS = new Set([
 ])
 
 /**
- * The agreed MVP surface: CRM, the dashboard, tasks, employees, AI and the
- * modules those depend on. Everything else ships in the build but stays
+ * The agreed v1 surface: CRM, the calendar, invoicing, the email template
+ * builder, employees, chat, tasks, AI and the modules those depend on. Everything else ships in the build but stays
  * switched off until someone decides it belongs in the product.
  *
  * `chat` joins the plan because internal direct messaging is a baseline
@@ -46,7 +46,6 @@ const PLATFORM_MODULE_IDS = new Set([
 const EXPECTED_DEFAULT_ENABLED_MODULE_IDS = [
   'ai_assistant',
   'appointments',
-  'business_rules',
   'catalog',
   'channel_gmail',
   'channel_imap',
@@ -59,20 +58,21 @@ const EXPECTED_DEFAULT_ENABLED_MODULE_IDS = [
   'communication_channels',
   'currencies',
   'customers',
-  'data_sync',
   // The tenant-owned email template builder and accounting email defaults. On by
   // default because it needs no external credentials: a tenant provisioned without
   // it has no way to author the templates the accounting flows already expect.
   'email',
   'integrations',
+  // AP/AR invoice accounting. On by default because it is a v1 product surface
+  // in its own right and needs no external credentials or seed data: it depends
+  // only on platform modules, so a tenant provisioned without it simply has no
+  // way to record a payable or a receivable.
+  'invoice',
   'mcp',
-  'messages',
   'planner',
   'resources',
   'staff',
-  'sync_excel',
   'tasks',
-  'workflows',
 ].sort()
 
 type ModuleDeclaration = {

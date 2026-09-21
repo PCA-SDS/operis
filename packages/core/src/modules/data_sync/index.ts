@@ -3,6 +3,6 @@ export const metadata = {
   title: 'Data Sync',
   description: 'Streaming data sync hub for import/export integrations.',
   requires: ['integrations'],
-  defaultEntitlement: 'enabled' as const,
+  defaultEntitlement: 'disabled' as const,
   category: 'Automation' as const,
 }
