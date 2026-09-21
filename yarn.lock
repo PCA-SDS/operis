@@ -8576,7 +8576,7 @@ __metadata:
     "@types/react-dom": "npm:^19.2.3"
     esbuild: "npm:^0.28.1"
     glob: "npm:^13.0.6"
-    imapflow: "npm:^1.4.7"
+    imapflow: "npm:^2.0.5"
     jest: "npm:^30.4.2"
     mailparser: "npm:^3.9.14"
     nodemailer: "npm:^9.0.3"
@@ -15100,6 +15100,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@zone-eu/mailsplit@npm:5.4.17":
+  version: 5.4.17
+  resolution: "@zone-eu/mailsplit@npm:5.4.17"
+  dependencies:
+    libbase64: "npm:1.3.0"
+    libmime: "npm:5.4.4"
+    libqp: "npm:2.1.1"
+  checksum: 10/f8ab0e6bb0069f8b55ed54f3dfa5b93a6fe5f643d97919edee3692e5ca5af700d8b162c08b68faa3e0e005e7d41b6af4634035832838dd00b2a528a3c7716eb4
+  languageName: node
+  linkType: hard
+
 "abbrev@npm:^4.0.0":
   version: 4.0.0
   resolution: "abbrev@npm:4.0.0"
@@ -19175,6 +19186,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"encoding-japanese@npm:2.4.0":
+  version: 2.4.0
+  resolution: "encoding-japanese@npm:2.4.0"
+  checksum: 10/710d920f2b6ca1be0a7e876766a29b4a6c437ceadeff8fcea1a641a687e967d70b7467c35c9623d80c214008684d43458f0a507bc2612f084517fe970ce7f5a5
+  languageName: node
+  linkType: hard
+
 "encoding-sniffer@npm:^0.2.1":
   version: 0.2.1
   resolution: "encoding-sniffer@npm:0.2.1"
@@ -22390,20 +22408,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"imapflow@npm:^1.4.7":
-  version: 1.4.7
-  resolution: "imapflow@npm:1.4.7"
+"imapflow@npm:^2.0.5":
+  version: 2.0.5
+  resolution: "imapflow@npm:2.0.5"
   dependencies:
-    "@zone-eu/mailsplit": "npm:5.4.14"
-    encoding-japanese: "npm:2.2.0"
+    "@zone-eu/mailsplit": "npm:5.4.17"
+    encoding-japanese: "npm:2.4.0"
     iconv-lite: "npm:0.7.3"
     libbase64: "npm:1.3.0"
-    libmime: "npm:5.4.1"
+    libmime: "npm:5.4.4"
     libqp: "npm:2.1.1"
-    nodemailer: "npm:9.0.3"
     pino: "npm:10.3.1"
-    socks: "npm:2.8.9"
-  checksum: 10/e87c28863839a770878d878af5a81d441860deaac2f1e600c0e00aa77af1e277839a32d6041a5a6ca27aab37a008e776f673b6eecf6357361b8956c25a54e933
+    socks: "npm:2.8.10"
+  checksum: 10/f1bfa70029fc47e5e26a132d0f7ce6c252f3fb3c5178abc30af5d493ef9204a3e7e69d33b7893edd6eae1dd391cf19fa332e1eeddfdc79b594cadcadd4ada57e
   languageName: node
   linkType: hard
 
@@ -24512,6 +24529,18 @@ __metadata:
     libbase64: "npm:1.3.0"
     libqp: "npm:2.1.1"
   checksum: 10/2bd364f445f3103edeb447239d8767c5edf12088d16444c7b66c30c7a99beff70e2e198e369dade885e6d85552679ae0ee3ebb869d8d88948acf64a6738c20fa
+  languageName: node
+  linkType: hard
+
+"libmime@npm:5.4.4":
+  version: 5.4.4
+  resolution: "libmime@npm:5.4.4"
+  dependencies:
+    encoding-japanese: "npm:2.4.0"
+    iconv-lite: "npm:0.7.3"
+    libbase64: "npm:1.3.0"
+    libqp: "npm:2.1.1"
+  checksum: 10/933504476ec33587b8aba6df4ef5001d2ebd76100fca175d5ff814251c1ba76b8f19bacf1c8a058af0ea906a71dc4410b4d0206930659718c9373c06b0dde4e5
   languageName: node
   linkType: hard
 
@@ -31473,13 +31502,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"socks@npm:2.8.9":
-  version: 2.8.9
-  resolution: "socks@npm:2.8.9"
+"socks@npm:2.8.10":
+  version: 2.8.10
+  resolution: "socks@npm:2.8.10"
   dependencies:
     ip-address: "npm:^10.1.1"
     smart-buffer: "npm:^4.2.0"
-  checksum: 10/8675e6b023faeaa5c2511664b106fd21f5d5ecb403584412e0efae58a76e0c0661c0c18ca340988f6cb398232308dae85fb710f847c9c6e0a6af33b07e4cd33a
+  checksum: 10/05ea32c55a4428babaab97f5419e130d2aec4836bc36a1505cd2d5c36ecf447609f5bbe95243b5e0cba46b4b2fea9d8d2b5031cc13005b3146da53f86b5e1128
   languageName: node
   linkType: hard
 
