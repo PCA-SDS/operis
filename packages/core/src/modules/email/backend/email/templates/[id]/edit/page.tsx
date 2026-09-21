@@ -4,24 +4,26 @@ import * as React from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { deleteCrud, updateCrud } from '@open-mercato/ui/backend/utils/crud'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
+import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
+import { ErrorMessage, LoadingMessage, RecordNotFoundState } from '@open-mercato/ui/backend/detail'
 import {
-  TemplateBuilderForm,
-  type TemplateBlockFormValue,
-  type TemplateBuilderFormValue,
-  blocksToHtml,
-  buildTemplateBlocks,
+  blocksFromRecord,
   createBlock,
-  customTemplateValues,
   customTemplateVariables,
-  parseJsonObject,
-  splitCsv,
-} from '../../_components/TemplateBuilderForm'
-
-type TemplateStatus = 'draft' | 'published' | 'archived'
+  type TemplateStatus,
+} from '../../../../../components/templateHtml'
+import {
+  DEFAULT_TEMPLATE_CATEGORY,
+  buildTemplateApiPayload,
+  type TemplateBuilderFormValue,
+} from '../../../../../components/templatePayload'
+import { TemplateBuilderForm } from '../../_components/TemplateBuilderForm'
 
 type EmailTemplateRecord = {
   id: string
@@ -57,7 +59,7 @@ const emptyForm: EditTemplateForm = {
   templateKey: '',
   name: '',
   description: '',
-  category: 'accounting',
+  category: DEFAULT_TEMPLATE_CATEGORY,
   status: 'draft',
   subject: '',
   preheader: '',
@@ -74,43 +76,6 @@ const emptyForm: EditTemplateForm = {
   updatedAt: '',
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-function parseStoredJson(value: unknown): unknown {
-  if (typeof value !== 'string') return value
-  try {
-    return JSON.parse(value) as unknown
-  } catch {
-    return value
-  }
-}
-
-function blocksFromRecord(blocks: unknown, design: unknown): TemplateBlockFormValue[] {
-  const storedBlocks = parseStoredJson(blocks)
-  const storedDesign = parseStoredJson(design)
-  if (Array.isArray(storedBlocks) && storedBlocks.length > 0) {
-    return storedBlocks.map((item, index) => {
-      const record = isRecord(item) ? item : {}
-      const props = isRecord(record.props) ? record.props : {}
-      const type = typeof record.type === 'string' ? record.type : 'paragraph'
-      const safeType: TemplateBlockFormValue['type'] = type === 'heading' || type === 'button' || type === 'divider' || type === 'rich-text-html' ? type : 'paragraph'
-      return {
-        id: typeof record.id === 'string' ? record.id : `block-${index + 1}`,
-        type: safeType,
-        label: typeof record.label === 'string' ? record.label : safeType,
-        content: typeof props.html === 'string' ? props.html : typeof props.text === 'string' ? props.text : '',
-        url: typeof props.href === 'string' ? props.href : '',
-      }
-    })
-  }
-  if (isRecord(storedDesign) && isRecord(storedDesign.body) && typeof storedDesign.body.html === 'string') {
-    return [createBlock('rich-text-html', storedDesign.body.html)]
-  }
-  return [createBlock('paragraph', '')]
-}
-
 function toForm(record: EmailTemplateRecord): EditTemplateForm {
   const metadata = record.accounting_metadata ?? {}
   const fields = Array.isArray(metadata.fields) ? metadata.fields : []
@@ -118,6 +83,7 @@ function toForm(record: EmailTemplateRecord): EditTemplateForm {
   const variableTypes = metadata.variableTypes && typeof metadata.variableTypes === 'object' ? metadata.variableTypes : {}
   const rules = metadata.rules && typeof metadata.rules === 'object' && !Array.isArray(metadata.rules) ? metadata.rules : {}
   const variables = Array.isArray(record.variables) ? record.variables.filter((value): value is string => typeof value === 'string') : []
+  const storedBlocks = blocksFromRecord(record.blocks, record.design)
 
   return {
     templateKey: record.template_key,
@@ -136,46 +102,9 @@ function toForm(record: EmailTemplateRecord): EditTemplateForm {
     workflowKey: metadata.workflowKey ?? '',
     sortOrder: String(typeof metadata.sortOrder === 'number' ? metadata.sortOrder : 0),
     isActive: metadata.isActive !== false && record.status !== 'archived',
-    blocks: blocksFromRecord(record.blocks, record.design),
+    // A record with no stored body still needs one editable block to type into.
+    blocks: storedBlocks.length ? storedBlocks : [createBlock('paragraph', '')],
     updatedAt: record.updatedAt,
-  }
-}
-
-function buildPayload(form: EditTemplateForm, id: string) {
-  const variables = customTemplateVariables(form.variables)
-  const fields = splitCsv(form.fields)
-  const defaultValues = parseJsonObject(form.defaultValues, 'Default values')
-  const variableTypes = parseJsonObject(form.variableTypes, 'Variable types')
-  const rules = parseJsonObject(form.rules, 'Rules')
-  const html = blocksToHtml(form.blocks)
-  const sortOrder = Number.parseInt(form.sortOrder, 10)
-
-  return {
-    id,
-    expected_updated_at: form.updatedAt,
-    template_key: form.templateKey.trim(),
-    name: form.name.trim(),
-    description: form.description.trim() || null,
-    category: form.category.trim() || 'accounting',
-    status: form.status,
-    subject: form.subject.trim(),
-    preheader: form.preheader.trim() || null,
-    variables,
-    blocks: buildTemplateBlocks(form.blocks),
-    design: { version: 1, source: 'operis-email-template-builder', body: { format: 'blocks+html', html } },
-    accounting_metadata: {
-      workflowKey: form.workflowKey.trim() || undefined,
-      ruleKeys: Object.entries(rules).map(([key, value]) => `${key}:${String(value)}`),
-      migratedFrom: null,
-      sourceTemplateId: null,
-      fields,
-      defaultValues: customTemplateValues(defaultValues),
-      variableTypes,
-      rules,
-      ruleNotes: form.ruleNotes.trim() || undefined,
-      sortOrder: Number.isFinite(sortOrder) && sortOrder >= 0 ? sortOrder : 0,
-      isActive: form.isActive && form.status !== 'archived',
-    },
   }
 }
 
@@ -196,9 +125,11 @@ export default function EditEmailTemplatePage({ params }: { params?: { id?: stri
   const t = useT()
   const router = useRouter()
   const pathname = usePathname()
+  const { confirm, ConfirmDialogElement } = useConfirmDialog()
   const id = params?.id ?? templateIdFromPathname(pathname)
   const [form, setForm] = React.useState<EditTemplateForm>(emptyForm)
   const [error, setError] = React.useState<string | null>(null)
+  const [notFound, setNotFound] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(true)
   const [isSaving, setIsSaving] = React.useState(false)
 
@@ -208,6 +139,7 @@ export default function EditEmailTemplatePage({ params }: { params?: { id?: stri
     async function load() {
       setIsLoading(true)
       setError(null)
+      setNotFound(false)
       const response = await apiCall<EmailTemplateDetailResponse>(`/api/email/templates/${encodeURIComponent(id)}`, { signal: controller.signal })
       if (cancelled) return
       if (!response.ok) {
@@ -215,7 +147,11 @@ export default function EditEmailTemplatePage({ params }: { params?: { id?: stri
         throw new Error(body?.error ?? body?.message ?? t('email.templates.errors.loadOne', 'Failed to load email template'))
       }
       const record = templateFromResponse(response.result)
-      if (!record) throw new Error('[internal] Email template not found')
+      if (!record) {
+        setNotFound(true)
+        setIsLoading(false)
+        return
+      }
       setForm(toForm(record))
       setIsLoading(false)
     }
@@ -236,20 +172,15 @@ export default function EditEmailTemplatePage({ params }: { params?: { id?: stri
     setError(null)
     setIsSaving(true)
     try {
-      const response = await withScopedApiRequestHeaders(
-        buildOptimisticLockHeader(form.updatedAt),
-        () => apiCall('/api/email/templates', {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(buildPayload(form, id)),
-        }),
-      )
-      if (!response.ok) {
-        const body = response.result as { error?: string; message?: string } | undefined
-        throw new Error(body?.error ?? body?.message ?? t('email.templates.errors.update', 'Failed to update email template'))
-      }
+      const payload = buildTemplateApiPayload(form, t('email.templates.blocks.openLink', 'Open link'))
+      await updateCrud('email/templates', { ...payload, id, expected_updated_at: form.updatedAt }, {
+        fallbackResult: null,
+        headers: buildOptimisticLockHeader(form.updatedAt),
+        errorMessage: t('email.templates.errors.update', 'Failed to update email template'),
+      })
       router.push('/backend/email/templates')
     } catch (err) {
+      if (surfaceRecordConflict(err, t)) return
       setError(err instanceof Error ? err.message.replace(/^\[internal]\s*/, '') : t('email.templates.errors.update', 'Failed to update email template'))
     } finally {
       setIsSaving(false)
@@ -257,24 +188,25 @@ export default function EditEmailTemplatePage({ params }: { params?: { id?: stri
   }
 
   async function deleteTemplate() {
-    if (!window.confirm(t('email.templates.deleteConfirm', 'Delete this email template?'))) return
+    const confirmed = await confirm({
+      title: t('email.templates.deleteConfirm.title', 'Delete email template?'),
+      text: t('email.templates.deleteConfirm', 'Delete this email template?'),
+      confirmText: t('email.common.delete', 'Delete'),
+      variant: 'destructive',
+    })
+    if (!confirmed) return
     setError(null)
     setIsSaving(true)
     try {
-      const response = await withScopedApiRequestHeaders(
-        buildOptimisticLockHeader(form.updatedAt),
-        () => apiCall(`/api/email/templates/${encodeURIComponent(id)}`, {
-          method: 'DELETE',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ id, expected_updated_at: form.updatedAt }),
-        }),
-      )
-      if (!response.ok) {
-        const body = response.result as { error?: string; message?: string } | undefined
-        throw new Error(body?.error ?? body?.message ?? t('email.templates.errors.delete', 'Failed to delete email template'))
-      }
+      await deleteCrud('email/templates', {
+        body: { id, expected_updated_at: form.updatedAt },
+        fallbackResult: null,
+        headers: buildOptimisticLockHeader(form.updatedAt),
+        errorMessage: t('email.templates.errors.delete', 'Failed to delete email template'),
+      })
       router.push('/backend/email/templates')
     } catch (err) {
+      if (surfaceRecordConflict(err, t)) return
       setError(err instanceof Error ? err.message.replace(/^\[internal]\s*/, '') : t('email.templates.errors.delete', 'Failed to delete email template'))
     } finally {
       setIsSaving(false)
@@ -283,20 +215,28 @@ export default function EditEmailTemplatePage({ params }: { params?: { id?: stri
 
   return (
     <Page className="min-w-0 overflow-x-hidden">
+      <PageHeader
+        title={t('email.templates.edit.title', 'Edit Email Template')}
+        description={t('email.templates.edit.description', 'Update tenant-owned template content, rules, placeholders, preview, and visual-builder blocks.')}
+        actions={<Button variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.back', 'Back')}</Link></Button>}
+      />
       <PageBody className="min-w-0 w-full max-w-full">
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{t('email.templates.edit.title', 'Edit Email Template')}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{t('email.templates.edit.description', 'Update tenant-owned template content, rules, placeholders, preview, and visual-builder blocks.')}</p>
-          </div>
-          <Button variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.back', 'Back')}</Link></Button>
-        </div>
         {isLoading ? (
-          <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">{t('email.templates.loadingOne', 'Loading email template…')}</div>
+          <LoadingMessage label={t('email.templates.loadingOne', 'Loading email template…')} />
+        ) : notFound ? (
+          <RecordNotFoundState
+            label={t('email.templates.notFound.title', 'Email template not found')}
+            description={t('email.templates.notFound.description', 'This email template no longer exists, or it belongs to another organization.')}
+            backHref="/backend/email/templates"
+            backLabel={t('email.templates.notFound.back', 'Back to Email Templates')}
+          />
+        ) : error && !form.templateKey ? (
+          <ErrorMessage label={error} />
         ) : (
           <TemplateBuilderForm mode="edit" value={form} error={error} isSaving={isSaving} onChange={(next) => setForm({ ...next, updatedAt: form.updatedAt })} onSubmit={submit} onDelete={deleteTemplate} />
         )}
       </PageBody>
+      {ConfirmDialogElement}
     </Page>
   )
 }

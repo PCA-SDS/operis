@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { EmailInput } from '@open-mercato/ui/primitives/email-input'
+import { LOOSE_EMAIL_PATTERN } from '@open-mercato/shared/lib/validation'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
@@ -148,7 +149,7 @@ export function DemoFeedbackWidget({ demoModeEnabled }: { demoModeEnabled: boole
     setSubmitError(null)
 
     const errors: Record<string, string> = {}
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    if (!email.trim() || !LOOSE_EMAIL_PATTERN.test(email.trim())) {
       errors.email = t('demoFeedback.errors.emailInvalid', 'Please enter a valid email address.')
     }
     if (!termsAccepted) {

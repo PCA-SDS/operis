@@ -9,7 +9,10 @@ import {
   snapshotsEqual,
 } from '@open-mercato/shared/lib/commands/helpers'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { normalizeEmail } from '@open-mercato/shared/lib/validation'
 import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
+import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import {
   CustomerAddress,
@@ -226,21 +229,10 @@ function personEntityIndexEntry(entity: CustomerEntity): QueryIndexEventEntry {
   }
 }
 
-function normalizeOptionalString(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
-
 function normalizeHexColor(value: string | null | undefined): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim().toLowerCase()
   return /^#([0-9a-f]{6})$/.test(trimmed) ? trimmed : null
-}
-
-function normalizeEmail(value: string | null | undefined): string | null {
-  const normalized = normalizeOptionalString(value)
-  return normalized ? normalized.toLowerCase() : null
 }
 
 type PersonDeleteBlockerCounts = {
@@ -989,6 +981,13 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
     const record = assertFound(entity, 'Person not found')
     ensureTenantScope(ctx, record.tenantId)
     ensureOrganizationScope(ctx, record.organizationId)
+    enforceCommandOptimisticLock({
+      resourceKind: 'customers.person',
+      resourceId: record.id,
+      current: record.updatedAt,
+      expected: parsed.expectedUpdatedAt,
+      request: ctx.request,
+    })
     const profile = await em.findOne(CustomerPersonProfile, { entity: record })
     if (!profile) throw notFound('Person profile not found')
 

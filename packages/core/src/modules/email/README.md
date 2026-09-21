@@ -65,8 +65,10 @@ Parity status from the old PCA stories:
 
 - `EmailTemplate` is scoped by `tenant_id` and `organization_id`.
 - `template_key` is unique only inside the active tenant/organization scope.
-- `blocks` store the visual-builder payload.
-- `design` stores generated render metadata and HTML snapshots.
+- `blocks` store the visual-builder payload and are **authoritative** for the body.
+- `design` stores generated render metadata and HTML snapshots. `design.body.html`
+  is rendered from the same `blocks` the writer persists, and is the fallback for
+  rows migrated from `pca_accounting` before the builder existed.
 - `variables` stores custom accounting variables only.
 - `accounting_metadata` stores workflow keys, rule keys, default values, sort order, and whether a template should appear in accounting compose/generator surfaces.
 - `EmailAccountingDefaults` stores tenant-owned sender defaults, common placeholder samples, safe link placeholder samples, and rule-selection notes.
@@ -80,6 +82,45 @@ Template variables are split into two groups:
 - Rule metadata is edited through non-technical controls such as email purpose, quarter, activity, CIT, and selection priority; raw JSON stays hidden from tenant users.
 
 This prevents users from retyping company/contact facts already stored in the Customers module.
+
+## One Reader, One Writer
+
+The builder preview and the compose preview must render a stored template
+identically, so the body has exactly one writer and one reader:
+
+- **Writer** — `components/templatePayload.ts` → `buildTemplateApiPayload()`, used
+  by both create and edit. It renders `design.body.html` from the same blocks it
+  persists, so the two can never disagree.
+- **Reader** — `components/templateHtml.ts` → `blocksFromRecord(blocks, design)`.
+  It resolves the legacy `rich_text` block type to `rich-text-html`, parses a
+  jsonb column that arrived as a string, and falls back to `design.body.html`
+  when a row carries no blocks. It returns an empty list when there is no body
+  at all; the caller decides whether that means "seed an editable block" (edit)
+  or "render nothing" (compose).
+
+These shipped as two separate implementations and drifted: one mapped
+`rich_text` to sanitized rich text and the other to an escaped paragraph, and
+only one had the `design.body.html` fallback. The same template therefore
+rendered a different body depending on which page you opened. Do not reintroduce
+a second reader — `packages/core/src/modules/email/__tests__/template-builder.test.ts`
+pins both behaviours.
+
+## UI Conventions
+
+These pages are plain React (no `CrudForm`), so they carry the shared backend
+contracts explicitly:
+
+- Page chrome is `Page` → `PageHeader` → `PageBody`; never a hand-rolled `<h1>`.
+- States use `LoadingMessage`, `ErrorMessage`, `RecordNotFoundState` and
+  `EmptyState` from the design system — not ad-hoc banners.
+- Destructive confirmation uses `useConfirmDialog`, never `window.confirm`.
+- Writes go through `createCrud` / `updateCrud` / `deleteCrud` with
+  `buildOptimisticLockHeader(updatedAt)`, and every catch calls
+  `surfaceRecordConflict(err, t)` first so a 409 reaches the conflict banner.
+- Fields use the `Input` / `Textarea` / `Checkbox` primitives. Native `<select>`
+  is the one exception — the Radix `Select` rejects the empty-string option
+  values the "Any / none" filters use — and borrows the `Input` treatment via
+  `components/formStyles.ts`.
 
 ## Compose Email
 
@@ -117,5 +158,5 @@ No rule path should hard-code PCA behavior in app bootstrap or another module.
 - `Migration20260903142415_email` creates the tenant-scoped template and accounting-default tables.
 - `Migration20260911143000_pca_email_templates` imports the five PCA templates with complete body HTML, builder blocks, variables, and rule metadata only for PCA-matched tenants/organizations.
 - `Migration20260914150000_pca_email_template_body_backfill` repairs PCA rows created by an earlier incomplete migration when their body is empty or malformed. It does not overwrite non-empty template bodies.
-- `Migration20260914160000_acme_email_templates` is a temporary, explicit import for the `Acme Corp` tenant used for evaluation. Remove or replace it when the PCA tenant is available; it does not target other tenants.
+- No migration seeds a tenant matched by display name alone. `Acme Corp` in particular is the name `mercato init` gives a tenant when no `--org=` is passed, so keying on it would seed every default install rather than one evaluation tenant. Evaluation or demo content belongs in `setup.ts` `seedExamples`, which `--no-examples` can skip.
 - Run the normal application migration step after merging to `main`; do not seed or copy template rows manually. Non-PCA tenants intentionally remain empty until they create their own templates.

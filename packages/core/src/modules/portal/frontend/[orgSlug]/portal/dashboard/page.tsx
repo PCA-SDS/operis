@@ -1,6 +1,6 @@
 "use client"
 import React, { useEffect, useMemo, useState, useCallback } from 'react'
-import { extensionPoints } from '@open-mercato/core/modules/portal/extension-points'
+import { extensionPoints } from '../../../../extension-points'
 import { useRouter } from 'next/navigation'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'

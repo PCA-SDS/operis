@@ -1647,6 +1647,7 @@
   "customers.errors.failed_to_assign_role": "Rolle konnte nicht zugewiesen werden",
   "customers.errors.failed_to_delete_role": "Rolle konnte nicht gelöscht werden",
   "customers.errors.failed_to_load_roles": "Rollen konnten nicht geladen werden",
+  "customers.errors.failed_to_unassign_label": "Label konnte nicht entfernt werden",
   "customers.errors.failed_to_update_role": "Rolle konnte nicht aktualisiert werden",
   "customers.errors.interaction_required": "Interaction-ID ist erforderlich",
   "customers.errors.internal": "Interner Serverfehler",

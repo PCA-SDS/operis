@@ -31,6 +31,8 @@ import {
   invoiceManualUpdateSchema,
   invoiceDueDateUpdateSchema,
   invoiceSettlementUpdateSchema,
+  invoiceInstallmentPlanUpdateSchema,
+  invoiceInstallmentStatusUpdateSchema,
   invoiceNonRecoverableUpdateSchema,
   invoiceForecastQuerySchema,
   invoiceSendSchema,
@@ -38,6 +40,8 @@ import {
   type InvoiceForecastQueryInput,
   type InvoiceNonRecoverableUpdateInput,
   type InvoiceSettlementUpdateInput,
+  type InvoiceInstallmentPlanUpdateInput,
+  type InvoiceInstallmentStatusUpdateInput,
   type InvoiceManualWriteInput,
   type InvoiceSendInput,
 } from '../data/validators'
@@ -75,6 +79,8 @@ export type InvoiceManualDeleteResult = {
 }
 export type InvoiceDueDateUpdateResult = InvoiceManualMutationResult
 export type InvoiceSettlementUpdateResult = InvoiceManualMutationResult
+export type InvoiceInstallmentPlanUpdateResult = InvoiceManualMutationResult
+export type InvoiceInstallmentStatusUpdateResult = InvoiceManualMutationResult
 export type InvoiceNonRecoverableUpdateResult = InvoiceManualMutationResult
 export type InvoicePaymentApplicationInput = {
   installmentId?: string
@@ -288,6 +294,16 @@ export class InvoiceService {
     private readonly companyEmailsService?: InvoiceCompanyEmailsService,
   ) {}
 
+  forTransaction(em: EntityManager): InvoiceService {
+    return new InvoiceService(
+      em,
+      this.queryEngine,
+      new InvoiceScopedPersistenceService(em),
+      this.exchangeRatesService,
+      this.companyEmailsService,
+    )
+  }
+
   async getSummary(scope: InvoiceScope): Promise<InvoiceSummaryDto> {
     const invoices = await this.scopedPersistence.findMany(Invoice, scope, {
       invoiceStatus: 'ACTIVE',
@@ -315,11 +331,21 @@ export class InvoiceService {
     let arNonRecoverable = 0
     let apOutstanding = 0
     let apSettled = 0
+    const counts = {
+      AR: { unpaidInvoices: 0, partiallyPaidInvoices: 0, paidInvoices: 0, unreceivedInvoices: 0, receivedInvoices: 0, nonRecoverableInvoices: 0 },
+      AP: { unpaidInvoices: 0, partiallyPaidInvoices: 0, paidInvoices: 0, unreceivedInvoices: 0, receivedInvoices: 0, nonRecoverableInvoices: 0 },
+    }
 
     for (const inv of invoices) {
       const rate = resolveVndRate(inv.currencyCode)
       const paidVnd = money(inv.paidAmount) * rate
       const outstandingVnd = money(inv.outstandingAmount) * rate
+      if (inv.settlementStatus === 'SETTLED') counts[inv.direction].paidInvoices += 1
+      else if (inv.settlementStatus === 'PARTIALLY_PAID') counts[inv.direction].partiallyPaidInvoices += 1
+      else counts[inv.direction].unpaidInvoices += 1
+      if (inv.hasReceived) counts[inv.direction].receivedInvoices += 1
+      else counts[inv.direction].unreceivedInvoices += 1
+      if (inv.nonRecoverable) counts[inv.direction].nonRecoverableInvoices += 1
 
       if (inv.direction === 'AR') {
         arSettled += paidVnd
@@ -347,6 +373,7 @@ export class InvoiceService {
         settledAmount: moneyString(arSettled),
         totalAmount: moneyString(arOutstanding + arSettled),
         nonRecoverableAmount: moneyString(arNonRecoverable),
+        ...counts.AR,
       },
       ap: {
         outstanding: moneyString(apOutstanding),
@@ -356,6 +383,7 @@ export class InvoiceService {
         outstandingAmount: moneyString(apOutstanding),
         settledAmount: moneyString(apSettled),
         totalAmount: moneyString(apOutstanding + apSettled),
+        ...counts.AP,
       },
       netPosition: moneyString(netPosition),
       net: moneyString(netPosition),
@@ -842,6 +870,69 @@ export class InvoiceService {
     return { invoice: mapInvoiceEntityToDetailDto(invoice) }
   }
 
+  async updateInstallmentPlan(scope: InvoiceScope, id: string, rawInput: InvoiceInstallmentPlanUpdateInput): Promise<InvoiceInstallmentPlanUpdateResult> {
+    const input = invoiceInstallmentPlanUpdateSchema.parse(rawInput)
+    const invoice = await this.scopedPersistence.findById(Invoice, scope, id, { populate: ['lineItems', 'installments'] as never[] })
+    if (!invoice) throw invoiceNotFound('invoice.errors.invoice_not_found', 'Invoice not found')
+    if (invoice.direction !== 'AR') throw invoiceBadRequest('invoice.errors.installments_requires_ar', 'Installment plans are allowed only for AR invoices')
+    const principalTotal = input.installments.reduce((sum, item) => sum + money(item.principalAmount), 0)
+    if (Math.abs(principalTotal - money(invoice.grossAmount)) > 0.0001) throw invoiceBadRequest('invoice.errors.installments_total_mismatch', 'Installment principal must match invoice total')
+    await this.em.nativeDelete(InvoiceInstallment, { invoice })
+    invoice.installments?.removeAll?.()
+    let remaining = money(invoice.grossAmount)
+    input.installments.forEach((item, index) => {
+      const principal = moneyString(money(item.principalAmount))
+      const interest = moneyString(roundMoney(remaining * item.interestRate / 100))
+      const created = this.em.create(InvoiceInstallment, {
+        organizationId: scope.organizationId,
+        tenantId: scope.tenantId,
+        invoice,
+        sequence: index + 1,
+        principalAmount: principal,
+        interestRate: String(item.interestRate),
+        interestAmount: interest,
+        totalAmount: moneyString(roundMoney(money(principal) + money(interest))),
+        dueDate: item.dueDate,
+        status: 'PENDING',
+        paidAt: null,
+        note: item.note ?? null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      remaining = roundMoney(remaining - money(principal))
+      invoice.installments?.add?.(created)
+    })
+    recomputeInvoiceSettlementRollup(invoice)
+    await this.em.flush()
+    return { invoice: mapInvoiceEntityToDetailDto(invoice) }
+  }
+
+  async updateInstallmentStatus(scope: InvoiceScope, id: string, installmentId: string, rawInput: InvoiceInstallmentStatusUpdateInput): Promise<InvoiceInstallmentStatusUpdateResult> {
+    const input = invoiceInstallmentStatusUpdateSchema.parse(rawInput)
+    const invoice = await this.scopedPersistence.findById(Invoice, scope, id, { populate: ['lineItems', 'installments'] as never[] })
+    if (!invoice) throw invoiceNotFound('invoice.errors.invoice_not_found', 'Invoice not found')
+    if (invoice.direction !== 'AR') throw invoiceBadRequest('invoice.errors.installments_requires_ar', 'Installments are allowed only for AR invoices')
+    const installment = invoiceInstallmentItems(invoice).find((item) => item.id === installmentId)
+    if (!installment) throw invoiceNotFound('invoice.errors.installment_not_found', 'Invoice installment not found')
+    installment.status = input.paid ? 'PAID' : 'PENDING'
+    installment.paidAt = input.paid ? (installment.paidAt ?? new Date()) : null
+    recomputeInvoiceSettlementRollup(invoice)
+    await this.em.flush()
+    return { invoice: mapInvoiceEntityToDetailDto(invoice) }
+  }
+
+  async deleteInstallmentPlan(scope: InvoiceScope, id: string): Promise<InvoiceInstallmentPlanUpdateResult> {
+    const invoice = await this.scopedPersistence.findById(Invoice, scope, id, { populate: ['lineItems', 'installments'] as never[] })
+    if (!invoice) throw invoiceNotFound('invoice.errors.invoice_not_found', 'Invoice not found')
+    if (invoice.direction !== 'AR') throw invoiceBadRequest('invoice.errors.installments_requires_ar', 'Installment plans are allowed only for AR invoices')
+    await this.em.nativeDelete(InvoiceInstallment, { invoice })
+    invoice.installments?.removeAll?.()
+    invoice.settlementStatus = 'UNSETTLED'
+    recomputeInvoiceSettlementRollup(invoice)
+    await this.em.flush()
+    return { invoice: mapInvoiceEntityToDetailDto(invoice) }
+  }
+
   async applyInvoicePayment(
     scope: InvoiceScope,
     id: string,
@@ -858,6 +949,20 @@ export class InvoiceService {
 
     const installments = invoiceInstallmentItems(invoice)
     const now = new Date()
+
+    if (invoice.direction === 'AP') {
+      if (input.installmentId) {
+        throw invoiceBadRequest('invoice.errors.settlement_requires_ar', 'AP payments must settle the full invoice')
+      }
+      for (const installment of installments) {
+        installment.status = 'PAID'
+        installment.paidAt = installment.paidAt ?? now
+      }
+      invoice.settlementStatus = 'SETTLED'
+      recomputeInvoiceSettlementRollup(invoice)
+      await this.em.flush()
+      return { invoice: mapInvoiceEntityToDetailDto(invoice) }
+    }
 
     if (input.installmentId) {
       const installment = installments.find((item) => item.id === input.installmentId)

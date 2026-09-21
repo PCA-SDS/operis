@@ -52,7 +52,7 @@ describe('resolveNotificationContext organization scope', () => {
     resolveOrganizationScopeForRequestMock.mockResolvedValue({
       selectedId: organizationId,
       filterIds: [organizationId, childOrganizationId],
-      allowedIds: null,
+      allowedIds: [organizationId, childOrganizationId, 'org-accessible-elsewhere'],
       tenantId,
     })
     const request = new Request('https://example.test/api/notifications', {
@@ -69,7 +69,7 @@ describe('resolveNotificationContext organization scope', () => {
     expect(result.scope).toEqual({
       tenantId,
       organizationId,
-      organizationIds: [organizationId, childOrganizationId],
+      organizationIds: [organizationId, childOrganizationId, 'org-accessible-elsewhere'],
       userId,
     })
   })

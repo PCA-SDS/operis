@@ -4,7 +4,6 @@ import { findRouteManifestMatch } from '@open-mercato/shared/modules/registry'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
 import { AppShell } from '@open-mercato/ui/backend/AppShell'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { I18nProvider } from '@open-mercato/shared/lib/i18n/context'
 import { authorizeFeatures } from '@open-mercato/shared/security/featurePolicy'
 import { profilePathPrefixes } from '@open-mercato/core/modules/auth/lib/profile-sections'
 import { APP_VERSION } from '@open-mercato/shared/lib/version'
@@ -53,7 +52,13 @@ export default async function BackendLayout({
     path = '/backend' + (Array.isArray(slug) && slug.length > 0 ? `/${slug.join('/')}` : '')
   }
 
-  const { translate, locale, dict } = await resolveTranslations()
+  // Only `translate` is needed here — the i18n CONTEXT is already provided by the
+  // root layout (`app/layout.tsx` -> `AppProviders` -> `I18nProvider`), which wraps
+  // every route including this one. The nested provider that used to live below was
+  // a second boundary carrying the same ~20,500-key dictionary, and it re-rendered
+  // it with `localeLocked` defaulted to false, silently discarding the root's
+  // `OM_FORCE_LOCALE` state for anything inside /backend.
+  const { translate } = await resolveTranslations()
   const embeddingConfigured = Boolean(
     process.env.OPENAI_API_KEY ||
     process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
@@ -79,6 +84,7 @@ export default async function BackendLayout({
 
   const demoModeEnabled = parseBooleanWithDefault(process.env.DEMO_MODE, true)
   const hideBackendFooter = parseBooleanWithDefault(process.env.OM_HIDE_BACKEND_FOOTER, true)
+  const isSeatPlannerPath = path.includes('/seat-planner')
   const deployEnv = process.env.DEPLOY_ENV
   const grantedFeatures = Array.isArray(auth?.features)
     ? auth.features.filter((feature): feature is string => typeof feature === 'string')
@@ -100,44 +106,42 @@ export default async function BackendLayout({
   }
 
   return (
-    <I18nProvider locale={locale} dict={dict}>
-      <AppShell
-        productName={productName}
-        email={auth?.email}
-        canManageUpgradeActions={canManageUpgradeActions}
-        groups={[]}
-        currentTitle={currentTitle}
-        breadcrumb={breadcrumb}
-        centerHeaderSlot={(
-          <BackendHeaderSearch
-            embeddingConfigured={embeddingConfigured}
-            missingConfigMessage={missingConfigMessage}
-          />
-        )}
-        rightHeaderSlot={(
-          <BackendHeaderChrome
-            email={auth?.email}
-            userId={auth?.sub ?? null}
-            tenantId={auth?.tenantId ?? null}
-            organizationId={auth?.orgId ?? null}
-          />
-        )}
-        adminNavApi="/api/auth/admin/nav"
-        version={APP_VERSION}
-        hideFooter={hideBackendFooter}
-        settingsPathPrefixes={collectStaticSettingsPathPrefixes()}
-        settingsSections={[]}
-        settingsSectionTitle={translate('backend.nav.settings', 'Settings')}
-        profileSections={[]}
-        profileSectionTitle={translate('profile.page.title', 'Profile')}
-        profilePathPrefixes={profilePathPrefixes}
-      >
-        <PageInjectionBoundary path={path} context={injectionContext}>
-          {children}
-        </PageInjectionBoundary>
-        {demoModeEnabled ? <DemoFeedbackWidget demoModeEnabled={demoModeEnabled} /> : null}
-      </AppShell>
-    </I18nProvider>
+    <AppShell
+      productName={productName}
+      email={auth?.email}
+      canManageUpgradeActions={canManageUpgradeActions}
+      groups={[]}
+      currentTitle={currentTitle}
+      breadcrumb={breadcrumb}
+      centerHeaderSlot={(
+        <BackendHeaderSearch
+          embeddingConfigured={embeddingConfigured}
+          missingConfigMessage={missingConfigMessage}
+        />
+      )}
+      rightHeaderSlot={(
+        <BackendHeaderChrome
+          email={auth?.email}
+          userId={auth?.sub ?? null}
+          tenantId={auth?.tenantId ?? null}
+          organizationId={auth?.orgId ?? null}
+        />
+      )}
+      adminNavApi="/api/auth/admin/nav"
+      version={APP_VERSION}
+      hideFooter={hideBackendFooter || isSeatPlannerPath}
+      settingsPathPrefixes={collectStaticSettingsPathPrefixes()}
+      settingsSections={[]}
+      settingsSectionTitle={translate('backend.nav.settings', 'Settings')}
+      profileSections={[]}
+      profileSectionTitle={translate('profile.page.title', 'Profile')}
+      profilePathPrefixes={profilePathPrefixes}
+    >
+      <PageInjectionBoundary path={path} context={injectionContext}>
+        {children}
+      </PageInjectionBoundary>
+      {demoModeEnabled ? <DemoFeedbackWidget demoModeEnabled={demoModeEnabled} /> : null}
+    </AppShell>
   )
 }
 

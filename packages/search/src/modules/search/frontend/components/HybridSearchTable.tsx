@@ -3,8 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
-import * as LucideIcons from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { DynamicIcon, iconNames, type IconName } from 'lucide-react/dynamic'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import type { SearchResult, SearchStrategyId } from '@open-mercato/shared/modules/search'
@@ -59,15 +58,14 @@ function createColumns(t: Translator): ColumnDef<Row>[] {
       cell: ({ row }) => {
         const item = row.original
         const title = resolveRowTitle(item)
-        const iconName = item.presenter?.icon
-        const Icon = iconName ? resolveIcon(iconName) : null
+        const iconName = resolveIconName(item.presenter?.icon)
         const typeLabel = resolveEntityTypeLabel(t, item.entityId)
         const snapshot = item.presenter?.subtitle ?? extractSnapshot(item.metadata)
         const links = normalizeLinks(item.links)
         return (
           <div className="flex flex-col">
             <div className="flex items-start gap-3">
-              {Icon ? <Icon className="mt-0.5 h-5 w-5 text-muted-foreground" /> : null}
+              {iconName ? <DynamicIcon name={iconName} className="mt-0.5 h-5 w-5 text-muted-foreground" /> : null}
               <div className="flex flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium whitespace-normal break-all">{title}</span>
@@ -143,22 +141,27 @@ function normalizeLinks(links?: Row['links']): { href: string; label?: string; k
   return links.filter((link) => typeof link?.href === 'string') as Array<{ href: string; label?: string; kind?: string }>
 }
 
-function toPascalCase(input: string): string {
+const LUCIDE_ICON_NAMES = new Set<IconName>(iconNames)
+
+function toKebabCase(input: string): string {
   return input
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
     .split(/[-_ ]+/)
     .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join('')
+    .join('-')
+    .toLowerCase()
 }
 
-function resolveIcon(name?: string): LucideIcon | null {
+// Presenter icon names come from the search index, so the set is open-ended and
+// cannot be enumerated at build time. Resolving them against the `lucide-react`
+// namespace pinned all 1,410 icons into the route's chunk; `DynamicIcon` keeps
+// the same open contract but loads one icon module on demand. Names that are not
+// real Lucide icons are filtered here rather than handed to `DynamicIcon`, which
+// would log to console.error for each miss.
+function resolveIconName(name?: string): IconName | null {
   if (!name) return null
-  const key = toPascalCase(name)
-  const candidate = (LucideIcons as Record<string, unknown>)[key]
-  if (typeof candidate === 'function') {
-    return candidate as LucideIcon
-  }
-  return null
+  const kebab = toKebabCase(name) as IconName
+  return LUCIDE_ICON_NAMES.has(kebab) ? kebab : null
 }
 
 function resolveRowTitle(row: Row): string {

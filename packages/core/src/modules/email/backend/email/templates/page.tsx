@@ -2,13 +2,16 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
+import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Tag } from '@open-mercato/ui/primitives/tag'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { FIELD_CLASS } from '../../../components/formStyles'
 
 type EmailTemplateRow = {
   id: string
@@ -36,6 +39,7 @@ function statusVariant(status: EmailTemplateRow['status']): 'success' | 'warning
 
 export default function EmailTemplatesPage() {
   const t = useT()
+  const router = useRouter()
   const [rows, setRows] = React.useState<EmailTemplateRow[]>([])
   const [page, setPage] = React.useState(1)
   const [total, setTotal] = React.useState(0)
@@ -100,15 +104,6 @@ export default function EmailTemplatesPage() {
         accessorKey: 'updatedAt',
         cell: ({ row }) => new Date(row.original.updatedAt).toLocaleString(),
       },
-      {
-        header: t('email.templates.table.actions', 'Actions'),
-        id: 'actions',
-        cell: ({ row }) => (
-          <Button size="sm" variant="secondary" asChild>
-            <Link href={`/backend/email/templates/${row.original.id}/edit`}>{t('email.common.edit', 'Edit')}</Link>
-          </Button>
-        ),
-      },
     ],
     [t],
   )
@@ -126,7 +121,7 @@ export default function EmailTemplatesPage() {
             }}
           >
             <input
-              className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className={`min-w-0 flex-1 ${FIELD_CLASS}`}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('email.templates.searchPlaceholder', 'Search templates by name')}
@@ -136,7 +131,7 @@ export default function EmailTemplatesPage() {
           <label className="flex w-full min-w-0 items-center gap-2 text-sm text-muted-foreground sm:w-auto">
             <span>{t('email.templates.filters.status.label', 'Status')}</span>
             <select
-              className="min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground sm:flex-none"
+              className={`min-w-0 flex-1 sm:flex-none ${FIELD_CLASS}`}
               value={statusFilter}
               onChange={(event) => {
                 setPage(1)
@@ -150,45 +145,40 @@ export default function EmailTemplatesPage() {
               <option value="all">{t('email.templates.filters.status.all', 'All statuses')}</option>
             </select>
           </label>
-          <div className="flex w-full gap-2 sm:w-auto">
-            <Button className="w-full sm:w-auto" asChild>
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+            <Button variant="secondary" asChild>
+              <Link href="/backend/email/compose">{t('email.templates.composePreview', 'Compose Email')}</Link>
+            </Button>
+            <Button variant="secondary" asChild>
+              <Link href="/backend/email/accounting-defaults">{t('email.templates.accountingDefaults', 'Accounting Defaults')}</Link>
+            </Button>
+            <Button asChild>
               <Link href="/backend/email/templates/create">{t('email.templates.newTemplate', 'New Template')}</Link>
             </Button>
           </div>
         </div>
-        <div className="space-y-3 sm:hidden">
-          {isLoading ? <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">{t('ui.dataTable.loading', 'Loading data...')}</div> : null}
-          {!isLoading && error ? <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">{error}</div> : null}
-          {!isLoading && !error && rows.length === 0 ? <div className="rounded-lg border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">{statusFilter === 'archived' ? t('email.templates.empty.archived', 'No archived email templates found.') : t('email.templates.empty', 'No saved email templates yet. Create a tenant-owned template from scratch.')}</div> : null}
-          {!isLoading && !error ? rows.map((row) => (
-            <article key={row.id} className="rounded-lg border bg-card p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="break-words font-semibold">{row.name}</h2>
-                  <p className="break-all text-xs text-muted-foreground">{row.template_key}</p>
-                </div>
-                <Tag variant={statusVariant(row.status)}>{t(`email.templates.status.${row.status}`, row.status)}</Tag>
-              </div>
-              <dl className="mt-3 grid gap-2 text-sm">
-                <div><dt className="text-xs text-muted-foreground">{t('email.templates.table.category', 'Category')}</dt><dd>{row.category}</dd></div>
-                <div><dt className="text-xs text-muted-foreground">{t('email.templates.table.subject', 'Subject')}</dt><dd className="break-words">{row.subject}</dd></div>
-                <div><dt className="text-xs text-muted-foreground">{t('email.templates.table.updated', 'Updated')}</dt><dd>{new Date(row.updatedAt).toLocaleString()}</dd></div>
-              </dl>
-              <Button className="mt-4 w-full" variant="secondary" asChild><Link href={`/backend/email/templates/${row.id}/edit`}>{t('email.common.edit', 'Edit')}</Link></Button>
-            </article>
-          )) : null}
-        </div>
-        <div className="hidden sm:block">
-          <DataTable<EmailTemplateRow>
-            title={t('email.templates.title', 'Email Templates')}
-            columns={columns}
-            data={rows}
-            isLoading={isLoading}
-            error={error}
-            emptyState={statusFilter === 'archived' ? t('email.templates.empty.archived', 'No archived email templates found.') : t('email.templates.empty', 'No saved email templates yet. Create a tenant-owned template from scratch.')}
-            pagination={{ page, pageSize, total, totalPages, onPageChange: setPage }}
-          />
-        </div>
+        <DataTable<EmailTemplateRow>
+          title={t('email.templates.title', 'Email Templates')}
+          columns={columns}
+          data={rows}
+          isLoading={isLoading}
+          error={error}
+          mobileFit
+          rowActions={(row) => (
+            <RowActions
+              items={[
+                {
+                  id: 'edit',
+                  label: t('email.common.edit', 'Edit'),
+                  href: `/backend/email/templates/${row.id}/edit`,
+                },
+              ]}
+            />
+          )}
+          onRowClick={(row) => router.push(`/backend/email/templates/${row.id}/edit`)}
+          emptyState={statusFilter === 'archived' ? t('email.templates.empty.archived', 'No archived email templates found.') : t('email.templates.empty', 'No saved email templates yet. Create a tenant-owned template from scratch.')}
+          pagination={{ page, pageSize, total, totalPages, onPageChange: setPage }}
+        />
       </PageBody>
     </Page>
   )

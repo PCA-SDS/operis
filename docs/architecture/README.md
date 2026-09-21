@@ -22,6 +22,8 @@ deliberately.
 | [ADR-0003](adr/ADR-0003-platform-domains-default.md) | Remove the foreign domain from the `PLATFORM_DOMAINS` default |
 | [ADR-0004](adr/ADR-0004-compatibility-scope.md) | Scope the compatibility contract to persisted identifiers |
 | [ADR-0005](adr/ADR-0005-agent-code-navigation-layer.md) | Add a prebuilt code-navigation layer (graft + graphify) for coding agents |
+| [ADR-0006](adr/ADR-0006-matrix-chat-transport.md) | Run Matrix as external infrastructure for the chat transport |
+| [ADR-0007](adr/ADR-0007-module-sealing-via-package-exports.md) | Enforce module boundaries with the package `exports` map, sealing one module at a time |
 
 ### Writing a new ADR
 

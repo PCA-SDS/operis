@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { extensionPoints } from '@open-mercato/core/modules/wms/extension-points'
+import { extensionPoints } from '../../extension-points'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { z } from 'zod'
@@ -366,7 +366,7 @@ function SkuKpiCard({
   ctaHref,
 }: SkuKpiCardProps) {
   return (
-    <section className="flex min-h-52 flex-col rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground shadow-sm">
+    <section className="flex min-h-52 flex-col rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground">
       <div>
         <p className="text-sm font-medium">{title}</p>
         <p className="mt-3 text-xs text-muted-foreground">{caption}</p>
@@ -1033,7 +1033,7 @@ export default function WmsSkuDetailPage({ variantId }: WmsSkuDetailPageProps) {
 
             <section
               id="stock-distribution"
-              className="rounded-xl border border-border bg-surface shadow-sm text-card-foreground shadow-sm"
+              className="rounded-xl border border-border bg-surface shadow-sm text-card-foreground"
             >
               <div className="border-b px-5 py-4">
                 <h2 className="text-base font-semibold">
@@ -1148,7 +1148,7 @@ export default function WmsSkuDetailPage({ variantId }: WmsSkuDetailPageProps) {
               )}
             />
 
-            <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface shadow-sm px-5 py-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+            <section className="flex flex-col gap-4 rounded-xl border border-border bg-surface shadow-sm px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="text-base font-semibold">
                   {t('wms.backend.sku.quickActions.title', 'Quick actions')}

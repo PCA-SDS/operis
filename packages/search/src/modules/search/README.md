@@ -94,7 +94,7 @@ await searchService.index({
   organizationId: 'org-456',
   fields: { name: 'John Doe', email: 'john@example.com' },
   presenter: { title: 'John Doe', subtitle: 'Customer' },
-  url: '/backend/customers/people/rec-123',
+  url: '/backend/customers/people-v2/rec-123',
 })
 
 // Bulk index multiple records
@@ -218,9 +218,9 @@ curl -X GET "https://your-app.com/api/search?q=john%20doe&limit=20" \
         "subtitle": "Customer",
         "icon": "user"
       },
-      "url": "/backend/customers/people/rec-123",
+      "url": "/backend/customers/people-v2/rec-123",
       "links": [
-        { "label": "View", "url": "/backend/customers/people/rec-123" }
+        { "label": "View", "url": "/backend/customers/people-v2/rec-123" }
       ]
     }
   ],

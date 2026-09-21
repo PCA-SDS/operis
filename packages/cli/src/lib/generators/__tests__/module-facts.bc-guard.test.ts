@@ -167,7 +167,7 @@ describe('module-facts BC resolve guard (T2)', () => {
     //
     // What says this is growth and not the blow-up this file exists to catch is
     // the delta assertion below. The extraction SHAPE is unchanged; there are
-    // simply more modules in the repo.
+    // simply more real module surfaces in the repo.
     //
     // JSON cap raised by the `email` module: tenant-owned templates, accounting
     // defaults, ACL, routes, backend pages and search add ordinary linear module
@@ -189,8 +189,27 @@ describe('module-facts BC resolve guard (T2)', () => {
     // caused by this module — but the next module of any real size will trip it,
     // and whoever hits it should work out whether the delta is growing linearly
     // (raise it) or the extraction shape has changed (do not).
+    //
+    // The seat-planner/resource-assignment API surface also contributes real
+    // appointment draft/confirm routes, a resource assignment route, ACL
+    // features, and entity facts.
+    //
+    // DELTA cap raised once, by `chat_tasks` (the chat-to-tasks integration: 8 API
+    // routes, 2 entities, 2 events, 6 extension hosts, 7 injection widgets, 1 page).
+    // It took the delta to 1,812,369 — 37,419 bytes for a module of that size, which
+    // is the same per-module scale `chat_matrix` cost and squarely linear. This cap is
+    // here to catch the MULTIPLICATIVE blow-up (a per-module cost that grows with the
+    // number of modules), and a linear step is exactly what it is meant to tolerate,
+    // so the cap moves rather than the extraction shape.
+    //
+    // MEASURED 2026-09-14: delta 1,812,369. Raised to 1,900,000 for real headroom
+    // rather than another hairline pass — the previous limit left 25KB, which one
+    // ordinary module was always going to cross.
+    //
+    // ⚠️ If a future module takes the delta up by a multiple rather than by tens of
+    // kilobytes, do NOT raise this: that is the regression the assertion exists for.
     expect(Buffer.byteLength(completeJson)).toBeLessThan(4_300_000)
-    expect(Buffer.byteLength(completeJson) - Buffer.byteLength(legacyJson)).toBeLessThan(1_800_000)
+    expect(Buffer.byteLength(completeJson) - Buffer.byteLength(legacyJson)).toBeLessThan(1_900_000)
     // Markdown cap raised with the source-link contract: entities, events, ACL
     // features, DI tokens, search entities, notifications, UMES hosts and UMES
     // contributions all render a resolved Source cell, and contribution

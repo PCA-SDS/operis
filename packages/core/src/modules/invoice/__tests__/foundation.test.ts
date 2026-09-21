@@ -27,6 +27,7 @@ import type { InvoiceExchangeRatesService } from '../services/exchange-rates-ser
 import type { InvoiceCompanyLookupService } from '../services/company-lookup-service'
 import type { InvoiceAutoPaidService } from '../services/auto-paid-service'
 import type { InvoiceService } from '../services/invoice-service'
+import type { InvoicePaymentConfirmationsService } from '../services/payment-confirmations-service'
 
 const MODULE_ROOT = join(__dirname, '..')
 const MIGRATION_SOURCE = readFileSync(
@@ -94,6 +95,7 @@ describe('invoice module foundation', () => {
       'encryption.ts',
       join('commands', 'auto-paid.ts'),
       join('commands', 'invoices.ts'),
+      join('commands', 'payment-confirmations.ts'),
       join('api', 'openapi.ts'),
       join('api', 'company-lookup', '[identifier]', 'route.ts'),
       join('api', 'partners', 'route.ts'),
@@ -110,6 +112,7 @@ describe('invoice module foundation', () => {
       join('services', 'company-lookup-service.ts'),
       join('services', 'exchange-rates-service.ts'),
       join('services', 'invoice-service.ts'),
+      join('services', 'payment-confirmations-service.ts'),
     ]) {
       expect(existsSync(join(MODULE_ROOT, relativePath))).toBe(true)
     }
@@ -177,6 +180,10 @@ describe('invoice module foundation', () => {
     expect(typeof invoiceService.updateManualInvoice).toBe('function')
     expect(typeof invoiceService.deleteManualInvoice).toBe('function')
 
+    const paymentConfirmationsService = container.resolve<InvoicePaymentConfirmationsService>(
+      'invoicePaymentConfirmationsService',
+    )
+    expect(typeof paymentConfirmationsService.request).toBe('function')
     // sendInvoice records the recipient only `if (this.companyEmailsService)`, so a
     // factory or DI signature that quietly drops the argument turns Company Email
     // Memory into a silent no-op that every unit test still passes — the tests
@@ -241,6 +248,33 @@ describe('invoice module foundation', () => {
     expect(MIGRATION_SOURCE).toContain(
       'create unique index "invoice_invoices_email_tracking_hash_unique_idx" on "invoice_invoices" ("email_tracking_token_hash") where email_tracking_token_hash is not null and deleted_at is null',
     )
+  })
+
+  it('declares the PENDING-confirmation partial indexes on the entity, not only in the migration', () => {
+    // A partial index has no `@Unique` equivalent, so it can only be expressed as a raw
+    // `expression`. Declaring it in the migration ALONE leaves it invisible to the ORM
+    // snapshot, and `yarn db:generate` then proposes DROPPING both on every run — output that,
+    // once committed, silently removes "at most one PENDING confirmation per invoice" and
+    // re-opens the double-token race `findIncoming` cannot recover from.
+    //
+    // This pins both halves and that they agree, so the entity and the migration cannot drift
+    // apart again without failing here first.
+    const pendingUniqueMigration = readFileSync(
+      join(MODULE_ROOT, 'migrations', 'Migration20260916120000_invoice_payment_confirmation_pending_unique.ts'),
+      'utf8',
+    )
+
+    const indexes = [
+      'create unique index "invoice_payment_confirmations_pending_installment_uq" on "invoice_payment_confirmations" ("invoice_id", "installment_id") where "status" = \'PENDING\' and "installment_id" is not null',
+      'create unique index "invoice_payment_confirmations_pending_invoice_uq" on "invoice_payment_confirmations" ("invoice_id") where "status" = \'PENDING\' and "installment_id" is null',
+    ]
+
+    for (const index of indexes) {
+      expect(ENTITY_SOURCE).toContain(index)
+      // The migration is idempotent so a re-run on an existing database is a no-op; the entity
+      // expression cannot be, because MikroORM compares it verbatim against the snapshot.
+      expect(pendingUniqueMigration).toContain(index.replace('create unique index ', 'create unique index if not exists '))
+    }
   })
 
   it('pins key invoice migration constraints and FK behavior', () => {

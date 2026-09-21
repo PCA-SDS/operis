@@ -138,8 +138,7 @@ const crud = makeCrudRoute<WebhookCreateInput, WebhookUpdateInput, z.infer<typeo
       const { translate } = await resolveTranslations()
       if (!auth?.tenantId) throw json({ error: translate('webhooks.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
 
-      const page = Math.max(parseInt(query.page ?? '1', 10) || 1, 1)
-      const pageSize = Math.min(Math.max(parseInt(query.pageSize ?? '20', 10) || 20, 1), 100)
+      const { page, pageSize } = query
       const search = (query.search ?? '').trim().toLowerCase()
 
       const organizationIds = Array.isArray(ctx.organizationIds) ? ctx.organizationIds : null

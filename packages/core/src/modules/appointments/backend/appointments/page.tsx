@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Settings, Eye, Edit, Copy, LayoutPanelTop, Trash2 } from 'lucide-react'
+import { CalendarCheck, Check, ListFilter, Settings, Eye, Edit, Copy, LayoutPanelTop, Trash2 } from 'lucide-react'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
@@ -13,15 +13,20 @@ import { deleteCrud } from '@open-mercato/ui/backend/utils/crud'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
+import { emitOrganizationScopeChanged } from '@open-mercato/shared/lib/frontend/organizationEvents'
+import { useOrganizationScopeDetail, useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { buildHrefWithReturnTo } from '@open-mercato/shared/lib/navigation/returnTo'
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
+import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
+import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { AppointmentContactCell } from '../../components/AppointmentContactCell'
 import { AppointmentNotesCell } from '../../components/AppointmentNotesCell'
 import { AppointmentStatusSelect } from '../../components/AppointmentStatusSelect'
 import { AppointmentUrgencyCell } from '../../components/AppointmentUrgencyCell'
 import { AppointmentArrivalInfo } from '../../components/AppointmentArrivalInfo'
+import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
+import { AppointmentStatusBadge } from '../../components/AppointmentStatusBadge'
 import { APPOINTMENT_BOOKING_TYPE_OPTIONS } from '../../data/constants'
 import { formatCustomerDisplayName } from '../../lib/customerName'
 import { formatCustomerPhone } from '../../lib/phoneSnapshot'
@@ -42,11 +47,16 @@ type Row = {
   externalNotes: string | null
   createdAt: string
   updatedAt: string
+  totalAmount: number | null
+  currencyCode: string | null
+  scheduleConfirmationStatus: 'confirmed' | 'unconfirmed' | 'not_applicable'
 }
 
 type ListPayload = { items: Row[] }
 
 type StatusOption = { code: string; label: string }
+
+const APPOINTMENTS_SYNC_INTERVAL_MS = 5_000
 
 function parseRequestedAt(value: string): Date | null {
   try {
@@ -76,6 +86,109 @@ function formatBookingType(value: string | null | undefined, emptyLabel: string)
   return label ?? value
 }
 
+function formatTotal(amount: number | null, currencyCode: string | null, emptyLabel: string) {
+  if (amount === null || !Number.isFinite(amount)) return emptyLabel
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currencyCode || 'VND',
+      maximumFractionDigits: 0,
+    }).format(amount)
+  } catch {
+    return `${amount.toLocaleString()} ${currencyCode ?? ''}`.trim()
+  }
+}
+
+function ScheduleBadge({ status, t }: { status: Row['scheduleConfirmationStatus']; t: ReturnType<typeof useT> }) {
+  const isConfirmed = status === 'confirmed'
+  const isUnconfirmed = status === 'unconfirmed'
+  if (!isConfirmed && !isUnconfirmed) {
+    return <StatusBadge variant="neutral">{t('appointments.list.schedule.notApplicable', 'Not tracked')}</StatusBadge>
+  }
+  return (
+    <StatusBadge variant={isConfirmed ? 'success' : 'warning'} dot>
+      <span className="inline-flex items-center gap-1">
+        <CalendarCheck className="size-3.5" />
+        {isConfirmed
+          ? t('appointments.list.schedule.confirmed', 'Confirmed')
+          : t('appointments.list.schedule.unconfirmed', 'Unconfirmed')}
+      </span>
+    </StatusBadge>
+  )
+}
+
+function StatusFilterButton({
+  options,
+  selectedCodes,
+  onChange,
+  t,
+}: {
+  options: StatusOption[]
+  selectedCodes: Set<string>
+  onChange: (codes: string[]) => void
+  t: ReturnType<typeof useT>
+}) {
+  const [open, setOpen] = React.useState(false)
+  const [localSelectedCodes, setLocalSelectedCodes] = React.useState(() => new Set(selectedCodes))
+  const preserveTableScroll = React.useCallback((update: () => void) => {
+    const scrollport = document.querySelector<HTMLElement>('[data-table-scrollport]')
+    const scrollLeft = scrollport?.scrollLeft
+    update()
+    if (!scrollport || scrollLeft === undefined) return
+    window.requestAnimationFrame(() => {
+      scrollport.scrollLeft = scrollLeft
+      window.requestAnimationFrame(() => {
+        scrollport.scrollLeft = scrollLeft
+      })
+    })
+  }, [])
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="gap-2 border-dashed"
+          aria-label={t('appointments.list.filters.status', 'Status')}
+          onPointerDown={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <ListFilter className="size-4" />
+          {t('appointments.list.filters.status', 'Status')}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent side="bottom" align="end" className="z-popover max-h-96 w-72 overflow-y-auto p-2">
+        {options.length === 0 ? <p className="px-2 py-3 text-sm text-muted-foreground">{t('appointments.list.filters.noStatuses', 'No statuses available')}</p> : options.map((option) => {
+          const checked = localSelectedCodes.has(option.code)
+          return (
+            <button
+              key={option.code}
+              type="button"
+              className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-muted"
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={() => {
+                const next = new Set(localSelectedCodes)
+                if (checked) next.delete(option.code)
+                else next.add(option.code)
+                preserveTableScroll(() => {
+                  setLocalSelectedCodes(next)
+                  onChange(Array.from(next))
+                })
+              }}
+            >
+              <span className="flex size-5 items-center justify-center rounded border border-input">
+                {checked ? <Check className="size-4 text-primary" /> : null}
+              </span>
+              <AppointmentStatusBadge statusCode={option.code} label={option.label} dot={false} />
+            </button>
+          )
+        })}
+        {localSelectedCodes.size > 0 ? <Button type="button" variant="ghost" size="sm" className="mt-1 w-full" onClick={() => preserveTableScroll(() => { setLocalSelectedCodes(new Set()); onChange([]) })}>{t('appointments.list.filters.clearStatus', 'Clear status')}</Button> : null}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 function matchesSearch(row: Row, query: string, statusLabel: string | undefined): boolean {
   const needle = query.trim().toLowerCase()
   if (!needle) return true
@@ -103,12 +216,36 @@ export default function AppointmentsListPage() {
   const t = useT()
   const pathname = usePathname()
   const scopeVersion = useOrganizationScopeVersion()
+  const { tenantId: scopeTenantId } = useOrganizationScopeDetail()
   const [rows, setRows] = React.useState<Row[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [search, setSearch] = React.useState('')
+  const [page, setPage] = React.useState(1)
+  const [pageSize, setPageSize] = React.useState(10)
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
+  const [selectedStatusCodes, setSelectedStatusCodes] = React.useState<Set<string>>(() => new Set())
   const [reloadToken, setReloadToken] = React.useState(0)
   const [statusOptions, setStatusOptions] = React.useState<{ code: string; label: string }[]>([])
+  const hasLoadedAppointmentsRef = React.useRef(false)
+
+  useAppEvent('appointments.appointment.*', () => {
+    setReloadToken((value) => value + 1)
+  }, [])
+
+  React.useEffect(() => {
+    const interval = window.setInterval(() => {
+      setReloadToken((value) => value + 1)
+    }, APPOINTMENTS_SYNC_INTERVAL_MS)
+    return () => window.clearInterval(interval)
+  }, [])
+
+  const prepareSeatPlannerScope = React.useCallback((organizationId: string) => {
+    const normalizedOrganizationId = organizationId.trim()
+    if (!normalizedOrganizationId || typeof document === 'undefined') return
+
+    document.cookie = `om_selected_org=${encodeURIComponent(normalizedOrganizationId)}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`
+    emitOrganizationScopeChanged({ organizationId: normalizedOrganizationId, tenantId: scopeTenantId ?? null })
+  }, [scopeTenantId])
 
   const statusesSettingsHref = React.useMemo(
     () => buildHrefWithReturnTo('/backend/config/appointments', pathname || '/backend/appointments'),
@@ -132,10 +269,8 @@ export default function AppointmentsListPage() {
             label: item.label,
           })),
         )
-      } catch (err) {
-        if (!cancelled) {
-          console.error(err)
-        }
+      } catch {
+        if (cancelled || controller.signal.aborted) return
       }
     }
     void loadStatuses()
@@ -146,26 +281,15 @@ export default function AppointmentsListPage() {
   }, [scopeVersion])
 
   const filters = React.useMemo<FilterDef[]>(
-    () => [
-      {
-        id: 'statusCode',
-        label: t('appointments.list.filters.status'),
-        type: 'select',
-        multiple: true,
-        options: statusOptions.map((option) => ({
-          value: option.code,
-          label: option.label,
-        })),
-      },
-    ],
-    [t, statusOptions],
+    () => [],
+    [],
   )
 
   React.useEffect(() => {
     let cancelled = false
     const controller = new AbortController()
     async function load() {
-      setIsLoading(true)
+      if (!hasLoadedAppointmentsRef.current) setIsLoading(true)
       try {
         const call = await apiCall<ListPayload>(
           '/api/appointments',
@@ -185,6 +309,7 @@ export default function AppointmentsListPage() {
         }
         if (!cancelled) {
           setRows(Array.isArray(call.result?.items) ? call.result.items : [])
+          hasLoadedAppointmentsRef.current = true
         }
       } catch (error) {
         if (!cancelled) {
@@ -194,7 +319,10 @@ export default function AppointmentsListPage() {
           )
         }
       } finally {
-        if (!cancelled) setIsLoading(false)
+        if (!cancelled) {
+          hasLoadedAppointmentsRef.current = true
+          setIsLoading(false)
+        }
       }
     }
     void load()
@@ -202,7 +330,7 @@ export default function AppointmentsListPage() {
       cancelled = true
       controller.abort()
     }
-  }, [scopeVersion, t])
+  }, [reloadToken, scopeVersion, t])
 
   const { ConfirmDialogElement, confirm } = useConfirmDialog()
 
@@ -264,13 +392,6 @@ export default function AppointmentsListPage() {
     return map
   }, [statusOptions])
 
-  const selectedStatusCodes = React.useMemo(() => {
-    const raw = filterValues.statusCode
-    if (Array.isArray(raw)) return new Set(raw.filter((item): item is string => typeof item === 'string'))
-    if (typeof raw === 'string' && raw.trim()) return new Set([raw.trim()])
-    return new Set<string>()
-  }, [filterValues.statusCode])
-
   const visibleRows = React.useMemo(
     () =>
       rows.filter(
@@ -280,6 +401,16 @@ export default function AppointmentsListPage() {
       ),
     [rows, search, selectedStatusCodes, statusLabelByCode],
   )
+  const totalPages = Math.ceil(visibleRows.length / pageSize)
+  const currentPage = totalPages === 0 ? 1 : Math.min(page, totalPages)
+  const paginatedRows = React.useMemo(
+    () => visibleRows.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [currentPage, pageSize, visibleRows],
+  )
+
+  React.useEffect(() => {
+    if (page !== currentPage) setPage(currentPage)
+  }, [currentPage, page])
 
   const columns = React.useMemo<ColumnDef<Row>[]>(
     () => [
@@ -292,12 +423,19 @@ export default function AppointmentsListPage() {
         size: 140,
         cell: ({ row }) => (
           <div className="flex justify-center">
-            <AppointmentUrgencyCell
-              createdAt={row.original.createdAt}
-              statusCode={row.original.statusCode}
-            />
+              <AppointmentUrgencyCell
+                createdAt={row.original.createdAt}
+                statusCode={row.original.statusCode}
+                isPinned={row.original.scheduleConfirmationStatus === 'unconfirmed'}
+              />
           </div>
         ),
+      },
+      {
+        id: 'total',
+        accessorKey: 'totalAmount',
+        header: t('appointments.list.columns.total', 'Total'),
+        cell: ({ row }) => formatTotal(row.original.totalAmount, row.original.currencyCode, t('appointments.list.noValue')),
       },
       {
         id: 'bookingDate',
@@ -390,9 +528,26 @@ export default function AppointmentsListPage() {
         ),
       },
       {
+        id: 'schedule',
+        accessorKey: 'statusCode',
+        header: t('appointments.list.columns.schedule', 'Schedule'),
+        meta: { truncate: false },
+        cell: ({ row }) => <ScheduleBadge status={row.original.scheduleConfirmationStatus} t={t} />,
+      },
+      {
         id: 'statusCode',
         accessorKey: 'statusCode',
-        header: t('appointments.list.columns.status'),
+        header: () => (
+          <StatusFilterButton
+            options={statusOptions}
+            selectedCodes={selectedStatusCodes}
+            onChange={(codes) => {
+              setSelectedStatusCodes(new Set(codes))
+              setPage(1)
+            }}
+            t={t}
+          />
+        ),
         meta: { truncate: false },
         cell: ({ row }) => (
           <AppointmentStatusSelect
@@ -422,8 +577,13 @@ export default function AppointmentsListPage() {
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.clone', 'Clone Booking')} onClick={() => void handleClone(row.original)}>
               <Copy className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.planner', 'Open Seat Planner')} disabled>
-              <LayoutPanelTop className="h-3.5 w-3.5" />
+            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.planner', 'Open Seat Planner')}>
+              <Link
+                href={`/backend/appointments/${row.original.id}/seat-planner`}
+                onClick={() => prepareSeatPlannerScope(row.original.organizationId)}
+              >
+                <LayoutPanelTop className="h-3.5 w-3.5" />
+              </Link>
             </Button>
             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" title={t('appointments.list.actions.delete', 'Delete Booking')} onClick={() => void handleDelete(row.original)}>
               <Trash2 className="h-3.5 w-3.5" />
@@ -432,7 +592,7 @@ export default function AppointmentsListPage() {
         ),
       },
     ],
-    [t, statusOptions, handleRowStatusChange, handleClone, handleDelete],
+    [handleClone, handleDelete, handleRowStatusChange, prepareSeatPlannerScope, statusOptions, t],
   )
 
   return (
@@ -442,6 +602,11 @@ export default function AppointmentsListPage() {
           title={t('appointments.list.title')}
           actions={
             <div className="flex flex-wrap items-center gap-2">
+              <Button asChild variant="outline">
+                <Link href="/backend/appointments/booking-overview">
+                  {t('appointments.list.actions.overview', 'Booking Overview')}
+                </Link>
+              </Button>
               <Button asChild variant="outline">
                 <Link href={statusesSettingsHref}>
                   <Settings className="size-4" aria-hidden="true" />
@@ -456,15 +621,29 @@ export default function AppointmentsListPage() {
             </div>
           }
           columns={columns}
-          data={visibleRows}
+          data={paginatedRows}
+          pagination={{
+            page: currentPage,
+            pageSize,
+            total: visibleRows.length,
+            totalPages,
+            onPageChange: setPage,
+            pageSizeOptions: [10, 25, 50, 100],
+            onPageSizeChange: (nextPageSize) => {
+              setPageSize(nextPageSize)
+              setPage(1)
+            },
+          }}
           filters={filters}
           filterValues={filterValues}
           onFiltersApply={(values) => setFilterValues(values)}
           onFiltersClear={() => setFilterValues({})}
           searchValue={search}
-          onSearchChange={setSearch}
-          searchPlaceholder={t('appointments.list.search.placeholder', 'Search appointments…')}
-          perspective={{ tableId: 'appointments.list.v5' }}
+          onSearchChange={(value) => {
+            setSearch(value)
+            setPage(1)
+          }}
+          searchPlaceholder={t('appointments.list.search.placeholder', 'Search bookings…')}
           isLoading={isLoading}
         />
         {ConfirmDialogElement}

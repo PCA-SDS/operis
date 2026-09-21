@@ -1,9 +1,11 @@
 import type { ModuleEncryptionMap } from '@open-mercato/shared/modules/encryption'
 
 export const INVOICE_COMPANY_REGISTRY_ENTITY_ID = 'invoice:invoice_company_registry'
+export const INVOICE_GDT_CACHE_ENTITY_ID = 'invoice:gdt_cache'
 export const INVOICE_COMPANY_REGISTRY_PAYLOAD_FIELD = 'payload'
 
 export const defaultEncryptionMaps: ModuleEncryptionMap[] = [
+  { entityId: INVOICE_GDT_CACHE_ENTITY_ID, fields: [{ field: 'token' }, { field: 'captchaKey' }] },
   {
     entityId: INVOICE_COMPANY_REGISTRY_ENTITY_ID,
     fields: [{ field: INVOICE_COMPANY_REGISTRY_PAYLOAD_FIELD }],

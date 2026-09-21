@@ -36,6 +36,11 @@ const appointmentLinesSchema = z
   .min(1)
   .max(20)
 
+export const appointmentLineAddSchema = z.object({
+  productId: uuid(),
+  selectedOptions: z.record(z.string(), z.unknown()).optional(),
+})
+
 const appointmentCreateFieldsSchema = z.object({
   requestedStartAt: z.string().datetime({ offset: true }),
   notes: clearableString(2000),
@@ -50,9 +55,20 @@ export const appointmentPublicCreateSchema = appointmentCreateFieldsSchema.exten
   organizationId: uuid(),
 })
 
+export const appointmentPublicCustomerLookupSchema = z.object({
+  tenantId: uuid(),
+  phone: z.string().trim().min(1).max(50),
+  email: z.string().trim().email().max(255),
+  phoneCountryCode: clearableString(8),
+  phoneCountry: clearableString(120),
+})
+
 /** Staff create: tenant from auth; organization from body or auth org. */
 export const appointmentStaffCreateSchema = appointmentCreateFieldsSchema.extend({
   organizationId: uuid().optional(),
+  statusCode: z.string().trim().min(1).max(64).optional(),
+  updateCustomerProfile: z.boolean().optional().default(false),
+  customerUpdatedAt: z.string().datetime({ offset: true }).optional(),
 })
 
 export const appointmentStatusUpdateSchema = z.object({
@@ -63,16 +79,21 @@ export const appointmentStatusCatalogCreateSchema = z.object({
   label: z.string().trim().min(1).max(120),
   code: z.string().trim().min(1).max(64).optional(),
   description: clearableString(500),
+  backgroundColor: clearableString(64),
+  textColor: clearableString(64),
   sortOrder: z.number().int().min(0).max(10_000).optional(),
 })
 
 export const appointmentStatusCatalogUpdateSchema = z.object({
   label: z.string().trim().min(1).max(120).optional(),
   description: clearableString(500),
+  backgroundColor: clearableString(64),
+  textColor: clearableString(64),
   sortOrder: z.number().int().min(0).max(10_000).optional(),
 })
 
 export type AppointmentPublicCreateInput = z.infer<typeof appointmentPublicCreateSchema>
+export type AppointmentPublicCustomerLookupInput = z.infer<typeof appointmentPublicCustomerLookupSchema>
 export type AppointmentStaffCreateInput = z.infer<typeof appointmentStaffCreateSchema>
 export type AppointmentStatusUpdateInput = z.infer<typeof appointmentStatusUpdateSchema>
 export type AppointmentStatusCatalogCreateInput = z.infer<typeof appointmentStatusCatalogCreateSchema>

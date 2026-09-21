@@ -10,6 +10,8 @@ import { withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiC
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { Input } from '@open-mercato/ui/primitives/input'
+import { Loader2, Search, UserRound, X } from 'lucide-react'
 import {
   PhoneNumberField,
   PHONE_COUNTRIES,
@@ -49,6 +51,8 @@ type FormValues = {
   time: string
   notes: string
   externalNotes: string
+  updateCustomerProfile: boolean
+  customerUpdatedAt: string | null
   serviceSelections: { productId: string, selectedOptions?: Record<string, unknown> }[]
 }
 
@@ -61,6 +65,17 @@ type CheckCustomer = {
   phoneCountryCode: string | null
   source: string | null
   origin: string | null
+}
+
+type CustomerSearchResult = {
+  id: string
+  displayName: string
+  primaryEmail: string | null
+  primaryPhone: string | null
+  phoneCountryCode: string | null
+  salutation: string | null
+  origin: string | null
+  source: string | null
 }
 
 type OrgSwitcherNode = {
@@ -130,7 +145,15 @@ function normalizeTimeValue(raw: string | null | undefined): string | null {
   return `${match[1]}:${match[2]}`
 }
 
-export default function AppointmentEditPage({ params }: { params?: { id?: string | string[] } }) {
+export function AppointmentEditForm({
+  params,
+  embedded = false,
+  onSaved,
+}: {
+  params?: { id?: string | string[] }
+  embedded?: boolean
+  onSaved?: () => Promise<void> | void
+}) {
   const appointmentId = typeof params?.id === 'string' ? params.id : (Array.isArray(params?.id) ? params.id[0] : '')
   const t = useT()
   const router = useRouter()
@@ -144,9 +167,46 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
   const [servicesLoading, setServicesLoading] = React.useState(false)
   const [servicesError, setServicesError] = React.useState<string | null>(null)
   const [lookupLoading, setLookupLoading] = React.useState(false)
+  const [customerSearch, setCustomerSearch] = React.useState('')
+  const [customerSearchResults, setCustomerSearchResults] = React.useState<CustomerSearchResult[]>([])
+  const [customerSearchOpen, setCustomerSearchOpen] = React.useState(false)
+  const [customerSearchLoading, setCustomerSearchLoading] = React.useState(false)
   const { runMutation } = useGuardedMutation({
     contextId: 'appointments.update',
   })
+
+  React.useEffect(() => {
+    const query = customerSearch.trim().slice(0, 64)
+    setCustomerSearchResults([])
+    if (!customerSearchOpen || query.length < 2) {
+      setCustomerSearchLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+    setCustomerSearchLoading(true)
+    const timeout = window.setTimeout(() => {
+      const params = new URLSearchParams({ search: query })
+      void apiCall<{ items?: CustomerSearchResult[] }>(
+        `/api/appointments/customer-search?${params.toString()}`,
+        { signal: controller.signal },
+        { fallback: null },
+      ).then((call) => {
+        if (controller.signal.aborted) return
+        setCustomerSearchResults(call.ok && Array.isArray(call.result?.items) ? call.result.items : [])
+        setCustomerSearchLoading(false)
+      }).catch(() => {
+        if (controller.signal.aborted) return
+        setCustomerSearchResults([])
+        setCustomerSearchLoading(false)
+      })
+    }, 350)
+
+    return () => {
+      window.clearTimeout(timeout)
+      controller.abort()
+    }
+  }, [customerSearch, customerSearchOpen])
 
   React.useEffect(() => {
     let cancelled = false
@@ -175,7 +235,9 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
           null
         setLocationId(preferred)
       } catch (err) {
-        if (!cancelled) console.error(err)
+        if (!(err instanceof DOMException && err.name === 'AbortError') && !cancelled) {
+          flash(t('appointments.locations.loadFailed', 'Unable to load locations. Reload the page to try again.'), 'error')
+        }
       } finally {
         if (!cancelled) setLocationsLoading(false)
       }
@@ -191,7 +253,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
     let cancelled = false
     const controller = new AbortController()
     async function loadServices() {
-      if (!tenantId) {
+      if (!tenantId || !locationId) {
         setServices([])
         setServicesError(null)
         setServicesLoading(false)
@@ -202,6 +264,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
       try {
         const params = new URLSearchParams({
           tenantId,
+          organizationId: locationId,
         })
         const call = await apiCall<{ items?: BookableService[]; error?: string }>(
           `/api/catalog/bookable-services?${params.toString()}`,
@@ -233,7 +296,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
       cancelled = true
       controller.abort()
     }
-  }, [tenantId, t])
+  }, [locationId, tenantId, t])
 
   React.useEffect(() => {
     let cancelled = false
@@ -245,7 +308,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
         const call = await apiCall<any>(`/api/appointments/${appointmentId}`, { signal: controller.signal }, { fallback: null })
         if (cancelled) return
         if (!call.ok || !call.result) {
-          router.push('/backend/appointments')
+          if (!embedded) router.push('/backend/appointments')
           return
         }
         const data = call.result
@@ -265,6 +328,8 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
           name: data.customerName || '',
           origin: data.customerOrigin || '',
           referral: data.customerSource || '',
+          updateCustomerProfile: false,
+          customerUpdatedAt: data.customerUpdatedAt || null,
           location: data.organizationId || '',
           bookingType: data.bookingType || '',
           date: `${year}-${month}-${day}`,
@@ -282,7 +347,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
         // on "Loading..." forever, because initialData stays null and nothing
         // tells the user why.
         flash(t('appointments.edit.loadFailed', 'Unable to load this appointment.'), 'error')
-        router.push('/backend/appointments')
+        if (!embedded) router.push('/backend/appointments')
       } finally {
         if (!cancelled) setDataLoading(false)
       }
@@ -292,7 +357,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
       cancelled = true
       controller.abort()
     }
-  }, [appointmentId, router, t])
+  }, [appointmentId, embedded, router, t])
 
   const lookupCustomer = React.useCallback(
     async (
@@ -361,6 +426,104 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
 
   const fields = React.useMemo<CrudField[]>(
     () => [
+      {
+        id: 'customerSearch',
+        label: t('appointments.edit.customerSearch.label', 'Find returning customer'),
+        type: 'custom',
+        component: ({ setFormValue }) => (
+          <div className="space-y-2">
+            <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-3 size-4 text-muted-foreground" />
+            <Input
+              value={customerSearch}
+              onFocus={() => setCustomerSearchOpen(true)}
+              onChange={(event) => {
+                setCustomerSearch(event.target.value.slice(0, 64))
+                setCustomerSearchOpen(true)
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') setCustomerSearchOpen(false)
+              }}
+              placeholder={t('appointments.edit.customerSearch.placeholder', 'Type customer name or phone to search...')}
+              autoComplete="off"
+              className="pl-9 pr-10"
+            />
+            {customerSearchLoading ? (
+              <Loader2 className="absolute right-3 top-3 size-4 animate-spin text-muted-foreground" />
+            ) : customerSearch ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1 size-7"
+                aria-label={t('appointments.edit.customerSearch.clear', 'Clear customer search')}
+                onClick={() => {
+                  setCustomerSearch('')
+                  setCustomerSearchResults([])
+                  setCustomerSearchOpen(false)
+                }}
+              >
+                <X className="size-4" />
+              </Button>
+            ) : null}
+            {customerSearchOpen && customerSearch.trim() ? (
+              <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-lg">
+                <div className="max-h-72 overflow-y-auto p-1">
+                  {customerSearch.trim().length < 2 ? (
+                    <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                      {t('appointments.edit.customerSearch.minimum', 'Type at least 2 characters to search.')}
+                    </div>
+                  ) : customerSearchLoading && customerSearchResults.length === 0 ? (
+                    <div className="px-3 py-3 text-sm text-muted-foreground">
+                      {t('appointments.edit.customerSearch.loading', 'Searching customers...')}
+                    </div>
+                  ) : customerSearchResults.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                      {t('appointments.edit.customerSearch.empty', 'No customers found.')}
+                    </div>
+                  ) : customerSearchResults.map((customer) => (
+                    <button
+                      key={customer.id}
+                      type="button"
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-accent"
+                      onClick={() => {
+                        if (!setFormValue) return
+                        const phone = customer.primaryPhone?.trim() ?? ''
+                        const dialCode = customer.phoneCountryCode?.trim() ?? ''
+                        setFormValue('phone', phone ? (phone.startsWith('+') || !dialCode ? phone : `${dialCode} ${phone}`) : '')
+                        setFormValue('email', customer.primaryEmail ?? '')
+                        setFormValue('name', customer.displayName ?? '')
+                        setFormValue('salutation', customer.salutation ?? 'None')
+                        const matchingOrigin = APPOINTMENT_ORIGIN_OPTIONS.find((option) => option.value === customer.origin)
+                        if (matchingOrigin) setFormValue('origin', matchingOrigin.value)
+                        setFormValue('referral', customer.source ?? '')
+                        setCustomerSearch('')
+                        setCustomerSearchResults([])
+                        setCustomerSearchOpen(false)
+                        flash(t('appointments.edit.customerSearch.selected', 'Customer details filled in.'), 'success')
+                      }}
+                    >
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <UserRound className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">{customer.displayName || t('appointments.edit.customerSearch.unnamed', 'Unnamed customer')}</span>
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          {[customer.phoneCountryCode, customer.primaryPhone, customer.primaryEmail].filter(Boolean).join(' · ')}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t('appointments.edit.customerSearch.hint', 'Search by customer name or phone. Suggestions load automatically after you stop typing.')}
+            </p>
+          </div>
+        ),
+      },
       {
         id: 'phone',
         label: t('appointments.create.field.phone'),
@@ -461,6 +624,15 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
             showManage
             showActiveAppearance={false}
           />
+        ),
+      },
+      {
+        id: 'updateCustomerProfile',
+        label: t('appointments.edit.updateCustomerProfile', 'Update customer profile too'),
+        type: 'checkbox',
+        description: t(
+          'appointments.edit.updateCustomerProfileHint',
+          'Also update the shared customer profile with these details.',
         ),
       },
       {
@@ -601,6 +773,10 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
     ],
     [
       t,
+      customerSearch,
+      customerSearchOpen,
+      customerSearchLoading,
+      customerSearchResults,
       services,
       servicesLoading,
       servicesError,
@@ -619,7 +795,7 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
         id: 'customer',
         title: t('appointments.create.group.customer'),
         column: 1,
-        fields: ['phone', 'salutation', 'name', 'email', 'origin', 'referral'],
+        fields: ['customerSearch', 'phone', 'salutation', 'name', 'email', 'origin', 'referral', 'updateCustomerProfile'],
       },
       {
         id: 'visit',
@@ -638,6 +814,9 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
   )
 
   if (dataLoading || !initialData) {
+    if (embedded) {
+      return <div className="flex min-h-64 items-center justify-center text-muted-foreground">{t('common.loading', 'Loading…')}</div>
+    }
     return (
       <Page>
         <PageBody>
@@ -649,15 +828,14 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
     )
   }
 
-  return (
-    <Page>
-      <PageBody>
-        <CrudForm<FormValues>
+  const form = (
+    <CrudForm<FormValues>
           title={t('appointments.edit.title', 'Edit appointment')}
           backHref="/backend/appointments"
           fields={fields}
           groups={groups}
           initialValues={initialData}
+          embedded={embedded}
           submitLabel={t('common.save', 'Save')}
           cancelHref="/backend/appointments"
           onSubmit={async (values) => {
@@ -718,6 +896,10 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
                       notes: values.notes.trim() || null,
                       externalNotes: values.externalNotes.trim() || null,
                       bookingType: values.bookingType,
+                      updateCustomerProfile: values.updateCustomerProfile === true,
+                      ...(values.updateCustomerProfile && values.customerUpdatedAt
+                        ? { customerUpdatedAt: values.customerUpdatedAt }
+                        : {}),
                       customer: {
                         firstName,
                         lastName,
@@ -750,6 +932,10 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
               context: {},
             })
             flash(t('appointments.update.success', 'Appointment updated'), 'success')
+            if (embedded) {
+              await onSaved?.()
+              return
+            }
             if (result?.id) {
               router.push(`/backend/appointments/${result.id}`)
             } else {
@@ -757,7 +943,16 @@ export default function AppointmentEditPage({ params }: { params?: { id?: string
             }
           }}
         />
-      </PageBody>
+  )
+
+  if (embedded) return form
+  return (
+    <Page>
+      <PageBody>{form}</PageBody>
     </Page>
   )
+}
+
+export default function AppointmentEditPage({ params }: { params?: { id?: string | string[] } }) {
+  return <AppointmentEditForm params={params} />
 }

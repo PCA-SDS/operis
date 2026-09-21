@@ -13,7 +13,7 @@ import { buildRecordInjectionContext, useSetCurrentRecordInjectionContext } from
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { extractCustomFieldEntries } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { E } from '#generated/entities.ids.generated'
-import { CategorySelect } from '../../../../../components/categories/CategorySelect'
+import { CategoryTreeSelect } from '../../../../../components/categories/CategoryTreeSelect'
 import { CategorySlugFieldSync } from '../../../../../components/categories/CategorySlugFieldSync'
 import { SendObjectMessageDialog } from '@open-mercato/ui/backend/messages'
 
@@ -167,15 +167,21 @@ export default function EditCatalogCategoryPage({ params }: { params?: { id?: st
       id: 'parentId',
       label: t('catalog.categories.form.field.parent', 'Parent'),
       type: 'custom',
-      component: ({ id, value, setValue }) => (
-        <CategorySelect
-          id={id}
-          value={typeof value === 'string' ? value : null}
-          onChange={(next) => setValue(next ?? '')}
-          includeEmptyOption
-          className="w-full h-9 rounded border px-2 text-sm"
-        />
-      ),
+      component: ({ id, value, setValue }) => {
+        React.useEffect(() => {
+          if (initialValues?.parentId && value !== initialValues.parentId) {
+            setValue(initialValues.parentId)
+          }
+        }, [initialValues?.parentId, value, setValue])
+        return (
+          <CategoryTreeSelect
+            id={id}
+            value={typeof value === 'string' ? value : null}
+            onChange={(next) => setValue(next ?? '')}
+            excludeSubtreeOf={categoryId}
+          />
+        )
+      },
     },
     {
       id: 'isActive',

@@ -11,6 +11,28 @@
     "typecheck": "tsc --noEmit"
   },
   "exports": {
+    "./modules/channel_gmail": {
+      "types": "./src/modules/channel_gmail/index.ts",
+      "default": "./dist/modules/channel_gmail/index.js"
+    },
+    "./modules/channel_gmail/contract": {
+      "types": "./src/modules/channel_gmail/contract.ts",
+      "default": "./dist/modules/channel_gmail/contract.js"
+    },
+    "./modules/channel_gmail/*": null,
+    "./internal/*.json": "./src/*.json",
+    "./internal/*": {
+      "types": [
+        "./src/*.ts",
+        "./src/*.tsx",
+        "./src/*/index.ts",
+        "./src/*/index.tsx"
+      ],
+      "default": [
+        "./dist/*.js",
+        "./dist/*/index.js"
+      ]
+    },
     ".": "./dist/index.js",
     "./*.ts": {
       "types": "./src/*.ts",

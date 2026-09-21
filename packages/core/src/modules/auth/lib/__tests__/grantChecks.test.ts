@@ -231,7 +231,7 @@ describe('listSuperAdminUserIds', () => {
 
     expect(result).toEqual(new Set([targetUserId, 'role-derived-user']))
     expect(em.find).toHaveBeenNthCalledWith(1, UserAcl, expect.objectContaining({ tenantId, isSuperAdmin: true }))
-    expect(em.find).toHaveBeenNthCalledWith(2, RoleAcl, expect.objectContaining({ isSuperAdmin: true }))
+    expect(em.find).toHaveBeenNthCalledWith(2, RoleAcl, expect.objectContaining({ isSuperAdmin: true, tenantId }))
     expect(mockFindWithDecryption).toHaveBeenCalledWith(
       expect.anything(),
       UserRole,

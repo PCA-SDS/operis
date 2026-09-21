@@ -1647,6 +1647,7 @@
   "customers.errors.failed_to_assign_role": "역할을 할당하지 못했습니다",
   "customers.errors.failed_to_delete_role": "역할을 삭제하지 못했습니다",
   "customers.errors.failed_to_load_roles": "역할을 불러오지 못했습니다",
+  "customers.errors.failed_to_unassign_label": "라벨을 해제하지 못했습니다",
   "customers.errors.failed_to_update_role": "역할을 업데이트하지 못했습니다",
   "customers.errors.interaction_required": "상호작용 ID가 필요합니다",
   "customers.errors.internal": "내부 서버 오류",

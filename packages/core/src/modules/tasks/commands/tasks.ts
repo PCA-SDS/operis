@@ -706,6 +706,28 @@ const completeTaskCommand: CommandHandler<TaskCompleteInput, { taskId: string; r
     const em = forkEm(ctx)
 
     const task = await requireTask(em, scope, parsed.id, messages)
+
+    /**
+     * Completion is retryable, and completing twice is not idempotent.
+     *
+     * A recurring task does not become `done` — it advances to its next occurrence
+     * and resets to `pending` — so a second, duplicate completion moves the deadline
+     * again. A double tap, a browser re-sending a timed-out PATCH, or a card that
+     * retries after a reconnect all produce exactly that, and the result is a
+     * silently rescheduled commitment nobody asked to move.
+     *
+     * Strictly additive, like the guard on `update`: a caller that sends no
+     * expected-version header is unaffected, which is every plain API consumer. A
+     * caller that sends one — the chat task card does — gets a 409 on the second
+     * attempt instead of a second advance.
+     */
+    await enforceCommandOptimisticLockWithGuards(ctx.container, {
+      resourceKind: 'tasks.task',
+      resourceId: task.id,
+      current: task.updatedAt,
+      request: ctx.request ?? null,
+    })
+
     const recurring = !!task.recurrenceFreq
 
     if (recurring) {
@@ -792,6 +814,17 @@ const reopenTaskCommand: CommandHandler<TaskReopenInput, { taskId: string }> = {
     const em = forkEm(ctx)
 
     const task = await requireTask(em, scope, parsed.id, messages)
+
+    // The same additive guard as `complete`, for symmetry: a card that can complete
+    // with a version can reopen with one, and a stale reopen should conflict rather
+    // than quietly undo somebody else's newer change.
+    await enforceCommandOptimisticLockWithGuards(ctx.container, {
+      resourceKind: 'tasks.task',
+      resourceId: task.id,
+      current: task.updatedAt,
+      request: ctx.request ?? null,
+    })
+
     if (task.status === 'done' || task.status === 'cancelled') {
       task.rank = await nextBottomRank(em, scope, task.projectId, 'pending')
       task.status = 'pending'

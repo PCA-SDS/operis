@@ -72,6 +72,11 @@ type TeamMemberResponse = {
   items?: TeamMemberRecord[]
 }
 
+function getVisibleMemberDescription(value: string | null | undefined): string | null {
+  const visible = value?.replace(/^\[tps-account-id:[^\]]+\]\s*/, '').trim()
+  return visible || null
+}
+
 export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: string } }) {
   const memberId = params?.id
   const t = useT()
@@ -405,6 +410,7 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
     ? memberRecord?.roleNames
     : [t('staff.teamMembers.detail.roles.unassigned', 'No roles assigned')]
   const userEmail = memberRecord?.user?.email ?? null
+  const visibleDescription = getVisibleMemberDescription(memberRecord?.description)
   // The linked login, if this member has one. Chat is between accounts, so a
   // member record with no user has nobody to message.
   const linkedUserId = memberRecord?.user?.id ?? null
@@ -674,8 +680,8 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
                       {t('staff.teamMembers.detail.details', 'Member details')}
                     </h2>
                     <div className="space-y-2">
-                      {memberRecord?.description ? (
-                        <MarkdownContent body={memberRecord.description} format="markdown" className={MARKDOWN_CLASSNAME} />
+                      {visibleDescription ? (
+                        <MarkdownContent body={visibleDescription} format="markdown" className={MARKDOWN_CLASSNAME} />
                       ) : (
                         <p className="text-sm text-muted-foreground">
                           {t('staff.teamMembers.detail.descriptionEmpty', 'No description provided.')}

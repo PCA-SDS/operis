@@ -13,6 +13,7 @@ import {
   CatalogProductCategoryAssignment,
   CatalogProductOptionGroup,
   CatalogProductOption,
+  CatalogProductConstraint,
 } from '../data/entities'
 import type { CatalogPricingService } from '../services/catalogPricingService'
 import type { PriceRow, PricingContext } from './pricing'
@@ -36,6 +37,7 @@ export type BookableServiceDeps = {
 export type BookableServiceCategory = {
   id: string
   name: string
+  slug: string | null
   description: string | null
   parentId: string | null
 }
@@ -45,9 +47,17 @@ export type BookableServiceOption = {
   code: string | null
   name: string
   description: string | null
+  note: string | null
+  unit: string | null
   priceFlat: string | null
+  priceMin: string | null
+  priceMax: string | null
   durationMinutes: number | null
   isAddon: boolean
+  mutuallyExclusive?: string[]
+  conflictsWithItems?: string[]
+  requiresItems?: string[]
+  requiresOptions?: string[]
   nextGroups: BookableServiceOptionGroup[]
 }
 
@@ -77,19 +87,23 @@ export type BookableService = {
   categoryName: string | null
   organizationId: string
   tenantId: string
+  mutuallyExclusiveItems?: string[]
+  requiresItems?: string[]
+  requiresOptions?: string[]
+  include?: { itemId: string; locked?: boolean }
   optionGroups: BookableServiceOptionGroup[]
 }
 
-async function assertBookableServiceScope(
+async function resolveBookableCatalogOrganizationIds(
   em: EntityManager,
   scope: BookableServiceScope,
-): Promise<void> {
+): Promise<string[] | null> {
   const tenant = await em.findOne(Tenant, { id: scope.tenantId, isActive: true, deletedAt: null })
   if (!tenant) {
     throw new CrudHttpError(404, { error: 'Tenant not found.', code: 'TENANT_NOT_FOUND' })
   }
 
-  if (!scope.organizationId) return
+  if (!scope.organizationId) return null
 
   const organization = await em.findOne(Organization, {
     id: scope.organizationId,
@@ -100,6 +114,11 @@ async function assertBookableServiceScope(
   if (!organization) {
     throw new CrudHttpError(404, { error: 'Organization not found.', code: 'ORGANIZATION_NOT_FOUND' })
   }
+
+  const ancestorIds = Array.isArray(organization.ancestorIds)
+    ? organization.ancestorIds.filter((id): id is string => typeof id === 'string' && id.length > 0)
+    : []
+  return [...new Set([scope.organizationId, ...ancestorIds])]
 }
 
 /**
@@ -161,12 +180,10 @@ export async function listBookableServicesForOrganization(
   scope: BookableServiceScope,
   deps: BookableServiceDeps,
 ): Promise<BookableService[]> {
-  await assertBookableServiceScope(em, scope)
+  const catalogOrganizationIds = await resolveBookableCatalogOrganizationIds(em, scope)
 
-  const scopedWhere = scope.organizationId ? { organizationId: scope.organizationId } : {}
-  const decryptScope = scope.organizationId
-    ? { tenantId: scope.tenantId, organizationId: scope.organizationId }
-    : { tenantId: scope.tenantId }
+  const scopedWhere = catalogOrganizationIds ? { organizationId: { $in: catalogOrganizationIds } } : {}
+  const decryptScope = { tenantId: scope.tenantId }
 
   // Phase 1 public booking can list the tenant-wide service catalog; organization scoping is optional.
   const [products, channelId] = await Promise.all([
@@ -196,7 +213,7 @@ export async function listBookableServicesForOrganization(
     tenantId: scope.tenantId,
     ...scopedWhere,
   }
-  const [prices, customFieldsByProductId, defaultVariants, categories, assignments, optionGroups, options] = await Promise.all([
+  const [prices, customFieldsByProductId, defaultVariants, categories, assignments, optionGroups, options, constraints] = await Promise.all([
     findWithDecryption(
       em,
       CatalogProductPrice,
@@ -232,10 +249,10 @@ export async function listBookableServicesForOrganization(
     ),
     findWithDecryption(em, CatalogProductCategory,
       { ...categoryScope, isActive: true, deletedAt: null },
-      { orderBy: { name: 'asc', id: 'asc' } }, categoryScope),
+      { orderBy: { name: 'asc', id: 'asc' } }, decryptScope),
     findWithDecryption(em, CatalogProductCategoryAssignment,
       { ...categoryScope, product: { $in: productIds } },
-      { orderBy: { position: 'asc', id: 'asc' } }, categoryScope),
+      { orderBy: { position: 'asc', id: 'asc' } }, decryptScope),
     em.find(CatalogProductOptionGroup, 
       { ...categoryScope, product: { $in: productIds }, isActive: true, deletedAt: null },
       { orderBy: { sortOrder: 'asc', id: 'asc' } }
@@ -243,6 +260,9 @@ export async function listBookableServicesForOrganization(
     em.find(CatalogProductOption,
       { ...categoryScope, group: { product: { $in: productIds } }, isActive: true, deletedAt: null },
       { orderBy: { sortOrder: 'asc', id: 'asc' } }
+    ),
+    em.find(CatalogProductConstraint,
+      { ...categoryScope, $or: [ { sourceProduct: { $in: productIds } }, { sourceOption: { group: { product: { $in: productIds } } } } ] }
     ),
   ])
 
@@ -257,7 +277,13 @@ export async function listBookableServicesForOrganization(
     let category = categoriesById.get(categoryId)
     while (category && !visited.has(category.id)) {
       visited.add(category.id)
-      path.unshift({ id: category.id, name: category.name, description: category.description ?? null, parentId: category.parentId ?? null })
+      path.unshift({
+        id: category.id,
+        name: category.name,
+        slug: category.slug ?? null,
+        description: category.description ?? null,
+        parentId: category.parentId ?? null,
+      })
       if (!category.parentId) break
       category = categoriesById.get(category.parentId)
     }
@@ -290,6 +316,30 @@ export async function listBookableServicesForOrganization(
     channelId,
     quantity: 1,
     date: new Date(),
+  }
+
+  const itemConstraints = new Map<string, CatalogProductConstraint[]>()
+  const optionConstraints = new Map<string, CatalogProductConstraint[]>()
+
+  for (const c of constraints) {
+    if (c.sourceProduct) {
+      const sourceId = typeof c.sourceProduct === 'string' ? c.sourceProduct : c.sourceProduct.id
+      const bucket = itemConstraints.get(sourceId) ?? []
+      bucket.push(c)
+      itemConstraints.set(sourceId, bucket)
+    }
+    if (c.sourceOption) {
+      const sourceId = typeof c.sourceOption === 'string' ? c.sourceOption : c.sourceOption.id
+      const bucket = optionConstraints.get(sourceId) ?? []
+      bucket.push(c)
+      optionConstraints.set(sourceId, bucket)
+    }
+  }
+
+  const getTargetId = (c: CatalogProductConstraint, field: 'targetProduct' | 'targetOption') => {
+    const target = c[field]
+    if (!target) return null
+    return typeof target === 'string' ? target : target.id
   }
 
   // Build the option tree
@@ -326,16 +376,32 @@ export async function listBookableServicesForOrganization(
       description: group.description ?? null,
       requirement: group.requirement,
       selectMode: group.selectMode,
-      options: groupOptions.map((opt) => ({
-        id: opt.id,
-        code: opt.code ?? null,
-        name: opt.name,
-        description: opt.description ?? null,
-        priceFlat: opt.priceFlat ?? null,
-        durationMinutes: opt.durationValue ?? null,
-        isAddon: opt.isAddon,
-        nextGroups: (groupsByParentOptionId.get(opt.id) ?? []).map(buildOptionTree),
-      })),
+      options: groupOptions.map((opt) => {
+        const optConstraints = optionConstraints.get(opt.id) ?? []
+        const mutuallyExclusive = optConstraints.filter(c => c.constraintType === 'mutually_exclusive_item' && c.targetOption).map(c => getTargetId(c, 'targetOption')!)
+        const conflictsWithItems = optConstraints.filter(c => c.constraintType === 'conflicts_with_item' && c.targetProduct).map(c => getTargetId(c, 'targetProduct')!)
+        const requiresItems = optConstraints.filter(c => c.constraintType === 'requires_item' && c.targetProduct).map(c => getTargetId(c, 'targetProduct')!)
+        const requiresOptions = optConstraints.filter(c => c.constraintType === 'requires_item' && c.targetOption).map(c => getTargetId(c, 'targetOption')!)
+
+        return {
+          id: opt.id,
+          code: opt.code ?? null,
+          name: opt.name,
+          description: opt.description ?? null,
+          note: opt.note ?? null,
+          unit: opt.unit ?? null,
+          priceFlat: opt.priceFlat ?? null,
+          priceMin: opt.priceMin ?? null,
+          priceMax: opt.priceMax ?? null,
+          durationMinutes: opt.durationValue ?? null,
+          isAddon: opt.isAddon,
+          mutuallyExclusive: mutuallyExclusive.length > 0 ? mutuallyExclusive : undefined,
+          conflictsWithItems: conflictsWithItems.length > 0 ? conflictsWithItems : undefined,
+          requiresItems: requiresItems.length > 0 ? requiresItems : undefined,
+          requiresOptions: requiresOptions.length > 0 ? requiresOptions : undefined,
+          nextGroups: (groupsByParentOptionId.get(opt.id) ?? []).map(buildOptionTree),
+        }
+      }),
     }
   }
 
@@ -376,6 +442,24 @@ export async function listBookableServicesForOrganization(
       categoryName: category?.name ?? null,
       organizationId: product.organizationId,
       tenantId: product.tenantId,
+
+      mutuallyExclusiveItems: (() => {
+        const c = itemConstraints.get(product.id)?.filter(x => x.constraintType === 'mutually_exclusive_item' && x.targetProduct)
+        return c?.length ? c.map(x => getTargetId(x, 'targetProduct')!) : undefined
+      })(),
+      requiresItems: (() => {
+        const c = itemConstraints.get(product.id)?.filter(x => x.constraintType === 'requires_item' && x.targetProduct)
+        return c?.length ? c.map(x => getTargetId(x, 'targetProduct')!) : undefined
+      })(),
+      requiresOptions: (() => {
+        const c = itemConstraints.get(product.id)?.filter(x => x.constraintType === 'requires_item' && x.targetOption)
+        return c?.length ? c.map(x => getTargetId(x, 'targetOption')!) : undefined
+      })(),
+      include: (() => {
+        const c = itemConstraints.get(product.id)?.find(x => x.constraintType === 'includes_item' && x.targetProduct)
+        return c ? { itemId: getTargetId(c, 'targetProduct')!, locked: c.locked } : undefined
+      })(),
+
       optionGroups: (rootGroupsByProductId.get(product.id) ?? []).map(buildOptionTree),
     }
   })

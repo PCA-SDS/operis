@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 
 const mockListBookableServicesForOrganization = jest.fn()
+const mockLocalizeBookableServices = jest.fn()
 const mockResolveTranslations = jest.fn()
 const mockCreateRequestContainer = jest.fn()
 const mockGetRateLimiterService = jest.fn()
@@ -12,6 +13,10 @@ const mockCheckRateLimit = jest.fn()
 jest.mock('../../../lib/bookableServices', () => ({
   listBookableServicesForOrganization: (...args: unknown[]) =>
     mockListBookableServicesForOrganization(...args),
+}))
+
+jest.mock('../../../lib/bookableServiceTranslations', () => ({
+  localizeBookableServices: (...args: unknown[]) => mockLocalizeBookableServices(...args),
 }))
 
 jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
@@ -40,8 +45,8 @@ const CHANNEL = '44444444-4444-4444-8444-444444444444'
 
 const pricingService = { resolvePrice: jest.fn(), resolvePriceMany: jest.fn() }
 
-function get(query = `?tenantId=${TENANT}&organizationId=${ORG}`): Request {
-  return new Request(`http://localhost/api/catalog/bookable-services${query}`)
+function get(query = `?tenantId=${TENANT}&organizationId=${ORG}`, headers?: HeadersInit): Request {
+  return new Request(`http://localhost/api/catalog/bookable-services${query}`, { headers })
 }
 
 describe('catalog bookable-services route', () => {
@@ -57,6 +62,7 @@ describe('catalog bookable-services route', () => {
     mockGetRateLimiterService.mockReturnValue({ trustProxyDepth: 0 })
     mockCheckRateLimit.mockResolvedValue(null)
     mockListBookableServicesForOrganization.mockReset()
+    mockLocalizeBookableServices.mockImplementation(async (_em, items) => items)
   })
 
   it('returns org-scoped bookable services for valid query', async () => {
@@ -85,9 +91,18 @@ describe('catalog bookable-services route', () => {
     expect(payload.items[0].title).toBe('Signature Haircut')
     expect(mockListBookableServicesForOrganization).toHaveBeenCalledWith(
       expect.anything(),
-      { tenantId: TENANT, organizationId: ORG, channelId: undefined },
+      { tenantId: TENANT, organizationId: ORG, channelId: undefined, locale: undefined },
       { pricingService },
     )
+  })
+
+  it('returns CORS headers for the public booking form origin', async () => {
+    mockListBookableServicesForOrganization.mockResolvedValue([])
+
+    const { GET } = await import('../route')
+    const response = await GET(get(undefined, { Origin: 'http://localhost:3001' }))
+
+    expect(response.headers.get('access-control-allow-origin')).toBe('http://localhost:3001')
   })
 
   it('forwards an explicit pricing channel', async () => {
@@ -98,7 +113,7 @@ describe('catalog bookable-services route', () => {
 
     expect(mockListBookableServicesForOrganization).toHaveBeenCalledWith(
       expect.anything(),
-      { tenantId: TENANT, organizationId: ORG, channelId: CHANNEL },
+      { tenantId: TENANT, organizationId: ORG, channelId: CHANNEL, locale: undefined },
       { pricingService },
     )
   })
@@ -112,7 +127,7 @@ describe('catalog bookable-services route', () => {
     expect(response.status).toBe(200)
     expect(mockListBookableServicesForOrganization).toHaveBeenCalledWith(
       expect.anything(),
-      { tenantId: TENANT, organizationId: ORG, channelId: undefined },
+      { tenantId: TENANT, organizationId: ORG, channelId: undefined, locale: undefined },
       { pricingService },
     )
   })
@@ -122,6 +137,25 @@ describe('catalog bookable-services route', () => {
     const response = await GET(get(`?tenantId=${TENANT}&organizationId=${ORG}&channelId=nope`))
     expect(response.status).toBe(400)
     expect(mockListBookableServicesForOrganization).not.toHaveBeenCalled()
+  })
+
+  it('passes an explicit locale through to the bookable-service localizer', async () => {
+    mockListBookableServicesForOrganization.mockResolvedValue([])
+
+    const { GET } = await import('../route')
+    const response = await GET(get(`?tenantId=${TENANT}&organizationId=${ORG}&locale=vi`))
+
+    expect(response.status).toBe(200)
+    expect(mockLocalizeBookableServices).toHaveBeenCalledWith(expect.anything(), [], TENANT, 'vi')
+  })
+
+  it('uses the shared request locale when the query parameter is omitted', async () => {
+    mockListBookableServicesForOrganization.mockResolvedValue([])
+
+    const { GET } = await import('../route')
+    await GET(get(`?tenantId=${TENANT}&organizationId=${ORG}`, { 'X-Locale': 'fr' }))
+
+    expect(mockLocalizeBookableServices).toHaveBeenCalledWith(expect.anything(), [], TENANT, 'fr')
   })
 
   it('maps missing tenant/org to HTTP 404', async () => {

@@ -107,16 +107,26 @@ test.describe('TC-CRM-075: Customer edit forms prefill saved selects', () => {
       })
 
       await login(page, 'admin')
-      await page.goto(`/backend/customers/people/${encodeURIComponent(personId)}`)
+      await page.goto(`/backend/customers/people-v2/${encodeURIComponent(personId)}`)
       await expect(page.getByText(`QA Select Person ${stamp}`, { exact: true }).first()).toBeVisible()
 
-      const companyPanel = page
-        .getByText('Company', { exact: true })
-        .locator('xpath=ancestor::div[contains(@class,"group")]')
-        .first()
-      await expect(companyPanel.getByText(selectedCompanyName, { exact: true })).toBeVisible()
-      await companyPanel.getByRole('button', { name: 'Edit' }).click({ force: true })
-      await expect(companyPanel.getByRole('combobox')).toContainText(selectedCompanyName)
+      // people-v2 renders the company picker as a CrudForm combobox inside a
+      // `CollapsibleZoneLayout`. The v1 flow — locate a "Company" panel, then click its
+      // section `Edit` to reveal the select — no longer exists; the combobox shows the
+      // saved value directly. Wait for the expand control rather than probing it, since
+      // the layout renders `invisible` until it hydrates (see TC-LOCK-OSS-015).
+      const companyCombobox = page.getByRole('combobox', { name: /^company$/i }).first()
+      if (!(await companyCombobox.isVisible().catch(() => false))) {
+        const expandPanel = page.getByRole('button', { name: /expand form panel/i })
+        await expect(expandPanel).toBeVisible({ timeout: 15_000 })
+        await expandPanel.click()
+      }
+      await expect(companyCombobox).toBeVisible({ timeout: 15_000 })
+
+      // The point of this case: the saved company sits beyond the first async page of
+      // options, and the select must still render it rather than falling back to the
+      // placeholder.
+      await expect(companyCombobox).toContainText(selectedCompanyName, { timeout: 15_000 })
     } finally {
       await deleteEntityIfExists(request, token, '/api/customers/people', personId)
       for (const companyId of companyIds.reverse()) {

@@ -175,7 +175,11 @@ export async function POST(req: Request) {
       return NextResponse.json(err.body, { status: err.status })
     }
     logger.error('customers/labels/unassign.POST', { err })
-    return NextResponse.json({ error: 'Failed to unassign label' }, { status: 500 })
+    const { translate: fallbackTranslate } = await resolveTranslations()
+    return NextResponse.json(
+      { error: fallbackTranslate('customers.errors.failed_to_unassign_label', 'Failed to unassign label') },
+      { status: 500 },
+    )
   }
 }
 

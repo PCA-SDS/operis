@@ -1,6 +1,10 @@
 'use client'
 
 import * as React from 'react'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+
+const aiAssistantShellLogger = createLogger('ai-assistant-shell')
+
 
 type AiAssistantIntegrationComponent = React.ComponentType<{
   tenantId: string | null
@@ -32,7 +36,9 @@ export function AiAssistantShellIntegration({
       })
       .catch((error) => {
         if (cancelled) return
-        console.error('Failed to load AI assistant integration', error)
+        aiAssistantShellLogger.error('Failed to load AI assistant integration', {
+          error: error instanceof Error ? error.message : String(error),
+        })
         setIntegrationComponent(() => AiAssistantIntegrationFallback)
       })
     return () => {

@@ -96,7 +96,17 @@ describe('appointments public create route', () => {
     expect(response.status).toBe(201)
     const payload = await response.json()
     expect(payload.statusCode).toBe('new_request')
-    expect(mockEmitAppointmentEvent).toHaveBeenCalled()
+    expect(mockEmitAppointmentEvent).toHaveBeenCalledWith(
+      'appointments.appointment.created',
+      expect.objectContaining({
+        id: '55555555-5555-4555-8555-555555555555',
+        source: 'public_booking',
+      }),
+      {
+        tenantId: validPublicBody.tenantId,
+        organizationId: validPublicBody.organizationId,
+      },
+    )
   })
 
   it('maps intake CrudHttpError to HTTP status', async () => {

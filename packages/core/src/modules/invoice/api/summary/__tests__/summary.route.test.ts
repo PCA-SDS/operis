@@ -42,6 +42,12 @@ const mockSummary: InvoiceSummaryDto = {
     settledAmount: '500000.0000',
     totalAmount: '1500000.0000',
     nonRecoverableAmount: '0.0000',
+    unpaidInvoices: 0,
+    partiallyPaidInvoices: 0,
+    paidInvoices: 0,
+    unreceivedInvoices: 0,
+    receivedInvoices: 0,
+    nonRecoverableInvoices: 0,
   },
   ap: {
     outstanding: '400000.0000',
@@ -51,6 +57,12 @@ const mockSummary: InvoiceSummaryDto = {
     outstandingAmount: '400000.0000',
     settledAmount: '200000.0000',
     totalAmount: '600000.0000',
+    unpaidInvoices: 0,
+    partiallyPaidInvoices: 0,
+    paidInvoices: 0,
+    unreceivedInvoices: 0,
+    receivedInvoices: 0,
+    nonRecoverableInvoices: 0,
   },
   netPosition: '600000.0000',
   net: '600000.0000',
@@ -140,4 +152,3 @@ describe('invoice summary API route', () => {
     expect(body.error).toBe('Exchange rates are temporarily unavailable')
   })
 })
-

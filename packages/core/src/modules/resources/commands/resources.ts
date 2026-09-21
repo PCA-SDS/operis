@@ -41,6 +41,7 @@ type ResourceSnapshot = {
   tenantId: string
   organizationId: string
   name: string
+  code: string | null
   description: string | null
   resourceTypeId: string | null
   areaId: string | null
@@ -212,6 +213,7 @@ async function loadResourceSnapshot(em: EntityManager, id: string): Promise<Reso
     tenantId: resource.tenantId,
     organizationId: resource.organizationId,
     name: resource.name,
+    code: resource.code ?? null,
     description: resource.description ?? null,
     resourceTypeId: resource.resourceTypeId ?? null,
     areaId: resource.areaId ?? null,
@@ -314,6 +316,7 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
       tenantId: parsed.tenantId,
       organizationId: parsed.organizationId,
       name: parsed.name,
+      code: parsed.code?.trim() || null,
       description: parsed.description ?? null,
       resourceTypeId: parsed.resourceTypeId ?? null,
       areaId: parsed.areaId ?? null,
@@ -440,6 +443,7 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
             tenantId: after.tenantId,
             organizationId: after.organizationId,
             name: after.name,
+            code: after.code ?? null,
             description: after.description ?? null,
             resourceTypeId: after.resourceTypeId ?? null,
             areaId: after.areaId ?? null,
@@ -461,6 +465,7 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
           em.persist(record)
         } else {
           record.name = after.name
+          record.code = after.code ?? null
           record.description = after.description ?? null
           record.resourceTypeId = after.resourceTypeId ?? null
           record.areaId = after.areaId ?? null
@@ -582,6 +587,7 @@ const updateResourceCommand: CommandHandler<ResourcesResourceUpdateInput, { reso
           record.capacityUnitIcon = capacityUnit?.icon ?? null
         }
         if (parsed.name !== undefined) record.name = parsed.name
+        if (parsed.code !== undefined) record.code = parsed.code?.trim() || null
         if (parsed.description !== undefined) record.description = parsed.description ?? null
         if (parsed.resourceTypeId !== undefined) record.resourceTypeId = parsed.resourceTypeId ?? null
         if (parsed.areaId !== undefined) record.areaId = parsed.areaId ?? null
@@ -640,6 +646,7 @@ const updateResourceCommand: CommandHandler<ResourcesResourceUpdateInput, { reso
       : after
     const changes = buildChanges(before as unknown as Record<string, unknown>, after as unknown as Record<string, unknown>, [
       'name',
+      'code',
       'description',
       'resourceTypeId',
       'areaId',
@@ -695,6 +702,7 @@ const updateResourceCommand: CommandHandler<ResourcesResourceUpdateInput, { reso
     await withAtomicFlush(em, [
       () => {
         record.name = before.name
+        record.code = before.code ?? null
         record.description = before.description ?? null
         record.resourceTypeId = before.resourceTypeId ?? null
         record.areaId = before.areaId ?? null
@@ -831,6 +839,7 @@ const deleteResourceCommand: CommandHandler<{ id?: string }, { resourceId: strin
             tenantId: before.tenantId,
             organizationId: before.organizationId,
             name: before.name,
+            code: before.code ?? null,
             description: before.description ?? null,
             resourceTypeId: before.resourceTypeId ?? null,
             areaId: before.areaId ?? null,
@@ -852,6 +861,7 @@ const deleteResourceCommand: CommandHandler<{ id?: string }, { resourceId: strin
           em.persist(record)
         } else {
           record.name = before.name
+          record.code = before.code ?? null
           record.description = before.description ?? null
           record.resourceTypeId = before.resourceTypeId ?? null
           record.areaId = before.areaId ?? null

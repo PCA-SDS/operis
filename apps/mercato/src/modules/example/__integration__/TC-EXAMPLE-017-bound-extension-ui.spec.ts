@@ -594,7 +594,7 @@ test.describe('TC-EXAMPLE-017: the module\'s bound DataTable and CrudForm hosts,
       // is read here rather than restated: the test and the guided demo cannot drift apart.
       await expect(page.getByText(/ExampleNotesSectionWrapper/).first()).toBeVisible({ timeout: 20_000 })
 
-      await page.goto(`/backend/customers/people/${encodeURIComponent(personId)}`, { waitUntil: 'commit' })
+      await page.goto(`/backend/customers/people-v2/${encodeURIComponent(personId)}`, { waitUntil: 'commit' })
       await page.waitForLoadState('domcontentloaded')
       const wrapper = page.getByTestId('example-notes-wrapper')
       await expect(wrapper).toBeVisible({ timeout: 30_000 })

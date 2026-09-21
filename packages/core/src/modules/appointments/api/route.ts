@@ -8,11 +8,20 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import { CatalogProductOption } from '@open-mercato/core/modules/catalog/data/entities'
+import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
 import type { CatalogPricingService } from '@open-mercato/core/modules/catalog/services/catalogPricingService'
-import { Appointment } from '../data/entities'
+import {
+  Appointment,
+  AppointmentLine,
+  AppointmentLineOption,
+  AppointmentLineOptionGroup,
+} from '../data/entities'
 import { appointmentStaffCreateSchema } from '../data/validators'
 import { createAppointmentFromPublicIntake } from '../lib/intake'
 import { emitAppointmentEvent } from '../events'
+import { deriveScheduleConfirmationStatus } from '../lib/scheduleTracking'
+import { compareAppointmentListRows } from '../lib/appointmentListSorting'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -41,6 +50,85 @@ function mapAppointment(row: Appointment, organizationName: string | null = null
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }
+}
+
+function collectSelectedOptionIds(value: unknown): string[] {
+  const optionIds = new Set<string>()
+  const addOptionId = (candidate: unknown) => {
+    if (typeof candidate === 'string' && z.string().uuid().safeParse(candidate).success) {
+      optionIds.add(candidate)
+    }
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      if (typeof entry === 'object' && entry !== null && !Array.isArray(entry)) {
+        addOptionId((entry as Record<string, unknown>).optionId)
+      } else {
+        addOptionId(entry)
+      }
+    }
+  } else if (typeof value === 'object' && value !== null) {
+    for (const selected of Object.values(value as Record<string, unknown>)) {
+      if (Array.isArray(selected)) selected.forEach(addOptionId)
+      else addOptionId(selected)
+    }
+  }
+
+  return Array.from(optionIds)
+}
+
+function mapAppointmentTotals(
+  lines: AppointmentLine[],
+  optionGroups: AppointmentLineOptionGroup[],
+  options: AppointmentLineOption[],
+  legacyOptionPricesById: Map<string, number>,
+) {
+  const optionsByGroupId = new Map<string, AppointmentLineOption[]>()
+  for (const option of options) {
+    const groupId = String(option.group.id)
+    const groupOptions = optionsByGroupId.get(groupId) ?? []
+    groupOptions.push(option)
+    optionsByGroupId.set(groupId, groupOptions)
+  }
+  const optionTotalsByLineId = new Map<string, number>()
+  for (const group of optionGroups) {
+    const lineId = String(group.line.id)
+    for (const option of optionsByGroupId.get(group.id) ?? []) {
+      if (option.priceFlat == null || option.priceFlat.trim() === '') continue
+      const amount = Number(option.priceFlat)
+      if (!Number.isFinite(amount)) continue
+      optionTotalsByLineId.set(lineId, (optionTotalsByLineId.get(lineId) ?? 0) + amount)
+    }
+  }
+
+  const totals = new Map<string, { amount: number; currencyCode: string | null }>()
+  const linesWithOptionSnapshots = new Set(optionGroups.map((group) => String(group.line.id)))
+  for (const line of lines) {
+    const appointmentId = String(line.appointment.id)
+    const rawAmount = line.unitPriceGross ?? line.unitPriceNet
+    const baseAmount = rawAmount == null || rawAmount.trim() === '' ? null : Number(rawAmount)
+    let optionAmount = optionTotalsByLineId.get(line.id) ?? 0
+    let hasOptionPrice = optionTotalsByLineId.has(line.id)
+    if (!linesWithOptionSnapshots.has(line.id)) {
+      for (const optionId of collectSelectedOptionIds(line.selectedOptions)) {
+        const legacyOptionPrice = legacyOptionPricesById.get(optionId)
+        if (legacyOptionPrice === undefined) continue
+        optionAmount += legacyOptionPrice
+        hasOptionPrice = true
+      }
+    }
+    const hasValidBaseAmount = baseAmount != null && Number.isFinite(baseAmount)
+    if (!hasValidBaseAmount && !hasOptionPrice) continue
+    const amount = (hasValidBaseAmount ? baseAmount : 0) + optionAmount
+    if (!Number.isFinite(amount)) continue
+    const current = totals.get(appointmentId)
+    totals.set(appointmentId, {
+      amount: (current?.amount ?? 0) + amount,
+      currencyCode: current?.currencyCode ?? line.currencyCode ?? null,
+    })
+  }
+  return totals
 }
 
 async function resolveOrganizationNames(
@@ -96,17 +184,91 @@ export async function GET(req: Request) {
 
     const rows = await em.find(Appointment, where, {
       orderBy: { requestedStartAt: 'desc' },
-      limit: 100,
     })
+    const lines = rows.length > 0
+      ? await em.find(AppointmentLine, {
+        appointment: { $in: rows.map((row) => row.id) },
+        tenantId: auth.tenantId,
+        deletedAt: null,
+      })
+      : []
+    const lineIds = lines.map((line) => line.id)
+    const assignments = lineIds.length > 0
+      ? await em.find(ResourcesAssignment, {
+        tenantId: auth.tenantId,
+        sourceModule: 'appointment',
+        sourceEntityType: 'appointment_line',
+        sourceEntityId: { $in: lineIds },
+        state: 'confirmed',
+        cancelledAt: null,
+      })
+      : []
+    const confirmedAllocationCountByAppointment = new Map<string, number>()
+    const lineAppointmentById = new Map(lines.map((line) => [line.id, String(line.appointment.id)]))
+    for (const assignment of assignments) {
+      const appointmentId = lineAppointmentById.get(assignment.sourceEntityId)
+      if (!appointmentId) continue
+      confirmedAllocationCountByAppointment.set(
+        appointmentId,
+        (confirmedAllocationCountByAppointment.get(appointmentId) ?? 0) + 1,
+      )
+    }
+    const optionGroups = lineIds.length > 0
+      ? await em.find(AppointmentLineOptionGroup, { line: { $in: lineIds } })
+      : []
+    const optionGroupIds = optionGroups.map((group) => group.id)
+    const options = optionGroupIds.length > 0
+      ? await em.find(AppointmentLineOption, { group: { $in: optionGroupIds } })
+      : []
+    const linesWithOptionSnapshots = new Set(optionGroups.map((group) => String(group.line.id)))
+    const legacyOptionLines = lines.filter((line) => !linesWithOptionSnapshots.has(line.id))
+    const legacyOptionIds = Array.from(new Set(legacyOptionLines.flatMap((line) =>
+      collectSelectedOptionIds(line.selectedOptions),
+    )))
+    const legacyOrganizationIds = Array.from(new Set(legacyOptionLines.map((line) => line.organizationId)))
+    const organizations = legacyOrganizationIds.length > 0
+      ? await em.find(Organization, { id: { $in: legacyOrganizationIds }, deletedAt: null })
+      : []
+    const catalogOrganizationIds = Array.from(new Set([
+      ...legacyOrganizationIds,
+      ...organizations.flatMap((organization) => organization.ancestorIds ?? []),
+    ]))
+    const legacyOptions = legacyOptionIds.length > 0 && catalogOrganizationIds.length > 0
+      ? await em.find(CatalogProductOption, {
+        id: { $in: legacyOptionIds },
+        tenantId: auth.tenantId,
+        organizationId: { $in: catalogOrganizationIds },
+        deletedAt: null,
+      })
+      : []
+    const legacyOptionPricesById = new Map<string, number>()
+    for (const option of legacyOptions) {
+      if (option.priceFlat == null || option.priceFlat.trim() === '') continue
+      const amount = Number(option.priceFlat)
+      if (Number.isFinite(amount)) legacyOptionPricesById.set(option.id, amount)
+    }
+    const totals = mapAppointmentTotals(lines, optionGroups, options, legacyOptionPricesById)
     const orgNames = await resolveOrganizationNames(
       em,
       rows.map((row) => row.organizationId),
     )
-    return NextResponse.json({
-      items: rows.map((row) =>
-        mapAppointment(row, orgNames.get(row.organizationId) ?? null),
-      ),
-    })
+    const items = rows.map((row) => {
+        const confirmedAllocationCount = confirmedAllocationCountByAppointment.get(row.id) ?? 0
+        const scheduleConfirmationStatus = deriveScheduleConfirmationStatus({
+          createdAt: row.createdAt,
+          confirmedAllocationCount,
+          statusCode: row.statusCode,
+        })
+        const total = totals.get(row.id)
+        return {
+          ...mapAppointment(row, orgNames.get(row.organizationId) ?? null),
+          totalAmount: total?.amount ?? null,
+          currencyCode: total?.currencyCode ?? null,
+          scheduleConfirmationStatus,
+        }
+      })
+    items.sort(compareAppointmentListRows)
+    return NextResponse.json({ items })
   } catch {
     return NextResponse.json(
       {
@@ -166,6 +328,7 @@ export async function POST(req: Request) {
         id: result.id,
         tenantId: auth.tenantId,
         organizationId,
+        customerName: [body.customer.firstName, body.customer.lastName].filter(Boolean).join(' '),
       })
     } catch {
       /* best-effort */

@@ -1,12 +1,7 @@
 import { z } from 'zod'
+import { emptyStringToNull } from '@open-mercato/shared/lib/validation'
 
 const uuid = () => z.string().uuid()
-
-const emptyStringToNull = (value: unknown): unknown => {
-  if (typeof value !== 'string') return value
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
 
 const clearableStringSchema = (max: number) =>
   z.preprocess(emptyStringToNull, z.string().trim().max(max).nullable().optional())
@@ -19,6 +14,11 @@ const templateKeySchema = z
   .regex(/^[a-z0-9][a-z0-9._-]*$/)
 
 const jsonObjectSchema = z.record(z.string(), z.unknown())
+
+/** `z.coerce.boolean()` is `Boolean(input)`, so every non-empty string is true. */
+const booleanQueryParam = z
+  .enum(['true', 'false', '1', '0'])
+  .transform((value) => value === 'true' || value === '1')
 
 export const emailTemplateStatusSchema = z.enum(['draft', 'published', 'archived'])
 export type EmailTemplateStatus = z.infer<typeof emailTemplateStatusSchema>
@@ -76,7 +76,7 @@ const updateTemplateShape = {
   category: z.string().trim().min(1).max(100).optional(),
   status: emailTemplateStatusSchema.optional(),
   design: jsonObjectSchema.optional(),
-  blocks: z.array(emailTemplateBlockSchema).optional(),
+  blocks: z.array(emailTemplateBlockSchema).max(200).optional(),
   variables: z.array(z.string().trim().min(1).max(120)).max(200).optional(),
 }
 
@@ -103,8 +103,8 @@ export const emailTemplateQuerySchema = z
     search: z.string().trim().max(200).optional(),
     category: z.string().trim().max(100).optional(),
     status: emailTemplateStatusSchema.optional(),
-    includeArchived: z.coerce.boolean().optional(),
-    activeOnly: z.coerce.boolean().optional(),
+    includeArchived: booleanQueryParam.optional(),
+    activeOnly: booleanQueryParam.optional(),
     page: z.coerce.number().int().min(1).optional(),
     pageSize: z.coerce.number().int().min(1).max(100).optional(),
     sort: z.string().trim().max(100).optional(),

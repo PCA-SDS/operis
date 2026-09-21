@@ -8,14 +8,14 @@ import {
   runCrudMutationGuardAfterSuccess,
   validateCrudMutationGuard,
 } from '@open-mercato/shared/lib/crud/mutation-guard'
-import { perspectiveSaveSchema } from '@open-mercato/core/modules/perspectives/data/validators'
+import { perspectiveSaveSchema } from '../../data/validators'
 import {
   loadPerspectivesState,
   saveUserPerspective,
   saveRolePerspectives,
   clearRolePerspectives,
   type PerspectiveScope,
-} from '@open-mercato/core/modules/perspectives/services/perspectiveService'
+} from '../../services/perspectiveService'
 import { Role } from '@open-mercato/core/modules/auth/data/entities'
 import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import {

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { Trash2, Loader2 } from 'lucide-react'
+import { ArrowLeft, Trash2, Loader2 } from 'lucide-react'
 import { Button } from '../../primitives/button'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { FormActionButtons, type FormActionButtonsProps } from './FormActionButtons'
@@ -144,7 +144,7 @@ function DetailHeader({
             href={backHref}
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground shrink-0"
           >
-            <span aria-hidden className="mr-1 text-base">&larr;</span>
+            <ArrowLeft className="size-4" aria-hidden="true" />
             <span className="sr-only">{resolvedBackLabel}</span>
           </Link>
         ) : null}

@@ -17,6 +17,7 @@ import {
 const TENANT = '22222222-2222-4222-8222-222222222222'
 const ORG = '33333333-3333-4333-8333-333333333333'
 const OTHER_ORG = '44444444-4444-4444-8444-444444444444'
+const CHILD_ORG = '55555555-5555-4555-8555-555555555555'
 
 type Fixture = {
   tenant?: boolean
@@ -37,9 +38,16 @@ type Fixture = {
 function createEm(fixture: Fixture) {
   const queries: Array<{ entity: unknown; where: Record<string, any> }> = []
 
+  const matchesValue = (rowValue: unknown, whereValue: unknown) => {
+    if (whereValue === undefined) return true
+    if (whereValue && typeof whereValue === 'object' && '$in' in whereValue) {
+      return Array.isArray(whereValue.$in) && whereValue.$in.includes(rowValue)
+    }
+    return rowValue === whereValue
+  }
   const matchesScope = (row: Record<string, any>, where: Record<string, any>) =>
-    (where.tenantId === undefined || row.tenantId === where.tenantId) &&
-    (where.organizationId === undefined || row.organizationId === where.organizationId)
+    matchesValue(row.tenantId, where.tenantId) &&
+    matchesValue(row.organizationId, where.organizationId)
 
   const findOne = jest.fn(async (entity: unknown, where: Record<string, any>) => {
     queries.push({ entity, where })
@@ -48,7 +56,10 @@ function createEm(fixture: Fixture) {
     }
     if (entity === Organization) {
       if (fixture.organization === false) return null
-      return where.id === ORG && where.tenant === TENANT ? { id: where.id } : null
+      if (where.tenant !== TENANT) return null
+      if (where.id === ORG) return { id: where.id, ancestorIds: [] }
+      if (where.id === CHILD_ORG) return { id: where.id, ancestorIds: [ORG] }
+      return null
     }
     if (entity === SalesChannel) {
       if (!matchesScope({ tenantId: TENANT, organizationId: ORG }, where)) return null
@@ -171,7 +182,10 @@ describe('listBookableServicesForOrganization', () => {
     ] })
     expect(items[1]).toMatchObject({ categoryPath: [], categoryId: null, categoryName: null })
     for (const entity of [CatalogProductCategory, CatalogProductCategoryAssignment]) {
-      expect(queries.find((query) => query.entity === entity)?.where).toMatchObject(scoped)
+      expect(queries.find((query) => query.entity === entity)?.where).toMatchObject({
+        tenantId: TENANT,
+        organizationId: { $in: [ORG] },
+      })
     }
   })
 
@@ -203,10 +217,33 @@ describe('listBookableServicesForOrganization', () => {
     const productQuery = queries.find((query) => query.entity === CatalogProduct)
     expect(productQuery?.where).toMatchObject({
       tenantId: TENANT,
-      organizationId: ORG,
+      organizationId: { $in: [ORG] },
       isActive: true,
       deletedAt: null,
       $or: [{ customFieldsetCode: BOOKABLE_SERVICE_FIELDSET }, { productType: 'service' }],
+    })
+  })
+
+  it('allows a child organization booking to use services stored on an ancestor organization', async () => {
+    const { em } = createEm({
+      products: [service('p1', 'Parent Catalog Service')],
+      prices: [price('price-1', 'p1')],
+      durations: { p1: 45 },
+    })
+    const { service: pricingService } = createPricingService()
+
+    const items = await listBookableServicesForOrganization(
+      em,
+      { tenantId: TENANT, organizationId: CHILD_ORG },
+      { pricingService },
+    )
+
+    expect(items).toHaveLength(1)
+    expect(items[0]).toMatchObject({
+      id: 'p1',
+      title: 'Parent Catalog Service',
+      organizationId: ORG,
+      durationMinutes: 45,
     })
   })
 

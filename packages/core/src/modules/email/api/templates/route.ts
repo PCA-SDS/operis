@@ -93,6 +93,44 @@ function toIso(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString()
 }
 
+type EmailTemplateListQuery = {
+  id?: string
+  ids?: string
+  search?: string
+  category?: string
+  status?: string
+  includeArchived?: boolean
+  activeOnly?: boolean
+}
+
+/** Exported so the archived/id-lookup precedence is testable, not just greppable. */
+export function buildEmailTemplateListFilters(query: EmailTemplateListQuery): Record<string, unknown> {
+  const filters: Record<string, unknown> = {}
+  if (query.id) filters.id = query.id
+  if (query.ids) {
+    const ids = query.ids.split(',').map((value) => value.trim()).filter(Boolean)
+    if (ids.length) filters.id = { $in: ids }
+  }
+  if (query.search) {
+    const pattern = `%${escapeLikePattern(query.search)}%`
+    filters.$or = [
+      { name: { $ilike: pattern } },
+      { template_key: { $ilike: pattern } },
+      { description: { $ilike: pattern } },
+    ]
+  }
+  if (query.category) filters.category = query.category
+  if (query.status) filters.status = query.status
+  // buildFilters also runs on the detail-by-id path ([id]/route.ts rewrites to
+  // ?id=<uuid> and re-enters this GET), so hiding archived rows by default
+  // made an archived template unreachable by id — Edit and the search
+  // deep-link both 404'd with no way back through the UI.
+  const isIdLookup = Boolean(query.id || query.ids)
+  if (!isIdLookup && !query.status && !query.includeArchived) filters.status = { $ne: 'archived' }
+  if (query.activeOnly) filters.status = 'published'
+  return filters
+}
+
 export const { metadata, GET, POST, PUT, DELETE } = makeCrudRoute({
   metadata: {
     GET: { requireAuth: true, requireFeatures: ['email.templates.view'] },
@@ -121,27 +159,7 @@ export const { metadata, GET, POST, PUT, DELETE } = makeCrudRoute({
       updatedAt: 'updated_at',
       updated_at: 'updated_at',
     },
-    buildFilters: (query) => {
-      const filters: Record<string, unknown> = {}
-      if (query.id) filters.id = query.id
-      if (query.ids) {
-        const ids = query.ids.split(',').map((value) => value.trim()).filter(Boolean)
-        if (ids.length) filters.id = { $in: ids }
-      }
-      if (query.search) {
-        const pattern = `%${escapeLikePattern(query.search)}%`
-        filters.$or = [
-          { name: { $ilike: pattern } },
-          { template_key: { $ilike: pattern } },
-          { description: { $ilike: pattern } },
-        ]
-      }
-      if (query.category) filters.category = query.category
-      if (query.status) filters.status = query.status
-      if (!query.status && !query.includeArchived) filters.status = { $ne: 'archived' }
-      if (query.activeOnly) filters.status = 'published'
-      return filters
-    },
+    buildFilters: (query) => buildEmailTemplateListFilters(query),
     transformItem: (item: EmailTemplateRow) => ({
       id: item.id,
       template_key: item.template_key ?? item.templateKey ?? '',

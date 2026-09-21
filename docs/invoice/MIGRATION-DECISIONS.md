@@ -481,3 +481,20 @@ The current Organization model has a trusted name but no scoped legal tax
 identifier. Using request body buyer identity would make manual invoices trust
 client-owned ownership data. Setting buyer tax code to null keeps the snapshot
 honest until a trusted organization tax identity exists.
+
+## DEC-037 Incoming Payment Confirmation Matching And Settlement
+
+Decision:
+
+Match an incoming AR payment claim to exactly one live, unexpired, pending,
+whole-invoice AP confirmation using seller tax code, buyer tax code, invoice
+symbol, invoice number, and invoice date. Missing or ambiguous matches are
+conflicts. Accept changes the confirmation, payer AP invoice, and receiver AR
+invoice in one transaction through Invoice-owned settlement services. Reject
+changes only the matching confirmation.
+
+Reason:
+
+Invoice identity is the only cross-tenant link available without adding a
+direct ORM relationship. Exact unique matching avoids settling the wrong
+invoice, and one transaction prevents the two invoice sides from diverging.

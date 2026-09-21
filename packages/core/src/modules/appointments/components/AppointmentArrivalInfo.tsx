@@ -1,18 +1,9 @@
 'use client'
 
-import * as React from 'react'
 import { formatDistance } from 'date-fns'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { shouldShowArrivalInfo } from '../lib/urgency'
-
-function useNow(intervalMs = 60_000) {
-  const [now, setNow] = React.useState(() => Date.now())
-  React.useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), intervalMs)
-    return () => window.clearInterval(id)
-  }, [intervalMs])
-  return now
-}
+import { useNow } from '../lib/useNow'
 
 type AppointmentArrivalInfoProps = {
   requestedStartAt: string

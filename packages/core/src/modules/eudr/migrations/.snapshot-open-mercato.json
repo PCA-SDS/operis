@@ -852,6 +852,15 @@
           "keyName": "idx_eudr_submissions_supplier",
           "primary": false,
           "unique": false
+        },
+        {
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "keyName": "eudr_submissions_tenant_org_status_idx",
+          "primary": false,
+          "unique": false,
+          "expression": "create index \"eudr_submissions_tenant_org_status_idx\" on \"eudr_evidence_submissions\" (\"tenant_id\", \"organization_id\", \"status\") where \"deleted_at\" is null"
         }
       ],
       "checks": [],

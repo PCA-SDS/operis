@@ -455,6 +455,33 @@ export class InvoiceInstallment {
 @Index({ name: 'invoice_payment_confirmations_invoice_idx', properties: ['invoice'] })
 @Index({ name: 'invoice_payment_confirmations_installment_idx', properties: ['installment'] })
 @Unique({ name: 'invoice_payment_confirmations_token_hash_unique', properties: ['tokenHash'] })
+/**
+ * At most one PENDING confirmation per invoice, or per installment.
+ *
+ * `request()` supersedes prior pending rows before inserting the replacement, but that is a
+ * check-then-write: under READ COMMITTED two concurrent requests each fail to see the other's
+ * uncommitted row and both commit. Two live tokens then make `findIncoming`'s
+ * `confirmations.length !== 1` guard reject the receiver's Accept for good.
+ *
+ * Two indexes rather than one because `installment_id` is nullable and Postgres treats NULLs as
+ * distinct in a unique index, so a single composite would not constrain whole-invoice rows.
+ *
+ * Declared here, not only in `Migration20260916120000_invoice_payment_confirmation_pending_unique`.
+ * A partial index has no `@Unique` equivalent, so it has to be a raw `expression` — and an index
+ * that exists only in a migration is invisible to the ORM snapshot, which made every
+ * `yarn db:generate` propose DROPPING both. Committing that output would silently remove the
+ * guarantee above.
+ */
+@Index({
+  name: 'invoice_payment_confirmations_pending_installment_uq',
+  expression:
+    `create unique index "invoice_payment_confirmations_pending_installment_uq" on "invoice_payment_confirmations" ("invoice_id", "installment_id") where "status" = 'PENDING' and "installment_id" is not null`,
+})
+@Index({
+  name: 'invoice_payment_confirmations_pending_invoice_uq',
+  expression:
+    `create unique index "invoice_payment_confirmations_pending_invoice_uq" on "invoice_payment_confirmations" ("invoice_id") where "status" = 'PENDING' and "installment_id" is null`,
+})
 @Check({
   name: 'invoice_payment_confirmations_status_check',
   expression: enumCheck('status', INVOICE_PAYMENT_CONFIRMATION_STATUSES),
@@ -506,6 +533,7 @@ export class InvoicePaymentConfirmation {
 @Index({ name: 'invoice_sync_jobs_state_idx', properties: ['organizationId', 'tenantId', 'state'] })
 @Index({ name: 'invoice_sync_jobs_created_at_idx', properties: ['organizationId', 'tenantId', 'createdAt'] })
 @Unique({ name: 'invoice_sync_jobs_idempotency_scope_unique', properties: ['organizationId', 'tenantId', 'idempotencyKey'] })
+@Index({ name: 'invoice_sync_jobs_one_active_scope_idx', expression: "create unique index \"invoice_sync_jobs_one_active_scope_idx\" on \"invoice_sync_jobs\" (\"organization_id\", \"tenant_id\") where \"state\" in ('QUEUED','AUTHENTICATING','FETCHING','PERSISTING')" })
 @Check({
   name: 'invoice_sync_jobs_state_check',
   expression: enumCheck('state', INVOICE_SYNC_JOB_STATES),
@@ -557,6 +585,9 @@ export class InvoiceSyncJob {
 
   @Property({ name: 'failure_message', type: 'text', nullable: true })
   failureMessage?: string | null
+
+  @Property({ name: 'failure_request_id', type: 'uuid', nullable: true })
+  failureRequestId?: string | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

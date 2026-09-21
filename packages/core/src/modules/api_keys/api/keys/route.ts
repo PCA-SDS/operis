@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import { makeCrudRoute } from '@open-mercato/shared/lib/crud/factory'
@@ -30,9 +31,10 @@ type ApiKeyEntityWithMeta = ApiKey & {
   __apiKeyRoles?: Role[]
 }
 
-const listQuerySchema = z.object({
-  page: z.string().optional(),
-  pageSize: z.string().optional(),
+// Was three bare `z.string().optional()` fields, so `?page=abc` silently became 1
+// and the only real bound was the hand-rolled clamp below. The shared factory
+// validates instead, and keeps the route's own default page size of 20.
+const listQuerySchema = paginationQuerySchema({ defaultPageSize: 20 }).extend({
   search: z.string().optional(),
 })
 
@@ -144,8 +146,7 @@ const crud = makeCrudRoute<
       const auth = ctx.auth
       const { translate } = await resolveTranslations()
       if (!auth?.tenantId) throw json({ error: translate('api_keys.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
-      const page = Math.max(parseInt(query.page ?? '1', 10) || 1, 1)
-      const pageSize = Math.min(Math.max(parseInt(query.pageSize ?? '20', 10) || 20, 1), 200)
+      const { page, pageSize } = query
       const search = (query.search ?? '').trim().toLowerCase()
 
       const organizationIds = Array.isArray(ctx.organizationIds) ? ctx.organizationIds : null

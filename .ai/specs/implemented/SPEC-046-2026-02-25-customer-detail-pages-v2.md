@@ -512,8 +512,8 @@ Enrichers declared in `data/enrichers.ts` of any module can add data to the comp
 | `api/companies/[id]/route.ts` | API unchanged |
 | `api/people/route.ts` | API unchanged |
 | `api/people/[id]/route.ts` | API unchanged |
-| `backend/customers/companies/[id]/page.tsx` | v1 page remains, still accessible via direct URL |
-| `backend/customers/people/[id]/page.tsx` | v1 page remains |
+| `backend/customers/companies/[id]/page.tsx` | v1 page remains, still accessible via direct URL — **superseded, see the 2026-09-15 update below** |
+| `backend/customers/people/[id]/page.tsx` | v1 page remains — **superseded, see the 2026-09-15 update below** |
 
 ---
 
@@ -646,3 +646,48 @@ Same pattern as TC-CRM-V2-003 but for person:
 | 2026-03-19 | Clarified the implemented contract: v2 pages use `detail:customers.*:tabs` injection slots and keep address editing section-only in Zone 2 |
 | 2026-03-02 | Formally linked child workstreams `SPEC-046b` and `SPEC-046c` to this spec and marked implementation dependency alignment |
 | 2026-02-25 | Initial draft |
+
+---
+
+## Update — 2026-09-15: v1 pages removed
+
+The coexistence this spec planned (v1 reachable by direct URL, "consider future
+redirect") ended here. `backend/customers/people/[id]` and
+`backend/customers/companies/[id]` were **deleted** rather than redirected, so
+those URLs now 404; `people-v2` / `companies-v2` are the only detail routes.
+
+Everything in the repository that linked to a v1 detail URL was repointed at v2:
+`customers/utils/phoneDuplicates.ts`, `customers/message-objects.ts`,
+`customers/ai-agents.ts`, `search/ai-tools.ts`, the warranty-claims and
+sales-document detail pages, the portal user detail page, the example module's
+priority row action and its UMES hint (8 locales), and eleven integration specs.
+
+Removing v1 orphaned five components that only it rendered — `PersonHighlights`,
+`CompanyHighlights`, `DetailTabsLayout`, and the customers-module copies of
+`TagsSection` and `CustomDataSection` (v2 uses the `@open-mercato/ui/backend/detail`
+exports of the latter two). All five were deleted with their tests.
+
+Parity was NOT complete, and the claim that it was is the mistake this note
+exists to record. An import-level diff said the v1/v2 delta was only v1's
+per-field inline-editor architecture. It was not: `companies-v2` never rendered
+`AddressesSection`, so deleting the v1 company page removed the only company
+address UI in the product. `CompanyDetailTabs` hid this — its `LEGACY_TAB_MAP`
+mapped `addresses` to the People tab, so a deep link silently redirected instead
+of 404ing. Integration tests TC-CRM-006 and TC-CRM-085 caught it; an import diff
+never would have.
+
+Closed by giving v2 the tab rather than restoring v1: `CompanyTabId` gained
+`'addresses'`, `CompanyDetailTabs` gained the tab and an `addressesCount` prop
+(and dropped the `addresses` legacy remap), and `companies-v2` now renders the
+shared `AddressesSection` exactly as `people-v2` does. Everything else was
+already in place — the detail API returns `counts.addresses` unconditionally, the
+section fetches its own rows, and all five i18n keys existed in all eight locales.
+
+Tags and custom fields were separately confirmed to survive, via
+`TagsSectionController` and `CrudForm`'s `entityIds` respectively.
+
+Still outstanding: TC-CRM-003, TC-CRM-005, TC-CRM-018 and TC-CRM-075 drive v1's
+per-field inline editor (`button "Display name <value>"` then a per-field
+`Save (Ctrl+Enter)`) and cannot pass against a single-Save CrudForm. They need
+rewriting against the v2 flow, not a path substitution. TC-LOCK-OSS-046's NEG-04
+case asserts v1 differs from v2 and is obsolete now that v1 is gone.

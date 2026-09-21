@@ -95,6 +95,12 @@ export async function PATCH(req: Request, context: RouteContext) {
     if (body.description !== undefined) {
       row.description = body.description
     }
+    if (body.backgroundColor !== undefined) {
+      row.backgroundColor = body.backgroundColor
+    }
+    if (body.textColor !== undefined) {
+      row.textColor = body.textColor
+    }
     if (body.sortOrder !== undefined) {
       row.sortOrder = body.sortOrder
     }

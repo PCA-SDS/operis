@@ -1,4 +1,4 @@
-import { GET } from '@open-mercato/core/modules/perspectives/api/[tableId]/route'
+import { GET } from '../[tableId]/route'
 
 const mockGetAuthFromRequest = jest.fn()
 const mockUserHasAllFeatures = jest.fn()
@@ -44,7 +44,7 @@ jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: jest.fn(async () => mockContainer),
 }))
 
-jest.mock('@open-mercato/core/modules/perspectives/services/perspectiveService', () => ({
+jest.mock('../../services/perspectiveService', () => ({
   loadPerspectivesState: jest.fn((...args: unknown[]) => mockLoadPerspectivesState(...args)),
   saveUserPerspective: jest.fn(),
   saveRolePerspectives: jest.fn(),

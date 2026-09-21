@@ -248,6 +248,7 @@
   "entities.userEntities.form.submit": "Crear",
   "entities.userEntities.form.systemEntityNotice": "Esta es una entidad de sistema definida en el código. Su etiqueta y descripción se gestionan en el código y no se pueden editar aquí — solo las definiciones de campos siguientes son editables.",
   "entities.userEntities.form.title": "Crear entidad",
+  "entities.userEntities.records.deleteConfirm.title": "¿Eliminar este registro?",
   "entities.userEntities.records.errors.deleteFailed": "No se pudo eliminar el registro",
   "entities.userEntities.records.errors.entityIdRequired": "Se requiere el identificador de la entidad",
   "entities.userEntities.records.errors.recordIdRequired": "Se requiere el identificador del registro",

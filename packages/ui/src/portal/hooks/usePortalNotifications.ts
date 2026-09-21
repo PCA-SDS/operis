@@ -2,6 +2,7 @@
 import * as React from 'react'
 import type { NotificationDto } from '@open-mercato/shared/modules/notifications/types'
 import { apiCall } from '../../backend/utils/apiCall'
+import { useTabRestoreRefresh } from '../../backend/utils/backgroundPolling'
 import {
   PORTAL_BRIDGE_STATUS_DOM_NAME,
   readPortalBridgeHealth,
@@ -120,13 +121,11 @@ export function usePortalNotifications(): UsePortalNotificationsResult {
     return () => window.removeEventListener('om:portal-event', handler)
   }, [fetchAll])
 
-  React.useEffect(() => {
-    const onFocus = () => {
-      fetchAll()
-    }
-    window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
-  }, [fetchAll])
+  // `visibilitychange`-only + coalesced — see useTabRestoreRefresh. A raw
+  // `focus` listener double-fired on every tab restore.
+  useTabRestoreRefresh(React.useCallback(() => {
+    fetchAll()
+  }, [fetchAll]))
 
   const markAsRead = React.useCallback(async (id: string) => {
     await fetchJson(`${BASE}/${id}/read`, { method: 'PUT' })

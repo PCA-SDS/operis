@@ -1,0 +1,1 @@
+export const metadata = { requireAuth: true, requireFeatures: ['invoice.manage'], pageTitle: 'Create invoice', pageTitleKey: 'invoice.form.createTitle', pageGroup: 'Invoice', pageGroupKey: 'invoice.nav.group', pageOrder: 32, icon: 'plus', breadcrumb: [{ label: 'Invoice', labelKey: 'invoice.nav.title' }, { label: 'Create invoice', labelKey: 'invoice.form.createTitle' }] }

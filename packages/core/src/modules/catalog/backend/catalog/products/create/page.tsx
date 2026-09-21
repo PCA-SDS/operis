@@ -1826,7 +1826,7 @@ function ProductBuilder({
 
   return (
     <div className="space-y-6">
-      <nav className="flex gap-6 border-b pb-2 text-sm font-medium">
+      <nav className="flex w-full max-w-full min-w-0 gap-3 overflow-x-auto border-b pb-2 text-sm font-medium sm:gap-6">
         {steps.map((step, index) => (
           <Button
             key={step}
@@ -1993,6 +1993,8 @@ function ProductBuilder({
             options={values.optionTreeOptions || []}
             onChangeGroups={(groups) => setValue("optionTreeGroups", groups)}
             onChangeOptions={(opts) => setValue("optionTreeOptions", opts)}
+            showSummary={false}
+            showAddGroupLabelOnMobile
           />
         ) : (
           <OptionDraftBuilder

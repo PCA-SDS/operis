@@ -248,6 +248,7 @@ export default function SalesChannelsPage() {
                 {
                   id: 'delete',
                   label: t('sales.channels.table.actions.delete', 'Delete'),
+                  destructive: true,
                   onSelect: () => handleDelete(row),
                 },
               ]}

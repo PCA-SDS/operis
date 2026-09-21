@@ -19,7 +19,18 @@
 
 set -Eeuo pipefail
 
-APP_DIR="${APP_DIR:-/opt/operis}"
+# Defaults to the directory this script LIVES IN, not a hardcoded path.
+#
+# It used to default to /opt/operis outright. With a second stack on the same host
+# that is a loaded gun: `cd /opt/operis-staging && ./dc down -v` would cd straight
+# back to /opt/operis and destroy PRODUCTION's volumes, having been typed, read and
+# reviewed as a staging command. Resolving from $0 means a script sitting in
+# /opt/operis-staging operates on /opt/operis-staging.
+#
+# Production is unaffected: deploy.sh, backup.sh and dc all live in /opt/operis
+# there, so the default still resolves to /opt/operis. CI passes APP_DIR explicitly
+# either way.
+APP_DIR="${APP_DIR:-$(cd -- "$(dirname -- "$0")" && pwd)}"
 COMPOSE_FILE="$APP_DIR/docker-compose.yml"
 ENV_FILE="$APP_DIR/.env"
 IMAGE_ENV_FILE="$APP_DIR/.image.env"
@@ -187,6 +198,38 @@ ENV_IMAGE="$(read_env APP_IMAGE)"
 APP_DOMAIN="$(read_env APP_DOMAIN)"
 POSTGRES_USER="$(read_env POSTGRES_USER)"; POSTGRES_USER="${POSTGRES_USER:-operis}"
 POSTGRES_DB="$(read_env POSTGRES_DB)";     POSTGRES_DB="${POSTGRES_DB:-operis}"
+
+# ------------------------------------------------------------------------------
+# Which stack is this, really?
+#
+# docker-compose.yml derives the compose project, all five container names, the
+# internal network and all five volume names from STACK_NAME, defaulting to
+# `operis`. So a staging .env that is MISSING STACK_NAME does not fail — it
+# renders as project `operis` and quietly adopts PRODUCTION's containers and
+# volumes. `docker compose up -d` would then recreate the production app
+# against the staging .env, and the pre-deploy dump taken moments earlier would
+# be of the production database, from a directory nobody thinks of as
+# production.
+#
+# There is no safe way to detect that after the fact, so it is asserted before
+# anything is pulled, backed up or restarted. CI passes EXPECTED_STACK on every
+# deploy, for production too — `operis` matching the default is the check
+# passing, not the check being absent.
+#
+# Unset (a hand-run on the box) skips the assertion rather than guessing, which
+# keeps `./deploy.sh <tag>` working exactly as it always has.
+# ------------------------------------------------------------------------------
+if [ -n "${EXPECTED_STACK:-}" ]; then
+  ACTUAL_STACK="$(read_env STACK_NAME)"; ACTUAL_STACK="${ACTUAL_STACK:-operis}"
+  if [ "$ACTUAL_STACK" != "$EXPECTED_STACK" ]; then
+    fail "stack mismatch — refusing to deploy.
+       $ENV_FILE renders compose project '$ACTUAL_STACK', but this deploy targets '$EXPECTED_STACK'.
+       APP_DIR is $APP_DIR.
+       Deploying anyway would have operated on the '$ACTUAL_STACK' stack's containers and volumes.
+       Fix: set STACK_NAME=$EXPECTED_STACK in $ENV_FILE (production omits it and takes the default)."
+  fi
+  log "stack: $ACTUAL_STACK (app dir $APP_DIR)"
+fi
 
 # ------------------------------------------------------------------------------
 # The env contract, checked before anything is pulled, backed up or restarted.

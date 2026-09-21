@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { extensionPoints } from '@open-mercato/core/modules/wms/extension-points'
+import { extensionPoints } from '../../extension-points'
 import Link from 'next/link'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import type { RowData, SortingState } from '@tanstack/react-table'
@@ -189,7 +189,7 @@ function SectionCard({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground shadow-sm">
+    <section className="rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground">
       <div className="mb-4 flex items-start gap-3">
         <div className="rounded-md border bg-muted/40 p-2 text-muted-foreground">
           {icon}
@@ -340,7 +340,6 @@ function InventoryDataTableSection<T extends RowData>({
     >
       <DataTable
         embedded
-        title={t(titleKey, titleFallback)}
         columns={columns}
         data={query.data?.items ?? []}
         isLoading={query.isLoading}
@@ -438,7 +437,7 @@ function InventoryScopeBar({
   const hasScope = warehouseId.trim() || variantId.trim()
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface shadow-sm px-4 py-3 shadow-sm">
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface shadow-sm px-4 py-3">
       <div className="flex items-center gap-2 text-muted-foreground">
         <WarehouseIcon className="size-4 shrink-0" />
         <span className="text-sm font-medium">

@@ -3,25 +3,25 @@ import { z } from 'zod'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { onboardingVerifySchema } from '@open-mercato/onboarding/modules/onboarding/data/validators'
-import type { OnboardingRequest } from '@open-mercato/onboarding/modules/onboarding/data/entities'
-import { OnboardingService } from '@open-mercato/onboarding/modules/onboarding/lib/service'
-import { sendWorkspaceReadyEmail } from '@open-mercato/onboarding/modules/onboarding/lib/ready-email'
+import { onboardingVerifySchema } from '../../../data/validators'
+import type { OnboardingRequest } from '../../../data/entities'
+import { OnboardingService } from '../../../lib/service'
+import { sendWorkspaceReadyEmail } from '../../../lib/ready-email'
 import {
   redirectToLogin,
   redirectToPreparing,
   redirectWithStatus,
-} from '@open-mercato/onboarding/modules/onboarding/lib/verify-redirects'
-import { resolveVerifyRedirectBaseUrl } from '@open-mercato/onboarding/modules/onboarding/lib/verify-base-url'
+} from '../../../lib/verify-redirects'
+import { resolveVerifyRedirectBaseUrl } from '../../../lib/verify-base-url'
 import {
   resolveProvisioningIds,
   runDeferredProvisioning,
-} from '@open-mercato/onboarding/modules/onboarding/lib/deferred-provisioning'
+} from '../../../lib/deferred-provisioning'
 import { setupInitialTenant } from '@open-mercato/core/modules/auth/lib/setup-app'
 import { UserConsent } from '@open-mercato/core/modules/auth/data/entities'
 import { computeConsentIntegrityHash } from '@open-mercato/core/modules/auth/lib/consentIntegrity'
-import { resolveConsentClientIp } from '@open-mercato/onboarding/modules/onboarding/lib/consentClientIp'
-import { runBestEffortProvisioningStep } from '@open-mercato/onboarding/modules/onboarding/lib/provisioning'
+import { resolveConsentClientIp } from '../../../lib/consentClientIp'
+import { runBestEffortProvisioningStep } from '../../../lib/provisioning'
 import { getModules } from '@open-mercato/shared/lib/modules/registry'
 import { isUniqueViolation } from '@open-mercato/shared/lib/crud/errors'
 import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'

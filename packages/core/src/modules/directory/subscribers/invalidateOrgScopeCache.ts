@@ -34,11 +34,23 @@ export default async function handle(
     return
   }
   if (!cache) return
-  try {
-    await runWithCacheTenant(tenantId, () =>
-      cache.deleteByTags([buildOrgScopeTenantCacheTag(tenantId)]),
-    )
-  } catch {
-    // best-effort; TTL is the backstop.
+  // Drop under BOTH the tenant scope and the global (null) scope.
+  //
+  // The cache service prefixes every key and tag with the ambient cache tenant
+  // from AsyncLocalStorage. Only the API dispatcher establishes one
+  // (`runWithCacheTenant` in apps/mercato/src/app/api/[...slug]/route.ts); the
+  // two SERVER-COMPONENT callers of resolveOrganizationScopeForRequest — the
+  // backend catch-all page and the sidebar chrome — run with no ambient tenant,
+  // so their entries land under `tenant:global:`. Dropping only the tenant scope
+  // left those stale for the full TTL, including the `allowedOrganizationIds`
+  // that gates the page-level access check. `RbacService.deleteCacheByTags`
+  // already sweeps both scopes; this mirrors it.
+  const tag = buildOrgScopeTenantCacheTag(tenantId)
+  for (const scope of [tenantId, null] as Array<string | null>) {
+    try {
+      await runWithCacheTenant(scope, () => cache.deleteByTags([tag]))
+    } catch {
+      // best-effort; TTL is the backstop.
+    }
   }
 }

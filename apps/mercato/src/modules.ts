@@ -139,6 +139,13 @@ export const enabledModules: ModuleEntry[] = [
   // migrations run once the tables it maps already exist.
   // See docs/architecture/adr/ADR-0006-matrix-chat-transport.md
   { id: 'chat_matrix', from: '@open-mercato/core' },
+  // Connects chat and tasks: the `/task` command, task cards in a transcript, the
+  // conversation's Tasks panel and the "Raised from" rail in the task panel. Owns
+  // only the link between a conversation and a task — every task rule stays in
+  // `tasks` and every access rule stays in the module that owns it. Listed after
+  // both so its migrations run once the tables it references exist, and removing
+  // this line empties the spots it fills without touching either module.
+  { id: 'chat_tasks', from: '@open-mercato/core' },
   // Communication channels hub (SPEC-045d) — bridges external chat/email channels
   // (Slack, WhatsApp, Email) to the unified Messages inbox. Provider packages
   // (channel-slack, channel-whatsapp, future email providers) register adapters here.

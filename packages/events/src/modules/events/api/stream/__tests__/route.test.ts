@@ -32,7 +32,7 @@ jest.mock('@open-mercato/shared/modules/events', () => ({
   isBroadcastEvent: jest.fn(() => true),
 }))
 
-import { GET } from '@open-mercato/events/modules/events/api/stream/route'
+import { GET } from '../route'
 
 // req.signal is a linked/derived signal in Node, so we spy AFTER the
 // Request is constructed to intercept the handler's real calls.
@@ -170,6 +170,27 @@ describe('SSE event stream — abort listener hygiene', () => {
     const { value, done } = await reader.read()
     expect(done).toBe(false)
     expect(new TextDecoder().decode(value)).toContain('"marker":"legacy-expected"')
+
+    try { await reader.cancel() } catch {}
+  })
+
+  it('delivers recipient-targeted tenant events across the selected organization', async () => {
+    const { req } = makeTrackedRequest()
+    const res = await GET(req)
+    expect(res.status).toBe(200)
+
+    const reader = (res.body as ReadableStream<Uint8Array>).getReader()
+    await reader.read()
+
+    await mockGlobalEventTap?.('notifications.notification.created', {
+      tenantId: 't1',
+      recipientUserId: 'u1',
+      notification: { id: 'n1', organizationId: 'o2' },
+    })
+
+    const { value, done } = await reader.read()
+    expect(done).toBe(false)
+    expect(new TextDecoder().decode(value)).toContain('"id":"n1"')
 
     try { await reader.cancel() } catch {}
   })

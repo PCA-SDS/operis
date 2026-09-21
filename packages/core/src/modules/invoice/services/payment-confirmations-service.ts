@@ -1,0 +1,592 @@
+import { randomBytes } from 'node:crypto'
+import { UniqueConstraintViolationException } from '@mikro-orm/core'
+import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
+import { badRequest, conflict, notFound, CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { sendEmail } from '@open-mercato/shared/lib/email/send'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+import { getSecurityEmailBaseUrl } from '@open-mercato/shared/lib/url'
+
+import { Invoice, InvoiceInstallment, InvoicePaymentConfirmation } from '../data/entities'
+import { mapInvoiceEntityToDetailDto, type InvoiceDetailDto } from '../data/mappers'
+import type { InvoiceScope } from '../data/scope'
+import {
+  hashInvoicePublicToken,
+  INVOICE_PAYMENT_CONFIRMATION_TOKEN_BYTES,
+  INVOICE_PAYMENT_CONFIRMATION_TTL_DAYS,
+  invoicePaymentConfirmationRequestSchema,
+  invoicePaymentConfirmationPublicPreviewSchema,
+  invoicePaymentConfirmationPublicTransitionSchema,
+  invoicePublicTokenSchema,
+  type InvoicePaymentConfirmationRequestInput,
+  type InvoicePublicToken,
+  type InvoiceTokenHash,
+  type InvoicePaymentConfirmationPublicPreview,
+  type InvoicePaymentConfirmationPublicTransition,
+} from '../data/validators'
+import { emitInvoiceEvent } from '../events'
+import type { InvoiceCompanyEmailsService } from './company-emails-service'
+import { createPaymentConfirmationEmail } from './invoice-email'
+import { InvoiceScopedPersistenceService } from './scoped-persistence-service'
+import type { InvoiceService } from './invoice-service'
+
+/**
+ * Money is stored as `numeric(18,4)` decimal strings. Compare at that scale rather than by
+ * string equality so `100.0000` and `100` agree, using the same 4-decimal convention as
+ * `invoice-service.ts`'s `money()`.
+ */
+const MONEY_EPSILON = 0.00005
+
+function claimAmountOf(confirmation: { installment?: { totalAmount?: string | null } | null; invoice: { outstandingAmount?: string | null; grossAmount?: string | null } }): number {
+  const raw = confirmation.installment?.totalAmount
+    ?? confirmation.invoice.outstandingAmount
+    ?? confirmation.invoice.grossAmount
+    ?? '0'
+  return Number.parseFloat(raw) || 0
+}
+
+const logger = createLogger('invoice').child({ component: 'payment-confirmations-service' })
+
+export type InvoicePaymentConfirmationRequestResult = {
+  confirmationId: string
+  invoiceId: string
+  installmentId: string | null
+  status: 'PENDING'
+  expiresAt: string
+}
+
+export type InvoiceIncomingPaymentConfirmationResult = {
+  confirmationId: string
+  status: 'CONFIRMED' | 'REJECTED'
+  invoice: InvoiceDetailDto
+}
+
+export type InvoicePaymentConfirmationView = {
+  status: 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'EXPIRED'
+  expiresAt: string
+}
+
+export type InvoicePaymentConfirmationPresentation = {
+  wholeInvoice: InvoicePaymentConfirmationView | null
+  installments: Record<string, InvoicePaymentConfirmationView>
+  incoming: {
+    confirmationId: string
+    payerName: string | null
+    amount: string
+    currencyCode: string
+  } | null
+}
+
+type IncomingPaymentConfirmationMatch = {
+  receiverInvoice: Invoice
+  confirmation: InvoicePaymentConfirmation
+}
+
+const publicConfirmationNotFound = () => notFound('[internal] Payment confirmation not found')
+
+export function generateInvoicePaymentConfirmationToken(): {
+  rawToken: InvoicePublicToken
+  tokenHash: InvoiceTokenHash
+} {
+  const rawToken = invoicePublicTokenSchema.parse(
+    randomBytes(INVOICE_PAYMENT_CONFIRMATION_TOKEN_BYTES).toString('hex'),
+  )
+  return { rawToken, tokenHash: hashInvoicePublicToken(rawToken) }
+}
+
+function installmentItems(invoice: Invoice): InvoiceInstallment[] {
+  const installments = invoice.installments as unknown
+  if (Array.isArray(installments)) return installments
+  if (installments && typeof installments === 'object') {
+    const collection = installments as { getItems?: () => InvoiceInstallment[] }
+    if (typeof collection.getItems === 'function') return collection.getItems()
+  }
+  return []
+}
+
+export class InvoicePaymentConfirmationsService {
+  constructor(
+    private readonly em: EntityManager,
+    private readonly companyEmailsService: InvoiceCompanyEmailsService,
+    private readonly invoiceService?: InvoiceService,
+  ) {}
+
+  private async findByPublicToken(rawToken: string) {
+    const token = invoicePublicTokenSchema.safeParse(rawToken)
+    if (!token.success) throw publicConfirmationNotFound()
+    const confirmation = await this.em.findOne(
+      InvoicePaymentConfirmation,
+      { tokenHash: hashInvoicePublicToken(token.data) },
+      { populate: ['invoice', 'invoice.company', 'installment'] as never[] },
+    )
+    if (!confirmation) throw publicConfirmationNotFound()
+    return confirmation
+  }
+
+  private publicPreview(confirmation: InvoicePaymentConfirmation): InvoicePaymentConfirmationPublicPreview {
+    const invoice = confirmation.invoice
+    const installment = confirmation.installment ?? null
+    return invoicePaymentConfirmationPublicPreviewSchema.parse({
+      status: confirmation.status,
+      expiresAt: confirmation.expiresAt.toISOString(),
+      payerName: invoice.buyerName ?? null,
+      payeeName: invoice.sellerName ?? invoice.company?.name ?? null,
+      invoice: {
+        symbol: invoice.invoiceSymbol ?? null,
+        number: invoice.invoiceNumber,
+        amount: installment?.totalAmount ?? invoice.grossAmount ?? invoice.outstandingAmount ?? '0',
+        currencyCode: invoice.currencyCode,
+      },
+      installment: installment
+        ? {
+            sequence: installment.sequence,
+            amount: installment.totalAmount,
+            dueDate: installment.dueDate.toISOString(),
+          }
+        : null,
+    })
+  }
+
+  async getPublicPreview(rawToken: string): Promise<InvoicePaymentConfirmationPublicPreview> {
+    return this.publicPreview(await this.findByPublicToken(rawToken))
+  }
+
+  private async transitionPublic(rawToken: string, target: 'CONFIRMED' | 'REJECTED'):
+    Promise<InvoicePaymentConfirmationPublicTransition> {
+    const result = await this.em.transactional(async (tx) => {
+      const token = invoicePublicTokenSchema.safeParse(rawToken)
+      if (!token.success) throw publicConfirmationNotFound()
+      const tokenHash = hashInvoicePublicToken(token.data)
+      const confirmation = await tx.findOne(
+        InvoicePaymentConfirmation,
+        { tokenHash },
+        { populate: ['invoice', 'invoice.company', 'installment'] as never[] },
+      )
+      if (!confirmation) throw publicConfirmationNotFound()
+
+      if (confirmation.status === target) {
+        return { status: target }
+      }
+      if (confirmation.status !== 'PENDING') {
+        throw conflict('[internal] Payment confirmation is already in the opposite terminal state')
+      }
+      if (confirmation.expiresAt.getTime() <= Date.now()) {
+        throw new CrudHttpError(410, { error: '[internal] Payment confirmation has expired' })
+      }
+
+      const now = new Date()
+      const update = target === 'CONFIRMED'
+        ? { status: target, confirmedAt: now, updatedAt: now }
+        : { status: target, rejectedAt: now, updatedAt: now }
+      const changed = await tx.nativeUpdate(
+        InvoicePaymentConfirmation,
+        { tokenHash, status: 'PENDING' },
+        update,
+      )
+      if (changed !== 1) {
+        const current = await tx.findOne(InvoicePaymentConfirmation, { tokenHash })
+        if (current?.status === target) return { status: target }
+        throw conflict('[internal] Payment confirmation transition conflicted')
+      }
+
+      if (target === 'CONFIRMED') {
+        if (!this.invoiceService) throw new Error('[internal] Invoice payment service is not configured')
+        await this.invoiceService.forTransaction(tx).applyInvoicePayment(
+          { tenantId: confirmation.tenantId, organizationId: confirmation.organizationId },
+          confirmation.invoice.id,
+          { installmentId: confirmation.installment?.id ?? undefined },
+        )
+      }
+
+      return { status: target, confirmationId: confirmation.id, tenantId: confirmation.tenantId, organizationId: confirmation.organizationId }
+    })
+
+    if ('confirmationId' in result) {
+      await emitInvoiceEvent(`invoice.payment_confirmation.${target.toLowerCase()}` as 'invoice.payment_confirmation.confirmed' | 'invoice.payment_confirmation.rejected', {
+        id: result.confirmationId,
+        tenantId: result.tenantId,
+        organizationId: result.organizationId,
+      })
+    }
+    return invoicePaymentConfirmationPublicTransitionSchema.parse({ status: result.status })
+  }
+
+  async confirmPublic(rawToken: string): Promise<InvoicePaymentConfirmationPublicTransition> {
+    return this.transitionPublic(rawToken, 'CONFIRMED')
+  }
+
+  async rejectPublic(rawToken: string): Promise<InvoicePaymentConfirmationPublicTransition> {
+    return this.transitionPublic(rawToken, 'REJECTED')
+  }
+
+  async getPresentationState(
+    scope: InvoiceScope,
+    invoice: InvoiceDetailDto,
+  ): Promise<InvoicePaymentConfirmationPresentation> {
+    const now = new Date()
+    const confirmations = await this.em.find(InvoicePaymentConfirmation, {
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+      invoice: invoice.id,
+    }, {
+      populate: ['installment'] as never[],
+      orderBy: { createdAt: 'desc' },
+    })
+    const result: InvoicePaymentConfirmationPresentation = {
+      wholeInvoice: null,
+      installments: {},
+      incoming: null,
+    }
+    for (const confirmation of confirmations) {
+      const view: InvoicePaymentConfirmationView = {
+        status: confirmation.status === 'PENDING' && confirmation.expiresAt <= now
+          ? 'EXPIRED'
+          : confirmation.status,
+        expiresAt: confirmation.expiresAt.toISOString(),
+      }
+      const installmentId = confirmation.installment?.id ?? null
+      if (installmentId) {
+        if (!result.installments[installmentId]) result.installments[installmentId] = view
+      } else if (!result.wholeInvoice) {
+        result.wholeInvoice = view
+      }
+    }
+
+    if (invoice.direction === 'AR') {
+      const incoming = await this.em.find(InvoicePaymentConfirmation, {
+        status: 'PENDING',
+        expiresAt: { $gt: now },
+        installment: null,
+        invoice: {
+          direction: 'AP',
+          deletedAt: null,
+          sellerTaxCode: invoice.sellerTaxCode,
+          buyerTaxCode: invoice.buyerTaxCode,
+          invoiceSymbol: invoice.invoiceSymbol,
+          invoiceNumber: invoice.invoiceNumber,
+          invoiceDate: invoice.invoiceDate ? new Date(invoice.invoiceDate) : null,
+        },
+      }, {
+        populate: ['invoice'] as never[],
+        orderBy: { createdAt: 'desc' },
+        limit: 2,
+      })
+      if (incoming.length === 1) {
+        const claim = incoming[0]
+        result.incoming = {
+          confirmationId: claim.id,
+          payerName: claim.invoice.buyerName ?? null,
+          amount: claim.invoice.outstandingAmount ?? '0',
+          currencyCode: claim.invoice.currencyCode,
+        }
+      }
+    }
+    return result
+  }
+
+  private async findIncoming(
+    tx: EntityManager,
+    scope: InvoiceScope,
+    receiverInvoiceId: string,
+    now: Date,
+  ): Promise<IncomingPaymentConfirmationMatch> {
+    const scopedPersistence = new InvoiceScopedPersistenceService(tx)
+    const receiverInvoice = await scopedPersistence.findById(Invoice, scope, receiverInvoiceId, {
+      populate: ['lineItems', 'installments'] as never[],
+      orderBy: {
+        lineItems: { lineNumber: 'asc' },
+        installments: { sequence: 'asc' },
+      },
+    })
+    if (!receiverInvoice) throw notFound('[internal] Invoice not found')
+    if (receiverInvoice.direction !== 'AR') {
+      throw badRequest('[internal] Incoming payment confirmation is allowed only for AR invoices')
+    }
+
+    const confirmations = await tx.find(InvoicePaymentConfirmation, {
+      status: 'PENDING',
+      expiresAt: { $gt: now },
+      installment: null,
+      invoice: {
+        direction: 'AP',
+        deletedAt: null,
+        sellerTaxCode: receiverInvoice.sellerTaxCode ?? null,
+        buyerTaxCode: receiverInvoice.buyerTaxCode ?? null,
+        invoiceSymbol: receiverInvoice.invoiceSymbol ?? null,
+        invoiceNumber: receiverInvoice.invoiceNumber,
+        invoiceDate: receiverInvoice.invoiceDate,
+      },
+    }, {
+      // `installment` is read by the settlement amount guard; an unpopulated relation would
+      // silently read as undefined and let an installment-scoped claim settle in full.
+      populate: ['invoice', 'installment'] as never[],
+      orderBy: { createdAt: 'desc' },
+      limit: 2,
+    })
+
+    if (confirmations.length !== 1) {
+      throw conflict('[internal] No unique pending incoming payment confirmation exists')
+    }
+
+    const confirmation = confirmations[0]
+    if (
+      confirmation.invoice.tenantId !== confirmation.tenantId
+      || confirmation.invoice.organizationId !== confirmation.organizationId
+    ) {
+      throw conflict('[internal] Incoming payment confirmation scope is inconsistent')
+    }
+
+    return { receiverInvoice, confirmation }
+  }
+
+  private async transitionIncoming(
+    scope: InvoiceScope,
+    receiverInvoiceId: string,
+    target: 'CONFIRMED' | 'REJECTED',
+  ): Promise<InvoiceIncomingPaymentConfirmationResult> {
+    const now = new Date()
+    const result = await this.em.transactional(async (tx) => {
+      const { receiverInvoice, confirmation } = await this.findIncoming(
+        tx,
+        scope,
+        receiverInvoiceId,
+        now,
+      )
+      const changed = await tx.nativeUpdate(
+        InvoicePaymentConfirmation,
+        { id: confirmation.id, status: 'PENDING', expiresAt: { $gt: now } },
+        target === 'CONFIRMED'
+          ? { status: target, confirmedAt: now, updatedAt: now }
+          : { status: target, rejectedAt: now, updatedAt: now },
+      )
+      if (changed !== 1) {
+        throw conflict('[internal] Incoming payment confirmation transition conflicted')
+      }
+
+      let invoice = mapInvoiceEntityToDetailDto(receiverInvoice)
+      if (target === 'CONFIRMED') {
+        if (!this.invoiceService) throw new Error('[internal] Invoice payment service is not configured')
+        const transactionInvoiceService = this.invoiceService.forTransaction(tx)
+        await transactionInvoiceService.applyInvoicePayment(
+          { tenantId: confirmation.tenantId, organizationId: confirmation.organizationId },
+          confirmation.invoice.id,
+        )
+        // `updateReceivableSettlement` settles the receivable in FULL — it has no partial path.
+        // The claim is derived from the payer's invoice (the same figure the receiver is shown),
+        // so it must actually cover the receivable before we mark it paid. Without this a claim
+        // of 1.0000 settles an arbitrarily large receivable.
+        const claimedAmount = claimAmountOf(confirmation)
+        const receivableOutstanding = Number.parseFloat(receiverInvoice.outstandingAmount ?? receiverInvoice.grossAmount ?? '0') || 0
+        if (confirmation.invoice.currencyCode !== receiverInvoice.currencyCode) {
+          throw conflict('[internal] Payment confirmation currency does not match the receivable')
+        }
+        if (claimedAmount + MONEY_EPSILON < receivableOutstanding) {
+          throw conflict('[internal] Payment confirmation does not cover the outstanding receivable')
+        }
+
+        const receiverResult = await transactionInvoiceService.updateReceivableSettlement(
+          scope,
+          receiverInvoice.id,
+          { settled: true },
+        )
+        invoice = receiverResult.invoice
+      }
+
+      return {
+        confirmationId: confirmation.id,
+        payerInvoiceId: confirmation.invoice.id,
+        payerTenantId: confirmation.tenantId,
+        payerOrganizationId: confirmation.organizationId,
+        status: target,
+        invoice,
+      }
+    })
+
+    logger.info(`Incoming payment confirmation ${target.toLowerCase()}`, {
+      confirmationId: result.confirmationId,
+      payerInvoiceId: result.payerInvoiceId,
+      receiverInvoiceId,
+      payerTenantId: result.payerTenantId,
+      payerOrganizationId: result.payerOrganizationId,
+      receiverTenantId: scope.tenantId,
+      receiverOrganizationId: scope.organizationId,
+    })
+    await emitInvoiceEvent(
+      `invoice.payment_confirmation.${target.toLowerCase()}` as
+        | 'invoice.payment_confirmation.confirmed'
+        | 'invoice.payment_confirmation.rejected',
+      {
+        id: result.confirmationId,
+        tenantId: result.payerTenantId,
+        organizationId: result.payerOrganizationId,
+      },
+    )
+
+    return {
+      confirmationId: result.confirmationId,
+      status: result.status,
+      invoice: result.invoice,
+    }
+  }
+
+  async acceptIncoming(
+    scope: InvoiceScope,
+    receiverInvoiceId: string,
+  ): Promise<InvoiceIncomingPaymentConfirmationResult> {
+    return this.transitionIncoming(scope, receiverInvoiceId, 'CONFIRMED')
+  }
+
+  async rejectIncoming(
+    scope: InvoiceScope,
+    receiverInvoiceId: string,
+  ): Promise<InvoiceIncomingPaymentConfirmationResult> {
+    return this.transitionIncoming(scope, receiverInvoiceId, 'REJECTED')
+  }
+
+  async request(
+    scope: InvoiceScope,
+    rawInput: InvoicePaymentConfirmationRequestInput,
+  ): Promise<InvoicePaymentConfirmationRequestResult> {
+    const input = invoicePaymentConfirmationRequestSchema.parse(rawInput)
+    const { translate } = await resolveTranslations()
+    let supersededCount = 0
+    let companyId = ''
+
+    const result = await this.em.transactional(async (tx) => {
+      const scopedPersistence = new InvoiceScopedPersistenceService(tx)
+      const invoice = await scopedPersistence.findById(Invoice, scope, input.invoiceId, {
+        populate: ['company', 'installments'] as never[],
+        orderBy: { installments: { sequence: 'asc' } },
+      })
+      if (!invoice) throw notFound('[internal] Invoice not found')
+      if (invoice.direction !== 'AP') {
+        throw badRequest('[internal] Payment confirmation requests are allowed only for AP invoices')
+      }
+      if (invoice.settlementStatus === 'SETTLED') {
+        throw badRequest('[internal] Settled invoice cannot request payment confirmation')
+      }
+
+      const installment = input.installmentId
+        ? installmentItems(invoice).find((item) => item.id === input.installmentId) ?? null
+        : null
+      if (input.installmentId && !installment) {
+        throw notFound('[internal] Invoice installment not found')
+      }
+      if (installment?.status === 'PAID') {
+        throw badRequest('[internal] Paid installment cannot request payment confirmation')
+      }
+
+      const { rawToken, tokenHash } = generateInvoicePaymentConfirmationToken()
+      const confirmationUrl = `${getSecurityEmailBaseUrl()}/confirm-payment/${rawToken}`
+      const now = new Date()
+      const expiresAt = new Date(now.getTime() + INVOICE_PAYMENT_CONFIRMATION_TTL_DAYS * 24 * 60 * 60 * 1000)
+      // Supersede any prior pending request BEFORE inserting the replacement. Doing it after
+      // the insert meant two concurrent requests each failed to see the other's uncommitted
+      // row, both deletes matched nothing, and two PENDING rows with two live tokens
+      // committed — after which `findIncoming`'s `length !== 1` check 409s the receiver's
+      // Accept button permanently. The partial unique index added in
+      // `Migration20260916120000_invoice_payment_confirmation_pending_unique.ts` closes the
+      // remaining window where both transactions interleave past this delete.
+      const previousPendingWhere: FilterQuery<InvoicePaymentConfirmation> = {
+        invoice,
+        installment,
+        status: 'PENDING',
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+      }
+      supersededCount = await tx.nativeDelete(InvoicePaymentConfirmation, previousPendingWhere)
+
+      const confirmation = scopedPersistence.createScoped(InvoicePaymentConfirmation, scope, {
+        invoice,
+        installment,
+        recipientEmail: input.recipientEmail,
+        tokenHash,
+        status: 'PENDING',
+        expiresAt,
+        confirmedAt: null,
+        rejectedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      try {
+        await tx.persist(confirmation).flush()
+      } catch (error) {
+        // The partial unique index fired: a concurrent request committed its own PENDING row
+        // between our supersede and this insert. Surface it as a conflict the caller can retry
+        // rather than a 500 — and never leave two live tokens behind.
+        if (error instanceof UniqueConstraintViolationException) {
+          throw conflict('[internal] A payment confirmation request is already pending for this invoice')
+        }
+        throw error
+      }
+
+      const email = createPaymentConfirmationEmail({
+        invoice,
+        installment,
+        confirmationUrl,
+        expiresInDays: INVOICE_PAYMENT_CONFIRMATION_TTL_DAYS,
+        translate,
+      })
+      try {
+        await sendEmail({ to: input.recipientEmail, subject: email.subject, react: email.react })
+      } catch {
+        logger.error('Payment confirmation email delivery failed', {
+          confirmationId: confirmation.id,
+          invoiceId: invoice.id,
+          tenantId: scope.tenantId,
+          organizationId: scope.organizationId,
+        })
+        throw badRequest('[internal] Payment confirmation email delivery failed')
+      }
+
+      companyId = invoice.company.id
+
+      return {
+        confirmationId: confirmation.id,
+        invoiceId: invoice.id,
+        installmentId: installment?.id ?? null,
+        status: 'PENDING' as const,
+        expiresAt: expiresAt.toISOString(),
+      }
+    })
+
+    try {
+      await this.companyEmailsService.record(scope, {
+        companyId,
+        email: input.recipientEmail,
+      })
+    } catch {
+      logger.warn('Payment confirmation recipient memory failed', {
+        confirmationId: result.confirmationId,
+        invoiceId: result.invoiceId,
+        companyId,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+      })
+    }
+
+    logger.info('Payment confirmation requested', {
+      confirmationId: result.confirmationId,
+      invoiceId: result.invoiceId,
+      installmentId: result.installmentId,
+      supersededCount,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+    })
+    await emitInvoiceEvent('invoice.payment_confirmation.requested', {
+      id: result.confirmationId,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+    })
+
+    return result
+  }
+}
+
+export function createInvoicePaymentConfirmationsService(
+  em: EntityManager,
+  companyEmailsService: InvoiceCompanyEmailsService,
+  invoiceService?: InvoiceService,
+): InvoicePaymentConfirmationsService {
+  return new InvoicePaymentConfirmationsService(em, companyEmailsService, invoiceService)
+}

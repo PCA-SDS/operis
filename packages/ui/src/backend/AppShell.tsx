@@ -1383,8 +1383,8 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
       {/* `data-app-shell-column` is a styling hook only. `globals.css` uses it
           to pin the shell to the viewport for pages that opted into
           `<Page fill>`, and does nothing at all for every other page. */}
-      <div data-app-shell-column="" className="flex min-h-svh min-w-0 flex-col overflow-x-hidden">
-        <header className="sticky top-0 z-sticky flex h-16 min-w-0 shrink-0 items-center gap-2 overflow-x-hidden border-b border-border bg-surface-muted px-3 sm:gap-3 sm:px-4 lg:px-6">
+      <div data-app-shell-column="" className="flex min-h-svh min-w-0 flex-col">
+        <header className="sticky top-0 z-sticky flex h-16 min-w-0 shrink-0 items-center gap-2 border-b border-border bg-surface-muted px-3 sm:gap-3 sm:px-4 lg:px-6">
           <div
             data-testid="backend-chrome-ready"
             data-ready={isChromeReady ? 'true' : 'false'}
@@ -1491,7 +1491,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           </div>
         </header>
         <ProgressTopBar t={t} className="sticky top-0 z-sticky" completedAutoHideMs={progressCompletedAutoHideMs} />
-        <main className="mx-auto flex min-w-0 max-w-screen-2xl flex-1 flex-col overflow-x-hidden px-4 pb-8 pt-4 sm:px-6 lg:px-8 lg:pt-5">
+        <main className="mx-auto flex min-w-0 w-full max-w-screen-2xl flex-1 flex-col px-4 pb-8 pt-4 sm:px-6 lg:px-8 lg:pt-5">
           <InjectionSpot spotId={BACKEND_LAYOUT_TOP_INJECTION_SPOT_ID} context={injectionContext} />
           <FlashMessages />
           <PartialIndexBanner />

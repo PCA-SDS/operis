@@ -1,3 +1,4 @@
+import { assertSearchTenantContext } from '@open-mercato/shared/modules/search'
 import type { SearchBuildContext, SearchIndexSource, SearchModuleConfig, SearchResultPresenter } from '@open-mercato/shared/modules/search'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
@@ -7,10 +8,8 @@ const EUDR_STATEMENTS_URL = '/backend/eudr/statements'
 const EUDR_PLOTS_URL = '/backend/eudr/plots'
 const EUDR_EVIDENCE_SUBMISSIONS_URL = '/backend/eudr/evidence-submissions'
 
-function assertTenantContext(ctx: SearchBuildContext): void {
-  if (typeof ctx.tenantId !== 'string' || ctx.tenantId.length === 0) {
-    throw new Error('[internal] [search.eudr] Missing tenantId in search build context')
-  }
+type SearchContext = SearchBuildContext & {
+  tenantId: string
 }
 
 function readRecordText(record: Record<string, unknown>, ...keys: string[]): string | null {
@@ -129,7 +128,7 @@ export const searchConfig: SearchModuleConfig = {
         excluded: ['notes'],
       },
       buildSource: async (ctx) => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'eudr')
         const { t: translate } = await resolveTranslations()
         const record = ctx.record
         const lines: string[] = []
@@ -154,7 +153,7 @@ export const searchConfig: SearchModuleConfig = {
         excluded: ['producer_name'],
       },
       buildSource: async (ctx) => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'eudr')
         const { t: translate } = await resolveTranslations()
         const record = ctx.record
         const lines: string[] = []
@@ -179,7 +178,7 @@ export const searchConfig: SearchModuleConfig = {
         excluded: ['producer_name', 'notes'],
       },
       buildSource: async (ctx) => {
-        assertTenantContext(ctx)
+        assertSearchTenantContext<SearchContext>(ctx, 'eudr')
         const { t: translate } = await resolveTranslations()
         const record = ctx.record
         const lines: string[] = []

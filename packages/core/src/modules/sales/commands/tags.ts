@@ -5,7 +5,7 @@ import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { CrudHttpError, notFound } from '@open-mercato/shared/lib/crud/errors'
 import { SalesDocumentTag, SalesDocumentTagAssignment } from '../data/entities'
-import { ensureTenantScope } from './shared'
+import { ensureOrganizationScope, ensureTenantScope } from './shared'
 import {
   salesTagCreateSchema,
   salesTagUpdateSchema,
@@ -45,7 +45,12 @@ const updateTagCommand: CommandHandler<SalesTagUpdateInput, { tagId: string }> =
     const em = (ctx.container.resolve('em') as EntityManager).fork()
     const tag = await em.findOne(SalesDocumentTag, { id: parsed.id })
     if (!tag) throw notFound('Tag not found')
-    ensureTenantScope(ctx, parsed.tenantId ?? tag.tenantId)
+    // Authorize against the STORED scope, not the request body. `parsed.tenantId ?? …`
+    // asked whether the caller may act as the tenant they named — always true when they
+    // name their own — while the update below targeted a row fetched by id alone. This
+    // was the only file of thirteen in sales/commands missing the organization guard.
+    ensureTenantScope(ctx, tag.tenantId)
+    ensureOrganizationScope(ctx, tag.organizationId)
     if (parsed.slug && parsed.slug !== tag.slug) {
       const conflict = await em.findOne(SalesDocumentTag, {
         slug: parsed.slug,
@@ -60,8 +65,13 @@ const updateTagCommand: CommandHandler<SalesTagUpdateInput, { tagId: string }> =
     if (parsed.label !== undefined) tag.label = parsed.label
     if (parsed.color !== undefined) tag.color = parsed.color ?? null
     if (parsed.description !== undefined) tag.description = parsed.description ?? null
-    if (parsed.organizationId) tag.organizationId = parsed.organizationId
-    if (parsed.tenantId) tag.tenantId = parsed.tenantId
+    // Re-homing a tag into another organization is allowed only when the caller may
+    // already act there; moving one across TENANTS is never a plain update, so the
+    // body's `tenantId` is ignored rather than written.
+    if (parsed.organizationId && parsed.organizationId !== tag.organizationId) {
+      ensureOrganizationScope(ctx, parsed.organizationId)
+      tag.organizationId = parsed.organizationId
+    }
     await em.flush()
     return { tagId: tag.id }
   },

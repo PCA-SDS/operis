@@ -45,8 +45,8 @@ Invoice table directly. Future M8 sync can call `invoiceAutoPaidService.applyAll
 Generic invoice writes do not accept or trust derived payment rollups. All
 mutations require trusted tenant and organization scope.
 
-Remaining work is intentionally separate: M7 payment confirmation, M8 GDT
-sync, and M9 UI parity. See `.ai/specs/2026-09-09-invoice-phase-5-domain-parity-gate.md`.
+M7 payment-confirmation backend work is complete. Remaining work is M8 GDT sync
+and M9 UI parity. See `.ai/specs/2026-09-09-invoice-phase-5-domain-parity-gate.md`.
 
 ## Phase 3 Start Packet
 
@@ -457,6 +457,22 @@ Progress:
 
 ## M7 CAP-005 Payment Confirmations
 
+Progress:
+
+- Backend milestone complete on 2026-09-10 across commits `f5e38145`,
+  `8d8a8d81`, and `b8b9c238`.
+- The authenticated request flow includes service and DI registration,
+  strict request validator, command boundary, secure token generation,
+  transactional mail rollback, exact-target resend superseding, recipient
+  memory, structured logging, and focused unit coverage.
+- Private request routing and public preview/confirm/reject are implemented.
+- Incoming AR accept/reject is implemented through authenticated command and
+  mutation-guard boundaries. Whole-invoice matching uses preserved invoice
+  identity, rejects expired, installment, missing, and ambiguous claims, and
+  atomically settles payer AP plus receiver AR through InvoiceService.
+- Payment-confirmation UI remains M9 work and does not block the M7 backend
+  milestone.
+
 Dependencies:
 
 - CAP-001 invoice settlement/installment helpers.
@@ -495,9 +511,15 @@ Expected tests:
 
 Definition of done:
 
-- Email link flow and incoming confirmation flow work end to end.
+- Backend request, public-link, and incoming-confirmation flows are implemented
+  with focused service, command, route, concurrency, and integration coverage.
+- Browser end-to-end coverage remains part of M9 UI parity.
 
 ## M8 CAP-002 Tax Portal Sync
+
+Manual acceptance coverage for this milestone is maintained in
+[`Invoice-Phase-6-Manual-Acceptance.md`](./Invoice-Phase-6-Manual-Acceptance.md)
+and [`Invoice-Phase-6-Manual-Acceptance.postman_collection.json`](./Invoice-Phase-6-Manual-Acceptance.postman_collection.json).
 
 Dependencies:
 
@@ -550,11 +572,28 @@ Expected tests:
 - Auto-paid apply runs after sync and failure is best-effort.
 - Progress reaches terminal completed or failed.
 
+Implementation status (2026-09-11): the Operis `invoice-sync` worker now reloads
+and verifies the scoped sync job, reads the cached GDT token without persisting
+it, fetches both `sold` and `purchased` streams, persists batches through the
+sync persistence service, updates ProgressJob, and emits sync lifecycle events.
+Duplicate terminal deliveries are ignored. Phase 5 Auto-Paid runs after a
+successful import as a best-effort operation and does not invalidate the sync.
+
 Definition of done:
 
 - Start/auth/enqueue/worker/status lifecycle works with local queue and async queue strategy.
 
 ## M9 UI Parity
+
+Progress update (2026-09-14):
+
+- Implemented the invoice-detail CAP-001/CAP-006 send UX slice: AR-only
+  send/resend, remembered company recipient selection and removal, manual
+  recipient validation, guarded optimistic-lock send integration, and
+  backend-derived sent/open state refresh.
+- Added focused browser coverage in
+  `TC-INV-004-send-company-email-memory.spec.ts`. Execution and review remain
+  pending.
 
 Dependencies:
 

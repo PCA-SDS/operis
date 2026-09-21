@@ -402,7 +402,7 @@ const dealStatusMap: StatusMap<'open' | 'won' | 'lost'> = {
 ## Reference Implementation
 When building a new module UI, use the **customers module** as reference:
 - List page: `packages/core/src/modules/customers/backend/customers/people/page.tsx`
-- Detail page: `packages/core/src/modules/customers/backend/customers/people/[id]/page.tsx`
+- Detail page: `packages/core/src/modules/customers/backend/customers/people-v2/[id]/page.tsx`
 - Create page: `packages/core/src/modules/customers/backend/customers/people/create/page.tsx`
 - Status mapping: `packages/core/src/modules/customers/components/formConfig.tsx`
 

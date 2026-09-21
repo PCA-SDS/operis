@@ -18,6 +18,7 @@ import {
 import type { SectionAction } from '@open-mercato/ui/backend/detail'
 import { registerComponent } from '@open-mercato/shared/modules/widgets/component-registry'
 import { useRegisteredComponent } from '@open-mercato/ui/backend/injection/useRegisteredComponent'
+import { formatTabCount } from './utils'
 
 export type PersonTabId =
   | 'activities'
@@ -61,11 +62,6 @@ export function resolveLegacyTab(tab: string | null | undefined, knownTabIds?: I
   if (SUPPORTED_TAB_IDS.has(tab as PersonTabId)) return tab as PersonTabId
   if (knownTabIds && new Set(knownTabIds).has(tab)) return tab
   return 'activities'
-}
-
-function formatTabCount(count: number): string | number | undefined {
-  if (count <= 0) return undefined
-  return count > 999 ? '999+' : count
 }
 
 function DefaultPersonDetailTabs({

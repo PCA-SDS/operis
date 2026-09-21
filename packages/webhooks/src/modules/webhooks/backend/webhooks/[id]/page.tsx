@@ -14,7 +14,7 @@ import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { FormHeader } from '@open-mercato/ui/backend/forms'
-import { RowActions } from '@open-mercato/ui/backend/RowActions'
+import { RowActions, type RowActionItem } from '@open-mercato/ui/backend/RowActions'
 import { CrudForm } from '@open-mercato/ui/backend/CrudForm'
 import { deleteCrud, updateCrud } from '@open-mercato/ui/backend/utils/crud'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
@@ -662,7 +662,7 @@ export default function WebhookDetailPage() {
             data={deliveries}
             onRowClick={(row) => { void handleDeliveryOpen(row.id) }}
             rowActions={(row) => {
-              const items: Array<{ id: string; label: string; onSelect: () => void }> = [
+              const items: RowActionItem[] = [
                 {
                   id: 'view-details',
                   label: t('webhooks.deliveries.actions.viewDetails'),

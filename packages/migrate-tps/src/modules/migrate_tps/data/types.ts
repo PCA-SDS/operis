@@ -79,6 +79,8 @@ export type ServiceItem = {
 
   mutuallyExclusiveItems?: string[]
 
+  requiresOptions?: string[]
+
   detailedInfo?: DetailedInfo
 }
 
