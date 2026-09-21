@@ -22,6 +22,7 @@ import { createAppointmentFromPublicIntake } from '../lib/intake'
 import { emitAppointmentEvent } from '../events'
 import { deriveScheduleConfirmationStatus } from '../lib/scheduleTracking'
 import { compareAppointmentListRows } from '../lib/appointmentListSorting'
+import { getVisibleAppointmentExternalNotes } from '../lib/notes'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -46,7 +47,7 @@ function mapAppointment(row: Appointment, organizationName: string | null = null
     requestedStartAt: row.requestedStartAt.toISOString(),
     requestedEndAt: row.requestedEndAt?.toISOString() ?? null,
     notes: row.notes ?? null,
-    externalNotes: row.externalNotes ?? null,
+    externalNotes: getVisibleAppointmentExternalNotes(row.externalNotes),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }
