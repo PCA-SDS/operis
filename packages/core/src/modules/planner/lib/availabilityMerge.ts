@@ -24,6 +24,7 @@ type ParsedRule = {
   durationMinutes: number
   freq: 'DAILY' | 'WEEKLY'
   repeat: 'once' | 'daily' | 'weekly'
+  weekday?: number
   count?: number
 }
 
@@ -50,12 +51,15 @@ function parseRrule(rule: string): ParsedRule | null {
 
   const countMatch = rule.match(/COUNT=(\d+)/)
   const count = countMatch?.[1] ? Number(countMatch[1]) : undefined
+  const weekdayCodes = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA']
+  const byDayMatch = rule.match(/BYDAY=([A-Z]{2})/)
+  const weekday = byDayMatch?.[1] ? weekdayCodes.indexOf(byDayMatch[1]) : undefined
   const repeat = freq === 'WEEKLY'
     ? 'weekly'
     : freq === 'DAILY' && count === 1
       ? 'once'
       : 'daily'
-  return { startAt, durationMinutes, freq, count, repeat }
+  return { startAt, durationMinutes, freq, count, repeat, weekday: weekday === -1 ? undefined : weekday }
 }
 
 function buildExdateSets(exdates?: string[]) {
@@ -93,7 +97,7 @@ function startOfDay(value: Date): Date {
 }
 
 function expandRule(rule: AvailabilityRuleLike, parsed: ParsedRule, range: AvailabilityRange): AvailabilityWindow[] {
-  const { startAt, durationMinutes, freq, count, repeat } = parsed
+  const { startAt, durationMinutes, freq, count, repeat, weekday } = parsed
   if (repeat === 'once') {
     if (shouldExcludeOccurrence(startAt, rule.exdates)) return []
     const isFullDay = durationMinutes >= 24 * 60
@@ -124,11 +128,17 @@ function expandRule(rule: AvailabilityRuleLike, parsed: ParsedRule, range: Avail
 
   let cursor = new Date(startAt)
   let remaining = count ?? Number.POSITIVE_INFINITY
+  if (weekday !== undefined) {
+    const startOfCursorDay = startOfDay(cursor)
+    const daysUntilWeekday = (weekday - startOfCursorDay.getUTCDay() + 7) % 7
+    cursor = new Date(startOfCursorDay.getTime() + daysUntilWeekday * DAY_MS)
+    cursor = new Date(cursor.getTime() + (startAt.getTime() - startOfCursorDay.getTime()))
+  }
   if (cursor < range.start) {
-    const diffDays = Math.floor((range.start.getTime() - cursor.getTime()) / DAY_MS)
-    const weeksToAdd = Math.floor(diffDays / 7)
+    const weeksToAdd = Math.ceil((range.start.getTime() - cursor.getTime()) / (7 * DAY_MS))
     if (weeksToAdd > 0) {
       cursor = new Date(cursor.getTime() + weeksToAdd * 7 * DAY_MS)
+      remaining -= weeksToAdd
     }
   }
   while (cursor < range.end && remaining > 0) {

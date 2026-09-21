@@ -97,6 +97,60 @@ describe('getMergedAvailabilityWindows', () => {
     ])
   })
 
+  it('expands a weekly rule on its BYDAY when the requested range is not the current occurrence', () => {
+    const rules: AvailabilityRuleLike[] = [
+      {
+        id: 'thursday',
+        rrule: 'DTSTART:20240104T080000Z\nDURATION:PT8H\nRRULE:FREQ=WEEKLY;BYDAY=TH',
+      },
+    ]
+
+    const missedOccurrence = getMergedAvailabilityWindows({
+      rules,
+      range: {
+        start: new Date('2024-01-05T00:00:00Z'),
+        end: new Date('2024-01-06T00:00:00Z'),
+      },
+    })
+    expect(missedOccurrence).toEqual([])
+
+    const nextOccurrence = getMergedAvailabilityWindows({
+      rules,
+      range: {
+        start: new Date('2024-01-11T00:00:00Z'),
+        end: new Date('2024-01-12T00:00:00Z'),
+      },
+    }).map(toIsoWindow)
+    expect(nextOccurrence).toEqual([
+      { start: '2024-01-11T08:00:00.000Z', end: '2024-01-11T16:00:00.000Z' },
+    ])
+  })
+
+  it('preserves separate weekday windows in a non-current day range', () => {
+    const rules: AvailabilityRuleLike[] = [
+      {
+        id: 'monday',
+        rrule: 'DTSTART:20240101T080000Z\nDURATION:PT4H\nRRULE:FREQ=WEEKLY;BYDAY=MO',
+      },
+      {
+        id: 'thursday',
+        rrule: 'DTSTART:20240104T120000Z\nDURATION:PT5H\nRRULE:FREQ=WEEKLY;BYDAY=TH',
+      },
+    ]
+
+    const windows = getMergedAvailabilityWindows({
+      rules,
+      range: {
+        start: new Date('2024-01-11T00:00:00Z'),
+        end: new Date('2024-01-12T00:00:00Z'),
+      },
+    }).map(toIsoWindow)
+
+    expect(windows).toEqual([
+      { start: '2024-01-11T12:00:00.000Z', end: '2024-01-11T17:00:00.000Z' },
+    ])
+  })
+
   it('blocks weekly availability with a timezone-shifted full-day unavailability rule', () => {
     const range: AvailabilityRange = {
       start: new Date('2026-09-18T00:00:00Z'),
