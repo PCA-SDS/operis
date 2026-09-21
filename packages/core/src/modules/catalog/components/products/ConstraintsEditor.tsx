@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useState, useCallback, useMemo } from 'react'
-import { Plus, Trash2, Lock, ArrowRight, Package, Inbox } from 'lucide-react'
+import { Plus, Trash2, Lock, LockOpen, ArrowRight, Package, Inbox } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Switch } from '@open-mercato/ui/primitives/switch'
@@ -105,9 +105,12 @@ type ConstraintDraft = {
   locked: boolean
 }
 
-function LockedConstraintIndicator() {
+function ConstraintLockIndicator({ locked }: { locked: boolean }) {
   const t = useT()
-  const label = t('catalog.constraints.locked', 'Locked')
+  const label = locked
+    ? t('catalog.constraints.locked', 'Locked')
+    : t('catalog.constraints.unlocked', 'Unlocked')
+  const Icon = locked ? Lock : LockOpen
 
   return (
     <TooltipProvider>
@@ -116,9 +119,12 @@ function LockedConstraintIndicator() {
           <span
             role="img"
             aria-label={label}
-            className="inline-flex size-7 items-center justify-center rounded-lg text-status-warning-icon"
+            className={cn(
+              'inline-flex size-7 items-center justify-center rounded-lg',
+              locked ? 'text-status-warning-icon' : 'text-muted-foreground',
+            )}
           >
-            <Lock className="w-3.5 h-3.5" />
+            <Icon className="w-3.5 h-3.5" />
           </span>
         </TooltipTrigger>
         <TooltipContent>{label}</TooltipContent>
@@ -352,7 +358,7 @@ function IncomingConstraintBadge({ constraint }: { constraint: CatalogConstraint
           </span>
         </Tag>
 
-        {constraint.locked && <LockedConstraintIndicator />}
+        {constraint.locked && <ConstraintLockIndicator locked />}
       </div>
     </div>
   )
@@ -451,7 +457,7 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
           </Tag>
         )}
 
-        {draft.locked && <LockedConstraintIndicator />}
+        <ConstraintLockIndicator locked={draft.locked} />
 
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">
