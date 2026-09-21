@@ -44,6 +44,38 @@ describe('ResourceAssignmentService.confirmDrafts', () => {
   })
 })
 
+describe('ResourceAssignmentService.getWorkspace', () => {
+  it('orders resources by area order and then resource order', async () => {
+    const em = {
+      find: jest.fn()
+        .mockResolvedValueOnce([
+          { id: 'resource-b', name: 'B', areaId: 'area-2', sortOrder: 0, code: 'B' },
+          { id: 'resource-a', name: 'A', areaId: 'area-1', sortOrder: 10, code: 'A' },
+          { id: 'resource-c', name: 'C', areaId: 'area-1', sortOrder: 1, code: 'C' },
+        ])
+        .mockResolvedValueOnce([
+          { id: 'area-2', name: 'Second area', sortOrder: 20 },
+          { id: 'area-1', name: 'First area', sortOrder: 10 },
+        ])
+        .mockResolvedValueOnce([]),
+    }
+    const service = new ResourceAssignmentService(em as never)
+
+    await expect(service.getWorkspace({
+      tenantId: 'tenant-1',
+      organizationId: 'organization-1',
+      sourceModule: 'appointment',
+      sourceEntityType: 'appointment_line',
+    })).resolves.toMatchObject({
+      resources: [
+        { id: 'resource-c', areaName: 'First area' },
+        { id: 'resource-a', areaName: 'First area' },
+        { id: 'resource-b', areaName: 'Second area' },
+      ],
+    })
+  })
+})
+
 describe('ResourceAssignmentService.clearDraft', () => {
   it('rejects clearing a draft when its version is stale', async () => {
     const em = {
