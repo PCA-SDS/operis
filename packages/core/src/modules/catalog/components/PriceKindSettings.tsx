@@ -20,7 +20,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { apiCall, readApiResultOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
-import { raiseCrudError } from '@open-mercato/ui/backend/utils/serverErrors'
+import { mapCrudServerErrorToFormErrors, raiseCrudError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
@@ -73,6 +73,8 @@ type PriceKindFormState = {
   isActive: boolean
 }
 
+type PriceKindFieldErrors = Partial<Record<'code' | 'title', string>>
+
 const DEFAULT_FORM: PriceKindFormState = {
   code: '',
   title: '',
@@ -124,6 +126,7 @@ export function PriceKindSettings() {
   const [form, setForm] = React.useState<PriceKindFormState>(DEFAULT_FORM)
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = React.useState<PriceKindFieldErrors>({})
   const { data: currencyDictionary, refetch: refetchCurrencyDictionary } = useCurrencyDictionary()
 
   const currencyOptionsLoader = React.useCallback(async (): Promise<DictionaryOption[]> => {
@@ -181,12 +184,14 @@ export function PriceKindSettings() {
       setForm(DEFAULT_FORM)
     }
     setError(null)
+    setFieldErrors({})
     setDialog(state)
   }, [])
 
   const closeDialog = React.useCallback(() => {
     setDialog(null)
     setError(null)
+    setFieldErrors({})
     setSubmitting(false)
     setForm(DEFAULT_FORM)
   }, [])
@@ -201,6 +206,7 @@ export function PriceKindSettings() {
     }
     setSubmitting(true)
     setError(null)
+    setFieldErrors({})
     try {
       const payload = {
         code: trimmedCode,
@@ -239,7 +245,6 @@ export function PriceKindSettings() {
       closeDialog()
       await loadItems()
     } catch (err) {
-      logger.error('catalog.price-kinds.save failed', { err })
       // Route a concurrent-edit 409 through the single conflict surface (unified
       // conflict bar, or the enterprise merge dialog when its handler is mounted)
       // and close the editor so that surface owns the resolution. Other errors
@@ -248,8 +253,23 @@ export function PriceKindSettings() {
         closeDialog()
         return
       }
-      const message = err instanceof Error ? err.message : t('catalog.priceKinds.errors.save', 'Failed to save price kind.')
-      setError(message)
+      const normalized = mapCrudServerErrorToFormErrors(err)
+      const nextFieldErrors: PriceKindFieldErrors = {
+        code: normalized.fieldErrors?.code,
+        title: normalized.fieldErrors?.title,
+      }
+      if (nextFieldErrors.code || nextFieldErrors.title) {
+        setFieldErrors(nextFieldErrors)
+      } else {
+        setError(normalized.message ?? t('catalog.priceKinds.errors.save', 'Failed to save price kind.'))
+      }
+      const status =
+        typeof err === 'object' && err !== null && 'status' in err && typeof err.status === 'number'
+          ? err.status
+          : null
+      if (status === null || status >= 500) {
+        logger.error('catalog.price-kinds.save failed', { err })
+      }
     } finally {
       setSubmitting(false)
     }
@@ -488,20 +508,40 @@ export function PriceKindSettings() {
                 <Input
                   id="price-kind-code"
                   value={form.code}
-                  onChange={(event) => setForm((prev) => ({ ...prev, code: event.target.value }))}
+                  onChange={(event) => {
+                    setForm((prev) => ({ ...prev, code: event.target.value }))
+                    setFieldErrors((prev) => ({ ...prev, code: undefined }))
+                  }}
                   placeholder={t('catalog.priceKinds.form.codePlaceholder', 'e.g. regular')}
                   className="font-mono uppercase"
                   disabled={dialog?.mode === 'edit'}
+                  aria-invalid={Boolean(fieldErrors.code)}
+                  aria-describedby={fieldErrors.code ? 'price-kind-code-error' : undefined}
                 />
+                {fieldErrors.code ? (
+                  <p id="price-kind-code-error" className="text-sm text-status-error-text">
+                    {fieldErrors.code}
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="price-kind-title">{t('catalog.priceKinds.form.titleLabel', 'Title')}</Label>
                 <Input
                   id="price-kind-title"
                   value={form.title}
-                  onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
+                  onChange={(event) => {
+                    setForm((prev) => ({ ...prev, title: event.target.value }))
+                    setFieldErrors((prev) => ({ ...prev, title: undefined }))
+                  }}
                   placeholder={t('catalog.priceKinds.form.titlePlaceholder', 'e.g. Regular price')}
+                  aria-invalid={Boolean(fieldErrors.title)}
+                  aria-describedby={fieldErrors.title ? 'price-kind-title-error' : undefined}
                 />
+                {fieldErrors.title ? (
+                  <p id="price-kind-title-error" className="text-sm text-status-error-text">
+                    {fieldErrors.title}
+                  </p>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label>{t('catalog.priceKinds.form.displayModeLabel', 'Display mode')}</Label>
