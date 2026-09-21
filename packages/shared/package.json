@@ -106,22 +106,22 @@
     }
   },
   "dependencies": {
-    "@mikro-orm/core": "^7.1.8",
-    "@mikro-orm/decorators": "^7.1.8",
-    "@mikro-orm/postgresql": "^7.1.8",
+    "@mikro-orm/core": "^7.2.0",
+    "@mikro-orm/decorators": "^7.2.0",
+    "@mikro-orm/postgresql": "^7.2.0",
     "@open-mercato/cache": "workspace:*",
     "@types/sanitize-html": "^2.16.1",
     "dotenv": "^17.4.2",
     "pino": "^10.3.1",
-    "rate-limiter-flexible": "^11.2.0",
+    "rate-limiter-flexible": "^11.2.1",
     "re2js": "2.8.6",
     "reflect-metadata": "^0.2.2",
     "sanitize-html": "2.17.7",
-    "undici": "^8.9.0"
+    "undici": "^8.10.2"
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
-    "jest": "^30.4.2",
+    "jest": "^30.5.1",
     "ts-jest": "^29.4.12",
     "ts-morph": "^28.0.0",
     "typescript": "7.0.2"
