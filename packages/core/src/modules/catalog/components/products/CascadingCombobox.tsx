@@ -213,7 +213,7 @@ export function CascadingCombobox({
     const spaceBelow = window.innerHeight - rect.bottom - viewportPadding - sideOffset
     const spaceAbove = rect.top - viewportPadding - sideOffset
     const openBelow = spaceBelow >= 180 || spaceBelow >= spaceAbove
-    const availableHeight = Math.max(140, openBelow ? spaceBelow : spaceAbove)
+    const availableHeight = Math.max(0, openBelow ? spaceBelow : spaceAbove)
     const width = Math.min(
       Math.max(280, rect.width),
       window.innerWidth - viewportPadding * 2,
@@ -479,7 +479,7 @@ export function CascadingCombobox({
                 />
               </div>
             )}
-            <div className="overflow-y-auto overscroll-contain pb-6 pt-2 px-1">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-6 pt-2 px-1">
               {renderListItems()}
             </div>
           </DrawerContent>
@@ -487,12 +487,13 @@ export function CascadingCombobox({
       ) : open ? (
         <div
           id={popupId}
-          className="fixed z-popover overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-lg"
+          className="fixed z-popover flex flex-col overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-lg"
           style={{
             top: dropdownPosition.top,
             bottom: dropdownPosition.bottom,
             left: dropdownPosition.left,
             width: dropdownPosition.width,
+            maxHeight: dropdownPosition.maxHeight,
           }}
         >
           {/* Search */}
@@ -511,7 +512,7 @@ export function CascadingCombobox({
           )}
 
           {/* List */}
-          <div className="overflow-y-auto py-1 overscroll-contain" style={{ maxHeight: dropdownPosition.maxHeight }}>
+          <div className="min-h-0 flex-1 overflow-y-auto py-1 overscroll-contain">
             {renderListItems()}
           </div>
         </div>
