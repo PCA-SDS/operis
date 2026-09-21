@@ -33,6 +33,7 @@ import { PersonEmailThreadsTab } from '../../../../components/detail/PersonEmail
 import { ActivitiesCard } from '../../../../components/detail/ActivitiesCard'
 import type { ActivityKind } from '../../../../components/detail/ActivitiesAddNewMenu'
 import { DealsSection } from '../../../../components/detail/DealsSection'
+import { useDealsAccess } from '../../../../components/detail/useDealsAccess'
 import { TasksSection } from '../../../../components/detail/TasksSection'
 import type { TagSummary } from '../../../../components/detail/types'
 import { ScheduleActivityDialog, type ScheduleActivityEditData } from '../../../../components/detail/ScheduleActivityDialog'
@@ -97,6 +98,7 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
   const [scheduleEditData, setScheduleEditData] = React.useState<ScheduleActivityEditData | null>(null)
   const [activityRefreshKey, setActivityRefreshKey] = React.useState(0)
   const [dealCount, setDealCount] = React.useState(0)
+  const { canViewDeals, isReady: isDealsAccessReady } = useDealsAccess()
 
   const currentPersonId = data?.person?.id ?? null
   const mutationContextId = React.useMemo(
@@ -337,6 +339,14 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
   React.useEffect(() => {
     setActiveTab(initialTab)
   }, [initialTab])
+
+  // A `?tab=deals` deep link must not strand users without `customers.deals.view`
+  // on a tab that no longer exists for them. Wait for the granted features to load
+  // so a permitted user is never bounced off the tab mid-fetch.
+  React.useEffect(() => {
+    if (!isDealsAccessReady || canViewDeals) return
+    setActiveTab((current) => (current === 'deals' ? 'activities' : current))
+  }, [isDealsAccessReady, canViewDeals])
 
   const handleTabChange = React.useCallback(
     (tab: PersonTabId) => {
@@ -631,7 +641,7 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
                     )
                   }
 
-                  if (activeTab === 'deals') {
+                  if (activeTab === 'deals' && canViewDeals) {
                     return (
                       <DealsSection
                         scope={dealsScope}

@@ -89,7 +89,41 @@ export const enabledModules: ModuleEntry[] = [
   { id: 'dashboards', from: '@open-mercato/core' },
   { id: 'auth', from: '@open-mercato/core' },
   { id: 'directory', from: '@open-mercato/core' },
-  { id: 'customers', from: '@open-mercato/core' },
+  // v1 product scope: deals, the sales pipeline and the cross-customer task
+  // roll-up are withheld from the build. Nulling a page drops it from the route
+  // manifest and the sidebar together; the affordances that point at these
+  // routes from pages that stay are gated by `@open-mercato/shared/lib/product-scope`.
+  // ACL cannot express this — the `admin` role holds the `customers.*` wildcard,
+  // which matches every `customers.deals.*` check.
+  {
+    id: 'customers',
+    from: '@open-mercato/core',
+    overrides: {
+      routes: {
+        pages: {
+          '/backend/customers/deals': null,
+          '/backend/customers/deals/create': null,
+          '/backend/customers/deals/pipeline': null,
+          '/backend/customers/deals/map': null,
+          '/backend/customers/deals/[id]': null,
+          '/backend/config/customers/deals': null,
+          '/backend/config/customers/pipeline-stages': null,
+          '/backend/customer-tasks': null,
+        },
+      },
+      ai: {
+        agents: {
+          'customers.deal_analyzer': null,
+          'customers.deal_analyzer_tool_loop': null,
+        },
+        tools: {
+          'customers.list_deals': null,
+          'customers.get_deal': null,
+          'customers.update_deal_stage': null,
+        },
+      },
+    },
+  },
   { id: 'perspectives', from: '@open-mercato/core' },
   { id: 'entities', from: '@open-mercato/core' },
   { id: 'configs', from: '@open-mercato/core' },
