@@ -78,6 +78,13 @@ export const DEV_SEED_TENANTS: DevSeedTenantSpec[] = [
       { email: 'user@companyb.local', roles: ['employee'], name: 'Company B User' },
     ],
   },
+  {
+    name: 'PCA Company Services',
+    slug: 'pca-company-services',
+    users: [
+      { email: 'admin@pca-company-services.local', roles: ['admin'], name: 'PCA Company Services Admin' },
+    ],
+  },
 ]
 
 export type DevSeedTenantResult = {
