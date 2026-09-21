@@ -23,6 +23,8 @@ import { AppointmentServicePicker, hasCompleteAppointmentServiceOptions, type Ap
 import { AppointmentResourceTimeline } from '../../../components/AppointmentResourceTimeline'
 import { AppointmentStaffAssignmentSheet, type AppointmentAssignableStaff } from '../../../components/AppointmentStaffAssignmentSheet'
 import { BookingOverviewCreateSheet } from '../../../components/BookingOverviewCreateSheet'
+import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
+import { getAppointmentPermissionSet } from '../../../lib/permissions'
 
 type Resource = { id: string; name: string; appearanceIcon: string | null; appearanceColor: string | null; areaId: string | null }
 type Line = { id: string; productId: string; productTitle: string; productCategory: string | null; durationMinutes: number | null }
@@ -77,6 +79,9 @@ function BookingQuickPopover({
   onAddService,
   onAssignStaff,
   onOpenSeatPlanner,
+  canCreate,
+  canManage,
+  canViewSeatPlanner,
 }: {
   appointment: Appointment
   anchorBlock: Block
@@ -89,6 +94,9 @@ function BookingQuickPopover({
   onAddService: (appointment: Appointment) => void
   onAssignStaff: (appointment: Appointment, line: Line, block: Block | null) => void
   onOpenSeatPlanner: (appointmentId: string) => void
+  canCreate: boolean
+  canManage: boolean
+  canViewSeatPlanner: boolean
 }) {
   const t = useT()
   const [menuOpen, setMenuOpen] = React.useState(false)
@@ -113,17 +121,23 @@ function BookingQuickPopover({
           </Button>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          <Button type="button" variant="outline" size="icon" className="size-8" onClick={() => onOpenSeatPlanner(appointment.id)} aria-label={t('appointments.overview.editBooking', 'Edit booking')}>
-            <Pencil className="size-3.5" />
-          </Button>
-          <Button type="button" variant="outline" size="icon" className="size-8" onClick={() => { close(); void onCopy(appointment) }} aria-label={t('appointments.overview.copy', 'Copy booking')}><Copy className="size-3.5" /></Button>
-          <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-            <PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" className="size-8" aria-label={t('appointments.list.columns.actions', 'Actions')}><MoreHorizontal className="size-4" /></Button></PopoverTrigger>
-            <PopoverContent align="end" className="w-44 p-1">
-              <Button type="button" variant="ghost" className="w-full justify-start gap-2" disabled={appointment.statusCode === DEPOSIT_RECEIVED_STATUS_CODE} onClick={async () => { setMenuOpen(false); if (await onDepositChange(appointment)) close() }}><BadgeDollarSign className="size-4" />{appointment.statusCode === DEPOSIT_RECEIVED_STATUS_CODE ? t('appointments.overview.payment.received', 'Deposit received') : t('appointments.overview.payment.mark', 'Deposit')}</Button>
-              <Button type="button" variant="ghost" className="w-full justify-start gap-2 text-destructive hover:text-destructive" onClick={() => { setMenuOpen(false); setDeleteDialogOpen(true) }}><Trash2 className="size-4" />{t('appointments.list.actions.delete', 'Delete')}</Button>
-            </PopoverContent>
-          </Popover>
+          {canViewSeatPlanner ? (
+            <Button type="button" variant="outline" size="icon" className="size-8" onClick={() => onOpenSeatPlanner(appointment.id)} aria-label={t('appointments.overview.editBooking', 'Edit booking')}>
+              <Pencil className="size-3.5" />
+            </Button>
+          ) : null}
+          {canCreate ? (
+            <Button type="button" variant="outline" size="icon" className="size-8" onClick={() => { close(); void onCopy(appointment) }} aria-label={t('appointments.overview.copy', 'Copy booking')}><Copy className="size-3.5" /></Button>
+          ) : null}
+          {canManage ? (
+            <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+              <PopoverTrigger asChild><Button type="button" variant="ghost" size="icon" className="size-8" aria-label={t('appointments.list.columns.actions', 'Actions')}><MoreHorizontal className="size-4" /></Button></PopoverTrigger>
+              <PopoverContent align="end" className="w-44 p-1">
+                <Button type="button" variant="ghost" className="w-full justify-start gap-2" disabled={appointment.statusCode === DEPOSIT_RECEIVED_STATUS_CODE} onClick={async () => { setMenuOpen(false); if (await onDepositChange(appointment)) close() }}><BadgeDollarSign className="size-4" />{appointment.statusCode === DEPOSIT_RECEIVED_STATUS_CODE ? t('appointments.overview.payment.received', 'Deposit received') : t('appointments.overview.payment.mark', 'Deposit')}</Button>
+                <Button type="button" variant="ghost" className="w-full justify-start gap-2 text-destructive hover:text-destructive" onClick={() => { setMenuOpen(false); setDeleteDialogOpen(true) }}><Trash2 className="size-4" />{t('appointments.list.actions.delete', 'Delete')}</Button>
+              </PopoverContent>
+            </Popover>
+          ) : null}
           <Button type="button" variant="ghost" size="icon" className="size-8" onClick={close} aria-label={t('ui.close', 'Close')}><X className="size-4" /></Button>
         </div>
       </div>
@@ -138,9 +152,11 @@ function BookingQuickPopover({
       <div className="mt-3 rounded-md bg-muted/60 p-2">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t('appointments.overview.services', 'Services & time')}</p>
-          <Button type="button" variant="ghost" size="sm" className="h-7 px-2" asChild>
-            <button type="button" onClick={() => onAddService(appointment)}><Plus className="mr-1 size-3.5" />{t('appointments.overview.add', 'Add')}</button>
-          </Button>
+          {canManage ? (
+            <Button type="button" variant="ghost" size="sm" className="h-7 px-2" asChild>
+              <button type="button" onClick={() => onAddService(appointment)}><Plus className="mr-1 size-3.5" />{t('appointments.overview.add', 'Add')}</button>
+            </Button>
+          ) : null}
         </div>
         <div className="space-y-2">
           {appointment.lines.map((line) => {
@@ -149,7 +165,7 @@ function BookingQuickPopover({
               <div key={line.id} className="border-t border-border pt-2 text-xs first:border-0">
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-semibold text-foreground">{line.productTitle}</p>
-                  <Button
+                  {canManage ? <Button
                     type="button"
                     variant="ghost"
                     size="icon"
@@ -163,10 +179,10 @@ function BookingQuickPopover({
                     }}
                   >
                     <Trash2 className="size-4" />
-                  </Button>
+                  </Button> : null}
                 </div>
                 {line.productCategory ? <p className="mt-0.5 text-muted-foreground">{line.productCategory}</p> : null}
-                <button type="button" className="mt-1 flex items-center gap-1 text-left text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60" disabled={!block} onClick={() => onAssignStaff(appointment, line, block ?? null)}><Users className="size-3.5" />{block?.assignedMemberName ?? t('appointments.overview.noStaff', 'No staff assigned')}</button>
+                {canManage ? <button type="button" className="mt-1 flex items-center gap-1 text-left text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60" disabled={!block} onClick={() => onAssignStaff(appointment, line, block ?? null)}><Users className="size-3.5" />{block?.assignedMemberName ?? t('appointments.overview.noStaff', 'No staff assigned')}</button> : <span className="mt-1 flex items-center gap-1 text-muted-foreground"><Users className="size-3.5" />{block?.assignedMemberName ?? t('appointments.overview.noStaff', 'No staff assigned')}</span>}
                 <div className="mt-2 grid grid-cols-2 gap-2 tabular-nums">
                   <div className="rounded-md bg-input-bg px-2 py-1.5"><span className="mr-2 text-muted-foreground">{t('appointments.overview.time', 'Time')}</span>{block ? displayTime(block.startsAt) : '—'}</div>
                   <div className="rounded-md bg-input-bg px-2 py-1.5"><span className="mr-2 text-muted-foreground">{t('appointments.overview.end', 'End')}</span>{block ? displayTime(block.endsAt) : '—'}</div>
@@ -174,15 +190,17 @@ function BookingQuickPopover({
               </div>
             )
           })}
-          <Button type="button" variant="outline" size="sm" className="w-full border-dashed" asChild>
-            <button type="button" onClick={() => onAddService(appointment)}><Plus className="mr-1 size-3.5" />{t('appointments.overview.addService', 'Add service')}</button>
-          </Button>
+          {canManage ? (
+            <Button type="button" variant="outline" size="sm" className="w-full border-dashed" asChild>
+              <button type="button" onClick={() => onAddService(appointment)}><Plus className="mr-1 size-3.5" />{t('appointments.overview.addService', 'Add service')}</button>
+            </Button>
+          ) : null}
         </div>
       </div>
 
       <div className="mt-3 space-y-2">
         <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" size="sm" className="flex-1" disabled={appointment.statusCode === DEPOSIT_RECEIVED_STATUS_CODE} onClick={async () => { if (await onDepositChange(appointment)) close() }}>{appointment.statusCode === DEPOSIT_RECEIVED_STATUS_CODE ? <Check className="mr-1.5 size-3.5" /> : null}{appointment.statusCode === DEPOSIT_RECEIVED_STATUS_CODE ? t('appointments.overview.payment.received', 'Deposit received') : t('appointments.overview.payment.mark', 'Mark deposit received')}</Button>
+          {canManage ? <Button type="button" variant="outline" size="sm" className="flex-1" disabled={appointment.statusCode === DEPOSIT_RECEIVED_STATUS_CODE} onClick={async () => { if (await onDepositChange(appointment)) close() }}>{appointment.statusCode === DEPOSIT_RECEIVED_STATUS_CODE ? <Check className="mr-1.5 size-3.5" /> : null}{appointment.statusCode === DEPOSIT_RECEIVED_STATUS_CODE ? t('appointments.overview.payment.received', 'Deposit received') : t('appointments.overview.payment.mark', 'Mark deposit received')}</Button> : null}
           <Button type="button" variant="outline" size="icon" className="size-8" asChild><Link href={`/backend/appointments/${appointment.id}`} aria-label={t('appointments.overview.openDetail', 'Open detail')}><ExternalLink className="size-3.5" /></Link></Button>
         </div>
       </div>
@@ -207,6 +225,11 @@ export default function BookingOverviewPage() {
   const searchParams = useSearchParams()
   const scopeVersion = useOrganizationScopeVersion()
   const { organizationId: scopedOrganizationId, tenantId } = useOrganizationScopeDetail()
+  const { payload: backendChromePayload, isReady: backendChromeReady } = useBackendChrome()
+  const { canCreate, canManage, canViewSeatPlanner } = getAppointmentPermissionSet(
+    backendChromePayload?.grantedFeatures,
+    backendChromeReady,
+  )
   const [date, setDate] = React.useState(() => searchParams.get('date') ?? today())
   const [organizationId, setOrganizationId] = React.useState(() => searchParams.get('organizationId') ?? scopedOrganizationId ?? '')
   const [organizations, setOrganizations] = React.useState<OrganizationNode[]>([])
@@ -660,9 +683,9 @@ export default function BookingOverviewPage() {
                 placementStartAt={placementAppointment?.requestedStartAt}
                 renderAppointmentPopover={(timelineAppointment, block, close) => {
                   const appointment = appointmentById.get(timelineAppointment.id)
-                  return appointment ? <BookingQuickPopover appointment={appointment} anchorBlock={block as Block} blocks={overview.blocks} close={close} onCopy={copyAppointment} onDepositChange={updateDeposit} onDelete={deleteAppointment} onDeleteService={deleteService} onAddService={openAddService} onAssignStaff={openStaffAssignment} onOpenSeatPlanner={openSeatPlanner} /> : null
+                  return appointment ? <BookingQuickPopover appointment={appointment} anchorBlock={block as Block} blocks={overview.blocks} close={close} onCopy={copyAppointment} onDepositChange={updateDeposit} onDelete={deleteAppointment} onDeleteService={deleteService} onAddService={openAddService} onAssignStaff={openStaffAssignment} onOpenSeatPlanner={openSeatPlanner} canCreate={canCreate} canManage={canManage} canViewSeatPlanner={canViewSeatPlanner} /> : null
                 }}
-                onSlotClick={createBookingSlot ? undefined : (resourceId, time) => {
+                onSlotClick={createBookingSlot || (!canCreate && !placementAppointment) ? undefined : (resourceId, time) => {
                   if (placementAppointment) {
                     const startsAt = new Date(`${date}T${time}:00`).toISOString()
                     void assignUnconfirmedToGrid(resourceId, startsAt)
@@ -699,7 +722,7 @@ export default function BookingOverviewPage() {
                   </div>
                   <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground"><Clock className="size-4" />{duration} {t('appointments.overview.minutes', 'mins')}</p>
                   <p className="mt-3 rounded-md bg-input-bg px-3 py-2 text-sm text-muted-foreground">{appointment.lines.map((line) => line.productTitle).join(', ')}</p>
-                  <Button type="button" className="mt-4 w-full" variant={isSelected ? 'secondary' : 'default'} disabled={isAssigning} onClick={() => isSelected ? setPlacementAppointment(null) : startUnconfirmedPlacement(appointment)}>{isSelected ? t('appointments.overview.cancelAssignment', 'Cancel Assignment') : t('appointments.overview.assignToGrid', 'Assign to Grid')}</Button>
+                  {canManage ? <Button type="button" className="mt-4 w-full" variant={isSelected ? 'secondary' : 'default'} disabled={isAssigning} onClick={() => isSelected ? setPlacementAppointment(null) : startUnconfirmedPlacement(appointment)}>{isSelected ? t('appointments.overview.cancelAssignment', 'Cancel Assignment') : t('appointments.overview.assignToGrid', 'Assign to Grid')}</Button> : null}
                 </div>
               )
             })}

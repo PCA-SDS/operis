@@ -20,6 +20,7 @@ import { buildHrefWithReturnTo } from '@open-mercato/shared/lib/navigation/retur
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
+import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { AppointmentContactCell } from '../../components/AppointmentContactCell'
 import { AppointmentNotesCell } from '../../components/AppointmentNotesCell'
 import { AppointmentStatusSelect } from '../../components/AppointmentStatusSelect'
@@ -30,6 +31,7 @@ import { AppointmentStatusBadge } from '../../components/AppointmentStatusBadge'
 import { APPOINTMENT_BOOKING_TYPE_OPTIONS } from '../../data/constants'
 import { formatCustomerDisplayName } from '../../lib/customerName'
 import { formatCustomerPhone } from '../../lib/phoneSnapshot'
+import { getAppointmentPermissionSet } from '../../lib/permissions'
 
 type Row = {
   id: string
@@ -215,6 +217,11 @@ function matchesSearch(row: Row, query: string, statusLabel: string | undefined)
 export default function AppointmentsListPage() {
   const t = useT()
   const pathname = usePathname()
+  const { payload: backendChromePayload, isReady: backendChromeReady } = useBackendChrome()
+  const { canCreate, canManage, canManageSettings, canViewSeatPlanner } = getAppointmentPermissionSet(
+    backendChromePayload?.grantedFeatures,
+    backendChromeReady,
+  )
   const scopeVersion = useOrganizationScopeVersion()
   const { tenantId: scopeTenantId } = useOrganizationScopeDetail()
   const [rows, setRows] = React.useState<Row[]>([])
@@ -554,6 +561,7 @@ export default function AppointmentsListPage() {
             appointmentId={row.original.id}
             statusCode={row.original.statusCode}
             statuses={statusOptions}
+            disabled={!canManage}
             onStatusChange={(nextCode) => handleRowStatusChange(row.original.id, nextCode)}
           />
         ),
@@ -569,30 +577,38 @@ export default function AppointmentsListPage() {
                 <Eye className="h-3.5 w-3.5" />
               </Link>
             </Button>
-            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.edit', 'Edit Booking')}>
-              <Link href={`/backend/appointments/${row.original.id}/edit`}>
-                <Edit className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.clone', 'Clone Booking')} onClick={() => void handleClone(row.original)}>
-              <Copy className="h-3.5 w-3.5" />
-            </Button>
-            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.planner', 'Open Seat Planner')}>
-              <Link
-                href={`/backend/appointments/${row.original.id}/seat-planner`}
-                onClick={() => prepareSeatPlannerScope(row.original.organizationId)}
-              >
-                <LayoutPanelTop className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" title={t('appointments.list.actions.delete', 'Delete Booking')} onClick={() => void handleDelete(row.original)}>
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            {canManage ? (
+              <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.edit', 'Edit Booking')}>
+                <Link href={`/backend/appointments/${row.original.id}/edit`}>
+                  <Edit className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            ) : null}
+            {canCreate ? (
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.clone', 'Clone Booking')} onClick={() => void handleClone(row.original)}>
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            ) : null}
+            {canViewSeatPlanner ? (
+              <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.planner', 'Open Seat Planner')}>
+                <Link
+                  href={`/backend/appointments/${row.original.id}/seat-planner`}
+                  onClick={() => prepareSeatPlannerScope(row.original.organizationId)}
+                >
+                  <LayoutPanelTop className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            ) : null}
+            {canManage ? (
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" title={t('appointments.list.actions.delete', 'Delete Booking')} onClick={() => void handleDelete(row.original)}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            ) : null}
           </div>
         ),
       },
     ],
-    [handleClone, handleDelete, handleRowStatusChange, prepareSeatPlannerScope, statusOptions, t],
+    [canCreate, canManage, canViewSeatPlanner, handleClone, handleDelete, handleRowStatusChange, prepareSeatPlannerScope, statusOptions, t],
   )
 
   return (
@@ -607,17 +623,21 @@ export default function AppointmentsListPage() {
                   {t('appointments.list.actions.overview', 'Booking Overview')}
                 </Link>
               </Button>
-              <Button asChild variant="outline">
-                <Link href={statusesSettingsHref}>
-                  <Settings className="size-4" aria-hidden="true" />
-                  {t('appointments.list.actions.configureStatuses', 'Configure statuses')}
-                </Link>
-              </Button>
-              <Button asChild>
-                <Link href="/backend/appointments/create">
-                  {t('appointments.list.actions.create')}
-                </Link>
-              </Button>
+              {canManageSettings ? (
+                <Button asChild variant="outline">
+                  <Link href={statusesSettingsHref}>
+                    <Settings className="size-4" aria-hidden="true" />
+                    {t('appointments.list.actions.configureStatuses', 'Configure statuses')}
+                  </Link>
+                </Button>
+              ) : null}
+              {canCreate ? (
+                <Button asChild>
+                  <Link href="/backend/appointments/create">
+                    {t('appointments.list.actions.create')}
+                  </Link>
+                </Button>
+              ) : null}
             </div>
           }
           columns={columns}
