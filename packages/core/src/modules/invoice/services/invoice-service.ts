@@ -598,13 +598,12 @@ export class InvoiceService {
     try {
       await this.em.flush()
     } catch (err) {
-      logger.error('Invoice send state persistence failed', {
+      logger.warn('Invoice send state persistence failed after delivery', {
         invoiceId: invoice.id,
         tenantId: scope.tenantId,
         organizationId: scope.organizationId,
         err,
       })
-      throw invoiceBadRequest('invoice.errors.send_state_not_saved', 'Invoice send state could not be saved')
     }
 
     if (this.companyEmailsService) {
