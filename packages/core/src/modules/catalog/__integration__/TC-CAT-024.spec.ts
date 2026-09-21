@@ -30,6 +30,34 @@ async function ensurePriceKindId(
 test.describe('TC-CAT-024: Product with Multiple Variants', () => {
   test.describe.configure({ timeout: 60_000 })
 
+  test('should reject an additional variant for a Simple product', async ({ request }) => {
+    const suffix = Date.now()
+    let token: string | null = null
+    let productId: string | null = null
+
+    try {
+      token = await getAuthToken(request)
+      productId = await createProductFixture(request, token, {
+        title: `QA TC-CAT-024 Simple ${suffix}`,
+        sku: `QA-CAT-024-SIMPLE-${suffix}`,
+      })
+
+      const createRes = await apiRequest(request, 'POST', '/api/catalog/variants', {
+        token,
+        data: {
+          productId,
+          name: `Rejected variant ${suffix}`,
+          sku: `QA-CAT-024-SIMPLE-V-${suffix}`,
+        },
+      })
+      expect(createRes.status()).toBe(400)
+      const body = (await createRes.json()) as { error?: string }
+      expect(body.error).toContain('Configurable')
+    } finally {
+      await deleteCatalogProductIfExists(request, token, productId)
+    }
+  })
+
   test('should create 3 variants with different SKUs and prices, and verify all listed', async ({ request }) => {
     const suffix = Date.now()
     let token: string | null = null
@@ -42,6 +70,7 @@ test.describe('TC-CAT-024: Product with Multiple Variants', () => {
       productId = await createProductFixture(request, token, {
         title: `QA TC-CAT-024 Product ${suffix}`,
         sku: `QA-CAT-024-BASE-${suffix}`,
+        productType: 'configurable',
       })
 
       const variantSkus = [
@@ -94,6 +123,19 @@ test.describe('TC-CAT-024: Product with Multiple Variants', () => {
       for (const sku of variantSkus) {
         expect(returnedSkus).toContain(sku)
       }
+
+      const productRes = await apiRequest(
+        request,
+        'GET',
+        `/api/catalog/products?id=${encodeURIComponent(productId)}&page=1&pageSize=1`,
+        { token },
+      )
+      expect(productRes.ok(), `Failed to read product after variant creation: ${productRes.status()}`).toBeTruthy()
+      const productBody = (await productRes.json()) as {
+        items?: Array<{ product_type?: string; is_configurable?: boolean }>
+      }
+      expect(productBody.items?.[0]?.product_type).toBe('configurable')
+      expect(productBody.items?.[0]?.is_configurable).toBe(true)
     } finally {
       await deleteCatalogProductIfExists(request, token, productId)
     }
@@ -111,6 +153,7 @@ test.describe('TC-CAT-024: Product with Multiple Variants', () => {
       productId = await createProductFixture(request, token, {
         title: `QA TC-CAT-024 PriceEdit ${suffix}`,
         sku: `QA-CAT-024-PE-${suffix}`,
+        productType: 'configurable',
       })
 
       const variantIds: string[] = []
@@ -185,6 +228,7 @@ test.describe('TC-CAT-024: Product with Multiple Variants', () => {
       productId = await createProductFixture(request, token, {
         title: `QA TC-CAT-024 Delete ${suffix}`,
         sku: `QA-CAT-024-DEL-${suffix}`,
+        productType: 'configurable',
       })
 
       const variantIds: string[] = []

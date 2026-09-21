@@ -1,0 +1,368 @@
+name: Deploy to a target
+
+# ==============================================================================
+# ONE deploy implementation, called once per environment.
+# ==============================================================================
+# ci-deploy.yml calls this twice on a push to main:
+#
+#   build ──► deploy-target (staging)  ──► deploy-target (production)
+#             /opt/operis-staging           /opt/operis
+#             deploys automatically         waits on a required reviewer
+#
+# Both calls deploy the SAME image digest. Nothing is rebuilt between them —
+# the runner stage takes no environment-specific build args, and the CI image
+# is built with no .env at all, so one artifact genuinely serves both. That is
+# what makes staging free in build time, and what makes "it worked on staging"
+# a statement about the exact bytes going to production.
+#
+# This exists as a reusable workflow rather than two copied jobs because of
+# what the steps below contain: digest verification, an ephemeral GHCR login
+# that must be revoked, and two smoke tests whose comments explain failure
+# modes that were paid for in outages. Two copies of that drift, and the copy
+# that drifts is the one nobody is watching.
+#
+# The per-environment differences are ALL inputs. If you find yourself adding
+# an `if: inputs.environment == ...` to a step, that is the signal the split
+# belongs in the caller instead.
+# ==============================================================================
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'GitHub environment to deploy to (production | staging). Also selects the environment-scoped APP_DOMAIN variable and any required reviewers.'
+        required: true
+        type: string
+      app_dir:
+        description: 'Stack directory on the VPS, e.g. /opt/operis. deploy.sh defaults to /opt/operis, so a wrong value here deploys over production.'
+        required: true
+        type: string
+      stack_name:
+        description: 'Compose project the target .env must render (STACK_NAME). Asserted by deploy.sh before anything is pulled or restarted.'
+        required: true
+        type: string
+      skip_backup:
+        description: 'Skip the pre-deploy pg_dump. True for staging only: its database is disposable and no timer prunes predeploy dumps there.'
+        required: false
+        default: false
+        type: boolean
+      requested_tag:
+        description: 'Explicit tag to (re)deploy, from workflow_dispatch. Empty means use built_tag.'
+        required: false
+        default: ''
+        type: string
+      built_tag:
+        description: 'Tag produced by this run''s build job. Empty when the build was skipped.'
+        required: false
+        default: ''
+        type: string
+      built_image:
+        description: 'Image coordinate from this run''s build job. Empty when the build was skipped; then it is re-derived from the repository name.'
+        required: false
+        default: ''
+        type: string
+      built_digest:
+        description: 'Digest from this run''s build job. Pins the exact artifact; empty when redeploying an arbitrary existing tag.'
+        required: false
+        default: ''
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # read, not write: this token is handed to the VPS to pull the image.
+    permissions:
+      contents: read
+      packages: read
+    # Resolves the environment-scoped APP_DOMAIN variable, and is what makes a
+    # required reviewer on `production` the QA gate: this job waits, the
+    # staging one already ran.
+    environment:
+      name: ${{ inputs.environment }}
+      url: https://${{ vars.APP_DOMAIN }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Resolve tag to deploy
+        id: tag
+        # Both values reach the shell as environment variables, never as
+        # interpolated text: a workflow_dispatch input is attacker-controlled
+        # from the moment anyone gains write access, and `'${{ ... }}'` inside
+        # run: would let a quote character break out into arbitrary commands.
+        env:
+          REQUESTED_TAG: ${{ inputs.requested_tag }}
+          BUILT_TAG: ${{ inputs.built_tag }}
+        run: |
+          set -euo pipefail
+          TAG="${REQUESTED_TAG:-$BUILT_TAG}"
+          [ -n "$TAG" ] || { echo "::error::no image tag to deploy"; exit 1; }
+          printf '%s' "$TAG" | grep -Eq '^[A-Za-z0-9_][A-Za-z0-9._-]{0,127}$' \
+            || { echo "::error::image tag contains illegal characters"; exit 1; }
+          echo "value=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Deploying tag: $TAG"
+
+      - name: Resolve image to deploy
+        id: image
+        # The image coordinate is derived HERE and handed to the server, rather
+        # than read from a copy kept on the server. github.repository follows a
+        # rename or an org transfer automatically; a hand-maintained APP_IMAGE in
+        # the VPS's .env does not, and its staleness surfaces only as a failed
+        # pull that reads like a registry login problem. One fact, one source.
+        env:
+          BUILT_IMAGE: ${{ inputs.built_image }}
+          BUILT_DIGEST: ${{ inputs.built_digest }}
+          REQUESTED_TAG: ${{ inputs.requested_tag }}
+        run: |
+          set -euo pipefail
+          # BUILT_IMAGE is empty when the build job was skipped (redeploying an
+          # existing tag), so fall back to the same derivation the build uses.
+          IMAGE="${BUILT_IMAGE:-${REGISTRY}/$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')}"
+
+          # A digest pins the exact artifact, but only this run's build knows it.
+          # Redeploying an arbitrary existing tag has nothing to pin to, so the
+          # server is told to skip verification rather than be handed a digest
+          # belonging to a different image.
+          DIGEST=""
+          if [ -n "$BUILT_DIGEST" ] && [ -z "$REQUESTED_TAG" ]; then
+            DIGEST="$BUILT_DIGEST"
+          fi
+
+          echo "value=$IMAGE"   >> "$GITHUB_OUTPUT"
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "Deploying image: $IMAGE${DIGEST:+  (digest $DIGEST)}"
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USERNAME: ${{ secrets.DEPLOY_USER }}
+          PORT: ${{ secrets.DEPLOY_PORT || 22 }}
+        run: |
+          set -euo pipefail
+          : "${SSH_KEY:?DEPLOY_SSH_KEY secret is not set}"
+          : "${KNOWN_HOSTS:?DEPLOY_KNOWN_HOSTS secret is not set — run: ssh-keyscan -t ed25519 <host>}"
+          : "${HOST:?DEPLOY_HOST secret is not set}"
+          : "${USERNAME:?DEPLOY_USER secret is not set}"
+
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Pinned host key. StrictHostKeyChecking=accept-new would trust
+          # whatever answers on first connect — that is a machine-in-the-middle
+          # waiting to happen for a job that carries a deploy key.
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          # Built from shell variables, so nothing from a secret is ever
+          # interpolated into this file as workflow text.
+          {
+            echo "Host target"
+            echo "  HostName $HOST"
+            echo "  User $USERNAME"
+            echo "  Port $PORT"
+            echo "  IdentityFile ~/.ssh/id_deploy"
+            echo "  IdentitiesOnly yes"
+            echo "  StrictHostKeyChecking yes"
+            echo "  ConnectTimeout 15"
+            echo "  ServerAliveInterval 30"
+          } >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+
+      - name: Verify connectivity
+        run: ssh target 'echo "connected as $(id -un)@$(hostname)"; docker version --format "docker {{.Server.Version}}"'
+
+      - name: Sync deployment files
+        # Only these six files. The server's .env, backups/ and logs/ are never
+        # touched by CI — secrets stay on the server, out of the pipeline.
+        #
+        # required-env travels with deploy.sh on purpose: it lists the variables
+        # this release needs, so adding one is a reviewed change in git rather
+        # than something to remember to set on the box afterwards.
+        #
+        # Neither nginx template is synced, deliberately. They live in the
+        # pca-erp stack's directory and a bad copy there breaks the gateway for
+        # four other hostnames — and because `map`/`log_format` are http-context
+        # names shared by both vhosts, a bad copy of the staging one can stop
+        # nginx starting at all. Installed by hand, once, behind an `nginx -t`.
+        # See deploy/README.md.
+        #
+        # The same compose file goes to both stacks; STACK_NAME in each stack's
+        # own .env is what makes them distinct. That file is never synced.
+        run: |
+          set -euo pipefail
+          rsync -az --checksum \
+            deploy/redis.conf \
+            deploy/deploy.sh \
+            deploy/backup.sh \
+            deploy/required-env \
+            deploy/dc \
+            target:${{ inputs.app_dir }}/
+          rsync -az --checksum deploy/docker-compose.prod.yml target:${{ inputs.app_dir }}/docker-compose.yml
+          ssh target 'chmod +x ${{ inputs.app_dir }}/deploy.sh ${{ inputs.app_dir }}/backup.sh ${{ inputs.app_dir }}/dc'
+
+      - name: Authenticate the server to GHCR (ephemeral)
+        # No permanent registry password is stored on the VPS. This is the
+        # job-scoped GITHUB_TOKEN, valid only for the life of this run, and the
+        # "Revoke" step below removes it again. Piped over stdin so it never
+        # lands in the server's argv (readable via /proc by any local user) or
+        # in a shell history file.
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GHCR_TOKEN" | ssh target "docker login ghcr.io -u $(printf '%q' "$GHCR_USER") --password-stdin"
+
+      - name: Deploy
+        # Same rule as the tag step: every value reaches the shell as an
+        # environment variable and is quoted with printf %q before it becomes
+        # part of a remote command line.
+        #
+        # Three variables are prefixed onto the REMOTE command rather than set
+        # here, because they configure deploy.sh on the server side:
+        #
+        #   APP_DIR        which stack to act on. deploy.sh defaults to
+        #                  /opt/operis, so staging MUST pass this or it would
+        #                  deploy straight over production.
+        #   EXPECTED_STACK the compose project this .env is supposed to render.
+        #                  deploy.sh refuses to continue if .env disagrees —
+        #                  see the guard there for why that is a hard failure
+        #                  and not a warning.
+        #   SKIP_BACKUP    staging only: its database is fresh-seeded and
+        #                  disposable, and nothing prunes predeploy dumps on a
+        #                  stack with no backup timer.
+        env:
+          TAG: ${{ steps.tag.outputs.value }}
+          IMAGE: ${{ steps.image.outputs.value }}
+          DIGEST: ${{ steps.image.outputs.digest }}
+          APP_DIR: ${{ inputs.app_dir }}
+          EXPECTED_STACK: ${{ inputs.stack_name }}
+          SKIP_BACKUP: ${{ inputs.skip_backup && '1' || '0' }}
+        run: |
+          set -euo pipefail
+          ARGS="$(printf '%q' "$TAG") --image $(printf '%q' "$IMAGE")"
+          if [ -n "$DIGEST" ]; then
+            ARGS="$ARGS --digest $(printf '%q' "$DIGEST")"
+          fi
+          ENVS="APP_DIR=$(printf '%q' "$APP_DIR")"
+          ENVS="$ENVS EXPECTED_STACK=$(printf '%q' "$EXPECTED_STACK")"
+          ENVS="$ENVS SKIP_BACKUP=$(printf '%q' "$SKIP_BACKUP")"
+          ssh target "$ENVS ${{ inputs.app_dir }}/deploy.sh $ARGS"
+
+      - name: Smoke test through the public URL
+        env:
+          DOMAIN: ${{ vars.APP_DOMAIN }}
+        run: |
+          set -euo pipefail
+          # Deliberately fatal. Skipping the only external check because a
+          # variable is unset reports a green deploy that nothing verified —
+          # the one outcome worse than a red one, because it is trusted.
+          if [ -z "$DOMAIN" ]; then
+            echo "::error::repository variable APP_DOMAIN is not set, so the deploy cannot be verified."
+            echo "::error::Set it with: gh variable set APP_DOMAIN --body <hostname>"
+            exit 1
+          fi
+          for attempt in $(seq 1 12); do
+            code="$(curl -sS -o /tmp/health.json -w '%{http_code}' --max-time 20 "https://$DOMAIN/api/configs/health" || echo 000)"
+            if [ "$code" = "200" ]; then
+              echo "health OK: $(cat /tmp/health.json)"
+              exit 0
+            fi
+            echo "attempt $attempt: HTTP $code — retrying in 10s"
+            sleep 10
+          done
+          echo "::error::$DOMAIN did not return a healthy response after 2 minutes"
+          cat /tmp/health.json 2>/dev/null || true
+          exit 1
+
+      - name: Smoke test the DI container through a real route
+        env:
+          DOMAIN: ${{ vars.APP_DOMAIN }}
+        # /api/configs/health resolves nothing from the Awilix container, so it returns 200
+        # from an app whose every `asClass` registration is broken. That is not hypothetical:
+        # enabling minification mangled the constructor parameter names CLASSIC injection
+        # resolves by, login 500'd, and this deploy still reported healthy.
+        #
+        # Deliberately WRONG credentials. A 401 proves the container resolved authService and
+        # the handler ran; a 5xx proves it could not. No secret is needed to tell those apart,
+        # which is what makes this safe to run against production on every deploy.
+        #
+        # The body MUST be form-encoded. `/api/auth/login` accepts
+        # `application/x-www-form-urlencoded` or form data only; a JSON body throws inside
+        # `parseLoginForm`, which catches and yields empty fields, so zod fails and the route
+        # answers 400 at login.ts:104 — three lines BEFORE `container.resolve('authService')`
+        # at login.ts:107. This probe used to send JSON and accept anything non-5xx, so it
+        # passed on a 400 that never reached the container: precisely the blind spot the
+        # comment above describes, in the check written to catch it. 400 is now fatal too,
+        # because a well-formed probe can no longer produce one.
+        run: |
+          set -euo pipefail
+          if [ -z "$DOMAIN" ]; then
+            echo "::error::repository variable APP_DOMAIN is not set, so the deploy cannot be verified."
+            exit 1
+          fi
+          code="$(curl -sS -o /tmp/auth.json -w '%{http_code}' --max-time 20 \
+            -X POST "https://$DOMAIN/api/auth/login" \
+            -H 'content-type: application/x-www-form-urlencoded' \
+            --data-urlencode 'email=smoke-test@invalid.local' \
+            --data-urlencode 'password=not-a-real-password' || echo 000)"
+          case "$code" in
+            400)
+              echo "::error::POST /api/auth/login returned 400 — the probe never reached the DI container, so this deploy is UNVERIFIED. The route's accepted content types have changed; fix the probe."
+              cat /tmp/auth.json 2>/dev/null || true
+              exit 1
+              ;;
+            5*|000)
+              echo "::error::POST /api/auth/login returned $code — the app is serving but its DI container or auth path is broken."
+              cat /tmp/auth.json 2>/dev/null || true
+              exit 1
+              ;;
+            *)
+              echo "auth path OK: rejected bad credentials with HTTP $code"
+              ;;
+          esac
+
+      - name: Deployment summary
+        if: always()
+        env:
+          TAG: ${{ steps.tag.outputs.value }}
+          DOMAIN: ${{ vars.APP_DOMAIN }}
+          STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### Deployment $STATUS"
+            echo ""
+            echo "- tag: \`$TAG\`"
+            echo "- url: https://$DOMAIN"
+            echo "- commit: $GITHUB_SHA"
+            echo ""
+            echo "Roll back with: \`ssh <user>@<host> 'APP_DIR=${{ inputs.app_dir }} ${{ inputs.app_dir }}/deploy.sh --rollback'\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Report failure details
+        if: failure()
+        run: |
+          echo "::group::deploy log (tail)"
+          ssh target 'tail -80 ${{ inputs.app_dir }}/logs/deploy.log' || true
+          echo "::endgroup::"
+          echo "::group::container state"
+          ssh target 'APP_DIR=${{ inputs.app_dir }} ${{ inputs.app_dir }}/deploy.sh --status' || true
+          echo "::endgroup::"
+          echo "::group::app logs"
+          ssh target 'cd ${{ inputs.app_dir }} && ./dc logs --tail 100 app' || true
+          echo "::endgroup::"
+
+      - name: Revoke the server's registry credentials
+        if: always()
+        run: ssh target 'docker logout ghcr.io' || true
+
+      - name: Remove SSH key
+        if: always()
+        run: rm -f ~/.ssh/id_deploy ~/.ssh/config

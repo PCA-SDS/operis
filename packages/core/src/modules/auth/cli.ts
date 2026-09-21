@@ -7,7 +7,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { User, Role, UserRole } from '@open-mercato/core/modules/auth/data/entities'
 import { Tenant, Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { rebuildHierarchyForTenant } from '@open-mercato/core/modules/directory/lib/hierarchy'
-import { ensureRoles, setupInitialTenant, ensureDefaultRoleAcls, ensureCustomRoleAcls, OrgSlugExistsError, DerivedUserPasswordRequiredError } from './lib/setup-app'
+import { ensureRoles, ensureTenantUser, setupInitialTenant, ensureDefaultRoleAcls, ensureCustomRoleAcls, OrgSlugExistsError, DerivedUserPasswordRequiredError } from './lib/setup-app'
 import { normalizeTenantId } from './lib/tenantAccess'
 import { parseCommaSeparatedList } from '@open-mercato/shared/lib/string'
 import { computeEmailHash, emailHashLookupValues } from './lib/emailHash'
@@ -869,5 +869,135 @@ const syncRoleAcls: ModuleCli = {
   },
 }
 
+// `auth setup` mints a PLATFORM-WIDE superadmin as its primary user and says so in its
+// own header. That is right for the first tenant on an installation and wrong for every
+// tenant after it: an `admin@acme.com` holding superadmin can read and write every other
+// tenant, which is precisely the isolation a multi-tenant QA environment exists to test.
+//
+// `setupInitialTenant` already supports the correct shape via `primaryUserRoles`; only the
+// CLI never exposed it. This command does, and adds the optional second (employee) account
+// that a seeded tenant almost always wants.
+//
+// Everything else is deliberately identical to `auth setup`, including `modules`, so the
+// per-tenant `setup.ts` hooks run and the tenant comes up with its dashboards, configs,
+// feature toggles and query-index rows — the thing `auth add-org` silently skips.
+const SEED_TENANT_USAGE = 'Usage: mercato auth seed-tenant --orgName <name> --password <password> [--admin <email>] [--user <email>] [--orgSlug <slug>] [--json]'
+
+const seedTenant: ModuleCli = {
+  command: 'seed-tenant',
+  async run(rest) {
+    const args = parseArgs(rest)
+    const readStr = (...keys: string[]): string | undefined => {
+      for (const key of keys) {
+        const value = args[key]
+        if (typeof value === 'string' && value.trim().length) return value.trim()
+      }
+      return undefined
+    }
+
+    const orgName = readStr('orgName', 'name')
+    const password = readStr('password')
+    const adminEmail = readStr('admin', 'adminEmail')
+    const userEmail = readStr('user', 'userEmail')
+    const orgSlug = readStr('orgSlug', 'slug')
+    const asJson = args.json === true
+
+    if (!orgName || !password || (!adminEmail && !userEmail)) {
+      process.stderr.write(`${SEED_TENANT_USAGE}\n`)
+      process.exitCode = 2
+      return
+    }
+    if (orgSlug !== undefined && !ORG_SLUG_PATTERN.test(orgSlug)) {
+      process.stderr.write(`Invalid --orgSlug: must match ${ORG_SLUG_PATTERN.source}\n`)
+      process.exitCode = 2
+      return
+    }
+    if (!ensurePasswordPolicy(password)) {
+      process.exitCode = 2
+      return
+    }
+
+    const modules = getCliModules()
+    if (!modules.length) {
+      process.stderr.write('No CLI modules registered. Run `yarn generate` first.\n')
+      process.exitCode = 2
+      return
+    }
+
+    // A tenant with no admin is legitimate — some QA tenants exist only to prove an
+    // employee sees nothing privileged — so the lone user becomes the primary account
+    // rather than forcing a placeholder admin nobody asked for.
+    const primaryEmail = adminEmail ?? userEmail!
+    const primaryRole = adminEmail ? 'admin' : 'employee'
+
+    const { resolve } = await createRequestContainer()
+    const em = resolve<EntityManager>('em')
+
+    try {
+      const result = await setupInitialTenant(em, {
+        orgName,
+        orgSlug,
+        primaryUser: { email: primaryEmail, password, confirm: true },
+        // The whole point of this command.
+        primaryUserRoles: [primaryRole],
+        // The superadmin ROLE still exists in the tenant, as it does in production;
+        // what changes is that the seeded primary user does not hold it.
+        includeSuperadminRole: true,
+        // No admin@acme.com / employee@acme.com demo accounts.
+        includeDerivedUsers: false,
+        // Loud on a re-run rather than quietly re-pointing an existing account at a new
+        // tenant. Re-seeding means wiping the stack first, which staging supports.
+        failIfUserExists: true,
+        modules,
+      })
+
+      const seeded: Array<{ email: string; roles: string[]; created: boolean }> = [
+        { email: primaryEmail, roles: [primaryRole], created: true },
+      ]
+
+      if (adminEmail && userEmail) {
+        const { created } = await ensureTenantUser(em, {
+          email: userEmail,
+          roles: ['employee'],
+          tenantId: result.tenantId,
+          organizationId: result.organizationId,
+          passwordHash: await hash(password, 10),
+          confirm: true,
+        })
+        seeded.push({ email: userEmail, roles: ['employee'], created })
+      }
+
+      const summary = {
+        orgName,
+        tenantId: result.tenantId,
+        organizationId: result.organizationId,
+        users: seeded,
+      }
+      if (asJson) {
+        console.log(JSON.stringify(summary))
+        return
+      }
+      console.log(`✅ ${orgName}`)
+      console.log(`   tenant       ${result.tenantId}`)
+      console.log(`   organization ${result.organizationId}`)
+      for (const entry of seeded) {
+        console.log(`   user         ${entry.email}  [${entry.roles.join(', ')}]`)
+      }
+    } catch (err) {
+      if (err instanceof OrgSlugExistsError) {
+        process.stderr.write(`${err.message}\n`)
+        process.exitCode = 1
+        return
+      }
+      if (err instanceof Error && err.message === 'USER_EXISTS') {
+        process.stderr.write(`Aborted: a user already exists with the email ${primaryEmail}.\n`)
+        process.exitCode = 1
+        return
+      }
+      throw err
+    }
+  },
+}
+
 // Export the full CLI list
-export default [addUser, seedRoles, syncRoleAcls, rotateEncryptionKey, addOrganization, setupApp, listOrganizations, listTenants, listUsers, setPassword]
+export default [addUser, seedRoles, syncRoleAcls, rotateEncryptionKey, addOrganization, setupApp, seedTenant, listOrganizations, listTenants, listUsers, setPassword]
