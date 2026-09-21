@@ -358,7 +358,7 @@ function IncomingConstraintBadge({ constraint }: { constraint: CatalogConstraint
 
 function ConstraintRow({ draft, localOptions, productSeedOptions, productId, productName, onDelete }: ConstraintRowProps) {
   const t = useT()
-  const { confirm } = useConfirmDialog()
+  const { confirm, ConfirmDialogElement } = useConfirmDialog()
 
   const handleDelete = () => {
     if (draft.locked) return
@@ -461,6 +461,7 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
           <Trash2 className="w-3.5 h-3.5" />
         </IconButton>
       </div>
+      {ConfirmDialogElement}
     </div>
   )
 }
