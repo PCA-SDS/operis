@@ -133,9 +133,9 @@ async function applyConstraintsSnapshot(
 
   const incomingIds = new Set(snapshot.map((c) => c.id))
 
-  // Remove constraints not in incoming
+  // Locked constraints are managed by migrations and cannot be removed by a UI snapshot.
   for (const constraint of currentConstraints) {
-    if (!incomingIds.has(constraint.id)) {
+    if (!constraint.locked && !incomingIds.has(constraint.id)) {
       em.remove(constraint)
     }
   }
@@ -153,6 +153,10 @@ async function applyConstraintsSnapshot(
       })
       em.persist(entity)
       constraintEntities.set(serialized.id, entity)
+    }
+
+    if (entity.locked) {
+      serialized.locked = true
     }
 
     entity.constraintType = serialized.constraintType as any

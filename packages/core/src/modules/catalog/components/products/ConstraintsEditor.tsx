@@ -104,6 +104,28 @@ type ConstraintDraft = {
   locked: boolean
 }
 
+function LockedConstraintIndicator() {
+  const t = useT()
+  const label = t('catalog.constraints.locked', 'Locked by migration')
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            role="img"
+            aria-label={label}
+            className="inline-flex size-7 items-center justify-center rounded-lg text-status-warning-icon"
+          >
+            <Lock className="w-3.5 h-3.5" />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
 type NewConstraintDraft = {
   constraintType: ConstraintType
   sourceKind: 'product' | 'option'
@@ -328,27 +350,7 @@ function IncomingConstraintBadge({ constraint }: { constraint: CatalogConstraint
           </span>
         </Tag>
 
-        {constraint.locked && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <IconButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled
-                  aria-label={t('catalog.constraints.locked', 'Locked by migration')}
-                  className="shrink-0 text-status-warning-icon"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                </IconButton>
-              </TooltipTrigger>
-              <TooltipContent>
-                {t('catalog.constraints.locked', 'Locked by migration')}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
+        {constraint.locked && <LockedConstraintIndicator />}
       </div>
     </div>
   )
@@ -445,25 +447,7 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
           </Tag>
         )}
 
-        {draft.locked ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <IconButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled
-                  aria-label={t('catalog.constraints.locked', 'Locked by migration')}
-                  className="shrink-0 text-status-warning-icon"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                </IconButton>
-              </TooltipTrigger>
-              <TooltipContent>{t('catalog.constraints.locked', 'Locked by migration')}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
+        {draft.locked && <LockedConstraintIndicator />}
 
         <IconButton
           type="button"
