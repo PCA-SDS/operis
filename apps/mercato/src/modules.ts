@@ -86,7 +86,19 @@ export const moduleOverrideExamples: ModuleOverrides = {
  * `.ai/specs/2026-08-25-mvp-module-scope-and-ui-gating.md`.
  */
 export const enabledModules: ModuleEntry[] = [
-  { id: 'dashboards', from: '@open-mercato/core' },
+  {
+    id: 'dashboards',
+    from: '@open-mercato/core',
+    // Deals surface owned by `dashboards` rather than `customers`: it reads
+    // `customers.deals.view` directly, so it needs the same treatment.
+    overrides: {
+      widgets: {
+        dashboard: {
+          'dashboards.analytics.pipelineSummary': null,
+        },
+      },
+    },
+  },
   { id: 'auth', from: '@open-mercato/core' },
   { id: 'directory', from: '@open-mercato/core' },
   // v1 product scope: deals, the sales pipeline and the cross-customer task
@@ -120,6 +132,15 @@ export const enabledModules: ModuleEntry[] = [
           'customers.list_deals': null,
           'customers.get_deal': null,
           'customers.update_deal_stage': null,
+        },
+      },
+      // The widget's own `customers.widgets.new-deals` feature depends on
+      // `customers.deals.view`, which the admin role's `customers.*` wildcard
+      // matches — so the ACL gate never withholds it and the widget has to be
+      // nulled here like the routes above.
+      widgets: {
+        dashboard: {
+          'customers.dashboard.newDeals': null,
         },
       },
     },
