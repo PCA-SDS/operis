@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { Plus, Trash2, Lock, LockOpen, ArrowRight, Package, Inbox } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
@@ -191,6 +191,17 @@ function draftToPayload(draft: ConstraintDraft): Omit<CatalogConstraintItem, 'cr
     target_option_name: draft.targetOptionName ?? null,
     locked: draft.locked,
   }
+}
+
+function isReverseConstraint(draft: ConstraintDraft, incoming: CatalogConstraintItem): boolean {
+  const sourceMatches = draft.sourceKind === 'product'
+    ? incoming.target_product_id === draft.sourceId
+    : incoming.target_option_id === draft.sourceId
+  const targetMatches = draft.targetKind === 'product'
+    ? incoming.source_product_id === draft.targetId
+    : incoming.source_option_id === draft.targetId
+
+  return incoming.constraint_type === draft.constraintType && sourceMatches && targetMatches
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -895,8 +906,13 @@ export function ConstraintsEditor({
   const [showAddDrawer, setShowAddDrawer] = useState(false)
 
   const [drafts, setDrafts] = useState<ConstraintDraft[]>(() => constraints.map(draftFromItem))
+  const [hiddenIncomingIds, setHiddenIncomingIds] = useState<Set<string>>(() => new Set())
   const onChangeRef = React.useRef(onChange)
   onChangeRef.current = onChange
+
+  useEffect(() => {
+    setHiddenIncomingIds(new Set())
+  }, [constraints, incomingConstraints])
 
   // Build local cascading tree from flat options
   const localGroups = useMemo((): CascadingItemDef[] => {
@@ -961,10 +977,20 @@ export function ConstraintsEditor({
   }, [])
 
   const deleteDraft = useCallback((id: string) => {
+    const deletedDraft = draftsRef.current.find((draft) => draft.id === id)
     const next = draftsRef.current.filter((d) => d.id !== id)
     setDrafts(next)
     sync(next)
-  }, [sync])
+    if (deletedDraft) {
+      setHiddenIncomingIds((current) => {
+        const nextHidden = new Set(current)
+        for (const incoming of incomingConstraints) {
+          if (isReverseConstraint(deletedDraft, incoming)) nextHidden.add(incoming.id)
+        }
+        return nextHidden
+      })
+    }
+  }, [incomingConstraints, sync])
 
   const updateDraftLock = useCallback((id: string, locked: boolean) => {
     const next = draftsRef.current.map((draft) => (draft.id === id ? { ...draft, locked } : draft))
@@ -1041,7 +1067,7 @@ export function ConstraintsEditor({
             </span>
           </div>
           <div className="flex flex-col gap-2">
-            {incomingConstraints.map((c) => {
+            {incomingConstraints.filter((c) => !hiddenIncomingIds.has(c.id)).map((c) => {
               return (
                 <IncomingConstraintBadge key={c.id} constraint={c} />
               )
