@@ -94,7 +94,7 @@ export const enabledModules: ModuleEntry[] = [
     overrides: {
       widgets: {
         dashboard: {
-          'dashboards.analytics.pipelineSummary': null,
+          'dashboards:pipeline-summary:widget': null,
         },
       },
     },
@@ -134,13 +134,16 @@ export const enabledModules: ModuleEntry[] = [
           'customers.update_deal_stage': null,
         },
       },
+      // Keyed by the registry entry's `key` (`<moduleId>:<folder>:widget`), which is
+      // what `applyDashboardWidgetOverridesToEntries` matches on — NOT the widget's
+      // `metadata.id`. A wrong key is silently ignored.
       // The widget's own `customers.widgets.new-deals` feature depends on
       // `customers.deals.view`, which the admin role's `customers.*` wildcard
       // matches — so the ACL gate never withholds it and the widget has to be
       // nulled here like the routes above.
       widgets: {
         dashboard: {
-          'customers.dashboard.newDeals': null,
+          'customers:new-deals:widget': null,
         },
       },
     },
