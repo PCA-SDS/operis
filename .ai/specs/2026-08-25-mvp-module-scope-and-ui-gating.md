@@ -56,21 +56,31 @@ provisions them. Opting in is an explicit, reviewable line in the module's
 
 ### Scope
 
-**Switched on** (17): `customers`, `tasks`, `staff`, `planner`, `resources`,
-`ai_assistant`, `mcp`, `currencies`, `messages`, `communication_channels`,
-`channel_gmail`, `channel_imap`, `integrations`, `data_sync`, `sync_excel`,
-`workflows`, `business_rules`.
+**Switched on** (18, as of 2026-09-20): `ai_assistant`, `appointments`,
+`catalog`, `channel_gmail`, `channel_imap`, `chat`, `chat_tasks`,
+`communication_channels`, `currencies`, `customers`, `email`, `integrations`,
+`invoice`, `mcp`, `planner`, `resources`, `staff`, `tasks`.
 
-`planner` and `resources` are not optional: `staff` hard-requires them and
+This is the v1 product surface: CRM, the calendar, invoicing, the email template
+builder, employees, chat, tasks and AI.
+
+Three of those are dependency closure rather than product decisions. `planner`
+and `resources` are not optional: `staff` hard-requires them and
 `resolveReachableModuleIds` drops a module whose prerequisites are withheld.
+`catalog` is not optional either: `appointments` requires it, and
+`catalog/lib/bookableServices.ts` queries `SalesChannel` directly, so `sales`
+must stay compiled into the build even though it is entitlement-off.
 `mvp-module-scope.test.ts` enforces that closure.
 
-**Switched off**: the commerce and logistics stack (`catalog`, `sales`, `wms`,
+**Switched off**: the commerce and logistics stack (`sales`, `wms`,
 `warranty_claims`, `shipping_carriers`, `payment_gateways`, `checkout`,
-`gateway_stripe`, `eudr`, `sync_akeneo`), the customer-facing surfaces
+`gateway_stripe`, `eudr`, `sync_akeneo`) — `catalog` left this group when
+`appointments` joined the plan and now ships on — the customer-facing surfaces
 (`customer_accounts`, `portal`, `onboarding`), and `inbox_ops`,
 `push_notifications`, `devices`, `channel_apns`, `channel_expo`, `channel_fcm`,
-`webhooks`, `storage_s3`.
+`webhooks`, `storage_s3`. Switched off on 2026-09-20 as out of v1 scope:
+`messages`, `workflows`, `business_rules`, and the import/export pair
+`data_sync` + `sync_excel`.
 
 **Removed from the build entirely**: `example`, `example_customers_sync`,
 `ratelimit_probe` (development fixtures) and `content` (public legal pages —
@@ -251,6 +261,15 @@ paths, and would otherwise skip them on a PR that only touches `apps/`.
   ratchet was re-recorded downward, not loosened.
 
 ## Changelog
+
+### 2026-09-20
+- Narrowed the plan to the agreed v1 surface. `invoice` switched on; `messages`,
+  `workflows`, `business_rules`, `data_sync` and `sync_excel` switched off.
+- `invoice/__tests__/foundation.test.ts` pinned its own `defaultEntitlement`
+  independently of `mvp-module-scope.test.ts`, so the plan had two sources of
+  truth for that module; both updated.
+- No change to `apps/mercato/src/modules.ts` — the build set is unchanged and
+  every module stays compiled, so no runtime coupling is affected.
 
 ### 2026-08-25
 - Initial implementation.
