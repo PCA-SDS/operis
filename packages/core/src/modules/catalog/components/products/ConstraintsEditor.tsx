@@ -5,6 +5,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { Plus, Trash2, Lock, ArrowRight, Package, Inbox } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { Switch } from '@open-mercato/ui/primitives/switch'
 import { KbdShortcut } from '@open-mercato/ui/primitives/kbd'
 import { ListEmptyState } from '@open-mercato/ui/backend/filters/ListEmptyState'
 import { Radio, RadioGroup } from '@open-mercato/ui/primitives/radio'
@@ -106,7 +107,7 @@ type ConstraintDraft = {
 
 function LockedConstraintIndicator() {
   const t = useT()
-  const label = t('catalog.constraints.locked', 'Locked by migration')
+  const label = t('catalog.constraints.locked', 'Locked')
 
   return (
     <TooltipProvider>
@@ -300,6 +301,7 @@ type ConstraintRowProps = {
   productId: string
   productName: string
   onDelete: () => void
+  onLockedChange: (locked: boolean) => void
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -356,7 +358,7 @@ function IncomingConstraintBadge({ constraint }: { constraint: CatalogConstraint
   )
 }
 
-function ConstraintRow({ draft, localOptions, productSeedOptions, productId, productName, onDelete }: ConstraintRowProps) {
+function ConstraintRow({ draft, localOptions, productSeedOptions, productId, productName, onDelete, onLockedChange }: ConstraintRowProps) {
   const t = useT()
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
 
@@ -450,6 +452,19 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
         )}
 
         {draft.locked && <LockedConstraintIndicator />}
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {draft.locked
+              ? t('catalog.constraints.locked', 'Locked')
+              : t('catalog.constraints.unlocked', 'Unlocked')}
+          </span>
+          <Switch
+            checked={draft.locked}
+            onCheckedChange={onLockedChange}
+            aria-label={t('catalog.constraints.toggleLocked', 'Toggle constraint lock')}
+          />
+        </div>
 
         <IconButton
           type="button"
@@ -939,6 +954,12 @@ export function ConstraintsEditor({
     sync(next)
   }, [sync])
 
+  const updateDraftLock = useCallback((id: string, locked: boolean) => {
+    const next = draftsRef.current.map((draft) => (draft.id === id ? { ...draft, locked } : draft))
+    setDrafts(next)
+    sync(next)
+  }, [sync])
+
   const handleAdd = useCallback((draft: NewConstraintDraft) => {
     const newDraft: ConstraintDraft = { id: crypto.randomUUID(), ...draft, locked: false }
     const next = [...draftsRef.current, newDraft]
@@ -979,6 +1000,7 @@ export function ConstraintsEditor({
               productId={productId}
               productName={productName}
               onDelete={() => deleteDraft(draft.id)}
+              onLockedChange={(locked) => updateDraftLock(draft.id, locked)}
             />
           ))}
         </div>
