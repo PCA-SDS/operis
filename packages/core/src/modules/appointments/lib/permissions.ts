@@ -1,3 +1,5 @@
+'use client'
+
 import { hasFeature } from '@open-mercato/shared/security/features'
 
 export type AppointmentPermissionSet = {
