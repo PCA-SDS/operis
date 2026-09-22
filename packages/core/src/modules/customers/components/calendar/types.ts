@@ -235,7 +235,6 @@ export interface CalendarHeaderProps {
   onNewEvent?: () => void
   /** Present only when the tasks module is active and the caller may edit tasks. */
   onNewTask?: () => void
-  onOpenShortcuts?: () => void
 }
 
 export interface CalendarToolbarProps {

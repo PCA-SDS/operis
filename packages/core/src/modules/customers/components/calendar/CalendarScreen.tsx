@@ -892,7 +892,6 @@ export function CalendarScreen({
         onViewChange={handleViewChange}
         onNewEvent={canManage ? openCreateEditor : undefined}
         onNewTask={tasksEnabled && canEditTasks ? () => openCreateTask() : undefined}
-        onOpenShortcuts={() => setSettingsOpen(true)}
       />
       <CalendarScopeBar
         tab={tab}

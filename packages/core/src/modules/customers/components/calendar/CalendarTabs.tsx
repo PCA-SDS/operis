@@ -8,6 +8,7 @@ import {
 } from '@open-mercato/ui/primitives/segmented-control'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { CalendarTab, CalendarTabsProps } from './types'
+import { CHROME_SEGMENTED_ITEM, CHROME_SEGMENTED_TRACK } from './chrome'
 
 /**
  * The count trails its label inside one text flow — separated by a real space,
@@ -45,16 +46,17 @@ export function CalendarTabs({ tab, counts, onTabChange }: CalendarTabsProps) {
     <div className="-my-1 min-w-0 max-w-full overflow-x-auto py-1 scrollbar-hide">
       <SegmentedControl
         value={tab}
+        className={CHROME_SEGMENTED_TRACK}
         onValueChange={(value) => onTabChange(value as CalendarTab)}
         aria-label={t('customers.calendar.tabs.label', 'Calendar category')}
       >
-        <SegmentedControlItem value="all" icon={<LayoutGrid className="size-4" />}>
+        <SegmentedControlItem className={CHROME_SEGMENTED_ITEM} value="all" icon={<LayoutGrid className="size-4" />}>
           {t('customers.calendar.tabs.all', 'All Scheduled')}
         </SegmentedControlItem>
-        <SegmentedControlItem value="meetings" icon={<List className="size-4" />}>
+        <SegmentedControlItem className={CHROME_SEGMENTED_ITEM} value="meetings" icon={<List className="size-4" />}>
           <ScopeLabel label={t('customers.calendar.tabs.meetings', 'Meetings')} count={counts.meetings} />
         </SegmentedControlItem>
-        <SegmentedControlItem value="events" icon={<Clock className="size-4" />}>
+        <SegmentedControlItem className={CHROME_SEGMENTED_ITEM} value="events" icon={<Clock className="size-4" />}>
           <ScopeLabel label={t('customers.calendar.tabs.events', 'Events')} count={counts.events} />
         </SegmentedControlItem>
       </SegmentedControl>

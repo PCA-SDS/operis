@@ -16,6 +16,8 @@ import {
 } from '@open-mercato/ui/primitives/select'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { CalendarFiltersValue, CalendarToolbarProps } from './types'
+import { cn } from '@open-mercato/shared/lib/utils'
+import { CHROME_FLAT_CONTROL } from './chrome'
 
 const STATUS_OPTIONS = ['planned', 'done', 'canceled'] as const
 
@@ -93,10 +95,13 @@ export function CalendarToolbar(props: CalendarToolbarProps) {
       </div>
       <Popover open={filtersOpen} onOpenChange={handleFiltersOpenChange}>
         <PopoverTrigger asChild>
+          {/* Chrome action: keeps the white `bg-surface` fill, loses the
+              hairline and the lift — the same treatment New task carries on the
+              header row, so the two rows read as one bar. */}
           <Button
             type="button"
             variant="outline"
-            className="shrink-0"
+            className={cn("shrink-0", CHROME_FLAT_CONTROL)}
             aria-label={t('customers.calendar.toolbar.filters.label', 'Filter')}
           >
             <ListFilter aria-hidden="true" />

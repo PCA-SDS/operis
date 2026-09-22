@@ -17,7 +17,6 @@ type Overrides = {
   onToday?: () => void
   onViewChange?: (view: CalendarView) => void
   onNewEvent?: () => void
-  onOpenShortcuts?: () => void
 }
 
 function renderHeader(overrides: Overrides = {}) {
@@ -31,7 +30,6 @@ function renderHeader(overrides: Overrides = {}) {
       onToday={overrides.onToday ?? jest.fn()}
       onViewChange={overrides.onViewChange ?? jest.fn()}
       onNewEvent={overrides.onNewEvent ?? jest.fn()}
-      onOpenShortcuts={overrides.onOpenShortcuts ?? jest.fn()}
     />,
   )
 }
@@ -88,16 +86,22 @@ describe('CalendarHeader', () => {
 
     expect(queryByRole('textbox')).toBeNull()
     expect(queryByRole('button', { name: 'Filter' })).toBeNull()
-    expect(getByRole('heading', { level: 1 }).className).toContain('flex-1')
+    // `flex-1` moved from the heading to the group that now wraps it, because
+    // the arrows sit either side of the date. Same guarantee, one level up: the
+    // date's container absorbs the row's slack, so the label is never the thing
+    // that gives way when the bar gets tight.
+    const heading = getByRole('heading', { level: 1 })
+    expect(heading.className).toContain('min-w-0')
+    expect(heading.parentElement?.className).toContain('flex-1')
   })
 
-  it('keeps a keyboard-shortcuts affordance now that the footer legend is gone', () => {
-    const onOpenShortcuts = jest.fn()
-    const { getByRole } = renderHeader({ onOpenShortcuts })
+  it('does not duplicate the settings affordance — the scope row\'s gear is the only one', () => {
+    const { queryByRole } = renderHeader({})
 
-    fireEvent.click(getByRole('button', { name: 'Keyboard shortcuts' }))
-
-    expect(onOpenShortcuts).toHaveBeenCalledTimes(1)
+    // The keyboard button opened `setSettingsOpen(true)`, the exact handler the
+    // scope row's gear already calls, so the header offered a second door to
+    // one modal. `?` still opens it from the keyboard (see CalendarScreen).
+    expect(queryByRole('button', { name: 'Keyboard shortcuts' })).toBeNull()
   })
 
   it('stands every control on the bar at one height', () => {
@@ -109,7 +113,11 @@ describe('CalendarHeader', () => {
       container.querySelectorAll('button, [data-slot="segmented-control"]'),
     ).filter((node) => !node.closest('[data-slot="segmented-control"]') || node.matches('[data-slot="segmented-control"]'))
 
-    expect(controls.length).toBeGreaterThanOrEqual(6)
+    // Floor guards against the query silently matching nothing; it is not the
+    // assertion. Was 6 — the keyboard button that duplicated the scope row's
+    // gear is gone, so the bar is Today, prev, next, New task, New event and
+    // the switcher, minus whichever the props withhold.
+    expect(controls.length).toBeGreaterThanOrEqual(5)
     for (const control of controls) {
       expect(control.className).toMatch(/\b(h-9|size-9)\b/)
       expect(control.className).not.toMatch(/\b(size-6|size-7|size-8|h-7|h-8|h-10|h-11)\b/)

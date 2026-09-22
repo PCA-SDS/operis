@@ -138,10 +138,14 @@ function UpcomingCardItem({
         </div>
         <Popover>
           <PopoverTrigger asChild>
+            {/* `white` rather than `outline` + an override: IconButton ships a
+                borderless white variant, which is exactly this. `shadow-none`
+                drops its lift so the affordance sits flat on the card. */}
             <IconButton
-              variant="outline"
+              variant="white"
               size="lg"
               fullRadius
+              className="shadow-none text-foreground"
               aria-label={t('customers.calendar.cards.menu.label', 'Event actions')}
             >
               <ChevronDown aria-hidden="true" />

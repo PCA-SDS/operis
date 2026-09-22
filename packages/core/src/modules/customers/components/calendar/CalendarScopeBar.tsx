@@ -6,6 +6,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Calendar } from '@open-mercato/ui/primitives/calendar'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
+import { Separator } from '@open-mercato/ui/primitives/separator'
 import {
   Select,
   SelectContent,
@@ -17,6 +18,8 @@ import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
 import { formatDateRangeLabel } from '../../lib/calendar/format'
 import { CalendarTabs } from './CalendarTabs'
 import type { CalendarRangePreset, CalendarScopeBarProps } from './types'
+import { cn } from '@open-mercato/shared/lib/utils'
+import { CHROME_FLAT_CONTROL } from './chrome'
 
 const RANGE_PRESETS: CalendarRangePreset[] = ['thisWeek', 'next7', 'thisMonth', 'next30']
 
@@ -65,7 +68,7 @@ export function CalendarScopeBar({
         <div className="flex min-w-0 shrink-0 items-center">
           <Select value={preset ?? ''} onValueChange={(value) => onPresetChange(value as CalendarRangePreset)}>
             <SelectTrigger
-              className="hidden w-auto min-w-32 rounded-r-none sm:flex"
+              className={cn("hidden w-auto min-w-32 rounded-r-none sm:flex", CHROME_FLAT_CONTROL)}
               aria-label={t('customers.calendar.toolbar.presetLabel', 'Date range preset')}
             >
               <SelectValue placeholder={t('customers.calendar.toolbar.presetPlaceholder', 'Custom range')} />
@@ -78,12 +81,22 @@ export function CalendarScopeBar({
               ))}
             </SelectContent>
           </Select>
+          {/* The preset select and the range trigger are one control split in
+              two, and with both of them flat there was no longer anything
+              between "This week" and the date it resolves to — the pair read as
+              a single run of text. This rule is what puts the seam back without
+              reintroducing the two hairlines that used to box them in.
+
+              `hidden sm:block` tracks the select beside it: that is hidden
+              below `sm`, and a divider with nothing on its left is just a mark
+              floating before the date. */}
+          <Separator orientation="vertical" className="hidden h-5 shrink-0 sm:block" />
           <Popover open={rangeOpen} onOpenChange={setRangeOpen}>
             <PopoverTrigger asChild>
               <Button
                 type="button"
                 variant="outline"
-                className="min-w-0 text-muted-foreground sm:-ml-px sm:rounded-l-none"
+                className={cn("min-w-0 text-foreground sm:rounded-l-none", CHROME_FLAT_CONTROL)}
               >
                 <CalendarRange aria-hidden="true" />
                 <span className="truncate">{formatDateRangeLabel(locale, range.from, range.to)}</span>
@@ -106,10 +119,15 @@ export function CalendarScopeBar({
         {/* Settings closes the row. It is the only control here that does not
             change what the grid shows, so it sits past the date range rather
             than among the narrowing controls. `lg` is the IconButton size that
-            stands 36px, the height every control on this row shares. */}
+            stands 36px, the height every control on this row shares.
+
+            `ghost`, matching every other ACTION across both chrome rows — see
+            the borders-and-shadows note in CalendarHeader. The preset select
+            and the range trigger beside it keep their hairline on purpose:
+            they are inputs, and the border is what marks them editable. */}
         <IconButton
           type="button"
-          variant="outline"
+          variant="ghost"
           size="lg"
           className="shrink-0"
           aria-label={t('customers.calendar.toolbar.settings', 'Calendar settings')}
