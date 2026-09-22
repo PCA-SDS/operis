@@ -61,6 +61,7 @@ type SeatPlannerLine = {
   productTitle: string
   durationMinutes: number | null
   options: Array<{ groupName: string | null; name: string }>
+  seatPlannerCleared: boolean
   currentAssignment?: {
     id: string
     state: 'draft' | 'confirmed'
@@ -1096,8 +1097,14 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     const bySeat = new Map<string, PlannerAllocation[]>()
     const allocations = new Map<string, PlannerAllocation>()
     const ownLineIds = new Set(ownAllocations.map((allocation) => allocation.lineId))
+    const clearedLineIds = new Set(
+      workspace.lines.filter((line) => line.seatPlannerCleared).map((line) => line.id),
+    )
     for (const allocation of workspace.allocations) {
-      if (allocation.appointmentId === workspace.appointment.id && ownLineIds.has(allocation.lineId)) continue
+      if (
+        allocation.appointmentId === workspace.appointment.id
+        && (ownLineIds.has(allocation.lineId) || clearedLineIds.has(allocation.lineId))
+      ) continue
       allocations.set(allocation.id, allocation)
     }
     for (const allocation of ownAllocations) allocations.set(allocation.id, allocation)

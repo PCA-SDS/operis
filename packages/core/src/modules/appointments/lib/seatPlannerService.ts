@@ -25,6 +25,7 @@ export interface SeatPlannerLine {
   productTitle: string
   durationMinutes: number | null
   options: Array<{ groupName: string | null; name: string }>
+  seatPlannerCleared: boolean
   currentAssignment?: {
     id: string
     state: 'draft' | 'confirmed'
@@ -90,6 +91,15 @@ export interface SeatPlannerWorkspace {
     typeColor?: string | null
     availabilityWindows: Array<{ startsAt: string; endsAt: string }> | null
   }>
+}
+
+export function resolveSeatPlannerAssignment(
+  assignments: AssignmentDTO[],
+  seatPlannerClearedAt?: Date | null,
+): AssignmentDTO | undefined {
+  if (seatPlannerClearedAt) return undefined
+  return assignments.find((assignment) => assignment.state === 'draft')
+    ?? assignments.find((assignment) => assignment.state === 'confirmed')
 }
 
 function normalizeLineOptions(
@@ -437,8 +447,7 @@ export class AppointmentSeatPlannerService {
         })
 
         // Drafts overlay the confirmed baseline while the booking is being edited.
-        const assignment = assignments.find((a) => a.state === 'draft')
-          ?? assignments.find((a) => a.state === 'confirmed')
+        const assignment = resolveSeatPlannerAssignment(assignments, line.seatPlannerClearedAt)
 
         // Find resource name
         const resource = assignment
@@ -473,6 +482,7 @@ export class AppointmentSeatPlannerService {
           productTitle: line.productTitle,
           durationMinutes: resolvedDuration ?? 60,
           options,
+          seatPlannerCleared: Boolean(line.seatPlannerClearedAt),
           currentAssignment: assignment
             ? {
                 id: assignment.id,
@@ -550,6 +560,8 @@ export class AppointmentSeatPlannerService {
       ;(error as Error & { code: string }).code = 'LINE_NOT_FOUND'
       throw error
     }
+
+    line.seatPlannerClearedAt = null
 
     const resourceOrganizationIds = await this.getResourceOrganizationIds(params.tenantId, line.organizationId)
 
@@ -637,6 +649,8 @@ export class AppointmentSeatPlannerService {
       sourceEntityId: params.lineId,
       expectedUpdatedAt: params.expectedUpdatedAt,
     })
+    line.seatPlannerClearedAt = new Date()
+    await this.em.flush()
   }
 
   /**
@@ -757,6 +771,11 @@ export class AppointmentSeatPlannerService {
         userId: params.userId,
         expectedUpdatedAt: expectedByLineId.get(line.id)?.updatedAt,
       })
+      if (assignments.length > 0) {
+        line.seatPlannerClearedAt = null
+        line.updatedAt = new Date()
+        await this.em.flush()
+      }
       allAssignments.push(...assignments)
     }
 

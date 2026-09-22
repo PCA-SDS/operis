@@ -151,6 +151,7 @@ export class AppointmentLine {
     | 'unitPriceGross'
     | 'durationMinutes'
     | 'sortOrder'
+    | 'seatPlannerClearedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -193,6 +194,9 @@ export class AppointmentLine {
 
   @Property({ name: 'sort_order', type: 'int', default: 0 })
   sortOrder: number = 0
+
+  @Property({ name: 'seat_planner_cleared_at', type: Date, nullable: true })
+  seatPlannerClearedAt?: Date | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()
