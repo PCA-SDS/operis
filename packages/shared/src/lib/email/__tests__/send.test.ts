@@ -38,7 +38,7 @@ describe('sendEmail', () => {
     process.env = originalEnv
   })
 
-  it('maps replyTo to reply_to in Resend payload', async () => {
+  it('passes replyTo to the Resend SDK payload', async () => {
     await sendEmail({
       to: 'user@example.com',
       subject: 'Hello',
@@ -52,14 +52,14 @@ describe('sendEmail', () => {
         to: 'user@example.com',
         subject: 'Hello',
         from: 'from@example.com',
-        reply_to: 'reply@example.com',
+        replyTo: 'reply@example.com',
       })
       ,
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     )
   })
 
-  it('omits reply_to when replyTo is not provided', async () => {
+  it('omits replyTo when it is not provided', async () => {
     await sendEmail({
       to: 'user@example.com',
       subject: 'Hello',
@@ -68,7 +68,7 @@ describe('sendEmail', () => {
 
     const payload = sendMock.mock.calls[0]?.[0] as Record<string, unknown>
     expect(payload).toBeDefined()
-    expect(payload.reply_to).toBeUndefined()
+    expect(payload.replyTo).toBeUndefined()
   })
 
   it('passes cc and bcc recipient lists to Resend', async () => {

@@ -8,6 +8,14 @@ import { TasksSection } from '../TasksSection'
 const usePersonTasksMock = jest.fn()
 const useInteractionsMock = jest.fn()
 
+let mockCustomerTasksInProduct = true
+
+jest.mock('@open-mercato/shared/lib/product-scope', () => ({
+  get CUSTOMER_TASKS_IN_PRODUCT() {
+    return mockCustomerTasksInProduct
+  },
+}))
+
 jest.mock('../hooks/usePersonTasks', () => ({
   usePersonTasks: (...args: unknown[]) => usePersonTasksMock(...args),
 }))
@@ -70,6 +78,7 @@ describe('TasksSection', () => {
   })
 
   it('keeps the View all tasks navigation visible even when the task list is empty', () => {
+    mockCustomerTasksInProduct = true
     renderWithProviders(
       <TasksSection
         entityId="customer-1"
@@ -84,6 +93,29 @@ describe('TasksSection', () => {
     )
 
     expect(screen.getByRole('link', { name: 'View all tasks' })).toHaveAttribute('href', '/backend/customer-tasks')
+  })
+
+  // `/backend/customer-tasks` is withheld from the build in `modules.ts`, so the
+  // link would 404. It shares `customers.interactions.view` with the Calendar
+  // page and has no feature of its own, which is why this is a scope flag rather
+  // than a permission check.
+  it('drops the View all tasks navigation when the roll-up page is withheld', () => {
+    mockCustomerTasksInProduct = false
+    renderWithProviders(
+      <TasksSection
+        entityId="customer-1"
+        initialTasks={[]}
+        emptyLabel="No date"
+        addActionLabel="Create task"
+        emptyState={{
+          title: 'No tasks yet',
+          actionLabel: 'Create task',
+        }}
+      />,
+    )
+
+    expect(screen.queryByRole('link', { name: 'View all tasks' })).not.toBeInTheDocument()
+    mockCustomerTasksInProduct = true
   })
 
   it('emits the persistent section action when entityId is provided', () => {

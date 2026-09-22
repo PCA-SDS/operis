@@ -63,6 +63,7 @@ type SeatPlannerLine = {
   productTitle: string
   durationMinutes: number | null
   options: Array<{ groupName: string | null; name: string }>
+  seatPlannerCleared: boolean
   currentAssignment?: {
     id: string
     state: 'draft' | 'confirmed'
@@ -1070,6 +1071,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     }
   }, [])
   const hasMoreStaffRef = React.useRef(true)
+  const staffAvailabilityRangeRef = React.useRef<{ startsAt: string; endsAt: string } | null>(null)
   const guardedMutation = useGuardedMutation({ contextId: appointmentId ? `appointments.seatPlanner:${appointmentId}` : 'appointments.seatPlanner:pending' })
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
 
@@ -1079,7 +1081,11 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     if (page === 1) setIsLoadingStaff(true)
     else setIsLoadingMoreStaff(true)
     try {
-      const response = await readApiResultOrThrow<{ items?: Array<{ id: string; displayName: string; teamName?: string | null; roleNames?: string[] }> }>(`/api/staff/team-members/assignable?page=${page}&pageSize=${STAFF_PAGE_SIZE}&includeUnlinked=true`)
+      const range = staffAvailabilityRangeRef.current
+      const availabilityQuery = range
+        ? `&startsAt=${encodeURIComponent(range.startsAt)}&endsAt=${encodeURIComponent(range.endsAt)}`
+        : ''
+      const response = await readApiResultOrThrow<{ items?: Array<{ id: string; displayName: string; teamName?: string | null; roleNames?: string[] }> }>(`/api/staff/team-members/assignable?page=${page}&pageSize=${STAFF_PAGE_SIZE}&includeUnlinked=true${availabilityQuery}`)
       const items = response.items ?? []
       const nextStaff = items.map((member) => ({
         id: member.id,
@@ -1248,8 +1254,14 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     const bySeat = new Map<string, PlannerAllocation[]>()
     const allocations = new Map<string, PlannerAllocation>()
     const ownLineIds = new Set(ownAllocations.map((allocation) => allocation.lineId))
+    const clearedLineIds = new Set(
+      workspace.lines.filter((line) => line.seatPlannerCleared).map((line) => line.id),
+    )
     for (const allocation of workspace.allocations) {
-      if (allocation.appointmentId === workspace.appointment.id && ownLineIds.has(allocation.lineId)) continue
+      if (
+        allocation.appointmentId === workspace.appointment.id
+        && (ownLineIds.has(allocation.lineId) || clearedLineIds.has(allocation.lineId))
+      ) continue
       allocations.set(allocation.id, allocation)
     }
     for (const allocation of ownAllocations) allocations.set(allocation.id, allocation)
@@ -1982,7 +1994,18 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             onClose={() => setPopoverState(null)}
             onClear={() => void clearDraft(livePopoverState.allocation.lineId)}
             onDurationChange={(nextDuration) => void handleDurationChange(livePopoverState.allocation, nextDuration)}
-            onOpenStaff={() => setStaffSheetTarget({ allocation: livePopoverState.allocation, line: workspace.lines.find((line) => line.id === livePopoverState.allocation.lineId) ?? null })}
+            onOpenStaff={() => {
+              staffAvailabilityRangeRef.current = {
+                startsAt: livePopoverState.allocation.startsAt,
+                endsAt: livePopoverState.allocation.endsAt,
+              }
+              staffPageRef.current = 0
+              staffLoadingRef.current = false
+              hasMoreStaffRef.current = true
+              setHasMoreStaff(true)
+              setStaffMembers([])
+              setStaffSheetTarget({ allocation: livePopoverState.allocation, line: workspace.lines.find((line) => line.id === livePopoverState.allocation.lineId) ?? null })
+            }}
           />
         ) : null}
 

@@ -47,8 +47,20 @@ const configPath = path.join(repoRoot, '.ai', 'agentic.config.json')
  */
 const AGGREGATOR_JOB = 'ci-required'
 
-/** Jobs that run after the gate rather than as part of it. */
-const POST_GATE_JOBS = new Set(['build', 'translation-image', 'deploy'])
+/**
+ * Jobs that run after the gate rather than as part of it.
+ *
+ * `deploy` became `deploy-staging` + `deploy-production` when staging was added: one
+ * image, deployed to staging automatically and then to production behind a required
+ * reviewer. Both are deployments, not checks — they consume the gate's verdict rather
+ * than contributing to it, so branch protection has no business waiting on them.
+ */
+const POST_GATE_JOBS = new Set([
+  'build',
+  'translation-image',
+  'deploy-staging',
+  'deploy-production',
+])
 
 /** Bookkeeping jobs that gate nothing on their own. */
 const NON_CHECK_JOBS = new Set(['scope', 'prepare', AGGREGATOR_JOB])

@@ -524,6 +524,38 @@ export class ResourceAssignmentService {
   }
 
   /**
+   * Cancel all active assignments belonging to a set of source entities.
+   */
+  async cancelAssignmentsForSourceEntities(params: {
+    tenantId: string
+    organizationId: string
+    sourceModule: string
+    sourceEntityType: string
+    sourceEntityIds: string[]
+  }): Promise<number> {
+    if (params.sourceEntityIds.length === 0) return 0
+
+    const assignments = await this.em.find(ResourcesAssignment, {
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
+      sourceModule: params.sourceModule,
+      sourceEntityType: params.sourceEntityType,
+      sourceEntityId: { $in: params.sourceEntityIds },
+      cancelledAt: null,
+    })
+
+    if (assignments.length === 0) return 0
+
+    const cancelledAt = new Date()
+    for (const assignment of assignments) {
+      assignment.cancelledAt = cancelledAt
+      assignment.updatedAt = cancelledAt
+    }
+    await this.em.flush()
+    return assignments.length
+  }
+
+  /**
    * Update staff assignment for an existing assignment
    */
   async updateAssignmentStaff(params: {

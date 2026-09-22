@@ -64,6 +64,8 @@ const optionalTrimmedString = (schema: z.ZodString) =>
     const trimmed = value.trim()
     return trimmed.length > 0 ? trimmed : undefined
   }, schema.optional())
+const nullableOptionalTrimmedString = (schema: z.ZodString) =>
+  z.preprocess((value) => value === null ? undefined : value, optionalTrimmedString(schema))
 
 export const invoiceDirectionSchema = z.enum(INVOICE_DIRECTIONS)
 export const invoiceStatusSchema = z.enum(INVOICE_STATUSES)
@@ -189,6 +191,57 @@ export type InvoicePaymentConfirmationPublicTransition = z.infer<typeof invoiceP
 export const invoiceCompanyLookupCountrySchema = invoiceCountryCodeSchema
 export const invoiceCompanyLookupIdentifierSchema = z.string().trim().min(1).max(80)
 
+const singaporeRobWeights = [10, 4, 9, 3, 8, 2, 7, 1]
+const singaporeRobAlphabet = 'XMKECAWLJDB'
+const singaporeRocWeights = [10, 8, 6, 4, 9, 7, 5, 3, 1]
+const singaporeRocAlphabet = 'ZKCMDNERGWH'
+const singaporeOtherWeights = [4, 3, 5, 3, 10, 2, 2, 5, 7]
+const singaporeOtherAlphabet = 'ABCDEFGHJKLMNPQRSTUVWX0123456789'
+const singaporeOtherEntityTypes = new Set([
+  'CC', 'CD', 'CH', 'CL', 'CM', 'CP', 'CS', 'CX', 'DP', 'FB', 'FC', 'FM', 'FN',
+  'GA', 'GB', 'GS', 'HS', 'LL', 'LP', 'MB', 'MC', 'MD', 'MH', 'MM', 'MQ', 'NB',
+  'NR', 'PA', 'PB', 'PF', 'RF', 'RP', 'SM', 'SS', 'TC', 'TU', 'VH', 'XL',
+])
+
+export function normalizeSingaporeUen(value: string): string {
+  return value.replace(/[\s-]/g, '').toUpperCase()
+}
+
+function singaporeCheckCharacter(
+  value: string,
+  weights: readonly number[],
+  alphabet: string,
+): string {
+  const sum = weights.reduce((total, weight, index) => total + weight * Number(value.charAt(index)), 0)
+  return alphabet.charAt(sum % 11)
+}
+
+function singaporeOtherCheckCharacter(value: string): string {
+  const sum = singaporeOtherWeights.reduce((total, weight, index) => {
+    const position = singaporeOtherAlphabet.indexOf(value.charAt(index))
+    return position < 0 ? Number.NaN : total + weight * position
+  }, 0)
+  if (Number.isNaN(sum)) return ''
+  return singaporeOtherAlphabet.charAt((((sum - 5) % 11) + 11) % 11)
+}
+
+export function isValidSingaporeUen(value: string, currentYear = new Date().getFullYear()): boolean {
+  const uen = normalizeSingaporeUen(value)
+  if (uen.length === 9) {
+    return /^\d{8}$/.test(uen.slice(0, 8)) && uen.charAt(8) === singaporeCheckCharacter(uen, singaporeRobWeights, singaporeRobAlphabet)
+  }
+  if (uen.length !== 10) return false
+
+  if (/^\d{9}$/.test(uen.slice(0, 9))) {
+    return Number(uen.slice(0, 4)) <= currentYear && uen.charAt(9) === singaporeCheckCharacter(uen, singaporeRocWeights, singaporeRocAlphabet)
+  }
+
+  if (!/^\d{2}$/.test(uen.slice(1, 3)) || !'RST'.includes(uen.charAt(0))) return false
+  if (uen.charAt(0) === 'T' && Number(uen.slice(1, 3)) > currentYear % 100) return false
+  if (!singaporeOtherEntityTypes.has(uen.slice(3, 5)) || !/^\d{4}$/.test(uen.slice(5, 9))) return false
+  return uen.charAt(9) === singaporeOtherCheckCharacter(uen)
+}
+
 export const invoiceDueDaysSchema = z.coerce.number().int().min(0).max(INVOICE_MAX_DUE_DAYS)
 export const invoiceClearableDueDaysSchema = invoiceDueDaysSchema.nullable()
 export const invoicePartnerDefaultDueDaysSchema = z.coerce.number().int().min(1).max(INVOICE_MAX_DUE_DAYS)
@@ -229,8 +282,8 @@ const invoiceManualNullableDateSchema = z.preprocess((value) => {
 export const invoiceManualLineItemInputSchema = z.object({
   name: z.string().trim().min(1).max(500),
   unit: nullableTrimmedString(80),
-  quantity: invoiceNonNegativeMoneySchema,
-  unitPrice: invoiceNonNegativeMoneySchema,
+  quantity: invoicePositiveMoneySchema.refine((value) => Number(value) > 0, 'Must be greater than zero'),
+  unitPrice: invoicePositiveMoneySchema.refine((value) => Number(value) > 0, 'Must be greater than zero'),
   discountAmount: invoiceManualOptionalMoneySchema,
   discountPercent: invoicePercentSchema.optional(),
   vatRate: invoicePercentSchema.optional(),
@@ -246,7 +299,7 @@ export const invoiceManualLineItemInputSchema = z.object({
 export const invoiceManualWriteBaseSchema = z.object({
   partnerName: invoiceCompanyNameSchema,
   partnerCountryCode: invoiceCountryCodeSchema,
-  partnerTaxCode: optionalTrimmedString(invoiceTaxCodeSchema),
+  partnerTaxCode: nullableOptionalTrimmedString(invoiceTaxCodeSchema),
   invoiceSymbol: invoiceSymbolSchema,
   invoiceNumber: invoiceNumberSchema,
   invoiceCode: invoiceCodeSchema,
@@ -417,7 +470,7 @@ export const invoiceCompanyLookupCachePayloadSchema = z.object({
   providerFetchedAt: z.string().datetime(),
 }).strict()
 export const invoiceCompanyLookupRouteQuerySchema = z.object({
-  country: invoiceCompanyLookupCountrySchema.default('VN'),
+  country: invoiceCompanyLookupCountrySchema.default('SG'),
 }).strict()
 
 export type InvoiceCompanyLookupProviderKey = z.infer<typeof invoiceCompanyLookupProviderSchema>

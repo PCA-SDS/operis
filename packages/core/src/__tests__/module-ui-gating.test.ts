@@ -54,6 +54,10 @@ const MODULE_GATE_MARKERS = [
  * inconvenient to fix.
  */
 const ALLOWED_CROSS_MODULE_LINKS: Record<string, string> = {
+  'apps/mercato/src/modules.ts':
+    'Not links. These are `overrides.routes.pages` keys, which withhold those routes from the build — the opposite of navigating to one. The file renders nothing and the paths never reach a browser.',
+  'packages/shared/src/lib/product-scope.ts':
+    'Not links. The paths appear only in the doc comment explaining which routes the flags below withhold. The module exports two booleans and renders nothing.',
   'apps/mercato/src/app/(backend)/backend/loading.tsx':
     'Not a link. The backend is one catch-all route with one Suspense fallback, and this compares the pathname to pick which placeholder shape it draws. It renders no navigation, imports no module code, and the branch is unreachable without the chat module because nothing serves that path without it.',
   'packages/ui/src/backend/IntegrationsButton.tsx':

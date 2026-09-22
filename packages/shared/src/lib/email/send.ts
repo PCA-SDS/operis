@@ -184,7 +184,7 @@ export async function sendEmail({ to, cc, bcc, subject, react, from, replyTo, at
     subject,
     from: fromAddr,
     react,
-    ...(replyTo ? { reply_to: replyTo } : {}),
+    ...(replyTo ? { replyTo } : {}),
     ...(attachments?.length ? { attachments } : {}),
   }
   const timeoutMs = resolveEmailSendTimeoutMs()

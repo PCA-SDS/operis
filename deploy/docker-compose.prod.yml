@@ -17,9 +17,26 @@
 #
 # Run it by hand with the ./dc helper (which supplies both env files):
 #   ./dc ps          ./dc logs -f app          ./dc restart app
+#
+# ------------------------------------------------------------------------------
+# STACK_NAME — one file, two stacks
+#
+# This same file runs production (/opt/operis) and staging
+# (/opt/operis-staging) on the SAME host. Every name a second copy would
+# collide on is prefixed with it: the compose project, all five container
+# names, the internal network and all five volumes. Set it in the stack's .env;
+# unset it defaults to `operis`, so production renders exactly as it did before
+# this was parameterised.
+#
+# The `edge` network is deliberately NOT prefixed — both stacks join the one
+# gateway network, which is how nginx reaches either app container.
+#
+# Adding a service means adding it to that prefix list too. A container_name or
+# volume left hardcoded does not fail loudly: it either collides with the other
+# stack's container, or — worse — silently shares its DATA.
 # ==============================================================================
 
-name: operis
+name: ${STACK_NAME:-operis}
 
 x-logging: &default-logging
   driver: json-file
@@ -43,7 +60,7 @@ services:
     # redeployed container is picked up without reloading nginx — but only if
     # the name stays put. Compose's default (operis-app-1) would work too;
     # pinning it keeps the nginx template readable.
-    container_name: operis-app
+    container_name: ${STACK_NAME:-operis}-app
     restart: unless-stopped
     # `missing`, not `always`: deploy.sh pulls the tag explicitly while CI holds
     # a short-lived registry login. With `always`, a later manual `./dc up -d`
@@ -92,7 +109,7 @@ services:
       RATE_LIMIT_TRUST_PROXY_DEPTH: "1"
       MEILISEARCH_HOST: http://meilisearch:7700
       MEILISEARCH_API_KEY: ${MEILISEARCH_MASTER_KEY:?set MEILISEARCH_MASTER_KEY in .env}
-      INTERNAL_APP_ORIGIN: http://operis-app:${CONTAINER_PORT:-3000}
+      INTERNAL_APP_ORIGIN: http://${STACK_NAME:-operis}-app:${CONTAINER_PORT:-3000}
       INIT_MARKER_FILE: /tmp/init-marker/.seeded
     volumes:
       - init_marker:/tmp/init-marker
@@ -130,7 +147,7 @@ services:
   # windows: a pg_restore for one is downtime for both.
   postgres:
     image: pgvector/pgvector:pg17-trixie
-    container_name: operis-postgres
+    container_name: ${STACK_NAME:-operis}-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-operis}
@@ -172,7 +189,7 @@ services:
   # is async here: queued jobs live in Redis and must survive a restart.
   redis:
     image: redis:7-alpine
-    container_name: operis-redis
+    container_name: ${STACK_NAME:-operis}-redis
     restart: unless-stopped
     command: redis-server /usr/local/etc/redis/redis.conf --maxmemory ${REDIS_MAXMEMORY:-768mb}
     volumes:
@@ -192,7 +209,7 @@ services:
   # ---------------------------------------------------------------------------
   meilisearch:
     image: getmeili/meilisearch:v1.11
-    container_name: operis-meilisearch
+    container_name: ${STACK_NAME:-operis}-meilisearch
     restart: unless-stopped
     environment:
       MEILI_ENV: production
@@ -216,7 +233,7 @@ services:
     # a production box would need the build toolchain and several minutes of
     # network on every deploy.
     image: ${TRANSLATION_IMAGE:-ghcr.io/pca-sds/operis-translation}:${TRANSLATION_IMAGE_TAG:-latest}
-    container_name: operis-translation
+    container_name: ${STACK_NAME:-operis}-translation
     restart: unless-stopped
     environment:
       TRANSLATION_DEVICE: cpu
@@ -240,7 +257,7 @@ services:
     # loaded, and this box runs containers from several unrelated products with
     # no swap - so the process that can grow is the one that must be bounded,
     # rather than leaving the kernel to choose an OOM victim.
-    mem_limit: 3g
+    mem_limit: ${TRANSLATION_MEM_LIMIT:-3g}
     # The one process here that can saturate a core. Without this OpenMP sizes
     # itself to the host, on a box the file already says runs other products.
     cpus: ${TRANSLATION_CPUS:-2}
@@ -260,14 +277,23 @@ services:
 
 networks:
   internal:
-    name: operis-internal
+    name: ${STACK_NAME:-operis}-internal
   edge:
     external: true
     name: ${EDGE_NETWORK:-pca-erp-network}
 
+# Block style, NOT the flow style (`{ name: … }`) this used to be. A
+# `${VAR:-default}` inside a flow mapping ends it at the substitution's own
+# closing brace, and compose rejects the file with a YAML parse error before it
+# ever reaches interpolation. Verified against Compose v2 by reproducing it.
 volumes:
-  postgres_data:    { name: operis_postgres_data }
-  redis_data:       { name: operis_redis_data }
-  meilisearch_data: { name: operis_meilisearch_data }
-  attachments:      { name: operis_attachments }
-  init_marker:      { name: operis_init_marker }
+  postgres_data:
+    name: ${STACK_NAME:-operis}_postgres_data
+  redis_data:
+    name: ${STACK_NAME:-operis}_redis_data
+  meilisearch_data:
+    name: ${STACK_NAME:-operis}_meilisearch_data
+  attachments:
+    name: ${STACK_NAME:-operis}_attachments
+  init_marker:
+    name: ${STACK_NAME:-operis}_init_marker
