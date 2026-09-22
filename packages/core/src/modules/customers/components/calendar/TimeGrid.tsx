@@ -653,16 +653,18 @@ export function TimeGrid({
                 </span>
               ),
             )}
-            {/* The current time replaces the nearest hour label on the axis. */}
-            {showNowIndicator ? (
-              <span
-                aria-hidden
-                className="absolute end-0 z-20 w-full -translate-y-1/2 bg-surface pe-1.5 text-end text-overline font-semibold leading-none text-status-error-text md:pe-2"
-                style={{ top: minutesToPx(nowMinutes) }}
-              >
-                {nowLabel}
-              </span>
-            ) : null}
+            {/* No clock on the axis. The current time used to be printed here
+                over a `bg-surface` plate, which did not sit beside the hour
+                labels — it PAINTED OVER whichever one it landed on. On the hour
+                that is the worst case: at 23:00 the plate covered "11 PM"
+                exactly, so the one label the line needed for context was the
+                one it hid, and the axis read 10 PM -> (red) -> 12 AM.
+
+                The line itself already carries the time — it is positioned to
+                the minute — so the hour labels stay untouched and the line is
+                read against them. `nowLabel` is still built for the `role=status`
+                announcement below, which is where the exact time belongs for
+                anyone who cannot see the line. */}
           </div>
 
           <div
