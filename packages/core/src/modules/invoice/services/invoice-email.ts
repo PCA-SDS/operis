@@ -10,6 +10,7 @@ import {
   type InvoicePublicToken,
   type InvoiceTokenHash,
 } from '../data/validators'
+import { EMAIL_FONT_FAMILY, EMAIL_MONO_FONT_FAMILY } from '@open-mercato/shared/lib/email/typography'
 
 export type InvoiceEmailTranslate = (key: string, fallback: string, values?: Record<string, string>) => string
 
@@ -26,7 +27,8 @@ export type PaymentConfirmationEmailHtmlInput = {
   translate: InvoiceEmailTranslate
 }
 
-const FONT_FAMILY = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif"
+const FONT_FAMILY = EMAIL_FONT_FAMILY
+const MONO_FONT_FAMILY = EMAIL_MONO_FONT_FAMILY
 const PAGE_BACKGROUND = '#f1f5f9'
 const SURFACE_BACKGROUND = '#ffffff'
 const BORDER_COLOR = '#e2e8f0'
@@ -195,7 +197,7 @@ export function buildInvoiceEmailHtml(invoice: Invoice, options: InvoiceEmailHtm
             <tr><td style="padding:24px;border-bottom:1px solid ${BORDER_COLOR};">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
                 <td style="vertical-align:top;">${partyBlock(invoice.sellerName, invoice.sellerTaxCode)}</td>
-                <td align="right" style="vertical-align:top;"><div style="font-family:monospace;font-size:14px;color:${MUTED_COLOR};">${escapeHtml(label)}</div>
+                <td align="right" style="vertical-align:top;"><div style="font-family:${MONO_FONT_FAMILY};font-size:14px;color:${MUTED_COLOR};">${escapeHtml(label)}</div>
                   <div style="margin-top:12px;${LABEL_STYLE}">Total</div>
                   <div style="margin-top:3px;font-size:26px;font-weight:700;color:${TEXT_COLOR};">${escapeHtml(formatMoney(invoice.grossAmount, currency))}</div>
                 </td>

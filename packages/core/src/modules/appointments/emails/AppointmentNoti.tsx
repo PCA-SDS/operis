@@ -9,6 +9,7 @@ import {
   type AppointmentEmailData as BookingEmailData,
   type CartItem,
 } from './appointment-email'
+import { EMAIL_FONT_FAMILY } from '@open-mercato/shared/lib/email/typography'
 
 const logger = createLogger('appointments').child({ component: 'email-template' })
 
@@ -238,7 +239,7 @@ const styles = {
   body: {
     margin: 0,
     padding: 0,
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+    fontFamily: EMAIL_FONT_FAMILY,
     backgroundColor: '#e8f3ed',
   },
   outerTable: {

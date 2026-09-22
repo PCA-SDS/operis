@@ -6,7 +6,8 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
  *
  * Next.js ships a built-in not-found page whose markup carries an inline
  * `font-family: system-ui` style. That inline rule beats the cascade, so the
- * stock page is the one screen in the product that never renders in Figtree.
+ * stock page is the one screen in the product that never renders in the
+ * product typeface.
  * Defining this file replaces it outright: it renders inside the root layout,
  * so it inherits the app stylesheet, the theme tokens and the product typeface
  * like every other page.

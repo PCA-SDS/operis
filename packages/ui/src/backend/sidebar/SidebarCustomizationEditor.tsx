@@ -1615,7 +1615,7 @@ function SidebarPreview({
 
   return (
     <div
-      className={`relative w-[var(--sidebar-width,304px)] overflow-hidden rounded-xl border border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm ${SIDEBAR_GUTTER} pb-4`}
+      className={`relative w-[var(--sidebar-width,272px)] overflow-hidden rounded-xl border border-sidebar-border bg-sidebar text-sidebar-foreground shadow-sm ${SIDEBAR_GUTTER} pb-4`}
     >
       {/* The rail's own column: same gutter, same 12px stack rhythm. `border-r`
           is the card's border here, and the corners are rounded so the tile

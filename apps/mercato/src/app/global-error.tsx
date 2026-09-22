@@ -3,7 +3,7 @@
 // global-error replaces the ROOT layout rather than nesting inside it, so it
 // inherits none of that layout's imports. Without this the boundary renders its
 // own <html>/<body> with no stylesheet at all — unstyled, and in the browser's
-// default serif rather than Figtree. Importing the app stylesheet here is what
+// default serif rather than the product typeface. Importing the app stylesheet here is what
 // keeps the error screen on-brand.
 import './globals.css'
 import { Button } from '@open-mercato/ui/primitives/button'

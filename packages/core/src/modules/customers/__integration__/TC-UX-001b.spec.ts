@@ -26,8 +26,8 @@ test.describe('TC-UX-001b: Collapsible Zone 1 Panel', () => {
 
       // Set wide desktop viewport — CollapsibleZoneLayout requires container width >= 1280
       // to render the side-by-side layout with a collapse button. The sidebar rail consumes
-      // 304px (`SIDEBAR_WIDTH` in AppShell), so the page viewport must clear 1280 + 304; 1680
-      // leaves ~96px of headroom. Widen this if the rail ever grows again.
+      // 272px (`SIDEBAR_WIDTH` in AppShell), so the page viewport must clear 1280 + 272; 1680
+      // leaves ~128px of headroom. Widen this if the rail ever grows again.
       await page.setViewportSize({ width: 1680, height: 1000 })
       await page.goto(`/backend/customers/companies-v2/${companyId}`, { waitUntil: 'commit' })
       await expect(page.getByRole('button', { name: /save/i }).first()).toBeVisible({ timeout: 10_000 })
