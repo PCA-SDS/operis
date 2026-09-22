@@ -29,7 +29,6 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { AppointmentStatusBadge } from '../../components/AppointmentStatusBadge'
 import { APPOINTMENT_BOOKING_TYPE_OPTIONS } from '../../data/constants'
 import { formatCustomerDisplayName } from '../../lib/customerName'
-import { formatCustomerPhone } from '../../lib/phoneSnapshot'
 
 type Row = {
   id: string
@@ -52,7 +51,7 @@ type Row = {
   scheduleConfirmationStatus: 'confirmed' | 'unconfirmed' | 'not_applicable'
 }
 
-type ListPayload = { items: Row[] }
+type ListPayload = { items: Row[]; total?: number; totalPages?: number }
 
 type StatusOption = { code: string; label: string }
 
@@ -189,29 +188,6 @@ function StatusFilterButton({
   )
 }
 
-function matchesSearch(row: Row, query: string, statusLabel: string | undefined): boolean {
-  const needle = query.trim().toLowerCase()
-  if (!needle) return true
-  const haystack = [
-    formatCustomerDisplayName(row.customerSalutation, row.customerName),
-    row.customerName,
-    row.organizationName ?? '',
-    row.customerEmail ?? '',
-    formatCustomerPhone(row.customerPhoneCountryCode, row.customerPhone),
-    row.customerPhone ?? '',
-    row.bookingType ?? '',
-    row.bookingType ? formatBookingType(row.bookingType, '') : '',
-    row.statusCode,
-    statusLabel ?? '',
-    row.notes ?? '',
-    row.externalNotes ?? '',
-    row.id,
-  ]
-    .join(' ')
-    .toLowerCase()
-  return haystack.includes(needle)
-}
-
 export default function AppointmentsListPage() {
   const t = useT()
   const pathname = usePathname()
@@ -222,6 +198,8 @@ export default function AppointmentsListPage() {
   const [search, setSearch] = React.useState('')
   const [page, setPage] = React.useState(1)
   const [pageSize, setPageSize] = React.useState(10)
+  const [total, setTotal] = React.useState(0)
+  const [totalPages, setTotalPages] = React.useState(1)
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [selectedStatusCodes, setSelectedStatusCodes] = React.useState<Set<string>>(() => new Set())
   const [reloadToken, setReloadToken] = React.useState(0)
@@ -280,6 +258,18 @@ export default function AppointmentsListPage() {
     }
   }, [scopeVersion])
 
+  const queryParams = React.useMemo(() => {
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize),
+    })
+    if (search.trim()) params.set('search', search.trim())
+    if (selectedStatusCodes.size > 0) {
+      params.set('statusCode', Array.from(selectedStatusCodes).join(','))
+    }
+    return params.toString()
+  }, [page, pageSize, search, selectedStatusCodes])
+
   const filters = React.useMemo<FilterDef[]>(
     () => [],
     [],
@@ -292,7 +282,7 @@ export default function AppointmentsListPage() {
       if (!hasLoadedAppointmentsRef.current) setIsLoading(true)
       try {
         const call = await apiCall<ListPayload>(
-          '/api/appointments',
+          `/api/appointments?${queryParams}`,
           { signal: controller.signal },
           { fallback: { items: [] } },
         )
@@ -309,6 +299,8 @@ export default function AppointmentsListPage() {
         }
         if (!cancelled) {
           setRows(Array.isArray(call.result?.items) ? call.result.items : [])
+          setTotal(typeof call.result?.total === 'number' ? call.result.total : 0)
+          setTotalPages(typeof call.result?.totalPages === 'number' ? call.result.totalPages : 1)
           hasLoadedAppointmentsRef.current = true
         }
       } catch (error) {
@@ -330,7 +322,7 @@ export default function AppointmentsListPage() {
       cancelled = true
       controller.abort()
     }
-  }, [reloadToken, scopeVersion, t])
+  }, [queryParams, reloadToken, scopeVersion, t])
 
   const { ConfirmDialogElement, confirm } = useConfirmDialog()
 
@@ -378,35 +370,15 @@ export default function AppointmentsListPage() {
       }
       flash(t('appointments.delete.success', 'Appointment deleted'), 'success')
       setRows((current) => current.filter((r) => r.id !== row.id))
+      setTotal((current) => Math.max(0, current - 1))
+      setReloadToken((current) => current + 1)
     } catch (error) {
       const message = error instanceof Error ? error.message : t('appointments.delete.failed', 'Unable to delete appointment.')
       flash(message, 'error')
     }
   }, [confirm, t])
 
-  const statusLabelByCode = React.useMemo(() => {
-    const map = new Map<string, string>()
-    for (const option of statusOptions) {
-      map.set(option.code, option.label)
-    }
-    return map
-  }, [statusOptions])
-
-  const visibleRows = React.useMemo(
-    () =>
-      rows.filter(
-        (row) =>
-          (selectedStatusCodes.size === 0 || selectedStatusCodes.has(row.statusCode)) &&
-          matchesSearch(row, search, statusLabelByCode.get(row.statusCode)),
-      ),
-    [rows, search, selectedStatusCodes, statusLabelByCode],
-  )
-  const totalPages = Math.ceil(visibleRows.length / pageSize)
   const currentPage = totalPages === 0 ? 1 : Math.min(page, totalPages)
-  const paginatedRows = React.useMemo(
-    () => visibleRows.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-    [currentPage, pageSize, visibleRows],
-  )
 
   React.useEffect(() => {
     if (page !== currentPage) setPage(currentPage)
@@ -592,7 +564,7 @@ export default function AppointmentsListPage() {
         ),
       },
     ],
-    [handleClone, handleDelete, handleRowStatusChange, prepareSeatPlannerScope, statusOptions, t],
+    [handleClone, handleDelete, handleRowStatusChange, prepareSeatPlannerScope, selectedStatusCodes, statusOptions, t],
   )
 
   return (
@@ -621,11 +593,11 @@ export default function AppointmentsListPage() {
             </div>
           }
           columns={columns}
-          data={paginatedRows}
+          data={rows}
           pagination={{
             page: currentPage,
             pageSize,
-            total: visibleRows.length,
+            total,
             totalPages,
             onPageChange: setPage,
             pageSizeOptions: [10, 25, 50, 100],
