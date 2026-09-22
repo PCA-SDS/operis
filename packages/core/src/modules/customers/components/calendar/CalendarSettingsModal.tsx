@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
 import { Kbd } from '@open-mercato/ui/primitives/kbd'
-import { Switch } from '@open-mercato/ui/primitives/switch'
+import { SwitchField } from '@open-mercato/ui/primitives/switch-field'
 import { TagInput } from '@open-mercato/ui/primitives/tag-input'
 import { SimpleTooltip } from '@open-mercato/ui/primitives/tooltip'
 import { useDialogKeyHandler } from '@open-mercato/ui/hooks/useDialogKeyHandler'
@@ -62,6 +62,13 @@ export type CalendarSettingsModalProps = {
 
 type ToggleKey = 'showCrmActivities' | 'aiSummaries' | 'conflictWarnings' | 'showWeekends'
 
+/* The product's section-heading idiom (156 call sites, and what CalendarToolbar
+   already uses for its filter groups). This modal had a one-off
+   `text-xs font-bold uppercase tracking-wide` h3 instead — 8 call sites
+   repo-wide — so its only heading was drawn a step larger and a step bolder
+   than every other heading of the same rank. */
+const SECTION_HEADING = 'text-overline font-semibold uppercase tracking-widest text-muted-foreground'
+
 // An empty Activity Types list is an intentional floor meaning "surface all
 // dictionary types" rather than "surface none". When the stored list is empty
 // the modal seeds the dictionary types for display. NOTE: since the editor's
@@ -103,10 +110,17 @@ export function CalendarSettingsModal({
 
   const toggle = (key: ToggleKey) => (checked: boolean) => setDraft((current) => ({ ...current, [key]: checked }))
 
-  const toggleRows: Array<{ key: ToggleKey; label: string }> = [
+  const toggleRows: Array<{ key: ToggleKey; label: string; description?: string }> = [
     { key: 'showCrmActivities', label: t('customers.calendar.settings.showCrmActivities', 'Show CRM activities on calendar') },
     { key: 'aiSummaries', label: t('customers.calendar.settings.aiSummaries', 'AI summaries & quick actions') },
-    { key: 'conflictWarnings', label: t('customers.calendar.settings.conflictWarnings', 'Conflict warnings') },
+    {
+      key: 'conflictWarnings',
+      label: t('customers.calendar.settings.conflictWarnings', 'Conflict warnings'),
+      description: t(
+        'customers.calendar.settings.conflictScopeHint',
+        'Choose whose overlaps the calendar flags as conflicts.',
+      ),
+    },
     { key: 'showWeekends', label: t('customers.calendar.settings.showWeekends', 'Show weekends') },
   ]
 
@@ -121,6 +135,9 @@ export function CalendarSettingsModal({
       <DialogContent
         onKeyDown={handleKeyDown}
         closeAriaLabel={t('customers.calendar.settings.close', 'Close')}
+        // This panel scrolls and is the tallest dialog in the module, so the
+        // close is often the only exit still on screen — it earns the large box.
+        closeSize="lg"
         // Same shell as the event editor: a `size` variant rather than a width
         // class, the DS header band with nothing drawn under it, and a footer
         // with nothing drawn above it. `lg` rather than the editor's `xl` —
@@ -135,51 +152,64 @@ export function CalendarSettingsModal({
             {t('customers.calendar.settings.subtitle', 'Customise your calendar module.')}
           </DialogDescription>
         </DialogHeader>
-        <DialogBody className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-          <SettingsTagInput
-            label={t('customers.calendar.settings.eventCategories', 'Event Categories')}
-            maxLabel={t('customers.calendar.settings.max', '(max. {count})', { count: MAX_EVENT_CATEGORIES })}
-            hint={t(
-              'customers.calendar.settings.eventCategoriesHint',
-              'Your own grouping labels (e.g. Team Meeting, Sales Call). Offered when creating an event.',
-            )}
-            placeholder={t('customers.calendar.settings.addCategory', 'Add a category…')}
-            value={draft.eventCategories}
-            maxTags={MAX_EVENT_CATEGORIES}
-            removeTagLabel={removeTagLabel}
-            onChange={(eventCategories) => setDraft((current) => ({ ...current, eventCategories }))}
-          />
-          <SettingsTagInput
-            label={t('customers.calendar.settings.activityTypes', 'Activity Types')}
-            maxLabel={t('customers.calendar.settings.max', '(max. {count})', { count: MAX_ACTIVITY_TYPES })}
-            hint={t(
-              'customers.calendar.settings.activityTypesHint',
-              'The activity types your calendar surfaces when creating an event. Seeded from your workspace dictionary.',
-            )}
-            placeholder={t('customers.calendar.settings.addType', 'Add a type…')}
-            value={draft.activityTypes}
-            maxTags={MAX_ACTIVITY_TYPES}
-            removeTagLabel={removeTagLabel}
-            onChange={(activityTypes) => setDraft((current) => ({ ...current, activityTypes }))}
-          />
-          {toggleRows.map((row) => (
-            <React.Fragment key={row.key}>
-              <div className="flex items-center gap-2">
-                <Switch
+        {/* Spacing is the only thing grouping this body — there are no cards
+            and no rules — so the gaps have to carry the hierarchy:
+
+              24px  between sections        (DialogBody gap-6)
+              12px  heading -> its controls (section gap-3)
+              16px  between sibling rows    (inner gap-4)
+               8px  row -> the control it owns
+
+            It was one flat `gap-4` column before, which put every heading
+            exactly as far from the section it labels as from the section above
+            it. A heading equidistant between two groups belongs to neither, so
+            the three groups read as one undifferentiated list. */}
+        <DialogBody className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto">
+          <SettingsSection title={t('customers.calendar.settings.categoriesSection', 'Categories')}>
+            <SettingsTagInput
+              label={t('customers.calendar.settings.eventCategories', 'Event Categories')}
+              maxLabel={t('customers.calendar.settings.max', '(max. {count})', { count: MAX_EVENT_CATEGORIES })}
+              hint={t(
+                'customers.calendar.settings.eventCategoriesHint',
+                'Your own grouping labels (e.g. Team Meeting, Sales Call). Offered when creating an event.',
+              )}
+              placeholder={t('customers.calendar.settings.addCategory', 'Add a category…')}
+              value={draft.eventCategories}
+              maxTags={MAX_EVENT_CATEGORIES}
+              removeTagLabel={removeTagLabel}
+              onChange={(eventCategories) => setDraft((current) => ({ ...current, eventCategories }))}
+            />
+            <SettingsTagInput
+              label={t('customers.calendar.settings.activityTypes', 'Activity Types')}
+              maxLabel={t('customers.calendar.settings.max', '(max. {count})', { count: MAX_ACTIVITY_TYPES })}
+              hint={t(
+                'customers.calendar.settings.activityTypesHint',
+                'The activity types your calendar surfaces when creating an event. Seeded from your workspace dictionary.',
+              )}
+              placeholder={t('customers.calendar.settings.addType', 'Add a type…')}
+              value={draft.activityTypes}
+              maxTags={MAX_ACTIVITY_TYPES}
+              removeTagLabel={removeTagLabel}
+              onChange={(activityTypes) => setDraft((current) => ({ ...current, activityTypes }))}
+            />
+          </SettingsSection>
+
+          <SettingsSection title={t('customers.calendar.settings.displaySection', 'Display')}>
+            {toggleRows.map((row) => (
+              /* The scope switcher is the conflict toggle\'s OWN control, not a
+                 setting beside it, so it is nested in the row rather than
+                 emitted as a sibling — 8px under its toggle against 16px
+                 between toggles. It used to be a sibling indented with a magic
+                 `pl-11`, which only lined up while the switch stayed exactly
+                 that wide. */
+              <div key={row.key} className="flex flex-col gap-2">
+                <SwitchField
+                  label={row.label}
+                  description={row.description}
                   checked={draft[row.key]}
                   onCheckedChange={toggle(row.key)}
-                  aria-label={row.label}
                 />
-                <span className="text-sm leading-5 text-foreground">{row.label}</span>
-              </div>
-              {row.key === 'conflictWarnings' && draft.conflictWarnings ? (
-                <div className="flex flex-col gap-1.5 pl-11">
-                  <span className="text-xs leading-4 text-muted-foreground">
-                    {t(
-                      'customers.calendar.settings.conflictScopeHint',
-                      'Choose whose overlaps the calendar flags as conflicts.',
-                    )}
-                  </span>
+                {row.key === 'conflictWarnings' && draft.conflictWarnings ? (
                   <SegmentedControl
                     fullWidth
                     aria-label={t('customers.calendar.settings.conflictScope', 'Conflict scope')}
@@ -195,17 +225,16 @@ export function CalendarSettingsModal({
                       {t('customers.calendar.settings.conflictScopeAll', 'All meetings')}
                     </SegmentedControlItem>
                   </SegmentedControl>
-                </div>
-              ) : null}
-            </React.Fragment>
-          ))}
-          {/* The shortcut legend, folded in from the dialog it used to own. It
-              is reference rather than a setting, so it closes the body under a
-              heading instead of sitting among the controls. */}
-          <section className="flex flex-col gap-2 pt-1">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              {t('customers.calendar.shortcuts.title', 'Keyboard shortcuts')}
-            </h3>
+                ) : null}
+              </div>
+            ))}
+          </SettingsSection>
+
+          {/* Reference rather than settings, so it closes the body. The labels
+              stay regular weight where a SwitchField label is `font-medium`:
+              same size, and the weight is what separates a control you can
+              operate from a legend you can only read. */}
+          <SettingsSection title={t('customers.calendar.shortcuts.title', 'Keyboard shortcuts')}>
             <ul className="flex flex-col gap-2">
               {CALENDAR_SHORTCUTS.map((shortcut) => (
                 <li key={shortcut.key} className="flex items-center justify-between gap-3">
@@ -216,7 +245,7 @@ export function CalendarSettingsModal({
                 </li>
               ))}
             </ul>
-          </section>
+          </SettingsSection>
         </DialogBody>
 
         <DialogFooter>
@@ -229,6 +258,25 @@ export function CalendarSettingsModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * One group in the settings body: a heading plus the controls it labels.
+ *
+ * The two gaps are the point. The heading sits 12px from its own controls and
+ * the section sits 24px from the next one, so a heading is unambiguously
+ * closer to what it labels than to what precedes it. All three groups now use
+ * this — before, only the shortcut legend was wrapped in a `<section>` while
+ * Categories and Display were loose children of the body, so the three read as
+ * different kinds of thing when they are the same kind of thing.
+ */
+function SettingsSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <h3 className={SECTION_HEADING}>{title}</h3>
+      <div className="flex flex-col gap-4">{children}</div>
+    </section>
   )
 }
 
@@ -246,9 +294,12 @@ type SettingsTagInputProps = {
 function SettingsTagInput({ label, maxLabel, hint, placeholder, value, maxTags, removeTagLabel, onChange }: SettingsTagInputProps) {
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-1">
+      {/* The count and the info affordance qualify the label, so they step
+          down a size. At `text-sm` the "(max. 8)" was set as large as the field
+          name it belongs to and competed with it for the first read. */}
+      <div className="flex items-center gap-1.5">
         <span className="text-sm font-medium leading-5 text-foreground">{label}</span>
-        <span className="text-sm leading-5 text-muted-foreground">{maxLabel}</span>
+        <span className="text-xs leading-4 text-muted-foreground">{maxLabel}</span>
         <SimpleTooltip content={hint}>
           <span className="inline-flex text-muted-foreground" tabIndex={0} role="img" aria-label={hint}>
             <Info aria-hidden className="size-4" />
