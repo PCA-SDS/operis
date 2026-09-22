@@ -45,21 +45,3 @@ export const CHROME_SEGMENTED_TRACK = 'border-transparent'
  * the navy pill.
  */
 export const CHROME_SEGMENTED_ITEM = 'data-[state=unchecked]:text-foreground'
-
-/**
- * A bare icon affordance: a glyph and nothing else, at rest AND on hover.
- *
- * `IconButton` has no variant that stays unpainted — `ghost` tints on hover,
- * `modifiable` tints on hover, `white` is filled from the start — so the
- * treatment is composed here rather than by adding a fourth variant to a
- * primitive the whole product shares. Every hover surface is neutralised
- * explicitly, including the `dark:` one: `hover:bg-transparent` and
- * `dark:hover:bg-*` are different variant keys to tailwind-merge, so cancelling
- * the first leaves the second alive and the button would still light up in dark
- * mode.
- *
- * Pair it with `variant="ghost"`, which is the only variant that starts unpainted.
- */
-export const CHROME_BARE_ICON =
-  'bg-transparent shadow-none text-foreground ' +
-  'hover:bg-transparent hover:text-foreground dark:hover:bg-transparent'

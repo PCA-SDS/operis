@@ -12,7 +12,7 @@ import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
 import { formatHeaderLabel } from '../../lib/calendar/format'
 import type { CalendarHeaderProps, CalendarView } from './types'
 import { cn } from '@open-mercato/shared/lib/utils'
-import { CHROME_BARE_ICON, CHROME_FLAT_CONTROL, CHROME_SEGMENTED_ITEM, CHROME_SEGMENTED_TRACK } from './chrome'
+import { CHROME_FLAT_CONTROL, CHROME_SEGMENTED_ITEM, CHROME_SEGMENTED_TRACK } from './chrome'
 
 /**
  * The calendar's navigation bar.
@@ -33,11 +33,9 @@ import { CHROME_BARE_ICON, CHROME_FLAT_CONTROL, CHROME_SEGMENTED_ITEM, CHROME_SE
  * different ways.
  *
  * Fill is what carries the hierarchy now that the borders are gone: New event
- * is filled; Today, New task and the view switcher are raised white
- * (`bg-surface`); and the two date arrows are bare glyphs with no fill in any
- * state. One filled rank for the primary action, one raised rank for the
- * controls, and no paint at all for the pair that is really punctuation around
- * the date. No lines anywhere. `bg-surface`
+ * is filled, and every other control on the bar — Today, the arrows, New task,
+ * the view switcher — is raised white (`bg-surface`). One filled rank for the
+ * primary action, one raised rank for the rest, no lines anywhere. `bg-surface`
  * and never `bg-background`: background is the PAGE GROUND, and painting a
  * control with it renders a grey block on a white bar.
  *
@@ -105,59 +103,58 @@ export function CalendarHeader({
 
   return (
     <header className="flex flex-wrap items-center gap-x-2 gap-y-2 sm:gap-x-3">
-      {onToday ? (
-        <Button type="button" variant="outline" className={cn("shrink-0", CHROME_FLAT_CONTROL)} onClick={onToday}>
-          {t('customers.calendar.toolbar.today', 'Today')}
-        </Button>
-      ) : null}
-      {/* Every control on this bar is 36px tall — see the chrome-height note
-          in the component docblock. That means each primitive's own `default`,
-          except `IconButton`, whose scale is one step down from `Button`'s and
-          needs `lg` to reach the same box.
+      {/* Today, the two arrows and the date are one navigation cluster, so they
+          share a container and a single `gap-2` rather than each pair inventing
+          its own spacing. They used to be three siblings of the header with
+          three different gaps between them — `gap-x-2`/`sm:gap-x-3` from the
+          header, then `gap-1` inside the arrows' own wrapper — so four controls
+          doing one job were set at three rhythms.
 
-          The arrows flank the date rather than sitting in a pair beside it, so
-          "back" and "forward" point at the thing they move — the same shape
-          ScheduleToolbar uses. They are also the one UNPAINTED control on the
-          bar: bare glyphs with no fill at rest and none on hover, because a
-          chevron either side of a heading is punctuation for it, and two filled
-          boxes hugging a date read as controls competing with it.
+          `gap-2` is the header's own base gap, which keeps the cluster's
+          internal spacing and the row's spacing on one scale.
 
-          `flex-1` lives on this group, not on the title: the group absorbs the
-          slack, which both keeps the next arrow tight against the date and
-          pushes the create actions to the far end of the row. */}
-      <div className="flex min-w-0 flex-1 items-center gap-1">
+          Every control here is 36px tall — see the chrome-height note in the
+          component docblock. That means each primitive's own `default`, except
+          `IconButton`, whose scale is one step down from `Button`'s and needs
+          `lg` to reach the same box. */}
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        {onToday ? (
+          <Button type="button" variant="outline" className={cn("shrink-0", CHROME_FLAT_CONTROL)} onClick={onToday}>
+            {t('customers.calendar.toolbar.today', 'Today')}
+          </Button>
+        ) : null}
         {onPrevious && onNext ? (
-          <IconButton
-            type="button"
-            variant="ghost"
-            size="lg"
-            className={CHROME_BARE_ICON}
-            aria-label={previousLabel}
-            onClick={onPrevious}
-          >
-            <ChevronLeft aria-hidden />
-          </IconButton>
+          <>
+            <IconButton
+              type="button"
+              variant="white"
+              size="lg"
+              className={cn(CHROME_FLAT_CONTROL, 'text-foreground')}
+              aria-label={previousLabel}
+              onClick={onPrevious}
+            >
+              <ChevronLeft aria-hidden />
+            </IconButton>
+            <IconButton
+              type="button"
+              variant="white"
+              size="lg"
+              className={cn(CHROME_FLAT_CONTROL, 'text-foreground')}
+              aria-label={nextLabel}
+              onClick={onNext}
+            >
+              <ChevronRight aria-hidden />
+            </IconButton>
+          </>
         ) : null}
         {/* Light weight, generous size: the date is the largest thing on the bar
             because it is the one fact the whole grid is answering. */}
         <h1
-          className="min-w-0 truncate text-lg font-normal leading-tight text-foreground sm:text-xl"
+          className="min-w-0 flex-1 truncate text-lg font-normal leading-tight text-foreground sm:text-xl"
           aria-live="polite"
         >
           {title}
         </h1>
-        {onPrevious && onNext ? (
-          <IconButton
-            type="button"
-            variant="ghost"
-            size="lg"
-            className={CHROME_BARE_ICON}
-            aria-label={nextLabel}
-            onClick={onNext}
-          >
-            <ChevronRight aria-hidden />
-          </IconButton>
-        ) : null}
       </div>
       {/* Create actions lead the cluster, then the view switcher, then the
           shortcuts affordance. The create buttons are the only things on this

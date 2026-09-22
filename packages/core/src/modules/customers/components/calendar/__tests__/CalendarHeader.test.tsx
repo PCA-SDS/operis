@@ -86,13 +86,9 @@ describe('CalendarHeader', () => {
 
     expect(queryByRole('textbox')).toBeNull()
     expect(queryByRole('button', { name: 'Filter' })).toBeNull()
-    // `flex-1` moved from the heading to the group that now wraps it, because
-    // the arrows sit either side of the date. Same guarantee, one level up: the
-    // date's container absorbs the row's slack, so the label is never the thing
-    // that gives way when the bar gets tight.
     const heading = getByRole('heading', { level: 1 })
     expect(heading.className).toContain('min-w-0')
-    expect(heading.parentElement?.className).toContain('flex-1')
+    expect(heading.className).toContain('flex-1')
   })
 
   it('does not duplicate the settings affordance — the scope row\'s gear is the only one', () => {
