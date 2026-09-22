@@ -18,6 +18,7 @@ import { CustomerEntity } from '@open-mercato/core/modules/customers/data/entiti
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { ensureSystemAppointmentStatuses } from '../../setup'
+import { ResourceAssignmentService } from '@open-mercato/core/modules/resources/lib/resourceAssignmentService'
 
 const logger = createLogger('appointments')
 
@@ -218,6 +219,22 @@ export async function PATCH(req: Request, ctx: RouteContext) {
     }
     appointment.status = status
     appointment.statusCode = status.code
+    if (status.code === 'cancelled') {
+      const lines = await em.find(AppointmentLine, {
+        appointment: appointment.id,
+        tenantId: auth.tenantId,
+        organizationId: appointment.organizationId,
+        deletedAt: null,
+      })
+      const assignmentService = new ResourceAssignmentService(em)
+      await assignmentService.cancelAssignmentsForSourceEntities({
+        tenantId: auth.tenantId,
+        organizationId: appointment.organizationId,
+        sourceModule: 'appointment',
+        sourceEntityType: 'appointment_line',
+        sourceEntityIds: lines.map((line) => line.id),
+      })
+    }
     await em.flush()
     try {
       await emitAppointmentEvent('appointments.appointment.updated', {
