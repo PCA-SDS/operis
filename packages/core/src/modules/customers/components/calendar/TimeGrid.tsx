@@ -540,11 +540,19 @@ export function TimeGrid({
                   {formatters.weekdayShort.format(dayStart).toLocaleUpperCase(locale)}
                 </span>
                 {/* A large, light numeral is the calendar's date anchor; today
-                    inverts into a filled disc rather than merely changing hue. */}
+                    inverts into a filled disc rather than merely changing hue.
+
+                    `text-xl` (20px), not `text-2xl`: the disc is `size-9` and
+                    the numeral sets `leading-none`, so at 24px a two-digit date
+                    left ~6px of disc either side of it and read as crammed into
+                    the circle rather than sitting in it. 20px gives the glyphs
+                    room without shrinking the anchor. The size is shared with
+                    the non-today numerals so the whole header row stays on one
+                    scale — only the fill and weight change for today. */}
                 <span
                   aria-hidden
                   className={cn(
-                    'flex size-9 items-center justify-center rounded-full text-2xl font-normal leading-none tabular-nums transition-colors',
+                    'flex size-9 items-center justify-center rounded-full text-xl font-normal leading-none tabular-nums transition-colors',
                     today ? 'bg-primary font-medium text-primary-foreground' : 'text-foreground',
                   )}
                 >
