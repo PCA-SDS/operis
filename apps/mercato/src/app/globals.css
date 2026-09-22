@@ -324,11 +324,21 @@ TODO: Fix that latter to have reference by the package names
      Ink is navy (#1D2735) rather than grey so text belongs to the palette.
      Status hues stay semantic (see the status block below) — an error must
      never read as "just more blue". */
-  --background: #F7F9FC;
+  /* The page GROUND, deliberately a real blue-grey rather than near-white.
+     It was #F7F9FC — about 3% off #FFFFFF — so a raised `bg-surface` card read
+     as the same colour as the page it sat on and the whole product looked flat.
+     #EDF2F9 puts a visible step under every white surface.
+
+     The two steps below it move with it. `surface-muted` is the hover state for
+     a white surface (9 primitives use `hover:bg-surface-muted`), so if the
+     ground darkens and it does not, a hovered card lands on the ground colour
+     and the hover disappears. The ramp is spaced ~13 points per step:
+       surface #FFFFFF -> background #EDF2F9 -> muted #E0E7F2 -> strong #D2DCEA */
+  --background: #EDF2F9;
   --foreground: #1D2735;
   --surface: #FFFFFF;
-  --surface-muted: #EDF1F7;
-  --surface-strong: #E2E8F1;
+  --surface-muted: #E0E7F2;
+  --surface-strong: #D2DCEA;
   --surface-modal: #E9EEF5;
   --modal-muted: #F4F7FB;
   --disabled-foreground: #94A2B5;
