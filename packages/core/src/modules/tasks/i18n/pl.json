@@ -343,6 +343,7 @@
   "tasks.quickAdd.due": "Termin {date}",
   "tasks.quickAdd.dueDateLabel": "Termin",
   "tasks.quickAdd.dueTimeLabel": "Godzina terminu",
+  "tasks.quickAdd.dueWithTime": "Termin {date} o {time}",
   "tasks.quickAdd.inbox": "📥 Skrzynka",
   "tasks.quickAdd.inboxNotReady": "Skrzynka nie jest jeszcze gotowa — spróbuj ponownie za chwilę.",
   "tasks.quickAdd.placeholder": "„Zaplanuj lunch z @zespol do jutro 15:00 +design”",

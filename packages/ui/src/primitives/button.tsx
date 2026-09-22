@@ -34,6 +34,13 @@ const buttonVariants = cva(
           'border border-border bg-surface text-foreground shadow-sm hover:bg-surface-muted',
         secondary:
           'border border-border bg-surface text-foreground shadow-sm hover:bg-surface-muted',
+        /* The second-rank action in a dialog footer, where `secondary`'s white
+           card reads as a gap beside a filled primary button. Same hairline
+           and rank, but tinted with the brand instead of `surface`, so Cancel
+           and Confirm look like a pair rather than one button and one hole.
+           Tokens only, so it follows the theme into dark mode. */
+        soft:
+          'border border-primary-border bg-primary-soft text-foreground hover:bg-primary-border/60',
         /* Quiet chrome action — no fill or border at rest, `surface-strong` on
            hover so it reads as chrome rather than as an accent tint. */
         ghost:

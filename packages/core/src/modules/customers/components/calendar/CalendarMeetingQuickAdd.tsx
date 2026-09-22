@@ -290,8 +290,8 @@ export function CalendarMeetingQuickAdd({
           row of buttons alone, so the divider matched but the buttons still
           stepped 2px on every toggle. Pinning the box makes both the rule and
           the buttons land on the same pixel in either mode. */}
-      <div className="flex h-14 shrink-0 items-center justify-end gap-2 border-t border-border">
-        <Button type="button" variant="secondary" onClick={onCancel}>
+      <div className="flex h-14 shrink-0 items-center justify-end gap-2">
+        <Button type="button" variant="soft" onClick={onCancel}>
           {t('customers.calendar.meeting.cancel', 'Cancel')}
         </Button>
         <Button type="button" onClick={() => void submit()} disabled={!canSubmit}>

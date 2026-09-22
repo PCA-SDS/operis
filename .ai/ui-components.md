@@ -89,6 +89,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 - `destructive-solid` (danger filled — point-of-no-return confirmations only)
 - `destructive-outline` · `destructive-soft` · `destructive-ghost` (danger family)
 - `outline` · `secondary` · `ghost` · `muted` · `link`
+- `soft` (brand-tinted second rank — the Cancel beside a filled primary in a dialog footer, where `secondary`'s white card reads as a hole rather than a pair)
 
 **Sizes**: `2xs` (h-7) · `sm` (h-8) · `default` (h-9) · `lg` (h-10) · `icon` (size-9)
 

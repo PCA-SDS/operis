@@ -25,7 +25,7 @@ import { ProjectPicker, RecurrencePicker, TaskPriorityPicker, UserPicker } from 
 import { DateInput, TimeInput, UserAvatar } from './ui-bits'
 import { buildHighlightSegments } from './quickAddHighlight'
 import { createdTaskDestination } from './createdTaskDestination'
-import { browserTimeZone, describeRecurrence, formatTaskDate, localTodayIso, taskRef } from './format'
+import { browserTimeZone, describeRecurrence, formatTaskDate, formatTaskTime, localTodayIso, taskRef } from './format'
 import { useInboxProject, useLabelMutations, useLabels, useProjects, useTaskMutations, useAssignableUsers } from './hooks'
 import { useQuickAddWarning } from './quickAddWarnings'
 
@@ -105,6 +105,7 @@ export function QuickAddComposer({
   embedded = false,
   parentTask,
   defaultDueDate,
+  defaultDueTime,
   defaultAssigneeId,
   navigateOnCreate = true,
   onClose,
@@ -137,6 +138,17 @@ export function QuickAddComposer({
    * still clears it. Omit it and the composer behaves exactly as before.
    */
   defaultDueDate?: string | null
+  /**
+   * Seed the due time, `HH:MM`.
+   *
+   * The companion to `defaultDueDate`, and it only means anything alongside
+   * one: a time with no date is not a deadline. A caller that knows the hour
+   * the user picked — a click on a calendar's 10:00 row — passes it so the
+   * task lands at that hour instead of losing it on the way into the form.
+   * Same contract as the date: an initial value, so typing "at 3pm" still
+   * wins and clearing the field still clears it.
+   */
+  defaultDueTime?: string | null
   /**
    * Seed the assignee.
    *
@@ -285,7 +297,8 @@ export function QuickAddComposer({
     overrides.labelIds !== UNSET ? overrides.labelIds : (parsed?.labels.map((label) => label.id) ?? [])
   const effectiveDueDate =
     overrides.dueDate !== UNSET ? overrides.dueDate : (localParsed?.dueDate ?? defaultDueDate ?? null)
-  const effectiveDueTime = overrides.dueTime !== UNSET ? overrides.dueTime : (localParsed?.dueTime ?? null)
+  const effectiveDueTime =
+    overrides.dueTime !== UNSET ? overrides.dueTime : (localParsed?.dueTime ?? defaultDueTime ?? null)
   const effectiveRecurrence =
     overrides.recurrence !== UNSET ? overrides.recurrence : (localParsed?.recurrence ?? null)
   const effectivePriority =
@@ -461,7 +474,8 @@ export function QuickAddComposer({
         overrides.labelIds !== UNSET ? overrides.labelIds : final.labels.map((label) => label.id)
       const dueDate =
         overrides.dueDate !== UNSET ? overrides.dueDate : (final.dueDate ?? defaultDueDate ?? null)
-      const dueTime = overrides.dueTime !== UNSET ? overrides.dueTime : final.dueTime
+      const dueTime =
+        overrides.dueTime !== UNSET ? overrides.dueTime : (final.dueTime ?? defaultDueTime ?? null)
       const recurrence = overrides.recurrence !== UNSET ? overrides.recurrence : final.recurrence
       const priority = overrides.priority !== UNSET ? overrides.priority : (final.priority ?? 'none')
 
@@ -731,7 +745,16 @@ export function QuickAddComposer({
 
         {effectiveDueDate && (
           <p className="text-xs text-muted-foreground">
-            {t('tasks.quickAdd.due', 'Due {date}', { date: formatTaskDate(effectiveDueDate) })}
+            {/* The hour belongs in the summary whenever there is one — a task
+                due "Sep 23" and one due "Sep 23 at 10:00 AM" are different
+                commitments, and the line that confirms what is about to be
+                created should say which one it is. */}
+            {effectiveDueTime
+              ? t('tasks.quickAdd.dueWithTime', 'Due {date} at {time}', {
+                  date: formatTaskDate(effectiveDueDate),
+                  time: formatTaskTime(effectiveDueTime),
+                })
+              : t('tasks.quickAdd.due', 'Due {date}', { date: formatTaskDate(effectiveDueDate) })}
             {effectiveRecurrence ? ` · ${describeRecurrence(t, effectiveRecurrence)}` : ''}
           </p>
         )}
@@ -743,7 +766,7 @@ export function QuickAddComposer({
           // beside this one. A minimum let the project picker below size the
           // row, which centred these buttons 2px off from a footer holding
           // buttons alone — visible as a step when the host swaps panels.
-          'mt-2 flex h-14 shrink-0 items-center justify-between gap-2 border-t border-border',
+          'mt-2 flex h-14 shrink-0 items-center justify-between gap-2',
           embedded ? 'px-0' : 'px-3',
         )}
       >
@@ -772,7 +795,7 @@ export function QuickAddComposer({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {onClose && (
-            <Button type="button" variant="secondary" onClick={onClose}>
+            <Button type="button" variant="soft" onClick={onClose}>
               {t('tasks.common.cancel', 'Cancel')}
             </Button>
           )}

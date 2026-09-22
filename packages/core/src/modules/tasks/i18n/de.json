@@ -343,6 +343,7 @@
   "tasks.quickAdd.due": "Fällig {date}",
   "tasks.quickAdd.dueDateLabel": "Fälligkeitsdatum",
   "tasks.quickAdd.dueTimeLabel": "Fälligkeitszeit",
+  "tasks.quickAdd.dueWithTime": "Fällig {date} um {time}",
   "tasks.quickAdd.inbox": "📥 Posteingang",
   "tasks.quickAdd.inboxNotReady": "Der Posteingang ist noch nicht bereit — versuchen Sie es gleich noch einmal.",
   "tasks.quickAdd.placeholder": "„Mittagessen mit @team bis morgen 15 Uhr planen +design“",
