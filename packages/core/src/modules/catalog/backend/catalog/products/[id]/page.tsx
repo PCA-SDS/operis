@@ -1213,6 +1213,10 @@ export default function EditCatalogProductPage({
           "catalog.products.uom.errors.duplicateConversion",
           "Duplicate conversion unit is not allowed.",
         ),
+        t(
+          "catalog.products.uom.errors.invalidConversionFactor",
+          "Conversion factor must be greater than 0.",
+        ),
       );
       if (conversionInputs.length && !defaultUnit) {
         const message = t(

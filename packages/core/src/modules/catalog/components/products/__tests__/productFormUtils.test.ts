@@ -152,9 +152,24 @@ describe("normalizeProductConversionInputs", () => {
       { id: null, unitCode: "", toBaseFactor: "1", sortOrder: "0", isActive: true },
       { id: null, unitCode: "kg", toBaseFactor: "", sortOrder: "0", isActive: true },
       { id: null, unitCode: "   ", toBaseFactor: "5", sortOrder: "0", isActive: true },
-      { id: null, unitCode: "kg", toBaseFactor: "-1", sortOrder: "0", isActive: true },
     ];
     expect(normalizeProductConversionInputs(rows, "dup")).toEqual([]);
+  });
+
+  it("rejects a non-positive conversion factor instead of dropping the row", () => {
+    const rows = [
+      { id: null, unitCode: "kg", toBaseFactor: "-20", sortOrder: "0", isActive: true },
+    ];
+    expect(() => normalizeProductConversionInputs(rows, "dup", "Factor must be positive")).toThrow(
+      "Factor must be positive",
+    );
+    try {
+      normalizeProductConversionInputs(rows, "dup", "Factor must be positive");
+    } catch (error: unknown) {
+      expect((error as Error & { fieldErrors?: Record<string, string> }).fieldErrors).toEqual({
+        unitConversions: "Factor must be positive",
+      });
+    }
   });
 
   it("normalizes valid rows with correct sortOrder", () => {
