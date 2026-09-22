@@ -1105,15 +1105,13 @@
           "unique": true
         },
         {
-          "columnNames": [
-            "tenant_id",
-            "code"
-          ],
-          "composite": true,
-          "constraint": true,
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "expression": "create unique index \"appointment_statuses_tenant_code_unique\" on \"appointment_statuses\" (\"tenant_id\", \"code\") where \"deleted_at\" is null",
           "keyName": "appointment_statuses_tenant_code_unique",
           "primary": false,
-          "unique": true
+          "unique": false
         },
         {
           "columnNames": [
