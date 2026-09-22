@@ -484,7 +484,7 @@ export function TimeGrid({
 
   return (
     <div
-      className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg border border-border bg-surface"
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg bg-surface"
       role="grid"
       aria-label={gridLabel}
       aria-rowcount={HOURS_PER_DAY}
