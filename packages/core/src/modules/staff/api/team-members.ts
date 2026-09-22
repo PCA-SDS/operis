@@ -8,6 +8,7 @@ import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { StaffTeam, StaffTeamMember, StaffTeamRole } from '../data/entities'
 import { staffTeamMemberCreateSchema, staffTeamMemberUpdateSchema } from '../data/validators'
 import { sanitizeSearchTerm, parseBooleanFlag } from './helpers'
+import { parseBooleanFromUnknown } from '@open-mercato/shared/lib/boolean'
 import { User } from '@open-mercato/core/modules/auth/data/entities'
 import { E } from '#generated/entities.ids.generated'
 import { createStaffCrudOpenApi, createPagedListResponseSchema, defaultOkResponseSchema } from './openapi'
@@ -40,6 +41,21 @@ const routeMetadata = {
 export const metadata = routeMetadata
 
 const rawBodySchema = z.object({}).passthrough()
+
+function readDeleteForceFlag(parsed: unknown): boolean {
+  if (!parsed || typeof parsed !== 'object') return false
+  const payload = parsed as Record<string, unknown>
+  const candidates = [
+    payload.force,
+    payload.body && typeof payload.body === 'object' ? (payload.body as Record<string, unknown>).force : undefined,
+    payload.query && typeof payload.query === 'object' ? (payload.query as Record<string, unknown>).force : undefined,
+  ]
+  for (const candidate of candidates) {
+    const parsedCandidate = parseBooleanFromUnknown(candidate)
+    if (parsedCandidate !== null) return parsedCandidate
+  }
+  return false
+}
 
 const listSchema = z
   .object({
@@ -238,7 +254,7 @@ const crud = makeCrudRoute({
       mapInput: async ({ parsed, ctx }) => {
         const { translate } = await resolveTranslations()
         const id = resolveCrudRecordId(parsed, ctx, translate)
-        return { id }
+        return { id, force: readDeleteForceFlag(parsed) }
       },
       response: () => ({ ok: true }),
     },
@@ -298,8 +314,11 @@ export const openApi = createStaffCrudOpenApi({
     description: 'Updates a team member by id.',
   },
   del: {
-    schema: z.object({ id: z.string().uuid() }),
+    schema: z.object({
+      id: z.string().uuid(),
+      force: z.boolean().optional(),
+    }),
     responseSchema: defaultOkResponseSchema,
-    description: 'Deletes a team member by id.',
+    description: 'Soft-deletes a team member by id. Use force to archive a referenced member while preserving dependent records.',
   },
 })
