@@ -12,6 +12,7 @@ import { Organization } from '@open-mercato/core/modules/directory/data/entities
 import { CatalogProductOption, CatalogProductOptionGroup } from '@open-mercato/core/modules/catalog/data/entities'
 import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
 import { getMergedAvailabilityWindows } from '@open-mercato/core/modules/planner/lib/availabilityMerge'
+import { parseAvailabilityRuleWindow } from '@open-mercato/core/modules/planner/lib/availabilitySchedule'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
@@ -149,6 +150,19 @@ function getAssignedMemberIds(assignment: { assignedMemberIds?: string[] | null;
     return Array.from(new Set(assignment.assignedMemberIds.filter((id): id is string => typeof id === 'string' && id.length > 0)))
   }
   return assignment.assignedMemberId ? [assignment.assignedMemberId] : []
+}
+
+export function hasMemberUnavailabilityOverlap(
+  rules: Array<Pick<PlannerAvailabilityRule, 'id' | 'rrule' | 'kind' | 'exdates'>>,
+  startsAt: Date,
+  endsAt: Date,
+): boolean {
+  return rules.some((rule) => {
+    if (rule.kind !== 'unavailability') return false
+    const window = parseAvailabilityRuleWindow(rule)
+    if (window.repeat !== 'once') return false
+    return window.startAt < endsAt && window.endAt > startsAt
+  })
 }
 
 /**
@@ -538,6 +552,26 @@ export class AppointmentSeatPlannerService {
     }
 
     const resourceOrganizationIds = await this.getResourceOrganizationIds(params.tenantId, line.organizationId)
+
+    const assignedMemberIds = Array.from(new Set([
+      ...(params.assignedMemberIds ?? []),
+      ...(params.assignedMemberId ? [params.assignedMemberId] : []),
+    ]))
+    if (assignedMemberIds.length > 0) {
+      const memberRules = await this.em.find(PlannerAvailabilityRule, {
+        tenantId: params.tenantId,
+        organizationId: params.organizationId,
+        subjectType: 'member',
+        subjectId: { $in: assignedMemberIds },
+        kind: 'unavailability',
+        deletedAt: null,
+      })
+      if (hasMemberUnavailabilityOverlap(memberRules, params.startsAt, params.endsAt)) {
+        const error = new Error('Staff member is unavailable for this time')
+        ;(error as Error & { code: string }).code = 'STAFF_UNAVAILABLE'
+        throw error
+      }
+    }
 
     // Get all line IDs for this appointment to exclude from conflict checking
     // (same booking lines CAN stack on the same resource)

@@ -377,6 +377,7 @@
   "appointments.seatPlanner.staffLoadMoreError": "Unable to load more staff.",
   "appointments.seatPlanner.staffMember": "Staff member",
   "appointments.seatPlanner.staffUnassigned": "Staff removed",
+  "appointments.seatPlanner.staffUnavailable": "Staff member is unavailable for this time.",
   "appointments.seatPlanner.time": "Time",
   "appointments.seatPlanner.timeline": "Timeline",
   "appointments.seatPlanner.title": "Seat Planner",
