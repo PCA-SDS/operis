@@ -29,6 +29,7 @@ export type DateRangePickerProps = {
   disabled?: boolean
   readOnly?: boolean
   withFooter?: boolean
+  showRangeLabel?: boolean
   align?: 'start' | 'center' | 'end'
   minDate?: Date
   maxDate?: Date
@@ -75,6 +76,7 @@ export function DateRangePicker({
   disabled = false,
   readOnly = false,
   withFooter = true,
+  showRangeLabel = true,
   align = 'start',
   minDate,
   maxDate,
@@ -250,12 +252,17 @@ export function DateRangePicker({
           </div>
         </div>
         {withFooter ? (
-          <div className="flex shrink-0 items-center justify-between gap-3 border-t bg-popover px-3 py-2">
-            <span className="truncate text-xs text-muted-foreground">
-              {selectedDate
-                ? `${t('ui.dateRangePicker.rangeLabel', 'Range')}: ${formatter(selectedDate, locale)}`
-                : t('ui.dateRangePicker.rangeEmpty', 'No range selected')}
-            </span>
+          <div className={cn(
+            'flex shrink-0 items-center gap-3 border-t bg-popover px-3 py-2',
+            showRangeLabel ? 'justify-between' : 'justify-end',
+          )}>
+            {showRangeLabel ? (
+              <span className="min-w-0 truncate text-xs text-muted-foreground">
+                {selectedDate
+                  ? `${t('ui.dateRangePicker.rangeLabel', 'Range')}: ${formatter(selectedDate, locale)}`
+                  : t('ui.dateRangePicker.rangeEmpty', 'No range selected')}
+              </span>
+            ) : null}
             <div className="flex shrink-0 items-center gap-2">
               <Button type="button" variant="outline" size="sm" onClick={handleCancel}>
                 {t('ui.dateRangePicker.cancelButton', 'Cancel')}
