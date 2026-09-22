@@ -7,6 +7,7 @@ import { AppearanceDialog } from '@open-mercato/core/modules/customers/component
 import type { IconOption } from '@open-mercato/core/modules/dictionaries/components/dictionaryAppearance'
 import { ArrowUpRightSquare, FileCode, Loader2, Palette, Pencil, Plus, Trash2 } from 'lucide-react'
 import { formatRelativeTime } from '@open-mercato/shared/lib/time'
+import { DEALS_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
 import { hasMoreFromPage } from '@open-mercato/shared/lib/pagination/load-more'
 import { Button } from '@open-mercato/ui/primitives/button'
 import {
@@ -1203,7 +1204,7 @@ function NotesSectionImpl<C = unknown>({
                       renderIcon={renderIcon}
                       renderColor={renderColor}
                     />
-                    {note.dealId && customersEnabled ? (
+                    {note.dealId && customersEnabled && DEALS_IN_PRODUCT ? (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <ArrowUpRightSquare className="h-3.5 w-3.5" />
                         <a

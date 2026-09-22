@@ -747,6 +747,9 @@ export function ProductUomSection({
         {conversionPreview ? (
           <p className="text-xs text-muted-foreground">{conversionPreview}</p>
         ) : null}
+        {errors.unitConversions ? (
+          <p className="text-xs text-destructive">{errors.unitConversions}</p>
+        ) : null}
       </div>
     </div>
   );

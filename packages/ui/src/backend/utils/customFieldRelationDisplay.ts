@@ -1,4 +1,5 @@
 import { getEntityIds } from '@open-mercato/shared/lib/encryption/entityIds'
+import { DEALS_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 
 export type ResolvedValueDisplay = {
@@ -196,7 +197,7 @@ export function buildRelationHref(
     return `/backend/customers/companies-v2/${encodeURIComponent(linkedId)}`
   }
   if (trimmedEntityId === customers.customer_deal) {
-    return `/backend/customers/deals/${encodeURIComponent(trimmedRecordId)}`
+    return DEALS_IN_PRODUCT ? `/backend/customers/deals/${encodeURIComponent(trimmedRecordId)}` : undefined
   }
   if (trimmedEntityId === catalog.catalog_product) {
     return `/backend/catalog/products/${encodeURIComponent(trimmedRecordId)}`
