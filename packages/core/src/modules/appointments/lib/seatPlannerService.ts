@@ -12,6 +12,7 @@ import { Organization } from '@open-mercato/core/modules/directory/data/entities
 import { CatalogProductOption, CatalogProductOptionGroup } from '@open-mercato/core/modules/catalog/data/entities'
 import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
 import { getMergedAvailabilityWindows } from '@open-mercato/core/modules/planner/lib/availabilityMerge'
+import { parseAvailabilityRuleWindow } from '@open-mercato/core/modules/planner/lib/availabilitySchedule'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
@@ -24,6 +25,7 @@ export interface SeatPlannerLine {
   productTitle: string
   durationMinutes: number | null
   options: Array<{ groupName: string | null; name: string }>
+  seatPlannerCleared: boolean
   currentAssignment?: {
     id: string
     state: 'draft' | 'confirmed'
@@ -91,6 +93,15 @@ export interface SeatPlannerWorkspace {
   }>
 }
 
+export function resolveSeatPlannerAssignment(
+  assignments: AssignmentDTO[],
+  seatPlannerClearedAt?: Date | null,
+): AssignmentDTO | undefined {
+  if (seatPlannerClearedAt) return undefined
+  return assignments.find((assignment) => assignment.state === 'draft')
+    ?? assignments.find((assignment) => assignment.state === 'confirmed')
+}
+
 function normalizeLineOptions(
   value: Record<string, unknown> | Record<string, unknown>[] | null | undefined,
   groupNames: Map<string, string>,
@@ -149,6 +160,19 @@ function getAssignedMemberIds(assignment: { assignedMemberIds?: string[] | null;
     return Array.from(new Set(assignment.assignedMemberIds.filter((id): id is string => typeof id === 'string' && id.length > 0)))
   }
   return assignment.assignedMemberId ? [assignment.assignedMemberId] : []
+}
+
+export function hasMemberUnavailabilityOverlap(
+  rules: Array<Pick<PlannerAvailabilityRule, 'id' | 'rrule' | 'kind' | 'exdates'>>,
+  startsAt: Date,
+  endsAt: Date,
+): boolean {
+  return rules.some((rule) => {
+    if (rule.kind !== 'unavailability') return false
+    const window = parseAvailabilityRuleWindow(rule)
+    if (window.repeat !== 'once') return false
+    return window.startAt < endsAt && window.endAt > startsAt
+  })
 }
 
 /**
@@ -423,8 +447,7 @@ export class AppointmentSeatPlannerService {
         })
 
         // Drafts overlay the confirmed baseline while the booking is being edited.
-        const assignment = assignments.find((a) => a.state === 'draft')
-          ?? assignments.find((a) => a.state === 'confirmed')
+        const assignment = resolveSeatPlannerAssignment(assignments, line.seatPlannerClearedAt)
 
         // Find resource name
         const resource = assignment
@@ -459,6 +482,7 @@ export class AppointmentSeatPlannerService {
           productTitle: line.productTitle,
           durationMinutes: resolvedDuration ?? 60,
           options,
+          seatPlannerCleared: Boolean(line.seatPlannerClearedAt),
           currentAssignment: assignment
             ? {
                 id: assignment.id,
@@ -537,7 +561,29 @@ export class AppointmentSeatPlannerService {
       throw error
     }
 
+    line.seatPlannerClearedAt = null
+
     const resourceOrganizationIds = await this.getResourceOrganizationIds(params.tenantId, line.organizationId)
+
+    const assignedMemberIds = Array.from(new Set([
+      ...(params.assignedMemberIds ?? []),
+      ...(params.assignedMemberId ? [params.assignedMemberId] : []),
+    ]))
+    if (assignedMemberIds.length > 0) {
+      const memberRules = await this.em.find(PlannerAvailabilityRule, {
+        tenantId: params.tenantId,
+        organizationId: params.organizationId,
+        subjectType: 'member',
+        subjectId: { $in: assignedMemberIds },
+        kind: 'unavailability',
+        deletedAt: null,
+      })
+      if (hasMemberUnavailabilityOverlap(memberRules, params.startsAt, params.endsAt)) {
+        const error = new Error('Staff member is unavailable for this time')
+        ;(error as Error & { code: string }).code = 'STAFF_UNAVAILABLE'
+        throw error
+      }
+    }
 
     // Get all line IDs for this appointment to exclude from conflict checking
     // (same booking lines CAN stack on the same resource)
@@ -603,6 +649,8 @@ export class AppointmentSeatPlannerService {
       sourceEntityId: params.lineId,
       expectedUpdatedAt: params.expectedUpdatedAt,
     })
+    line.seatPlannerClearedAt = new Date()
+    await this.em.flush()
   }
 
   /**
@@ -723,6 +771,11 @@ export class AppointmentSeatPlannerService {
         userId: params.userId,
         expectedUpdatedAt: expectedByLineId.get(line.id)?.updatedAt,
       })
+      if (assignments.length > 0) {
+        line.seatPlannerClearedAt = null
+        line.updatedAt = new Date()
+        await this.em.flush()
+      }
       allAssignments.push(...assignments)
     }
 

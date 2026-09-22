@@ -54,6 +54,7 @@ describe('appointments list route totals', () => {
   it('filters appointments by an inclusive requested start date range', async () => {
     const em = {
       find: jest.fn(async () => []),
+      findAndCount: jest.fn(async () => [[], 0]),
     }
     mockCreateRequestContainer.mockResolvedValue({
       resolve: () => ({ fork: () => em }),
@@ -65,7 +66,7 @@ describe('appointments list route totals', () => {
     ))
 
     expect(response.status).toBe(200)
-    expect(em.find).toHaveBeenCalledWith(Appointment, expect.objectContaining({
+    expect(em.findAndCount).toHaveBeenCalledWith(Appointment, expect.objectContaining({
       tenantId: TENANT_ID,
       organizationId: ORGANIZATION_ID,
       requestedStartAt: {
@@ -105,12 +106,17 @@ describe('appointments list route totals', () => {
       unitPriceNet: null,
       currencyCode: 'VND',
     }
-    const em = {
-      find: jest.fn(async (entity: unknown) => {
+    const find = jest.fn(async (entity: unknown) => {
         if (entity === Appointment) return [appointment]
         if (entity === AppointmentLine) return [line]
         return []
-      }),
+      })
+    const em = {
+      find,
+      findAndCount: jest.fn(async (entity: unknown, where: unknown, options: unknown) => [
+        await find(entity, where, options),
+        1,
+      ]),
     }
     mockCreateRequestContainer.mockResolvedValue({
       resolve: () => ({ fork: () => em }),
@@ -149,14 +155,19 @@ describe('appointments list route totals', () => {
       group,
       priceFlat: '690000.00',
     }
-    const em = {
-      find: jest.fn(async (entity: unknown) => {
+    const find = jest.fn(async (entity: unknown) => {
         if (entity === Appointment) return [appointment]
         if (entity === AppointmentLine) return [line]
         if (entity === AppointmentLineOptionGroup) return [group]
         if (entity === AppointmentLineOption) return [option]
         return []
-      }),
+      })
+    const em = {
+      find,
+      findAndCount: jest.fn(async (entity: unknown, where: unknown, options: unknown) => [
+        await find(entity, where, options),
+        1,
+      ]),
     }
     mockCreateRequestContainer.mockResolvedValue({
       resolve: () => ({ fork: () => em }),
@@ -193,13 +204,18 @@ describe('appointments list route totals', () => {
       currencyCode: 'VND',
       selectedOptions: { '66666666-6666-4666-8666-666666666666': [optionId] },
     }
-    const em = {
-      find: jest.fn(async (entity: unknown) => {
+    const find = jest.fn(async (entity: unknown) => {
         if (entity === Appointment) return [appointment]
         if (entity === AppointmentLine) return [line]
         if (entity === CatalogProductOption) return [{ id: optionId, priceFlat: '675000.00' }]
         return []
-      }),
+      })
+    const em = {
+      find,
+      findAndCount: jest.fn(async (entity: unknown, where: unknown, options: unknown) => [
+        await find(entity, where, options),
+        1,
+      ]),
     }
     mockCreateRequestContainer.mockResolvedValue({
       resolve: () => ({ fork: () => em }),
@@ -215,5 +231,44 @@ describe('appointments list route totals', () => {
       tenantId: TENANT_ID,
       organizationId: { $in: [ORGANIZATION_ID] },
     }))
+  })
+
+  it('applies requested pagination and returns totals', async () => {
+    const appointment = {
+      id: APPOINTMENT_ID,
+      tenantId: TENANT_ID,
+      organizationId: ORGANIZATION_ID,
+      customerEntityId: null,
+      customerName: 'Paged Customer',
+      statusCode: 'new_request',
+      requestedStartAt: new Date('2026-09-20T10:00:00.000Z'),
+      requestedEndAt: null,
+      createdAt: new Date('2026-09-16T10:00:00.000Z'),
+      updatedAt: new Date('2026-09-16T10:00:00.000Z'),
+    }
+    const find = jest.fn(async (entity: unknown) => {
+      if (entity === Appointment) return [appointment]
+      return []
+    })
+    const findAndCount = jest.fn(async (entity: unknown, where: unknown, options: unknown) => [
+      await find(entity, where, options),
+      25,
+    ])
+    const em = { find, findAndCount }
+    mockCreateRequestContainer.mockResolvedValue({
+      resolve: () => ({ fork: () => em }),
+    })
+
+    const { GET } = await import('../route')
+    const response = await GET(new Request('http://localhost/api/appointments?page=2&pageSize=10'))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({ total: 25, page: 2, pageSize: 10, totalPages: 3 })
+    expect(findAndCount).toHaveBeenCalledWith(
+      Appointment,
+      expect.objectContaining({ tenantId: TENANT_ID, organizationId: ORGANIZATION_ID }),
+      expect.objectContaining({ limit: 10, offset: 10 }),
+    )
   })
 })

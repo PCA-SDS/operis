@@ -177,6 +177,13 @@ export async function PUT(req: Request, ctx: RouteContext) {
         )
       }
 
+      if (code === 'STAFF_UNAVAILABLE') {
+        return NextResponse.json(
+          { error: translate('appointments.seatPlanner.staffUnavailable', 'Staff member is unavailable for this time.'), code: 'STAFF_UNAVAILABLE' },
+          { status: 409 },
+        )
+      }
+
       if (code === 'RESOURCE_BLOCKED') {
         return NextResponse.json(
           { error: translate('resources.assignments.blocked', 'Resource is blocked for this time.'), code: 'RESOURCE_BLOCKED' },

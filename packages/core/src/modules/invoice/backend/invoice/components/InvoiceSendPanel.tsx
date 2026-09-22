@@ -75,6 +75,7 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
   const [emailError, setEmailError] = React.useState<string | null>(null)
   const [listError, setListError] = React.useState<string | null>(null)
   const [sendError, setSendError] = React.useState<string | null>(null)
+  const [recipientInputKey, setRecipientInputKey] = React.useState(0)
   const [isLoadingEmails, setIsLoadingEmails] = React.useState(false)
   const [removingId, setRemovingId] = React.useState<string | null>(null)
   const formRef = React.useRef<HTMLFormElement>(null)
@@ -270,6 +271,7 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
               <Label className="flex-col items-stretch gap-1.5">
                 <span>{t('invoice.send.recipientLabel')} <span className="text-status-error-icon" aria-hidden="true">*</span></span>
               <ComboboxInput
+                key={recipientInputKey}
                 value={email}
                 onChange={(value) => {
                   setEmail(value)
@@ -306,7 +308,12 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
                         variant="ghost"
                         size="sm"
                         className="min-w-0 flex-1 truncate text-left text-sm text-foreground"
-                        onClick={() => setEmail(entry.email)}
+                        onClick={() => {
+                          setEmail(entry.email)
+                          setEmailError(null)
+                          setSendError(null)
+                          setRecipientInputKey((current) => current + 1)
+                        }}
                         disabled={isSending || Boolean(removingId)}
                       >
                         {entry.email}

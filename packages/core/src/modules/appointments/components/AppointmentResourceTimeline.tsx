@@ -19,7 +19,13 @@ const HEADER_HEIGHT = 80
 export type AppointmentResourceTimelineResource = {
   id: string
   name: string
+  code?: string | null
+  areaName?: string | null
   appearanceIcon?: string | null
+  capacityUnitIcon?: string | null
+  capacityUnitColor?: string | null
+  typeIcon?: string | null
+  typeColor?: string | null
 }
 
 export type AppointmentResourceTimelineAppointment = {
@@ -48,7 +54,6 @@ export type AppointmentResourceTimelineBlock = {
 }
 
 type AppointmentResourceTimelineProps = {
-  organizationName: string
   resources: AppointmentResourceTimelineResource[]
   appointments: AppointmentResourceTimelineAppointment[]
   blocks: AppointmentResourceTimelineBlock[]
@@ -110,7 +115,11 @@ function groupAppointmentBlocks(blocks: AppointmentResourceTimelineBlock[]) {
 }
 
 function resourceIcon(resource: AppointmentResourceTimelineResource) {
-  return resolveRegisteredLucideIconNode(resource.appearanceIcon ?? undefined, 'size-4') ?? <CalendarDays className="size-4" />
+  const iconName = resource.appearanceIcon ?? resource.capacityUnitIcon ?? resource.typeIcon ?? null
+  const iconNode = resolveRegisteredLucideIconNode(iconName ?? undefined, 'size-4')
+  if (iconNode) return iconNode
+  if (iconName) return <span className="text-sm leading-none" aria-hidden="true">{iconName}</span>
+  return <CalendarDays className="size-4" />
 }
 
 function AppointmentBlockRibbons({ appointment }: { appointment: AppointmentResourceTimelineAppointment }) {
@@ -192,7 +201,7 @@ function TimelineAppointmentBlock({
   )
 }
 
-export function AppointmentResourceTimeline({ organizationName, resources, appointments, blocks, fitScreen = false, placementMode = false, placementStartAt = null, renderAppointmentPopover, onSlotClick }: AppointmentResourceTimelineProps) {
+export function AppointmentResourceTimeline({ resources, appointments, blocks, fitScreen = false, placementMode = false, placementStartAt = null, renderAppointmentPopover, onSlotClick }: AppointmentResourceTimelineProps) {
   const t = useT()
   const viewportRef = React.useRef<HTMLDivElement>(null)
   const [viewportSize, setViewportSize] = React.useState({ width: 0, height: 0 })
@@ -251,7 +260,12 @@ export function AppointmentResourceTimeline({ organizationName, resources, appoi
         >
           <div className="sticky top-0 z-10 grid border-b border-border bg-surface shadow-sm" style={{ gridTemplateColumns }}>
             <div className="sticky left-0 z-20 flex items-center justify-center border-r border-border bg-surface px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground" style={{ height: HEADER_HEIGHT }}>{t('appointments.overview.time', 'Time')}</div>
-            {resources.map((resource) => <div key={resource.id} className="flex flex-col justify-center gap-2 overflow-hidden border-r border-border bg-surface px-3 py-2"><div className="truncate text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{organizationName}</div><div className="flex items-center gap-2"><span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-primary">{resourceIcon(resource)}</span><span className="truncate text-sm font-semibold text-foreground">{resource.name}</span></div></div>)}
+            {resources.map((resource, index) => {
+              const previousResource = resources[index - 1]
+              const startsArea = index === 0 || previousResource?.areaName !== resource.areaName
+              const areaName = resource.areaName ?? t('appointments.seatPlanner.mainFloor', 'Main floor')
+              return <div key={resource.id} className={cn('flex flex-col justify-center gap-2 overflow-hidden border-r border-border bg-surface px-3 py-2', startsArea && 'border-l')}><div className="truncate text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{areaName}</div><div className="flex min-w-0 items-center gap-2"><span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted" style={{ color: resource.typeColor ?? resource.capacityUnitColor ?? undefined }}>{resourceIcon(resource)}</span><div className="min-w-0"><p className="truncate text-sm font-semibold text-foreground">{resource.code || resource.name}</p><p className="truncate text-xs text-muted-foreground">{resource.name}</p></div></div></div>
+            })}
           </div>
           <div className="relative grid" style={{ height: timelineHeight, gridTemplateColumns }}>
             <div className="sticky left-0 z-30 border-r border-border bg-surface">{timeMarkers.map((time) => <div key={time} className="absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time, hourHeight) }}><span className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap bg-surface px-1 text-xs text-muted-foreground">{time}</span></div>)}</div>

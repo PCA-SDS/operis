@@ -159,4 +159,16 @@ describe('InvoiceService.sendInvoice', () => {
       invoice: { id: invoiceId },
     })
   })
+
+  it('does not fail after delivery when invoice send state persistence fails', async () => {
+    const invoice = buildInvoice()
+    const { service, em, companyEmailsService } = buildService(invoice)
+    jest.mocked(sendEmail).mockResolvedValue(undefined)
+    em.flush.mockRejectedValue(new Error('database unavailable'))
+
+    await expect(service.sendInvoice(scope, invoiceId, { email: 'customer@example.com' })).resolves.toMatchObject({
+      invoice: { id: invoiceId },
+    })
+    expect(companyEmailsService.record).toHaveBeenCalledWith(scope, { companyId, email: 'customer@example.com' })
+  })
 })
