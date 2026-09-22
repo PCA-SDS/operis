@@ -91,6 +91,8 @@ import { Button } from '@open-mercato/ui/primitives/button'
 - `outline` · `secondary` · `ghost` · `muted` · `link`
 - `soft` (brand-tinted second rank — the Cancel beside a filled primary in a dialog footer, where `secondary`'s white card reads as a hole rather than a pair)
 
+`default` and `soft` are **floating**: `shadow-sm` at rest, `shadow-md` on hover, `shadow-xs` while pressed, and no hairline — they carry a fill of their own, so a stroke around a shape that already casts a shadow draws nothing. `outline` and `secondary` keep their border precisely because their fill is `surface`: without it they would vanish into the card behind them.
+
 **Sizes**: `2xs` (h-7) · `sm` (h-8) · `default` (h-9) · `lg` (h-10) · `icon` (size-9)
 
 All sizes share `rounded-md`. Same-row buttons MUST share `size`.
