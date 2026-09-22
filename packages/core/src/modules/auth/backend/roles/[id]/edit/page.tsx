@@ -19,6 +19,7 @@ import { extractCustomFieldEntries } from '@open-mercato/shared/lib/crud/custom-
 
 type EditRoleFormValues = {
   name?: string
+  parentRoleId?: string | null
   tenantId?: string | null
   updatedAt?: string | null
 } & Record<string, unknown>
@@ -26,6 +27,7 @@ type EditRoleFormValues = {
 type RoleRecord = {
   id: string
   name: string
+  parentRoleId?: string | null
   tenantId: string | null
   tenantName?: string | null
   usersCount?: number | null
@@ -241,6 +243,7 @@ export default function EditRolePage({ params }: { params?: { id?: string } }) {
             const customFields = collectCustomFieldValues(values)
             const payload: Record<string, unknown> = { id }
             if (values.name !== undefined) payload.name = values.name
+            if (values.parentRoleId !== undefined) payload.parentRoleId = values.parentRoleId ?? null
             let effectiveTenantId: string | null = selectedTenantId ?? (initial?.tenantId ?? null)
             if (actorIsSuperAdmin) {
               const rawTenant = typeof values.tenantId === 'string' ? values.tenantId.trim() : selectedTenantId
