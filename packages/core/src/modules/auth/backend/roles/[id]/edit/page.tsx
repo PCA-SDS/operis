@@ -103,14 +103,19 @@ export default function EditRolePage({ params }: { params?: { id?: string } }) {
       id: 'parentRoleId',
       label: t('auth.roles.form.field.parentRole', 'Reports to'),
       type: 'custom',
-      component: ({ value, setValue }) => (
-        <ParentRoleSelect
-          id="parentRoleId"
-          value={typeof value === 'string' ? value : null}
-          onChange={(next) => setValue(next)}
-          excludeRoleId={id}
-        />
-      ),
+      component: ({ value, setValue }) => {
+        const selectedParentRoleId = value === undefined
+          ? (typeof initial?.parentRoleId === 'string' ? initial.parentRoleId : null)
+          : (typeof value === 'string' ? value : null)
+        return (
+          <ParentRoleSelect
+            id="parentRoleId"
+            value={selectedParentRoleId}
+            onChange={(next) => setValue(next)}
+            excludeRoleId={id}
+          />
+        )
+      },
     })
     if (actorIsSuperAdmin) {
       list.push({

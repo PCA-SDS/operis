@@ -7,12 +7,22 @@ import { waitFor } from '@testing-library/react'
 import { render } from '@testing-library/react'
 
 type FormSubmit = (values: Record<string, unknown>) => Promise<void>
+type CustomFieldRenderProps = {
+  value: unknown
+  setValue: (value: unknown) => void
+}
+type CrudField = {
+  id: string
+  component?: (props: CustomFieldRenderProps) => React.ReactNode
+}
 type CrudFormProps = {
   onSubmit?: FormSubmit
   initialValues?: Record<string, unknown>
+  fields?: CrudField[]
 }
 
 const crudFormPropsCapture: { current: CrudFormProps | null } = { current: null }
+const parentRoleSelectPropsCapture: { current: { value?: string | null } | null } = { current: null }
 const apiCallMock = jest.fn()
 const createCrudMock = jest.fn()
 const updateCrudMock = jest.fn().mockResolvedValue({ ok: true })
@@ -66,7 +76,10 @@ jest.mock('@open-mercato/shared/lib/i18n/context', () => ({
 }))
 
 jest.mock('@open-mercato/core/modules/auth/components/ParentRoleSelect', () => ({
-  ParentRoleSelect: () => <div />,
+  ParentRoleSelect: (props: { value?: string | null }) => {
+    parentRoleSelectPropsCapture.current = props
+    return <div />
+  },
 }))
 
 jest.mock('@open-mercato/core/modules/auth/components/AclEditor', () => ({
@@ -94,6 +107,7 @@ describe('role form parent-role persistence', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     crudFormPropsCapture.current = null
+    parentRoleSelectPropsCapture.current = null
     apiCallMock.mockResolvedValue({ ok: true, result: { isSuperAdmin: false } })
   })
 
@@ -156,5 +170,32 @@ describe('role form parent-role persistence', () => {
       name: 'Org Child',
       parentRoleId: null,
     })
+  })
+
+  it('hydrates the parent selector when the form value is initially undefined', async () => {
+    apiCallMock.mockResolvedValueOnce({
+      ok: true,
+      result: {
+        items: [{
+          id: 'role-child',
+          name: 'Org Child',
+          parentRoleId: 'role-parent-a',
+          tenantId: null,
+          usersCount: 0,
+          updatedAt: null,
+        }],
+        isSuperAdmin: false,
+      },
+    })
+
+    render(<EditRolePage params={{ id: 'role-child' }} />)
+
+    await waitFor(() => expect(crudFormPropsCapture.current?.initialValues?.parentRoleId).toBe('role-parent-a'))
+    const parentRoleField = crudFormPropsCapture.current?.fields?.find((field) => field.id === 'parentRoleId')
+    expect(parentRoleField?.component).toBeDefined()
+
+    render(parentRoleField!.component!({ value: undefined, setValue: jest.fn() }))
+
+    expect(parentRoleSelectPropsCapture.current?.value).toBe('role-parent-a')
   })
 })
