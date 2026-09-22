@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { CheckCircle2, CircleDollarSign, Mail, XCircle } from 'lucide-react'
+import { CheckCircle2, Mail, XCircle } from 'lucide-react'
 import { hasFeature } from '@open-mercato/shared/security/features'
 import { useInvoiceT as useT } from '../../../lib/useInvoiceT'
 import { Alert } from '@open-mercato/ui/primitives/alert'
@@ -154,7 +154,7 @@ export function InvoicePaymentConfirmationPanel({ invoice, onChanged }: { invoic
 
       <Dialog open={open} onOpenChange={(next) => { if (!isPending) setOpen(next) }}>
         <DialogContent dismissible={!isPending}>
-          <DialogHeader leading={<CircleDollarSign className="size-5" aria-hidden="true" />}>
+          <DialogHeader>
             <DialogTitle>{t('invoice.paymentConfirmation.dialogTitle')}</DialogTitle>
             <DialogDescription>{t('invoice.paymentConfirmation.dialogDescription', { target: target?.label ?? '' })}</DialogDescription>
           </DialogHeader>

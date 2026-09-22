@@ -252,7 +252,7 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent dismissible={!isSending && !removingId}>
-          <DialogHeader leading={<Send className="size-5" aria-hidden="true" />}>
+          <DialogHeader>
             <DialogTitle>{t('invoice.send.dialogTitle')}</DialogTitle>
             <DialogDescription>
               {t('invoice.send.dialogDescription', { invoice: invoiceLabel, company: companyName })}

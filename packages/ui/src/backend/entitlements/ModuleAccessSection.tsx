@@ -260,7 +260,7 @@ export function ModuleAccessSection({
         <DialogContent className="sm:max-w-xl">
           {pending ? (
             <>
-              <DialogHeader leadingTone={pending.next ? 'success' : 'warning'}>
+              <DialogHeader>
                 <DialogTitle>{labels.confirmTitle(pending.row, pending.next)}</DialogTitle>
                 <DialogDescription>{labels.confirmBody(pending.row, pending.next)}</DialogDescription>
               </DialogHeader>

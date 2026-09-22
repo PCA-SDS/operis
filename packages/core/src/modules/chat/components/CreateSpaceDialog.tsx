@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Users } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import {
   Dialog,
@@ -99,7 +98,7 @@ export function CreateSpaceDialog({ open, onClose }: CreateSpaceDialogProps) {
         {/* The header's own icon badge, rather than a bare title — the DS slot
             exists for exactly this and keeps the badge, the title's first line
             and the close button on one band. */}
-        <DialogHeader leading={<Users aria-hidden="true" />}>
+        <DialogHeader>
           <DialogTitle>{t('chat.space.createTitle', 'New space')}</DialogTitle>
           <DialogDescription>
             {t('chat.space.createDescription', 'Name it, then add people from your organization.')}
