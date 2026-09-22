@@ -3167,8 +3167,8 @@ export function CrudForm<TValues extends Record<string, unknown>>({
         // RecordConflictBanner (unified across all forms). Keep the inline
         // form error too, but suppress the redundant transient toast.
         try { surfaceRecordConflict(err, t) } catch {}
-      } else if (!hasFieldErrors) {
-        flash(displayMessage, 'error')
+      } else {
+        flash(firstFieldMessage ?? displayMessage, 'error')
       }
       setFormError(displayMessage)
     } finally {
