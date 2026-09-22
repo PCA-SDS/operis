@@ -18,6 +18,7 @@ import {
 import type { SectionAction } from '@open-mercato/ui/backend/detail'
 import { registerComponent } from '@open-mercato/shared/modules/widgets/component-registry'
 import { useRegisteredComponent } from '@open-mercato/ui/backend/injection/useRegisteredComponent'
+import { useDealsAccess } from './useDealsAccess'
 import { formatTabCount } from './utils'
 
 export type PersonTabId =
@@ -79,6 +80,7 @@ function DefaultPersonDetailTabs({
   children,
 }: PersonDetailTabsProps) {
   const t = useT()
+  const { canViewDeals } = useDealsAccess()
 
   const builtInTabs: TabDef[] = React.useMemo(
     () => [
@@ -93,12 +95,16 @@ function DefaultPersonDetailTabs({
         label: t('customers.people.detail.tabs.emails', 'Emails'),
         icon: <Mail className="size-4" />,
       },
-      {
-        id: 'deals',
-        label: t('customers.people.detail.tabs.deals', 'Deals'),
-        icon: <Briefcase className="size-4" />,
-        count: formatTabCount(dealsCount),
-      },
+      ...(canViewDeals
+        ? [
+            {
+              id: 'deals' as PersonTabId,
+              label: t('customers.people.detail.tabs.deals', 'Deals'),
+              icon: <Briefcase className="size-4" />,
+              count: formatTabCount(dealsCount),
+            },
+          ]
+        : []),
       {
         id: 'companies',
         label: t('customers.people.detail.tabs.companies', 'Companies'),
@@ -130,7 +136,7 @@ function DefaultPersonDetailTabs({
         count: formatTabCount(filesCount),
       },
     ],
-    [t, activitiesCount, dealsCount, companiesCount, addressesCount, tasksCount, filesCount],
+    [t, canViewDeals, activitiesCount, dealsCount, companiesCount, addressesCount, tasksCount, filesCount],
   )
 
   const allTabs: TabDef[] = React.useMemo(() => {

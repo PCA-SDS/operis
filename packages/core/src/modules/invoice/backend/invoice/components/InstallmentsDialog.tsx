@@ -15,6 +15,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { localDate, addCalendarMonths } from '../../../lib/localDates'
 import { invoiceInstallmentPlanUpdateSchema } from '../../../data/validators'
+import { formatInvoiceMoney } from '../../../lib/format'
 
 type PlanItem = {
   id?: string
@@ -41,7 +42,7 @@ type Invoice = {
   installments: PlanItem[]
 }
 
-const money = (value: string | number | null | undefined) => Number(value ?? 0).toLocaleString()
+const money = (value: string | number | null | undefined, currency: string | null) => formatInvoiceMoney(value, currency)
 const dateValue = (value: string | null) => value ? localDate(value) : ''
 const addMonths = addCalendarMonths
 const splitPrincipal = (total: number, count: number) => {
@@ -243,7 +244,7 @@ export function InstallmentsDialog({ invoiceId, onClose, onChanged }: { invoiceI
           ].map(([label, value], index) => (
             <div key={label} className={`min-w-0 py-2 ${index === 1 ? 'sm:text-center' : index === 2 ? 'sm:text-right' : ''}`}>
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
-              <p className="mt-1 text-lg font-semibold">{money(value)} {invoice.currencyCode}</p>
+              <p className="mt-1 text-lg font-semibold">{money(value, invoice.currencyCode)}</p>
             </div>
           ))}
         </div>
@@ -274,8 +275,8 @@ export function InstallmentsDialog({ invoiceId, onClose, onChanged }: { invoiceI
             <Button type="button" variant="ghost" onClick={() => setRows((current) => [...current, { principalAmount: '0', interestRate: '0', dueDate: null, note: null }])}><Plus /> {t('invoice.installments.add', 'Add installment')}</Button>
 
             <div className="grid gap-3 rounded-xl border border-border bg-surface-muted px-4 py-3 text-sm sm:grid-cols-3">
-              <p>{t('invoice.installments.summary.principal', 'Principal')}: <strong>{money(principalTotal)} / {money(invoiceTotal)} {invoice.currencyCode}</strong></p>
-              <p>{t('invoice.installments.summary.interest', 'Interest')}: <strong>{money(interestTotal)} {invoice.currencyCode}</strong></p>
+              <p>{t('invoice.installments.summary.principal', 'Principal')}: <strong>{money(principalTotal, invoice.currencyCode)} / {money(invoiceTotal, invoice.currencyCode)}</strong></p>
+              <p>{t('invoice.installments.summary.interest', 'Interest')}: <strong>{money(interestTotal, invoice.currencyCode)}</strong></p>
               <p className={principalMatchesTotal ? 'text-status-success-text' : 'text-status-error-text'}>{principalMatchesTotal ? t('invoice.installments.matchesTotal', 'Matches total') : t('invoice.installments.doesNotMatchTotal', 'Does not match total')}</p>
             </div>
 
@@ -289,9 +290,9 @@ export function InstallmentsDialog({ invoiceId, onClose, onChanged }: { invoiceI
             {hasPlan ? <div className="flex flex-col gap-3">
               {invoice.installments.map((item, index) => <div key={item.id ?? index} className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border p-4">
                 <div className="min-w-0">
-                  <p className="font-medium">#{item.sequence ?? index + 1} · {money(item.totalAmount ?? item.principalAmount)} {invoice.currencyCode}</p>
+                  <p className="font-medium">#{item.sequence ?? index + 1} · {money(item.totalAmount ?? item.principalAmount, invoice.currencyCode)}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{t('invoice.installments.columns.dueDate')}: {item.dueDate ? new Date(item.dueDate).toLocaleDateString() : '—'}</p>
-                  {Number(item.interestAmount) > 0 && <p className="mt-1 text-xs text-muted-foreground">{t('invoice.installments.summary.interest')}: {money(item.interestAmount)} {invoice.currencyCode}</p>}
+                  {Number(item.interestAmount) > 0 && <p className="mt-1 text-xs text-muted-foreground">{t('invoice.installments.summary.interest')}: {money(item.interestAmount, invoice.currencyCode)}</p>}
                   {item.note && <p className="mt-1 break-words text-sm text-muted-foreground">{item.note}</p>}
                 </div>
                 <Button type="button" variant={item.status === 'PAID' ? 'secondary' : 'outline'} size="sm" className={item.status === 'PAID' ? 'rounded-full bg-status-success-bg text-status-success-text' : 'rounded-full'} disabled={busy} aria-label={item.status === 'PAID' ? t('invoice.installments.unmarkReceived') : t('invoice.installments.markReceived')} onClick={() => void setStatus(item, item.status !== 'PAID')}>

@@ -9,7 +9,8 @@ import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/d
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
-import { ResourcesAssignment, ResourcesResource } from '@open-mercato/core/modules/resources/data/entities'
+import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
+import { ResourceAssignmentService } from '@open-mercato/core/modules/resources/lib/resourceAssignmentService'
 import { Appointment, AppointmentLine } from '../../data/entities'
 import { deriveScheduleConfirmationStatus } from '../../lib/scheduleTracking'
 
@@ -45,9 +46,16 @@ export async function GET(req: Request) {
     if (!organizationId) return NextResponse.json({ error: 'Organization scope is required', code: 'ORGANIZATION_SCOPE_REQUIRED' }, { status: 400 })
     const { start, end } = toDayBounds(date)
 
-    const [organization, resources, appointments, allAppointments] = await Promise.all([
+    const resourceAssignmentService = new ResourceAssignmentService(em)
+    const [organization, resourceWorkspace, appointments, allAppointments] = await Promise.all([
       em.findOne(Organization, { id: organizationId, tenant: auth.tenantId, deletedAt: null }),
-      em.find(ResourcesResource, { tenantId: auth.tenantId, organizationId, deletedAt: null, isActive: true }, { orderBy: { sortOrder: 'asc', name: 'asc' } }),
+      resourceAssignmentService.getWorkspace({
+        tenantId: auth.tenantId,
+        organizationId,
+        sourceModule: 'appointment',
+        sourceEntityType: 'appointment_line',
+        sourceEntityId: null,
+      }),
       em.find(Appointment, {
         tenantId: auth.tenantId,
         organizationId,
@@ -169,7 +177,17 @@ export async function GET(req: Request) {
     return NextResponse.json({
       date,
       organization: { id: organizationId, name: organization?.name ?? organizationId },
-      resources: resources.map((resource) => ({ id: resource.id, name: resource.name, appearanceIcon: resource.appearanceIcon ?? null, appearanceColor: resource.appearanceColor ?? null, areaId: resource.areaId ?? null })),
+      resources: resourceWorkspace.resources.map((resource) => ({
+        id: resource.id,
+        name: resource.name,
+        code: resource.code ?? null,
+        appearanceIcon: resource.appearanceIcon ?? null,
+        capacityUnitIcon: resource.capacityUnitIcon ?? null,
+        capacityUnitColor: resource.capacityUnitColor ?? null,
+        typeIcon: resource.typeIcon ?? null,
+        typeColor: resource.typeColor ?? null,
+        areaName: resource.areaName ?? null,
+      })),
       appointments: appointments.map((appointment) => ({
         id: appointment.id,
         organizationId: appointment.organizationId,

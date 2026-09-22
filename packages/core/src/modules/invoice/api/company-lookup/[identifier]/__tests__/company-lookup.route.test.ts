@@ -114,14 +114,14 @@ describe('invoice company lookup API route', () => {
     expect(await readJson(response)).toEqual(lookupResult)
   })
 
-  it('defaults country to Vietnam', async () => {
+  it('defaults country to Singapore', async () => {
     const { service } = createRouteHarness()
 
     await route.GET(new Request('https://example.test/api/invoice/company-lookup/0100109106'), {
       params: { identifier: '0100109106' },
     })
 
-    expect(service.lookup).toHaveBeenCalledWith(scope, { country: 'VN', identifier: '0100109106' })
+    expect(service.lookup).toHaveBeenCalledWith(scope, { country: 'SG', identifier: '0100109106' })
   })
 
   it('rejects unauthenticated requests', async () => {

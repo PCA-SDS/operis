@@ -26,7 +26,7 @@ import { BookingOverviewCreateSheet } from '../../../components/BookingOverviewC
 import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { getAppointmentPermissionSet } from '../../../lib/permissions'
 
-type Resource = { id: string; name: string; appearanceIcon: string | null; appearanceColor: string | null; areaId: string | null }
+type Resource = { id: string; name: string; code: string | null; appearanceIcon: string | null; capacityUnitIcon: string | null; capacityUnitColor: string | null; typeIcon: string | null; typeColor: string | null; areaName: string | null }
 type Line = { id: string; productId: string; productTitle: string; productCategory: string | null; durationMinutes: number | null }
 type Appointment = {
   id: string
@@ -674,7 +674,6 @@ export default function BookingOverviewPage() {
           <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-muted/20">
             {isLoading ? <div className="flex min-h-96 items-center justify-center text-sm text-muted-foreground">{t('appointments.overview.loading', 'Loading booking overview…')}</div> : !overview ? <div className="flex min-h-96 items-center justify-center text-sm text-muted-foreground">{t('appointments.overview.empty', 'No booking overview data available.')}</div> : (
               <AppointmentResourceTimeline
-                organizationName={overview.organization.name}
                 resources={overview.resources}
                 appointments={overview.appointments}
                 blocks={overview.blocks}

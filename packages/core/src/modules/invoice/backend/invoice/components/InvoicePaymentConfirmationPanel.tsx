@@ -16,6 +16,7 @@ import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { formatInvoiceMoney } from '../../../lib/format'
 
 export type PaymentConfirmationView = {
   status: 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'EXPIRED'
@@ -141,7 +142,7 @@ export function InvoicePaymentConfirmationPanel({ invoice, onChanged }: { invoic
                   <span>{t('invoice.paymentConfirmation.installmentLabel', { sequence: item.sequence })}</span>
                   {installmentState ? <Badge variant={installmentState.status === 'PENDING' ? 'warning' : 'neutral'}>{t(`invoice.paymentConfirmation.status.${installmentState.status.toLowerCase()}`)}</Badge> : null}
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">{item.totalAmount} {invoice.currencyCode ?? ''}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{formatInvoiceMoney(item.totalAmount, invoice.currencyCode)}</p>
                 <Button type="button" variant="outline" size="sm" className="mt-2 w-full" onClick={() => startRequest(item.id, t('invoice.paymentConfirmation.installmentLabel', { sequence: item.sequence }))}>
                   {installmentState?.status === 'PENDING' ? t('invoice.paymentConfirmation.resendAction') : t('invoice.paymentConfirmation.requestAction')}
                 </Button>
@@ -211,7 +212,7 @@ export function IncomingPaymentConfirmationPanel({ invoice, onChanged }: { invoi
   return (
     <section className="rounded-xl border border-border bg-surface p-5">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('invoice.paymentConfirmation.incomingTitle')}</h2>
-      <p className="mt-3 text-sm">{t('invoice.paymentConfirmation.incomingDescription', { payer: incoming.payerName ?? t('invoice.paymentConfirmation.payerFallback'), amount: `${incoming.amount} ${incoming.currencyCode}` })}</p>
+      <p className="mt-3 text-sm">{t('invoice.paymentConfirmation.incomingDescription', { payer: incoming.payerName ?? t('invoice.paymentConfirmation.payerFallback'), amount: formatInvoiceMoney(incoming.amount, incoming.currencyCode) })}</p>
       {error ? <Alert className="mt-3" status="error" style="lighter">{error}</Alert> : null}
       <div className="mt-4 grid gap-2">
         <Button type="button" disabled={isPending} onClick={() => void transition('accept')}><CheckCircle2 className="size-4" aria-hidden="true" />{t('invoice.paymentConfirmation.acceptAction')}</Button>

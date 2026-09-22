@@ -20,6 +20,7 @@ import type { AppearanceSelectorLabels } from '@open-mercato/core/modules/dictio
 import { formatRelativeTime, formatDateTime } from '@open-mercato/shared/lib/time'
 import { ErrorMessage, LoadingMessage, TabEmptyState } from './'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { DEALS_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
 import { createTranslatorWithFallback } from '@open-mercato/shared/lib/i18n/translate'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { useConfirmDialog } from '../confirm-dialog'
@@ -1085,7 +1086,7 @@ function ActivitiesSectionImpl<C = unknown>({
   const resolveDealHref = React.useCallback(
     (id: string) => {
       if (dealLinkHref) return dealLinkHref(id)
-      if (!customersEnabled) return undefined
+      if (!customersEnabled || !DEALS_IN_PRODUCT) return undefined
       return `/backend/customers/deals/${encodeURIComponent(id)}`
     },
     [customersEnabled, dealLinkHref],

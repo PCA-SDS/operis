@@ -16,7 +16,10 @@ import { createInvoiceScopedPersistenceService } from './services/scoped-persist
 import { createInvoicePartnerTermsService } from './services/partner-terms-service'
 import { createInvoiceCompanyEmailsService } from './services/company-emails-service'
 import { createInvoiceExchangeRatesService } from './services/exchange-rates-service'
-import { createInvoiceCompanyLookupService } from './services/company-lookup-service'
+import {
+  createInvoiceCompanyLookupService,
+  DataGovSgCompanyRegistryProvider,
+} from './services/company-lookup-service'
 import { createInvoiceAutoPaidService } from './services/auto-paid-service'
 import { createInvoiceService } from './services/invoice-service'
 import { createInvoiceTrackingService } from './services/invoice-tracking-service'
@@ -39,7 +42,10 @@ export function register(container: AppContainer) {
       createInvoiceCompanyEmailsService(em, invoiceScopedPersistenceService),
     ).scoped().proxy(),
     invoiceExchangeRatesService: asFunction(() => createInvoiceExchangeRatesService()).singleton().proxy(),
-    invoiceCompanyLookupService: asFunction(({ em }) => createInvoiceCompanyLookupService(em)).scoped().proxy(),
+    invoiceDataGovSgCompanyRegistryProvider: asFunction(() => new DataGovSgCompanyRegistryProvider()).singleton(),
+    invoiceCompanyLookupService: asFunction(({ em, invoiceDataGovSgCompanyRegistryProvider }) =>
+      createInvoiceCompanyLookupService(em, [invoiceDataGovSgCompanyRegistryProvider]),
+    ).scoped().proxy(),
     invoiceAutoPaidService: asFunction(({ em, invoiceScopedPersistenceService }) =>
       createInvoiceAutoPaidService(em, invoiceScopedPersistenceService),
     ).scoped().proxy(),

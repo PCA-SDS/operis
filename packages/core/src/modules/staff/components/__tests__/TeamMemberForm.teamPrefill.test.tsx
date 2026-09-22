@@ -112,4 +112,12 @@ describe('TeamMemberForm team select prefill', () => {
       expect(within(teamField).getByText(TEAM_NAME)).toBeInTheDocument()
     })
   })
+
+  it('offers an unassigned option when clearing the saved team', async () => {
+    renderForm()
+    await waitFor(() => {
+      const teamOptions = screen.getByTestId('team-select-content')
+      expect(within(teamOptions).getByText('Unassigned')).toBeInTheDocument()
+    })
+  })
 })

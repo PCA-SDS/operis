@@ -2,6 +2,7 @@ import type { QueryEngine } from '@open-mercato/shared/lib/query/types'
 import type { AttachmentAssignment } from './metadata'
 import type { CustomEntitySpec } from '@open-mercato/shared/modules/entities'
 import { getEntityIds } from '@open-mercato/shared/lib/encryption/entityIds'
+import { DEALS_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
 import { getModules } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { isEntitleableModule } from '@open-mercato/core/modules/directory/lib/tenantModules'
@@ -70,7 +71,7 @@ function getEntityLinkSpecs(): Record<string, AssignmentLinkSpec> {
       },
     }
   }
-  if (E.customers?.customer_deal) {
+  if (E.customers?.customer_deal && DEALS_IN_PRODUCT) {
     specs[E.customers.customer_deal] = {
       labelFields: ['title'],
       buildHref: (record) => buildSimpleHref('/backend/customers/deals', record.id),
