@@ -180,6 +180,12 @@ export interface TimeGridProps {
   onItemClick(item: CalendarItem): void
   onJoin(item: CalendarItem): void
   onCreateRange?(start: Date, end: Date): void
+  /**
+   * A click on the grid that did not become a drag. Distinct from
+   * `onCreateRange`, which needs a dragged span: a bare click carried no
+   * meaning before, so taking it costs nothing that was already in use.
+   */
+  onCreateTask?(day: Date): void
   onReschedule?(change: CalendarReschedule): void
 }
 
@@ -232,14 +238,4 @@ export interface CalendarHeaderProps {
   onNewTask?: () => void
 }
 
-export interface CalendarToolbarProps {
-  anchor: Date
-  search: string
-  filters: CalendarFiltersValue
-  typeOptions: Array<{ value: string; label: string }>
-  ownerOptions: Array<{ value: string; label: string }>
-  onAnchorChange(date: Date): void
-  onSearchChange(value: string): void
-  onFiltersChange(value: CalendarFiltersValue): void
-}
 

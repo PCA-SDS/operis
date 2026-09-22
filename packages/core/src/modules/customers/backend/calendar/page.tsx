@@ -16,14 +16,12 @@ export default function CustomersCalendarPage() {
         <CalendarScreen
           resourcesEnabled={moduleIds.has('resources')}
           staffEnabled={moduleIds.has('staff')}
-          // Tasks are held off the calendar for now. Flipping this one flag
-          // is the whole switch: `useCalendarTasks` returns before it fetches
-          // and yields no items, `onNewTask` goes undefined so the header drops
-          // the button, and the create path returns early. The task-aware code
-          // downstream (the `isTaskItem` guard, the agenda's category colour,
-          // the editor's task labels) stays in place and simply never sees a
-          // task item — restoring this is `moduleIds.has('tasks')` again, not a
-          // re-integration.
+          // The OLD task integration stays off. The current one is separate:
+          // `useCalendarTaskItems` reads tasks due in the window and draws them
+          // in the all-day lane, and a grid click opens the Quick Add composer
+          // through the `calendar:task-quick-add` injection spot. Neither is
+          // gated here — the endpoint and the spot are both permission-checked
+          // on their own. This flag only governs the dormant older path.
           tasksEnabled={false}
         />
       </PageBody>

@@ -26,7 +26,6 @@ import {
 } from '../../lib/calendar/taskItem'
 import { CalendarSkeleton } from './CalendarSkeleton'
 import { CalendarHeader } from './CalendarHeader'
-import { CalendarToolbar } from './CalendarToolbar'
 import { MonthGrid } from './MonthGrid'
 import { TimeGrid } from './TimeGrid'
 import { CalendarSettingsModal } from './CalendarSettingsModal'
@@ -34,6 +33,8 @@ import { useCalendarPreferences } from './useCalendarPreferences'
 import { MAX_WINDOW_ITEMS, useCalendarItems } from './useCalendarItems'
 import { useAvailableHeight } from './useAvailableHeight'
 import { useCalendarTasks } from './useCalendarTasks'
+import { useCalendarTaskItems } from './useCalendarTaskItems'
+import { CalendarTaskQuickAdd } from './CalendarTaskQuickAdd'
 import { isTaskItem } from './types'
 import type {
   CalendarFiltersValue,
@@ -52,7 +53,6 @@ const CalendarEventEditor = dynamic(
   { ssr: false },
 )
 
-const SEARCH_DEBOUNCE_MS = 200
 const PHONE_BREAKPOINT_PX = 640
 const HIGHLIGHT_CLEAR_MS = 3000
 const UPCOMING_CARDS_COUNT = 4
@@ -133,8 +133,6 @@ export function CalendarScreen({
     if (window.innerWidth >= PHONE_BREAKPOINT_PX) return
     setView('day')
   }, [])
-  const [searchText, setSearchText] = React.useState('')
-  const [debouncedSearch, setDebouncedSearch] = React.useState('')
   const [filters, setFilters] = React.useState<CalendarFiltersValue>(EMPTY_FILTERS)
   const [editor, setEditor] = React.useState<EditorState>({ open: false, mode: 'create', item: null })
   const [editorMounted, setEditorMounted] = React.useState(false)
@@ -175,10 +173,6 @@ export function CalendarScreen({
     if (!isLoading) setHasLoadedOnce(true)
   }, [isLoading])
 
-  React.useEffect(() => {
-    const timer = window.setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_MS)
-    return () => window.clearTimeout(timer)
-  }, [searchText])
 
   React.useEffect(() => {
     if (!highlightItemId) return
@@ -195,12 +189,33 @@ export function CalendarScreen({
     clearOverride: clearTaskOverride,
   } = useCalendarTasks(range, tasksEnabled)
 
+  /* The task lane.
+   *
+   * Deliberately separate from the `useCalendarTasks` block above, which is
+   * dormant (`tasksEnabled` is false) and carries the older, much larger
+   * integration — drag-to-reschedule, optimistic overrides, the task editor.
+   * This one only reads tasks that are due in the window and draws them in the
+   * all-day lane. It is fetched unconditionally: the endpoint is guarded by
+   * `tasks.view` server-side, so a user without the grant gets an empty lane
+   * rather than the client deciding what they may see. */
+  const taskLane = useCalendarTaskItems(range, true)
+  const [taskQuickAdd, setTaskQuickAdd] = React.useState<{ open: boolean; day: string | null }>({
+    open: false,
+    day: null,
+  })
+
+  const handleCreateTask = React.useCallback((day: Date) => {
+    const month = String(day.getMonth() + 1).padStart(2, '0')
+    const date = String(day.getDate()).padStart(2, '0')
+    setTaskQuickAdd({ open: true, day: `${day.getFullYear()}-${month}-${date}` })
+  }, [])
+
   // One list from two owners. Neither side is copied into the other: each entry
   // still knows which domain it came from, which is what routes every later
   // edit back to the right service.
   const allItems = React.useMemo<CalendarItem[]>(
-    () => (taskItems.length > 0 ? [...items, ...taskItems] : items),
-    [items, taskItems],
+    () => [...items, ...taskItems, ...taskLane.items],
+    [items, taskItems, taskLane.items],
   )
 
   const visibleItems = React.useMemo(
@@ -208,34 +223,17 @@ export function CalendarScreen({
     [allItems, range],
   )
 
-  const searchedItems = React.useMemo(() => {
-    const query = debouncedSearch.trim().toLowerCase()
-    if (!query) return visibleItems
-    return visibleItems.filter((item) => {
-      if (item.title.toLowerCase().includes(query)) return true
-      if (item.location && item.location.toLowerCase().includes(query)) return true
-      if (isTaskItem(item)) {
-        if ((item.task.projectName ?? '').toLowerCase().includes(query)) return true
-      } else {
-        const rawBody = (item.raw as { body?: unknown }).body
-        if (typeof rawBody === 'string' && rawBody.toLowerCase().includes(query)) return true
-      }
-      return item.participants.some((participant) =>
-        (participant.name ?? '').toLowerCase().includes(query),
-      )
-    })
-  }, [visibleItems, debouncedSearch])
 
   const baseItems = React.useMemo(
     () =>
-      searchedItems.filter((item) => {
+      visibleItems.filter((item) => {
         if (filters.types.length > 0 && !filters.types.includes(item.interactionType)) return false
         if (filters.status && item.status !== filters.status) return false
         if (filters.ownerUserId && item.ownerUserId !== filters.ownerUserId) return false
         if (!preferences.showCrmActivities && item.category !== 'meeting' && item.category !== 'event') return false
         return true
       }),
-    [searchedItems, filters, preferences.showCrmActivities],
+    [visibleItems, filters, preferences.showCrmActivities],
   )
 
   /* Every item in range is every item shown. The All Scheduled / Meetings /
@@ -824,6 +822,7 @@ export function CalendarScreen({
         onItemClick={openEditEditor}
         onJoin={handleJoin}
         onCreateRange={canManage ? handleCreateRange : undefined}
+        onCreateTask={canEditTasks ? handleCreateTask : undefined}
         onReschedule={canDrag ? handleReschedule : undefined}
       />
     )
@@ -841,21 +840,7 @@ export function CalendarScreen({
         onViewChange={handleViewChange}
         onNewEvent={canManage ? openCreateEditor : undefined}
         onNewTask={tasksEnabled && canEditTasks ? () => openCreateTask() : undefined}
-        controls={
-          <>
-            {calendarStatus}
-            <CalendarToolbar
-              anchor={anchor}
-              search={searchText}
-              filters={filters}
-              typeOptions={typeOptions}
-              ownerOptions={ownerOptions}
-              onAnchorChange={handleAnchorChange}
-              onSearchChange={setSearchText}
-              onFiltersChange={setFilters}
-            />
-          </>
-        }
+        controls={calendarStatus}
       />
       {/* The grid takes whatever the window has left. Measured rather than
           inherited: the backend shell's `<main>` never passes a definite height
@@ -883,6 +868,12 @@ export function CalendarScreen({
           }}
         />
       ) : null}
+      <CalendarTaskQuickAdd
+        open={taskQuickAdd.open}
+        dueDate={taskQuickAdd.day}
+        onOpenChange={(open) => setTaskQuickAdd((current) => ({ ...current, open }))}
+        onCreated={taskLane.reload}
+      />
       <CalendarSettingsModal
         open={settingsOpen}
         preferences={preferences}

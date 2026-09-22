@@ -143,6 +143,7 @@ export function TimeGrid({
   onItemClick,
   onJoin,
   onCreateRange,
+  onCreateTask,
   onReschedule,
 }: TimeGridProps) {
   const t = useT()
@@ -230,7 +231,9 @@ export function TimeGrid({
     return match ? match[1] : label
   }, [])
 
-  const canCreate = canManage && Boolean(onCreateRange)
+  // A drag that becomes an event needs manage rights; a click that opens the
+  // task composer does not, so the grid listens whenever EITHER is wired.
+  const canCreate = (canManage && Boolean(onCreateRange)) || Boolean(onCreateTask)
 
   // Scroll to the current time when today is on screen, otherwise to the start
   // of the working day — never to a hardcoded hour.
@@ -273,7 +276,7 @@ export function TimeGrid({
 
   const beginCreate = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      if (!onCreateRange || event.button !== 0) return
+      if ((!onCreateRange && !onCreateTask) || event.button !== 0) return
       const cell = pointerToCell(event.clientX, event.clientY)
       if (!cell) return
       const snapped = snapMinutes(cell.minutes, snapPreference)
@@ -286,7 +289,7 @@ export function TimeGrid({
         moved: false,
       })
     },
-    [onCreateRange, pointerToCell, snapPreference],
+    [onCreateRange, onCreateTask, pointerToCell, snapPreference],
   )
 
   const beginMove = React.useCallback(
@@ -368,9 +371,16 @@ export function TimeGrid({
       const current = gestureRef.current
       gestureOriginRef.current = null
       setGesture(null)
-      if (!current || !current.moved) return
+      if (!current) return
       const day = dayStarts[current.dayIndex]
       if (!day) return
+
+      // Click without drag: the cell was picked, not a span. That gesture used
+      // to fall through to nothing, and it is the one the task composer takes.
+      if (!current.moved) {
+        if (current.kind === 'create') onCreateTask?.(day)
+        return
+      }
 
       if (current.kind === 'create') {
         const range = buildDragRange(day, current.anchorMinutes, current.pointerMinutes)
@@ -419,6 +429,7 @@ export function TimeGrid({
     dayStarts,
     isOverAllDayLane,
     onCreateRange,
+    onCreateTask,
     onReschedule,
     pointerToCell,
     snapPreference,
@@ -566,7 +577,12 @@ export function TimeGrid({
         {/* The all-day lane always renders, so it stays a drop target even when
             empty. */}
         <div className="flex border-y border-border">
-          <div className={cn(GUTTER_CLASS, 'flex items-start justify-end border-e border-border px-1 py-1 md:px-2')}>
+          {/* `items-center`, not `items-start`: the row is as tall as the bar
+              lane beside it, so a top-aligned label sat 5px from the top and 9px
+              from the bottom — visibly high against bars that are centred in
+              the same band. Centring puts the label on the bars' own axis and
+              makes the row read as one line. */}
+          <div className={cn(GUTTER_CLASS, 'flex items-center justify-end border-e border-border px-1 py-1 md:px-2')}>
             <span className="text-overline leading-tight text-muted-foreground">
               {t('customers.calendar.grid.allDay', 'All day')}
             </span>
