@@ -28,6 +28,7 @@ export function RelatedToField({
   onChange,
   onDealChange,
   error,
+  variant = 'editor',
 }: {
   label: string
   value: EditorRelatedTo | null
@@ -35,6 +36,15 @@ export function RelatedToField({
   onChange(next: EditorRelatedTo | null): void
   onDealChange(next: DealOption | null): void
   error?: string | null
+  /**
+   * Which chrome the control wears.
+   *
+   * `editor` is the calendar editor's own filled, borderless control, which
+   * matches the fields around it there. `form` is the DS input chrome, for a
+   * caller that puts this in a `FormField` beside `Input`s and `Select`s —
+   * without it the picker renders as a filled box in a row of outlined ones.
+   */
+  variant?: 'editor' | 'form'
 }) {
   const t = useT()
   const [open, setOpen] = React.useState(false)
@@ -160,10 +170,12 @@ export function RelatedToField({
       <div
         className={cn(
           CONTROL_HEIGHT,
-          'flex w-full items-center pl-2.5 pr-3 transition-colors hover:bg-surface-strong',
-          CONTROL_BOX,
-          // The invalid edge is the one place a border comes back — it has to
-          // out-signal the fill, which is why it overrides `CONTROL_BOX` here.
+          'flex w-full items-center pl-2.5 pr-3 transition-colors',
+          variant === 'form'
+            ? 'rounded-lg border border-input bg-input-bg shadow-xs hover:bg-muted/40'
+            : cn(CONTROL_BOX, 'hover:bg-surface-strong'),
+          // The invalid edge is the one place a border comes back in the editor
+          // variant — it has to out-signal the fill.
           error ? 'border-status-error-border' : '',
         )}
       >

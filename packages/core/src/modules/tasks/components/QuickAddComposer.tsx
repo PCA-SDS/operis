@@ -521,6 +521,10 @@ export function QuickAddComposer({
     <div
       className={cn(
         'flex min-h-0 flex-col overflow-hidden',
+        // An embedded host gives the composer a fixed box and expects it to
+        // fill it, so its footer lands where the host's own footers do rather
+        // than floating partway up with dead space beneath.
+        embedded && 'flex-1',
         !embedded && 'rounded-xl',
         embedded
           ? 'bg-transparent'
@@ -677,7 +681,9 @@ export function QuickAddComposer({
               onChange={(value) => setOverrides((current) => ({ ...current, dueDate: value || null }))}
               ariaLabel={t('tasks.quickAdd.dueDateLabel', 'Due date')}
               placeholder={t('tasks.quickAdd.datePlaceholder', 'Date')}
-              variant="compact"
+              // `form`, not `compact`: both are h-9, but compact is text-xs and
+              // these sit in a row of text-sm pickers.
+              variant="form"
             />
           </div>
           <div className="min-w-26">
@@ -687,7 +693,7 @@ export function QuickAddComposer({
               disabled={!effectiveDueDate}
               ariaLabel={t('tasks.quickAdd.dueTimeLabel', 'Due time')}
               placeholder={t('tasks.quickAdd.timePlaceholder', 'Time')}
-              variant="compact"
+              variant="form"
             />
           </div>
           <div className="min-w-38">
@@ -733,7 +739,11 @@ export function QuickAddComposer({
 
       <div
         className={cn(
-          'mt-2 flex shrink-0 items-center justify-between gap-2 border-t border-border py-2',
+          // A FIXED height, matched by the sibling footers an embedded host puts
+          // beside this one. A minimum let the project picker below size the
+          // row, which centred these buttons 2px off from a footer holding
+          // buttons alone — visible as a step when the host swaps panels.
+          'mt-2 flex h-14 shrink-0 items-center justify-between gap-2 border-t border-border',
           embedded ? 'px-0' : 'px-3',
         )}
       >
@@ -762,11 +772,11 @@ export function QuickAddComposer({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {onClose && (
-            <Button type="button" variant="secondary" size="sm" onClick={onClose}>
+            <Button type="button" variant="secondary" onClick={onClose}>
               {t('tasks.common.cancel', 'Cancel')}
             </Button>
           )}
-          <Button type="button" size="sm" onClick={() => void submit()} disabled={!canSubmit}>
+          <Button type="button" onClick={() => void submit()} disabled={!canSubmit}>
             {parentTask
               ? t('tasks.quickAdd.submitSubtask', 'Add subtask')
               : t('tasks.quickAdd.submit', 'Add task')}

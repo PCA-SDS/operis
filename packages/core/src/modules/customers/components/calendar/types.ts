@@ -185,7 +185,7 @@ export interface TimeGridProps {
    * `onCreateRange`, which needs a dragged span: a bare click carried no
    * meaning before, so taking it costs nothing that was already in use.
    */
-  onCreateTask?(day: Date): void
+  onCreateTask?(day: Date, minutes: number): void
   onReschedule?(change: CalendarReschedule): void
 }
 

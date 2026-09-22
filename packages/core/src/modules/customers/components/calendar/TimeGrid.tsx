@@ -378,7 +378,10 @@ export function TimeGrid({
       // Click without drag: the cell was picked, not a span. That gesture used
       // to fall through to nothing, and it is the one the task composer takes.
       if (!current.moved) {
-        if (current.kind === 'create') onCreateTask?.(day)
+        // `anchorMinutes` is the snapped slot the pointer went down on, so a
+        // meeting created from this click starts where the user clicked rather
+        // than at an arbitrary default.
+        if (current.kind === 'create') onCreateTask?.(day, current.anchorMinutes)
         return
       }
 

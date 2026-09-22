@@ -199,15 +199,24 @@ export function CalendarScreen({
    * `tasks.view` server-side, so a user without the grant gets an empty lane
    * rather than the client deciding what they may see. */
   const taskLane = useCalendarTaskItems(range, true)
-  const [taskQuickAdd, setTaskQuickAdd] = React.useState<{ open: boolean; day: string | null }>({
-    open: false,
-    day: null,
-  })
+  const [taskQuickAdd, setTaskQuickAdd] = React.useState<{
+    open: boolean
+    day: string | null
+    /** The clicked slot, `HH:MM` — where a meeting would start. */
+    time: string
+  }>({ open: false, day: null, time: '09:00' })
 
-  const handleCreateTask = React.useCallback((day: Date) => {
-    const month = String(day.getMonth() + 1).padStart(2, '0')
-    const date = String(day.getDate()).padStart(2, '0')
-    setTaskQuickAdd({ open: true, day: `${day.getFullYear()}-${month}-${date}` })
+  const handleCreateTask = React.useCallback((day: Date, minutes?: number) => {
+    const pad = (value: number) => String(value).padStart(2, '0')
+    // The grid hands back the clicked day; `minutes` is the slot within it.
+    // A task ignores the time (it is a deadline) but a meeting starts there,
+    // and the same click has to serve whichever mode the user picks.
+    const slot = typeof minutes === 'number' ? minutes : 9 * 60
+    setTaskQuickAdd({
+      open: true,
+      day: `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`,
+      time: `${pad(Math.floor(slot / 60))}:${pad(slot % 60)}`,
+    })
   }, [])
 
   // One list from two owners. Neither side is copied into the other: each entry
@@ -871,8 +880,15 @@ export function CalendarScreen({
       <CalendarTaskQuickAdd
         open={taskQuickAdd.open}
         dueDate={taskQuickAdd.day}
+        startTime={taskQuickAdd.time}
+        canCreateMeeting={canManage}
         onOpenChange={(open) => setTaskQuickAdd((current) => ({ ...current, open }))}
-        onCreated={taskLane.reload}
+        onCreated={() => {
+          taskLane.reload()
+          // A meeting is a CRM interaction, not a task — it comes back through
+          // the interactions fetch, so both sides have to be refreshed.
+          refetch()
+        }}
       />
       <CalendarSettingsModal
         open={settingsOpen}
