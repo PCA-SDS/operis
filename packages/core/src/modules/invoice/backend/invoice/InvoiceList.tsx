@@ -133,6 +133,13 @@ export function InvoiceList({ direction, showSyncButton = false }: { direction?:
     ]
     return [...common, { id: 'paymentStatus', header: t('invoice.list.columns.paymentStatus', 'Payment Status'), cell: ({ row }) => paymentStatus(row.original.nextDueDate) }, installments, total, actions]
   }, [deleteInvoice, deletingInvoiceId, direction, openInstallments, router, t, updateRecoverability, updateSettlement, updatingInvoiceId])
+  columns.forEach((column) => {
+    if ('accessorKey' in column) {
+      column.enableSorting = column.accessorKey === 'dueDate' || column.accessorKey === 'grossAmount'
+    } else {
+      column.enableSorting = false
+    }
+  })
   if (loading && !payload) return <Page><PageBody><LoadingMessage label={t('invoice.list.loading')} /></PageBody></Page>
   if (failed && !payload) return <Page><PageBody><ErrorMessage label={t('invoice.list.error')} action={<Button type="button" onClick={() => void load()}>{t('invoice.actions.retry')}</Button>} /></PageBody></Page>
   const rows = payload?.items ?? []
