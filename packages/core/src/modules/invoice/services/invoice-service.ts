@@ -457,6 +457,7 @@ export class InvoiceService {
       overdue: ForecastBucket
       undated: ForecastBucket
       beyondHorizon: ForecastBucket
+      totalAmount: number
     }
     const emptyBucket = (): ForecastBucket => ({ amount: 0, count: 0 })
     const createAggregation = (): ForecastAggregation => ({
@@ -464,6 +465,7 @@ export class InvoiceService {
       overdue: emptyBucket(),
       undated: emptyBucket(),
       beyondHorizon: emptyBucket(),
+      totalAmount: 0,
     })
     const receivable = createAggregation()
     const payable = createAggregation()
@@ -471,6 +473,7 @@ export class InvoiceService {
     const recordForecast = (aggregation: ForecastAggregation, date: Date, amount: number, entry: InvoiceForecastEntryDto) => {
       const dateString = date.toISOString().slice(0, 10)
       entries.push(entry)
+      if (dateString <= effectiveThroughDateString) aggregation.totalAmount += amount
       if (dateString < todayString) {
         aggregation.overdue.amount += amount
         aggregation.overdue.count += 1
@@ -512,20 +515,18 @@ export class InvoiceService {
         const dueDate = inv.dueDate instanceof Date ? inv.dueDate : new Date(inv.dueDate)
         if (!Number.isNaN(dueDate.getTime())) {
           const dateStr = dueDate.toISOString().slice(0, 10)
-          if (dateStr <= effectiveThroughDateString) {
-            const outstanding = money(inv.outstandingAmount)
-            if (outstanding > 0) {
-              const amountVnd = outstanding * rate
-              recordForecast(inv.direction === 'AR' ? receivable : payable, dueDate, amountVnd, {
-                date: dateStr,
-                direction: inv.direction,
-                amountVnd: moneyString(amountVnd),
-                invoiceId: inv.id,
-                installmentId: null,
-                invoiceNumber: inv.invoiceNumber ?? null,
-                partnerName: inv.direction === 'AR' ? (inv.buyerName ?? null) : (inv.sellerName ?? null),
-              })
-            }
+          const outstanding = money(inv.outstandingAmount)
+          if (outstanding > 0) {
+            const amountVnd = outstanding * rate
+            recordForecast(inv.direction === 'AR' ? receivable : payable, dueDate, amountVnd, {
+              date: dateStr,
+              direction: inv.direction,
+              amountVnd: moneyString(amountVnd),
+              invoiceId: inv.id,
+              installmentId: null,
+              invoiceNumber: inv.invoiceNumber ?? null,
+              partnerName: inv.direction === 'AR' ? (inv.buyerName ?? null) : (inv.sellerName ?? null),
+            })
           }
         }
       } else {
@@ -547,8 +548,6 @@ export class InvoiceService {
     const receivablePoints: InvoiceForecastSeriesPointDto[] = []
     const payablePoints: InvoiceForecastSeriesPointDto[] = []
     const series: InvoiceForecastSeriesPointDto[] = []
-    let totalAr = 0
-    let totalAp = 0
 
     for (const date of dates) {
       const arAmount = receivable.byDate.get(date)?.amount ?? 0
@@ -557,8 +556,6 @@ export class InvoiceService {
       receivableCumulative += arAmount
       payableCumulative += apAmount
       netCumulative += netAmount
-      totalAr += arAmount
-      totalAp += apAmount
       receivablePoints.push({ date, amount: moneyString(arAmount), count: receivable.byDate.get(date)?.count ?? 0, cumulative: moneyString(receivableCumulative), arAmount: moneyString(arAmount), apAmount: '0', netAmount: moneyString(arAmount) })
       payablePoints.push({ date, amount: moneyString(apAmount), count: payable.byDate.get(date)?.count ?? 0, cumulative: moneyString(payableCumulative), arAmount: '0', apAmount: moneyString(apAmount), netAmount: moneyString(-apAmount) })
       series.push({ date, amount: moneyString(netAmount), count: (receivable.byDate.get(date)?.count ?? 0) + (payable.byDate.get(date)?.count ?? 0), cumulative: moneyString(netCumulative), arAmount: moneyString(arAmount), apAmount: moneyString(apAmount), netAmount: moneyString(netAmount) })
@@ -583,9 +580,9 @@ export class InvoiceService {
       net: { points: series },
       series,
       totals: {
-        arAmount: moneyString(totalAr),
-        apAmount: moneyString(totalAp),
-        netAmount: moneyString(totalAr - totalAp),
+        arAmount: moneyString(receivable.totalAmount),
+        apAmount: moneyString(payable.totalAmount),
+        netAmount: moneyString(receivable.totalAmount - payable.totalAmount),
       },
     }
   }
