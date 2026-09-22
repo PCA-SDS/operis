@@ -17,6 +17,7 @@ const mockCreateRequestContainer = jest.fn()
 const mockGetAuthFromRequest = jest.fn()
 const mockEmitAppointmentEvent = jest.fn()
 const mockResolveOrganizationScopeForRequest = jest.fn()
+const mockCancelAssignmentsForSourceEntities = jest.fn()
 
 class Appointment {}
 class AppointmentStatus {}
@@ -53,6 +54,14 @@ jest.mock('@open-mercato/core/modules/directory/utils/organizationScope', () => 
     mockResolveOrganizationScopeForRequest(...args),
 }))
 
+jest.mock('@open-mercato/core/modules/resources/lib/resourceAssignmentService', () => ({
+  ResourceAssignmentService: class {
+    cancelAssignmentsForSourceEntities(...args: unknown[]) {
+      return mockCancelAssignmentsForSourceEntities(...args)
+    }
+  },
+}))
+
 const TENANT_ID = '11111111-1111-4111-8111-111111111111'
 const APPOINTMENT_ID = '22222222-2222-4222-8222-222222222222'
 const ORGANIZATION_ID = '33333333-3333-4333-8333-333333333333'
@@ -81,7 +90,7 @@ function buildAppointment() {
 function buildEm(appointment: ReturnType<typeof buildAppointment>) {
   return {
     flush: jest.fn().mockResolvedValue(undefined),
-    find: jest.fn().mockResolvedValue([]),
+    find: jest.fn(async (entity: unknown) => entity === AppointmentLine ? [{ id: 'line-1' }] : []),
     findOne: jest.fn(async (entity: unknown) => {
       if (entity === AppointmentStatus) {
         return Object.assign(new AppointmentStatus(), { id: 'status-1', code: 'confirmed' })
@@ -91,11 +100,11 @@ function buildEm(appointment: ReturnType<typeof buildAppointment>) {
   }
 }
 
-function patchRequest(headers: Record<string, string> = {}) {
+function patchRequest(statusCode = 'confirmed', headers: Record<string, string> = {}) {
   return new Request(`http://localhost/api/appointments/${APPOINTMENT_ID}`, {
     method: 'PATCH',
     headers: { 'content-type': 'application/json', ...headers },
-    body: JSON.stringify({ statusCode: 'confirmed' }),
+    body: JSON.stringify({ statusCode }),
   })
 }
 
@@ -122,15 +131,16 @@ describe('appointments detail route — optimistic locking', () => {
       resolve: () => ({ fork: () => em }),
     })
     mockEmitAppointmentEvent.mockResolvedValue(undefined)
+    mockCancelAssignmentsForSourceEntities.mockReset()
   })
 
-  async function patch(headers?: Record<string, string>) {
+  async function patch(statusCode = 'confirmed', headers?: Record<string, string>) {
     const { PATCH } = await import('../[id]/route')
-    return PATCH(patchRequest(headers), { params: Promise.resolve({ id: APPOINTMENT_ID }) })
+    return PATCH(patchRequest(statusCode, headers), { params: Promise.resolve({ id: APPOINTMENT_ID }) })
   }
 
   it('rejects a status change carrying a stale version', async () => {
-    const response = await patch({ [OPTIMISTIC_LOCK_HEADER_NAME]: STALE_UPDATED_AT })
+    const response = await patch('confirmed', { [OPTIMISTIC_LOCK_HEADER_NAME]: STALE_UPDATED_AT })
 
     expect(response.status).toBe(409)
     expect(em.flush).not.toHaveBeenCalled()
@@ -139,7 +149,7 @@ describe('appointments detail route — optimistic locking', () => {
   })
 
   it('applies the status change when the version matches', async () => {
-    const response = await patch({ [OPTIMISTIC_LOCK_HEADER_NAME]: STORED_UPDATED_AT })
+    const response = await patch('confirmed', { [OPTIMISTIC_LOCK_HEADER_NAME]: STORED_UPDATED_AT })
 
     expect(response.status).toBe(200)
     expect(appointment.statusCode).toBe('confirmed')
@@ -155,12 +165,32 @@ describe('appointments detail route — optimistic locking', () => {
     expect(appointment.statusCode).toBe('confirmed')
     expect(em.flush).toHaveBeenCalledTimes(1)
   })
+
+  it('cancels resource assignments when the appointment is cancelled', async () => {
+    em.findOne.mockImplementation(async (entity: unknown) => {
+      if (entity === AppointmentStatus) {
+        return Object.assign(new AppointmentStatus(), { id: 'status-1', code: 'cancelled' })
+      }
+      return appointment
+    })
+
+    const response = await patch('cancelled', { [OPTIMISTIC_LOCK_HEADER_NAME]: STORED_UPDATED_AT })
+
+    expect(response.status).toBe(200)
+    expect(mockCancelAssignmentsForSourceEntities).toHaveBeenCalledWith({
+      tenantId: TENANT_ID,
+      organizationId: ORGANIZATION_ID,
+      sourceModule: 'appointment',
+      sourceEntityType: 'appointment_line',
+      sourceEntityIds: ['line-1'],
+    })
+  })
   it('scopes the lookup by organization, not tenant alone', async () => {
     // Organization is an authorization boundary, not just a filter: without the
     // predicate any holder of `appointments.view` in one branch could read and
     // re-status another branch's appointment — and the rows carry customer name,
     // phone, email and notes.
-    await patch({ [OPTIMISTIC_LOCK_HEADER_NAME]: STORED_UPDATED_AT })
+    await patch('confirmed', { [OPTIMISTIC_LOCK_HEADER_NAME]: STORED_UPDATED_AT })
 
     const appointmentLookup = em.findOne.mock.calls.find((call) => call[0] === Appointment)
     expect(appointmentLookup).toBeDefined()
@@ -182,7 +212,7 @@ describe('appointments detail route — optimistic locking', () => {
     })
     mockGetAuthFromRequest.mockResolvedValue({ tenantId: TENANT_ID, sub: 'user-1' })
 
-    await patch({ [OPTIMISTIC_LOCK_HEADER_NAME]: STORED_UPDATED_AT })
+    await patch('confirmed', { [OPTIMISTIC_LOCK_HEADER_NAME]: STORED_UPDATED_AT })
 
     const appointmentLookup = em.findOne.mock.calls.find((call) => call[0] === Appointment)
     expect(appointmentLookup![1]).not.toHaveProperty('organizationId')

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { CalendarCheck, Check, ListFilter, Settings, Eye, Edit, Copy, LayoutPanelTop, Trash2 } from 'lucide-react'
+import { CalendarCheck, Check, ListFilter, Settings, Eye, Edit, Copy, LayoutPanelTop, Trash2, X } from 'lucide-react'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
@@ -17,9 +17,11 @@ import { emitOrganizationScopeChanged } from '@open-mercato/shared/lib/frontend/
 import { useOrganizationScopeDetail, useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { buildHrefWithReturnTo } from '@open-mercato/shared/lib/navigation/returnTo'
-import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
+import type { FilterValues } from '@open-mercato/ui/backend/FilterBar'
+import type { FilterDef } from '@open-mercato/ui/backend/FilterOverlay'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
+import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { AppointmentContactCell } from '../../components/AppointmentContactCell'
 import { AppointmentNotesCell } from '../../components/AppointmentNotesCell'
 import { AppointmentStatusSelect } from '../../components/AppointmentStatusSelect'
@@ -30,6 +32,11 @@ import { AppointmentStatusBadge } from '../../components/AppointmentStatusBadge'
 import { APPOINTMENT_BOOKING_TYPE_OPTIONS } from '../../data/constants'
 import { formatCustomerDisplayName } from '../../lib/customerName'
 import { formatCustomerPhone } from '../../lib/phoneSnapshot'
+import { DateRangePicker } from '@open-mercato/ui/primitives/date-range-picker'
+import type { DateRange } from '@open-mercato/ui/backend/date-range/dateRanges'
+import { FilterBar } from '@open-mercato/ui/backend/FilterBar'
+import { format } from 'date-fns/format'
+import { getAppointmentPermissionSet } from '../../lib/permissions'
 
 type Row = {
   id: string
@@ -52,7 +59,7 @@ type Row = {
   scheduleConfirmationStatus: 'confirmed' | 'unconfirmed' | 'not_applicable'
 }
 
-type ListPayload = { items: Row[] }
+type ListPayload = { items: Row[]; total?: number; totalPages?: number }
 
 type StatusOption = { code: string; label: string }
 
@@ -189,32 +196,14 @@ function StatusFilterButton({
   )
 }
 
-function matchesSearch(row: Row, query: string, statusLabel: string | undefined): boolean {
-  const needle = query.trim().toLowerCase()
-  if (!needle) return true
-  const haystack = [
-    formatCustomerDisplayName(row.customerSalutation, row.customerName),
-    row.customerName,
-    row.organizationName ?? '',
-    row.customerEmail ?? '',
-    formatCustomerPhone(row.customerPhoneCountryCode, row.customerPhone),
-    row.customerPhone ?? '',
-    row.bookingType ?? '',
-    row.bookingType ? formatBookingType(row.bookingType, '') : '',
-    row.statusCode,
-    statusLabel ?? '',
-    row.notes ?? '',
-    row.externalNotes ?? '',
-    row.id,
-  ]
-    .join(' ')
-    .toLowerCase()
-  return haystack.includes(needle)
-}
-
 export default function AppointmentsListPage() {
   const t = useT()
   const pathname = usePathname()
+  const { payload: backendChromePayload, isReady: backendChromeReady } = useBackendChrome()
+  const { canCreate, canManage, canManageSettings, canViewSeatPlanner } = getAppointmentPermissionSet(
+    backendChromePayload?.grantedFeatures,
+    backendChromeReady,
+  )
   const scopeVersion = useOrganizationScopeVersion()
   const { tenantId: scopeTenantId } = useOrganizationScopeDetail()
   const [rows, setRows] = React.useState<Row[]>([])
@@ -222,6 +211,8 @@ export default function AppointmentsListPage() {
   const [search, setSearch] = React.useState('')
   const [page, setPage] = React.useState(1)
   const [pageSize, setPageSize] = React.useState(10)
+  const [total, setTotal] = React.useState(0)
+  const [totalPages, setTotalPages] = React.useState(1)
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [selectedStatusCodes, setSelectedStatusCodes] = React.useState<Set<string>>(() => new Set())
   const [reloadToken, setReloadToken] = React.useState(0)
@@ -280,6 +271,25 @@ export default function AppointmentsListPage() {
     }
   }, [scopeVersion])
 
+  const queryParams = React.useMemo(() => {
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize),
+    })
+    if (search.trim()) params.set('search', search.trim())
+    if (selectedStatusCodes.size > 0) {
+      params.set('statusCode', Array.from(selectedStatusCodes).join(','))
+    }
+    const requestedStartRange = filterValues.requestedStartRange as { from?: unknown; to?: unknown } | undefined
+    if (typeof requestedStartRange?.from === 'string' && requestedStartRange.from.trim()) {
+      params.set('requestedStartAtFrom', requestedStartRange.from.trim())
+    }
+    if (typeof requestedStartRange?.to === 'string' && requestedStartRange.to.trim()) {
+      params.set('requestedStartAtTo', requestedStartRange.to.trim())
+    }
+    return params.toString()
+  }, [page, pageSize, search, selectedStatusCodes, filterValues.requestedStartRange])
+
   const filters = React.useMemo<FilterDef[]>(
     () => [],
     [],
@@ -292,7 +302,7 @@ export default function AppointmentsListPage() {
       if (!hasLoadedAppointmentsRef.current) setIsLoading(true)
       try {
         const call = await apiCall<ListPayload>(
-          '/api/appointments',
+          `/api/appointments?${queryParams}`,
           { signal: controller.signal },
           { fallback: { items: [] } },
         )
@@ -309,6 +319,8 @@ export default function AppointmentsListPage() {
         }
         if (!cancelled) {
           setRows(Array.isArray(call.result?.items) ? call.result.items : [])
+          setTotal(typeof call.result?.total === 'number' ? call.result.total : 0)
+          setTotalPages(typeof call.result?.totalPages === 'number' ? call.result.totalPages : 1)
           hasLoadedAppointmentsRef.current = true
         }
       } catch (error) {
@@ -330,7 +342,7 @@ export default function AppointmentsListPage() {
       cancelled = true
       controller.abort()
     }
-  }, [reloadToken, scopeVersion, t])
+  }, [queryParams, reloadToken, scopeVersion, t])
 
   const { ConfirmDialogElement, confirm } = useConfirmDialog()
 
@@ -378,39 +390,39 @@ export default function AppointmentsListPage() {
       }
       flash(t('appointments.delete.success', 'Appointment deleted'), 'success')
       setRows((current) => current.filter((r) => r.id !== row.id))
+      setTotal((current) => Math.max(0, current - 1))
+      setReloadToken((current) => current + 1)
     } catch (error) {
       const message = error instanceof Error ? error.message : t('appointments.delete.failed', 'Unable to delete appointment.')
       flash(message, 'error')
     }
   }, [confirm, t])
 
-  const statusLabelByCode = React.useMemo(() => {
-    const map = new Map<string, string>()
-    for (const option of statusOptions) {
-      map.set(option.code, option.label)
-    }
-    return map
-  }, [statusOptions])
-
-  const visibleRows = React.useMemo(
-    () =>
-      rows.filter(
-        (row) =>
-          (selectedStatusCodes.size === 0 || selectedStatusCodes.has(row.statusCode)) &&
-          matchesSearch(row, search, statusLabelByCode.get(row.statusCode)),
-      ),
-    [rows, search, selectedStatusCodes, statusLabelByCode],
-  )
-  const totalPages = Math.ceil(visibleRows.length / pageSize)
   const currentPage = totalPages === 0 ? 1 : Math.min(page, totalPages)
-  const paginatedRows = React.useMemo(
-    () => visibleRows.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-    [currentPage, pageSize, visibleRows],
-  )
 
   React.useEffect(() => {
     if (page !== currentPage) setPage(currentPage)
   }, [currentPage, page])
+
+  const bookingDateRange = React.useMemo<DateRange | null>(() => {
+    const value = filterValues.requestedStartRange as { from?: unknown; to?: unknown } | undefined
+    const from = typeof value?.from === 'string' && value.from ? new Date(`${value.from}T00:00:00.000Z`) : null
+    const to = typeof value?.to === 'string' && value.to ? new Date(`${value.to}T00:00:00.000Z`) : null
+    if (from && Number.isNaN(from.getTime())) return null
+    if (to && Number.isNaN(to.getTime())) return null
+    if (!from && !to) return null
+    return { start: from ?? to!, end: to ?? from! }
+  }, [filterValues.requestedStartRange])
+
+  const handleBookingDateRangeChange = React.useCallback((next: DateRange | null) => {
+    setFilterValues((current) => ({
+      ...current,
+      requestedStartRange: next
+        ? { from: format(next.start, 'yyyy-MM-dd'), to: format(next.end, 'yyyy-MM-dd') }
+        : undefined,
+    }))
+    setPage(1)
+  }, [])
 
   const columns = React.useMemo<ColumnDef<Row>[]>(
     () => [
@@ -554,6 +566,7 @@ export default function AppointmentsListPage() {
             appointmentId={row.original.id}
             statusCode={row.original.statusCode}
             statuses={statusOptions}
+            disabled={!canManage}
             onStatusChange={(nextCode) => handleRowStatusChange(row.original.id, nextCode)}
           />
         ),
@@ -569,30 +582,38 @@ export default function AppointmentsListPage() {
                 <Eye className="h-3.5 w-3.5" />
               </Link>
             </Button>
-            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.edit', 'Edit Booking')}>
-              <Link href={`/backend/appointments/${row.original.id}/edit`}>
-                <Edit className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.clone', 'Clone Booking')} onClick={() => void handleClone(row.original)}>
-              <Copy className="h-3.5 w-3.5" />
-            </Button>
-            <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.planner', 'Open Seat Planner')}>
-              <Link
-                href={`/backend/appointments/${row.original.id}/seat-planner`}
-                onClick={() => prepareSeatPlannerScope(row.original.organizationId)}
-              >
-                <LayoutPanelTop className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" title={t('appointments.list.actions.delete', 'Delete Booking')} onClick={() => void handleDelete(row.original)}>
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            {canManage ? (
+              <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.edit', 'Edit Booking')}>
+                <Link href={`/backend/appointments/${row.original.id}/edit`}>
+                  <Edit className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            ) : null}
+            {canCreate ? (
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.clone', 'Clone Booking')} onClick={() => void handleClone(row.original)}>
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+            ) : null}
+            {canViewSeatPlanner ? (
+              <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.planner', 'Open Seat Planner')}>
+                <Link
+                  href={`/backend/appointments/${row.original.id}/seat-planner`}
+                  onClick={() => prepareSeatPlannerScope(row.original.organizationId)}
+                >
+                  <LayoutPanelTop className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            ) : null}
+            {canManage ? (
+              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" title={t('appointments.list.actions.delete', 'Delete Booking')} onClick={() => void handleDelete(row.original)}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            ) : null}
           </div>
         ),
       },
     ],
-    [handleClone, handleDelete, handleRowStatusChange, prepareSeatPlannerScope, statusOptions, t],
+    [canCreate, canManage, canViewSeatPlanner, handleClone, handleDelete, handleRowStatusChange, prepareSeatPlannerScope, selectedStatusCodes, statusOptions, t],
   )
 
   return (
@@ -600,6 +621,43 @@ export default function AppointmentsListPage() {
       <PageBody>
         <DataTable
           title={t('appointments.list.title')}
+          toolbar={(
+            <FilterBar
+              searchValue={search}
+              onSearchChange={(value) => {
+                setSearch(value)
+                setPage(1)
+              }}
+              searchPlaceholder={t('appointments.list.search.placeholder', 'Search bookings…')}
+              trailingItems={(
+                <div className="flex items-center gap-2">
+                  <DateRangePicker
+                    value={bookingDateRange}
+                    onChange={handleBookingDateRangeChange}
+                    placeholder={t('appointments.list.filters.bookingDate', 'Booking date')}
+                    aria-label={t('appointments.list.filters.bookingDate', 'Booking date')}
+                    size="sm"
+                    showPresets={false}
+                    numberOfMonths={1}
+                    showRangeLabel={false}
+                    className="w-auto min-w-40 max-w-56"
+                  />
+                  {bookingDateRange ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t('appointments.list.filters.clearBookingDate', 'Clear booking date')}
+                      title={t('appointments.list.filters.clearBookingDate', 'Clear booking date')}
+                      onClick={() => handleBookingDateRangeChange(null)}
+                    >
+                      <X className="size-4" aria-hidden="true" />
+                    </Button>
+                  ) : null}
+                </div>
+              )}
+            />
+          )}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <Button asChild variant="outline">
@@ -607,25 +665,29 @@ export default function AppointmentsListPage() {
                   {t('appointments.list.actions.overview', 'Booking Overview')}
                 </Link>
               </Button>
-              <Button asChild variant="outline">
-                <Link href={statusesSettingsHref}>
-                  <Settings className="size-4" aria-hidden="true" />
-                  {t('appointments.list.actions.configureStatuses', 'Configure statuses')}
-                </Link>
-              </Button>
-              <Button asChild>
-                <Link href="/backend/appointments/create">
-                  {t('appointments.list.actions.create')}
-                </Link>
-              </Button>
+              {canManageSettings ? (
+                <Button asChild variant="outline">
+                  <Link href={statusesSettingsHref}>
+                    <Settings className="size-4" aria-hidden="true" />
+                    {t('appointments.list.actions.configureStatuses', 'Configure statuses')}
+                  </Link>
+                </Button>
+              ) : null}
+              {canCreate ? (
+                <Button asChild>
+                  <Link href="/backend/appointments/create">
+                    {t('appointments.list.actions.create')}
+                  </Link>
+                </Button>
+              ) : null}
             </div>
           }
           columns={columns}
-          data={paginatedRows}
+          data={rows}
           pagination={{
             page: currentPage,
             pageSize,
-            total: visibleRows.length,
+            total,
             totalPages,
             onPageChange: setPage,
             pageSizeOptions: [10, 25, 50, 100],
@@ -634,16 +696,6 @@ export default function AppointmentsListPage() {
               setPage(1)
             },
           }}
-          filters={filters}
-          filterValues={filterValues}
-          onFiltersApply={(values) => setFilterValues(values)}
-          onFiltersClear={() => setFilterValues({})}
-          searchValue={search}
-          onSearchChange={(value) => {
-            setSearch(value)
-            setPage(1)
-          }}
-          searchPlaceholder={t('appointments.list.search.placeholder', 'Search bookings…')}
           isLoading={isLoading}
         />
         {ConfirmDialogElement}

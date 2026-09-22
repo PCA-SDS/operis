@@ -138,6 +138,55 @@ describe('staff assignable team-members route', () => {
     )
   })
 
+  it('excludes members with approved full-day leave in the requested time range', async () => {
+    mockUserHasAllFeatures.mockResolvedValueOnce(true)
+    const em = {
+      find: jest.fn().mockResolvedValue([
+        {
+          subjectId: '11111111-1111-1111-1111-111111111111',
+          kind: 'unavailability',
+          rrule: 'DTSTART:20260923T000000Z\nDURATION:PT24H\nRRULE:FREQ=DAILY;COUNT=1',
+          exdates: [],
+        },
+      ]),
+    }
+    mockResolveCustomersRequestContext.mockResolvedValueOnce({
+      container: {
+        resolve: (token: string) => token === 'rbacService' ? { userHasAllFeatures: mockUserHasAllFeatures } : null,
+      },
+      em,
+      auth: { sub: 'user-actor', tenantId: 'tenant-1', orgId: 'org-1' },
+      scope: { selectedId: 'org-1', filterIds: ['org-1'], allowedIds: null, tenantId: 'tenant-1' },
+      selectedOrganizationId: 'org-1',
+    })
+    mockFindWithDecryption
+      .mockResolvedValueOnce([
+        {
+          id: '11111111-1111-1111-1111-111111111111',
+          displayName: 'On Leave',
+          userId: null,
+          teamId: null,
+        },
+        {
+          id: '44444444-4444-4444-4444-444444444444',
+          displayName: 'Available',
+          userId: null,
+          teamId: null,
+        },
+      ])
+
+    const { GET } = await import('../route')
+    const response = await GET(new Request(
+      'http://localhost/api/staff/team-members/assignable?includeUnlinked=true&startsAt=2026-09-23T02:00:00.000Z&endsAt=2026-09-23T02:30:00.000Z',
+    ))
+    const body = (await response.json()) as Record<string, unknown>
+
+    expect(response.status).toBe(200)
+    expect(body.items).toEqual([
+      expect.objectContaining({ id: '44444444-4444-4444-4444-444444444444', displayName: 'Available' }),
+    ])
+  })
+
   it('includes active team members without auth users when requested', async () => {
     mockUserHasAllFeatures.mockResolvedValueOnce(true)
     mockFindWithDecryption.mockResolvedValueOnce([
