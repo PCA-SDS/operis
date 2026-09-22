@@ -15,7 +15,6 @@ import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { countByCategory } from '../../lib/calendar/categories'
 import { findConflicts } from '../../lib/calendar/conflicts'
 import { getVisibleRange, shiftAnchor } from '../../lib/calendar/range'
 import { resolveJoinUrl } from '../../lib/calendar/mapItem'
@@ -25,14 +24,11 @@ import {
   formatWallClockTime,
   taskScheduleChangeFor,
 } from '../../lib/calendar/taskItem'
-import { AgendaList } from './AgendaList'
 import { CalendarSkeleton } from './CalendarSkeleton'
 import { CalendarHeader } from './CalendarHeader'
-import { CalendarScopeBar } from './CalendarScopeBar'
 import { CalendarToolbar } from './CalendarToolbar'
 import { MonthGrid } from './MonthGrid'
 import { TimeGrid } from './TimeGrid'
-import { UpcomingCards } from './UpcomingCards'
 import { CalendarSettingsModal } from './CalendarSettingsModal'
 import { useCalendarPreferences } from './useCalendarPreferences'
 import { MAX_WINDOW_ITEMS, useCalendarItems } from './useCalendarItems'
@@ -43,9 +39,7 @@ import type {
   CalendarFiltersValue,
   CalendarInteractionItem,
   CalendarItem,
-  CalendarRangePreset,
   CalendarReschedule,
-  CalendarTab,
   CalendarTaskItem,
   CalendarView,
   UpcomingCard,
@@ -61,7 +55,6 @@ const CalendarEventEditor = dynamic(
 const SEARCH_DEBOUNCE_MS = 200
 const PHONE_BREAKPOINT_PX = 640
 const HIGHLIGHT_CLEAR_MS = 3000
-const DEFAULT_AGENDA_HORIZON_DAYS = 7
 const UPCOMING_CARDS_COUNT = 4
 /** Never shrink the grid below a readable working stretch. */
 const MIN_GRID_HEIGHT_PX = 320
@@ -135,15 +128,11 @@ export function CalendarScreen({
   const t = useT()
   const [view, setView] = React.useState<CalendarView>('week')
   const [anchor, setAnchor] = React.useState<Date>(() => new Date())
-  const [agendaHorizonDays, setAgendaHorizonDays] = React.useState(DEFAULT_AGENDA_HORIZON_DAYS)
-  const [preset, setPreset] = React.useState<CalendarRangePreset | null>('thisWeek')
 
   React.useEffect(() => {
     if (window.innerWidth >= PHONE_BREAKPOINT_PX) return
     setView('day')
-    setPreset(null)
   }, [])
-  const [tab, setTab] = React.useState<CalendarTab>('all')
   const [searchText, setSearchText] = React.useState('')
   const [debouncedSearch, setDebouncedSearch] = React.useState('')
   const [filters, setFilters] = React.useState<CalendarFiltersValue>(EMPTY_FILTERS)
@@ -164,8 +153,8 @@ export function CalendarScreen({
   const { preferences, setPreferences, hydrated: preferencesHydrated, userId: currentUserId } = useCalendarPreferences()
 
   const range = React.useMemo(
-    () => getVisibleRange(view, anchor, agendaHorizonDays),
-    [view, anchor, agendaHorizonDays],
+    () => getVisibleRange(view, anchor),
+    [view, anchor],
   )
   const {
     items,
@@ -249,13 +238,12 @@ export function CalendarScreen({
     [searchedItems, filters, preferences.showCrmActivities],
   )
 
-  const tabCounts = React.useMemo(() => countByCategory(baseItems), [baseItems])
-
-  const viewItems = React.useMemo(() => {
-    if (tab === 'meetings') return baseItems.filter((item) => item.category === 'meeting')
-    if (tab === 'events') return baseItems.filter((item) => item.category === 'event')
-    return baseItems
-  }, [baseItems, tab])
+  /* Every item in range is every item shown. The All Scheduled / Meetings /
+     Events toggle used to narrow this by category; with the toggle gone there
+     is no way to select a category, so the filter had exactly one reachable
+     branch and `viewItems` is `baseItems`. Narrowing now belongs to the Filter
+     popover, which is where the rest of the scoping already lives. */
+  const viewItems = baseItems
 
   const conflictMap = React.useMemo(
     () => findConflicts(baseItems, { scope: preferences.conflictScope, currentUserId }),
@@ -433,52 +421,33 @@ export function CalendarScreen({
 
   const handleToday = React.useCallback(() => {
     setAnchor(new Date())
-    setPreset(null)
   }, [])
 
-  const handlePresetChange = React.useCallback((next: CalendarRangePreset) => {
-    setPreset(next)
-    setAnchor(new Date())
-    if (next === 'thisWeek') {
-      setView('week')
-    } else if (next === 'thisMonth') {
-      setView('month')
-    } else {
-      setView('agenda')
-      setAgendaHorizonDays(next === 'next30' ? 30 : DEFAULT_AGENDA_HORIZON_DAYS)
-    }
-  }, [])
 
   const handleAnchorChange = React.useCallback((date: Date) => {
     setAnchor(date)
-    setPreset(null)
   }, [])
 
   const handleViewChange = React.useCallback((next: CalendarView) => {
     setView(next)
-    setPreset(null)
   }, [])
 
   const handlePrevious = React.useCallback(() => {
     setAnchor((current) => shiftAnchor(view, current, -1))
-    setPreset(null)
   }, [view])
 
   const handleNext = React.useCallback(() => {
     setAnchor((current) => shiftAnchor(view, current, 1))
-    setPreset(null)
   }, [view])
 
   const handleDayOpen = React.useCallback((date: Date) => {
     setView('day')
     setAnchor(date)
-    setPreset(null)
   }, [])
 
   const handleSeeConflict = React.useCallback((item: CalendarItem) => {
     setView('week')
     setAnchor(item.start)
-    setPreset(null)
     setHighlightItemId(item.id)
   }, [])
 
@@ -749,31 +718,21 @@ export function CalendarScreen({
         case 'T':
           event.preventDefault()
           setAnchor(new Date())
-          setPreset(null)
           break
         case 'd':
         case 'D':
           event.preventDefault()
           setView('day')
-          setPreset(null)
           break
         case 'w':
         case 'W':
           event.preventDefault()
           setView('week')
-          setPreset(null)
           break
         case 'm':
         case 'M':
           event.preventDefault()
           setView('month')
-          setPreset(null)
-          break
-        case 'a':
-        case 'A':
-          event.preventDefault()
-          setView('agenda')
-          setPreset(null)
           break
         case 'n':
         case 'N':
@@ -850,16 +809,6 @@ export function CalendarScreen({
         onCreateAt={canManage ? handleCreateAt : undefined}
       />
     )
-  } else if (view === 'agenda') {
-    viewArea = (
-      <AgendaList
-        anchor={anchor}
-        horizonDays={agendaHorizonDays}
-        items={viewItems}
-        typeLabels={typeLabels}
-        onItemClick={openEditEditor}
-      />
-    )
   } else {
     viewArea = (
       <TimeGrid
@@ -892,45 +841,22 @@ export function CalendarScreen({
         onViewChange={handleViewChange}
         onNewEvent={canManage ? openCreateEditor : undefined}
         onNewTask={tasksEnabled && canEditTasks ? () => openCreateTask() : undefined}
-      />
-      <CalendarScopeBar
-        tab={tab}
-        counts={tabCounts}
-        range={range}
-        anchor={anchor}
-        preset={preset}
-        status={calendarStatus}
-        trailing={
-          <CalendarToolbar
-            anchor={anchor}
-            search={searchText}
-            filters={filters}
-            typeOptions={typeOptions}
-            ownerOptions={ownerOptions}
-            onAnchorChange={handleAnchorChange}
-            onSearchChange={setSearchText}
-            onFiltersChange={setFilters}
-          />
+        controls={
+          <>
+            {calendarStatus}
+            <CalendarToolbar
+              anchor={anchor}
+              search={searchText}
+              filters={filters}
+              typeOptions={typeOptions}
+              ownerOptions={ownerOptions}
+              onAnchorChange={handleAnchorChange}
+              onSearchChange={setSearchText}
+              onFiltersChange={setFilters}
+            />
+          </>
         }
-        onTabChange={setTab}
-        onPresetChange={handlePresetChange}
-        onAnchorChange={handleAnchorChange}
-        onOpenSettings={() => setSettingsOpen(true)}
       />
-      {/* The next-up strip belongs with the agenda, which is the view that
-          exists to answer "what is coming". Day, week and month answer it with
-          the grid itself, and give the grid the height instead. */}
-      {view === 'agenda' ? (
-        <UpcomingCards
-          cards={upcomingCards}
-          canManage={canManage}
-          onJoin={handleJoin}
-          onSeeConflict={handleSeeConflict}
-          onOpen={openEditEditor}
-          onEdit={openEditEditor}
-          onCancel={handleCancelItem}
-        />
-      ) : null}
       {/* The grid takes whatever the window has left. Measured rather than
           inherited: the backend shell's `<main>` never passes a definite height
           down, so a `h-full` grid would grow to all 24 hours and push the page

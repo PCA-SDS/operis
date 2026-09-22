@@ -189,7 +189,7 @@ export function TimeGrid({
   const anchorMs = anchor.getTime()
 
   const dayStarts = React.useMemo(() => {
-    const rangeStart = getVisibleRange(days === 7 ? 'week' : 'day', new Date(anchorMs), 0).from
+    const rangeStart = getVisibleRange(days === 7 ? 'week' : 'day', new Date(anchorMs)).from
     const all = Array.from({ length: days }, (_, index) => addCalendarDays(rangeStart, index))
     return days === 7 ? applyWeekendVisibility(all, showWeekends, new Date()) : all
   }, [days, anchorMs, showWeekends])

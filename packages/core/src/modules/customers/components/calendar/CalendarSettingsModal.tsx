@@ -46,7 +46,6 @@ export const CALENDAR_SHORTCUTS: ReadonlyArray<{
   { key: 'D', labelKey: 'customers.calendar.shortcuts.dayView', fallback: 'Day view' },
   { key: 'W', labelKey: 'customers.calendar.shortcuts.week', fallback: 'Week' },
   { key: 'M', labelKey: 'customers.calendar.shortcuts.month', fallback: 'Month' },
-  { key: 'A', labelKey: 'customers.calendar.shortcuts.agenda', fallback: 'Agenda' },
   { key: 'N', labelKey: 'customers.calendar.shortcuts.newEvent', fallback: 'New event' },
   { key: '/', labelKey: 'customers.calendar.shortcuts.search', fallback: 'Search' },
   { key: '?', labelKey: 'customers.calendar.shortcuts.help', fallback: 'Shortcuts' },

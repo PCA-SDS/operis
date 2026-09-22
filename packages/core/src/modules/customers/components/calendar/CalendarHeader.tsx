@@ -79,12 +79,12 @@ export function CalendarHeader({
   onViewChange,
   onNewEvent,
   onNewTask,
+  controls,
 }: CalendarHeaderProps) {
   const t = useT()
   const locale = useLocale()
 
   const title = React.useMemo(() => {
-    if (view === 'agenda') return t('customers.calendar.header.titleAgenda', 'Upcoming')
     return formatHeaderLabel(locale, view, anchor, range)
   }, [view, anchor, range, locale, t])
 
@@ -117,7 +117,7 @@ export function CalendarHeader({
           component docblock. That means each primitive's own `default`, except
           `IconButton`, whose scale is one step down from `Button`'s and needs
           `lg` to reach the same box. */}
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         {onToday ? (
           <Button type="button" variant="outline" className={cn("shrink-0", CHROME_FLAT_CONTROL)} onClick={onToday}>
             {t('customers.calendar.toolbar.today', 'Today')}
@@ -150,12 +150,21 @@ export function CalendarHeader({
         {/* Light weight, generous size: the date is the largest thing on the bar
             because it is the one fact the whole grid is answering. */}
         <h1
-          className="min-w-0 flex-1 truncate text-lg font-normal leading-tight text-foreground sm:text-xl"
+          className="min-w-0 truncate text-lg font-normal leading-tight text-foreground sm:text-xl"
           aria-live="polite"
         >
           {title}
         </h1>
       </div>
+      {/* Everything that is not the date cluster lives in one right-hand group
+          so the bar is a single row: search first, then the create action, then
+          the view switcher last. `flex-1 justify-end` is what pushes the group
+          to the far edge — the date cluster beside it HUGS, which is the whole
+          point. The cluster used to carry `flex-1` too, so the two halves
+          fought for the row and the date was the loser: it truncated to "T.."
+          while the controls kept their full width. */}
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+        {controls}
       {/* Create actions lead the cluster, then the view switcher, then the
           shortcuts affordance. The create buttons are the only things on this
           bar that add something rather than re-frame what is already there, so
@@ -204,9 +213,9 @@ export function CalendarHeader({
           <SegmentedControlItem className={CHROME_SEGMENTED_ITEM} value="day">{t('customers.calendar.views.day', 'Day')}</SegmentedControlItem>
           <SegmentedControlItem className={CHROME_SEGMENTED_ITEM} value="week">{t('customers.calendar.views.week', 'Week')}</SegmentedControlItem>
           <SegmentedControlItem className={CHROME_SEGMENTED_ITEM} value="month">{t('customers.calendar.views.month', 'Month')}</SegmentedControlItem>
-          <SegmentedControlItem className={CHROME_SEGMENTED_ITEM} value="agenda">{t('customers.calendar.views.agenda', 'Agenda')}</SegmentedControlItem>
         </SegmentedControl>
       ) : null}
+      </div>
     </header>
   )
 }

@@ -36,7 +36,7 @@ const ROW_UNIT_PX = BAR_ROW_HEIGHT_PX + BAR_ROW_GAP_PX
 const BAR_OVERLAY_TOP_PX = CELL_PADDING_PX + DATE_ROW_HEIGHT_PX
 
 function buildWeeks(anchor: Date): Date[][] {
-  const range = getVisibleRange('month', anchor, 0)
+  const range = getVisibleRange('month', anchor)
   const weeks: Date[][] = []
   let cursor = range.from
   while (cursor.getTime() <= range.to.getTime()) {

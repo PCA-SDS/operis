@@ -54,7 +54,8 @@ describe('CalendarHeader', () => {
 
     const viewSwitcher = getByRole('radiogroup', { name: 'Calendar view' })
     expect(viewSwitcher.getAttribute('data-slot')).toBe('segmented-control')
-    expect(viewSwitcher.querySelectorAll('[role="radio"]')).toHaveLength(4)
+    // Day / Week / Month. Agenda was removed with the view itself.
+    expect(viewSwitcher.querySelectorAll('[role="radio"]')).toHaveLength(3)
   })
 
   it('marks the active view as the checked segment', () => {
@@ -81,14 +82,21 @@ describe('CalendarHeader', () => {
     expect(getByRole('button', { name: 'Next month' })).toBeInTheDocument()
   })
 
-  it('keeps search and filters off the bar, so the date label is never squeezed out', () => {
-    const { getByRole, queryByRole } = renderHeader({ view: 'day' })
+  it('lets the date cluster hug so the controls cannot squeeze the label out', () => {
+    // Search now shares this row rather than sitting on a second one, so the
+    // two halves have to be told which of them absorbs the slack. The date
+    // cluster HUGS; the right-hand group carries `flex-1 justify-end`. When the
+    // cluster also had `flex-1` the two fought for the row and the date lost —
+    // it truncated to "T.." while the controls kept their full width.
+    const { getByRole } = renderHeader({ view: 'day' })
 
-    expect(queryByRole('textbox')).toBeNull()
-    expect(queryByRole('button', { name: 'Filter' })).toBeNull()
     const heading = getByRole('heading', { level: 1 })
     expect(heading.className).toContain('min-w-0')
-    expect(heading.className).toContain('flex-1')
+    expect(heading.className).toContain('truncate')
+    expect(heading.className).not.toContain('flex-1')
+
+    const cluster = heading.parentElement as HTMLElement
+    expect(cluster.className).not.toContain('flex-1')
   })
 
   it('does not duplicate the settings affordance — the scope row\'s gear is the only one', () => {
@@ -118,12 +126,6 @@ describe('CalendarHeader', () => {
       expect(control.className).toMatch(/\b(h-9|size-9)\b/)
       expect(control.className).not.toMatch(/\b(size-6|size-7|size-8|h-7|h-8|h-10|h-11)\b/)
     }
-  })
-
-  it('titles the agenda view by name rather than by date range', () => {
-    const { getByRole } = renderHeader({ view: 'agenda' })
-
-    expect(getByRole('heading', { level: 1 })).toHaveTextContent('Upcoming')
   })
 
   it('omits controls the caller does not supply, so a read-only user sees no create action', () => {

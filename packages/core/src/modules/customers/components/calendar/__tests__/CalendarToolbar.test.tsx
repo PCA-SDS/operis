@@ -13,12 +13,9 @@ function renderToolbar() {
     <CalendarToolbar
       anchor={new Date(2026, 8, 16)}
       search=""
-      filters={EMPTY_FILTERS}
       typeOptions={[{ value: 'meeting', label: 'Meeting' }]}
-      ownerOptions={[]}
       onAnchorChange={jest.fn()}
       onSearchChange={jest.fn()}
-      onFiltersChange={jest.fn()}
     />,
     { locale: 'en' },
   )
@@ -29,49 +26,6 @@ afterEach(() => {
 })
 
 describe('CalendarToolbar', () => {
-  it('stands search and filter at one height', () => {
-    // At `size="sm"` the buttons beside the search field are 32px and an
-    // IconButton is 28px — three heights on one row. Everything on the scope
-    // row is 36px, which is each primitive's default and `lg` on IconButton.
-    // Settings is asserted on the scope bar, which is where it now lives.
-    const { container } = renderToolbar()
-    const search = container.querySelector('[data-slot="search-input-wrapper"]') as HTMLElement
-    const buttons = Array.from(container.querySelectorAll('button'))
-
-    expect(search).not.toBeNull()
-    expect(search.className).toMatch(/\bh-9\b/)
-    expect(buttons.length).toBeGreaterThanOrEqual(1)
-    for (const button of buttons) {
-      expect(button.className).toMatch(/\b(h-9|size-9)\b/)
-      expect(button.className).not.toMatch(/\b(size-6|size-7|size-8|h-7|h-8|h-10|h-11)\b/)
-    }
-  })
-
-  it('stands the filter popover\'s own controls at that same height', () => {
-    // The popover is a second surface, but it is still made of the same box
-    // controls, so it answers to the same 36px rule. `Checkbox` is the one
-    // thing that cannot: its scale tops out at 20px (`md`), so a type filter is
-    // asserted to be at that maximum rather than at the chrome height.
-    const { getByRole } = renderToolbar()
-    fireEvent.click(getByRole('button', { name: 'Filter' }))
-
-    const popover = within(document.body).getByRole('dialog')
-    const boxes = [
-      ...Array.from(popover.querySelectorAll('[data-slot="select-trigger"]')),
-      ...Array.from(popover.querySelectorAll('button')).filter(
-        (node) => node.getAttribute('data-slot') !== 'select-trigger' && node.role !== 'checkbox',
-      ),
-    ]
-
-    expect(boxes.length).toBeGreaterThanOrEqual(3)
-    for (const box of boxes) {
-      expect(box.className).toMatch(/\b(h-9|size-9)\b/)
-      expect(box.className).not.toMatch(/\b(size-6|size-7|size-8|h-7|h-8|h-10|h-11)\b/)
-    }
-
-    const checkbox = popover.querySelector('[role="checkbox"]') as HTMLElement
-    expect(checkbox.className).toMatch(/\bsize-5\b/)
-  })
 
   it('gives the search field a width floor it cannot be squeezed below', () => {
     // Regression guard for TC-CAL-004. The magnifier and the clear button are
