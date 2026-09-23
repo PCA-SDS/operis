@@ -81,3 +81,25 @@ describe('calendarPreferencesEqual', () => {
     expect(calendarPreferencesEqual(base, { ...base, conflictScope: 'all' })).toBe(false)
   })
 })
+
+describe('visibility scope preference', () => {
+  test('defaults to the personal view', () => {
+    expect(DEFAULT_CALENDAR_PREFERENCES.visibilityScope).toBe('mine')
+  })
+
+  test('round-trips a stored opt-in', () => {
+    expect(parseStoredCalendarPreferences(JSON.stringify({ visibilityScope: 'all' })).visibilityScope).toBe('all')
+  })
+
+  /* Preferences written before this key existed must not silently widen the
+     calendar; an unreadable value falls back to the narrower view. */
+  test('falls back to mine for a missing or unrecognised value', () => {
+    expect(mergeCalendarPreferences({}).visibilityScope).toBe('mine')
+    expect(mergeCalendarPreferences({ visibilityScope: 'everyone' }).visibilityScope).toBe('mine')
+  })
+
+  test('is part of preference equality', () => {
+    const base = { ...DEFAULT_CALENDAR_PREFERENCES }
+    expect(calendarPreferencesEqual(base, { ...base, visibilityScope: 'all' })).toBe(false)
+  })
+})

@@ -81,3 +81,50 @@ describe('useCalendarItems recurring masters (#4735)', () => {
     expect(result.payloads).toContain(recurringOnly)
   })
 })
+
+describe('visibility scope', () => {
+  beforeEach(() => {
+    apiCallMock.mockReset()
+    apiCallMock.mockImplementation(async () => ({ ok: true, status: 200, result: { items: [] } }))
+  })
+
+  const range = {
+    from: new Date('2026-08-03T00:00:00.000Z'),
+    to: new Date('2026-08-09T23:59:59.999Z'),
+  }
+  const interactionUrls = () =>
+    apiCallMock.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.includes('/api/customers/interactions'))
+
+  test('asks for nothing extra by default, so the request is the personal one the server already assumes', async () => {
+    const { result } = renderHook(() => useCalendarItems(range))
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    expect(interactionUrls().length).toBeGreaterThan(0)
+    expect(interactionUrls().every((url) => !url.includes('scope='))).toBe(true)
+  })
+
+  /* Both passes have to carry the opt-in: the recurring-masters query is a
+     second read of the same window, so widening only the first would drop
+     everyone else's repeating events from an "Everyone" calendar. */
+  test('sends the opt-in on every pass when widened', async () => {
+    const { result } = renderHook(() => useCalendarItems(range, { scope: 'all' }))
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    const urls = interactionUrls()
+    expect(urls.length).toBeGreaterThanOrEqual(2)
+    expect(urls.every((url) => url.includes('scope=all'))).toBe(true)
+    expect(urls.some((url) => url.includes('recurrenceMasters=true'))).toBe(true)
+  })
+
+  test('refetches when the viewer switches scope', async () => {
+    const { result, rerender } = renderHook(
+      ({ scope }: { scope: 'mine' | 'all' }) => useCalendarItems(range, { scope }),
+      { initialProps: { scope: 'mine' as const } },
+    )
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    const before = interactionUrls().length
+    rerender({ scope: 'all' })
+    await waitFor(() => expect(interactionUrls().length).toBeGreaterThan(before))
+    expect(interactionUrls().some((url) => url.includes('scope=all'))).toBe(true)
+  })
+})
