@@ -346,7 +346,7 @@ export function AppointmentResourceTimeline({ date, resources, appointments, blo
               return <div key={resource.id} className={cn('flex flex-col justify-center gap-2 overflow-hidden border-r border-border bg-surface px-3 py-2', startsArea && 'border-l')}><div className="truncate text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{areaName}</div><div className="flex min-w-0 items-center gap-2"><span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted" style={{ color: resource.typeColor ?? resource.capacityUnitColor ?? undefined }}>{resourceIcon(resource)}</span><div className="min-w-0"><p className="truncate text-sm font-semibold text-foreground">{resource.code || resource.name}</p><p className="truncate text-xs text-muted-foreground">{resource.name}</p></div></div></div>
             })}
           </div>
-          <div className="relative" style={{ height: timelineHeight + TIME_LABEL_EDGE_GAP * 2 }}>
+          <div className="relative bg-surface" style={{ height: timelineHeight + TIME_LABEL_EDGE_GAP * 2 }}>
             <div className="relative grid" style={{ height: timelineHeight, top: TIME_LABEL_EDGE_GAP, gridTemplateColumns }}>
               <div className="sticky left-0 z-30 border-r border-border bg-surface">{timeMarkers.map((time) => <div key={time} className="absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time, hourHeight, timelineBounds.startMinutes) }}><span className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap bg-surface px-1 text-xs text-muted-foreground">{time}</span></div>)}</div>
             {resources.map((resource) => {
