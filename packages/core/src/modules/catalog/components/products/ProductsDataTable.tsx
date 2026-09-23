@@ -269,7 +269,7 @@ export default function ProductsDataTable({
   const loadCategoryOptions = React.useCallback(
     async (term?: string): Promise<FilterOption[]> => {
       try {
-        const params = new URLSearchParams({ pageSize: '100', view: 'manage' })
+        const params = new URLSearchParams({ pageSize: '200', view: 'manage' })
         if (term && term.trim().length) params.set('search', term.trim())
         const payload = await readApiResultOrThrow<{ items?: Array<{ id?: string; name?: string; parentName?: string | null }> }>(
           `/api/catalog/categories?${params.toString()}`,
