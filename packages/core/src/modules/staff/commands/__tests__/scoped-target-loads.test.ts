@@ -40,6 +40,14 @@ async function loadTeamMemberUpdateCommand(): Promise<RegisteredCommand> {
   return commandRegistry.get('staff.team-members.update') as RegisteredCommand
 }
 
+async function loadTeamMemberDeleteCommand(): Promise<RegisteredCommand> {
+  jest.resetModules()
+  const { commandRegistry } = await import('@open-mercato/shared/lib/commands')
+  commandRegistry.clear()
+  await import('../team-members')
+  return commandRegistry.get('staff.team-members.delete') as RegisteredCommand
+}
+
 async function loadTagAssignCommand(): Promise<RegisteredCommand> {
   jest.resetModules()
   const { commandRegistry } = await import('@open-mercato/shared/lib/commands')
@@ -79,6 +87,7 @@ function createEm() {
   const em = {
     fork: jest.fn(),
     findOne: jest.fn().mockResolvedValue(null),
+    count: jest.fn().mockResolvedValue(0),
     flush: jest.fn().mockResolvedValue(undefined),
     begin: jest.fn().mockResolvedValue(undefined),
     commit: jest.fn().mockResolvedValue(undefined),
@@ -151,6 +160,54 @@ describe('staff command target scoping', () => {
       { tenantId: TENANT_ID, organizationId: ORG_ID },
     )
     expect(member.displayName).toBe('After')
+  })
+
+  it('rejects deleting a team member referenced by dependent records without mutating it', async () => {
+    const deleteCommand = await loadTeamMemberDeleteCommand()
+    const em = createEm()
+    const member = buildMember()
+    mockFindOneWithDecryption.mockResolvedValue(member)
+    em.count.mockResolvedValue(1)
+
+    await expect(
+      deleteCommand.execute({ id: MEMBER_ID }, createCtx(em)),
+    ).rejects.toMatchObject<Partial<CrudHttpError>>({ status: 409 })
+
+    expect(member.deletedAt).toBeNull()
+    expect(em.flush).not.toHaveBeenCalled()
+    expect(em.count).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tenantId: TENANT_ID, organizationId: ORG_ID }),
+    )
+  })
+
+  it('allows deleting an unreferenced team member', async () => {
+    const deleteCommand = await loadTeamMemberDeleteCommand()
+    const em = createEm()
+    const member = buildMember()
+    mockFindOneWithDecryption.mockResolvedValue(member)
+
+    await expect(
+      deleteCommand.execute({ id: MEMBER_ID }, createCtx(em)),
+    ).resolves.toEqual({ memberId: MEMBER_ID })
+
+    expect(member.deletedAt).toBeInstanceOf(Date)
+    expect(em.flush).toHaveBeenCalledTimes(1)
+  })
+
+  it('force deletes a referenced team member without mutating dependent records', async () => {
+    const deleteCommand = await loadTeamMemberDeleteCommand()
+    const em = createEm()
+    const member = buildMember()
+    mockFindOneWithDecryption.mockResolvedValue(member)
+    em.count.mockResolvedValue(1)
+
+    await expect(
+      deleteCommand.execute({ id: MEMBER_ID, force: true }, createCtx(em)),
+    ).resolves.toEqual({ memberId: MEMBER_ID })
+
+    expect(member.deletedAt).toBeInstanceOf(Date)
+    expect(em.flush).toHaveBeenCalledTimes(1)
   })
 
   it('does not mutate an unscoped team member target for a null-scope non-superadmin principal', async () => {
