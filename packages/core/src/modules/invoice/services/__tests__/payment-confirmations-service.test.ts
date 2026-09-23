@@ -117,7 +117,7 @@ describe('InvoicePaymentConfirmationsService.request', () => {
       harness.callOrder.push('email')
       const rendered = JSON.stringify(options.react)
       expect(rendered).toContain('Hi Supplier Company')
-      expect(rendered).toContain('Buyer Company says they have paid you 60.0000 USD for invoice AA/26E 1001.')
+      expect(rendered).toContain('Buyer Company says they have paid you 60.00 USD for invoice AA/26E 1001.')
       expect(rendered).toContain('Yes, I received this payment')
       expect(rendered).toContain('This link expires in 7 days.')
     })
@@ -172,7 +172,7 @@ describe('InvoicePaymentConfirmationsService.request', () => {
     const installment = buildInstallment()
     const harness = buildService(buildInvoice({ installments: [installment] as never }))
     jest.mocked(sendEmail).mockImplementation(async (options) => {
-      expect(JSON.stringify(options.react)).toContain('40.0000 USD')
+      expect(JSON.stringify(options.react)).toContain('40.00 USD')
       expect(JSON.stringify(options.react)).toContain('Installment 2')
     })
 

@@ -86,6 +86,8 @@ describe('InvoiceCompanyLookupService', () => {
     delete process.env.COMPANY_LOOKUP_FETCH_TIMEOUT_MS
     delete process.env.COMPANY_LOOKUP_VIETQR_URL
     delete process.env.COMPANY_LOOKUP_DATA_GOV_SG_URL
+    delete process.env.COMPANY_LOOKUP_DATA_GOV_SG_TIMEOUT_MS
+    delete process.env.DATA_GOV_SG_API_KEY
   })
 
   it('returns fresh encrypted cache without calling the provider', async () => {
@@ -227,6 +229,7 @@ describe('company registry providers', () => {
   })
 
   it('normalizes Singapore UEN payloads', async () => {
+    process.env.DATA_GOV_SG_API_KEY = 'test-data-gov-key'
     mockFetchWithTimeout.mockResolvedValue(response({
       result: {
         records: [{
@@ -248,5 +251,10 @@ describe('company registry providers', () => {
         sourceUpdatedAt: null,
       },
     })
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(2)
+    expect(mockFetchWithTimeout.mock.calls[0][0]).toContain('resource_id=')
+    expect(mockFetchWithTimeout.mock.calls[0][1]).toEqual(expect.objectContaining({
+      headers: expect.objectContaining({ 'x-api-key': 'test-data-gov-key' }),
+    }))
   })
 })

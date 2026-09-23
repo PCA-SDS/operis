@@ -65,7 +65,7 @@ export default function PaymentConfirmationPublicPage({ params }: { params: { to
 
   const expired = preview.status === 'PENDING' && new Date(preview.expiresAt) <= new Date()
   const label = [preview.invoice.symbol, preview.invoice.number].filter(Boolean).join(' · ')
-  const amount = preview.installment?.amount ?? preview.invoice.amount
+  const amount = formatAmount(preview.installment?.amount ?? preview.invoice.amount)
   if (preview.status === 'CONFIRMED') return <PublicFrame icon={<CheckCircle2 className="size-10 text-status-success-icon" />} title={t('invoice.paymentConfirmation.public.confirmedTitle')}><p>{t('invoice.paymentConfirmation.public.confirmedDescription', { amount: `${amount} ${preview.invoice.currencyCode}`, payer: preview.payerName ?? t('invoice.paymentConfirmation.payerFallback'), invoice: label })}</p></PublicFrame>
   if (preview.status === 'REJECTED') return <PublicFrame icon={<XCircle className="size-10 text-status-error-icon" />} title={t('invoice.paymentConfirmation.public.rejectedTitle')}><p>{t('invoice.paymentConfirmation.public.rejectedDescription')}</p></PublicFrame>
   if (expired) return <PublicFrame icon={<CircleAlert className="size-10" />} title={t('invoice.paymentConfirmation.public.expiredTitle')}><p>{t('invoice.paymentConfirmation.public.expiredDescription')}</p></PublicFrame>
@@ -94,4 +94,9 @@ function PublicFrame({ icon, title, children }: { icon?: React.ReactNode; title?
       </section>
     </main>
   )
+}
+
+function formatAmount(value: string): string {
+  const amount = Number(value)
+  return Number.isFinite(amount) ? amount.toFixed(2) : value
 }

@@ -21,6 +21,7 @@ import { IssuedDateFilter } from './components/IssuedDateFilter'
 import { InstallmentsDialog } from './components/InstallmentsDialog'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { formatInvoiceMoney } from '../../lib/format'
 
 type InvoiceRow = { id: string; direction: 'AP' | 'AR'; companyId: string | null; partnerName: string | null; invoiceSymbol: string | null; invoiceNumber: string | null; invoiceDate: string | null; dueDate: string | null; nextDueDate: string | null; currencyCode: string | null; grossAmount: string | null; settlementStatus: string | null; invoiceStatus: string | null; hasInstallmentPlan: boolean; hasReceived: boolean; hasPaid: boolean; autoSettled: boolean; nonRecoverable: boolean; lastSentAt: string | null; origin: string | null; updatedAt: string | null }
 type Response = { items: InvoiceRow[]; total: number; page: number; pageSize: number; totalPages: number }
@@ -115,7 +116,7 @@ export function InvoiceList({ direction, showSyncButton = false }: { direction?:
       { accessorKey: 'dueDate', header: t('invoice.list.columns.dueDate'), meta: { maxWidth: '9rem' }, cell: ({ row }) => dateLabel(row.original.dueDate) },
     ]
     const installments: ColumnDef<InvoiceRow> = { id: 'installments', header: t('invoice.list.columns.installments', 'Installments'), cell: ({ row }) => row.original.hasInstallmentPlan ? <Button type="button" variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); void openInstallments(row.original.id) }}>{t('invoice.list.installments.viewPlan', 'View plan')}</Button> : '—' }
-    const total: ColumnDef<InvoiceRow> = { accessorKey: 'grossAmount', header: t('invoice.list.columns.total'), cell: ({ row }) => row.original.grossAmount ? `${Number(row.original.grossAmount).toLocaleString()} ${row.original.currencyCode ?? ''}` : '—' }
+    const total: ColumnDef<InvoiceRow> = { accessorKey: 'grossAmount', header: t('invoice.list.columns.total'), cell: ({ row }) => formatInvoiceMoney(row.original.grossAmount, row.original.currencyCode) }
     const actions: ColumnDef<InvoiceRow> = { id: 'actions', header: t('invoice.list.columns.actions', 'Actions'), cell: ({ row }) => {
       const invoice = row.original
       const isBusy = updatingInvoiceId === invoice.id
@@ -132,14 +133,21 @@ export function InvoiceList({ direction, showSyncButton = false }: { direction?:
     ]
     return [...common, { id: 'paymentStatus', header: t('invoice.list.columns.paymentStatus', 'Payment Status'), cell: ({ row }) => paymentStatus(row.original.nextDueDate) }, installments, total, actions]
   }, [deleteInvoice, deletingInvoiceId, direction, openInstallments, router, t, updateRecoverability, updateSettlement, updatingInvoiceId])
+  columns.forEach((column) => {
+    if ('accessorKey' in column) {
+      column.enableSorting = column.accessorKey === 'dueDate' || column.accessorKey === 'grossAmount'
+    } else {
+      column.enableSorting = false
+    }
+  })
   if (loading && !payload) return <Page><PageBody><LoadingMessage label={t('invoice.list.loading')} /></PageBody></Page>
   if (failed && !payload) return <Page><PageBody><ErrorMessage label={t('invoice.list.error')} action={<Button type="button" onClick={() => void load()}>{t('invoice.actions.retry')}</Button>} /></PageBody></Page>
   const rows = payload?.items ?? []
   const sorting: SortingState = searchParams.get('sortField') ? [{ id: searchParams.get('sortField')!, desc: searchParams.get('sortDir') === 'desc' }] : []
   const directionSummary = direction ? summary?.[direction === 'AP' ? 'ap' : 'ar'] : null
   const overview = directionSummary ? [
-    [t('invoice.overview.amountUnpaid', 'Amount unpaid'), `${Number(directionSummary.outstandingAmount).toLocaleString()} ${summary?.currency}`],
-    [t('invoice.overview.amountSettled', 'Amount settled'), `${Number(directionSummary.settledAmount).toLocaleString()} ${summary?.currency}`],
+    [t('invoice.overview.amountUnpaid', 'Amount unpaid'), formatInvoiceMoney(directionSummary.outstandingAmount, summary?.currency)],
+    [t('invoice.overview.amountSettled', 'Amount settled'), formatInvoiceMoney(directionSummary.settledAmount, summary?.currency)],
     ...(direction === 'AR'
       ? [
           [t('invoice.overview.unreceivedInvoices', 'Unreceived invoice'), directionSummary.unreceivedInvoices],

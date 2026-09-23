@@ -23,6 +23,7 @@ import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/u
 import { Plus } from 'lucide-react'
 
 const DEFAULT_PAGE_SIZE = 100
+const UNASSIGNED_TEAM_VALUE = '__unassigned__'
 
 export type TeamMemberFormValues = {
   id?: string
@@ -313,7 +314,7 @@ export function TeamMemberForm(props: TeamMemberFormProps) {
         label: '',
         type: 'custom',
         component: ({ value, setValue, setFormValue, values, disabled }) => {
-          const currentValue = typeof value === 'string' ? value : ''
+          const currentValue = typeof value === 'string' && value.length > 0 ? value : UNASSIGNED_TEAM_VALUE
           const selectedOption = teamOptions.find((option) => option.value === currentValue)
           const optionsKey = teamOptions.map((option) => `${option.value}:${option.label}`).join('\0')
           return (
@@ -337,8 +338,8 @@ export function TeamMemberForm(props: TeamMemberFormProps) {
                 key={`team:${currentValue}:${optionsKey}`}
                 value={currentValue}
                 onValueChange={(value) => {
-                  const nextValue = value || undefined
-                  const nextTeamId = value || null
+                  const nextTeamId = value === UNASSIGNED_TEAM_VALUE ? null : value || null
+                  const nextValue = nextTeamId ?? undefined
                   setValue(nextValue)
                   setSelectedTeamId(nextTeamId)
                   if (!setFormValue) return
@@ -355,10 +356,13 @@ export function TeamMemberForm(props: TeamMemberFormProps) {
               >
                 <SelectTrigger data-crud-focus-target="">
                   <SelectValue placeholder={translate('ui.forms.select.emptyOption', '—')}>
-                    {selectedOption?.label}
+                    {selectedOption?.label ?? translate('staff.teamMembers.form.fields.team.unassigned', 'Unassigned')}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={UNASSIGNED_TEAM_VALUE}>
+                    {translate('staff.teamMembers.form.fields.team.unassigned', 'Unassigned')}
+                  </SelectItem>
                   {teamOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}

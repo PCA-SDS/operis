@@ -44,8 +44,16 @@ const invoiceForecastEntrySchema = z.object({
   partnerName: z.string().nullable(),
 })
 
+const invoiceForecastBucketSchema = z.object({
+  amount: z.string(),
+  count: z.number().int().nonnegative(),
+})
+
 const invoiceForecastSeriesPointSchema = z.object({
   date: z.string(),
+  amount: z.string(),
+  count: z.number().int().nonnegative(),
+  cumulative: z.string(),
   arAmount: z.string(),
   apAmount: z.string(),
   netAmount: z.string(),
@@ -54,7 +62,12 @@ const invoiceForecastSeriesPointSchema = z.object({
 export const invoiceForecastResponseSchema = z.object({
   currency: z.literal('VND'),
   ratesStale: z.boolean(),
+  today: z.string(),
+  horizonDays: z.number().int().nonnegative(),
   entries: z.array(invoiceForecastEntrySchema),
+  receivable: z.object({ overdue: invoiceForecastBucketSchema, undated: invoiceForecastBucketSchema, beyondHorizon: invoiceForecastBucketSchema, points: z.array(invoiceForecastSeriesPointSchema) }),
+  payable: z.object({ overdue: invoiceForecastBucketSchema, undated: invoiceForecastBucketSchema, beyondHorizon: invoiceForecastBucketSchema, points: z.array(invoiceForecastSeriesPointSchema) }),
+  net: z.object({ points: z.array(invoiceForecastSeriesPointSchema) }),
   series: z.array(invoiceForecastSeriesPointSchema),
   totals: z.object({
     arAmount: z.string(),

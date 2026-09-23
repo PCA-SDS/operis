@@ -730,6 +730,23 @@
           "enumItems": [],
           "mappedType": "text"
         },
+        "seat_planner_cleared_at": {
+          "name": "seat_planner_cleared_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
         "selected_options": {
           "name": "selected_options",
           "type": "jsonb",
@@ -1105,15 +1122,13 @@
           "unique": true
         },
         {
-          "columnNames": [
-            "tenant_id",
-            "code"
-          ],
-          "composite": true,
-          "constraint": true,
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "expression": "create unique index \"appointment_statuses_tenant_code_unique\" on \"appointment_statuses\" (\"tenant_id\", \"code\") where \"deleted_at\" is null",
           "keyName": "appointment_statuses_tenant_code_unique",
           "primary": false,
-          "unique": true
+          "unique": false
         },
         {
           "columnNames": [
