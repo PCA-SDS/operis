@@ -1,8 +1,12 @@
 import { Collection, OptionalProps } from '@mikro-orm/core'
-import { Entity, Index, ManyToOne, OneToMany, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
+import { Entity, Index, ManyToOne, OneToMany, PrimaryKey, Property } from '@open-mercato/shared/lib/db/decorators'
 
 @Entity({ tableName: 'appointment_statuses' })
-@Unique({ name: 'appointment_statuses_tenant_code_unique', properties: ['tenantId', 'code'] })
+@Index({
+  name: 'appointment_statuses_tenant_code_unique',
+  expression:
+    'create unique index "appointment_statuses_tenant_code_unique" on "appointment_statuses" ("tenant_id", "code") where "deleted_at" is null',
+})
 @Index({ name: 'appointment_statuses_tenant_idx', properties: ['tenantId'] })
 export class AppointmentStatus {
   [OptionalProps]?: 'createdAt' | 'updatedAt' | 'deletedAt' | 'isSystem' | 'sortOrder' | 'description'
@@ -147,6 +151,7 @@ export class AppointmentLine {
     | 'unitPriceGross'
     | 'durationMinutes'
     | 'sortOrder'
+    | 'seatPlannerClearedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -189,6 +194,9 @@ export class AppointmentLine {
 
   @Property({ name: 'sort_order', type: 'int', default: 0 })
   sortOrder: number = 0
+
+  @Property({ name: 'seat_planner_cleared_at', type: Date, nullable: true })
+  seatPlannerClearedAt?: Date | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

@@ -12,6 +12,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ErrorMessage, LoadingMessage, TabEmptyState } from '@open-mercato/ui/backend/detail'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { CUSTOMER_TASKS_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
 import type { InteractionSummary, SectionAction, TabEmptyStateConfig, TodoLinkSummary, Translator } from './types'
 import { createTranslatorWithFallback } from '@open-mercato/shared/lib/i18n/translate'
 import { formatDate, resolveTodoHref } from './utils'
@@ -449,11 +450,13 @@ export function TasksSection({
 
         {!isInitialLoading && !hasTasks ? (
           <TabEmptyState title={emptyState.title}>
-            <Button asChild variant="outline" size="sm" className="mt-2">
-              <Link href="/backend/customer-tasks">
-                {t('customers.people.detail.tasks.viewAll', 'View all tasks')}
-              </Link>
-            </Button>
+            {CUSTOMER_TASKS_IN_PRODUCT ? (
+              <Button asChild variant="outline" size="sm" className="mt-2">
+                <Link href="/backend/customer-tasks">
+                  {t('customers.people.detail.tasks.viewAll', 'View all tasks')}
+                </Link>
+              </Button>
+            ) : null}
           </TabEmptyState>
         ) : null}
 
@@ -596,7 +599,7 @@ export function TasksSection({
             ) : null}
           </div>
         ) : null}
-        {!isInitialLoading && hasTasks ? (
+        {!isInitialLoading && hasTasks && CUSTOMER_TASKS_IN_PRODUCT ? (
           <div className="flex justify-center">
             <Button asChild variant="outline" size="sm">
               <Link href="/backend/customer-tasks">

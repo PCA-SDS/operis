@@ -82,7 +82,7 @@ describe('invoice module foundation', () => {
     expect(metadata).toMatchObject({
       name: 'invoice',
       title: 'Invoice',
-      defaultEntitlement: 'disabled',
+      defaultEntitlement: 'enabled',
     })
 
     for (const relativePath of [
