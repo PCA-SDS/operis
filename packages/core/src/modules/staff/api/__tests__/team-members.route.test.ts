@@ -50,27 +50,27 @@ function makeCtx() {
 }
 
 describe('staff team-members route delete input mapping', () => {
-  it('preserves force=true from a DELETE JSON body', async () => {
+  it('ignores force=true from a DELETE JSON body', async () => {
     await expect(getDeleteMapInput()({
       parsed: { body: { id: memberId, force: true }, query: {} },
       raw: {},
       ctx: makeCtx(),
-    })).resolves.toEqual({ id: memberId, force: true })
+    })).resolves.toEqual({ id: memberId })
   })
 
-  it('preserves force=true from a DELETE query parameter', async () => {
+  it('ignores force=true from a DELETE query parameter', async () => {
     await expect(getDeleteMapInput()({
       parsed: { body: { id: memberId }, query: { force: 'true' } },
       raw: {},
       ctx: makeCtx(),
-    })).resolves.toEqual({ id: memberId, force: true })
+    })).resolves.toEqual({ id: memberId })
   })
 
-  it('preserves force=true from root parsed payloads used by direct callers', async () => {
+  it('ignores force=true from root parsed payloads used by direct callers', async () => {
     await expect(getDeleteMapInput()({
       parsed: { id: memberId, force: true },
       raw: {},
       ctx: makeCtx(),
-    })).resolves.toEqual({ id: memberId, force: true })
+    })).resolves.toEqual({ id: memberId })
   })
 })

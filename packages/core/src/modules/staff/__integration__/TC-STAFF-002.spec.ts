@@ -146,23 +146,6 @@ test.describe('TC-STAFF-002: Staff Team CRUD via API', () => {
       const memberListBody = (await memberListResponse.json()) as { items?: Array<Record<string, unknown>> };
       expect(memberListBody.items, 'Referenced member should not be soft-deleted').toHaveLength(1);
 
-      const forceDeleteResponse = await apiRequest(
-        request,
-        'DELETE',
-        `/api/staff/team-members?id=${encodeURIComponent(memberId!)}&force=true`,
-        { token },
-      );
-      expect(forceDeleteResponse.status(), 'force delete should return 200').toBe(200);
-
-      const deletedMemberListResponse = await apiRequest(
-        request,
-        'GET',
-        `/api/staff/team-members?ids=${encodeURIComponent(memberId!)}`,
-        { token },
-      );
-      const deletedMemberListBody = (await deletedMemberListResponse.json()) as { items?: Array<Record<string, unknown>> };
-      expect(deletedMemberListBody.items, 'force delete should hide only the team member').toHaveLength(0);
-
       const profileListResponse = await apiRequest(
         request,
         'GET',
@@ -171,7 +154,7 @@ test.describe('TC-STAFF-002: Staff Team CRUD via API', () => {
       );
       expect(profileListResponse.status(), 'Referenced HR profile should remain readable').toBe(200);
       const profileListBody = (await profileListResponse.json()) as { items?: Array<Record<string, unknown>> };
-      expect(profileListBody.items, 'force delete should preserve the HR profile').toHaveLength(1);
+      expect(profileListBody.items, 'Rejected delete should preserve the HR profile').toHaveLength(1);
     } finally {
       if (token && profileId) {
         await apiRequest(request, 'DELETE', `/api/staff/employee-profiles?id=${encodeURIComponent(profileId)}`, { token })

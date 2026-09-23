@@ -553,7 +553,7 @@ const updateTeamMemberCommand: CommandHandler<StaffTeamMemberUpdateInput, { memb
   },
 }
 
-const deleteTeamMemberCommand: CommandHandler<{ id?: string; force?: boolean }, { memberId: string }> = {
+const deleteTeamMemberCommand: CommandHandler<{ id?: string }, { memberId: string }> = {
   id: 'staff.team-members.delete',
   async prepare(input, ctx) {
     const id = input?.id
@@ -579,7 +579,7 @@ const deleteTeamMemberCommand: CommandHandler<{ id?: string; force?: boolean }, 
     if (!member) throw new CrudHttpError(404, { error: 'Team member not found.' })
     ensureTenantScope(ctx, member.tenantId)
     ensureOrganizationScope(ctx, member.organizationId)
-    if (!input?.force) await ensureTeamMemberHasNoReferences(em, member)
+    await ensureTeamMemberHasNoReferences(em, member)
     member.deletedAt = new Date()
     member.updatedAt = new Date()
     await em.flush()
