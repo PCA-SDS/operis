@@ -167,6 +167,7 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
   }, [invoice.companyId, invoice.id, retryEmailMutation, runEmailMutation, t])
 
   const submit = React.useCallback(async () => {
+    if (isSending || removingId) return
     const recipient = email.trim()
     if (!EMAIL_PATTERN.test(recipient)) {
       setEmailError(t('invoice.send.invalidRecipient'))
@@ -207,14 +208,14 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
     } catch (error) {
       setSendError(error instanceof Error && error.message ? error.message : t('invoice.send.failed'))
     }
-  }, [email, invoice.companyId, invoice.id, invoice.updatedAt, onSent, resetDialog, retryLastMutation, runMutation, t])
+  }, [email, invoice.companyId, invoice.id, invoice.updatedAt, isSending, onSent, removingId, resetDialog, retryLastMutation, runMutation, t])
 
   const handleKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLFormElement>) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       event.preventDefault()
-      if (!isSending) void submit()
+      if (!isSending && !removingId) void submit()
     }
-  }, [isSending, submit])
+  }, [isSending, removingId, submit])
 
   if (!canSend) return null
 
@@ -259,7 +260,7 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault()
-              void submit()
+              if (!isSending && !removingId) void submit()
             }}
             onKeyDown={handleKeyDown}
           >
@@ -276,7 +277,7 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
                 }}
                 placeholder={t('invoice.send.recipientPlaceholder')}
                 autoFocus
-                disabled={isSending}
+                disabled={isSending || Boolean(removingId)}
               />
               </Label>
               {emailError ? <p role="alert" className="text-xs text-status-error-text">{emailError}</p> : null}
