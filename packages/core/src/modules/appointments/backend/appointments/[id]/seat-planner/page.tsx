@@ -1511,10 +1511,14 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       plannedAssignments.push({ line, startsAt: nextStart, duration })
       nextStart = endsAt
     }
-    for (const assignment of plannedAssignments) {
-      await saveDraft(assignment.line, resourceId, assignment.startsAt, assignment.duration)
+    try {
+      for (const assignment of plannedAssignments) {
+        await saveDraft(assignment.line, resourceId, assignment.startsAt, assignment.duration)
+      }
+      flash(t('appointments.seatPlanner.saved', 'Assignment saved'), 'success')
+    } catch (error) {
+      flash(error instanceof Error ? error.message : t('appointments.seatPlanner.saveError', 'Unable to save the assignment.'), 'error')
     }
-    flash(t('appointments.seatPlanner.saved', 'Assignment saved'), 'success')
   }, [activeLine, allocationsBySeat, canUseResourceRange, earliestMinutes, flash, saveDraft, t, workspace])
 
   const handleInsertionHover = React.useCallback((allocation: PlannerAllocation, event: React.MouseEvent<HTMLDivElement>) => {
@@ -1580,24 +1584,28 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       : currentIds.includes(staffId)
         ? currentIds.filter((id) => id !== staffId)
         : [...currentIds, staffId]
-    const assignment = await saveDraft(line, target.allocation.resourceId, target.allocation.startsAt, durationMinutes(target.allocation.startsAt, target.allocation.endsAt), nextIds)
-    const nextNames = nextIds
-      .map((id) => staffMembers.find((member) => member.id === id)?.displayName)
-      .filter((name): name is string => typeof name === 'string')
-    setStaffSheetTarget((current) => current ? {
-      ...current,
-      allocation: {
-        ...current.allocation,
-        assignedMemberIds: nextIds,
-        assignedMemberId: nextIds[0] ?? null,
-        assignedMemberName: nextNames[0] ?? null,
-        assignedMemberNames: nextNames,
-        updatedAt: assignment?.updatedAt ?? current.allocation.updatedAt,
-      },
-    } : current)
-    flash(staffId && !currentIds.includes(staffId)
-      ? t('appointments.seatPlanner.staffAssigned', 'Staff assigned')
-      : t('appointments.seatPlanner.staffUnassigned', 'Staff removed'), 'success')
+    try {
+      const assignment = await saveDraft(line, target.allocation.resourceId, target.allocation.startsAt, durationMinutes(target.allocation.startsAt, target.allocation.endsAt), nextIds)
+      const nextNames = nextIds
+        .map((id) => staffMembers.find((member) => member.id === id)?.displayName)
+        .filter((name): name is string => typeof name === 'string')
+      setStaffSheetTarget((current) => current ? {
+        ...current,
+        allocation: {
+          ...current.allocation,
+          assignedMemberIds: nextIds,
+          assignedMemberId: nextIds[0] ?? null,
+          assignedMemberName: nextNames[0] ?? null,
+          assignedMemberNames: nextNames,
+          updatedAt: assignment?.updatedAt ?? current.allocation.updatedAt,
+        },
+      } : current)
+      flash(staffId && !currentIds.includes(staffId)
+        ? t('appointments.seatPlanner.staffAssigned', 'Staff assigned')
+        : t('appointments.seatPlanner.staffUnassigned', 'Staff removed'), 'success')
+    } catch (error) {
+      flash(error instanceof Error ? error.message : t('appointments.seatPlanner.staffAssignError', 'Unable to update staff.'), 'error')
+    }
   }, [flash, saveDraft, staffMembers, t, workspace?.appointment.id])
 
   const busyStaffIds = React.useMemo(() => {
