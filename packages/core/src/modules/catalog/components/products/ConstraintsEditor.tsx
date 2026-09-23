@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from 'react'
-import { useState, useCallback, useMemo } from 'react'
-import { Plus, Trash2, Lock, ArrowRight, Package, Inbox } from 'lucide-react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
+import { Plus, Trash2, Lock, LockOpen, ArrowRight, Package, Inbox } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { KbdShortcut } from '@open-mercato/ui/primitives/kbd'
@@ -104,6 +104,51 @@ type ConstraintDraft = {
   locked: boolean
 }
 
+function ConstraintLockIndicator({ locked, onToggle }: { locked: boolean; onToggle?: () => void }) {
+  const t = useT()
+  const label = locked
+    ? t('catalog.constraints.unlock', 'Locked — click to unlock')
+    : t('catalog.constraints.lock', 'Unlocked — click to lock')
+  const Icon = locked ? Lock : LockOpen
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          {onToggle ? (
+            <IconButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={label}
+              aria-pressed={locked}
+              onClick={onToggle}
+              className={cn(
+                'group shrink-0',
+                locked ? 'text-status-warning-icon' : 'text-muted-foreground',
+              )}
+            >
+              <Icon key={locked ? 'locked' : 'unlocked'} className="w-3.5 h-3.5 animate-in fade-in zoom-in-95 duration-200 transition-transform group-hover:rotate-12" />
+            </IconButton>
+          ) : (
+            <span
+              role="img"
+              aria-label={label}
+              className={cn(
+                'inline-flex size-7 items-center justify-center rounded-lg',
+                locked ? 'text-status-warning-icon' : 'text-muted-foreground',
+              )}
+            >
+              <Icon className="w-3.5 h-3.5" />
+            </span>
+          )}
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
 type NewConstraintDraft = {
   constraintType: ConstraintType
   sourceKind: 'product' | 'option'
@@ -146,6 +191,22 @@ function draftToPayload(draft: ConstraintDraft): Omit<CatalogConstraintItem, 'cr
     target_option_name: draft.targetOptionName ?? null,
     locked: draft.locked,
   }
+}
+
+export const canDeleteConstraint = (locked: boolean): boolean => !locked
+
+export const shouldApplyConstraintDelete = (locked: boolean, confirmed: boolean): boolean =>
+  canDeleteConstraint(locked) && confirmed
+
+export function hideMatchingIncomingConstraint(
+  hiddenIds: Set<string>,
+  deletedId: string,
+  incomingIds: Iterable<string>,
+): Set<string> {
+  if (!new Set(incomingIds).has(deletedId)) return hiddenIds
+  const next = new Set(hiddenIds)
+  next.add(deletedId)
+  return next
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -278,6 +339,7 @@ type ConstraintRowProps = {
   productId: string
   productName: string
   onDelete: () => void
+  onLockedChange: (locked: boolean) => void
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -328,35 +390,15 @@ function IncomingConstraintBadge({ constraint }: { constraint: CatalogConstraint
           </span>
         </Tag>
 
-        {constraint.locked && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <IconButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled
-                  aria-label={t('catalog.constraints.locked', 'Locked by migration')}
-                  className="shrink-0 text-status-warning-icon"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                </IconButton>
-              </TooltipTrigger>
-              <TooltipContent>
-                {t('catalog.constraints.locked', 'Locked by migration')}
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
+        {constraint.locked && <ConstraintLockIndicator locked />}
       </div>
     </div>
   )
 }
 
-function ConstraintRow({ draft, localOptions, productSeedOptions, productId, productName, onDelete }: ConstraintRowProps) {
+function ConstraintRow({ draft, localOptions, productSeedOptions, productId, productName, onDelete, onLockedChange }: ConstraintRowProps) {
   const t = useT()
-  const { confirm } = useConfirmDialog()
+  const { confirm, ConfirmDialogElement } = useConfirmDialog()
 
   const handleDelete = () => {
     if (draft.locked) return
@@ -365,7 +407,9 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
       text: t('catalog.constraints.delete.description', 'This action cannot be undone.'),
       confirmText: t('common.delete', 'Delete'),
       variant: 'destructive',
-    }).then(() => onDelete())
+    }).then((confirmed) => {
+      if (shouldApplyConstraintDelete(draft.locked, confirmed)) onDelete()
+    })
   }
 
   const color = CONSTRAINT_TYPE_COLORS[draft.constraintType]
@@ -445,25 +489,10 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
           </Tag>
         )}
 
-        {draft.locked ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <IconButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled
-                  aria-label={t('catalog.constraints.locked', 'Locked by migration')}
-                  className="shrink-0 text-status-warning-icon"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                </IconButton>
-              </TooltipTrigger>
-              <TooltipContent>{t('catalog.constraints.locked', 'Locked by migration')}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : null}
+        <ConstraintLockIndicator
+          locked={draft.locked}
+          onToggle={() => onLockedChange(!draft.locked)}
+        />
 
         <IconButton
           type="button"
@@ -477,6 +506,7 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
           <Trash2 className="w-3.5 h-3.5" />
         </IconButton>
       </div>
+      {ConfirmDialogElement}
     </div>
   )
 }
@@ -881,8 +911,18 @@ export function ConstraintsEditor({
   const [showAddDrawer, setShowAddDrawer] = useState(false)
 
   const [drafts, setDrafts] = useState<ConstraintDraft[]>(() => constraints.map(draftFromItem))
+  const [hiddenIncomingIds, setHiddenIncomingIds] = useState<Set<string>>(() => new Set())
   const onChangeRef = React.useRef(onChange)
   onChangeRef.current = onChange
+
+  const visibleIncomingConstraints = useMemo(
+    () => incomingConstraints.filter((constraint) => !hiddenIncomingIds.has(constraint.id)),
+    [hiddenIncomingIds, incomingConstraints],
+  )
+
+  useEffect(() => {
+    setHiddenIncomingIds(new Set())
+  }, [constraints, incomingConstraints])
 
   // Build local cascading tree from flat options
   const localGroups = useMemo((): CascadingItemDef[] => {
@@ -947,7 +987,23 @@ export function ConstraintsEditor({
   }, [])
 
   const deleteDraft = useCallback((id: string) => {
+    const deletedDraft = draftsRef.current.find((draft) => draft.id === id)
     const next = draftsRef.current.filter((d) => d.id !== id)
+    setDrafts(next)
+    sync(next)
+    if (deletedDraft) {
+      setHiddenIncomingIds((current) => {
+        return hideMatchingIncomingConstraint(
+          current,
+          deletedDraft.id,
+          incomingConstraints.map((incoming) => incoming.id),
+        )
+      })
+    }
+  }, [incomingConstraints, sync])
+
+  const updateDraftLock = useCallback((id: string, locked: boolean) => {
+    const next = draftsRef.current.map((draft) => (draft.id === id ? { ...draft, locked } : draft))
     setDrafts(next)
     sync(next)
   }, [sync])
@@ -992,6 +1048,7 @@ export function ConstraintsEditor({
               productId={productId}
               productName={productName}
               onDelete={() => deleteDraft(draft.id)}
+              onLockedChange={(locked) => updateDraftLock(draft.id, locked)}
             />
           ))}
         </div>
@@ -1006,7 +1063,7 @@ export function ConstraintsEditor({
       )}
 
       {/* Incoming Constraints (read-only) */}
-      {incomingConstraints && incomingConstraints.length > 0 && (
+      {visibleIncomingConstraints.length > 0 && (
         <div className="flex flex-col gap-3 pt-4 border-t mt-4">
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5">
@@ -1016,11 +1073,11 @@ export function ConstraintsEditor({
               </span>
             </div>
             <span className="text-xs text-muted-foreground">
-              ({incomingConstraints.length})
+              ({visibleIncomingConstraints.length})
             </span>
           </div>
           <div className="flex flex-col gap-2">
-            {incomingConstraints.map((c) => {
+            {visibleIncomingConstraints.map((c) => {
               return (
                 <IncomingConstraintBadge key={c.id} constraint={c} />
               )
