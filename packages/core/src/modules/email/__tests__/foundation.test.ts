@@ -304,16 +304,11 @@ describe('email module foundation', () => {
 
   it('keeps accounting defaults non-technical for tenant users', () => {
     expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).not.toContain('Workflow rules JSON')
-    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('Default sender name')
-    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('Default reply-to')
-    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('Common accounting placeholders')
-    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('Sample link placeholders')
-    // The React key must never derive from the editable key field, or typing in
-    // it remounts the input and drops focus on every keystroke.
-    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('key={`${rowKeyPrefix}-${index}`}')
-    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('rowKeyPrefix="placeholder"')
-    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('rowKeyPrefix="link-placeholder"')
-    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).not.toContain('key={`${row.key}-${index}`}')
+    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).not.toContain('Default sender name')
+    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).not.toContain('Default reply-to')
+    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('Accounting system variables')
+    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('currentTaxQuarter')
+    expect(ACCOUNTING_DEFAULTS_PAGE_SOURCE).toContain('standardDisclaimer')
   })
 
   it('keeps compose preview non-sending and feature gated', () => {
@@ -323,6 +318,8 @@ describe('email module foundation', () => {
     expect(COMPOSE_PAGE_SOURCE).toContain('email.compose.empty.companies')
     expect(COMPOSE_PAGE_SOURCE).toContain('email.compose.preview.emptyBody')
     expect(COMPOSE_PAGE_SOURCE).toContain('Accounting values')
+    expect(COMPOSE_PAGE_SOURCE).toContain('/api/email/accounting-defaults')
+    expect(COMPOSE_PAGE_SOURCE).toContain('withoutReservedEmailSystemVariables')
     expect(COMPOSE_PAGE_SOURCE).not.toContain('Accounting values JSON')
     expect(COMPOSE_PAGE_SOURCE).toContain('status=published')
     expect(COMPOSE_PAGE_SOURCE).toContain('/api/customers/companies?page=1&pageSize=50')
@@ -373,6 +370,8 @@ describe('email module foundation', () => {
     ])
     expect(TEMPLATE_HTML_SOURCE).toContain("{ key: 'companyCode'")
     expect(TEMPLATE_HTML_SOURCE).toContain("{ key: 'companyName'")
+    expect(SETUP_SOURCE).not.toContain("greeting: 'Dear customer,'")
+    expect(SETUP_SOURCE).not.toContain("companyCode: 'ACME'")
 
     for (const template of pcaAccountingSourceTemplates) {
       expect(template.bodyHtml).not.toContain('drive.google.com')
