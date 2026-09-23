@@ -29,6 +29,10 @@ const logger = createLogger('staff')
 
 const PAGE_SIZE = 50
 
+function hasHttpStatus(error: unknown, status: number): boolean {
+  return Boolean(error && typeof error === 'object' && (error as { status?: unknown }).status === status)
+}
+
 type TeamMemberRow = {
   kind: 'team' | 'member'
   id: string
@@ -131,11 +135,17 @@ export default function StaffTeamMembersPage() {
       edit: t('staff.teamMembers.actions.edit', 'Edit'),
       delete: t('staff.teamMembers.actions.delete', 'Delete'),
       deleteConfirm: t('staff.teamMembers.actions.deleteConfirm', 'Delete team member "{{name}}"?'),
+      forceDelete: t('staff.teamMembers.actions.forceDelete', 'Force archive team member'),
+      forceDeleteConfirm: t(
+        'staff.teamMembers.actions.forceDeleteConfirm',
+        'This member is referenced by other records. Force archive it while keeping those records?',
+      ),
       refresh: t('staff.teamMembers.actions.refresh', 'Refresh'),
       editTeam: t('staff.teams.actions.edit', 'Edit'),
     },
     messages: {
       deleted: t('staff.teamMembers.messages.deleted', 'Team member deleted.'),
+      forceDeleted: t('staff.teamMembers.messages.forceDeleted', 'Team member force archived.'),
     },
     errors: {
       load: t('staff.teamMembers.errors.load', 'Failed to load team members.'),
@@ -439,9 +449,34 @@ export default function StaffTeamMembersPage() {
       handleRefresh()
     } catch (error) {
       logger.error('staff.team-members.delete', { err: error })
+      if (hasHttpStatus(error, 409)) {
+        const forceConfirmed = await confirm({
+          title: labels.actions.forceDelete,
+          text: labels.actions.forceDeleteConfirm,
+          variant: 'destructive',
+        })
+        if (forceConfirmed) {
+          try {
+            const headers = buildOptimisticLockHeader(entry.updatedAt)
+            await withScopedApiRequestHeaders(headers, () => (
+              deleteCrud(
+                `staff/team-members?id=${encodeURIComponent(entry.id)}&force=true`,
+                { errorMessage: labels.errors.delete },
+              )
+            ))
+            flash(labels.messages.forceDeleted, 'success')
+            handleRefresh()
+            return
+          } catch (forceError) {
+            logger.error('staff.team-members.force-delete', { err: forceError })
+            flash(normalizeCrudServerError(forceError).message ?? labels.errors.delete, 'error')
+            return
+          }
+        }
+      }
       flash(normalizeCrudServerError(error).message ?? labels.errors.delete, 'error')
     }
-  }, [confirm, handleRefresh, labels.actions.deleteConfirm, labels.actions.delete, labels.errors.delete])
+  }, [confirm, handleRefresh, labels.actions.deleteConfirm, labels.actions.delete, labels.actions.forceDelete, labels.actions.forceDeleteConfirm, labels.errors.delete, labels.messages.deleted, labels.messages.forceDeleted])
 
   return (
     <Page>

@@ -9,9 +9,9 @@ import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { readApiResultOrThrow, apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { extractCustomFieldEntries } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { updateCrud, deleteCrud } from '@open-mercato/ui/backend/utils/crud'
-import { normalizeCrudServerError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { switchTeamMemberSchedule } from '@open-mercato/core/modules/staff/lib/scheduleSwitch'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
+import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { createTranslatorWithFallback } from '@open-mercato/shared/lib/i18n/translate'
 import { AvailabilityRulesEditor } from '@open-mercato/core/modules/planner/components/AvailabilityRulesEditor'
@@ -41,6 +41,10 @@ import { TranslationDrawerAction } from '@open-mercato/core/modules/translations
 import { SendObjectMessageDialog } from '@open-mercato/ui/backend/messages'
 import { ModuleGate, useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { hasFeature } from '@open-mercato/shared/security/features'
+
+function hasHttpStatus(error: unknown, status: number): boolean {
+  return Boolean(error && typeof error === 'object' && (error as { status?: unknown }).status === status)
+}
 
 const MARKDOWN_CLASSNAME =
   'text-sm text-muted-foreground break-words [&>*]:mb-2 [&>*:last-child]:mb-0 [&_ul]:ml-4 [&_ul]:list-disc [&_ol]:ml-4 [&_ol]:list-decimal [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:text-xs'
@@ -85,6 +89,7 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { confirm, ConfirmDialogElement } = useConfirmDialog()
   const [initialValues, setInitialValues] = React.useState<TeamMemberFormValues | null>(null)
   const [memberRecord, setMemberRecord] = React.useState<TeamMemberRecord | null>(null)
   const [error, setError] = React.useState<string | null>(null)
@@ -356,20 +361,37 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
 
   const handleDelete = React.useCallback(async () => {
     if (!memberId) return
+    let forceDeleted = false
     try {
       await deleteCrud('staff/team-members', memberId, {
         errorMessage: t('staff.teamMembers.form.errors.delete', 'Failed to delete team member.'),
       })
-      flash(t('staff.teamMembers.form.flash.deleted', 'Team member deleted.'), 'success')
-      router.push('/backend/staff/team-members')
     } catch (error) {
-      flash(
-        normalizeCrudServerError(error).message
-          ?? t('staff.teamMembers.form.errors.delete', 'Failed to delete team member.'),
-        'error',
+      if (!hasHttpStatus(error, 409)) throw error
+      const forceConfirmed = await confirm({
+        title: t('staff.teamMembers.actions.forceDelete', 'Force archive team member'),
+        text: t(
+          'staff.teamMembers.actions.forceDeleteConfirm',
+          'This member is referenced by other records. Force archive it while keeping those records?',
+        ),
+        variant: 'destructive',
+      })
+      if (!forceConfirmed) throw error
+      await deleteCrud(
+        `staff/team-members?id=${encodeURIComponent(memberId)}&force=true`,
+        { errorMessage: t('staff.teamMembers.form.errors.delete', 'Failed to delete team member.') },
       )
+      forceDeleted = true
     }
-  }, [memberId, router, t])
+    flash(
+      t(
+        forceDeleted ? 'staff.teamMembers.messages.forceDeleted' : 'staff.teamMembers.form.flash.deleted',
+        forceDeleted ? 'Team member force archived.' : 'Team member deleted.',
+      ),
+      'success',
+    )
+    router.push('/backend/staff/team-members')
+  }, [confirm, memberId, router, t])
 
   const handleRulesetChange = React.useCallback(async (nextId: string | null) => {
     if (!memberId) return
@@ -470,6 +492,7 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
   return (
     <Page>
       <PageBody>
+        {ConfirmDialogElement}
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">

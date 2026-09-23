@@ -195,6 +195,21 @@ describe('staff command target scoping', () => {
     expect(em.flush).toHaveBeenCalledTimes(1)
   })
 
+  it('force deletes a referenced team member without mutating dependent records', async () => {
+    const deleteCommand = await loadTeamMemberDeleteCommand()
+    const em = createEm()
+    const member = buildMember()
+    mockFindOneWithDecryption.mockResolvedValue(member)
+    em.count.mockResolvedValue(1)
+
+    await expect(
+      deleteCommand.execute({ id: MEMBER_ID, force: true }, createCtx(em)),
+    ).resolves.toEqual({ memberId: MEMBER_ID })
+
+    expect(member.deletedAt).toBeInstanceOf(Date)
+    expect(em.flush).toHaveBeenCalledTimes(1)
+  })
+
   it('does not mutate an unscoped team member target for a null-scope non-superadmin principal', async () => {
     const update = await loadTeamMemberUpdateCommand()
     const em = createEm()
