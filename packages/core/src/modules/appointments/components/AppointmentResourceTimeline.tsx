@@ -152,6 +152,10 @@ function groupAppointmentBlocks(blocks: AppointmentResourceTimelineBlock[]) {
   })
 }
 
+function isAppointmentPopoverOverlayTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest('[data-appointment-staff-assignment-sheet="true"], [data-appointment-add-service-dialog="true"]'))
+}
+
 function resourceIcon(resource: AppointmentResourceTimelineResource) {
   const iconName = resource.appearanceIcon ?? resource.capacityUnitIcon ?? resource.typeIcon ?? null
   const iconNode = resolveRegisteredLucideIconNode(iconName ?? undefined, 'size-4')
@@ -235,6 +239,12 @@ function TimelineAppointmentBlock({
         collisionPadding={16}
         className="flex w-80 max-w-full flex-col overflow-hidden p-0 shadow-xl"
         style={{ maxHeight: 'min(38rem, var(--radix-popover-content-available-height))' }}
+        onPointerDownOutside={(event) => {
+          if (isAppointmentPopoverOverlayTarget(event.detail.originalEvent.target)) event.preventDefault()
+        }}
+        onFocusOutside={(event) => {
+          if (isAppointmentPopoverOverlayTarget(event.detail.originalEvent.target)) event.preventDefault()
+        }}
       >
         <div className={cn('h-1 w-full shrink-0', block.state === 'confirmed' ? 'bg-status-success-icon' : 'bg-status-warning-icon')} />
         {renderPopover(appointment, block, () => setOpen(false), { startMinutes: timelineStartMinutes, endMinutes: timelineEndMinutes })}

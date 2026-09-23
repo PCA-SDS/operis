@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@open-mercato/ui/primitives/sheet'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { apiCall, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
@@ -22,7 +23,7 @@ import { useOrganizationScopeDetail, useOrganizationScopeVersion } from '@open-m
 import { emitOrganizationScopeChanged } from '@open-mercato/shared/lib/frontend/organizationEvents'
 import { AppointmentServicePicker, hasCompleteAppointmentServiceOptions, type AppointmentBookableService, type AppointmentServiceSelection } from '../../../components/AppointmentServicePicker'
 import { AppointmentResourceTimeline } from '../../../components/AppointmentResourceTimeline'
-import { AppointmentStaffAssignmentSheet, type AppointmentAssignableStaff } from '../../../components/AppointmentStaffAssignmentSheet'
+import { AppointmentStaffAssignmentSheet, type AppointmentAssignableStaff, type AppointmentStaffAssignmentTarget } from '../../../components/AppointmentStaffAssignmentSheet'
 import { BookingOverviewCreateSheet } from '../../../components/BookingOverviewCreateSheet'
 import { groupSeatPlannerOptions } from '../../../lib/seatPlannerOptions'
 import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
@@ -43,11 +44,21 @@ type Appointment = {
   requestedEndAt: string | null
   lines: Line[]
 }
-type Block = { id: string; appointmentId: string; lineId: string; resourceId: string | null; resourceName: string | null; assignedMemberId: string | null; assignedMemberName: string | null; startsAt: string; endsAt: string; state: 'draft' | 'confirmed'; serviceName: string; serviceCategory: string | null }
+type Block = { id: string; appointmentId: string; lineId: string; resourceId: string | null; resourceName: string | null; assignedMemberId: string | null; assignedMemberName: string | null; assignedMemberIds?: string[]; assignedMemberNames?: string[]; startsAt: string; endsAt: string; state: 'draft' | 'confirmed'; serviceName: string; serviceCategory: string | null }
 type Overview = { date: string; organization: { id: string; name: string }; resources: Resource[]; appointments: Appointment[]; blocks: Block[]; unassignedAppointmentIds: string[]; unconfirmedAppointmentIds: string[]; unconfirmedAppointments: Appointment[] }
 type OrganizationNode = { id: string; name: string; selectable: boolean; children?: OrganizationNode[] }
 const DEPOSIT_RECEIVED_STATUS_CODE = 'deposit_received_booked'
 const STAFF_PAGE_SIZE = 50
+
+function assignedMemberIdsFor(value: { assignedMemberIds?: string[]; assignedMemberId?: string | null } | null | undefined) {
+  if (Array.isArray(value?.assignedMemberIds) && value.assignedMemberIds.length > 0) return value.assignedMemberIds
+  return value?.assignedMemberId ? [value.assignedMemberId] : []
+}
+
+function assignedMemberNamesFor(value: { assignedMemberNames?: string[]; assignedMemberName?: string | null } | null | undefined) {
+  if (Array.isArray(value?.assignedMemberNames) && value.assignedMemberNames.length > 0) return value.assignedMemberNames
+  return value?.assignedMemberName ? [value.assignedMemberName] : []
+}
 
 function BookingLineOptions({ options }: { options: NonNullable<Line['options']> }) {
   const t = useT()
@@ -255,7 +266,6 @@ function BookingQuickPopover({
   const [menuOpen, setMenuOpen] = React.useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [isDeleting, setIsDeleting] = React.useState(false)
-  const [deletingLineId, setDeletingLineId] = React.useState<string | null>(null)
   const appointmentBlocks = blocks.filter((block) => block.appointmentId === appointment.id)
   const startsAt = appointmentBlocks.reduce((earliest, block) => block.startsAt < earliest ? block.startsAt : earliest, anchorBlock.startsAt)
   const endsAt = appointmentBlocks.reduce((latest, block) => block.endsAt > latest ? block.endsAt : latest, anchorBlock.endsAt)
@@ -329,20 +339,15 @@ function BookingQuickPopover({
                     variant="ghost"
                     size="icon"
                     className="-mr-1 -mt-1 size-7 shrink-0 text-destructive hover:text-destructive"
-                    disabled={deletingLineId !== null}
                     aria-label={t('appointments.overview.deleteService', 'Delete service')}
-                    onClick={async () => {
-                      setDeletingLineId(line.id)
-                      await onDeleteService(appointment, line)
-                      setDeletingLineId(null)
-                    }}
+                    onClick={() => void onDeleteService(appointment, line)}
                   >
                     <Trash2 className="size-4" />
                   </Button> : null}
                 </div>
                 {line.productCategory ? <p className="mt-0.5 text-muted-foreground">{line.productCategory}</p> : null}
                 <BookingLineOptions options={line.options ?? []} />
-                {canManage ? <button type="button" className="mt-1 flex items-center gap-1 text-left text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60" disabled={!block} onClick={() => onAssignStaff(appointment, line, block ?? null)}><Users className="size-3.5" />{block?.assignedMemberName ?? t('appointments.overview.noStaff', 'No staff assigned')}</button> : <span className="mt-1 flex items-center gap-1 text-muted-foreground"><Users className="size-3.5" />{block?.assignedMemberName ?? t('appointments.overview.noStaff', 'No staff assigned')}</span>}
+                {canManage ? <button type="button" className="mt-1 flex items-center gap-1 text-left text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60" disabled={!block} onClick={() => onAssignStaff(appointment, line, block ?? null)}><Users className="size-3.5" />{assignedMemberNamesFor(block).join(', ') || t('appointments.overview.noStaff', 'No staff assigned')}</button> : <span className="mt-1 flex items-center gap-1 text-muted-foreground"><Users className="size-3.5" />{assignedMemberNamesFor(block).join(', ') || t('appointments.overview.noStaff', 'No staff assigned')}</span>}
                 {block && canManage ? <BookingScheduleEditor block={block} timelineStartMinutes={timelineStartMinutes} timelineEndMinutes={timelineEndMinutes} onSave={(startsAt, endsAt) => onScheduleChange(appointment, line, block, startsAt, endsAt)} /> : <div className="mt-2 grid grid-cols-2 gap-2 tabular-nums"><div className="rounded-md bg-input-bg px-2 py-1.5"><span className="mr-2 text-muted-foreground">{t('appointments.overview.time', 'Time')}</span>{block ? displayTime(block.startsAt) : '—'}</div><div className="rounded-md bg-input-bg px-2 py-1.5"><span className="mr-2 text-muted-foreground">{t('appointments.overview.end', 'End')}</span>{block ? displayTime(block.endsAt) : '—'}</div></div>}
               </div>
             )
@@ -378,6 +383,7 @@ function BookingQuickPopover({
 
 export default function BookingOverviewPage() {
   const t = useT()
+  const { confirm: confirmDialog, ConfirmDialogElement } = useConfirmDialog()
   const router = useRouter()
   const searchParams = useSearchParams()
   const scopeVersion = useOrganizationScopeVersion()
@@ -405,7 +411,7 @@ export default function BookingOverviewPage() {
   const [unconfirmedOpen, setUnconfirmedOpen] = React.useState(false)
   const [placementAppointment, setPlacementAppointment] = React.useState<Appointment | null>(null)
   const [isAssigning, setIsAssigning] = React.useState(false)
-  const [staffSheetTarget, setStaffSheetTarget] = React.useState<{ appointmentId: string; lineId: string; target: { serviceName: string; resourceName: string | null; startsAt: string; endsAt: string; assignedMemberId: string | null; assignedMemberName: string | null } } | null>(null)
+  const [staffSheetTarget, setStaffSheetTarget] = React.useState<{ appointmentId: string; lineId: string; target: AppointmentStaffAssignmentTarget } | null>(null)
   const [staffMembers, setStaffMembers] = React.useState<AppointmentAssignableStaff[]>([])
   const [isLoadingStaff, setIsLoadingStaff] = React.useState(false)
   const [isLoadingMoreStaff, setIsLoadingMoreStaff] = React.useState(false)
@@ -415,6 +421,7 @@ export default function BookingOverviewPage() {
   const staffPageRef = React.useRef(0)
   const staffLoadingRef = React.useRef(false)
   const hasMoreStaffRef = React.useRef(true)
+  const staffAvailabilityRangeRef = React.useRef<{ startsAt: string; endsAt: string } | null>(null)
 
   const reload = React.useCallback((withoutPageLoading = false) => {
     setSilentReload(withoutPageLoading)
@@ -531,8 +538,17 @@ export default function BookingOverviewPage() {
     if (page === 1) setIsLoadingStaff(true)
     else setIsLoadingMoreStaff(true)
     try {
-      const response = await readApiResultOrThrow<{ items?: Array<{ id: string; displayName: string; teamName?: string | null }> }>(`/api/staff/team-members/assignable?page=${page}&pageSize=${STAFF_PAGE_SIZE}&includeUnlinked=true`)
-      const nextStaff = (response.items ?? []).map((member) => ({ id: member.id, displayName: member.displayName, roleLabel: member.teamName ?? t('appointments.staffAssignment.member', 'Staff member') }))
+      const range = staffAvailabilityRangeRef.current
+      const availabilityQuery = range
+        ? `&startsAt=${encodeURIComponent(range.startsAt)}&endsAt=${encodeURIComponent(range.endsAt)}`
+        : ''
+      const response = await readApiResultOrThrow<{ items?: Array<{ id: string; displayName: string; teamName?: string | null; roleNames?: string[] }> }>(`/api/staff/team-members/assignable?page=${page}&pageSize=${STAFF_PAGE_SIZE}&includeUnlinked=true${availabilityQuery}`)
+      const nextStaff = (response.items ?? []).map((member) => ({
+        id: member.id,
+        displayName: member.displayName,
+        roleLabel: member.teamName ?? t('appointments.staffAssignment.member', 'Staff member'),
+        roleLabels: Array.isArray(member.roleNames) ? member.roleNames : [],
+      }))
       setStaffMembers((current) => {
         if (page === 1) return nextStaff
         const existingIds = new Set(current.map((member) => member.id))
@@ -558,6 +574,12 @@ export default function BookingOverviewPage() {
 
   const openStaffAssignment = React.useCallback((appointment: Appointment, line: Line, block: Block | null) => {
     if (!block?.resourceId) return
+    staffAvailabilityRangeRef.current = { startsAt: block.startsAt, endsAt: block.endsAt }
+    staffPageRef.current = 0
+    staffLoadingRef.current = false
+    hasMoreStaffRef.current = true
+    setHasMoreStaff(true)
+    setStaffMembers([])
     setStaffSheetTarget({ appointmentId: appointment.id, lineId: line.id, target: {
       serviceName: line.productTitle,
       resourceName: block.resourceName,
@@ -565,6 +587,8 @@ export default function BookingOverviewPage() {
       endsAt: block.endsAt,
       assignedMemberId: block.assignedMemberId,
       assignedMemberName: block.assignedMemberName,
+      assignedMemberIds: assignedMemberIdsFor(block),
+      assignedMemberNames: block.assignedMemberNames ?? (block.assignedMemberName ? [block.assignedMemberName] : []),
     } })
   }, [])
 
@@ -575,32 +599,44 @@ export default function BookingOverviewPage() {
     const busy = new Set<string>()
     for (const block of overview.blocks) {
       if (block.appointmentId === staffSheetTarget.appointmentId && block.lineId === staffSheetTarget.lineId) continue
-      if (!block.assignedMemberId) continue
-      if (targetStart < new Date(block.endsAt).getTime() && new Date(block.startsAt).getTime() < targetEnd) busy.add(block.assignedMemberId)
+      const assignedMemberIds = assignedMemberIdsFor(block)
+      if (assignedMemberIds.length === 0) continue
+      if (targetStart < new Date(block.endsAt).getTime() && new Date(block.startsAt).getTime() < targetEnd) assignedMemberIds.forEach((memberId) => busy.add(memberId))
     }
     return busy
   }, [overview, staffSheetTarget])
 
-  const saveStaffAssignment = React.useCallback(async (staffId: string | null, duration?: number) => {
+  const saveStaffAssignment = React.useCallback(async (assignedMemberIds: string[], duration?: number) => {
     if (!staffSheetTarget || !overview || isSavingStaff) return
     const block = overview.blocks.find((entry) => entry.appointmentId === staffSheetTarget.appointmentId && entry.lineId === staffSheetTarget.lineId)
     if (!block?.resourceId) return
     const nextEndsAt = duration === undefined ? block.endsAt : addMinutes(block.startsAt, duration)
+    const assignedMemberId = assignedMemberIds[0] ?? null
+    const currentAssignedMemberNames = staffSheetTarget.target.assignedMemberNames ?? (staffSheetTarget.target.assignedMemberName ? [staffSheetTarget.target.assignedMemberName] : [])
+    const currentAssignedMemberNamesById = new Map(assignedMemberIdsFor(staffSheetTarget.target).map((id, index) => [id, currentAssignedMemberNames[index] ?? null]))
+    const assignedMemberNames = assignedMemberIds
+      .map((id) => staffMembers.find((member) => member.id === id)?.displayName ?? currentAssignedMemberNamesById.get(id))
+      .filter((name): name is string => typeof name === 'string')
     setIsSavingStaff(true)
     suppressRealtimeReloadRef.current = true
     try {
       const call = await apiCall(`/api/appointments/${staffSheetTarget.appointmentId}/lines/${staffSheetTarget.lineId}/draft`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ resourceId: block.resourceId, startsAt: block.startsAt, endsAt: nextEndsAt, assignedMemberId: staffId, preserveState: true }),
+        body: JSON.stringify({ resourceId: block.resourceId, startsAt: block.startsAt, endsAt: nextEndsAt, assignedMemberId, assignedMemberIds, preserveState: true }),
       }, { fallback: null })
       if (!call.ok) {
         flash(t('appointments.staffAssignment.saveError', 'Unable to update staff assignment.'), 'error')
         return
       }
-      setOverview((current) => current ? { ...current, blocks: current.blocks.map((entry) => entry.id === block.id ? { ...entry, endsAt: nextEndsAt, assignedMemberId: staffId, assignedMemberName: staffId ? staffMembers.find((member) => member.id === staffId)?.displayName ?? null : null } : entry) } : current)
-      setStaffSheetTarget((current) => current ? { ...current, target: { ...current.target, endsAt: nextEndsAt, assignedMemberId: staffId, assignedMemberName: staffId ? staffMembers.find((member) => member.id === staffId)?.displayName ?? null : null } } : current)
-      flash(staffId ? t('appointments.staffAssignment.assignedToast', 'Staff assigned.') : t('appointments.staffAssignment.removedToast', 'Staff removed.'), 'success')
+      setOverview((current) => current ? {
+        ...current,
+        blocks: current.blocks.map((entry) => entry.appointmentId === staffSheetTarget.appointmentId && entry.lineId === staffSheetTarget.lineId
+          ? { ...entry, endsAt: nextEndsAt, assignedMemberId, assignedMemberName: assignedMemberNames[0] ?? null, assignedMemberIds, assignedMemberNames }
+          : entry),
+      } : current)
+      setStaffSheetTarget((current) => current ? { ...current, target: { ...current.target, endsAt: nextEndsAt, assignedMemberId, assignedMemberName: assignedMemberNames[0] ?? null, assignedMemberIds, assignedMemberNames } } : current)
+      flash(assignedMemberIds.length > 0 ? t('appointments.staffAssignment.assignedToast', 'Staff assigned.') : t('appointments.staffAssignment.removedToast', 'Staff removed.'), 'success')
     } finally {
       suppressRealtimeReloadRef.current = false
       setIsSavingStaff(false)
@@ -614,7 +650,7 @@ export default function BookingOverviewPage() {
       const call = await apiCall(`/api/appointments/${appointment.id}/lines/${line.id}/draft`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ resourceId: block.resourceId, startsAt, endsAt, assignedMemberId: block.assignedMemberId, preserveState: true }),
+        body: JSON.stringify({ resourceId: block.resourceId, startsAt, endsAt, assignedMemberId: block.assignedMemberId, assignedMemberIds: assignedMemberIdsFor(block), preserveState: true }),
       }, { fallback: null })
       if (!call.ok) {
         flash(t('appointments.staffAssignment.saveError', 'Unable to update staff assignment.'), 'error')
@@ -828,6 +864,17 @@ export default function BookingOverviewPage() {
     }
   }
 
+  const confirmDeleteService = async (appointment: Appointment, line: Line) => {
+    const confirmed = await confirmDialog({
+      title: t('appointments.seatPlanner.removeServiceTitle', 'Remove service?'),
+      description: t('appointments.seatPlanner.removeServiceDescription', 'This will remove the service and clear its scheduled resource, time, and staff.'),
+      confirmText: t('appointments.seatPlanner.removeService', 'Remove service'),
+      variant: 'destructive',
+    })
+    if (!confirmed) return false
+    return deleteService(appointment, line)
+  }
+
   const copyAppointment = async (appointment: Appointment) => {
     const call = await apiCall(`/api/appointments/${appointment.id}/clone`, { method: 'POST' }, { fallback: null })
     if (!call.ok) flash(t('appointments.clone.failed', 'Unable to clone appointment.'), 'error')
@@ -923,7 +970,7 @@ export default function BookingOverviewPage() {
                 placementStartAt={placementAppointment?.requestedStartAt}
                 renderAppointmentPopover={(timelineAppointment, block, close, timelineBounds) => {
                   const appointment = appointmentById.get(timelineAppointment.id)
-                  return appointment ? <BookingQuickPopover appointment={appointment} anchorBlock={block as Block} blocks={overview.blocks} close={close} onCopy={copyAppointment} onDepositChange={updateDeposit} onDelete={deleteAppointment} onDeleteService={deleteService} onAddService={openAddService} onAssignStaff={openStaffAssignment} onOpenSeatPlanner={openSeatPlanner} onScheduleChange={saveScheduleAssignment} timelineStartMinutes={timelineBounds.startMinutes} timelineEndMinutes={timelineBounds.endMinutes} canCreate={canCreate} canManage={canManage} canViewSeatPlanner={canViewSeatPlanner} /> : null
+                  return appointment ? <BookingQuickPopover appointment={appointment} anchorBlock={block as Block} blocks={overview.blocks} close={close} onCopy={copyAppointment} onDepositChange={updateDeposit} onDelete={deleteAppointment} onDeleteService={confirmDeleteService} onAddService={openAddService} onAssignStaff={openStaffAssignment} onOpenSeatPlanner={openSeatPlanner} onScheduleChange={saveScheduleAssignment} timelineStartMinutes={timelineBounds.startMinutes} timelineEndMinutes={timelineBounds.endMinutes} canCreate={canCreate} canManage={canManage} canViewSeatPlanner={canViewSeatPlanner} /> : null
                 }}
                 onSlotClick={createBookingSlot || (!canCreate && !placementAppointment) ? undefined : (resourceId, time) => {
                   if (placementAppointment) {
@@ -987,12 +1034,21 @@ export default function BookingOverviewPage() {
         busyStaffIds={busyStaffIds}
         isSaving={isSavingStaff}
         onClose={() => setStaffSheetTarget(null)}
-        onAssign={(staffId) => void saveStaffAssignment(staffId)}
-        onDurationChange={(duration) => void saveStaffAssignment(staffSheetTarget?.target.assignedMemberId ?? null, duration)}
+        onAssign={(staffId) => {
+          const currentIds = assignedMemberIdsFor(staffSheetTarget?.target)
+          const nextIds = staffId === null
+            ? []
+            : currentIds.includes(staffId)
+              ? currentIds.filter((id) => id !== staffId)
+              : [...currentIds, staffId]
+          void saveStaffAssignment(nextIds)
+        }}
+        onDurationChange={(duration) => void saveStaffAssignment(assignedMemberIdsFor(staffSheetTarget?.target), duration)}
         onLoadMore={() => void loadStaffPage(staffPageRef.current + 1)}
       />
+      {ConfirmDialogElement}
       <Dialog open={Boolean(serviceDialogAppointment)} onOpenChange={(open) => { if (!open) { setServiceDialogAppointment(null); setSelectedServices([]) } }}>
-        <DialogContent size="lg" className="max-h-[90dvh] overflow-hidden" disableBodyWrap>
+        <DialogContent data-appointment-add-service-dialog="true" size="lg" elevated className="max-h-[90dvh] overflow-hidden" disableBodyWrap>
           <DialogHeader>
             <DialogTitle>{t('appointments.seatPlanner.addServiceTitle', 'Add service')}</DialogTitle>
             <DialogDescription>{t('appointments.seatPlanner.addServiceHint', 'Choose one or more services to add to this booking.')}</DialogDescription>

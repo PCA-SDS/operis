@@ -28,6 +28,11 @@ function toDayBounds(date: string) {
   }
 }
 
+function assignedMemberIdsFor(assignment: { assignedMemberIds?: string[] | null; assignedMemberId?: string | null }) {
+  if (Array.isArray(assignment.assignedMemberIds) && assignment.assignedMemberIds.length > 0) return assignment.assignedMemberIds
+  return assignment.assignedMemberId ? [assignment.assignedMemberId] : []
+}
+
 export async function GET(req: Request) {
   const { translate } = await resolveTranslations()
   try {
@@ -128,7 +133,7 @@ export async function GET(req: Request) {
       : []
     const assignmentLineById = new Map(assignmentLines.map((line) => [line.id, line]))
     const appointmentById = new Map(appointments.map((appointment) => [appointment.id, appointment]))
-    const memberIds = Array.from(new Set(assignments.map((assignment) => assignment.assignedMemberId).filter((id): id is string => Boolean(id))))
+    const memberIds = Array.from(new Set(assignments.flatMap(assignedMemberIdsFor)))
     const members = memberIds.length > 0
       ? await findWithDecryption(em, StaffTeamMember, { id: { $in: memberIds }, tenantId: auth.tenantId, deletedAt: null })
       : []
@@ -150,8 +155,10 @@ export async function GET(req: Request) {
         lineId: line.id,
         resourceId: assignment.resource?.id ?? null,
         resourceName: assignment.resource?.name ?? null,
-        assignedMemberId: assignment.assignedMemberId ?? null,
-        assignedMemberName: assignment.assignedMemberId ? memberNames.get(assignment.assignedMemberId) ?? null : null,
+        assignedMemberIds: assignedMemberIdsFor(assignment),
+        assignedMemberNames: assignedMemberIdsFor(assignment).map((memberId) => memberNames.get(memberId)).filter((name): name is string => Boolean(name)),
+        assignedMemberId: assignedMemberIdsFor(assignment)[0] ?? null,
+        assignedMemberName: assignedMemberIdsFor(assignment)[0] ? memberNames.get(assignedMemberIdsFor(assignment)[0]) ?? null : null,
         startsAt: assignment.startsAt.toISOString(),
         endsAt: assignment.endsAt.toISOString(),
         state: assignment.state,
