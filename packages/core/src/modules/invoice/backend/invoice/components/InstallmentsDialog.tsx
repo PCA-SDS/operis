@@ -51,6 +51,16 @@ const splitPrincipal = (total: number, count: number) => {
     ? (total - base * (count - 1)).toFixed(2)
     : base.toFixed(2))
 }
+const roundMoney = (value: number) => Number(value.toFixed(4))
+const calculateReducingBalanceInterest = (rows: PlanItem[], openingBalance: number) => {
+  let remaining = openingBalance
+  return rows.reduce((total, item) => {
+    const principal = Number(item.principalAmount || 0)
+    const interest = roundMoney(remaining * Number(item.interestRate || 0) / 100)
+    remaining = roundMoney(remaining - principal)
+    return total + interest
+  }, 0)
+}
 
 export function InstallmentsDialog({ invoiceId, onClose, onChanged }: { invoiceId: string; onClose: () => void; onChanged: () => void }) {
   const t = useT()
@@ -94,7 +104,7 @@ export function InstallmentsDialog({ invoiceId, onClose, onChanged }: { invoiceI
   const hasPaidInstallment = invoice.installments.some((item) => item.status === 'PAID')
   const invoiceTotal = Number(invoice.grossAmount ?? 0)
   const principalTotal = rows.reduce((sum, item) => sum + Number(item.principalAmount || 0), 0)
-  const interestTotal = rows.reduce((sum, item) => sum + (Number(item.principalAmount || 0) * Number(item.interestRate || 0) / 100), 0)
+  const interestTotal = calculateReducingBalanceInterest(rows, invoiceTotal)
   const principalMatchesTotal = Math.abs(principalTotal - invoiceTotal) < 0.0001
   const canSave = invoiceInstallmentPlanUpdateSchema.safeParse({ installments: rows.map((item) => ({ principalAmount: item.principalAmount, interestRate: item.interestRate, dueDate: item.dueDate, note: item.note })) }).success && principalMatchesTotal
 
