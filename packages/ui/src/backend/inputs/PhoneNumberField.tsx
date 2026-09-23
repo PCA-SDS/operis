@@ -411,6 +411,12 @@ export type PhoneNumberFieldProps = {
   countries?: PhoneCountry[]
   /** Initial country shown when `value` is empty / unparseable. Defaults to US. */
   defaultCountryIso2?: string
+  /** Render the country menu above modal and sheet surfaces. */
+  dropdownElevated?: boolean
+  /** Render the country menu inside a scroll-locked surface when needed. */
+  dropdownPortalContainer?: Element | null
+  /** Additional classes for the bordered phone field surface. */
+  fieldClassName?: string
 }
 
 const DEFAULT_MIN_DIGITS = 6
@@ -436,6 +442,9 @@ export function PhoneNumberField({
   onDuplicateLookup,
   countries: countriesProp,
   defaultCountryIso2,
+  dropdownElevated = false,
+  dropdownPortalContainer,
+  fieldClassName,
 }: PhoneNumberFieldProps) {
   const t = useT()
   const resolvedInvalidLabel = invalidLabel ?? t(
@@ -608,6 +617,7 @@ export function PhoneNumberField({
       <div
         className={cn(
           'flex items-stretch w-full rounded-md border bg-surface shadow-xs transition-colors',
+          fieldClassName,
           disabled
             ? 'bg-bg-disabled border-border-disabled cursor-not-allowed'
             : focused
@@ -629,6 +639,8 @@ export function PhoneNumberField({
           placeholder={t('ui.phone.countryCode', 'Country code')}
           disabled={disabled}
           align="start"
+          elevated={dropdownElevated}
+          portalContainer={dropdownPortalContainer}
           triggerLeading={<span className="text-base leading-none" aria-hidden="true">{country.flag}</span>}
           triggerLabel={<span className="text-sm text-foreground tabular-nums">{country.dialCode}</span>}
           triggerClassName={cn(
