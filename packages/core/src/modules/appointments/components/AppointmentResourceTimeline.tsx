@@ -68,6 +68,7 @@ type AppointmentResourceTimelineProps = {
     appointment: AppointmentResourceTimelineAppointment,
     block: AppointmentResourceTimelineBlock,
     close: () => void,
+    bounds: { startMinutes: number; endMinutes: number },
   ) => React.ReactNode
 }
 
@@ -178,6 +179,7 @@ function TimelineAppointmentBlock({
   block,
   hourHeight,
   timelineStartMinutes,
+  timelineEndMinutes,
   renderPopover,
   placementMode,
 }: {
@@ -185,6 +187,7 @@ function TimelineAppointmentBlock({
   block: AppointmentResourceTimelineBlock
   hourHeight: number
   timelineStartMinutes: number
+  timelineEndMinutes: number
   placementMode?: boolean
   renderPopover?: AppointmentResourceTimelineProps['renderAppointmentPopover']
 }) {
@@ -234,7 +237,7 @@ function TimelineAppointmentBlock({
         style={{ maxHeight: 'min(38rem, var(--radix-popover-content-available-height))' }}
       >
         <div className={cn('h-1 w-full shrink-0', block.state === 'confirmed' ? 'bg-status-success-icon' : 'bg-status-warning-icon')} />
-        {renderPopover(appointment, block, () => setOpen(false))}
+        {renderPopover(appointment, block, () => setOpen(false), { startMinutes: timelineStartMinutes, endMinutes: timelineEndMinutes })}
       </PopoverContent>
     </Popover>
   )
@@ -363,7 +366,7 @@ export function AppointmentResourceTimeline({ date, resources, appointments, blo
                   {resourceBlocks.map((block) => {
                     const appointment = appointmentById.get(block.appointmentId)
                     if (!appointment) return null
-                    return <TimelineAppointmentBlock key={`${block.appointmentId}-${block.resourceId}`} appointment={appointment} block={block} hourHeight={hourHeight} timelineStartMinutes={timelineBounds.startMinutes} placementMode={placementMode} renderPopover={renderAppointmentPopover} />
+                    return <TimelineAppointmentBlock key={`${block.appointmentId}-${block.resourceId}`} appointment={appointment} block={block} hourHeight={hourHeight} timelineStartMinutes={timelineBounds.startMinutes} timelineEndMinutes={timelineBounds.endMinutes} placementMode={placementMode} renderPopover={renderAppointmentPopover} />
                   })}
                 </div>
               )

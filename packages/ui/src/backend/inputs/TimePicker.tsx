@@ -17,8 +17,11 @@ export type TimePickerProps = {
   readOnly?: boolean
   className?: string
   minuteStep?: number
+  slots?: string[]
   showNowButton?: boolean
   showClearButton?: boolean
+  showFooter?: boolean
+  closeOnChange?: boolean
 }
 
 function currentHHMM(): string {
@@ -44,12 +47,15 @@ export function TimePicker({
   readOnly = false,
   className,
   minuteStep = 30,
+  slots,
   showNowButton = true,
   // Default changed 2026-05-11 from `true` → `false`: the new primitive's Cancel
   // button already exits the popover without committing, which is what users mean
   // by "Clear" in most flows. Pass `showClearButton={true}` to opt back in when
   // you need an explicit "set value to null" action distinct from "dismiss".
   showClearButton = false,
+  showFooter = true,
+  closeOnChange = false,
 }: TimePickerProps) {
   const t = useT()
   const [open, setOpen] = React.useState(false)
@@ -128,15 +134,19 @@ export function TimePicker({
   return (
     <TimePickerPrimitive
       value={value ?? null}
-      onChange={(next) => onChange(next)}
+      onChange={(next) => {
+        onChange(next)
+        if (closeOnChange) setOpen(false)
+      }}
       onApply={(next) => {
         onChange(next)
       }}
       intervalMinutes={Math.max(1, minuteStep)}
+      slots={slots}
       // Trigger button already displays current value — don't duplicate it
       // inside the popover header.
       showHeader={false}
-      showFooter
+      showFooter={showFooter}
       headerPlaceholder={placeholderText}
       pinnedTopActions={pinnedTopActions.length > 0 ? pinnedTopActions : undefined}
       legacyFooterActions={legacyFooterActions.length > 0 ? legacyFooterActions : undefined}

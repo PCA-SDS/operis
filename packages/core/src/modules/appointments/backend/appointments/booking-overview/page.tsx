@@ -9,6 +9,7 @@ import { BadgeDollarSign, CalendarDays, Check, Clock, Copy, ExternalLink, Inbox,
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { DatePicker } from '@open-mercato/ui/primitives/date-picker'
+import { TimePicker } from '@open-mercato/ui/backend/inputs/TimePicker'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@open-mercato/ui/primitives/sheet'
@@ -93,6 +94,104 @@ function isAbortError(error: unknown) {
   return error instanceof Error && (error.name === 'AbortError' || error.message === 'signal is aborted without reason')
 }
 
+function timeInputValue(value: string) {
+  const date = new Date(value)
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+function updateTimeValue(value: string, time: string) {
+  const date = new Date(value)
+  const [hours = '0', minutes = '0'] = time.split(':')
+  date.setHours(Number(hours), Number(minutes), 0, 0)
+  return date.toISOString()
+}
+
+function timeToMinutes(value: string) {
+  const [hours = '0', minutes = '0'] = value.split(':')
+  return Number(hours) * 60 + Number(minutes)
+}
+
+function minutesToTime(minutes: number) {
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
+}
+
+function buildTimeSlots(startMinutes: number, endMinutes: number) {
+  const slots: string[] = []
+  for (let minutes = startMinutes; minutes <= endMinutes; minutes += 15) slots.push(minutesToTime(minutes))
+  return slots
+}
+
+function BookingScheduleEditor({ block, timelineStartMinutes, timelineEndMinutes, onSave }: { block: Block; timelineStartMinutes: number; timelineEndMinutes: number; onSave: (startsAt: string, endsAt: string) => Promise<boolean> }) {
+  const t = useT()
+  const [startTime, setStartTime] = React.useState(() => timeInputValue(block.startsAt))
+  const [endTime, setEndTime] = React.useState(() => timeInputValue(block.endsAt))
+  const saveQueueRef = React.useRef<Promise<void>>(Promise.resolve())
+  const gridSlots = React.useMemo(() => buildTimeSlots(timelineStartMinutes, timelineEndMinutes), [timelineEndMinutes, timelineStartMinutes])
+
+  React.useEffect(() => {
+    setStartTime(timeInputValue(block.startsAt))
+    setEndTime(timeInputValue(block.endsAt))
+  }, [block.endsAt, block.id, block.startsAt])
+
+  const startSlots = React.useMemo(() => {
+    const endMinutes = timeToMinutes(endTime)
+    return gridSlots.filter((slot) => timeToMinutes(slot) <= endMinutes - 15)
+  }, [endTime, gridSlots])
+  const endSlots = React.useMemo(() => {
+    const startMinutes = timeToMinutes(startTime)
+    return gridSlots.filter((slot) => timeToMinutes(slot) >= startMinutes + 15)
+  }, [gridSlots, startTime])
+
+  const saveSchedule = React.useCallback((nextStartTime: string, nextEndTime: string, previousStartTime: string, previousEndTime: string) => {
+    const startsAt = updateTimeValue(block.startsAt, nextStartTime)
+    const endsAt = updateTimeValue(block.endsAt, nextEndTime)
+    if (new Date(endsAt).getTime() <= new Date(startsAt).getTime()) return
+
+    const saveTask = saveQueueRef.current.then(async () => {
+      try {
+        const saved = await onSave(startsAt, endsAt)
+        if (!saved) {
+          setStartTime((current) => current === nextStartTime ? previousStartTime : current)
+          setEndTime((current) => current === nextEndTime ? previousEndTime : current)
+        }
+      } catch {
+        setStartTime((current) => current === nextStartTime ? previousStartTime : current)
+        setEndTime((current) => current === nextEndTime ? previousEndTime : current)
+      }
+    })
+    saveQueueRef.current = saveTask.then(() => undefined, () => undefined)
+  }, [block.endsAt, block.startsAt, onSave])
+
+  const handleTimeChange = (field: 'start' | 'end', value: string | null) => {
+    if (!value) return
+    const nextStartTime = field === 'start' ? value : startTime
+    const nextEndTime = field === 'end' ? value : endTime
+    if (nextStartTime === startTime && nextEndTime === endTime) return
+    if (timeToMinutes(nextEndTime) <= timeToMinutes(nextStartTime)) return
+
+    const previousStartTime = startTime
+    const previousEndTime = endTime
+    setStartTime(nextStartTime)
+    setEndTime(nextEndTime)
+    saveSchedule(nextStartTime, nextEndTime, previousStartTime, previousEndTime)
+  }
+
+  return (
+    <div className="mt-2 space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <label className="min-w-0 space-y-1">
+          <span className="block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('appointments.overview.time', 'Time')}</span>
+          <TimePicker value={startTime} onChange={(value) => handleTimeChange('start', value)} slots={startSlots} minuteStep={15} showNowButton={false} showClearButton={false} showFooter={false} closeOnChange className="h-8 px-2 text-xs" aria-label={t('appointments.overview.time', 'Time')} />
+        </label>
+        <label className="min-w-0 space-y-1">
+          <span className="block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('appointments.overview.end', 'End')}</span>
+          <TimePicker value={endTime} onChange={(value) => handleTimeChange('end', value)} slots={endSlots} minuteStep={15} showNowButton={false} showClearButton={false} showFooter={false} closeOnChange className="h-8 px-2 text-xs" aria-label={t('appointments.overview.end', 'End')} />
+        </label>
+      </div>
+    </div>
+  )
+}
+
 function BookingQuickPopover({
   appointment,
   anchorBlock,
@@ -105,6 +204,9 @@ function BookingQuickPopover({
   onAddService,
   onAssignStaff,
   onOpenSeatPlanner,
+  onScheduleChange,
+  timelineStartMinutes,
+  timelineEndMinutes,
   canCreate,
   canManage,
   canViewSeatPlanner,
@@ -120,6 +222,9 @@ function BookingQuickPopover({
   onAddService: (appointment: Appointment) => void
   onAssignStaff: (appointment: Appointment, line: Line, block: Block | null) => void
   onOpenSeatPlanner: (appointmentId: string) => void
+  onScheduleChange: (appointment: Appointment, line: Line, block: Block, startsAt: string, endsAt: string) => Promise<boolean>
+  timelineStartMinutes: number
+  timelineEndMinutes: number
   canCreate: boolean
   canManage: boolean
   canViewSeatPlanner: boolean
@@ -216,10 +321,7 @@ function BookingQuickPopover({
                 {line.productCategory ? <p className="mt-0.5 text-muted-foreground">{line.productCategory}</p> : null}
                 <BookingLineOptions options={line.options ?? []} />
                 {canManage ? <button type="button" className="mt-1 flex items-center gap-1 text-left text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60" disabled={!block} onClick={() => onAssignStaff(appointment, line, block ?? null)}><Users className="size-3.5" />{block?.assignedMemberName ?? t('appointments.overview.noStaff', 'No staff assigned')}</button> : <span className="mt-1 flex items-center gap-1 text-muted-foreground"><Users className="size-3.5" />{block?.assignedMemberName ?? t('appointments.overview.noStaff', 'No staff assigned')}</span>}
-                <div className="mt-2 grid grid-cols-2 gap-2 tabular-nums">
-                  <div className="rounded-md bg-input-bg px-2 py-1.5"><span className="mr-2 text-muted-foreground">{t('appointments.overview.time', 'Time')}</span>{block ? displayTime(block.startsAt) : '—'}</div>
-                  <div className="rounded-md bg-input-bg px-2 py-1.5"><span className="mr-2 text-muted-foreground">{t('appointments.overview.end', 'End')}</span>{block ? displayTime(block.endsAt) : '—'}</div>
-                </div>
+                {block && canManage ? <BookingScheduleEditor block={block} timelineStartMinutes={timelineStartMinutes} timelineEndMinutes={timelineEndMinutes} onSave={(startsAt, endsAt) => onScheduleChange(appointment, line, block, startsAt, endsAt)} /> : <div className="mt-2 grid grid-cols-2 gap-2 tabular-nums"><div className="rounded-md bg-input-bg px-2 py-1.5"><span className="mr-2 text-muted-foreground">{t('appointments.overview.time', 'Time')}</span>{block ? displayTime(block.startsAt) : '—'}</div><div className="rounded-md bg-input-bg px-2 py-1.5"><span className="mr-2 text-muted-foreground">{t('appointments.overview.end', 'End')}</span>{block ? displayTime(block.endsAt) : '—'}</div></div>}
               </div>
             )
           })}
@@ -483,6 +585,30 @@ export default function BookingOverviewPage() {
     }
   }, [isSavingStaff, overview, staffMembers, staffSheetTarget, t])
 
+  const saveScheduleAssignment = React.useCallback(async (appointment: Appointment, line: Line, block: Block, startsAt: string, endsAt: string): Promise<boolean> => {
+    if (!block.resourceId || new Date(endsAt).getTime() <= new Date(startsAt).getTime()) return false
+    suppressRealtimeReloadRef.current = true
+    try {
+      const call = await apiCall(`/api/appointments/${appointment.id}/lines/${line.id}/draft`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ resourceId: block.resourceId, startsAt, endsAt, assignedMemberId: block.assignedMemberId }),
+      }, { fallback: null })
+      if (!call.ok) {
+        flash(t('appointments.staffAssignment.saveError', 'Unable to update staff assignment.'), 'error')
+        return false
+      }
+      setOverview((current) => current ? { ...current, blocks: current.blocks.map((entry) => entry.id === block.id ? { ...entry, startsAt, endsAt } : entry) } : current)
+      setStaffSheetTarget((current) => current && current.appointmentId === appointment.id && current.lineId === line.id
+        ? { ...current, target: { ...current.target, startsAt, endsAt } }
+        : current)
+      flash(t('appointments.seatPlanner.saved', 'Assignment saved'), 'success')
+      return true
+    } finally {
+      suppressRealtimeReloadRef.current = false
+    }
+  }, [t])
+
   const updateDeposit = async (appointment: Appointment): Promise<boolean> => {
     suppressRealtimeReloadRef.current = true
     try {
@@ -714,9 +840,9 @@ export default function BookingOverviewPage() {
                 fitScreen={isFitScreen}
                 placementMode={Boolean(placementAppointment)}
                 placementStartAt={placementAppointment?.requestedStartAt}
-                renderAppointmentPopover={(timelineAppointment, block, close) => {
+                renderAppointmentPopover={(timelineAppointment, block, close, timelineBounds) => {
                   const appointment = appointmentById.get(timelineAppointment.id)
-                  return appointment ? <BookingQuickPopover appointment={appointment} anchorBlock={block as Block} blocks={overview.blocks} close={close} onCopy={copyAppointment} onDepositChange={updateDeposit} onDelete={deleteAppointment} onDeleteService={deleteService} onAddService={openAddService} onAssignStaff={openStaffAssignment} onOpenSeatPlanner={openSeatPlanner} canCreate={canCreate} canManage={canManage} canViewSeatPlanner={canViewSeatPlanner} /> : null
+                  return appointment ? <BookingQuickPopover appointment={appointment} anchorBlock={block as Block} blocks={overview.blocks} close={close} onCopy={copyAppointment} onDepositChange={updateDeposit} onDelete={deleteAppointment} onDeleteService={deleteService} onAddService={openAddService} onAssignStaff={openStaffAssignment} onOpenSeatPlanner={openSeatPlanner} onScheduleChange={saveScheduleAssignment} timelineStartMinutes={timelineBounds.startMinutes} timelineEndMinutes={timelineBounds.endMinutes} canCreate={canCreate} canManage={canManage} canViewSeatPlanner={canViewSeatPlanner} /> : null
                 }}
                 onSlotClick={createBookingSlot || (!canCreate && !placementAppointment) ? undefined : (resourceId, time) => {
                   if (placementAppointment) {
