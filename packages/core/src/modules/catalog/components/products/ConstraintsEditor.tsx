@@ -193,6 +193,22 @@ function draftToPayload(draft: ConstraintDraft): Omit<CatalogConstraintItem, 'cr
   }
 }
 
+export const canDeleteConstraint = (locked: boolean): boolean => !locked
+
+export const shouldApplyConstraintDelete = (locked: boolean, confirmed: boolean): boolean =>
+  canDeleteConstraint(locked) && confirmed
+
+export function hideMatchingIncomingConstraint(
+  hiddenIds: Set<string>,
+  deletedId: string,
+  incomingIds: Iterable<string>,
+): Set<string> {
+  if (!new Set(incomingIds).has(deletedId)) return hiddenIds
+  const next = new Set(hiddenIds)
+  next.add(deletedId)
+  return next
+}
+
 // ─────────────────────────────────────────────────────────────────
 // Build nested tree from flat groups + options
 // ─────────────────────────────────────────────────────────────────
@@ -392,7 +408,7 @@ function ConstraintRow({ draft, localOptions, productSeedOptions, productId, pro
       confirmText: t('common.delete', 'Delete'),
       variant: 'destructive',
     }).then((confirmed) => {
-      if (confirmed) onDelete()
+      if (shouldApplyConstraintDelete(draft.locked, confirmed)) onDelete()
     })
   }
 
@@ -977,11 +993,11 @@ export function ConstraintsEditor({
     sync(next)
     if (deletedDraft) {
       setHiddenIncomingIds((current) => {
-        const nextHidden = new Set(current)
-        for (const incoming of incomingConstraints) {
-          if (incoming.id === deletedDraft.id) nextHidden.add(incoming.id)
-        }
-        return nextHidden
+        return hideMatchingIncomingConstraint(
+          current,
+          deletedDraft.id,
+          incomingConstraints.map((incoming) => incoming.id),
+        )
       })
     }
   }, [incomingConstraints, sync])
