@@ -133,10 +133,11 @@ describe('email module foundation', () => {
     expect(setup.defaultRoleFeatures?.employee).toEqual(['email.templates.view'])
   })
 
-  it('does not seed PCA templates into every tenant by default', () => {
+  it('seeds PCA templates only for the PCA Company Services tenant', () => {
     expect(SETUP_SOURCE).not.toContain('pcaStarterTemplates')
-    expect(SETUP_SOURCE).not.toContain('migratedFrom')
     expect(SETUP_SOURCE).not.toContain('PCA Accounting')
+    expect(SETUP_SOURCE).toContain("tenant?.name !== 'PCA Company Services'")
+    expect(SETUP_SOURCE).toContain("migratedFrom: 'pca-accounting'")
     expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain('"tenants"."name" ilike')
     expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain('"organizations"."name" ilike')
     expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain("'%PCA Company Services%'")
