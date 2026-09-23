@@ -725,6 +725,7 @@
   "catalog.products.uom.errors.baseRequiredForConversions": "Jednostka bazowa jest wymagana, gdy skonfigurowano konwersje.",
   "catalog.products.uom.errors.defaultSalesConversionRequired": "Aktywna konwersja dla domyślnej jednostki sprzedaży jest wymagana, gdy różni się od jednostki bazowej.",
   "catalog.products.uom.errors.duplicateConversion": "Duplikat jednostki konwersji nie jest dozwolony.",
+  "catalog.products.uom.errors.invalidConversionFactor": "Przelicznik musi być większy od 0.",
   "catalog.products.uom.errors.loadUnits": "Nie udało się załadować jednostek. Spróbuj odświeżyć stronę.",
   "catalog.products.uom.errors.sync": "Nie udało się zsynchronizować konwersji produktu.",
   "catalog.products.uom.loadingUnits": "Ładowanie jednostek...",

@@ -276,7 +276,9 @@ export const productFormSchema = z
         z.object({
           id: z.string().nullable().optional(),
           unitCode: z.string().trim().max(50),
-          toBaseFactor: z.coerce.number().positive(),
+          toBaseFactor: z.coerce.number().positive({
+            message: "catalog.products.uom.errors.invalidConversionFactor",
+          }),
           sortOrder: z.coerce.number().int().min(0).max(100000).optional(),
           isActive: z.boolean().optional(),
         }),

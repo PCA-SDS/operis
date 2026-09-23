@@ -143,6 +143,13 @@ export function ProductUomSection({
     () => normalizeConversions(values.unitConversions),
     [values.unitConversions],
   );
+  const getConversionFactorError = React.useCallback(
+    (index: number) =>
+      errors[`unitConversions.${index}.toBaseFactor`] ??
+      errors[`unitConversions.${index}`] ??
+      null,
+    [errors],
+  );
 
   React.useEffect(() => {
     let cancelled = false;
@@ -660,6 +667,11 @@ export function ProductUomSection({
                     }
                     placeholder="1"
                   />
+                  {getConversionFactorError(index) ? (
+                    <p className="text-xs text-destructive">
+                      {getConversionFactorError(index)}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="flex items-end gap-2 md:col-span-3">
@@ -746,6 +758,9 @@ export function ProductUomSection({
 
         {conversionPreview ? (
           <p className="text-xs text-muted-foreground">{conversionPreview}</p>
+        ) : null}
+        {errors.unitConversions ? (
+          <p className="text-xs text-destructive">{errors.unitConversions}</p>
         ) : null}
       </div>
     </div>

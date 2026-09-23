@@ -725,6 +725,7 @@
   "catalog.products.uom.errors.baseRequiredForConversions": "Basiseinheit ist erforderlich, wenn Umrechnungen konfiguriert sind.",
   "catalog.products.uom.errors.defaultSalesConversionRequired": "Aktive Umrechnung für die Standard-Verkaufseinheit ist erforderlich, wenn sie von der Basiseinheit abweicht.",
   "catalog.products.uom.errors.duplicateConversion": "Doppelte Umrechnungseinheit ist nicht erlaubt.",
+  "catalog.products.uom.errors.invalidConversionFactor": "Der Umrechnungsfaktor muss größer als 0 sein.",
   "catalog.products.uom.errors.loadUnits": "Einheiten konnten nicht geladen werden. Bitte versuchen Sie, die Seite zu aktualisieren.",
   "catalog.products.uom.errors.sync": "Produktumrechnungen konnten nicht synchronisiert werden.",
   "catalog.products.uom.loadingUnits": "Einheiten werden geladen...",

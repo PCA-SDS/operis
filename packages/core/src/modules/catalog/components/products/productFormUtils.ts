@@ -50,13 +50,21 @@ export type ProductUnitConversionInput = {
 export function normalizeProductConversionInputs(
   rows: ProductUnitConversionDraft[] | undefined,
   duplicateMessage: string,
+  invalidFactorMessage = "Conversion factor must be greater than 0.",
 ): ProductUnitConversionInput[] {
   const list = Array.isArray(rows) ? rows : [];
   const normalized: ProductUnitConversionInput[] = [];
   const seen = new Set<string>();
   for (const row of list) {
     const unitCode = canonicalizeUnitCode(row?.unitCode);
+    const rawFactor = toTrimmedOrNull(row?.toBaseFactor);
     const toBaseFactor = toPositiveNumberOrNull(row?.toBaseFactor);
+    if (!unitCode && !rawFactor) continue;
+    if (rawFactor && toBaseFactor === null) {
+      throw createCrudFormError(invalidFactorMessage, {
+        unitConversions: invalidFactorMessage,
+      });
+    }
     if (!unitCode || toBaseFactor === null) continue;
     const unitKey = unitCode.toLowerCase();
     if (seen.has(unitKey)) {
