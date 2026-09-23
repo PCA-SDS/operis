@@ -1855,7 +1855,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                 </div>
               </div>
 
-              <div ref={timelineRef} className="min-h-0 flex-1 overflow-auto bg-muted/20">
+              <div ref={timelineRef} className="isolate min-h-0 flex-1 overflow-auto bg-muted/20">
                 {seatColumns.length === 0 ? (
                   <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">{t('appointments.seatPlanner.noSeats', 'No resources are available for this organization.')}</div>
                 ) : (
