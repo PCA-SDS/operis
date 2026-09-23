@@ -723,6 +723,7 @@
   "catalog.products.uom.errors.baseRequiredForConversions": "La unidad base es obligatoria cuando hay conversiones configuradas.",
   "catalog.products.uom.errors.defaultSalesConversionRequired": "Se requiere una conversión activa para la unidad de venta predeterminada cuando difiere de la unidad base.",
   "catalog.products.uom.errors.duplicateConversion": "No se permite una unidad de conversión duplicada.",
+  "catalog.products.uom.errors.invalidConversionFactor": "El factor de conversión debe ser mayor que 0.",
   "catalog.products.uom.errors.loadUnits": "No se pudieron cargar las unidades. Intente actualizar la página.",
   "catalog.products.uom.errors.sync": "No se pudieron sincronizar las conversiones de producto.",
   "catalog.products.uom.loadingUnits": "Cargando unidades...",
