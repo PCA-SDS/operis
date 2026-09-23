@@ -2,7 +2,7 @@ import { registerCommand } from '@open-mercato/shared/lib/commands'
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { buildChanges, requireId, parseWithCustomFields, setCustomFieldsIfAny, emitCrudSideEffects } from '@open-mercato/shared/lib/commands/helpers'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { UniqueConstraintViolationException } from '@mikro-orm/core'
+import { LockMode, UniqueConstraintViolationException } from '@mikro-orm/core'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { loadCustomFieldSnapshot, buildCustomFieldResetMap } from '@open-mercato/shared/lib/commands/customFieldSnapshots'
@@ -52,6 +52,27 @@ const variantCrudEvents: CrudEventsConfig = {
     organizationId: ctx.identifiers.organizationId,
     tenantId: ctx.identifiers.tenantId,
   }),
+}
+
+async function ensureProductAllowsAdditionalVariant(
+  em: EntityManager,
+  product: CatalogProduct,
+  translate: (key: string, fallback: string) => string,
+): Promise<void> {
+  if (product.productType !== 'simple') return
+
+  const existingVariantCount = await em.count(CatalogProductVariant, {
+    product,
+    deletedAt: null,
+  })
+  if (existingVariantCount === 0) return
+
+  throw new CrudHttpError(400, {
+    error: translate(
+      'catalog.variants.errors.simpleProductCannotAddVariant',
+      'Change the product type to Configurable before adding another variant.',
+    ),
+  })
 }
 
 type VariantSnapshot = {
@@ -615,6 +636,7 @@ const createVariantCommand: CommandHandler<VariantCreateInput, { variantId: stri
   async execute(rawInput, ctx) {
     const { parsed, custom } = parseWithCustomFields(variantCreateSchema, rawInput)
     const em = (ctx.container.resolve('em') as EntityManager).fork()
+    const { translate } = await resolveTranslations()
     const product = await requireProduct(em, parsed.productId, commandActorScope(ctx))
     ensureTenantScope(ctx, product.tenantId)
     ensureOrganizationScope(ctx, product.organizationId)
@@ -669,7 +691,17 @@ const createVariantCommand: CommandHandler<VariantCreateInput, { variantId: stri
       await withAtomicFlush(
         em,
         [
-          () => em.flush(),
+          async () => {
+            const lockedProduct = await em.findOne(CatalogProduct, product.id, {
+              lockMode: LockMode.PESSIMISTIC_WRITE,
+            })
+            if (!lockedProduct) {
+              throw new CrudHttpError(404, { error: translate('catalog.errors.productNotFound', 'Catalog product not found') })
+            }
+            await ensureProductAllowsAdditionalVariant(em, lockedProduct, translate)
+            record.product = lockedProduct
+            await em.flush()
+          },
           async () => {
             if (record.isDefault) {
               previousDefaultVariantId = await enforceSingleDefaultVariant(em, record)

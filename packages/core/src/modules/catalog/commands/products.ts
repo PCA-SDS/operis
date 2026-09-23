@@ -1008,6 +1008,26 @@ async function collectProductVariantCleanup(
   return { variants, cleanupEntries };
 }
 
+async function ensureProductTypeAllowsSimple(
+  em: EntityManager,
+  product: CatalogProduct,
+  nextProductType: string,
+  translate: (key: string, fallback: string) => string,
+): Promise<void> {
+  if (nextProductType !== "simple" || product.productType === "simple") return;
+  const variantCount = await em.count(CatalogProductVariant, {
+    product,
+    deletedAt: null,
+  });
+  if (variantCount <= 1) return;
+  throw new CrudHttpError(400, {
+    error: translate(
+      "catalog.products.errors.cannotChangeToSimpleWithVariants",
+      "A product with multiple variants cannot be changed to Simple.",
+    ),
+  });
+}
+
 async function removeProductVariants(
   em: EntityManager,
   variants: CatalogProductVariant[],
@@ -1793,8 +1813,10 @@ const updateProductCommand: CommandHandler<
       record.taxRateId = resolvedTaxRate?.taxRateId ?? null;
       record.taxRate = resolvedTaxRate?.taxRate ?? null;
     }
-    if (parsed.productType !== undefined)
+    if (parsed.productType !== undefined) {
+      await ensureProductTypeAllowsSimple(em, record, parsed.productType, translate);
       record.productType = parsed.productType;
+    }
     if (parsed.statusEntryId !== undefined)
       record.statusEntryId = parsed.statusEntryId ?? null;
     if (parsed.primaryCurrencyCode !== undefined) {

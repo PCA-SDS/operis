@@ -25,7 +25,11 @@ test.describe('TC-CAT-006: Edit Product Variant', () => {
 
     try {
       token = await getAuthToken(request);
-      productId = await createProductFixture(request, token, { title: productName, sku: baseSku });
+      productId = await createProductFixture(request, token, {
+        title: productName,
+        sku: baseSku,
+        productType: 'configurable',
+      });
       variantId = await createVariantFixture(request, token, {
         productId,
         name: variantName,
