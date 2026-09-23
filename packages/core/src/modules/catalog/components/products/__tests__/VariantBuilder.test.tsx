@@ -131,13 +131,37 @@ function createOptionDefinitions(): OptionDefinition[] {
 }
 
 describe('VariantBasicsSection', () => {
-  it('keeps text inputs controlled when form values are not loaded yet', () => {
+  it('keeps text inputs controlled while async values load', () => {
     const setValue = jest.fn()
-    render(<VariantBasicsSection values={{} as VariantFormValues} setValue={setValue} errors={{}} />)
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    const { rerender } = render(
+      <VariantBasicsSection values={{} as VariantFormValues} setValue={setValue} errors={{}} />,
+    )
 
     expect(screen.getByPlaceholderText('e.g., Blue / Small')).toHaveValue('')
     expect(screen.getByPlaceholderText('Unique identifier')).toHaveValue('')
     expect(screen.getByPlaceholderText('EAN, UPC, etc.')).toHaveValue('')
+
+    rerender(
+      <VariantBasicsSection
+        values={createDefaultValues({
+          name: 'Blue / Small',
+          sku: 'BLUE-SMALL',
+          barcode: '1234567890123',
+          hsCode: 'HS-1234',
+        })}
+        setValue={setValue}
+        errors={{}}
+      />,
+    )
+
+    expect(screen.getByPlaceholderText('e.g., Blue / Small')).toHaveValue('Blue / Small')
+    expect(screen.getByPlaceholderText('Unique identifier')).toHaveValue('BLUE-SMALL')
+    expect(screen.getByPlaceholderText('EAN, UPC, etc.')).toHaveValue('1234567890123')
+    expect(screen.getByLabelText('HS code (customs tariff)')).toHaveValue('HS-1234')
+    expect(consoleError.mock.calls.flat().join(' ')).not.toMatch(/uncontrolled|controlled input/i)
+
+    consoleError.mockRestore()
   })
 
   it('renders name input with placeholder', () => {
