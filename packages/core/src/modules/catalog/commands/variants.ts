@@ -685,7 +685,6 @@ const createVariantCommand: CommandHandler<VariantCreateInput, { variantId: stri
       createdAt: now,
       updatedAt: now,
     })
-    em.persist(record)
     let previousDefaultVariantId: string | null = null
     try {
       await withAtomicFlush(
@@ -700,6 +699,7 @@ const createVariantCommand: CommandHandler<VariantCreateInput, { variantId: stri
             }
             await ensureProductAllowsAdditionalVariant(em, lockedProduct, translate)
             record.product = lockedProduct
+            em.persist(record)
             await em.flush()
           },
           async () => {
