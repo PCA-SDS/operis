@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 const jobId = '00000000-0000-0000-0000-000000000051'
 const progressJobId = '00000000-0000-0000-0000-000000000052'
 const summary = { currency: 'VND', ar: { outstandingAmount: '1200', settledAmount: '0' }, ap: { outstandingAmount: '800', settledAmount: '0' }, netPosition: '400', ratesStale: false }
-const forecast = { ratesStale: false, series: [], totals: { netAmount: '400' } }
+const forecast = { currency: 'VND', ratesStale: false, today: '2026-09-01', horizonDays: 365, entries: [], receivable: { overdue: { amount: '0', count: 0 }, undated: { amount: '0', count: 0 }, beyondHorizon: { amount: '0', count: 0 }, points: [] }, payable: { overdue: { amount: '0', count: 0 }, undated: { amount: '0', count: 0 }, beyondHorizon: { amount: '0', count: 0 }, points: [] }, net: { points: [] }, series: [], totals: { arAmount: '0', apAmount: '0', netAmount: '400' } }
 const counts = { processed: 0, imported: 0, updated: 0, skipped: 0, errors: 0 }
 
 async function mockDashboard(page: Page): Promise<void> {

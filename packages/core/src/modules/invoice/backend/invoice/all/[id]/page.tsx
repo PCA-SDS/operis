@@ -17,6 +17,7 @@ import {
   InvoicePaymentConfirmationPanel,
   type PaymentConfirmationState,
 } from '../../components/InvoicePaymentConfirmationPanel'
+import { InvoiceSendPanel } from '../../components/InvoiceSendPanel'
 
 type Invoice = {
   id: string
@@ -207,6 +208,7 @@ export default function InvoiceDetailPage() {
           <aside className="space-y-4 lg:sticky lg:top-5">
             {invoice.direction === 'AP' ? <InvoicePaymentConfirmationPanel invoice={invoice} onChanged={load} /> : null}
             {invoice.direction === 'AR' ? <IncomingPaymentConfirmationPanel invoice={invoice} onChanged={load} /> : null}
+            {invoice.direction === 'AR' ? <InvoiceSendPanel invoice={invoice} onSent={load} /> : null}
             <section className="rounded-xl border border-border bg-surface p-5">
               <h2 className="border-b border-border pb-3 text-xs font-semibold text-muted-foreground">{t('invoice.detail.summary')}</h2>
               <div className="space-y-3 pt-4 text-sm">

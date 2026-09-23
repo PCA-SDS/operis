@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test'
 
 const summary = { currency: 'VND', ar: { outstandingAmount: '1200', settledAmount: '0', totalAmount: '1200' }, ap: { outstandingAmount: '800', settledAmount: '0', totalAmount: '800' }, netPosition: '400', netOutstanding: '400', ratesStale: false }
-const forecast = { currency: 'VND', ratesStale: false, series: [{ date: '2026-09-12', arAmount: '1200', apAmount: '800', netAmount: '400' }], totals: { arAmount: '1200', apAmount: '800', netAmount: '400' } }
+const forecastPoint = { date: '2026-09-12', amount: '400', count: 1, cumulative: '400', arAmount: '1200', apAmount: '800', netAmount: '400' }
+const forecast = { currency: 'VND', ratesStale: false, today: '2026-09-01', horizonDays: 365, entries: [], receivable: { overdue: { amount: '0', count: 0 }, undated: { amount: '0', count: 0 }, beyondHorizon: { amount: '0', count: 0 }, points: [{ ...forecastPoint, amount: '1200', cumulative: '1200', apAmount: '0', netAmount: '1200' }] }, payable: { overdue: { amount: '0', count: 0 }, undated: { amount: '0', count: 0 }, beyondHorizon: { amount: '0', count: 0 }, points: [{ ...forecastPoint, amount: '800', cumulative: '800', arAmount: '0', netAmount: '-800' }] }, net: { points: [forecastPoint] }, series: [forecastPoint], totals: { arAmount: '1200', apAmount: '800', netAmount: '400' } }
 const invoice = { id: '00000000-0000-0000-0000-000000000001', invoiceNumber: 'INV-001', direction: 'AP', partnerName: 'Test Partner', invoiceDate: null, dueDate: null, currencyCode: 'VND', grossAmount: '800', outstandingAmount: '800', settlementStatus: 'OPEN', origin: 'manual' }
 
 test.describe('Invoice read surfaces', () => {

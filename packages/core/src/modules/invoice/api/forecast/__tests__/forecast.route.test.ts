@@ -34,6 +34,8 @@ const auth = {
 const mockForecast: InvoiceForecastDto = {
   currency: 'VND',
   ratesStale: false,
+  today: '2026-04-01',
+  horizonDays: 365,
   entries: [
     {
       date: '2026-04-15',
@@ -48,11 +50,29 @@ const mockForecast: InvoiceForecastDto = {
   series: [
     {
       date: '2026-04-15',
+      amount: '700000.0000',
+      count: 1,
+      cumulative: '700000.0000',
       arAmount: '700000.0000',
       apAmount: '0.0000',
       netAmount: '700000.0000',
     },
   ],
+  receivable: {
+    overdue: { amount: '0.0000', count: 0 },
+    undated: { amount: '0.0000', count: 0 },
+    beyondHorizon: { amount: '0.0000', count: 0 },
+    points: [{ date: '2026-04-15', amount: '700000.0000', count: 1, cumulative: '700000.0000', arAmount: '700000.0000', apAmount: '0.0000', netAmount: '700000.0000' }],
+  },
+  payable: {
+    overdue: { amount: '0.0000', count: 0 },
+    undated: { amount: '0.0000', count: 0 },
+    beyondHorizon: { amount: '0.0000', count: 0 },
+    points: [],
+  },
+  net: {
+    points: [{ date: '2026-04-15', amount: '700000.0000', count: 1, cumulative: '700000.0000', arAmount: '700000.0000', apAmount: '0.0000', netAmount: '700000.0000' }],
+  },
   totals: {
     arAmount: '700000.0000',
     apAmount: '0.0000',
@@ -147,4 +167,3 @@ describe('invoice forecast API route', () => {
     expect(body.error).toBe('Exchange rates are temporarily unavailable')
   })
 })
-

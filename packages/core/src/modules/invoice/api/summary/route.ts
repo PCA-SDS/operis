@@ -10,6 +10,7 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 
 import { translateInvoiceErrorBody } from '../../data/errors'
 import { requireInvoiceScope } from '../../data/scope'
+import { invoiceSummaryQuerySchema } from '../../data/validators'
 import type { InvoiceSummaryDto } from '../../data/mappers'
 import { InvoiceService } from '../../services/invoice-service'
 import { InvoiceExchangeRatesUnavailableError } from '../../services/exchange-rates-service'
@@ -87,8 +88,14 @@ async function resolveContext(req: Request) {
 export async function GET(req: Request) {
   try {
     const context = await resolveContext(req)
+    const { searchParams } = new URL(req.url)
+    const queryInput = invoiceSummaryQuerySchema.parse({
+      throughDate: searchParams.get('throughDate') ?? undefined,
+    })
     const service = context.container.resolve<InvoiceService>('invoiceService')
-    const summary = await service.getSummary(context.scope)
+    const summary = queryInput.throughDate
+      ? await service.getSummary(context.scope, queryInput)
+      : await service.getSummary(context.scope)
 
     return NextResponse.json(summary satisfies InvoiceSummaryDto)
   } catch (err) {
@@ -121,6 +128,7 @@ export const openApi: OpenApiRouteDoc = {
       operationId: createInvoiceOperationId('summary', 'get'),
       summary: 'Get invoice summary',
       description: 'Returns VND-normalized AP/AR outstanding, settled, and net values.',
+      query: invoiceSummaryQuerySchema,
       responses: [
         { status: 200, description: 'Invoice summary', schema: invoiceSummaryResponseSchema },
       ],

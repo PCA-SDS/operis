@@ -326,15 +326,35 @@ export type InvoiceForecastEntryDto = {
 
 export type InvoiceForecastSeriesPointDto = {
   date: string
+  amount: string
+  count: number
+  cumulative: string
   arAmount: string
   apAmount: string
   netAmount: string
 }
 
+export type InvoiceForecastBucketDto = {
+  amount: string
+  count: number
+}
+
+export type InvoiceForecastSeriesDto = {
+  overdue: InvoiceForecastBucketDto
+  undated: InvoiceForecastBucketDto
+  beyondHorizon: InvoiceForecastBucketDto
+  points: InvoiceForecastSeriesPointDto[]
+}
+
 export type InvoiceForecastDto = {
   currency: 'VND'
   ratesStale: boolean
+  today: string
+  horizonDays: number
   entries: InvoiceForecastEntryDto[]
+  receivable: InvoiceForecastSeriesDto
+  payable: InvoiceForecastSeriesDto
+  net: { points: InvoiceForecastSeriesPointDto[] }
   series: InvoiceForecastSeriesPointDto[]
   totals: {
     arAmount: string

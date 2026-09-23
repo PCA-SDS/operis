@@ -14,7 +14,9 @@ import {
   mapInvoiceQueryRowToListDto,
   type InvoiceDetailDto,
   type InvoiceForecastDto,
+  type InvoiceForecastBucketDto,
   type InvoiceForecastEntryDto,
+  type InvoiceForecastSeriesDto,
   type InvoiceForecastSeriesPointDto,
   type InvoiceListDto,
   type InvoiceSummaryDto,
@@ -35,9 +37,11 @@ import {
   invoiceInstallmentStatusUpdateSchema,
   invoiceNonRecoverableUpdateSchema,
   invoiceForecastQuerySchema,
+  invoiceSummaryQuerySchema,
   invoiceSendSchema,
   type InvoiceDueDateUpdateInput,
   type InvoiceForecastQueryInput,
+  type InvoiceSummaryQueryInput,
   type InvoiceNonRecoverableUpdateInput,
   type InvoiceSettlementUpdateInput,
   type InvoiceInstallmentPlanUpdateInput,
@@ -304,12 +308,16 @@ export class InvoiceService {
     )
   }
 
-  async getSummary(scope: InvoiceScope): Promise<InvoiceSummaryDto> {
+  async getSummary(scope: InvoiceScope, rawInput: InvoiceSummaryQueryInput = {}): Promise<InvoiceSummaryDto> {
+    const input = invoiceSummaryQuerySchema.parse(rawInput)
     const invoices = await this.scopedPersistence.findMany(Invoice, scope, {
       invoiceStatus: 'ACTIVE',
     })
 
-    const hasForeignCurrency = invoices.some((inv) => inv.currencyCode !== 'VND')
+    const scopedInvoices = input.throughDate
+      ? invoices.filter((inv) => inv.dueDate && inv.dueDate.toISOString().slice(0, 10) <= input.throughDate!)
+      : invoices
+    const hasForeignCurrency = scopedInvoices.some((inv) => inv.currencyCode !== 'VND')
     let ratesDto: InvoiceExchangeRatesDto | null = null
     if (hasForeignCurrency) {
       ratesDto = await this.exchangeRatesService.getRates()
@@ -336,7 +344,7 @@ export class InvoiceService {
       AP: { unpaidInvoices: 0, partiallyPaidInvoices: 0, paidInvoices: 0, unreceivedInvoices: 0, receivedInvoices: 0, nonRecoverableInvoices: 0 },
     }
 
-    for (const inv of invoices) {
+    for (const inv of scopedInvoices) {
       const rate = resolveVndRate(inv.currencyCode)
       const paidVnd = money(inv.paidAmount) * rate
       const outstandingVnd = money(inv.outstandingAmount) * rate
@@ -439,21 +447,61 @@ export class InvoiceService {
     }
 
     const entries: InvoiceForecastEntryDto[] = []
+    const todayString = new Date().toISOString().slice(0, 10)
+    const horizonStart = new Date(`${todayString}T00:00:00.000Z`)
+    const horizonEnd = new Date(`${effectiveThroughDateString}T00:00:00.000Z`)
+    const horizonDays = Math.max(0, Math.round((horizonEnd.getTime() - horizonStart.getTime()) / 86_400_000))
+    type ForecastBucket = { amount: number; count: number }
+    type ForecastAggregation = {
+      byDate: Map<string, ForecastBucket>
+      overdue: ForecastBucket
+      undated: ForecastBucket
+      beyondHorizon: ForecastBucket
+      totalAmount: number
+    }
+    const emptyBucket = (): ForecastBucket => ({ amount: 0, count: 0 })
+    const createAggregation = (): ForecastAggregation => ({
+      byDate: new Map(),
+      overdue: emptyBucket(),
+      undated: emptyBucket(),
+      beyondHorizon: emptyBucket(),
+      totalAmount: 0,
+    })
+    const receivable = createAggregation()
+    const payable = createAggregation()
+
+    const recordForecast = (aggregation: ForecastAggregation, date: Date, amount: number, entry: InvoiceForecastEntryDto) => {
+      const dateString = date.toISOString().slice(0, 10)
+      entries.push(entry)
+      if (dateString <= effectiveThroughDateString) aggregation.totalAmount += amount
+      if (dateString < todayString) {
+        aggregation.overdue.amount += amount
+        aggregation.overdue.count += 1
+        return
+      }
+      if (dateString > effectiveThroughDateString) {
+        aggregation.beyondHorizon.amount += amount
+        aggregation.beyondHorizon.count += 1
+        return
+      }
+      const current = aggregation.byDate.get(dateString) ?? emptyBucket()
+      current.amount += amount
+      current.count += 1
+      aggregation.byDate.set(dateString, current)
+    }
 
     for (const inv of eligibleInvoices) {
       const rate = resolveVndRate(inv.currencyCode)
 
-      if (inv.hasInstallmentPlan) {
+      if (inv.hasInstallmentPlan && invoiceInstallmentItems(inv).length > 0) {
         const installments = invoiceInstallmentItems(inv)
         for (const inst of installments) {
           if (inst.status === 'PAID') continue
           const instDueDate = inst.dueDate instanceof Date ? inst.dueDate : new Date(inst.dueDate)
           if (Number.isNaN(instDueDate.getTime())) continue
           const dateStr = instDueDate.toISOString().slice(0, 10)
-          if (dateStr > effectiveThroughDateString) continue
-
           const amountVnd = money(inst.totalAmount) * rate
-          entries.push({
+          recordForecast(inv.direction === 'AR' ? receivable : payable, instDueDate, amountVnd, {
             date: dateStr,
             direction: inv.direction,
             amountVnd: moneyString(amountVnd),
@@ -467,62 +515,76 @@ export class InvoiceService {
         const dueDate = inv.dueDate instanceof Date ? inv.dueDate : new Date(inv.dueDate)
         if (!Number.isNaN(dueDate.getTime())) {
           const dateStr = dueDate.toISOString().slice(0, 10)
-          if (dateStr <= effectiveThroughDateString) {
-            const outstanding = money(inv.outstandingAmount)
-            if (outstanding > 0) {
-              const amountVnd = outstanding * rate
-              entries.push({
-                date: dateStr,
-                direction: inv.direction,
-                amountVnd: moneyString(amountVnd),
-                invoiceId: inv.id,
-                installmentId: null,
-                invoiceNumber: inv.invoiceNumber ?? null,
-                partnerName: inv.direction === 'AR' ? (inv.buyerName ?? null) : (inv.sellerName ?? null),
-              })
-            }
+          const outstanding = money(inv.outstandingAmount)
+          if (outstanding > 0) {
+            const amountVnd = outstanding * rate
+            recordForecast(inv.direction === 'AR' ? receivable : payable, dueDate, amountVnd, {
+              date: dateStr,
+              direction: inv.direction,
+              amountVnd: moneyString(amountVnd),
+              invoiceId: inv.id,
+              installmentId: null,
+              invoiceNumber: inv.invoiceNumber ?? null,
+              partnerName: inv.direction === 'AR' ? (inv.buyerName ?? null) : (inv.sellerName ?? null),
+            })
           }
+        }
+      } else {
+        const aggregation = inv.direction === 'AR' ? receivable : payable
+        const outstanding = money(inv.outstandingAmount) * rate
+        if (outstanding > 0) {
+          aggregation.undated.amount += outstanding
+          aggregation.undated.count += 1
         }
       }
     }
 
     entries.sort((a, b) => a.date.localeCompare(b.date) || a.invoiceId.localeCompare(b.invoiceId))
 
-    const seriesMap = new Map<string, { ar: number; ap: number }>()
-    let totalAr = 0
-    let totalAp = 0
+    const dates = [...new Set([...receivable.byDate.keys(), ...payable.byDate.keys()])].sort((firstDate, secondDate) =>
+      firstDate < secondDate ? -1 : firstDate > secondDate ? 1 : 0,
+    )
+    let receivableCumulative = 0
+    let payableCumulative = 0
+    let netCumulative = 0
+    const receivablePoints: InvoiceForecastSeriesPointDto[] = []
+    const payablePoints: InvoiceForecastSeriesPointDto[] = []
+    const series: InvoiceForecastSeriesPointDto[] = []
 
-    for (const entry of entries) {
-      const current = seriesMap.get(entry.date) ?? { ar: 0, ap: 0 }
-      const amount = money(entry.amountVnd)
-      if (entry.direction === 'AR') {
-        current.ar += amount
-        totalAr += amount
-      } else {
-        current.ap += amount
-        totalAp += amount
-      }
-      seriesMap.set(entry.date, current)
+    for (const date of dates) {
+      const arAmount = receivable.byDate.get(date)?.amount ?? 0
+      const apAmount = payable.byDate.get(date)?.amount ?? 0
+      const netAmount = arAmount - apAmount
+      receivableCumulative += arAmount
+      payableCumulative += apAmount
+      netCumulative += netAmount
+      receivablePoints.push({ date, amount: moneyString(arAmount), count: receivable.byDate.get(date)?.count ?? 0, cumulative: moneyString(receivableCumulative), arAmount: moneyString(arAmount), apAmount: '0', netAmount: moneyString(arAmount) })
+      payablePoints.push({ date, amount: moneyString(apAmount), count: payable.byDate.get(date)?.count ?? 0, cumulative: moneyString(payableCumulative), arAmount: '0', apAmount: moneyString(apAmount), netAmount: moneyString(-apAmount) })
+      series.push({ date, amount: moneyString(netAmount), count: (receivable.byDate.get(date)?.count ?? 0) + (payable.byDate.get(date)?.count ?? 0), cumulative: moneyString(netCumulative), arAmount: moneyString(arAmount), apAmount: moneyString(apAmount), netAmount: moneyString(netAmount) })
     }
 
-    const series: InvoiceForecastSeriesPointDto[] = Array.from(seriesMap.entries())
-      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
-      .map(([date, amounts]) => ({
-        date,
-        arAmount: moneyString(amounts.ar),
-        apAmount: moneyString(amounts.ap),
-        netAmount: moneyString(amounts.ar - amounts.ap),
-      }))
+    const toBucket = (bucket: ForecastBucket): InvoiceForecastBucketDto => ({ amount: moneyString(bucket.amount), count: bucket.count })
+    const toSeries = (aggregation: ForecastAggregation, points: InvoiceForecastSeriesPointDto[]): InvoiceForecastSeriesDto => ({
+      overdue: toBucket(aggregation.overdue),
+      undated: toBucket(aggregation.undated),
+      beyondHorizon: toBucket(aggregation.beyondHorizon),
+      points,
+    })
 
     return {
       currency: 'VND',
       ratesStale: ratesDto?.stale ?? false,
+      today: todayString,
+      horizonDays,
       entries,
+      receivable: toSeries(receivable, receivablePoints),
+      payable: toSeries(payable, payablePoints),
+      net: { points: series },
       series,
       totals: {
-        arAmount: moneyString(totalAr),
-        apAmount: moneyString(totalAp),
-        netAmount: moneyString(totalAr - totalAp),
+        arAmount: moneyString(receivable.totalAmount),
+        apAmount: moneyString(payable.totalAmount),
+        netAmount: moneyString(receivable.totalAmount - payable.totalAmount),
       },
     }
   }
