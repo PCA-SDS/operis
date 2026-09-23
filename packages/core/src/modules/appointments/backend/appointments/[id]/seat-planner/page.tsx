@@ -61,6 +61,7 @@ type SeatPlannerLine = {
   id: string
   productId: string
   productTitle: string
+  productCategory: string | null
   durationMinutes: number | null
   options: Array<{ groupName: string | null; name: string }>
   seatPlannerCleared: boolean
@@ -161,6 +162,7 @@ type PlannerAllocation = {
   resourceId: string
   resourceName?: string | null
   serviceName: string
+  productCategory: string | null
   customerName: string
   customerSalutation?: string | null
   startsAt: string
@@ -647,7 +649,10 @@ function BookingSidebar(props: {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="line-clamp-2 text-sm font-medium">{line.productTitle}</p>
+                          <div className="min-w-0">
+                            {line.productCategory ? <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{line.productCategory}</p> : null}
+                            <p className="line-clamp-2 text-sm font-medium">{line.productTitle}</p>
+                          </div>
                           <div className="flex shrink-0 items-center gap-1">
                             {line.currentAssignment ? <Check className="mt-0.5 size-4 text-status-success-icon" /> : null}
                             {canManage ? (
@@ -785,8 +790,9 @@ function DraftPopover(props: {
     >
       <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-muted/20 px-4 py-3">
         <div className="min-w-0 flex-1">
+          {isOwn && allocation.productCategory ? <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{allocation.productCategory}</p> : null}
           <h3 className="truncate text-sm font-semibold">{isOwn ? allocation.serviceName : customerDisplayName}</h3>
-          {!isOwn ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{allocation.serviceName}</p> : null}
+          {!isOwn ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{[allocation.productCategory, allocation.serviceName].filter(Boolean).join(' · ')}</p> : null}
           <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
             <MapPin className="size-3.5 shrink-0" />
             <span className="truncate font-medium text-foreground">{allocation.resourceName ?? line?.currentAssignment?.resourceName}</span>
@@ -1250,6 +1256,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         resourceId: line.currentAssignment.resourceId,
         resourceName: line.currentAssignment.resourceName,
         serviceName: line.productTitle,
+        productCategory: line.productCategory,
         customerName: workspace.appointment.customerName,
         startsAt: line.currentAssignment.startsAt,
         endsAt: line.currentAssignment.endsAt,
@@ -1712,6 +1719,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         resourceId: assignment.resourceId,
         resourceName: assignment.resourceName,
         serviceName: workspace.lines.find((line) => line.id === lineId)?.productTitle ?? '',
+        productCategory: workspace.lines.find((line) => line.id === lineId)?.productCategory ?? null,
         customerName: workspace.appointment.customerName,
         startsAt: assignment.startsAt,
         endsAt: assignment.endsAt,
@@ -1772,6 +1780,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                   <Menu className="size-4" />
                 </IconButton>
                 <div className="min-w-0 flex-1">
+                  {activeLine?.productCategory ? <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">{activeLine.productCategory}</p> : null}
                   <h1 className="truncate text-base font-semibold">{activeLine?.productTitle ?? t('appointments.seatPlanner.resourcesTitle', 'Resources')}</h1>
                 </div>
                 <IconButton type="button" variant="outline" className="shrink-0 lg:hidden" aria-label={t('appointments.seatPlanner.confirmSchedule', 'Confirm schedule')} disabled={!canConfirm} onClick={() => void handleConfirmAll()}>

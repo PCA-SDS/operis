@@ -23,6 +23,7 @@ export interface SeatPlannerLine {
   id: string
   productId: string
   productTitle: string
+  productCategory: string | null
   durationMinutes: number | null
   options: Array<{ groupName: string | null; name: string }>
   seatPlannerCleared: boolean
@@ -67,6 +68,7 @@ export interface SeatPlannerWorkspace {
     resourceId: string
     resourceName?: string | null
     serviceName: string
+    productCategory: string | null
     customerName: string
     startsAt: string
     endsAt: string
@@ -420,6 +422,7 @@ export class AppointmentSeatPlannerService {
         resourceId: assignment.resource?.id ?? '',
         resourceName: resource?.name ?? null,
         serviceName: line.productTitle,
+        productCategory: line.productCategory ?? null,
         customerName: sourceAppointment?.customerName ?? '',
         customerSalutation: sourceAppointment?.customerSalutation ?? null,
         startsAt: assignment.startsAt.toISOString(),
@@ -480,6 +483,7 @@ export class AppointmentSeatPlannerService {
           id: line.id,
           productId: line.productId,
           productTitle: line.productTitle,
+          productCategory: line.productCategory ?? null,
           durationMinutes: resolvedDuration ?? 60,
           options,
           seatPlannerCleared: Boolean(line.seatPlannerClearedAt),
