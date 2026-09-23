@@ -207,8 +207,8 @@ export function HrProfileSection({ memberId, canManage }: { memberId: string | n
       payload[key] = typeof value === 'string' && value.trim().length === 0 ? null : value
     }
     try {
-      if (record) await updateCrud('/api/staff/employee-profiles', { ...payload, id: record.id })
-      else await createCrud('/api/staff/employee-profiles', payload)
+      if (record) await updateCrud('staff/employee-profiles', { ...payload, id: record.id })
+      else await createCrud('staff/employee-profiles', payload)
     } catch (err) {
       if (surfaceRecordConflict(err, t)) return
       throw err
