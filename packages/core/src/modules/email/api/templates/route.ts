@@ -150,7 +150,7 @@ export const { metadata, GET, POST, PUT, DELETE } = makeCrudRoute({
   list: {
     schema: emailTemplateQuerySchema,
     entityId: ENTITY_ID,
-    fields: (query) => query.id || query.ids || query.activeOnly ? detailFields : listFields,
+    fields: (query) => query.id || query.ids ? detailFields : listFields,
     sortFieldMap: {
       name: 'name',
       category: 'category',

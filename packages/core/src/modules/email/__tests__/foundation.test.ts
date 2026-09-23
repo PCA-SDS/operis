@@ -21,6 +21,10 @@ const PCA_TEMPLATE_BODY_BACKFILL_SOURCE = readFileSync(
   join(MODULE_ROOT, 'migrations', 'Migration20260914150000_pca_email_template_body_backfill.ts'),
   'utf8',
 )
+const PCA_COMPANY_SERVICES_TEMPLATE_MIGRATION_SOURCE = readFileSync(
+  join(MODULE_ROOT, 'migrations', 'Migration20260918150000_pca_company_services_email_templates.ts'),
+  'utf8',
+)
 const ENTITY_SOURCE = readFileSync(join(MODULE_ROOT, 'data', 'entities.ts'), 'utf8')
 const COMMANDS_SOURCE = readFileSync(join(MODULE_ROOT, 'commands', 'templates.ts'), 'utf8')
 const SETUP_SOURCE = readFileSync(join(MODULE_ROOT, 'setup.ts'), 'utf8')
@@ -129,10 +133,11 @@ describe('email module foundation', () => {
     expect(setup.defaultRoleFeatures?.employee).toEqual(['email.templates.view'])
   })
 
-  it('does not seed PCA templates into every tenant by default', () => {
+  it('seeds PCA templates only for the PCA Company Services tenant', () => {
     expect(SETUP_SOURCE).not.toContain('pcaStarterTemplates')
-    expect(SETUP_SOURCE).not.toContain('migratedFrom')
     expect(SETUP_SOURCE).not.toContain('PCA Accounting')
+    expect(SETUP_SOURCE).toContain("tenant?.name !== 'PCA Company Services'")
+    expect(SETUP_SOURCE).toContain("migratedFrom: 'pca-accounting'")
     expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain('"tenants"."name" ilike')
     expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain('"organizations"."name" ilike')
     expect(PCA_TEMPLATE_MIGRATION_SOURCE).toContain("'%PCA Company Services%'")
@@ -164,6 +169,13 @@ describe('email module foundation', () => {
       const source = readFileSync(join(MODULE_ROOT, 'migrations', name), 'utf8')
       expect(source).not.toContain('Acme Corp')
     }
+  })
+
+  it('imports PCA templates for the PCA Company Services tenant', () => {
+    expect(PCA_COMPANY_SERVICES_TEMPLATE_MIGRATION_SOURCE).toContain('PCA Company Services')
+    expect(PCA_COMPANY_SERVICES_TEMPLATE_MIGRATION_SOURCE).toContain('status",')
+    expect(PCA_COMPANY_SERVICES_TEMPLATE_MIGRATION_SOURCE).toContain('ruleNotes: template.ruleNotes')
+    expect(PCA_COMPANY_SERVICES_TEMPLATE_MIGRATION_SOURCE).toContain('on conflict ("organization_id", "tenant_id", "template_key")')
   })
 
   it('declares every PCA source placeholder used in subjects and bodies', () => {
@@ -217,7 +229,7 @@ describe('email module foundation', () => {
   it('uses a smaller grid projection so list pages do not fetch body payloads', () => {
     expect(TEMPLATES_ROUTE_SOURCE).toContain('const listFields')
     expect(TEMPLATES_ROUTE_SOURCE).toContain('const detailFields')
-    expect(TEMPLATES_ROUTE_SOURCE).toContain('fields: (query) => query.id || query.ids || query.activeOnly ? detailFields : listFields')
+    expect(TEMPLATES_ROUTE_SOURCE).toContain('fields: (query) => query.id || query.ids ? detailFields : listFields')
     expect(TEMPLATES_ROUTE_SOURCE).toContain('item.accounting_metadata?.isActive !== false')
     expect(TEMPLATES_ROUTE_SOURCE).toContain('item.blocks ?? []')
     expect(TEMPLATES_ROUTE_SOURCE).toContain('item.accounting_metadata ?? item.accountingMetadata ?? null')
@@ -312,7 +324,7 @@ describe('email module foundation', () => {
     expect(COMPOSE_PAGE_SOURCE).toContain('email.compose.preview.emptyBody')
     expect(COMPOSE_PAGE_SOURCE).toContain('Accounting values')
     expect(COMPOSE_PAGE_SOURCE).not.toContain('Accounting values JSON')
-    expect(COMPOSE_PAGE_SOURCE).toContain('activeOnly=true')
+    expect(COMPOSE_PAGE_SOURCE).toContain('status=published')
     expect(COMPOSE_PAGE_SOURCE).toContain('/api/customers/companies?page=1&pageSize=50')
     expect(COMPOSE_PAGE_SOURCE).toContain('/people?pageSize=100&sort=name-asc')
     expect(COMPOSE_PAGE_SOURCE).not.toContain('include=people')
