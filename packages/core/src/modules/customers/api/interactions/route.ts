@@ -25,7 +25,12 @@ import {
   defaultOkResponseSchema,
 } from '../openapi'
 import { CUSTOMER_INTERACTION_ENTITY_ID } from '../../lib/interactionCompatibility'
-import { applyEmailVisibilityFilter } from '../../lib/visibilityFilter'
+import {
+  applyEmailVisibilityFilter,
+  applyPersonalScopeFilter,
+  canViewAllInteractions,
+  resolveGrantedFeatures as resolveUserFeatures,
+} from '../../lib/visibilityFilter'
 import { resolveEncryptedSortPage } from './encryptedSortPage'
 import { resolveCanonicalActivityTargetId } from '../../lib/legacyActivityBridge'
 import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
@@ -63,6 +68,13 @@ export const listSchema = z
     pinned: z.enum(['true', 'false']).optional(),
     sortField: interactionSortFieldSchema.optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
+    /* Personal view opt-in. `mine` (the default) returns only rows the caller is
+       involved in; `all` widens to everyone's, and is honoured ONLY for a caller
+       holding `customers.interactions.view_all` — for anyone else it is ignored
+       rather than rejected, so the parameter can never widen what a viewer may
+       read. Has no effect on a customer-scoped request, whose timeline is shared
+       by definition. */
+    scope: z.enum(['mine', 'all']).optional(),
   })
   .passthrough()
 
@@ -198,10 +210,6 @@ type CursorPayload = {
   sortValue: string | number | null
 }
 
-type RbacServiceLike = {
-  getGrantedFeatures?: (userId: string, input: { tenantId: string | null; organizationId: string | null }) => Promise<string[]>
-}
-
 const cursorSchema = z.object({
   id: z.string().uuid(),
   sortValue: z.union([z.string(), z.number(), z.null()]),
@@ -332,6 +340,8 @@ function applyInteractionListFilters(
     tenantId: string
     organizationIds: string[]
     query: z.infer<typeof listSchema>
+    /** Who is asking, and whether they may read beyond their own involvement. */
+    viewer?: { userId: string | null; canViewAll: boolean }
   },
 ): any {
   let q = baseQuery.where('deleted_at', 'is', null).where('tenant_id', '=', params.tenantId)
@@ -339,6 +349,16 @@ function applyInteractionListFilters(
   const { query } = params
   if (query.entityId) q = q.where('entity_id', '=', query.entityId)
   if (query.dealId) q = q.where('deal_id', '=', query.dealId)
+
+  /* Personal scope. A request naming a customer or deal asks for that record's
+     shared history; one naming neither (the calendar) is a personal view. The
+     rule is keyed on that distinction rather than on which screen asked, so it
+     holds for every caller of this endpoint. See `applyPersonalScopeFilter`. */
+  q = applyPersonalScopeFilter(q, {
+    viewerUserId: params.viewer?.userId ?? null,
+    canViewAll: params.viewer?.canViewAll ?? false,
+    customerScoped: Boolean(query.entityId || query.dealId),
+  })
   if (query.status) q = q.where('status', '=', query.status)
   if (query.interactionType) q = q.where('interaction_type', '=', query.interactionType)
   if (query.type) {
@@ -378,21 +398,6 @@ function applyInteractionListFilters(
     }
   }
   return q
-}
-
-async function resolveUserFeatures(
-  container: { resolve: (name: string) => unknown },
-  userId: string,
-  tenantId: string | null,
-  organizationId: string | null,
-): Promise<string[] | undefined> {
-  try {
-    const rbac = container.resolve('rbacService') as RbacServiceLike | undefined
-    if (!rbac?.getGrantedFeatures) return undefined
-    return await rbac.getGrantedFeatures(userId, { tenantId, organizationId })
-  } catch {
-    return undefined
-  }
 }
 
 async function buildEnricherContext(
@@ -488,13 +493,21 @@ export async function GET(req: Request) {
     ])
     const sortFieldIsEncrypted = encryptedSortFields.has(sortConfig.column)
 
+    /* Default to the personal view even for a privileged caller: oversight is
+       something you turn on, not something you are permanently inside. The
+       widened read therefore needs BOTH the grant and the explicit opt-in. */
+    const viewerScope = {
+      userId: viewerUserId ?? null,
+      canViewAll: query.scope === 'all' && canViewAllInteractions(callerUserFeatures),
+    }
+
     let pageRows: InteractionListRow[]
     let hasMore: boolean
 
     if (sortFieldIsEncrypted) {
       let candidateQuery = applyInteractionListFilters(
         db.selectFrom('customer_interactions').select(['id', sortConfig.column]),
-        { tenantId: auth.tenantId, organizationIds, query },
+        { tenantId: auth.tenantId, organizationIds, query, viewer: viewerScope },
       )
       candidateQuery = applyEmailVisibilityFilter(candidateQuery as any, {
         currentUserId: viewerUserId,
@@ -539,7 +552,7 @@ export async function GET(req: Request) {
       } else {
         let pageQuery = applyInteractionListFilters(
           db.selectFrom('customer_interactions').select([...INTERACTION_LIST_COLUMNS, sql`${sql.raw(sortSql)}`.as('__sort_value')]),
-          { tenantId: auth.tenantId, organizationIds, query },
+          { tenantId: auth.tenantId, organizationIds, query, viewer: viewerScope },
         )
         pageQuery = applyEmailVisibilityFilter(pageQuery as any, {
           currentUserId: viewerUserId,
@@ -558,7 +571,7 @@ export async function GET(req: Request) {
           .selectFrom('customer_interactions')
           .select([...INTERACTION_LIST_COLUMNS, sql`${sql.raw(sortSql)}`.as('__sort_value')])
           .limit(query.limit + 1),
-        { tenantId: auth.tenantId, organizationIds, query },
+        { tenantId: auth.tenantId, organizationIds, query, viewer: viewerScope },
       )
 
       if (cursor) {

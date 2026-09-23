@@ -1,4 +1,5 @@
 import type { FilterQuery } from '@mikro-orm/postgresql'
+import { sql } from 'kysely'
 import { authorizeFeatures } from '@open-mercato/shared/security/featurePolicy'
 import { CustomerInteraction } from '../data/entities'
 
@@ -93,11 +94,14 @@ export function applyEmailVisibilityFilter<T extends { where: (...args: any[]) =
   )
 }
 
+type RbacFeatureLookup = (
+  userId: string,
+  scope: { tenantId: string | null; organizationId: string | null },
+) => Promise<string[] | undefined>
+
 type RbacServiceLike = {
-  getEffectiveFeatures?: (
-    userId: string,
-    scope: { tenantId: string | null; organizationId: string | null },
-  ) => Promise<string[] | undefined>
+  getEffectiveFeatures?: RbacFeatureLookup
+  getGrantedFeatures?: RbacFeatureLookup
 }
 
 /**
@@ -150,5 +154,98 @@ export function buildEmailVisibilityMikroFilter(
       { visibility: { $ne: 'private' } },
       ...(opts.currentUserId ? [{ authorUserId: opts.currentUserId }] : []),
     ],
+  }
+}
+
+/**
+ * The ACL feature that lets a user read interactions they are not involved in.
+ * Without it, a personal view (the calendar) shows only rows the viewer authored,
+ * owns, or is a participant of.
+ */
+export const INTERACTIONS_VIEW_ALL_FEATURE = 'customers.interactions.view_all'
+
+/**
+ * Whether the caller may read interactions beyond their own involvement.
+ *
+ * Goes through `authorizeFeatures` rather than a raw string match so a wildcard
+ * grant (`customers.*`, `*`) satisfies it, and so a feature that has been
+ * removed, disabled, or belongs to a disabled module denies rather than grants.
+ */
+export function canViewAllInteractions(userFeatures: string[] | null | undefined): boolean {
+  if (!Array.isArray(userFeatures) || userFeatures.length === 0) return false
+  return authorizeFeatures([INTERACTIONS_VIEW_ALL_FEATURE], { grantedFeatures: userFeatures })
+}
+
+export interface PersonalScopeOptions {
+  /** The asking user, or null for an API key (no personal view to protect). */
+  viewerUserId: string | null
+  /** Result of {@link canViewAllInteractions} for that user. */
+  canViewAll: boolean
+  /**
+   * True when the request names a customer or deal, i.e. asks for one record's
+   * history rather than for a personal view.
+   */
+  customerScoped: boolean
+}
+
+/**
+ * Restricts a kysely query over `customer_interactions` to rows the viewer is
+ * involved in: author, owner, or a listed participant.
+ *
+ * Involvement — not authorship alone — is the test, so being invited to a
+ * meeting or assigned a task is what makes it visible, which is the rule a team
+ * calendar is expected to follow.
+ *
+ * Three cases pass through unfiltered:
+ *   - `customerScoped`: a CRM timeline is shared by definition. Reading Acme's
+ *     history already requires access to Acme, and the timeline exists so the
+ *     team can see who last spoke to them.
+ *   - `canViewAll`: the caller holds the oversight feature.
+ *   - no `viewerUserId`: an API key is not a person and owns no rows, so
+ *     scoping it to what it "authored" would match nothing and would break
+ *     integrations that legitimately read a whole window. It stays bounded by
+ *     tenant, organization and the features issued to that key.
+ *
+ * `participants` is a jsonb array of `{ userId, ... }`, so containment is the
+ * membership test and it can use the column's GIN index instead of unnesting
+ * every row.
+ */
+export function applyPersonalScopeFilter<T extends { where: (...args: any[]) => T }>(
+  query: T,
+  opts: PersonalScopeOptions,
+): T {
+  const viewerUserId = opts.viewerUserId
+  if (!viewerUserId || opts.canViewAll || opts.customerScoped) return query
+  return query.where((eb: any) =>
+    eb.or([
+      eb('author_user_id', '=', viewerUserId),
+      eb('owner_user_id', '=', viewerUserId),
+      eb(sql`participants`, '@>', sql`${JSON.stringify([{ userId: viewerUserId }])}::jsonb`),
+    ]),
+  )
+}
+
+/**
+ * The caller's granted features, including wildcards, or `undefined` when they
+ * cannot be resolved.
+ *
+ * Distinct from {@link resolveCallerEmailFeatures}, which reads *effective*
+ * features (wildcards already expanded to concrete ids). Authorization decisions
+ * want the granted list so `customers.*` keeps matching through
+ * {@link canViewAllInteractions}. Failures resolve to `undefined`, which every
+ * caller treats as "no grants" — fail-closed.
+ */
+export async function resolveGrantedFeatures(
+  container: { resolve: (name: string) => unknown },
+  userId: string,
+  tenantId: string | null,
+  organizationId: string | null,
+): Promise<string[] | undefined> {
+  try {
+    const rbac = container.resolve('rbacService') as RbacServiceLike | undefined
+    if (!rbac?.getGrantedFeatures) return undefined
+    return await rbac.getGrantedFeatures(userId, { tenantId, organizationId })
+  } catch {
+    return undefined
   }
 }

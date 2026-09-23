@@ -96,6 +96,11 @@ export const setup: ModuleSetupConfig = {
       'customers.activities.manage',
       'customers.pipelines.view',
       'customers.interactions.view',
+      // The calendar writes interactions, so without this an employee can see
+      // the calendar but create nothing on it. Scoping (below) is what keeps
+      // that from meaning "edit anyone's": a personal view only returns what
+      // they author, own or attend.
+      'customers.interactions.manage',
       'customers.widgets.todos',
       'customers.widgets.next-interactions',
       'customers.widgets.new-customers',
