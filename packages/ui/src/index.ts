@@ -17,6 +17,7 @@ export * from './backend/JsonBuilder'
 export * from './backend/detail'
 export * from './backend/TruncatedCell'
 export * from './backend/schedule'
+export * from './hooks/useDebouncedValue'
 
 export * from './backend/inputs'
 export * from './backend/ContextHelp'
