@@ -1,6 +1,7 @@
 import { registerCommand } from '@open-mercato/shared/lib/commands'
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { emitCrudSideEffects, requireId } from '@open-mercato/shared/lib/commands/helpers'
+import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
@@ -14,6 +15,8 @@ import {
 } from '../data/validators'
 import { staffEmployeeProfileCrudEvents } from '../lib/crud'
 import {
+  applyScopeToWhere,
+  commandActorScope,
   commandInputScope,
   ensureOrganizationScope,
   ensureTenantScope,
@@ -178,12 +181,13 @@ const updateProfileCommand: CommandHandler<StaffEmployeeProfileUpdateInput, { pr
     const parsed = staffEmployeeProfileUpdateSchema.parse(rawInput)
     const id = requireId(parsed.id)
     const em = (ctx.container.resolve('em') as EntityManager).fork()
+    const scope = commandActorScope(ctx)
     const profile = await em.findOne(
       StaffEmployeeProfile,
-      scopedStaffSnapshotWhere(id, staffSnapshotScopeFromContext(ctx)),
+      applyScopeToWhere<StaffEmployeeProfile>({ id, deletedAt: null }, scope),
       { populate: ['member'] },
     )
-    if (!profile) throw new Error('HR profile not found')
+    if (!profile) throw new CrudHttpError(404, { error: 'HR profile not found' })
     ensureTenantScope(ctx, profile.tenantId)
     ensureOrganizationScope(ctx, profile.organizationId)
 
@@ -262,11 +266,12 @@ const deleteProfileCommand: CommandHandler<{ id: string }, { profileId: string }
   async execute(rawInput, ctx) {
     const id = requireId((rawInput as { id?: string })?.id)
     const em = (ctx.container.resolve('em') as EntityManager).fork()
+    const scope = commandActorScope(ctx)
     const profile = await em.findOne(
       StaffEmployeeProfile,
-      scopedStaffSnapshotWhere(id, staffSnapshotScopeFromContext(ctx)),
+      applyScopeToWhere<StaffEmployeeProfile>({ id, deletedAt: null }, scope),
     )
-    if (!profile) throw new Error('HR profile not found')
+    if (!profile) throw new CrudHttpError(404, { error: 'HR profile not found' })
     ensureTenantScope(ctx, profile.tenantId)
     ensureOrganizationScope(ctx, profile.organizationId)
 
@@ -306,7 +311,10 @@ const deleteProfileCommand: CommandHandler<{ id: string }, { profileId: string }
     const before = payload?.before
     if (!before) return
     const em = (ctx.container.resolve('em') as EntityManager).fork()
-    const profile = await em.findOne(StaffEmployeeProfile, { id: before.id })
+    const profile = await em.findOne(
+      StaffEmployeeProfile,
+      scopedStaffSnapshotWhere(before.id, staffSnapshotScopeFromSnapshot(before)),
+    )
     if (!profile) return
     profile.deletedAt = null
     profile.updatedAt = new Date()
