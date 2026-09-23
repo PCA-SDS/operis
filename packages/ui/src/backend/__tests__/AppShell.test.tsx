@@ -3,7 +3,7 @@
  */
 
 import * as React from 'react'
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { AppShell, ApplyBreadcrumb } from '../AppShell'
 import { renderWithProviders } from '@open-mercato/shared/lib/testing/renderWithProviders'
 
@@ -596,7 +596,7 @@ describe('AppShell', () => {
         const headings = Array.from(rail.querySelectorAll('.h-8.px-3'))
         expect(headings.length).toBeGreaterThanOrEqual(2)
         for (const heading of headings) {
-          const bar = heading.firstElementChild as HTMLElement
+          const bar = heading.lastElementChild as HTMLElement
           expect(bar.className).toContain('w-16')
           expect(bar.className).not.toContain('w-full')
         }
@@ -737,9 +737,9 @@ describe('AppShell', () => {
       )
 
       const child = screen.getByRole('link', { name: 'Sales Pipeline' })
-      // One 12px step in from the parent's `px-3`, so a child icon lands where
-      // a parent label starts.
-      expect(child.className).toContain('pl-6')
+      // One 12px step in from the parent's 12px inset, so a child icon lands
+      // where a parent label starts.
+      expect((child.firstElementChild as HTMLElement).style.paddingLeft).toBe('24px')
       expect(container.querySelector('.bg-sidebar-border.w-px')).toBeNull()
     })
 
@@ -1014,7 +1014,8 @@ describe('AppShell', () => {
 
       const asides = container.querySelectorAll('aside')
       expect(asides.length).toBe(1)
-      expect((asides[0] as HTMLElement).style.width).toBe('272px')
+      const shell = asides[0].parentElement as HTMLElement
+      expect(shell.style.getPropertyValue('--sidebar-rail-width')).toBe('272px')
     })
 
     it('section header renders chevron + title as a single Back-to-Main link', async () => {
@@ -1063,8 +1064,8 @@ describe('AppShell', () => {
       expect(header.querySelector('img')).toBeNull()
       // <title> is the lockup's accessible name, so the header still reads "Operis"...
       expect(within(header).getByTitle('Operis')).toBeInTheDocument()
-      // ...but only once: the brand <span> beside it would be the same word twice.
-      expect(header.querySelector('span')).toBeNull()
+      // ...but only once: a brand label beside it would be the same word twice.
+      expect(header.textContent).toBe('Operis')
       expect(container.querySelectorAll('a[aria-label="Go to dashboard"]').length).toBe(1)
     })
 
@@ -1353,5 +1354,225 @@ describe('AppShell', () => {
       window.fetch = previousWindowFetch
       ;(window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch = previousOriginalFetch
     }
+  })
+
+  describe('collapsible desktop rail', () => {
+    beforeEach(() => {
+      document.cookie = 'om_sidebar_collapsed=; path=/; max-age=0'
+    })
+
+    const renderShell = (props: Partial<React.ComponentProps<typeof AppShell>> = {}) =>
+      renderWithProviders(
+        <AppShell email="demo@example.com" groups={groups} {...props}>
+          <div>Content</div>
+        </AppShell>,
+        { dict },
+      )
+
+    const railWidth = (container: HTMLElement) =>
+      (container.querySelector('aside')?.parentElement as HTMLElement).style.getPropertyValue('--sidebar-rail-width')
+
+    it('starts expanded and collapses to the icon column from the topbar toggle', async () => {
+      const { container } = renderShell()
+      const toggle = screen.getByTestId('appshell-sidebar-toggle')
+      expect(toggle).toHaveAttribute('aria-expanded', 'true')
+      expect(toggle).toHaveAttribute('aria-controls', 'appshell-sidebar')
+      expect(railWidth(container)).toBe('272px')
+
+      fireEvent.click(toggle)
+
+      expect(toggle).toHaveAttribute('aria-expanded', 'false')
+      expect(railWidth(container)).toBe('69px')
+      expect(container.querySelector('aside')).toHaveAttribute('data-collapsed', 'true')
+      expect(document.cookie).toContain('om_sidebar_collapsed=1')
+    })
+
+    it('keeps one set of rows: labels stay as accessible names and nothing re-lays out', async () => {
+      const { container } = renderShell({ sidebarCollapsedDefault: true })
+      const row = screen.getByRole('link', { name: 'Users List' })
+      const content = row.firstElementChild as HTMLElement
+      expect(row.className).toContain('overflow-hidden')
+      expect(content.className).toContain('w-[var(--sidebar-content-width,100%)]')
+      expect(within(row).getByText('Users List').className).toContain('opacity-0')
+      expect(container.querySelectorAll('a[href="/backend/users"]').length).toBe(1)
+    })
+
+    it('paints collapsed on first render when the server read the cookie', () => {
+      const { container } = renderShell({ sidebarCollapsedDefault: true })
+      expect(railWidth(container)).toBe('69px')
+      expect(screen.getByTestId('appshell-sidebar-toggle')).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('takes hidden controls out of the tab order while collapsed', () => {
+      renderShell({ sidebarCollapsedDefault: true })
+      const heading = screen.getByRole('button', { name: 'Core' })
+      expect(heading).toHaveAttribute('tabindex', '-1')
+      const field = screen.getByRole('searchbox', { hidden: true })
+      expect(field.closest('[inert]')).not.toBeNull()
+    })
+
+    it('keeps each group heading as an icon marker while collapsed', () => {
+      renderShell({ sidebarCollapsedDefault: true })
+      const heading = screen.getByRole('button', { name: 'Core' })
+      const content = heading.firstElementChild as HTMLElement
+      const [icon, label, chevron] = Array.from(content.children) as HTMLElement[]
+      expect(icon.querySelector('svg')).not.toBeNull()
+      expect(icon.className).not.toContain('opacity-0')
+      expect(label.className).toContain('opacity-0')
+      expect(chevron.className).toContain('opacity-0')
+    })
+
+    it('does not toggle a group from its collapsed heading', () => {
+      renderShell({ sidebarCollapsedDefault: true })
+      const heading = screen.getByRole('button', { name: 'Core' })
+      fireEvent.click(heading)
+      expect(heading).toHaveAttribute('aria-expanded', 'true')
+    })
+
+    it('opens every group while collapsed so no icon is unreachable', () => {
+      renderShell()
+      fireEvent.click(screen.getAllByRole('button', { name: 'Core' })[0])
+      expect(screen.getByRole('link', { name: 'Roles', hidden: true }).closest('[inert]')).not.toBeNull()
+
+      fireEvent.click(screen.getByTestId('appshell-sidebar-toggle'))
+      expect(screen.getByRole('link', { name: 'Roles' }).closest('[inert]')).toBeNull()
+    })
+
+    it('toggles with Ctrl/Cmd+B, but not while typing', () => {
+      const { container } = renderShell()
+      fireEvent.keyDown(window, { key: 'b', ctrlKey: true })
+      expect(railWidth(container)).toBe('69px')
+      fireEvent.keyDown(window, { key: 'B', metaKey: true })
+      expect(railWidth(container)).toBe('272px')
+
+      const field = screen.getAllByRole('searchbox')[0]
+      fireEvent.keyDown(field, { key: 'b', ctrlKey: true })
+      expect(railWidth(container)).toBe('272px')
+    })
+
+    describe('hover peek', () => {
+      beforeEach(() => jest.useFakeTimers())
+      afterEach(() => jest.useRealTimers())
+
+      const aside = (container: HTMLElement) => container.querySelector('#appshell-sidebar') as HTMLElement
+      const advance = (ms: number) => act(() => { jest.advanceTimersByTime(ms) })
+      /* jsdom has no PointerEvent, and React derives enter/leave from
+         pointerover/pointerout with the element the pointer came from. */
+      const pointer = (target: HTMLElement, type: 'pointerover' | 'pointerout', pointerType = 'mouse') => {
+        const event = new MouseEvent(type, { bubbles: true, cancelable: true, relatedTarget: document.body })
+        Object.defineProperty(event, 'pointerType', { value: pointerType })
+        act(() => { target.dispatchEvent(event) })
+      }
+
+      it('opens over the page on hover without moving the content column', () => {
+        const { container } = renderShell({ sidebarCollapsedDefault: true })
+        const rail = aside(container)
+        pointer(rail, 'pointerover')
+        advance(119)
+        expect(rail).toHaveAttribute('data-peek', 'false')
+        advance(1)
+
+        expect(rail).toHaveAttribute('data-peek', 'true')
+        expect(rail).toHaveAttribute('data-collapsed', 'false')
+        expect(rail.style.width).toBe('272px')
+        expect(rail.className).toContain('lg:z-top')
+        expect(railWidth(container)).toBe('69px')
+        expect(within(rail).getByText('Users List').className).not.toContain('opacity-0')
+      })
+
+      it('closes after the pointer leaves, keeping the top layer until it has narrowed', () => {
+        const { container } = renderShell({ sidebarCollapsedDefault: true })
+        const rail = aside(container)
+        pointer(rail, 'pointerover')
+        advance(120)
+        pointer(rail, 'pointerout')
+        advance(180)
+
+        expect(rail).toHaveAttribute('data-peek', 'false')
+        expect(rail.style.width).toBe('69px')
+        expect(rail.className).toContain('lg:z-top')
+        advance(200)
+        expect(rail.className).not.toContain('lg:z-top')
+      })
+
+      it('does not open when the pointer only passes through', () => {
+        const { container } = renderShell({ sidebarCollapsedDefault: true })
+        const rail = aside(container)
+        pointer(rail, 'pointerover')
+        advance(60)
+        pointer(rail, 'pointerout')
+        advance(500)
+        expect(rail).toHaveAttribute('data-peek', 'false')
+      })
+
+      it('ignores touch, and never peeks while pinned open', () => {
+        const touch = renderShell({ sidebarCollapsedDefault: true })
+        pointer(aside(touch.container), 'pointerover', 'touch')
+        advance(500)
+        expect(aside(touch.container)).toHaveAttribute('data-peek', 'false')
+        touch.unmount()
+
+        const pinned = renderShell({ sidebarCollapsedDefault: false })
+        pointer(aside(pinned.container), 'pointerover')
+        advance(500)
+        expect(aside(pinned.container)).toHaveAttribute('data-peek', 'false')
+        expect(railWidth(pinned.container)).toBe('272px')
+      })
+
+      it('offers a pin while peeking, which gives the rail its own column', () => {
+        const { container } = renderShell({ sidebarCollapsedDefault: true })
+        const rail = aside(container)
+        const pin = screen.getByTestId('appshell-sidebar-pin')
+        expect(pin.closest('[inert]')).not.toBeNull()
+
+        pointer(rail, 'pointerover')
+        advance(120)
+        expect(pin.closest('[inert]')).toBeNull()
+
+        fireEvent.click(pin)
+        expect(railWidth(container)).toBe('272px')
+        expect(rail).toHaveAttribute('data-peek', 'false')
+        expect(rail).toHaveAttribute('data-collapsed', 'false')
+        expect(document.cookie).toContain('om_sidebar_collapsed=0')
+      })
+
+      it('closes on Escape', () => {
+        const { container } = renderShell({ sidebarCollapsedDefault: true })
+        const rail = aside(container)
+        pointer(rail, 'pointerover')
+        advance(120)
+        fireEvent.keyDown(rail, { key: 'Escape' })
+        expect(rail).toHaveAttribute('data-peek', 'false')
+      })
+    })
+  })
+
+  describe('group heading icons', () => {
+    it('renders the group icon the chrome payload declares', () => {
+      const { container } = renderWithProviders(
+        <AppShell
+          email="demo@example.com"
+          groups={[{ ...groups[0], iconMarkup: '<svg data-testid="core-group-icon"></svg>' }]}
+        >
+          <div>Content</div>
+        </AppShell>,
+        { dict },
+      )
+      const heading = within(container.querySelector('nav[data-testid="sidebar"]') as HTMLElement)
+        .getByRole('button', { name: 'Core' })
+      expect(heading.querySelector('[data-testid="core-group-icon"]')).not.toBeNull()
+    })
+
+    it('falls back to the generic group icon when none is declared', () => {
+      const { container } = renderWithProviders(
+        <AppShell email="demo@example.com" groups={groups}>
+          <div>Content</div>
+        </AppShell>,
+        { dict },
+      )
+      const heading = within(container.querySelector('nav[data-testid="sidebar"]') as HTMLElement)
+        .getByRole('button', { name: 'Core' })
+      expect(heading.firstElementChild?.firstElementChild?.querySelector('svg')).not.toBeNull()
+    })
   })
 })

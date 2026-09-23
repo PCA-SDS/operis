@@ -93,6 +93,7 @@ export default async function BackendLayout({
     grantedFeatures,
     unrestricted: auth?.isSuperAdmin === true,
   })
+  const sidebarCollapsedDefault = cookieStore.get('om_sidebar_collapsed')?.value !== '0'
   const baseProductName = translate('appShell.productName', 'Operis')
   const productName = deployEnv && deployEnv !== 'local'
     ? `${baseProductName} (${deployEnv.charAt(0).toUpperCase() + deployEnv.slice(1)})`
@@ -130,6 +131,7 @@ export default async function BackendLayout({
       adminNavApi="/api/auth/admin/nav"
       version={APP_VERSION}
       hideFooter={hideBackendFooter || isSeatPlannerPath}
+      sidebarCollapsedDefault={sidebarCollapsedDefault}
       settingsPathPrefixes={collectStaticSettingsPathPrefixes()}
       settingsSections={[]}
       settingsSectionTitle={translate('backend.nav.settings', 'Settings')}

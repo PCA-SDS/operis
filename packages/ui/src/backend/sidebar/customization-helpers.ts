@@ -18,6 +18,8 @@ export type SidebarGroup = {
   id?: string
   name: string
   defaultName?: string
+  iconName?: string
+  iconMarkup?: string
   items: SidebarItem[]
 }
 
@@ -66,6 +68,8 @@ export function cloneSidebarGroups(groups: SidebarGroup[]): SidebarGroup[] {
     id: group.id,
     name: group.name,
     defaultName: group.defaultName,
+    iconName: group.iconName,
+    iconMarkup: group.iconMarkup,
     items: group.items.map((item) => cloneItem(item)),
   }))
 }
