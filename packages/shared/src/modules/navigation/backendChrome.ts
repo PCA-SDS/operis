@@ -28,6 +28,9 @@ export type BackendChromeNavGroup = {
   id?: string
   name: string
   defaultName?: string
+  /** The group heading's icon; it stays visible when the rail collapses to icons. */
+  iconName?: string
+  iconMarkup?: string
   items: BackendChromeNavItem[]
 }
 
@@ -46,6 +49,8 @@ export type BackendChromeSectionGroup = {
   id: string
   label: string
   labelKey?: string
+  iconName?: string
+  iconMarkup?: string
   items: BackendChromeSectionItem[]
   order?: number
 }

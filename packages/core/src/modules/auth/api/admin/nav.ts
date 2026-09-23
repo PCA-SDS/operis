@@ -74,6 +74,8 @@ const sectionGroupSchema = z.object({
   id: z.string(),
   label: z.string(),
   labelKey: z.string().optional(),
+  iconName: z.string().optional(),
+  iconMarkup: z.string().optional(),
   order: z.number().optional(),
   items: z.array(sectionItemSchema),
 })
@@ -91,6 +93,8 @@ const adminNavResponseSchema = z.object({
       id: z.string().optional(),
       name: z.string(),
       defaultName: z.string().optional(),
+      iconName: z.string().optional(),
+      iconMarkup: z.string().optional(),
       items: z.array(sidebarNavItemSchema),
     }),
   ),
