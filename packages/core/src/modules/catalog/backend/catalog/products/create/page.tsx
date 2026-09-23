@@ -86,6 +86,7 @@ import {
   updateDimensionValue,
   updateWeightValue,
   isConfigurableProductType,
+  getProductTypeSelectionUpdates,
   buildComplianceProductPayload,
 } from "@open-mercato/core/modules/catalog/components/products/productForm";
 import { buildVariantDurationPayload } from "@open-mercato/core/modules/catalog/components/products/variantForm";
@@ -119,7 +120,6 @@ const productFormTypedSchema =
   productFormSchema as unknown as ZodType<ProductFormValues>;
 
 const SERVICE_FIELDSET_CODE = "service_schedule";
-const SERVICE_UNIT_CODE = "service";
 
 type VariantPriceRequest = {
   variantDraftId: string;
@@ -2200,19 +2200,8 @@ function ProductMetaSection({
         <Select
           value={values.productType || "simple"}
           onValueChange={(value) => {
-            const nextType = value;
-            setValue("productType", nextType);
-            const nextIsConfigurable = isConfigurableProductType(nextType);
-            if (nextType === "service") {
-              setValue("customFieldsetCode", SERVICE_FIELDSET_CODE);
-              if (!values.defaultUnit) setValue("defaultUnit", SERVICE_UNIT_CODE);
-              if (!values.defaultSalesUnit) setValue("defaultSalesUnit", SERVICE_UNIT_CODE);
-              setValue("requiresShipping", false);
-            }
-            if (nextIsConfigurable && !values.hasVariants) {
-              setValue("hasVariants", true);
-            } else if (!nextIsConfigurable && values.hasVariants) {
-              setValue("hasVariants", false);
+            for (const [field, fieldValue] of getProductTypeSelectionUpdates(value, values)) {
+              setValue(field, fieldValue);
             }
           }}
         >
