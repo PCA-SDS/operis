@@ -60,6 +60,29 @@ type DropdownPosition = {
   maxHeight: number
 }
 
+export function calculateDropdownPosition(
+  rect: Pick<DOMRect, 'top' | 'bottom' | 'left' | 'width'>,
+  viewport: Pick<Window, 'innerWidth' | 'innerHeight'>,
+): DropdownPosition {
+  const viewportPadding = 12
+  const sideOffset = 4
+  const preferredMaxHeight = 256
+  const spaceBelow = viewport.innerHeight - rect.bottom - viewportPadding - sideOffset
+  const spaceAbove = rect.top - viewportPadding - sideOffset
+  const openBelow = spaceBelow >= 180 || spaceBelow >= spaceAbove
+  const availableHeight = Math.max(0, openBelow ? spaceBelow : spaceAbove)
+  const width = Math.min(Math.max(280, rect.width), viewport.innerWidth - viewportPadding * 2)
+  const left = Math.max(viewportPadding, Math.min(rect.left, viewport.innerWidth - width - viewportPadding))
+
+  return {
+    top: openBelow ? rect.bottom + sideOffset : undefined,
+    bottom: openBelow ? undefined : viewport.innerHeight - rect.top + sideOffset,
+    left,
+    width,
+    maxHeight: Math.min(preferredMaxHeight, availableHeight),
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────
@@ -207,29 +230,7 @@ export function CascadingCombobox({
     if (!trigger || typeof window === 'undefined') return
 
     const rect = trigger.getBoundingClientRect()
-    const viewportPadding = 12
-    const sideOffset = 4
-    const preferredMaxHeight = 256
-    const spaceBelow = window.innerHeight - rect.bottom - viewportPadding - sideOffset
-    const spaceAbove = rect.top - viewportPadding - sideOffset
-    const openBelow = spaceBelow >= 180 || spaceBelow >= spaceAbove
-    const availableHeight = Math.max(0, openBelow ? spaceBelow : spaceAbove)
-    const width = Math.min(
-      Math.max(280, rect.width),
-      window.innerWidth - viewportPadding * 2,
-    )
-    const left = Math.max(
-      viewportPadding,
-      Math.min(rect.left, window.innerWidth - width - viewportPadding),
-    )
-
-    setDropdownPosition({
-      top: openBelow ? rect.bottom + sideOffset : undefined,
-      bottom: openBelow ? undefined : window.innerHeight - rect.top + sideOffset,
-      left,
-      width,
-      maxHeight: Math.min(preferredMaxHeight, availableHeight),
-    })
+    setDropdownPosition(calculateDropdownPosition(rect, window))
   }, [])
 
   React.useLayoutEffect(() => {
