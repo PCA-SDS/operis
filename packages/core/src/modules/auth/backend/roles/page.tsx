@@ -27,6 +27,13 @@ type Row = {
   updatedAt?: string | null
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && (
+    error.name === 'AbortError' ||
+    error.message === 'signal is aborted without reason'
+  )
+}
+
 export default function RolesListPage() {
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'name', desc: false }])
@@ -68,6 +75,9 @@ export default function RolesListPage() {
           setTotalPages(j.totalPages || 1)
           setIsSuperAdmin(!!j.isSuperAdmin)
         }
+      } catch (error) {
+        if (cancelled || controller.signal.aborted || isAbortError(error)) return
+        throw error
       } finally {
         if (!cancelled) setIsLoading(false)
       }
