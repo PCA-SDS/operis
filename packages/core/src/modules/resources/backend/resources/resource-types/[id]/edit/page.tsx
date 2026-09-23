@@ -15,6 +15,13 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 
 const logger = createLogger('resources').child({ component: 'resource-types-edit-page' })
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && (
+    error.name === 'AbortError' ||
+    error.message === 'signal is aborted without reason'
+  )
+}
+
 type ResourceTypesResponse = {
   items?: Array<Record<string, unknown>>
 }
@@ -81,6 +88,7 @@ export default function ResourcesResourceTypeEditPage({ params }: { params?: { i
               : 0)
         }
       } catch (err) {
+        if (cancelled || controller.signal.aborted || isAbortError(err)) return
         logger.error('Failed to load resource types', { err })
         if (!cancelled) setError(t('resources.resourceTypes.errors.load', 'Failed to load resource types.'))
       } finally {
