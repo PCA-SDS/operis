@@ -242,7 +242,7 @@ function EditorBody({
           ))}
         </SegmentedControl>
       </div>
-      <Field label={titleLabel} error={errors.title} className="lg:col-span-2">
+      <Field label={titleLabel} error={errors.title} required className="lg:col-span-2">
         <Input
           type="text"
           value={form.title}
@@ -313,7 +313,13 @@ function EditorBody({
         </Field>
       ) : null}
       {config.people === 'assignee' && staffEnabled ? (
-        <Field label={t('customers.calendar.editor.assignee', 'Assignee')} error={errors.assignee}>
+        <Field
+          label={t('customers.calendar.editor.assignee', 'Assignee')}
+          error={errors.assignee}
+          // This block only renders for an assignee kind with staff enabled,
+          // which is exactly when the validator requires one.
+          required
+        >
           <PeopleField
             mode="single"
             includeCustomers={false}
