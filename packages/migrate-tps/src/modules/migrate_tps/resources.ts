@@ -31,7 +31,7 @@ interface TpsFloor {
   location: string
   name: string
   sort_order: TpsSortOrder
-  is_active: boolean | string
+  is_active: string
   deleted_at: string | null
 }
 
@@ -41,7 +41,7 @@ interface TpsSeatTypeConfig {
   name: string
   color_hex: string | null
   icon: string | null
-  is_active: boolean | string
+  is_active: string
   deleted_at: string | null
 }
 
@@ -53,7 +53,7 @@ export interface TpsSeat {
   name: string | null
   sort_order: TpsSortOrder
   status: string | null
-  is_active: boolean | string
+  is_active: string
   deleted_at: string | null
   created_at?: string | null
 }
@@ -101,12 +101,6 @@ function parseSortOrder(value: TpsSortOrder, fallback = 0): number {
   if (typeof value !== 'string' || value.trim() === '') return fallback
   const parsed = Number.parseInt(value, 10)
   return Number.isFinite(parsed) ? parsed : fallback
-}
-
-export function parseTpsBoolean(value: boolean | string): boolean {
-  if (typeof value === 'boolean') return value
-  const normalized = value.trim().toLowerCase()
-  return normalized === 'true' || normalized === 't' || normalized === '1'
 }
 
 function compareNullableNumber(left: number | null, right: number | null): number {
@@ -493,7 +487,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
             organizationId,
             name: floor.name,
             sortOrder: parseSortOrder(floor.sort_order),
-            isActive: parseTpsBoolean(floor.is_active),
+            isActive: floor.is_active === 'true' || floor.is_active === 't',
             createdAt: now,
             updatedAt: now,
           })
@@ -503,7 +497,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
             : undefined
           entity.parentAreaId = null
           entity.sortOrder = parseSortOrder(floor.sort_order)
-          entity.isActive = parseTpsBoolean(floor.is_active)
+          entity.isActive = floor.is_active === 'true' || floor.is_active === 't'
           entity.appearanceIcon = null
           entity.appearanceColor = null
           em.persist(entity)
@@ -536,7 +530,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
             name: seat.name?.trim() || seat.code,
             code: seat.code.trim(),
             sortOrder: parseSortOrder(seat.sort_order),
-            isActive: parseTpsBoolean(seat.is_active),
+            isActive: seat.is_active === 'true' || seat.is_active === 't',
             createdAt: now,
             updatedAt: now,
           })
@@ -553,7 +547,7 @@ export const migrateTpsResourcesCommand: ModuleCli = {
           entity.capacityUnitIcon = null
           entity.appearanceIcon = null
           entity.appearanceColor = null
-          entity.isActive = parseTpsBoolean(seat.is_active)
+          entity.isActive = seat.is_active === 'true' || seat.is_active === 't'
           entity.availabilityRuleSetId = standardHoursRuleSet.id
           entity.customFieldsetCode = null
           em.persist(entity)
