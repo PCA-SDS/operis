@@ -74,6 +74,28 @@ function BookingLineOptions({ options }: { options: NonNullable<Line['options']>
   )
 }
 
+function selectedLineOptions(service: AppointmentBookableService, selectedOptions?: AppointmentServiceSelection['selectedOptions']) {
+  const options: NonNullable<Line['options']> = []
+  const values = selectedOptions ?? {}
+
+  const collect = (groups: AppointmentBookableService['optionGroups'], parentPath = '') => {
+    for (const group of groups) {
+      const groupPath = parentPath ? `${parentPath}/${group.id}` : group.id
+      const selectedValue = values[groupPath] ?? values[group.id]
+      const selectedIds = typeof selectedValue === 'string' ? [selectedValue] : selectedValue ?? []
+      for (const optionId of selectedIds) {
+        const option = group.options.find((entry) => entry.id === optionId)
+        if (!option) continue
+        options.push({ groupName: group.name, name: option.name })
+        collect(option.nextGroups, `${groupPath}/${option.id}`)
+      }
+    }
+  }
+
+  collect(service.optionGroups)
+  return options
+}
+
 function today() { return new Date().toISOString().slice(0, 10) }
 function parseDate(value: string) {
   const [year, month, day] = value.split('-').map(Number)
@@ -570,7 +592,7 @@ export default function BookingOverviewPage() {
       const call = await apiCall(`/api/appointments/${staffSheetTarget.appointmentId}/lines/${staffSheetTarget.lineId}/draft`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ resourceId: block.resourceId, startsAt: block.startsAt, endsAt: nextEndsAt, assignedMemberId: staffId }),
+        body: JSON.stringify({ resourceId: block.resourceId, startsAt: block.startsAt, endsAt: nextEndsAt, assignedMemberId: staffId, preserveState: true }),
       }, { fallback: null })
       if (!call.ok) {
         flash(t('appointments.staffAssignment.saveError', 'Unable to update staff assignment.'), 'error')
@@ -592,7 +614,7 @@ export default function BookingOverviewPage() {
       const call = await apiCall(`/api/appointments/${appointment.id}/lines/${line.id}/draft`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ resourceId: block.resourceId, startsAt, endsAt, assignedMemberId: block.assignedMemberId }),
+        body: JSON.stringify({ resourceId: block.resourceId, startsAt, endsAt, assignedMemberId: block.assignedMemberId, preserveState: true }),
       }, { fallback: null })
       if (!call.ok) {
         flash(t('appointments.staffAssignment.saveError', 'Unable to update staff assignment.'), 'error')
@@ -646,6 +668,9 @@ export default function BookingOverviewPage() {
       return
     }
     setIsAddingService(true)
+    suppressRealtimeReloadRef.current = true
+    const addedLines: Line[] = []
+    const addedBlocks: Block[] = []
     try {
       const appointmentBlocks = overview?.blocks.filter((block) => block.appointmentId === serviceDialogAppointment.id) ?? []
       const lastBlock = [...appointmentBlocks]
@@ -653,32 +678,60 @@ export default function BookingOverviewPage() {
         .sort((left, right) => new Date(right.endsAt).getTime() - new Date(left.endsAt).getTime())[0]
       let nextStart = lastBlock?.endsAt ?? serviceDialogAppointment.requestedStartAt
 
-      for (const service of selectedServices) {
+      for (const selection of selectedServices) {
+        const bookableService = selectedServiceById.get(selection.productId)
+        if (!bookableService) continue
         const call = await apiCall<{ line?: { id: string; durationMinutes: number | null } }>(`/api/appointments/${serviceDialogAppointment.id}/lines`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(service),
+          body: JSON.stringify(selection),
         }, { fallback: null })
         if (!call.ok) {
           flash(t('appointments.seatPlanner.serviceAddError', 'Unable to add service.'), 'error')
           return
         }
         const addedLine = call.result?.line
+        if (!addedLine) {
+          flash(t('appointments.seatPlanner.serviceAddError', 'Unable to add service.'), 'error')
+          return
+        }
+        addedLines.push({
+          id: addedLine.id,
+          productId: bookableService.id,
+          productTitle: bookableService.title,
+          productCategory: bookableService.categoryName ?? null,
+          durationMinutes: addedLine.durationMinutes ?? bookableService.durationMinutes ?? null,
+          options: selectedLineOptions(bookableService, selection.selectedOptions),
+        })
         if (lastBlock?.resourceId && addedLine?.id) {
           const duration = 60
           const endsAt = addMinutes(nextStart, duration)
-          const assignment = await apiCall(`/api/appointments/${serviceDialogAppointment.id}/lines/${addedLine.id}/draft`, {
+          const assignment = await apiCall<{ id?: string; resourceId?: string; state?: 'draft' | 'confirmed'; startsAt?: string; endsAt?: string; assignedMemberId?: string | null }>(`/api/appointments/${serviceDialogAppointment.id}/lines/${addedLine.id}/draft`, {
             method: 'PUT',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ resourceId: lastBlock.resourceId, startsAt: nextStart, endsAt }),
           }, { fallback: null })
-          if (!assignment.ok) {
+          if (!assignment.ok || !assignment.result?.id) {
             flash(t('appointments.overview.serviceSchedulingConflict', 'Service added, but it could not be scheduled because of a conflict. Opening Planner.'), 'error')
             setServiceDialogAppointment(null)
             setSelectedServices([])
             openSeatPlanner(serviceDialogAppointment.id)
             return
           }
+          addedBlocks.push({
+            id: assignment.result.id,
+            appointmentId: serviceDialogAppointment.id,
+            lineId: addedLine.id,
+            resourceId: assignment.result.resourceId ?? lastBlock.resourceId,
+            resourceName: lastBlock.resourceName,
+            assignedMemberId: assignment.result.assignedMemberId ?? null,
+            assignedMemberName: null,
+            startsAt: assignment.result.startsAt ?? nextStart,
+            endsAt: assignment.result.endsAt ?? endsAt,
+            state: assignment.result.state ?? 'draft',
+            serviceName: bookableService.title,
+            serviceCategory: bookableService.categoryName ?? null,
+          })
           nextStart = endsAt
         }
       }
@@ -696,16 +749,36 @@ export default function BookingOverviewPage() {
           return
         }
       }
+      const confirmedBlocks = addedBlocks.map((block) => ({ ...block, state: 'confirmed' as const }))
+      setOverview((current) => {
+        if (!current) return current
+        const updateLines = (entry: Appointment) => entry.id === serviceDialogAppointment.id
+          ? { ...entry, lines: [...entry.lines, ...addedLines] }
+          : entry
+        const appointments = current.appointments.map(updateLines)
+        const unconfirmedAppointments = current.unconfirmedAppointments.map(updateLines)
+        const blocks = [...current.blocks, ...confirmedBlocks]
+        const assignedLineIds = new Set(blocks.filter((block) => block.resourceId).map((block) => block.lineId))
+        return {
+          ...current,
+          appointments,
+          unconfirmedAppointments,
+          blocks,
+          unassignedAppointmentIds: appointments
+            .filter((entry) => entry.lines.some((entryLine) => !assignedLineIds.has(entryLine.id)))
+            .map((entry) => entry.id),
+        }
+      })
       flash(t('appointments.seatPlanner.servicesAdded', 'Service added'), 'success')
       setServiceDialogAppointment(null)
       setSelectedServices([])
-      reload(true)
     } catch {
       flash(t('appointments.overview.serviceSchedulingConflict', 'Service added, but it could not be scheduled because of a conflict. Opening Planner.'), 'error')
       setServiceDialogAppointment(null)
       setSelectedServices([])
       openSeatPlanner(serviceDialogAppointment.id)
     } finally {
+      suppressRealtimeReloadRef.current = false
       setIsAddingService(false)
     }
   }
@@ -722,29 +795,37 @@ export default function BookingOverviewPage() {
   }
 
   const deleteService = async (appointment: Appointment, line: Line) => {
-    const call = await apiCall(`/api/appointments/${appointment.id}/lines/${line.id}`, { method: 'DELETE' }, { fallback: null })
-    if (!call.ok) {
-      flash(t('appointments.overview.deleteServiceFailed', 'Unable to remove service.'), 'error')
-      return false
-    }
-    flash(t('appointments.overview.deleteServiceSuccess', 'Service removed.'), 'success')
-    setOverview((current) => {
-      if (!current) return current
-      const appointments = current.appointments.map((entry) => entry.id === appointment.id
-        ? { ...entry, lines: entry.lines.filter((entryLine) => entryLine.id !== line.id) }
-        : entry)
-      const blocks = current.blocks.filter((block) => block.lineId !== line.id)
-      const assignedLineIds = new Set(blocks.map((block) => block.lineId))
-      return {
-        ...current,
-        appointments,
-        blocks,
-        unassignedAppointmentIds: appointments
-          .filter((entry) => entry.lines.some((entryLine) => !assignedLineIds.has(entryLine.id)))
-          .map((entry) => entry.id),
+    suppressRealtimeReloadRef.current = true
+    try {
+      const call = await apiCall(`/api/appointments/${appointment.id}/lines/${line.id}`, { method: 'DELETE' }, { fallback: null })
+      if (!call.ok) {
+        flash(t('appointments.overview.deleteServiceFailed', 'Unable to remove service.'), 'error')
+        return false
       }
-    })
-    return true
+      flash(t('appointments.overview.deleteServiceSuccess', 'Service removed.'), 'success')
+      setOverview((current) => {
+        if (!current) return current
+        const updateLines = (entry: Appointment) => entry.id === appointment.id
+          ? { ...entry, lines: entry.lines.filter((entryLine) => entryLine.id !== line.id) }
+          : entry
+        const appointments = current.appointments.map(updateLines)
+        const unconfirmedAppointments = current.unconfirmedAppointments.map(updateLines)
+        const blocks = current.blocks.filter((block) => block.lineId !== line.id)
+        const assignedLineIds = new Set(blocks.map((block) => block.lineId))
+        return {
+          ...current,
+          appointments,
+          unconfirmedAppointments,
+          blocks,
+          unassignedAppointmentIds: appointments
+            .filter((entry) => entry.lines.some((entryLine) => !assignedLineIds.has(entryLine.id)))
+            .map((entry) => entry.id),
+        }
+      })
+      return true
+    } finally {
+      suppressRealtimeReloadRef.current = false
+    }
   }
 
   const copyAppointment = async (appointment: Appointment) => {

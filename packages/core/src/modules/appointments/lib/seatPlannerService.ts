@@ -149,6 +149,7 @@ export interface UpsertDraftParams {
   assignedMemberId?: string | null
   assignedMemberIds?: string[]
   expectedUpdatedAt?: string
+  preserveState?: boolean
 }
 
 export interface UpdateStaffParams {
@@ -552,6 +553,7 @@ export class AppointmentSeatPlannerService {
       organizationIds: resourceOrganizationIds,
       excludeSourceEntityIds,
       includeDraftConflicts: true,
+      preserveState: params.preserveState,
       expectedUpdatedAt: params.expectedUpdatedAt,
     })
   }

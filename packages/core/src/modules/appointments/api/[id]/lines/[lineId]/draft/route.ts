@@ -24,6 +24,7 @@ const upsertDraftSchema = z.object({
   endsAt: z.string().datetime(),
   assignedMemberId: z.string().uuid().nullable().optional(),
   assignedMemberIds: z.array(z.string().uuid()).max(MAX_ASSIGNED_MEMBERS).optional(),
+  preserveState: z.boolean().optional(),
   expectedUpdatedAt: z.string().datetime({ offset: true }).optional(),
 }).refine(
   (value) => new Date(value.endsAt).getTime() > new Date(value.startsAt).getTime(),
@@ -107,6 +108,7 @@ export async function PUT(req: Request, ctx: RouteContext) {
       endsAt: new Date(body.endsAt),
       assignedMemberId: body.assignedMemberId ?? null,
       assignedMemberIds: body.assignedMemberIds,
+      preserveState: body.preserveState,
       userId: auth.userId ?? null,
       expectedUpdatedAt: body.expectedUpdatedAt
         ?? req.headers.get('x-om-ext-optimistic-lock-expected-updated-at')

@@ -42,6 +42,7 @@ export interface AssignmentUpsertParams {
   // Conflict exclusion (e.g., same booking's other lines can stack)
   excludeSourceEntityIds?: string[]
   includeDraftConflicts?: boolean
+  preserveState?: boolean
 
   // Audit
   userId?: string | null
@@ -318,28 +319,44 @@ export class ResourceAssignmentService {
       throw error
     }
 
-    // Keep confirmed assignments as the baseline while editing. There should be
-    // at most one active draft for a source entity; update it when present.
-    const existingDraft = await this.em.findOne(ResourcesAssignment, {
-      tenantId: params.tenantId,
-      organizationId: params.organizationId,
-      sourceModule: params.sourceModule,
-      sourceEntityType: params.sourceEntityType,
-      sourceEntityId: params.sourceEntityId,
-      state: 'draft',
-      cancelledAt: null,
-    })
+    // Keep confirmed assignments as the baseline while editing unless the caller
+    // explicitly asks to update the currently effective assignment in place.
+    let existingAssignment: ResourcesAssignment | null = null
+    if (params.preserveState) {
+      const activeAssignments = await this.em.find(ResourcesAssignment, {
+        tenantId: params.tenantId,
+        organizationId: params.organizationId,
+        sourceModule: params.sourceModule,
+        sourceEntityType: params.sourceEntityType,
+        sourceEntityId: params.sourceEntityId,
+        state: { $in: ['draft', 'confirmed'] },
+        cancelledAt: null,
+      }, { orderBy: { updatedAt: 'desc' } })
+      existingAssignment = activeAssignments.find((assignment) => assignment.state === 'draft')
+        ?? activeAssignments.find((assignment) => assignment.state === 'confirmed')
+        ?? null
+    } else {
+      existingAssignment = await this.em.findOne(ResourcesAssignment, {
+        tenantId: params.tenantId,
+        organizationId: params.organizationId,
+        sourceModule: params.sourceModule,
+        sourceEntityType: params.sourceEntityType,
+        sourceEntityId: params.sourceEntityId,
+        state: 'draft',
+        cancelledAt: null,
+      })
+    }
 
     let assignment: ResourcesAssignment
 
-    if (existingDraft) {
+    if (existingAssignment) {
       enforceCommandOptimisticLock({
         resourceKind: 'resources.assignment',
-        resourceId: existingDraft.id,
-        current: existingDraft.updatedAt,
+        resourceId: existingAssignment.id,
+        current: existingAssignment.updatedAt,
         expected: params.expectedUpdatedAt,
       })
-      this.em.assign(existingDraft, {
+      this.em.assign(existingAssignment, {
         resource: params.resourceId,
         startsAt: params.startsAt,
         endsAt: params.endsAt,
@@ -347,7 +364,7 @@ export class ResourceAssignmentService {
         assignedMemberIds,
         title: params.title ?? null,
       })
-      assignment = existingDraft
+      assignment = existingAssignment
     } else {
       if (params.expectedUpdatedAt) {
         enforceCommandOptimisticLock({
