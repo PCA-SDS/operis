@@ -7,6 +7,7 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { resolveOrganizationScopeFilter } from '@open-mercato/core/modules/directory/utils/organizationScopeFilter'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { CatalogProductOption } from '@open-mercato/core/modules/catalog/data/entities'
 import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
@@ -223,13 +224,13 @@ export async function GET(req: Request) {
       request: req,
       selectedId: query.organizationId,
     })
-    const organizationId = scope?.selectedId ?? auth.orgId ?? null
+    const orgFilter = resolveOrganizationScopeFilter(scope, auth)
 
     const where: Record<string, unknown> = {
       tenantId: auth.tenantId,
       deletedAt: null,
+      ...orgFilter.where,
     }
-    if (organizationId) where.organizationId = organizationId
     if (statusCodes.length === 1) where.statusCode = statusCodes[0]
     if (statusCodes.length > 1) where.statusCode = { $in: statusCodes }
     if (requestedStartAtFrom || requestedStartAtTo) {
