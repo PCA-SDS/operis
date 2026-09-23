@@ -88,6 +88,7 @@ export type DictionaryEntrySelectProps = {
   labels: DictionarySelectLabels
   manageHref?: string
   selectClassName?: string
+  selectContentClassName?: string
   seedOptions?: DictionaryOption[]
   allowInlineCreate?: boolean
   allowAppearance?: boolean
@@ -114,6 +115,7 @@ export function DictionaryEntrySelect({
   labels,
   manageHref,
   selectClassName,
+  selectContentClassName,
   seedOptions,
   allowInlineCreate = true,
   allowAppearance = false,
@@ -334,7 +336,7 @@ export function DictionaryEntrySelect({
               {activeOption?.label}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className={selectContentClassName}>
             {displayOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}

@@ -1436,6 +1436,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
 
   const clearDraft = React.useCallback(async (lineId: string) => {
     if (!workspace) return
+    setPopoverState(null)
     const confirmed = await confirm({
       title: t('appointments.seatPlanner.clearDraftTitle', 'Clear assignment?'),
       description: t('appointments.seatPlanner.clearDraftDescription', 'Are you sure you want to clear the scheduled time and seat for this service?'),
@@ -1471,6 +1472,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     if (!workspace || workspace.lines.length <= 1) return
     const line = workspace.lines.find((entry) => entry.id === lineId)
     if (!line) return
+    setPopoverState(null)
     const confirmed = await confirm({
       title: t('appointments.seatPlanner.removeServiceTitle', 'Remove service?'),
       description: t('appointments.seatPlanner.removeServiceDescription', 'This will remove the service and clear its scheduled resource, time, and staff.'),
@@ -1776,7 +1778,10 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                 >
                   <ArrowLeft className="size-4" />
                 </IconButton>
-                <IconButton type="button" variant="outline" className="lg:hidden" aria-label={t('appointments.seatPlanner.openSidebar', 'Open booking details')} onClick={() => setMobileSidebarOpen(true)}>
+                <IconButton type="button" variant="outline" className="lg:hidden" aria-label={t('appointments.seatPlanner.openSidebar', 'Open booking details')} onClick={() => {
+                  setPopoverState(null)
+                  setMobileSidebarOpen(true)
+                }}>
                   <Menu className="size-4" />
                 </IconButton>
                 <div className="min-w-0 flex-1">
@@ -1810,9 +1815,13 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                   onSelectLine={handleLineSelect}
                   onClearLine={(lineId) => void clearDraft(lineId)}
                   onRemoveLine={(lineId) => void removeLine(lineId)}
-                  onEdit={() => setIsEditDialogOpen(true)}
+                  onEdit={() => {
+                    setPopoverState(null)
+                    setIsEditDialogOpen(true)
+                  }}
                   onPayment={() => flash(t('appointments.seatPlanner.frontendPreview', 'This action is wired as a frontend preview for now.'), 'info')}
                   onAddService={() => {
+                    setPopoverState(null)
                     setSelectedServices([])
                     setIsAddServiceOpen(true)
                   }}
@@ -2031,6 +2040,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             onClear={() => void clearDraft(livePopoverState.allocation.lineId)}
             onDurationChange={(nextDuration) => void handleDurationChange(livePopoverState.allocation, nextDuration)}
             onOpenStaff={() => {
+              setPopoverState(null)
               staffAvailabilityRangeRef.current = {
                 startsAt: livePopoverState.allocation.startsAt,
                 endsAt: livePopoverState.allocation.endsAt,
@@ -2062,7 +2072,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         ) : null}
 
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent size="xl" className="max-h-[90dvh] overflow-x-hidden overflow-y-auto px-4 sm:px-6" disableBodyWrap>
+          <DialogContent elevated size="xl" className="max-h-[90dvh] overflow-x-hidden overflow-y-auto px-4 sm:px-6" disableBodyWrap>
             <AppointmentEditForm
               params={{ id: workspace.appointment.id }}
               embedded
@@ -2081,7 +2091,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             if (!open) setSelectedServices([])
           }}
         >
-          <DialogContent size="lg" className="max-h-[90dvh] overflow-hidden" disableBodyWrap>
+          <DialogContent elevated size="lg" className="max-h-[90dvh] overflow-hidden" disableBodyWrap>
             <DialogHeader>
               <DialogTitle>{t('appointments.seatPlanner.addServiceTitle', 'Add service')}</DialogTitle>
               <p className="text-sm text-muted-foreground">{t('appointments.seatPlanner.addServiceHint', 'Choose one or more services to add to this booking.')}</p>

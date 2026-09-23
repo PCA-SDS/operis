@@ -125,6 +125,7 @@ type DictionarySelectFieldProps = {
   onChange: (value: string | undefined) => void
   labels: DictionarySelectLabels
   selectClassName?: string
+  selectContentClassName?: string
   manageHref?: string
   allowInlineCreate?: boolean
   allowAppearance?: boolean
@@ -156,6 +157,7 @@ export function DictionarySelectField({
   onChange,
   labels,
   selectClassName,
+  selectContentClassName,
   manageHref,
   allowInlineCreate = false,
   allowAppearance = false,
@@ -270,6 +272,7 @@ export function DictionarySelectField({
       labels={labels}
       manageHref={manageHref ?? getCustomerDictionaryManageHref(kind)}
       selectClassName={selectClassName}
+      selectContentClassName={selectContentClassName}
       allowInlineCreate={allowInlineCreate}
       allowAppearance={allowAppearance}
       showManage={showManage}

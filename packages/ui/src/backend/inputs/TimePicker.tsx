@@ -22,6 +22,7 @@ export type TimePickerProps = {
   showClearButton?: boolean
   showFooter?: boolean
   closeOnChange?: boolean
+  elevated?: boolean
 }
 
 function currentHHMM(): string {
@@ -56,6 +57,7 @@ export function TimePicker({
   showClearButton = false,
   showFooter = true,
   closeOnChange = false,
+  elevated = false,
 }: TimePickerProps) {
   const t = useT()
   const [open, setOpen] = React.useState(false)
@@ -150,6 +152,7 @@ export function TimePicker({
       headerPlaceholder={placeholderText}
       pinnedTopActions={pinnedTopActions.length > 0 ? pinnedTopActions : undefined}
       legacyFooterActions={legacyFooterActions.length > 0 ? legacyFooterActions : undefined}
+      elevated={elevated}
       trigger={triggerButton}
       open={open}
       onOpenChange={setOpen}
