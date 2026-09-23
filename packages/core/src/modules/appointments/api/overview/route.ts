@@ -11,7 +11,7 @@ import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
 import { ResourceAssignmentService } from '@open-mercato/core/modules/resources/lib/resourceAssignmentService'
-import { Appointment, AppointmentLine } from '../../data/entities'
+import { Appointment, AppointmentLine, AppointmentLineOptionGroup } from '../../data/entities'
 import { deriveScheduleConfirmationStatus } from '../../lib/scheduleTracking'
 import { loadResourceAvailabilityWindows, resolveResourceOrganizationIds } from '../../lib/resourceAvailability'
 
@@ -84,6 +84,18 @@ export async function GET(req: Request) {
     const allLines = allAppointmentIds.length > 0
       ? await em.find(AppointmentLine, { appointment: { $in: allAppointmentIds }, tenantId: auth.tenantId, deletedAt: null }, { orderBy: { sortOrder: 'asc' } })
       : []
+    const lineOptionGroups = lines.length > 0
+      ? await em.find(AppointmentLineOptionGroup, { line: { $in: lines.map((line) => line.id) } }, { populate: ['options'], orderBy: { sortOrder: 'asc' } })
+      : []
+    const lineOptions = new Map<string, Array<{ groupName: string | null; name: string }>>()
+    for (const group of lineOptionGroups) {
+      const lineId = String(group.line.id)
+      const options = group.options.map((option) => ({
+        groupName: group.breadcrumbPath ?? group.groupName,
+        name: option.optionName,
+      }))
+      lineOptions.set(lineId, [...(lineOptions.get(lineId) ?? []), ...options])
+    }
     const allLinesByAppointment = new Map<string, AppointmentLine[]>()
     for (const line of allLines) {
       const appointmentId = String(line.appointment.id)
@@ -207,7 +219,7 @@ export async function GET(req: Request) {
         statusCode: appointment.statusCode,
         requestedStartAt: appointment.requestedStartAt.toISOString(),
         requestedEndAt: appointment.requestedEndAt?.toISOString() ?? null,
-        lines: (linesByAppointment.get(appointment.id) ?? []).map((line) => ({ id: line.id, productId: line.productId, productTitle: line.productTitle, productCategory: line.productCategory ?? null, durationMinutes: line.durationMinutes ?? null })),
+        lines: (linesByAppointment.get(appointment.id) ?? []).map((line) => ({ id: line.id, productId: line.productId, productTitle: line.productTitle, productCategory: line.productCategory ?? null, durationMinutes: line.durationMinutes ?? null, options: lineOptions.get(line.id) ?? [] })),
       })),
       blocks,
       unassignedAppointmentIds: unassigned.map((appointment) => appointment.id),

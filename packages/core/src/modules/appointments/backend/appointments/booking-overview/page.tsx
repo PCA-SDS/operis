@@ -5,7 +5,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { BadgeDollarSign, CalendarDays, Check, Clock, Copy, ExternalLink, Inbox, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, RotateCcw, Trash2, Users, X } from 'lucide-react'
+import { BadgeDollarSign, CalendarDays, Check, Clock, Copy, ExternalLink, Inbox, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, RotateCcw, Timer, Trash2, Users, X } from 'lucide-react'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { DatePicker } from '@open-mercato/ui/primitives/date-picker'
@@ -23,11 +23,12 @@ import { AppointmentServicePicker, hasCompleteAppointmentServiceOptions, type Ap
 import { AppointmentResourceTimeline } from '../../../components/AppointmentResourceTimeline'
 import { AppointmentStaffAssignmentSheet, type AppointmentAssignableStaff } from '../../../components/AppointmentStaffAssignmentSheet'
 import { BookingOverviewCreateSheet } from '../../../components/BookingOverviewCreateSheet'
+import { groupSeatPlannerOptions } from '../../../lib/seatPlannerOptions'
 import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { getAppointmentPermissionSet } from '../../../lib/permissions'
 
 type Resource = { id: string; name: string; code: string | null; appearanceIcon: string | null; capacityUnitIcon: string | null; capacityUnitColor: string | null; typeIcon: string | null; typeColor: string | null; areaName: string | null; availabilityWindows: Array<{ startsAt: string; endsAt: string }> | null }
-type Line = { id: string; productId: string; productTitle: string; productCategory: string | null; durationMinutes: number | null }
+type Line = { id: string; productId: string; productTitle: string; productCategory: string | null; durationMinutes: number | null; options?: Array<{ groupName: string | null; name: string }> }
 type Appointment = {
   id: string
   organizationId: string
@@ -46,6 +47,31 @@ type Overview = { date: string; organization: { id: string; name: string }; reso
 type OrganizationNode = { id: string; name: string; selectable: boolean; children?: OrganizationNode[] }
 const DEPOSIT_RECEIVED_STATUS_CODE = 'deposit_received_booked'
 const STAFF_PAGE_SIZE = 50
+
+function BookingLineOptions({ options }: { options: NonNullable<Line['options']> }) {
+  const t = useT()
+  const groups = groupSeatPlannerOptions(options)
+  if (groups.length === 0) return null
+
+  return (
+    <div className="mt-2 flex flex-col gap-1.5">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{t('appointments.seatPlanner.options', 'Options')}</p>
+      {groups.map((group) => (
+        <div key={group.groupName ?? 'option'} className="flex flex-col gap-0.5">
+          {group.groupName ? <p className="font-medium text-muted-foreground">{group.groupName}</p> : null}
+          <div className={group.groupName ? 'pl-3' : undefined}>
+            {group.names.map((name, optionIndex) => (
+              <span key={name} className="mr-2 inline-flex items-center text-foreground">
+                {optionIndex > 0 && <span className="mr-1 opacity-40">•</span>}
+                <span className="font-medium">{name}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function today() { return new Date().toISOString().slice(0, 10) }
 function parseDate(value: string) {
@@ -144,9 +170,15 @@ function BookingQuickPopover({
 
       <p className="mt-1 line-clamp-2 text-sm font-medium text-foreground">{appointment.lines.map((line) => line.productTitle).join(', ')}</p>
 
-      <div className="mt-3 flex items-center justify-between gap-3 rounded-md bg-muted px-2.5 py-2 text-xs">
-        <span className="inline-flex items-center gap-1.5"><Clock className="size-3.5 text-muted-foreground" /><span className="text-muted-foreground">{t('appointments.overview.time', 'Time')}:</span><strong className="tabular-nums">{displayTime(startsAt)} - {displayTime(endsAt)}</strong></span>
-        <span className="shrink-0"><span className="text-muted-foreground">{t('appointments.overview.duration', 'Duration')}:</span> <strong>{durationMinutes} min</strong></span>
+      <div className="mt-3 grid grid-cols-3 gap-3 rounded-md bg-muted px-2.5 py-2 text-xs">
+        <div className="col-span-2 min-w-0">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"><Clock className="size-3.5" />{t('appointments.overview.time', 'Time')}</div>
+          <p className="mt-1 whitespace-nowrap text-sm font-semibold tabular-nums">{displayTime(startsAt)} - {displayTime(endsAt)}</p>
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"><Timer className="size-3.5" />{t('appointments.overview.duration', 'Duration')}</div>
+          <p className="mt-1 whitespace-nowrap text-sm font-semibold tabular-nums">{durationMinutes} min</p>
+        </div>
       </div>
 
       <div className="mt-3 rounded-md bg-muted/60 p-2">
@@ -182,6 +214,7 @@ function BookingQuickPopover({
                   </Button> : null}
                 </div>
                 {line.productCategory ? <p className="mt-0.5 text-muted-foreground">{line.productCategory}</p> : null}
+                <BookingLineOptions options={line.options ?? []} />
                 {canManage ? <button type="button" className="mt-1 flex items-center gap-1 text-left text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60" disabled={!block} onClick={() => onAssignStaff(appointment, line, block ?? null)}><Users className="size-3.5" />{block?.assignedMemberName ?? t('appointments.overview.noStaff', 'No staff assigned')}</button> : <span className="mt-1 flex items-center gap-1 text-muted-foreground"><Users className="size-3.5" />{block?.assignedMemberName ?? t('appointments.overview.noStaff', 'No staff assigned')}</span>}
                 <div className="mt-2 grid grid-cols-2 gap-2 tabular-nums">
                   <div className="rounded-md bg-input-bg px-2 py-1.5"><span className="mr-2 text-muted-foreground">{t('appointments.overview.time', 'Time')}</span>{block ? displayTime(block.startsAt) : '—'}</div>
