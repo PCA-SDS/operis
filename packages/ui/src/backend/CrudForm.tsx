@@ -4844,7 +4844,7 @@ const FieldControl = React.memo(function FieldControlImpl({
       )}
       {field.description ? (
         <div id={descriptionDomId} className="mt-1.5 flex items-start gap-2 text-xs text-muted-foreground">
-          <Info className="mt-0.5 size-3.5 shrink-0 text-disabled-foreground" />
+          <Info className="mt-0.5 size-4 shrink-0 text-disabled-foreground" />
           <div>{field.description}</div>
         </div>
       ) : null}

@@ -189,7 +189,12 @@ export function CalendarMeetingQuickAdd({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" onKeyDown={handleKeyDown}>
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+      {/* `space-y-6` (24px) against FormField's own 6px label-to-input gap. At
+          the previous 16px the two readings were close enough that the Title
+          field looked like it belonged to the Starts/Ends row below it; a 4:1
+          ratio makes each label bind to its own control. It also puts the
+          slack that was sitting above the footer to use. */}
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto">
         <FormField label={t('customers.calendar.meeting.title', 'Title')} required>
           <Input
             autoFocus
@@ -276,7 +281,7 @@ export function CalendarMeetingQuickAdd({
         </FormField>
       </div>
 
-      <div className="h-14 shrink-0 overflow-y-auto pt-2" aria-live="polite">
+      <div className="h-12 shrink-0 overflow-y-auto pt-1.5" aria-live="polite">
         {notice ? (
           <Alert status={notice.status} style="light">
             {notice.text}

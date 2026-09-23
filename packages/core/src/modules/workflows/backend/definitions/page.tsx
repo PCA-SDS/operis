@@ -450,7 +450,7 @@ export default function WorkflowDefinitionsListPage() {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              <Button variant="soft" onClick={() => setDeleteTarget(null)}>
                 {t('common.cancel')}
               </Button>
               <Button variant="destructive-solid" onClick={confirmDelete}>

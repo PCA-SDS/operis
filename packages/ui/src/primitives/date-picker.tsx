@@ -266,7 +266,7 @@ export function DatePicker({
         )}
         {footer === 'apply-cancel' && (
           <div className="flex items-center justify-end gap-2 border-t px-3 py-2">
-            <Button type="button" variant="outline" size="sm" onClick={handleCancel}>
+            <Button type="button" variant="soft" size="sm" onClick={handleCancel}>
               {t('ui.datePicker.cancelButton', 'Cancel')}
             </Button>
             <Button type="button" size="sm" onClick={handleApply}>

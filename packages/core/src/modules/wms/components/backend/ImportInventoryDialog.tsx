@@ -983,7 +983,7 @@ export function ImportInventoryDialog({ open, onOpenChange, access }: ImportInve
           </p>
           <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
             {step === 1 ? (
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={validating || applying}>
+              <Button type="button" variant="soft" onClick={closeDialog} disabled={validating || applying}>
                 {t('wms.backend.inventory.import.actions.cancel', 'Cancel')}
               </Button>
             ) : (

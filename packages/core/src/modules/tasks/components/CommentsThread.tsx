@@ -188,7 +188,7 @@ function CommentEditor({
         minRows={2}
       />
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="secondary" size="2xs" onClick={onCancel} disabled={saving}>
+        <Button type="button" variant="soft" size="2xs" onClick={onCancel} disabled={saving}>
           {t('tasks.common.cancel', 'Cancel')}
         </Button>
         <Button

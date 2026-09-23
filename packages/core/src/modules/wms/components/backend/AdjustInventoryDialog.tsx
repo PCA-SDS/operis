@@ -804,7 +804,7 @@ export function AdjustInventoryDialog({
               <span>{t('wms.backend.inventory.adjust.dialog.shortcutSave', 'to save')}</span>
             </p>
             <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={submitting}>
+              <Button type="button" variant="soft" onClick={closeDialog} disabled={submitting}>
                 {t('common.cancel', 'Cancel')}
               </Button>
               <Button type="submit" disabled={submitting}>

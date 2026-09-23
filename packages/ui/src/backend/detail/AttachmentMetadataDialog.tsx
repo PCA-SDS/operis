@@ -669,7 +669,7 @@ export function AttachmentMetadataDialog({ open, onOpenChange, item, availableTa
               loadingMessage={loadMessage}
               submitLabel={t('attachments.library.metadata.save', 'Save')}
               extraActions={
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
                   {t('attachments.library.metadata.cancel', 'Cancel')}
                 </Button>
               }

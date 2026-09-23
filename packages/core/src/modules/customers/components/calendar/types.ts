@@ -185,7 +185,11 @@ export interface TimeGridProps {
    * `onCreateRange`, which needs a dragged span: a bare click carried no
    * meaning before, so taking it costs nothing that was already in use.
    */
-  onCreateTask?(day: Date, minutes: number): void
+  /**
+   * @param minutes  the slot the gesture started on
+   * @param endMinutes  where a drag finished, absent for a plain click
+   */
+  onCreateTask?(day: Date, minutes: number, endMinutes?: number): void
   onReschedule?(change: CalendarReschedule): void
 }
 

@@ -65,6 +65,8 @@ import { cn } from '@open-mercato/shared/lib/utils'
 
 type SegmentedControlContextValue = {
   size: 'sm' | 'default'
+  /** See the `tone` variant — the pill has to know which fill to paint. */
+  tone: 'default' | 'inset'
   fullWidth: boolean
   disabled?: boolean
   /** Scopes the sliding pill to this control — see `indicatorId` below. */
@@ -73,6 +75,7 @@ type SegmentedControlContextValue = {
 
 const SegmentedControlContext = React.createContext<SegmentedControlContextValue>({
   size: 'default',
+  tone: 'default',
   fullWidth: false,
   disabled: false,
   indicatorId: 'segmented-control',
@@ -102,9 +105,22 @@ const trackVariants = cva(
   // default read tight against its rail.
   //   default → h-9 (36px) − 2px border − 8px padding = 26px item, 4px all round
   //   sm      → h-8 (32px) − 2px border − 4px padding = 26px item, 2px all round
-  'items-stretch gap-0 rounded-lg border border-border bg-surface transition-colors',
+  'items-stretch gap-0 rounded-lg transition-colors',
   {
     variants: {
+      /**
+       * `default` — a bordered `surface` rail with the sidebar navy as the
+       * selected pill. The product default; do not change it.
+       *
+       * `inset` — the inverse, for a control sitting IN a form beside filled
+       * fields rather than on page chrome: the rail takes the field fill so it
+       * reads as part of the form, and the pill is `surface` so the selection
+       * lifts out of it. Opt in per call site.
+       */
+      tone: {
+        default: 'border border-border bg-surface',
+        inset: 'border border-transparent bg-input-bg',
+      },
       size: {
         sm: 'h-8 p-0.5',
         default: 'h-9 p-1',
@@ -121,6 +137,7 @@ const trackVariants = cva(
       },
     },
     defaultVariants: {
+      tone: 'default',
       size: 'default',
       fullWidth: false,
       disabled: false,
@@ -144,10 +161,16 @@ const itemVariants = cva(
     'transition-colors duration-200 motion-reduce:transition-none ' +
     'outline-none focus-visible:shadow-focus ' +
     'disabled:cursor-not-allowed disabled:opacity-50 ' +
-    'data-[state=checked]:text-sidebar-foreground data-[state=checked]:font-semibold ' +
+    'data-[state=checked]:font-semibold ' +
     'data-[state=unchecked]:bg-transparent data-[state=unchecked]:text-muted-foreground data-[state=unchecked]:hover:text-foreground',
   {
     variants: {
+      tone: {
+        default: 'data-[state=checked]:text-sidebar-foreground',
+        // The `inset` pill is `surface`, so selected ink is the normal
+        // foreground — sidebar ink would be near-invisible on it.
+        inset: 'data-[state=checked]:text-foreground',
+      },
       size: {
         sm: 'gap-1.5 px-2 text-xs',
         default: 'gap-2 px-3 text-sm',
@@ -160,6 +183,7 @@ const itemVariants = cva(
       },
     },
     defaultVariants: {
+      tone: 'default',
       size: 'default',
       fullWidth: false,
     },
@@ -178,7 +202,7 @@ export type SegmentedControlProps = Omit<
 export const SegmentedControl = React.forwardRef<
   React.ElementRef<typeof RadioGroupPrimitive.Root>,
   SegmentedControlProps
->(({ className, size, fullWidth, disabled, children, ...props }, ref) => {
+>(({ className, size, tone, fullWidth, disabled, children, ...props }, ref) => {
   // The sliding pill is a shared layout element keyed by `layoutId`. That key
   // is global to framer-motion, so two segmented controls on one page sharing
   // a key would animate their pills into each other across the screen. A
@@ -187,11 +211,12 @@ export const SegmentedControl = React.forwardRef<
   const ctx = React.useMemo<SegmentedControlContextValue>(
     () => ({
       size: size ?? 'default',
+      tone: tone ?? 'default',
       fullWidth: fullWidth ?? false,
       disabled: disabled ?? false,
       indicatorId: `segmented-control-indicator-${instanceId}`,
     }),
-    [size, fullWidth, disabled, instanceId],
+    [size, tone, fullWidth, disabled, instanceId],
   )
   return (
     <SegmentedControlContext.Provider value={ctx}>
@@ -200,7 +225,7 @@ export const SegmentedControl = React.forwardRef<
         orientation="horizontal"
         disabled={disabled ?? undefined}
         data-slot="segmented-control"
-        className={cn(trackVariants({ size, fullWidth, disabled }), className)}
+        className={cn(trackVariants({ size, tone, fullWidth, disabled }), className)}
         {...props}
       >
         {children}
@@ -224,6 +249,7 @@ export const SegmentedControlItem = React.forwardRef<
 >(({ className, children, icon, ...props }, ref) => {
   const {
     size,
+    tone,
     fullWidth,
     disabled: groupDisabled,
     indicatorId,
@@ -235,7 +261,7 @@ export const SegmentedControlItem = React.forwardRef<
       ref={ref}
       data-slot="segmented-control-item"
       className={cn(
-        itemVariants({ size, fullWidth }),
+        itemVariants({ size, tone, fullWidth }),
         // Disabling the root dims the track AND disables every item, so both
         // dimmers apply and multiply out to ~0.3 opacity — far fainter than
         // either intends, and below what a disabled control should still be
@@ -270,7 +296,10 @@ export const SegmentedControlItem = React.forwardRef<
           // Keep this in step with `--radius-md` (6px), which is what
           // `rounded-md` resolves to.
           style={{ borderRadius: 6 }}
-          className="absolute inset-0 z-0 bg-sidebar shadow-sm"
+          className={cn(
+            'absolute inset-0 z-0 shadow-sm',
+            tone === 'inset' ? 'bg-surface' : 'bg-sidebar',
+          )}
         />
       </RadioGroupPrimitive.Indicator>
 

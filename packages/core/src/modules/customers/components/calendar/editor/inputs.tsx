@@ -167,6 +167,9 @@ export function TimeControl({ value, onChange, ariaLabel }: { value: string; onC
  * The remove control is revealed on hover and on keyboard focus rather than
  * drawn permanently — at this size a row of avatars each carrying a visible
  * cross reads as clutter, and `focus-visible` keeps it reachable without one.
+ * It COVERS the avatar rather than hanging off its corner: at 28px a corner
+ * badge is a 16px target overlapping its own chip, so the whole circle becomes
+ * the button and the thing under the cursor is the thing that gets removed.
  */
 export function PersonAvatarChip({
   name,
@@ -184,20 +187,31 @@ export function PersonAvatarChip({
 }) {
   return (
     <span className="group/chip relative inline-flex shrink-0" title={title ?? name}>
-      <Avatar size="sm" label={name} variant={tone === 'customer' ? 'default' : 'monochrome'} />
+      {/* White, not the monochrome tint: the chip sits inside a filled field,
+          and `bg-muted` against that fill has almost no edge. A customer keeps
+          the accent avatar — that tone is carrying the staff/customer
+          distinction, so it has to stay readable. */}
+      <Avatar
+        size="sm"
+        label={name}
+        variant={tone === 'customer' ? 'default' : 'monochrome'}
+        className={tone === 'customer' ? undefined : 'bg-surface text-foreground'}
+      />
       {onRemove ? (
         <button
           type="button"
           onClick={(event) => { event.stopPropagation(); onRemove() }}
           aria-label={removeLabel}
           className={cn(
-            'absolute -right-1 -top-1 inline-flex size-4 items-center justify-center rounded-full',
-            'border border-surface bg-surface-strong text-muted-foreground',
-            'opacity-0 transition-opacity hover:text-foreground',
+            'absolute inset-0 inline-flex items-center justify-center rounded-full',
+            // White, not a tint: these chips sit inside a filled field, and a
+            // shape that takes the field's own fill has no edge against it.
+            'bg-surface text-foreground shadow-sm',
+            'opacity-0 transition-opacity',
             'group-hover/chip:opacity-100 focus-visible:opacity-100 focus-visible:shadow-focus focus-visible:outline-none',
           )}
         >
-          <X aria-hidden className="size-2.5" />
+          <X aria-hidden className="size-4" />
         </button>
       ) : null}
     </span>
@@ -224,7 +238,11 @@ export function PersonChip({
         compact ? 'py-0.5' : 'py-1',
       )}
     >
-      <Avatar size="xs" label={name} />
+      {/* White, not the default 10% tint: this chip sits inside a filled field,
+          and a circle carrying a tint of the same family as that fill has no
+          edge against it. The initials keep the brand ink, so the disc reads as
+          a raised shape rather than a hole. */}
+      <Avatar size="xs" label={name} className="bg-surface text-primary" />
       <span className="max-w-40 truncate text-xs font-medium text-foreground">{name}</span>
       {badge}
       {onRemove ? (

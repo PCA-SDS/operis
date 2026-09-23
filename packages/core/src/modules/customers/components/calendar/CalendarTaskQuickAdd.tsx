@@ -41,6 +41,7 @@ type QuickAddMode = 'task' | 'meeting'
 export function CalendarTaskQuickAdd({
   open,
   dueDate,
+  dueTime,
   startTime,
   canCreateMeeting,
   onOpenChange,
@@ -49,6 +50,15 @@ export function CalendarTaskQuickAdd({
   open: boolean
   /** The clicked day as `YYYY-MM-DD`, or null to let the composer decide. */
   dueDate: string | null
+  /**
+   * The clicked hour as `HH:MM`, or null when the click carried no time.
+   *
+   * Separate from `startTime` on purpose. A meeting always needs a start, so
+   * `startTime` falls back to a sensible hour; a task's due time is genuinely
+   * optional, and seeding one the user never picked would put a deadline at an
+   * hour they did not choose.
+   */
+  dueTime: string | null
   /** The clicked slot as `HH:MM` — where a meeting would start. */
   startTime: string
   /**
@@ -91,8 +101,8 @@ export function CalendarTaskQuickAdd({
   }, [onCreated, onOpenChange])
 
   const context = React.useMemo(
-    () => ({ dueDate, onClose: handleClose, onCreated: handleCreated }),
-    [dueDate, handleClose, handleCreated],
+    () => ({ dueDate, dueTime, onClose: handleClose, onCreated: handleCreated }),
+    [dueDate, dueTime, handleClose, handleCreated],
   )
 
   return (
@@ -127,7 +137,7 @@ export function CalendarTaskQuickAdd({
             the chrome, the toggle and the buttons stay exactly where they are
             for the life of the dialog, whichever mode is showing and whatever
             it has to say; content that outgrows the box scrolls inside it. */}
-        <DialogBody className="flex h-[min(68vh,32rem)] min-h-0 flex-col gap-4">
+        <DialogBody className="flex h-[min(72vh,34rem)] min-h-0 flex-col gap-4">
           {/* The toggle sits above both forms and outside either of them, so it
               keeps its position while the body beneath it changes. Putting it
               inside each form would let it shift by a pixel between modes,
@@ -160,7 +170,7 @@ export function CalendarTaskQuickAdd({
           <div key={mode} className="animate-fadeIn flex min-h-0 flex-1 flex-col">
             {open && mode === 'task' ? (
               <InjectionSpot
-                key={dueDate ?? 'no-date'}
+                key={`${dueDate ?? 'no-date'}T${dueTime ?? 'no-time'}`}
                 spotId="calendar:task-quick-add"
                 context={context}
               />

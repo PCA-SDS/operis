@@ -236,7 +236,7 @@ export function AddressEditor({
                 />
                 {typeFormError ? <p className="text-sm text-destructive">{typeFormError}</p> : null}
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setTypeDialogOpen(false)} disabled={disabled}>
+                  <Button type="button" variant="soft" onClick={() => setTypeDialogOpen(false)} disabled={disabled}>
                     {t('customers.people.detail.addresses.types.cancel', 'Cancel')}
                   </Button>
                   <Button type="submit" disabled={disabled || !typeValue.trim()}>

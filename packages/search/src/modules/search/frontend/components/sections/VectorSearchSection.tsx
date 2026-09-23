@@ -677,7 +677,7 @@ export function VectorSearchSection({
                                   {embeddingSaving ? <Spinner size="sm" className="mr-1" /> : null}
                                   {t('search.settings.actions.apply', 'Apply')}
                                 </Button>
-                                <Button type="button" variant="outline" size="sm" onClick={handleCancelEmbeddingSelection} disabled={embeddingLoading || embeddingSaving}>
+                                <Button type="button" variant="soft" size="sm" onClick={handleCancelEmbeddingSelection} disabled={embeddingLoading || embeddingSaving}>
                                   {t('search.settings.actions.cancel', 'Cancel')}
                                 </Button>
                               </div>
@@ -903,7 +903,7 @@ export function VectorSearchSection({
               {t('search.settings.reindex.confirmDescription', 'This will rebuild all vector embeddings. Existing data will be purged first.')}
             </p>
             <div className="flex justify-end gap-3">
-              <Button type="button" variant="outline" onClick={handleVectorReindexCancel}>
+              <Button type="button" variant="soft" onClick={handleVectorReindexCancel}>
                 {t('search.settings.actions.cancel', 'Cancel')}
               </Button>
               <Button type="button" variant="default" onClick={handleVectorReindexConfirm}>
@@ -945,7 +945,7 @@ export function VectorSearchSection({
               </li>
             </ul>
             <div className="flex justify-end gap-3">
-              <Button type="button" variant="outline" onClick={handleEmbeddingCancelChange} disabled={embeddingSaving}>
+              <Button type="button" variant="soft" onClick={handleEmbeddingCancelChange} disabled={embeddingSaving}>
                 {t('search.settings.actions.cancel', 'Cancel')}
               </Button>
               <Button type="button" variant="destructive-solid" onClick={handleEmbeddingConfirmChange} disabled={embeddingSaving}>

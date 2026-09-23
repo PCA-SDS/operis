@@ -27,6 +27,7 @@ import {
   ensureOrganizationScope,
   ensureTenantScope,
   requireTimelineParentEntity,
+  resolveTimelineParentEntity,
   extractUndoPayload,
   emitQueryIndexUpsertEvents,
   requireDealInScope,
@@ -50,6 +51,14 @@ import {
 } from '../lib/interactionStatus'
 import { canChangeEmailVisibility } from '../lib/visibilityFilter'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+
+/** The interaction's customer id, or null when it has none — an internal entry
+ *  (a team sync, a personal block) is a real interaction with no customer to
+ *  point at. The relation arrives either as a raw id or as a loaded entity. */
+function interactionEntityId(entity: unknown): string | null {
+  if (!entity) return null
+  return typeof entity === 'string' ? entity : ((entity as { id: string }).id ?? null)
+}
 
 const logger = createLogger('customers')
 
@@ -94,7 +103,8 @@ type InteractionSnapshot = {
     id: string
     organizationId: string
     tenantId: string
-    entityId: string
+    /** null for an internal interaction that is not about a customer. */
+    entityId: string | null
     entityKind: string | null
     dealId: string | null
     interactionType: string
@@ -146,7 +156,7 @@ async function loadInteractionSnapshot(em: EntityManager, id: string): Promise<I
       id: interaction.id,
       organizationId: interaction.organizationId,
       tenantId: interaction.tenantId,
-      entityId: typeof entityRef === 'string' ? entityRef : entityRef.id,
+      entityId: interactionEntityId(entityRef),
       entityKind,
       dealId: interaction.dealId ?? null,
       interactionType: interaction.interactionType,
@@ -240,7 +250,9 @@ type InteractionIdentifiers = {
 }
 
 type InteractionProjectionMutation = {
-  entityId: string
+  /** null for an interaction with no customer — there is no entity row to
+   *  reindex, so the emit below is skipped entirely. */
+  entityId: string | null
   nextInteractionId: string | null
 }
 
@@ -288,6 +300,8 @@ async function emitNextInteractionUpdatedEvent(
   projection: InteractionProjectionMutation,
   identifiers: InteractionIdentifiers,
 ): Promise<void> {
+  // No customer, no CustomerEntity row to reindex.
+  if (!projection.entityId) return
   await emitQueryIndexUpsertEvents(ctx, [{
     entityType: 'customers:customer_entity',
     recordId: projection.entityId,
@@ -309,7 +323,7 @@ type InteractionGraphValues = {
   id?: string
   organizationId: string
   tenantId: string
-  entity: CustomerEntity
+  entity: CustomerEntity | null
   interactionType: string
   title: string | null
   body: string | null
@@ -374,7 +388,7 @@ function buildInteractionGraph(em: EntityManager, values: InteractionGraphValues
   })
 }
 
-const createInteractionCommand: CommandHandler<InteractionCreateInput, { interactionId: string; entityId: string }> = {
+const createInteractionCommand: CommandHandler<InteractionCreateInput, { interactionId: string; entityId: string | null }> = {
   id: 'customers.interactions.create',
   async execute(rawInput, ctx) {
     const { parsed, custom } = parseWithCustomFields(interactionCreateSchema, rawInput)
@@ -382,18 +396,25 @@ const createInteractionCommand: CommandHandler<InteractionCreateInput, { interac
     const em = (ctx.container.resolve('em') as EntityManager).fork()
     const normalizedAuthor = normalizeAuthorUserId(parsed.authorUserId ?? null, ctx.auth)
     const { interaction, entityId, nextInteractionId } = await runInTransaction(em, async (trx) => {
-      const entity = await requireTimelineParentEntity(trx, parsed.entityId, { tenantId: parsed.tenantId, organizationId: parsed.organizationId })
-      ensureTenantScope(ctx, entity.tenantId)
-      ensureOrganizationScope(ctx, entity.organizationId)
+      const entity = await resolveTimelineParentEntity(trx, parsed.entityId, { tenantId: parsed.tenantId, organizationId: parsed.organizationId })
+      /* Scope follows the customer when there is one — that is the record the
+         interaction lives under, and taking it from the payload instead would
+         let a caller file an interaction into a different org than the customer
+         it names. With no customer there is nothing to follow, so it comes from
+         the validated payload: an internal entry still belongs to an org. */
+      const scopeTenantId = entity?.tenantId ?? parsed.tenantId
+      const scopeOrganizationId = entity?.organizationId ?? parsed.organizationId
+      ensureTenantScope(ctx, scopeTenantId)
+      ensureOrganizationScope(ctx, scopeOrganizationId)
 
       if (parsed.dealId) {
-        await requireDealInScope(trx, parsed.dealId, entity.tenantId, entity.organizationId)
+        await requireDealInScope(trx, parsed.dealId, scopeTenantId, scopeOrganizationId)
       }
 
       const interaction = buildInteractionGraph(trx, {
         ...(parsed.id ? { id: parsed.id } : {}),
-        organizationId: entity.organizationId,
-        tenantId: entity.tenantId,
+        organizationId: scopeOrganizationId,
+        tenantId: scopeTenantId,
         entity,
         interactionType: parsed.interactionType,
         title: parsed.title ?? null,
@@ -425,16 +446,16 @@ const createInteractionCommand: CommandHandler<InteractionCreateInput, { interac
       await setInteractionCustomFields(
         createTransactionalDataEngine(ctx, trx),
         interaction.id,
-        entity.organizationId,
-        entity.tenantId,
+        scopeOrganizationId,
+        scopeTenantId,
         custom,
       )
 
-      const projection = await recomputeNextInteraction(trx, entity.id)
+      const projection = await recomputeNextInteraction(trx, entity?.id ?? null)
 
       return {
         interaction,
-        entityId: entity.id,
+        entityId: entity?.id ?? null,
         nextInteractionId: projection.nextInteractionId,
       }
     })
@@ -491,7 +512,7 @@ const createInteractionCommand: CommandHandler<InteractionCreateInput, { interac
     const result = await runInTransaction(em, async (trx) => {
       const record = await findOneWithDecryption(trx, CustomerInteraction, { id: interactionId })
       if (!record) return null
-      const entityId = typeof record.entity === 'string' ? record.entity : record.entity.id
+      const entityId = interactionEntityId(record.entity)
       trx.remove(record)
       await trx.flush()
       const projection = await recomputeNextInteraction(trx, entityId)
@@ -518,7 +539,7 @@ const createInteractionCommand: CommandHandler<InteractionCreateInput, { interac
     }
     const em = (ctx.container.resolve('em') as EntityManager).fork()
     const { interaction, nextInteractionId } = await runInTransaction(em, async (trx) => {
-      const entity = await requireTimelineParentEntity(trx, after.interaction.entityId, { tenantId: after.interaction.tenantId, organizationId: after.interaction.organizationId })
+      const entity = await resolveTimelineParentEntity(trx, after.interaction.entityId, { tenantId: after.interaction.tenantId, organizationId: after.interaction.organizationId })
       let interaction = await findOneWithDecryption(trx, CustomerInteraction, { id: after.interaction.id })
       if (!interaction) {
         interaction = buildInteractionGraph(trx, {
@@ -719,7 +740,7 @@ const updateInteractionCommand: CommandHandler<InteractionUpdateInput, { interac
 
       await trx.flush()
 
-      const entityId = typeof interaction.entity === 'string' ? interaction.entity : interaction.entity.id
+      const entityId = interactionEntityId(interaction.entity)
       await setInteractionCustomFields(
         createTransactionalDataEngine(ctx, trx),
         interaction.id,
@@ -789,7 +810,7 @@ const updateInteractionCommand: CommandHandler<InteractionUpdateInput, { interac
     const em = (ctx.container.resolve('em') as EntityManager).fork()
     const { interaction, nextInteractionId } = await runInTransaction(em, async (trx) => {
       let interaction = await findOneWithDecryption(trx, CustomerInteraction, { id: before.interaction.id })
-      const entity = await requireTimelineParentEntity(trx, before.interaction.entityId, { tenantId: before.interaction.tenantId, organizationId: before.interaction.organizationId })
+      const entity = await resolveTimelineParentEntity(trx, before.interaction.entityId, { tenantId: before.interaction.tenantId, organizationId: before.interaction.organizationId })
 
       if (!interaction) {
         interaction = trx.create(CustomerInteraction, {
@@ -931,7 +952,7 @@ const completeInteractionCommand: CommandHandler<InteractionCompleteInput, { int
       interaction.occurredAt = parsed.occurredAt ?? new Date()
       await trx.flush()
 
-      const entityId = typeof interaction.entity === 'string' ? interaction.entity : interaction.entity.id
+      const entityId = interactionEntityId(interaction.entity)
       const projection = await recomputeNextInteraction(trx, entityId)
       return { interaction, entityId, nextInteractionId: projection.nextInteractionId }
     })
@@ -1070,7 +1091,7 @@ const cancelInteractionCommand: CommandHandler<InteractionCancelInput, { interac
       interaction.status = INTERACTION_STATUS_CANCELED
       await trx.flush()
 
-      const entityId = typeof interaction.entity === 'string' ? interaction.entity : interaction.entity.id
+      const entityId = interactionEntityId(interaction.entity)
       const projection = await recomputeNextInteraction(trx, entityId)
       return { interaction, entityId, nextInteractionId: projection.nextInteractionId }
     })
@@ -1205,7 +1226,7 @@ const deleteInteractionCommand: CommandHandler<{ body?: Record<string, unknown>;
           request: ctx.request ?? null,
         })
 
-        const entityId = typeof interaction.entity === 'string' ? interaction.entity : interaction.entity.id
+        const entityId = interactionEntityId(interaction.entity)
         interaction.deletedAt = new Date()
         await trx.flush()
 
@@ -1260,7 +1281,7 @@ const deleteInteractionCommand: CommandHandler<{ body?: Record<string, unknown>;
       if (!before) return
       const em = (ctx.container.resolve('em') as EntityManager).fork()
       const { interaction, nextInteractionId } = await runInTransaction(em, async (trx) => {
-        const entity = await requireTimelineParentEntity(trx, before.interaction.entityId, { tenantId: before.interaction.tenantId, organizationId: before.interaction.organizationId })
+        const entity = await resolveTimelineParentEntity(trx, before.interaction.entityId, { tenantId: before.interaction.tenantId, organizationId: before.interaction.organizationId })
         let interaction = await findOneWithDecryption(trx, CustomerInteraction, { id: before.interaction.id })
         if (!interaction) {
           interaction = trx.create(CustomerInteraction, {
@@ -1380,6 +1401,9 @@ const recomputeNextCommand: CommandHandler<{ entityId: string }, { entityId: str
     const parsed = recomputeNextSchema.parse(rawInput)
     const em = (ctx.container.resolve('em') as EntityManager).fork()
     const projection = await recomputeNextInteraction(em, parsed.entityId)
+    // This command repairs ONE customer's projection and its own schema requires
+    // the id, so the strict lookup is right here — a missing customer is a bad
+    // request, not an internal interaction.
     const entity = await requireTimelineParentEntity(em, parsed.entityId, {
       tenantId: ctx.auth?.tenantId ?? '',
       organizationId: ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? '',

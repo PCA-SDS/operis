@@ -1376,10 +1376,10 @@ const FieldDefinitionCard = React.memo(function FieldDefinitionCard({
           </FormField>
         </div>
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={handleCloseOptionDialog}>
+          <Button variant="soft" onClick={handleCloseOptionDialog}>
             {t('entities.customFields.editor.cancel', 'Cancel')}
           </Button>
-          <Button size="sm" onClick={handleAddOption}>
+          <Button onClick={handleAddOption}>
             {t('entities.customFields.editor.addOption', 'Add option')}
           </Button>
         </DialogFooter>
@@ -1476,10 +1476,10 @@ const FieldDefinitionCard = React.memo(function FieldDefinitionCard({
           ) : null}
         </div>
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => setGroupDialogOpen(false)}>
+          <Button variant="soft" onClick={() => setGroupDialogOpen(false)}>
             {t('entities.customFields.editor.cancel', 'Cancel')}
           </Button>
-          <Button size="sm" onClick={handleGroupDialogSubmit}>
+          <Button onClick={handleGroupDialogSubmit}>
             {t('entities.customFields.editor.saveGroup', 'Save group')}
           </Button>
         </DialogFooter>

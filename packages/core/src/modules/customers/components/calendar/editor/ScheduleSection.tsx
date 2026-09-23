@@ -91,7 +91,12 @@ export function ScheduleSection({
   const multiDaySpan = hasEnd && !endsError ? multiDayEventSpan(date, endDate) : 0
   const allDayLabel = t('customers.calendar.editor.allDay', 'All day')
   return (
-    <div className="flex w-full flex-col gap-2.5">
+    /* `gap-6` matches the column that holds this section, so Starts and Ends
+       are separated like any other pair of fields. At the section's own
+       `gap-2.5` they sat 14px tighter than every other row, which reads as the
+       two date rows being a different kind of thing from the fields above and
+       below them. */
+    <div className="flex w-full flex-col gap-6">
       <DateTimeRow
         label={t(DATE_LABEL_TEXT[dateLabel].key, DATE_LABEL_TEXT[dateLabel].fallback)}
         date={date}
@@ -119,17 +124,24 @@ export function ScheduleSection({
         onTimeChange={onStartTimeChange}
       />
       {hasEnd ? (
-        <DateTimeRow
-          label={t('customers.calendar.editor.dates.ends', 'Ends')}
-          date={endDate}
-          time={endTime}
-          showTime={showTime}
-          locale={locale}
-          onDateChange={onEndDateChange}
-          onTimeChange={onEndTimeChange}
-        />
+        // The error rides with the row it describes: at the section's gap it
+        // would sit a full field-gap below and read as its own field.
+        <div className="flex w-full flex-col gap-1.5">
+          <DateTimeRow
+            label={t('customers.calendar.editor.dates.ends', 'Ends')}
+            date={endDate}
+            time={endTime}
+            showTime={showTime}
+            locale={locale}
+            onDateChange={onEndDateChange}
+            onTimeChange={onEndTimeChange}
+          />
+          {endsError ? <p className="text-xs text-status-error-text">{endsError}</p> : null}
+        </div>
       ) : null}
-      {endsError ? <p className="text-xs text-status-error-text">{endsError}</p> : null}
+      {!hasEnd && endsError ? (
+        <p className="text-xs text-status-error-text">{endsError}</p>
+      ) : null}
       {multiDaySpan > 0 ? (
         <p className="text-xs text-muted-foreground">
           {t('customers.calendar.editor.multiDayHint', 'Multi-day event · {count} days', { count: multiDaySpan })}

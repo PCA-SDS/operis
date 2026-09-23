@@ -54,6 +54,24 @@ export async function requireCustomerEntity(
   return entity
 }
 
+/**
+ * The timeline parent when there is one.
+ *
+ * `requireTimelineParentEntity` stays strict for timeline items that genuinely
+ * belong to a customer — a comment has to hang off something. An interaction
+ * does not: an internal event or a personal block is a real entry with no
+ * customer, so this resolves to null instead of throwing, and still validates
+ * the reference whenever an id IS supplied.
+ */
+export async function resolveTimelineParentEntity(
+  em: EntityManager,
+  id: string | null | undefined,
+  scope: CustomerEntityScope,
+): Promise<CustomerEntity | null> {
+  if (!id) return null
+  return requireTimelineParentEntity(em, id, scope)
+}
+
 export async function requireTimelineParentEntity(
   em: EntityManager,
   id: string,

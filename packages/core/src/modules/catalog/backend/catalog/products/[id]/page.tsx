@@ -3402,7 +3402,7 @@ function SaveSchemaDialog({
         <DialogFooter>
           <Button
             type="button"
-            variant="outline"
+            variant="soft"
             onClick={() => onOpenChange(false)}
           >
             {t("common.cancel", "Cancel")}

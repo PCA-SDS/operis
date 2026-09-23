@@ -387,7 +387,18 @@ export function TimeGrid({
 
       if (current.kind === 'create') {
         const range = buildDragRange(day, current.anchorMinutes, current.pointerMinutes)
-        onCreateRange?.(range.start, range.end)
+        if (onCreateRange) {
+          onCreateRange(range.start, range.end)
+          return
+        }
+        /* No range handler — the caller may not create interactions. The drag
+           still started, drew a selection and told us exactly when, so hand
+           that to the composer a click already opens instead of dropping it.
+           Releasing onto nothing is the worst outcome: the gesture looked like
+           it worked the whole way through and then silently did nothing. */
+        const startMinutes = Math.min(current.anchorMinutes, current.pointerMinutes)
+        const endMinutes = Math.max(current.anchorMinutes, current.pointerMinutes)
+        onCreateTask?.(day, startMinutes, endMinutes)
         return
       }
       if (!onReschedule) return

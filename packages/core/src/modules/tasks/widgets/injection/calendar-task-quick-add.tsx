@@ -23,6 +23,11 @@ import { QuickAddComposer } from '../../components/QuickAddComposer'
 export type CalendarTaskQuickAddContext = {
   /** Seeds the due date from the grid cell that was clicked, `YYYY-MM-DD`. */
   dueDate?: string | null
+  /**
+   * Seeds the due time from that same cell, `HH:MM`, when the click carried
+   * one. A month cell is a day with no hour in it, so this is absent there.
+   */
+  dueTime?: string | null
   /** The dialog asked to close — dismissed, or cancelled from inside. */
   onClose: () => void
   /** A task was created; the host reloads its lane. */
@@ -31,13 +36,14 @@ export type CalendarTaskQuickAddContext = {
 
 function isValidContext(context: unknown): context is CalendarTaskQuickAddContext {
   if (!context || typeof context !== 'object') return false
-  const candidate = context as { dueDate?: unknown; onClose?: unknown; onCreated?: unknown }
-  if (
-    candidate.dueDate !== undefined &&
-    candidate.dueDate !== null &&
-    typeof candidate.dueDate !== 'string'
-  ) {
-    return false
+  const candidate = context as {
+    dueDate?: unknown
+    dueTime?: unknown
+    onClose?: unknown
+    onCreated?: unknown
+  }
+  for (const value of [candidate.dueDate, candidate.dueTime]) {
+    if (value !== undefined && value !== null && typeof value !== 'string') return false
   }
   return typeof candidate.onClose === 'function' && typeof candidate.onCreated === 'function'
 }
@@ -70,6 +76,9 @@ export function CalendarTaskQuickAddWidget({
       // as part of that dialog rather than as a panel dropped inside one.
       embedded
       defaultDueDate={context.dueDate ?? null}
+      // The click carried an hour as well as a day; dropping it would make the
+      // user retype something they already told us by choosing that row.
+      defaultDueTime={context.dueTime ?? null}
       // The user added a task from the calendar; they did not ask to leave it.
       // Without this the composer pushes to /backend/tasks/all on success and
       // the calendar disappears out from under them.

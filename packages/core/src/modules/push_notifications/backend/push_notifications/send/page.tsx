@@ -310,7 +310,7 @@ export default function PushCustomSendPage() {
             ) : null}
           </div>
           <div className="flex gap-2">
-            <Button asChild variant="outline">
+            <Button asChild variant="soft">
               <Link href={DELIVERIES_HREF}>{t('common.cancel', 'Cancel')}</Link>
             </Button>
             <Button

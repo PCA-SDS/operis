@@ -281,7 +281,7 @@ export function ReturnLabelPanel({ claim, canManage, onRefresh }: ReturnLabelPan
               {busy === 'manual' ? <Spinner size="sm" /> : null}
               {t('warranty_claims.returnLabel.actions.saveManual', 'Save return label')}
             </Button>
-            <Button type="button" variant="outline" onClick={() => setManualVisible(false)}>
+            <Button type="button" variant="soft" onClick={() => setManualVisible(false)}>
               {t('common.cancel', 'Cancel')}
             </Button>
           </div>

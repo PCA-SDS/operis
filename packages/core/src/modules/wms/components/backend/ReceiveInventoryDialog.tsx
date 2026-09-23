@@ -676,7 +676,7 @@ export function ReceiveInventoryDialog({
               <span>{t('wms.backend.inventory.receive.form.shortcut', 'to receive')}</span>
             </p>
             <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={submitting}>
+              <Button type="button" variant="soft" onClick={closeDialog} disabled={submitting}>
                 {t('wms.backend.inventory.receive.form.cancel', 'Cancel')}
               </Button>
               <Button type="submit" disabled={submitting}>

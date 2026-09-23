@@ -2629,7 +2629,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
               <Save className="mr-2 h-4 w-4" />
               {t('sync_akeneo.customFields.dialog.apply', 'Apply')}
             </Button>
-            <Button type="button" variant="outline" onClick={() => setCustomFieldDialogOpen(false)} disabled={isCreatingCustomFields}>
+            <Button type="button" variant="soft" onClick={() => setCustomFieldDialogOpen(false)} disabled={isCreatingCustomFields}>
               <X className="mr-2 h-4 w-4" />
               {t('sync_akeneo.customFields.dialog.close', 'Close')}
             </Button>

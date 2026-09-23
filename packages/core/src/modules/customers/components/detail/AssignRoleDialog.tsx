@@ -652,7 +652,7 @@ export function AssignRoleDialog({
           }
         >
           <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="soft" onClick={onClose}>
               {t('customers.roles.cancelAdd', 'Cancel')}
             </Button>
             {step === 1 ? (

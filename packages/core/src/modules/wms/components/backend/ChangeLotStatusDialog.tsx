@@ -294,7 +294,7 @@ export function ChangeLotStatusDialog({
               <span>{t('wms.backend.lot.changeStatus.form.shortcut', 'to save')}</span>
             </p>
             <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={submitting}>
+              <Button type="button" variant="soft" onClick={closeDialog} disabled={submitting}>
                 {t('wms.backend.lot.changeStatus.form.cancel', 'Cancel')}
               </Button>
               <Button type="submit" disabled={submitting || !canSubmit}>

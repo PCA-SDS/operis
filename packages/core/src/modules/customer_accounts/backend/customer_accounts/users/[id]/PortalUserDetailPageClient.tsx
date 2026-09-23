@@ -132,7 +132,7 @@ function ResetPasswordDialog({
             />
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => { setNewPassword(''); onOpenChange(false) }}>
+            <Button type="button" variant="soft" onClick={() => { setNewPassword(''); onOpenChange(false) }}>
               {t('customer_accounts.admin.detail.resetPassword.actions.cancel', 'Cancel')}
             </Button>
             <Button type="submit" disabled={isSubmitting}>

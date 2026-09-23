@@ -240,7 +240,7 @@ export default function EmailAccountingDefaultsPage() {
               />
             </section>
             <input type="hidden" value={form.rules} readOnly />
-            <div className="flex justify-end gap-2"><Button type="button" variant="secondary" asChild><Link href="/backend/email/templates">{t('email.common.cancel', 'Cancel')}</Link></Button><Button type="submit" disabled={isSaving}>{isSaving ? t('email.common.saving', 'Saving…') : t('email.accountingDefaults.save', 'Save Defaults')}</Button></div>
+            <div className="flex justify-end gap-2"><Button type="button" variant="soft" asChild><Link href="/backend/email/templates">{t('email.common.cancel', 'Cancel')}</Link></Button><Button type="submit" disabled={isSaving}>{isSaving ? t('email.common.saving', 'Saving…') : t('email.accountingDefaults.save', 'Save Defaults')}</Button></div>
           </form>
         )}
       </PageBody>

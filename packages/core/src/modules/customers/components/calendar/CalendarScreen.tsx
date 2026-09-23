@@ -34,7 +34,6 @@ import { MAX_WINDOW_ITEMS, useCalendarItems } from './useCalendarItems'
 import { useAvailableHeight } from './useAvailableHeight'
 import { useCalendarTasks } from './useCalendarTasks'
 import { useCalendarTaskItems } from './useCalendarTaskItems'
-import { CalendarTaskQuickAdd } from './CalendarTaskQuickAdd'
 import { isTaskItem } from './types'
 import type {
   CalendarFiltersValue,
@@ -120,6 +119,12 @@ export type CalendarScreenProps = {
   tasksEnabled?: boolean
 }
 
+/** Where a meeting starts when the click that opened the quick-add carried no
+ *  hour of its own — a month cell is a day, not a time. */
+const DEFAULT_CREATE_MINUTES = 9 * 60
+/** What a clicked slot is worth when the user did not drag a length. */
+const DEFAULT_CREATE_DURATION_MINUTES = 60
+
 export function CalendarScreen({
   resourcesEnabled = false,
   staffEnabled = true,
@@ -199,25 +204,7 @@ export function CalendarScreen({
    * `tasks.view` server-side, so a user without the grant gets an empty lane
    * rather than the client deciding what they may see. */
   const taskLane = useCalendarTaskItems(range, true)
-  const [taskQuickAdd, setTaskQuickAdd] = React.useState<{
-    open: boolean
-    day: string | null
-    /** The clicked slot, `HH:MM` — where a meeting would start. */
-    time: string
-  }>({ open: false, day: null, time: '09:00' })
 
-  const handleCreateTask = React.useCallback((day: Date, minutes?: number) => {
-    const pad = (value: number) => String(value).padStart(2, '0')
-    // The grid hands back the clicked day; `minutes` is the slot within it.
-    // A task ignores the time (it is a deadline) but a meeting starts there,
-    // and the same click has to serve whichever mode the user picks.
-    const slot = typeof minutes === 'number' ? minutes : 9 * 60
-    setTaskQuickAdd({
-      open: true,
-      day: `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`,
-      time: `${pad(Math.floor(slot / 60))}:${pad(slot % 60)}`,
-    })
-  }, [])
 
   // One list from two owners. Neither side is copied into the other: each entry
   // still knows which domain it came from, which is what routes every later
@@ -406,12 +393,33 @@ export function CalendarScreen({
 
   const handleCreateRange = React.useCallback(
     (start: Date, end: Date) => {
-      if (!canManage) return
+      /* Opening is not gated. A gesture that draws a selection across the grid
+         and then does nothing is the worst outcome — it looks like it worked
+         the whole way through. Whether the entry can be saved is the server's
+         call, and the editor surfaces that answer where the user is looking. */
       setCreateRange({ start, end })
       setEditorMounted(true)
       setEditor({ open: true, mode: 'create', item: null })
     },
-    [canManage],
+    [],
+  )
+  /**
+   * A click on an empty slot opens the same editor a drag does.
+   *
+   * One creation surface for the whole calendar: the editor carries the type
+   * switcher (call, email, event, meeting, note, task), so what the entry turns
+   * out to be is a choice inside the form rather than a choice of which dialog
+   * the gesture happened to open. A click and a drag differ only in whether the
+   * user stated the length or took the default.
+   */
+  const handleCreateSlot = React.useCallback(
+    (day: Date, minutes?: number) => {
+      const slot = typeof minutes === 'number' ? minutes : DEFAULT_CREATE_MINUTES
+      const start = new Date(day)
+      start.setHours(0, slot, 0, 0)
+      handleCreateRange(start, new Date(start.getTime() + DEFAULT_CREATE_DURATION_MINUTES * 60_000))
+    },
+    [handleCreateRange],
   )
 
   const seedActivityTypes = React.useMemo(() => {
@@ -830,8 +838,8 @@ export function CalendarScreen({
         highlightItemId={highlightItemId}
         onItemClick={openEditEditor}
         onJoin={handleJoin}
-        onCreateRange={canManage ? handleCreateRange : undefined}
-        onCreateTask={canEditTasks ? handleCreateTask : undefined}
+        onCreateRange={handleCreateRange}
+        onCreateTask={handleCreateSlot}
         onReschedule={canDrag ? handleReschedule : undefined}
       />
     )
@@ -877,19 +885,6 @@ export function CalendarScreen({
           }}
         />
       ) : null}
-      <CalendarTaskQuickAdd
-        open={taskQuickAdd.open}
-        dueDate={taskQuickAdd.day}
-        startTime={taskQuickAdd.time}
-        canCreateMeeting={canManage}
-        onOpenChange={(open) => setTaskQuickAdd((current) => ({ ...current, open }))}
-        onCreated={() => {
-          taskLane.reload()
-          // A meeting is a CRM interaction, not a task — it comes back through
-          // the interactions fetch, so both sides have to be refreshed.
-          refetch()
-        }}
-      />
       <CalendarSettingsModal
         open={settingsOpen}
         preferences={preferences}

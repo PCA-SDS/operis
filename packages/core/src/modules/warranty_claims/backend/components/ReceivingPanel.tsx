@@ -286,7 +286,7 @@ export function ReceivingPanel({
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setDialogLine(null)}>
+            <Button type="button" variant="soft" onClick={() => setDialogLine(null)}>
               {t('common.cancel', 'Cancel')}
             </Button>
             <Button type="button" disabled={saving} onClick={() => { void submitGrade() }}>

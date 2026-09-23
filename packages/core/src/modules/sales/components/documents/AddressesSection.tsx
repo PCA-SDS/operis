@@ -1271,7 +1271,7 @@ export function SalesDocumentAddressesSection({
                     <div className="flex justify-end gap-2">
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="soft"
                         size="sm"
                         onClick={handleCancelEdit}
                         disabled={editingSaving}

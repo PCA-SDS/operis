@@ -839,7 +839,7 @@ function AddConstraintDrawer({
             <span>{t('catalog.constraints.shortcut.toSave', 'to save')}</span>
           </span>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
-            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={handleClose}>
+            <Button type="button" variant="soft" className="w-full sm:w-auto" onClick={handleClose}>
               {t('ui.actions.cancel', 'Cancel')}
             </Button>
             <Button type="button" className="w-full sm:w-auto" onClick={handleSubmit} disabled={!canSubmit}>

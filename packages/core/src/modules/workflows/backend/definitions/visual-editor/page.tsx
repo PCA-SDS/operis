@@ -713,7 +713,7 @@ export default function VisualEditorPage() {
             <DialogDescription>{t('workflows.visualEditor.clearDescription')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowClearConfirm(false)}>{t('common.cancel', 'Cancel')}</Button>
+            <Button variant="soft" onClick={() => setShowClearConfirm(false)}>{t('common.cancel', 'Cancel')}</Button>
             <Button variant="destructive-solid" onClick={confirmClear}>{t('common.clear', 'Clear')}</Button>
           </DialogFooter>
         </DialogContent>

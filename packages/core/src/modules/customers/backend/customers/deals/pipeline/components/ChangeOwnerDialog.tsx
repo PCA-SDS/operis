@@ -172,7 +172,7 @@ export function ChangeOwnerDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} type="button" disabled={isSubmitting}>
+          <Button variant="soft" onClick={onClose} type="button" disabled={isSubmitting}>
             {translateWithFallback(t, 'customers.deals.kanban.filter.cancel', 'Cancel')}
           </Button>
           <Button

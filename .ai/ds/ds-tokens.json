@@ -825,13 +825,13 @@
     },
     "input": {
       "kind": "color",
-      "light": "#D9E0EA",
-      "dark": "#2E3948",
+      "light": "#00000000",
+      "dark": "#00000000",
       "hex": {
-        "light": "#d9e0ea",
-        "dark": "#2e3948"
+        "light": "#00000000",
+        "dark": "#00000000"
       },
-      "themeInvariant": false,
+      "themeInvariant": true,
       "themeAlias": "color-input",
       "figma": {
         "name": "input",
@@ -840,11 +840,11 @@
     },
     "input-bg": {
       "kind": "color",
-      "light": "#FFFFFF",
-      "dark": "#171E2A",
+      "light": "#E7EEF8",
+      "dark": "#223047",
       "hex": {
-        "light": "#ffffff",
-        "dark": "#171e2a"
+        "light": "#e7eef8",
+        "dark": "#223047"
       },
       "themeInvariant": false,
       "themeAlias": "color-input-bg",
@@ -852,17 +852,17 @@
         "name": "input-bg",
         "type": "COLOR"
       },
-      "note": "Input family — text-entry chrome. A filled field takes `modal-muted` so a populated form reads at a glance without adding a border weight."
+      "note": "Fields are tinted wells, not white boxes. A white field on a white card is invisible without a stroke, which is why one used to be needed; giving it a fill of its own is what lets the border go. Same value as the `soft` button so a form reads as one material."
     },
     "input-border": {
       "kind": "color",
-      "light": "#D9E0EA",
-      "dark": "#2E3948",
+      "light": "#00000000",
+      "dark": "#00000000",
       "hex": {
-        "light": "#d9e0ea",
-        "dark": "#2e3948"
+        "light": "#00000000",
+        "dark": "#00000000"
       },
-      "themeInvariant": false,
+      "themeInvariant": true,
       "themeAlias": "color-input-border",
       "figma": {
         "name": "input-border",

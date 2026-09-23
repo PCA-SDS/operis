@@ -435,7 +435,7 @@ export function ChatTaskComposer({
           ) : null}
         </DrawerBody>
         <DrawerFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+          <Button type="button" variant="soft" onClick={onClose} disabled={submitting}>
             {t('chat_tasks.composer.cancel', 'Cancel')}
           </Button>
           <Button type="button" onClick={() => void submit()} disabled={!canSubmit}>

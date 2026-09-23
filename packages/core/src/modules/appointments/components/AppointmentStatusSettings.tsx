@@ -476,7 +476,7 @@ export function AppointmentStatusSettings() {
               />
             </div>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={closeDialog} disabled={submitting}>
+              <Button type="button" variant="soft" onClick={closeDialog} disabled={submitting}>
                 {translate('appointments.config.statuses.dialog.cancel', 'Cancel')}
               </Button>
               <Button type="submit" disabled={submitting}>

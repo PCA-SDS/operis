@@ -252,7 +252,7 @@ export function ConfirmDealLostDialog({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="soft" onClick={onClose}>
               {t('customers.deals.detail.lost.cancel', 'Cancel')}
             </Button>
             <Button

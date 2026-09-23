@@ -1914,7 +1914,7 @@ export function CycleCountWizardDialog({
               {step === 1 ? (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="soft"
                   onClick={closeDialog}
                   disabled={loadingBalance || submitting}
                 >

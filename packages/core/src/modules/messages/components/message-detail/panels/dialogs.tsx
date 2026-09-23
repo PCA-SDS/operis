@@ -48,7 +48,7 @@ export function MessageDetailDialogs(props: DialogsProps) {
           <DialogFooter>
             <Button
               type="button"
-              variant="outline"
+              variant="soft"
               onClick={() => props.setPendingActionConfirmation(null)}
               disabled={props.executingActionId !== null}
             >
@@ -85,7 +85,7 @@ export function MessageDetailDialogs(props: DialogsProps) {
           <DialogFooter>
             <Button
               type="button"
-              variant="outline"
+              variant="soft"
               onClick={() => props.setDeleteConfirmationOpen(false)}
               disabled={props.updatingState}
             >

@@ -547,7 +547,7 @@ export function FulltextSearchSection({
             </div>
 
             <div className="flex justify-end gap-3">
-              <Button type="button" variant="outline" onClick={handleReindexCancel}>
+              <Button type="button" variant="soft" onClick={handleReindexCancel}>
                 {t('search.settings.cancelLabel', 'Cancel')}
               </Button>
               <Button

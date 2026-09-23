@@ -168,7 +168,7 @@ export function InvoicePaymentConfirmationPanel({ invoice, onChanged }: { invoic
             {loadingEmails ? <p className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner size="sm" />{t('invoice.paymentConfirmation.recipientsLoading')}</p> : null}
             {error ? <Alert status="error" style="lighter">{error}</Alert> : null}
             <DialogFooter>
-              <Button type="button" variant="outline" disabled={isPending} onClick={() => setOpen(false)}>{t('invoice.paymentConfirmation.cancelAction')}</Button>
+              <Button type="button" variant="soft" disabled={isPending} onClick={() => setOpen(false)}>{t('invoice.paymentConfirmation.cancelAction')}</Button>
               <Button type="submit" disabled={isPending}>{isPending ? <Spinner size="sm" /> : <Mail className="size-4" aria-hidden="true" />}{t('invoice.paymentConfirmation.sendAction')}</Button>
             </DialogFooter>
           </form>

@@ -167,7 +167,7 @@ export function CreatePersonDialog({
           schema={formSchema}
           onSubmit={handleSubmit}
           extraActions={(
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="soft" onClick={onClose}>
               {t('customers.people.createDialog.cancel', 'Cancel')}
             </Button>
           )}

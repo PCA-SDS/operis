@@ -392,7 +392,7 @@ export function ActivityForm({
       extraActions={(
         <Button
           type="button"
-          variant="outline"
+          variant="soft"
           onClick={onCancel}
           disabled={pending || isSubmitting}
         >

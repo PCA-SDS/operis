@@ -741,11 +741,11 @@ export function ScheduleActivityDialog({
 
         {/* Footer */}
         <div className="flex shrink-0 items-center justify-end gap-2.5 px-5 pt-1.5 pb-4 sm:px-6">
-          <Button type="button" variant="outline" onClick={() => { void guardedClose() }} className="rounded-md border border-input bg-input-bg px-5 py-3 text-sm font-semibold text-foreground">
+          <Button type="button" variant="soft" onClick={() => { void guardedClose() }}>
             {t('customers.schedule.cancel', 'Cancel')}
           </Button>
-          <Button type="button" onClick={handleSave} disabled={isSubmitDisabled} className="flex items-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50">
-            <SaveIcon className="size-3.5" />
+          <Button type="button" onClick={handleSave} disabled={isSubmitDisabled}>
+            <SaveIcon className="size-4" />
             {state.saving
               ? t('customers.schedule.saving', 'Saving...')
               : isEditing

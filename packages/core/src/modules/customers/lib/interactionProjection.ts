@@ -20,9 +20,12 @@ export type NextInteractionProjectionResult = {
  */
 export async function recomputeNextInteraction(
   em: EntityManager,
-  entityId: string,
+  entityId: string | null,
   organizationId?: string | null,
 ): Promise<NextInteractionProjectionResult> {
+  // An interaction with no customer has no CustomerEntity to project onto.
+  // Returning the empty projection here saves every caller a branch.
+  if (!entityId) return { nextInteractionId: null }
   const db = em.getKysely<any>() as any
 
   let query = db

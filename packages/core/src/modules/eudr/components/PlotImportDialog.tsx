@@ -258,7 +258,7 @@ export function PlotImportDialog({ open, onOpenChange, onImported }: PlotImportD
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+          <Button type="button" variant="soft" onClick={() => handleOpenChange(false)}>
             {translate('eudr.plots.import.close')}
           </Button>
           <Button

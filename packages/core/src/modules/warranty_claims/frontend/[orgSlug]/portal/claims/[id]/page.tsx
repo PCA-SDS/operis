@@ -1006,7 +1006,7 @@ export default function WarrantyClaimPortalDetailPage({ params }: Props) {
           <DialogFooter>
             <Button
               type="button"
-              variant="outline"
+              variant="soft"
               onClick={() => setClaimAction(null)}
               disabled={actionSubmitting}
             >

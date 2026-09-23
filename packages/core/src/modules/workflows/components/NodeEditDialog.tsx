@@ -1576,7 +1576,7 @@ export const NodeEditDialog = memo(function NodeEditDialog({ node, isOpen, onClo
           <div className="flex gap-2 ml-auto">
             <Button
               type="button"
-              variant="outline"
+              variant="soft"
               onClick={onClose}
             >
               {t('workflows.actions.cancel')}

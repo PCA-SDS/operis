@@ -85,7 +85,7 @@ export function MessageComposer(props: MessageComposerProps) {
         {compose.variant !== 'compose' ? (
           <Button
             type="button"
-            variant="outline"
+            variant="soft"
             onClick={compose.handleBack}
             disabled={compose.submitting}
           >
@@ -111,7 +111,7 @@ export function MessageComposer(props: MessageComposerProps) {
         ) : null}
         <Button
           type="button"
-          variant="outline"
+          variant="soft"
           onClick={compose.handleBack}
           disabled={compose.submitting}
         >
@@ -175,7 +175,7 @@ export function MessageComposer(props: MessageComposerProps) {
         <div className="flex items-center justify-end gap-2 border-t pt-4">
           <Button
             type="button"
-            variant="outline"
+            variant="soft"
             onClick={compose.handleBack}
             disabled={compose.submitting}
           >

@@ -138,7 +138,7 @@ export function CreateSpaceDialog({ open, onClose }: CreateSpaceDialogProps) {
         {/* `bordered`, because the body scrolls: without the rule the button
             row floats over the last member in the list. */}
         <DialogFooter bordered>
-          <Button type="button" variant="outline" onClick={onClose} disabled={createSpace.isPending}>
+          <Button type="button" variant="soft" onClick={onClose} disabled={createSpace.isPending}>
             {t('chat.actions.cancel', 'Cancel')}
           </Button>
           <Button type="button" onClick={() => void submit()} disabled={!canSubmit}>

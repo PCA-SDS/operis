@@ -281,7 +281,7 @@ export function InstallmentsDialog({ invoiceId, onClose, onChanged }: { invoiceI
             </div>
 
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setEditing(false)}>{t('common.cancel', 'Cancel')}</Button>
+              <Button type="button" variant="soft" onClick={() => setEditing(false)}>{t('common.cancel', 'Cancel')}</Button>
               <Button type="button" disabled={busy || !canSave} onClick={() => void save()}>{t('invoice.installments.save', 'Save plan')}</Button>
             </div>
           </div>

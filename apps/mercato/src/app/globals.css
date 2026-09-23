@@ -375,7 +375,7 @@ TODO: Fix that latter to have reference by the package names
   --destructive: #C0483F;
   --border: #D9E0EA;
   --border-strong: #C3CEDC;
-  --input: #D9E0EA;
+  --input: #00000000;
   --ring: #7FA3CF;
   --focus-ring: #7FA3CF;
   /* Table family — a list view is the most-used surface in the product, so its
@@ -390,8 +390,12 @@ TODO: Fix that latter to have reference by the package names
   --badge-border: #B6C7DF;
   /* Input family — text-entry chrome. A filled field takes `modal-muted` so a
      populated form reads at a glance without adding a border weight. */
-  --input-bg: #FFFFFF;
-  --input-border: #D9E0EA;
+  /* Fields are tinted wells, not white boxes. A white field on a white card
+     is invisible without a stroke, which is why one used to be needed; giving
+     it a fill of its own is what lets the border go. Same value as the `soft`
+     button so a form reads as one material. */
+  --input-bg: #E7EEF8;
+  --input-border: #00000000;
   --input-border-focus: #43608E;
   --input-placeholder: #94A2B5;
   --input-disabled-bg: #F1F4F8;
@@ -575,7 +579,7 @@ TODO: Fix that latter to have reference by the package names
   --destructive: #E0736A;
   --border: #2E3948;
   --border-strong: #3C4859;
-  --input: #2E3948;
+  --input: #00000000;
   --ring: #5D82B4;
   --focus-ring: #5D82B4;
   --table-header: #1E2735;
@@ -585,8 +589,8 @@ TODO: Fix that latter to have reference by the package names
   --badge-bg: #223047;
   --badge-text: #B6C7DF;
   --badge-border: #3B5175;
-  --input-bg: #171E2A;
-  --input-border: #2E3948;
+  --input-bg: #223047;
+  --input-border: #00000000;
   --input-border-focus: #8FAEDA;
   --input-placeholder: #6B7889;
   --input-disabled-bg: #1B222E;
@@ -741,7 +745,28 @@ TODO: Fix that latter to have reference by the package names
     [data-slot='search-input-wrapper'] *
   ) {
   border-color: transparent;
-  background-color: var(--surface-muted);
+  /* `--input-bg`, not a tint of its own. Unscoped controls (a dialog that does
+     not carry this attribute, a toolbar, a filter bar) already resolve to that
+     token, and picking a second near-identical tint here meant two dialogs
+     could show fields half a step apart in colour for no reason a user could
+     name. One token, one well. */
+  background-color: var(--input-bg);
+}
+
+/* Form section titles inside a dialog.
+ *
+ * `FORM_SECTION_TITLE` is `text-2xl` (24px), which is right on a page: the page
+ * heading above it is 30px, so the section reads as one level down. Inside a
+ * dialog the heading above it is `DialogTitle` at 20px, so the same class makes
+ * a section title LARGER than the dialog it lives in — the one thing a heading
+ * must never be. Scoped to the dialog so page forms keep their own scale. */
+[role='dialog'] [data-slot='form-section-title'] {
+  /* One step below `DialogTitle` (1.25rem). The DS scale has no 1rem entry —
+     `--font-size-section-title` IS 1.25rem, which would make this heading tie
+     with the dialog's own title rather than sit under it — so the step is
+     written out here rather than invented as a token for one rule. */
+  font-size: 1rem;
+  line-height: 1.5rem;
 }
 
 /* Invalid form fields.

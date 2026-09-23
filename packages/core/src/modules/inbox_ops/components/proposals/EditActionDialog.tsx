@@ -581,7 +581,7 @@ export function EditActionDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
+          <Button type="button" variant="soft" onClick={onClose} disabled={isSaving}>
             {t('inbox_ops.edit_dialog.cancel', 'Cancel')}
           </Button>
           <Button type="button" onClick={handleSave} disabled={isSaving}>

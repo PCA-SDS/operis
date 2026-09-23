@@ -185,7 +185,7 @@ function SaveFilterDialog({
             {error ? <p className="text-sm text-status-error-text">{error}</p> : null}
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
               {t('common.cancel', 'Cancel')}
             </Button>
             <Button type="submit" disabled={!trimmed || saving}>

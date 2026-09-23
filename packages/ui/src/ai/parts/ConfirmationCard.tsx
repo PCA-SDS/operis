@@ -176,7 +176,7 @@ export function ConfirmationCard(props: ConfirmationCardProps) {
       <div className="mt-3 flex items-center justify-end gap-2">
         <Button
           type="button"
-          variant="outline"
+          variant="soft"
           size="sm"
           onClick={() => {
             void handleCancel()

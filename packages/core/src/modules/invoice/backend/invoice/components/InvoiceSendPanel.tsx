@@ -347,7 +347,7 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
             {sendError ? <Alert status="error" style="lighter">{sendError}</Alert> : null}
 
             <DialogFooter>
-              <Button type="button" variant="outline" disabled={isSending || Boolean(removingId)} onClick={() => handleOpenChange(false)}>
+              <Button type="button" variant="soft" disabled={isSending || Boolean(removingId)} onClick={() => handleOpenChange(false)}>
                 {t('invoice.send.cancelAction')}
               </Button>
               <Button type="submit" disabled={isSending || Boolean(removingId)}>

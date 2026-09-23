@@ -595,7 +595,7 @@ export default function TimesheetProjectDetailPage({ params }: { params?: { id?:
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" size="sm" onClick={() => setAddDialogOpen(false)}>
+                <Button variant="soft" size="sm" onClick={() => setAddDialogOpen(false)}>
                   {t('staff.timesheets.projects.form.actions.cancel', 'Cancel')}
                 </Button>
                 <Button

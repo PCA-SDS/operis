@@ -210,7 +210,7 @@ function BookingQuickPopover({
         <DialogHeader><DialogTitle>{t('appointments.list.actions.deleteConfirm', 'Delete this appointment?')}</DialogTitle></DialogHeader>
         <DialogDescription>{t('appointments.list.actions.deleteConfirm', 'Delete this appointment?')}</DialogDescription>
         <DialogFooter>
-          <Button type="button" variant="outline" disabled={isDeleting} onClick={() => setDeleteDialogOpen(false)}>{t('appointments.config.statuses.dialog.cancel', 'Cancel')}</Button>
+          <Button type="button" variant="soft" disabled={isDeleting} onClick={() => setDeleteDialogOpen(false)}>{t('appointments.config.statuses.dialog.cancel', 'Cancel')}</Button>
           <Button type="button" variant="destructive-solid" disabled={isDeleting} onClick={async () => { setIsDeleting(true); const deleted = await onDelete(appointment); setIsDeleting(false); if (!deleted) return; setDeleteDialogOpen(false); close() }}><Trash2 className="mr-2 size-4" />{t('appointments.list.actions.delete', 'Delete')}</Button>
         </DialogFooter>
       </DialogContent>
@@ -760,7 +760,7 @@ export default function BookingOverviewPage() {
             {serviceLoadError ? <p className="text-sm text-status-error-text">{serviceLoadError}</p> : <AppointmentServicePicker services={bookableServices.filter((service) => !serviceDialogAppointment?.lines.some((line) => line.productId === service.id))} loading={isLoadingServices} emptyLabel={t('appointments.seatPlanner.servicesLoading', 'Loading services...')} value={selectedServices} onChange={setSelectedServices} disabled={isAddingService} />}
           </div>
           <DialogFooter bordered>
-            <Button type="button" variant="outline" disabled={isAddingService} onClick={() => setServiceDialogAppointment(null)}>{t('common.cancel', 'Cancel')}</Button>
+            <Button type="button" variant="soft" disabled={isAddingService} onClick={() => setServiceDialogAppointment(null)}>{t('common.cancel', 'Cancel')}</Button>
             <Button type="button" disabled={isAddingService || isLoadingServices || selectedServices.length === 0} onClick={() => void addServices()}><Plus className="size-4" />{isAddingService ? t('appointments.seatPlanner.addingService', 'Adding...') : t('appointments.overview.addService', 'Add service')}</Button>
           </DialogFooter>
         </DialogContent>

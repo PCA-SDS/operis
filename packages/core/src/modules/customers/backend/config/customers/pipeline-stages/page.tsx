@@ -600,7 +600,7 @@ export default function PipelineStagesPage() {
               </label>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setPipelineDialog(null)} disabled={saving}>
+              <Button variant="soft" onClick={() => setPipelineDialog(null)} disabled={saving}>
                 {t('customers.config.pipelineStages.cancel', 'Cancel')}
               </Button>
               <Button onClick={() => void savePipeline()} disabled={saving || !pipelineName.trim()}>
@@ -642,7 +642,7 @@ export default function PipelineStagesPage() {
               />
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setStageDialog(null)} disabled={saving}>
+              <Button variant="soft" onClick={() => setStageDialog(null)} disabled={saving}>
                 {t('customers.config.pipelineStages.cancel', 'Cancel')}
               </Button>
               <Button onClick={() => void saveStage()} disabled={saving || !stageName.trim()}>

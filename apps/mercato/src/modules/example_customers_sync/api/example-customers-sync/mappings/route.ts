@@ -155,7 +155,7 @@ export async function GET(request: Request) {
       em,
       Array.from(new Set(
         interactions
-          .map((interaction) => (typeof interaction.entity === 'string' ? interaction.entity : interaction.entity.id))
+          .map((interaction) => (typeof interaction.entity === 'string' ? interaction.entity : interaction.entity?.id ?? null))
           .filter((value): value is string => typeof value === 'string' && value.length > 0),
       )),
       auth.tenantId,
@@ -165,7 +165,7 @@ export async function GET(request: Request) {
     const items = pageRows.map((row) => {
       const interaction = interactionById.get(row.interaction_id)
       const entityId = interaction
-        ? (typeof interaction.entity === 'string' ? interaction.entity : interaction.entity.id)
+        ? (typeof interaction.entity === 'string' ? interaction.entity : interaction.entity?.id ?? null)
         : null
       return {
         id: row.id,

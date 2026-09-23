@@ -248,7 +248,7 @@ export function CalendarSettingsModal({
         </DialogBody>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
             {t('customers.calendar.settings.cancel', 'Cancel')}
           </Button>
           <Button type="button" onClick={handleSave}>

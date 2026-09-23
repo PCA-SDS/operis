@@ -366,7 +366,7 @@ export function MappingSuggestionsDialog({
           </span>
           <Button
             type="button"
-            variant="outline"
+            variant="soft"
             onClick={() => closeDialog(false)}
           >
             {t('eudr.suggestions.cancel')}

@@ -644,7 +644,7 @@ function AttachmentUploadForm({ partitions, availableTags, onUploaded, onCancel 
             : t('attachments.library.upload.submit', 'Upload')
         }
         extraActions={
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isUploading}>
+          <Button type="button" variant="soft" onClick={onCancel} disabled={isUploading}>
             {t('attachments.library.upload.cancel', 'Cancel')}
           </Button>
         }

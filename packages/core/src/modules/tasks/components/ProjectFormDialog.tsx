@@ -349,10 +349,10 @@ export function ProjectFormDialog({
         )}
 
         <DialogFooter>
-          <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={busy}>
+          <Button type="button" variant="soft" onClick={onClose} disabled={busy}>
             {t('tasks.common.cancel', 'Cancel')}
           </Button>
-          <Button type="button" size="sm" onClick={() => void submit()} disabled={busy || loadingEdit}>
+          <Button type="button" onClick={() => void submit()} disabled={busy || loadingEdit}>
             {isEdit
               ? t('tasks.projectForm.save', 'Save changes')
               : t('tasks.projectForm.create', 'Create project')}
