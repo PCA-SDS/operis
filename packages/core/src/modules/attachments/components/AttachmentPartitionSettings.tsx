@@ -731,7 +731,7 @@ export function AttachmentPartitionSettings({ s3Enabled }: AttachmentPartitionSe
             {error ? <p className="text-sm text-status-error-text">{error}</p> : null}
           </form>
           <DialogFooter>
-            <Button variant="ghost" onClick={closeDialog}>
+            <Button variant="soft" onClick={closeDialog}>
               {t('attachments.partitions.actions.cancel', 'Cancel')}
             </Button>
             <Button onClick={() => void handleSubmit()} disabled={submitting || s3SelectedWhileUnavailable}>

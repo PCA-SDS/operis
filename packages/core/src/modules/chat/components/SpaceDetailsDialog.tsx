@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, LogOut, Pencil, UserPlus, Users, X } from 'lucide-react'
+import { Check, LogOut, Pencil, UserPlus, X } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import {
@@ -303,7 +303,7 @@ export function SpaceDetailsDialog({
             else if (renaming) void submitRename()
           }}
         >
-          <DialogHeader leading={mode === 'add' ? <UserPlus aria-hidden="true" /> : <Users aria-hidden="true" />}>
+          <DialogHeader>
             <DialogTitle>
               {mode === 'add' ? t('chat.space.addPeople', 'Add people') : conversation.title}
             </DialogTitle>

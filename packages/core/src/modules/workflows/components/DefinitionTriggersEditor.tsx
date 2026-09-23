@@ -537,7 +537,7 @@ export function DefinitionTriggersEditor({
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={handleCloseDialog}>
+            <Button variant="soft" onClick={handleCloseDialog}>
               {t('common.cancel', 'Cancel')}
             </Button>
             <Button
@@ -563,7 +563,7 @@ export function DefinitionTriggersEditor({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirmId(null)}>
+            <Button variant="soft" onClick={() => setDeleteConfirmId(null)}>
               {t('common.cancel', 'Cancel')}
             </Button>
             <Button

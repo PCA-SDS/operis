@@ -126,7 +126,7 @@ export function LinkExistingTaskDialog({
           )}
         </DialogBody>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={link.isPending}>
+          <Button type="button" variant="soft" onClick={onClose} disabled={link.isPending}>
             {t('chat_tasks.link.cancel', 'Cancel')}
           </Button>
         </DialogFooter>

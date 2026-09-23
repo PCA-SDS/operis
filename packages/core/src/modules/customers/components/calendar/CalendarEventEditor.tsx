@@ -47,7 +47,6 @@ import { normalizeCustomFieldSubmitValue } from '../detail/customFieldUtils'
 import type { CalendarInteractionItem } from './types'
 import { EDITOR_SCROLL_EVENT, Field } from './editor/inputs'
 import { PriorityField } from './editor/PriorityField'
-import { RelatedToField } from './editor/RelatedToField'
 import { RepeatField } from './editor/RepeatField'
 import { PeopleField } from './editor/PeopleField'
 import { ResourcesField } from './editor/ResourcesField'
@@ -72,6 +71,19 @@ export interface CalendarEventEditorProps {
 }
 
 const FORM_ID = 'customers-calendar-event-editor'
+/**
+ * The kinds this form offers.
+ *
+ * The calendar creates things that occupy time or carry a deadline. Calls,
+ * emails and notes are logged against a customer from the CRM surfaces that
+ * own them, so offering them here made the switcher a list of everything an
+ * interaction can be rather than of what a calendar entry is for.
+ *
+ * Narrowing the OFFER only: an existing call, email or note still opens in this
+ * editor, still shows its own type, and still saves as itself.
+ */
+const CALENDAR_EDITOR_KINDS = ['event', 'meeting', 'task'] as const
+
 const INTERACTION_ENTITY_IDS = [E.customers.customer_interaction]
 
 const PEOPLE_FIELD_TEXT = {
@@ -157,7 +169,14 @@ function EditorBody({
 
   const selectedType = form.category ?? form.kind
   const typeOptions = React.useMemo(
-    () => buildEditorTypeOptions({ typeLabels, typeIcons, selectedValue: selectedType, kindLabels }),
+    () =>
+      buildEditorTypeOptions({
+        typeLabels,
+        typeIcons,
+        selectedValue: selectedType,
+        kindLabels,
+        allowedKinds: CALENDAR_EDITOR_KINDS,
+      }),
     [typeLabels, typeIcons, selectedType, kindLabels],
   )
   const typeSwitcherOptions = React.useMemo(
@@ -194,14 +213,14 @@ function EditorBody({
     // the left, CONTEXT (related record, category, location) on the right;
     // people/resources and the task fields pair up below; title, description
     // and the type switcher span both columns.
-    <div className="grid w-full grid-cols-1 items-start gap-4 lg:grid-cols-2 lg:gap-x-6">
+    <div className="grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-2 lg:gap-x-6">
       {conflict ? (
         <Alert status="warning" className="rounded-lg lg:col-span-2">
           <AlertTitle>{t('customers.calendar.editor.conflictTitle', 'Calendar conflict')}</AlertTitle>
           <AlertDescription>{conflict}</AlertDescription>
         </Alert>
       ) : null}
-      <div className="w-full lg:col-span-2">
+      <div className="flex w-full justify-center lg:col-span-2">
         {/* The track hugs its labels, like every other toggle in the product and
             like the reference's own filter toggle. `fullWidth` is for a
             field-like row of fixed choices (the repeat "Ends" control); this is
@@ -210,6 +229,7 @@ function EditorBody({
             `max-w-full` with a scroll keeps a tenant whose activity-type
             dictionary runs long from widening the dialog. */}
         <SegmentedControl
+          tone="inset"
           className="max-w-full overflow-x-auto"
           aria-label={t('customers.calendar.editor.typeSwitcher', 'Event type')}
           value={selectedType}
@@ -232,7 +252,7 @@ function EditorBody({
           autoFocus
         />
       </Field>
-      <div className="flex w-full flex-col gap-4">
+      <div className="flex w-full flex-col gap-6">
       <ScheduleSection
         dateLabel={config.dateLabel}
         hasAllDay={config.hasAllDay}
@@ -311,17 +331,7 @@ function EditorBody({
         </Field>
       ) : null}
       </div>
-      <div className="flex w-full flex-col gap-4">
-      <Field label={t('customers.calendar.editor.relatedTo', 'Related to')} error={errors.relatedTo}>
-        <RelatedToField
-          label={t('customers.calendar.editor.relatedTo', 'Related to')}
-          value={form.relatedTo}
-          deal={form.dealId && form.dealLabel ? { id: form.dealId, label: form.dealLabel } : null}
-          onChange={(relatedTo) => update({ relatedTo })}
-          onDealChange={(deal) => update({ dealId: deal?.id ?? null, dealLabel: deal?.label ?? null })}
-          error={errors.relatedTo}
-        />
-      </Field>
+      <div className="flex w-full flex-col gap-6">
       {config.location ? (
         <LocationField
           variant={config.location}
@@ -418,9 +428,6 @@ export function CalendarEventEditor({
       if (!form.title.trim()) {
         fieldErrors.title = t('customers.calendar.editor.validation.titleRequired', 'Title is required')
       }
-      if (!form.relatedTo) {
-        fieldErrors.relatedTo = t('customers.calendar.editor.validation.relatedToRequired', 'Select a person or company to link this event')
-      }
       if (config.hasEnd && !form.allDay && computeDurationMinutes(form) === null) {
         fieldErrors.ends = t('customers.calendar.editor.validation.endsBeforeStarts', 'End must be after start')
       }
@@ -490,7 +497,6 @@ export function CalendarEventEditor({
           />
         ),
       },
-      { id: 'customFields', kind: 'customFields' },
     ],
     [open, isEdit, item, typeLabels, typeIcons, conflictScope, currentUserId, resourcesEnabled, staffEnabled],
   )
@@ -503,7 +509,7 @@ export function CalendarEventEditor({
     disabled: saving,
   })
 
-  const dialogTitle = isEdit ? t('customers.calendar.editor.title.edit', 'Edit event') : t('customers.calendar.editor.title.create', 'New event')
+  const dialogTitle = isEdit ? t('customers.calendar.editor.title.edit', 'Edit event') : t('customers.calendar.editor.title.create', 'New Event')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -548,7 +554,15 @@ export function CalendarEventEditor({
           // fill — the reference's field treatment, applied once for all
           // control families rather than per control.
           data-dialog-form="true"
-          className="min-h-0 flex-1 overflow-y-auto"
+          /* A FIXED height, not flex-1. Each entry type shows a different set
+             of fields — a note has no end time or location, a meeting has both
+             — so a body that sizes to its content moved the whole dialog by up
+             to 150px and the buttons by 75px every time the type changed, and
+             the type switcher is the first thing anyone touches. Pinning it
+             keeps the header, the switcher and the footer still whichever type
+             is selected; a type whose fields outgrow the box scrolls inside
+             it. */
+          className="h-[min(70vh,40rem)] min-h-0 overflow-y-auto"
           onScroll={() => {
             // Tell the DS date/time fields to close their (controlled) popover
             // so a portalled popover doesn't float over the form or drift away
@@ -575,7 +589,7 @@ export function CalendarEventEditor({
         <DialogFooter>
           <Button
             type="button"
-            variant="outline"
+            variant="soft"
             onClick={() => onOpenChange(false)}
           >
             {t('customers.calendar.editor.cancel', 'Cancel')}

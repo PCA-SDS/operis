@@ -20,6 +20,17 @@ const querySchema = z.object({
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   duration: z.coerce.number().int().min(1).max(1440),
   excludeId: z.string().uuid().optional(),
+  // Comma-separated `interaction_type` allow-list. Omitted means every type,
+  // which is the behaviour every existing caller already gets. Callers that
+  // only care about one kind of clash (the calendar's meeting quick-add) pass
+  // it so the narrowing happens in SQL — filtering the response client-side
+  // would be wrong under the row limit below, which could fill with types the
+  // caller discards and hide a real conflict behind them.
+  types: z
+    .string()
+    .transform((value) => value.split(',').map((part) => part.trim()).filter(Boolean))
+    .pipe(z.array(z.string().max(100)).min(1).max(20))
+    .optional(),
   userId: z.string().uuid().optional(),
   timezoneOffsetMinutes: z.coerce.number().int().min(-900).max(900).optional(),
 })
@@ -125,6 +136,10 @@ export async function GET(req: Request) {
 
     if (query.excludeId) {
       baseQuery = baseQuery.where('id', '!=', query.excludeId)
+    }
+
+    if (query.types && query.types.length > 0) {
+      baseQuery = baseQuery.where('interaction_type', 'in', query.types)
     }
 
     // Overlap condition: existing.start < windowEnd AND existing.end > windowStart

@@ -272,7 +272,10 @@ describe('CreateDealForm', () => {
     fireEvent.change(screen.getByLabelText(/Deal title/), { target: { value: 'Copperleaf renewal' } })
     fireEvent.click(screen.getAllByRole('button', { name: 'Create deal' })[0])
 
-    expect(await screen.findByText('Required')).toBeInTheDocument()
+    // Two surfaces carry it now: the inline field error and CrudForm's
+    // form-level summary, which renders alongside field errors so a message
+    // keyed to an unrendered control cannot go silent.
+    expect((await screen.findAllByText('Required')).length).toBeGreaterThan(0)
     expect(mockCreateCrud).not.toHaveBeenCalled()
     expect(mockRunMutation).not.toHaveBeenCalled()
   })

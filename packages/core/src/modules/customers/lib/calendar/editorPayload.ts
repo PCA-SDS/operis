@@ -73,14 +73,29 @@ export function buildEditorTypeOptions(params: {
   typeIcons?: Record<string, string | null>
   selectedValue: string
   kindLabels: Record<EditorKind, string>
+  /**
+   * Restrict the switcher to these kinds. Omitted means every kind.
+   *
+   * This narrows what a caller OFFERS, not what the editor can represent: the
+   * selected value is still always included below, so an existing record whose
+   * kind is no longer offered still opens, still says what it is, and still
+   * saves as itself rather than being silently retyped.
+   */
+  allowedKinds?: readonly EditorKind[]
 }): EditorTypeOption[] {
-  const { typeLabels, typeIcons, selectedValue, kindLabels } = params
+  const { typeLabels, typeIcons, selectedValue, kindLabels, allowedKinds } = params
+  const isOffered = (value: string) =>
+    !allowedKinds || allowedKinds.includes(editorKindOfInteractionType(value))
   const iconOf = (value: string): string | null =>
     typeIcons?.[value] ?? EDITOR_KIND_ICONS[editorKindOfInteractionType(value)] ?? null
-  const dictionaryEntries = Object.entries(typeLabels)
+  const dictionaryEntries = Object.entries(typeLabels).filter(([value]) => isOffered(value))
   const options: EditorTypeOption[] = dictionaryEntries.length
     ? dictionaryEntries.map(([value, label]) => ({ value, label, icon: iconOf(value) }))
-    : EDITOR_KINDS.map((kind) => ({ value: kind, label: kindLabels[kind], icon: EDITOR_KIND_ICONS[kind] }))
+    : EDITOR_KINDS.filter(isOffered).map((kind) => ({
+        value: kind,
+        label: kindLabels[kind],
+        icon: EDITOR_KIND_ICONS[kind],
+      }))
   if (!options.some((option) => option.value === selectedValue)) {
     options.unshift({
       value: selectedValue,

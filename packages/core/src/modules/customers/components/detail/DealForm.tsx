@@ -1206,7 +1206,7 @@ export function DealForm({
       extraActions={showCancelAction ? (
         <Button
           type="button"
-          variant="outline"
+          variant="soft"
           onClick={onCancel}
           disabled={pending || isSubmitting}
         >

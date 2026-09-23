@@ -307,7 +307,7 @@ export function ComposeEmailDialog({
         <DialogFooter>
           <Button
             type="button"
-            variant="outline"
+            variant="soft"
             onClick={() => onOpenChange(false)}
             disabled={busy}
           >

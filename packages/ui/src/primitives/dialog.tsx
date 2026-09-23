@@ -6,7 +6,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { CloseButton } from './close-button'
+import { CloseButton, type CloseButtonSize } from './close-button'
 
 /**
  * Modal dialog primitive. Chrome follows the canonical borderless scheme:
@@ -25,7 +25,6 @@ import { CloseButton } from './close-button'
  * Additive props beyond the Radix contract:
  *   DialogContent: `size` ('sm' | 'default' | 'lg' | 'xl'), `dismissible`,
  *     `elevated`, `disableBodyWrap`
- *   DialogHeader:  `leading` icon badge, `leadingTone`
  *   DialogFooter:  `layout` ('default' | 'equal'), `leading` slot, `bordered`
  *     (opt-in rule — off by default per the borderless chrome above)
  */
@@ -97,6 +96,13 @@ export type DialogContentProps = React.ComponentPropsWithoutRef<
     /** Skip the automatic `DialogBody` grouping and render children verbatim.
      * For panels that lay out their own full-bleed chrome. @default false */
     disableBodyWrap?: boolean
+    /** Size of the auto close button. `CloseButton` has carried this scale all
+     * along but `DialogContent` pinned it to the default, so a dialog that
+     * wanted a larger dismiss had no way to ask for one without reaching past
+     * the primitive. Dense dialogs keep `md`; tall scrolling panels, where the
+     * close is the only way out that stays on screen, take `lg`.
+     * @default 'md' */
+    closeSize?: CloseButtonSize
   }
 
 /** How far to descend looking for slots nested inside a layout wrapper — the
@@ -170,6 +176,7 @@ const DialogContent = React.forwardRef<
       dismissible = true,
       closeAriaLabel,
       disableBodyWrap = false,
+      closeSize,
       ...props
     },
     ref,
@@ -211,6 +218,7 @@ const DialogContent = React.forwardRef<
           {dismissible ? (
             <DialogClose asChild data-dialog-close="">
               <CloseButton
+                size={closeSize}
                 data-slot="dialog-close-button"
                 className="absolute right-5 top-4 z-10 sm:right-6"
                 aria-label={closeAriaLabel ?? t('ui.dialog.close.ariaLabel', 'Close')}
@@ -225,45 +233,24 @@ const DialogContent = React.forwardRef<
 )
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
-export type DialogHeaderTone =
-  | 'default'
-  | 'accent'
-  | 'success'
-  | 'warning'
-  | 'error'
-  | 'info'
-
-// Soft-tinted status leading badges. Each status tone uses the soft tint
-// background paired with a saturated colored icon (red `!` on light pink,
-// amber triangle on light amber, green check on light green, indigo `i` on
-// light indigo). The bordered `default` tone keeps the surface + border shell
-// for generic settings icons.
-const DIALOG_HEADER_TONE_CLASS: Record<DialogHeaderTone, string> = {
-  default: 'border border-border bg-surface text-muted-foreground',
-  accent: 'bg-accent-strong/10 text-accent-strong',
-  success: 'bg-status-success-bg text-status-success-icon',
-  warning: 'bg-status-warning-bg text-status-warning-icon',
-  error: 'bg-status-error-bg text-status-error-icon',
-  info: 'bg-status-info-bg text-status-info-icon',
-}
-
-export type DialogHeaderProps = React.HTMLAttributes<HTMLDivElement> & {
-  /** Optional leading icon — rendered inside a size-10 rounded-full
-   * badge to the left of the title block. */
-  leading?: React.ReactNode
-  /** Visual tone for the leading badge. `default` keeps the
-   * bordered surface badge (generic settings icons); status tones
-   * (`success`/`warning`/`error`/`info`) use the matching
-   * `bg-status-*-bg text-status-*-icon` tint. Use `error` / `warning` to
-   * signal destructive flows via the badge instead of a red CTA button.
-   * @default 'default' */
-  leadingTone?: DialogHeaderTone
-}
+/**
+ * A dialog header is a title, an optional description, and nothing else.
+ *
+ * It used to take a `leading` icon badge with a `leadingTone` tint. The prop is
+ * gone rather than merely unused: a modal header carries no iconography in this
+ * product, and leaving the capability in place meant the rule held only for as
+ * long as nobody reached for it. Six call sites had, and they each picked a
+ * different glyph for the same slot, so the badge was decorating the title
+ * rather than saying anything the title did not.
+ *
+ * Signal a destructive flow through the CTA — `destructive`,
+ * `destructive-solid`, `destructive-outline` on the confirm Button — and
+ * through the copy, not through a tinted badge beside the heading.
+ */
+export type DialogHeaderProps = React.HTMLAttributes<HTMLDivElement>
 
 const DialogHeader = ({
   className,
-  leading,
-  leadingTone = 'default',
   children,
   ...props
 }: DialogHeaderProps) => {
@@ -276,37 +263,12 @@ const DialogHeader = ({
         // Reserve the close-button gutter (28px box + the 16px gap it sits on)
         // so a long title never runs under it.
         dismissible ? 'pr-11 sm:pr-12' : '',
-        leading ? 'flex items-start gap-3' : 'flex flex-col gap-0.5',
+        'flex flex-col gap-0.5',
         className,
       )}
       {...props}
     >
-      {leading ? (
-        <span
-          data-slot="dialog-header-leading"
-          data-tone={leadingTone}
-          aria-hidden="true"
-          className={cn(
-            // Same 28px box / 16px glyph as CloseButton, so the badge, the
-            // title's first line and the close button all sit on one band.
-            // The icon size is owned here — a call site must not change it.
-            'inline-flex size-7 shrink-0 items-center justify-center rounded-full [&>svg]:size-4',
-            DIALOG_HEADER_TONE_CLASS[leadingTone],
-          )}
-        >
-          {leading}
-        </span>
-      ) : null}
-      {leading ? (
-        <div
-          data-slot="dialog-header-text"
-          className="flex min-w-0 flex-1 flex-col gap-1 text-left"
-        >
-          {children}
-        </div>
-      ) : (
-        children
-      )}
+      {children}
     </div>
   )
 }

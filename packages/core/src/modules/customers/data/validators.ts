@@ -481,7 +481,12 @@ const interactionExtendedFields = {
 
 const interactionCreateBaseSchema = scopedSchema.extend({
   id: z.string().uuid().optional(),
-  entityId: z.string().uuid(),
+  /* Optional: an interaction is usually ABOUT a customer, but the calendar is
+     also used for internal work — a team sync, a personal block, an internal
+     deadline — and those have no customer to name. With an entity the record
+     still lands on that customer's timeline and drives their
+     `next_interaction_*` fields; without one it simply does not appear there. */
+  entityId: z.string().uuid().nullable().optional(),
   interactionType: z.string().trim().min(1).max(100),
   title: z.string().trim().max(500).optional().nullable(),
   body: z.string().trim().max(10000).optional().nullable(),

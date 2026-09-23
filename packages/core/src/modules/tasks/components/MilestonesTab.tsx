@@ -110,7 +110,7 @@ export function MilestonesTab({ projectId }: { projectId: string }) {
           <div className="flex justify-end gap-2">
             <Button
               type="button"
-              variant="secondary"
+              variant="soft"
               size="sm"
               onClick={() => setAdding(false)}
               disabled={create.isPending}

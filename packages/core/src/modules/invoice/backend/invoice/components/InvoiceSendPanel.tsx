@@ -250,7 +250,7 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent dismissible={!isSending && !removingId}>
-          <DialogHeader leading={<Send className="size-5" aria-hidden="true" />}>
+          <DialogHeader>
             <DialogTitle>{t('invoice.send.dialogTitle')}</DialogTitle>
             <DialogDescription>
               {t('invoice.send.dialogDescription', { invoice: invoiceLabel, company: companyName })}
@@ -341,7 +341,7 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
             {sendError ? <Alert status="error" style="lighter">{sendError}</Alert> : null}
 
             <DialogFooter>
-              <Button type="button" variant="outline" disabled={isSending || Boolean(removingId)} onClick={() => handleOpenChange(false)}>
+              <Button type="button" variant="soft" disabled={isSending || Boolean(removingId)} onClick={() => handleOpenChange(false)}>
                 {t('invoice.send.cancelAction')}
               </Button>
               <Button type="submit" disabled={isSending || Boolean(removingId)}>

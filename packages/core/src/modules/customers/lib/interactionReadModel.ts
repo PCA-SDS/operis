@@ -11,6 +11,14 @@ import {
   type InteractionRecord,
 } from './interactionCompatibility'
 
+/** The interaction's customer id, or null when it has none — an internal entry
+ *  (a team sync, a personal block) is a real interaction with no customer to
+ *  point at. The relation arrives either as a raw id or as a loaded entity. */
+function interactionEntityId(entity: unknown): string | null {
+  if (!entity) return null
+  return typeof entity === 'string' ? entity : ((entity as { id: string }).id ?? null)
+}
+
 type ContainerLike = {
   resolve: (name: string) => unknown
 }
@@ -171,7 +179,7 @@ export async function hydrateCanonicalInteractions({
   const dealMap = new Map(deals.map((deal) => [deal.id, deal.title]))
 
   const baseItems: InteractionRecord[] = interactions.map((interaction) => {
-    const entityId = typeof interaction.entity === 'string' ? interaction.entity : interaction.entity.id
+    const entityId = interactionEntityId(interaction.entity)
     return {
       id: interaction.id,
       entityId,

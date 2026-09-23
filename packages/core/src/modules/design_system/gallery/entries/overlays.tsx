@@ -4,7 +4,6 @@ import {
   Info,
   LayoutDashboard,
   Settings,
-  TriangleAlert,
   UserRound,
   Users,
 } from 'lucide-react'
@@ -147,7 +146,7 @@ import {
             <Button variant="destructive-outline">Delete record</Button>
           </DialogTrigger>
           <DialogContent size="sm">
-            <DialogHeader leading={<TriangleAlert />} leadingTone="error">
+            <DialogHeader>
               <DialogTitle>Delete this record?</DialogTitle>
               <DialogDescription>
                 This removes the record from every linked view.
@@ -162,8 +161,7 @@ import {
           </DialogContent>
         </Dialog>
       ),
-      code: `import { TriangleAlert } from 'lucide-react'
-import { Button } from '@open-mercato/ui/primitives/button'
+      code: `import { Button } from '@open-mercato/ui/primitives/button'
 import {
   Dialog,
   DialogTrigger,
@@ -180,7 +178,7 @@ import {
     <Button variant="destructive-outline">Delete record</Button>
   </DialogTrigger>
   <DialogContent size="sm">
-    <DialogHeader leading={<TriangleAlert />} leadingTone="error">
+    <DialogHeader>
       <DialogTitle>Delete this record?</DialogTitle>
       <DialogDescription>
         This removes the record from every linked view.

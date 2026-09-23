@@ -795,7 +795,7 @@ function ImportHistoryDialog({ channel, onClose, onQueued }: ImportHistoryDialog
           <span className="mr-auto text-xs text-muted-foreground">
             <KbdShortcut keys={['⌘', 'Enter']} />
           </span>
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+          <Button type="button" variant="soft" onClick={onClose} disabled={submitting}>
             {t('communication_channels.profile.importHistory.cancel', 'Cancel')}
           </Button>
           <Button type="button" onClick={() => void handleSubmit()} disabled={submitting}>
@@ -917,7 +917,7 @@ function DisconnectChannelDialog({
           <span className="mr-auto text-xs text-muted-foreground">
             <KbdShortcut keys={['⌘', 'Enter']} />
           </span>
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+          <Button type="button" variant="soft" onClick={onClose} disabled={submitting}>
             {t('communication_channels.profile.disconnect.cancel', 'Cancel')}
           </Button>
           <Button type="button" variant="destructive-solid" onClick={() => void handleConfirm()} disabled={submitting}>

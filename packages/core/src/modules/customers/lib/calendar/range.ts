@@ -11,7 +11,7 @@ import type { CalendarRange, CalendarView } from '../../components/calendar/type
 
 const MONDAY_WEEK = { weekStartsOn: 1 as const }
 
-export function getVisibleRange(view: CalendarView, anchor: Date, agendaHorizonDays: number): CalendarRange {
+export function getVisibleRange(view: CalendarView, anchor: Date): CalendarRange {
   switch (view) {
     case 'day':
       return { from: startOfDay(anchor), to: endOfDay(anchor) }
@@ -22,8 +22,6 @@ export function getVisibleRange(view: CalendarView, anchor: Date, agendaHorizonD
         from: startOfWeek(startOfMonth(anchor), MONDAY_WEEK),
         to: endOfWeek(endOfMonth(anchor), MONDAY_WEEK),
       }
-    case 'agenda':
-      return { from: startOfDay(anchor), to: endOfDay(addDays(anchor, agendaHorizonDays)) }
   }
 }
 
@@ -39,7 +37,5 @@ export function shiftAnchor(view: CalendarView, anchor: Date, direction: 1 | -1)
       return addWeeks(anchor, direction)
     case 'month':
       return addMonths(anchor, direction)
-    case 'agenda':
-      return addDays(anchor, direction * 7)
   }
 }

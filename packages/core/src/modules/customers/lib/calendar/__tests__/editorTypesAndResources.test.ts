@@ -36,6 +36,48 @@ describe('buildEditorTypeOptions (#3552 — dictionary-driven type switcher)', (
     'customer-visit': 'Customer visit',
   }
 
+  describe('allowedKinds', () => {
+    it('offers only the permitted kinds', () => {
+      const options = buildEditorTypeOptions({
+        typeLabels,
+        selectedValue: 'meeting',
+        kindLabels: KIND_LABELS,
+        allowedKinds: ['event', 'meeting', 'task'],
+      })
+      expect(options.map((option) => option.value)).not.toContain('call')
+      expect(options.map((option) => option.value)).toContain('meeting')
+    })
+
+    it('keeps a record whose kind is no longer offered, so editing one does not retype it', () => {
+      const options = buildEditorTypeOptions({
+        typeLabels,
+        selectedValue: 'call',
+        kindLabels: KIND_LABELS,
+        allowedKinds: ['event', 'meeting', 'task'],
+      })
+      expect(options[0]).toMatchObject({ value: 'call', label: 'Call' })
+    })
+
+    it('narrows the built-in fallback too when the dictionary is empty', () => {
+      const options = buildEditorTypeOptions({
+        typeLabels: {},
+        selectedValue: 'meeting',
+        kindLabels: KIND_LABELS,
+        allowedKinds: ['event', 'meeting', 'task'],
+      })
+      expect(options.map((option) => option.value).sort()).toEqual(['event', 'meeting', 'task'])
+    })
+
+    it('offers every kind when no allow-list is given', () => {
+      const options = buildEditorTypeOptions({
+        typeLabels: {},
+        selectedValue: 'meeting',
+        kindLabels: KIND_LABELS,
+      })
+      expect(options.map((option) => option.value)).toContain('call')
+    })
+  })
+
   it('renders every dictionary entry, including tenant-added custom types', () => {
     const options = buildEditorTypeOptions({
       typeLabels,

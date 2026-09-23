@@ -558,7 +558,7 @@ export function PriceKindSettings() {
               {error ? <p className="text-sm text-status-error-text">{error}</p> : null}
             </form>
             <DialogFooter>
-              <Button variant="ghost" onClick={closeDialog}>
+              <Button variant="soft" onClick={closeDialog}>
                 {t('catalog.priceKinds.actions.cancel', 'Cancel')}
               </Button>
               <Button onClick={() => void handleSubmit()} disabled={submitting}>

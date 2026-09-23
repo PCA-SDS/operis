@@ -578,7 +578,7 @@ export function DictionariesManager() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={closeDialog} disabled={submitting}>
+            <Button type="button" variant="soft" onClick={closeDialog} disabled={submitting}>
               {t('dictionaries.config.dialog.cancel', 'Cancel')}
             </Button>
             <Button type="button" onClick={handleSubmit} disabled={submitting}>

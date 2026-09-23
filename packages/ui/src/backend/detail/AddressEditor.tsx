@@ -301,7 +301,7 @@ export function AddressEditor<C = unknown>({
                   />
                   {typeFormError ? <p className="text-sm text-status-error-text">{typeFormError}</p> : null}
                   <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setTypeDialogOpen(false)} disabled={disabled}>
+                    <Button type="button" variant="soft" onClick={() => setTypeDialogOpen(false)} disabled={disabled}>
                       {label('types.cancel', 'Cancel')}
                     </Button>
                     <Button type="submit" disabled={disabled || !typeValue.trim()}>

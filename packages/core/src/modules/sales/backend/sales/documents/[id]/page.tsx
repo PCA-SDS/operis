@@ -4960,7 +4960,7 @@ export default function SalesDocumentDetailPage({
             />
           </div>
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setSendOpen(false)} disabled={sending}>
+            <Button variant="soft" onClick={() => setSendOpen(false)} disabled={sending}>
               {t('sales.quotes.send.cancel', 'Cancel')}
             </Button>
             <Button onClick={() => void handleSendQuote()} disabled={sending || !contactEmail}>

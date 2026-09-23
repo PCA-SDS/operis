@@ -220,7 +220,10 @@ export function DatePicker({
           data-slot="date-picker-trigger"
           disabled={disabled}
           className={cn(
-            'w-full inline-flex items-center gap-2 rounded-md border border-input bg-input-bg shadow-xs transition-colors text-left',
+            // `rounded-lg` and `font-medium` match `SelectTrigger`. A date field
+            // and a select sit side by side in most forms, so the two triggers
+            // have to agree; they previously differed in corner and weight.
+            'w-full inline-flex items-center gap-2 rounded-lg border border-input bg-input-bg font-medium shadow-xs transition-colors text-left',
             'focus-visible:outline-none focus-visible:shadow-focus',
             'hover:bg-muted/40',
             'disabled:bg-bg-disabled disabled:border-border-disabled disabled:shadow-none disabled:hover:bg-bg-disabled disabled:cursor-not-allowed',
@@ -263,7 +266,7 @@ export function DatePicker({
         )}
         {footer === 'apply-cancel' && (
           <div className="flex items-center justify-end gap-2 border-t px-3 py-2">
-            <Button type="button" variant="outline" size="sm" onClick={handleCancel}>
+            <Button type="button" variant="soft" size="sm" onClick={handleCancel}>
               {t('ui.datePicker.cancelButton', 'Cancel')}
             </Button>
             <Button type="button" size="sm" onClick={handleApply}>

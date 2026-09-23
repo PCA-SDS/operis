@@ -2453,7 +2453,7 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setAssignDialogOpen(false)}>
+            <Button type="button" variant="soft" onClick={() => setAssignDialogOpen(false)}>
               {t('common.cancel', 'Cancel')}
             </Button>
             <Button type="button" onClick={() => { void assignClaim() }}>

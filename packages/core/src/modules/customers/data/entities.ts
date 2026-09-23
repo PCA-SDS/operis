@@ -750,8 +750,17 @@ export class CustomerInteraction {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 
-  @ManyToOne(() => CustomerEntity, { fieldName: 'entity_id' })
-  entity!: CustomerEntity
+  /**
+   * The customer this interaction is about, when it is about one.
+   *
+   * Nullable because the calendar is used for internal work as well: a team
+   * sync, an internal deadline, a personal block. Those are real entries with
+   * no customer to attach. An interaction WITH an entity behaves exactly as
+   * before — it is the thing that puts it on that customer's timeline and feeds
+   * their `next_interaction_*` fields; one without simply does not appear there.
+   */
+  @ManyToOne(() => CustomerEntity, { fieldName: 'entity_id', nullable: true })
+  entity?: CustomerEntity | null
 }
 
 @Entity({ tableName: 'customer_comments' })

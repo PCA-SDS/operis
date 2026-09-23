@@ -287,7 +287,7 @@ export function ConversationShareDialog({ open, onOpenChange, conversationId }: 
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
             {t('common.close', 'Close')}
           </Button>
         </DialogFooter>

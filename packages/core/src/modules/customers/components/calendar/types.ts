@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { z } from 'zod'
 
-export type CalendarView = 'day' | 'week' | 'month' | 'agenda'
+export type CalendarView = 'day' | 'week' | 'month'
 
 export type CalendarCategory = 'meeting' | 'event' | 'task' | 'other'
 
@@ -11,9 +11,7 @@ export type CalendarPlatform = 'zoom' | 'meet' | 'slack' | 'teams'
 
 export type CalendarLocationKind = 'url' | 'venue' | 'platform'
 
-export type CalendarTab = 'all' | 'meetings' | 'events'
 
-export type CalendarRangePreset = 'thisWeek' | 'next7' | 'thisMonth' | 'next30'
 
 export type CalendarRange = { from: Date; to: Date }
 
@@ -182,6 +180,16 @@ export interface TimeGridProps {
   onItemClick(item: CalendarItem): void
   onJoin(item: CalendarItem): void
   onCreateRange?(start: Date, end: Date): void
+  /**
+   * A click on the grid that did not become a drag. Distinct from
+   * `onCreateRange`, which needs a dragged span: a bare click carried no
+   * meaning before, so taking it costs nothing that was already in use.
+   */
+  /**
+   * @param minutes  the slot the gesture started on
+   * @param endMinutes  where a drag finished, absent for a plain click
+   */
+  onCreateTask?(day: Date, minutes: number, endMinutes?: number): void
   onReschedule?(change: CalendarReschedule): void
 }
 
@@ -200,13 +208,6 @@ export interface MonthGridProps {
 /** Locale week start, expressed the way date-fns expects it. */
 export type WeekStartDay = 0 | 1 | 2 | 3 | 4 | 5 | 6
 
-export interface AgendaListProps {
-  anchor: Date
-  horizonDays: number
-  items: CalendarItem[]
-  typeLabels?: Record<string, string>
-  onItemClick(item: CalendarItem): void
-}
 
 export interface UpcomingCard {
   item: CalendarItem
@@ -225,6 +226,10 @@ export interface UpcomingCardsProps {
 }
 
 export interface CalendarHeaderProps {
+  /** Search, range preset and jump-to-date — the scope controls, rendered
+   *  between the date cluster and the view switcher so the whole bar is one
+   *  row rather than two stacked ones. */
+  controls?: ReactNode
   view: CalendarView
   anchor: Date
   range: CalendarRange
@@ -235,39 +240,6 @@ export interface CalendarHeaderProps {
   onNewEvent?: () => void
   /** Present only when the tasks module is active and the caller may edit tasks. */
   onNewTask?: () => void
-  onOpenShortcuts?: () => void
 }
 
-export interface CalendarToolbarProps {
-  anchor: Date
-  search: string
-  filters: CalendarFiltersValue
-  typeOptions: Array<{ value: string; label: string }>
-  ownerOptions: Array<{ value: string; label: string }>
-  onAnchorChange(date: Date): void
-  onSearchChange(value: string): void
-  onFiltersChange(value: CalendarFiltersValue): void
-}
 
-/** The scope row: category filter, range preset and the jump-to-date control. */
-export interface CalendarScopeBarProps {
-  tab: CalendarTab
-  counts: { all: number; meetings: number; events: number }
-  range: CalendarRange
-  anchor: Date
-  preset: CalendarRangePreset | null
-  /** Transient status text (truncation, refreshing) shown between the controls. */
-  status?: ReactNode
-  /** Search and filters — the controls that narrow what is shown. */
-  trailing?: ReactNode
-  onTabChange(tab: CalendarTab): void
-  onPresetChange(preset: CalendarRangePreset): void
-  onAnchorChange(date: Date): void
-  onOpenSettings(): void
-}
-
-export interface CalendarTabsProps {
-  tab: CalendarTab
-  counts: { all: number; meetings: number; events: number }
-  onTabChange(tab: CalendarTab): void
-}

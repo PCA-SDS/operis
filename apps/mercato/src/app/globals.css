@@ -274,13 +274,20 @@ TODO: Fix that latter to have reference by the package names
 
 :root {
   color-scheme: light;
-  /* Figtree / DM Mono are SELF-HOSTED — see ./fonts.css, imported at the top of
-     this file. They are deliberately not pulled from fonts.googleapis.com: the
-     app's CSP is `style-src 'self' 'unsafe-inline'` with no external hosts, so a
-     Google Fonts <link> is blocked at runtime and the product would silently
-     fall back to system type. The system stack stays behind them so an offline
-     or blocked-font environment degrades to native type, never to a serif. */
-  --font-geist-sans: "Figtree", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Apple's SF Pro FIRST, then Inter.
+     `-apple-system` / `BlinkMacSystemFont` are Apple-only CSS keywords: on
+     macOS, iOS and iPadOS they resolve to the real SF Pro already installed on
+     the OS — including its automatic SF Pro Text / SF Pro Display optical
+     switching — and on every other platform they match nothing and fall
+     straight through. SF Pro is NOT self-hosted and must not be: Apple's font
+     license covers designing and developing software for Apple platforms, not
+     redistributing the files as a webfont to arbitrary browsers.
+     Inter therefore stays as the self-hosted face every non-Apple client gets;
+     it is the closest open equivalent to SF and keeps Windows/Linux from
+     falling back to Segoe UI or Cantarell. Inter / DM Mono are self-hosted (see
+     ./fonts.css) because the app's CSP is `style-src 'self' 'unsafe-inline'`
+     with no external hosts, so a Google Fonts <link> is blocked at runtime. */
+  --font-geist-sans: -apple-system, BlinkMacSystemFont, "Inter", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
   --font-geist-mono: "DM Mono", ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
   /* Third-party components that theme themselves through their own custom
      properties rather than inheriting. MDXEditor's stylesheet sets
@@ -317,11 +324,21 @@ TODO: Fix that latter to have reference by the package names
      Ink is navy (#1D2735) rather than grey so text belongs to the palette.
      Status hues stay semantic (see the status block below) — an error must
      never read as "just more blue". */
-  --background: #F7F9FC;
+  /* The page GROUND, deliberately a real blue-grey rather than near-white.
+     It was #F7F9FC — about 3% off #FFFFFF — so a raised `bg-surface` card read
+     as the same colour as the page it sat on and the whole product looked flat.
+     #EDF2F9 puts a visible step under every white surface.
+
+     The two steps below it move with it. `surface-muted` is the hover state for
+     a white surface (9 primitives use `hover:bg-surface-muted`), so if the
+     ground darkens and it does not, a hovered card lands on the ground colour
+     and the hover disappears. The ramp is spaced ~13 points per step:
+       surface #FFFFFF -> background #EDF2F9 -> muted #E0E7F2 -> strong #D2DCEA */
+  --background: #EDF2F9;
   --foreground: #1D2735;
   --surface: #FFFFFF;
-  --surface-muted: #EDF1F7;
-  --surface-strong: #E2E8F1;
+  --surface-muted: #E0E7F2;
+  --surface-strong: #D2DCEA;
   --surface-modal: #E9EEF5;
   --modal-muted: #F4F7FB;
   --disabled-foreground: #94A2B5;
@@ -358,7 +375,7 @@ TODO: Fix that latter to have reference by the package names
   --destructive: #C0483F;
   --border: #D9E0EA;
   --border-strong: #C3CEDC;
-  --input: #D9E0EA;
+  --input: #00000000;
   --ring: #7FA3CF;
   --focus-ring: #7FA3CF;
   /* Table family — a list view is the most-used surface in the product, so its
@@ -373,8 +390,12 @@ TODO: Fix that latter to have reference by the package names
   --badge-border: #B6C7DF;
   /* Input family — text-entry chrome. A filled field takes `modal-muted` so a
      populated form reads at a glance without adding a border weight. */
-  --input-bg: #FFFFFF;
-  --input-border: #D9E0EA;
+  /* Fields are tinted wells, not white boxes. A white field on a white card
+     is invisible without a stroke, which is why one used to be needed; giving
+     it a fill of its own is what lets the border go. Same value as the `soft`
+     button so a form reads as one material. */
+  --input-bg: #E7EEF8;
+  --input-border: #00000000;
   --input-border-focus: #43608E;
   --input-placeholder: #94A2B5;
   --input-disabled-bg: #F1F4F8;
@@ -558,7 +579,7 @@ TODO: Fix that latter to have reference by the package names
   --destructive: #E0736A;
   --border: #2E3948;
   --border-strong: #3C4859;
-  --input: #2E3948;
+  --input: #00000000;
   --ring: #5D82B4;
   --focus-ring: #5D82B4;
   --table-header: #1E2735;
@@ -568,8 +589,8 @@ TODO: Fix that latter to have reference by the package names
   --badge-bg: #223047;
   --badge-text: #B6C7DF;
   --badge-border: #3B5175;
-  --input-bg: #171E2A;
-  --input-border: #2E3948;
+  --input-bg: #223047;
+  --input-border: #00000000;
   --input-border-focus: #8FAEDA;
   --input-placeholder: #6B7889;
   --input-disabled-bg: #1B222E;
@@ -724,7 +745,28 @@ TODO: Fix that latter to have reference by the package names
     [data-slot='search-input-wrapper'] *
   ) {
   border-color: transparent;
-  background-color: var(--surface-muted);
+  /* `--input-bg`, not a tint of its own. Unscoped controls (a dialog that does
+     not carry this attribute, a toolbar, a filter bar) already resolve to that
+     token, and picking a second near-identical tint here meant two dialogs
+     could show fields half a step apart in colour for no reason a user could
+     name. One token, one well. */
+  background-color: var(--input-bg);
+}
+
+/* Form section titles inside a dialog.
+ *
+ * `FORM_SECTION_TITLE` is `text-2xl` (24px), which is right on a page: the page
+ * heading above it is 30px, so the section reads as one level down. Inside a
+ * dialog the heading above it is `DialogTitle` at 20px, so the same class makes
+ * a section title LARGER than the dialog it lives in — the one thing a heading
+ * must never be. Scoped to the dialog so page forms keep their own scale. */
+[role='dialog'] [data-slot='form-section-title'] {
+  /* One step below `DialogTitle` (1.25rem). The DS scale has no 1rem entry —
+     `--font-size-section-title` IS 1.25rem, which would make this heading tie
+     with the dialog's own title rather than sit under it — so the step is
+     written out here rather than invented as a token for one rule. */
+  font-size: 1rem;
+  line-height: 1.5rem;
 }
 
 /* Invalid form fields.
@@ -755,12 +797,12 @@ TODO: Fix that latter to have reference by the package names
   * {
     @apply border-border outline-ring/50;
   }
-  /* Figtree is pinned to the document root EXPLICITLY rather than being left to
-     Tailwind Preflight's `--default-font-family` indirection. Preflight already
-     resolves to the same stack today, so this changes nothing visually — it
-     removes the dependency. The product typeface should not be a side effect of
-     a framework internal that a Tailwind upgrade, or disabling Preflight, could
-     quietly rename. Everything else inherits from here; Preflight's
+  /* The product typeface is pinned to the document root EXPLICITLY rather than
+     being left to Tailwind Preflight's `--default-font-family` indirection.
+     Preflight already resolves to the same stack today, so this changes nothing
+     visually — it removes the dependency. The product typeface should not be a
+     side effect of a framework internal that a Tailwind upgrade, or disabling
+     Preflight, could quietly rename. Everything else inherits from here; Preflight's
      `font: inherit` on button/input/select/textarea carries it into form
      controls, which otherwise take a UA font. */
   html {
@@ -796,6 +838,21 @@ TODO: Fix that latter to have reference by the package names
 }
 
 .rbc-calendar {
+  font-family: var(--font-sans);
+}
+
+/* Leaflet (deals map, EUDR plot map) ships its own hardcoded type: the map
+   surface is "Helvetica Neue", the zoom +/- buttons are 'Lucida Console', the
+   popup close button is Tahoma, and marker-cluster counts are Helvetica Neue
+   again. None of it inherits, so without these four rules the maps are the one
+   place in the product rendering in a font nobody chose. Only `font-family` is
+   reset — Leaflet's shorthand also carries size/weight/line-height that its
+   layout depends on, and those are left alone. */
+.leaflet-container,
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out,
+.leaflet-container a.leaflet-popup-close-button,
+.marker-cluster div {
   font-family: var(--font-sans);
 }
 

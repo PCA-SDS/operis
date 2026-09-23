@@ -214,9 +214,14 @@ const PICKER_BASE: Record<PickerVariant, string> = {
 
 /** The chrome the DS `DatePicker` puts on its own trigger. `TimeInput` has to
  *  restate it because the time picker leaves the trigger to its caller, and the
- *  two controls sit side by side in every due-date row. */
+ *  two controls sit side by side in every due-date row.
+ *
+ *  `rounded-lg` and `font-medium` are not decoration: every row that holds one
+ *  of these also holds a DS `SelectTrigger` (repeat, priority, assignee,
+ *  project), and those are the values it uses. Without them the date sat at a
+ *  tighter corner and a lighter weight than the control immediately beside it. */
 const PICKER_TRIGGER_CLASS =
-  'inline-flex w-full items-center gap-2 rounded-md border border-input bg-input-bg text-left shadow-xs transition-colors hover:bg-muted/40 focus-visible:shadow-focus focus-visible:outline-none disabled:cursor-not-allowed disabled:border-border-disabled disabled:bg-bg-disabled disabled:shadow-none disabled:hover:bg-bg-disabled'
+  'inline-flex w-full items-center gap-2 rounded-lg border border-input bg-input-bg text-left font-medium shadow-xs transition-colors hover:bg-muted/40 focus-visible:shadow-focus focus-visible:outline-none disabled:cursor-not-allowed disabled:border-border-disabled disabled:bg-bg-disabled disabled:shadow-none disabled:hover:bg-bg-disabled'
 
 const PICKER_TRIGGER_SIZE: Record<PickerVariant, string> = {
   form: 'h-9 px-3 text-sm',

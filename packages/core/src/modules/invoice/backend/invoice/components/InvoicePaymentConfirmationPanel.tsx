@@ -1,17 +1,16 @@
 'use client'
 
 import * as React from 'react'
-import { CheckCircle2, CircleDollarSign, Mail, Trash2, XCircle } from 'lucide-react'
+import { CheckCircle2, Mail, XCircle } from 'lucide-react'
 import { hasFeature } from '@open-mercato/shared/security/features'
 import { useInvoiceT as useT } from '../../../lib/useInvoiceT'
 import { Alert } from '@open-mercato/ui/primitives/alert'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
-import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
+import { ComboboxInput } from '@open-mercato/ui/backend/inputs/ComboboxInput'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -44,7 +43,7 @@ type Invoice = {
   paymentConfirmation?: PaymentConfirmationState
 }
 
-type CompanyEmail = { id: string; companyId: string; email: string; updatedAt: string | null }
+type CompanyEmail = { id: string; email: string }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -57,40 +56,21 @@ export function InvoicePaymentConfirmationPanel({ invoice, onChanged }: { invoic
   const [email, setEmail] = React.useState('')
   const [emails, setEmails] = React.useState<CompanyEmail[]>([])
   const [error, setError] = React.useState<string | null>(null)
-  const [emailListError, setEmailListError] = React.useState<string | null>(null)
   const [loadingEmails, setLoadingEmails] = React.useState(false)
-  const [removingId, setRemovingId] = React.useState<string | null>(null)
+  const formRef = React.useRef<HTMLFormElement>(null)
   const { runMutation, retryLastMutation, isPending } = useGuardedMutation({ contextId: 'invoice.detail.payment-confirmation' })
-  const { runMutation: runEmailMutation, retryLastMutation: retryEmailMutation } = useGuardedMutation({
-    contextId: 'invoice.detail.company-email.remove',
-  })
 
   const loadEmails = React.useCallback(async () => {
-    if (!invoice.companyId) {
-      setEmails([])
-      setEmailListError(null)
-      return
-    }
+    if (!invoice.companyId) return
     setLoadingEmails(true)
-    setEmailListError(null)
-    try {
-      const call = await apiCall<{ items: CompanyEmail[] }>(
-        `/api/invoice/company-emails?companyId=${encodeURIComponent(invoice.companyId)}`,
-        undefined,
-        { fallback: { items: [] } },
-      )
-      if (!call.ok) {
-        setEmails([])
-        setEmailListError(t('invoice.paymentConfirmation.recipientsLoadFailed'))
-        return
-      }
-      setEmails(call.result?.items ?? [])
-    } catch {
-      setEmails([])
-      setEmailListError(t('invoice.paymentConfirmation.recipientsLoadFailed'))
-    } finally {
-      setLoadingEmails(false)
-    }
+    const call = await apiCall<{ items: CompanyEmail[] }>(
+      `/api/invoice/company-emails?companyId=${encodeURIComponent(invoice.companyId)}`,
+      undefined,
+      { fallback: { items: [] } },
+    )
+    setEmails(call.ok ? call.result?.items ?? [] : [])
+    if (!call.ok) setError(t('invoice.paymentConfirmation.recipientsLoadFailed'))
+    setLoadingEmails(false)
   }, [invoice.companyId, t])
 
   React.useEffect(() => { if (open) void loadEmails() }, [loadEmails, open])
@@ -102,34 +82,9 @@ export function InvoicePaymentConfirmationPanel({ invoice, onChanged }: { invoic
     setOpen(true)
   }
 
-  const removeEmail = React.useCallback(async (entry: CompanyEmail) => {
-    if (!invoice.companyId) return
-    setRemovingId(entry.id)
-    setEmailListError(null)
-    try {
-      await runEmailMutation({
-        operation: async () => {
-          const call = await apiCall<{ ok: true }>(
-            `/api/invoice/company-emails/${encodeURIComponent(entry.id)}?companyId=${encodeURIComponent(invoice.companyId!)}`,
-            { method: 'DELETE' },
-            { fallback: null },
-          )
-          if (!call.ok) throw new Error(t('invoice.send.recipientRemoveFailed'))
-          return call.result
-        },
-        context: { invoiceId: invoice.id, companyId: invoice.companyId, retryLastMutation: retryEmailMutation },
-        mutationPayload: { companyId: invoice.companyId, emailId: entry.id },
-      })
-      setEmails((current) => current.filter((item) => item.id !== entry.id))
-    } catch {
-      setEmailListError(t('invoice.send.recipientRemoveFailed'))
-    } finally {
-      setRemovingId(null)
-    }
-  }, [invoice.companyId, invoice.id, retryEmailMutation, runEmailMutation, t])
-
   const submit = React.useCallback(async () => {
-    const recipientEmail = email.trim()
+    const typed = formRef.current?.querySelector<HTMLInputElement>('[role="combobox"]')?.value
+    const recipientEmail = (typed ?? email).trim()
     if (!EMAIL_PATTERN.test(recipientEmail)) {
       setError(t('invoice.paymentConfirmation.invalidRecipient'))
       return
@@ -197,70 +152,24 @@ export function InvoicePaymentConfirmationPanel({ invoice, onChanged }: { invoic
         </div>
       </section>
 
-      <Dialog open={open} onOpenChange={(next) => { if (!isPending && !removingId) setOpen(next) }}>
-        <DialogContent dismissible={!isPending && !removingId}>
-          <DialogHeader leading={<CircleDollarSign className="size-5" aria-hidden="true" />}>
+      <Dialog open={open} onOpenChange={(next) => { if (!isPending) setOpen(next) }}>
+        <DialogContent dismissible={!isPending}>
+          <DialogHeader>
             <DialogTitle>{t('invoice.paymentConfirmation.dialogTitle')}</DialogTitle>
             <DialogDescription>{t('invoice.paymentConfirmation.dialogDescription', { target: target?.label ?? '' })}</DialogDescription>
           </DialogHeader>
-          <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); void submit() }} onKeyDown={(event) => {
+          <form ref={formRef} className="space-y-4" onSubmit={(event) => { event.preventDefault(); void submit() }} onKeyDown={(event) => {
             if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); if (!isPending) void submit() }
           }}>
             <Label className="flex-col items-stretch gap-1.5">
               <span>{t('invoice.paymentConfirmation.recipientLabel')}</span>
-              <Input type="email" value={email} onChange={(event) => { setEmail(event.target.value); setError(null) }} placeholder={t('invoice.paymentConfirmation.recipientPlaceholder')} autoFocus disabled={isPending || Boolean(removingId)} />
+              <ComboboxInput value={email} onChange={(value) => { setEmail(value); setError(null) }} suggestions={emails.map((item) => ({ value: item.email, label: item.email }))} placeholder={t('invoice.paymentConfirmation.recipientPlaceholder')} allowCustomValues autoFocus disabled={isPending} />
             </Label>
             {loadingEmails ? <p className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner size="sm" />{t('invoice.paymentConfirmation.recipientsLoading')}</p> : null}
-            {!loadingEmails && invoice.companyId && emails.length > 0 ? (
-              <div className="space-y-2 pt-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {t('invoice.send.rememberedRecipients', { company: invoice.partnerName ?? t('invoice.detail.untitled') })}
-                </p>
-                <ul className="space-y-1">
-                  {emails.map((item) => (
-                    <li key={item.id} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="min-w-0 flex-1 truncate text-left text-sm text-foreground"
-                        onClick={() => {
-                          setEmail(item.email)
-                          setError(null)
-                        }}
-                        disabled={isPending || Boolean(removingId)}
-                      >
-                        {item.email}
-                      </Button>
-                      <IconButton
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        aria-label={t('invoice.send.removeRecipient', { email: item.email })}
-                        title={t('invoice.send.removeRecipient', { email: item.email })}
-                        disabled={isPending || Boolean(removingId)}
-                        onClick={() => void removeEmail(item)}
-                      >
-                        {removingId === item.id ? <Spinner size="sm" /> : <Trash2 className="size-4" aria-hidden="true" />}
-                      </IconButton>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {emailListError ? (
-              <Alert
-                status="warning"
-                style="lighter"
-                action={<Button type="button" variant="ghost" size="sm" onClick={() => void loadEmails()}>{t('invoice.actions.retry')}</Button>}
-              >
-                {emailListError}
-              </Alert>
-            ) : null}
             {error ? <Alert status="error" style="lighter">{error}</Alert> : null}
             <DialogFooter>
-              <Button type="button" variant="outline" disabled={isPending || Boolean(removingId)} onClick={() => setOpen(false)}>{t('invoice.paymentConfirmation.cancelAction')}</Button>
-              <Button type="submit" disabled={isPending || Boolean(removingId)}>{isPending ? <Spinner size="sm" /> : <Mail className="size-4" aria-hidden="true" />}{t('invoice.paymentConfirmation.sendAction')}</Button>
+              <Button type="button" variant="soft" disabled={isPending} onClick={() => setOpen(false)}>{t('invoice.paymentConfirmation.cancelAction')}</Button>
+              <Button type="submit" disabled={isPending}>{isPending ? <Spinner size="sm" /> : <Mail className="size-4" aria-hidden="true" />}{t('invoice.paymentConfirmation.sendAction')}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

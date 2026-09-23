@@ -81,7 +81,7 @@ export function AppearanceDialog({
           {errorMessage ? <p className="text-sm text-status-error-text">{errorMessage}</p> : null}
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
+          <Button type="button" variant="soft" onClick={onClose} disabled={isSaving}>
             {cancelLabel}
           </Button>
           <Button type="button" onClick={handleSubmit} disabled={isSaving}>

@@ -4,6 +4,7 @@ import * as React from 'react'
 import { Users, Phone, Check, Mail, Calendar, StickyNote } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { useScheduleConflicts } from '../../lib/calendar/useScheduleConflicts'
 import { validatePhoneNumber } from '@open-mercato/shared/lib/phone'
 import { apiCallOrThrow, readApiResultOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader, extractOptimisticLockConflict } from '@open-mercato/ui/backend/utils/optimisticLock'
@@ -295,46 +296,30 @@ export function ScheduleActivityDialog({
     [mutationContext, runMutation],
   )
 
-  // Conflict detection -- debounced check when date/time/duration changes
+  // Conflict detection -- the debounce, the query shape and the fail-open
+  // behaviour live in the shared hook, so this dialog and the calendar's
+  // meeting quick-add cannot drift apart on any of them.
+  const { conflicts } = useScheduleConflicts({
+    enabled: open && !state.allDay,
+    date: state.date || null,
+    startTime: state.startTime || null,
+    durationMinutes: state.duration,
+    excludeId: editData?.id ?? null,
+  })
+
+  const setConflict = state.setConflict
   React.useEffect(() => {
-    if (!open || state.allDay || !state.date || !state.startTime) {
-      state.setConflict(null)
+    if (conflicts.length === 0) {
+      setConflict(null)
       return
     }
-    const timer = setTimeout(async () => {
-      try {
-        const localStart = new Date(`${state.date}T${state.startTime}:00`)
-        const params = new URLSearchParams({
-          date: state.date,
-          startTime: state.startTime,
-          duration: String(state.duration),
-        })
-        if (editData?.id) {
-          params.set('excludeId', editData.id)
-        }
-        if (!Number.isNaN(localStart.getTime())) {
-          params.set('timezoneOffsetMinutes', String(-localStart.getTimezoneOffset()))
-        }
-        const data = await readApiResultOrThrow<{
-          hasConflicts: boolean
-          conflicts: Array<{ id: string; title: string | null; startTime: string; endTime: string; type: string }>
-        }>(`/api/customers/interactions/conflicts?${params.toString()}`)
-        if (data?.hasConflicts && Array.isArray(data.conflicts) && data.conflicts.length > 0) {
-          const descriptions = data.conflicts
-            .map((c) => `${c.startTime}–${c.endTime}: ${c.title ?? c.type}`)
-            .join(', ')
-          state.setConflict(
-            t('customers.schedule.conflict.description', 'Overlaps with: {{items}}', { items: descriptions }),
-          )
-        } else {
-          state.setConflict(null)
-        }
-      } catch {
-        state.setConflict(null)
-      }
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [editData?.id, open, state.date, state.startTime, state.duration, state.allDay, t]) // eslint-disable-line react-hooks/exhaustive-deps
+    const descriptions = conflicts
+      .map((item) => `${item.startTime}–${item.endTime}: ${item.title ?? item.type}`)
+      .join(', ')
+    setConflict(
+      t('customers.schedule.conflict.description', 'Overlaps with: {{items}}', { items: descriptions }),
+    )
+  }, [conflicts, setConflict, t])
 
   const trimmedDate = state.date.trim()
   const trimmedStartTime = state.startTime.trim()
@@ -756,11 +741,11 @@ export function ScheduleActivityDialog({
 
         {/* Footer */}
         <div className="flex shrink-0 items-center justify-end gap-2.5 px-5 pt-1.5 pb-4 sm:px-6">
-          <Button type="button" variant="outline" onClick={() => { void guardedClose() }} className="rounded-md border border-input bg-input-bg px-5 py-3 text-sm font-semibold text-foreground">
+          <Button type="button" variant="soft" onClick={() => { void guardedClose() }}>
             {t('customers.schedule.cancel', 'Cancel')}
           </Button>
-          <Button type="button" onClick={handleSave} disabled={isSubmitDisabled} className="flex items-center gap-2 rounded-md bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50">
-            <SaveIcon className="size-3.5" />
+          <Button type="button" onClick={handleSave} disabled={isSubmitDisabled}>
+            <SaveIcon className="size-4" />
             {state.saving
               ? t('customers.schedule.saving', 'Saving...')
               : isEditing

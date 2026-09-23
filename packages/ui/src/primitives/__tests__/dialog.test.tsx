@@ -28,20 +28,18 @@ function ExampleDialog({
   size,
   dismissible,
   defaultOpen = true,
-  leading,
   footerLayout,
 }: {
   size?: 'sm' | 'default' | 'lg' | 'xl'
   dismissible?: boolean
   defaultOpen?: boolean
-  leading?: React.ReactNode
   footerLayout?: 'default' | 'equal'
 }) {
   return (
     <Dialog defaultOpen={defaultOpen}>
       <DialogTrigger>Open</DialogTrigger>
       <DialogContent size={size} dismissible={dismissible}>
-        <DialogHeader leading={leading}>
+        <DialogHeader>
           <DialogTitle>Confirm action</DialogTitle>
           <DialogDescription>This dialog confirms a critical action.</DialogDescription>
         </DialogHeader>
@@ -118,22 +116,8 @@ describe('Dialog (Phase B.7)', () => {
     }
   })
 
-  it('renders the header leading badge when leading is provided', () => {
-    renderDialog(<ExampleDialog leading={<span data-testid="lead-icon">⚙</span>} />)
-    const badge = document.querySelector('[data-slot="dialog-header-leading"]') as HTMLElement
-    expect(badge).not.toBeNull()
-    expect(badge.querySelector('[data-testid="lead-icon"]')).not.toBeNull()
-    expect(badge.className).toContain('rounded-full')
-    expect(badge.className).toContain('size-7')
-    expect(badge.className).toContain('border')
-    // Title + description live inside the text wrapper alongside the badge.
-    const text = document.querySelector('[data-slot="dialog-header-text"]') as HTMLElement
-    expect(text).not.toBeNull()
-    expect(text.querySelector('[data-slot="dialog-title"]')).not.toBeNull()
-    expect(text.querySelector('[data-slot="dialog-description"]')).not.toBeNull()
-  })
 
-  it('omits the leading badge by default', () => {
+  it('never renders a leading badge — modal headers carry no iconography', () => {
     renderDialog(<ExampleDialog />)
     expect(document.querySelector('[data-slot="dialog-header-leading"]')).toBeNull()
     expect(document.querySelector('[data-slot="dialog-header-text"]')).toBeNull()
@@ -214,49 +198,12 @@ describe('Dialog (Phase B.7)', () => {
     expect(footer.className).not.toContain('justify-end')
   })
 
-  it('header leadingTone defaults to "default" with bordered white badge', () => {
-    renderDialog(<ExampleDialog leading={<span>x</span>} />)
-    const badge = document.querySelector('[data-slot="dialog-header-leading"]') as HTMLElement
-    expect(badge.getAttribute('data-tone')).toBe('default')
-    expect(badge.className).toContain('border')
-    expect(badge.className).toContain('border-border')
-    expect(badge.className).toContain('bg-surface')
-  })
 
-  it('header leadingTone applies soft status tint + colored icon per Figma `Status Modals [1.1]`', () => {
-    const cases: Array<{
-      tone: 'accent' | 'success' | 'warning' | 'error' | 'info'
-      bg: string
-      tx: string
-    }> = [
-      // Canonical Figma Status Modals — soft tint background paired
-      // with a saturated colored icon (red `!` on light pink, etc.).
-      { tone: 'accent', bg: 'bg-accent-strong/10', tx: 'text-accent-strong' },
-      { tone: 'success', bg: 'bg-status-success-bg', tx: 'text-status-success-icon' },
-      { tone: 'warning', bg: 'bg-status-warning-bg', tx: 'text-status-warning-icon' },
-      { tone: 'error', bg: 'bg-status-error-bg', tx: 'text-status-error-icon' },
-      { tone: 'info', bg: 'bg-status-info-bg', tx: 'text-status-info-icon' },
-    ]
-    for (const { tone, bg, tx } of cases) {
-      const { unmount } = renderDialog(
-        <Dialog defaultOpen>
-          <DialogTrigger>Open</DialogTrigger>
-          <DialogContent>
-            <DialogHeader leading={<span>x</span>} leadingTone={tone}>
-              <DialogTitle>t</DialogTitle>
-            </DialogHeader>
-          </DialogContent>
-        </Dialog>,
-      )
-      const badge = document.querySelector('[data-slot="dialog-header-leading"]') as HTMLElement
-      expect(badge.getAttribute('data-tone')).toBe(tone)
-      expect(badge.className).toContain(bg)
-      expect(badge.className).toContain(tx)
-      // Status tones drop the bordered white shell.
-      expect(badge.className).not.toContain('border-input')
-      unmount()
-    }
-  })
+
+  // The three header-badge tests that used to sit here went with the feature:
+  // `DialogHeader` no longer takes a `leading` icon or a `leadingTone`, because
+  // modal headers in this product carry no iconography. Status/destructive
+  // intent is signalled by the confirm button's variant and by the copy.
 
   it('Radix Dialog ARIA contract: role="dialog", labelledby/describedby from Title + Description', () => {
     renderDialog(<ExampleDialog />)

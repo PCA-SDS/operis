@@ -17,7 +17,6 @@ type Overrides = {
   onToday?: () => void
   onViewChange?: (view: CalendarView) => void
   onNewEvent?: () => void
-  onOpenShortcuts?: () => void
 }
 
 function renderHeader(overrides: Overrides = {}) {
@@ -31,7 +30,6 @@ function renderHeader(overrides: Overrides = {}) {
       onToday={overrides.onToday ?? jest.fn()}
       onViewChange={overrides.onViewChange ?? jest.fn()}
       onNewEvent={overrides.onNewEvent ?? jest.fn()}
-      onOpenShortcuts={overrides.onOpenShortcuts ?? jest.fn()}
     />,
   )
 }
@@ -56,7 +54,8 @@ describe('CalendarHeader', () => {
 
     const viewSwitcher = getByRole('radiogroup', { name: 'Calendar view' })
     expect(viewSwitcher.getAttribute('data-slot')).toBe('segmented-control')
-    expect(viewSwitcher.querySelectorAll('[role="radio"]')).toHaveLength(4)
+    // Day / Week / Month. Agenda was removed with the view itself.
+    expect(viewSwitcher.querySelectorAll('[role="radio"]')).toHaveLength(3)
   })
 
   it('marks the active view as the checked segment', () => {
@@ -83,21 +82,30 @@ describe('CalendarHeader', () => {
     expect(getByRole('button', { name: 'Next month' })).toBeInTheDocument()
   })
 
-  it('keeps search and filters off the bar, so the date label is never squeezed out', () => {
-    const { getByRole, queryByRole } = renderHeader({ view: 'day' })
+  it('lets the date cluster hug so the controls cannot squeeze the label out', () => {
+    // Search now shares this row rather than sitting on a second one, so the
+    // two halves have to be told which of them absorbs the slack. The date
+    // cluster HUGS; the right-hand group carries `flex-1 justify-end`. When the
+    // cluster also had `flex-1` the two fought for the row and the date lost —
+    // it truncated to "T.." while the controls kept their full width.
+    const { getByRole } = renderHeader({ view: 'day' })
 
-    expect(queryByRole('textbox')).toBeNull()
-    expect(queryByRole('button', { name: 'Filter' })).toBeNull()
-    expect(getByRole('heading', { level: 1 }).className).toContain('flex-1')
+    const heading = getByRole('heading', { level: 1 })
+    expect(heading.className).toContain('min-w-0')
+    expect(heading.className).toContain('truncate')
+    expect(heading.className).not.toContain('flex-1')
+
+    const cluster = heading.parentElement as HTMLElement
+    expect(cluster.className).not.toContain('flex-1')
   })
 
-  it('keeps a keyboard-shortcuts affordance now that the footer legend is gone', () => {
-    const onOpenShortcuts = jest.fn()
-    const { getByRole } = renderHeader({ onOpenShortcuts })
+  it('does not duplicate the settings affordance — the scope row\'s gear is the only one', () => {
+    const { queryByRole } = renderHeader({})
 
-    fireEvent.click(getByRole('button', { name: 'Keyboard shortcuts' }))
-
-    expect(onOpenShortcuts).toHaveBeenCalledTimes(1)
+    // The keyboard button opened `setSettingsOpen(true)`, the exact handler the
+    // scope row's gear already calls, so the header offered a second door to
+    // one modal. `?` still opens it from the keyboard (see CalendarScreen).
+    expect(queryByRole('button', { name: 'Keyboard shortcuts' })).toBeNull()
   })
 
   it('stands every control on the bar at one height', () => {
@@ -109,17 +117,15 @@ describe('CalendarHeader', () => {
       container.querySelectorAll('button, [data-slot="segmented-control"]'),
     ).filter((node) => !node.closest('[data-slot="segmented-control"]') || node.matches('[data-slot="segmented-control"]'))
 
-    expect(controls.length).toBeGreaterThanOrEqual(6)
+    // Floor guards against the query silently matching nothing; it is not the
+    // assertion. Was 6 — the keyboard button that duplicated the scope row's
+    // gear is gone, so the bar is Today, prev, next, New task, New event and
+    // the switcher, minus whichever the props withhold.
+    expect(controls.length).toBeGreaterThanOrEqual(5)
     for (const control of controls) {
       expect(control.className).toMatch(/\b(h-9|size-9)\b/)
       expect(control.className).not.toMatch(/\b(size-6|size-7|size-8|h-7|h-8|h-10|h-11)\b/)
     }
-  })
-
-  it('titles the agenda view by name rather than by date range', () => {
-    const { getByRole } = renderHeader({ view: 'agenda' })
-
-    expect(getByRole('heading', { level: 1 })).toHaveTextContent('Upcoming')
   })
 
   it('omits controls the caller does not supply, so a read-only user sees no create action', () => {

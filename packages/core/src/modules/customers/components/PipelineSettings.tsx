@@ -618,7 +618,7 @@ export default function PipelineSettings(): React.ReactElement {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closePipelineDialog} disabled={submittingPipeline}>
+            <Button variant="soft" onClick={closePipelineDialog} disabled={submittingPipeline}>
               {t('customers.pipelines.dialog.cancel', 'Cancel')}
             </Button>
             <Button onClick={() => void handlePipelineSubmit()} disabled={submittingPipeline || !pipelineForm.name.trim()}>
@@ -661,7 +661,7 @@ export default function PipelineSettings(): React.ReactElement {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeStageDialog} disabled={submittingStage}>
+            <Button variant="soft" onClick={closeStageDialog} disabled={submittingStage}>
               {t('customers.pipelines.stageDialog.cancel', 'Cancel')}
             </Button>
             <Button onClick={() => void handleStageSubmit()} disabled={submittingStage || !stageForm.label.trim()}>

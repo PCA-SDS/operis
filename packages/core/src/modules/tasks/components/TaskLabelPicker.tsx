@@ -86,13 +86,15 @@ export function TaskLabelPicker({
           className={
             dense
               ? CHIP_ADD_CLASS
-              : 'inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-surface px-3 text-sm text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus:outline-none focus-visible:shadow-focus'
+              : 'inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus:outline-none focus-visible:shadow-focus'
           }
         >
+          {/* size-4 is the DS default for an icon inside a control, and what
+              every other icon on this row renders at. */}
           {dense ? (
-            <Plus className="size-3.5" aria-hidden="true" />
+            <Plus className="size-4" aria-hidden="true" />
           ) : (
-            <Tag className="size-3.5" aria-hidden="true" />
+            <Tag className="size-4" aria-hidden="true" />
           )}
           {triggerLabel}
         </button>

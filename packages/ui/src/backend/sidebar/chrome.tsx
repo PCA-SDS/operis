@@ -26,7 +26,7 @@ import { OperisLogo } from '../brand/OperisLogo'
  * FULL ink with a quiet icon: a sidebar is a reading surface, and dimming every
  * label to make one stand out costs more than it buys. */
 export const SIDEBAR_ITEM_BASE =
-  'relative flex items-center rounded-lg text-sm font-medium transition-colors outline-none focus-visible:shadow-focus'
+  'relative flex items-center rounded-lg text-xs font-medium transition-colors outline-none focus-visible:shadow-focus'
 
 export function sidebarItemStateClass(active: boolean): string {
   return active
@@ -56,17 +56,20 @@ export const SIDEBAR_CHILD_BOX = 'w-full h-9 pl-6 pr-3 gap-3'
 export const SIDEBAR_ITEM_LABEL = 'min-w-0 flex-1 truncate text-left'
 /* Group heading — a quiet overline, not a button that competes with the rows.
  *
- * `text-xs` rather than the 11px `text-overline`: this string is rendered
- * through `Button`, whose base carries `text-sm`, and `tailwind-merge` reads
- * the custom `text-overline` utility as a text COLOUR — so it never displaced
- * the button's size and the overline silently rendered at 14px. A real size on
- * the Tailwind scale is what makes the merge resolve. */
+ * `text-overline` (11px) sits one step under the 12px rows it labels, which is
+ * the hierarchy this heading is supposed to carry. It could not be used until
+ * `cn` taught tailwind-merge that `text-overline` is a font-size: the heading
+ * renders through `Button`, whose base carries `text-sm`, and the stock merge
+ * classifies `text-<word>` as a text COLOUR — so the class was kept but never
+ * displaced the button's size, and the overline silently rendered at 14px,
+ * LARGER than the rows beneath it. See `cn` in shared/lib/utils.ts; do not
+ * revert that extension without putting this back to `text-xs`. */
 /** Geometry of the heading row, split out from its skin so the loading
  *  placeholder can sit on exactly the same box — same height, same x — instead
  *  of restating the numbers and drifting from them. */
 export const SIDEBAR_GROUP_LABEL_BOX = 'w-full h-8 px-3 gap-2'
 export const SIDEBAR_GROUP_LABEL =
-  `${SIDEBAR_GROUP_LABEL_BOX} justify-between flex text-xs font-bold uppercase tracking-wide text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`
+  `${SIDEBAR_GROUP_LABEL_BOX} justify-between flex text-overline font-bold uppercase tracking-wide text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`
 
 /* Icons come from lucide, from injected modules and from serialized markup, each
  * at its own intrinsic size. Pinning them to one box is what keeps every label in
@@ -78,7 +81,7 @@ export const SIDEBAR_ICON_BOX = 'flex size-5 shrink-0 items-center justify-cente
  * full-bleed rule, so it cannot simply reuse the desktop one) and the two had
  * drifted to different weights for the same string. Declared once so they
  * cannot drift again. */
-export const SIDEBAR_BRAND_LABEL = `${SIDEBAR_ITEM_LABEL} text-sm font-medium text-sidebar-foreground`
+export const SIDEBAR_BRAND_LABEL = `${SIDEBAR_ITEM_LABEL} text-xs font-medium text-sidebar-foreground`
 
 /* ── The drawer's half of the same grid ──────────────────────────────────────
  *

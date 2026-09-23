@@ -157,7 +157,7 @@ export function RegisterDialog({
             </span>
             <Button
               type="button"
-              variant="ghost"
+              variant="soft"
               size="default"
               onClick={() => onOpenChange(false)}
               disabled={submitting}

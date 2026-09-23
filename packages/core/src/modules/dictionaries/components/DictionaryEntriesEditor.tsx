@@ -503,7 +503,7 @@ export function DictionaryEntriesEditor({ dictionaryId, dictionaryName, readOnly
           <DialogFooter>
             <Button
               type="button"
-              variant="ghost"
+              variant="soft"
               onClick={closeDialog}
               disabled={isSaving}
             >

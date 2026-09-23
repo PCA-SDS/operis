@@ -860,7 +860,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
             <div className="flex items-center gap-3">
               <Button
                 type="button"
-                variant="outline"
+                variant="soft"
                 onClick={() => handleDialogOpenChange(false)}
                 disabled={saving}
                 className="h-9 rounded-md px-4"

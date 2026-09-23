@@ -78,7 +78,7 @@ export function FilterPopoverShell({
         <div className="text-xs leading-normal text-muted-foreground">{footerLeft ?? null}</div>
         <div className="flex items-center gap-6">
           <Button
-            variant="outline"
+            variant="soft"
             type="button"
             onClick={onCancel}
             className="h-auto rounded-lg border-input bg-card px-4 py-2 text-sm font-semibold text-foreground"

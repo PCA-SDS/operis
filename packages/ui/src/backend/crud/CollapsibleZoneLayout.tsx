@@ -16,7 +16,7 @@ import type { LucideIcon } from 'lucide-react'
  * layout is meant to serve — is the viewport minus the sidebar rail and the
  * `lg:px-8` gutters `<main>` adds:
  *
- *   1600 − 304 (AppShell SIDEBAR_WIDTH) − 64 (main's 2×2rem padding) = 1232
+ *   1600 − 272 (AppShell SIDEBAR_WIDTH) − 64 (main's 2×2rem padding) = 1264
  *
  * so the threshold has to stay under that. It was 1280, which cleared the old
  * 240px rail by 16px and silently dropped the whole page to the collapsed rail

@@ -279,7 +279,7 @@ export function MutationPreviewCard(props: MutationPreviewCardProps) {
         <div className="flex items-center gap-2">
           <Button
             type="button"
-            variant="outline"
+            variant="soft"
             size="sm"
             onClick={() => {
               void handleCancel()

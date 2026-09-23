@@ -16,7 +16,13 @@ export default function CustomersCalendarPage() {
         <CalendarScreen
           resourcesEnabled={moduleIds.has('resources')}
           staffEnabled={moduleIds.has('staff')}
-          tasksEnabled={moduleIds.has('tasks')}
+          // The OLD task integration stays off. The current one is separate:
+          // `useCalendarTaskItems` reads tasks due in the window and draws them
+          // in the all-day lane, and a grid click opens the Quick Add composer
+          // through the `calendar:task-quick-add` injection spot. Neither is
+          // gated here — the endpoint and the spot are both permission-checked
+          // on their own. This flag only governs the dormant older path.
+          tasksEnabled={false}
         />
       </PageBody>
     </Page>

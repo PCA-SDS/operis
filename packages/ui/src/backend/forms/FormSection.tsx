@@ -61,7 +61,7 @@ export function FormSection({
               the odd block out on an otherwise plain stack. */}
           <div className="flex min-w-0 flex-1 items-start gap-2.5">
             <div className="min-w-0">
-              {title ? <h2 className={FORM_SECTION_TITLE}>{title}</h2> : null}
+              {title ? <h2 data-slot="form-section-title" className={FORM_SECTION_TITLE}>{title}</h2> : null}
               {description ? <p className={FORM_SECTION_DESCRIPTION}>{description}</p> : null}
             </div>
           </div>

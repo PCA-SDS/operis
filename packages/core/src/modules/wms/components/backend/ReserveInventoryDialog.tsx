@@ -486,7 +486,7 @@ export function ReserveInventoryDialog({
           <DialogFooter>
             <Button
               type="button"
-              variant="outline"
+              variant="soft"
               onClick={closeDialog}
               disabled={isMutating}
             >

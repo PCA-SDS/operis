@@ -223,7 +223,7 @@ export default function ConnectApnsWidget({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending}>
+            <Button type="button" variant="soft" onClick={() => setOpen(false)} disabled={pending}>
               {t('communication_channels.push.connect.cancel', 'Cancel')}
             </Button>
             <Button type="button" onClick={() => void submit()} disabled={pending}>

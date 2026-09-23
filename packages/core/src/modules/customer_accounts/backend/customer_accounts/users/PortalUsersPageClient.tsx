@@ -211,7 +211,7 @@ function CreateUserDialog({
             </div>
           )}
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => { resetForm(); onOpenChange(false) }}>
+            <Button type="button" variant="soft" onClick={() => { resetForm(); onOpenChange(false) }}>
               {t('customer_accounts.admin.createUser.actions.cancel', 'Cancel')}
             </Button>
             <Button type="submit" disabled={isSubmitting}>

@@ -25,7 +25,7 @@ import { ProjectPicker, RecurrencePicker, TaskPriorityPicker, UserPicker } from 
 import { DateInput, TimeInput, UserAvatar } from './ui-bits'
 import { buildHighlightSegments } from './quickAddHighlight'
 import { createdTaskDestination } from './createdTaskDestination'
-import { browserTimeZone, describeRecurrence, formatTaskDate, localTodayIso, taskRef } from './format'
+import { browserTimeZone, describeRecurrence, formatTaskDate, formatTaskTime, localTodayIso, taskRef } from './format'
 import { useInboxProject, useLabelMutations, useLabels, useProjects, useTaskMutations, useAssignableUsers } from './hooks'
 import { useQuickAddWarning } from './quickAddWarnings'
 
@@ -102,13 +102,74 @@ export type QuickAddParentTask = {
 export function QuickAddComposer({
   autoFocus = true,
   floating = false,
+  embedded = false,
   parentTask,
+  defaultDueDate,
+  defaultDueTime,
+  defaultAssigneeId,
+  navigateOnCreate = true,
   onClose,
   onCreated,
 }: {
   autoFocus?: boolean
   floating?: boolean
+  /**
+   * Render as PART of a surface that already provides its own chrome.
+   *
+   * The composer is normally a card: rounded, tinted, shadowed, self-padded —
+   * right when it floats over a task list, wrong inside a dialog, where it
+   * reads as a card sitting on a card. `embedded` drops the card and the outer
+   * padding so the fields sit flush on the host's surface and its footer band
+   * lines up with the dialog's own edges.
+   *
+   * Presentation only. Every behaviour — parsing, mentions, overrides, the
+   * create call, the keyboard contract — is identical either way.
+   */
+  embedded?: boolean
   parentTask?: QuickAddParentTask
+  /**
+   * Seed the due date, as `YYYY-MM-DD`.
+   *
+   * For a caller that already knows the day — the calendar opens this composer
+   * from a click on a specific grid cell — typing "today" or picking the date
+   * again is asking the user to restate something they just said. It seeds the
+   * same `overrides.dueDate` the date control writes, so it is an *initial
+   * value*, not a lock: typing "next friday" still wins, and clearing the date
+   * still clears it. Omit it and the composer behaves exactly as before.
+   */
+  defaultDueDate?: string | null
+  /**
+   * Seed the due time, `HH:MM`.
+   *
+   * The companion to `defaultDueDate`, and it only means anything alongside
+   * one: a time with no date is not a deadline. A caller that knows the hour
+   * the user picked — a click on a calendar's 10:00 row — passes it so the
+   * task lands at that hour instead of losing it on the way into the form.
+   * Same contract as the date: an initial value, so typing "at 3pm" still
+   * wins and clearing the field still clears it.
+   */
+  defaultDueTime?: string | null
+  /**
+   * Seed the assignee.
+   *
+   * Same shape as `defaultDueDate`: an initial value the assignee control can
+   * still change or clear. An embedded caller that is inherently personal — a
+   * calendar showing *your* tasks — needs the task it creates to come back to
+   * it, and an unassigned task does not.
+   */
+  defaultAssigneeId?: string | null
+  /**
+   * Whether creating a task navigates to where that task now lives.
+   *
+   * True on the task pages, where the composer is the page's own create bar and
+   * following the task is the point. False when the composer is EMBEDDED in
+   * another surface — a calendar grid, a dialog — where the user asked to add a
+   * task, not to leave the screen they were working on. The `parentTask`
+   * (subtask) path has always suppressed navigation for the same reason; this
+   * makes that behaviour available to any embedded caller.
+   * @default true
+   */
+  navigateOnCreate?: boolean
   onClose?: () => void
   onCreated?: () => void
 }) {
@@ -215,12 +276,29 @@ export function QuickAddComposer({
       : parsed?.project && !parsed.project.isInbox
         ? parsed.project.id
         : ''
+  /* Precedence for the two context-seeded fields:
+   *
+   *   1. an explicit override   — the user touched the date/assignee control
+   *   2. what the text parsed to — "next friday", "@sam"
+   *   3. the caller's default    — the grid cell clicked, the current user
+   *
+   * They resolve HERE rather than seeding `overrides`, because the textarea's
+   * onChange resets overrides to NO_OVERRIDES on every keystroke (that is what
+   * lets retyping re-drive the whole row). A default parked in `overrides`
+   * therefore survived until the first character was typed and then vanished —
+   * silently, since the chip had already shown it. Resolving at read time also
+   * gets the precedence right: a typed date beats the cell that was clicked,
+   * which a seeded override would have inverted. */
   const effectiveAssigneeId =
-    overrides.assigneeId !== UNSET ? overrides.assigneeId : (parsed?.assignee?.id ?? null)
+    overrides.assigneeId !== UNSET
+      ? overrides.assigneeId
+      : (parsed?.assignee?.id ?? defaultAssigneeId ?? null)
   const effectiveLabelIds =
     overrides.labelIds !== UNSET ? overrides.labelIds : (parsed?.labels.map((label) => label.id) ?? [])
-  const effectiveDueDate = overrides.dueDate !== UNSET ? overrides.dueDate : (localParsed?.dueDate ?? null)
-  const effectiveDueTime = overrides.dueTime !== UNSET ? overrides.dueTime : (localParsed?.dueTime ?? null)
+  const effectiveDueDate =
+    overrides.dueDate !== UNSET ? overrides.dueDate : (localParsed?.dueDate ?? defaultDueDate ?? null)
+  const effectiveDueTime =
+    overrides.dueTime !== UNSET ? overrides.dueTime : (localParsed?.dueTime ?? defaultDueTime ?? null)
   const effectiveRecurrence =
     overrides.recurrence !== UNSET ? overrides.recurrence : (localParsed?.recurrence ?? null)
   const effectivePriority =
@@ -389,11 +467,15 @@ export function QuickAddComposer({
       }
 
       const assigneeId =
-        overrides.assigneeId !== UNSET ? overrides.assigneeId : (final.assignee?.id ?? null)
+        overrides.assigneeId !== UNSET
+          ? overrides.assigneeId
+          : (final.assignee?.id ?? defaultAssigneeId ?? null)
       const labelIds =
         overrides.labelIds !== UNSET ? overrides.labelIds : final.labels.map((label) => label.id)
-      const dueDate = overrides.dueDate !== UNSET ? overrides.dueDate : final.dueDate
-      const dueTime = overrides.dueTime !== UNSET ? overrides.dueTime : final.dueTime
+      const dueDate =
+        overrides.dueDate !== UNSET ? overrides.dueDate : (final.dueDate ?? defaultDueDate ?? null)
+      const dueTime =
+        overrides.dueTime !== UNSET ? overrides.dueTime : (final.dueTime ?? defaultDueTime ?? null)
       const recurrence = overrides.recurrence !== UNSET ? overrides.recurrence : final.recurrence
       const priority = overrides.priority !== UNSET ? overrides.priority : (final.priority ?? 'none')
 
@@ -434,7 +516,7 @@ export function QuickAddComposer({
 
       reset()
       onCreated?.()
-      if (!parentTask) {
+      if (!parentTask && navigateOnCreate) {
         router.push(createdTaskDestination(pathname, searchParams.toString(), task))
       }
     } catch (error) {
@@ -452,11 +534,27 @@ export function QuickAddComposer({
   return (
     <div
       className={cn(
-        'flex min-h-0 flex-col overflow-hidden rounded-xl',
-        parentTask ? 'bg-surface-muted' : floating ? 'bg-surface shadow-xl' : 'bg-modal-muted shadow-sm',
+        'flex min-h-0 flex-col overflow-hidden',
+        // An embedded host gives the composer a fixed box and expects it to
+        // fill it, so its footer lands where the host's own footers do rather
+        // than floating partway up with dead space beneath.
+        embedded && 'flex-1',
+        !embedded && 'rounded-xl',
+        embedded
+          ? 'bg-transparent'
+          : parentTask
+            ? 'bg-surface-muted'
+            : floating
+              ? 'bg-surface shadow-xl'
+              : 'bg-modal-muted shadow-sm',
       )}
     >
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-3 pt-3">
+      <div
+        className={cn(
+          'min-h-0 flex-1 space-y-2 overflow-y-auto',
+          embedded ? 'px-0 pt-0' : 'px-3 pt-3',
+        )}
+      >
         {/* The menu is portalled rather than absolutely positioned: this column
             scrolls, and an in-flow menu would be cropped at its edge. */}
         <Popover open={menuOpen} onOpenChange={(next) => (next ? undefined : setMention(null))}>
@@ -597,7 +695,9 @@ export function QuickAddComposer({
               onChange={(value) => setOverrides((current) => ({ ...current, dueDate: value || null }))}
               ariaLabel={t('tasks.quickAdd.dueDateLabel', 'Due date')}
               placeholder={t('tasks.quickAdd.datePlaceholder', 'Date')}
-              variant="compact"
+              // `form`, not `compact`: both are h-9, but compact is text-xs and
+              // these sit in a row of text-sm pickers.
+              variant="form"
             />
           </div>
           <div className="min-w-26">
@@ -607,7 +707,7 @@ export function QuickAddComposer({
               disabled={!effectiveDueDate}
               ariaLabel={t('tasks.quickAdd.dueTimeLabel', 'Due time')}
               placeholder={t('tasks.quickAdd.timePlaceholder', 'Time')}
-              variant="compact"
+              variant="form"
             />
           </div>
           <div className="min-w-38">
@@ -645,13 +745,31 @@ export function QuickAddComposer({
 
         {effectiveDueDate && (
           <p className="text-xs text-muted-foreground">
-            {t('tasks.quickAdd.due', 'Due {date}', { date: formatTaskDate(effectiveDueDate) })}
+            {/* The hour belongs in the summary whenever there is one — a task
+                due "Sep 23" and one due "Sep 23 at 10:00 AM" are different
+                commitments, and the line that confirms what is about to be
+                created should say which one it is. */}
+            {effectiveDueTime
+              ? t('tasks.quickAdd.dueWithTime', 'Due {date} at {time}', {
+                  date: formatTaskDate(effectiveDueDate),
+                  time: formatTaskTime(effectiveDueTime),
+                })
+              : t('tasks.quickAdd.due', 'Due {date}', { date: formatTaskDate(effectiveDueDate) })}
             {effectiveRecurrence ? ` · ${describeRecurrence(t, effectiveRecurrence)}` : ''}
           </p>
         )}
       </div>
 
-      <div className="mt-2 flex shrink-0 items-center justify-between gap-2 border-t border-border px-3 py-2">
+      <div
+        className={cn(
+          // A FIXED height, matched by the sibling footers an embedded host puts
+          // beside this one. A minimum let the project picker below size the
+          // row, which centred these buttons 2px off from a footer holding
+          // buttons alone — visible as a step when the host swaps panels.
+          'mt-2 flex h-14 shrink-0 items-center justify-between gap-2',
+          embedded ? 'px-0' : 'px-3',
+        )}
+      >
         <div className="min-w-0">
           {parentTask ? (
             <Chip
@@ -677,11 +795,11 @@ export function QuickAddComposer({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {onClose && (
-            <Button type="button" variant="secondary" size="sm" onClick={onClose}>
+            <Button type="button" variant="soft" onClick={onClose}>
               {t('tasks.common.cancel', 'Cancel')}
             </Button>
           )}
-          <Button type="button" size="sm" onClick={() => void submit()} disabled={!canSubmit}>
+          <Button type="button" onClick={() => void submit()} disabled={!canSubmit}>
             {parentTask
               ? t('tasks.quickAdd.submitSubtask', 'Add subtask')
               : t('tasks.quickAdd.submit', 'Add task')}

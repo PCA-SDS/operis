@@ -968,7 +968,7 @@ export const EdgeEditDialog = memo(function EdgeEditDialog({ edge, isOpen, onClo
           <div className="flex gap-2">
             <Button
               type="button"
-              variant="outline"
+              variant="soft"
               onClick={onClose}
             >
               {t('workflows.edgeEditor.cancel')}

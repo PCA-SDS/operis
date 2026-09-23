@@ -343,6 +343,7 @@
   "tasks.quickAdd.due": "Vence el {date}",
   "tasks.quickAdd.dueDateLabel": "Fecha de vencimiento",
   "tasks.quickAdd.dueTimeLabel": "Hora de vencimiento",
+  "tasks.quickAdd.dueWithTime": "Vence el {date} a las {time}",
   "tasks.quickAdd.inbox": "📥 Entrada",
   "tasks.quickAdd.inboxNotReady": "Entrada todavía no está lista; inténtelo de nuevo en un segundo.",
   "tasks.quickAdd.placeholder": "«Planificar comida con @equipo para mañana 15:00 +diseño»",

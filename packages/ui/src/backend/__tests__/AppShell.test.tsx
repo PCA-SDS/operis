@@ -1014,7 +1014,7 @@ describe('AppShell', () => {
 
       const asides = container.querySelectorAll('aside')
       expect(asides.length).toBe(1)
-      expect((asides[0] as HTMLElement).style.width).toBe('304px')
+      expect((asides[0] as HTMLElement).style.width).toBe('272px')
     })
 
     it('section header renders chevron + title as a single Back-to-Main link', async () => {

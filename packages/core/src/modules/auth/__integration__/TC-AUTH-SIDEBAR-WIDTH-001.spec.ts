@@ -50,7 +50,10 @@ test.describe('backend sidebar width and alignment', () => {
     // The rail is the fixed column AppShell declares, and the grid column beside
     // it is driven from the same custom property — so measuring the aside proves
     // both.
-    expect(await aside.evaluate((node) => Math.round(node.getBoundingClientRect().width))).toBe(304);
+    // 272px since the nav rows moved to `text-xs`; see SIDEBAR_WIDTH in AppShell.
+    // The no-truncation assertion below is the real contract — this number only
+    // pins the width the label budget was measured against.
+    expect(await aside.evaluate((node) => Math.round(node.getBoundingClientRect().width))).toBe(272);
 
     const scroller = page.locator('[data-sidebar-scroll="true"]').first();
     const overflow = await scroller.evaluate((node) => ({

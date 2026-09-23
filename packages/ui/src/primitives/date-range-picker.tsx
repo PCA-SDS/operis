@@ -264,7 +264,7 @@ export function DateRangePicker({
               </span>
             ) : null}
             <div className="flex shrink-0 items-center gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={handleCancel}>
+              <Button type="button" variant="soft" size="sm" onClick={handleCancel}>
                 {t('ui.dateRangePicker.cancelButton', 'Cancel')}
               </Button>
               <Button type="button" size="sm" onClick={handleApply}>

@@ -1057,7 +1057,7 @@ export function LineItemsEditor({
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setLineDialog(null)}>
+            <Button type="button" variant="soft" onClick={() => setLineDialog(null)}>
               {t('common.cancel', 'Cancel')}
             </Button>
             <Button type="button" onClick={submitLineDialog}>
@@ -1158,7 +1158,7 @@ export function LineItemsEditor({
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOrderDialogOpen(false)}>
+            <Button type="button" variant="soft" onClick={() => setOrderDialogOpen(false)}>
               {t('common.cancel', 'Cancel')}
             </Button>
             <Button type="button" onClick={insertSelectedOrderLines} disabled={!selectedOrderLineIds.size}>

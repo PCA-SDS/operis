@@ -343,6 +343,7 @@
   "tasks.quickAdd.due": "마감 {date}",
   "tasks.quickAdd.dueDateLabel": "마감일",
   "tasks.quickAdd.dueTimeLabel": "마감 시각",
+  "tasks.quickAdd.dueWithTime": "마감 {date} {time}",
   "tasks.quickAdd.inbox": "📥 수신함",
   "tasks.quickAdd.inboxNotReady": "수신함이 아직 준비되지 않았습니다 — 잠시 후 다시 시도하세요.",
   "tasks.quickAdd.placeholder": "“내일 오후 3시까지 @팀 과 점심 계획 +디자인”",

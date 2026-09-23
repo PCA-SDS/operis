@@ -237,7 +237,7 @@ export function ReturnDialog({ open, orderId, lines, documentUpdatedAt, onClose,
           </div>
 
           <div className="flex items-center justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+            <Button type="button" variant="soft" onClick={onClose} disabled={saving}>
               {t('common.cancel', 'Cancel')}
             </Button>
             <Button type="button" onClick={submit} disabled={saving || !availableLines.length}>

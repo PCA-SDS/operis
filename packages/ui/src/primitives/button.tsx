@@ -7,12 +7,18 @@ import { cn } from '@open-mercato/shared/lib/utils'
    large sizes take `rounded-lg`. A single radius across the scale makes small
    buttons look chunky and large ones look sharp. */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium cursor-pointer transition-colors disabled:pointer-events-none disabled:bg-bg-disabled disabled:text-text-disabled disabled:border-border-disabled disabled:shadow-none disabled:[background-image:none] [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:outline-none focus-visible:shadow-focus aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium cursor-pointer transition-[color,background-color,border-color,box-shadow] disabled:pointer-events-none disabled:bg-bg-disabled disabled:text-text-disabled disabled:border-border-disabled disabled:shadow-none disabled:[background-image:none] [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:outline-none focus-visible:shadow-focus aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
+        /* Floating, not flat: a resting shadow, a deeper one on hover and a
+           shallower one while pressed, so the button reads as a physical thing
+           being pushed. `secondary` already carried `shadow-sm`, so this is the
+           primary catching up rather than a new direction. The edge is a
+           transparent border, kept only so every variant shares one box model
+           and buttons in a row stay the same height. */
         default:
-          'border border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:bg-primary-active',
+          'border border-transparent bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover hover:shadow-md active:bg-primary-active active:shadow-xs',
         /* Destructive is quiet by design: red text on a calm surface. A wall
            of solid red buttons trains users to ignore red. The filled form is
            `destructive-solid`, reserved for the single point-of-no-return
@@ -34,6 +40,15 @@ const buttonVariants = cva(
           'border border-border bg-surface text-foreground shadow-sm hover:bg-surface-muted',
         secondary:
           'border border-border bg-surface text-foreground shadow-sm hover:bg-surface-muted',
+        /* The second-rank action in a dialog footer, where `secondary`'s white
+           card reads as a gap beside a filled primary button. Same hairline
+           and rank, but tinted with the brand instead of `surface`, so Cancel
+           and Confirm look like a pair rather than one button and one hole.
+           No hairline: it floats on its shadow, and a stroke around a shape
+           that already casts one is a line doing nothing. Tokens only, so it
+           follows the theme into dark mode. */
+        soft:
+          'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs',
         /* Quiet chrome action — no fill or border at rest, `surface-strong` on
            hover so it reads as chrome rather than as an accent tint. */
         ghost:

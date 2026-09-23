@@ -36,7 +36,7 @@ const ROW_UNIT_PX = BAR_ROW_HEIGHT_PX + BAR_ROW_GAP_PX
 const BAR_OVERLAY_TOP_PX = CELL_PADDING_PX + DATE_ROW_HEIGHT_PX
 
 function buildWeeks(anchor: Date): Date[][] {
-  const range = getVisibleRange('month', anchor, 0)
+  const range = getVisibleRange('month', anchor)
   const weeks: Date[][] = []
   let cursor = range.from
   while (cursor.getTime() <= range.to.getTime()) {
@@ -246,7 +246,7 @@ export function MonthGrid({
 
   return (
     <div
-      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg border border-border bg-surface"
+      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg bg-surface"
       role="grid"
       aria-label={new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(anchor)}
       aria-rowcount={weeks.length}

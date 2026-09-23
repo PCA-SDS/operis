@@ -640,14 +640,37 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
      drift. The only responsive step left is the `lg:` breakpoint, below which
      the whole column becomes the mobile drawer.
 
-     304px, not the old 240px: at 240 the label box was only 160px wide, so real
-     nav titles ("User Notification Preferences", "Create Workflow Definition")
-     were ellipsed and the nav could not be read without hovering. 304 leaves
-     212px even at child depth (24 gutter + 24 indent + 12 pad + 20 icon +
-     12 gap), which clears the longest title any module ships. It is published
-     as `--sidebar-width` so the grid column below cannot drift from the
-     aside's own width — they were two literals before. */
-  const SIDEBAR_WIDTH = '304px'
+     272px, down from 304 — and 304 itself was up from a truncating 240. The
+     rail can narrow ONLY because the nav rows moved from `text-sm` to `text-xs`
+     (see sidebar/chrome.tsx): the 304 figure was sized for 14px type, where the
+     longest English title needed 195px of the 212px available at child depth.
+     At 12px that same title ("Phase M — Mutation Lifecycle") needs 173.1px, so
+     272 leaves 180px at child depth (24 gutter + 24 indent + 12 pad + 20 icon +
+     12 gap) — 6.9px, or 4%, of clearance.
+
+     That 4% is the real safety budget, and it is sized against a measured
+     number rather than a guess: the widest this string gets across the two
+     faces the product actually ships (SF Pro on Apple, Inter everywhere else)
+     differs by 0.44%, so the margin clears font variance by roughly 9x.
+
+     Do not lower this without re-measuring. The binding constraint is the
+     longest rendered nav label, NOT a round number: at 263px the English nav
+     starts to truncate, and `TC-AUTH-SIDEBAR-WIDTH-001` asserts both this width
+     and that no label is clipped, so it will fail rather than regress silently.
+     Non-Latin locales are already wider than the rail at any of these widths —
+     see that spec's note.
+
+     Published as `--sidebar-width` so the grid column below cannot drift from
+     the aside's own width — they were two literals before. */
+  const SIDEBAR_WIDTH = '272px'
+
+  /* The mobile drawer keeps the pre-existing 304px and is deliberately NOT
+     driven by `--sidebar-width`. The desktop rail narrowed to buy content
+     width on a grid that also has a topbar and page gutters; the drawer is a
+     temporary overlay on a phone, where the same 24px buys nothing and only
+     costs label room. Decoupling them is what lets the rail move again without
+     touching the drawer. */
+  const MOBILE_DRAWER_WIDTH = '304px'
 
   // Track scroll position of the desktop sidebar's inner scroll container so we can
   // flip the affordance chevron between down/up (and hide it entirely when content
@@ -1368,7 +1391,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
         plus its 1px rule; the previous 61px slid every drawer up under it. */}
     <div
       className="relative min-h-svh lg:grid lg:grid-cols-[var(--sidebar-width)_1fr]"
-      style={{ '--topbar-height': '65px', '--sidebar-width': SIDEBAR_WIDTH } as React.CSSProperties}
+      style={{ '--topbar-height': '65px', '--sidebar-width': SIDEBAR_WIDTH, '--drawer-width': MOBILE_DRAWER_WIDTH } as React.CSSProperties}
     >
       {/* Desktop sidebar — one fixed rail, `SIDEBAR_WIDTH` wide. Settings and
           Profile swap their own nav into it (see `renderSidebar`) rather than
@@ -1534,7 +1557,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-modal">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setMobileOpen(false)} aria-hidden="true" />
-          <aside className="absolute left-0 top-0 flex h-full w-[var(--sidebar-width)] max-w-[85vw] flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-lg overflow-hidden">
+          <aside className="absolute left-0 top-0 flex h-full w-[var(--drawer-width)] max-w-[85vw] flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-lg overflow-hidden">
             <div className={`shrink-0 flex h-16 items-center justify-between gap-3 border-b border-sidebar-border ${DRAWER_CHROME_INSET}`}>
               <Link
                 href="/backend"

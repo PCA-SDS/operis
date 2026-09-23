@@ -143,6 +143,7 @@ export function TimeGrid({
   onItemClick,
   onJoin,
   onCreateRange,
+  onCreateTask,
   onReschedule,
 }: TimeGridProps) {
   const t = useT()
@@ -189,7 +190,7 @@ export function TimeGrid({
   const anchorMs = anchor.getTime()
 
   const dayStarts = React.useMemo(() => {
-    const rangeStart = getVisibleRange(days === 7 ? 'week' : 'day', new Date(anchorMs), 0).from
+    const rangeStart = getVisibleRange(days === 7 ? 'week' : 'day', new Date(anchorMs)).from
     const all = Array.from({ length: days }, (_, index) => addCalendarDays(rangeStart, index))
     return days === 7 ? applyWeekendVisibility(all, showWeekends, new Date()) : all
   }, [days, anchorMs, showWeekends])
@@ -230,7 +231,9 @@ export function TimeGrid({
     return match ? match[1] : label
   }, [])
 
-  const canCreate = canManage && Boolean(onCreateRange)
+  // A drag that becomes an event needs manage rights; a click that opens the
+  // task composer does not, so the grid listens whenever EITHER is wired.
+  const canCreate = (canManage && Boolean(onCreateRange)) || Boolean(onCreateTask)
 
   // Scroll to the current time when today is on screen, otherwise to the start
   // of the working day — never to a hardcoded hour.
@@ -273,7 +276,7 @@ export function TimeGrid({
 
   const beginCreate = React.useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      if (!onCreateRange || event.button !== 0) return
+      if ((!onCreateRange && !onCreateTask) || event.button !== 0) return
       const cell = pointerToCell(event.clientX, event.clientY)
       if (!cell) return
       const snapped = snapMinutes(cell.minutes, snapPreference)
@@ -286,7 +289,7 @@ export function TimeGrid({
         moved: false,
       })
     },
-    [onCreateRange, pointerToCell, snapPreference],
+    [onCreateRange, onCreateTask, pointerToCell, snapPreference],
   )
 
   const beginMove = React.useCallback(
@@ -368,13 +371,34 @@ export function TimeGrid({
       const current = gestureRef.current
       gestureOriginRef.current = null
       setGesture(null)
-      if (!current || !current.moved) return
+      if (!current) return
       const day = dayStarts[current.dayIndex]
       if (!day) return
 
+      // Click without drag: the cell was picked, not a span. That gesture used
+      // to fall through to nothing, and it is the one the task composer takes.
+      if (!current.moved) {
+        // `anchorMinutes` is the snapped slot the pointer went down on, so a
+        // meeting created from this click starts where the user clicked rather
+        // than at an arbitrary default.
+        if (current.kind === 'create') onCreateTask?.(day, current.anchorMinutes)
+        return
+      }
+
       if (current.kind === 'create') {
         const range = buildDragRange(day, current.anchorMinutes, current.pointerMinutes)
-        onCreateRange?.(range.start, range.end)
+        if (onCreateRange) {
+          onCreateRange(range.start, range.end)
+          return
+        }
+        /* No range handler — the caller may not create interactions. The drag
+           still started, drew a selection and told us exactly when, so hand
+           that to the composer a click already opens instead of dropping it.
+           Releasing onto nothing is the worst outcome: the gesture looked like
+           it worked the whole way through and then silently did nothing. */
+        const startMinutes = Math.min(current.anchorMinutes, current.pointerMinutes)
+        const endMinutes = Math.max(current.anchorMinutes, current.pointerMinutes)
+        onCreateTask?.(day, startMinutes, endMinutes)
         return
       }
       if (!onReschedule) return
@@ -419,6 +443,7 @@ export function TimeGrid({
     dayStarts,
     isOverAllDayLane,
     onCreateRange,
+    onCreateTask,
     onReschedule,
     pointerToCell,
     snapPreference,
@@ -484,7 +509,7 @@ export function TimeGrid({
 
   return (
     <div
-      className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg border border-border bg-surface"
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg bg-surface"
       role="grid"
       aria-label={gridLabel}
       aria-rowcount={HOURS_PER_DAY}
@@ -540,11 +565,19 @@ export function TimeGrid({
                   {formatters.weekdayShort.format(dayStart).toLocaleUpperCase(locale)}
                 </span>
                 {/* A large, light numeral is the calendar's date anchor; today
-                    inverts into a filled disc rather than merely changing hue. */}
+                    inverts into a filled disc rather than merely changing hue.
+
+                    `text-xl` (20px), not `text-2xl`: the disc is `size-9` and
+                    the numeral sets `leading-none`, so at 24px a two-digit date
+                    left ~6px of disc either side of it and read as crammed into
+                    the circle rather than sitting in it. 20px gives the glyphs
+                    room without shrinking the anchor. The size is shared with
+                    the non-today numerals so the whole header row stays on one
+                    scale — only the fill and weight change for today. */}
                 <span
                   aria-hidden
                   className={cn(
-                    'flex size-9 items-center justify-center rounded-full text-2xl font-normal leading-none tabular-nums transition-colors',
+                    'flex size-9 items-center justify-center rounded-full text-xl font-normal leading-none tabular-nums transition-colors',
                     today ? 'bg-primary font-medium text-primary-foreground' : 'text-foreground',
                   )}
                 >
@@ -558,7 +591,12 @@ export function TimeGrid({
         {/* The all-day lane always renders, so it stays a drop target even when
             empty. */}
         <div className="flex border-y border-border">
-          <div className={cn(GUTTER_CLASS, 'flex items-start justify-end border-e border-border px-1 py-1 md:px-2')}>
+          {/* `items-center`, not `items-start`: the row is as tall as the bar
+              lane beside it, so a top-aligned label sat 5px from the top and 9px
+              from the bottom — visibly high against bars that are centred in
+              the same band. Centring puts the label on the bars' own axis and
+              makes the row read as one line. */}
+          <div className={cn(GUTTER_CLASS, 'flex items-center justify-end border-e border-border px-1 py-1 md:px-2')}>
             <span className="text-overline leading-tight text-muted-foreground">
               {t('customers.calendar.grid.allDay', 'All day')}
             </span>
@@ -653,16 +691,18 @@ export function TimeGrid({
                 </span>
               ),
             )}
-            {/* The current time replaces the nearest hour label on the axis. */}
-            {showNowIndicator ? (
-              <span
-                aria-hidden
-                className="absolute end-0 z-20 w-full -translate-y-1/2 bg-surface pe-1.5 text-end text-overline font-semibold leading-none text-status-error-text md:pe-2"
-                style={{ top: minutesToPx(nowMinutes) }}
-              >
-                {nowLabel}
-              </span>
-            ) : null}
+            {/* No clock on the axis. The current time used to be printed here
+                over a `bg-surface` plate, which did not sit beside the hour
+                labels — it PAINTED OVER whichever one it landed on. On the hour
+                that is the worst case: at 23:00 the plate covered "11 PM"
+                exactly, so the one label the line needed for context was the
+                one it hid, and the axis read 10 PM -> (red) -> 12 AM.
+
+                The line itself already carries the time — it is positioned to
+                the minute — so the hour labels stay untouched and the line is
+                read against them. `nowLabel` is still built for the `role=status`
+                announcement below, which is where the exact time belongs for
+                anyone who cannot see the line. */}
           </div>
 
           <div

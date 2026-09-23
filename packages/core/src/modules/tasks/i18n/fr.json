@@ -343,6 +343,7 @@
   "tasks.quickAdd.due": "Due {date}",
   "tasks.quickAdd.dueDateLabel": "Due date",
   "tasks.quickAdd.dueTimeLabel": "Due time",
+  "tasks.quickAdd.dueWithTime": "Due {date} à {time}",
   "tasks.quickAdd.inbox": "📥 Inbox",
   "tasks.quickAdd.inboxNotReady": "The Inbox isn't ready yet — try again in a second.",
   "tasks.quickAdd.placeholder": "\"Plan lunch with @team by tomorrow 3pm +design\"",

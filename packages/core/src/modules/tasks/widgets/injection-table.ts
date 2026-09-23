@@ -14,6 +14,12 @@ export const injectionTable: ModuleInjectionTable = {
       priority: 100,
     },
   ],
+  'calendar:task-quick-add': [
+    {
+      widgetId: 'tasks.injection.calendar-task-quick-add',
+      priority: 100,
+    },
+  ],
 }
 
 export default injectionTable

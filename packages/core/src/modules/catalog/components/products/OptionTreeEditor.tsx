@@ -376,7 +376,7 @@ function GroupDialog({
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
             {t('common.cancel', 'Cancel')}
           </Button>
           <Button type="button" onClick={handleSave} disabled={!form.name.trim()}>
@@ -647,7 +647,7 @@ function OptionDialog({
         </div>
 
         <DialogFooter className="mt-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="soft" onClick={() => onOpenChange(false)}>
             {t('common.cancel', 'Cancel')}
           </Button>
           <Button type="button" onClick={handleSave} disabled={!form.name.trim()}>

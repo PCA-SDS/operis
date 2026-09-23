@@ -637,7 +637,7 @@ export function TaskPanel({
 
           {isCreate && (
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose} disabled={busyCreate}>
+              <Button type="button" variant="soft" onClick={onClose} disabled={busyCreate}>
                 {t('tasks.common.cancel', 'Cancel')}
               </Button>
               <Button

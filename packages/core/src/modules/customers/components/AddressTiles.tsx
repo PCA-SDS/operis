@@ -522,7 +522,7 @@ export function CustomerAddressTiles({
           />
           {generalError ? <p className="text-xs text-status-error-text">{generalError}</p> : null}
           <div className="flex flex-wrap justify-end gap-2">
-            <Button type="button" variant="outline" onClick={handleCancel} disabled={disableActions}>
+            <Button type="button" variant="soft" onClick={handleCancel} disabled={disableActions}>
               {t('customers.people.detail.addresses.cancel')}
             </Button>
             <Button type="button" onClick={handleSave} disabled={disableActions}>
