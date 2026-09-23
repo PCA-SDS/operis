@@ -74,7 +74,8 @@ const createPriceKindCommand: CommandHandler<PriceKindCreateInput, { priceKindId
       deletedAt: null,
     })
     if (existing) {
-      throw new CrudHttpError(400, { error: 'Price kind code already exists for this tenant.' })
+      const message = 'Price kind code already exists for this tenant.'
+      throw new CrudHttpError(400, { error: message, fieldErrors: { code: message } })
     }
     const now = new Date()
     const record = em.create(CatalogPriceKind, {
@@ -155,7 +156,8 @@ const updatePriceKindCommand: CommandHandler<PriceKindUpdateInput, { priceKindId
         deletedAt: null,
       })
       if (conflict) {
-        throw new CrudHttpError(400, { error: 'Price kind code already exists.' })
+        const message = 'Price kind code already exists.'
+        throw new CrudHttpError(400, { error: message, fieldErrors: { code: message } })
       }
       record.code = parsed.code
     }
