@@ -490,7 +490,6 @@ export function CalendarEventEditor({
           />
         ),
       },
-      { id: 'customFields', kind: 'customFields' },
     ],
     [open, isEdit, item, typeLabels, typeIcons, conflictScope, currentUserId, resourcesEnabled, staffEnabled],
   )
@@ -548,7 +547,15 @@ export function CalendarEventEditor({
           // fill — the reference's field treatment, applied once for all
           // control families rather than per control.
           data-dialog-form="true"
-          className="min-h-0 flex-1 overflow-y-auto"
+          /* A FIXED height, not flex-1. Each entry type shows a different set
+             of fields — a note has no end time or location, a meeting has both
+             — so a body that sizes to its content moved the whole dialog by up
+             to 150px and the buttons by 75px every time the type changed, and
+             the type switcher is the first thing anyone touches. Pinning it
+             keeps the header, the switcher and the footer still whichever type
+             is selected; a type whose fields outgrow the box scrolls inside
+             it. */
+          className="h-[min(78vh,60rem)] min-h-0 overflow-y-auto"
           onScroll={() => {
             // Tell the DS date/time fields to close their (controlled) popover
             // so a portalled popover doesn't float over the form or drift away
@@ -575,7 +582,7 @@ export function CalendarEventEditor({
         <DialogFooter>
           <Button
             type="button"
-            variant="outline"
+            variant="soft"
             onClick={() => onOpenChange(false)}
           >
             {t('customers.calendar.editor.cancel', 'Cancel')}
