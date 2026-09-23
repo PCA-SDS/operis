@@ -121,7 +121,8 @@ function makeOtherConstraintError(): UniqueConstraintViolationException {
 function buildEm(flushError?: unknown) {
   const variantRecord = { ...FAKE_VARIANT }
   const em: Record<string, unknown> = {
-    findOne: jest.fn().mockImplementation(async (_entity: unknown, filter: Record<string, unknown>) => {
+    findOne: jest.fn().mockImplementation(async (_entity: unknown, filter: Record<string, unknown> | string) => {
+      if (filter === FAKE_PRODUCT.id) return FAKE_PRODUCT
       if (filter?.id === FAKE_VARIANT.id) return variantRecord
       return null
     }),
