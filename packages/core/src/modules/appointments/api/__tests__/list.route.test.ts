@@ -4,6 +4,7 @@ const mockResolveTranslations = jest.fn()
 const mockCreateRequestContainer = jest.fn()
 const mockGetAuthFromRequest = jest.fn()
 const mockResolveOrganizationScopeForRequest = jest.fn()
+const mockResolveOrganizationScopeFilter = jest.fn()
 
 class Appointment {}
 class AppointmentLine {}
@@ -35,6 +36,10 @@ jest.mock('@open-mercato/core/modules/directory/utils/organizationScope', () => 
   resolveOrganizationScopeForRequest: (...args: unknown[]) =>
     mockResolveOrganizationScopeForRequest(...args),
 }))
+jest.mock('@open-mercato/core/modules/directory/utils/organizationScopeFilter', () => ({
+  resolveOrganizationScopeFilter: (...args: unknown[]) =>
+    mockResolveOrganizationScopeFilter(...args),
+}))
 
 const TENANT_ID = '11111111-1111-4111-8111-111111111111'
 const ORGANIZATION_ID = '22222222-2222-4222-8222-222222222222'
@@ -49,6 +54,11 @@ describe('appointments list route totals', () => {
     })
     mockGetAuthFromRequest.mockResolvedValue({ tenantId: TENANT_ID, orgId: ORGANIZATION_ID })
     mockResolveOrganizationScopeForRequest.mockResolvedValue({ selectedId: ORGANIZATION_ID })
+    mockResolveOrganizationScopeFilter.mockReturnValue({
+      organizationIds: [ORGANIZATION_ID],
+      where: { organizationId: { $in: [ORGANIZATION_ID] } },
+      rbacOrganizationId: ORGANIZATION_ID,
+    })
   })
 
   it('filters appointments by an inclusive requested start date range', async () => {
@@ -68,7 +78,7 @@ describe('appointments list route totals', () => {
     expect(response.status).toBe(200)
     expect(em.findAndCount).toHaveBeenCalledWith(Appointment, expect.objectContaining({
       tenantId: TENANT_ID,
-      organizationId: ORGANIZATION_ID,
+      organizationId: { $in: [ORGANIZATION_ID] },
       requestedStartAt: {
         $gte: new Date('2026-09-21T00:00:00.000Z'),
         $lte: new Date('2026-09-23T23:59:59.999Z'),
@@ -267,8 +277,38 @@ describe('appointments list route totals', () => {
     expect(body).toMatchObject({ total: 25, page: 2, pageSize: 10, totalPages: 3 })
     expect(findAndCount).toHaveBeenCalledWith(
       Appointment,
-      expect.objectContaining({ tenantId: TENANT_ID, organizationId: ORGANIZATION_ID }),
+      expect.objectContaining({ tenantId: TENANT_ID, organizationId: { $in: [ORGANIZATION_ID] } }),
       expect.objectContaining({ limit: 10, offset: 10 }),
+    )
+  })
+
+  it('leaves the appointment query unrestricted for an authorized all-organization scope', async () => {
+    const em = {
+      find: jest.fn(async () => []),
+      findAndCount: jest.fn(async () => [[], 0]),
+    }
+    mockResolveOrganizationScopeForRequest.mockResolvedValue({
+      selectedId: null,
+      filterIds: null,
+      allowedIds: null,
+    })
+    mockResolveOrganizationScopeFilter.mockReturnValue({
+      organizationIds: undefined,
+      where: {},
+      rbacOrganizationId: ORGANIZATION_ID,
+    })
+    mockCreateRequestContainer.mockResolvedValue({
+      resolve: () => ({ fork: () => em }),
+    })
+
+    const { GET } = await import('../route')
+    const response = await GET(new Request('http://localhost/api/appointments'))
+
+    expect(response.status).toBe(200)
+    expect(em.findAndCount).toHaveBeenCalledWith(
+      Appointment,
+      expect.not.objectContaining({ organizationId: expect.anything() }),
+      expect.anything(),
     )
   })
 })
