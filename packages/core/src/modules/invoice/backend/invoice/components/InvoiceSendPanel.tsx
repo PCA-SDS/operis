@@ -16,9 +16,9 @@ import {
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
-import { ComboboxInput } from '@open-mercato/ui/backend/inputs/ComboboxInput'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
@@ -75,10 +75,8 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
   const [emailError, setEmailError] = React.useState<string | null>(null)
   const [listError, setListError] = React.useState<string | null>(null)
   const [sendError, setSendError] = React.useState<string | null>(null)
-  const [recipientInputKey, setRecipientInputKey] = React.useState(0)
   const [isLoadingEmails, setIsLoadingEmails] = React.useState(false)
   const [removingId, setRemovingId] = React.useState<string | null>(null)
-  const formRef = React.useRef<HTMLFormElement>(null)
   const { runMutation, retryLastMutation, isPending: isSending } = useGuardedMutation({
     contextId: 'invoice.detail.send',
   })
@@ -169,8 +167,8 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
   }, [invoice.companyId, invoice.id, retryEmailMutation, runEmailMutation, t])
 
   const submit = React.useCallback(async () => {
-    const typedValue = formRef.current?.querySelector<HTMLInputElement>('[role="combobox"]')?.value
-    const recipient = (typedValue ?? email).trim()
+    if (isSending || removingId) return
+    const recipient = email.trim()
     if (!EMAIL_PATTERN.test(recipient)) {
       setEmailError(t('invoice.send.invalidRecipient'))
       return
@@ -210,14 +208,14 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
     } catch (error) {
       setSendError(error instanceof Error && error.message ? error.message : t('invoice.send.failed'))
     }
-  }, [email, invoice.companyId, invoice.id, invoice.updatedAt, onSent, resetDialog, retryLastMutation, runMutation, t])
+  }, [email, invoice.companyId, invoice.id, invoice.updatedAt, isSending, onSent, removingId, resetDialog, retryLastMutation, runMutation, t])
 
   const handleKeyDown = React.useCallback((event: React.KeyboardEvent<HTMLFormElement>) => {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
       event.preventDefault()
-      if (!isSending) void submit()
+      if (!isSending && !removingId) void submit()
     }
-  }, [isSending, submit])
+  }, [isSending, removingId, submit])
 
   if (!canSend) return null
 
@@ -259,30 +257,27 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
             </DialogDescription>
           </DialogHeader>
           <form
-            ref={formRef}
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault()
-              void submit()
+              if (!isSending && !removingId) void submit()
             }}
             onKeyDown={handleKeyDown}
           >
             <div className="space-y-1.5">
               <Label className="flex-col items-stretch gap-1.5">
                 <span>{t('invoice.send.recipientLabel')} <span className="text-status-error-icon" aria-hidden="true">*</span></span>
-              <ComboboxInput
-                key={recipientInputKey}
+              <Input
+                type="email"
                 value={email}
-                onChange={(value) => {
-                  setEmail(value)
+                onChange={(event) => {
+                  setEmail(event.target.value)
                   setEmailError(null)
                   setSendError(null)
                 }}
-                suggestions={emails.map((entry) => ({ value: entry.email, label: entry.email }))}
                 placeholder={t('invoice.send.recipientPlaceholder')}
                 autoFocus
-                allowCustomValues
-                disabled={isSending}
+                disabled={isSending || Boolean(removingId)}
               />
               </Label>
               {emailError ? <p role="alert" className="text-xs text-status-error-text">{emailError}</p> : null}
@@ -296,7 +291,7 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
             ) : null}
 
             {!isLoadingEmails && invoice.companyId && emails.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-2 pt-2">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {t('invoice.send.rememberedRecipients', { company: companyName })}
                 </p>
@@ -312,7 +307,6 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
                           setEmail(entry.email)
                           setEmailError(null)
                           setSendError(null)
-                          setRecipientInputKey((current) => current + 1)
                         }}
                         disabled={isSending || Boolean(removingId)}
                       >
