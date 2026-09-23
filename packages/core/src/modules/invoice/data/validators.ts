@@ -488,3 +488,8 @@ export const invoiceForecastQuerySchema = z.object({
   throughDate: invoiceDateStringSchema.optional(),
 }).strict()
 export type InvoiceForecastQueryInput = z.infer<typeof invoiceForecastQuerySchema>
+
+export const invoiceSummaryQuerySchema = z.object({
+  throughDate: invoiceDateStringSchema.optional(),
+}).strict()
+export type InvoiceSummaryQueryInput = z.infer<typeof invoiceSummaryQuerySchema>

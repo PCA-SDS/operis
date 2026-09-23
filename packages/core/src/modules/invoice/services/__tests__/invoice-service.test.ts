@@ -766,7 +766,7 @@ describe('InvoiceService', () => {
       })
     })
 
-    it('excludes settled invoices, non-recoverable AR, and entries beyond throughDate', async () => {
+    it('excludes settled and non-recoverable AR invoices and reports entries beyond throughDate', async () => {
       const { em, service } = createService()
 
       const settledInv = invoice({
@@ -811,8 +811,10 @@ describe('InvoiceService', () => {
 
       const forecast = await service.getForecast(scope, { throughDate: '2026-10-01' })
 
-      expect(forecast.entries).toHaveLength(1)
+      expect(forecast.entries).toHaveLength(2)
       expect(forecast.entries[0].invoiceId).toBe('valid-1')
+      expect(forecast.entries[1].invoiceId).toBe('future-1')
+      expect(forecast.payable.beyondHorizon).toEqual({ amount: '500.0000', count: 1 })
     })
 
     it('converts foreign currencies in forecast and fails when FX is unavailable', async () => {
