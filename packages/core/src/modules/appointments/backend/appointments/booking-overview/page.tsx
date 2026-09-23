@@ -22,7 +22,7 @@ import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { useOrganizationScopeDetail, useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { emitOrganizationScopeChanged } from '@open-mercato/shared/lib/frontend/organizationEvents'
 import { AppointmentServicePicker, hasCompleteAppointmentServiceOptions, type AppointmentBookableService, type AppointmentServiceSelection } from '../../../components/AppointmentServicePicker'
-import { AppointmentResourceTimeline } from '../../../components/AppointmentResourceTimeline'
+import { AppointmentResourceTimeline, AppointmentResourceTimelineSkeleton } from '../../../components/AppointmentResourceTimeline'
 import { AppointmentStaffAssignmentSheet, type AppointmentAssignableStaff, type AppointmentStaffAssignmentTarget } from '../../../components/AppointmentStaffAssignmentSheet'
 import { BookingOverviewCreateSheet } from '../../../components/BookingOverviewCreateSheet'
 import { groupSeatPlannerOptions } from '../../../lib/seatPlannerOptions'
@@ -959,7 +959,7 @@ export default function BookingOverviewPage() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-muted/20">
-            {isLoading ? <div className="flex min-h-96 items-center justify-center text-sm text-muted-foreground">{t('appointments.overview.loading', 'Loading booking overview…')}</div> : !overview ? <div className="flex min-h-96 items-center justify-center text-sm text-muted-foreground">{t('appointments.overview.empty', 'No booking overview data available.')}</div> : (
+            {isLoading ? <AppointmentResourceTimelineSkeleton /> : !overview ? <div className="flex min-h-96 items-center justify-center text-sm text-muted-foreground">{t('appointments.overview.empty', 'No booking overview data available.')}</div> : (
               <AppointmentResourceTimeline
                 date={date}
                 resources={overview.resources}

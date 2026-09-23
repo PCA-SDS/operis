@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { CalendarDays } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -162,6 +163,56 @@ function resourceIcon(resource: AppointmentResourceTimelineResource) {
   if (iconNode) return iconNode
   if (iconName) return <span className="text-sm leading-none" aria-hidden="true">{iconName}</span>
   return <CalendarDays className="size-4" />
+}
+
+export function AppointmentResourceTimelineSkeleton() {
+  const resourceCount = 4
+  const rowCount = 8
+  const timelineHeight = rowCount * HOUR_HEIGHT
+  const minimumCanvasWidth = TIME_COLUMN_WIDTH + resourceCount * RESOURCE_COLUMN_WIDTH
+  const gridTemplateColumns = `${TIME_COLUMN_WIDTH}px repeat(${resourceCount}, minmax(${RESOURCE_COLUMN_WIDTH}px, 1fr))`
+
+  return (
+    <div className="isolate h-full min-h-0 overflow-auto" aria-busy="true">
+      <div className="min-w-max" style={{ minWidth: minimumCanvasWidth }}>
+        <div className="grid border-b border-border bg-surface" style={{ gridTemplateColumns, height: HEADER_HEIGHT, minWidth: minimumCanvasWidth }}>
+          <div className="flex items-center justify-center border-r border-border bg-surface px-3">
+            <Skeleton className="h-3 w-8" />
+          </div>
+          {Array.from({ length: resourceCount }).map((_, index) => (
+            <div key={index} className="flex flex-col justify-center gap-2 border-r border-border bg-surface px-3 py-2">
+              <Skeleton className="h-3 w-20" />
+              <div className="flex items-center gap-2">
+                <Skeleton shape="circle" className="size-9 rounded-md" />
+                <div className="min-w-0 space-y-1.5">
+                  <Skeleton className="h-3.5 w-20" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="relative grid bg-surface" style={{ height: timelineHeight + TIME_LABEL_EDGE_GAP * 2, gridTemplateColumns, minWidth: minimumCanvasWidth }}>
+          <div className="relative border-r border-border bg-surface" style={{ height: timelineHeight, top: TIME_LABEL_EDGE_GAP }}>
+            {Array.from({ length: rowCount + 1 }).map((_, index) => (
+              <div key={index} className="absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: index * HOUR_HEIGHT }}>
+                {index < rowCount ? <Skeleton className="absolute left-1/2 h-3 w-10 -translate-x-1/2 -translate-y-1/2" /> : null}
+              </div>
+            ))}
+          </div>
+          {Array.from({ length: resourceCount }).map((_, resourceIndex) => (
+            <div key={resourceIndex} className="relative border-r border-border bg-surface" style={{ height: timelineHeight, top: TIME_LABEL_EDGE_GAP }}>
+              {Array.from({ length: rowCount + 1 }).map((__, rowIndex) => (
+                <div key={rowIndex} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: rowIndex * HOUR_HEIGHT }} />
+              ))}
+              <Skeleton className="absolute left-3 right-3 h-24 rounded-md" style={{ top: HOUR_HEIGHT * 1.25 }} />
+              {resourceIndex % 2 === 0 ? <Skeleton className="absolute left-3 right-3 h-20 rounded-md" style={{ top: HOUR_HEIGHT * 4.5 }} /> : null}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function AppointmentBlockRibbons({ appointment }: { appointment: AppointmentResourceTimelineAppointment }) {
