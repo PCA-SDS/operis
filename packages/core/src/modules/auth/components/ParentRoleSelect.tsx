@@ -2,9 +2,46 @@
 
 import * as React from 'react'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@open-mercato/ui/primitives/select'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 
 type RoleOption = { id: string; name: string }
+
+const AUTH_ROLES_PAGE_SIZE = 100
+const AUTH_ROLES_MAX_PAGES = 200
+const NO_PARENT_VALUE = '__no_parent__'
+
+async function fetchRoleOptions(signal: AbortSignal): Promise<RoleOption[]> {
+  const options: RoleOption[] = []
+  let page = 1
+  let totalPages = 1
+
+  do {
+    const searchParams = new URLSearchParams({
+      page: String(page),
+      pageSize: String(AUTH_ROLES_PAGE_SIZE),
+    })
+    const result = await readApiResultOrThrow<{ items?: RoleOption[]; totalPages?: unknown }>(
+      `/api/auth/roles?${searchParams.toString()}`,
+      { signal },
+    )
+    const items = Array.isArray(result?.items) ? result.items : []
+    options.push(...items)
+    totalPages = typeof result?.totalPages === 'number' && Number.isFinite(result.totalPages)
+      ? Math.max(1, Math.floor(result.totalPages))
+      : 1
+    if (items.length < AUTH_ROLES_PAGE_SIZE) break
+    page += 1
+  } while (page <= totalPages && page <= AUTH_ROLES_MAX_PAGES)
+
+  return options
+}
 
 /**
  * Picks the role a role reports to, which is what gives the organisation chart
@@ -34,11 +71,8 @@ export function ParentRoleSelect({
     const controller = new AbortController()
     void (async () => {
       try {
-        const result = await readApiResultOrThrow<{ items?: RoleOption[] }>(
-          '/api/auth/roles?pageSize=200',
-          { signal: controller.signal },
-        )
-        if (!cancelled) setOptions(result?.items ?? [])
+        const result = await fetchRoleOptions(controller.signal)
+        if (!cancelled) setOptions(result)
       } catch {
         if (!cancelled) setOptions([])
       }
@@ -49,16 +83,21 @@ export function ParentRoleSelect({
   const selectable = options.filter((option) => option.id !== excludeRoleId)
 
   return (
-    <select
-      id={id}
-      value={value ?? ''}
-      onChange={(event) => onChange(event.target.value ? event.target.value : null)}
-      className="h-9 w-full rounded-lg border border-border bg-input-bg px-2 text-sm"
+    <Select
+      value={value || NO_PARENT_VALUE}
+      onValueChange={(next) => onChange(next === NO_PARENT_VALUE ? null : next)}
     >
-      <option value="">{t('auth.roles.form.field.parentRoleNone', 'No parent (top level)')}</option>
-      {selectable.map((option) => (
-        <option key={option.id} value={option.id}>{option.name}</option>
-      ))}
-    </select>
+      <SelectTrigger id={id}>
+        <SelectValue placeholder={t('auth.roles.form.field.parentRoleNone', 'No parent (top level)')} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NO_PARENT_VALUE}>
+          {t('auth.roles.form.field.parentRoleNone', 'No parent (top level)')}
+        </SelectItem>
+        {selectable.map((option) => (
+          <SelectItem key={option.id} value={option.id}>{option.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }

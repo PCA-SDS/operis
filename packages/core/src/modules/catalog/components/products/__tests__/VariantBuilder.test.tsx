@@ -131,6 +131,39 @@ function createOptionDefinitions(): OptionDefinition[] {
 }
 
 describe('VariantBasicsSection', () => {
+  it('keeps text inputs controlled while async values load', () => {
+    const setValue = jest.fn()
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    const { rerender } = render(
+      <VariantBasicsSection values={{} as VariantFormValues} setValue={setValue} errors={{}} />,
+    )
+
+    expect(screen.getByPlaceholderText('e.g., Blue / Small')).toHaveValue('')
+    expect(screen.getByPlaceholderText('Unique identifier')).toHaveValue('')
+    expect(screen.getByPlaceholderText('EAN, UPC, etc.')).toHaveValue('')
+
+    rerender(
+      <VariantBasicsSection
+        values={createDefaultValues({
+          name: 'Blue / Small',
+          sku: 'BLUE-SMALL',
+          barcode: '1234567890123',
+          hsCode: 'HS-1234',
+        })}
+        setValue={setValue}
+        errors={{}}
+      />,
+    )
+
+    expect(screen.getByPlaceholderText('e.g., Blue / Small')).toHaveValue('Blue / Small')
+    expect(screen.getByPlaceholderText('Unique identifier')).toHaveValue('BLUE-SMALL')
+    expect(screen.getByPlaceholderText('EAN, UPC, etc.')).toHaveValue('1234567890123')
+    expect(screen.getByLabelText('HS code (customs tariff)')).toHaveValue('HS-1234')
+    expect(consoleError.mock.calls.flat().join(' ')).not.toMatch(/uncontrolled|controlled input/i)
+
+    consoleError.mockRestore()
+  })
+
   it('renders name input with placeholder', () => {
     const setValue = jest.fn()
     render(<VariantBasicsSection values={createDefaultValues()} setValue={setValue} errors={{}} />)
@@ -179,6 +212,19 @@ describe('VariantBasicsSection', () => {
     const setValue = jest.fn()
     render(<VariantBasicsSection values={createDefaultValues()} setValue={setValue} errors={{ name: 'Name is required' }} />)
     expect(screen.getByText('Name is required')).toBeInTheDocument()
+  })
+
+  it('displays server validation errors for SKU', () => {
+    const setValue = jest.fn()
+    render(
+      <VariantBasicsSection
+        values={createDefaultValues()}
+        setValue={setValue}
+        errors={{ sku: 'SKU contains invalid characters' }}
+      />,
+    )
+
+    expect(screen.getByText('SKU contains invalid characters')).toBeInTheDocument()
   })
 })
 
@@ -277,6 +323,21 @@ describe('VariantPricesSection', () => {
       <VariantPricesSection values={createDefaultValues()} setValue={setValue} priceKinds={[]} taxRates={createTaxRates()} />,
     )
     expect(screen.getByText('No price kinds configured yet.')).toBeInTheDocument()
+  })
+
+  it('displays price validation errors below the price inputs', () => {
+    const setValue = jest.fn()
+    render(
+      <VariantPricesSection
+        values={createDefaultValues()}
+        setValue={setValue}
+        errors={{ prices: 'Provide a valid non-negative price.' }}
+        priceKinds={createPriceKinds()}
+        taxRates={createTaxRates()}
+      />,
+    )
+
+    expect(screen.getByText('Provide a valid non-negative price.')).toBeInTheDocument()
   })
 
   it('renders tax rate select with options', () => {

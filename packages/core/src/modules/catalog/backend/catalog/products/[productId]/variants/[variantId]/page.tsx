@@ -190,7 +190,7 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
     const loadTaxRates = async () => {
       try {
         const payload = await readApiResultOrThrow<{ items?: Array<Record<string, unknown>> }>(
-          '/api/sales/tax-rates?pageSize=200',
+          '/api/sales/tax-rates?pageSize=100',
           undefined,
           { errorMessage: t('catalog.products.create.taxRates.error', 'Failed to load tax rates.'), fallback: { items: [] } },
         )
@@ -447,10 +447,11 @@ export default function EditVariantPage({ params }: { params?: { productId?: str
         column: 1,
         title: t('catalog.variants.form.pricesLabel', 'Prices'),
         description: t('catalog.variants.form.pricesHint', 'Populate list prices per price kind.'),
-        component: ({ values, setValue }) => (
+        component: ({ values, setValue, errors }) => (
           <VariantPricesSection
             values={values as VariantFormValues}
             setValue={setValue}
+            errors={errors}
             priceKinds={priceKinds}
             taxRates={taxRates}
             showHeader={false}

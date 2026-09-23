@@ -133,7 +133,6 @@ async function applyConstraintsSnapshot(
 
   const incomingIds = new Set(snapshot.map((c) => c.id))
 
-  // Remove constraints not in incoming
   for (const constraint of currentConstraints) {
     if (!incomingIds.has(constraint.id)) {
       em.remove(constraint)

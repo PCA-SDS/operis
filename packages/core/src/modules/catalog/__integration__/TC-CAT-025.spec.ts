@@ -262,6 +262,10 @@ test.describe('TC-CAT-025: Pricing Edge Cases', () => {
         status === 400 || status === 409,
         `Duplicate price kind code should return 400 or 409, got ${status}`,
       ).toBeTruthy()
+      const duplicateBody = (await duplicateResponse.json()) as {
+        fieldErrors?: Record<string, string>
+      }
+      expect(duplicateBody.fieldErrors?.code).toBeTruthy()
     } finally {
       await deletePriceKindIfExists(request, token, firstPriceKindId)
     }

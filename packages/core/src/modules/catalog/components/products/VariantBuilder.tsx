@@ -70,6 +70,7 @@ type VariantMetadataSectionProps = {
 type VariantPricesSectionProps = {
   values: VariantFormValues
   setValue: (id: string, value: unknown) => void
+  errors?: Record<string, string>
   priceKinds: PriceKindSummary[]
   taxRates: TaxRateSummary[]
   showHeader?: boolean
@@ -97,7 +98,7 @@ export function VariantBuilder({
       <VariantDurationSection values={values} setValue={setValue} />
       <VariantDimensionsSection values={values} setValue={setValue} />
       <VariantMetadataSection values={values} setValue={setValue} />
-      <VariantPricesSection values={values} setValue={setValue} priceKinds={priceKinds} taxRates={taxRates} />
+      <VariantPricesSection values={values} setValue={setValue} errors={errors} priceKinds={priceKinds} taxRates={taxRates} />
       <VariantMediaSection values={values} setValue={setValue} />
     </div>
   )
@@ -113,7 +114,7 @@ export function VariantBasicsSection({ values, setValue, errors }: VariantSectio
           <span className="text-status-error-text">*</span>
         </Label>
         <Input
-          value={values.name}
+          value={values.name ?? ''}
           onChange={(event) => setValue('name', event.target.value)}
           placeholder={t('catalog.variants.form.namePlaceholder', 'e.g., Blue / Small')}
         />
@@ -123,15 +124,16 @@ export function VariantBasicsSection({ values, setValue, errors }: VariantSectio
         <div className="space-y-2">
           <Label>{t('catalog.variants.form.skuLabel', 'SKU')}</Label>
           <Input
-            value={values.sku}
+            value={values.sku ?? ''}
             onChange={(event) => setValue('sku', event.target.value)}
             placeholder={t('catalog.variants.form.skuPlaceholder', 'Unique identifier')}
           />
+          {errors.sku ? <p className="text-xs text-status-error-text">{errors.sku}</p> : null}
         </div>
         <div className="space-y-2">
           <Label>{t('catalog.variants.form.barcodeLabel', 'Barcode')}</Label>
           <Input
-            value={values.barcode}
+            value={values.barcode ?? ''}
             onChange={(event) => setValue('barcode', event.target.value)}
             placeholder={t('catalog.variants.form.barcodePlaceholder', 'EAN, UPC, etc.')}
           />
@@ -173,7 +175,7 @@ export function VariantBasicsSection({ values, setValue, errors }: VariantSectio
           </Label>
           <Input
             id="catalog-variant-hs-code"
-            value={values.hsCode}
+            value={values.hsCode ?? ''}
             onChange={(event) => setValue('hsCode', event.target.value)}
           />
           {errors.hsCode ? <p className="text-xs text-status-error-text">{errors.hsCode}</p> : null}
@@ -455,6 +457,7 @@ export function VariantMetadataSection({
 export function VariantPricesSection({
   values,
   setValue,
+  errors,
   priceKinds,
   taxRates,
   showHeader = true,
@@ -653,6 +656,7 @@ export function VariantPricesSection({
         ) : (
           <p className="text-xs text-muted-foreground">{t('catalog.variants.form.pricesEmpty', 'No price kinds configured yet.')}</p>
         )}
+        {errors?.prices ? <p className="text-xs text-status-error-text">{errors.prices}</p> : null}
       </div>
 
     </div>

@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import * as React from 'react'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ProductCategorizeSection } from '../ProductCategorizeSection'
 import type { ProductFormValues } from '../productForm'
 
@@ -12,16 +12,17 @@ jest.mock('@open-mercato/ui/backend/utils/apiCall', () => ({
 }))
 
 jest.mock('@open-mercato/ui/backend/inputs/TagsInput', () => ({
-  TagsInput: ({ value = [], placeholder, onChange }: {
+  TagsInput: ({ value = [], placeholder, onChange, resolveLabel }: {
     value?: string[]
     placeholder?: string
     onChange?: (next: string[]) => void
+    resolveLabel?: (value: string) => string
   }) => (
     <div data-testid={`tags-input-${placeholder}`} data-value={Array.isArray(value) ? value.join(',') : ''}>
       <button data-testid={`trigger-${placeholder}`} type="button" onClick={() => onChange?.([...value, 'new-value'])}>
         add
       </button>
-      {Array.isArray(value) ? value.join(',') : ''}
+      {Array.isArray(value) ? value.map((item) => resolveLabel?.(item) ?? item).join(',') : ''}
     </div>
   ),
 }))
@@ -111,6 +112,27 @@ describe('ProductCategorizeSection', () => {
       />,
     )
     expect(screen.getByTestId('tags-input-Pick channels')).toHaveAttribute('data-value', 'ch-1,ch-3')
+  })
+
+  it('restores labels for selected channels after the section mounts again', async () => {
+    mockReadApiResultOrThrow.mockResolvedValue({
+      items: [{ id: 'channel-1', name: 'Online store', code: 'online' }],
+    })
+
+    render(
+      <ProductCategorizeSection
+        values={createDefaultValues({ channelIds: ['channel-1'] })}
+        setValue={jest.fn()}
+        errors={{}}
+      />,
+    )
+
+    await waitFor(() => expect(screen.getByTestId('tags-input-Pick channels')).toHaveTextContent('Online store'))
+    expect(mockReadApiResultOrThrow).toHaveBeenCalledWith(
+      '/api/sales/channels?pageSize=100&ids=channel-1',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      expect.objectContaining({ errorMessage: 'Failed to load channels' }),
+    )
   })
 
   it('passes tags to the tags TagsInput', () => {

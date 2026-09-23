@@ -59,7 +59,7 @@ async function pickTaxRateOutsideFirstPage(
   token: string,
   fixtures: TaxRateFixture[],
 ): Promise<TaxRateFixture> {
-  const response = await apiRequest(request, 'GET', '/api/sales/tax-rates?page=1&pageSize=200', { token })
+  const response = await apiRequest(request, 'GET', '/api/sales/tax-rates?page=1&pageSize=100', { token })
   expect(response.ok(), `Failed to list tax rates: ${response.status()}`).toBeTruthy()
   const payload = await readJsonSafe(response)
   const firstPageIds = new Set(

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   Calendar,
+  CalendarPlus,
   Check,
   ChevronRight,
   Clock,
@@ -21,6 +22,8 @@ import {
   UserRound,
   Users,
   X,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -35,12 +38,10 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
-import { AppointmentStatusBadge } from '@open-mercato/core/modules/appointments/components/AppointmentStatusBadge'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { resolveRegisteredLucideIconNode } from '@open-mercato/ui/backend/icons/lucideRegistry'
 import { AppointmentServicePicker, type AppointmentBookableService, type AppointmentServiceSelection } from '@open-mercato/core/modules/appointments/components/AppointmentServicePicker'
-import { AppointmentStaffAssignmentSheet } from '@open-mercato/core/modules/appointments/components/AppointmentStaffAssignmentSheet'
 import { AppointmentEditForm } from '../edit/page'
 
 const START_HOUR = 8
@@ -54,6 +55,7 @@ const OVERLAPPED_LANE_MIN_WIDTH = 128
 const MIN_DURATION = 15
 const MAX_DURATION = 480
 const STAFF_PAGE_SIZE = 50
+const ZOOM_LEVELS = [0.5, 0.625, 0.75, 1, 1.25, 1.5] as const
 
 type SeatPlannerLine = {
   id: string
@@ -69,8 +71,10 @@ type SeatPlannerLine = {
     resourceName?: string | null
     startsAt: string
     endsAt: string
+    assignedMemberIds: string[]
     assignedMemberId?: string | null
     assignedMemberName?: string | null
+    assignedMemberNames?: string[]
     updatedAt: string
   }
 }
@@ -104,6 +108,8 @@ type SeatPlannerWorkspace = {
     requestedStartAt: string
     requestedEndAt: string | null
     statusCode: string
+    statusBackgroundColor: string | null
+    statusTextColor: string | null
     updatedAt: string
   }
   lines: SeatPlannerLine[]
@@ -123,8 +129,10 @@ type PlannerAllocation = {
   startsAt: string
   endsAt: string
   state: 'draft' | 'confirmed'
+  assignedMemberIds: string[]
   assignedMemberId?: string | null
   assignedMemberName?: string | null
+  assignedMemberNames?: string[]
   updatedAt: string
   laneIndex: number
   lanesCount: number
@@ -137,14 +145,23 @@ type DraftAssignmentResult = {
   state: 'draft' | 'confirmed'
   startsAt: string
   endsAt: string
+  assignedMemberIds?: string[]
   assignedMemberId?: string | null
   assignedMemberName?: string | null
+  assignedMemberNames?: string[]
   updatedAt: string
 }
 
-type StaffMember = { id: string; displayName: string; roleLabel: string }
+type StaffMember = { id: string; displayName: string; roleLabel: string; roleLabels: string[] }
 type PopoverState = { allocation: PlannerAllocation; anchor: DOMRect }
 type StaffSheetTarget = { allocation: PlannerAllocation; line: SeatPlannerLine | null }
+type HoveredSlot = { resourceId: string; time: string }
+type HoveredInsertion = { allocationId: string; time: string }
+
+function assignedMemberIdsFor(value: { assignedMemberIds?: string[]; assignedMemberId?: string | null }): string[] {
+  if (Array.isArray(value.assignedMemberIds) && value.assignedMemberIds.length > 0) return value.assignedMemberIds
+  return value.assignedMemberId ? [value.assignedMemberId] : []
+}
 
 interface SeatPlannerPageProps {
   params?: { id?: string }
@@ -167,29 +184,38 @@ function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
+function formatSalutation(value: string | null | undefined): string {
+  const normalized = value?.trim() ?? ''
+  if (!normalized) return ''
+  return /[.!?]$/.test(normalized) ? normalized : `${normalized}.`
+}
+
 function durationMinutes(startsAt: string, endsAt: string): number {
   return Math.max(MIN_DURATION, Math.round((new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60000))
 }
 
 function lineDuration(line: SeatPlannerLine | null | undefined): number {
+  if (line?.currentAssignment) {
+    return durationMinutes(line.currentAssignment.startsAt, line.currentAssignment.endsAt)
+  }
   return Math.max(MIN_DURATION, line?.durationMinutes ?? 60)
 }
 
-function slotHeight(): number {
-  return HOUR_HEIGHT / (60 / SLOT_MINUTES)
+function slotHeight(zoom = 1): number {
+  return (HOUR_HEIGHT / (60 / SLOT_MINUTES)) * zoom
 }
 
-function slotTop(time: string, timelineStartMinutes: number): number {
-  return ((timeToMinutes(time) - timelineStartMinutes) / SLOT_MINUTES) * slotHeight()
+function slotTop(time: string, timelineStartMinutes: number, zoom = 1): number {
+  return ((timeToMinutes(time) - timelineStartMinutes) / SLOT_MINUTES) * slotHeight(zoom)
 }
 
-function allocationTop(allocation: PlannerAllocation, timelineStartMinutes: number): number {
+function allocationTop(allocation: PlannerAllocation, timelineStartMinutes: number, zoom = 1): number {
   const date = new Date(allocation.startsAt)
-  return (((date.getHours() * 60 + date.getMinutes()) - timelineStartMinutes) / SLOT_MINUTES) * slotHeight()
+  return (((date.getHours() * 60 + date.getMinutes()) - timelineStartMinutes) / SLOT_MINUTES) * slotHeight(zoom)
 }
 
-function allocationHeight(allocation: PlannerAllocation): number {
-  return Math.max((durationMinutes(allocation.startsAt, allocation.endsAt) / SLOT_MINUTES) * slotHeight(), 24)
+function allocationHeight(allocation: PlannerAllocation, zoom = 1): number {
+  return Math.max((durationMinutes(allocation.startsAt, allocation.endsAt) / SLOT_MINUTES) * slotHeight(zoom), 24)
 }
 
 function buildIsoFromSlot(baseIso: string, time: string): string {
@@ -212,6 +238,39 @@ function resourceSupportsRange(resource: Resource | undefined, startsAt: string,
     const windowEnd = new Date(window.endsAt).getTime()
     return start >= windowStart && end <= windowEnd
   })
+}
+
+function findFirstAvailablePlacement(
+  resources: Resource[],
+  allocations: PlannerAllocation[],
+  line: SeatPlannerLine | undefined,
+  requestedStartAt: string,
+  timelineStartMinutes: number,
+  timelineEndMinutes: number,
+): { resourceId: string; minutes: number } | null {
+  const requestedDate = new Date(requestedStartAt)
+  const requestedMinutes = requestedDate.getHours() * 60 + requestedDate.getMinutes()
+  const duration = lineDuration(line)
+  const firstCandidate = Math.max(
+    timelineStartMinutes,
+    Math.ceil(Math.max(requestedMinutes, timelineStartMinutes) / SLOT_MINUTES) * SLOT_MINUTES,
+  )
+
+  for (const resource of resources) {
+    for (let minutes = firstCandidate; minutes + duration <= timelineEndMinutes; minutes += SLOT_MINUTES) {
+      const startsAt = buildIsoFromSlot(requestedStartAt, minutesToTime(minutes))
+      const endsAt = addMinutes(startsAt, duration)
+      if (!resourceSupportsRange(resource, startsAt, endsAt)) continue
+      const overlaps = allocations.some((allocation) => {
+        if (allocation.resourceId !== resource.id) return false
+        return new Date(allocation.startsAt).getTime() < new Date(endsAt).getTime()
+          && new Date(startsAt).getTime() < new Date(allocation.endsAt).getTime()
+      })
+      if (!overlaps) return { resourceId: resource.id, minutes }
+    }
+  }
+
+  return null
 }
 
 function snapDuration(value: number): number {
@@ -246,6 +305,10 @@ function groupResources(resources: Resource[]): Array<Resource & { floorName: st
 
 function ResourceIcon({ resource }: { resource: Resource }) {
   const iconName = resource.appearanceIcon ?? resource.capacityUnitIcon ?? resource.typeIcon ?? null
+  const isImageSource = Boolean(iconName && /^(https?:\/\/|\/|data:image\/)/i.test(iconName))
+  if (isImageSource) {
+    return <img src={iconName ?? undefined} alt="" className="size-4 object-contain" aria-hidden="true" />
+  }
   const iconNode = resolveRegisteredLucideIconNode(iconName ?? undefined, 'size-4')
   if (iconNode) return iconNode
   if (iconName) return <span className="text-sm leading-none" aria-hidden="true">{iconName}</span>
@@ -297,12 +360,28 @@ function PlannerBlock(props: {
   allocation: PlannerAllocation
   line: SeatPlannerLine | null
   timelineStartMinutes: number
+  zoom: number
   isOwn: boolean
   isActive: boolean
+  canInsert: boolean
   onResizeEnd: (duration: number) => Promise<void>
   onOpen: (event: React.MouseEvent<HTMLDivElement>) => void
+  onHoverInsertion: (event: React.MouseEvent<HTMLDivElement>) => void
+  onHoverBlock: () => void
 }) {
-  const { allocation, line, timelineStartMinutes, isOwn, isActive, onResizeEnd, onOpen } = props
+  const {
+    allocation,
+    line,
+    timelineStartMinutes,
+    zoom,
+    isOwn,
+    isActive,
+    canInsert,
+    onResizeEnd,
+    onOpen,
+    onHoverInsertion,
+    onHoverBlock,
+  } = props
   const [dragDuration, setDragDuration] = React.useState<number | null>(null)
   const currentDuration = durationMinutes(allocation.startsAt, allocation.endsAt)
   const startYRef = React.useRef(0)
@@ -312,17 +391,19 @@ function PlannerBlock(props: {
   const laneWidth = 100 / allocation.lanesCount
   const laneInset = 8 / allocation.lanesCount
   const compactExistingLabel = !isOwn && displayDuration <= 30
-  const existingCustomerName = [allocation.customerSalutation, allocation.customerName].filter(Boolean).join(' ')
+  const existingCustomerName = [formatSalutation(allocation.customerSalutation), allocation.customerName].filter(Boolean).join(' ')
 
   const handleResizePointerDown = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (!isOwn) return
     event.preventDefault()
     event.stopPropagation()
+    const resizeHandle = event.currentTarget
+    resizeHandle.setPointerCapture(event.pointerId)
     startYRef.current = event.clientY
     startDurationRef.current = currentDuration
     nextDurationRef.current = currentDuration
     const onPointerMove = (moveEvent: PointerEvent) => {
-      const nextDuration = snapDuration(startDurationRef.current + ((moveEvent.clientY - startYRef.current) / slotHeight()) * SLOT_MINUTES)
+      const nextDuration = snapDuration(startDurationRef.current + ((moveEvent.clientY - startYRef.current) / slotHeight(zoom)) * SLOT_MINUTES)
       nextDurationRef.current = nextDuration
       setDragDuration(nextDuration)
     }
@@ -330,13 +411,14 @@ function PlannerBlock(props: {
       document.removeEventListener('pointermove', onPointerMove)
       document.removeEventListener('pointerup', onPointerEnd)
       document.removeEventListener('pointercancel', onPointerEnd)
+      if (resizeHandle.hasPointerCapture(event.pointerId)) resizeHandle.releasePointerCapture(event.pointerId)
       setDragDuration(null)
       if (nextDurationRef.current !== currentDuration) await onResizeEnd(nextDurationRef.current)
     }
     document.addEventListener('pointermove', onPointerMove)
     document.addEventListener('pointerup', onPointerEnd)
     document.addEventListener('pointercancel', onPointerEnd)
-  }, [currentDuration, isOwn, onResizeEnd])
+  }, [currentDuration, isOwn, onResizeEnd, zoom])
 
   return (
     <div
@@ -346,8 +428,8 @@ function PlannerBlock(props: {
       className={`absolute flex cursor-pointer flex-col overflow-hidden rounded-md border px-2 py-1 text-xs transition hover:ring-2 hover:ring-primary/40 ${blockTone(isOwn, isActive, allocation.state)}`}
       style={{
         zIndex: dragDuration !== null ? 25 : (isActive ? 21 : 20),
-        top: allocationTop(allocation, timelineStartMinutes),
-        height: Math.max((displayDuration / SLOT_MINUTES) * slotHeight(), 24),
+        top: allocationTop(allocation, timelineStartMinutes, zoom),
+        height: Math.max((displayDuration / SLOT_MINUTES) * slotHeight(zoom), 24),
         left: `calc(4px + ${allocation.laneIndex * laneWidth}% - ${allocation.laneIndex * laneInset}px)`,
         width: `calc(${laneWidth}% - ${laneInset}px)`,
       }}
@@ -355,6 +437,8 @@ function PlannerBlock(props: {
         event.stopPropagation()
         onOpen(event)
       }}
+      onMouseMove={canInsert ? onHoverInsertion : undefined}
+      onMouseEnter={onHoverBlock}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') onOpen(event as unknown as React.MouseEvent<HTMLDivElement>)
       }}
@@ -370,14 +454,63 @@ function PlannerBlock(props: {
         </>
       )}
       {isOwn && displayDuration > 30 ? (
-        <span className="truncate text-[10px] opacity-80">{allocation.assignedMemberName || line?.currentAssignment?.assignedMemberName || 'No staff assigned'}</span>
+        <span className="line-clamp-2 break-words text-xs leading-tight opacity-80">{(allocation.assignedMemberNames ?? (allocation.assignedMemberName ? [allocation.assignedMemberName] : [])).join(', ') || 'No staff assigned'}</span>
       ) : null}
       {displayDuration >= 30 ? (
         <span className="mt-auto truncate text-[10px] opacity-80">{formatTime(allocation.startsAt)} - {formatTime(addMinutes(allocation.startsAt, displayDuration))}</span>
       ) : null}
       {isOwn ? (
-        <div className="absolute inset-x-0 bottom-0 h-3 cursor-row-resize bg-foreground/10" onPointerDown={handleResizePointerDown} onClick={(event) => event.stopPropagation()} />
+        <div className="absolute inset-x-0 bottom-0 h-4 touch-none cursor-row-resize bg-foreground/10" onPointerDown={handleResizePointerDown} onClick={(event) => event.stopPropagation()} />
       ) : null}
+    </div>
+  )
+}
+
+function PlannerInsertionRail(props: {
+  allocation: PlannerAllocation
+  timelineStartMinutes: number
+  zoom: number
+  insertionTime: string | null
+  onHover: (time: string) => void
+  onInsert: (time: string) => void
+}) {
+  const { allocation, timelineStartMinutes, zoom, insertionTime, onHover, onInsert } = props
+  const displayDuration = durationMinutes(allocation.startsAt, allocation.endsAt)
+
+  return (
+    <div
+      className="pointer-events-none absolute right-0 z-50 w-7"
+      style={{ top: allocationTop(allocation, timelineStartMinutes, zoom), height: allocationHeight(allocation, zoom), zIndex: 60 }}
+    >
+      {Array.from({ length: Math.ceil(displayDuration / SLOT_MINUTES) }, (_, slotIndex) => {
+        const slotStart = addMinutes(allocation.startsAt, slotIndex * SLOT_MINUTES)
+        const slotTime = minutesToTime(new Date(slotStart).getHours() * 60 + new Date(slotStart).getMinutes())
+        const active = slotTime === insertionTime
+        return (
+          <div
+            key={`${allocation.id}-insert-${slotTime}`}
+            role="button"
+            tabIndex={0}
+            className={`pointer-events-auto absolute inset-x-0 flex cursor-pointer items-center justify-center rounded-md border border-dashed backdrop-blur-sm text-primary shadow-sm transition-colors ${active ? 'border-primary bg-primary/10' : 'border-primary/60 bg-surface/30 hover:bg-surface/50'}`}
+            style={{ top: slotIndex * slotHeight(zoom), height: Math.max(slotHeight(zoom) - 4, 20) }}
+            onMouseEnter={() => onHover(slotTime)}
+            onClick={(event) => {
+              event.stopPropagation()
+              onInsert(slotTime)
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                event.stopPropagation()
+                onInsert(slotTime)
+              }
+            }}
+            aria-label={`Place service at ${slotTime}`}
+          >
+            <CalendarPlus className="size-3" aria-hidden="true" />
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -404,7 +537,7 @@ function BookingSidebar(props: {
     .slice(0, 2)
     .join('')
     .toUpperCase()
-  const displayName = [workspace.appointment.customerSalutation, workspace.appointment.customerName].filter(Boolean).join(' ')
+  const displayName = [formatSalutation(workspace.appointment.customerSalutation), workspace.appointment.customerName].filter(Boolean).join(' ')
   const formatLabel = (value: string | null) => value
     ? value.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase())
     : null
@@ -418,7 +551,6 @@ function BookingSidebar(props: {
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <p className="truncate text-base font-semibold">{displayName}</p>
-              <AppointmentStatusBadge statusCode={workspace.appointment.statusCode} />
             </div>
             {workspace.appointment.customerPhone ? (
               <p className="mt-1 flex items-center gap-1.5 truncate text-xs text-muted-foreground"><Phone className="size-3.5 shrink-0" />{workspace.appointment.customerPhone}</p>
@@ -527,9 +659,9 @@ function BookingSidebar(props: {
                             <MapPin className="size-3.5 shrink-0" />
                             <span>{t('appointments.seatPlanner.seat', 'Seat')}: <span className="font-medium text-foreground">{line.currentAssignment.resourceName ?? t('appointments.seatPlanner.notSelected', 'Not selected')}</span></span>
                           </div>
-                          <div className="flex items-center gap-2 truncate">
+                          <div className="flex items-start gap-2">
                             <UserRound className="size-3.5 shrink-0" />
-                            <span>{t('appointments.seatPlanner.staff', 'Staff')}: <span className="font-medium text-foreground">{line.currentAssignment.assignedMemberName ?? t('appointments.seatPlanner.notSelected', 'Not selected')}</span></span>
+                            <span className="min-w-0">{t('appointments.seatPlanner.staff', 'Staff')}: <span className="line-clamp-2 break-words font-medium leading-tight text-foreground">{(line.currentAssignment.assignedMemberNames ?? (line.currentAssignment.assignedMemberName ? [line.currentAssignment.assignedMemberName] : [])).join(', ') || t('appointments.seatPlanner.notSelected', 'Not selected')}</span></span>
                           </div>
                         </div>
                         {canManage && line.currentAssignment.state === 'draft' ? (
@@ -573,7 +705,8 @@ function DraftPopover(props: {
   const { state, line, isOwn, onClose, onClear, onDurationChange, onOpenStaff } = props
   const t = useT()
   const allocation = state.allocation
-  const customerDisplayName = [allocation.customerSalutation, allocation.customerName].filter(Boolean).join(' ')
+  const assignedNames = allocation.assignedMemberNames ?? (allocation.assignedMemberName ? [allocation.assignedMemberName] : [])
+  const customerDisplayName = [formatSalutation(allocation.customerSalutation), allocation.customerName].filter(Boolean).join(' ')
   const currentDuration = durationMinutes(allocation.startsAt, allocation.endsAt)
   const [rawDuration, setRawDuration] = React.useState(String(currentDuration))
   const popoverRef = React.useRef<HTMLDivElement>(null)
@@ -619,7 +752,7 @@ function DraftPopover(props: {
       ref={popoverRef}
       role="dialog"
       aria-label={isOwn ? allocation.serviceName : `${customerDisplayName} - ${allocation.serviceName}`}
-      className="fixed z-popover flex max-h-[calc(100vh-1.5rem)] w-80 max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-xl"
+      className="fixed z-50 flex max-h-[calc(100vh-1.5rem)] w-80 max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-xl"
       style={{ left: position.left, top: position.top }}
       onClick={(event) => event.stopPropagation()}
     >
@@ -674,9 +807,9 @@ function DraftPopover(props: {
 
           {/* Staff */}
           <div className="flex items-center gap-2.5 rounded-md border border-border/50 bg-muted/20 p-2.5">
-            <UserRound className={`size-4 shrink-0 ${allocation.assignedMemberName ? 'text-muted-foreground' : 'text-status-warning-text'}`} />
-            <span className={`truncate text-sm font-medium ${allocation.assignedMemberName ? 'text-foreground' : 'text-status-warning-text'}`}>
-              {allocation.assignedMemberName || t('appointments.seatPlanner.noStaffAssigned', 'No staff assigned')}
+            <UserRound className={`size-4 shrink-0 ${assignedNames.length > 0 ? 'text-muted-foreground' : 'text-status-warning-text'}`} />
+            <span className={`line-clamp-2 break-words text-sm font-medium leading-tight ${assignedNames.length > 0 ? 'text-foreground' : 'text-status-warning-text'}`}>
+              {assignedNames.join(', ') || t('appointments.seatPlanner.noStaffAssigned', 'No staff assigned')}
             </span>
           </div>
 
@@ -734,11 +867,11 @@ function StaffSheet(props: {
   const filteredStaff = React.useMemo(() => {
     const value = query.trim().toLowerCase()
     if (!value) return staff
-    return staff.filter((member) => `${member.displayName} ${member.roleLabel}`.toLowerCase().includes(value))
+    return staff.filter((member) => `${member.displayName} ${member.roleLabel} ${member.roleLabels.join(' ')}`.toLowerCase().includes(value))
   }, [query, staff])
 
   return (
-    <div className="fixed inset-0 z-overlay flex justify-end bg-foreground/20" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-foreground/20" onClick={onClose}>
       <aside className="flex h-full w-full max-w-md flex-col bg-surface shadow-lg" onClick={(event) => event.stopPropagation()}>
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
@@ -765,11 +898,11 @@ function StaffSheet(props: {
               <IconButton type="button" size="sm" variant="outline" aria-label={t('appointments.seatPlanner.increaseDuration', 'Increase duration')} disabled={duration >= MAX_DURATION || isSaving} onClick={() => onDurationChange(duration + SLOT_MINUTES)}><Plus className="size-4" /></IconButton>
             </div>
           </div>
-          {target.allocation.assignedMemberId ? (
+          {assignedMemberIdsFor(target.allocation).length > 0 ? (
             <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-1.5">
               <div className="min-w-0">
                 <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('appointments.seatPlanner.staffAssigned', 'Staff assigned')}</p>
-                <p className="truncate text-sm font-semibold">{target.allocation.assignedMemberName ?? t('appointments.seatPlanner.staffMember', 'Staff member')}</p>
+                <p className="line-clamp-2 break-words text-sm font-semibold leading-tight">{(target.allocation.assignedMemberNames ?? (target.allocation.assignedMemberName ? [target.allocation.assignedMemberName] : [])).join(', ')}</p>
               </div>
               <IconButton type="button" size="sm" variant="ghost" aria-label={t('appointments.seatPlanner.removeStaff', 'Remove staff')} disabled={isSaving} onClick={() => onAssign(null)}>
                 <X className="size-4" />
@@ -800,16 +933,20 @@ function StaffSheet(props: {
             ) : null}
             {filteredStaff.map((member) => {
               const busy = busyStaffIds.has(member.id)
-              const active = target.allocation.assignedMemberId === member.id
+              const active = assignedMemberIdsFor(target.allocation).includes(member.id)
               return (
-                <Button key={member.id} type="button" variant="ghost" aria-pressed={active} className={`h-auto w-full justify-start gap-3 rounded-md border p-3 text-left ${active ? 'border-primary bg-primary/5' : 'border-border bg-surface hover:bg-muted/40'}`} disabled={isSaving || busy} onClick={() => onAssign(active ? null : member.id)}>
+                <Button key={member.id} type="button" variant="ghost" aria-pressed={active} className={`h-auto w-full justify-start gap-3 rounded-md border p-3 text-left ${active ? 'border-primary bg-primary/5' : 'border-border bg-surface hover:bg-muted/40'}`} disabled={isSaving} onClick={() => onAssign(member.id)}>
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
                     {member.displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold">{member.displayName}</span>
                     <span className="mt-1 flex flex-wrap gap-1">
-                      <Tag variant={busy ? 'warning' : 'neutral'}>{busy ? t('appointments.seatPlanner.staffBusy', 'Busy') : member.roleLabel}</Tag>
+                      {busy ? <Tag variant="warning">{t('appointments.seatPlanner.staffBusy', 'Busy')}</Tag> : null}
+                      {!busy && member.roleLabels.length > 0
+                        ? member.roleLabels.map((role) => <Tag key={role} variant="neutral">{role}</Tag>)
+                        : null}
+                      {!busy && member.roleLabels.length === 0 ? <Tag variant="neutral">{member.roleLabel}</Tag> : null}
                     </span>
                   </span>
                   <span className={`flex size-5 shrink-0 items-center justify-center rounded-sm border ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-surface'}`}>{active ? <Check className="size-3.5" /> : null}</span>
@@ -898,6 +1035,10 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [activeLineId, setActiveLineId] = React.useState<string | null>(null)
+  const [zoomScale, setZoomScale] = React.useState<number>(1)
+  const [hoveredSlot, setHoveredSlot] = React.useState<HoveredSlot | null>(null)
+  const [hoveredInsertion, setHoveredInsertion] = React.useState<HoveredInsertion | null>(null)
+  const [isCoarsePointer, setIsCoarsePointer] = React.useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
   const [popoverState, setPopoverState] = React.useState<PopoverState | null>(null)
   const [staffSheetTarget, setStaffSheetTarget] = React.useState<StaffSheetTarget | null>(null)
@@ -916,6 +1057,19 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const workspaceRequestRef = React.useRef(0)
   const staffPageRef = React.useRef(0)
   const staffLoadingRef = React.useRef(false)
+
+  React.useEffect(() => {
+    const pointerQuery = window.matchMedia('(pointer: coarse)')
+    const anyPointerQuery = window.matchMedia('(any-pointer: coarse)')
+    const updatePointerMode = () => setIsCoarsePointer(pointerQuery.matches || anyPointerQuery.matches)
+    updatePointerMode()
+    pointerQuery.addEventListener('change', updatePointerMode)
+    anyPointerQuery.addEventListener('change', updatePointerMode)
+    return () => {
+      pointerQuery.removeEventListener('change', updatePointerMode)
+      anyPointerQuery.removeEventListener('change', updatePointerMode)
+    }
+  }, [])
   const hasMoreStaffRef = React.useRef(true)
   const staffAvailabilityRangeRef = React.useRef<{ startsAt: string; endsAt: string } | null>(null)
   const guardedMutation = useGuardedMutation({ contextId: appointmentId ? `appointments.seatPlanner:${appointmentId}` : 'appointments.seatPlanner:pending' })
@@ -931,12 +1085,13 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       const availabilityQuery = range
         ? `&startsAt=${encodeURIComponent(range.startsAt)}&endsAt=${encodeURIComponent(range.endsAt)}`
         : ''
-      const response = await readApiResultOrThrow<{ items?: Array<{ id: string; displayName: string; teamName?: string | null }> }>(`/api/staff/team-members/assignable?page=${page}&pageSize=${STAFF_PAGE_SIZE}&includeUnlinked=true${availabilityQuery}`)
+      const response = await readApiResultOrThrow<{ items?: Array<{ id: string; displayName: string; teamName?: string | null; roleNames?: string[] }> }>(`/api/staff/team-members/assignable?page=${page}&pageSize=${STAFF_PAGE_SIZE}&includeUnlinked=true${availabilityQuery}`)
       const items = response.items ?? []
       const nextStaff = items.map((member) => ({
         id: member.id,
         displayName: member.displayName,
         roleLabel: member.teamName ?? t('appointments.seatPlanner.staffMember', 'Staff member'),
+        roleLabels: Array.isArray(member.roleNames) ? member.roleNames : [],
       }))
       setStaffMembers((current) => {
         if (page === 1) return nextStaff
@@ -951,7 +1106,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       if (page === 1) {
         try {
           const response = await readApiResultOrThrow<{ member?: { id: string; displayName: string } | null }>('/api/staff/team-members/self')
-          const fallbackStaff = response.member ? [{ id: response.member.id, displayName: response.member.displayName, roleLabel: t('appointments.seatPlanner.staffMember', 'Staff member') }] : []
+          const fallbackStaff = response.member ? [{ id: response.member.id, displayName: response.member.displayName, roleLabel: t('appointments.seatPlanner.staffMember', 'Staff member'), roleLabels: [] }] : []
           setStaffMembers(fallbackStaff)
           staffPageRef.current = 1
           hasMoreStaffRef.current = false
@@ -1079,12 +1234,14 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         customerName: workspace.appointment.customerName,
         startsAt: line.currentAssignment.startsAt,
         endsAt: line.currentAssignment.endsAt,
+        assignedMemberIds: assignedMemberIdsFor(line.currentAssignment),
         state: line.currentAssignment.state,
         assignedMemberId: line.currentAssignment.assignedMemberId,
         assignedMemberName: line.currentAssignment.assignedMemberName
           ?? (line.currentAssignment.assignedMemberId
             ? staffMembers.find((member) => member.id === line.currentAssignment?.assignedMemberId)?.displayName ?? null
             : null),
+        assignedMemberNames: line.currentAssignment.assignedMemberNames,
         updatedAt: line.currentAssignment.updatedAt,
         laneIndex: 0,
         lanesCount: 1,
@@ -1111,6 +1268,16 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     for (const allocation of allocations.values()) bySeat.set(allocation.resourceId, [...(bySeat.get(allocation.resourceId) ?? []), allocation])
     return [...bySeat.values()].flatMap(computeLanes)
   }, [ownAllocations, workspace])
+  const liveStaffSheetTarget = React.useMemo(() => {
+    if (!staffSheetTarget) return null
+    const allocation = allAllocations.find((entry) => entry.id === staffSheetTarget.allocation.id)
+    return allocation ? { ...staffSheetTarget, allocation } : staffSheetTarget
+  }, [allAllocations, staffSheetTarget])
+  const livePopoverState = React.useMemo(() => {
+    if (!popoverState) return null
+    const allocation = allAllocations.find((entry) => entry.id === popoverState.allocation.id)
+    return allocation ? { ...popoverState, allocation } : popoverState
+  }, [allAllocations, popoverState])
   const allocationsBySeat = React.useMemo(() => {
     const map = new Map<string, PlannerAllocation[]>()
     for (const allocation of allAllocations) map.set(allocation.resourceId, [...(map.get(allocation.resourceId) ?? []), allocation])
@@ -1120,10 +1287,11 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     const widths = new Map<string, number>()
     for (const seat of seatColumns) {
       const maxLanes = Math.max(1, ...(allocationsBySeat.get(seat.id) ?? []).map((allocation) => allocation.lanesCount))
-      widths.set(seat.id, maxLanes >= 3 ? Math.max(SEAT_COLUMN_WIDTH, maxLanes * OVERLAPPED_LANE_MIN_WIDTH + 8) : SEAT_COLUMN_WIDTH)
+      const baseWidth = maxLanes >= 3 ? Math.max(SEAT_COLUMN_WIDTH, maxLanes * OVERLAPPED_LANE_MIN_WIDTH + 8) : SEAT_COLUMN_WIDTH
+      widths.set(seat.id, baseWidth * zoomScale)
     }
     return widths
-  }, [allocationsBySeat, seatColumns])
+  }, [allocationsBySeat, seatColumns, zoomScale])
   const timelineBounds = React.useMemo(() => {
     const startCandidates: number[] = []
     const endCandidates: number[] = []
@@ -1161,8 +1329,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const activeLine = React.useMemo(() => workspace?.lines.find((line) => line.id === activeLineId) ?? null, [activeLineId, workspace?.lines])
   const earliestDate = workspace ? new Date(workspace.appointment.requestedStartAt) : null
   const earliestMinutes = earliestDate ? earliestDate.getHours() * 60 + earliestDate.getMinutes() : START_HOUR * 60
-  const bodyHeight = ((timelineBounds.endMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight()
-  const gridTemplateColumns = `${TIME_COLUMN_WIDTH}px ${seatColumns.map((seat) => `${resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH}px`).join(' ')}`
+  const bodyHeight = ((timelineBounds.endMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight(zoomScale)
+  const gridTemplateColumns = `${TIME_COLUMN_WIDTH}px ${seatColumns.map((seat) => `${resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH * zoomScale}px`).join(' ')}`
   const boardWidth = TIME_COLUMN_WIDTH + seatColumns.reduce((width, seat) => width + (resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH), 0)
   const isSaving = guardedMutation.isPending
   const canConfirm = Boolean(workspace?.lines.length) && Boolean(workspace?.lines.every((line) => Boolean(line.currentAssignment))) && !isSaving
@@ -1171,33 +1339,36 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     return bookableServices.filter((service) => !existingProductIds.has(service.id))
   }, [bookableServices, workspace?.lines])
 
-  const saveDraft = React.useCallback(async (line: SeatPlannerLine, resourceId: string, startsAt: string, duration: number, assignedMemberId?: string | null) => {
-    if (!workspace) return
+  const saveDraft = React.useCallback(async (line: SeatPlannerLine, resourceId: string, startsAt: string, duration: number, assignedMemberIds?: string[]) => {
+    if (!workspace) return null
+    const currentLine = workspace.lines.find((entry) => entry.id === line.id) ?? line
+    const nextAssignedMemberIds = assignedMemberIds ?? assignedMemberIdsFor(currentLine.currentAssignment ?? {})
     const body = {
       resourceId,
       startsAt,
       endsAt: addMinutes(startsAt, duration),
-      assignedMemberId: assignedMemberId === undefined
-        ? line.currentAssignment?.assignedMemberId ?? null
-        : assignedMemberId,
-      ...(line.currentAssignment?.state === 'draft' && line.currentAssignment.updatedAt
-        ? { expectedUpdatedAt: line.currentAssignment.updatedAt }
+      assignedMemberIds: nextAssignedMemberIds,
+      assignedMemberId: nextAssignedMemberIds[0] ?? null,
+      ...(currentLine.currentAssignment?.state === 'draft' && currentLine.currentAssignment.updatedAt
+        ? { expectedUpdatedAt: currentLine.currentAssignment.updatedAt }
         : {}),
     }
     const resourceName = seatColumns.find((resource) => resource.id === resourceId)?.name ?? null
-    const assignedMemberName = body.assignedMemberId
-      ? staffMembers.find((member) => member.id === body.assignedMemberId)?.displayName ?? null
-      : null
+    const assignedMemberNames = nextAssignedMemberIds
+      .map((memberId) => staffMembers.find((member) => member.id === memberId)?.displayName)
+      .filter((name): name is string => typeof name === 'string')
     const optimisticAssignment = {
-      id: line.currentAssignment?.id ?? `optimistic-${line.id}`,
+      id: currentLine.currentAssignment?.id ?? `optimistic-${line.id}`,
       state: 'draft' as const,
       resourceId,
       resourceName,
       startsAt,
       endsAt: body.endsAt,
+      assignedMemberIds: nextAssignedMemberIds,
       assignedMemberId: body.assignedMemberId,
-      assignedMemberName,
-      updatedAt: line.currentAssignment?.updatedAt ?? '',
+      assignedMemberName: assignedMemberNames[0] ?? null,
+      assignedMemberNames,
+      updatedAt: currentLine.currentAssignment?.updatedAt ?? '',
     }
     setWorkspace((current) => current ? {
       ...current,
@@ -1222,12 +1393,15 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             resourceName: assignment.resourceName ?? resourceName,
             startsAt: assignment.startsAt,
             endsAt: assignment.endsAt,
+            assignedMemberIds: assignment.assignedMemberIds ?? (assignment.assignedMemberId ? [assignment.assignedMemberId] : []),
             assignedMemberId: assignment.assignedMemberId ?? null,
-            assignedMemberName: assignment.assignedMemberName ?? assignedMemberName,
+            assignedMemberName: assignment.assignedMemberName ?? assignedMemberNames[0] ?? null,
+            assignedMemberNames: assignment.assignedMemberNames ?? assignedMemberNames,
             updatedAt: assignment.updatedAt,
           },
         } : entry),
       } : current)
+      return assignment
     } catch (error) {
       await loadWorkspace()
       throw error
@@ -1341,14 +1515,22 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       for (const assignment of plannedAssignments) {
         await saveDraft(assignment.line, resourceId, assignment.startsAt, assignment.duration)
       }
-    } catch (saveError) {
-      flash(saveError instanceof Error
-        ? saveError.message
-        : t('appointments.seatPlanner.saveError', 'Unable to save the assignment.'), 'error')
-      return
+      flash(t('appointments.seatPlanner.saved', 'Assignment saved'), 'success')
+    } catch (error) {
+      flash(error instanceof Error ? error.message : t('appointments.seatPlanner.saveError', 'Unable to save the assignment.'), 'error')
     }
-    flash(t('appointments.seatPlanner.saved', 'Assignment saved'), 'success')
   }, [activeLine, allocationsBySeat, canUseResourceRange, earliestMinutes, flash, saveDraft, t, workspace])
+
+  const handleInsertionHover = React.useCallback((allocation: PlannerAllocation, event: React.MouseEvent<HTMLDivElement>) => {
+    const start = new Date(allocation.startsAt)
+    const rect = event.currentTarget.getBoundingClientRect()
+    const offset = Math.min(
+      Math.max(0, durationMinutes(allocation.startsAt, allocation.endsAt) - SLOT_MINUTES),
+      Math.floor(Math.max(0, event.clientY - rect.top) / slotHeight(zoomScale)) * SLOT_MINUTES,
+    )
+    const target = new Date(start.getTime() + offset * 60000)
+    setHoveredInsertion({ allocationId: allocation.id, time: minutesToTime(target.getHours() * 60 + target.getMinutes()) })
+  }, [zoomScale])
 
   const handleConfirmAll = React.useCallback(async () => {
     if (!workspace) return
@@ -1370,9 +1552,6 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       flash(t('appointments.seatPlanner.confirmed', 'All assignments confirmed'), 'success')
       router.push(`/backend/appointments/booking-overview?date=${encodeURIComponent(workspace.appointment.requestedStartAt.slice(0, 10))}&organizationId=${encodeURIComponent(workspace.appointment.organizationId)}`)
     } catch (confirmError) {
-      // The call site is `onClick={() => void handleConfirmAll()}`, so an unhandled rejection
-      // here is a button that visibly does nothing on a 500. Navigation stays inside the try
-      // so a failed confirm never routes away from the planner.
       flash(confirmError instanceof Error
         ? confirmError.message
         : t('appointments.seatPlanner.confirmError', 'Unable to confirm assignments.'), 'error')
@@ -1392,56 +1571,89 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       flash(t('appointments.seatPlanner.resourceBooked', 'That resource is already booked for this time.'), 'error')
       return
     }
-    await saveDraft(line, allocation.resourceId, allocation.startsAt, nextDuration, allocation.assignedMemberId ?? null)
+    await saveDraft(line, allocation.resourceId, allocation.startsAt, nextDuration, assignedMemberIdsFor(allocation))
     setPopoverState(null)
   }, [allocationsBySeat, flash, saveDraft, t, workspace])
 
   const handleAssignStaff = React.useCallback(async (target: StaffSheetTarget, staffId: string | null) => {
     const line = target.line
     if (!line || target.allocation.appointmentId !== workspace?.appointment.id) return
-    if (staffId === null && !target.allocation.assignedMemberId) return
+    const currentIds = assignedMemberIdsFor(target.allocation)
+    const nextIds = staffId === null
+      ? []
+      : currentIds.includes(staffId)
+        ? currentIds.filter((id) => id !== staffId)
+        : [...currentIds, staffId]
     try {
-      await saveDraft(line, target.allocation.resourceId, target.allocation.startsAt, durationMinutes(target.allocation.startsAt, target.allocation.endsAt), staffId)
-    } catch (staffError) {
-      flash(staffError instanceof Error
-        ? staffError.message
-        : t('appointments.seatPlanner.staffAssignError', 'Unable to update staff.'), 'error')
-      return
+      const assignment = await saveDraft(line, target.allocation.resourceId, target.allocation.startsAt, durationMinutes(target.allocation.startsAt, target.allocation.endsAt), nextIds)
+      const nextNames = nextIds
+        .map((id) => staffMembers.find((member) => member.id === id)?.displayName)
+        .filter((name): name is string => typeof name === 'string')
+      setStaffSheetTarget((current) => current ? {
+        ...current,
+        allocation: {
+          ...current.allocation,
+          assignedMemberIds: nextIds,
+          assignedMemberId: nextIds[0] ?? null,
+          assignedMemberName: nextNames[0] ?? null,
+          assignedMemberNames: nextNames,
+          updatedAt: assignment?.updatedAt ?? current.allocation.updatedAt,
+        },
+      } : current)
+      flash(staffId && !currentIds.includes(staffId)
+        ? t('appointments.seatPlanner.staffAssigned', 'Staff assigned')
+        : t('appointments.seatPlanner.staffUnassigned', 'Staff removed'), 'success')
+    } catch (error) {
+      flash(error instanceof Error ? error.message : t('appointments.seatPlanner.staffAssignError', 'Unable to update staff.'), 'error')
     }
-    setStaffSheetTarget((current) => current ? {
-      ...current,
-      allocation: {
-        ...current.allocation,
-        assignedMemberId: staffId,
-        assignedMemberName: staffId ? staffMembers.find((member) => member.id === staffId)?.displayName ?? null : null,
-      },
-    } : current)
-    setPopoverState(null)
-    flash(staffId ? t('appointments.seatPlanner.staffAssigned', 'Staff assigned') : t('appointments.seatPlanner.staffUnassigned', 'Staff removed'), 'success')
   }, [flash, saveDraft, staffMembers, t, workspace?.appointment.id])
 
   const busyStaffIds = React.useMemo(() => {
-    if (!staffSheetTarget) return new Set<string>()
+    if (!liveStaffSheetTarget) return new Set<string>()
     const busy = new Set<string>()
-    const targetStart = new Date(staffSheetTarget.allocation.startsAt).getTime()
-    const targetEnd = new Date(staffSheetTarget.allocation.endsAt).getTime()
+    const targetStart = new Date(liveStaffSheetTarget.allocation.startsAt).getTime()
+    const targetEnd = new Date(liveStaffSheetTarget.allocation.endsAt).getTime()
     for (const allocation of allAllocations) {
-      if (allocation.id === staffSheetTarget.allocation.id || !allocation.assignedMemberId) continue
+      if (allocation.id === liveStaffSheetTarget.allocation.id) continue
       const start = new Date(allocation.startsAt).getTime()
       const end = new Date(allocation.endsAt).getTime()
-      if (targetStart < end && start < targetEnd) busy.add(allocation.assignedMemberId)
+      if (targetStart < end && start < targetEnd) {
+        assignedMemberIdsFor(allocation).forEach((memberId) => busy.add(memberId))
+      }
     }
     return busy
-  }, [allAllocations, staffSheetTarget])
+  }, [allAllocations, liveStaffSheetTarget])
 
   React.useEffect(() => {
-    if (!timelineRef.current || ownAllocations.length === 0) return
-    const first = [...ownAllocations].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0]
-    if (!first) return
-    const seatIndex = seatColumns.findIndex((seat) => seat.id === first.resourceId)
-    const seatOffset = seatColumns.slice(0, Math.max(0, seatIndex)).reduce((width, seat) => width + (resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH), TIME_COLUMN_WIDTH)
-    timelineRef.current.scrollTo({ top: Math.max(0, allocationTop(first, timelineBounds.startMinutes) - 80), left: Math.max(0, seatOffset - 120), behavior: 'smooth' })
-  }, [ownAllocations, resourceColumnWidths, seatColumns, timelineBounds.startMinutes])
+    const timeline = timelineRef.current
+    if (!timeline) return
+    if (ownAllocations.length > 0) {
+      const first = [...ownAllocations].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0]
+      if (!first) return
+      const seatIndex = seatColumns.findIndex((seat) => seat.id === first.resourceId)
+      const seatOffset = seatColumns.slice(0, Math.max(0, seatIndex)).reduce((width, seat) => width + (resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH * zoomScale), TIME_COLUMN_WIDTH)
+      timeline.scrollTo({ top: Math.max(0, allocationTop(first, timelineBounds.startMinutes, zoomScale) - 80), left: Math.max(0, seatOffset - 120), behavior: 'smooth' })
+      return
+    }
+
+    const line = workspace?.lines.find((entry) => !entry.currentAssignment) ?? workspace?.lines[0]
+    if (!workspace || !line) return
+    const placement = findFirstAvailablePlacement(
+      seatColumns,
+      allAllocations,
+      line,
+      workspace.appointment.requestedStartAt,
+      timelineBounds.startMinutes,
+      timelineBounds.endMinutes,
+    )
+    const minutes = placement?.minutes ?? Math.max(
+      timelineBounds.startMinutes,
+      Math.min(earliestMinutes, timelineBounds.endMinutes - lineDuration(line)),
+    )
+    const seatIndex = seatColumns.findIndex((seat) => seat.id === placement?.resourceId)
+    const seatOffset = seatColumns.slice(0, Math.max(0, seatIndex)).reduce((width, seat) => width + (resourceColumnWidths.get(seat.id) ?? SEAT_COLUMN_WIDTH * zoomScale), TIME_COLUMN_WIDTH)
+    timeline.scrollTo({ top: Math.max(0, slotTop(minutesToTime(minutes), timelineBounds.startMinutes, zoomScale) - 80), left: Math.max(0, seatOffset - 120), behavior: 'smooth' })
+  }, [allAllocations, earliestMinutes, ownAllocations, resourceColumnWidths, seatColumns, timelineBounds.endMinutes, timelineBounds.startMinutes, workspace, zoomScale])
 
   const scrollServiceIntoView = React.useCallback((lineId: string) => {
     const service = document.querySelector<HTMLElement>(`[data-seat-planner-line-id="${lineId}"]`)
@@ -1484,9 +1696,11 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         customerName: workspace.appointment.customerName,
         startsAt: assignment.startsAt,
         endsAt: assignment.endsAt,
+        assignedMemberIds: assignedMemberIdsFor(assignment),
         state: assignment.state,
         assignedMemberId: assignment.assignedMemberId,
         assignedMemberName: assignment.assignedMemberName,
+        assignedMemberNames: assignment.assignedMemberNames,
         updatedAt: assignment.updatedAt,
         laneIndex: 0,
         lanesCount: 1,
@@ -1553,8 +1767,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
           </header>
 
           <div className="flex min-h-0 flex-1">
-            {mobileSidebarOpen ? <div className="fixed inset-0 z-overlay bg-foreground/20 lg:hidden" onClick={() => setMobileSidebarOpen(false)} /> : null}
-            <aside className={`fixed inset-y-0 left-0 z-modal flex flex-col min-h-0 w-full max-w-sm border-r border-border bg-surface shadow-lg transition-transform lg:static lg:z-auto lg:w-80 lg:translate-x-0 lg:shadow-none ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            {mobileSidebarOpen ? <div className="fixed inset-0 z-40 bg-foreground/20 lg:hidden" onClick={() => setMobileSidebarOpen(false)} /> : null}
+            <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col min-h-0 w-full max-w-sm border-r border-border bg-surface shadow-lg transition-transform lg:static lg:z-auto lg:w-80 lg:translate-x-0 lg:shadow-none ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
               <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3 lg:hidden">
                 <p className="text-sm font-semibold">{t('appointments.seatPlanner.bookingDetails', 'Booking details')}</p>
                 <IconButton type="button" variant="ghost" aria-label={t('common.close', 'Close')} onClick={() => setMobileSidebarOpen(false)}><PanelLeftClose className="size-4" /></IconButton>
@@ -1579,11 +1793,37 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             </aside>
 
             <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-              <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2">
+              <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-1.5 sm:px-4">
                 <div className="flex min-w-0 items-center gap-2">
                   <Clock className="size-4 text-muted-foreground" />
                   <span className="text-xs font-semibold uppercase tracking-wider">{t('appointments.seatPlanner.seatsStations', 'Resources')}</span>
-                  <Tag variant="neutral">{seatColumns.length} {t('appointments.seatPlanner.seats', 'resources')}</Tag>
+                  <Tag variant="neutral">
+                    {seatColumns.length}
+                    <span className="hidden sm:inline"> {t('appointments.seatPlanner.seats', 'resources')}</span>
+                  </Tag>
+                </div>
+                <div className="flex shrink-0 items-center gap-0 rounded-md border border-border bg-surface-muted p-0.5">
+                  <IconButton
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    aria-label={t('appointments.seatPlanner.zoomOut', 'Zoom out')}
+                    disabled={zoomScale === ZOOM_LEVELS[0]}
+                    onClick={() => setZoomScale((current) => ZOOM_LEVELS[Math.max(0, ZOOM_LEVELS.indexOf(current as typeof ZOOM_LEVELS[number]) - 1)] ?? ZOOM_LEVELS[0])}
+                  >
+                    <ZoomOut className="size-4" />
+                  </IconButton>
+                  <span className="min-w-10 px-0.5 text-center text-xs font-medium text-muted-foreground">{Math.round(zoomScale * 100)}%</span>
+                  <IconButton
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    aria-label={t('appointments.seatPlanner.zoomIn', 'Zoom in')}
+                    disabled={zoomScale === ZOOM_LEVELS[ZOOM_LEVELS.length - 1]}
+                    onClick={() => setZoomScale((current) => ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, ZOOM_LEVELS.indexOf(current as typeof ZOOM_LEVELS[number]) + 1)] ?? ZOOM_LEVELS[ZOOM_LEVELS.length - 1])}
+                  >
+                    <ZoomIn className="size-4" />
+                  </IconButton>
                 </div>
               </div>
 
@@ -1605,8 +1845,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                 <ResourceIcon resource={seat} />
                               </span>
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold">{seat.code || seat.name}</p>
-                                <p className="truncate text-xs text-muted-foreground">{seat.name}</p>
+                                <p className="truncate text-sm font-semibold">{seat.name}</p>
+                                <p className="truncate text-xs text-muted-foreground">{seat.code || seat.name}</p>
                               </div>
                             </div>
                           </div>
@@ -1614,23 +1854,41 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                       </div>
 
                       <div className="absolute inset-x-0 bottom-0 grid" style={{ top: HEADER_HEIGHT, gridTemplateColumns }}>
-                        <div className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-status-warning-border" style={{ top: Math.max(0, ((earliestMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight()) }} />
+                        <div className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-status-warning-border" style={{ top: Math.max(0, ((earliestMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight(zoomScale)) }} />
                         <div className="sticky left-0 z-30 border-r border-border bg-surface">
                           {slotGridMarkers.map((time) => (
-                            <div key={`time-slot-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time, timelineBounds.startMinutes) }} />
+                            <div key={`time-slot-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time, timelineBounds.startMinutes, zoomScale) }} />
                           ))}
                           {timeMarkers.map((time) => (
-                            <div key={time} className="absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time, timelineBounds.startMinutes) }}>
+                            <div key={time} className="absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time, timelineBounds.startMinutes, zoomScale) }}>
                               <span className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap bg-surface px-1 text-xs text-muted-foreground ${time === timeMarkers[0] ? 'top-2' : time === timeMarkers[timeMarkers.length - 1] ? '-mt-1 -translate-y-full' : '-translate-y-1/2'}`}>{time}</span>
                             </div>
                           ))}
                         </div>
 
-                        {seatColumns.map((seat) => (
-                          <div key={seat.id} className={`relative border-r border-border bg-surface ${seat.isFirstInFloor ? 'border-l' : ''}`}>
-                            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-muted/60" style={{ height: Math.max(0, ((earliestMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight()) }} />
-                            {slotGridMarkers.map((time) => <div key={`${seat.id}-${time}-slot-grid`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time, timelineBounds.startMinutes) }} />)}
-                            {timeMarkers.map((time) => <div key={`${seat.id}-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time, timelineBounds.startMinutes) }} />)}
+                        {seatColumns.map((seat) => {
+                          const isPreviewTarget = hoveredSlot?.resourceId === seat.id && Boolean(activeLine)
+                          const previewDuration = activeLine ? lineDuration(activeLine) : 0
+                          const previewStartsAt = isPreviewTarget && hoveredSlot
+                            ? buildIsoFromSlot(workspace.appointment.requestedStartAt, hoveredSlot.time)
+                            : null
+                          const previewEndsAt = previewStartsAt ? addMinutes(previewStartsAt, previewDuration) : null
+                          const previewStaffNames = activeLine?.currentAssignment?.assignedMemberNames
+                            ?? (activeLine?.currentAssignment?.assignedMemberName ? [activeLine.currentAssignment.assignedMemberName] : [])
+                          const previewBlocked = previewStartsAt && previewEndsAt
+                            ? timeToMinutes(hoveredSlot?.time ?? '00:00') < earliestMinutes
+                              || !canUseResourceRange(seat.id, previewStartsAt, previewEndsAt)
+                              || (allocationsBySeat.get(seat.id) ?? []).some((allocation) => {
+                                if (allocation.appointmentId === workspace.appointment.id) return false
+                                return new Date(previewStartsAt).getTime() < new Date(allocation.endsAt).getTime()
+                                  && new Date(allocation.startsAt).getTime() < new Date(previewEndsAt).getTime()
+                              })
+                            : false
+                          return (
+                            <div key={seat.id} className={`relative isolate border-r border-border bg-surface ${seat.isFirstInFloor ? 'border-l' : ''}`} onMouseLeave={() => { setHoveredSlot(null); setHoveredInsertion(null) }}>
+                            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 bg-muted/60" style={{ height: Math.max(0, ((earliestMinutes - timelineBounds.startMinutes) / SLOT_MINUTES) * slotHeight(zoomScale)) }} />
+                            {slotGridMarkers.map((time) => <div key={`${seat.id}-${time}-slot-grid`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: slotTop(time, timelineBounds.startMinutes, zoomScale) }} />)}
+                            {timeMarkers.map((time) => <div key={`${seat.id}-${time}`} className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border" style={{ top: slotTop(time, timelineBounds.startMinutes, zoomScale) }} />)}
                             {slots.map((time) => {
                               const minutes = timeToMinutes(time)
                               const beforeEarliest = minutes < earliestMinutes
@@ -1649,8 +1907,9 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                   type="button"
                                   variant="ghost"
                                   className={`absolute left-0 right-0 rounded-none border-t border-transparent p-0 ${blocked ? 'cursor-not-allowed opacity-40' : 'hover:bg-primary/10'}`}
-                                  style={{ top: slotTop(time, timelineBounds.startMinutes), height: slotHeight() }}
+                                  style={{ top: slotTop(time, timelineBounds.startMinutes, zoomScale), height: slotHeight(zoomScale) }}
                                   disabled={!activeLine || blocked}
+                                  onMouseEnter={() => setHoveredSlot({ resourceId: seat.id, time })}
                                   onClick={() => {
                                     void handleSlotClick(seat.id, time)
                                   }}
@@ -1658,6 +1917,23 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                 />
                               )
                             })}
+                            {isPreviewTarget && previewStartsAt && previewEndsAt && activeLine ? (
+                              <div
+                                className={`pointer-events-none absolute left-1 right-1 z-10 flex flex-col overflow-hidden rounded-md border-2 border-dashed px-2 py-1 text-xs ${previewBlocked ? 'border-destructive/60 bg-destructive/10 text-destructive' : 'border-primary/60 bg-primary/10 text-primary'}`}
+                                style={{
+                                  top: slotTop(hoveredSlot?.time ?? minutesToTime(timelineBounds.startMinutes), timelineBounds.startMinutes, zoomScale),
+                                  height: Math.max((previewDuration / SLOT_MINUTES) * slotHeight(zoomScale), 24),
+                                }}
+                              >
+                                <span className={`${previewDuration <= 15 ? 'truncate' : 'line-clamp-2'} font-semibold leading-tight`}>{activeLine.productTitle}</span>
+                                {previewDuration > 30 ? (
+                                  <span className="line-clamp-2 break-words text-xs leading-tight opacity-80">{previewStaffNames.join(', ') || 'No staff assigned'}</span>
+                                ) : null}
+                                {previewDuration >= 30 ? (
+                                  <span className="mt-auto truncate text-xs opacity-80">{formatTime(previewStartsAt)} - {formatTime(previewEndsAt)}</span>
+                                ) : null}
+                              </div>
+                            ) : null}
                             {(allocationsBySeat.get(seat.id) ?? []).map((allocation) => {
                               const line = workspace.lines.find((entry) => entry.id === allocation.lineId) ?? null
                               return (
@@ -1666,9 +1942,13 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                   allocation={{ ...allocation, resourceName: seat.name }}
                                   line={line}
                                   timelineStartMinutes={timelineBounds.startMinutes}
+                                  zoom={zoomScale}
                                   isOwn={allocation.appointmentId === workspace.appointment.id}
                                   isActive={allocation.lineId === activeLineId}
+                                  canInsert={Boolean(activeLine && allocation.appointmentId === workspace.appointment.id && allocation.lineId !== activeLine.id)}
                                   onResizeEnd={(nextDuration) => handleDurationChange(allocation, nextDuration)}
+                                  onHoverInsertion={(event) => handleInsertionHover(allocation, event)}
+                                  onHoverBlock={() => setHoveredSlot(null)}
                                   onOpen={(event) => {
                                     setPopoverState({ allocation: { ...allocation, resourceName: seat.name }, anchor: event.currentTarget.getBoundingClientRect() })
                                     if (allocation.appointmentId === workspace.appointment.id) {
@@ -1679,8 +1959,32 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                                 />
                               )
                             })}
-                          </div>
-                        ))}
+                            {activeLine ? (allocationsBySeat.get(seat.id) ?? [])
+                              .filter((allocation) => {
+                                if (allocation.appointmentId !== workspace.appointment.id || allocation.lineId === activeLine.id) return false
+                                if (isCoarsePointer) return allocation.laneIndex === allocation.lanesCount - 1
+                                return hoveredInsertion?.allocationId === allocation.id
+                              })
+                              .map((allocation) => (
+                                <PlannerInsertionRail
+                                  key={`${allocation.id}-insertion-rail`}
+                                  allocation={allocation}
+                                  timelineStartMinutes={timelineBounds.startMinutes}
+                                  zoom={zoomScale}
+                                  insertionTime={hoveredInsertion?.allocationId === allocation.id ? hoveredInsertion.time : null}
+                                  onHover={(time) => {
+                                    setHoveredSlot(null)
+                                    setHoveredInsertion({ allocationId: allocation.id, time })
+                                  }}
+                                  onInsert={(time) => {
+                                    setHoveredInsertion(null)
+                                    void handleSlotClick(seat.id, time)
+                                  }}
+                                />
+                              )) : null}
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   </div>
@@ -1690,32 +1994,32 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
           </div>
         </div>
 
-        {popoverState ? (
+        {livePopoverState ? (
           <DraftPopover
-            state={popoverState}
-            line={workspace.lines.find((line) => line.id === popoverState.allocation.lineId) ?? null}
-            isOwn={popoverState.allocation.appointmentId === workspace.appointment.id}
+            state={livePopoverState}
+            line={workspace.lines.find((line) => line.id === livePopoverState.allocation.lineId) ?? null}
+            isOwn={livePopoverState.allocation.appointmentId === workspace.appointment.id}
             onClose={() => setPopoverState(null)}
-            onClear={() => void clearDraft(popoverState.allocation.lineId)}
-            onDurationChange={(nextDuration) => void handleDurationChange(popoverState.allocation, nextDuration)}
+            onClear={() => void clearDraft(livePopoverState.allocation.lineId)}
+            onDurationChange={(nextDuration) => void handleDurationChange(livePopoverState.allocation, nextDuration)}
             onOpenStaff={() => {
               staffAvailabilityRangeRef.current = {
-                startsAt: popoverState.allocation.startsAt,
-                endsAt: popoverState.allocation.endsAt,
+                startsAt: livePopoverState.allocation.startsAt,
+                endsAt: livePopoverState.allocation.endsAt,
               }
               staffPageRef.current = 0
               staffLoadingRef.current = false
               hasMoreStaffRef.current = true
               setHasMoreStaff(true)
               setStaffMembers([])
-              setStaffSheetTarget({ allocation: popoverState.allocation, line: workspace.lines.find((line) => line.id === popoverState.allocation.lineId) ?? null })
+              setStaffSheetTarget({ allocation: livePopoverState.allocation, line: workspace.lines.find((line) => line.id === livePopoverState.allocation.lineId) ?? null })
             }}
           />
         ) : null}
 
-        {staffSheetTarget ? (
-          <AppointmentStaffAssignmentSheet
-            target={staffSheetTarget.allocation}
+        {liveStaffSheetTarget ? (
+          <StaffSheet
+            target={liveStaffSheetTarget}
             staff={staffMembers}
             isLoadingStaff={isLoadingStaff}
             isLoadingMoreStaff={isLoadingMoreStaff}
@@ -1723,8 +2027,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             busyStaffIds={busyStaffIds}
             isSaving={isSaving}
             onClose={() => setStaffSheetTarget(null)}
-            onAssign={(staffId) => void handleAssignStaff(staffSheetTarget, staffId)}
-            onDurationChange={(nextDuration) => void handleDurationChange(staffSheetTarget.allocation, nextDuration)}
+            onAssign={(staffId) => void handleAssignStaff(liveStaffSheetTarget, staffId)}
+            onDurationChange={(nextDuration) => void handleDurationChange(liveStaffSheetTarget.allocation, nextDuration)}
             onLoadMore={() => void loadStaffPage(staffPageRef.current + 1)}
           />
         ) : null}

@@ -18,6 +18,7 @@ import {
   convertSchemaToProductOptions,
   buildVariantCombinations,
   isConfigurableProductType,
+  getProductTypeSelectionUpdates,
 } from '../productForm'
 
 /**
@@ -108,6 +109,17 @@ describe('BASE_INITIAL_VALUES UoM defaults', () => {
     expect(BASE_INITIAL_VALUES.unitPriceReferenceUnit).toBeNull()
     expect(BASE_INITIAL_VALUES.unitPriceBaseQuantity).toBe('')
     expect(BASE_INITIAL_VALUES.unitConversions).toEqual([])
+  })
+})
+
+describe('product type selection', () => {
+  it('keeps service UOM fields empty while applying service behavior', () => {
+    expect(getProductTypeSelectionUpdates('service', { hasVariants: false })).toEqual([
+      ['productType', 'service'],
+      ['customFieldsetCode', 'service_schedule'],
+      ['requiresShipping', false],
+      ['hasVariants', true],
+    ])
   })
 })
 

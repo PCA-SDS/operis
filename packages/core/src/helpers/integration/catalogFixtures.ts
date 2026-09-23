@@ -4,6 +4,7 @@ import { apiRequest } from './api';
 type ProductFixtureInput = {
   title: string;
   sku: string;
+  productType?: 'simple' | 'configurable';
 };
 
 type VariantFixtureInput = {
@@ -23,6 +24,7 @@ export async function createProductFixture(
     data: {
       title: input.title,
       sku: input.sku,
+      productType: input.productType,
       description:
         'Long enough description for SEO checks in QA automation flows. This text keeps the create validation satisfied.',
     },

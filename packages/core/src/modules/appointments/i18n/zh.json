@@ -380,6 +380,8 @@
   "appointments.seatPlanner.staffUnavailable": "Staff member is unavailable for this time.",
   "appointments.seatPlanner.time": "Time",
   "appointments.seatPlanner.timeline": "Timeline",
+  "appointments.seatPlanner.zoomIn": "Zoom in",
+  "appointments.seatPlanner.zoomOut": "Zoom out",
   "appointments.seatPlanner.title": "Seat Planner",
   "appointments.seatPlanner.unassignStaff": "No staff",
   "appointments.seatPlanner.unassigned": "Unassigned",

@@ -276,7 +276,9 @@ export const productFormSchema = z
         z.object({
           id: z.string().nullable().optional(),
           unitCode: z.string().trim().max(50),
-          toBaseFactor: z.coerce.number().positive(),
+          toBaseFactor: z.coerce.number().positive({
+            message: "catalog.products.uom.errors.invalidConversionFactor",
+          }),
           sortOrder: z.coerce.number().int().min(0).max(100000).optional(),
           isActive: z.boolean().optional(),
         }),
@@ -434,6 +436,22 @@ export const BASE_INITIAL_VALUES: ProductFormValues = {
 
 export const isConfigurableProductType = (type: string): boolean =>
   (CATALOG_CONFIGURABLE_PRODUCT_TYPES as readonly string[]).includes(type);
+
+export function getProductTypeSelectionUpdates(
+  nextType: string,
+  values: Pick<ProductFormValues, 'hasVariants'>,
+): Array<[string, unknown]> {
+  const updates: Array<[string, unknown]> = [['productType', nextType]];
+  const nextIsConfigurable = isConfigurableProductType(nextType);
+
+  if (nextType === 'service') {
+    updates.push(['customFieldsetCode', 'service_schedule'], ['requiresShipping', false]);
+  }
+  if (nextIsConfigurable && !values.hasVariants) updates.push(['hasVariants', true]);
+  else if (!nextIsConfigurable && values.hasVariants) updates.push(['hasVariants', false]);
+
+  return updates;
+}
 
 const complianceTrimOrNull = (value: string | null | undefined): string | null => {
   const trimmed = typeof value === "string" ? value.trim() : "";

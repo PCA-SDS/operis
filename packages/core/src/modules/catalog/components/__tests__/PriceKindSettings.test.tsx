@@ -16,6 +16,11 @@ const mockApiCall = jest.fn()
 const mockReadApiResultOrThrow = jest.fn()
 const mockWithScopedApiRequestHeaders = jest.fn((_headers: Record<string, string>, run: () => Promise<unknown>) => run())
 const mockRaiseCrudError = jest.fn()
+const mockMapCrudServerErrorToFormErrors = jest.fn((error: unknown) => {
+  if (!(error instanceof Error)) return {}
+  const structured = error as Error & { fieldErrors?: Record<string, string> }
+  return { message: error.message, fieldErrors: structured.fieldErrors }
+})
 jest.mock('@open-mercato/ui/backend/utils/apiCall', () => ({
   apiCall: (...args: unknown[]) => mockApiCall(...args),
   readApiResultOrThrow: (...args: unknown[]) => mockReadApiResultOrThrow(...args),
@@ -24,6 +29,7 @@ jest.mock('@open-mercato/ui/backend/utils/apiCall', () => ({
 }))
 jest.mock('@open-mercato/ui/backend/utils/serverErrors', () => ({
   raiseCrudError: (...args: unknown[]) => mockRaiseCrudError(...args),
+  mapCrudServerErrorToFormErrors: (...args: [unknown]) => mockMapCrudServerErrorToFormErrors(...args),
 }))
 
 const mockSurfaceRecordConflict = jest.fn<boolean, [unknown, unknown, unknown?]>(() => false)
@@ -322,6 +328,46 @@ describe('PriceKindSettings', () => {
     await waitFor(() => {
       expect(mockFlash).toHaveBeenCalledWith('Price kind created.', 'success')
     })
+  })
+
+  it('shows duplicate code inline without logging a handled validation error', async () => {
+    const duplicateMessage = 'Price kind code already exists for this tenant.'
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    mockApiCall.mockResolvedValue({ ok: false, response: { status: 400 } })
+    mockRaiseCrudError.mockImplementation(() => {
+      const error = new Error(duplicateMessage) as Error & {
+        status: number
+        fieldErrors: Record<string, string>
+      }
+      error.status = 400
+      error.fieldErrors = { code: duplicateMessage }
+      throw error
+    })
+
+    try {
+      render(<PriceKindSettings />)
+      await waitFor(() => {
+        expect(screen.getByTestId('data-count')).toHaveTextContent('2')
+      })
+      await openCreateDialog()
+      const codeInput = screen.getByPlaceholderText('e.g. regular')
+      await act(async () => {
+        fireEvent.change(codeInput, { target: { value: 'retail' } })
+        fireEvent.change(screen.getByPlaceholderText('e.g. Regular price'), { target: { value: 'Duplicate Retail' } })
+        fireEvent.click(screen.getByText('Create'))
+      })
+
+      await waitFor(() => {
+        expect(screen.getByText(duplicateMessage)).toBeInTheDocument()
+      })
+      expect(codeInput).toHaveAttribute('aria-invalid', 'true')
+      expect(consoleError).not.toHaveBeenCalled()
+
+      fireEvent.change(codeInput, { target: { value: 'retail-copy' } })
+      expect(screen.queryByText(duplicateMessage)).not.toBeInTheDocument()
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 
   it('submits edit form with PUT', async () => {

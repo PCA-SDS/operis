@@ -1,6 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { login } from '@open-mercato/core/modules/core/__integration__/helpers/auth';
 import { apiRequest, getAuthToken } from '@open-mercato/core/modules/core/__integration__/helpers/api';
+import {
+  apiRequestWithSelectedOrg,
+  createOrganizationFixture,
+  deleteOrganizationIfExists,
+} from '@open-mercato/core/helpers/integration/authFixtures';
+import { expectId, getTokenContext, readJsonSafe } from '@open-mercato/core/helpers/integration/generalFixtures';
 import type { APIResponse } from '@playwright/test';
 
 /** A bare `expect(res.ok()).toBeTruthy()` reports only "false"; this reports why. */
@@ -203,6 +209,95 @@ test.describe('TC-STAFF-HR-001: employee module', () => {
           await apiRequest(request, 'DELETE', `/api/auth/roles?id=${id}`, { token }).catch(() => undefined);
         }
       }
+    }
+  });
+
+  test('rejects cross-organization HR profile updates and deletes', async ({ request }) => {
+    test.slow();
+    const stamp = Date.now();
+    let superadminToken: string | null = null;
+    let adminToken: string | null = null;
+    let foreignOrganizationId: string | null = null;
+    let memberId: string | null = null;
+    let profileId: string | null = null;
+
+    try {
+      superadminToken = await getAuthToken(request, 'superadmin');
+      adminToken = await getAuthToken(request, 'admin');
+      const { tenantId } = getTokenContext(superadminToken);
+      const { organizationId: adminOrganizationId, tenantId: adminTenantId } = getTokenContext(adminToken);
+      expect(adminTenantId, 'Admin and superadmin should use the same QA tenant').toBe(tenantId);
+
+      foreignOrganizationId = await createOrganizationFixture(request, superadminToken, {
+        name: `QA HR Scope Org ${stamp}`,
+        tenantId,
+      });
+
+      const memberCreate = await apiRequestWithSelectedOrg(request, 'POST', '/api/staff/team-members', {
+        token: superadminToken,
+        selectedOrgId: foreignOrganizationId,
+        data: {
+          tenantId,
+          organizationId: foreignOrganizationId,
+          displayName: `QA HR Scope Member ${stamp}`,
+        },
+      });
+      expect(memberCreate.status(), 'Foreign team member should be created').toBe(201);
+      memberId = expectId((await readJsonSafe<{ id?: string }>(memberCreate))?.id, 'Foreign member id');
+
+      const profileCreate = await apiRequestWithSelectedOrg(request, 'POST', '/api/staff/employee-profiles', {
+        token: superadminToken,
+        selectedOrgId: foreignOrganizationId,
+        data: {
+          tenantId,
+          organizationId: foreignOrganizationId,
+          memberId,
+          employeeNumber: `QA-HR-SCOPE-${stamp}`,
+          jobTitle: 'Original title',
+          employmentType: 'full_time',
+          startDate: '2026-09-22',
+        },
+      });
+      expect(profileCreate.status(), 'Foreign HR profile should be created').toBe(201);
+      profileId = expectId((await readJsonSafe<{ id?: string }>(profileCreate))?.id, 'Foreign profile id');
+
+      const updateResponse = await apiRequestWithSelectedOrg(request, 'PUT', '/api/staff/employee-profiles', {
+        token: adminToken,
+        selectedOrgId: adminOrganizationId,
+        data: { id: profileId, jobTitle: 'Cross-org unauthorized update' },
+      });
+      expect(updateResponse.status(), 'Cross-organization profile update should be rejected').toBe(404);
+
+      const deleteResponse = await apiRequestWithSelectedOrg(request, 'DELETE', '/api/staff/employee-profiles', {
+        token: adminToken,
+        selectedOrgId: adminOrganizationId,
+        data: { id: profileId },
+      });
+      expect(deleteResponse.status(), 'Cross-organization profile delete should be rejected').toBe(404);
+
+      const profileRead = await apiRequestWithSelectedOrg(
+        request,
+        'GET',
+        `/api/staff/employee-profiles?memberId=${memberId}&pageSize=1`,
+        { token: superadminToken, selectedOrgId: foreignOrganizationId },
+      );
+      expect(profileRead.status(), 'Foreign profile should remain readable in its own organization').toBe(200);
+      const profileRow = (await readJsonSafe<{ items?: Array<{ job_title?: string }> }>(profileRead))?.items?.[0];
+      expect(profileRow?.job_title, 'Cross-organization mutation must not change the profile').toBe('Original title');
+    } finally {
+      if (superadminToken && profileId && foreignOrganizationId) {
+        await apiRequestWithSelectedOrg(request, 'DELETE', `/api/staff/employee-profiles?id=${profileId}`, {
+          token: superadminToken,
+          selectedOrgId: foreignOrganizationId,
+        }).catch(() => undefined);
+      }
+      if (superadminToken && memberId && foreignOrganizationId) {
+        await apiRequestWithSelectedOrg(request, 'DELETE', `/api/staff/team-members?id=${memberId}`, {
+          token: superadminToken,
+          selectedOrgId: foreignOrganizationId,
+        }).catch(() => undefined);
+      }
+      await deleteOrganizationIfExists(request, superadminToken, foreignOrganizationId);
     }
   });
 });

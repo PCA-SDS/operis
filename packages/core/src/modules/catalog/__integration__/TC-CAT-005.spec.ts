@@ -18,7 +18,11 @@ test.describe('TC-CAT-005: Create Product Variant', () => {
 
     try {
       token = await getAuthToken(request);
-      productId = await createProductFixture(request, token, { title: productName, sku: baseSku });
+      productId = await createProductFixture(request, token, {
+        title: productName,
+        sku: baseSku,
+        productType: 'configurable',
+      });
 
       await login(page, 'admin');
       await page.goto(`/backend/catalog/products/${productId}/variants/create`);

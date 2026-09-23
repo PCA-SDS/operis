@@ -11,7 +11,20 @@ import { withAtomicFlush } from '@open-mercato/shared/lib/commands/flush'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import type { CrudIndexerConfig } from '@open-mercato/shared/lib/crud/types'
 import { User } from '@open-mercato/core/modules/auth/data/entities'
-import { StaffTeam, StaffTeamMember, StaffTeamRole } from '../data/entities'
+import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
+import {
+  StaffEmployeeProfile,
+  StaffLeaveRequest,
+  StaffTeam,
+  StaffTeamMember,
+  StaffTeamMemberActivity,
+  StaffTeamMemberAddress,
+  StaffTeamMemberComment,
+  StaffTeamMemberJobHistory,
+  StaffTeamRole,
+  StaffTimeEntry,
+  StaffTimeProjectMember,
+} from '../data/entities'
 import {
   staffTeamMemberCreateSchema,
   staffTeamMemberUpdateSchema,
@@ -176,6 +189,64 @@ async function ensureTeamExists(em: EntityManager, teamId: string, tenantId: str
     { tenantId, organizationId },
   )
   if (!team) throw new CrudHttpError(400, { error: 'Team not found.' })
+}
+
+async function ensureTeamMemberHasNoReferences(
+  em: EntityManager,
+  member: StaffTeamMember,
+): Promise<void> {
+  const scope = {
+    tenantId: member.tenantId,
+    organizationId: member.organizationId,
+  }
+  const [
+    leaveRequests,
+    comments,
+    activities,
+    jobHistories,
+    addresses,
+    employeeProfiles,
+    timeEntries,
+    timeProjectMembers,
+    resourceAssignments,
+  ] = await Promise.all([
+    em.count(StaffLeaveRequest, { ...scope, member: member.id, deletedAt: null }),
+    em.count(StaffTeamMemberComment, { ...scope, member: member.id, deletedAt: null }),
+    em.count(StaffTeamMemberActivity, { ...scope, member: member.id }),
+    em.count(StaffTeamMemberJobHistory, { ...scope, member: member.id }),
+    em.count(StaffTeamMemberAddress, { ...scope, member: member.id }),
+    em.count(StaffEmployeeProfile, { ...scope, member: member.id, deletedAt: null }),
+    em.count(StaffTimeEntry, { ...scope, staffMemberId: member.id, deletedAt: null }),
+    em.count(StaffTimeProjectMember, { ...scope, staffMemberId: member.id, deletedAt: null }),
+    em.count(ResourcesAssignment, {
+      ...scope,
+      cancelledAt: null,
+      $or: [
+        { assignedMemberId: member.id },
+        { assignedMemberIds: { $contains: [member.id] } },
+      ],
+    }),
+  ])
+
+  if (
+    leaveRequests > 0
+    || comments > 0
+    || activities > 0
+    || jobHistories > 0
+    || addresses > 0
+    || employeeProfiles > 0
+    || timeEntries > 0
+    || timeProjectMembers > 0
+    || resourceAssignments > 0
+  ) {
+    const { translate } = await resolveTranslations()
+    throw new CrudHttpError(409, {
+      error: translate(
+        'staff.teamMembers.errors.deleteReferenced',
+        'Team member is referenced by other records. Remove those references before deleting.',
+      ),
+    })
+  }
 }
 
 const createTeamMemberCommand: CommandHandler<StaffTeamMemberCreateInput, { memberId: string }> = {
@@ -482,7 +553,7 @@ const updateTeamMemberCommand: CommandHandler<StaffTeamMemberUpdateInput, { memb
   },
 }
 
-const deleteTeamMemberCommand: CommandHandler<{ id?: string }, { memberId: string }> = {
+const deleteTeamMemberCommand: CommandHandler<{ id?: string; force?: boolean }, { memberId: string }> = {
   id: 'staff.team-members.delete',
   async prepare(input, ctx) {
     const id = input?.id
@@ -508,6 +579,7 @@ const deleteTeamMemberCommand: CommandHandler<{ id?: string }, { memberId: strin
     if (!member) throw new CrudHttpError(404, { error: 'Team member not found.' })
     ensureTenantScope(ctx, member.tenantId)
     ensureOrganizationScope(ctx, member.organizationId)
+    if (!input?.force) await ensureTeamMemberHasNoReferences(em, member)
     member.deletedAt = new Date()
     member.updatedAt = new Date()
     await em.flush()

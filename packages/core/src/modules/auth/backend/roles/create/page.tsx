@@ -13,6 +13,7 @@ import { ParentRoleSelect } from '@open-mercato/core/modules/auth/components/Par
 
 type CreateRoleFormValues = {
   name: string
+  parentRoleId?: string | null
   tenantId?: string
 } & Record<string, unknown>
 
@@ -90,6 +91,7 @@ export default function CreateRolePage() {
   const initialValues = React.useMemo<Partial<CreateRoleFormValues>>(
     () => ({
       name: '',
+      parentRoleId: null,
       tenantId: undefined,
     }),
     [],
@@ -113,6 +115,7 @@ export default function CreateRolePage() {
             const payload: Record<string, unknown> = {
               name: values.name,
             }
+            if (values.parentRoleId !== undefined) payload.parentRoleId = values.parentRoleId ?? null
             if (actorIsSuperAdmin) {
               const rawTenant = typeof values.tenantId === 'string' ? values.tenantId.trim() : null
               payload.tenantId = rawTenant && rawTenant.length ? rawTenant : null

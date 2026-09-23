@@ -4,6 +4,9 @@ import * as React from 'react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '../../primitives/button'
 import { Tag } from '../../primitives/tag'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
+
+const DEFAULT_SUGGESTIONS_DEBOUNCE_MS = 300
 
 export type TagsInputOption = {
   value: string
@@ -25,6 +28,7 @@ export type TagsInputProps = {
   allowCustomValues?: boolean
   showSuggestionsOnFocus?: boolean
   suppressInitialSuggestionsOnFocus?: boolean
+  suggestionsDebounceMs?: number
 }
 
 function normalizeOptions(input?: Array<string | TagsInputOption>): TagsInputOption[] {
@@ -61,12 +65,14 @@ export function TagsInput({
   allowCustomValues = true,
   showSuggestionsOnFocus = true,
   suppressInitialSuggestionsOnFocus = false,
+  suggestionsDebounceMs = DEFAULT_SUGGESTIONS_DEBOUNCE_MS,
 }: TagsInputProps) {
   const t = useT()
   const [input, setInput] = React.useState('')
   const [asyncOptions, setAsyncOptions] = React.useState<TagsInputOption[]>([])
   const [loading, setLoading] = React.useState(false)
   const [touched, setTouched] = React.useState(false)
+  const debouncedInput = useDebouncedValue(input, suggestionsDebounceMs)
   const suppressBlurCommitRef = React.useRef(false)
   const suppressSuggestionsOnFocusRef = React.useRef(Boolean(autoFocus && suppressInitialSuggestionsOnFocus && !disabled))
   const valueRef = React.useRef(value)
@@ -122,24 +128,31 @@ export function TagsInput({
 
   React.useEffect(() => {
     if (!loadSuggestions || !touched || disabled) return
-    const query = input.trim()
+    const loadSuggestionsFn = loadSuggestions
+    const query = debouncedInput.trim()
     let cancelled = false
-    const handle = window.setTimeout(async () => {
+    if (debouncedInput !== input) {
+      setLoading(true)
+      return () => {
+        cancelled = true
+      }
+    }
+    async function load() {
       setLoading(true)
       try {
-        const items = await loadSuggestions(query)
+        const items = await loadSuggestionsFn(query)
         if (!cancelled) {
           setAsyncOptions(normalizeOptions(items))
         }
       } finally {
         if (!cancelled) setLoading(false)
       }
-    }, 200)
+    }
+    void load()
     return () => {
       cancelled = true
-      window.clearTimeout(handle)
     }
-  }, [disabled, input, loadSuggestions, touched])
+  }, [debouncedInput, disabled, input, loadSuggestions, touched])
 
   const addValue = React.useCallback(
     (nextValue: string) => {

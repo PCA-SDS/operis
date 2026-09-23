@@ -18,6 +18,7 @@ import { CustomerEntity } from '@open-mercato/core/modules/customers/data/entiti
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { ensureSystemAppointmentStatuses } from '../../setup'
+import { getVisibleAppointmentExternalNotes, preserveAppointmentSourceMarker } from '../../lib/notes'
 import { ResourceAssignmentService } from '@open-mercato/core/modules/resources/lib/resourceAssignmentService'
 
 const logger = createLogger('appointments')
@@ -73,7 +74,7 @@ function mapAppointment(
     requestedStartAt: row.requestedStartAt.toISOString(),
     requestedEndAt: row.requestedEndAt?.toISOString() ?? null,
     notes: row.notes ?? null,
-    externalNotes: row.externalNotes ?? null,
+    externalNotes: getVisibleAppointmentExternalNotes(row.externalNotes),
     lines: lines.map(mapLine),
     updatedAt: row.updatedAt.toISOString(),
   }
@@ -382,6 +383,7 @@ export async function PUT(req: Request, ctx: RouteContext) {
       appointment.id,
       {
         ...body,
+        externalNotes: preserveAppointmentSourceMarker(appointment.externalNotes, body.externalNotes),
         tenantId: auth.tenantId,
         organizationId,
       },

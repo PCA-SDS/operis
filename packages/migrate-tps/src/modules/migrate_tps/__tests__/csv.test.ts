@@ -2,9 +2,23 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { TPS_LOCATION_MAPPING, getTpsDataDir, parseTpsCsv, parseTpsCsvLine } from '../lib'
-import { assignSeatSortOrders, type TpsSeat } from '../resources'
+import { assignSeatSortOrders, parseTpsBoolean, type TpsSeat } from '../resources'
 
 describe('TPS CSV fallback parsing', () => {
+  describe('parseTpsBoolean', () => {
+    it('accepts PostgreSQL boolean values', () => {
+      expect(parseTpsBoolean(true)).toBe(true)
+      expect(parseTpsBoolean(false)).toBe(false)
+    })
+
+    it('accepts boolean strings from CSV exports', () => {
+      expect(parseTpsBoolean('true')).toBe(true)
+      expect(parseTpsBoolean('t')).toBe(true)
+      expect(parseTpsBoolean('false')).toBe(false)
+      expect(parseTpsBoolean('f')).toBe(false)
+    })
+  })
+
   describe('getTpsDataDir', () => {
     const previousDataDir = process.env.TPS_DATA_DIR
 

@@ -144,6 +144,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 const logger = createLogger('catalog')
 
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { name?: unknown }).name === "AbortError"
+  );
+}
+
 type ProductResponse = {
   items?: Array<Record<string, unknown>>;
 };
@@ -783,6 +791,7 @@ export default function EditCatalogProductPage({
         }
         await loadVariants(productId!);
       } catch (err) {
+        if (isAbortError(err)) return;
         logger.error('catalog.products.edit.load failed', { err });
         if (!cancelled) {
           const message =
@@ -823,6 +832,7 @@ export default function EditCatalogProductPage({
           setPriceKinds(summaries);
         }
       } catch (err) {
+        if (isAbortError(err)) return;
         logger.error('catalog.price-kinds.fetch failed', { err });
         if (!cancelled) {
           setPriceKinds([]);
@@ -1212,6 +1222,10 @@ export default function EditCatalogProductPage({
         t(
           "catalog.products.uom.errors.duplicateConversion",
           "Duplicate conversion unit is not allowed.",
+        ),
+        t(
+          "catalog.products.uom.errors.invalidConversionFactor",
+          "Conversion factor must be greater than 0.",
         ),
       );
       if (conversionInputs.length && !defaultUnit) {
@@ -2396,11 +2410,21 @@ function ProductVariantsSection({
     <>
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 id="variants" className="text-sm font-semibold">
-            {values.productType === "service" || values.productType === "bundle"
-              ? t("catalog.products.edit.optionsAndVariants", "Options & Variants")
-              : t("catalog.products.edit.variants", "Variants")}
-          </h3>
+          <div>
+            <h3 id="variants" className="text-sm font-semibold">
+              {values.productType === "service" || values.productType === "bundle"
+                ? t("catalog.products.edit.optionsAndVariants", "Options & Variants")
+                : t("catalog.products.edit.variants", "Variants")}
+            </h3>
+            {values.productType === "simple" ? (
+              <p className="mt-1 text-sm text-muted-foreground">
+                {t(
+                  "catalog.products.edit.variants.simpleInstruction",
+                  "Simple products use one default variant. Change Product type to Configurable to add variants.",
+                )}
+              </p>
+            ) : null}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             {(values.productType === "service" || values.productType === "bundle") ? (
               <>
@@ -2442,14 +2466,29 @@ function ProductVariantsSection({
               </Button>
             ) : null}
             {allowVariantActions && values.productType !== "service" && values.productType !== "bundle" ? (
-              <Button asChild size="sm">
-                <Link
-                  href={`/backend/catalog/products/${productId}/variants/create`}
+              values.productType === "configurable" ? (
+                <Button asChild size="sm">
+                  <Link
+                    href={`/backend/catalog/products/${productId}/variants/create`}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    {t("catalog.products.edit.variants.add", "Add variant")}
+                  </Link>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled
+                  title={t(
+                    "catalog.variants.errors.simpleProductCannotAddVariant",
+                    "Change the product type to Configurable before adding another variant.",
+                  )}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   {t("catalog.products.edit.variants.add", "Add variant")}
-                </Link>
-              </Button>
+                </Button>
+              )
             ) : null}
           </div>
         </div>
