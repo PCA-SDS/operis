@@ -454,7 +454,7 @@ function PlannerBlock(props: {
         </>
       )}
       {isOwn && displayDuration > 30 ? (
-        <span className="line-clamp-2 break-words text-[10px] leading-tight opacity-80">{(allocation.assignedMemberNames ?? (allocation.assignedMemberName ? [allocation.assignedMemberName] : [])).join(', ') || 'No staff assigned'}</span>
+        <span className="line-clamp-2 break-words text-xs leading-tight opacity-80">{(allocation.assignedMemberNames ?? (allocation.assignedMemberName ? [allocation.assignedMemberName] : [])).join(', ') || 'No staff assigned'}</span>
       ) : null}
       {displayDuration >= 30 ? (
         <span className="mt-auto truncate text-[10px] opacity-80">{formatTime(allocation.startsAt)} - {formatTime(addMinutes(allocation.startsAt, displayDuration))}</span>
@@ -1927,10 +1927,10 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                               >
                                 <span className={`${previewDuration <= 15 ? 'truncate' : 'line-clamp-2'} font-semibold leading-tight`}>{activeLine.productTitle}</span>
                                 {previewDuration > 30 ? (
-                                  <span className="line-clamp-2 break-words text-[10px] leading-tight opacity-80">{previewStaffNames.join(', ') || 'No staff assigned'}</span>
+                                  <span className="line-clamp-2 break-words text-xs leading-tight opacity-80">{previewStaffNames.join(', ') || 'No staff assigned'}</span>
                                 ) : null}
                                 {previewDuration >= 30 ? (
-                                  <span className="mt-auto truncate text-[10px] opacity-80">{formatTime(previewStartsAt)} - {formatTime(previewEndsAt)}</span>
+                                  <span className="mt-auto truncate text-xs opacity-80">{formatTime(previewStartsAt)} - {formatTime(previewEndsAt)}</span>
                                 ) : null}
                               </div>
                             ) : null}
