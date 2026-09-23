@@ -107,6 +107,18 @@ export function snapMinutes(minutes: number, snap: number): number {
   return clampDayMinutes(Math.round(minutes / snap) * snap)
 }
 
+/**
+ * The start of the hour a minute falls in.
+ *
+ * Distinct from `snapMinutes(minutes, 60)`, which ROUNDS: rounding sends a click
+ * in the back half of an hour forward to the next one, so the entry it creates
+ * does not contain the point the user clicked. Flooring keeps the block under
+ * the pointer.
+ */
+export function floorToHour(minutes: number): number {
+  return clampDayMinutes(Math.floor(clampDayMinutes(minutes) / MINUTES_PER_HOUR) * MINUTES_PER_HOUR)
+}
+
 export function clampDayMinutes(minutes: number): number {
   if (!Number.isFinite(minutes) || minutes < 0) return 0
   if (minutes > MINUTES_PER_DAY) return MINUTES_PER_DAY

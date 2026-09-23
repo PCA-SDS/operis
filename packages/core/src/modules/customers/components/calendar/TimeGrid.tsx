@@ -23,6 +23,7 @@ import {
   HOURS_PER_DAY,
   MINUTES_PER_DAY,
   addCalendarDays,
+  floorToHour,
   formatTimeZoneLabel,
   isSameLocalDay,
   snapMinutes,
@@ -77,7 +78,15 @@ function dayDividerClass(index: number, total: number) {
 }
 
 type Gesture =
-  | { kind: 'create'; dayIndex: number; anchorMinutes: number; pointerMinutes: number; moved: boolean }
+  | {
+      kind: 'create'
+      dayIndex: number
+      anchorMinutes: number
+      /** Pre-snap, so a click can floor to the hour it was really in. */
+      anchorRawMinutes: number
+      pointerMinutes: number
+      moved: boolean
+    }
   | {
       kind: 'move'
       item: CalendarItem
@@ -285,6 +294,7 @@ export function TimeGrid({
         kind: 'create',
         dayIndex: cell.dayIndex,
         anchorMinutes: snapped,
+        anchorRawMinutes: cell.minutes,
         pointerMinutes: snapped,
         moved: false,
       })
@@ -294,6 +304,15 @@ export function TimeGrid({
 
   const beginMove = React.useCallback(
     (item: CalendarItem, event: React.PointerEvent<HTMLElement>) => {
+      /* A pointerdown on an existing entry is NEVER a create gesture, whether
+         or not this user may move it. `beginCreate` sits on the column
+         container below, and React's synthetic events bubble, so without this
+         the container overwrites the move we are about to set up: dragging an
+         event drew a new-event selection, and clicking one opened the create
+         dialog on top of the entry the user meant to open. Stopping before the
+         permission check matters — a user who cannot reschedule still must not
+         get "create here" when they grab an event. */
+      event.stopPropagation()
       if (!onReschedule || !canManage || event.button !== 0) return
       const cell = pointerToCell(event.clientX, event.clientY)
       if (!cell) return
@@ -312,8 +331,10 @@ export function TimeGrid({
 
   const beginResize = React.useCallback(
     (item: CalendarItem, edge: ResizeEdge, event: React.PointerEvent<HTMLElement>) => {
-      if (!onReschedule || !canManage || event.button !== 0) return
+      // Stop first, for the same reason as `beginMove`: the handle belongs to an
+      // existing entry, so the grid underneath must not read it as a create.
       event.stopPropagation()
+      if (!onReschedule || !canManage || event.button !== 0) return
       const cell = pointerToCell(event.clientX, event.clientY)
       if (!cell) return
       gestureOriginRef.current = { x: event.clientX, y: event.clientY }
@@ -375,13 +396,25 @@ export function TimeGrid({
       const day = dayStarts[current.dayIndex]
       if (!day) return
 
-      // Click without drag: the cell was picked, not a span. That gesture used
-      // to fall through to nothing, and it is the one the task composer takes.
-      if (!current.moved) {
-        // `anchorMinutes` is the snapped slot the pointer went down on, so a
-        // meeting created from this click starts where the user clicked rather
-        // than at an arbitrary default.
-        if (current.kind === 'create') onCreateTask?.(day, current.anchorMinutes)
+      /* A pick, not a span.
+       *
+       * Two gestures land here. The obvious one never passed the 4px threshold.
+       * The other did — a trackpad wobble easily clears 4px, which is about five
+       * minutes on a 48px hour — but never reached the next slot, so it snapped
+       * back to where it started and stated no duration at all. Both are clicks,
+       * and treating the second as a drag is what made a plain click produce a
+       * 30-minute entry (the drag floor) instead of the default hour.
+       *
+       * A drag that crosses into another slot still means exactly what it drew.
+       */
+      const statedNoSpan = current.kind === 'create' && current.pointerMinutes === current.anchorMinutes
+      if (!current.moved || statedNoSpan) {
+        /* Clicking inside an hour means that hour. Landing on the drag snap
+           instead put a click at 13:15 into a 13:15–14:15 entry, which is not a
+           slot anyone books — the grid's own rows are hours, so a pick should
+           fill the row it was made in. A drag still lands on the finer snap,
+           because there the user is choosing the edges. */
+        if (current.kind === 'create') onCreateTask?.(day, floorToHour(current.anchorRawMinutes))
         return
       }
 
@@ -454,6 +487,11 @@ export function TimeGrid({
     const day = dayStarts[gesture.dayIndex]
     if (!day) return null
     if (gesture.kind === 'create') {
+      /* Nothing to preview until the drag states a span: while the pointer is
+         still inside the slot it started in, releasing yields the default hour,
+         so drawing the drag floor here would promise a block the release does
+         not create. */
+      if (gesture.pointerMinutes === gesture.anchorMinutes) return null
       return { ...buildDragRange(day, gesture.anchorMinutes, gesture.pointerMinutes), dayIndex: gesture.dayIndex }
     }
     if (gesture.kind === 'move') {

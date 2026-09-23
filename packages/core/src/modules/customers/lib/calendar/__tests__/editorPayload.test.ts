@@ -59,12 +59,15 @@ describe('editorKindOfInteractionType', () => {
 })
 
 describe('createDefaultFormState', () => {
-  it('starts at the next full hour on the default date with a 90 minute duration', () => {
+  /* One hour, the same length a click on either grid produces — the toolbar's
+     create action used to open a 90 minute entry instead, so where the user
+     started decided how long the meeting was. */
+  it('starts at the next full hour on the default date and runs the default length', () => {
     const state = createDefaultFormState(new Date(2026, 5, 20), new Date(2026, 5, 12, 14, 12, 0))
     expect(state.date).toBe('2026-06-20')
     expect(state.startTime).toBe('15:00')
     expect(state.endDate).toBe('2026-06-20')
-    expect(state.endTime).toBe('16:30')
+    expect(state.endTime).toBe('16:00')
     expect(state.kind).toBe('meeting')
     expect(state.status).toBe('planned')
   })
@@ -78,7 +81,7 @@ describe('buildInteractionPayload — meeting', () => {
     expect(payload.entityId).toBe('11111111-1111-4111-8111-111111111111')
     expect(payload.interactionType).toBe('meeting')
     expect(payload.status).toBe('planned')
-    expect(payload.durationMinutes).toBe(90)
+    expect(payload.durationMinutes).toBe(60)
     expect(payload.allDay).toBe(false)
     expect(payload.location).toBe('https://meet.google.com/abc-defg-hij')
     expect(payload.body).toBe('Align on Q2 mix.')

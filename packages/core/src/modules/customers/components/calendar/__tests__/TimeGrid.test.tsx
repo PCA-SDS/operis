@@ -11,6 +11,16 @@ import { makeCalendarTaskItem } from '../../../lib/calendar/__tests__/fixtures'
 
 const ANCHOR = new Date(2026, 7, 12, 10, 0, 0)
 
+/* jsdom ships no PointerEvent, so `fireEvent.pointerDown` falls back to a bare
+   Event whose `button` and `clientX` are undefined. Every pointer handler in
+   this component opens with `event.button !== 0`, so without this a gesture
+   test never starts a gesture and quietly passes while asserting nothing. */
+if (typeof window !== 'undefined' && typeof window.PointerEvent === 'undefined') {
+  class PointerEventPolyfill extends MouseEvent {}
+  ;(window as unknown as { PointerEvent: typeof MouseEvent }).PointerEvent = PointerEventPolyfill
+  ;(globalThis as unknown as { PointerEvent: typeof MouseEvent }).PointerEvent = PointerEventPolyfill
+}
+
 function renderGrid(items: CalendarItem[] = [], overrides: Partial<React.ComponentProps<typeof TimeGrid>> = {}) {
   return renderWithProviders(
     <TimeGrid
@@ -387,5 +397,98 @@ describe('TimeGrid — Task Manager tasks', () => {
     const rendered = labelledButtons(container, 'Ship release')
     expect(rendered).toHaveLength(1)
     expect(rendered[0].getAttribute('aria-label')).toContain('All day')
+  })
+})
+
+/**
+ * A click picks a slot; a drag states a length. The two are told apart by
+ * whether the gesture ever reached another slot — not by whether the pointer
+ * moved at all, which a trackpad does on any click.
+ */
+describe('TimeGrid — create gesture length', () => {
+  const HOUR_PX = 48
+  /** jsdom reports zero-size rects, so client Y maps straight through. */
+  const yForMinutes = (minutes: number) => (minutes / 60) * HOUR_PX
+
+  function createSurface(container: HTMLElement): HTMLElement {
+    const surface = container.querySelector('.touch-none')
+    if (!(surface instanceof HTMLElement)) throw new Error('[internal] create surface not found')
+    return surface
+  }
+
+  function dragCreate(
+    fromMinutes: number,
+    toMinutes: number,
+    handlers: { onCreateRange: jest.Mock; onCreateTask: jest.Mock },
+  ) {
+    const { container } = renderGrid([], { canManage: true, ...handlers })
+    const surface = createSurface(container)
+    const startY = yForMinutes(fromMinutes)
+    const endY = yForMinutes(toMinutes)
+    fireEvent.pointerDown(surface, { clientX: 100, clientY: startY, button: 0 })
+    fireEvent.pointerMove(window, { clientX: 100, clientY: endY })
+    fireEvent.pointerUp(window, { clientX: 100, clientY: endY })
+  }
+
+  it('treats a plain click as a slot pick, leaving the default length to the caller', () => {
+    const onCreateRange = jest.fn()
+    const onCreateTask = jest.fn()
+    dragCreate(600, 600, { onCreateRange, onCreateTask })
+    expect(onCreateRange).not.toHaveBeenCalled()
+    expect(onCreateTask).toHaveBeenCalledWith(expect.any(Date), 600)
+  })
+
+  /* The grid's rows are hours, so a pick fills the row it was made in. Landing
+     on the 15-minute drag snap produced 13:15–14:15, which is not a slot anyone
+     books. */
+  it('floors a click to the hour it landed in, not to the drag snap', () => {
+    const onCreateRange = jest.fn()
+    const onCreateTask = jest.fn()
+    dragCreate(795, 795, { onCreateRange, onCreateTask })   // 13:15
+    expect(onCreateTask).toHaveBeenCalledWith(expect.any(Date), 780)   // 13:00
+  })
+
+  /* Flooring, not rounding: a click late in the hour must still create the
+     block it was made in, or the entry appears above the pointer. */
+  it('keeps a click in the back half of an hour inside that hour', () => {
+    const onCreateRange = jest.fn()
+    const onCreateTask = jest.fn()
+    dragCreate(825, 825, { onCreateRange, onCreateTask })   // 13:45
+    expect(onCreateTask).toHaveBeenCalledWith(expect.any(Date), 780)   // 13:00
+  })
+
+  /* The raw pointer minute is what gets floored. Snapping first would round
+     13:58 up to 14:00 and move the entry out of the hour that was clicked. */
+  it('floors from the raw pointer minute, not from the snapped one', () => {
+    const onCreateRange = jest.fn()
+    const onCreateTask = jest.fn()
+    dragCreate(838, 838, { onCreateRange, onCreateTask })   // 13:58
+    expect(onCreateTask).toHaveBeenCalledWith(expect.any(Date), 780)   // 13:00
+  })
+
+  /* The regression: 5px clears the 4px drag threshold but is ~6 minutes, so it
+     snapped back to the same slot and produced the 30-minute drag floor where
+     the user had simply clicked. */
+  it('treats a wobble that never leaves the slot as a click, not a 30-minute drag', () => {
+    const onCreateRange = jest.fn()
+    const onCreateTask = jest.fn()
+    const { container } = renderGrid([], { canManage: true, onCreateRange, onCreateTask })
+    const surface = createSurface(container)
+    const startY = yForMinutes(600)
+    fireEvent.pointerDown(surface, { clientX: 100, clientY: startY, button: 0 })
+    fireEvent.pointerMove(window, { clientX: 100, clientY: startY + 5 })
+    fireEvent.pointerUp(window, { clientX: 100, clientY: startY + 5 })
+    expect(onCreateRange).not.toHaveBeenCalled()
+    expect(onCreateTask).toHaveBeenCalledWith(expect.any(Date), 600)
+  })
+
+  it('honours a drag that does state a length', () => {
+    const onCreateRange = jest.fn()
+    const onCreateTask = jest.fn()
+    dragCreate(600, 705, { onCreateRange, onCreateTask })
+    expect(onCreateTask).not.toHaveBeenCalled()
+    expect(onCreateRange).toHaveBeenCalledTimes(1)
+    const [start, end] = onCreateRange.mock.calls[0]
+    expect((end.getTime() - start.getTime()) / 60_000).toBe(105)
   })
 })
